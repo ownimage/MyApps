@@ -2026,6 +2026,34 @@ test.describe("PlanMyDay - Regression", () => {
       const suffixBadge = page.locator(".badge.bg-secondary").first();
       await expect(suffixBadge).toBeVisible();
     });
+
+    test("daily schedule shows repeat badge, non-daily does not", async ({ page }) => {
+      await page.evaluate(() => {
+        const d = new Date();
+        const ds = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+        const streams = [{
+          id: "stream_1", title: "Work", description: "", tab: "progress", image: "", sequence: 1,
+          jobs: [
+            { id: "job_daily", title: "DailyJob", active: true, frequency: "daily", sequence: 1, suffix: false, schedule: { type: "daily" }, tasks: [] },
+            { id: "job_days", title: "DaysJob", active: true, frequency: "daily", sequence: 2, suffix: false, schedule: { type: "days", days: [d.getDay()] }, tasks: [] }
+          ]
+        }];
+        localStorage.setItem("planmydays_streams", JSON.stringify(streams));
+        localStorage.setItem("planmydays_today_order", JSON.stringify(["job_daily", "job_days"]));
+        localStorage.setItem("planmydays_last_gen", ds);
+        localStorage.setItem("planmydays_completed", "[]");
+      });
+      await page.reload();
+      await page.locator("#todayCardList").waitFor({ state: "visible" });
+
+      const dailyCard = page.locator('#todayCardList .today-drag-card[data-job-id="job_daily"]');
+      await expect(dailyCard).toBeVisible();
+      await expect(dailyCard.locator(".daily-repeat-icon")).toHaveCount(1);
+
+      const daysCard = page.locator('#todayCardList .today-drag-card[data-job-id="job_days"]');
+      await expect(daysCard).toBeVisible();
+      await expect(daysCard.locator(".daily-repeat-icon")).toHaveCount(0);
+    });
   });
 
   // ── Today List Reorder ───────────────────────────────────
