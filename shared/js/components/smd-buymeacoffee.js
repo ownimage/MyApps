@@ -1,5 +1,5 @@
 // Resolve the buy-me-a-coffee image relative to THIS component file so it works
-// whether the shared library is served at /ShareMyDays/ or under a sub-path.
+// whether the shared library is served from a sibling `shared/` folder or under a sub-path.
 const BMC_IMAGE = (function () {
   const src = document.currentScript && document.currentScript.src;
   if (src) return new URL('../../vendor/bmc-default-yellow.png', src).href;

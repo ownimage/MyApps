@@ -5,10 +5,11 @@ os.chdir(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 
 class SubPathOnlyHandler(SimpleHTTPRequestHandler):
     # Faithfully mimics a GitHub Pages deployment of the repo at
-    # /PlanMyDay/: the app is reachable ONLY under that prefix, and every
+    # /PlanMyDay/: everything is reachable ONLY under that prefix (the app at
+    # /PlanMyDay/PlanMyDay/, shared at /PlanMyDay/shared/), and every
     # origin-root path (/, /css/..., /js/..., /vendor/..., /sw.js) is a 404.
-    # This makes absolute asset URLs ("/css/themes/...") fail here, exactly as
-    # they do on ownimage.github.io/PlanMyDay/ when the URL is mis-derived.
+    # This makes absolute asset URLs ("/shared/...", "/css/themes/...") fail
+    # here, exactly as they do on a mis-derived sub-path deployment.
     def translate_path(self, path):
         prefix = "/PlanMyDay"
         if path.startswith(prefix + "/") or path == prefix:

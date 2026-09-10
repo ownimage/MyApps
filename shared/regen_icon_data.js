@@ -72,8 +72,8 @@ function sorted(obj) {
 async function main() {
   const fa = {};
   const fab = {};
-  const cssNames = parseFaCss("vendor/fontawesome/css/fontawesome.min.css");
-  const cssBrands = parseFaCss("vendor/fontawesome/css/brands.min.css");
+  const cssNames = parseFaCss(path.join(__dirname, "vendor/fontawesome/css/fontawesome.min.css"));
+  const cssBrands = parseFaCss(path.join(__dirname, "vendor/fontawesome/css/brands.min.css"));
   const hexIndex = await loadIconFamilies();
   console.log("hexIndex entries:", Object.keys(hexIndex).length, " css names:", cssNames.length, " brands:", cssBrands.length);
   for (const { name, hex } of cssNames) {
@@ -93,7 +93,7 @@ async function main() {
     if (!fab[name]) fab[name] = { h: hex, w: 400 };
   }
   fs.writeFileSync(
-    "vendor/fontawesome-icons.json",
+    path.join(__dirname, "vendor/fontawesome-icons.json"),
     JSON.stringify({ fa: sorted(fa), fab: sorted(fab) }) + "\n"
   );
   console.log("fa names:", Object.keys(fa).length, " fab names:", Object.keys(fab).length);

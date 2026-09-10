@@ -2,15 +2,30 @@
 
 A static PWA for daily task planning.
 
+## Layout
+
+This repo is set up to host **multiple PWAs off one origin** (GitHub Pages
+`ownimage.github.io/MyApps/`):
+
+- `shared/` — the reusable library (components, services, themes, vendor, sample images).
+- `PlanMyDay/` — this app, served at `/<project>/PlanMyDay/` (its own `index.html` + `manifest.json`).
+- `sw.js` — a **single site-wide service worker at the repo root**. It must live at
+  the root because a service worker can only intercept requests inside its scope,
+  and each app's assets are siblings of `shared/`. To add an app, add an entry to
+  the `APPS` map in `sw.js`.
+
+Each app folder is its own installable PWA; add one by copying the
+`PlanMyDay/` folder shape (own manifest + icons) and registering `../sw.js`.
+
 ## Development
 
-Serve the app locally:
+Serve the repo root locally, then open the app folder:
 
 ```
 python -m http.server 8080
 ```
 
-Then open http://localhost:8080.
+Then open <http://localhost:8080/PlanMyDay/>.
 
 ## Tests
 

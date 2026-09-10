@@ -1,5 +1,5 @@
-// SmdApp — the shared application base class. Apps built on the ShareMyDays
-// library extend this class (e.g. TestShareMyDaysApp in the consumer's app.js).
+// SmdApp — the shared application base class. Apps built on the shared library
+// (the sibling `shared/` folder) extend this class (e.g. an app's js/app.js).
 //
 // The shared SERVICE FILES (smd-settings.js, smd-images.js, smd-minio.js) attach
 // their methods onto SmdApp.prototype, so an app instance inherits them all.
@@ -7,14 +7,14 @@
 // per-app storage prefix in SmdConfig is honoured everywhere.
 //
 // CONSUMER CONFIG (passed to the constructor / super()):
-//   storagePrefix   — localStorage key namespace (e.g. "testsharemydays_")
+//   storagePrefix   — localStorage key namespace (e.g. "planmydays_")
 //   themeDefault    — bootswatch theme name applied at boot
 //   appName         — human app name
 //   styles          — ["css/path", ...] stylesheets injected at boot (app + shared)
 //   components      — ["button", "tabs", "page", ...] smd-* component names this
-//                     app needs; each maps to ShareMyDays/js/components/smd-<n>.js
+//                     app needs; each maps to SMD_SHARED_ROOT + "js/components/smd-<n>.js"
 //   services        — ["smd-settings", ...] service file names this app needs;
-//                     each maps to ShareMyDays/js/<n>.js
+//                     each maps to SMD_SHARED_ROOT + "js/<n>.js"
 //   appScripts      — ["js/components/foo.js", ...] additional app scripts
 //   menuItems       — menu items (label/action/page/select/divider/minio/button)
 //   pages           — { id: { title, contentFn?/content, buttons?, onAction? } }
@@ -25,10 +25,23 @@
 //   injects the declared stylesheet <link>s and <script> tags (styles.js first,
 //   then services, components, app scripts) lazily + asynchronously, so an app
 //   only ever fetches the pieces it declares. ONE build number is honoured:
-//   BUILD_NUMBER comes from ShareMyDays/js/build-number.js and cache-busts
-//   every asset (app + shared alike).
+//   BUILD_NUMBER comes from shared/js/build-number.js and cache-busts every
+//   asset (app + shared alike).
 
 "use strict";
+
+// Absolute URL of the shared library root, derived from THIS script's own
+// location (.../shared/js/smd-app.js -> .../shared/). This keeps the loader
+// path-agnostic: it works from any app depth / sub-path without hardcoding a
+// folder name. `document.currentScript` is valid for classic scripts (the
+// library is always loaded via a classic <script>).
+var SMD_SHARED_ROOT = (function () {
+  var s = document.currentScript;
+  if (s && s.src) {
+    try { return new URL("../", s.src).href; } catch (e) { /* ignore */ }
+  }
+  return "shared/";
+})();
 
 // ---- App-level config (mutated by the app's constructor) -------
 var SmdConfig = {
@@ -208,16 +221,16 @@ class SmdApp {
   // Inject styles.js + the declared smd-* components (in order).
   loadComponents() {
     const paths = [];
-    if (this.components.indexOf("styles") === -1) paths.push("ShareMyDays/js/components/styles.js");
+    if (this.components.indexOf("styles") === -1) paths.push(SMD_SHARED_ROOT + "js/components/styles.js");
     this.components.forEach((name) => {
-      paths.push(name.indexOf("smd-") === 0 ? "ShareMyDays/js/components/" + name + ".js" : "ShareMyDays/js/components/smd-" + name + ".js");
+      paths.push(SMD_SHARED_ROOT + "js/components/" + (name.indexOf("smd-") === 0 ? name : "smd-" + name) + ".js");
     });
     return this.loadScriptsOrdered(paths);
   }
 
   // Inject the declared shared service files.
   loadServices() {
-    const paths = this.services.map((name) => "ShareMyDays/js/" + name + ".js");
+    const paths = this.services.map((name) => SMD_SHARED_ROOT + "js/" + name + ".js");
     return this.loadScriptsOrdered(paths);
   }
 
@@ -228,7 +241,7 @@ class SmdApp {
 
   // Lazy-load a single shared component on demand (after boot).
   ensureComponent(name) {
-    const path = name.indexOf("smd-") === 0 ? "ShareMyDays/js/components/" + name + ".js" : "ShareMyDays/js/components/smd-" + name + ".js";
+    const path = SMD_SHARED_ROOT + "js/components/" + (name.indexOf("smd-") === 0 ? name : "smd-" + name) + ".js";
     return this.loadScript(path);
   }
 
@@ -237,7 +250,7 @@ class SmdApp {
     if (this._booted) return Promise.resolve();
     this._booted = true;
     return Promise.resolve()
-      .then(() => this.loadScriptsOrdered(["ShareMyDays/js/build-number.js"]))
+      .then(() => this.loadScriptsOrdered([SMD_SHARED_ROOT + "js/build-number.js"]))
       .then(() => this.loadStyles())
       .then(() => this.loadComponents())
       .then(() => this.loadServices())

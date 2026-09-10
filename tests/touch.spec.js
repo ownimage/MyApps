@@ -79,7 +79,7 @@ async function openStreamsEditor(page) {
 test.describe("PlanMyDay - iPhone 12 Pro touch", () => {
 
   test.beforeEach(async ({ page }) => {
-    await page.goto("/");
+    await page.goto("/PlanMyDay/");
     await page.evaluate((data) => {
       localStorage.setItem("planmydays_streams", JSON.stringify(data));
       localStorage.setItem("planmydays_images", "[]");

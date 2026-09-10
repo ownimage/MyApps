@@ -18,12 +18,12 @@ npx playwright test tests/sampleImages.spec.js --workers 1
 Regenerate `sampleImages.json` from the native files in `sampleImages/` (preserves
 per-image metadata from the existing JSON and only updates the `data`):
 ```bash
-node regen_sample_images.js
+node shared/regen_sample_images.js
 npm run regen:images
 ```
 Extract `sampleImages.json` back into native files in `sampleImages/`:
 ```bash
-node regen_sample_images.js extract
+node shared/regen_sample_images.js extract
 npm run extract:images
 ```
 ### Screenshots
@@ -36,7 +36,7 @@ node screenshots/viewer.js
 ```
 
 ### Component storybook
-The storybook is a static page (`storybook/index.html`) that renders every `smd-` and `pmd-` web component and lets you pick the bootswatch theme from a dropdown in the header.
+The storybook is a static page (`shared/storybook/index.html`) that renders every `smd-` and `pmd-` web component and lets you pick the bootswatch theme from a dropdown in the header.
 
 Serve the project root, then open it in a browser. The existing dev server is reused, so just run:
 
@@ -44,7 +44,7 @@ Serve the project root, then open it in a browser. The existing dev server is re
 python tests/http-server.py
 ```
 
-Then visit: <http://localhost:8080/storybook/index.html>
+Then visit: <http://localhost:8080/shared/storybook/index.html>
 
 The chosen theme is remembered in `localStorage` (`storybook_theme`). Each section shows live demo instances; interactive bits (modal/page open, tab switching, stream-header expand, active toggles, card buttons) emit their normal composed events into the section's event log.
 

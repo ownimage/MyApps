@@ -2,7 +2,7 @@ const { test, expect } = require("@playwright/test");
 
 test.describe("Plan My Day", () => {
   test("page loads with date heading", async ({ page }) => {
-    await page.goto("/");
+    await page.goto("/PlanMyDay/");
 
     const heading = page.locator("h2").first();
     await expect(heading).toBeVisible();
@@ -10,7 +10,7 @@ test.describe("Plan My Day", () => {
   });
 
   test("settings page opens and shows theme selector", async ({ page }) => {
-    await page.goto("/");
+    await page.goto("/PlanMyDay/");
 
     await page.locator("#btnMainMenu").click();
 
@@ -21,7 +21,7 @@ test.describe("Plan My Day", () => {
   });
 
   test("can toggle split list setting", async ({ page }) => {
-    await page.goto("/");
+    await page.goto("/PlanMyDay/");
 
     await page.locator("#btnMainMenu").click();
 

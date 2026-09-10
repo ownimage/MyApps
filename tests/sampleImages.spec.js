@@ -2,7 +2,7 @@ const { test, expect } = require("@playwright/test");
 const path = require("path");
 const fs = require("fs");
 
-const sampleImagesData = require("../ShareMyDays/sampleImages.json");
+const sampleImagesData = require("../shared/sampleImages.json");
 
 const SCREENSHOT_DIR = path.resolve(__dirname, "..", "screenshots");
 
@@ -15,7 +15,7 @@ test.describe("PlanMyDay - Sample Images", () => {
   });
 
   test("light and dark theme gallery", async ({ page }) => {
-    await page.goto("/");
+    await page.goto("/PlanMyDay/");
     await page.evaluate((images) => {
       images = images.slice().sort((a, b) => a.name.localeCompare(b.name));
       const container = document.createElement("div");

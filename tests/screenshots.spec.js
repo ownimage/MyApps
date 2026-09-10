@@ -2,7 +2,7 @@ const { test, expect } = require("@playwright/test");
 const path = require("path");
 const fs = require("fs");
 
-const sampleImagesData = require("../ShareMyDays/sampleImages.json");
+const sampleImagesData = require("../shared/sampleImages.json");
 
 const TEST_STREAMS = [
   {
@@ -128,7 +128,7 @@ function futureDateStr(daysFromNow) {
 
 const SCREENSHOT_DIR = path.resolve(__dirname, "..", "screenshots");
 
-const bw = "ShareMyDays/css/themes";
+const bw = "../shared/css/themes";
 const THEME_CONFIG = {
   cerulean:  { css: `${bw}/cerulean/bootstrap.min.css`,   bsTheme: "light" },
   cosmo:     { css: `${bw}/cosmo/bootstrap.min.css`,      bsTheme: "light" },
@@ -253,7 +253,7 @@ test.describe("PlanMyDay - Screenshots", () => {
         configurable: true,
       });
     });
-    await page.goto("/");
+    await page.goto("/PlanMyDay/");
     await page.evaluate((images) => {
       localStorage.clear();
       localStorage.setItem("planmydays_fontSize", "xsmall");

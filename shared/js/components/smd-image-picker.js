@@ -27,7 +27,7 @@
   }
 
   // Resolve the shared-lib root like smdAppRoot() does (theme <link> derived),
-  // so vendor/ + icon data resolve whether the app is at /, /PlanMyDay/, or
+  // so vendor/ + icon data resolve whether the app is at /, under a sub-path, or
   // under the library.
   function smdRoot() {
     const link = document.getElementById("bootstrap-theme-css");

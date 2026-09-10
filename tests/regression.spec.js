@@ -93,7 +93,7 @@ function seedTodayList(page) {
 test.describe("PlanMyDay - Regression", () => {
 
   test.beforeEach(async ({ page }) => {
-    await page.goto("/");
+    await page.goto("/PlanMyDay/");
     await page.evaluate(() => {
       localStorage.clear();
       localStorage.setItem("planmydays_images", "[]");
@@ -541,7 +541,7 @@ test.describe("PlanMyDay - Regression", () => {
 
     test.beforeEach(async ({ page }) => {
       await startCoverage(page);
-      await page.goto("/");
+      await page.goto("/PlanMyDay/");
       await page.evaluate((data) => {
         localStorage.setItem("planmydays_streams", JSON.stringify(data));
       }, TEST_STREAMS);
@@ -855,7 +855,7 @@ test.describe("PlanMyDay - Regression", () => {
 
     test.beforeEach(async ({ page }) => {
       await startCoverage(page);
-      await page.goto("/");
+      await page.goto("/PlanMyDay/");
       await page.evaluate((data) => {
         localStorage.setItem("planmydays_streams", JSON.stringify(data));
       }, TEST_STREAMS);
@@ -993,7 +993,7 @@ test.describe("PlanMyDay - Regression", () => {
 
     test.beforeEach(async ({ page }) => {
       await startCoverage(page);
-      await page.goto("/");
+      await page.goto("/PlanMyDay/");
       await page.evaluate((data) => {
         localStorage.setItem("planmydays_streams", JSON.stringify(data));
       }, TEST_STREAMS);
@@ -1257,7 +1257,7 @@ test.describe("PlanMyDay - Regression", () => {
 
     test.beforeEach(async ({ page }) => {
       await startCoverage(page);
-      await page.goto("/");
+      await page.goto("/PlanMyDay/");
       await page.evaluate((data) => {
         localStorage.setItem("planmydays_streams", JSON.stringify(data));
       }, TEST_STREAMS);
@@ -1296,7 +1296,7 @@ test.describe("PlanMyDay - Regression", () => {
 
     test.beforeEach(async ({ page }) => {
       await startCoverage(page);
-      await page.goto("/");
+      await page.goto("/PlanMyDay/");
       await page.locator("#btnMainMenu").click();
       await page.locator("a.dropdown-item").filter({ hasText: "Images" }).click();
     });
@@ -1508,7 +1508,7 @@ test.describe("PlanMyDay - Regression", () => {
     test.beforeEach(async ({ page }) => {
       await startCoverage(page);
       const svg = "data:image/svg+xml," + encodeURIComponent('<svg stroke="#000000" fill="#ffffff" stroke-width="2" xmlns="http://www.w3.org/2000/svg"><rect width="100" height="100"/></svg>');
-      await page.goto("/");
+      await page.goto("/PlanMyDay/");
       await page.evaluate((svgData) => {
         localStorage.clear();
         localStorage.setItem("planmydays_images", JSON.stringify([{ name: "EditTest", data: svgData }]));
@@ -1681,7 +1681,7 @@ test.describe("PlanMyDay - Regression", () => {
   test.describe("smd-image rendering", () => {
 
     test("applies light and dark svg theme overrides to nested elements like the editor preview", async ({ page }) => {
-      await page.goto("/");
+      await page.goto("/PlanMyDay/");
       const nestedSvg = "data:image/svg+xml," + encodeURIComponent('<svg fill="#f7f7f7" stroke="#8f8f8f" xmlns="http://www.w3.org/2000/svg"><path fill="#f7f7f7" stroke="#8f8f8f" d="M0 0h10v10H0z"/></svg>');
       await page.evaluate((svgData) => {
         localStorage.setItem("planmydays_images", JSON.stringify([{
@@ -1716,7 +1716,7 @@ test.describe("PlanMyDay - Regression", () => {
     });
 
     test("renders a bi: prefixed name as a bootstrap icon glyph", async ({ page }) => {
-      await page.goto("/");
+      await page.goto("/PlanMyDay/");
       await page.evaluate(() => {
         const el = document.createElement("smd-image");
         el.setAttribute("image", "bi:house");
@@ -1746,7 +1746,7 @@ test.describe("PlanMyDay - Regression", () => {
       expect(info.imgHidden).toBeTruthy();
 
       const expected = await page.evaluate(async () => {
-        const css = await (await fetch("ShareMyDays/vendor/bootstrap-icons.css?v=" + (typeof BUILD_NUMBER !== "undefined" ? BUILD_NUMBER : 0))).text();
+        const css = await (await fetch("../shared/vendor/bootstrap-icons.css?v=" + (typeof BUILD_NUMBER !== "undefined" ? BUILD_NUMBER : 0))).text();
         const m = css.match(/\.bi-house::before[^}]*content:\s*["']\\([0-9a-fA-F]+)["']/);
         return m ? String.fromCodePoint(parseInt(m[1], 16)) : "";
       });
@@ -1754,7 +1754,7 @@ test.describe("PlanMyDay - Regression", () => {
     });
 
     test("renders fa/fab prefixed names as icon glyphs with the right fonts", async ({ page }) => {
-      await page.goto("/");
+      await page.goto("/PlanMyDay/");
       const samples = [
         { image: "fa:house", family: "Font Awesome 6 Free", weight: "900" },
         { image: "fab:github", family: "Font Awesome 6 Brands", weight: "400" }
@@ -1785,7 +1785,7 @@ test.describe("PlanMyDay - Regression", () => {
     });
 
     test("unknown bi: names stay hidden", async ({ page }) => {
-      await page.goto("/");
+      await page.goto("/PlanMyDay/");
       await page.evaluate(() => {
         const el = document.createElement("smd-image");
         el.setAttribute("image", "bi:no-such-icon-xyz");
@@ -1807,7 +1807,7 @@ test.describe("PlanMyDay - Regression", () => {
     });
 
     test("stored images still render when image name is not bi: prefixed", async ({ page }) => {
-      await page.goto("/");
+      await page.goto("/PlanMyDay/");
       await page.evaluate(() => {
         localStorage.setItem("planmydays_images", JSON.stringify([
           { name: "Apple", data: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%23ff0000'/%3E%3C/svg%3E" }
@@ -1863,7 +1863,7 @@ test.describe("PlanMyDay - Regression", () => {
   test.describe("Dev Mode", () => {
 
     test("dev mode setting appears with ?dev=true", async ({ page }) => {
-      await page.goto("/?dev=true");
+      await page.goto("/PlanMyDay/?dev=true");
       await page.locator("#btnMainMenu").click();
       await page.locator("a.dropdown-item").filter({ hasText: "Settings" }).click();
       await page.locator("#danger-tab").click();
@@ -1872,7 +1872,7 @@ test.describe("PlanMyDay - Regression", () => {
     });
 
     test("dev mode not visible without ?dev=true", async ({ page }) => {
-      await page.goto("/");
+      await page.goto("/PlanMyDay/");
       await page.locator("#btnMainMenu").click();
       await page.locator("a.dropdown-item").filter({ hasText: "Settings" }).click();
       await page.locator("#danger-tab").click();
@@ -2403,7 +2403,7 @@ test.describe("PlanMyDay - Regression", () => {
     });
 
     test("danger zone toggle shows dev rows in dev mode", async ({ page }) => {
-      await page.goto("/?dev=true");
+      await page.goto("/PlanMyDay/?dev=true");
       await page.locator("#btnMainMenu").click();
       await page.locator("a.dropdown-item").filter({ hasText: "Settings" }).click();
       await page.locator("#danger-tab").click();
@@ -2419,7 +2419,7 @@ test.describe("PlanMyDay - Regression", () => {
 
     test.beforeEach(async ({ page }) => {
       await startCoverage(page);
-      await page.goto("/");
+      await page.goto("/PlanMyDay/");
       await page.evaluate((data) => {
         localStorage.setItem("planmydays_streams", JSON.stringify(data));
       }, TEST_STREAMS);
@@ -2584,7 +2584,7 @@ test.describe("PlanMyDay - Regression", () => {
         isMobile: true
       });
       const mp = await context.newPage();
-      await mp.goto("http://localhost:8080/");
+      await mp.goto("http://localhost:8080/PlanMyDay/");
       await mp.evaluate(() => {
         localStorage.clear();
         localStorage.setItem("planmydays_images", "[]");
@@ -2630,7 +2630,7 @@ test.describe("PlanMyDay - Regression", () => {
 
     test.beforeEach(async ({ page }) => {
       await startCoverage(page);
-      await page.goto("/");
+      await page.goto("/PlanMyDay/");
       await page.evaluate(() => {
         localStorage.setItem("planmydays_streams", JSON.stringify([
           {
@@ -3083,7 +3083,7 @@ test.describe("PlanMyDay - Regression", () => {
           { name: "PickMeToo", data: "" }
         ]));
       }, TEST_STREAMS);
-      await page.goto("/");
+      await page.goto("/PlanMyDay/");
       await page.waitForLoadState("domcontentloaded");
       await page.locator("#btnMainMenu").click();
       await page.locator("a.dropdown-item").filter({ hasText: "Streams" }).click();
@@ -3167,7 +3167,7 @@ test.describe("PlanMyDay - Regression", () => {
 
     test.beforeEach(async ({ page }) => {
       await startCoverage(page);
-      await page.goto("/");
+      await page.goto("/PlanMyDay/");
       await page.evaluate((data) => {
         localStorage.setItem("planmydays_streams", JSON.stringify(data));
       }, TEST_STREAMS);
@@ -3263,7 +3263,7 @@ test.describe("PlanMyDay - Regression", () => {
   test.describe("Dev Mode UI", () => {
 
     test("dev mode today changes date displayed", async ({ page }) => {
-      await page.goto("/?dev=true");
+      await page.goto("/PlanMyDay/?dev=true");
       await page.locator("#btnMainMenu").click();
       await page.locator("a.dropdown-item").filter({ hasText: "Settings" }).click();
       await page.locator("#danger-tab").click();
@@ -3929,7 +3929,7 @@ test.describe("PlanMyDay - Regression", () => {
   test.describe("Sort Jobs in Streams", () => {
 
     test("sort jobs in streams button shows in danger zone", async ({ page }) => {
-      await page.goto("/");
+      await page.goto("/PlanMyDay/");
       await page.locator("#btnMainMenu").click();
       await page.locator("a.dropdown-item").filter({ hasText: "Settings" }).click();
       await page.locator("#danger-tab").click();
@@ -4026,7 +4026,7 @@ test.describe("PlanMyDay - Regression", () => {
   test.describe("Dev Mode: Dev Today Override", () => {
 
     test("dev today overrides getTodayDate", async ({ page }) => {
-      await page.goto("/?dev=true");
+      await page.goto("/PlanMyDay/?dev=true");
       const futureDate = futureDateStr(30);
       await page.evaluate((ds) => {
         localStorage.setItem("devToday", ds);
@@ -4036,7 +4036,7 @@ test.describe("PlanMyDay - Regression", () => {
     });
 
     test("dev last gen is returned by getStoredLastGen", async ({ page }) => {
-      await page.goto("/?dev=true");
+      await page.goto("/PlanMyDay/?dev=true");
       const futureDate = futureDateStr(29);
       await page.evaluate((ds) => {
         localStorage.setItem("devLastGen", ds);
@@ -4192,7 +4192,7 @@ test.describe("PlanMyDay - Regression", () => {
   test.describe("Dev Mode Settings", () => {
 
     test("dev mode flatpickr inputs appear with danger zone", async ({ page }) => {
-      await page.goto("/?dev=true");
+      await page.goto("/PlanMyDay/?dev=true");
       await page.reload();
       await page.locator("#btnMainMenu").click();
       await page.locator("a.dropdown-item").filter({ hasText: "Settings" }).click();
@@ -4881,7 +4881,7 @@ test.describe("PlanMyDay - Regression", () => {
     });
 
     test("changeDevToday and changeDevLastGen via settings helpers", async ({ page }) => {
-      await page.goto("/?dev=true");
+      await page.goto("/PlanMyDay/?dev=true");
       await page.evaluate(() => {
         localStorage.clear();
         localStorage.setItem("planmydays_images", "[]");
@@ -5138,7 +5138,7 @@ test.describe("PlanMyDay - Regression", () => {
       test.setTimeout(60000);
       await page.evaluate(async () => {
         // seed one name that will collide after upload
-        const res = await fetch("ShareMyDays/sampleImages.json");
+        const res = await fetch("../shared/sampleImages.json");
         const data = await res.json();
         if (data.images && data.images[0]) {
           localStorage.setItem("planmydays_images", JSON.stringify([data.images[0]]));
@@ -5156,7 +5156,7 @@ test.describe("PlanMyDay - Regression", () => {
     test("upload summary modal shows counts", async ({ page }) => {
       test.setTimeout(60000);
       await page.evaluate(async () => {
-        const res = await fetch("ShareMyDays/sampleImages.json");
+        const res = await fetch("../shared/sampleImages.json");
         const data = await res.json();
         if (data.images && data.images[0]) {
           localStorage.setItem("planmydays_images", JSON.stringify([data.images[0]]));
@@ -5164,7 +5164,7 @@ test.describe("PlanMyDay - Regression", () => {
       });
       await page.evaluate(() => uploadStandardImages());
       await page.locator("#smdConfirmModal").waitFor({ state: "visible", timeout: 15000 });
-      const total = await page.evaluate(async () => (await (await fetch("ShareMyDays/sampleImages.json")).json()).images.length);
+      const total = await page.evaluate(async () => (await (await fetch("../shared/sampleImages.json")).json()).images.length);
       await expect(page.locator("#smdConfirmModal")).toContainText(`${total} images uploaded`);
       await expect(page.locator("#smdConfirmModal")).toContainText(`${total - 1} added`);
       await expect(page.locator("#smdConfirmModal")).toContainText("1 duplicate ignored");
@@ -5934,7 +5934,7 @@ test.describe("PlanMyDay - Regression", () => {
 
     test.beforeEach(async ({ page }) => {
       await startCoverage(page);
-      await page.goto("/");
+      await page.goto("/PlanMyDay/");
       await page.evaluate((data) => {
         localStorage.setItem("planmydays_streams", JSON.stringify(data));
       }, TEST_STREAMS);
@@ -6141,7 +6141,7 @@ test.describe("PlanMyDay - Regression", () => {
         isMobile: true
       });
       const mp = await context.newPage();
-      await mp.goto("http://localhost:8080/");
+      await mp.goto("http://localhost:8080/PlanMyDay/");
       await mp.evaluate((data) => {
         localStorage.setItem("planmydays_streams", JSON.stringify(data));
       }, TEST_STREAMS);
@@ -6456,7 +6456,7 @@ test.describe("PlanMyDay - Regression", () => {
     });
 
     test("smd-modal footer button closes the modal then fires smd-modal-action; close:false keeps it open", async ({ page }) => {
-      await page.addScriptTag({ url: "/ShareMyDays/js/components/smd-modal.js" });
+      await page.addScriptTag({ url: "/shared/js/components/smd-modal.js" });
       await page.evaluate(() => {
         window.__modalActions = [];
         const m = document.createElement("smd-modal");
@@ -6493,7 +6493,7 @@ test.describe("PlanMyDay - Regression", () => {
   test.describe("smd-page: slide duration", () => {
 
     test("slide duration defaults to instant and tracks the slide-duration attribute", async ({ page }) => {
-      await page.goto("/");
+      await page.goto("/PlanMyDay/");
       await page.waitForLoadState("domcontentloaded");
       await page.evaluate(() => {
         window.__slidePage = document.createElement("smd-page");
@@ -6571,7 +6571,7 @@ test.describe("PlanMyDay - Regression", () => {
   test.describe("asset cache-busting", () => {
 
     test("all stylesheets and same-origin scripts carry ?v=BUILD_NUMBER", async ({ page }) => {
-      await page.goto("/");
+      await page.goto("/PlanMyDay/");
       const build = await page.evaluate(() => (typeof BUILD_NUMBER !== "undefined" ? BUILD_NUMBER : ""));
       expect(build).not.toBe("");
       const stamps = await page.evaluate(() => {
@@ -6591,7 +6591,7 @@ test.describe("PlanMyDay - Regression", () => {
     });
 
     test("theme swap is cache-busted with the build number", async ({ page }) => {
-      await page.goto("/");
+      await page.goto("/PlanMyDay/");
       const build = await page.evaluate(() => (typeof BUILD_NUMBER !== "undefined" ? BUILD_NUMBER : ""));
       await page.evaluate(() => applyTheme("quartz"));
       const themeHref = await page.evaluate(() => document.getElementById("bootstrap-theme-css").getAttribute("href"));
@@ -6607,10 +6607,10 @@ test.describe("PlanMyDay - Regression", () => {
       page.on("pageerror", (err) => pageErrors.push(err.message));
       page.on("response", (resp) => { if (resp.status() >= 400) badResponses.push(resp.status() + " " + resp.url()); });
 
-      await page.goto("/");
+      await page.goto("/PlanMyDay/");
       // Render one glyph per icon family — each requires its vendored @font-face,
       // so a wrong/missing font file url (e.g. "/vendor/fonts/..." vs the actual
-      // "ShareMyDays/vendor/fonts/...") surfaces as a 404/console error here.
+      // "../shared/vendor/fonts/...") surfaces as a 404/console error here.
       const samples = ["bi:house", "fa:house", "fab:github"];
       for (const image of samples) {
         await page.evaluate((img) => {
@@ -6643,14 +6643,15 @@ test.describe("PlanMyDay - Regression", () => {
       page.on("pageerror", (err) => pageErrors.push(err.message));
       page.on("response", (resp) => { if (resp.status() >= 400) badResponses.push(resp.status() + " " + resp.url()); });
 
-      // tests/subpath-server.py serves the app ONLY under /PlanMyDay/ (every
-      // origin-root path 404s), faithfully mimicking ownimage.github.io/PlanMyDay/.
-      await page.goto("http://localhost:8081/PlanMyDay/");
+      // tests/subpath-server.py serves the repo ONLY under /PlanMyDay/ (every
+      // origin-root path 404s): the app is at /PlanMyDay/PlanMyDay/ and shared
+      // at /PlanMyDay/shared/, mimicking a sub-path deployment.
+      await page.goto("http://localhost:8081/PlanMyDay/PlanMyDay/");
 
       // The theme <link> must resolve through the derived relative prefix; an
       // absolute "/css/themes/..." href would 404 here and trip badResponses.
       const themeHref = await page.evaluate(() => document.getElementById("bootstrap-theme-css").getAttribute("href"));
-      expect(themeHref).toMatch(/^ShareMyDays\/css\/themes\//);
+      expect(themeHref).toMatch(/^\.\.\/shared\/css\/themes\//);
       expect(themeHref).not.toMatch(/^\/css\//);
 
       // Wait for the SW to register, install, and finish precaching. The first
@@ -6669,14 +6670,14 @@ test.describe("PlanMyDay - Regression", () => {
       // Confirm the precache actually stored the expected assets under /PlanMyDay/.
       const cachedUrls = await page.evaluate(async () => {
         const v = typeof BUILD_NUMBER !== "undefined" ? BUILD_NUMBER : "";
-        const cache = await caches.open("planmydays-" + v);
+        const cache = await caches.open("myapps-" + v);
         return (await cache.keys()).map((r) => r.url);
       });
       expect(cachedUrls.length).toBeGreaterThan(0);
       expect(cachedUrls).toEqual(expect.arrayContaining([
-        expect.stringContaining("/PlanMyDay/ShareMyDays/css/themes/darkly/bootstrap.min.css"),
-        expect.stringContaining("/PlanMyDay/js/app.js"),
-        expect.stringContaining("/PlanMyDay/index.html")
+        expect.stringContaining("/PlanMyDay/shared/css/themes/darkly/bootstrap.min.css"),
+        expect.stringContaining("/PlanMyDay/PlanMyDay/js/app.js"),
+        expect.stringContaining("/PlanMyDay/PlanMyDay/index.html")
       ]));
 
       // Any page-level asset load failures surface here.

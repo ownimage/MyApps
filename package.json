@@ -8,9 +8,10 @@
     "test:headed": "playwright test --headed",
     "test:ui": "playwright test --ui",
     "test:debug": "playwright test --debug",
-    "regen:images": "node regen_sample_images.js",
-    "extract:images": "node regen_sample_images.js extract",
-    "regen:icons": "node regen_icon_data.js"
+    "regen:images": "node shared/regen_sample_images.js",
+    "extract:images": "node shared/regen_sample_images.js extract",
+    "regen:icons": "node shared/regen_icon_data.js",
+    "regen:pwa-icons": "node regen_pwa_icons.js"
   },
   "devDependencies": {
     "@playwright/test": "^1.52.0",

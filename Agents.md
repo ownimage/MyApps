@@ -28,10 +28,30 @@ Architecture:
   - `smd-modal` = a single shared `#smdConfirmModal` host, driven by `showSmdModal(options)` in app.js; content lives in its shadow root (`.smd-body`); buttons on `smd-modal-action`.
   - `smd-page` = full-screen overlay pages: `settingsPage`, `streamsEditor`, `jobSearchEditor`, `imagesEditor`, `jobEditPage`, `streamEditPage`, `minioImportPage`. Footer buttons fire `smd-page-action` (`cancel`/`done`/`add` etc).
   - z-index stack: smd-page 1040 < smd-modal 1050 < imagePickerModal 1060. No z-index hacks needed.
-- Component styling uses CONSTRUCTABLE STYLESHEETS from `js/components/styles.js` (`window.SmdStyles`): `smdButtonSheet`/`smdTabsSheet`/`smdModalSheet`/`smdPageSheet` are per-component sheets; `SmdStyles.hiddenSheet` + `SmdStyles.btnBadgeSheet` are shared by the pmd-* cards/header. `SmdStyles.sheetFor(css)` caches a sheet by CSS text; `SmdStyles.adoptStyles(root, sheetsOrCss)` adopts (dedup) into `root.adoptedStyleSheets`. Adopted sheets SURVIVE `shadowRoot.innerHTML` re-renders (unlike injected `<style>` elements). `injectStyleInto(root, css)` in app.js is now a wrapper over `SmdStyles.adoptStyles` (page/modal content styles).
+- Component styling uses CONSTRUCTABLE STYLESHEETS from `shared/js/components/styles.js` (`window.SmdStyles`): `smdButtonSheet`/`smdTabsSheet`/`smdModalSheet`/`smdPageSheet` are per-component sheets; `SmdStyles.hiddenSheet` + `SmdStyles.btnBadgeSheet` are shared by the pmd-* cards/header. `SmdStyles.sheetFor(css)` caches a sheet by CSS text; `SmdStyles.adoptStyles(root, sheetsOrCss)` adopts (dedup) into `root.adoptedStyleSheets`. Adopted sheets SURVIVE `shadowRoot.innerHTML` re-renders (unlike injected `<style>` elements). `injectStyleInto(root, css)` in app.js is now a wrapper over `SmdStyles.adoptStyles` (page/modal content styles).
 - Colour/typography conventions: smd-tabs selected = `--smd-primary`/`--smd-primary-text`, non-selected = `--smd-secondary`; stream accordion header expanded = `--bs-info`, collapsed = `--smd-secondary`; page/modal header = lightened band (`color-mix(in srgb, var(--bs-body-bg) 85%, white)`) + title in lighter body-colour variant (`color-mix(... 60%, white)`).
-- Quartz's "glassmorphism" overrides live in `css/styles.css` (`.modal-content`, `.dropdown-menu`).
-- PWA: `sw.js` precaches everything (all themes, fonts, vendors, components incl. `smd-modal.js`, `sampleImages.json`) on install; the fetch handler caches by PATHNAME with `ignoreSearch`, so versioned requests (`js/app.js?v=BUILD`) share the same cache entries as the precache and the app works offline / slow networks (cache-first, background revalidate; navigate fallback to cached `index.html`). Activation is USER-DRIVEN: the SW no longer `skipWaiting()` on install — the page registers `sw.js?v=BUILD_NUMBER`, and on `updatefound`/`waiting` shows an "Update available" `smd-modal` (Update now = post `{type:'SKIP_WAITING'}` then `controllerchange` → reload; Later = dismiss, once per session; `window.__pmdSwUpdater.showUpdatePrompt` test hook). `controllerchange` only reloads when the user chose to update (not on first install). Manifest uses an SVG `any`+maskable icon. NOTE: `js/build-number.js` BUILD_NUMBER is STATIC — bump it to ship a new build, otherwise the browser serves the stale SW/cache (`sw.js` byte changes still trigger an update, but the CACHE name stays the same so old assets are reused). All same-origin ASSET LOADS are cache-busted with `?v=BUILD_NUMBER`: a head `<script>` stamps every `<link href>` (theme/flatpickr/styles + manifest/icons), vendor & component `<script>`s are written via `document.write(...?v=BUILD_NUMBER)`, `applyTheme()` appends `?v=` to theme-CSS swaps, `sampleImages.json`'s fetch is versioned, and the SW is registered as `sw.js?v=BUILD_NUMBER`.
+- Quartz's "glassmorphism" overrides live in `shared/css/styles.css` (`.modal-content`, `.dropdown-menu`).
+- REPO/PWA LAYOUT (2026-09-10): the repo hosts **multiple PWAs off one origin**
+  (`ownimage.github.io/MyApps/…`). `shared/` = library; each app lives in its own
+  top-level folder (`PlanMyDay/`, future `CountMyDays/`, …) with its own
+  `index.html` + `manifest.json` (relative `start_url`/`scope: "."` → that app's
+  URL; own `icon-192.png`/`icon-512.png`). There is **ONE service worker, `sw.js` at
+  the repo root**, registered by every app as `../sw.js` (scope = repo root, e.g.
+  `/MyApps/`). It must be at the root: a SW can only intercept URLs inside its
+  scope, and app assets are siblings of `shared/`, so a per-app SW couldn't cache
+  shared. `sw.js` has a `SHARED_ASSETS` list plus an `APPS` map (`"PlanMyDay/": [shell files]`);
+  adding an app = add an `APPS` entry. Fetch handler caches by PATHNAME with
+  `ignoreSearch`; offline navigate fallback is APP-AWARE (`appIndexFor(pathname)`
+  → that app's `index.html`). Cache name is `myapps-<BUILD_NUMBER>`.
+  Activation is USER-DRIVEN (no `skipWaiting()` on install; page shows an
+  "Update available" `smd-modal`; `window.__pmdSwUpdater.showUpdatePrompt` test
+  hook; `controllerchange` only reloads after the user chose to update).
+  `BUILD_NUMBER` is STATIC in `shared/js/build-number.js` — bump it to ship a new
+  build (sw.js byte changes still trigger an update, but a same cache name reuses
+  old assets). All same-origin ASSET LOADS are cache-busted with `?v=BUILD_NUMBER`
+  (head `<script>` stamps `<link href>`; vendor/component scripts use
+  `document.write(...?v=…)`; `applyTheme()` stamps theme swaps; `sampleImages.json`
+  fetch + SW registration are versioned).
 
 Techniques / gotchas:
 - To inspect computed styles/DOM, drop a temp `tests/_probe.spec.js` that writes JSON via `require("fs").writeFileSync(path.join(__dirname, "_probe.out.json"), ...)`, run it with `--reporter=line`, `Get-Content` the JSON, then delete both files. (test `console.log` is hidden by the list reporter).
@@ -39,10 +59,36 @@ Techniques / gotchas:
 - `page.evaluate` can't see inside shadow roots: query `document.getElementById("<pageId>").shadowRoot` first (e.g. `#streamsEditor`, `#jobEditPage`, `#smdConfirmModal`). Playwright locators pierce automatically.
 - smd-button disabled/`.disabled` assertions must target the inner native button: `#id button`, not the host element.
 - Playwright `toHaveText` on an `smd-button` HOST reports the slot fallback text too (e.g. `"Edit\n Button"`), so exact-text assertions fail. Use `toContainText("Edit")` or a `getByRole("button", { name: "Edit" })` locator instead.
-- Grep on minified vendor files breaks the tool (giant matched lines) — scope searches to `js/**`/`tests/**`.
+- Grep on minified vendor files breaks the tool (giant matched lines) — scope searches to `PlanMyDay/js/**`, `shared/js/**`, or `tests/**`.
 - Line endings: this repo stores text files with LF (`core.autocrlf=input`, `core.eol=lf`; no `.gitattributes`). NEVER write CRLF into a file — git will flag every line as changed (whole-file diff) and warn "CRLF will be replaced by LF the next time Git touches it". Do not round-trip files through PowerShell pipe/Get-Content/Set-Content joins; the Edit/Write/Read tools and Node preserve line endings — if you must convert use node with explicit `\n`, NEVER shell-piped measurements of `git show` (PowerShell pipeline re-encodes — it once reported 914 CRLF for a file whose raw blob via `git cat-file` was entirely LF). Verify with `git cat-file blob HEAD:<file>` + `git diff --stat` so only real edits show.
 
 ## Session log
+
+### 2026-09-10
+- Repo restructuring for multiple PWAs off one origin:
+  - `ShareMyDays/` → `shared/`; app files (`index.html`, `manifest.json`,
+    `icon.svg`, `css/`, `js/`) moved into a new top-level `PlanMyDay/` folder, so
+    the app is served at `/PlanMyDay/` under the repo root.
+  - All app→shared refs rewritten `ShareMyDays/…` → `../shared/…`.
+  - `shared/js/smd-app.js` is now path-agnostic: `SMD_SHARED_ROOT` is derived from
+    its own `document.currentScript.src` (`…/shared/js/smd-app.js` → `…/shared/`)
+    and used by `boot()/loadComponents()/loadServices()/ensureComponent()`.
+    `shared/js/smd-settings.js` `bw` is relative (`css/themes`).
+  - **Single site-wide SW**: kept `sw.js` at the repo root (one worker per origin
+    scope). It now has `SHARED_ASSETS` + an `APPS` map (`"PlanMyDay/" → shell`),
+    cache name `myapps-<build>`, and an APP-AWARE offline navigate fallback
+    (`appIndexFor`). Every app registers `../sw.js`.
+  - PWA icons: replaced the SVG `<text>✓</text>` with a vector path (librsvg
+    rendered no glyph for the text) and added `regen_pwa_icons.js` (npm
+    `regen:pwa-icons`) generating `icon-192.png`/`icon-512.png` per app;
+    `manifest.json` now lists the PNGs (192 any, 512 any + maskable).
+  - Tests/config: all `page.goto("/")` → `/PlanMyDay/`; subpath mock is now
+    `/PlanMyDay/PlanMyDay` (repo prefix `/PlanMyDay`, app folder `/PlanMyDay`);
+    cache-name assertion `planmydays-` → `myapps-`; asset refs → `../shared/…`;
+    coverage filter → `/PlanMyDay/js/` + `/shared/js/`. `package.json` regen
+    scripts → `shared/…`; `regen_icon_data.js` uses `__dirname`.
+  - Storybook (in `shared/`) references the app components at
+    `../../PlanMyDay/js/components/…`.
 
 ### 2026-09-09
 - Syxced TestShareMyDays/ShareMyDays → PlanMyDay/ShareMyDays (delete-first so the

@@ -3,7 +3,10 @@
 // as a thin global facade so inline onchange handlers keep working.
 
 const themeConfig = (() => {
-  const bw = "ShareMyDays/css/themes";
+  // Theme CSS paths are relative to the shared root; applyTheme() derives the
+  // real href from the existing #bootstrap-theme-css link prefix, so this value
+  // is informational only (kept relative to stay path-agnostic).
+  const bw = "css/themes";
   return {
     cerulean:  { css: `${bw}/cerulean/bootstrap.min.css`,   bsTheme: "light" },
     cosmo:     { css: `${bw}/cosmo/bootstrap.min.css`,      bsTheme: "light" },
@@ -34,9 +37,9 @@ const themeConfig = (() => {
 })();
 
 // Relative path prefix to the shared-app root, derived from the theme <link> so
-// it works whether the app lives at the domain root, under a sub-path like
-// /PlanMyDay/, or in the storybook (/ShareMyDays/storybook/). All shared-asset
-// loads (vendor/, sampleImages.json, icon sets) should resolve through this.
+// it works whether the app lives at the domain root, under a sub-path, or in
+// the storybook. All shared-asset loads (vendor/, sampleImages.json, icon sets)
+// should resolve through this.
 function smdAppRoot() {
   const link = document.getElementById("bootstrap-theme-css");
   if (!link) return "";
@@ -52,7 +55,7 @@ function applyTheme(name) {
   if (link) {
     const v = typeof BUILD_NUMBER !== "undefined" ? BUILD_NUMBER : Date.now();
     // Build the theme URL relative to the page (which may live under a sub-path
-    // like /PlanMyDay/). Reuse the link's existing relative prefix so that both
+    // under a sub-path). Reuse the link's existing relative prefix so that both
     // the app root and /storybook/ resolve css/themes correctly.
     const rel = link.getAttribute("href") || "";
     const prefix = rel.replace(/[^/]*\/bootstrap\.min\.css(\?.*)?$/, "");

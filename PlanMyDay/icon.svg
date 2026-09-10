@@ -61,10 +61,10 @@
 
   <!-- Today indicator -->
   <circle cx="420" cy="92" r="42" fill="#f97316"/>
-  <text x="420" y="108"
-        font-family="system-ui,sans-serif"
-        font-size="44"
-        font-weight="700"
-        fill="#fff"
-        text-anchor="middle">✓</text>
+  <path d="M401 92 l13 13 26-29"
+        stroke="#fff"
+        stroke-width="9"
+        fill="none"
+        stroke-linecap="round"
+        stroke-linejoin="round"/>
 </svg>

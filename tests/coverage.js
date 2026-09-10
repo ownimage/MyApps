@@ -30,7 +30,7 @@ async function stopCoverage(page) {
   data = data.filter((entry) => {
     try {
       const url = new URL(entry.url);
-      return (url.pathname.startsWith("/js/") || url.pathname.startsWith("/ShareMyDays/js/")) && url.origin === "http://localhost:8080";
+      return (url.pathname.startsWith("/PlanMyDay/js/") || url.pathname.startsWith("/shared/js/")) && url.origin === "http://localhost:8080";
     } catch {
       return false;
     }

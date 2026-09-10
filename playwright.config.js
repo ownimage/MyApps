@@ -36,7 +36,7 @@ module.exports = defineConfig({
     },
     {
       command: 'python tests/subpath-server.py',
-      url: "http://localhost:8081/PlanMyDay/",
+      url: "http://localhost:8081/PlanMyDay/PlanMyDay/",
       reuseExistingServer: !process.env.CI,
     },
   ],
