@@ -83,7 +83,7 @@ coverage-report/index.html
 
 ### Screenshots
 
-Regenerate all screenshots in the `screenshots/` folder:
+Regenerate all screenshots in the `screenshots/pmd/` folder (one subfolder per theme):
 
 ```bash
 npx playwright test tests/pmd-screenshots.spec.js --workers 12
@@ -97,4 +97,4 @@ Browse all theme screenshots side by side in a browser:
 node screenshots/viewer.js
 ```
 
-Opens a local viewer at `http://localhost:3000` with accordion sections per theme, a unified horizontal scrollbar to compare screenshots across themes, and Open All / Collapse All buttons.
+Opens a local viewer at `http://localhost:3000` with a **Folder** selector in the header to switch between screenshot galleries (e.g. `pmd`), accordion sections per theme, a unified horizontal scrollbar to compare screenshots across themes, and Open All / Collapse All buttons.

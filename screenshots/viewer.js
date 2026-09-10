@@ -5,25 +5,67 @@ const { exec } = require('child_process');
 
 const SCREENSHOTS_DIR = __dirname;
 const PORT = 3000;
+const IMAGE_RE = /\.(png|jpg|jpeg|gif|webp|svg|bmp)$/i;
 
-function scanThemes() {
-  const themes = [];
-  const entries = fs.readdirSync(SCREENSHOTS_DIR);
+function isDirectory(p) {
+  try { return fs.statSync(p).isDirectory(); } catch (e) { return false; }
+}
 
-  for (const entry of entries) {
-    const themePath = path.join(SCREENSHOTS_DIR, entry);
-    if (entry === 'viewer.html' || entry === 'viewer.js') continue;
-    const stat = fs.statSync(themePath);
-    if (!stat.isDirectory()) continue;
-
-    const images = fs.readdirSync(themePath)
-      .filter(f => /\.(png|jpg|jpeg|gif|webp|svg|bmp)$/i.test(f))
-      .sort();
-
-    themes.push({ theme: entry, images });
+function imageFiles(dir) {
+  try {
+    return fs.readdirSync(dir).filter(f => IMAGE_RE.test(f)).sort();
+  } catch (e) {
+    return [];
   }
+}
 
-  themes.sort((a, b) => a.theme.localeCompare(b.theme));
+// A gallery is a directory that directly contains one or more theme directories
+// (a theme directory is a directory holding image files). With the multi-app
+// layout, each app's screenshots live in its own gallery, e.g. screenshots/pmd.
+function isGalleryRoot(dir) {
+  if (!isDirectory(dir)) return false;
+  return fs.readdirSync(dir).some(name => {
+    const child = path.join(dir, name);
+    return isDirectory(child) && imageFiles(child).length > 0;
+  });
+}
+
+// Top-level folders the viewer can switch between. Includes the screenshots
+// root itself as "(root)" when legacy themes live directly there.
+function listGalleries() {
+  const galleries = [];
+  if (isGalleryRoot(SCREENSHOTS_DIR)) galleries.push({ id: '', label: '(root)' });
+  for (const name of fs.readdirSync(SCREENSHOTS_DIR)) {
+    if (!isDirectory(path.join(SCREENSHOTS_DIR, name))) continue;
+    if (isGalleryRoot(path.join(SCREENSHOTS_DIR, name))) galleries.push({ id: name, label: name });
+  }
+  galleries.sort((a, b) => {
+    if ((a.id === '') !== (b.id === '')) return a.id === '' ? 1 : -1; // root last
+    if ((a.id === 'pmd') !== (b.id === 'pmd')) return a.id === 'pmd' ? -1 : 1; // pmd first
+    return a.id.localeCompare(b.id);
+  });
+  return galleries;
+}
+
+function defaultGallery(galleries) {
+  if (galleries.some(g => g.id === 'pmd')) return 'pmd';
+  return galleries.length ? galleries[0].id : '';
+}
+
+// Themes inside a gallery: direct child directories that contain images.
+// `path` is relative to SCREENSHOTS_DIR and is used for image src.
+function scanThemes(group) {
+  const base = group ? path.join(SCREENSHOTS_DIR, group) : SCREENSHOTS_DIR;
+  const themes = [];
+  if (!isDirectory(base)) return themes;
+  for (const name of fs.readdirSync(base)) {
+    const dir = path.join(base, name);
+    if (!isDirectory(dir)) continue;
+    const images = imageFiles(dir);
+    if (!images.length) continue;
+    themes.push({ name, path: (group ? group + '/' : '') + name, images });
+  }
+  themes.sort((a, b) => a.name.localeCompare(b.name));
   return themes;
 }
 
@@ -73,6 +115,23 @@ body {
   white-space: nowrap;
 }
 .toolbar button:hover { background: #1a4a7a; }
+.gallery-picker {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9em;
+  color: #b8b8d0;
+  white-space: nowrap;
+}
+.gallery-picker select {
+  padding: 7px 12px;
+  border: 1px solid #3a3a5c;
+  border-radius: 6px;
+  background: #0f3460;
+  color: #e0e0e0;
+  font-size: 0.95em;
+  cursor: pointer;
+}
 #filterPanel {
   display: none;
   position: absolute;
@@ -193,6 +252,9 @@ body {
 <body>
 <div class="toolbar">
   <h1>Screenshot Viewer</h1>
+  <label class="gallery-picker">Folder
+    <select id="gallerySelect" onchange="changeGallery()"></select>
+  </label>
   <div class="filter-toggle">
     <button onclick="toggleFilterPanel()">Filter &#9662;</button>
     <div id="filterPanel">
@@ -217,6 +279,7 @@ const HTML_FOOT = `
 (function() {
   var container = document.getElementById('container');
   var dragEl = null;
+  var currentGallery = localStorage.getItem('screenshotViewerGallery');
 
   function indexOf(el) {
     var children = container.children;
@@ -296,26 +359,6 @@ const HTML_FOOT = `
     for (var i = 0; i < all.length; i++) { all[i].classList.remove('drag-over'); }
   });
 
-  var sel = document.getElementById('imageCheckboxes');
-  var cards = container.querySelectorAll('.image-card');
-  var names = [];
-  for (var c = 0; c < cards.length; c++) {
-    var name = cards[c].querySelector('.image-name').textContent;
-    if (names.indexOf(name) === -1 && /\.(png|jpg|jpeg|gif|webp|svg|bmp)$/i.test(name)) {
-      names.push(name);
-      var display = name.replace(/\.(png|jpg|jpeg|gif|webp|svg|bmp)$/i, '');
-      var lbl = document.createElement('label');
-      var cb = document.createElement('input');
-      cb.type = 'checkbox';
-      cb.checked = true;
-      cb.setAttribute('data-name', name);
-      cb.setAttribute('onchange', 'filterImagesByCheckbox()');
-      lbl.appendChild(cb);
-      lbl.appendChild(document.createTextNode(display));
-      sel.appendChild(lbl);
-    }
-  }
-
   window.filterImagesByCheckbox = function() {
     var checkedNames = {};
     var inputs = document.querySelectorAll('#imageCheckboxes input[type="checkbox"]');
@@ -372,9 +415,34 @@ const HTML_FOOT = `
     document.querySelectorAll('.theme-section').forEach(function(s) { s.classList.remove('open'); });
   };
 
-  window.refreshImages = function() {
+  function setGalleryOptions(galleries) {
+    var select = document.getElementById('gallerySelect');
+    select.innerHTML = '';
+    for (var i = 0; i < galleries.length; i++) {
+      var opt = document.createElement('option');
+      opt.value = galleries[i].id;
+      opt.textContent = galleries[i].label;
+      select.appendChild(opt);
+    }
+    var has = galleries.some(function(g) { return g.id === currentGallery; });
+    if (!has) {
+      currentGallery = galleries.some(function(g) { return g.id === 'pmd'; })
+        ? 'pmd'
+        : (galleries.length ? galleries[0].id : '');
+    }
+    select.value = currentGallery;
+  }
+
+  window.changeGallery = function() {
+    currentGallery = document.getElementById('gallerySelect').value;
+    localStorage.setItem('screenshotViewerGallery', currentGallery);
+    while (container.firstChild) container.removeChild(container.firstChild);
+    loadThemes();
+  };
+
+  function loadThemes() {
     var xhr = new XMLHttpRequest();
-    xhr.open('GET', '/api/themes', true);
+    xhr.open('GET', '/api/themes?group=' + encodeURIComponent(currentGallery), true);
     xhr.onload = function() {
       if (xhr.status !== 200) return;
       var themes = JSON.parse(xhr.responseText);
@@ -393,22 +461,22 @@ const HTML_FOOT = `
       }
 
       var existing = {};
-      while (container.firstChild) {
-        var sec = container.firstChild;
-        var name = sec.querySelector('.theme-name').textContent;
-        existing[name] = sec;
-        container.removeChild(sec);
+      var prevSections = container.querySelectorAll('.theme-section');
+      for (var p = 0; p < prevSections.length; p++) {
+        var prevName = prevSections[p].querySelector('.theme-name');
+        if (prevName) existing[prevName.textContent] = prevSections[p];
       }
+      container.innerHTML = '';
 
       for (var t = 0; t < themes.length; t++) {
         var theme = themes[t];
-        var sec = existing[theme.theme] || document.createElement('div');
+        var sec = existing[theme.name] || document.createElement('div');
         sec.className = 'theme-section open';
         sec.id = 'section-' + t;
         sec.setAttribute('draggable', 'true');
 
-        if (openSections.hasOwnProperty(theme.theme)) {
-          if (!openSections[theme.theme]) sec.classList.remove('open');
+        if (openSections.hasOwnProperty(theme.name)) {
+          if (!openSections[theme.name]) sec.classList.remove('open');
         }
 
         var header = sec.querySelector('.theme-header');
@@ -434,7 +502,7 @@ const HTML_FOOT = `
           sec.appendChild(header);
         }
         header.setAttribute('onclick', 'toggleSection(' + t + ')');
-        header.querySelector('.theme-name').textContent = theme.theme;
+        header.querySelector('.theme-name').textContent = theme.name;
         header.querySelector('.image-count').textContent = theme.images.length + ' images';
 
         var body = sec.querySelector('.theme-body');
@@ -447,7 +515,7 @@ const HTML_FOOT = `
         body.innerHTML = '';
         var flushts = Date.now();
         for (var img = 0; img < theme.images.length; img++) {
-          var src = theme.theme + '/' + theme.images[img];
+          var src = theme.path + '/' + theme.images[img];
           body.innerHTML += '<div class="image-card"><img src="' + src + '?v=' + flushts + '" alt="' + theme.images[img] + '" loading="lazy"><div class="image-name">' + theme.images[img] + '</div></div>';
         }
 
@@ -479,53 +547,47 @@ const HTML_FOOT = `
       window.filterImagesByCheckbox();
     };
     xhr.send();
+  }
+
+  window.refreshImages = function() {
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', '/api/galleries', true);
+    xhr.onload = function() {
+      if (xhr.status !== 200) return;
+      setGalleryOptions(JSON.parse(xhr.responseText));
+      loadThemes();
+    };
+    xhr.send();
   };
+
+  window.refreshImages();
 })();
 </script>
 </body>
 </html>`;
 
-function buildBody(themes) {
-  let html = '';
-  const ts = Date.now();
-  for (let i = 0; i < themes.length; i++) {
-    const t = themes[i];
-    html += `<div class="theme-section open" id="section-${i}" draggable="true">`;
-    html += `  <div class="theme-header" onclick="toggleSection(${i})">`;
-    html += `    <span class="drag-handle" draggable="true" title="Drag to reorder">&#9776;</span>`;
-    html += `    <span class="arrow">&#9654;</span>`;
-    html += `    <span class="theme-name">${t.theme}</span>`;
-    html += `    <span class="image-count">${t.images.length} images</span>`;
-    html += `  </div>`;
-    html += `  <div class="theme-body" id="body-${i}">`;
-    for (const img of t.images) {
-      const src = t.theme + '/' + img;
-      html += `    <div class="image-card">`;
-      html += `      <img src="${src}?v=${ts}" alt="${img}" loading="lazy">`;
-      html += `      <div class="image-name">${img}</div>`;
-      html += `    </div>`;
-    }
-    html += `  </div>`;
-    html += `</div>`;
-  }
-  return html;
-}
-
 const server = http.createServer((req, res) => {
   const urlPath = decodeURIComponent(req.url.split('?')[0]);
 
   if (urlPath === '/') {
-    const themes = scanThemes();
-    const html = HTML_HEAD + buildBody(themes) + HTML_FOOT;
+    // The shell is static; the client fetches /api/galleries + /api/themes and renders.
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-    res.end(html);
+    res.end(HTML_HEAD + HTML_FOOT);
+    return;
+  }
+
+  if (urlPath === '/api/galleries') {
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify(listGalleries()));
     return;
   }
 
   if (urlPath === '/api/themes') {
-    const themes = scanThemes();
+    const galleries = listGalleries();
+    const param = new URL(req.url, 'http://localhost').searchParams.get('group');
+    const group = param === null ? defaultGallery(galleries) : param;
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-    res.end(JSON.stringify(themes));
+    res.end(JSON.stringify(scanThemes(group)));
     return;
   }
 

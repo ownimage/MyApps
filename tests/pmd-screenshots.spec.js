@@ -126,7 +126,7 @@ function futureDateStr(daysFromNow) {
   return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0");
 }
 
-const SCREENSHOT_DIR = path.resolve(__dirname, "..", "screenshots");
+const SCREENSHOT_DIR = path.resolve(__dirname, "..", "screenshots", "pmd");
 
 const bw = "../shared/css/themes";
 const THEME_CONFIG = {
