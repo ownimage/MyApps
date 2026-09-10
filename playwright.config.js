@@ -19,12 +19,12 @@ module.exports = defineConfig({
   projects: [
     {
       name: "chromium",
-      testIgnore: /touch\.spec\.js/,
+      testIgnore: /pmd-touch\.spec\.js/,
       use: { ...devices["Desktop Chrome"] },
     },
     {
       name: "iphone-12-pro",
-      testMatch: /touch\.spec\.js/,
+      testMatch: /pmd-touch\.spec\.js/,
       use: { ...devices["iPhone 12 Pro"] },
     },
   ],

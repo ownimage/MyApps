@@ -2,8 +2,8 @@
 2: Ask questions if there are implementation options
 3: When running playwright use the command '.\node_modules\.bin\playwright.cmd' to make sure the correct version loads. 
 4: Please capture all the output needed when running a test the first time so that you do not need to rerun the test.
-5: When running the regression tests use playwright `--shards=30` (with regression.spec.js and touch.spec.js): launch each shard as `--shard=$i/30` so EVERY shard runs in parallel and gives full visibility into failures at once — do NOT loop them 1..30 sequentially (that hides cross-shard failures and needs a bespoke loop). Fix a failure in one shard everywhere before continuing.
-6: After fixing issues with the regression tests apply them to screenshots.spec.js and validate them using one theme only.
+5: When running the regression tests use playwright `--shards=30` (with pmd-regression.spec.js and pmd-touch.spec.js): launch each shard as `--shard=$i/30` so EVERY shard runs in parallel and gives full visibility into failures at once — do NOT loop them 1..30 sequentially (that hides cross-shard failures and needs a bespoke loop). Fix a failure in one shard everywhere before continuing.
+6: After fixing issues with the regression tests apply them to pmd-screenshots.spec.js and validate them using one theme only.
 7: Fail-fast test iterations: after a code/test change, DON'T run a whole batch at once — run only the first 2-3 affected tests first (`--grep "a|b" --workers=2 --retries=0`) to debug on a small surface; grow the batch only once those pass. The config sets `retries: 1`, so pass `--retries=0` while iterating (otherwise failures take twice as long).
 
 ## Self-improving playbook
@@ -63,6 +63,25 @@ Techniques / gotchas:
 - Line endings: this repo stores text files with LF (`core.autocrlf=input`, `core.eol=lf`; no `.gitattributes`). NEVER write CRLF into a file — git will flag every line as changed (whole-file diff) and warn "CRLF will be replaced by LF the next time Git touches it". Do not round-trip files through PowerShell pipe/Get-Content/Set-Content joins; the Edit/Write/Read tools and Node preserve line endings — if you must convert use node with explicit `\n`, NEVER shell-piped measurements of `git show` (PowerShell pipeline re-encodes — it once reported 914 CRLF for a file whose raw blob via `git cat-file` was entirely LF). Verify with `git cat-file blob HEAD:<file>` + `git diff --stat` so only real edits show.
 
 ## Session log
+
+### 2026-09-10 (2)
+- Moved `shared/storybook/index.html` → top-level `storybook/index.html` (sibling
+  of `shared/` and the app folders). Rewrote its asset paths: theme/vendor/js now
+  `../shared/...`; app components now `../PlanMyDay/js/components/...`. The theme
+  engine stays path-agnostic (`smdAppRoot()` returns `../shared/`, `applyTheme`
+  derives `../shared/css/themes/` from the link), so no JS changes were needed.
+  Updated `commands.md` (storybook path + URL). Verified via probe: 14 sections,
+  ZERO console/page errors, ZERO `>=400` responses, theme swap resolves
+  `../shared/css/themes/quartz/bootstrap.min.css`.
+- Prefixed the test specs that contain tests with `pmd-`: `example.spec.js` →
+  `pmd-example.spec.js`, `regression.spec.js` → `pmd-regression.spec.js`,
+  `sampleImages.spec.js` → `pmd-sampleImages.spec.js`, `screenshots.spec.js` →
+  `pmd-screenshots.spec.js`, `touch.spec.js` → `pmd-touch.spec.js`. Non-test
+  helpers (`coverage.js`, `global-setup.js`, `global-teardown.js`, the `.py`
+  servers) keep their names. Updated `playwright.config.js` `testMatch`/`testIgnore`
+  regexes plus README/commands/AGENTS references. Verified discovery: chromium
+  runs the four desktop specs (not touch); `iphone-12-pro` runs only
+  `pmd-touch.spec.js`; `pmd-example.spec.js` 3 pass.
 
 ### 2026-09-10
 - Repo restructuring for multiple PWAs off one origin:
@@ -201,18 +220,18 @@ Techniques / gotchas:
 - `smd-image-select` shows a centred muted "none" placeholder in the thumb box when no image is chosen (hide the empty `smd-image` host entirely so the placeholder is the only flex child). Image picker (`imagePickerPage`) now wraps its grid (needed `.smd-page-body .flex-wrap` — JOBS_EDITOR_STYLES doesn't include it, so items overflowed one row) and its footer order is Cancel (left) then No Image.
 - Sample images now live as NATIVE FILES in `sampleImages/` (name with spaces → `_`, e.g. `DIY_b_w.svg`; `.svg`/`.ico`/`.gif` by mime). `sampleImages.json` (still data-URL based, ~2.5MB — app unchanged) is regenerated from those files with `node regen_sample_images.js` (`extract` = json → files, default/`regen` = files → json). npm scripts: `regen:images`, `extract:images`.
 - `regen` is NON-DESTRUCTIVE: it clones each existing json entry and only replaces `data` when a file matches (so `lineColor`/`fillColor`/`themes`/`strokeWidth`/`_prevFill`/`_prevStroke` and ANY other per-image metadata survive); entries with no matching file are left untouched; new files are appended. File↔name matching is FUZZY (canonicalise = lowercase + collapse runs of non-alphanumerics to `_`), so `DIY b/w` ↔ `DIY_b_w.svg`, `Noughts & Crosses` ↔ `Noughts_&_Crosses.svg`. Output preserves the original key order + no trailing newline, so it is byte-idempotent with the committed file (verified: regenerating the committed `sampleImages.json` yields no diff; 164 images round-trip decode-identical).
-- NON-SVG sample images (`.gif`/`.ico`/`.png`/`.jpg`/`.webp`) are emitted WITHOUT `data`; instead they get `data64`/`data80`/`data100` PNG thumbs (64/80/100px, crop-to-fill) generated with `sharp` (devDependency). ICOs are decoded in script (32bpp DIB extraction → raw RGBA, rows bottom-up per BMP convention; set `ICO_TOP_DOWN` if a source stores rows top-down) because sharp's libvips on this box lacks ICO/BMP loaders. `sampleImages.json` shrank 2.55MB → ~0.9MB. App side: `getThemedImageDataUrl` and `smd-image` now fall back to `img.data100 || img.data80 || img.data64` when `data` is missing (that fallback kept `tests/sampleImages.spec.js`'s gallery from hanging on empty `src`). NOTE: `extract` only writes entries that have a full-size `data` (the thumbnail-only data64/80/100 entries are skipped — their binaries already live in `sampleImages/`).
+- NON-SVG sample images (`.gif`/`.ico`/`.png`/`.jpg`/`.webp`) are emitted WITHOUT `data`; instead they get `data64`/`data80`/`data100` PNG thumbs (64/80/100px, crop-to-fill) generated with `sharp` (devDependency). ICOs are decoded in script (32bpp DIB extraction → raw RGBA, rows bottom-up per BMP convention; set `ICO_TOP_DOWN` if a source stores rows top-down) because sharp's libvips on this box lacks ICO/BMP loaders. `sampleImages.json` shrank 2.55MB → ~0.9MB. App side: `getThemedImageDataUrl` and `smd-image` now fall back to `img.data100 || img.data80 || img.data64` when `data` is missing (that fallback kept `tests/pmd-sampleImages.spec.js`'s gallery from hanging on empty `src`). NOTE: `extract` only writes entries that have a full-size `data` (the thumbnail-only data64/80/100 entries are skipped — their binaries already live in `sampleImages/`).
 
 ### 2026-09-05
 - Added "Self-improving playbook" section (read at start, dated session log at end).
 - Replaced the Ad Hoc removal confirm (was `deleteConfirmModal` bootstrap modal) with the `smd-modal` custom element.
   - Added `js/components/smd-modal.js` script include to `index.html`.
   - Added reusable `showSmdModal(options)` helper in `js/app.js` that creates/reuses a single `#smdConfirmModal` host and resolves via the `smd-modal-action` event.
-  - Updated `tests/regression.spec.js` Ad Hoc tests to target `#smdConfirmModal` instead of `#deleteConfirmModal`.
+  - Updated `tests/pmd-regression.spec.js` Ad Hoc tests to target `#smdConfirmModal` instead of `#deleteConfirmModal`.
 - Converted ALL remaining `deleteConfirmModal` flows to `smd-modal`: delete stream, delete job task, delete job (view→edit + accordion), delete image, clear all data.
   - Each confirm now uses Cancel + a danger button ("Delete" or "Clear"). Content strings are escaped (smd-modal renders raw HTML).
   - Removed the now-dead `#deleteConfirmModal` markup from `index.html` and its 5 font-size rule groups from `css/styles.css`.
-  - Updated all affected `tests/regression.spec.js` tests to `#smdConfirmModal` + `locator("button").filter({ hasText: "..." })`.
+  - Updated all affected `tests/pmd-regression.spec.js` tests to `#smdConfirmModal` + `locator("button").filter({ hasText: "..." })`.
 - Converted the remaining two bootstrap modals to `smd-modal`: `infoConfirmModal` (now `showInfoConfirm`) and `scheduleModal` (the job schedule editor).
   - `showInfoConfirm` now escapes its message, converts `\n`→`<br>`, and shows via `showSmdModal` with a single OK button.
   - The schedule form moved out of `index.html` into `getScheduleFormHTML()` (app.js). Since smd-modal content lives in a shadow root:

@@ -47,13 +47,13 @@ npm test
 ### Run only the regression tests
 
 ```bash
-npx playwright test tests/regression.spec.js
+npx playwright test tests/pmd-regression.spec.js
 ```
 
 ### Run a single test
 
 ```bash
-npx playwright test tests/regression.spec.js --grep "test name"
+npx playwright test tests/pmd-regression.spec.js --grep "test name"
 ```
 
 ### Useful flags
@@ -86,7 +86,7 @@ coverage-report/index.html
 Regenerate all screenshots in the `screenshots/` folder:
 
 ```bash
-npx playwright test tests/screenshots.spec.js --workers 12
+npx playwright test tests/pmd-screenshots.spec.js --workers 12
 ```
 
 ### Screenshot viewer
