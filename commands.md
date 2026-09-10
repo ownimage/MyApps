@@ -13,8 +13,9 @@ python tests/http-server.py
 ```
 ### SampleImages
 ```bash
-npx playwright test tests/pmd-sampleImages.spec.js --workers 1
+npx playwright test tests/sample-images.spec.js --workers 1
 ```
+Writes the shared gallery to `screenshots/sample-images.png`.
 Regenerate `sampleImages.json` from the native files in `sampleImages/` (preserves
 per-image metadata from the existing JSON and only updates the `data`):
 ```bash
@@ -30,10 +31,13 @@ npm run extract:images
 ```bash
 .\node_modules\.bin\playwright.cmd test tests/pmd-screenshots.spec.js --workers 16
 ```
+Writes per-theme screenshots to `screenshots/pmd/<theme>/`.
+
 ### Screenshot viewer
 ```bash
 node screenshots/viewer.js
 ```
+The header has a **Folder** selector to switch between galleries (e.g. `pmd`).
 
 ### Component storybook
 The storybook is a static page (`storybook/index.html`) that renders every `smd-` and `pmd-` web component and lets you pick the bootswatch theme from a dropdown in the header.

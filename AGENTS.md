@@ -64,6 +64,24 @@ Techniques / gotchas:
 
 ## Session log
 
+### 2026-09-10 (3)
+- Screenshot output is now per-app: `tests/pmd-screenshots.spec.js` writes to
+  `screenshots/pmd/<theme>/` (was `screenshots/<theme>/`). Hardcoded `pmd`; a new
+  app gets its own folder (e.g. `screenshots/cmd/`). Deleted the 25 stale root
+  theme folders (gitignored output; kept `viewer.js` + `sample-images.png`).
+- Extracted the shared sample-images gallery spec: `pmd-sampleImages.spec.js` →
+  `sample-images.spec.js` (shared, so intentionally NOT `pmd-` prefixed). It still
+  writes `screenshots/sample-images.png` at the root.
+- `screenshots/viewer.js` gained a **Folder** selector in the header. A "gallery"
+  = a directory that directly contains theme dirs; the server exposes
+  `/api/galleries` + `/api/themes?group=<id>` and only serves the static shell,
+  the client renders (removed the duplicated server-side `buildBody`). Defaults
+  to the `pmd` gallery, remembers the choice in `localStorage`
+  (`screenshotViewerGallery`), and shows a legacy `(root)` gallery if root-level
+  themes exist. `pmd` sorts first, root last.
+- Lesson: new app screenshots go in their own `screenshots/<app>/` gallery; the
+  viewer auto-discovers them (Refresh re-reads `/api/galleries`).
+
 ### 2026-09-10 (2)
 - Moved `shared/storybook/index.html` → top-level `storybook/index.html` (sibling
   of `shared/` and the app folders). Rewrote its asset paths: theme/vendor/js now
@@ -75,7 +93,8 @@ Techniques / gotchas:
   `../shared/css/themes/quartz/bootstrap.min.css`.
 - Prefixed the test specs that contain tests with `pmd-`: `example.spec.js` →
   `pmd-example.spec.js`, `regression.spec.js` → `pmd-regression.spec.js`,
-  `sampleImages.spec.js` → `pmd-sampleImages.spec.js`, `screenshots.spec.js` →
+  `sampleImages.spec.js` → `pmd-sampleImages.spec.js` (later extracted to the
+  shared `sample-images.spec.js`), `screenshots.spec.js` →
   `pmd-screenshots.spec.js`, `touch.spec.js` → `pmd-touch.spec.js`. Non-test
   helpers (`coverage.js`, `global-setup.js`, `global-teardown.js`, the `.py`
   servers) keep their names. Updated `playwright.config.js` `testMatch`/`testIgnore`
@@ -227,7 +246,7 @@ Techniques / gotchas:
 - `smd-image-select` shows a centred muted "none" placeholder in the thumb box when no image is chosen (hide the empty `smd-image` host entirely so the placeholder is the only flex child). Image picker (`imagePickerPage`) now wraps its grid (needed `.smd-page-body .flex-wrap` — JOBS_EDITOR_STYLES doesn't include it, so items overflowed one row) and its footer order is Cancel (left) then No Image.
 - Sample images now live as NATIVE FILES in `sampleImages/` (name with spaces → `_`, e.g. `DIY_b_w.svg`; `.svg`/`.ico`/`.gif` by mime). `sampleImages.json` (still data-URL based, ~2.5MB — app unchanged) is regenerated from those files with `node regen_sample_images.js` (`extract` = json → files, default/`regen` = files → json). npm scripts: `regen:images`, `extract:images`.
 - `regen` is NON-DESTRUCTIVE: it clones each existing json entry and only replaces `data` when a file matches (so `lineColor`/`fillColor`/`themes`/`strokeWidth`/`_prevFill`/`_prevStroke` and ANY other per-image metadata survive); entries with no matching file are left untouched; new files are appended. File↔name matching is FUZZY (canonicalise = lowercase + collapse runs of non-alphanumerics to `_`), so `DIY b/w` ↔ `DIY_b_w.svg`, `Noughts & Crosses` ↔ `Noughts_&_Crosses.svg`. Output preserves the original key order + no trailing newline, so it is byte-idempotent with the committed file (verified: regenerating the committed `sampleImages.json` yields no diff; 164 images round-trip decode-identical).
-- NON-SVG sample images (`.gif`/`.ico`/`.png`/`.jpg`/`.webp`) are emitted WITHOUT `data`; instead they get `data64`/`data80`/`data100` PNG thumbs (64/80/100px, crop-to-fill) generated with `sharp` (devDependency). ICOs are decoded in script (32bpp DIB extraction → raw RGBA, rows bottom-up per BMP convention; set `ICO_TOP_DOWN` if a source stores rows top-down) because sharp's libvips on this box lacks ICO/BMP loaders. `sampleImages.json` shrank 2.55MB → ~0.9MB. App side: `getThemedImageDataUrl` and `smd-image` now fall back to `img.data100 || img.data80 || img.data64` when `data` is missing (that fallback kept `tests/pmd-sampleImages.spec.js`'s gallery from hanging on empty `src`). NOTE: `extract` only writes entries that have a full-size `data` (the thumbnail-only data64/80/100 entries are skipped — their binaries already live in `sampleImages/`).
+- NON-SVG sample images (`.gif`/`.ico`/`.png`/`.jpg`/`.webp`) are emitted WITHOUT `data`; instead they get `data64`/`data80`/`data100` PNG thumbs (64/80/100px, crop-to-fill) generated with `sharp` (devDependency). ICOs are decoded in script (32bpp DIB extraction → raw RGBA, rows bottom-up per BMP convention; set `ICO_TOP_DOWN` if a source stores rows top-down) because sharp's libvips on this box lacks ICO/BMP loaders. `sampleImages.json` shrank 2.55MB → ~0.9MB. App side: `getThemedImageDataUrl` and `smd-image` now fall back to `img.data100 || img.data80 || img.data64` when `data` is missing (that fallback kept `tests/sample-images.spec.js`'s gallery from hanging on empty `src`). NOTE: `extract` only writes entries that have a full-size `data` (the thumbnail-only data64/80/100 entries are skipped — their binaries already live in `sampleImages/`).
 
 ### 2026-09-05
 - Added "Self-improving playbook" section (read at start, dated session log at end).
