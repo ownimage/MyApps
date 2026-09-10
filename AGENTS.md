@@ -82,6 +82,13 @@ Techniques / gotchas:
   regexes plus README/commands/AGENTS references. Verified discovery: chromium
   runs the four desktop specs (not touch); `iphone-12-pro` runs only
   `pmd-touch.spec.js`; `pmd-example.spec.js` 3 pass.
+- Today cards (`#todayCardList`) show the bootstrap `bi-repeat-1` icon
+  (`.daily-repeat-icon`, title "Every day") directly beneath the job checkbox
+  when the job's schedule is daily (`job.schedule.type` falsy/`"daily"`, matching
+  `getScheduleText`/`shouldShowJobToday`). Added regression test "daily schedule
+  shows repeat badge, non-daily does not" (seeds a daily + a matching-`days` job).
+  Verified Main View + Suffix Display (151 tests) pass. Bumped `BUILD_NUMBER` →
+  `202609101100`.
 
 ### 2026-09-10
 - Repo restructuring for multiple PWAs off one origin:

@@ -242,6 +242,7 @@ function renderMain() {
     const streamImageName = stream.image || "";
     const jobImageName = job.image || "";
     const suffixLabel = getJobSuffix(job);
+    const scheduleType = job.schedule && job.schedule.type ? job.schedule.type : "daily";
     const card = document.createElement("div");
     card.className = `card countdown-card mb-2 today-drag-card ${isDone ? "opacity-50" : ""}`;
     card.dataset.jobId = job.id;
@@ -251,8 +252,11 @@ function renderMain() {
       <div class="row align-items-center">
         <div class="col-auto d-flex align-items-center">
           <div class="drag-handle" style="cursor:grab;line-height:1;display:flex;align-items:center">&#9776;</div>
-          <div class="form-check mb-0 ms-1 pe-0 d-flex align-items-center" style="min-height:0;padding-left:0">
-            <input class="form-check-input job-checkbox m-0 position-static" type="checkbox" data-job-id="${escapeHtml(job.id)}" ${isDone ? "checked" : ""}>
+          <div class="d-flex flex-column align-items-center ms-1 pe-0">
+            <div class="form-check mb-0 d-flex align-items-center" style="min-height:0;padding-left:0">
+              <input class="form-check-input job-checkbox m-0 position-static" type="checkbox" data-job-id="${escapeHtml(job.id)}" ${isDone ? "checked" : ""}>
+            </div>
+            ${scheduleType === "daily" ? `<i class="bi bi-repeat-1 daily-repeat-icon" title="Every day"></i>` : ""}
           </div>
         </div>
         <div class="col-auto d-flex align-items-center gap-1 px-0" style="min-width:68px">
