@@ -6,6 +6,9 @@
 // <smd-page>, in a modal, or inline, and just listen for the
 // `smd-image-picker-select` event (detail = { name }) / `smd-image-picker-close`.
 //
+// The tabs use the shared <smd-tabs> component (compact mode); each tab's panel
+// holds its own `.grid`.
+//
 // It needs the vendored icon-font stylesheets loaded document-wide (the app
 // declares them in its styles config) so glyphs actually render.
 //
@@ -39,8 +42,8 @@
 
   const ICON_SETS = [
     { key: "bi", title: "Bootstrap", css: "vendor/bootstrap-icons.css", family: "bootstrap-icons" },
-    { key: "fa", title: "Font Awesome", json: "vendor/fontawesome-icons.json", slot: "fa", family: "Font Awesome 6 Free" },
-    { key: "fab", title: "FA Brands", json: "vendor/fontawesome-icons.json", slot: "fab", family: "Font Awesome 6 Brands" }
+    { key: "fa", title: "FontAwesome", json: "vendor/fontawesome-icons.json", slot: "fa", family: "Font Awesome 6 Free" },
+    { key: "fab", title: "FABrands", json: "vendor/fontawesome-icons.json", slot: "fab", family: "Font Awesome 6 Brands" }
   ];
 
   const loadedIcons = Object.create(null);
@@ -82,8 +85,9 @@
     return loadingIcons[cfg.key];
   }
 
-  // ---- styles (constructable sheet; self-contained) ----
+  // ---- styles (constructable sheets; self-contained) ----
 
+  // picker chrome (lives in the picker's own shadow root)
   const smdImagePickerSheet = SmdStyles.sheetFor(`
   :host { display: block; }
   .picker { display: flex; flex-direction: column; gap: 0.5rem; }
@@ -107,22 +111,11 @@
     border-radius: 0.375rem;
     cursor: pointer;
   }
-  .tabs { display: flex; flex-wrap: wrap; gap: 2px; }
-  .tab-btn {
-    padding: 0.4rem 0.9rem;
-    border: 1px solid transparent;
-    border-radius: 6px 6px 0 0;
-    background: var(--smd-secondary, #6c757d);
-    color: var(--bs-emphasis-color, #fff);
-    cursor: pointer;
-    font-size: 0.9rem;
-  }
-  .tab-btn[active] {
-    background: var(--smd-primary, #0d6efd);
-    color: var(--smd-primary-text, #fff);
-    font-weight: 600;
-  }
-  .tab-line { height: 1px; background: var(--smd-primary, #0d6efd); }
+  `);
+
+  // Adopted into the nested <smd-tabs> shadow root (where the tab panels — and
+  // therefore the grids — actually live).
+  const smdImagePickerGridSheet = SmdStyles.sheetFor(`
   .grid {
     display: flex;
     flex-wrap: wrap;
@@ -176,15 +169,14 @@
       SmdStyles.adoptStyles(this.shadowRoot, [smdImagePickerSheet]);
       this._activeSet = null; // null = local images
       this._search = "";
+      this._tabsEl = null;
       this.shadowRoot.innerHTML = `
         <div class="picker">
           <div class="search" hidden>
             <input type="search" placeholder="Search images or icons...">
             <button type="button" class="clear">Clear</button>
           </div>
-          <div class="tabs"></div>
-          <div class="tab-line"></div>
-          <div class="grid"></div>
+          <smd-tabs compact></smd-tabs>
         </div>
       `;
     }
@@ -210,7 +202,20 @@
         this._search = "";
         this._renderGrid();
       });
-      this._buildTabs();
+
+      const tabsEl = root.querySelector("smd-tabs");
+      this._tabsEl = tabsEl;
+      this._keys = [null].concat(ICON_SETS.map((s) => s.key));
+      this._activeSet = null;
+      tabsEl.tabs = this._keys.map((key) => ({
+        title: key === null ? "Local" : (ICON_SETS.find((s) => s.key === key) || {}).title,
+        content: '<div class="grid"></div>'
+      }));
+      SmdStyles.adoptStyles(tabsEl.shadowRoot, [smdImagePickerGridSheet]);
+      tabsEl.addEventListener("smd-tabs-change", (e) => {
+        this._activeSet = this._keys[e.detail.index];
+        this._renderGrid();
+      });
       this._renderGrid();
     }
 
@@ -229,32 +234,27 @@
       }
     }
 
-    _buildTabs() {
-      const root = this.shadowRoot;
-      const tabsEl = root.querySelector(".tabs");
-      tabsEl.innerHTML = "";
-      const keys = [null].concat(ICON_SETS.map((s) => s.key));
-      keys.forEach((key, i) => {
-        const title = key === null ? "Local" : (ICON_SETS.find((s) => s.key === key) || {}).title;
-        const btn = document.createElement("button");
-        btn.type = "button";
-        btn.className = "tab-btn";
-        btn.textContent = title;
-        btn.addEventListener("click", () => {
-          this._activeSet = key;
-          tabsEl.querySelectorAll(".tab-btn").forEach((b) => b.removeAttribute("active"));
-          btn.setAttribute("active", "");
-          this._renderGrid();
-        });
-        tabsEl.appendChild(btn);
-      });
-      tabsEl.querySelector(".tab-btn").setAttribute("active", "");
+    // The active tab's grid element (the panels live in the nested smd-tabs shadow).
+    _activeGrid() {
+      const tabsEl = this._tabsEl;
+      if (!tabsEl || !tabsEl.shadowRoot) return null;
+      const panels = tabsEl.shadowRoot.querySelectorAll(".smd-tab-panel");
+      const panel = panels[tabsEl.activeIndex];
+      return panel ? panel.querySelector(".grid") : null;
     }
 
     _renderGrid() {
       const root = this.shadowRoot;
       root.querySelector(".search").hidden = !this.searchable;
-      const grid = root.querySelector(".grid");
+      const grid = this._activeGrid();
+      if (!grid) return;
+      // Keep only the active tab's grid populated, so hidden sibling panels
+      // don't leave stale items in the DOM (visible to querySelector/locators).
+      if (this._tabsEl && this._tabsEl.shadowRoot) {
+        this._tabsEl.shadowRoot.querySelectorAll(".grid").forEach((g) => {
+          if (g !== grid) g.innerHTML = "";
+        });
+      }
       grid.innerHTML = "";
 
       if (this._activeSet === null) {
@@ -298,7 +298,8 @@
     }
 
     _renderIconGrid(cfg, data) {
-      const grid = this.shadowRoot.querySelector(".grid");
+      const grid = this._activeGrid();
+      if (!grid) return;
       grid.innerHTML = "";
       const q = this._search || "";
       const filtered = q ? data.names.filter((n) => n.toLowerCase().includes(q)) : data.names;

@@ -65,6 +65,34 @@ Techniques / gotchas:
 
 ## Session log
 
+### 2026-09-10 (7)
+- `smd-image-picker` now renders its tabs with the shared `<smd-tabs>` component:
+  each tab's panel holds its own `.grid`, and the grid styles are adopted into
+  the nested smd-tabs shadow root (`smdImagePickerGridSheet`). Added a `compact`
+  attribute to `smd-tabs` (narrow tab buttons + zero panel padding) which the
+  picker uses. Only the active tab's grid is populated so hidden sibling panels
+  don't leave stale `.item`s in the DOM (otherwise `locator('.item').first()`
+  resolves a hidden one). Picker tests now target `.smd-tab-btn`. `BUILD_NUMBER`
+  → `202609101500`.
+
+### 2026-09-10 (6)
+- Image picker tab labels shortened to single words (`FontAwesome`, `FABrands`)
+  and the picker `.tab-btn` horizontal padding narrowed to `0.25rem` (matching the
+  injected `SETTINGS_STYLES .smd-tab-btn` padding) so all four tabs fit on ONE line
+  at 360px; added `white-space: nowrap`. Renamed the "picker tabs wrap" test to
+  "picker tabs fit on one line at a small width" (asserts 1 row) and updated the
+  label strings.
+- `pmd-stream-header` backgrounds: collapsed `--bs-light-border-subtle`,
+  expanded `--bs-info-border-subtle`, text `--bs-emphasis-color` (contrast
+  verified >= 4.5).
+- `smd-tabs` inactive-tab contrast fix: `applySmdVars()`/theme change now sets
+  `--smd-tab-text` to black or white based on the resolved `--bs-secondary`
+  luminance (`updateTabTextColor()`; recomputed when the theme `<link>` loads and
+  on window load). `smd-tabs` (and the picker tabs) use it for inactive text;
+  hover is now `filter: brightness(1.12)` instead of a secondary+white mix.
+  Verified all 25 themes have a WCAG contrast ratio >= 4.5 (cosmo/sketchy/slate/
+  solar/vapor were the low ones).
+
 ### 2026-09-10 (5)
 - New shared `<smd-checkbox>` (`shared/js/components/smd-checkbox.js`), used across
   the app so every checkbox shares one look. The host is ARIA-checkable

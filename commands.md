@@ -7,6 +7,7 @@
 ```
 npx playwright test -g "your test name" --repeat-each=10
 npx playwright test tests/pmd-regression.spec.js --repeat-each=100
+npx playwright test tests/pmd-screenshot.spec.js
 
 ```bash
 python tests/http-server.py

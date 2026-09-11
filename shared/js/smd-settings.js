@@ -60,6 +60,8 @@ function applyTheme(name) {
     const rel = link.getAttribute("href") || "";
     const prefix = rel.replace(/[^/]*\/bootstrap\.min\.css(\?.*)?$/, "");
     link.href = prefix + valid + "/bootstrap.min.css?v=" + v;
+    // recompute the smd-tabs text colour once the new theme css has loaded
+    link.addEventListener("load", updateTabTextColor, { once: true });
   }
   document.documentElement.setAttribute("data-bs-theme", config.bsTheme);
   document.documentElement.setAttribute("data-theme", name);
@@ -75,6 +77,25 @@ function applySmdVars() {
   root.style.setProperty("--smd-danger", "var(--bs-danger, #dc3545)");
   root.style.setProperty("--smd-warning", "var(--bs-warning, #ffc107)");
   root.style.setProperty("--smd-primary-text", "#fff");
+  updateTabTextColor();
+}
+
+// Pick a readable text colour for the (theme-coloured) inactive smd-tab buttons.
+// Reads the resolved --bs-secondary luminance and sets --smd-tab-text to
+// black or white, whichever contrasts best.
+function updateTabTextColor() {
+  if (typeof document === "undefined" || !document.body) return;
+  const probe = document.createElement("span");
+  probe.style.cssText = "position:absolute;left:-9999px;top:0;visibility:hidden";
+  probe.style.color = "var(--bs-secondary, #6c757d)";
+  document.body.appendChild(probe);
+  const rgb = getComputedStyle(probe).color;
+  probe.remove();
+  const m = rgb.match(/(\d+(?:\.\d+)?)/g);
+  if (!m || m.length < 3) return;
+  const f = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
+  const lum = 0.2126 * f(parseInt(m[0], 10)) + 0.7152 * f(parseInt(m[1], 10)) + 0.0722 * f(parseInt(m[2], 10));
+  document.documentElement.style.setProperty("--smd-tab-text", lum > 0.179 ? "#000" : "#fff");
 }
 
 function changeTheme(name) {
@@ -229,6 +250,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
   updateScreenResolution();
   window.addEventListener("resize", updateScreenResolution);
+
+  updateTabTextColor();
+  window.addEventListener("load", updateTabTextColor);
 
   const autoHide = localStorage.getItem(smdKey("autoHideMenu")) === "true";
   if (autoHide) {

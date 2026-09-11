@@ -7,12 +7,12 @@ const pmdStreamHeaderSheet = SmdStyles.sheetFor(`
     align-items: center;
     width: 100%;
     padding: 0.25rem 0;
-    background-color: var(--smd-secondary, var(--bs-secondary, #6c757d));
+    background-color: var(--bs-light-border-subtle);
     color: var(--bs-emphasis-color, var(--smd-primary-text, #fff));
   }
   :host([expanded]) .stream-accordion-header {
-    background-color: var(--bs-info);
-    color: var(--bs-info-text, var(--bs-dark));
+    background-color: var(--bs-info-border-subtle);
+    color: var(--bs-emphasis-color, var(--smd-primary-text, #fff));
   }
   .drag-handle {
     flex-shrink: 0;

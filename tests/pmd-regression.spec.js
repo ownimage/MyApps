@@ -1596,43 +1596,41 @@ test.describe("PlanMyDay - Regression", () => {
     });
 
     test("picker has its icon tabs, Local active by default", async ({ page }) => {
-      for (const label of ["Local", "Bootstrap", "Font Awesome", "FA Brands"]) {
-        await expect(page.locator("#imagePickerPage smd-image-picker .tab-btn").filter({ hasText: label })).toBeVisible();
+      for (const label of ["Local", "Bootstrap", "FontAwesome", "FABrands"]) {
+        await expect(page.locator("#imagePickerPage smd-image-picker .smd-tab-btn").filter({ hasText: label })).toBeVisible();
       }
-      await expect(page.locator("#imagePickerPage smd-image-picker .tab-btn[active]")).toHaveText(/Local/);
+      await expect(page.locator("#imagePickerPage smd-image-picker .smd-tab-btn[active]")).toHaveText(/Local/);
       await expect(page.locator("#imagePickerPage smd-image-picker .item").first()).toBeVisible();
     });
 
-    test("picker tabs wrap onto multiple lines", async ({ page }) => {
-      const wrap = await page.locator("#imagePickerPage smd-image-picker").evaluate((el) => getComputedStyle(el.shadowRoot.querySelector(".tabs")).flexWrap);
-      expect(wrap).toBe("wrap");
+    test("picker tabs fit on one line at a small width", async ({ page }) => {
       await page.setViewportSize({ width: 360, height: 640 });
       await page.waitForTimeout(300);
-      const rows = await page.locator("#imagePickerPage smd-image-picker .tab-btn").evaluateAll((btns) => {
+      const rows = await page.locator("#imagePickerPage smd-image-picker .smd-tab-btn").evaluateAll((btns) => {
         const tops = btns.map((b) => Math.round(b.getBoundingClientRect().top));
         return new Set(tops).size;
       });
-      expect(rows).toBeGreaterThan(1);
+      expect(rows).toBe(1);
     });
 
     test("bootstrap tab shows all bootstrap icons with the icon font", async ({ page }) => {
-      await page.locator("#imagePickerPage smd-image-picker .tab-btn").filter({ hasText: "Bootstrap" }).click();
+      await page.locator("#imagePickerPage smd-image-picker .smd-tab-btn").filter({ hasText: "Bootstrap" }).click();
       await page.locator("#imagePickerPage smd-image-picker .item").first().waitFor({ state: "visible", timeout: 10000 });
       expect(await page.locator("#imagePickerPage smd-image-picker .item").count()).toBeGreaterThan(500);
       const fontFamily = await page.locator("#imagePickerPage smd-image-picker .glyph").first()
         .evaluate((el) => getComputedStyle(el).fontFamily);
       expect(fontFamily).toContain("bootstrap-icons");
-      await expect(page.locator("#imagePickerPage smd-image-picker .tab-btn[active]")).toHaveText(/Bootstrap/);
+      await expect(page.locator("#imagePickerPage smd-image-picker .smd-tab-btn[active]")).toHaveText(/Bootstrap/);
     });
 
     test("each icon tab renders its grid with the correct icon font", async ({ page }) => {
       const sets = [
         { label: "Bootstrap", family: "bootstrap-icons" },
-        { label: "Font Awesome", family: "Font Awesome 6 Free" },
-        { label: "FA Brands", family: "Font Awesome 6 Brands" }
+        { label: "FontAwesome", family: "Font Awesome 6 Free" },
+        { label: "FABrands", family: "Font Awesome 6 Brands" }
       ];
       for (const set of sets) {
-        await page.locator("#imagePickerPage smd-image-picker .tab-btn").filter({ hasText: set.label }).click();
+        await page.locator("#imagePickerPage smd-image-picker .smd-tab-btn").filter({ hasText: set.label }).click();
         await page.locator("#imagePickerPage smd-image-picker .item").first().waitFor({ state: "visible", timeout: 15000 });
         const count = await page.locator("#imagePickerPage smd-image-picker .item").count();
         expect(count).toBeGreaterThan(300);
@@ -1643,7 +1641,7 @@ test.describe("PlanMyDay - Regression", () => {
     });
 
     test("bootstrap tab search filters icons and clear restores them", async ({ page }) => {
-      await page.locator("#imagePickerPage smd-image-picker .tab-btn").filter({ hasText: "Bootstrap" }).click();
+      await page.locator("#imagePickerPage smd-image-picker .smd-tab-btn").filter({ hasText: "Bootstrap" }).click();
       await page.locator("#imagePickerPage smd-image-picker .item").first().waitFor({ state: "visible", timeout: 10000 });
       const total = await page.locator("#imagePickerPage smd-image-picker .item").count();
       await page.locator("#imagePickerPage smd-image-picker input[type=search]").fill("house");
@@ -1659,11 +1657,11 @@ test.describe("PlanMyDay - Regression", () => {
     test("selecting an icon returns the set-prefixed name and closes the picker", async ({ page }) => {
       const sets = [
         { label: "Bootstrap", prefix: "bi" },
-        { label: "Font Awesome", prefix: "fa" },
-        { label: "FA Brands", prefix: "fab" }
+        { label: "FontAwesome", prefix: "fa" },
+        { label: "FABrands", prefix: "fab" }
       ];
       for (const set of sets) {
-        await page.locator("#imagePickerPage smd-image-picker .tab-btn").filter({ hasText: set.label }).click();
+        await page.locator("#imagePickerPage smd-image-picker .smd-tab-btn").filter({ hasText: set.label }).click();
         await page.locator("#imagePickerPage smd-image-picker .item").first().waitFor({ state: "visible", timeout: 15000 });
         const firstItemName = (await page.locator("#imagePickerPage smd-image-picker .label").first().textContent()).trim();
         await page.locator("#imagePickerPage smd-image-picker .item").first().click();
