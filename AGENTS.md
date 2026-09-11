@@ -84,22 +84,26 @@ Techniques / gotchas:
   (`--pmd-today-title-size/-padding/-margin/-title-margin/-description-margin/
   -cell-padding`, defined in `PlanMyDay/css/styles.css`) that inherit into the
   shadow root. Removed the now-dead `.countdown-card h4` font-size rules.
-- Layout: moved the stream/job thumbnails to the top (`.images-col
-  { align-self: flex-start }` + `.title-row { min-height: 32px }`) and pulled the
-  stream name to the left edge of the stream thumbnail on the View/badge row
-  (`.stream-title { margin-left: calc(-68px - 0.75rem) }`); it may flow right past
-  the job thumbnail. Thumb wrappers are now ALWAYS rendered (toggling only the
-  inner `smd-image` `image`) so the job thumbnail keeps its slot when a stream
-  has no image and job images line up across cards.
+- Layout (final): thumbnails sit on the title row (`.images-col
+  { align-self: flex-start }`); the stream name, View button and tab badge share
+  the line directly under the title (`.meta-row`, inline order, smaller
+  View/badge at 0.7em). Long badges (e.g. "maintenance") wrap to a second line
+  rather than truncating the stream name (`flex-wrap: wrap`). Removed
+  `.title-row { min-height: 32px }` so compact mode is shorter. Thumb wrappers
+  are ALWAYS rendered (toggling only the inner `smd-image` `image`) so the job
+  thumbnail keeps its slot when a stream has no image and job images line up
+  across cards.
 - Tests: new WebKit touch test (title font size xlarge=28px → jumbo=32px →
-  compact=16px) failed 24px before the fix; new Chromium regression tests
-  "stream name sits under the stream picture on the badge row" and "job thumbnail
-  keeps its slot when the stream has no image". Same reserved-image-slot fix
-  applied to `pmd-stream-header`, `pmd-stream-job-card` and `pmd-job-search-card`
+  compact=16px) failed 24px before the fix; new Chromium regression test
+  "stream name and buttons share the line under the title" (updated from the
+  earlier under-the-picture assertion) and "job thumbnail keeps its slot when the
+  stream has no image". Same reserved-image-slot fix applied to
+  `pmd-stream-header`, `pmd-stream-job-card` and `pmd-job-search-card`
   (headings/titles line up when a stream/job has no image), each with a
   "keeps the image slot" regression test. Full 30-shard suite 423 passed
-  (14-15/shard); screenshots `main view` + `edit-streams` regenerated and checked
-  (darkly). `BUILD_NUMBER` → `202609111424`.
+  (14-15/shard) before the final today-card layout tweak; screenshots `main view`
+  + `edit-streams` regenerated and checked (darkly). The final tweak was NOT
+  re-run against the suite (user request). `BUILD_NUMBER` → `202609111741`.
 - Gotcha captured: `:host-context()` is unsupported in WebKit — always use
   inherited CSS custom properties for body-class-driven shadow styling.
 

@@ -226,7 +226,7 @@ test.describe("PlanMyDay - Regression", () => {
       }
     });
 
-    test("stream name sits under the stream picture on the badge row", async ({ page }) => {
+    test("stream name and buttons share the line under the title", async ({ page }) => {
       const svg = "data:image/svg+xml," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg"><rect width="10" height="10"/></svg>');
       await page.evaluate(({ data, ds, svg }) => {
         const streams = JSON.parse(JSON.stringify(data));
@@ -241,12 +241,17 @@ test.describe("PlanMyDay - Regression", () => {
       await page.reload();
       const card = page.locator("#todayCardList pmd-today-card").first();
       await expect(card).toBeVisible();
-      const thumb = await card.locator(".stream-thumb").boundingBox();
+      const title = await card.locator(".title").boundingBox();
       const name = await card.locator(".stream-title").boundingBox();
+      const view = await card.locator(".job-view-btn").boundingBox();
       const badge = await card.locator(".tab-badge").boundingBox();
-      expect(name.x).toBeCloseTo(thumb.x, 0);
-      expect(Math.abs(name.y - badge.y)).toBeLessThan(6);
-      expect(name.x + name.width).toBeGreaterThan(thumb.x + thumb.width);
+      const centerY = (b) => b.y + b.height / 2;
+      // name starts under the title, with View then badge on the same line
+      expect(name.x).toBeCloseTo(title.x, 0);
+      expect(Math.abs(centerY(name) - centerY(view))).toBeLessThan(4);
+      expect(Math.abs(centerY(name) - centerY(badge))).toBeLessThan(4);
+      expect(name.x + name.width).toBeLessThanOrEqual(view.x + 1);
+      expect(view.x + view.width).toBeLessThanOrEqual(badge.x + 1);
     });
 
     test("job thumbnail keeps its slot when the stream has no image", async ({ page }) => {

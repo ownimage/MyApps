@@ -120,7 +120,6 @@ const pmdTodayCardSheet = SmdStyles.sheetFor(`
     align-items: center;
     gap: 0.5rem;
     margin-bottom: var(--pmd-today-title-margin, 0.25rem);
-    min-height: 32px;
   }
   .title {
     margin: 0;
@@ -130,28 +129,35 @@ const pmdTodayCardSheet = SmdStyles.sheetFor(`
   }
   .suffix { margin-left: 0.25rem; }
 
+  /* stream name + View + badge share one line under the title; long badges
+     wrap to a second line rather than truncating the stream name */
   .meta-row {
     display: flex;
-    justify-content: space-between;
     align-items: center;
-    position: relative;
+    flex-wrap: wrap;
+    gap: 0.15rem 0.4rem;
   }
-  /* left edge lines up under the stream thumbnail, on the View/badge row; the
-     text may flow right, past the job thumbnail */
   .stream-title {
+    flex: 1 1 auto;
+    min-width: 0;
     font-size: 0.875em;
-    margin-left: calc(-68px - 0.75rem);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
   .job-view-btn {
-    position: absolute;
-    left: 50%;
-    transform: translateX(-50%);
-    padding: 0.35em 0.65em;
-    font-size: 0.75em;
+    flex: 0 0 auto;
+    padding: 0.25em 0.5em;
+    font-size: 0.7em;
     line-height: 1;
     font-weight: 700;
   }
-  .tab-badge { border-radius: 50rem !important; }
+  .tab-badge {
+    flex: 0 0 auto;
+    padding: 0.25em 0.5em;
+    font-size: 0.7em;
+    border-radius: 50rem !important;
+  }
   .description {
     margin-top: var(--pmd-today-description-margin, 0.25rem);
     font-size: 0.875em;
