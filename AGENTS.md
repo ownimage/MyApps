@@ -65,6 +65,57 @@ Techniques / gotchas:
 
 ## Session log
 
+### 2026-09-10 (7)
+- `smd-image-picker` now renders its tabs with the shared `<smd-tabs>` component:
+  each tab's panel holds its own `.grid`, and the grid styles are adopted into
+  the nested smd-tabs shadow root (`smdImagePickerGridSheet`). Added a `compact`
+  attribute to `smd-tabs` (narrow tab buttons + zero panel padding) which the
+  picker uses. Only the active tab's grid is populated so hidden sibling panels
+  don't leave stale `.item`s in the DOM (otherwise `locator('.item').first()`
+  resolves a hidden one). Picker tests now target `.smd-tab-btn`. `BUILD_NUMBER`
+  → `202609101500`.
+
+### 2026-09-10 (6)
+- Image picker tab labels shortened to single words (`FontAwesome`, `FABrands`)
+  and the picker `.tab-btn` horizontal padding narrowed to `0.25rem` (matching the
+  injected `SETTINGS_STYLES .smd-tab-btn` padding) so all four tabs fit on ONE line
+  at 360px; added `white-space: nowrap`. Renamed the "picker tabs wrap" test to
+  "picker tabs fit on one line at a small width" (asserts 1 row) and updated the
+  label strings.
+- `pmd-stream-header` backgrounds: collapsed `--bs-light-border-subtle`,
+  expanded `--bs-info-border-subtle`, text `--bs-emphasis-color` (contrast
+  verified >= 4.5).
+- `smd-tabs` inactive-tab contrast fix: `applySmdVars()`/theme change now sets
+  `--smd-tab-text` to black or white based on the resolved `--bs-secondary`
+  luminance (`updateTabTextColor()`; recomputed when the theme `<link>` loads and
+  on window load). `smd-tabs` (and the picker tabs) use it for inactive text;
+  hover is now `filter: brightness(1.12)` instead of a secondary+white mix.
+  Verified all 25 themes have a WCAG contrast ratio >= 4.5 (cosmo/sketchy/slate/
+  solar/vapor were the low ones).
+
+### 2026-09-10 (5)
+- New shared `<smd-checkbox>` (`shared/js/components/smd-checkbox.js`), used across
+  the app so every checkbox shares one look. The host is ARIA-checkable
+  (`role=checkbox|switch` + `aria-checked`), so Playwright `.check()`/`.uncheck()`/
+  `.toBeChecked()` work on it; `change`/`input` are composed with `{ checked }`.
+  `switch` attribute = pill toggle. GOTCHA: a `.checked`/`.disabled` property set
+  BEFORE the element upgrades (e.g. from a parent's `_render()` right after it is
+  inserted into a fresh shadow root) becomes an own property that SHADOWS the
+  accessor — `connectedCallback` now folds any own `checked`/`disabled` into
+  attributes. Migrated settings switches, job-edit Active/Suffix, task-done,
+  schedule day checkboxes, the image-editor "none" checkboxes, and the
+  `pmd-today-card`/`pmd-stream-job-card`/`pmd-job-search-card` toggles; removed the
+  per-component checkbox CSS. Added an `smd-checkbox` section to the storybook.
+- Checkbox visibility fix: the unchecked fill is `--bs-secondary-bg` with a
+  `--bs-secondary-color` border (was body-bg/border-color, which vanished on
+  light + dark surfaces). `BUILD_NUMBER` → `202609101400`.
+- Card surfaces now use `background-color: var(--bs-dark-border-subtle)`:
+  `smd-image-card` (inner `.card`), `pmd-job-search-card`, `pmd-stream-job-card`,
+  `pmd-today-card` (hosts). `smd-image-select` is transparent so it shows the
+  surface it sits on (body colour on an smd-page, card colour on a card).
+  `pmd-stream-header` keeps its collapsed `--smd-secondary` / expanded `--bs-info`
+  colours.
+
 ### 2026-09-10 (4)
 - Today-list cards are now a PlanMyDay component: `PlanMyDay/js/components/pmd-today-card.js`
   (`<pmd-today-card>`). Owns the checkbox (with the daily `bi-repeat-1` icon),
@@ -88,6 +139,10 @@ Techniques / gotchas:
 - New AGENTS rule 8: a change that only touches `storybook/index.html` and/or
   `AGENTS.md` does not need the regression suite — just check the storybook loads
   clean.
+- Page background is explicitly `var(--bs-body-bg)` on `html, body`
+  (`shared/css/styles.css` for the app; the storybook's own `body`/`html` rules).
+  Previously only `body` was themed via bootstrap (html stayed transparent); the
+  canvas now tracks the theme too.
 
 ### 2026-09-10 (3)
 - Screenshot output is now per-app: `tests/pmd-screenshots.spec.js` writes to

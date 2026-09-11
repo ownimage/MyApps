@@ -100,36 +100,28 @@
           <div class="row mb-4 align-items-center col-md-8 mt-3">
             <div class="col-4 text-end"><label class="form-label mb-0">Split list</label></div>
             <div class="col-8">
-              <div class="form-check form-switch mt-1">
-                <input id="splitList" class="form-check-input" type="checkbox" onchange="changeSplitList(this.checked)">
-              </div>
+              <smd-checkbox id="splitList" switch onchange="changeSplitList(this.checked)"></smd-checkbox>
             </div>
           </div>
 
           <div class="row mb-4 align-items-center col-md-8">
             <div class="col-4 text-end"><label class="form-label mb-0">Auto-hide menu</label></div>
             <div class="col-8">
-              <div class="form-check form-switch mt-1">
-                <input id="autoHideMenu" class="form-check-input" type="checkbox" onchange="changeAutoHideMenu(this.checked)">
-              </div>
+              <smd-checkbox id="autoHideMenu" switch onchange="changeAutoHideMenu(this.checked)"></smd-checkbox>
             </div>
           </div>
 
           <div class="row mb-4 align-items-center col-md-8">
             <div class="col-4 text-end"><label class="form-label mb-0">Hide done</label></div>
             <div class="col-8">
-              <div class="form-check form-switch mt-1">
-                <input id="hideDone" class="form-check-input" type="checkbox" onchange="changeHideDone(this.checked)">
-              </div>
+              <smd-checkbox id="hideDone" switch onchange="changeHideDone(this.checked)"></smd-checkbox>
             </div>
           </div>
 
           <div class="row mb-4 align-items-center col-md-8">
             <div class="col-4 text-end"><label class="form-label mb-0">Auto Ad Hoc</label></div>
             <div class="col-8">
-              <div class="form-check form-switch mt-1">
-                <input id="skipAdhocConfirm" class="form-check-input" type="checkbox" onchange="changeSkipAdhocConfirm(this.checked)">
-              </div>
+              <smd-checkbox id="skipAdhocConfirm" switch onchange="changeSkipAdhocConfirm(this.checked)"></smd-checkbox>
             </div>
           </div>
         </section>
@@ -258,9 +250,7 @@
           <div class="row mb-4 align-items-center col-md-8 mt-3">
             <div class="col-4 text-end"><label class="form-label mb-0">Enable</label></div>
             <div class="col-8">
-              <div class="form-check form-switch mt-1">
-                <input id="minioEnabled" class="form-check-input" type="checkbox" onchange="changeMinioEnabled(this.checked)">
-              </div>
+              <smd-checkbox id="minioEnabled" switch onchange="changeMinioEnabled(this.checked)"></smd-checkbox>
             </div>
           </div>
           <div id="minioFields">
@@ -304,9 +294,7 @@
           <div class="row mb-4 align-items-center col-md-8 mt-3">
             <div class="col-4 text-end"><label class="form-label mb-0">Show danger</label></div>
             <div class="col-8">
-              <div class="form-check form-switch mt-1">
-                <input id="showDanger" class="form-check-input" type="checkbox" onchange="changeShowDanger(this.checked)">
-              </div>
+              <smd-checkbox id="showDanger" switch onchange="changeShowDanger(this.checked)"></smd-checkbox>
             </div>
           </div>
 
@@ -420,6 +408,7 @@
   document.write('<script src="../shared/js/components/smd-image-select.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="../shared/js/components/smd-image-picker.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="../shared/js/components/smd-theme.js?v=' + BUILD_NUMBER + '"><\/script>');
+document.write('<script src="../shared/js/components/smd-checkbox.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="../shared/js/components/smd-fontawesome-credit.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="js/components/pmd-stream-header.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="js/components/pmd-stream-job-card.js?v=' + BUILD_NUMBER + '"><\/script>');

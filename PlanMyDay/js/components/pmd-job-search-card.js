@@ -5,7 +5,7 @@ const pmdJobSearchCardSheet = SmdStyles.sheetFor(`
     position: relative;
     min-width: 0;
     word-wrap: break-word;
-    background-color: var(--bs-body-bg, #303030);
+    background-color: var(--bs-dark-border-subtle, #303030);
     border: 1px solid var(--bs-border-color, #495057);
     border-radius: 0.375rem;
     padding: 0.5rem;
@@ -56,23 +56,8 @@ const pmdJobSearchCardSheet = SmdStyles.sheetFor(`
     margin-left: 1rem;
     touch-action: manipulation;
   }
-  input.active-toggle {
-    width: 1.1em;
-    height: 1.1em;
-    margin: 0;
+  smd-checkbox.active-toggle {
     flex-shrink: 0;
-    appearance: none;
-    -webkit-appearance: none;
-    vertical-align: middle;
-    background-color: var(--bs-secondary-bg, #495057);
-    border: 1px solid var(--bs-border-color, #495057);
-    border-radius: 0.25em;
-    cursor: pointer;
-    position: static;
-  }
-  input.active-toggle:checked {
-    background-color: var(--bs-primary, #0d6efd);
-    border-color: var(--bs-primary, #0d6efd);
   }
 `);
 
@@ -87,7 +72,7 @@ pmdJobSearchCardTemplate.innerHTML = `
     <button type="button" class="btn btn-primary" data-action="edit">Edit</button>
   </div>
   <div class="row2">
-    <input type="checkbox" class="active-toggle">
+    <smd-checkbox class="active-toggle"></smd-checkbox>
     <span class="stream-title"></span>
     <span class="badge tab-badge"></span>
     <span class="badge bg-info extra" hidden></span>
@@ -111,14 +96,15 @@ class PmdJobSearchCard extends HTMLElement {
   connectedCallback() {
     const root = this.shadowRoot;
     root.querySelector('[data-action="edit"]').addEventListener('click', () => this._emit('pmd-job-edit'));
-    root.querySelector('input.active-toggle').addEventListener('change', (e) => {
+    root.querySelector('smd-checkbox.active-toggle').addEventListener('change', (e) => {
+      const checked = e.detail ? e.detail.checked : e.target.checked;
       this.dispatchEvent(new CustomEvent('pmd-job-toggle-active', {
         bubbles: true,
         composed: true,
         detail: {
           streamIdx: parseInt(this.getAttribute('stream-idx'), 10),
           jobIdx: parseInt(this.getAttribute('job-idx'), 10),
-          checked: e.target.checked
+          checked
         }
       }));
     });
@@ -202,7 +188,7 @@ class PmdJobSearchCard extends HTMLElement {
       timeEl.hidden = true;
     }
 
-    root.querySelector('input.active-toggle').checked = active;
+    root.querySelector('smd-checkbox.active-toggle').checked = active;
   }
 }
 

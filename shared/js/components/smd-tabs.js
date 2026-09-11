@@ -11,21 +11,20 @@ const smdTabsSheet = SmdStyles.sheetFor(`
   :host([wrap]) .smd-tab-list {
     flex-wrap: wrap;
   }
-.smd-tab-btn {
+  .smd-tab-btn {
     padding: 0.5rem 1.25rem;
     border: 1px solid transparent;
     border-bottom: none;
     border-radius: 6px 6px 0 0;
     background: var(--smd-secondary, #6c757d);
-    color: var(--bs-emphasis-color, var(--smd-primary-text, #fff));
+    color: var(--smd-tab-text, #fff);
     cursor: pointer;
     font-size: 0.95rem;
     font-weight: 500;
     transition: background 0.15s, color 0.15s;
   }
   .smd-tab-btn:hover:not([active]) {
-    background: color-mix(in srgb, var(--smd-secondary, #6c757d) 85%, var(--smd-primary-text, #fff));
-    color: var(--smd-primary-text, #fff);
+    filter: brightness(1.12);
   }
   .smd-tab-btn[active] {
     background: var(--smd-primary, #0d6efd);
@@ -41,6 +40,10 @@ const smdTabsSheet = SmdStyles.sheetFor(`
     width: 100%;
     box-sizing: border-box;
   }
+  /* compact: narrower tab buttons + tighter panels (used by the image picker) */
+  :host([compact]) .smd-tab-list { padding: 0; }
+  :host([compact]) .smd-tab-btn { padding: 0.5rem 0.25rem; }
+  :host([compact]) .smd-tab-panel { padding: 0; }
   :host > .smd-tab-line:last-of-type {
     margin-bottom: 1rem;
   }

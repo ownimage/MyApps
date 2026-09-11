@@ -36,7 +36,7 @@ const pmdTodayCardSheet = SmdStyles.sheetFor(`
     position: relative;
     min-width: 0;
     word-wrap: break-word;
-    background-color: var(--bs-body-bg, #303030);
+    background-color: var(--bs-dark-border-subtle, #303030);
     border: 1px solid var(--bs-border-color, #495057);
     border-radius: 0.375rem;
     padding: 0.5rem 0.75rem;
@@ -54,6 +54,7 @@ const pmdTodayCardSheet = SmdStyles.sheetFor(`
     display: flex;
     align-items: center;
     flex-wrap: nowrap;
+    gap: 0.75rem;
   }
   .handle-col {
     display: flex;
@@ -88,29 +89,6 @@ const pmdTodayCardSheet = SmdStyles.sheetFor(`
     min-height: 0;
     padding-left: 0;
     margin-bottom: 0;
-  }
-  input.job-checkbox {
-    width: 1.1em;
-    height: 1.1em;
-    margin: 0;
-    position: static;
-    flex: 0 0 auto;
-    appearance: none;
-    -webkit-appearance: none;
-    vertical-align: middle;
-    background-color: var(--bs-body-bg, #222);
-    background-image: var(--bs-form-check-bg-image, none);
-    background-repeat: no-repeat;
-    background-position: center;
-    background-size: contain;
-    border: 1px solid var(--bs-border-color, #495057);
-    border-radius: 0.25em;
-    cursor: pointer;
-  }
-  input.job-checkbox:checked {
-    background-color: var(--bs-primary, #0d6efd);
-    border-color: var(--bs-primary, #0d6efd);
-    --bs-form-check-bg-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3e%3cpath fill='none' stroke='%23fff' stroke-linecap='round' stroke-linejoin='round' stroke-width='3' d='m6 10 3 3 6-6'/%3e%3c/svg%3e");
   }
   .daily-repeat-icon { margin-top: 0.1rem; }
 
@@ -187,7 +165,7 @@ pmdTodayCardTemplate.innerHTML = `
     <div class="handle-col">
       <slot name="drag-handle"><div class="drag-handle">&#9776;</div></slot>
       <div class="check-col">
-        <div class="check-row"><input type="checkbox" class="job-checkbox"></div>
+        <div class="check-row"><smd-checkbox class="job-checkbox"></smd-checkbox></div>
         <smd-image class="daily-repeat-icon" key-prefix="planmydays_" size="16" title="Every day" hidden></smd-image>
       </div>
     </div>
@@ -224,12 +202,13 @@ class PmdTodayCard extends HTMLElement {
 
   connectedCallback() {
     const root = this.shadowRoot;
-    root.querySelector('input.job-checkbox').addEventListener('change', (e) => {
-      this.setAttribute('checked', e.target.checked ? 'true' : 'false');
+    root.querySelector('smd-checkbox.job-checkbox').addEventListener('change', (e) => {
+      const checked = e.detail ? e.detail.checked : e.target.checked;
+      this.setAttribute('checked', checked ? 'true' : 'false');
       this.dispatchEvent(new CustomEvent('pmd-today-toggle', {
         bubbles: true,
         composed: true,
-        detail: { jobId: this.getAttribute('job-id') || '', checked: e.target.checked }
+        detail: { jobId: this.getAttribute('job-id') || '', checked }
       }));
     });
     root.querySelector('.job-view-btn').addEventListener('click', () => {
@@ -312,7 +291,7 @@ class PmdTodayCard extends HTMLElement {
       descEl.hidden = true;
     }
 
-    const checkbox = root.querySelector('input.job-checkbox');
+    const checkbox = root.querySelector('smd-checkbox.job-checkbox');
     checkbox.dataset.jobId = this.getAttribute('job-id') || '';
     checkbox.checked = this.getAttribute('checked') === 'true';
   }

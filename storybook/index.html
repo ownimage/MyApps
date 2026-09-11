@@ -18,12 +18,12 @@
       --sb-color-scheme: dark;
     }
     * { box-sizing: border-box; }
-    html { overflow-x: clip; }
+    html { overflow-x: clip; background-color: var(--bs-body-bg); }
     body { overflow-x: clip; max-width: 100%; }
     body {
       margin: 0;
       font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-      background: var(--sb-bg);
+      background-color: var(--bs-body-bg);
       color: var(--sb-fg);
     }
     header.sb-header {
@@ -177,7 +177,6 @@
     .sb-swatch-color {
       height: 48px;
       border-radius: 6px;
-      border: 1px solid var(--sb-border);
       background-clip: padding-box;
     }
     .sb-swatch-name {
@@ -253,6 +252,7 @@
   <script src="../shared/js/components/smd-image-card.js"></script>
   <script src="../shared/js/components/smd-image-select.js"></script>
   <script src="../shared/js/components/smd-theme.js"></script>
+  <script src="../shared/js/components/smd-checkbox.js"></script>
   <script src="../shared/js/components/smd-image-picker.js"></script>
   <script src="../PlanMyDay/js/components/pmd-stream-header.js"></script>
   <script src="../PlanMyDay/js/components/pmd-stream-job-card.js"></script>
@@ -944,6 +944,35 @@
         };
         render();
         document.getElementById("ctrl-image-select-disabled").addEventListener("change", render);
+      }
+    });
+
+    // ---- smd-checkbox ----
+    sections.push({
+      id: "smd-checkbox",
+      name: "smd-checkbox",
+      tag: "<smd-checkbox>",
+      desc: "The themed checkbox used across the app. Add <code>switch</code> for a pill toggle, <code>checked</code>/<code>disabled</code> as usual; the label text is slotted. The host is ARIA-checkable (<code>role</code> + <code>aria-checked</code>) and dispatches <code>change</code>/<code>input</code> with detail <code>{ checked }</code>.",
+      html: () => `
+        <div class="sb-canvas" style="flex-direction:column;gap:0.75rem">
+          <div class="sb-row">
+            <smd-checkbox checked>Checked</smd-checkbox>
+            <smd-checkbox>Unchecked</smd-checkbox>
+            <smd-checkbox checked disabled>Checked (disabled)</smd-checkbox>
+            <smd-checkbox disabled>Unchecked (disabled)</smd-checkbox>
+          </div>
+          <div class="sb-row">
+            <smd-checkbox switch checked>Switch on</smd-checkbox>
+            <smd-checkbox switch>Switch off</smd-checkbox>
+            <smd-checkbox switch disabled>Switch (disabled)</smd-checkbox>
+          </div>
+        </div>
+        <div class="sb-log" id="log-smd-checkbox">events: none yet</div>
+      `,
+      init: () => {
+        document.querySelectorAll("#smd-checkbox smd-checkbox").forEach((cb) => {
+          cb.addEventListener("change", (e) => log("smd-checkbox", "checked=" + e.detail.checked));
+        });
       }
     });
 
