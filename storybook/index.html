@@ -167,6 +167,37 @@
       font-style: italic;
       font-size: 0.9rem;
     }
+    .sb-swatches {
+      display: grid;
+      grid-template-columns: repeat(12, minmax(0, 1fr));
+      gap: 10px;
+      width: 100%;
+    }
+    .sb-swatch { min-width: 0; }
+    .sb-swatch-color {
+      height: 48px;
+      border-radius: 6px;
+      border: 1px solid var(--sb-border);
+      background-clip: padding-box;
+    }
+    .sb-swatch-name {
+      margin-top: 4px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 0.64rem;
+      line-height: 1.15;
+      color: var(--bs-secondary-color, #aaa);
+      overflow-wrap: anywhere;
+    }
+    .sb-swatch-group { width: 100%; }
+    .sb-swatch-group + .sb-swatch-group { margin-top: 1.25rem; }
+    .sb-swatch-group-label {
+      font-size: 0.78rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--bs-secondary-color, #aaa);
+      margin-bottom: 0.5rem;
+    }
     .sb-row { display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: flex-start; }
     .sb-stack { display: flex; flex-direction: column; gap: 0.75rem; min-width: 0; flex: 1 1 260px; max-width: 100%; }
     code { background: var(--sb-bg); padding: 0.05rem 0.3rem; border-radius: 4px; font-size: 0.82em; }
@@ -307,6 +338,115 @@
 
     // ============================ SECTION DEFINITIONS ============================
     const sections = [];
+
+    // Bootstrap colour variables (the :root/[data-bs-theme] blocks) grouped into
+    // sensible rows and shown as swatches.
+    const THEME_COLOR_GROUPS = [
+      {
+        label: "Palette",
+        vars: [
+          "--bs-blue", "--bs-indigo", "--bs-purple", "--bs-pink", "--bs-red",
+          "--bs-orange", "--bs-yellow", "--bs-green", "--bs-teal", "--bs-cyan"
+        ]
+      },
+      {
+        label: "Neutrals",
+        vars: [
+          "--bs-black", "--bs-white", "--bs-gray", "--bs-gray-dark",
+          "--bs-gray-100", "--bs-gray-200", "--bs-gray-300", "--bs-gray-400", "--bs-gray-500",
+          "--bs-gray-600", "--bs-gray-700", "--bs-gray-800", "--bs-gray-900",
+          "--bs-white-rgb", "--bs-black-rgb"
+        ]
+      },
+      {
+        label: "Theme colours",
+        vars: [
+          "--bs-primary", "--bs-secondary", "--bs-success", "--bs-info",
+          "--bs-warning", "--bs-danger", "--bs-light", "--bs-dark",
+          "--bs-primary-rgb", "--bs-secondary-rgb", "--bs-success-rgb", "--bs-info-rgb",
+          "--bs-warning-rgb", "--bs-danger-rgb", "--bs-light-rgb", "--bs-dark-rgb"
+        ]
+      },
+      {
+        label: "Body & surfaces",
+        vars: [
+          "--bs-body-color", "--bs-body-color-rgb", "--bs-body-bg", "--bs-body-bg-rgb",
+          "--bs-emphasis-color", "--bs-emphasis-color-rgb",
+          "--bs-secondary-color", "--bs-secondary-color-rgb", "--bs-secondary-bg", "--bs-secondary-bg-rgb",
+          "--bs-tertiary-color", "--bs-tertiary-color-rgb", "--bs-tertiary-bg", "--bs-tertiary-bg-rgb"
+        ]
+      },
+      {
+        label: "Text emphasis",
+        vars: [
+          "--bs-primary-text-emphasis", "--bs-secondary-text-emphasis", "--bs-success-text-emphasis",
+          "--bs-info-text-emphasis", "--bs-warning-text-emphasis", "--bs-danger-text-emphasis",
+          "--bs-light-text-emphasis", "--bs-dark-text-emphasis"
+        ]
+      },
+      {
+        label: "Subtle backgrounds",
+        vars: [
+          "--bs-primary-bg-subtle", "--bs-secondary-bg-subtle", "--bs-success-bg-subtle",
+          "--bs-info-bg-subtle", "--bs-warning-bg-subtle", "--bs-danger-bg-subtle",
+          "--bs-light-bg-subtle", "--bs-dark-bg-subtle"
+        ]
+      },
+      {
+        label: "Subtle borders",
+        vars: [
+          "--bs-primary-border-subtle", "--bs-secondary-border-subtle", "--bs-success-border-subtle",
+          "--bs-info-border-subtle", "--bs-warning-border-subtle", "--bs-danger-border-subtle",
+          "--bs-light-border-subtle", "--bs-dark-border-subtle"
+        ]
+      },
+      {
+        label: "Links & text",
+        vars: [
+          "--bs-heading-color", "--bs-link-color", "--bs-link-hover-color",
+          "--bs-link-color-rgb", "--bs-link-hover-color-rgb",
+          "--bs-code-color", "--bs-highlight-color", "--bs-highlight-bg"
+        ]
+      },
+      {
+        label: "Borders",
+        vars: [
+          "--bs-border-color", "--bs-border-color-translucent", "--bs-focus-ring-color"
+        ]
+      },
+      {
+        label: "Form validation",
+        vars: [
+          "--bs-form-valid-color", "--bs-form-valid-border-color",
+          "--bs-form-invalid-color", "--bs-form-invalid-border-color"
+        ]
+      },
+      {
+        label: "Gradient",
+        vars: ["--bs-gradient"]
+      }
+    ];
+
+    // ---- Theme colours ----
+    sections.push({
+      id: "theme-colours",
+      name: "Theme Colours",
+      tag: "CSS variables",
+      desc: "Every Bootstrap colour variable (the <code>:root</code> / <code>[data-bs-theme]</code> blocks) as a swatch, grouped into rows. Each swatch reads its CSS variable live, so the colours update when you change the theme.",
+      html: () => `
+        <div class="sb-canvas" style="flex-direction:column;width:100%">
+          ${THEME_COLOR_GROUPS.map((group) => `
+            <div class="sb-swatch-group">
+              <div class="sb-swatch-group-label">${group.label}</div>
+              <div class="sb-swatches">${group.vars.map((name) => {
+                const bg = /-rgb$/.test(name) ? `rgb(var(${name}))` : `var(${name})`;
+                return `<div class="sb-swatch"><div class="sb-swatch-color" style="background:${bg}"></div><div class="sb-swatch-name">${name}</div></div>`;
+              }).join("")}</div>
+            </div>`).join("")}
+        </div>
+      `,
+      init: () => {}
+    });
 
     // ---- smd-button ----
     sections.push({
