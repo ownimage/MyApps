@@ -25,14 +25,11 @@
     min-width: 0;
   }
   .thumb {
-    width: 44px;
-    height: 44px;
     flex-shrink: 0;
     display: flex;
     align-items: center;
     justify-content: center;
   }
-  .thumb smd-image { width: 100%; height: 100%; }
   .editor-title {
     font-weight: 700;
     flex: 1;

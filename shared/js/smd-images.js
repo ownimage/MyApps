@@ -799,8 +799,8 @@ function renderImagePicker() {
   filtered.forEach(img => {
     const item = document.createElement("div");
     item.className = "image-picker-item text-center";
-    item.style.cssText = "width:95px;cursor:pointer;border:2px solid transparent;border-radius:8px;padding:6px;transition:border-color 0.15s";
-    item.innerHTML = `<smd-image key-prefix="${SmdConfig.storagePrefix}" image="${escapeHtml(img.name)}" title="${escapeHtml(img.name)}" size="64"></smd-image><div style="font-size:0.75rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:4px">${escapeHtml(img.name)}</div>`;
+    item.style.cssText = "min-width:95px;cursor:pointer;border:2px solid transparent;border-radius:8px;padding:6px;transition:border-color 0.15s";
+    item.innerHTML = `<smd-image key-prefix="${SmdConfig.storagePrefix}" image="${escapeHtml(img.name)}" title="${escapeHtml(img.name)}"></smd-image><div style="font-size:0.75rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:4px">${escapeHtml(img.name)}</div>`;
     item.onclick = () => { selectImagePickerItem(img.name); };
     item.onmouseenter = () => { item.style.borderColor = "var(--bs-primary)"; };
     item.onmouseleave = () => { item.style.borderColor = "transparent"; };

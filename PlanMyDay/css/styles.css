@@ -1,6 +1,6 @@
 /* App-specific styles for PlanMyDay (shared/smd styles live in shared/css/styles.css) */
 
-/* IMAGES */
+/* IMAGES (legacy `.countdown-img`/`.date-img`; images now render via <smd-image>) */
 .countdown-img,
 .date-img {
   width: 100px;
@@ -13,22 +13,6 @@
     width: 64px;
     height: 64px;
   }
-}
-
-body.icon-size-small .countdown-img,
-body.icon-size-small .date-img {
-  width: 64px !important;
-  height: 64px !important;
-}
-body.icon-size-medium .countdown-img,
-body.icon-size-medium .date-img {
-  width: 80px !important;
-  height: 80px !important;
-}
-body.icon-size-large .countdown-img,
-body.icon-size-large .date-img {
-  width: 100px !important;
-  height: 100px !important;
 }
 
 body.compact .countdown-card {

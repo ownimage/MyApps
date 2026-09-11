@@ -125,7 +125,8 @@
     padding-top: 0.75rem;
   }
   .item {
-    width: 95px;
+    width: auto;
+    min-width: 95px;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -144,8 +145,7 @@
     line-height: 1;
     color: var(--bs-body-color, #f8f9fa);
   }
-  .item .thumb { width: 100%; display: flex; align-items: center; justify-content: center; }
-  .item .thumb smd-image { width: 64px; height: 64px; }
+  .item .thumb { display: flex; align-items: center; justify-content: center; }
   .item .label {
     font-size: 0.75rem;
     overflow: hidden;
@@ -272,7 +272,7 @@
         filtered.forEach((img) => {
           const el = document.createElement("div");
           el.className = "item";
-          el.innerHTML = '<div class="thumb"><smd-image key-prefix="' + escapeHtml(this.keyPrefix) + '" image="' + escapeHtml(img.name) + '" size="64"></smd-image></div><div class="label">' + escapeHtml(img.name) + "</div>";
+          el.innerHTML = '<div class="thumb"><smd-image key-prefix="' + escapeHtml(this.keyPrefix) + '" image="' + escapeHtml(img.name) + '"></smd-image></div><div class="label">' + escapeHtml(img.name) + "</div>";
           el.addEventListener("click", () => this._select(img.name));
           grid.appendChild(el);
         });

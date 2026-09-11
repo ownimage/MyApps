@@ -22,8 +22,7 @@
     background-color: transparent;
   }
   .thumb {
-    width: var(--thumb-size, 45px);
-    height: var(--thumb-size, 45px);
+    position: relative;
     flex-shrink: 0;
     display: flex;
     align-items: center;
@@ -32,8 +31,12 @@
     border-radius: 6px;
     overflow: hidden;
   }
-  .thumb smd-image { width: 100%; height: 100%; }
   .thumb .placeholder {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     font-size: 0.65rem;
     color: var(--bs-secondary-color, #aaa);
   }
@@ -101,11 +104,11 @@
 
       const sImg = root.querySelector(".thumb smd-image");
       sImg.setAttribute("key-prefix", this.keyPrefix);
+      // Keep the <smd-image> mounted even with no image so it reserves the
+      // configured image size; the placeholder is overlaid on top.
       if (name) {
-        sImg.hidden = false;
         sImg.setAttribute("image", name);
       } else {
-        sImg.hidden = true;
         sImg.removeAttribute("image");
       }
 
