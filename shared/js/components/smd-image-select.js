@@ -17,6 +17,9 @@
     align-items: center;
     gap: 0.5rem;
     min-width: 0;
+    /* Transparent so it shows the surface it sits on: the smd-page body colour
+       on a page, or the card background when placed on a card. */
+    background-color: transparent;
   }
   .thumb {
     width: var(--thumb-size, 45px);

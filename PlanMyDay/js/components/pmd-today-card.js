@@ -36,7 +36,7 @@ const pmdTodayCardSheet = SmdStyles.sheetFor(`
     position: relative;
     min-width: 0;
     word-wrap: break-word;
-    background-color: var(--bs-body-bg, #303030);
+    background-color: var(--bs-dark-border-subtle, #303030);
     border: 1px solid var(--bs-border-color, #495057);
     border-radius: 0.375rem;
     padding: 0.5rem 0.75rem;

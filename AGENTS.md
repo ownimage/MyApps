@@ -81,6 +81,12 @@ Techniques / gotchas:
 - Checkbox visibility fix: the unchecked fill is `--bs-secondary-bg` with a
   `--bs-secondary-color` border (was body-bg/border-color, which vanished on
   light + dark surfaces). `BUILD_NUMBER` → `202609101400`.
+- Card surfaces now use `background-color: var(--bs-dark-border-subtle)`:
+  `smd-image-card` (inner `.card`), `pmd-job-search-card`, `pmd-stream-job-card`,
+  `pmd-today-card` (hosts). `smd-image-select` is transparent so it shows the
+  surface it sits on (body colour on an smd-page, card colour on a card).
+  `pmd-stream-header` keeps its collapsed `--smd-secondary` / expanded `--bs-info`
+  colours.
 
 ### 2026-09-10 (4)
 - Today-list cards are now a PlanMyDay component: `PlanMyDay/js/components/pmd-today-card.js`
