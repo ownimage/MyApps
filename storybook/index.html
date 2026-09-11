@@ -219,12 +219,14 @@
   <script src="../shared/js/components/smd-qrcode.js"></script>
   <script src="../shared/js/components/smd-buymeacoffee.js"></script>
   <script src="../shared/js/components/smd-fontawesome-credit.js"></script>
-  <script src="../shared/js/components/smd-image.js"></script>
   <script src="../shared/js/components/smd-image-card.js"></script>
   <script src="../shared/js/components/smd-image-select.js"></script>
+  <script src="../shared/js/components/smd-theme.js"></script>
+  <script src="../shared/js/components/smd-image-picker.js"></script>
   <script src="../PlanMyDay/js/components/pmd-stream-header.js"></script>
   <script src="../PlanMyDay/js/components/pmd-stream-job-card.js"></script>
   <script src="../PlanMyDay/js/components/pmd-job-search-card.js"></script>
+  <script src="../PlanMyDay/js/components/pmd-today-card.js"></script>
   <script src="../shared/vendor/qrcode.min.js"></script>
   <script src="../shared/js/build-number.js"></script>
   <script src="../shared/js/smd-app.js"></script>
@@ -291,6 +293,8 @@
     sbSeed("sbc_", SB_PMD_PAIRS); // pmd-stream-job-card
     sbSeed("sbj_", SB_PMD_PAIRS); // pmd-job-search-card
     sbSeed("sbp_", SB_PMD_PAIRS); // pmd-stream (combined)
+    sbSeed("sbt_", SB_PMD_PAIRS); // pmd-today-card
+    sbSeed("sbip_", SB_PMD_PAIRS); // smd-image-picker
 
     function log(section, msg) {
       const el = document.getElementById("log-" + section);
@@ -676,6 +680,49 @@
       }
     });
 
+    // ---- pmd-today-card ----
+    sections.push({
+      id: "pmd-today-card",
+      name: "pmd-today-card",
+      tag: "<pmd-today-card>",
+      desc: "A single job row on the Today list. Attributes: <code>job-id</code>, <code>stream-idx</code>, <code>job-idx</code>, <code>title</code>, <code>suffix</code>, <code>daily</code>, <code>done</code>, <code>checked</code>, <code>stream-image</code>, <code>job-image</code>, <code>stream-title</code>, <code>tab</code>, <code>description</code>, <code>key-prefix</code>. Dispatches <code>pmd-today-toggle</code> ({ jobId, checked }) and <code>pmd-today-view</code> ({ streamIdx, jobIdx }). A <code>&lt;div class=\"drag-handle\" slot=\"drag-handle\"&gt;</code> can be slotted in; otherwise the built-in handle is shown.",
+      html: () => `
+        <div class="sb-canvas" style="flex-direction:column;width:100%">
+          <div id="sb-today-cards" style="width:100%"></div>
+        </div>
+        <div class="sb-controls">
+          <label><input type="checkbox" id="ctrl-today-daily" checked> daily (repeat icon)</label>
+          <label><input type="checkbox" id="ctrl-today-done"> done</label>
+          <label><input type="checkbox" id="ctrl-today-handle" checked> slot drag handle</label>
+        </div>
+        <div class="sb-log" id="log-pmd-today-card">events: none yet</div>
+      `,
+      init: () => {
+        const render = () => {
+          const daily = document.getElementById("ctrl-today-daily").checked;
+          const done = document.getElementById("ctrl-today-done").checked;
+          const slotHandle = document.getElementById("ctrl-today-handle").checked;
+          const hostEl = document.getElementById("sb-today-cards");
+          const handle = '<div class="drag-handle" slot="drag-handle" title="drag">&#9776;</div>';
+          hostEl.innerHTML = `
+            <pmd-today-card job-id="sb1" stream-idx="0" job-idx="0" title="Report" suffix="(12)" stream-title="Work" tab="progress" description="Weekly report with metrics" stream-image="Blue" job-image="Green" key-prefix="sbt_" ${daily ? "daily" : ""} ${done ? "done" : ""}>
+              ${slotHandle ? handle : ""}
+            </pmd-today-card>
+            <pmd-today-card job-id="sb2" stream-idx="1" job-idx="0" title="Mow the lawn" stream-title="Home" tab="maintenance" key-prefix="sbt_" ${daily ? "daily" : ""} ${done ? "done" : ""}>
+              ${slotHandle ? handle : ""}
+            </pmd-today-card>`;
+          hostEl.querySelectorAll("pmd-today-card").forEach((card) => {
+            card.addEventListener("pmd-today-toggle", (e) => log("pmd-today-card", "toggle job=" + e.detail.jobId + " checked=" + e.detail.checked));
+            card.addEventListener("pmd-today-view", (e) => log("pmd-today-card", "view stream=" + e.detail.streamIdx + " job=" + e.detail.jobIdx));
+          });
+        };
+        render();
+        document.getElementById("ctrl-today-daily").addEventListener("change", render);
+        document.getElementById("ctrl-today-done").addEventListener("change", render);
+        document.getElementById("ctrl-today-handle").addEventListener("change", render);
+      }
+    });
+
     // ---- smd-image-card ----
     sections.push({
       id: "smd-image-card",
@@ -757,6 +804,54 @@
         };
         render();
         document.getElementById("ctrl-image-select-disabled").addEventListener("change", render);
+      }
+    });
+
+    // ---- smd-theme ----
+    sections.push({
+      id: "smd-theme",
+      name: "smd-theme",
+      tag: "<smd-theme>",
+      desc: "Theme selector. Renders a <code>&lt;select&gt;</code> of every theme from the shared <code>themeConfig</code>; the current value is the <code>theme</code> attribute. Dispatches <code>smd-theme-change</code> ({ theme }); it does not apply the theme itself (the host app calls applyTheme()).",
+      html: () => `
+        <div class="sb-canvas">
+          <div style="min-width:240px"><smd-theme id="sb-theme"></smd-theme></div>
+        </div>
+        <div class="sb-log" id="log-smd-theme">events: none</div>
+      `,
+      init: () => {
+        const el = document.getElementById("sb-theme");
+        el.theme = themeSelect.value;
+        el.addEventListener("smd-theme-change", (e) => log("smd-theme", "theme=" + e.detail.theme));
+      }
+    });
+
+    // ---- smd-image-picker ----
+    sections.push({
+      id: "smd-image-picker",
+      name: "smd-image-picker",
+      tag: "<smd-image-picker>",
+      desc: "Self-contained image + icon picker. Shows the app's localStorage images (list key = <code>key-prefix + \"images\"</code>) plus Bootstrap / Font Awesome / FA Brands icon tabs. Attributes: <code>key-prefix</code>, <code>searchable</code>. Dispatches <code>smd-image-picker-select</code> ({ name }) and <code>smd-image-picker-close</code>.",
+      html: () => `
+        <div class="sb-canvas" style="flex-direction:column;width:100%">
+          <div style="width:100%"><smd-image-picker id="sb-picker" key-prefix="sbip_"></smd-image-picker></div>
+        </div>
+        <div class="sb-controls">
+          <label><input type="checkbox" id="ctrl-picker-searchable" checked> Searchable</label>
+          <label>Picked: <span id="sb-picker-result" class="sb-placeholder">none</span></label>
+        </div>
+        <div class="sb-log" id="log-smd-image-picker">events: none yet</div>
+      `,
+      init: () => {
+        const picker = document.getElementById("sb-picker");
+        picker.addEventListener("smd-image-picker-select", (e) => {
+          document.getElementById("sb-picker-result").textContent = e.detail.name;
+          log("smd-image-picker", "select \"" + e.detail.name + "\"");
+        });
+        picker.addEventListener("smd-image-picker-close", () => log("smd-image-picker", "close"));
+        document.getElementById("ctrl-picker-searchable").addEventListener("change", (e) => {
+          picker.setAttribute("searchable", e.target.checked ? "true" : "false");
+        });
       }
     });
 

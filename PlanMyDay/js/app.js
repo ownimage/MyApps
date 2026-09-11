@@ -243,90 +243,79 @@ function renderMain() {
     const jobImageName = job.image || "";
     const suffixLabel = getJobSuffix(job);
     const scheduleType = job.schedule && job.schedule.type ? job.schedule.type : "daily";
-    const card = document.createElement("div");
-    card.className = `card countdown-card mb-2 today-drag-card ${isDone ? "opacity-50" : ""}`;
+    const card = document.createElement("pmd-today-card");
+    card.className = "today-drag-card";
     card.dataset.jobId = job.id;
     card.dataset.streamIdx = streamIdx;
+    card.setAttribute("job-id", job.id);
+    card.setAttribute("stream-idx", streamIdx);
+    card.setAttribute("job-idx", jobIdx);
+    card.setAttribute("title", job.title || "");
+    if (suffixLabel) card.setAttribute("suffix", suffixLabel.trim());
+    if (scheduleType === "daily") card.setAttribute("daily", "");
+    if (isDone) card.setAttribute("done", "");
+    card.setAttribute("checked", isDone ? "true" : "false");
+    if (streamImageName) card.setAttribute("stream-image", streamImageName);
+    if (jobImageName) card.setAttribute("job-image", jobImageName);
+    card.setAttribute("stream-title", streamTitle || "");
+    card.setAttribute("tab", stream.tab || "progress");
+    if (job.description) card.setAttribute("description", job.description);
+    card.setAttribute("key-prefix", "planmydays_");
+    const handle = document.createElement("div");
+    handle.className = "drag-handle";
+    handle.setAttribute("slot", "drag-handle");
+    handle.setAttribute("title", "drag");
+    handle.innerHTML = "&#9776;";
+    card.appendChild(handle);
     if (matchingStreams && !matchingStreams.has(streamIdx)) card.hidden = true;
-    card.innerHTML = `
-      <div class="row align-items-center">
-        <div class="col-auto d-flex align-items-center">
-          <div class="drag-handle" style="cursor:grab;line-height:1;display:flex;align-items:center">&#9776;</div>
-          <div class="d-flex flex-column align-items-center ms-1 pe-0">
-            <div class="form-check mb-0 d-flex align-items-center" style="min-height:0;padding-left:0">
-              <input class="form-check-input job-checkbox m-0 position-static" type="checkbox" data-job-id="${escapeHtml(job.id)}" ${isDone ? "checked" : ""}>
-            </div>
-            ${scheduleType === "daily" ? `<i class="bi bi-repeat-1 daily-repeat-icon" title="Every day"></i>` : ""}
-          </div>
-        </div>
-        <div class="col-auto d-flex align-items-center gap-1 px-0" style="min-width:68px">
-          <div style="width:32px;height:32px;display:flex;align-items:center;justify-content:center">${streamImageName ? `<smd-image key-prefix="planmydays_" image="${escapeHtml(streamImageName)}" size="32"></smd-image>` : ""}</div>
-          <div style="width:32px;height:32px;display:flex;align-items:center;justify-content:center">${jobImageName ? `<smd-image key-prefix="planmydays_" image="${escapeHtml(jobImageName)}" size="32"></smd-image>` : ""}</div>
-        </div>
-        <div class="col" style="min-width:0">
-          <div class="d-flex align-items-center gap-2 mb-1">
-            <h4 class="mb-0" style="${isDone ? 'text-decoration:line-through' : ''}">${escapeHtml(job.title)}${suffixLabel ? ` <span class="badge bg-secondary">${escapeHtml(suffixLabel.trim())}</span>` : ""}</h4>
-          </div>
-          <div class="d-flex justify-content-between align-items-center position-relative">
-            <span class="small">${escapeHtml(streamTitle)}</span>
-            <button class="btn btn-primary position-absolute start-50 translate-middle-x job-view-btn" onclick="viewJobReadOnly(${streamIdx}, ${jobIdx})" title="View job" style="padding:0.35em 0.65em;font-size:0.75em;line-height:1;font-weight:700">View</button>
-            <span class="badge rounded-pill bg-${(stream.tab || "progress") === "progress" ? "success" : "info"}">${escapeHtml(stream.tab || "progress")}</span>
-          </div>
-          ${job.description ? `<div class="mt-1 text-secondary small">${escapeHtml(job.description)}</div>` : ""}
-        </div>
-      </div>
-    `;
     cardContainer.appendChild(card);
   });
 
   scrollBody.appendChild(cardContainer);
 
-  // checkbox change handler
-  container.querySelectorAll(".job-checkbox").forEach(cb => {
-    cb.addEventListener("change", function() {
-      const jobId = this.dataset.jobId;
-      const card = this.closest(".today-drag-card");
-      if (this.checked) {
-        const streamIdx = card ? parseInt(card.dataset.streamIdx) : -1;
-        const streams = loadStreams();
-        const stream = streams[streamIdx];
-        if (stream && stream.title === "Ad Hoc") {
-          const skipConfirm = localStorage.getItem(smdKey("skipAdhocConfirm")) === "true";
-          if (!skipConfirm) {
-            const job = (stream.jobs || []).find(j => j.id === jobId);
-            const cbRef = this;
-            showSmdModal({
-              title: "Remove from Ad Hoc?",
-              content: `Remove "<strong>${escapeHtml(job?.title || jobId)}</strong>" from Ad Hoc?`,
-              buttons: [
-                { text: "Cancel", variant: "secondary", action: "cancel" },
-                { text: "Remove", variant: "danger", action: "remove" }
-              ],
-              onAction: (detail) => {
-                if (detail.action === "remove") removeAdhocJob(streamIdx, jobId, cbRef);
-                else cbRef.checked = false;
-              }
-            });
-            return;
-          }
-          removeAdhocJob(streamIdx, jobId, this);
-        } else {
-          markJobDone(jobId, this);
+  // checkbox + view handlers (composed events emitted by pmd-today-card)
+  cardContainer.addEventListener("pmd-today-toggle", (e) => {
+    const jobId = e.detail.jobId;
+    const card = e.target;
+    if (e.detail.checked) {
+      const streamIdx = card ? parseInt(card.dataset.streamIdx) : -1;
+      const streams = loadStreams();
+      const stream = streams[streamIdx];
+      if (stream && stream.title === "Ad Hoc") {
+        const skipConfirm = localStorage.getItem(smdKey("skipAdhocConfirm")) === "true";
+        if (!skipConfirm) {
+          const job = (stream.jobs || []).find(j => j.id === jobId);
+          showSmdModal({
+            title: "Remove from Ad Hoc?",
+            content: `Remove "<strong>${escapeHtml(job?.title || jobId)}</strong>" from Ad Hoc?`,
+            buttons: [
+              { text: "Cancel", variant: "secondary", action: "cancel" },
+              { text: "Remove", variant: "danger", action: "remove" }
+            ],
+            onAction: (detail) => {
+              if (detail.action === "remove") removeAdhocJob(streamIdx, jobId, card);
+              else if (card) card.checked = false;
+            }
+          });
+          return;
         }
+        removeAdhocJob(streamIdx, jobId, card);
       } else {
-        let completed = loadCompletedJobs();
-        completed = completed.filter(id => id !== jobId);
-        saveCompletedJobs(completed);
-        if (card) {
-          card.classList.toggle("opacity-50", false);
-          const titleEl = card.querySelector("h4");
-          if (titleEl) titleEl.style.textDecoration = "none";
-        }
+        markJobDone(jobId, card);
       }
-    });
+    } else {
+      let completed = loadCompletedJobs();
+      completed = completed.filter(id => id !== jobId);
+      saveCompletedJobs(completed);
+      if (card) card.removeAttribute("done");
+    }
   });
 
-function removeAdhocJob(streamIdx, jobId, cbRef) {
+  cardContainer.addEventListener("pmd-today-view", (e) => {
+    viewJobReadOnly(e.detail.streamIdx, e.detail.jobIdx);
+  });
+
+function removeAdhocJob(streamIdx, jobId, card) {
   const streams = loadStreams();
   const stream = streams[streamIdx];
   if (stream) {
@@ -336,20 +325,15 @@ function removeAdhocJob(streamIdx, jobId, cbRef) {
     stream.jobs = jobs;
     saveStreams(streams);
   }
-  markJobDone(jobId, cbRef);
+  markJobDone(jobId, card);
   renderMain();
 }
 
-function markJobDone(jobId, cbRef) {
+function markJobDone(jobId, card) {
   let completed = loadCompletedJobs();
   if (!completed.includes(jobId)) completed.push(jobId);
   saveCompletedJobs(completed);
-  const card = cbRef.closest(".today-drag-card");
-  if (card) {
-    card.classList.toggle("opacity-50", true);
-    const titleEl = card.querySelector("h4");
-    if (titleEl) titleEl.style.textDecoration = "line-through";
-  }
+  if (card) card.setAttribute("done", "");
 }
 
   updateNavState();
