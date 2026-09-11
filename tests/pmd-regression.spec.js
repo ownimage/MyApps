@@ -216,7 +216,7 @@ test.describe("PlanMyDay - Regression", () => {
     test("view button renders regardless of badge text", async ({ page }) => {
       await seedTodayList(page);
       await page.reload();
-      const cards = page.locator("#todayCardList .card");
+      const cards = page.locator("#todayCardList .today-drag-card");
       const cardCount = await cards.count();
       for (let i = 0; i < cardCount; i++) {
         const btn = cards.nth(i).locator(".job-view-btn");
@@ -1843,12 +1843,13 @@ test.describe("PlanMyDay - Regression", () => {
       }, { streams, ds: todayStr });
       await page.reload();
       await page.locator("#todayCardList smd-image[image='bi:house']").waitFor({ state: "attached" });
-      await page.waitForFunction(() => {
-        const el = document.querySelector("#todayCardList smd-image[image='bi:house']");
-        if (!el || !el.shadowRoot) return false;
-        const span = el.shadowRoot.querySelector(".smd-bi");
-        return span && !span.hidden;
-      }, null, { timeout: 10000 });
+      await expect.poll(() =>
+        page.locator("#todayCardList smd-image[image='bi:house']").evaluate((el) => {
+          if (!el.shadowRoot) return false;
+          const span = el.shadowRoot.querySelector(".smd-bi");
+          return !!span && !span.hidden;
+        })
+      , { timeout: 10000 }).toBe(true);
       const glyphInfo = await page.locator("#todayCardList smd-image[image='bi:house']").evaluate((el) => {
         const span = el.shadowRoot.querySelector(".smd-bi");
         return { glyph: span.textContent, fontFamily: getComputedStyle(span).fontFamily };
@@ -1988,9 +1989,9 @@ test.describe("PlanMyDay - Regression", () => {
       await page.locator("#jobEditOkBtn").click();
       
       await page.locator("#jobEditPage").waitFor({ state: "hidden", timeout: 10000 });
-      await page.evaluate(() => {
-        const cb = document.querySelector('.job-checkbox');
-        if (cb) { cb.checked = true; cb.dispatchEvent(new Event('change', { bubbles: true })); }
+      await page.locator('.job-checkbox').first().evaluate((cb) => {
+        cb.checked = true;
+        cb.dispatchEvent(new Event('change', { bubbles: true }));
       });
       await expect(page.locator("#smdConfirmModal")).toBeVisible();
     });
@@ -2006,9 +2007,9 @@ test.describe("PlanMyDay - Regression", () => {
       await page.locator("#jobEditPage").waitFor({ state: "hidden", timeout: 10000 });
       await expect(page.getByText("SkipMe")).toBeVisible();
       await page.waitForSelector('.job-checkbox');
-      await page.evaluate(() => {
-        const cb = document.querySelector('.job-checkbox');
-        if (cb) { cb.checked = true; cb.dispatchEvent(new Event('change', { bubbles: true })); }
+      await page.locator('.job-checkbox').first().evaluate((cb) => {
+        cb.checked = true;
+        cb.dispatchEvent(new Event('change', { bubbles: true }));
       });
       await page.waitForTimeout(250);
       await expect(page.locator("#smdConfirmModal")).not.toBeVisible();
@@ -2048,11 +2049,11 @@ test.describe("PlanMyDay - Regression", () => {
 
       const dailyCard = page.locator('#todayCardList .today-drag-card[data-job-id="job_daily"]');
       await expect(dailyCard).toBeVisible();
-      await expect(dailyCard.locator(".daily-repeat-icon")).toHaveCount(1);
+      await expect(dailyCard.locator(".daily-repeat-icon")).toBeVisible();
 
       const daysCard = page.locator('#todayCardList .today-drag-card[data-job-id="job_days"]');
       await expect(daysCard).toBeVisible();
-      await expect(daysCard.locator(".daily-repeat-icon")).toHaveCount(0);
+      await expect(daysCard.locator(".daily-repeat-icon")).toBeHidden();
     });
   });
 
@@ -2063,7 +2064,7 @@ test.describe("PlanMyDay - Regression", () => {
     async function dragFirstCardToBottom(page) {
       const first = page.locator("#todayCardList .today-drag-card").first();
       await expect(first).toHaveAttribute("data-job-id", "job_1");
-      const handle = first.locator(".drag-handle");
+      const handle = first.locator(".drag-handle").first();
       const handleBox = await handle.boundingBox();
       const lastBox = await page.locator("#todayCardList .today-drag-card").last().boundingBox();
       await page.mouse.move(handleBox.x + handleBox.width / 2, handleBox.y + handleBox.height / 2);
@@ -4847,8 +4848,9 @@ test.describe("PlanMyDay - Regression", () => {
         localStorage.setItem("planmydays_completed", "[]");
       }, { svgData: svg, streams: TEST_STREAMS, ds: todayStr });
       await page.reload();
-      await expect(page.locator("#todayCardList smd-image").first().locator("img")).toBeVisible();
-      const count = await page.locator("#todayCardList smd-image").count();
+      await expect(page.locator("#todayCardList .stream-thumb smd-image img")).toBeVisible();
+      await expect(page.locator("#todayCardList .job-thumb smd-image img")).toBeVisible();
+      const count = await page.locator("#todayCardList .thumb smd-image").count();
       expect(count).toBeGreaterThanOrEqual(2);
     });
 

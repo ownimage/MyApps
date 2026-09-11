@@ -211,7 +211,8 @@ const APPS = {
     "PlanMyDay/js/app.js",
     "PlanMyDay/js/components/pmd-stream-header.js",
     "PlanMyDay/js/components/pmd-stream-job-card.js",
-    "PlanMyDay/js/components/pmd-job-search-card.js"
+    "PlanMyDay/js/components/pmd-job-search-card.js",
+    "PlanMyDay/js/components/pmd-today-card.js"
   ]
 };
 
