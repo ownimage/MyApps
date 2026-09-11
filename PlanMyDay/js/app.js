@@ -1001,72 +1001,23 @@ function updateJobImagePreview(name) {
     else removeBtn.classList.add("d-none");
   }
 }
+// The stream dropdown is the <pmd-stream-select> component: the app only feeds
+// it the streams + selected index and reacts to pmd-stream-select-change.
+function initJobStreamSelect() {
+  const sel = $id("jobStreamDropdown");
+  if (!sel) return;
+  sel.streams = loadStreams().map(function(s) {
+    return { title: s.title || "", image: s.image || "" };
+  });
+  sel.selected = jobsTargetStreamIndex >= 0 ? jobsTargetStreamIndex : jobsStreamIndex;
+}
 function updateJobStreamPreview() {
-  var streams = loadStreams();
-  var stream = streams[jobsTargetStreamIndex >= 0 ? jobsTargetStreamIndex : jobsStreamIndex];
-  var sName = (stream && stream.image) ? stream.image : "";
-  var btnIcon = $id("jobStreamBtnIcon");
-  if (btnIcon) {
-    var sim = btnIcon.querySelector("smd-image");
-    if (sim) {
-      if (sName) sim.setAttribute("image", sName);
-      else sim.removeAttribute("image");
-    }
-  }
-  var btnText = $id("jobStreamBtnText");
-  if (btnText) {
-    btnText.textContent = stream ? stream.title : "";
-  }
-  var menu = $id("jobStreamDropdownMenu");
-  if (menu) {
-    var items = menu.querySelectorAll(".dropdown-item");
-    var targetIdx = jobsTargetStreamIndex >= 0 ? jobsTargetStreamIndex : jobsStreamIndex;
-    items.forEach(function(item) {
-      if (parseInt(item.getAttribute("data-stream-idx")) === targetIdx) {
-        item.classList.add("active");
-      } else {
-        item.classList.remove("active");
-      }
-    });
-  }
+  const sel = $id("jobStreamDropdown");
+  if (sel) sel.selected = jobsTargetStreamIndex >= 0 ? jobsTargetStreamIndex : jobsStreamIndex;
 }
 function jobChangeStream(newIdx) {
   jobsTargetStreamIndex = newIdx;
   updateJobStreamPreview();
-  closeJobStreamMenu();
-}
-
-function initJobStreamDropdown() {
-  const btn = $id("jobStreamDropdownBtn");
-  if (!btn || btn._smdDropdownBound) return;
-  btn._smdDropdownBound = true;
-  btn.addEventListener("click", function(e) {
-    e.preventDefault();
-    e.stopPropagation();
-    const open = toggleJobStreamMenu();
-    document.addEventListener("click", function onDoc(e2) {
-      document.removeEventListener("click", onDoc);
-      if (!open) return;
-      const menu = $id("jobStreamDropdownMenu");
-      const btnEl = $id("jobStreamDropdownBtn");
-      if (!menu || !btnEl) return;
-      if (menu.contains(e2.target) || btnEl.contains(e2.target)) return;
-      menu.classList.remove("show");
-    });
-  });
-}
-
-function toggleJobStreamMenu() {
-  const menu = $id("jobStreamDropdownMenu");
-  if (!menu) return false;
-  const willOpen = !menu.classList.contains("show");
-  menu.classList.toggle("show", willOpen);
-  return willOpen;
-}
-
-function closeJobStreamMenu() {
-  const menu = $id("jobStreamDropdownMenu");
-  if (menu) menu.classList.remove("show");
 }
 
 function editStream(index) {
@@ -1603,34 +1554,13 @@ function getJobEditSections(data, readOnly) {
 }
 
 function getJobGeneralTabHTML(data, readOnly) {
-  const streams = loadStreams();
-  const currentStream = streams[jobsTargetStreamIndex >= 0 ? jobsTargetStreamIndex : jobsStreamIndex] || {};
   const disabled = readOnly ? "disabled" : "";
   return `
     <div class="row mb-2 mt-2">
       <div class="col-6 d-flex flex-column" style="min-height:61px">
         <label class="form-label mb-0">Stream</label>
-        <div class="dropdown mt-1" id="jobStreamDropdown" style="flex-grow:1">
-          <button class="btn btn-outline-secondary dropdown-toggle w-100 d-flex align-items-center gap-2 h-100" type="button" id="jobStreamDropdownBtn" ${disabled} style="text-align:left">
-            <span id="jobStreamBtnIcon" style="width:45px;height:45px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden;border:1px solid var(--bs-border-color);border-radius:6px">
-              <smd-image key-prefix="planmydays_" image="${escapeHtml(currentStream.image || "")}" style="width:100%;height:100%"></smd-image>
-            </span>
-            <span id="jobStreamBtnText" class="flex-grow-1">${escapeHtml(currentStream.title || "")}</span>
-          </button>
-          <ul class="dropdown-menu w-100" id="jobStreamDropdownMenu">
-            ${streams.map((s, i) => {
-              return `
-                <li>
-                  <a class="dropdown-item d-flex align-items-center gap-2 ${i === (jobsTargetStreamIndex >= 0 ? jobsTargetStreamIndex : jobsStreamIndex) ? "active" : ""}" href="#" data-stream-idx="${i}" onclick="event.preventDefault();jobChangeStream(${i})">
-                    <span style="width:45px;height:45px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden;border:1px solid var(--bs-border-color);border-radius:6px">
-                      <smd-image key-prefix="planmydays_" image="${escapeHtml(s.image || "")}" style="width:100%;height:100%"></smd-image>
-                    </span>
-                    ${escapeHtml(s.title)}
-                  </a>
-                </li>
-              `;
-            }).join("")}
-          </ul>
+        <div class="mt-1" style="flex-grow:1">
+          <pmd-stream-select id="jobStreamDropdown" key-prefix="planmydays_" ${readOnly ? "disabled" : ""}></pmd-stream-select>
         </div>
       </div>
       <div class="col-6 d-flex flex-column" style="min-height:61px">
@@ -1793,7 +1723,7 @@ function buildJobEditPage(readOnly, activeTabIndex) {
     }
   }
   injectJobEditStyles();
-  initJobStreamDropdown();
+  initJobStreamSelect();
   initJobSleepUntilPicker(readOnly);
   if (!readOnly) {
     initJobTasksSortable();
@@ -2780,6 +2710,20 @@ function importData() {
   input.click();
 }
 
+// Display / Image size setting -> the shared <smd-image> render size (px), wired
+// into the component as a VALUE (not a style). Non-SVG images are sourced from
+// the higher-res thumbnail tier (32->data64, 40->data80, 50->data100).
+const PMD_IMAGE_SIZE_PX = { small: 32, medium: 40, large: 50 };
+function pmdImageSize() {
+  const value = localStorage.getItem(smdKey("iconSize")) || "large";
+  return PMD_IMAGE_SIZE_PX[value] || 100;
+}
+function applyImageSize() {
+  if (typeof SmdImage !== "undefined" && SmdImage.setDefaultSize) {
+    SmdImage.setDefaultSize(pmdImageSize());
+  }
+}
+
 document.addEventListener("DOMContentLoaded", () => {
   const settingsPage = document.getElementById("settingsPage");
   if (settingsPage) {
@@ -2800,6 +2744,9 @@ document.addEventListener("DOMContentLoaded", () => {
       } else if (action === "delete") {
         deleteJobFromEdit();
       }
+    });
+    jobEditPage.addEventListener("pmd-stream-select-change", (e) => {
+      jobChangeStream(e.detail.streamIdx);
     });
   }
 
@@ -2885,6 +2832,7 @@ document.addEventListener("DOMContentLoaded", () => {
   applyTheme(savedTheme);
   if (typeof seedSampleImages === "function") seedSampleImages();
 
+  applyImageSize();
   renderMain();
 
   // The settings Display tab uses the shared <smd-theme> component; apply the

@@ -29,14 +29,11 @@ const pmdStreamJobCardSheet = SmdStyles.sheetFor(`
     min-width: 0;
   }
   .thumb {
-    width: 32px;
-    height: 32px;
     flex-shrink: 0;
     display: flex;
     align-items: center;
     justify-content: center;
   }
-  .thumb smd-image { width: 100%; height: 100%; }
   .title {
     font-weight: 700;
     min-width: 0;

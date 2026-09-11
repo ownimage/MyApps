@@ -106,13 +106,10 @@ const pmdTodayCardSheet = SmdStyles.sheetFor(`
     align-self: flex-start;
   }
   .thumb {
-    width: 32px;
-    height: 32px;
     display: flex;
     align-items: center;
     justify-content: center;
   }
-  .thumb smd-image { width: 100%; height: 100%; }
 
   .content-col { flex: 1 1 auto; min-width: 0; }
   .title-row {
@@ -176,8 +173,8 @@ pmdTodayCardTemplate.innerHTML = `
       </div>
     </div>
     <div class="images-col">
-      <div class="thumb stream-thumb"><smd-image key-prefix="planmydays_" size="32"></smd-image></div>
-      <div class="thumb job-thumb"><smd-image key-prefix="planmydays_" size="32"></smd-image></div>
+      <div class="thumb stream-thumb"><smd-image key-prefix="planmydays_"></smd-image></div>
+      <div class="thumb job-thumb"><smd-image key-prefix="planmydays_"></smd-image></div>
     </div>
     <div class="content-col">
       <div class="title-row">

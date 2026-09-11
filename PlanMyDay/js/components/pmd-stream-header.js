@@ -28,15 +28,12 @@ const pmdStreamHeaderSheet = SmdStyles.sheetFor(`
   }
   .drag-handle:active { cursor: grabbing; }
   .thumb {
-    width: 40px;
-    height: 40px;
     flex-shrink: 0;
     margin: 0 0.5rem;
     display: flex;
     align-items: center;
     justify-content: center;
   }
-  .thumb smd-image { width: 100%; height: 100%; }
   .body {
     display: flex;
     flex-direction: column;

@@ -102,6 +102,9 @@
     return iconDataBySet[set][name] || null;
   }
 
+  // Connected instances, so a global size change can refresh every image.
+  const liveInstances = new Set();
+
   class SmdImage extends HTMLElement {
     static get observedAttributes() {
       return ["image", "key-prefix", "theme", "alt", "size"];
@@ -110,7 +113,7 @@
     constructor() {
       super();
       this.attachShadow({ mode: "open" });
-      SmdStyles.adoptStyles(this.shadowRoot, [
+      this._baseSheets = [
         SmdStyles.hiddenSheet,
         SmdStyles.sheetFor(`
           :host {
@@ -140,7 +143,8 @@
             -moz-osx-font-smoothing: grayscale;
           }
         `)
-      ]);
+      ];
+      this.shadowRoot.adoptedStyleSheets = this._baseSheets.slice();
       this.shadowRoot.innerHTML = '<img alt="">';
     }
 
@@ -154,6 +158,7 @@
     }
 
     connectedCallback() {
+      liveInstances.add(this);
       this._themeObserver = new MutationObserver(() => this._render());
       this._themeObserver.observe(document.documentElement, {
         attributes: true,
@@ -163,6 +168,7 @@
     }
 
     disconnectedCallback() {
+      liveInstances.delete(this);
       if (this._themeObserver) {
         this._themeObserver.disconnect();
         this._themeObserver = null;
@@ -177,10 +183,12 @@
       return (document.documentElement.getAttribute("data-bs-theme") || "dark") === "dark" ? "dark" : "light";
     }
 
-    // Requested render size in px (attr `size`), or 0 when not set.
+    // Requested render size in px. The per-instance `size` attribute wins; when
+    // absent the app-wide default (SmdImage.defaultSize) applies; 0 = unstyled.
     _sizePx() {
       const v = parseInt(this.getAttribute("size"), 10);
-      return isNaN(v) || v <= 0 ? 0 : v;
+      if (!isNaN(v) && v > 0) return v;
+      return SmdImage.defaultSize > 0 ? SmdImage.defaultSize : 0;
     }
 
     _findImage() {
@@ -207,9 +215,12 @@
       const px = this._sizePx();
 
       // Sized renders get a shared, cached `:host` stylesheet (one sheet per px).
-      if (px > 0) {
-        SmdStyles.adoptStyles(this.shadowRoot, SmdStyles.sheetFor(":host { width: " + px + "px; height: " + px + "px; }"));
-      }
+      // Size sheet is kept last and replaced (NOT appended) so changing size
+      // later always wins — adoptStyles dedups and would otherwise leave an
+      // older, lower size sheet after it.
+      const sheets = this._baseSheets.slice();
+      if (px > 0) sheets.push(SmdStyles.sheetFor(":host { width: " + px + "px; height: " + px + "px; }"));
+      this.shadowRoot.adoptedStyleSheets = sheets;
 
       const colon = name.indexOf(":");
       if (colon > 0) {
@@ -231,9 +242,16 @@
       const alt = this.getAttribute("alt") || "";
 
       // Non-SVG images may only carry downscaled thumbnails (data64/80/100) when
-      // the full-size `data` has been stripped for size; prefer the thumbnail for
-      // the requested size, then any larger one.
-      const src = stored ? (stored.data || stored["data" + px] || stored.data100 || stored.data80 || stored.data64) : null;
+      // the full-size `data` has been stripped. The icon-size setting renders at
+      // 32/40/50 but sources the matching higher-res thumbnail (32->64, 40->80,
+      // 50->100), then falls back to any larger one.
+      let src = stored ? stored.data : null;
+      if (stored && !src) {
+        const tiers = [px, px * 2, 100, 80, 64];
+        for (let i = 0; i < tiers.length && !src; i++) {
+          if (tiers[i] > 0) src = stored["data" + tiers[i]] || null;
+        }
+      }
       if (!stored || !src) {
         img.removeAttribute("src");
         img.hidden = true;
@@ -281,7 +299,20 @@
     }
   }
 
+  // App-wide render size used by every <smd-image> without an explicit `size`.
+  // This is a VALUE (px), not a style: components receive it as the image size
+  // so the correct thumbnail (data64/80/100) is chosen too. 64 is a safe base
+  // for consumers that never set one.
+  SmdImage.defaultSize = 64;
+
+  SmdImage.setDefaultSize = function (px) {
+    const v = parseInt(px, 10);
+    SmdImage.defaultSize = isNaN(v) || v <= 0 ? 0 : v;
+    liveInstances.forEach((el) => el.refresh());
+  };
+
   if (!global.customElements.get("smd-image")) {
     global.customElements.define("smd-image", SmdImage);
   }
+  global.SmdImage = SmdImage;
 })(window);

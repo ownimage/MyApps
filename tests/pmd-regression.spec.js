@@ -271,7 +271,32 @@ test.describe("PlanMyDay - Regression", () => {
       await expect(card).toBeVisible();
       const streamThumb = await card.locator(".stream-thumb").boundingBox();
       const jobThumb = await card.locator(".job-thumb").boundingBox();
-      expect(jobThumb.x - streamThumb.x).toBeCloseTo(36, 0);
+      expect(jobThumb.x - streamThumb.x).toBeCloseTo(streamThumb.width + 4, 0);
+    });
+
+    test("icon size setting controls the rendered image size and source thumbnail", async ({ page }) => {
+      const thumb = { name: "stimg", data64: "data:image/png;base64,AAA64", data80: "data:image/png;base64,AAA80", data100: "data:image/png;base64,AAA100" };
+      await page.evaluate(({ data, ds, thumb }) => {
+        const streams = JSON.parse(JSON.stringify(data));
+        streams[0].image = "stimg";
+        localStorage.setItem("planmydays_streams", JSON.stringify(streams));
+        localStorage.setItem("planmydays_images", JSON.stringify([thumb]));
+        localStorage.setItem("planmydays_today_order", JSON.stringify(["job_1", "job_2", "job_3"]));
+        localStorage.setItem("planmydays_last_gen", ds);
+        localStorage.setItem("planmydays_completed", JSON.stringify([]));
+      }, { data: TEST_STREAMS, ds: todayStr, thumb });
+      await page.reload();
+      const info = () => page.locator("#todayCardList pmd-today-card .stream-thumb smd-image").first()
+        .evaluate((el) => ({
+          width: getComputedStyle(el).width,
+          src: el.shadowRoot.querySelector("img").getAttribute("src")
+        }));
+      await page.evaluate(() => changeIconSize("small"));
+      expect(await info()).toEqual({ width: "32px", src: thumb.data64 });
+      await page.evaluate(() => changeIconSize("medium"));
+      expect(await info()).toEqual({ width: "40px", src: thumb.data80 });
+      await page.evaluate(() => changeIconSize("large"));
+      expect(await info()).toEqual({ width: "50px", src: thumb.data100 });
     });
 
     test("job with future sleepUntil is hidden from main screen", async ({ page }) => {
@@ -2796,6 +2821,17 @@ test.describe("PlanMyDay - Regression", () => {
       await expect(items).toHaveCount(2);
       await expect(items.nth(0)).toContainText("Work");
       await expect(items.nth(1)).toContainText("Chores");
+    });
+
+    test("stream selector images follow the icon size setting", async ({ page }) => {
+      await page.locator("#streamEditorList .accordion-body .btn-primary").filter({ hasText: "Edit" }).first().click();
+      await page.locator("#jobEditPage").waitFor({ state: "visible" });
+      const iconWidth = () => page.locator("#jobStreamDropdown #jobStreamBtnIcon smd-image").first()
+        .evaluate((el) => getComputedStyle(el).width);
+      await page.evaluate(() => changeIconSize("small"));
+      expect(await iconWidth()).toBe("32px");
+      await page.evaluate(() => changeIconSize("large"));
+      expect(await iconWidth()).toBe("50px");
     });
 
     test("changing stream and saving moves job to new stream", async ({ page }) => {

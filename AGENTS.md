@@ -66,6 +66,12 @@ Techniques / gotchas:
   `pmd-job-search-card`): the `.thumb` wrappers are ALWAYS rendered (no `hidden`);
   only the inner `smd-image`'s `image` attribute is toggled. Hiding a wrapper lets
   later images slide left, so titles/headings stop lining up across cards.
+- `smd-image` size is a VALUE: `SmdImage.setDefaultSize(px)` (set from the app's
+  image-size setting) is used by every image without an explicit `size` attr, and
+  the component's own `:host` sheet sizes it — never set width/height on the host
+  from outside (outer author styles win over `:host`). Keep the per-size sheet
+  LAST and REPLACE it on re-render: `adoptStyles` dedups by text, so appending a
+  previously-used sheet would leave an older, smaller size winning.
 - To inspect computed styles/DOM, drop a temp `tests/_probe.spec.js` that writes JSON via `require("fs").writeFileSync(path.join(__dirname, "_probe.out.json"), ...)`, run it with `--reporter=line`, `Get-Content` the JSON, then delete both files. (test `console.log` is hidden by the list reporter).
 - **Playwright TRUNCATES large received/expected values in failure output** (`pretty-format` prints `…` and folds long arrays, e.g. a `expect(cachedUrls).toEqual(expect.arrayContaining([...]))` diff shows only the first ~10 cache URLs). There is NO config to raise the limit. When a failure depends on a full array/object (URL lists, cache keys, response lists), DON'T read it from the error message — extend/replace the probe (`_probe.spec.js`) to `writeFileSync` the ENTIRE array and `Get-Content` that file. "The received list is truncated" is always a probe job, never a reason to rerun the test for inspection.
 - `page.evaluate` can't see inside shadow roots: query `document.getElementById("<pageId>").shadowRoot` first (e.g. `#streamsEditor`, `#jobEditPage`, `#smdConfirmModal`). Playwright locators pierce automatically.
@@ -93,17 +99,31 @@ Techniques / gotchas:
   are ALWAYS rendered (toggling only the inner `smd-image` `image`) so the job
   thumbnail keeps its slot when a stream has no image and job images line up
   across cards.
+- Settings/Display/Image size now drives `<smd-image>`: the app sets
+  `SmdImage.setDefaultSize(px)` (a VALUE, not a style) from a small/medium/large
+  mapping of **32/40/50**; every image without an explicit `size` attr renders at
+  it (card thumbs, previews, picker, editor). `_sizePx()` = `size` attr >
+  `defaultSize`; a global registry refreshes every mounted image on change, and
+  the size sheet is REPLACED-last (not appended) so a later size always wins
+  (`adoptStyles` dedups and would otherwise leave an old smaller sheet last).
+  Non-SVG images source the higher-res thumbnail for the size (32→data64,
+  40→data80, 50→data100; `px` then `px*2` then 100/80/64).
+- Extracted the job-edit stream dropdown into `PlanMyDay/js/components/pmd-stream-select.js`
+  (`<pmd-stream-select>`): button + menu, each entry an `<smd-image>` + title, so
+  the images scale with the setting. App feeds it `streams`/`selected` and
+  listens for `pmd-stream-select-change` (detail `{ streamIdx }`) — the old
+  `initJobStreamDropdown`/`toggleJobStreamMenu`/`closeJobStreamMenu` and the
+  fixed 45px icon spans are gone. Registered in `index.html` + `sw.js` precache.
 - Tests: new WebKit touch test (title font size xlarge=28px → jumbo=32px →
-  compact=16px) failed 24px before the fix; new Chromium regression test
-  "stream name and buttons share the line under the title" (updated from the
-  earlier under-the-picture assertion) and "job thumbnail keeps its slot when the
-  stream has no image". Same reserved-image-slot fix applied to
-  `pmd-stream-header`, `pmd-stream-job-card` and `pmd-job-search-card`
-  (headings/titles line up when a stream/job has no image), each with a
-  "keeps the image slot" regression test. Full 30-shard suite 423 passed
-  (14-15/shard) before the final today-card layout tweak; screenshots `main view`
-  + `edit-streams` regenerated and checked (darkly). The final tweak was NOT
-  re-run against the suite (user request). `BUILD_NUMBER` → `202609111741`.
+  compact=16px) failed 24px before the fix; new Chromium regression tests
+  "stream name and buttons share the line under the title", "job thumbnail keeps
+  its slot when the stream has no image", "icon size setting controls the
+  rendered image size and source thumbnail" and "stream selector images follow
+  the icon size setting". Same reserved-image-slot fix applied to
+  `pmd-stream-header`, `pmd-stream-job-card` and `pmd-job-search-card`, each with
+  a "keeps the image slot" regression test. Full 30-shard suite 425 passed
+  (14-15/shard); screenshots `main view` + `edit-streams`/`job-edit-general`
+  regenerated and checked (darkly). `BUILD_NUMBER` → `202609111934`.
 - Gotcha captured: `:host-context()` is unsupported in WebKit — always use
   inherited CSS custom properties for body-class-driven shadow styling.
 

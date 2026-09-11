@@ -121,6 +121,8 @@ function changeIconSize(value) {
   localStorage.setItem(smdKey("iconSize"), value);
   document.body.classList.remove("icon-size-small", "icon-size-medium", "icon-size-large");
   document.body.classList.add("icon-size-" + value);
+  // Optional app hook: push the new value (px) into <smd-image>.
+  if (typeof applyImageSize === "function") applyImageSize();
 }
 
 // TILE DENSITY
