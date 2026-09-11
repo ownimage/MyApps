@@ -25,7 +25,7 @@ If there are ways to run code for test purposes that do or do not work, note the
 ## Project status & useful techniques
 
 Architecture:
-- Dialog system is custom-web-component based. Only remaining bootstrap modals: `imagePickerModal` + `imageEditModal`.
+- Dialog system is custom-web-component based. Only remaining bootstrap modal: `imageEditModal`.
   - `smd-modal` = a single shared `#smdConfirmModal` host, driven by `showSmdModal(options)` in app.js; content lives in its shadow root (`.smd-body`); buttons on `smd-modal-action`.
   - `smd-page` = full-screen overlay pages: `settingsPage`, `streamsEditor`, `jobSearchEditor`, `imagesEditor`, `jobEditPage`, `streamEditPage`, `minioImportPage`. Footer buttons fire `smd-page-action` (`cancel`/`done`/`add` etc).
   - z-index stack: smd-page 1040 < smd-modal 1050 < imagePickerModal 1060. No z-index hacks needed.
@@ -55,6 +55,17 @@ Architecture:
   fetch + SW registration are versioned).
 
 Techniques / gotchas:
+- **`:host-context()` is NOT supported by WebKit/Safari** (so it silently does
+  nothing in every iOS browser): shadow-DOM styling that keys off `body.*`
+  classes (font size, density) must use CSS custom properties set on `body`
+  instead — they inherit into shadow roots and work everywhere. `pmd-today-card`
+  reads `--pmd-today-*` (defined in `PlanMyDay/css/styles.css`). A WebKit test in
+  `pmd-touch.spec.js` guards this ("display font size and density settings scale
+  the today card title").
+- Card thumbnails (`pmd-today-card`, `pmd-stream-header`, `pmd-stream-job-card`,
+  `pmd-job-search-card`): the `.thumb` wrappers are ALWAYS rendered (no `hidden`);
+  only the inner `smd-image`'s `image` attribute is toggled. Hiding a wrapper lets
+  later images slide left, so titles/headings stop lining up across cards.
 - To inspect computed styles/DOM, drop a temp `tests/_probe.spec.js` that writes JSON via `require("fs").writeFileSync(path.join(__dirname, "_probe.out.json"), ...)`, run it with `--reporter=line`, `Get-Content` the JSON, then delete both files. (test `console.log` is hidden by the list reporter).
 - **Playwright TRUNCATES large received/expected values in failure output** (`pretty-format` prints `…` and folds long arrays, e.g. a `expect(cachedUrls).toEqual(expect.arrayContaining([...]))` diff shows only the first ~10 cache URLs). There is NO config to raise the limit. When a failure depends on a full array/object (URL lists, cache keys, response lists), DON'T read it from the error message — extend/replace the probe (`_probe.spec.js`) to `writeFileSync` the ENTIRE array and `Get-Content` that file. "The received list is truncated" is always a probe job, never a reason to rerun the test for inspection.
 - `page.evaluate` can't see inside shadow roots: query `document.getElementById("<pageId>").shadowRoot` first (e.g. `#streamsEditor`, `#jobEditPage`, `#smdConfirmModal`). Playwright locators pierce automatically.
@@ -64,6 +75,33 @@ Techniques / gotchas:
 - Line endings: this repo stores text files with LF (`core.autocrlf=input`, `core.eol=lf`; no `.gitattributes`). NEVER write CRLF into a file — git will flag every line as changed (whole-file diff) and warn "CRLF will be replaced by LF the next time Git touches it". Do not round-trip files through PowerShell pipe/Get-Content/Set-Content joins; the Edit/Write/Read tools and Node preserve line endings — if you must convert use node with explicit `\n`, NEVER shell-piped measurements of `git show` (PowerShell pipeline re-encodes — it once reported 914 CRLF for a file whose raw blob via `git cat-file` was entirely LF). Verify with `git cat-file blob HEAD:<file>` + `git diff --stat` so only real edits show.
 
 ## Session log
+
+### 2026-09-11
+- Fixed `pmd-today-card` not respecting Settings/Display/Font Size on iPhone:
+  the card styled the title/paddings with `:host-context(body.font-size-*)` /
+  `:host-context(body.compact)`, which WebKit (every iOS browser) ignores. All
+  those rules were replaced with body-scoped CSS custom properties
+  (`--pmd-today-title-size/-padding/-margin/-title-margin/-description-margin/
+  -cell-padding`, defined in `PlanMyDay/css/styles.css`) that inherit into the
+  shadow root. Removed the now-dead `.countdown-card h4` font-size rules.
+- Layout: moved the stream/job thumbnails to the top (`.images-col
+  { align-self: flex-start }` + `.title-row { min-height: 32px }`) and pulled the
+  stream name to the left edge of the stream thumbnail on the View/badge row
+  (`.stream-title { margin-left: calc(-68px - 0.75rem) }`); it may flow right past
+  the job thumbnail. Thumb wrappers are now ALWAYS rendered (toggling only the
+  inner `smd-image` `image`) so the job thumbnail keeps its slot when a stream
+  has no image and job images line up across cards.
+- Tests: new WebKit touch test (title font size xlarge=28px → jumbo=32px →
+  compact=16px) failed 24px before the fix; new Chromium regression tests
+  "stream name sits under the stream picture on the badge row" and "job thumbnail
+  keeps its slot when the stream has no image". Same reserved-image-slot fix
+  applied to `pmd-stream-header`, `pmd-stream-job-card` and `pmd-job-search-card`
+  (headings/titles line up when a stream/job has no image), each with a
+  "keeps the image slot" regression test. Full 30-shard suite 423 passed
+  (14-15/shard); screenshots `main view` + `edit-streams` regenerated and checked
+  (darkly). `BUILD_NUMBER` → `202609111424`.
+- Gotcha captured: `:host-context()` is unsupported in WebKit — always use
+  inherited CSS custom properties for body-class-driven shadow styling.
 
 ### 2026-09-10 (7)
 - `smd-image-picker` now renders its tabs with the shared `<smd-tabs>` component:

@@ -238,22 +238,19 @@ body.font-size-jumbo #imagesEditor .form-select {
   font-size: 1.6rem;
 }
 
-.countdown-card h4,
-.countdown-card .h4 {
-  font-size: 1.5rem;
-  font-weight: 800;
-}
-body.font-size-large .countdown-card h4,
-body.font-size-large .countdown-card .h4 {
-  font-size: 1.6rem;
-}
-body.font-size-xlarge .countdown-card h4,
-body.font-size-xlarge .countdown-card .h4 {
-  font-size: 1.75rem;
-}
-body.font-size-jumbo .countdown-card h4,
-body.font-size-jumbo .countdown-card .h4 {
-  font-size: 2rem;
+/* pmd-today-card display settings. CSS custom properties inherit into the
+   shadow root, unlike :host-context() which WebKit/Safari (iPhone) ignores. */
+body { --pmd-today-title-size: 1.5rem; }
+body.font-size-large { --pmd-today-title-size: 1.6rem; }
+body.font-size-xlarge { --pmd-today-title-size: 1.75rem; }
+body.font-size-jumbo { --pmd-today-title-size: 2rem; }
+body.compact {
+  --pmd-today-padding: 0.25rem 0.5rem;
+  --pmd-today-margin: 0.25rem;
+  --pmd-today-title-size: 1rem;
+  --pmd-today-title-margin: 0;
+  --pmd-today-description-margin: 0;
+  --pmd-today-cell-padding: 0.1rem;
 }
 
 #countdownContainer {

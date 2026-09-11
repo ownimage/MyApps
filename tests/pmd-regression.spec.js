@@ -226,6 +226,49 @@ test.describe("PlanMyDay - Regression", () => {
       }
     });
 
+    test("stream name sits under the stream picture on the badge row", async ({ page }) => {
+      const svg = "data:image/svg+xml," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg"><rect width="10" height="10"/></svg>');
+      await page.evaluate(({ data, ds, svg }) => {
+        const streams = JSON.parse(JSON.stringify(data));
+        streams[0].image = "stimg";
+        streams[0].jobs[0].image = "jobimg";
+        localStorage.setItem("planmydays_streams", JSON.stringify(streams));
+        localStorage.setItem("planmydays_images", JSON.stringify([{ name: "stimg", data: svg }, { name: "jobimg", data: svg }]));
+        localStorage.setItem("planmydays_today_order", JSON.stringify(["job_1", "job_2", "job_3"]));
+        localStorage.setItem("planmydays_last_gen", ds);
+        localStorage.setItem("planmydays_completed", JSON.stringify([]));
+      }, { data: TEST_STREAMS, ds: todayStr, svg });
+      await page.reload();
+      const card = page.locator("#todayCardList pmd-today-card").first();
+      await expect(card).toBeVisible();
+      const thumb = await card.locator(".stream-thumb").boundingBox();
+      const name = await card.locator(".stream-title").boundingBox();
+      const badge = await card.locator(".tab-badge").boundingBox();
+      expect(name.x).toBeCloseTo(thumb.x, 0);
+      expect(Math.abs(name.y - badge.y)).toBeLessThan(6);
+      expect(name.x + name.width).toBeGreaterThan(thumb.x + thumb.width);
+    });
+
+    test("job thumbnail keeps its slot when the stream has no image", async ({ page }) => {
+      const svg = "data:image/svg+xml," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg"><rect width="10" height="10"/></svg>');
+      await page.evaluate(({ data, ds, svg }) => {
+        const streams = JSON.parse(JSON.stringify(data));
+        streams[0].image = "";
+        streams[0].jobs[0].image = "jobimg";
+        localStorage.setItem("planmydays_streams", JSON.stringify(streams));
+        localStorage.setItem("planmydays_images", JSON.stringify([{ name: "jobimg", data: svg }]));
+        localStorage.setItem("planmydays_today_order", JSON.stringify(["job_1", "job_2", "job_3"]));
+        localStorage.setItem("planmydays_last_gen", ds);
+        localStorage.setItem("planmydays_completed", JSON.stringify([]));
+      }, { data: TEST_STREAMS, ds: todayStr, svg });
+      await page.reload();
+      const card = page.locator("#todayCardList pmd-today-card").first();
+      await expect(card).toBeVisible();
+      const streamThumb = await card.locator(".stream-thumb").boundingBox();
+      const jobThumb = await card.locator(".job-thumb").boundingBox();
+      expect(jobThumb.x - streamThumb.x).toBeCloseTo(36, 0);
+    });
+
     test("job with future sleepUntil is hidden from main screen", async ({ page }) => {
       await seedTodayList(page);
       await page.evaluate((ds) => {
@@ -556,6 +599,21 @@ test.describe("PlanMyDay - Regression", () => {
       await expect(page.getByText("Chores")).toBeVisible();
     });
 
+    test("stream headers keep the image slot so headings line up", async ({ page }) => {
+      const svg = "data:image/svg+xml," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg"><rect width="10" height="10"/></svg>');
+      await page.evaluate((svg) => {
+        const streams = JSON.parse(localStorage.getItem("planmydays_streams"));
+        streams[0].image = "stimg";
+        localStorage.setItem("planmydays_streams", JSON.stringify(streams));
+        localStorage.setItem("planmydays_images", JSON.stringify([{ name: "stimg", data: svg }]));
+        renderStreamsEditor();
+      }, svg);
+      const titles = page.locator("#streamEditorList .editor-title");
+      const withImage = await titles.nth(0).boundingBox();
+      const withoutImage = await titles.nth(1).boundingBox();
+      expect(withoutImage.x).toBeCloseTo(withImage.x, 0);
+    });
+
     test("add stream creates a new stream", async ({ page }) => {
       await page.getByRole("button", { name: "Add Stream" }).click();
       await expect(page.locator("#streamEditPage")).toBeVisible();
@@ -871,6 +929,22 @@ test.describe("PlanMyDay - Regression", () => {
       await expect(page.getByText("Laundry")).toBeVisible();
     });
 
+    test("job tiles keep the image slots so titles line up", async ({ page }) => {
+      const svg = "data:image/svg+xml," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg"><rect width="10" height="10"/></svg>');
+      await page.evaluate((svg) => {
+        const streams = JSON.parse(localStorage.getItem("planmydays_streams"));
+        streams[0].image = "stimg";
+        localStorage.setItem("planmydays_streams", JSON.stringify(streams));
+        localStorage.setItem("planmydays_images", JSON.stringify([{ name: "stimg", data: svg }]));
+      }, svg);
+      await page.reload();
+      await openSearchJobs(page);
+      const titles = page.locator("#jobSearchList pmd-job-search-card .job-title");
+      const withImage = await titles.nth(0).boundingBox();
+      const withoutImage = await titles.nth(2).boundingBox();
+      expect(withoutImage.x).toBeCloseTo(withImage.x, 0);
+    });
+
     test("header shows total job count badge", async ({ page }) => {
       await page.evaluate(() => {
         var streams = [{
@@ -1007,6 +1081,21 @@ test.describe("PlanMyDay - Regression", () => {
     test("shows job list", async ({ page }) => {
       await expect(page.locator("#streamEditorList .accordion-body .job-title").first()).toContainText("Report");
       await expect(page.getByText("Meeting")).toBeVisible();
+    });
+
+    test("job titles keep the image slot so they line up", async ({ page }) => {
+      const svg = "data:image/svg+xml," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg"><rect width="10" height="10"/></svg>');
+      await page.evaluate((svg) => {
+        const streams = JSON.parse(localStorage.getItem("planmydays_streams"));
+        streams[0].jobs[0].image = "jimg";
+        localStorage.setItem("planmydays_streams", JSON.stringify(streams));
+        localStorage.setItem("planmydays_images", JSON.stringify([{ name: "jimg", data: svg }]));
+        renderStreamsEditor();
+      }, svg);
+      const titles = page.locator("#streamEditorList .accordion-body pmd-stream-job-card .job-title");
+      const withImage = await titles.nth(0).boundingBox();
+      const withoutImage = await titles.nth(1).boundingBox();
+      expect(withoutImage.x).toBeCloseTo(withImage.x, 0);
     });
 
     test("sleep until badge shows short date format", async ({ page }) => {

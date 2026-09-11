@@ -118,7 +118,7 @@ const pmdStreamHeaderTemplate = document.createElement('template');
 pmdStreamHeaderTemplate.innerHTML = `
   <div class="stream-accordion-header">
     <div class="drag-handle">&#9776;</div>
-    <div class="thumb" hidden><smd-image key-prefix="planmydays_"></smd-image></div>
+    <div class="thumb"><smd-image key-prefix="planmydays_"></smd-image></div>
     <div class="body">
       <div class="row1">
         <button type="button" class="stream-header-main" part="header-main" aria-expanded="false">
@@ -208,15 +208,14 @@ class PmdStreamHeader extends HTMLElement {
     root.querySelector('.editor-title').textContent = title;
     root.querySelector('.stream-header-main').setAttribute('aria-expanded', String(expanded));
 
-    const thumb = root.querySelector('.thumb');
     const sImg = root.querySelector('.thumb smd-image');
     sImg.setAttribute('key-prefix', this.getAttribute('key-prefix') || 'planmydays_');
+    // The thumb wrapper always stays in place (even with no image) so the
+    // stream headings line up.
     if (image) {
       sImg.setAttribute('image', image);
-      thumb.hidden = false;
     } else {
       sImg.removeAttribute('image');
-      thumb.hidden = true;
     }
 
     const tabBadge = root.querySelector('.tab-badge');
