@@ -2,6 +2,12 @@
 /* NOTE: rules that target app-specific ids/classes (countdown cards, stream
    accordions, job/task cards) live in the CONSUMING app's css/styles.css. */
 
+/* The page (canvas) background always follows the theme body colour. */
+html,
+body {
+  background-color: var(--bs-body-bg);
+}
+
 [data-bs-theme="light"] .form-control,
 [data-bs-theme="light"] .form-select {
   border-color: #999;

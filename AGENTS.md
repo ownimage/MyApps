@@ -65,6 +65,23 @@ Techniques / gotchas:
 
 ## Session log
 
+### 2026-09-10 (5)
+- New shared `<smd-checkbox>` (`shared/js/components/smd-checkbox.js`), used across
+  the app so every checkbox shares one look. The host is ARIA-checkable
+  (`role=checkbox|switch` + `aria-checked`), so Playwright `.check()`/`.uncheck()`/
+  `.toBeChecked()` work on it; `change`/`input` are composed with `{ checked }`.
+  `switch` attribute = pill toggle. GOTCHA: a `.checked`/`.disabled` property set
+  BEFORE the element upgrades (e.g. from a parent's `_render()` right after it is
+  inserted into a fresh shadow root) becomes an own property that SHADOWS the
+  accessor — `connectedCallback` now folds any own `checked`/`disabled` into
+  attributes. Migrated settings switches, job-edit Active/Suffix, task-done,
+  schedule day checkboxes, the image-editor "none" checkboxes, and the
+  `pmd-today-card`/`pmd-stream-job-card`/`pmd-job-search-card` toggles; removed the
+  per-component checkbox CSS. Added an `smd-checkbox` section to the storybook.
+- Checkbox visibility fix: the unchecked fill is `--bs-secondary-bg` with a
+  `--bs-secondary-color` border (was body-bg/border-color, which vanished on
+  light + dark surfaces). `BUILD_NUMBER` → `202609101400`.
+
 ### 2026-09-10 (4)
 - Today-list cards are now a PlanMyDay component: `PlanMyDay/js/components/pmd-today-card.js`
   (`<pmd-today-card>`). Owns the checkbox (with the daily `bi-repeat-1` icon),
@@ -88,6 +105,10 @@ Techniques / gotchas:
 - New AGENTS rule 8: a change that only touches `storybook/index.html` and/or
   `AGENTS.md` does not need the regression suite — just check the storybook loads
   clean.
+- Page background is explicitly `var(--bs-body-bg)` on `html, body`
+  (`shared/css/styles.css` for the app; the storybook's own `body`/`html` rules).
+  Previously only `body` was themed via bootstrap (html stayed transparent); the
+  canvas now tracks the theme too.
 
 ### 2026-09-10 (3)
 - Screenshot output is now per-app: `tests/pmd-screenshots.spec.js` writes to

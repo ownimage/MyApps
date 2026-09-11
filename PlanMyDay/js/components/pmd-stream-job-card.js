@@ -62,33 +62,10 @@ const pmdStreamJobCardSheet = SmdStyles.sheetFor(`
     align-self: center;
     margin-left: 0.75rem;
   }
-  label.active-toggle {
-    display: flex;
-    align-items: center;
-    gap: 2px;
-    margin-bottom: 0;
+  smd-checkbox.active-toggle {
     font-weight: 700;
     flex-shrink: 0;
     color: inherit;
-    cursor: pointer;
-  }
-  input.active-toggle {
-    width: 1.1em;
-    height: 1.1em;
-    margin: 0;
-    flex-shrink: 0;
-    appearance: none;
-    -webkit-appearance: none;
-    vertical-align: middle;
-    background-color: var(--bs-secondary-bg, #495057);
-    border: 1px solid var(--bs-border-color, #495057);
-    border-radius: 0.25em;
-    cursor: pointer;
-    position: static;
-  }
-  input.active-toggle:checked {
-    background-color: var(--bs-primary, #0d6efd);
-    border-color: var(--bs-primary, #0d6efd);
   }
 `);
 
@@ -103,10 +80,7 @@ pmdStreamJobCardTemplate.innerHTML = `
     <button type="button" class="btn btn-primary" data-action="edit">Edit</button>
   </div>
   <div class="row2">
-    <label class="active-toggle">
-      <input type="checkbox" class="active-toggle">
-      <span>Active</span>
-    </label>
+    <smd-checkbox class="active-toggle"><span>Active</span></smd-checkbox>
     <span class="badge bg-primary schedule"></span>
     <span class="badge bg-secondary time" hidden></span>
     <span class="badge bg-info extra" hidden></span>
@@ -128,14 +102,15 @@ class PmdStreamJobCard extends HTMLElement {
   connectedCallback() {
     const root = this.shadowRoot;
     root.querySelector('[data-action="edit"]').addEventListener('click', () => this._emit('pmd-job-edit'));
-    root.querySelector('input.active-toggle').addEventListener('change', (e) => {
+    root.querySelector('smd-checkbox.active-toggle').addEventListener('change', (e) => {
+      const checked = e.detail ? e.detail.checked : e.target.checked;
       this.dispatchEvent(new CustomEvent('pmd-job-toggle-active', {
         bubbles: true,
         composed: true,
         detail: {
           streamIdx: parseInt(this.getAttribute('stream-idx'), 10),
           jobIdx: parseInt(this.getAttribute('job-idx'), 10),
-          checked: e.target.checked
+          checked
         }
       }));
     });
@@ -206,7 +181,7 @@ class PmdStreamJobCard extends HTMLElement {
       extraEl.hidden = true;
     }
 
-    root.querySelector('input.active-toggle').checked = active;
+    root.querySelector('smd-checkbox.active-toggle').checked = active;
   }
 }
 

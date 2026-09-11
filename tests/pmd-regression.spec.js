@@ -1200,7 +1200,7 @@ test.describe("PlanMyDay - Regression", () => {
       await page.locator("#streamEditorList .stream-header-main").first().click();
       await page.locator("#streamEditorList .accordion-collapse.show").waitFor({ state: "visible", timeout: 5000 });
       // toggle job_2 (Meeting) active
-      var meetingToggle = page.locator("#streamEditorList .accordion-body input.active-toggle").nth(1);
+      var meetingToggle = page.locator("#streamEditorList .accordion-body .active-toggle").nth(1);
       await expect(meetingToggle).not.toBeChecked();
       await meetingToggle.check();
       await page.waitForTimeout(150);
@@ -1234,7 +1234,7 @@ test.describe("PlanMyDay - Regression", () => {
       var orderBefore = await page.evaluate(() => JSON.parse(localStorage.getItem("planmydays_today_order")));
       expect(orderBefore).toContain("job_2");
       // uncheck job_2 (Meeting) - second checkbox
-      var meetingToggle = page.locator("#streamEditorList .accordion-body input.active-toggle").nth(1);
+      var meetingToggle = page.locator("#streamEditorList .accordion-body .active-toggle").nth(1);
       await expect(meetingToggle).toBeChecked();
       await meetingToggle.uncheck();
       // wait for the order to reflect the removal before leaving the editor

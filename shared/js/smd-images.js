@@ -131,18 +131,12 @@ function buildThemeSection(themeIdx, label) {
           <div class="d-flex gap-2 align-items-center">
             <label class="form-label mb-0" style="min-width:45px">Line:</label>
             <input type="color" value="${lineVal}" oninput="editImageColor(${editingImageIndex}, ${themeIdx}, 'stroke', this.value, this)">
-            <label class="form-check-label mb-0">
-              <input type="checkbox" ${effLine === 'none' || !effLine ? 'checked' : ''} onchange="editImageStrokeNone(${editingImageIndex}, ${themeIdx}, this.checked)">
-              none
-            </label>
+            <smd-checkbox ${effLine === 'none' || !effLine ? 'checked' : ''} onchange="editImageStrokeNone(${editingImageIndex}, ${themeIdx}, this.checked)">none</smd-checkbox>
           </div>
           <div class="d-flex gap-2 align-items-center">
             <label class="form-label mb-0" style="min-width:45px">Fill:</label>
             <input type="color" value="${fillVal}" oninput="editImageColor(${editingImageIndex}, ${themeIdx}, 'fill', this.value, this)">
-            <label class="form-check-label mb-0">
-              <input type="checkbox" ${effFill === 'none' || !effFill ? 'checked' : ''} onchange="editImageFillNone(${editingImageIndex}, ${themeIdx}, this.checked)">
-              none
-            </label>
+            <smd-checkbox ${effFill === 'none' || !effFill ? 'checked' : ''} onchange="editImageFillNone(${editingImageIndex}, ${themeIdx}, this.checked)">none</smd-checkbox>
           </div>
           <div class="d-flex gap-2 align-items-center">
             <label class="form-label mb-0" style="min-width:45px">Width:</label>
@@ -365,7 +359,7 @@ function editImageColor(index, themeIdx, attr, value, el) {
   saveImages(images);
   updateEditPreview(img, themeIdx);
   if (el) {
-    const cb = el.parentElement && el.parentElement.querySelector('input[type="checkbox"]');
+    const cb = el.parentElement && el.parentElement.querySelector('smd-checkbox');
     if (cb && cb.checked) cb.checked = false;
   }
 }
