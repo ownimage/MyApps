@@ -5,6 +5,7 @@
 5: When running the regression tests use playwright `--shards=30` (with pmd-regression.spec.js and pmd-touch.spec.js): launch each shard as `--shard=$i/30` so EVERY shard runs in parallel and gives full visibility into failures at once — do NOT loop them 1..30 sequentially (that hides cross-shard failures and needs a bespoke loop). Fix a failure in one shard everywhere before continuing.
 6: After fixing issues with the regression tests apply them to pmd-screenshots.spec.js and validate them using one theme only.
 7: Fail-fast test iterations: after a code/test change, DON'T run a whole batch at once — run only the first 2-3 affected tests first (`--grep "a|b" --workers=2 --retries=0`) to debug on a small surface; grow the batch only once those pass. The config sets `retries: 1`, so pass `--retries=0` while iterating (otherwise failures take twice as long).
+8: A change that ONLY touches `storybook/index.html` and/or `AGENTS.md` does NOT need the regression suite (or screenshot/sample-image specs). Just verify the storybook loads with zero console/page errors and no failed requests.
 
 ## Self-improving playbook
 At the START of every session, read this file fully and apply all rules.
@@ -63,6 +64,30 @@ Techniques / gotchas:
 - Line endings: this repo stores text files with LF (`core.autocrlf=input`, `core.eol=lf`; no `.gitattributes`). NEVER write CRLF into a file — git will flag every line as changed (whole-file diff) and warn "CRLF will be replaced by LF the next time Git touches it". Do not round-trip files through PowerShell pipe/Get-Content/Set-Content joins; the Edit/Write/Read tools and Node preserve line endings — if you must convert use node with explicit `\n`, NEVER shell-piped measurements of `git show` (PowerShell pipeline re-encodes — it once reported 914 CRLF for a file whose raw blob via `git cat-file` was entirely LF). Verify with `git cat-file blob HEAD:<file>` + `git diff --stat` so only real edits show.
 
 ## Session log
+
+### 2026-09-10 (4)
+- Today-list cards are now a PlanMyDay component: `PlanMyDay/js/components/pmd-today-card.js`
+  (`<pmd-today-card>`). Owns the checkbox (with the daily `bi-repeat-1` icon),
+  stream/job thumbnails, title+suffix, stream title, View button, tab badge and
+  description; self-styles `:host` (body-bg/border, `:host([done])` dim +
+  strike-through, `:host-context(body.compact/font-size-*)`). Only `today-drag-card`
+  is set as a light-DOM class; the app slots `<div class="drag-handle" slot="drag-handle">`
+  so Sortable still works. Emits `pmd-today-toggle` ({jobId,checked}) and
+  `pmd-today-view` ({streamIdx,jobIdx}); `app.js` renderMain listens on
+  `#todayCardList` (no more per-checkbox handlers). Registered in `index.html`
+  + `sw.js` precache. Test updates: shadow-internal `document.querySelector`
+  calls → Playwright locators; `.daily-repeat-icon` count → visibility; drag-handle
+  locator `.first()` (slot + fallback); scoped thumb locator. Verified 155 (Main
+  View/Suffix/Reorder/Ad Hoc) + 13 + 4 screenshot sweeps pass. `BUILD_NUMBER` →
+  `202609101200`.
+- Storybook now reflects EVERY shared + PlanMyDay component: added the missing
+  `smd-theme`, `smd-image-picker` and `pmd-today-card` sections (and their script
+  tags; removed a duplicate `smd-image` script). Also added a top **Theme Colours**
+  section: grouped Bootstrap colour CSS variables (`THEME_COLOR_GROUPS`) as live
+  swatches (12 per row), so switching the storybook theme recolours them.
+- New AGENTS rule 8: a change that only touches `storybook/index.html` and/or
+  `AGENTS.md` does not need the regression suite — just check the storybook loads
+  clean.
 
 ### 2026-09-10 (3)
 - Screenshot output is now per-app: `tests/pmd-screenshots.spec.js` writes to
