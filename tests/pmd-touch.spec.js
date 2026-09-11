@@ -116,6 +116,27 @@ test.describe("PlanMyDay - iPhone 12 Pro touch", () => {
     await expect(page.locator("#streamEditorList .accordion-collapse.show")).toContainText("Report");
   });
 
+  test("display font size and density settings scale the today card title", async ({ page }) => {
+    await page.evaluate(() => {
+      const d = new Date();
+      const ds = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+      localStorage.setItem("planmydays_today_order", JSON.stringify(["job_1", "job_2", "job_3"]));
+      localStorage.setItem("planmydays_last_gen", ds);
+      localStorage.setItem("planmydays_completed", "[]");
+    });
+    await page.reload();
+    await expect(page.locator("#todayCardList pmd-today-card").first()).toBeVisible();
+    const titleFontSize = () => page
+      .locator("#todayCardList pmd-today-card .title").first()
+      .evaluate((el) => parseFloat(getComputedStyle(el).fontSize));
+    // default saved font size is xlarge -> 1.75rem
+    expect(await titleFontSize()).toBeCloseTo(28, 0);
+    await page.evaluate(() => changeFontSize("jumbo"));
+    expect(await titleFontSize()).toBeCloseTo(32, 0);
+    await page.evaluate(() => changeDensity("compact"));
+    expect(await titleFontSize()).toBeCloseTo(16, 0);
+  });
+
   test("task rows can be reordered with a touch drag", async ({ page }) => {
     await page.evaluate(() => {
       const streams = JSON.parse(localStorage.getItem("planmydays_streams"));

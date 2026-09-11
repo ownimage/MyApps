@@ -64,8 +64,8 @@ const pmdJobSearchCardSheet = SmdStyles.sheetFor(`
 const pmdJobSearchCardTemplate = document.createElement('template');
 pmdJobSearchCardTemplate.innerHTML = `
   <div class="row1">
-    <div class="thumb stream-thumb" hidden><smd-image key-prefix="planmydays_"></smd-image></div>
-    <div class="thumb job-thumb" hidden><smd-image key-prefix="planmydays_"></smd-image></div>
+    <div class="thumb stream-thumb"><smd-image key-prefix="planmydays_"></smd-image></div>
+    <div class="thumb job-thumb"><smd-image key-prefix="planmydays_"></smd-image></div>
     <div class="title">
       <span class="job-title"></span><span class="suffix badge bg-secondary" hidden></span>
     </div>
@@ -145,12 +145,12 @@ class PmdJobSearchCard extends HTMLElement {
       const thumb = root.querySelector(thumbCls);
       const sImg = thumb.querySelector('smd-image');
       sImg.setAttribute('key-prefix', this.getAttribute('key-prefix') || 'planmydays_');
+      // The thumb wrapper always stays in place (even with no image) so job
+      // titles line up in the results list.
       if (src) {
         sImg.setAttribute('image', src);
-        thumb.hidden = false;
       } else {
         sImg.removeAttribute('image');
-        thumb.hidden = true;
       }
     };
     setThumb('.stream-thumb', streamImage);

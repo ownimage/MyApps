@@ -2,9 +2,13 @@
 //
 // Owns its own layout (drag handle, completion checkbox + daily-repeat icon,
 // stream/job thumbnails, title + suffix, stream title, View button, tab badge,
-// description) and styling. The host carries the light-DOM classes the app/Sortable
-// rely on (`today-drag-card`; the app adds `card countdown-card mb-2`), so the
-// document theme styles the card chrome while the shadow root holds the content.
+// description) and styling. The host carries the light-DOM class the app/Sortable
+// relies on (`today-drag-card`; the app sets it on the element), so the document
+// theme styles the card chrome while the shadow root holds the content.
+//
+// The body `font-size-*` / `compact` display settings reach the card through CSS
+// custom properties (`--pmd-today-*`, set in PlanMyDay/css/styles.css) because
+// `:host-context()` is NOT supported by WebKit/Safari (iPhone).
 //
 // A `<div class="drag-handle" slot="drag-handle">` is slotted in by the consumer
 // (Sortable needs a light-DOM handle); when none is provided the built-in
@@ -21,7 +25,7 @@
 //   checked       — checkbox state ("true"/"false")
 //   stream-image  — stream image name (rendered via smd-image)
 //   job-image     — job image name (rendered via smd-image)
-//   stream-title  — stream title shown under the job title
+//   stream-title  — stream title shown under the stream thumbnail, on the badge row
 //   tab           — "progress" (success badge) | "maintenance" (info badge)
 //   description   — optional description line
 //   key-prefix    — smd-image storage prefix (default "planmydays_")
@@ -39,22 +43,22 @@ const pmdTodayCardSheet = SmdStyles.sheetFor(`
     background-color: var(--bs-dark-border-subtle, #303030);
     border: 1px solid var(--bs-border-color, #495057);
     border-radius: 0.375rem;
-    padding: 0.5rem 0.75rem;
-    margin-bottom: 0.5rem;
+    padding: var(--pmd-today-padding, 0.5rem 0.75rem);
+    margin-bottom: var(--pmd-today-margin, 0.5rem);
   }
   :host([hidden]) { display: none !important; }
   :host([done]) { opacity: 0.5; }
   :host([done]) .title { text-decoration: line-through; }
-  :host-context(body.compact) {
-    padding: 0.25rem 0.5rem;
-    margin-bottom: 0.25rem;
-  }
 
   .row {
     display: flex;
     align-items: center;
     flex-wrap: nowrap;
     gap: 0.75rem;
+  }
+  .row > * {
+    padding-top: var(--pmd-today-cell-padding, 0);
+    padding-bottom: var(--pmd-today-cell-padding, 0);
   }
   .handle-col {
     display: flex;
@@ -99,6 +103,7 @@ const pmdTodayCardSheet = SmdStyles.sheetFor(`
     padding: 0;
     min-width: 68px;
     flex: 0 0 auto;
+    align-self: flex-start;
   }
   .thumb {
     width: 32px;
@@ -114,11 +119,12 @@ const pmdTodayCardSheet = SmdStyles.sheetFor(`
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    margin-bottom: 0.25rem;
+    margin-bottom: var(--pmd-today-title-margin, 0.25rem);
+    min-height: 32px;
   }
   .title {
     margin: 0;
-    font-size: 1.5rem;
+    font-size: var(--pmd-today-title-size, 1.5rem);
     font-weight: 800;
     min-width: 0;
   }
@@ -130,7 +136,12 @@ const pmdTodayCardSheet = SmdStyles.sheetFor(`
     align-items: center;
     position: relative;
   }
-  .stream-title { font-size: 0.875em; }
+  /* left edge lines up under the stream thumbnail, on the View/badge row; the
+     text may flow right, past the job thumbnail */
+  .stream-title {
+    font-size: 0.875em;
+    margin-left: calc(-68px - 0.75rem);
+  }
   .job-view-btn {
     position: absolute;
     left: 50%;
@@ -142,20 +153,9 @@ const pmdTodayCardSheet = SmdStyles.sheetFor(`
   }
   .tab-badge { border-radius: 50rem !important; }
   .description {
-    margin-top: 0.25rem;
+    margin-top: var(--pmd-today-description-margin, 0.25rem);
     font-size: 0.875em;
     color: var(--bs-secondary-color, #aaa);
-  }
-
-  :host-context(body.font-size-large) .title { font-size: 1.6rem; }
-  :host-context(body.font-size-xlarge) .title { font-size: 1.75rem; }
-  :host-context(body.font-size-jumbo) .title { font-size: 2rem; }
-  :host-context(body.compact) .title { font-size: 1rem !important; }
-  :host-context(body.compact) .title-row { margin-bottom: 0; }
-  :host-context(body.compact) .description { margin-top: 0; }
-  :host-context(body.compact) .row > * {
-    padding-top: 0.1rem;
-    padding-bottom: 0.1rem;
   }
 `);
 
@@ -170,8 +170,8 @@ pmdTodayCardTemplate.innerHTML = `
       </div>
     </div>
     <div class="images-col">
-      <div class="thumb stream-thumb" hidden><smd-image key-prefix="planmydays_" size="32"></smd-image></div>
-      <div class="thumb job-thumb" hidden><smd-image key-prefix="planmydays_" size="32"></smd-image></div>
+      <div class="thumb stream-thumb"><smd-image key-prefix="planmydays_" size="32"></smd-image></div>
+      <div class="thumb job-thumb"><smd-image key-prefix="planmydays_" size="32"></smd-image></div>
     </div>
     <div class="content-col">
       <div class="title-row">
@@ -264,12 +264,12 @@ class PmdTodayCard extends HTMLElement {
       const thumb = root.querySelector(selector);
       const sImg = thumb.querySelector('smd-image');
       sImg.setAttribute('key-prefix', keyPrefix);
+      // The thumb wrapper always stays in place (even with no image) so the
+      // job thumbnail keeps its slot and job images line up across cards.
       if (name) {
         sImg.setAttribute('image', name);
-        thumb.hidden = false;
       } else {
         sImg.removeAttribute('image');
-        thumb.hidden = true;
       }
     };
     setThumb('.stream-thumb', this.getAttribute('stream-image') || '');
