@@ -115,8 +115,8 @@ pmdStreamHeaderTemplate.innerHTML = `
         </div>
       </div>
       <div class="row2">
-        <span class="badge tab-badge"></span>
-        <span class="badge bg-secondary count-badge" hidden></span>
+        <smd-badge class="tab-badge" variant="success"></smd-badge>
+        <smd-badge class="count-badge" variant="secondary" hidden></smd-badge>
       </div>
     </div>
     <button type="button" class="chevron" aria-label="Expand"></button>
@@ -204,7 +204,7 @@ class PmdStreamHeader extends HTMLElement {
 
     const tabBadge = root.querySelector('.tab-badge');
     tabBadge.textContent = tab;
-    tabBadge.className = 'badge tab-badge bg-' + (tab === 'progress' ? 'success' : 'info');
+    tabBadge.setAttribute('variant', tab === 'progress' ? 'success' : 'info');
 
     const countBadge = root.querySelector('.count-badge');
     if (jobcounts) {

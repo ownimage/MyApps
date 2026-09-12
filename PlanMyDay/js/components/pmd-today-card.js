@@ -139,7 +139,6 @@ const pmdTodayCardSheet = SmdStyles.sheetFor(`
     flex: 0 0 auto;
     padding: 0.25em 0.5em;
     font-size: 0.7em;
-    border-radius: 50rem !important;
   }
   .description {
     margin-top: var(--pmd-today-description-margin, 0.25rem);
@@ -164,12 +163,12 @@ pmdTodayCardTemplate.innerHTML = `
     </div>
     <div class="content-col">
       <div class="title-row">
-        <h4 class="title"><span class="job-title"></span><span class="suffix badge bg-secondary" hidden></span></h4>
+        <h4 class="title"><span class="job-title"></span><smd-badge class="suffix" variant="secondary" hidden></smd-badge></h4>
       </div>
       <div class="meta-row">
         <span class="stream-title"></span>
         <button type="button" class="btn btn-primary job-view-btn" title="View job">View</button>
-        <span class="badge tab-badge rounded-pill"></span>
+        <smd-badge class="tab-badge" pill></smd-badge>
       </div>
       <div class="description" hidden></div>
     </div>
@@ -269,7 +268,7 @@ class PmdTodayCard extends HTMLElement {
     const tab = this.getAttribute('tab') || 'progress';
     const tabBadge = root.querySelector('.tab-badge');
     tabBadge.textContent = tab;
-    tabBadge.className = 'badge tab-badge rounded-pill bg-' + (tab === 'progress' ? 'success' : 'info');
+    tabBadge.setAttribute('variant', tab === 'progress' ? 'success' : 'info');
 
     const descEl = root.querySelector('.description');
     const description = this.getAttribute('description') || '';

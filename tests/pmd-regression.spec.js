@@ -221,7 +221,7 @@ test.describe("PlanMyDay - Regression", () => {
       for (let i = 0; i < cardCount; i++) {
         const btn = cards.nth(i).locator(".job-view-btn");
         await expect(btn).toBeVisible();
-        const badge = cards.nth(i).locator(".badge.rounded-pill");
+        const badge = cards.nth(i).locator("smd-badge[pill]");
         await expect(badge).toBeVisible();
       }
     });
@@ -526,6 +526,156 @@ test.describe("PlanMyDay - Regression", () => {
     });
   });
 
+  // ── Theme contrast ─────────────────────────────────────────
+
+  test.describe("Theme contrast", () => {
+
+    // changeTheme + wait for the new theme css to load (the app recomputes its
+    // shared text colours from the loaded theme in the link's load handler).
+    async function setTheme(page, theme) {
+      await page.evaluate((t) => {
+        const link = document.getElementById("bootstrap-theme-css");
+        if ((link.getAttribute("href") || "").indexOf("/" + t + "/") !== -1) {
+          // Already on this theme: no link load will fire, just recompute.
+          if (typeof applySmdVars === "function") applySmdVars();
+          window.__themeReady = true;
+          return;
+        }
+        window.__themeReady = false;
+        const done = () => { window.__themeReady = true; };
+        link.addEventListener("load", done, { once: true });
+        link.addEventListener("error", done, { once: true });
+        changeTheme(t);
+      }, theme);
+      await page.waitForFunction(() => window.__themeReady === true, null, { timeout: 10000 });
+      await page.waitForTimeout(200);
+    }
+
+    // What Bootswatch itself renders for that .btn-* class, read from the light
+    // DOM — the same source applySmdVars() uses for the --smd-*-text values.
+    async function bootswatchColor(page, classes) {
+      return page.evaluate((cls) => {
+        const el = document.createElement("button");
+        el.type = "button";
+        el.className = cls;
+        el.style.cssText = "position:absolute;left:-9999px;visibility:hidden";
+        document.body.appendChild(el);
+        const color = getComputedStyle(el).color;
+        el.remove();
+        return color;
+      }, classes);
+    }
+
+    // What Bootswatch itself renders for that badge variant (bg + text).
+    async function bootswatchBadge(page, variant) {
+      return page.evaluate((v) => {
+        const el = document.createElement("span");
+        el.className = "badge text-bg-" + v;
+        el.style.cssText = "position:absolute;left:-9999px;visibility:hidden";
+        document.body.appendChild(el);
+        const cs = getComputedStyle(el);
+        const colors = { bg: cs.backgroundColor, color: cs.color };
+        el.remove();
+        return colors;
+      }, variant);
+    }
+
+    async function streamEditCancelColors(page) {
+      await page.evaluate(() => addNewStream());
+      const colors = await page.evaluate(() => {
+        const pageEl = document.getElementById("streamEditPage");
+        const host = pageEl.shadowRoot.querySelector('.smd-page-footer smd-button[variant="secondary"]');
+        const cs = getComputedStyle(host.shadowRoot.querySelector("button"));
+        return { color: cs.color, bg: cs.backgroundColor };
+      });
+      await page.evaluate(() => cancelEdit());
+      return colors;
+    }
+
+    test("secondary page buttons match the Bootswatch button colours", async ({ page }) => {
+      await setTheme(page, "cerulean");
+      const light = await streamEditCancelColors(page);
+      expect(light.color).toBe(await bootswatchColor(page, "btn btn-secondary"));
+      expect(light.color).not.toBe(light.bg);
+
+      await setTheme(page, "darkly");
+      const dark = await streamEditCancelColors(page);
+      expect(dark.color).toBe(await bootswatchColor(page, "btn btn-secondary"));
+      expect(dark.color).not.toBe(dark.bg);
+    });
+
+    test("modal secondary buttons match the Bootswatch button colours", async ({ page }) => {
+      await setTheme(page, "cerulean");
+      await page.evaluate(() => { openStreamsEditor(); confirmDeleteStream(0); });
+      const color = await page.evaluate(() => {
+        const host = document.getElementById("smdConfirmModal");
+        const btn = Array.from(host.shadowRoot.querySelectorAll(".smd-footer button"))
+          .find((b) => b.getAttribute("variant") === "secondary");
+        return getComputedStyle(btn).color;
+      });
+      expect(color).toBe(await bootswatchColor(page, "btn btn-secondary"));
+    });
+
+    test("pmd secondary action buttons match the Bootswatch button colours", async ({ page }) => {
+      await setTheme(page, "cerulean");
+      await page.evaluate(() => {
+        localStorage.setItem("planmydays_streams", JSON.stringify([{ title: "S", tab: "progress", sequence: 1, jobs: [] }]));
+      });
+      await page.reload();
+      await page.evaluate(() => openStreamsEditor());
+      const color = await page.evaluate(() => {
+        const editor = document.getElementById("streamsEditor").shadowRoot;
+        const header = editor.querySelector("pmd-stream-header");
+        const btn = header.shadowRoot.querySelector('[data-action="add-job"]');
+        return getComputedStyle(btn).color;
+      });
+      expect(color).toBe(await bootswatchColor(page, "btn btn-secondary"));
+    });
+
+    test("inactive tabs use the Bootswatch secondary button text colour", async ({ page }) => {
+      await page.evaluate(() => openSettings());
+      const inactiveTabColor = () => page.evaluate(() => {
+        const pageEl = document.getElementById("settingsPage");
+        const tabs = pageEl.shadowRoot.querySelector("#settingsTabs");
+        const inactive = Array.from(tabs.shadowRoot.querySelectorAll(".smd-tab-btn"))
+          .find((b) => !b.hasAttribute("active"));
+        return getComputedStyle(inactive).color;
+      });
+      for (const theme of ["cerulean", "cosmo", "darkly", "sketchy"]) {
+        await setTheme(page, theme);
+        expect(await inactiveTabColor()).toBe(await bootswatchColor(page, "btn btn-secondary"));
+      }
+    });
+
+    test("badges match the Bootswatch badge colours", async ({ page }) => {
+      await setTheme(page, "cerulean");
+      await page.evaluate(() => {
+        localStorage.setItem("planmydays_streams", JSON.stringify([{ title: "S", tab: "maintenance", sequence: 1, jobs: [] }]));
+      });
+      await page.reload();
+      await page.evaluate(() => openStreamsEditor());
+
+      const badgeColors = () => page.evaluate(() => {
+        const pageEl = document.getElementById("streamsEditor");
+        const read = (el) => {
+          const cs = getComputedStyle(el);
+          return { bg: cs.backgroundColor, color: cs.color };
+        };
+        return {
+          header: read(pageEl.shadowRoot.querySelector("#editJobsTotalBadge")),
+          tab: read(pageEl.shadowRoot.querySelector("pmd-stream-header").shadowRoot.querySelector(".tab-badge"))
+        };
+      });
+
+      for (const theme of ["cerulean", "darkly"]) {
+        await setTheme(page, theme);
+        const colors = await badgeColors();
+        expect(colors.header).toEqual(await bootswatchBadge(page, "info"));
+        expect(colors.tab).toEqual(await bootswatchBadge(page, "info"));
+      }
+    });
+  });
+
   // ── Settings ───────────────────────────────────────────────
 
   test.describe("Settings", () => {
@@ -782,12 +932,12 @@ test.describe("PlanMyDay - Regression", () => {
     });
 
     test("shows tab badge on stream cards", async ({ page }) => {
-      await expect(page.locator("#streamEditorList .badge").first()).toBeVisible();
+      await expect(page.locator("#streamEditorList smd-badge").first()).toBeVisible();
     });
 
     test("maintenance tab badge uses info colour on stream cards", async ({ page }) => {
-      await expect(page.locator("#streamEditorList .badge.bg-success").filter({ hasText: "progress" }).first()).toBeVisible();
-      await expect(page.locator("#streamEditorList .badge.bg-info").filter({ hasText: "maintenance" }).first()).toBeVisible();
+      await expect(page.locator("#streamEditorList smd-badge[variant=success]").filter({ hasText: "progress" }).first()).toBeVisible();
+      await expect(page.locator("#streamEditorList smd-badge[variant=info]").filter({ hasText: "maintenance" }).first()).toBeVisible();
     });
 
     test("job count badge shows today/active/total counts", async ({ page }) => {
@@ -1054,8 +1204,8 @@ test.describe("PlanMyDay - Regression", () => {
     test("tile shows stream name and badges instead of active label", async ({ page }) => {
       const firstTile = page.locator("#jobSearchList pmd-job-search-card").first();
       await expect(firstTile).toContainText("Work");
-      await expect(firstTile.locator(".badge.bg-success").filter({ hasText: "progress" })).toBeVisible();
-      await expect(firstTile.locator(".badge.bg-primary")).toBeVisible();
+      await expect(firstTile.locator("smd-badge[variant=success]").filter({ hasText: "progress" })).toBeVisible();
+      await expect(firstTile.locator("smd-badge[variant=primary]")).toBeVisible();
       await expect(page.locator("#jobSearchList")).not.toContainText("Active");
     });
 
@@ -1070,9 +1220,9 @@ test.describe("PlanMyDay - Regression", () => {
       await page.reload();
       await openSearchJobs(page);
       const meetingTile = page.locator("#jobSearchList pmd-job-search-card").filter({ hasText: "Meeting" });
-      await expect(meetingTile.locator(".badge").filter({ hasText: "Wait:" })).toContainText("Wait: the meeting to start");
+      await expect(meetingTile.locator("smd-badge").filter({ hasText: "Wait:" })).toContainText("Wait: the meeting to start");
       const laundryTile = page.locator("#jobSearchList pmd-job-search-card").filter({ hasText: "Laundry" });
-      await expect(laundryTile.locator(".badge").filter({ hasText: "Sleep:" })).toContainText("Sleep: " + shortDateStr(futureDate));
+      await expect(laundryTile.locator("smd-badge").filter({ hasText: "Sleep:" })).toContainText("Sleep: " + shortDateStr(futureDate));
     });
 
     test("tiles have no drag handles", async ({ page }) => {
@@ -1163,7 +1313,7 @@ test.describe("PlanMyDay - Regression", () => {
         localStorage.setItem("planmydays_streams", JSON.stringify(streams));
         renderStreamsEditor();
       }, futureDate);
-      await expect(page.locator("#streamEditorList .badge.bg-info").filter({ hasText: "Sleep:" })).toContainText(shortDateStr(futureDate));
+      await expect(page.locator("#streamEditorList smd-badge[variant=info]").filter({ hasText: "Sleep:" })).toContainText(shortDateStr(futureDate));
     });
 
     test("wait badge shows wait text when job has no sleep until date", async ({ page }) => {
@@ -1174,8 +1324,8 @@ test.describe("PlanMyDay - Regression", () => {
         localStorage.setItem("planmydays_streams", JSON.stringify(streams));
         renderStreamsEditor();
       });
-      await expect(page.locator("#streamEditorList .badge.bg-info").filter({ hasText: "Wait: the delivery to arrive" })).toBeVisible();
-      await expect(page.locator("#streamEditorList .badge.bg-info").filter({ hasText: "Wait: the meeting to start" })).toBeVisible();
+      await expect(page.locator("#streamEditorList smd-badge[variant=info]").filter({ hasText: "Wait: the delivery to arrive" })).toBeVisible();
+      await expect(page.locator("#streamEditorList smd-badge[variant=info]").filter({ hasText: "Wait: the meeting to start" })).toBeVisible();
     });
 
     test("sleep until badge takes precedence over wait badge", async ({ page }) => {
@@ -1187,8 +1337,8 @@ test.describe("PlanMyDay - Regression", () => {
         localStorage.setItem("planmydays_streams", JSON.stringify(streams));
         renderStreamsEditor();
       }, futureDate);
-      await expect(page.locator("#streamEditorList .badge.bg-info").filter({ hasText: "Sleep:" })).toContainText(shortDateStr(futureDate));
-      await expect(page.locator("#streamEditorList .badge.bg-info").filter({ hasText: "Wait:" })).toHaveCount(0);
+      await expect(page.locator("#streamEditorList smd-badge[variant=info]").filter({ hasText: "Sleep:" })).toContainText(shortDateStr(futureDate));
+      await expect(page.locator("#streamEditorList smd-badge[variant=info]").filter({ hasText: "Wait:" })).toHaveCount(0);
     });
 
     test("opens add job modal", async ({ page }) => {
@@ -2168,7 +2318,7 @@ test.describe("PlanMyDay - Regression", () => {
       await seedTodayList(page);
       await page.reload();
       await page.locator("#todayCardList").waitFor({ state: "visible" });
-      const suffixBadge = page.locator(".badge.bg-secondary").first();
+      const suffixBadge = page.locator("smd-badge[variant=secondary]").first();
       await expect(suffixBadge).toBeVisible();
     });
 
@@ -2339,7 +2489,7 @@ test.describe("PlanMyDay - Regression", () => {
         localStorage.setItem("planmydays_suffixStart", "0");
       });
       await page.reload();
-      const badge = page.locator(".badge.bg-secondary").first();
+      const badge = page.locator("smd-badge[variant=secondary]").first();
       const text = await badge.textContent();
       const match = text.match(/\((\d+)\)/);
       expect(match).not.toBeNull();
@@ -2362,7 +2512,7 @@ test.describe("PlanMyDay - Regression", () => {
         localStorage.setItem("planmydays_jan1", "1");
       });
       await page.reload();
-      const badge = page.locator(".badge.bg-secondary").first();
+      const badge = page.locator("smd-badge[variant=secondary]").first();
       const text = await badge.textContent();
       const match = text.match(/\((\d+)\)/);
       expect(match).not.toBeNull();
@@ -2388,9 +2538,9 @@ test.describe("PlanMyDay - Regression", () => {
       await seedTodayList(page);
       await page.reload();
       await expect(page.locator("h4").filter({ hasText: "Report" })).toBeVisible();
-      const progressBadge = page.locator(".badge.bg-success").filter({ hasText: "progress" });
+      const progressBadge = page.locator("smd-badge[variant=success]").filter({ hasText: "progress" });
       await expect(progressBadge.first()).toBeVisible();
-      const maintenanceBadge = page.locator(".badge.bg-info").filter({ hasText: "maintenance" });
+      const maintenanceBadge = page.locator("smd-badge[variant=info]").filter({ hasText: "maintenance" });
       await expect(maintenanceBadge.first()).toBeVisible();
     });
   });
@@ -2799,7 +2949,7 @@ test.describe("PlanMyDay - Regression", () => {
       await page.locator("#jobEditOkBtn").click();
       
       await page.locator("#jobEditPage").waitFor({ state: "hidden", timeout: 10000 });
-      const badge = page.locator(".badge.bg-secondary").filter({ hasText: "14:30" });
+      const badge = page.locator("smd-badge[variant=secondary]").filter({ hasText: "14:30" });
       await expect(badge).toBeVisible();
     });
   });
@@ -4291,7 +4441,7 @@ test.describe("PlanMyDay - Regression", () => {
         localStorage.setItem("planmydays_completed", JSON.stringify([]));
       });
       await page.reload();
-      const badge = page.locator(".badge.bg-secondary").first();
+      const badge = page.locator("smd-badge[variant=secondary]").first();
       await expect(badge).toBeVisible();
     });
 
@@ -4309,7 +4459,7 @@ test.describe("PlanMyDay - Regression", () => {
         localStorage.setItem("planmydays_monday", "0");
       });
       await page.reload();
-      const badge = page.locator(".badge.bg-secondary").first();
+      const badge = page.locator("smd-badge[variant=secondary]").first();
       await expect(badge).toBeVisible();
     });
 
@@ -4327,7 +4477,7 @@ test.describe("PlanMyDay - Regression", () => {
         localStorage.setItem("planmydays_jan1", "0");
       });
       await page.reload();
-      const badge = page.locator(".badge.bg-secondary").first();
+      const badge = page.locator("smd-badge[variant=secondary]").first();
       await expect(badge).toBeVisible();
     });
 
@@ -4344,7 +4494,7 @@ test.describe("PlanMyDay - Regression", () => {
         localStorage.setItem("planmydays_completed", JSON.stringify([]));
       });
       await page.reload();
-      const badge = page.locator(".badge.bg-secondary").first();
+      const badge = page.locator("smd-badge[variant=secondary]").first();
       await expect(badge).toBeVisible();
     });
   });

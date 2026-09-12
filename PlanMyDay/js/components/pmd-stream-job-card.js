@@ -59,15 +59,15 @@ pmdStreamJobCardTemplate.innerHTML = `
     <slot name="drag-handle"><smd-draghandle class="drag-handle"></smd-draghandle></slot>
     <div class="thumb"><smd-image key-prefix="planmydays_"></smd-image></div>
     <div class="title">
-      <span class="job-title"></span><span class="suffix badge bg-secondary" hidden></span>
+      <span class="job-title"></span><smd-badge class="suffix" variant="secondary" hidden></smd-badge>
     </div>
     <button type="button" class="btn btn-primary" data-action="edit">Edit</button>
   </div>
   <div class="row2">
     <smd-checkbox class="active-toggle"><span>Active</span></smd-checkbox>
-    <span class="badge bg-primary schedule"></span>
-    <span class="badge bg-secondary time" hidden></span>
-    <span class="badge bg-info extra" hidden></span>
+    <smd-badge class="schedule" variant="primary"></smd-badge>
+    <smd-badge class="time" variant="secondary" hidden></smd-badge>
+    <smd-badge class="extra" variant="info" hidden></smd-badge>
   </div>
 `;
 

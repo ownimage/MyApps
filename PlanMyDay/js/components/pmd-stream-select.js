@@ -71,7 +71,7 @@ const pmdStreamSelectSheet = SmdStyles.sheetFor(`
     text-decoration: none;
   }
   .item:hover { background-color: var(--bs-secondary-bg, #303030); }
-  .item.active { background-color: var(--bs-primary, #0d6efd); color: #fff; }
+  .item.active { background-color: var(--bs-primary, #0d6efd); color: var(--smd-primary-text, #fff); }
 `);
 
 const pmdStreamSelectTemplate = document.createElement('template');

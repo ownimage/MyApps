@@ -1,9 +1,8 @@
 // Shared styles for the smd-/pmd- custom elements.
 //
 // Instead of each component embedding its own <style> copy of the same
-// bootstrap-like primitives (btn, badge, badge colours, [hidden]), define
-// them once as CONSTRUCTABLE CSSStyleSheets and adopt them into each shadow
-// root. Adopted sheets:
+// bootstrap-like primitives (btn, [hidden]), define them once as CONSTRUCTABLE
+// CSSStyleSheets and adopt them into each shadow root. Adopted sheets:
 //   - are shared (one sheet instance for every element),
 //   - survive shadowRoot.innerHTML re-renders (unlike a <style> child),
 //   - cascade in array order, so a component's own sheet placed last wins.
@@ -55,29 +54,15 @@
     cursor: pointer;
     white-space: nowrap;
   }
-  .btn-primary { background: var(--bs-primary, #0d6efd); color: #fff; }
-  .btn-secondary { background: var(--bs-secondary, #6c757d); color: #fff; }
-  .btn-danger { background: var(--bs-danger, #e74c3c); color: #fff; }
-  .btn-info { background: var(--bs-info, #0dcaf0); color: #000; }
+  .btn-primary { background: var(--bs-primary, #0d6efd); color: var(--smd-primary-text, #fff); }
+  .btn-secondary { background: var(--bs-secondary, #6c757d); color: var(--smd-secondary-text, #fff); }
+  .btn-danger { background: var(--bs-danger, #e74c3c); color: var(--smd-danger-text, #fff); }
+  .btn-info { background: var(--bs-info, #0dcaf0); color: var(--smd-info-text, #fff); }
   .btn-sm {
     padding: 0.25rem 0.5rem;
     font-size: 0.85rem;
     line-height: 1.5;
   }
-  .badge {
-    display: inline-block;
-    padding: 0.35em 0.65em;
-    font-size: 0.75em;
-    font-weight: 700;
-    line-height: 1;
-    text-align: center;
-    white-space: nowrap;
-    border-radius: 0.375rem;
-  }
-  .bg-primary { background: var(--bs-primary, #0d6efd); color: var(--bs-emphasis-color, #fff); }
-  .bg-success { background: var(--bs-success, #198754); color: var(--bs-emphasis-color, #fff); }
-  .bg-info { background: var(--bs-info, #0dcaf0); color: var(--bs-emphasis-color, #000); }
-  .bg-secondary { background: var(--bs-secondary, #6c757d); color: var(--bs-emphasis-color, #fff); }
 `;
 
   global.SmdStyles = {

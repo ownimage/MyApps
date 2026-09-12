@@ -63,15 +63,15 @@ const smdModalSheet = SmdStyles.sheetFor(`
     border-radius: 4px;
     cursor: pointer;
     font-size: 0.9rem;
-    color: #fff;
+    color: var(--smd-primary-text, #fff);
     background: var(--smd-primary, #0d6efd);
     transition: opacity 0.15s;
   }
   .smd-footer button:hover { opacity: 0.85; }
-  .smd-footer button[variant="secondary"] { background: var(--smd-secondary, #6c757d); }
-  .smd-footer button[variant="success"] { background: var(--smd-success, #198754); }
-  .smd-footer button[variant="danger"] { background: var(--smd-danger, #dc3545); }
-  .smd-footer button[variant="warning"] { background: var(--smd-warning, #ffc107); color: #000; }
+  .smd-footer button[variant="secondary"] { background: var(--smd-secondary, #6c757d); color: var(--smd-secondary-text, #fff); }
+  .smd-footer button[variant="success"] { background: var(--smd-success, #198754); color: var(--smd-success-text, #fff); }
+  .smd-footer button[variant="danger"] { background: var(--smd-danger, #dc3545); color: var(--smd-danger-text, #fff); }
+  .smd-footer button[variant="warning"] { background: var(--smd-warning, #ffc107); color: var(--smd-warning-text, #000); }
 `);
 
 class SmdModal extends HTMLElement {
