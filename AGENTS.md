@@ -2,7 +2,7 @@
 2: Ask questions if there are implementation options
 3: When running playwright use the command '.\node_modules\.bin\playwright.cmd' to make sure the correct version loads. 
 4: Please capture all the output needed when running a test the first time so that you do not need to rerun the test.
-5: When running the regression tests use playwright `--shards=30` (with pmd-regression.spec.js and pmd-touch.spec.js): launch each shard as `--shard=$i/30` so EVERY shard runs in parallel and gives full visibility into failures at once — do NOT loop them 1..30 sequentially (that hides cross-shard failures and needs a bespoke loop). Fix a failure in one shard everywhere before continuing.
+5: Regression tests (`pmd-regression.spec.js` + `pmd-touch.spec.js`) run as 30 `--shard=$i/30` processes, but this box cannot take 30 concurrent browsers (client ephemeral-port exhaustion → mid-run `ERR_CONNECTION_REFUSED`). Working recipe: start `python tests/http-server.py` + `python tests/subpath-server.py` ONCE, set `$env:PMD_EXTERNAL_SERVERS=1` (config skips webServer management), then run the shards in waves of 10 with `--workers=1 --retries=0 --reporter=line`, each writing its own output file. Build waves as `$wave = $start..($start+9)` in `for ($start=1; $start -le 30; $start += 10)` — NEVER `@(,@(1..10)),@(11..20),…`: that nests the first array (its `$i` becomes the whole wave) and `--shard` errors with "expected format current/all". Without `PMD_EXTERNAL_SERVERS=1` every Playwright process spawns its own `http-server.py` (Windows SO_REUSEADDR lets them all bind 8080) and early finishers kill the server the rest are using. Fix a failure in one shard everywhere before continuing.
 6: After fixing issues with the regression tests apply them to pmd-screenshots.spec.js and validate them using one theme only.
 7: Fail-fast test iterations: after a code/test change, DON'T run a whole batch at once — run only the first 2-3 affected tests first (`--grep "a|b" --workers=2 --retries=0`) to debug on a small surface; grow the batch only once those pass. The config sets `retries: 1`, so pass `--retries=0` while iterating (otherwise failures take twice as long).
 8: A change that ONLY touches `storybook/index.html` and/or `AGENTS.md` does NOT need the regression suite (or screenshot/sample-image specs). Just verify the storybook loads with zero console/page errors and no failed requests.
@@ -53,6 +53,17 @@ Architecture:
   (head `<script>` stamps `<link href>`; vendor/component scripts use
   `document.write(...?v=…)`; `applyTheme()` stamps theme swaps; `sampleImages.json`
   fetch + SW registration are versioned).
+- APP SCRIPT SPLIT (2026-09-11): `PlanMyDay/js/app.js` is now just the entry
+  (~238 lines: dev flag, image-size wiring, DOMContentLoaded wiring,
+  pull-to-refresh); the app lives in classic scripts `storage.js`, `utils.js`,
+  `editor-styles.js`, `editor-common.js`, `job-editor.js`, `streams-editor.js`,
+  `job-search.js`, `main-view.js`, `app-settings.js`. Keep every top-level
+  function a GLOBAL (no ES modules/IIFE wrapping): generated HTML uses inline
+  `onclick` and ~20 tests call globals via `page.evaluate`. Adding/removing an
+  app script = a `document.write('js/<file>.js?v=' + BUILD_NUMBER)` tag in
+  `PlanMyDay/index.html` (after the `smd-*` services, `app.js` LAST), an entry in
+  `sw.js` `APPS["PlanMyDay/"]`, and a `BUILD_NUMBER` bump. Keep `js/app.js`
+  specifically — the sub-path precache test asserts that exact path.
 
 Techniques / gotchas:
 - **`:host-context()` is NOT supported by WebKit/Safari** (so it silently does
@@ -81,6 +92,38 @@ Techniques / gotchas:
 - Line endings: this repo stores text files with LF (`core.autocrlf=input`, `core.eol=lf`; no `.gitattributes`). NEVER write CRLF into a file — git will flag every line as changed (whole-file diff) and warn "CRLF will be replaced by LF the next time Git touches it". Do not round-trip files through PowerShell pipe/Get-Content/Set-Content joins; the Edit/Write/Read tools and Node preserve line endings — if you must convert use node with explicit `\n`, NEVER shell-piped measurements of `git show` (PowerShell pipeline re-encodes — it once reported 914 CRLF for a file whose raw blob via `git cat-file` was entirely LF). Verify with `git cat-file blob HEAD:<file>` + `git diff --stat` so only real edits show.
 
 ## Session log
+
+### 2026-09-11 (2)
+- Split `PlanMyDay/js/app.js` (2,947 lines / 128 top-level functions) into 10
+  classic scripts: `storage.js`, `utils.js`, `editor-styles.js`,
+  `editor-common.js`, `job-editor.js`, `streams-editor.js`, `job-search.js`,
+  `main-view.js`, `app-settings.js` and the `app.js` entry (wiring + PWA). No
+  modules/IIFEs: all top-level functions stay global for inline `onclick` and the
+  ~20 `page.evaluate` test calls. Inventory check: all 128 original functions
+  present exactly once; only new edges are `activeEditorView`/`refreshActiveView`.
+- Cleanups included: removed the dead `PlanMyDayApp` class (never instantiated;
+  `SmdConfig.storagePrefix` default is already `planmydays_`); new
+  `refreshActiveView()` dedupes the "which screen re-renders" logic in
+  `cancelJobEdit`/`doneJobEdit`/`confirmDeleteJob` (delete-from-search now returns
+  to search instead of the main view); `renderMain` reuses the outer `streams`
+  array instead of `loadStreams()` per card.
+- Wiring: 9 extra `document.write('js/<file>.js?v=' + BUILD_NUMBER)` tags in
+  `PlanMyDay/index.html` (after the `smd-*` services, `app.js` last), 9 new
+  `sw.js` `APPS["PlanMyDay/"]` precache entries; `BUILD_NUMBER` → `202609111945`.
+  The sub-path precache test still asserts `js/app.js`.
+- Test-run infra: `playwright.config.js` now supports `PMD_EXTERNAL_SERVERS=1`
+  (webServer undefined) so pre-started 8080/8081 servers are shared untouched.
+  Without it, every Playwright process spawned its own `http-server.py` (Windows
+  SO_REUSEADDR lets them all bind 8080) and early finishers killed the server the
+  others were using → mid-run `ERR_CONNECTION_REFUSED`. 30 concurrent browsers
+  also exhaust client sockets, so the definitive run used 3 waves of 10 shards.
+- Result: full 30-shard regression + touch suite **425 passed / 0 failed**;
+  sub-path SW precache test green; screenshot smoke (main view / streams editor /
+  jobs editor, all 25 themes) 3 passed. No expected visual/behaviour change.
+- Lesson: move large blocks with a one-shot Node extraction script that slices
+  exact line ranges (LF-safe, zero transcription errors) and prints a coverage
+  report of unextracted non-blank lines; verify with `node --check` + a
+  function-name inventory against `git show HEAD:<file>`.
 
 ### 2026-09-11
 - Fixed `pmd-today-card` not respecting Settings/Display/Font Size on iPhone:
