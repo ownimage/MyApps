@@ -12,6 +12,7 @@
 //   switch    — render as a switch (pill) instead of a square checkbox
 //   name      — forwarded to the inner input
 //   value     — forwarded to the inner input
+//   size      — "normal" | "large" (Touch size); defaults to SmdCheckbox.defaultSize
 // Events:
 //   change / input — composed + bubbling; detail = { checked }
 // Property:
@@ -105,21 +106,35 @@
   const smdCheckboxTemplate = document.createElement("template");
   smdCheckboxTemplate.innerHTML = `<label><input type="checkbox"><slot></slot></label>`;
 
+  // Touch size: a VALUE, not a style. The font-size applies to the INPUT only,
+  // so the control (all its em-based dimensions) scales while the slotted label
+  // text stays the same size. Set once from the app via setDefaultSize().
+  const SIZE_CSS = {
+    normal: "input { font-size: 1em; }",
+    large: "input { font-size: 1.4em; }"
+  };
+  const sizeSheetCache = Object.create(null);
+  function sizeSheet(size) {
+    if (!sizeSheetCache[size]) sizeSheetCache[size] = SmdStyles.sheetFor(SIZE_CSS[size]);
+    return sizeSheetCache[size];
+  }
+  const liveInstances = new Set();
+
   class SmdCheckbox extends HTMLElement {
     static get observedAttributes() {
-      return ["checked", "disabled", "switch", "name", "value"];
+      return ["checked", "disabled", "switch", "name", "value", "size"];
     }
 
     constructor() {
       super();
       this.attachShadow({ mode: "open" });
-      SmdStyles.adoptStyles(this.shadowRoot, [smdCheckboxSheet]);
       this.shadowRoot.appendChild(smdCheckboxTemplate.content.cloneNode(true));
       this._input = this.shadowRoot.querySelector("input");
       this._input.addEventListener("change", () => {
         this._syncCheckedAttr();
         this._emit();
       });
+      this._applySize();
     }
 
     connectedCallback() {
@@ -134,11 +149,17 @@
           else this.removeAttribute(prop);
         }
       });
+      liveInstances.add(this);
       this._sync();
+    }
+
+    disconnectedCallback() {
+      liveInstances.delete(this);
     }
 
     attributeChangedCallback() {
       if (this._input) this._sync();
+      this._applySize();
     }
 
     get checked() { return this.hasAttribute("checked"); }
@@ -151,6 +172,16 @@
     set disabled(value) {
       if (value) this.setAttribute("disabled", "");
       else this.removeAttribute("disabled");
+    }
+
+    _size() {
+      const value = (this.getAttribute("size") || SmdCheckbox.defaultSize || "normal").toLowerCase();
+      return SIZE_CSS[value] ? value : "normal";
+    }
+
+    _applySize() {
+      // Size sheet kept LAST and replaced (not appended) so a later size wins.
+      this.shadowRoot.adoptedStyleSheets = [smdCheckboxSheet, sizeSheet(this._size())];
     }
 
     _sync() {
@@ -182,7 +213,16 @@
     }
   }
 
+  SmdCheckbox.defaultSize = "normal";
+
+  SmdCheckbox.setDefaultSize = function (value) {
+    const v = SIZE_CSS[value] ? value : "normal";
+    SmdCheckbox.defaultSize = v;
+    liveInstances.forEach((el) => el._applySize());
+  };
+
   if (!global.customElements.get("smd-checkbox")) {
     global.customElements.define("smd-checkbox", SmdCheckbox);
   }
+  global.SmdCheckbox = SmdCheckbox;
 })(window);

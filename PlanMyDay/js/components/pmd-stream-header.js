@@ -14,19 +14,6 @@ const pmdStreamHeaderSheet = SmdStyles.sheetFor(`
     background-color: var(--bs-info-border-subtle);
     color: var(--bs-emphasis-color, var(--smd-primary-text, #fff));
   }
-  .drag-handle {
-    flex-shrink: 0;
-    cursor: grab;
-    touch-action: none;
-    font-size: 1.3rem;
-    line-height: 1;
-    padding: 0 0.25rem;
-    color: currentColor;
-    opacity: 0.55;
-    user-select: none;
-    -webkit-user-select: none;
-  }
-  .drag-handle:active { cursor: grabbing; }
   .thumb {
     flex-shrink: 0;
     margin: 0 0.5rem;
@@ -114,7 +101,7 @@ const pmdStreamHeaderSheet = SmdStyles.sheetFor(`
 const pmdStreamHeaderTemplate = document.createElement('template');
 pmdStreamHeaderTemplate.innerHTML = `
   <div class="stream-accordion-header">
-    <div class="drag-handle">&#9776;</div>
+    <smd-draghandle class="drag-handle"></smd-draghandle>
     <div class="thumb"><smd-image key-prefix="planmydays_"></smd-image></div>
     <div class="body">
       <div class="row1">

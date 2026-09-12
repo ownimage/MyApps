@@ -244,12 +244,6 @@ var JOBS_EDITOR_STYLES = `
     border-radius: 6px;
     padding: 0.25rem 0.5rem;
   }
-  .smd-tab-panel .drag-handle {
-    cursor: grab;
-    color: var(--bs-secondary-color, #aaa);
-    padding: 0 0.25rem;
-    user-select: none;
-  }
   .smd-tab-panel .task-desc-input { flex: 1 1 auto; min-width: 0; }
   .d-none { display: none !important; }
 `;

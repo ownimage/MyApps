@@ -64,6 +64,21 @@ Architecture:
   `PlanMyDay/index.html` (after the `smd-*` services, `app.js` LAST), an entry in
   `sw.js` `APPS["PlanMyDay/"]`, and a `BUILD_NUMBER` bump. Keep `js/app.js`
   specifically — the sub-path precache test asserts that exact path.
+- TOUCH SIZE (2026-09-12): the old body-class "Drag size" setting is gone;
+  Settings/Display now has **Touch size** (`#touchSizeSelector`, storage key
+  `planmydays_touchSize`, legacy `planmydays_dragSize` still read as a fallback).
+  It is a VALUE, not a style: `app.js` `applyTouchSize()` calls
+  `SmdDragHandle.setDefaultSize(value)` + `SmdCheckbox.setDefaultSize(value)`
+  ("normal" | "large") at boot, and `changeTouchSize()` (shared
+  `smd-settings.js`) re-applies it. Both components keep their per-size sheet
+  LAST and replace it, and each exposes a per-instance `size` attribute
+  override. `smd-draghandle` (`shared/js/components/smd-draghandle.js`) renders
+  FA solid `fa-bars` (hardcoded glyph U+F0C9 / weight 900, inline
+  font-family) and always carries `class="drag-handle"` — Sortable's `handle`
+  selector and every test locator target that class. The old `.drag-handle`
+  CSS, `body.drag-size-*` classes and `[data-theme] … .drag-handle` overrides
+  were removed; `#btnMainMenu` uses `<i class="fa-solid fa-bars">` (light DOM,
+  so the document FA css applies).
 
 Techniques / gotchas:
 - **`:host-context()` is NOT supported by WebKit/Safari** (so it silently does
@@ -92,6 +107,39 @@ Techniques / gotchas:
 - Line endings: this repo stores text files with LF (`core.autocrlf=input`, `core.eol=lf`; no `.gitattributes`). NEVER write CRLF into a file — git will flag every line as changed (whole-file diff) and warn "CRLF will be replaced by LF the next time Git touches it". Do not round-trip files through PowerShell pipe/Get-Content/Set-Content joins; the Edit/Write/Read tools and Node preserve line endings — if you must convert use node with explicit `\n`, NEVER shell-piped measurements of `git show` (PowerShell pipeline re-encodes — it once reported 914 CRLF for a file whose raw blob via `git cat-file` was entirely LF). Verify with `git cat-file blob HEAD:<file>` + `git diff --stat` so only real edits show.
 
 ## Session log
+
+### 2026-09-12
+- New shared `<smd-draghandle>` (`shared/js/components/smd-draghandle.js`):
+  renders FA solid `fa-bars` (hardcoded glyph U+F0C9, inline font-family/weight
+  so it works in shadow DOM) and owns its cursor/touch-action/opacity. Size is a
+  VALUE: `SmdDragHandle.setDefaultSize("normal" | "large")` refreshes every live
+  instance (per-instance `size` attribute overrides). `smd-checkbox` gained the
+  same `SmdCheckbox.setDefaultSize(...)`; its size sheet scales the INPUT's
+  font-size only (control grows, slotted label text unchanged).
+- Replaced every drag handle: today cards (`main-view.js`), stream job cards
+  (`streams-editor.js`), task rows + tasks tab (`job-editor.js`), the built-in
+  handles in `pmd-stream-header`/`pmd-stream-job-card`/`pmd-today-card`, and the
+  storybook demo. All carry `class="drag-handle"` so Sortable + test locators
+  keep working.
+- Settings/Display: "Drag size" → **Touch size** (`#touchSizeSelector`), stored
+  as `planmydays_touchSize` (legacy `planmydays_dragSize` fell back to). New
+  `applyTouchSize()` in `app.js` boot + `changeTouchSize()` in shared
+  `smd-settings.js` push the value into both components (no style injection).
+  Removed the `.drag-handle` CSS (shared/app/editor-styles), the
+  `[data-theme] … .drag-handle` colour overrides and the `body.drag-size-*`
+  rules; updated the touch-size regression/screenshot tests and added tests for
+  the fa-bars glyph + main-menu icon. `#btnMainMenu` now uses
+  `<i class="fa-solid fa-bars">` (index.html + `smd-app.js` renderShell).
+- Wiring: `smd-draghandle.js` added to `index.html` (after smd-checkbox, before
+  the pmd components), `sw.js` SHARED_ASSETS and the storybook (new section);
+  `BUILD_NUMBER` → `202609120721`.
+- Result: full 30-shard regression + touch suite **427 passed / 0 failed**;
+  screenshot smoke (main view + job-edit-tasks incl. the large variant) 2
+  passed; storybook probe 0 console/page errors and 0 bad responses.
+- Lesson: Sortable v1.15's `handle` matching crosses shadow roots — its internal
+  `closest` follows `.host`, so `<smd-draghandle class="drag-handle">` matches
+  even when the pointer target is the glyph `<span>` inside the component's
+  shadow root. Keep the class on the HOST, never on inner nodes.
 
 ### 2026-09-11 (2)
 - Split `PlanMyDay/js/app.js` (2,947 lines / 128 top-level functions) into 10

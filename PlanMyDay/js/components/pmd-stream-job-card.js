@@ -8,19 +8,6 @@ const pmdStreamJobCardSheet = SmdStyles.sheetFor(`
     border-radius: 0;
     padding: 0.5rem;
   }
-  .drag-handle,
-  ::slotted(.drag-handle) {
-    flex-shrink: 0;
-    line-height: 1;
-    font-size: 1.2rem;
-    cursor: grab;
-    touch-action: none;
-    color: var(--bs-secondary-color, #6c757d);
-    user-select: none;
-    -webkit-user-select: none;
-  }
-  .drag-handle:active,
-  ::slotted(.drag-handle:active) { cursor: grabbing; }
   :host([drag-handle]) .drag-handle { display: none; }
   .row1 {
     display: flex;
@@ -69,7 +56,7 @@ const pmdStreamJobCardSheet = SmdStyles.sheetFor(`
 const pmdStreamJobCardTemplate = document.createElement('template');
 pmdStreamJobCardTemplate.innerHTML = `
   <div class="row1">
-    <slot name="drag-handle"><div class="drag-handle">&#9776;</div></slot>
+    <slot name="drag-handle"><smd-draghandle class="drag-handle"></smd-draghandle></slot>
     <div class="thumb"><smd-image key-prefix="planmydays_"></smd-image></div>
     <div class="title">
       <span class="job-title"></span><span class="suffix badge bg-secondary" hidden></span>
