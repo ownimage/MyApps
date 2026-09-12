@@ -41,7 +41,7 @@ function buildSearchJobsContent() {
   const page = document.getElementById("jobSearchEditor");
   if (!page) return;
   page.title = "Search Jobs";
-  page.headerHtml = '<span id="jobSearchTotalBadge" class="badge bg-info" style="font-size:0.8em;vertical-align:middle"></span>';
+  page.headerHtml = '<smd-badge id="jobSearchTotalBadge" variant="info" style="font-size:0.8em;vertical-align:middle"></smd-badge>';
   page.content =
     '<div id="jobSearchHeader">' +
       '<div id="jobSearchFilters" class="mt-3">' +

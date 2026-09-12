@@ -254,6 +254,7 @@
   <script src="../shared/js/components/smd-theme.js"></script>
   <script src="../shared/js/components/smd-checkbox.js"></script>
   <script src="../shared/js/components/smd-draghandle.js"></script>
+  <script src="../shared/js/components/smd-badge.js"></script>
   <script src="../shared/js/components/smd-image-picker.js"></script>
   <script src="../PlanMyDay/js/components/pmd-stream-header.js"></script>
   <script src="../PlanMyDay/js/components/pmd-stream-job-card.js"></script>
@@ -544,7 +545,7 @@
         const titleCtl = document.getElementById("ctrl-page-title");
         const applyBadge = () => {
           page.headerHtml = badgeCtl.checked
-            ? '<span class="badge bg-info" style="font-size:0.8em;vertical-align:middle">' + (badgeTextCtl.value || "") + '</span>'
+            ? '<smd-badge variant="info" style="font-size:0.8em;vertical-align:middle">' + (badgeTextCtl.value || "") + '</smd-badge>'
             : "";
         };
         const apply = () => {
@@ -980,6 +981,37 @@
           r.addEventListener("change", () => setSize(r.value));
         });
       }
+    });
+
+    // ---- smd-badge ----
+    sections.push({
+      id: "smd-badge",
+      name: "smd-badge",
+      tag: "<smd-badge>",
+      desc: "Themed Bootstrap badge. Colours come from the loaded Bootswatch theme: applySmdVars() probes a real <code>.badge.text-bg-&lt;variant&gt;</code> in the light DOM and publishes <code>--smd-badge-&lt;variant&gt;-{bg,text}</code>. Attributes: <code>variant</code> (primary/secondary/success/danger/warning/info/light/dark, default primary) and <code>pill</code>.",
+      html: () => `
+        <div class="sb-canvas" style="flex-direction:column;gap:0.75rem">
+          <div class="sb-row" style="flex-wrap:wrap">
+            <smd-badge variant="primary">Primary</smd-badge>
+            <smd-badge variant="secondary">Secondary</smd-badge>
+            <smd-badge variant="success">Success</smd-badge>
+            <smd-badge variant="danger">Danger</smd-badge>
+            <smd-badge variant="warning">Warning</smd-badge>
+            <smd-badge variant="info">Info</smd-badge>
+            <smd-badge variant="light">Light</smd-badge>
+            <smd-badge variant="dark">Dark</smd-badge>
+          </div>
+          <div class="sb-row" style="flex-wrap:wrap;align-items:center">
+            <span>Pills:</span>
+            <smd-badge variant="primary" pill>Primary</smd-badge>
+            <smd-badge variant="secondary" pill>Secondary</smd-badge>
+            <smd-badge variant="success" pill>Success</smd-badge>
+            <smd-badge variant="info" pill>Progress</smd-badge>
+          </div>
+        </div>
+        <div class="sb-log" id="log-smd-badge">events: none (badges are sized/coloured values)</div>
+      `,
+      init: () => {}
     });
 
     // ---- smd-checkbox ----

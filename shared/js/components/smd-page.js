@@ -40,21 +40,6 @@ const smdPageSheet = SmdStyles.sheetFor(`
     font-weight: 500;
     color: color-mix(in srgb, var(--bs-body-color, #eee) 60%, white);
   }
-  .smd-page-header .badge {
-    vertical-align: middle;
-  }
-  .badge {
-    display: inline-block;
-    padding: 0.35em 0.65em;
-    font-size: 0.75em;
-    font-weight: 700;
-    line-height: 1;
-    text-align: center;
-    white-space: nowrap;
-    border-radius: 0.375rem;
-  }
-  .bg-info { background: var(--bs-info, #0dcaf0); color: #000; }
-  .bg-secondary { background: var(--bs-secondary, #6c757d); color: #fff; }
   .smd-page-body {
     flex: 1;
     overflow-y: auto;

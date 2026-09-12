@@ -190,6 +190,7 @@ const SHARED_ASSETS = [
   "shared/js/components/smd-theme.js",
     "shared/js/components/smd-checkbox.js",
   "shared/js/components/smd-draghandle.js",
+  "shared/js/components/smd-badge.js",
   "shared/js/components/smd-fontawesome-credit.js",
   "shared/js/components/smd-page.js",
   "shared/js/components/smd-tabs.js",

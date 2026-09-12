@@ -21,12 +21,15 @@ const smdButtonSheet = SmdStyles.sheetFor(`
   }
   button[variant="secondary"] {
     background: var(--smd-secondary, #6c757d);
+    color: var(--smd-secondary-text, #fff);
   }
   button[variant="danger"] {
     background: var(--smd-danger, #dc3545);
+    color: var(--smd-danger-text, #fff);
   }
   button[variant="success"] {
     background: var(--smd-success, #198754);
+    color: var(--smd-success-text, #fff);
   }
   button[variant="info"] {
     background: var(--smd-info, #0dcaf0);

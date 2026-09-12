@@ -159,9 +159,9 @@ var JOBS_EDITOR_STYLES = `
     text-decoration: none;
   }
   .smd-page-body .btn:disabled, .smd-tab-panel .btn:disabled { opacity: 0.55; pointer-events: none; }
-  .smd-tab-panel .btn-primary { background: var(--bs-primary, #0d6efd); color: #fff; }
-  .smd-tab-panel .btn-danger { background: var(--bs-danger, #e74c3c); color: #fff; }
-  .smd-tab-panel .btn-info { background: var(--bs-info, #0dcaf0); color: #000; }
+  .smd-tab-panel .btn-primary { background: var(--bs-primary, #0d6efd); color: var(--smd-primary-text, #fff); }
+  .smd-tab-panel .btn-danger { background: var(--bs-danger, #e74c3c); color: var(--smd-danger-text, #fff); }
+  .smd-tab-panel .btn-info { background: var(--bs-info, #0dcaf0); color: var(--smd-info-text, #fff); }
   .smd-tab-panel .btn-outline-info { background: transparent; color: var(--bs-info, #31d2f2); border-color: var(--bs-info, #31d2f2); }
   .smd-tab-panel .btn-outline-secondary { background: transparent; color: var(--bs-secondary-color, #adb5bd); border-color: var(--bs-secondary-color, #6c757d); }
   .smd-tab-panel .btn-sm { padding: 0.25rem 0.5rem; font-size: 0.85rem; border-radius: 0.25rem; }
@@ -384,9 +384,9 @@ var SETTINGS_STYLES = `
     border-radius: 0.375rem;
     cursor: pointer;
   }
-  .smd-tab-panel .btn-danger { background: var(--bs-danger, #e74c3c); color: #fff; }
-  .smd-tab-panel .btn-warning { background: var(--bs-warning, #f39c12); color: #000; }
-  .smd-tab-panel .btn-primary { background: var(--bs-primary, #0d6efd); color: #fff; }
+  .smd-tab-panel .btn-danger { background: var(--bs-danger, #e74c3c); color: var(--smd-danger-text, #fff); }
+  .smd-tab-panel .btn-warning { background: var(--bs-warning, #f39c12); color: var(--smd-warning-text, #000); }
+  .smd-tab-panel .btn-primary { background: var(--bs-primary, #0d6efd); color: var(--smd-primary-text, #fff); }
   .smd-tab-panel .editor-btn, .smd-tab-panel .btn-wide, .smd-tab-panel .w-100 { display: block; width: 100%; }
   .smd-tab-panel .mb-2 { margin-bottom: 0.5rem; }
   .smd-tab-panel .mb-3 { margin-bottom: 1rem; }

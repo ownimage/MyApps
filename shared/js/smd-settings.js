@@ -60,14 +60,39 @@ function applyTheme(name) {
     const rel = link.getAttribute("href") || "";
     const prefix = rel.replace(/[^/]*\/bootstrap\.min\.css(\?.*)?$/, "");
     link.href = prefix + valid + "/bootstrap.min.css?v=" + v;
-    // recompute the smd-tabs text colour once the new theme css has loaded
-    link.addEventListener("load", updateTabTextColor, { once: true });
+    // recompute the shared text colours once the new theme css has loaded
+    link.addEventListener("load", applySmdVars, { once: true });
   }
   document.documentElement.setAttribute("data-bs-theme", config.bsTheme);
   document.documentElement.setAttribute("data-theme", name);
   localStorage.setItem(smdKey("theme"), name);
   applySmdVars();
 }
+
+// Computed style of a hidden light-DOM probe carrying real Bootstrap classes.
+// Theme CSS cannot reach into shadow roots, and Bootstrap's component vars are
+// set on the component elements themselves (not on :root), so reading the
+// probe's computed style is the only faithful source.
+function smdBootstrapStyle(className) {
+  if (typeof document === "undefined" || !document.body) return { color: "", backgroundColor: "" };
+  const probe = /(^|\s)btn/.test(className) ? document.createElement("button") : document.createElement("span");
+  if (probe.tagName === "BUTTON") probe.type = "button";
+  probe.className = className;
+  probe.setAttribute("aria-hidden", "true");
+  probe.style.cssText = "position:absolute;left:-9999px;top:0;visibility:hidden;pointer-events:none";
+  document.body.appendChild(probe);
+  const computed = getComputedStyle(probe);
+  const style = { color: computed.color, backgroundColor: computed.backgroundColor };
+  probe.remove();
+  return style;
+}
+
+// Text colour for a theme-coloured surface — exactly as Bootswatch chose it.
+function smdBootstrapColor(className) {
+  return smdBootstrapStyle(className).color;
+}
+
+const SMD_BADGE_VARIANTS = ["primary", "secondary", "success", "danger", "warning", "info", "light", "dark"];
 
 function applySmdVars() {
   const root = document.documentElement;
@@ -76,26 +101,29 @@ function applySmdVars() {
   root.style.setProperty("--smd-success", "var(--bs-success, #198754)");
   root.style.setProperty("--smd-danger", "var(--bs-danger, #dc3545)");
   root.style.setProperty("--smd-warning", "var(--bs-warning, #ffc107)");
-  root.style.setProperty("--smd-primary-text", "#fff");
-  updateTabTextColor();
+
+  // Per-variant text colours, straight from the loaded Bootstrap theme.
+  const secondaryText = smdBootstrapColor("btn btn-secondary") || "#fff";
+  root.style.setProperty("--smd-primary-text", smdBootstrapColor("btn btn-primary") || "#fff");
+  root.style.setProperty("--smd-secondary-text", secondaryText);
+  root.style.setProperty("--smd-success-text", smdBootstrapColor("btn btn-success") || "#fff");
+  root.style.setProperty("--smd-danger-text", smdBootstrapColor("btn btn-danger") || "#fff");
+  root.style.setProperty("--smd-info-text", smdBootstrapColor("btn btn-info") || "#fff");
+  root.style.setProperty("--smd-warning-text", smdBootstrapColor("btn btn-warning") || "#000");
+  // Inactive smd-tab buttons sit on the secondary colour.
+  root.style.setProperty("--smd-tab-text", secondaryText);
+
+  // Badge background/text, exactly as Bootswatch renders `.badge.text-bg-*`.
+  SMD_BADGE_VARIANTS.forEach((variant) => {
+    const style = smdBootstrapStyle("badge text-bg-" + variant);
+    if (style.backgroundColor) root.style.setProperty("--smd-badge-" + variant + "-bg", style.backgroundColor);
+    if (style.color) root.style.setProperty("--smd-badge-" + variant + "-text", style.color);
+  });
 }
 
-// Pick a readable text colour for the (theme-coloured) inactive smd-tab buttons.
-// Reads the resolved --bs-secondary luminance and sets --smd-tab-text to
-// black or white, whichever contrasts best.
+// Back-compat alias (older callers/tests): recompute all shared colour vars.
 function updateTabTextColor() {
-  if (typeof document === "undefined" || !document.body) return;
-  const probe = document.createElement("span");
-  probe.style.cssText = "position:absolute;left:-9999px;top:0;visibility:hidden";
-  probe.style.color = "var(--bs-secondary, #6c757d)";
-  document.body.appendChild(probe);
-  const rgb = getComputedStyle(probe).color;
-  probe.remove();
-  const m = rgb.match(/(\d+(?:\.\d+)?)/g);
-  if (!m || m.length < 3) return;
-  const f = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
-  const lum = 0.2126 * f(parseInt(m[0], 10)) + 0.7152 * f(parseInt(m[1], 10)) + 0.0722 * f(parseInt(m[2], 10));
-  document.documentElement.style.setProperty("--smd-tab-text", lum > 0.179 ? "#000" : "#fff");
+  applySmdVars();
 }
 
 function changeTheme(name) {
@@ -250,8 +278,8 @@ document.addEventListener("DOMContentLoaded", () => {
   updateScreenResolution();
   window.addEventListener("resize", updateScreenResolution);
 
-  updateTabTextColor();
-  window.addEventListener("load", updateTabTextColor);
+  applySmdVars();
+  window.addEventListener("load", applySmdVars);
 
   const autoHide = localStorage.getItem(smdKey("autoHideMenu")) === "true";
   if (autoHide) {

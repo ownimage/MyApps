@@ -64,17 +64,17 @@ pmdJobSearchCardTemplate.innerHTML = `
     <div class="thumb stream-thumb"><smd-image key-prefix="planmydays_"></smd-image></div>
     <div class="thumb job-thumb"><smd-image key-prefix="planmydays_"></smd-image></div>
     <div class="title">
-      <span class="job-title"></span><span class="suffix badge bg-secondary" hidden></span>
+      <span class="job-title"></span><smd-badge class="suffix" variant="secondary" hidden></smd-badge>
     </div>
     <button type="button" class="btn btn-primary" data-action="edit">Edit</button>
   </div>
   <div class="row2">
     <smd-checkbox class="active-toggle"></smd-checkbox>
     <span class="stream-title"></span>
-    <span class="badge tab-badge"></span>
-    <span class="badge bg-info extra" hidden></span>
-    <span class="badge bg-primary schedule"></span>
-    <span class="badge bg-secondary time" hidden></span>
+    <smd-badge class="tab-badge" variant="success"></smd-badge>
+    <smd-badge class="extra" variant="info" hidden></smd-badge>
+    <smd-badge class="schedule" variant="primary"></smd-badge>
+    <smd-badge class="time" variant="secondary" hidden></smd-badge>
   </div>
 `;
 
@@ -165,7 +165,7 @@ class PmdJobSearchCard extends HTMLElement {
 
     const tabBadge = root.querySelector('.tab-badge');
     tabBadge.textContent = tab;
-    tabBadge.className = 'badge tab-badge bg-' + (tab === 'progress' ? 'success' : 'info');
+    tabBadge.setAttribute('variant', tab === 'progress' ? 'success' : 'info');
 
     const extraEl = root.querySelector('.extra');
     if (extra) {

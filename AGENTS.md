@@ -30,7 +30,9 @@ Architecture:
   - `smd-page` = full-screen overlay pages: `settingsPage`, `streamsEditor`, `jobSearchEditor`, `imagesEditor`, `jobEditPage`, `streamEditPage`, `minioImportPage`. Footer buttons fire `smd-page-action` (`cancel`/`done`/`add` etc).
   - z-index stack: smd-page 1040 < smd-modal 1050 < imagePickerModal 1060. No z-index hacks needed.
 - Component styling uses CONSTRUCTABLE STYLESHEETS from `shared/js/components/styles.js` (`window.SmdStyles`): `smdButtonSheet`/`smdTabsSheet`/`smdModalSheet`/`smdPageSheet` are per-component sheets; `SmdStyles.hiddenSheet` + `SmdStyles.btnBadgeSheet` are shared by the pmd-* cards/header. `SmdStyles.sheetFor(css)` caches a sheet by CSS text; `SmdStyles.adoptStyles(root, sheetsOrCss)` adopts (dedup) into `root.adoptedStyleSheets`. Adopted sheets SURVIVE `shadowRoot.innerHTML` re-renders (unlike injected `<style>` elements). `injectStyleInto(root, css)` in app.js is now a wrapper over `SmdStyles.adoptStyles` (page/modal content styles).
-- Colour/typography conventions: smd-tabs selected = `--smd-primary`/`--smd-primary-text`, non-selected = `--smd-secondary`; stream accordion header expanded = `--bs-info`, collapsed = `--smd-secondary`; page/modal header = lightened band (`color-mix(in srgb, var(--bs-body-bg) 85%, white)`) + title in lighter body-colour variant (`color-mix(... 60%, white)`).
+- Colour/typography conventions: smd-tabs selected = `--smd-primary`/`--smd-primary-text`, non-selected = `--smd-secondary`/`--smd-tab-text`; stream accordion header expanded = `--bs-info`, collapsed = `--smd-secondary`; page/modal header = lightened band (`color-mix(in srgb, var(--bs-body-bg) 85%, white)`) + title in lighter body-colour variant (`color-mix(... 60%, white)`).
+- THEME TEXT COLOURS (2026-09-12): shadow-DOM buttons/tabs cannot use Bootswatch's `.btn-*` rules (document CSS doesn't cross the boundary, and `--bs-btn-*` is set on the `.btn-*` element, not `:root`). `applySmdVars()` reads a hidden light-DOM `<button class="btn btn-<variant>">` probe (`smdBootstrapColor()`) and publishes `--smd-primary/secondary/success/danger/info/warning-text` + `--smd-tab-text` on `<html>`; every shadow `.btn-*`/variant uses those vars. `applyTheme()` re-runs `applySmdVars` on the theme `<link>`'s `load`. Never hardcode white text for a theme-coloured surface; if Bootswatch's own `.btn-*` rule disagrees with its `--bs-btn-color` var (e.g. cerulean's later `.btn-secondary { color: ... }`), the probe wins — always match the probe.
+- BADGES (2026-09-12): use the shared `<smd-badge variant="primary|secondary|success|danger|warning|info|light|dark" pill?>` component everywhere — never a `<span class="badge bg-*">` (Bootstrap's badge vars live on the `.badge` element and can't reach shadow roots). `applySmdVars()` probes a hidden light-DOM `.badge.text-bg-<variant>` (`smdBootstrapStyle()`) and publishes `--smd-badge-<variant>-{bg,text}`; the component's own sheet consumes them, so text colour follows Bootswatch exactly (white on cerulean's navy info, black on its light secondary, etc.). `btnBadgeSheet` now only carries `.btn*` rules despite its name; `smd-page`'s badge/bg rules were removed.
 - Quartz's "glassmorphism" overrides live in `shared/css/styles.css` (`.modal-content`, `.dropdown-menu`).
 - REPO/PWA LAYOUT (2026-09-10): the repo hosts **multiple PWAs off one origin**
   (`ownimage.github.io/MyApps/…`). `shared/` = library; each app lives in its own
@@ -107,6 +109,58 @@ Techniques / gotchas:
 - Line endings: this repo stores text files with LF (`core.autocrlf=input`, `core.eol=lf`; no `.gitattributes`). NEVER write CRLF into a file — git will flag every line as changed (whole-file diff) and warn "CRLF will be replaced by LF the next time Git touches it". Do not round-trip files through PowerShell pipe/Get-Content/Set-Content joins; the Edit/Write/Read tools and Node preserve line endings — if you must convert use node with explicit `\n`, NEVER shell-piped measurements of `git show` (PowerShell pipeline re-encodes — it once reported 914 CRLF for a file whose raw blob via `git cat-file` was entirely LF). Verify with `git cat-file blob HEAD:<file>` + `git diff --stat` so only real edits show.
 
 ## Session log
+
+### 2026-09-12 (3)
+- Badge theming: new shared `<smd-badge>` (`shared/js/components/smd-badge.js`)
+  replaces every `<span class="badge bg-*">` — pmd-today-card / pmd-stream-header /
+  pmd-stream-job-card / pmd-job-search-card (tab + count + suffix + schedule +
+  time + extra), the `#editJobsTotalBadge`/`#jobSearchTotalBadge` page-header
+  badges, and the Minio bucket badge. `variant` (8 colours) + `pill` attributes.
+- Colours are exact Bootswatch: `applySmdVars()` now probes a hidden light-DOM
+  `.badge.text-bg-<variant>` (`smdBootstrapStyle()` returns computed bg + text)
+  and publishes `--smd-badge-<variant>-{bg,text}`; the component's own sheet
+  consumes them. This fixes the reported `maintenance`/count badges (previously
+  `--bs-emphasis-color` black text on cerulean's navy info; now white like
+  Bootswatch). Removed the `.badge`/`.bg-*` rules from `btnBadgeSheet` and
+  `smd-page` (the sheet keeps its historical name but only has `.btn*` now).
+- Tests: badge locators moved from `.badge.bg-*` to `smd-badge[variant=*]` /
+  `smd-badge[pill]`; new "badges match the Bootswatch badge colours" test in the
+  Theme contrast describe. `setTheme()` helper now no-ops when already on the
+  requested theme (no `<link>` load event would fire).
+- Wiring: `smd-badge.js` added to `index.html`, `sw.js` SHARED_ASSETS and the
+  storybook (new section); `BUILD_NUMBER` → `202609120907`.
+- Result: full 30-shard regression + touch suite **432 passed / 0 failed**; full
+  screenshot suite (33 tests × 25 themes) 33 passed; storybook probe 0
+  console/page errors with badge colours matching a live `.badge.text-bg-*` probe.
+
+### 2026-09-12 (2)
+- Theme contrast fixes. Root cause: components live in shadow roots, so
+  Bootswatch's `.btn-*` rules can't reach them; the emulation hardcoded white
+  text, which is invisible on the light-secondary themes (cerulean, lumen, lux,
+  materia, morph, quartz, simplex, yeti, zephyr — Bootswatch renders dark text
+  there).
+- `smd-settings.js`: new `smdBootstrapColor()` probe reads the computed colour
+  of a hidden light-DOM `<button class="btn btn-<variant>">`;
+  `applySmdVars()` now publishes `--smd-primary/secondary/success/danger/info/
+  warning-text` and `--smd-tab-text` from those probes (replacing the old
+  luminance `updateTabTextColor` heuristic, which could disagree with
+  Bootswatch, e.g. minty). `applyTheme()` re-runs `applySmdVars` on the theme
+  link's `load`. Probe note: the computed colour can differ from the theme's
+  `--bs-btn-color` var — e.g. cerulean has a later `.btn-secondary { color: … }`
+  rule, so the probe (final computed value) is the source of truth.
+- `smd-button`, `smd-modal`, shared `btnBadgeSheet` and the
+  `JOBS_EDITOR_STYLES`/`SETTINGS_STYLES` `.btn-*` rules now use those text vars
+  (no hardcoded `#fff`). Badges keep their emphasis-colour text.
+- `pmd-screenshots.spec.js`: `setTheme()` swaps the theme `<link>` directly and
+  never recomputed the text vars, so the gallery froze on the first swapped
+  theme's colour (cerulean → black tabs on every later theme). It now calls
+  `applySmdVars()` after the link loads. The app itself was already correct.
+- Tests: new "Theme contrast" describe (secondary page/modal/pmd buttons match a
+  live light-DOM `.btn-secondary` probe; inactive tabs match it across
+  cerulean/cosmo/darkly/sketchy). `BUILD_NUMBER` → `202609120837`.
+- Result: full 30-shard regression + touch suite **431 passed / 0 failed**; full
+  screenshot suite (33 tests × 25 themes) 33 passed; storybook probe 0
+  console/page errors and correct tab colours on theme switch.
 
 ### 2026-09-12
 - New shared `<smd-draghandle>` (`shared/js/components/smd-draghandle.js`):

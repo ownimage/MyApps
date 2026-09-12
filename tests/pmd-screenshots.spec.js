@@ -176,6 +176,11 @@ async function setTheme(page, themeName) {
   } catch (e) {
     // CDN slow/unreachable: carry on and capture whatever style is present
   }
+  // applyTheme() recomputes the shared colour vars (button/tab text) after the
+  // theme css loads; this helper swaps the <link> directly, so mirror that.
+  await page.evaluate(() => {
+    if (typeof applySmdVars === "function") applySmdVars();
+  });
   await page.waitForTimeout(150);
   // Re-render themed images so they reflect the newly selected theme,
   // mirroring changeTheme() in js/settings.js (which calls renderMain).
@@ -382,8 +387,8 @@ test.describe("PlanMyDay - Screenshots", () => {
     await page.waitForSelector("#streamEditorList .accordion-item");
     await page.locator("#streamEditorList .stream-header-main").first().click();
     await page.locator("#streamEditorList .accordion-collapse.show").waitFor({ state: "visible", timeout: 5000 });
-    await page.waitForSelector("#streamEditorList .badge.bg-info", { state: "attached" });
-    await expect(page.locator("#streamEditorList .accordion-collapse.show .badge.bg-primary").filter({ hasText: "Weekdays" })).toHaveCount(1);
+    await page.waitForSelector("#streamEditorList smd-badge[variant=info]", { state: "attached" });
+    await expect(page.locator("#streamEditorList .accordion-collapse.show smd-badge[variant=primary]").filter({ hasText: "Weekdays" })).toHaveCount(1);
     await screenshotAllThemes(page, "edit-streams.png");
     await page.evaluate(() => changeTouchSize("large"));
     await page.waitForFunction(() => window.SmdDragHandle && SmdDragHandle.defaultSize === "large");

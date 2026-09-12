@@ -50,14 +50,14 @@
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    color: #fff;
+    color: var(--smd-primary-text, #fff);
     flex-shrink: 0;
     transition: opacity 0.2s;
   }
   .image-actions .btn:hover { opacity: 0.85; }
-  .image-actions .btn-danger { background: var(--bs-danger, #dc3545); }
-  .image-actions .btn-info { background: var(--bs-info, #0dcaf0); color: #000; }
-  .image-actions .btn-primary { background: var(--bs-primary, #0d6efd); }
+  .image-actions .btn-danger { background: var(--bs-danger, #dc3545); color: var(--smd-danger-text, #fff); }
+  .image-actions .btn-info { background: var(--bs-info, #0dcaf0); color: var(--smd-info-text, #fff); }
+  .image-actions .btn-primary { background: var(--bs-primary, #0d6efd); color: var(--smd-primary-text, #fff); }
   .image-actions .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 `);
 

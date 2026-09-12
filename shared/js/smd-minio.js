@@ -521,8 +521,8 @@ function loadMinioBuckets() {
 function loadMinioBucketFiles(bucket) {
   var page = document.getElementById("minioImportPage");
   if (page) {
-    page.headerHtml = '<span class="badge bg-info" style="font-size:0.8em;vertical-align:middle">Bucket: ' +
-      bucket.replace(/</g, "&lt;").replace(/>/g, "&gt;") + '</span>';
+    page.headerHtml = '<smd-badge variant="info" style="font-size:0.8em;vertical-align:middle">Bucket: ' +
+      bucket.replace(/</g, "&lt;").replace(/>/g, "&gt;") + '</smd-badge>';
     // Setting headerHtml re-renders the page shadow root, which wipes any
     // injected style element, so re-apply the import styles.
     injectStyleInto(page.shadowRoot, MINIO_IMPORT_STYLES);
