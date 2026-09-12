@@ -22,6 +22,23 @@ function applyImageSize() {
   }
 }
 
+// Display / Touch size setting -> the shared <smd-draghandle> and <smd-checkbox>
+// size value ("normal" | "large"), wired as a VALUE (not a style). The legacy
+// "dragSize" key is honoured so an existing preference survives the rename.
+function pmdTouchSize() {
+  return localStorage.getItem(smdKey("touchSize")) ||
+    localStorage.getItem(smdKey("dragSize")) || "large";
+}
+function applyTouchSize() {
+  const size = pmdTouchSize();
+  if (typeof SmdDragHandle !== "undefined" && SmdDragHandle.setDefaultSize) {
+    SmdDragHandle.setDefaultSize(size);
+  }
+  if (typeof SmdCheckbox !== "undefined" && SmdCheckbox.setDefaultSize) {
+    SmdCheckbox.setDefaultSize(size);
+  }
+}
+
 document.addEventListener("DOMContentLoaded", () => {
   const settingsPage = document.getElementById("settingsPage");
   if (settingsPage) {
@@ -131,6 +148,7 @@ document.addEventListener("DOMContentLoaded", () => {
   if (typeof seedSampleImages === "function") seedSampleImages();
 
   applyImageSize();
+  applyTouchSize();
   renderMain();
 
   // The settings Display tab uses the shared <smd-theme> component; apply the

@@ -198,12 +198,6 @@ body.auto-hide-menu #mainNav.nav-hidden ~ .container-fluid {
   opacity: 0.6;
 }
 
-/* DRAG HANDLE (generic base) */
-.drag-handle {
-  color: var(--bs-body-color);
-  opacity: 0.55;
-}
-
 /* Sortable drag feedback (fallback clone lives on document.body) */
 .sortable-fallback {
   opacity: 0.6 !important;

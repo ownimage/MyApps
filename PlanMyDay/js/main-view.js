@@ -185,11 +185,10 @@ function renderMain() {
     card.setAttribute("tab", stream.tab || "progress");
     if (job.description) card.setAttribute("description", job.description);
     card.setAttribute("key-prefix", "planmydays_");
-    const handle = document.createElement("div");
+    const handle = document.createElement("smd-draghandle");
     handle.className = "drag-handle";
     handle.setAttribute("slot", "drag-handle");
     handle.setAttribute("title", "drag");
-    handle.innerHTML = "&#9776;";
     card.appendChild(handle);
     if (matchingStreams && !matchingStreams.has(streamIdx)) card.hidden = true;
     cardContainer.appendChild(card);

@@ -253,6 +253,7 @@
   <script src="../shared/js/components/smd-image-select.js"></script>
   <script src="../shared/js/components/smd-theme.js"></script>
   <script src="../shared/js/components/smd-checkbox.js"></script>
+  <script src="../shared/js/components/smd-draghandle.js"></script>
   <script src="../shared/js/components/smd-image-picker.js"></script>
   <script src="../PlanMyDay/js/components/pmd-stream-header.js"></script>
   <script src="../PlanMyDay/js/components/pmd-stream-job-card.js"></script>
@@ -825,7 +826,7 @@
       id: "pmd-today-card",
       name: "pmd-today-card",
       tag: "<pmd-today-card>",
-      desc: "A single job row on the Today list. Attributes: <code>job-id</code>, <code>stream-idx</code>, <code>job-idx</code>, <code>title</code>, <code>suffix</code>, <code>daily</code>, <code>done</code>, <code>checked</code>, <code>stream-image</code>, <code>job-image</code>, <code>stream-title</code>, <code>tab</code>, <code>description</code>, <code>key-prefix</code>. Dispatches <code>pmd-today-toggle</code> ({ jobId, checked }) and <code>pmd-today-view</code> ({ streamIdx, jobIdx }). A <code>&lt;div class=\"drag-handle\" slot=\"drag-handle\"&gt;</code> can be slotted in; otherwise the built-in handle is shown.",
+      desc: "A single job row on the Today list. Attributes: <code>job-id</code>, <code>stream-idx</code>, <code>job-idx</code>, <code>title</code>, <code>suffix</code>, <code>daily</code>, <code>done</code>, <code>checked</code>, <code>stream-image</code>, <code>job-image</code>, <code>stream-title</code>, <code>tab</code>, <code>description</code>, <code>key-prefix</code>. Dispatches <code>pmd-today-toggle</code> ({ jobId, checked }) and <code>pmd-today-view</code> ({ streamIdx, jobIdx }). An <code>&lt;smd-draghandle class=\"drag-handle\" slot=\"drag-handle\"&gt;</code> can be slotted in; otherwise the built-in handle is shown.",
       html: () => `
         <div class="sb-canvas" style="flex-direction:column;width:100%">
           <div id="sb-today-cards" style="width:100%"></div>
@@ -843,7 +844,7 @@
           const done = document.getElementById("ctrl-today-done").checked;
           const slotHandle = document.getElementById("ctrl-today-handle").checked;
           const hostEl = document.getElementById("sb-today-cards");
-          const handle = '<div class="drag-handle" slot="drag-handle" title="drag">&#9776;</div>';
+          const handle = '<smd-draghandle class="drag-handle" slot="drag-handle" title="drag"></smd-draghandle>';
           hostEl.innerHTML = `
             <pmd-today-card job-id="sb1" stream-idx="0" job-idx="0" title="Report" suffix="(12)" stream-title="Work" tab="progress" description="Weekly report with metrics" stream-image="Blue" job-image="Green" key-prefix="sbt_" ${daily ? "daily" : ""} ${done ? "done" : ""}>
               ${slotHandle ? handle : ""}
@@ -944,6 +945,40 @@
         };
         render();
         document.getElementById("ctrl-image-select-disabled").addEventListener("change", render);
+      }
+    });
+
+    // ---- smd-draghandle ----
+    sections.push({
+      id: "smd-draghandle",
+      name: "smd-draghandle",
+      tag: "<smd-draghandle>",
+      desc: "The shared drag handle (Font Awesome <code>fa-bars</code>). Size is a VALUE, not a style: <code>SmdDragHandle.setDefaultSize(\"normal\" | \"large\")</code> (the app's Touch size setting) resizes every handle, including handles nested inside pmd-* components; a per-instance <code>size</code> attribute overrides it. Keep the <code>drag-handle</code> class on it — that is the selector Sortable hooks.",
+      html: () => `
+        <div class="sb-canvas">
+          <div class="sb-row" style="gap:1.5rem;align-items:center">
+            <smd-draghandle class="drag-handle"></smd-draghandle>
+            <smd-draghandle class="drag-handle" size="large"></smd-draghandle>
+            <smd-draghandle class="drag-handle" size="normal"></smd-draghandle>
+          </div>
+        </div>
+        <div class="sb-controls">
+          <label><input type="radio" name="ctrl-draghandle-size" value="normal"> Default normal</label>
+          <label><input type="radio" name="ctrl-draghandle-size" value="large"> Default large</label>
+          <span>(also resizes every smd-checkbox)</span>
+        </div>
+        <div class="sb-log" id="log-smd-draghandle">events: none (handles are sized values)</div>
+      `,
+      init: () => {
+        const setSize = (value) => {
+          if (window.SmdDragHandle) SmdDragHandle.setDefaultSize(value);
+          if (window.SmdCheckbox) SmdCheckbox.setDefaultSize(value);
+        };
+        const current = (window.SmdDragHandle && SmdDragHandle.defaultSize) || "normal";
+        document.querySelectorAll('#smd-draghandle input[name="ctrl-draghandle-size"]').forEach((r) => {
+          if (r.value === current) r.checked = true;
+          r.addEventListener("change", () => setSize(r.value));
+        });
       }
     });
 

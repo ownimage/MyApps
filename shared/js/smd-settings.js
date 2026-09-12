@@ -134,11 +134,11 @@ function changeDensity(value) {
   }
 }
 
-// DRAG SIZE
-function changeDragSize(value) {
-  localStorage.setItem(smdKey("dragSize"), value);
-  document.body.classList.remove("drag-size-normal", "drag-size-large");
-  document.body.classList.add("drag-size-" + value);
+// TOUCH SIZE (drag handles + checkboxes)
+function changeTouchSize(value) {
+  localStorage.setItem(smdKey("touchSize"), value);
+  // Optional app hook: push the new value into <smd-draghandle>/<smd-checkbox>.
+  if (typeof applyTouchSize === "function") applyTouchSize();
 }
 
 // SLIDE SPEED (smd-page slide-in/out duration in ms)
@@ -244,9 +244,6 @@ document.addEventListener("DOMContentLoaded", () => {
     document.body.classList.add(savedDensity);
   }
 
-  const savedDragSize = localStorage.getItem(smdKey("dragSize")) || "large";
-  document.body.classList.add("drag-size-" + savedDragSize);
-
   const savedSlideDuration = localStorage.getItem(smdKey("slideDuration")) || "0";
   applySlideDuration(savedSlideDuration);
 
@@ -276,7 +273,7 @@ Object.assign(SmdApp.prototype, {
   changeFontSize,
   changeIconSize,
   changeDensity,
-  changeDragSize,
+  changeTouchSize,
   applySlideDuration,
   changeSlideDuration,
   showNav,

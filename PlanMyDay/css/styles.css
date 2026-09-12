@@ -326,31 +326,19 @@ body.compact {
 [data-theme="cerulean"] .stream-accordion-item.expanded .stream-accordion-header {
   color: #fff;
 }
-[data-theme="cerulean"] .stream-accordion-item.expanded .drag-handle {
-  color: #fff;
-}
 [data-theme="cerulean"] .stream-accordion-item.expanded .stream-header-chevron {
   filter: brightness(0) invert(1);
 }
 [data-theme="flatly"] .stream-accordion-item.expanded .stream-accordion-header {
   color: #212529;
 }
-[data-theme="flatly"] .stream-accordion-item.expanded .drag-handle {
-  color: #212529;
-}
 [data-theme="journal"] .stream-accordion-item.expanded .stream-accordion-header {
-  color: #fff;
-}
-[data-theme="journal"] .stream-accordion-item.expanded .drag-handle {
   color: #fff;
 }
 [data-theme="journal"] .stream-accordion-item.expanded .stream-header-chevron {
   filter: brightness(0) invert(1);
 }
 [data-theme="materia"] .stream-accordion-item.expanded .stream-accordion-header {
-  color: #fff;
-}
-[data-theme="materia"] .stream-accordion-item.expanded .drag-handle {
   color: #fff;
 }
 [data-theme="materia"] .stream-accordion-item.expanded .stream-header-chevron {
@@ -370,65 +358,15 @@ body.compact {
   user-select: none;
 }
 
-.stream-drag-card {
-  cursor: default;
-  user-select: none;
-}
-.stream-drag-card .drag-handle {
-  cursor: grab;
-  touch-action: none;
-}
-.stream-drag-card .drag-handle:active {
-  cursor: grabbing;
-}
-.stream-accordion-header .drag-handle {
-  font-size: 1.3rem;
-  line-height: 1;
-}
-
 .job-drag-card {
   cursor: default;
   user-select: none;
   -webkit-user-select: none;
 }
-.job-drag-card .drag-handle {
-  cursor: grab;
-  touch-action: none;
-  -webkit-touch-callout: none;
-  font-size: 1.2rem;
-  line-height: 1;
-  padding: 0.15rem 0.25rem;
-}
-.job-drag-card .drag-handle:active {
-  cursor: grabbing;
-}
-.today-drag-card .drag-handle {
-  touch-action: none;
-  -webkit-touch-callout: none;
-  font-size: 1.2rem;
-  line-height: 1;
-}
 
 .task-drag-card {
   user-select: none;
   -webkit-user-select: none;
-}
-.task-drag-card .drag-handle {
-  cursor: grab;
-  touch-action: none;
-  -webkit-touch-callout: none;
-  font-size: 1rem;
-  line-height: 1;
-}
-.task-drag-card .drag-handle:active {
-  cursor: grabbing;
-}
-body.drag-size-large .stream-accordion-header .drag-handle,
-body.drag-size-large .job-drag-card .drag-handle,
-body.drag-size-large .today-drag-card .drag-handle,
-body.drag-size-large .task-drag-card .drag-handle {
-  font-size: 1.6rem;
-  padding: 0.4rem 0.5rem;
 }
 
 /* Task note toggle button: keep the outline (expanded) state visibly distinct on

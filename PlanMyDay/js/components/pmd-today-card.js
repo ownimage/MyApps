@@ -10,9 +10,9 @@
 // custom properties (`--pmd-today-*`, set in PlanMyDay/css/styles.css) because
 // `:host-context()` is NOT supported by WebKit/Safari (iPhone).
 //
-// A `<div class="drag-handle" slot="drag-handle">` is slotted in by the consumer
-// (Sortable needs a light-DOM handle); when none is provided the built-in
-// fallback handle is shown.
+// An `<smd-draghandle class="drag-handle" slot="drag-handle">` is slotted in by
+// the consumer (Sortable needs a light-DOM handle); when none is provided the
+// built-in fallback handle is shown.
 //
 // Attributes:
 //   job-id        — job id (echoed on pmd-today-toggle, set as data-job-id on the checkbox)
@@ -65,20 +65,6 @@ const pmdTodayCardSheet = SmdStyles.sheetFor(`
     align-items: center;
     flex: 0 0 auto;
   }
-  .drag-handle,
-  ::slotted(.drag-handle) {
-    flex-shrink: 0;
-    line-height: 1;
-    font-size: 1.2rem;
-    cursor: grab;
-    touch-action: none;
-    -webkit-touch-callout: none;
-    color: var(--bs-body-color, #dee2e6);
-    user-select: none;
-    -webkit-user-select: none;
-  }
-  .drag-handle:active,
-  ::slotted(.drag-handle:active) { cursor: grabbing; }
 
   .check-col {
     display: flex;
@@ -166,7 +152,7 @@ const pmdTodayCardTemplate = document.createElement('template');
 pmdTodayCardTemplate.innerHTML = `
   <div class="row">
     <div class="handle-col">
-      <slot name="drag-handle"><div class="drag-handle">&#9776;</div></slot>
+      <slot name="drag-handle"><smd-draghandle class="drag-handle"></smd-draghandle></slot>
       <div class="check-col">
         <div class="check-row"><smd-checkbox class="job-checkbox"></smd-checkbox></div>
         <smd-image class="daily-repeat-icon" key-prefix="planmydays_" size="16" title="Every day" hidden></smd-image>

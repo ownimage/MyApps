@@ -259,7 +259,7 @@ test.describe("PlanMyDay - Screenshots", () => {
       localStorage.setItem("planmydays_fontSize", "xsmall");
       localStorage.setItem("planmydays_iconSize", "small");
       localStorage.setItem("planmydays_density", "compact");
-      localStorage.setItem("planmydays_dragSize", "normal");
+      localStorage.setItem("planmydays_touchSize", "normal");
       localStorage.setItem("planmydays_images", JSON.stringify(images));
     }, sampleImagesData.images);
     await page.reload();
@@ -271,7 +271,7 @@ test.describe("PlanMyDay - Screenshots", () => {
     await page.reload();
     await page.waitForSelector(".today-drag-card");
     await screenshotAllThemes(page, "main-view.png");
-    await page.evaluate(() => changeDragSize("large"));
+    await page.evaluate(() => changeTouchSize("large"));
     await screenshotAllThemes(page, "main-view-large.png");
   });
 
@@ -385,8 +385,8 @@ test.describe("PlanMyDay - Screenshots", () => {
     await page.waitForSelector("#streamEditorList .badge.bg-info", { state: "attached" });
     await expect(page.locator("#streamEditorList .accordion-collapse.show .badge.bg-primary").filter({ hasText: "Weekdays" })).toHaveCount(1);
     await screenshotAllThemes(page, "edit-streams.png");
-    await page.evaluate(() => changeDragSize("large"));
-    await page.waitForFunction(() => document.body.classList.contains("drag-size-large"));
+    await page.evaluate(() => changeTouchSize("large"));
+    await page.waitForFunction(() => window.SmdDragHandle && SmdDragHandle.defaultSize === "large");
     await screenshotAllThemes(page, "edit-streams-large.png");
   });
 
@@ -653,8 +653,8 @@ test.describe("PlanMyDay - Screenshots", () => {
     await page.locator("#jobTasks-tab").click();
     await page.locator("#jobTasksList .task-drag-card").first().waitFor({ state: "visible" });
     await screenshotAllThemes(page, "job-edit-tasks.png");
-    await page.evaluate(() => changeDragSize("large"));
-    await page.waitForFunction(() => document.body.classList.contains("drag-size-large"));
+    await page.evaluate(() => changeTouchSize("large"));
+    await page.waitForFunction(() => window.SmdDragHandle && SmdDragHandle.defaultSize === "large");
     await screenshotAllThemes(page, "job-edit-tasks-large.png");
   });
 

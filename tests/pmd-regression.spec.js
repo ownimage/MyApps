@@ -274,6 +274,21 @@ test.describe("PlanMyDay - Regression", () => {
       expect(jobThumb.x - streamThumb.x).toBeCloseTo(streamThumb.width + 4, 0);
     });
 
+    test("today card drag handles are smd-draghandle with the fa-bars glyph", async ({ page }) => {
+      await seedTodayList(page);
+      await page.reload();
+      const handle = page.locator("#todayCardList smd-draghandle.drag-handle").first();
+      await expect(handle).toBeVisible();
+      const info = await page.evaluate(() => {
+        const glyph = document.querySelector("#todayCardList smd-draghandle").shadowRoot.querySelector(".glyph");
+        const cs = getComputedStyle(glyph);
+        return { code: glyph.textContent.codePointAt(0).toString(16), family: cs.fontFamily, weight: cs.fontWeight };
+      });
+      expect(info.code).toBe("f0c9");
+      expect(info.family).toContain("Font Awesome 6 Free");
+      expect(info.weight).toBe("900");
+    });
+
     test("icon size setting controls the rendered image size and source thumbnail", async ({ page }) => {
       const thumb = { name: "stimg", data64: "data:image/png;base64,AAA64", data80: "data:image/png;base64,AAA80", data100: "data:image/png;base64,AAA100" };
       await page.evaluate(({ data, ds, thumb }) => {
@@ -476,6 +491,18 @@ test.describe("PlanMyDay - Regression", () => {
       await expect(page.locator("a.dropdown-item").filter({ hasText: "Images" })).toBeVisible();
     });
 
+    test("main menu button uses the Font Awesome bars icon", async ({ page }) => {
+      const icon = page.locator("#btnMainMenu i.fa-bars");
+      await expect(icon).toBeVisible();
+      const style = await page.evaluate(() => {
+        const i = document.querySelector("#btnMainMenu i");
+        const cs = getComputedStyle(i);
+        return { family: cs.fontFamily, weight: cs.fontWeight };
+      });
+      expect(style.family).toContain("Font Awesome 6 Free");
+      expect(style.weight).toBe("900");
+    });
+
     test("import/export dropdown has items", async ({ page }) => {
       await page.locator("#btnMainMenu").click();
       await expect(page.locator("a.dropdown-item").filter({ hasText: /^Export$/ })).toBeVisible();
@@ -514,7 +541,7 @@ test.describe("PlanMyDay - Regression", () => {
       await expect(page.locator("#fontSizeSelector")).toBeVisible();
       await expect(page.locator("#iconSizeSelector")).toBeVisible();
       await expect(page.locator("#densitySelector")).toBeVisible();
-      await expect(page.locator("#dragSizeSelector")).toBeVisible();
+      await expect(page.locator("#touchSizeSelector")).toBeVisible();
       await page.locator("#schedule-tab").click();
       await expect(page.locator("#jan1Selector")).toBeVisible();
       await expect(page.locator("#mondaySelector")).toBeVisible();
@@ -565,18 +592,18 @@ test.describe("PlanMyDay - Regression", () => {
       expect(hasClass).toBe(true);
     });
 
-    test("drag size selector changes body class", async ({ page }) => {
+    test("touch size selector changes component size", async ({ page }) => {
       await page.locator("#btnMainMenu").click();
       await page.locator("a.dropdown-item").filter({ hasText: "Settings" }).click();
       await page.locator("#appearance-tab").click();
-      await page.locator("#dragSizeSelector").selectOption("normal");
-      const hasNormal = await page.evaluate(() => document.body.classList.contains("drag-size-normal"));
-      expect(hasNormal).toBe(true);
-      const stored = await page.evaluate(() => localStorage.getItem("planmydays_dragSize"));
+      await page.locator("#touchSizeSelector").selectOption("normal");
+      const normal = await page.evaluate(() => ({ drag: SmdDragHandle.defaultSize, check: SmdCheckbox.defaultSize }));
+      expect(normal).toEqual({ drag: "normal", check: "normal" });
+      const stored = await page.evaluate(() => localStorage.getItem("planmydays_touchSize"));
       expect(stored).toBe("normal");
-      await page.locator("#dragSizeSelector").selectOption("large");
-      const hasLarge = await page.evaluate(() => document.body.classList.contains("drag-size-large"));
-      expect(hasLarge).toBe(true);
+      await page.locator("#touchSizeSelector").selectOption("large");
+      const large = await page.evaluate(() => ({ drag: SmdDragHandle.defaultSize, check: SmdCheckbox.defaultSize }));
+      expect(large).toEqual({ drag: "large", check: "large" });
     });
 
     test("split list toggle persists", async ({ page }) => {
@@ -2465,14 +2492,21 @@ test.describe("PlanMyDay - Regression", () => {
       expect(hasCompact).toBe(false);
     });
 
-    test("drag size selector switches between normal and large", async ({ page }) => {
+    test("touch size selector switches between normal and large", async ({ page }) => {
       await page.locator("#appearance-tab").click();
-      await page.locator("#dragSizeSelector").selectOption("large");
-      await page.locator("#dragSizeSelector").selectOption("normal");
-      const hasLarge = await page.evaluate(() => document.body.classList.contains("drag-size-large"));
-      expect(hasLarge).toBe(false);
-      const hasNormal = await page.evaluate(() => document.body.classList.contains("drag-size-normal"));
-      expect(hasNormal).toBe(true);
+      const inputFontSize = () => page.evaluate(() => {
+        const input = $id("splitList").shadowRoot.querySelector("input");
+        return parseFloat(getComputedStyle(input).fontSize);
+      });
+      await page.locator("#touchSizeSelector").selectOption("normal");
+      const normalSize = await inputFontSize();
+      const normal = await page.evaluate(() => SmdDragHandle.defaultSize === "normal" && SmdCheckbox.defaultSize === "normal");
+      expect(normal).toBe(true);
+      await page.locator("#touchSizeSelector").selectOption("large");
+      const largeSize = await inputFontSize();
+      const large = await page.evaluate(() => SmdDragHandle.defaultSize === "large" && SmdCheckbox.defaultSize === "large");
+      expect(large).toBe(true);
+      expect(largeSize).toBeGreaterThan(normalSize);
     });
 
     test("auto hide menu disabling unbinds events", async ({ page }) => {
@@ -5014,27 +5048,28 @@ test.describe("PlanMyDay - Regression", () => {
       await expect(page.locator("body")).toHaveClass(/compact/);
     });
 
-    test("drag size defaults to large on fresh load", async ({ page }) => {
-      await expect(page.locator("body")).toHaveClass(/drag-size-large/);
+    test("touch size defaults to large on fresh load", async ({ page }) => {
+      const sizes = await page.evaluate(() => ({ drag: SmdDragHandle.defaultSize, check: SmdCheckbox.defaultSize }));
+      expect(sizes).toEqual({ drag: "large", check: "large" });
     });
 
-    test("drag size normal restored on load", async ({ page }) => {
-      await page.evaluate(() => localStorage.setItem("planmydays_dragSize", "normal"));
+    test("touch size normal restored on load", async ({ page }) => {
+      await page.evaluate(() => localStorage.setItem("planmydays_touchSize", "normal"));
       await page.reload();
-      await expect(page.locator("body")).toHaveClass(/drag-size-normal/);
-      await expect(page.locator("body")).not.toHaveClass(/drag-size-large/);
+      const sizes = await page.evaluate(() => ({ drag: SmdDragHandle.defaultSize, check: SmdCheckbox.defaultSize }));
+      expect(sizes).toEqual({ drag: "normal", check: "normal" });
     });
 
-    test("drag size setting changes handle size on main view", async ({ page }) => {
+    test("touch size setting changes handle size on main view", async ({ page }) => {
       await seedTodayList(page);
       await page.reload();
       await page.locator("#todayCardList .today-drag-card .drag-handle").first().waitFor({ state: "visible" });
       const handleSize = () => page.evaluate(() => parseFloat(getComputedStyle(document.querySelector("#todayCardList .drag-handle")).fontSize));
       const largeSize = await handleSize();
-      await page.evaluate(() => changeDragSize("normal"));
+      await page.evaluate(() => changeTouchSize("normal"));
       const normalSize = await handleSize();
       expect(largeSize).toBeGreaterThan(normalSize);
-      await page.evaluate(() => changeDragSize("large"));
+      await page.evaluate(() => changeTouchSize("large"));
       expect(await handleSize()).toBe(largeSize);
     });
 

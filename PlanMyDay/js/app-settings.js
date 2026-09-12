@@ -184,9 +184,10 @@ function openSettings() {
   const savedDensity = localStorage.getItem(smdKey("density")) || "normal";
   const densitySel = $id("densitySelector");
   if (densitySel) densitySel.value = savedDensity;
-  const savedDragSize = localStorage.getItem(smdKey("dragSize")) || "large";
-  const dragSizeSel = $id("dragSizeSelector");
-  if (dragSizeSel) dragSizeSel.value = savedDragSize;
+  const savedTouchSize = localStorage.getItem(smdKey("touchSize")) ||
+    localStorage.getItem(smdKey("dragSize")) || "large";
+  const touchSizeSel = $id("touchSizeSelector");
+  if (touchSizeSel) touchSizeSel.value = savedTouchSize;
   const savedSlideDuration = localStorage.getItem(smdKey("slideDuration")) || "0";
   const slideSel = $id("slideDurationSelector");
   if (slideSel) slideSel.value = savedSlideDuration;
