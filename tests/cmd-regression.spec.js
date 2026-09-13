@@ -574,6 +574,169 @@ test.describe("CountMyDays - Regression", () => {
     });
   });
 
+  test.describe("Google Calendar", () => {
+
+    test("G Cal settings tab enables Google and renders the share QR", async ({ page }) => {
+      await seed(page);
+      await page.evaluate(() => openSettings());
+      await page.locator("#settingsPage").getByRole("button", { name: "G Cal" }).click();
+      await expect(page.locator("#gcalOptions")).toBeHidden();
+
+      // qrcodejs renders a canvas + an <img> fallback; one of them is visible.
+      await expect(page.locator("#shareQrCode img").first()).toBeVisible({ timeout: 30000 });
+      expect(await page.locator("#shareQrCode canvas, #shareQrCode img").count()).toBeGreaterThan(0);
+
+      await page.locator("#gcalEnabled").check();
+      await expect(page.locator("#gcalOptions")).toBeVisible();
+      await page.locator("#gcalName").fill("Test User");
+      await page.locator("#gcalName").blur();
+      await page.locator("#gcalClientId").fill("dummy.apps.googleusercontent.com");
+      await page.locator("#gcalClientId").blur();
+
+      await expect.poll(async () => page.evaluate(() => localStorage.getItem("countmydays_gcal_enabled"))).toBe("true");
+      await expect.poll(async () => page.evaluate(() => localStorage.getItem("countmydays_gcal_name"))).toBe("Test User");
+      await expect.poll(async () => page.evaluate(() => localStorage.getItem("countmydays_gcal_client_id"))).toBe("dummy.apps.googleusercontent.com");
+
+      // The Google menu entries become visible.
+      await page.locator("#settingsPage").getByRole("button", { name: "Done" }).click();
+      await page.locator("#btnMainMenu").click();
+      await expect(page.locator(".google-menu-item").filter({ hasText: "Refresh Google Calendar" })).toBeVisible();
+      await expect(page.locator(".google-menu-item").filter({ hasText: "Edit Google Events" })).toBeVisible();
+    });
+
+    test("loads sample Google data and unifies Google entries in the dates editor", async ({ page }) => {
+      await seed(page, { settings: { gcal_enabled: "true", gcal_name: "Test User" } });
+      await page.evaluate(() => loadGCalSampleData());
+      await expect(page.locator("#smdConfirmModal")).toContainText("7 events cached");
+      await page.locator("#smdConfirmModal").getByRole("button", { name: "OK" }).click();
+
+      // Visible Google events appear on the main view alongside local dates.
+      await expect(page.locator("cmd-countdown-card").filter({ hasText: "Dentist Appointment" })).toBeVisible();
+
+      await page.evaluate(() => openDatesEditor());
+      // 4 local + 6 visible Google events (1 cached event is hidden).
+      await expect(page.locator("#datesEditor cmd-date-card")).toHaveCount(10);
+      await expect(page.locator("#datesEditor cmd-date-card").filter({ hasText: "Google" })).toHaveCount(6);
+      await expect(page.locator("#datesEditor cmd-date-card").filter({ hasText: "Local" })).toHaveCount(4);
+      await expect(page.locator("#datesEditor cmd-date-card").filter({ hasText: "Repeat" })).toHaveCount(2);
+
+      // Hide Google entries.
+      await page.locator("#filterShowGoogle").uncheck();
+      await expect(page.locator("#datesEditor cmd-date-card")).toHaveCount(4);
+      await page.locator("#filterShowGoogle").check();
+
+      // Show the hidden Google entry.
+      await page.locator("#filterShowGoogleHidden").check();
+      await expect(page.locator("#datesEditor cmd-date-card")).toHaveCount(11);
+      await expect(page.locator("#datesEditor cmd-date-card").filter({ hasText: "Hidden" })).toHaveCount(1);
+
+      // Googles rows have no Delete button.
+      const googleCard = page.locator("#datesEditor cmd-date-card").filter({ hasText: "Dentist Appointment" });
+      await expect(googleCard.getByRole("button", { name: "Delete" })).toHaveCount(0);
+    });
+
+    test("editing a Google event patches the description and the cached feed", async ({ page }) => {
+      await seed(page, { settings: { gcal_enabled: "true", gcal_name: "Test User" } });
+      await page.evaluate(() => loadGCalSampleData());
+      await page.locator("#smdConfirmModal").getByRole("button", { name: "OK" }).click();
+
+      await page.evaluate(() => {
+        window.__patched = null;
+        updateGoogleEventDescription = (id, description) => {
+          window.__patched = { id, description };
+          return Promise.resolve({ id, description });
+        };
+      });
+
+      await page.evaluate(() => openDatesEditor());
+      await page.locator("#datesEditor cmd-date-card").filter({ hasText: "Dentist Appointment" }).getByRole("button", { name: "Edit" }).click();
+      await expect(page.locator("#googleEventEditPage")).toHaveAttribute("open", "");
+
+      await page.locator("#gcalShowCheck").uncheck();
+      await page.locator("#googleEventEditPage").getByRole("button", { name: "OK" }).click();
+
+      await expect.poll(async () => page.evaluate(() => window.__patched && window.__patched.id)).toBe("sample_1");
+      const description = await page.evaluate(() => window.__patched.description);
+      expect(description).toContain("count_my_days");
+      expect(description).toContain("Test User");
+      expect(description).toContain("show: false");
+      const cmd = await page.evaluate(() => JSON.parse(localStorage.getItem("countmydays_google_cal")).items.find(i => i.id === "sample_1")._cmd);
+      expect(cmd.show).toBe(false);
+
+      await expect(page.locator("#smdConfirmModal")).toContainText("updated");
+      await page.locator("#smdConfirmModal").getByRole("button", { name: "OK" }).click();
+      // Returning from a dates-launched Google edit reveals the dates editor.
+      await expect(page.locator("#datesEditor")).toHaveAttribute("open", "");
+    });
+
+    test("refresh caches a stubbed feed and reports the count", async ({ page }) => {
+      await seed(page, { settings: { gcal_enabled: "true", gcal_client_id: "dummy" } });
+      await page.evaluate(() => {
+        fetchEvents = () => Promise.resolve({
+          items: [
+            { id: "r1", summary: "Refreshed One", start: { date: "2026-11-01" } },
+            { id: "r2", summary: "Refreshed Two", start: { date: "2026-12-01" } }
+          ]
+        });
+      });
+      await page.evaluate(() => refreshGoogleCalendar());
+      await expect(page.locator("#smdConfirmModal")).toContainText("Refreshed: 2 events cached");
+      await page.locator("#smdConfirmModal").getByRole("button", { name: "OK" }).click();
+      const cached = await page.evaluate(() => JSON.parse(localStorage.getItem("countmydays_google_cal") || "null"));
+      expect(cached.items.length).toBe(2);
+    });
+
+    test("refresh reports a failure via the shared modal", async ({ page }) => {
+      await seed(page, { settings: { gcal_enabled: "true", gcal_client_id: "dummy" } });
+      await page.evaluate(() => {
+        requestGoogleAccessToken = () => Promise.reject(new Error("OAuth unavailable"));
+      });
+      await page.evaluate(() => refreshGoogleCalendar());
+      await expect(page.locator("#smdConfirmModal")).toContainText("Failed to refresh");
+      await expect(page.locator("#smdConfirmModal")).toContainText("OAuth unavailable");
+      await page.locator("#smdConfirmModal").getByRole("button", { name: "OK" }).click();
+    });
+
+    test("Google events editor lists every cached event", async ({ page }) => {
+      await seed(page, { settings: { gcal_enabled: "true", gcal_name: "Test User" } });
+      await page.evaluate(() => loadGCalSampleData());
+      await page.locator("#smdConfirmModal").getByRole("button", { name: "OK" }).click();
+      await page.evaluate(() => openGoogleEventsEditor());
+      await expect(page.locator("#googleEventsPage")).toHaveAttribute("open", "");
+      await expect(page.locator("#googleEventsPage cmd-date-card")).toHaveCount(7);
+      await page.locator("#googleEventsPage").getByRole("button", { name: "Done" }).click();
+      await expect(page.locator("#googleEventsPage")).not.toHaveAttribute("open", "");
+    });
+
+    test("legacy cmd_gcal keys and feed cache are migrated", async ({ page }) => {
+      await page.goto("/CountMyDays/");
+      await page.evaluate(() => {
+        localStorage.clear();
+        localStorage.setItem("cmd_gcal_enabled", "true");
+        localStorage.setItem("cmd_gcal_name", "Legacy User");
+        localStorage.setItem("cmd_gcal_client_id", "legacy.apps.googleusercontent.com");
+        localStorage.setItem("cmd_google_cal", JSON.stringify({ items: [{ id: "legacy1", summary: "Legacy Event", start: { date: "2026-10-01" } }] }));
+      });
+      await page.reload();
+      await page.waitForLoadState("domcontentloaded");
+      const migrated = await page.evaluate(() => ({
+        enabled: localStorage.getItem("countmydays_gcal_enabled"),
+        name: localStorage.getItem("countmydays_gcal_name"),
+        feed: JSON.parse(localStorage.getItem("countmydays_google_cal") || "null"),
+        legacyEnabled: localStorage.getItem("cmd_gcal_enabled"),
+        legacyFeed: localStorage.getItem("cmd_google_cal")
+      }));
+      expect(migrated.enabled).toBe("true");
+      expect(migrated.name).toBe("Legacy User");
+      expect(migrated.feed.items[0].summary).toBe("Legacy Event");
+      expect(migrated.legacyEnabled).toBeNull();
+      expect(migrated.legacyFeed).toBeNull();
+      // The Google menu is visible because the migrated setting enables it.
+      await page.locator("#btnMainMenu").click();
+      await expect(page.locator(".google-menu-item").filter({ hasText: "Refresh Google Calendar" })).toBeVisible();
+    });
+  });
+
   test.describe("Sub-path deployment", () => {
     test("no console errors when deployed under a repo sub-path during SW precache", async ({ page }) => {
       test.setTimeout(120000);

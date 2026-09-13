@@ -1258,11 +1258,13 @@
       id: "cmd-date-card",
       name: "cmd-date-card",
       tag: "<cmd-date-card>",
-      desc: "A date row in the dates editor list. Attributes: <code>index</code>, <code>name</code>, <code>category</code>, <code>type</code>, <code>date-text</code>, <code>category-image</code>, <code>image</code>, <code>key-prefix</code>. Dispatches <code>cmd-date-edit</code> / <code>cmd-date-delete</code> ({ index }).",
+      desc: "A date row in the dates editor list. Attributes: <code>index</code>, <code>name</code>, <code>category</code>, <code>type</code>, <code>date-text</code>, <code>source</code> (local/google), <code>recurring</code>, <code>hidden</code>, <code>category-image</code>, <code>image</code>, <code>key-prefix</code>. Dispatches <code>cmd-date-edit</code> / <code>cmd-date-delete</code> ({ index, source }); Google rows have no Delete.",
       html: () => `
         <div class="sb-canvas" style="flex-direction:column;width:100%">
           <cmd-date-card index="0" name="Mum's Birthday" category="Birthday" type="annual" date-text="14 Jul" category-image="Blue" image="Drink 1" key-prefix="sbc_" style="width:100%"></cmd-date-card>
           <cmd-date-card index="1" name="Project Deadline" category="Work" type="once" date-text="30 Jun 2026" key-prefix="sbc_" style="width:100%"></cmd-date-card>
+          <cmd-date-card index="2" name="Weekly Team Meeting" category="Work" type="recurring" date-text="21 Sep 2026" source="google" recurring="true" key-prefix="sbc_" style="width:100%"></cmd-date-card>
+          <cmd-date-card index="3" name="Surprise Party Planning" type="once" date-text="14 Nov 2026" source="google" hidden="true" key-prefix="sbc_" style="width:100%"></cmd-date-card>
         </div>
         <div class="sb-log" id="log-cmd-date-card">events: none</div>
       `,

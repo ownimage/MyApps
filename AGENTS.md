@@ -6,6 +6,8 @@
 6: After fixing issues with the regression tests apply them to pmd-screenshots.spec.js and validate them using one theme only.
 7: Fail-fast test iterations: after a code/test change, DON'T run a whole batch at once — run only the first 2-3 affected tests first (`--grep "a|b" --workers=2 --retries=0`) to debug on a small surface; grow the batch only once those pass. The config sets `retries: 1`, so pass `--retries=0` while iterating (otherwise failures take twice as long).
 8: A change that ONLY touches `storybook/index.html` and/or `AGENTS.md` does NOT need the regression suite (or screenshot/sample-image specs). Just verify the storybook loads with zero console/page errors and no failed requests.
+9: UPSTREAM APP COPIES: `temp/<AppName>/` (e.g. `temp/CountMyDays/`) holds the NEWER standalone version of that app. It is NOT a fork/branch — it is always a later version of the same app. When asked to "update to the temp version", do NOT copy the folder over the repo app: diff the temp sources against the repo app and port the new features/edits into the shared-library architecture (smd-page/smd-components, `smdKey()` storage prefix, root `sw.js` APPS entry, tests). Keep function/feature names close to temp where practical so the next port is a small diff.
+10: AGENTS.md NOTES: whenever you discover something a future session needs (architecture decisions, gotchas, upstream workflow, test recipes), add a useful, dated note to AGENTS.md — not just a session-log line. Keep notes concrete (file paths, function names, exact commands) and delete/condense notes that have gone stale.
 
 ## Self-improving playbook
 At the START of every session, read this file fully and apply all rules.
@@ -108,6 +110,21 @@ Architecture:
   **5.3.8** (all other themes remain 5.3.3) + `themeConfig` entry + precache —
   theme count is now 26. `pmd-screenshots.spec.js` has its own hardcoded list
   (25) so it is unaffected; `cmd-screenshots.spec.js` screenshots all 26.
+- GOOGLE CALENDAR (2026-09-13): `CountMyDays/js/googleCalendar.js` (GSI OAuth +
+  Calendar REST + `{count_my_days{...}}` description payload helpers) and
+  `CountMyDays/js/googleCalendarEditor.js` (unified dates editor Google rows +
+  `googleEventsPage`/`googleEventEditPage` smd-pages). Settings has a **G Cal**
+  tab (`General | G Cal | Danger`); when enabled, `.google-menu-item` entries
+  appear in the hamburger menu. Feed cache + settings are namespaced
+  (`countmydays_google_cal`, `countmydays_gcal_*`) by `gcalKey()`/
+  `googleCalCacheKey()` (call-time helpers — do NOT turn them into parse-time
+  consts: google scripts load BEFORE `app.js`, which sets the storage prefix).
+  Legacy `cmd_gcal_*`/`cmd_google_cal` keys are in
+  `storage.js CMD_LEGACY_STORAGE_MAP` and migrated on boot. `cmd-date-card` grew
+  `source`/`recurring`/`hidden` attributes (Local/Google/Repeat/Hidden badges,
+  no Delete for Google rows) and its events now carry `source`. Sample feed:
+  `CountMyDays/js/googleCalendarSample.json` ("Load sample data"). The app-info
+  dialogs use `showSmdModal`, not a custom overlay.
 - `hideNav()` (shared smd-settings.js) now hides when NO
   `smd-page:not(.d-none)` is open — generic for any app's page set (was a
   hardcoded PlanMyDay id list).
@@ -144,6 +161,50 @@ Techniques / gotchas:
 - Line endings: this repo stores text files with LF (`core.autocrlf=input`, `core.eol=lf`; no `.gitattributes`). NEVER write CRLF into a file — git will flag every line as changed (whole-file diff) and warn "CRLF will be replaced by LF the next time Git touches it". Do not round-trip files through PowerShell pipe/Get-Content/Set-Content joins; the Edit/Write/Read tools and Node preserve line endings — if you must convert use node with explicit `\n`, NEVER shell-piped measurements of `git show` (PowerShell pipeline re-encodes — it once reported 914 CRLF for a file whose raw blob via `git cat-file` was entirely LF). Verify with `git cat-file blob HEAD:<file>` + `git diff --stat` so only real edits show.
 
 ## Session log
+
+### 2026-09-13
+- Ported the newer `/temp/CountMyDays` (standalone, always-newer upstream) into
+  the repo app, keeping the shared architecture. New features:
+  - Google Calendar: `js/googleCalendar.js` (GSI OAuth token cache, `fetchEvents`,
+    `updateGoogleEventDescription`, `{count_my_days{...}}` payload
+    parse/serialize, refresh/sample/clear, `showAppInfoModal` via `showSmdModal`)
+    and `js/googleCalendarEditor.js` (`googleEventsPage` list +
+    `googleEventEditPage` single editor, opened from the dates list Edit on a
+    Google row or from the menu). API calls are stub-able globals for tests.
+  - Settings tabs renamed/re-grouped to `/temp`: **General | G Cal | Danger**;
+    G Cal has enable (smd-checkbox), name, OAuth client id, calendar id,
+    Refresh / Load sample data / Clear cache (smd-buttons) + a **Share app**
+    `<smd-qrcode>` in the footer.
+  - Dates editor is now a UNIFIED list (local + Google) with Local/Google/Repeat/
+    Hidden badges and filter checkboxes (show local / show google / show google
+    hidden). Google rows open the Google editor (returning to the dates page);
+    local rows keep Add/Edit/Delete.
+  - Main view merges visible Google events (`loadGoogleCalendarEntries`);
+    `countdownLines()` "weeksAndDays" now leaves the weeks line blank when 0.
+- Storage: gcal keys namespaced via `gcalKey()` / GoogleCalCacheKey; legacy
+  `cmd_gcal_*` + `cmd_google_cal` added to `CMD_LEGACY_STORAGE_MAP` (migrated on
+  boot). `confirmClearAllData` clears both namespaced and legacy keys.
+- New `js/googleCalendarSample.json` (the temp `test/google_calendar.json` was
+  missing); precached in `sw.js` APPS.
+- Tests: +7 "Google Calendar" tests in `tests/cmd-regression.spec.js` (settings
+  tab/QR, sample load + unified list/filters/badges, edit patches description
+  and `_cmd`, stubbed refresh success/failure, Google list page, legacy key
+  migration). Network calls are stubbed by reassigning `fetchEvents` /
+  `requestGoogleAccessToken` / `updateGoogleEventDescription` via page.evaluate.
+- Gotchas found: test locators must use `getByRole("button", …)` (smd-button
+  hosts have no box) and open the hamburger before asserting `.google-menu-item`
+  visibility; `#shareQrCode` has zero height until qrcode.js renders (qrcodejs
+  shows the `<img>` fallback — assert that, not the canvas); in-flight
+  `refreshGoogleCalendar` with a real client id hits Google GSI and hangs in
+  tests — always stub the network first.
+- Result: cmd regression **42 passed** (35 + 7 gcal), cmd screenshot gallery
+  4 passed (26 themes, now includes badges/G Cal), PMD asset cache-busting
+  4 passed, storybook probe clean (26 sections). `BUILD_NUMBER` ->
+  `202609131000`.
+- Lesson: PowerShell `Get-Content | Set-Content -NoNewline` joins lines AND
+  re-encodes non-ASCII — never round-trip files through the shell; use the
+  Write/Edit tools (restored `build-number.js` afterwards; `git diff` verified
+  only the number changed).
 
 ### 2026-09-12 (4)
 - Migrated `CountMyDays/` into the multi-app architecture. New CountMyDays

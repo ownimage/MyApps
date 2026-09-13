@@ -242,6 +242,7 @@ const APPS = {
     "CountMyDays/icon-512.png",
     "CountMyDays/css/styles.css",
     "CountMyDays/js/sampleData.json",
+    "CountMyDays/js/googleCalendarSample.json",
     "CountMyDays/js/app.js",
     "CountMyDays/js/storage.js",
     "CountMyDays/js/utils.js",
@@ -252,6 +253,8 @@ const APPS = {
     "CountMyDays/js/app-settings.js",
     "CountMyDays/js/export.js",
     "CountMyDays/js/import-wizard.js",
+    "CountMyDays/js/googleCalendar.js",
+    "CountMyDays/js/googleCalendarEditor.js",
     "CountMyDays/js/components/cmd-countdown-card.js",
     "CountMyDays/js/components/cmd-date-card.js",
     "CountMyDays/js/components/cmd-category-card.js"
