@@ -33,6 +33,11 @@ npm run extract:images
 .\node_modules\.bin\playwright.cmd test tests/pmd-screenshots.spec.js --workers 16
 ```
 Writes per-theme screenshots to `screenshots/pmd/<theme>/`.
+CountMyDays screenshots (own gallery):
+```bash
+.\node_modules\.bin\playwright.cmd test tests/cmd-screenshots.spec.js --workers 16
+```
+Writes to `screenshots/cmd/<theme>/`.
 
 ### Screenshot viewer
 ```bash

@@ -9,6 +9,7 @@ This repo is set up to host **multiple PWAs off one origin** (GitHub Pages
 
 - `shared/` — the reusable library (components, services, themes, vendor, sample images).
 - `PlanMyDay/` — this app, served at `/<project>/PlanMyDay/` (its own `index.html` + `manifest.json`).
+- `CountMyDays/` — countdown app, served at `/<project>/CountMyDays/` (same structure; own `manifest.json` + icons).
 - `sw.js` — a **single site-wide service worker at the repo root**. It must live at
   the root because a service worker can only intercept requests inside its scope,
   and each app's assets are siblings of `shared/`. To add an app, add an entry to
@@ -48,6 +49,7 @@ npm test
 
 ```bash
 npx playwright test tests/pmd-regression.spec.js
+npx playwright test tests/cmd-regression.spec.js
 ```
 
 ### Run a single test
@@ -87,6 +89,12 @@ Regenerate all screenshots in the `screenshots/pmd/` folder (one subfolder per t
 
 ```bash
 npx playwright test tests/pmd-screenshots.spec.js --workers 12
+```
+
+CountMyDays screenshots live in their own `screenshots/cmd/` gallery:
+
+```bash
+npx playwright test tests/cmd-screenshots.spec.js --workers 12
 ```
 
 ### Screenshot viewer

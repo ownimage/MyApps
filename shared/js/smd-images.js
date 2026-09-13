@@ -342,6 +342,10 @@ function editImageField(field, value) {
     if (oldName !== trimmed) {
       images[editingImageIndex].name = trimmed;
       saveImages(images);
+      // Let the host app follow the rename in its own data (optional hook).
+      if (typeof SmdConfig !== "undefined" && typeof SmdConfig.onImageRename === "function") {
+        SmdConfig.onImageRename(oldName, trimmed);
+      }
       return;
     }
   }
@@ -574,22 +578,29 @@ function confirmDeleteImage(index) {
 
 function deleteImage(index) {
   const images = loadImages();
+  const removed = images[index] ? images[index].name : "";
   images.splice(index, 1);
   saveImages(images);
+  // Let the host app clear references to the deleted image (optional hook).
+  if (removed && typeof SmdConfig !== "undefined" && typeof SmdConfig.onImageDelete === "function") {
+    SmdConfig.onImageDelete(removed);
+  }
   renderImagesEditor();
 }
 
 function openImagesEditor() {
-  document.getElementById("countdownContainer").classList.add("d-none");
-  document.getElementById("streamsEditor").classList.add("d-none");
-  document.getElementById("settingsPage").classList.add("d-none");
-  document.getElementById("jobSearchEditor").classList.add("d-none");
+  // Page hosts differ per app; hide whatever this app has (null-safe).
+  ["countdownContainer", "streamsEditor", "settingsPage", "jobSearchEditor", "datesEditor", "categoriesEditor"].forEach(function(id) {
+    const el = document.getElementById(id);
+    if (el) el.classList.add("d-none");
+  });
   imagesPage = 0;
   const page = document.getElementById("imagesEditor");
+  if (!page) return;
   page.classList.remove("d-none");
   renderImagesEditor();
   if (page.shadowRoot && typeof injectStyleInto === "function") {
-    injectStyleInto(page.shadowRoot, JOBS_EDITOR_STYLES);
+    injectStyleInto(page.shadowRoot, typeof JOBS_EDITOR_STYLES !== "undefined" ? JOBS_EDITOR_STYLES : undefined);
   }
   page.show();
 }
@@ -602,12 +613,13 @@ function closeImagesEditor() {
       page.classList.add("d-none");
     }, Math.max(0, (page.slideDuration || 0) + 50));
   }
-  document.getElementById("countdownContainer").classList.remove("d-none");
+  const main = document.getElementById("countdownContainer");
+  if (main) main.classList.remove("d-none");
   editingImageIndex = -1;
   isNewImage = false;
   isDuplicateImage = false;
   editImageBackup = null;
-  renderMain();
+  if (typeof renderMain === "function") renderMain();
 }
 
 function getImageByName(name) {
@@ -617,6 +629,11 @@ function getImageByName(name) {
 }
 function isImageInUse(name) {
   if (!name) return false;
+  // Apps with a different data model can plug in their own usage check.
+  if (typeof SmdConfig !== "undefined" && typeof SmdConfig.imageInUse === "function") {
+    return !!SmdConfig.imageInUse(name);
+  }
+  if (typeof loadStreams !== "function") return false;
   const streams = loadStreams();
   return streams.some(s => s.image === name || (s.jobs || []).some(j => j.image === name));
 }

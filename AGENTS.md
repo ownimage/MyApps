@@ -81,6 +81,41 @@ Architecture:
   CSS, `body.drag-size-*` classes and `[data-theme] … .drag-handle` overrides
   were removed; `#btnMainMenu` uses `<i class="fa-solid fa-bars">` (light DOM,
   so the document FA css applies).
+- COUNTMYDAYS (2026-09-12): second PWA migrated to the shared pattern. Served at
+  `/CountMyDays/`; `SmdConfig.storagePrefix = "countmydays_"` set in
+  `CountMyDays/js/app.js`. Legacy UNPREFIXED keys are copied to the prefixed
+  namespace by `CountMyDays/js/storage.js migrateLegacyStorage()`, which logs a
+  `console.warn` on EVERY boot (deliberate TODO reminder — remove function +
+  warning once users have migrated). Pages: `datesEditor` + `dateEditPage`,
+  `categoriesEditor` + `categoryEditPage`, `imagesEditor` (shared smd-images.js),
+  `settingsPage` (smd-tabs), `exportWizardPage`, `qrExportPage`, `qrImportPage`,
+  `importWizardPage`, `imagePickerPage`. App components:
+  `cmd-countdown-card` / `cmd-date-card` / `cmd-category-card`
+  (`CountMyDays/js/components/`). Countdown tile typography uses body-scoped
+  `--cmd-countdown-*` vars (WebKit-safe) and `applyImageSize()` caps smd-image at
+  64px on <=480px screens (the original app's media query). Images-editor
+  integration with CountMyDays' data model is via `SmdConfig` hooks read by
+  shared `smd-images.js`: `imageInUse(name)`, `onImageDelete(name)`,
+  `onImageRename(old,new)` (unset for PlanMyDay -> old behaviour).
+- SHARED QR (2026-09-12): `<smd-qr-export>` + `<smd-qr-import>` are GENERIC —
+  `value` is any string (app passes `JSON.stringify(json)`); the wire format is
+  lz-string-compressed chunks in an envelope `{index,total,chunk}`. Import emits
+  `smd-qr-import-complete` `{ data }` (parsed JSON). Import always uses jsQR +
+  getUserMedia: html5-qrcode is NOT vendored because it resolves its reader with
+  `document.getElementById`, which cannot see shadow roots. Vendored:
+  `shared/vendor/lz-string.min.js`, `shared/vendor/jsQR.js` (precached).
+- Brite theme: `shared/css/themes/brite/bootstrap.min.css` from Bootswatch
+  **5.3.8** (all other themes remain 5.3.3) + `themeConfig` entry + precache —
+  theme count is now 26. `pmd-screenshots.spec.js` has its own hardcoded list
+  (25) so it is unaffected; `cmd-screenshots.spec.js` screenshots all 26.
+- `hideNav()` (shared smd-settings.js) now hides when NO
+  `smd-page:not(.d-none)` is open — generic for any app's page set (was a
+  hardcoded PlanMyDay id list).
+- `smd-page` GOTCHA: a footer button auto-hides its page BEFORE dispatching
+  `smd-page-action` unless the button config sets `close: false`. Any button
+  whose handler validates or decides (Add/OK/etc.) MUST use `close: false` and
+  hide the page itself, otherwise the page closes under the user on validation
+  failure.
 
 Techniques / gotchas:
 - **`:host-context()` is NOT supported by WebKit/Safari** (so it silently does
@@ -109,6 +144,48 @@ Techniques / gotchas:
 - Line endings: this repo stores text files with LF (`core.autocrlf=input`, `core.eol=lf`; no `.gitattributes`). NEVER write CRLF into a file — git will flag every line as changed (whole-file diff) and warn "CRLF will be replaced by LF the next time Git touches it". Do not round-trip files through PowerShell pipe/Get-Content/Set-Content joins; the Edit/Write/Read tools and Node preserve line endings — if you must convert use node with explicit `\n`, NEVER shell-piped measurements of `git show` (PowerShell pipeline re-encodes — it once reported 914 CRLF for a file whose raw blob via `git cat-file` was entirely LF). Verify with `git cat-file blob HEAD:<file>` + `git diff --stat` so only real edits show.
 
 ## Session log
+
+### 2026-09-12 (4)
+- Migrated `CountMyDays/` into the multi-app architecture. New CountMyDays
+  files: `js/{app,storage,utils,editor-styles,main-view,dates-editor,categories-editor,app-settings,export,import-wizard}.js`
+  and `js/components/{cmd-countdown-card,cmd-date-card,cmd-category-card}.js`;
+  deleted its own `sw.js`, `js/settings.js`, `js/images.js` and the 3 synchronous
+  XHR `sample*.js` seeders (replaced by an async `seedSampleData()` fetch of
+  `js/sampleData.json`). `index.html` rewritten to the PlanMyDay pattern
+  (shared theme/vendor/components, single hamburger menu, `smd-page` hosts,
+  `settingsTemplate`, `#imageEditModal`, root SW registration + update prompt).
+  `manifest.json` now uses generated PNG icons. Icons regenerated with
+  `npm run regen:pwa-icons`.
+- Shared changes (additive/guards): `smd-images.js` null-guards its PlanMyDay
+  page lookups and calls `SmdConfig.{imageInUse,onImageDelete,onImageRename}`
+  when set; `smd-settings.js` `hideNav()` is now page-generic + null-safe;
+  brite theme added; new `smd-qr-export`/`smd-qr-import` + 2 vendored libs;
+  `sw.js` `APPS["CountMyDays/"]` + new shared assets. `storybook/index.html`
+  gained sections for the QR + 3 cmd components. `tests/coverage.js` now
+  collects `/CountMyDays/js/` and is named "MyApps Coverage".
+- Tests added: `tests/cmd-regression.spec.js` (35 tests, incl. a repo sub-path +
+  SW-precache test through `tests/subpath-server.py`) and
+  `tests/cmd-screenshots.spec.js` (4 screens x 26 themes -> `screenshots/cmd/`).
+- Bugs found by the new tests (all fixed): the dates/categories "Add" footer
+  buttons lacked `close:false` so they hid the list page before the handler ran;
+  image/date edit "OK" buttons auto-closed before duplicate validation; the app
+  was missing the `smd-page-action` + `smd-image-card-action` wiring for the
+  shared images editor; `import-wizard.js` was missing `preprocessImages()`.
+- What worked: mirroring PlanMyDay file-for-file, then writing the cmd
+  regression spec early and letting it drive fixes; using `$id()` (shadow-root
+  aware) inside app code and `getByRole("button", …)` in tests.
+- What did not work: vendoring html5-qrcode — its constructor requires a
+  light-DOM `document.getElementById` target, so it cannot drive a reader inside
+  a shadow root. `smd-qr-import` now uses the jsQR + getUserMedia loop for ALL
+  browsers (works anywhere); the html5-qrcode vendor file was removed.
+- Result: PMD regression 428 passed, cmd regression 35 passed, touch 4 passed,
+  sample-images + example passed, cmd screenshot gallery 4 passed, storybook
+  probe 0 console/page errors with all 26 sections. `BUILD_NUMBER` ->
+  `202609121345`.
+- Lesson: when reusing shared editors, ALWAYS run the new app's regression spec
+  against them immediately — the missing `smd-image-card-action` wiring and the
+  `close:false` foot-gun were invisible to boot/flow probes until clicks were
+  asserted.
 
 ### 2026-09-12 (3)
 - Badge theming: new shared `<smd-badge>` (`shared/js/components/smd-badge.js`)

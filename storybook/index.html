@@ -247,6 +247,8 @@
   <script src="../shared/js/components/smd-page.js"></script>
   <script src="../shared/js/components/smd-tabs.js"></script>
   <script src="../shared/js/components/smd-qrcode.js"></script>
+  <script src="../shared/js/components/smd-qr-export.js"></script>
+  <script src="../shared/js/components/smd-qr-import.js"></script>
   <script src="../shared/js/components/smd-buymeacoffee.js"></script>
   <script src="../shared/js/components/smd-fontawesome-credit.js"></script>
   <script src="../shared/js/components/smd-image-card.js"></script>
@@ -260,6 +262,9 @@
   <script src="../PlanMyDay/js/components/pmd-stream-job-card.js"></script>
   <script src="../PlanMyDay/js/components/pmd-job-search-card.js"></script>
   <script src="../PlanMyDay/js/components/pmd-today-card.js"></script>
+  <script src="../CountMyDays/js/components/cmd-countdown-card.js"></script>
+  <script src="../CountMyDays/js/components/cmd-date-card.js"></script>
+  <script src="../CountMyDays/js/components/cmd-category-card.js"></script>
   <script src="../shared/vendor/qrcode.min.js"></script>
   <script src="../shared/js/build-number.js"></script>
   <script src="../shared/js/smd-app.js"></script>
@@ -670,6 +675,57 @@
           qr.setAttribute("size", size);
           log("smd-qrcode", "size=" + size);
         });
+      }
+    });
+
+    // ---- smd-qr-export ----
+    sections.push({
+      id: "smd-qr-export",
+      name: "smd-qr-export",
+      tag: "<smd-qr-export>",
+      desc: "Exports any JSON string as chunked QR codes (lz-string compressed). Attributes: <code>value</code>, <code>chunk-size</code>, <code>size</code>, <code>label</code>. Pair with <code>&lt;smd-qr-import&gt;</code>.",
+      html: () => `
+        <div class="sb-canvas" style="flex-direction:column;width:100%">
+          <smd-qr-export id="sb-qr-export" chunk-size="80" size="120" label="QR"></smd-qr-export>
+        </div>
+        <div class="sb-controls">
+          <button type="button" class="btn sb-run" id="btn-qr-export-apply">Set value</button>
+        </div>
+        <div class="sb-log" id="log-smd-qr-export">events: none</div>
+      `,
+      init: () => {
+        const el = document.getElementById("sb-qr-export");
+        el.value = JSON.stringify({ hello: "world", numbers: [1, 2, 3], nested: { ok: true } });
+        el.addEventListener("smd-qr-export-rendered", (e) => log("smd-qr-export", "rendered total=" + e.detail.total));
+        document.getElementById("btn-qr-export-apply").addEventListener("click", () => {
+          el.value = JSON.stringify({ hello: "world", at: Date.now() });
+        });
+      }
+    });
+
+    // ---- smd-qr-import ----
+    sections.push({
+      id: "smd-qr-import",
+      name: "smd-qr-import",
+      tag: "<smd-qr-import>",
+      desc: "Camera scanner that reassembles the <code>&lt;smd-qr-export&gt;</code> chunk envelope and emits the decoded JSON. Methods: <code>start()</code>/<code>stop()</code>, attribute <code>autostart</code>.",
+      html: () => `
+        <div class="sb-canvas" style="flex-direction:column;width:100%">
+          <smd-qr-import id="sb-qr-import"></smd-qr-import>
+        </div>
+        <div class="sb-controls">
+          <button type="button" class="btn sb-run" id="btn-qr-import-start">Start</button>
+          <button type="button" class="btn sb-run" id="btn-qr-import-stop">Stop</button>
+        </div>
+        <div class="sb-log" id="log-smd-qr-import">events: none</div>
+      `,
+      init: () => {
+        const el = document.getElementById("sb-qr-import");
+        el.addEventListener("smd-qr-import-progress", (e) => log("smd-qr-import", "progress " + e.detail.scanned + "/" + e.detail.total));
+        el.addEventListener("smd-qr-import-complete", (e) => log("smd-qr-import", "complete " + JSON.stringify(e.detail.data).slice(0, 60)));
+        el.addEventListener("smd-qr-import-error", (e) => log("smd-qr-import", "error " + (e.detail.error && e.detail.error.message)));
+        document.getElementById("btn-qr-import-start").addEventListener("click", () => el.start());
+        document.getElementById("btn-qr-import-stop").addEventListener("click", () => el.stop());
       }
     });
 
@@ -1166,6 +1222,75 @@
         document.getElementById("ctrl-stream-2nd").addEventListener("change", () => {
           const cards = document.getElementById("pmd-stream").querySelectorAll(".sb-stream-card");
           cards.forEach((card, i) => { card.hidden = (i === 1 && !document.getElementById("ctrl-stream-2nd").checked); });
+        });
+      }
+    });
+
+    // ---- cmd-countdown-card ----
+    sections.push({
+      id: "cmd-countdown-card",
+      name: "cmd-countdown-card",
+      tag: "<cmd-countdown-card>",
+      desc: "A CountMyDays countdown tile: category + date image thumbnails (via <code>smd-image</code>), title, event date and the countdown numbers. Attributes: <code>title</code>, <code>date-text</code>, <code>count1</code>, <code>count2</code>, <code>category</code>, <code>category-image</code>, <code>image</code>, <code>key-prefix</code>.",
+      html: () => `
+        <div class="sb-canvas">
+          <div class="sb-stack" id="sb-countdown-cards" style="width:100%">
+            <cmd-countdown-card title="Mum's Birthday" date-text="Tue 14 Jul 2026" count1="3 weeks" count2="4 days" category="Birthday" category-image="Blue" image="Drink 1" key-prefix="sbc_" style="width:100%"></cmd-countdown-card>
+            <cmd-countdown-card title="Project Deadline" date-text="Fri 30 Jun 2026" count1="12" count2="days" category="Work" key-prefix="sbc_" style="width:100%"></cmd-countdown-card>
+          </div>
+        </div>
+        <div class="sb-controls">
+          <label><input type="checkbox" id="ctrl-cmd-count2"> second count line</label>
+        </div>
+        <div class="sb-log" id="log-cmd-countdown-card">events: none</div>
+      `,
+      init: () => {
+        const card = document.getElementById("sb-countdown-cards").querySelector("cmd-countdown-card");
+        document.getElementById("ctrl-cmd-count2").addEventListener("change", (e) => {
+          if (e.target.checked) card.setAttribute("count2", "4 days");
+          else card.removeAttribute("count2");
+        });
+      }
+    });
+
+    // ---- cmd-date-card ----
+    sections.push({
+      id: "cmd-date-card",
+      name: "cmd-date-card",
+      tag: "<cmd-date-card>",
+      desc: "A date row in the dates editor list. Attributes: <code>index</code>, <code>name</code>, <code>category</code>, <code>type</code>, <code>date-text</code>, <code>category-image</code>, <code>image</code>, <code>key-prefix</code>. Dispatches <code>cmd-date-edit</code> / <code>cmd-date-delete</code> ({ index }).",
+      html: () => `
+        <div class="sb-canvas" style="flex-direction:column;width:100%">
+          <cmd-date-card index="0" name="Mum's Birthday" category="Birthday" type="annual" date-text="14 Jul" category-image="Blue" image="Drink 1" key-prefix="sbc_" style="width:100%"></cmd-date-card>
+          <cmd-date-card index="1" name="Project Deadline" category="Work" type="once" date-text="30 Jun 2026" key-prefix="sbc_" style="width:100%"></cmd-date-card>
+        </div>
+        <div class="sb-log" id="log-cmd-date-card">events: none</div>
+      `,
+      init: () => {
+        document.querySelectorAll("#cmd-date-card cmd-date-card").forEach(card => {
+          card.addEventListener("cmd-date-edit", (e) => log("cmd-date-card", "edit idx=" + e.detail.index));
+          card.addEventListener("cmd-date-delete", (e) => log("cmd-date-card", "delete idx=" + e.detail.index));
+        });
+      }
+    });
+
+    // ---- cmd-category-card ----
+    sections.push({
+      id: "cmd-category-card",
+      name: "cmd-category-card",
+      tag: "<cmd-category-card>",
+      desc: "A category row in the categories editor list. Attributes: <code>index</code>, <code>name</code>, <code>image</code>, <code>key-prefix</code>. Dispatches <code>cmd-category-edit</code> / <code>cmd-category-delete</code> ({ index }).",
+      html: () => `
+        <div class="sb-canvas" style="flex-direction:column;width:100%">
+          <cmd-category-card index="0" name="Birthday" image="Blue" key-prefix="sbc_" style="width:100%"></cmd-category-card>
+          <cmd-category-card index="1" name="Work" key-prefix="sbc_" style="width:100%"></cmd-category-card>
+        </div>
+        <div class="sb-log" id="log-cmd-category-card">events: none</div>
+      `,
+      init: () => {
+        document.querySelectorAll("#cmd-category-card cmd-category-card").forEach(card => {
+          card.addEventListener("cmd-category-edit", (e) => log("cmd-category-card", "edit idx=" + e.detail.index));
+          card.addEventListener("cmd-category-delete", (e) => log("cmd-category-card", "delete idx=" + e.detail.index));
         });
       }
     });
