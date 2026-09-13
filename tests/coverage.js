@@ -3,7 +3,7 @@ const { CoverageReport } = require("monocart-coverage-reports");
 const coverageOptions = {
   outputDir: "coverage-report",
   reports: ["v8", "console-summary", "html"],
-  name: "PlanMyDay Coverage",
+  name: "MyApps Coverage",
   clean: true,
   cleanCache: false,
 };
@@ -30,7 +30,9 @@ async function stopCoverage(page) {
   data = data.filter((entry) => {
     try {
       const url = new URL(entry.url);
-      return (url.pathname.startsWith("/PlanMyDay/js/") || url.pathname.startsWith("/shared/js/")) && url.origin === "http://localhost:8080";
+      return (url.pathname.startsWith("/PlanMyDay/js/") ||
+        url.pathname.startsWith("/CountMyDays/js/") ||
+        url.pathname.startsWith("/shared/js/")) && url.origin === "http://localhost:8080";
     } catch {
       return false;
     }

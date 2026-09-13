@@ -6,6 +6,8 @@
 6: After fixing issues with the regression tests apply them to pmd-screenshots.spec.js and validate them using one theme only.
 7: Fail-fast test iterations: after a code/test change, DON'T run a whole batch at once — run only the first 2-3 affected tests first (`--grep "a|b" --workers=2 --retries=0`) to debug on a small surface; grow the batch only once those pass. The config sets `retries: 1`, so pass `--retries=0` while iterating (otherwise failures take twice as long).
 8: A change that ONLY touches `storybook/index.html` and/or `AGENTS.md` does NOT need the regression suite (or screenshot/sample-image specs). Just verify the storybook loads with zero console/page errors and no failed requests.
+9: UPSTREAM APP COPIES: `temp/<AppName>/` (e.g. `temp/CountMyDays/`) holds the NEWER standalone version of that app. It is NOT a fork/branch — it is always a later version of the same app. When asked to "update to the temp version", do NOT copy the folder over the repo app: diff the temp sources against the repo app and port the new features/edits into the shared-library architecture (smd-page/smd-components, `smdKey()` storage prefix, root `sw.js` APPS entry, tests). Keep function/feature names close to temp where practical so the next port is a small diff.
+10: AGENTS.md NOTES: whenever you discover something a future session needs (architecture decisions, gotchas, upstream workflow, test recipes), add a useful, dated note to AGENTS.md — not just a session-log line. Keep notes concrete (file paths, function names, exact commands) and delete/condense notes that have gone stale.
 
 ## Self-improving playbook
 At the START of every session, read this file fully and apply all rules.
@@ -81,6 +83,79 @@ Architecture:
   CSS, `body.drag-size-*` classes and `[data-theme] … .drag-handle` overrides
   were removed; `#btnMainMenu` uses `<i class="fa-solid fa-bars">` (light DOM,
   so the document FA css applies).
+- COUNTMYDAYS (2026-09-12): second PWA migrated to the shared pattern. Served at
+  `/CountMyDays/`; `SmdConfig.storagePrefix = "countmydays_"` set in
+  `CountMyDays/js/app.js`. Legacy UNPREFIXED keys are copied to the prefixed
+  namespace by `CountMyDays/js/storage.js migrateLegacyStorage()`, which logs a
+  `console.warn` on EVERY boot (deliberate TODO reminder — remove function +
+  warning once users have migrated). Pages: `datesEditor` + `dateEditPage`,
+  `categoriesEditor` + `categoryEditPage`, `imagesEditor` (shared smd-images.js),
+  `settingsPage` (smd-tabs), `exportWizardPage`, `qrExportPage`, `qrImportPage`,
+  `importWizardPage`, `imagePickerPage`. App components:
+  `cmd-countdown-card` / `cmd-date-card` / `cmd-category-card`
+  (`CountMyDays/js/components/`). Countdown tile typography uses body-scoped
+  `--cmd-countdown-*` vars (WebKit-safe) and `applyImageSize()` caps smd-image at
+  64px on <=480px screens (the original app's media query). Images-editor
+  integration with CountMyDays' data model is via `SmdConfig` hooks read by
+  shared `smd-images.js`: `imageInUse(name)`, `onImageDelete(name)`,
+  `onImageRename(old,new)` (unset for PlanMyDay -> old behaviour).
+- SHARED QR (2026-09-12): `<smd-qr-export>` + `<smd-qr-import>` are GENERIC —
+  `value` is any string (app passes `JSON.stringify(json)`); the wire format is
+  lz-string-compressed chunks in an envelope `{index,total,chunk}`. Import emits
+  `smd-qr-import-complete` `{ data }` (parsed JSON). Import always uses jsQR +
+  getUserMedia: html5-qrcode is NOT vendored because it resolves its reader with
+  `document.getElementById`, which cannot see shadow roots. Vendored:
+  `shared/vendor/lz-string.min.js`, `shared/vendor/jsQR.js` (precached).
+- Brite theme: `shared/css/themes/brite/bootstrap.min.css` from Bootswatch
+  **5.3.8** (all other themes remain 5.3.3) + `themeConfig` entry + precache —
+  theme count is now 26. `pmd-screenshots.spec.js` has its own hardcoded list
+  (25) so it is unaffected; `cmd-screenshots.spec.js` screenshots all 26.
+- GOOGLE CALENDAR (2026-09-13): `CountMyDays/js/googleCalendar.js` (GSI OAuth +
+  Calendar REST + `{count_my_days{...}}` description payload helpers) and
+  `CountMyDays/js/googleCalendarEditor.js` (unified dates editor Google rows +
+  `googleEventsPage`/`googleEventEditPage` smd-pages). Settings has a **G Cal**
+  tab (`General | G Cal | Danger`); when enabled, `.google-menu-item` entries
+  appear in the hamburger menu. Feed cache + settings are namespaced
+  (`countmydays_google_cal`, `countmydays_gcal_*`) by `gcalKey()`/
+  `googleCalCacheKey()` (call-time helpers — do NOT turn them into parse-time
+  consts: google scripts load BEFORE `app.js`, which sets the storage prefix).
+  Legacy `cmd_gcal_*`/`cmd_google_cal` keys are in
+  `storage.js CMD_LEGACY_STORAGE_MAP` and migrated on boot. `cmd-date-card` grew
+  `source`/`recurring`/`hidden` attributes (Local/Google/Repeat/Hidden badges,
+  no Delete for Google rows) and its events now carry `source`. Sample feed:
+  `CountMyDays/js/googleCalendarSample.json` ("Load sample data"). The app-info
+  dialogs use `showSmdModal`, not a custom overlay.
+- LEGACY MIGRATION REMINDER (2026-09-13): `CountMyDays/js/storage.js`
+  `migrateLegacyStorage()` is intentionally temporary and the app now calls
+  `showLegacyMigrationReminder()` on EVERY `DOMContentLoaded`, which opens the
+  shared `#smdConfirmModal` ("Legacy migration still active"). ANY test that
+  loads `/CountMyDays/` and then CLICKS must dismiss it first (the regression
+  spec has `dismissLegacyReminder(page)`; `cmd-screenshots.spec.js` dismisses in
+  its beforeEach). Pure visibility assertions are unaffected (occlusion does not
+  affect `toBeVisible`). Remove the migration, the reminder function and its
+  call together once users have migrated. `cmd-countdown-card` shows the
+  Local/Google source as an `<smd-badge>` under the date (`source` attribute set
+  by `main-view.js`), using the standard primary/secondary button variants for
+  now (pending styling refinement).
+- SHARED IMAGE EDITOR (2026-09-13): `<smd-image-editor>`
+  (`shared/js/components/smd-image-editor.js`) is the ONE image edit form both
+  apps host in their Bootstrap `#imageEditModal`. It renders in the LIGHT DOM on
+  purpose: Bootstrap/app CSS must style it and the many existing selectors
+  (`#imageEditModalBody .card input.form-control`, `.fw-bold`, …) keep working.
+  `shared/js/smd-images.js` sets `image`/`index`/`isNew`/`isDuplicate` + calls
+  `render()`, and handles `smd-image-editor-action` (`ok`/`cancel`/`upload`).
+  The `.date-img` sizing moved from `PlanMyDay/css/styles.css` to
+  `shared/css/styles.css` so the dialogs look identical in every app. The
+  storybook has a section (its demo needs the `smd-images.js` script, which the
+  storybook now loads).
+- `hideNav()` (shared smd-settings.js) now hides when NO
+  `smd-page:not(.d-none)` is open — generic for any app's page set (was a
+  hardcoded PlanMyDay id list).
+- `smd-page` GOTCHA: a footer button auto-hides its page BEFORE dispatching
+  `smd-page-action` unless the button config sets `close: false`. Any button
+  whose handler validates or decides (Add/OK/etc.) MUST use `close: false` and
+  hide the page itself, otherwise the page closes under the user on validation
+  failure.
 
 Techniques / gotchas:
 - **`:host-context()` is NOT supported by WebKit/Safari** (so it silently does
@@ -103,12 +178,149 @@ Techniques / gotchas:
 - To inspect computed styles/DOM, drop a temp `tests/_probe.spec.js` that writes JSON via `require("fs").writeFileSync(path.join(__dirname, "_probe.out.json"), ...)`, run it with `--reporter=line`, `Get-Content` the JSON, then delete both files. (test `console.log` is hidden by the list reporter).
 - **Playwright TRUNCATES large received/expected values in failure output** (`pretty-format` prints `…` and folds long arrays, e.g. a `expect(cachedUrls).toEqual(expect.arrayContaining([...]))` diff shows only the first ~10 cache URLs). There is NO config to raise the limit. When a failure depends on a full array/object (URL lists, cache keys, response lists), DON'T read it from the error message — extend/replace the probe (`_probe.spec.js`) to `writeFileSync` the ENTIRE array and `Get-Content` that file. "The received list is truncated" is always a probe job, never a reason to rerun the test for inspection.
 - `page.evaluate` can't see inside shadow roots: query `document.getElementById("<pageId>").shadowRoot` first (e.g. `#streamsEditor`, `#jobEditPage`, `#smdConfirmModal`). Playwright locators pierce automatically.
+- SW PRECACHE TEST FLAKE (2026-09-13): the sub-path tests (`cmd-regression.spec.js` and `pmd-regression.spec.js`) wait for a fresh SW install that precaches ~250 URLs from the single python server. Under the 10-shard waves a single transient request failure rejects `cache.addAll`, install stays failed with NO worker, and the old 60s poll never saw `active`. Both tests now: `test.setTimeout(300000)`, poll for 240s, and when a registration exists with no `installing`/`waiting`/`active` worker they `unregister()` + `register()` again to retry the install. If a precache URL genuinely 404s the test still fails (as intended).
 - smd-button disabled/`.disabled` assertions must target the inner native button: `#id button`, not the host element.
 - Playwright `toHaveText` on an `smd-button` HOST reports the slot fallback text too (e.g. `"Edit\n Button"`), so exact-text assertions fail. Use `toContainText("Edit")` or a `getByRole("button", { name: "Edit" })` locator instead.
 - Grep on minified vendor files breaks the tool (giant matched lines) — scope searches to `PlanMyDay/js/**`, `shared/js/**`, or `tests/**`.
 - Line endings: this repo stores text files with LF (`core.autocrlf=input`, `core.eol=lf`; no `.gitattributes`). NEVER write CRLF into a file — git will flag every line as changed (whole-file diff) and warn "CRLF will be replaced by LF the next time Git touches it". Do not round-trip files through PowerShell pipe/Get-Content/Set-Content joins; the Edit/Write/Read tools and Node preserve line endings — if you must convert use node with explicit `\n`, NEVER shell-piped measurements of `git show` (PowerShell pipeline re-encodes — it once reported 914 CRLF for a file whose raw blob via `git cat-file` was entirely LF). Verify with `git cat-file blob HEAD:<file>` + `git diff --stat` so only real edits show.
 
 ## Session log
+
+### 2026-09-13 (3)
+- Removed the "Edit Google Events" menu item (only "Refresh Google Calendar"
+  remains under Google; `openGoogleEventsEditor`/`googleEventsPage` still exist
+  but are no longer linked from the UI).
+- Danger tab buttons are now evenly spaced: all action rows use `mb-3` and the
+  two Google buttons stack with `gap-3` (new `.smd-tab-panel .gap-3` rule).
+- Shared `<smd-image-editor>` extracted from `smd-images.js` (light-DOM
+  component; buttons emit `smd-image-editor-action`), so CountMyDays and
+  PlanMyDay use the exact same dialog. `.date-img` sizing moved to
+  `shared/css/styles.css` (this was why the CountMyDays dialog looked wrong).
+  Verified side-by-side: both dialogs are pixel-identical. Storybook section
+  added (needs `smd-images.js`, now loaded by the storybook).
+- Tests updated: cmd asserts "Edit Google Events" is gone and that the dialog
+  body hosts `smd-image-editor`; focused runs only (PMD image describes 46
+  passed, cmd image/gcal/danger tests passed, storybook 27 sections clean).
+  `BUILD_NUMBER` -> `202609131400`.
+
+### 2026-09-13 (2)
+- Legacy-migration reminder: `CountMyDays/js/storage.js` no longer
+  `console.warn`s; it exposes `showLegacyMigrationReminder()` and `app.js` calls
+  it on every `DOMContentLoaded`, showing a shared-modal reminder ("Legacy
+  migration still active") so it can't be missed. Removed the TODO comments —
+  the modal is the reminder. Tests dismiss it (`dismissLegacyReminder(page)` in
+  `cmd-regression.spec.js`; the screenshots spec dismisses in its beforeEach).
+- `cmd-countdown-card` gained a `source` attribute: the main view passes
+  `local`/`google` (`d.gcal`) and the tile shows an `<smd-badge>` under the date
+  (colours swapped on request: "Local" = primary, "Google" = secondary) —
+  standard button variants for now. Storybook demo updated. New assertions:
+  startup reminder modal, local tile badge, Google tile badge.
+- Removed the `card-edited` highlight (inset `--bs-primary` box-shadow + tinted
+  background) from the Edit Date / Edit Category / Edit Google Event pages and
+  deleted its now-unused rule from `CMD_EDITOR_STYLES` — it showed as a strange
+  coloured line/background on themes whose primary is orange (e.g. brite).
+- Settings/app tweaks (follow-up): the `.card p-3` wrapper is gone from the edit
+  pages (content sits directly on the page); "Import Sample Data" removed from
+  the main menu (`importSampleData()` remains but is unused); G Cal Refresh is a
+  full-width `smd-button` (`.smd-tab-panel smd-button` + `::part(button)` width
+  rules in `CMD_EDITOR_STYLES`), and Load sample data / Clear cache moved to the
+  Danger tab inside `#gcalDangerRow` (toggled with the other danger rows by
+  `toggleDangerRows`). New regression test "Clear cache only clears the
+  CountMyDays Google cache entry" seeds unrelated prefixed/other-app/legacy keys
+  and asserts only `countmydays_google_cal` is removed.
+- Result: cmd regression 43 passed, cmd screenshot gallery 4 passed (26 themes).
+  `BUILD_NUMBER` -> `202609131300`.
+
+### 2026-09-13
+- Ported the newer `/temp/CountMyDays` (standalone, always-newer upstream) into
+  the repo app, keeping the shared architecture. New features:
+  - Google Calendar: `js/googleCalendar.js` (GSI OAuth token cache, `fetchEvents`,
+    `updateGoogleEventDescription`, `{count_my_days{...}}` payload
+    parse/serialize, refresh/sample/clear, `showAppInfoModal` via `showSmdModal`)
+    and `js/googleCalendarEditor.js` (`googleEventsPage` list +
+    `googleEventEditPage` single editor, opened from the dates list Edit on a
+    Google row or from the menu). API calls are stub-able globals for tests.
+  - Settings tabs renamed/re-grouped to `/temp`: **General | G Cal | Danger**;
+    G Cal has enable (smd-checkbox), name, OAuth client id, calendar id,
+    Refresh / Load sample data / Clear cache (smd-buttons) + a **Share app**
+    `<smd-qrcode>` in the footer.
+  - Dates editor is now a UNIFIED list (local + Google) with Local/Google/Repeat/
+    Hidden badges and filter checkboxes (show local / show google / show google
+    hidden). Google rows open the Google editor (returning to the dates page);
+    local rows keep Add/Edit/Delete.
+  - Main view merges visible Google events (`loadGoogleCalendarEntries`);
+    `countdownLines()` "weeksAndDays" now leaves the weeks line blank when 0.
+- Storage: gcal keys namespaced via `gcalKey()` / GoogleCalCacheKey; legacy
+  `cmd_gcal_*` + `cmd_google_cal` added to `CMD_LEGACY_STORAGE_MAP` (migrated on
+  boot). `confirmClearAllData` clears both namespaced and legacy keys.
+- New `js/googleCalendarSample.json` (the temp `test/google_calendar.json` was
+  missing); precached in `sw.js` APPS.
+- Tests: +7 "Google Calendar" tests in `tests/cmd-regression.spec.js` (settings
+  tab/QR, sample load + unified list/filters/badges, edit patches description
+  and `_cmd`, stubbed refresh success/failure, Google list page, legacy key
+  migration). Network calls are stubbed by reassigning `fetchEvents` /
+  `requestGoogleAccessToken` / `updateGoogleEventDescription` via page.evaluate.
+- Gotchas found: test locators must use `getByRole("button", …)` (smd-button
+  hosts have no box) and open the hamburger before asserting `.google-menu-item`
+  visibility; `#shareQrCode` has zero height until qrcode.js renders (qrcodejs
+  shows the `<img>` fallback — assert that, not the canvas); in-flight
+  `refreshGoogleCalendar` with a real client id hits Google GSI and hangs in
+  tests — always stub the network first.
+- Result: cmd regression **42 passed** (35 + 7 gcal), cmd screenshot gallery
+  4 passed (26 themes, now includes badges/G Cal), PMD asset cache-busting
+  4 passed, storybook probe clean (26 sections). `BUILD_NUMBER` ->
+  `202609131000`.
+- Lesson: PowerShell `Get-Content | Set-Content -NoNewline` joins lines AND
+  re-encodes non-ASCII — never round-trip files through the shell; use the
+  Write/Edit tools (restored `build-number.js` afterwards; `git diff` verified
+  only the number changed).
+- Follow-up: the cmd sub-path SW-precache test failed once in a sharded run
+  ("Timeout 60000ms exceeded while waiting on the predicate"). It passes in
+  isolation (~30s), so it was transient install starvation under the wave load;
+  both sub-path tests now retry the install and allow 240s (see the Techniques
+  note above).
+
+### 2026-09-12 (4)
+- Migrated `CountMyDays/` into the multi-app architecture. New CountMyDays
+  files: `js/{app,storage,utils,editor-styles,main-view,dates-editor,categories-editor,app-settings,export,import-wizard}.js`
+  and `js/components/{cmd-countdown-card,cmd-date-card,cmd-category-card}.js`;
+  deleted its own `sw.js`, `js/settings.js`, `js/images.js` and the 3 synchronous
+  XHR `sample*.js` seeders (replaced by an async `seedSampleData()` fetch of
+  `js/sampleData.json`). `index.html` rewritten to the PlanMyDay pattern
+  (shared theme/vendor/components, single hamburger menu, `smd-page` hosts,
+  `settingsTemplate`, `#imageEditModal`, root SW registration + update prompt).
+  `manifest.json` now uses generated PNG icons. Icons regenerated with
+  `npm run regen:pwa-icons`.
+- Shared changes (additive/guards): `smd-images.js` null-guards its PlanMyDay
+  page lookups and calls `SmdConfig.{imageInUse,onImageDelete,onImageRename}`
+  when set; `smd-settings.js` `hideNav()` is now page-generic + null-safe;
+  brite theme added; new `smd-qr-export`/`smd-qr-import` + 2 vendored libs;
+  `sw.js` `APPS["CountMyDays/"]` + new shared assets. `storybook/index.html`
+  gained sections for the QR + 3 cmd components. `tests/coverage.js` now
+  collects `/CountMyDays/js/` and is named "MyApps Coverage".
+- Tests added: `tests/cmd-regression.spec.js` (35 tests, incl. a repo sub-path +
+  SW-precache test through `tests/subpath-server.py`) and
+  `tests/cmd-screenshots.spec.js` (4 screens x 26 themes -> `screenshots/cmd/`).
+- Bugs found by the new tests (all fixed): the dates/categories "Add" footer
+  buttons lacked `close:false` so they hid the list page before the handler ran;
+  image/date edit "OK" buttons auto-closed before duplicate validation; the app
+  was missing the `smd-page-action` + `smd-image-card-action` wiring for the
+  shared images editor; `import-wizard.js` was missing `preprocessImages()`.
+- What worked: mirroring PlanMyDay file-for-file, then writing the cmd
+  regression spec early and letting it drive fixes; using `$id()` (shadow-root
+  aware) inside app code and `getByRole("button", …)` in tests.
+- What did not work: vendoring html5-qrcode — its constructor requires a
+  light-DOM `document.getElementById` target, so it cannot drive a reader inside
+  a shadow root. `smd-qr-import` now uses the jsQR + getUserMedia loop for ALL
+  browsers (works anywhere); the html5-qrcode vendor file was removed.
+- Result: PMD regression 428 passed, cmd regression 35 passed, touch 4 passed,
+  sample-images + example passed, cmd screenshot gallery 4 passed, storybook
+  probe 0 console/page errors with all 26 sections. `BUILD_NUMBER` ->
+  `202609121345`.
+- Lesson: when reusing shared editors, ALWAYS run the new app's regression spec
+  against them immediately — the missing `smd-image-card-action` wiring and the
+  `close:false` foot-gun were invisible to boot/flow probes until clicks were
+  asserted.
 
 ### 2026-09-12 (3)
 - Badge theming: new shared `<smd-badge>` (`shared/js/components/smd-badge.js`)

@@ -1,20 +1,5 @@
 /* App-specific styles for PlanMyDay (shared/smd styles live in shared/css/styles.css) */
 
-/* IMAGES (legacy `.countdown-img`/`.date-img`; images now render via <smd-image>) */
-.countdown-img,
-.date-img {
-  width: 100px;
-  height: 100px;
-  object-fit: contain;
-}
-@media (max-width: 480px) {
-  .countdown-img,
-  .date-img {
-    width: 64px;
-    height: 64px;
-  }
-}
-
 body.compact .countdown-card {
   padding: 0.25rem 0.5rem;
 }

@@ -8,6 +8,7 @@ const themeConfig = (() => {
   // is informational only (kept relative to stay path-agnostic).
   const bw = "css/themes";
   return {
+    brite:     { css: `${bw}/brite/bootstrap.min.css`,      bsTheme: "light" },
     cerulean:  { css: `${bw}/cerulean/bootstrap.min.css`,   bsTheme: "light" },
     cosmo:     { css: `${bw}/cosmo/bootstrap.min.css`,      bsTheme: "light" },
     cyborg:    { css: `${bw}/cyborg/bootstrap.min.css`,     bsTheme: "dark" },
@@ -195,9 +196,9 @@ function showNav() {
 function hideNav() {
   const nav = document.getElementById("mainNav");
   if (!nav) return;
-  if (document.getElementById("settingsPage").classList.contains("d-none") &&
-      document.getElementById("streamsEditor").classList.contains("d-none") &&
-      document.getElementById("imagesEditor").classList.contains("d-none")) {
+  // Any open <smd-page> means the user is inside an editor/wizard: keep the nav.
+  const anyPageOpen = typeof document.querySelector === "function" && document.querySelector("smd-page:not(.d-none)");
+  if (!anyPageOpen) {
     nav.classList.add("nav-hidden");
     autoHideCooldown = true;
     setTimeout(() => { autoHideCooldown = false; }, 600);

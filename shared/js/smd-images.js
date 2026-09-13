@@ -107,9 +107,9 @@ function updateEditPreview(img, themeIdx) {
   if (previewEl) previewEl.src = getThemedImageDataUrl(img, key);
 }
 
-function buildThemeSection(themeIdx, label) {
+function buildThemeSection(themeIdx, label, imageOverride) {
   const images = loadImages();
-  const img = images[editingImageIndex];
+  const img = imageOverride || images[editingImageIndex];
   if (!img) return "";
   const key = themeKey(themeIdx);
   const base = getImageColors(img.data);
@@ -165,34 +165,30 @@ function renderImagesEditor() {
 
   if (editingImageIndex >= 0) {
     const img = images[editingImageIndex];
-    const hasData = img.data && img.data.length > 0;
-    const colorEditorHtml = hasData
-      ? buildThemeSection(0, "Light theme") + buildThemeSection(1, "Dark theme")
-      : "";
 
     document.getElementById("imageEditModalTitle").textContent = isNewImage ? "Add Image" : (isDuplicateImage ? "Duplicate Image" : "Edit Image");
-    document.getElementById("imageEditModalBody").innerHTML = `
-      <div class="card p-3">
-        <div class="mb-2">
-          <label class="form-label mb-1">Name</label>
-          <input class="form-control" value="${escapeHtml(img.name)}" onchange="editImageField('name', this.value); checkDuplicateName()" oninput="checkDuplicateName()">
-          <div id="imageNameError" class="text-danger mt-1" style="display:none">ERROR: There is already an image with this name.</div>
-        </div>
-        <div class="d-flex gap-2 align-items-center mb-2">
-          <div style="width:45px;flex-shrink:0"></div>
-          ${hasData
-            ? `<img src="${getThemedImageDataUrl(img)}" class="date-img">`
-            : `<div class="date-img d-flex align-items-center justify-content-center text-secondary border rounded">No image</div>`
-          }
-          <button id="btnImageUpload" class="btn btn-primary btn-sm text-nowrap" onclick="openImageUpload(${editingImageIndex})">Upload</button>
-        </div>
-        ${colorEditorHtml}
-        <div class="d-flex gap-2 mt-3">
-          <button id="btnImageEditOk" class="btn btn-success editor-btn flex-fill" onclick="doneImageEdit(${editingImageIndex})">OK</button>
-          <button id="btnImageEditCancel" class="btn btn-secondary editor-btn flex-fill" onclick="cancelImageEdit()">Cancel</button>
-        </div>
-      </div>
-    `;
+    // The form itself is the shared <smd-image-editor> component (light DOM so
+    // the Bootstrap modal + app styles apply, exactly like PlanMyDay).
+    const body = document.getElementById("imageEditModalBody");
+    let editor = body.querySelector("smd-image-editor");
+    if (!editor) {
+      editor = document.createElement("smd-image-editor");
+      body.appendChild(editor);
+    }
+    if (!editor.__smdActionsBound) {
+      editor.__smdActionsBound = true;
+      editor.addEventListener("smd-image-editor-action", (e) => {
+        const detail = e.detail || {};
+        if (detail.action === "upload") openImageUpload(detail.index);
+        else if (detail.action === "ok") doneImageEdit(detail.index);
+        else if (detail.action === "cancel") cancelImageEdit();
+      });
+    }
+    editor.index = editingImageIndex;
+    editor.isNew = isNewImage;
+    editor.isDuplicate = isDuplicateImage;
+    editor.image = img;
+    editor.render();
 
     const modalEl = document.getElementById("imageEditModal");
     let modal = bootstrap.Modal.getInstance(modalEl);
@@ -342,6 +338,10 @@ function editImageField(field, value) {
     if (oldName !== trimmed) {
       images[editingImageIndex].name = trimmed;
       saveImages(images);
+      // Let the host app follow the rename in its own data (optional hook).
+      if (typeof SmdConfig !== "undefined" && typeof SmdConfig.onImageRename === "function") {
+        SmdConfig.onImageRename(oldName, trimmed);
+      }
       return;
     }
   }
@@ -574,22 +574,29 @@ function confirmDeleteImage(index) {
 
 function deleteImage(index) {
   const images = loadImages();
+  const removed = images[index] ? images[index].name : "";
   images.splice(index, 1);
   saveImages(images);
+  // Let the host app clear references to the deleted image (optional hook).
+  if (removed && typeof SmdConfig !== "undefined" && typeof SmdConfig.onImageDelete === "function") {
+    SmdConfig.onImageDelete(removed);
+  }
   renderImagesEditor();
 }
 
 function openImagesEditor() {
-  document.getElementById("countdownContainer").classList.add("d-none");
-  document.getElementById("streamsEditor").classList.add("d-none");
-  document.getElementById("settingsPage").classList.add("d-none");
-  document.getElementById("jobSearchEditor").classList.add("d-none");
+  // Page hosts differ per app; hide whatever this app has (null-safe).
+  ["countdownContainer", "streamsEditor", "settingsPage", "jobSearchEditor", "datesEditor", "categoriesEditor"].forEach(function(id) {
+    const el = document.getElementById(id);
+    if (el) el.classList.add("d-none");
+  });
   imagesPage = 0;
   const page = document.getElementById("imagesEditor");
+  if (!page) return;
   page.classList.remove("d-none");
   renderImagesEditor();
   if (page.shadowRoot && typeof injectStyleInto === "function") {
-    injectStyleInto(page.shadowRoot, JOBS_EDITOR_STYLES);
+    injectStyleInto(page.shadowRoot, typeof JOBS_EDITOR_STYLES !== "undefined" ? JOBS_EDITOR_STYLES : undefined);
   }
   page.show();
 }
@@ -602,12 +609,13 @@ function closeImagesEditor() {
       page.classList.add("d-none");
     }, Math.max(0, (page.slideDuration || 0) + 50));
   }
-  document.getElementById("countdownContainer").classList.remove("d-none");
+  const main = document.getElementById("countdownContainer");
+  if (main) main.classList.remove("d-none");
   editingImageIndex = -1;
   isNewImage = false;
   isDuplicateImage = false;
   editImageBackup = null;
-  renderMain();
+  if (typeof renderMain === "function") renderMain();
 }
 
 function getImageByName(name) {
@@ -617,6 +625,11 @@ function getImageByName(name) {
 }
 function isImageInUse(name) {
   if (!name) return false;
+  // Apps with a different data model can plug in their own usage check.
+  if (typeof SmdConfig !== "undefined" && typeof SmdConfig.imageInUse === "function") {
+    return !!SmdConfig.imageInUse(name);
+  }
+  if (typeof loadStreams !== "function") return false;
   const streams = loadStreams();
   return streams.some(s => s.image === name || (s.jobs || []).some(j => j.image === name));
 }
