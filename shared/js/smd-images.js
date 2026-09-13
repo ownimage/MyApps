@@ -107,9 +107,9 @@ function updateEditPreview(img, themeIdx) {
   if (previewEl) previewEl.src = getThemedImageDataUrl(img, key);
 }
 
-function buildThemeSection(themeIdx, label) {
+function buildThemeSection(themeIdx, label, imageOverride) {
   const images = loadImages();
-  const img = images[editingImageIndex];
+  const img = imageOverride || images[editingImageIndex];
   if (!img) return "";
   const key = themeKey(themeIdx);
   const base = getImageColors(img.data);
@@ -165,34 +165,30 @@ function renderImagesEditor() {
 
   if (editingImageIndex >= 0) {
     const img = images[editingImageIndex];
-    const hasData = img.data && img.data.length > 0;
-    const colorEditorHtml = hasData
-      ? buildThemeSection(0, "Light theme") + buildThemeSection(1, "Dark theme")
-      : "";
 
     document.getElementById("imageEditModalTitle").textContent = isNewImage ? "Add Image" : (isDuplicateImage ? "Duplicate Image" : "Edit Image");
-    document.getElementById("imageEditModalBody").innerHTML = `
-      <div class="card p-3">
-        <div class="mb-2">
-          <label class="form-label mb-1">Name</label>
-          <input class="form-control" value="${escapeHtml(img.name)}" onchange="editImageField('name', this.value); checkDuplicateName()" oninput="checkDuplicateName()">
-          <div id="imageNameError" class="text-danger mt-1" style="display:none">ERROR: There is already an image with this name.</div>
-        </div>
-        <div class="d-flex gap-2 align-items-center mb-2">
-          <div style="width:45px;flex-shrink:0"></div>
-          ${hasData
-            ? `<img src="${getThemedImageDataUrl(img)}" class="date-img">`
-            : `<div class="date-img d-flex align-items-center justify-content-center text-secondary border rounded">No image</div>`
-          }
-          <button id="btnImageUpload" class="btn btn-primary btn-sm text-nowrap" onclick="openImageUpload(${editingImageIndex})">Upload</button>
-        </div>
-        ${colorEditorHtml}
-        <div class="d-flex gap-2 mt-3">
-          <button id="btnImageEditOk" class="btn btn-success editor-btn flex-fill" onclick="doneImageEdit(${editingImageIndex})">OK</button>
-          <button id="btnImageEditCancel" class="btn btn-secondary editor-btn flex-fill" onclick="cancelImageEdit()">Cancel</button>
-        </div>
-      </div>
-    `;
+    // The form itself is the shared <smd-image-editor> component (light DOM so
+    // the Bootstrap modal + app styles apply, exactly like PlanMyDay).
+    const body = document.getElementById("imageEditModalBody");
+    let editor = body.querySelector("smd-image-editor");
+    if (!editor) {
+      editor = document.createElement("smd-image-editor");
+      body.appendChild(editor);
+    }
+    if (!editor.__smdActionsBound) {
+      editor.__smdActionsBound = true;
+      editor.addEventListener("smd-image-editor-action", (e) => {
+        const detail = e.detail || {};
+        if (detail.action === "upload") openImageUpload(detail.index);
+        else if (detail.action === "ok") doneImageEdit(detail.index);
+        else if (detail.action === "cancel") cancelImageEdit();
+      });
+    }
+    editor.index = editingImageIndex;
+    editor.isNew = isNewImage;
+    editor.isDuplicate = isDuplicateImage;
+    editor.image = img;
+    editor.render();
 
     const modalEl = document.getElementById("imageEditModal");
     let modal = bootstrap.Modal.getInstance(modalEl);

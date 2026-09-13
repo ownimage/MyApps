@@ -106,6 +106,10 @@ test.describe("CountMyDays - Screenshots", () => {
     }, { images: sampleData.images, categories: sampleData.categories, dates: sampleData.dates });
     await page.reload();
     await page.waitForLoadState("domcontentloaded");
+    // The app shows a legacy-migration reminder modal on every startup.
+    const reminder = page.locator("#smdConfirmModal");
+    await reminder.waitFor({ state: "visible", timeout: 10000 }).catch(() => {});
+    if (await reminder.isVisible()) await reminder.getByRole("button", { name: "OK" }).click();
     await page.waitForSelector("cmd-countdown-card");
   });
 

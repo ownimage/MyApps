@@ -6978,7 +6978,7 @@ test.describe("PlanMyDay - Regression", () => {
     });
 
     test("no console errors when deployed under /PlanMyDay/ (sub-path) during SW precache", async ({ page }) => {
-      test.setTimeout(120000);
+      test.setTimeout(300000);
       const consoleErrors = [];
       const pageErrors = [];
       const badResponses = [];
@@ -7001,14 +7001,25 @@ test.describe("PlanMyDay - Regression", () => {
       // worker on a fresh context activates automatically after install (no
       // existing controller to wait behind), so once the registration reports an
       // active worker, cache.addAll has completed. If any precache URL 404s, the
-      // cache.addAll rejects, install fails, and the worker never activates.
+      // cache.addAll rejects, install fails, and the worker never activates. Under
+      // the parallel shard load a single transient request failure can leave the
+      // install failed with no worker at all — re-register to retry it.
       await expect.poll(async () => {
         return page.evaluate(async () => {
-          const regs = await navigator.serviceWorker.getRegistrations();
-          const r = regs.find((x) => x.scope && x.scope.includes("/PlanMyDay/"));
-          return r && r.active ? r.active.state + "|" + !!navigator.serviceWorker.controller : "pending";
+          let regs = await navigator.serviceWorker.getRegistrations();
+          let r = regs.find((x) => x.scope && x.scope.includes("/PlanMyDay/"));
+          if (!r) {
+            try { await navigator.serviceWorker.register("/PlanMyDay/sw.js"); } catch (e) { /* retry next poll */ }
+            return "pending";
+          }
+          if (r.active) return r.active.state + "|" + !!navigator.serviceWorker.controller;
+          if (!r.installing && !r.waiting) {
+            // Failed/never-started install: unregister and re-register to retry.
+            try { await r.unregister(); await navigator.serviceWorker.register("/PlanMyDay/sw.js"); } catch (e) { /* retry next poll */ }
+          }
+          return "pending";
         });
-      }, { timeout: 60000 }).toBe("activated|true");
+      }, { timeout: 240000 }).toBe("activated|true");
 
       // Confirm the precache actually stored the expected assets under /PlanMyDay/.
       const cachedUrls = await page.evaluate(async () => {

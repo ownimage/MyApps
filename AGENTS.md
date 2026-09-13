@@ -125,6 +125,29 @@ Architecture:
   no Delete for Google rows) and its events now carry `source`. Sample feed:
   `CountMyDays/js/googleCalendarSample.json` ("Load sample data"). The app-info
   dialogs use `showSmdModal`, not a custom overlay.
+- LEGACY MIGRATION REMINDER (2026-09-13): `CountMyDays/js/storage.js`
+  `migrateLegacyStorage()` is intentionally temporary and the app now calls
+  `showLegacyMigrationReminder()` on EVERY `DOMContentLoaded`, which opens the
+  shared `#smdConfirmModal` ("Legacy migration still active"). ANY test that
+  loads `/CountMyDays/` and then CLICKS must dismiss it first (the regression
+  spec has `dismissLegacyReminder(page)`; `cmd-screenshots.spec.js` dismisses in
+  its beforeEach). Pure visibility assertions are unaffected (occlusion does not
+  affect `toBeVisible`). Remove the migration, the reminder function and its
+  call together once users have migrated. `cmd-countdown-card` shows the
+  Local/Google source as an `<smd-badge>` under the date (`source` attribute set
+  by `main-view.js`), using the standard primary/secondary button variants for
+  now (pending styling refinement).
+- SHARED IMAGE EDITOR (2026-09-13): `<smd-image-editor>`
+  (`shared/js/components/smd-image-editor.js`) is the ONE image edit form both
+  apps host in their Bootstrap `#imageEditModal`. It renders in the LIGHT DOM on
+  purpose: Bootstrap/app CSS must style it and the many existing selectors
+  (`#imageEditModalBody .card input.form-control`, `.fw-bold`, …) keep working.
+  `shared/js/smd-images.js` sets `image`/`index`/`isNew`/`isDuplicate` + calls
+  `render()`, and handles `smd-image-editor-action` (`ok`/`cancel`/`upload`).
+  The `.date-img` sizing moved from `PlanMyDay/css/styles.css` to
+  `shared/css/styles.css` so the dialogs look identical in every app. The
+  storybook has a section (its demo needs the `smd-images.js` script, which the
+  storybook now loads).
 - `hideNav()` (shared smd-settings.js) now hides when NO
   `smd-page:not(.d-none)` is open — generic for any app's page set (was a
   hardcoded PlanMyDay id list).
@@ -155,12 +178,58 @@ Techniques / gotchas:
 - To inspect computed styles/DOM, drop a temp `tests/_probe.spec.js` that writes JSON via `require("fs").writeFileSync(path.join(__dirname, "_probe.out.json"), ...)`, run it with `--reporter=line`, `Get-Content` the JSON, then delete both files. (test `console.log` is hidden by the list reporter).
 - **Playwright TRUNCATES large received/expected values in failure output** (`pretty-format` prints `…` and folds long arrays, e.g. a `expect(cachedUrls).toEqual(expect.arrayContaining([...]))` diff shows only the first ~10 cache URLs). There is NO config to raise the limit. When a failure depends on a full array/object (URL lists, cache keys, response lists), DON'T read it from the error message — extend/replace the probe (`_probe.spec.js`) to `writeFileSync` the ENTIRE array and `Get-Content` that file. "The received list is truncated" is always a probe job, never a reason to rerun the test for inspection.
 - `page.evaluate` can't see inside shadow roots: query `document.getElementById("<pageId>").shadowRoot` first (e.g. `#streamsEditor`, `#jobEditPage`, `#smdConfirmModal`). Playwright locators pierce automatically.
+- SW PRECACHE TEST FLAKE (2026-09-13): the sub-path tests (`cmd-regression.spec.js` and `pmd-regression.spec.js`) wait for a fresh SW install that precaches ~250 URLs from the single python server. Under the 10-shard waves a single transient request failure rejects `cache.addAll`, install stays failed with NO worker, and the old 60s poll never saw `active`. Both tests now: `test.setTimeout(300000)`, poll for 240s, and when a registration exists with no `installing`/`waiting`/`active` worker they `unregister()` + `register()` again to retry the install. If a precache URL genuinely 404s the test still fails (as intended).
 - smd-button disabled/`.disabled` assertions must target the inner native button: `#id button`, not the host element.
 - Playwright `toHaveText` on an `smd-button` HOST reports the slot fallback text too (e.g. `"Edit\n Button"`), so exact-text assertions fail. Use `toContainText("Edit")` or a `getByRole("button", { name: "Edit" })` locator instead.
 - Grep on minified vendor files breaks the tool (giant matched lines) — scope searches to `PlanMyDay/js/**`, `shared/js/**`, or `tests/**`.
 - Line endings: this repo stores text files with LF (`core.autocrlf=input`, `core.eol=lf`; no `.gitattributes`). NEVER write CRLF into a file — git will flag every line as changed (whole-file diff) and warn "CRLF will be replaced by LF the next time Git touches it". Do not round-trip files through PowerShell pipe/Get-Content/Set-Content joins; the Edit/Write/Read tools and Node preserve line endings — if you must convert use node with explicit `\n`, NEVER shell-piped measurements of `git show` (PowerShell pipeline re-encodes — it once reported 914 CRLF for a file whose raw blob via `git cat-file` was entirely LF). Verify with `git cat-file blob HEAD:<file>` + `git diff --stat` so only real edits show.
 
 ## Session log
+
+### 2026-09-13 (3)
+- Removed the "Edit Google Events" menu item (only "Refresh Google Calendar"
+  remains under Google; `openGoogleEventsEditor`/`googleEventsPage` still exist
+  but are no longer linked from the UI).
+- Danger tab buttons are now evenly spaced: all action rows use `mb-3` and the
+  two Google buttons stack with `gap-3` (new `.smd-tab-panel .gap-3` rule).
+- Shared `<smd-image-editor>` extracted from `smd-images.js` (light-DOM
+  component; buttons emit `smd-image-editor-action`), so CountMyDays and
+  PlanMyDay use the exact same dialog. `.date-img` sizing moved to
+  `shared/css/styles.css` (this was why the CountMyDays dialog looked wrong).
+  Verified side-by-side: both dialogs are pixel-identical. Storybook section
+  added (needs `smd-images.js`, now loaded by the storybook).
+- Tests updated: cmd asserts "Edit Google Events" is gone and that the dialog
+  body hosts `smd-image-editor`; focused runs only (PMD image describes 46
+  passed, cmd image/gcal/danger tests passed, storybook 27 sections clean).
+  `BUILD_NUMBER` -> `202609131400`.
+
+### 2026-09-13 (2)
+- Legacy-migration reminder: `CountMyDays/js/storage.js` no longer
+  `console.warn`s; it exposes `showLegacyMigrationReminder()` and `app.js` calls
+  it on every `DOMContentLoaded`, showing a shared-modal reminder ("Legacy
+  migration still active") so it can't be missed. Removed the TODO comments —
+  the modal is the reminder. Tests dismiss it (`dismissLegacyReminder(page)` in
+  `cmd-regression.spec.js`; the screenshots spec dismisses in its beforeEach).
+- `cmd-countdown-card` gained a `source` attribute: the main view passes
+  `local`/`google` (`d.gcal`) and the tile shows an `<smd-badge>` under the date
+  (colours swapped on request: "Local" = primary, "Google" = secondary) —
+  standard button variants for now. Storybook demo updated. New assertions:
+  startup reminder modal, local tile badge, Google tile badge.
+- Removed the `card-edited` highlight (inset `--bs-primary` box-shadow + tinted
+  background) from the Edit Date / Edit Category / Edit Google Event pages and
+  deleted its now-unused rule from `CMD_EDITOR_STYLES` — it showed as a strange
+  coloured line/background on themes whose primary is orange (e.g. brite).
+- Settings/app tweaks (follow-up): the `.card p-3` wrapper is gone from the edit
+  pages (content sits directly on the page); "Import Sample Data" removed from
+  the main menu (`importSampleData()` remains but is unused); G Cal Refresh is a
+  full-width `smd-button` (`.smd-tab-panel smd-button` + `::part(button)` width
+  rules in `CMD_EDITOR_STYLES`), and Load sample data / Clear cache moved to the
+  Danger tab inside `#gcalDangerRow` (toggled with the other danger rows by
+  `toggleDangerRows`). New regression test "Clear cache only clears the
+  CountMyDays Google cache entry" seeds unrelated prefixed/other-app/legacy keys
+  and asserts only `countmydays_google_cal` is removed.
+- Result: cmd regression 43 passed, cmd screenshot gallery 4 passed (26 themes).
+  `BUILD_NUMBER` -> `202609131300`.
 
 ### 2026-09-13
 - Ported the newer `/temp/CountMyDays` (standalone, always-newer upstream) into
@@ -205,6 +274,11 @@ Techniques / gotchas:
   re-encodes non-ASCII — never round-trip files through the shell; use the
   Write/Edit tools (restored `build-number.js` afterwards; `git diff` verified
   only the number changed).
+- Follow-up: the cmd sub-path SW-precache test failed once in a sharded run
+  ("Timeout 60000ms exceeded while waiting on the predicate"). It passes in
+  isolation (~30s), so it was transient install starvation under the wave load;
+  both sub-path tests now retry the install and allow 240s (see the Techniques
+  note above).
 
 ### 2026-09-12 (4)
 - Migrated `CountMyDays/` into the multi-app architecture. New CountMyDays

@@ -8,6 +8,20 @@ body {
   background-color: var(--bs-body-bg);
 }
 
+/* Image preview sizing for the shared <smd-image-editor> form (the same
+   light-DOM `.date-img` markup in every app's image edit dialog). */
+.date-img {
+  width: 100px;
+  height: 100px;
+  object-fit: contain;
+}
+@media (max-width: 480px) {
+  .date-img {
+    width: 64px;
+    height: 64px;
+  }
+}
+
 [data-bs-theme="light"] .form-control,
 [data-bs-theme="light"] .form-select {
   border-color: #999;

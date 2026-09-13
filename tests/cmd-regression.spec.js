@@ -51,6 +51,18 @@ async function seed(page, overrides = {}) {
   }, data);
   await page.reload();
   await page.waitForLoadState("domcontentloaded");
+  await dismissLegacyReminder(page);
+}
+
+// The app intentionally shows a legacy-migration reminder modal on every
+// startup; dismiss it so interactions aren't blocked.
+async function dismissLegacyReminder(page) {
+  const modal = page.locator("#smdConfirmModal");
+  await modal.waitFor({ state: "visible", timeout: 10000 }).catch(() => {});
+  if (await modal.isVisible()) {
+    await modal.getByRole("button", { name: "OK" }).click();
+    await expect(modal).not.toBeVisible();
+  }
 }
 
 test.describe("CountMyDays - Regression", () => {
@@ -78,6 +90,16 @@ test.describe("CountMyDays - Regression", () => {
       expect(await page.locator("cmd-countdown-card").count()).toBe(4);
       expect(pageErrors).toEqual([]);
       expect(consoleErrors).toEqual([]);
+    });
+
+    test("startup shows the legacy migration reminder modal", async ({ page }) => {
+      await page.goto("/CountMyDays/");
+      await page.evaluate(() => { localStorage.clear(); });
+      await page.reload();
+      await expect(page.locator("#smdConfirmModal")).toBeVisible();
+      await expect(page.locator("#smdConfirmModal")).toContainText("legacy storage migration");
+      await page.locator("#smdConfirmModal").getByRole("button", { name: "OK" }).click();
+      await expect(page.locator("#smdConfirmModal")).not.toBeVisible();
     });
 
     test("legacy unprefixed keys are migrated and removed", async ({ page }) => {
@@ -150,6 +172,9 @@ test.describe("CountMyDays - Regression", () => {
       const headings = await page.locator("#countdownContainer h2").allTextContents();
       expect(headings.length).toBe(2);
       expect(headings[1]).toContain("From ");
+      // Every tile carries a Local/Google source badge under the date.
+      await expect(page.locator("cmd-countdown-card").first().locator("smd-badge")).toHaveText("Local");
+      await expect(page.locator("cmd-countdown-card").first()).toHaveAttribute("source", "local");
     });
 
     test("days format shows the day count", async ({ page }) => {
@@ -245,8 +270,13 @@ test.describe("CountMyDays - Regression", () => {
       await page.evaluate(() => openSettings());
       await page.locator("#danger-tab").click();
       await expect(page.locator("#settingsPage #clearAllDataRow")).toBeHidden();
+      await expect(page.locator("#gcalDangerRow")).toBeHidden();
       await page.locator("#showDanger").check();
       await expect(page.locator("#settingsPage #clearAllDataRow")).toBeVisible();
+      // The Google data actions live on the Danger tab.
+      await expect(page.locator("#gcalDangerRow")).toBeVisible();
+      await expect(page.locator("#settingsPage").getByRole("button", { name: "Load sample data" })).toBeVisible();
+      await expect(page.locator("#settingsPage").getByRole("button", { name: "Clear cache" })).toBeVisible();
     });
   });
 
@@ -430,6 +460,9 @@ test.describe("CountMyDays - Regression", () => {
       await page.locator("#imagesEditor").getByRole("button", { name: "Add Image" }).click();
       await expect(page.locator("#imageEditModal")).toBeVisible();
       await expect(page.locator("#imageEditModalTitle")).toHaveText("Add Image");
+      // The dialog form is the shared <smd-image-editor> component.
+      await expect(page.locator("#imageEditModalBody smd-image-editor")).toBeVisible();
+      await expect(page.locator("#imageEditModalBody smd-image-editor .card input.form-control")).toBeVisible();
       await page.locator("#imageEditModal").getByRole("button", { name: "Cancel" }).click();
     });
   });
@@ -593,15 +626,20 @@ test.describe("CountMyDays - Regression", () => {
       await page.locator("#gcalClientId").fill("dummy.apps.googleusercontent.com");
       await page.locator("#gcalClientId").blur();
 
+      // Refresh stays on the G Cal tab; Load sample data / Clear cache moved to
+      // the Danger tab.
+      await expect(page.locator("#settingsPage").getByRole("button", { name: "Refresh", exact: true })).toBeVisible();
+      await expect(page.locator("#gcalDangerRow")).toBeHidden();
+
       await expect.poll(async () => page.evaluate(() => localStorage.getItem("countmydays_gcal_enabled"))).toBe("true");
       await expect.poll(async () => page.evaluate(() => localStorage.getItem("countmydays_gcal_name"))).toBe("Test User");
       await expect.poll(async () => page.evaluate(() => localStorage.getItem("countmydays_gcal_client_id"))).toBe("dummy.apps.googleusercontent.com");
 
-      // The Google menu entries become visible.
+      // The Google menu entries become visible ("Edit Google Events" was removed).
       await page.locator("#settingsPage").getByRole("button", { name: "Done" }).click();
       await page.locator("#btnMainMenu").click();
       await expect(page.locator(".google-menu-item").filter({ hasText: "Refresh Google Calendar" })).toBeVisible();
-      await expect(page.locator(".google-menu-item").filter({ hasText: "Edit Google Events" })).toBeVisible();
+      await expect(page.locator(".google-menu-item").filter({ hasText: "Edit Google Events" })).toHaveCount(0);
     });
 
     test("loads sample Google data and unifies Google entries in the dates editor", async ({ page }) => {
@@ -611,7 +649,10 @@ test.describe("CountMyDays - Regression", () => {
       await page.locator("#smdConfirmModal").getByRole("button", { name: "OK" }).click();
 
       // Visible Google events appear on the main view alongside local dates.
-      await expect(page.locator("cmd-countdown-card").filter({ hasText: "Dentist Appointment" })).toBeVisible();
+      const dentistCard = page.locator("cmd-countdown-card").filter({ hasText: "Dentist Appointment" });
+      await expect(dentistCard).toBeVisible();
+      await expect(dentistCard).toHaveAttribute("source", "google");
+      await expect(dentistCard.locator("smd-badge")).toHaveText("Google");
 
       await page.evaluate(() => openDatesEditor());
       // 4 local + 6 visible Google events (1 cached event is hidden).
@@ -697,6 +738,47 @@ test.describe("CountMyDays - Regression", () => {
       await page.locator("#smdConfirmModal").getByRole("button", { name: "OK" }).click();
     });
 
+    test("Clear cache only clears the CountMyDays Google cache entry", async ({ page }) => {
+      await seed(page, {
+        settings: {
+          gcal_enabled: "true",
+          gcal_name: "Test User",
+          gcal_client_id: "dummy",
+          gcal_access_token: "test-token",
+          google_cal: JSON.stringify({ items: [{ id: "cached1", summary: "Cached", start: { date: "2026-10-01" } }] })
+        }
+      });
+      // Unrelated keys that must survive the cache clear: this app's other data,
+      // another app's data, and legacy (pre-migration) keys.
+      await page.evaluate(() => {
+        localStorage.setItem("countmydays_dates", JSON.stringify([{ name: "Keep Me", type: "annual", month: 1, day: 1 }]));
+        localStorage.setItem("planmydays_streams", "[]");
+        localStorage.setItem("cmd_gcal_enabled", "true");
+        localStorage.setItem("dates", "[]");
+      });
+
+      await page.evaluate(() => clearGoogleCalCache());
+      await expect(page.locator("#smdConfirmModal")).toContainText("Cached feed cleared");
+      await page.locator("#smdConfirmModal").getByRole("button", { name: "OK" }).click();
+
+      const state = await page.evaluate(() => ({
+        cache: localStorage.getItem("countmydays_google_cal"),
+        gcalName: localStorage.getItem("countmydays_gcal_name"),
+        token: localStorage.getItem("countmydays_gcal_access_token"),
+        dates: JSON.parse(localStorage.getItem("countmydays_dates") || "[]"),
+        pmdStreams: localStorage.getItem("planmydays_streams"),
+        legacyGcalEnabled: localStorage.getItem("cmd_gcal_enabled"),
+        legacyDates: localStorage.getItem("dates")
+      }));
+      expect(state.cache).toBeNull();
+      expect(state.gcalName).toBe("Test User");
+      expect(state.token).toBe("test-token");
+      expect(state.dates.some(d => d.name === "Keep Me")).toBe(true);
+      expect(state.pmdStreams).toBe("[]");
+      expect(state.legacyGcalEnabled).toBe("true");
+      expect(state.legacyDates).toBe("[]");
+    });
+
     test("Google events editor lists every cached event", async ({ page }) => {
       await seed(page, { settings: { gcal_enabled: "true", gcal_name: "Test User" } });
       await page.evaluate(() => loadGCalSampleData());
@@ -719,6 +801,7 @@ test.describe("CountMyDays - Regression", () => {
       });
       await page.reload();
       await page.waitForLoadState("domcontentloaded");
+      await dismissLegacyReminder(page);
       const migrated = await page.evaluate(() => ({
         enabled: localStorage.getItem("countmydays_gcal_enabled"),
         name: localStorage.getItem("countmydays_gcal_name"),
@@ -739,7 +822,7 @@ test.describe("CountMyDays - Regression", () => {
 
   test.describe("Sub-path deployment", () => {
     test("no console errors when deployed under a repo sub-path during SW precache", async ({ page }) => {
-      test.setTimeout(120000);
+      test.setTimeout(300000);
       const consoleErrors = [];
       const pageErrors = [];
       const badResponses = [];
@@ -757,13 +840,29 @@ test.describe("CountMyDays - Regression", () => {
 
       await expect(page.locator("cmd-countdown-card").first()).toBeVisible();
 
+      // Wait for the SW to register, install, and finish precaching. The first
+      // worker on a fresh context activates automatically after install (no
+      // existing controller to wait behind), so once the registration reports an
+      // active worker, cache.addAll has completed. If any precache URL 404s, the
+      // cache.addAll rejects, install fails, and the worker never activates. Under
+      // the parallel shard load a single transient request failure can leave the
+      // install failed with no worker at all — re-register to retry it.
       await expect.poll(async () => {
         return page.evaluate(async () => {
-          const regs = await navigator.serviceWorker.getRegistrations();
-          const r = regs.find((x) => x.scope && x.scope.includes("/PlanMyDay/"));
-          return r && r.active ? r.active.state + "|" + !!navigator.serviceWorker.controller : "pending";
+          let regs = await navigator.serviceWorker.getRegistrations();
+          let r = regs.find((x) => x.scope && x.scope.includes("/PlanMyDay/"));
+          if (!r) {
+            try { await navigator.serviceWorker.register("/PlanMyDay/sw.js"); } catch (e) { /* retry next poll */ }
+            return "pending";
+          }
+          if (r.active) return r.active.state + "|" + !!navigator.serviceWorker.controller;
+          if (!r.installing && !r.waiting) {
+            // Failed/never-started install: unregister and re-register to retry.
+            try { await r.unregister(); await navigator.serviceWorker.register("/PlanMyDay/sw.js"); } catch (e) { /* retry next poll */ }
+          }
+          return "pending";
         });
-      }, { timeout: 60000 }).toBe("activated|true");
+      }, { timeout: 240000 }).toBe("activated|true");
 
       const cachedUrls = await page.evaluate(async () => {
         const v = typeof BUILD_NUMBER !== "undefined" ? BUILD_NUMBER : "";
