@@ -1,0 +1,63 @@
+{
+  "kind": "calendar#events",
+  "summary": "Sample Google Calendar (Count My Days)",
+  "updated": "2026-09-13T08:00:00.000Z",
+  "items": [
+    {
+      "id": "sample_1",
+      "summary": "Dentist Appointment",
+      "start": { "dateTime": "2026-10-05T10:00:00+01:00" },
+      "end": { "dateTime": "2026-10-05T10:45:00+01:00" },
+      "description": "Check-up",
+      "_cmd": { "category": "Event", "image": "Drink 1", "show": true }
+    },
+    {
+      "id": "sample_2",
+      "summary": "Weekend Trip to York",
+      "start": { "date": "2026-10-17" },
+      "end": { "date": "2026-10-19" },
+      "description": "Hotel booked",
+      "_cmd": { "category": "Travel", "image": "Plane 1", "show": true }
+    },
+    {
+      "id": "sample_3",
+      "summary": "Christmas Shopping",
+      "start": { "date": "2026-12-05" },
+      "end": { "date": "2026-12-06" },
+      "description": "Town centre",
+      "_cmd": { "category": "Holiday", "image": "Suitcase 1", "show": true }
+    },
+    {
+      "id": "sample_4",
+      "summary": "Weekly Team Meeting",
+      "start": { "dateTime": "2026-09-21T09:30:00+01:00" },
+      "end": { "dateTime": "2026-09-21T10:00:00+01:00" },
+      "recurrence": ["RRULE:FREQ=WEEKLY;COUNT=10"],
+      "description": "Standing agenda",
+      "_cmd": { "category": "Work", "image": "Work 3", "show": true }
+    },
+    {
+      "id": "sample_5",
+      "summary": "Weekly Team Meeting",
+      "recurringEventId": "sample_4",
+      "originalStartTime": { "dateTime": "2026-09-28T09:30:00+01:00" },
+      "start": { "dateTime": "2026-09-28T09:30:00+01:00" },
+      "end": { "dateTime": "2026-09-28T10:00:00+01:00" }
+    },
+    {
+      "id": "sample_6",
+      "summary": "Surprise Party Planning",
+      "start": { "date": "2026-11-14" },
+      "end": { "date": "2026-11-15" },
+      "description": "Keep it quiet",
+      "_cmd": { "category": "Birthday", "image": "Drink 1", "show": false }
+    },
+    {
+      "id": "sample_7",
+      "summary": "Book Club",
+      "start": { "dateTime": "2026-10-12T19:00:00+01:00" },
+      "end": { "dateTime": "2026-10-12T20:30:00+01:00" },
+      "description": "This month's read\n{count_my_days{'Test User': {category: \"Event\", image: \"Date 2\", show: true}}}"
+    }
+  ]
+}
