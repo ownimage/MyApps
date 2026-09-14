@@ -9,7 +9,7 @@
 // { streamIdx }) when a stream is picked.
 //
 // Attributes:
-//   key-prefix — smd-image storage prefix (default "planmydays_")
+//   key-prefix — smd-image storage prefix (default: SmdConfig.imagePrefix)
 //   disabled   — disables the control (view-only mode)
 const pmdStreamSelectSheet = SmdStyles.sheetFor(`
   :host { display: block; position: relative; min-width: 0; }
@@ -77,7 +77,7 @@ const pmdStreamSelectSheet = SmdStyles.sheetFor(`
 const pmdStreamSelectTemplate = document.createElement('template');
 pmdStreamSelectTemplate.innerHTML = `
   <button type="button" class="btn" id="jobStreamDropdownBtn">
-    <span class="thumb" id="jobStreamBtnIcon"><smd-image key-prefix="planmydays_"></smd-image></span>
+    <span class="thumb" id="jobStreamBtnIcon"><smd-image key-prefix="shared-"></smd-image></span>
     <span class="title" id="jobStreamBtnText"></span>
     <span class="caret">&#9662;</span>
   </button>
@@ -145,7 +145,7 @@ class PmdStreamSelect extends HTMLElement {
 
   _render() {
     const root = this.shadowRoot;
-    const keyPrefix = this.getAttribute('key-prefix') || 'planmydays_';
+    const keyPrefix = this.getAttribute('key-prefix') || smdImagePrefix();
     const disabled = this.hasAttribute('disabled');
     const selected = this._selected >= 0 ? this._selected : 0;
     const current = this._streams[selected] || {};

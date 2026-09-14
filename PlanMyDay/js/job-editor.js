@@ -372,13 +372,13 @@ function getJobGeneralTabHTML(data, readOnly) {
       <div class="col-6 d-flex flex-column" style="min-height:61px">
         <label class="form-label mb-0">Stream</label>
         <div class="mt-1" style="flex-grow:1">
-          <pmd-stream-select id="jobStreamDropdown" key-prefix="planmydays_" ${readOnly ? "disabled" : ""}></pmd-stream-select>
+          <pmd-stream-select id="jobStreamDropdown" key-prefix="${escAttr(smdImagePrefix())}" ${readOnly ? "disabled" : ""}></pmd-stream-select>
         </div>
       </div>
       <div class="col-6 d-flex flex-column" style="min-height:61px">
         <label class="form-label mb-0">Image</label>
         <div class="d-flex align-items-center mt-1" style="flex-grow:1">
-          <smd-image-select id="jobImageSelect" key-prefix="planmydays_" image="${escapeHtml(data.image || "")}" label-id="jobImageName" button-id="btnJobImageChange" ${readOnly ? "disabled" : ""}></smd-image-select>
+          <smd-image-select id="jobImageSelect" key-prefix="${escAttr(smdImagePrefix())}" image="${escapeHtml(data.image || "")}" label-id="jobImageName" button-id="btnJobImageChange" ${readOnly ? "disabled" : ""}></smd-image-select>
         </div>
       </div>
     </div>

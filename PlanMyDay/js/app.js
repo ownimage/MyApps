@@ -8,6 +8,9 @@
 // DEV MODE
 window.isDevMode = new URLSearchParams(window.location.search).get("dev") === "true";
 
+// All apps share ONE image library on this origin (`shared-images`).
+SmdConfig.imagePrefix = "shared-";
+
 // Display / Image size setting -> the shared <smd-image> render size (px), wired
 // into the component as a VALUE (not a style). Non-SVG images are sourced from
 // the higher-res thumbnail tier (32->data64, 40->data80, 50->data100).
@@ -145,6 +148,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const savedTheme = localStorage.getItem(smdKey("theme")) || "darkly";
   applyTheme(savedTheme);
+  if (typeof migrateImagesToShared === "function") migrateImagesToShared();
   if (typeof seedSampleImages === "function") seedSampleImages();
 
   applyImageSize();
@@ -167,7 +171,7 @@ document.addEventListener("DOMContentLoaded", () => {
     pickerHost = document.getElementById("imagePickerPage");
     if (!pickerHost) return;
     pickerHost.title = "Choose Image";
-    pickerHost.content = '<smd-image-picker id="pickerHost" key-prefix="planmydays_"></smd-image-picker>';
+    pickerHost.content = '<smd-image-picker id="pickerHost" key-prefix="' + escAttr(smdImagePrefix()) + '"></smd-image-picker>';
     pickerHost.buttons = [
       { text: "Cancel", variant: "secondary", action: "cancel" },
       { text: "No Image", variant: "secondary", action: "no-image" }

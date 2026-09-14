@@ -259,6 +259,17 @@ const APPS = {
     "CountMyDays/js/components/cmd-countdown-card.js",
     "CountMyDays/js/components/cmd-date-card.js",
     "CountMyDays/js/components/cmd-category-card.js"
+  ],
+  // The Launch app entry lives at the repo root (index.html); its other files
+  // live in Launch/ (manifest, icons, css, js).
+  "Launch/": [
+    "index.html",
+    "Launch/manifest.json",
+    "Launch/icon.svg",
+    "Launch/icon-192.png",
+    "Launch/icon-512.png",
+    "Launch/css/styles.css",
+    "Launch/js/app.js"
   ]
 };
 
@@ -271,10 +282,13 @@ const PRECACHE_URLS = SHARED_ASSETS.concat(
 // For an offline navigation to an app URL, fall back to THAT app's index.html.
 function appIndexFor(pathname) {
   for (var i = 0; i < APP_ROOTS.length; i++) {
-    if (pathname.indexOf("/" + APP_ROOTS[i]) !== -1) return APP_ROOTS[i] + "index.html";
+    if (pathname.indexOf("/" + APP_ROOTS[i]) !== -1) {
+      // The Launch app's entry is the repo-root index.html.
+      return APP_ROOTS[i] === "Launch/" ? "index.html" : APP_ROOTS[i] + "index.html";
+    }
   }
-  // Unknown path: fall back to the first app's index.
-  return APP_ROOTS[0] ? APP_ROOTS[0] + "index.html" : "index.html";
+  // Repo root (or unknown path): the Launch app's index.html lives at the root.
+  return "index.html";
 }
 
 self.addEventListener("install", event => {

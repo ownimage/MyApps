@@ -2,6 +2,7 @@
 2: Ask questions if there are implementation options
 3: When running playwright use the command '.\node_modules\.bin\playwright.cmd' to make sure the correct version loads. 
 4: Please capture all the output needed when running a test the first time so that you do not need to rerun the test.
+5: `shared/js/build-number.js` `BUILD_NUMBER` is a TIMESTAMP in `YYYYMMDDHH24MI` format (e.g. `202609131400` = 2026-09-13 14:00). Use `Get-Date -Format "yyyyMMddHHmm"` for a new value when shipping; it is the single cache-busting version for every app + shared asset.
 5: Regression tests (`pmd-regression.spec.js` + `pmd-touch.spec.js`) run as 30 `--shard=$i/30` processes, but this box cannot take 30 concurrent browsers (client ephemeral-port exhaustion → mid-run `ERR_CONNECTION_REFUSED`). Working recipe: start `python tests/http-server.py` + `python tests/subpath-server.py` ONCE, set `$env:PMD_EXTERNAL_SERVERS=1` (config skips webServer management), then run the shards in waves of 10 with `--workers=1 --retries=0 --reporter=line`, each writing its own output file. Build waves as `$wave = $start..($start+9)` in `for ($start=1; $start -le 30; $start += 10)` — NEVER `@(,@(1..10)),@(11..20),…`: that nests the first array (its `$i` becomes the whole wave) and `--shard` errors with "expected format current/all". Without `PMD_EXTERNAL_SERVERS=1` every Playwright process spawns its own `http-server.py` (Windows SO_REUSEADDR lets them all bind 8080) and early finishers kill the server the rest are using. Fix a failure in one shard everywhere before continuing.
 6: After fixing issues with the regression tests apply them to pmd-screenshots.spec.js and validate them using one theme only.
 7: Fail-fast test iterations: after a code/test change, DON'T run a whole batch at once — run only the first 2-3 affected tests first (`--grep "a|b" --workers=2 --retries=0`) to debug on a small surface; grow the batch only once those pass. The config sets `retries: 1`, so pass `--retries=0` while iterating (otherwise failures take twice as long).
@@ -57,6 +58,35 @@ Architecture:
   (head `<script>` stamps `<link href>`; vendor/component scripts use
   `document.write(...?v=…)`; `applyTheme()` stamps theme swaps; `sampleImages.json`
   fetch + SW registration are versioned).
+- LAUNCH APP (2026-09-13): the app launcher's entry is the **repo-root
+  `index.html`** (served at `/MyApps/`); its support files live in `Launch/`
+  (`manifest.json` with `start_url`/`scope: "../"`, `icon.svg` + generated PNGs,
+  `css/styles.css`, `js/app.js`). It shows a grid of app tiles from
+  `LAUNCH_APPS` in `Launch/js/app.js` (add a row when an app is added) and has a
+  settings page (theme, image size, BMC, share QR, FontAwesome credit) using the
+  shared theme engine + `smd-tabs`/`smd-page`. `SmdConfig.storagePrefix =
+  "launch_"`. Both other apps' hamburger menus have a **Launch** item
+  (`href="../"`). `sw.js` has an `APPS["Launch/"]` entry whose list includes the
+  root `"index.html"`; `appIndexFor()` maps the repo root (and unknown paths) to
+  `"index.html"`, and `/Launch/...` also falls back to the root index.
+- SHARED IMAGE LIBRARY (2026-09-13): all apps share ONE images list,
+  `shared-images`. `SmdConfig.imagePrefix = "shared-"` is set in every app's
+  `app.js`; `smdImagePrefix()` (shared/js/smd-app.js) returns
+  `SmdConfig.imagePrefix || SmdConfig.storagePrefix`, and `smd-images.js`
+  `loadImages()`/`saveImages()` use `smdImagesKey()`. Components get
+  `key-prefix="${smdImagePrefix()}"` (the pmd-*/cmd-* component defaults were
+  updated too). `migrateImagesToShared()` (called at boot in PlanMyDay and
+  CountMyDays) merges `planmydays_images` + `countmydays_images` + legacy
+  `images` into `shared-images` once, then removes the old keys. Files in
+  `tests/*.spec.js` seed/assert
+  `shared-images`. `confirmClearAllData` still only clears the app's own
+  settings/data, NOT the shared images.
+- SETTINGS STYLES (2026-09-13): `SETTINGS_STYLES` + `injectSettingsStyles()`
+  moved from the apps' `editor-styles.js` into `shared/js/smd-settings.js`
+  (generic shadow styles for every app's settings page). PlanMyDay keeps only
+  `JOBS_EDITOR_STYLES`/`STREAMS_EDITOR_STYLES`; CountMyDays keeps
+  `JOBS_EDITOR_STYLES` + `CMD_EDITOR_STYLES`; the shared
+  `injectSettingsStyles()` appends `CMD_EDITOR_STYLES` when it is defined.
 - APP SCRIPT SPLIT (2026-09-11): `PlanMyDay/js/app.js` is now just the entry
   (~238 lines: dev flag, image-size wiring, DOMContentLoaded wiring,
   pull-to-refresh); the app lives in classic scripts `storage.js`, `utils.js`,
@@ -185,6 +215,41 @@ Techniques / gotchas:
 - Line endings: this repo stores text files with LF (`core.autocrlf=input`, `core.eol=lf`; no `.gitattributes`). NEVER write CRLF into a file — git will flag every line as changed (whole-file diff) and warn "CRLF will be replaced by LF the next time Git touches it". Do not round-trip files through PowerShell pipe/Get-Content/Set-Content joins; the Edit/Write/Read tools and Node preserve line endings — if you must convert use node with explicit `\n`, NEVER shell-piped measurements of `git show` (PowerShell pipeline re-encodes — it once reported 914 CRLF for a file whose raw blob via `git cat-file` was entirely LF). Verify with `git cat-file blob HEAD:<file>` + `git diff --stat` so only real edits show.
 
 ## Session log
+
+### 2026-09-13 (4)
+- New **Launch app**: repo-root `index.html` (entry) + `Launch/` (manifest with
+  `start_url`/`scope: "../"`, icon.svg + generated PNGs, css, js). It renders a
+  grid of app tiles (`LAUNCH_APPS`) and a settings page (theme, image size, BMC,
+  share QR, FontAwesome credit). Both other apps gained a **Launch** menu item
+  (`href="../"`). Root `sw.js` gained `APPS["Launch/"]` (including the root
+  `index.html`) and `appIndexFor()` now falls back to `"index.html"` for the
+  repo root/unknown paths.
+- **Shared image library**: all apps now read/write ONE list, `shared-images`.
+  New `SmdConfig.imagePrefix` + `smdImagePrefix()` (default "" = app prefix);
+  `smd-images.js` `loadImages`/`saveImages`/`seedSampleImages` use
+  `smdImagesKey()`; `migrateImagesToShared()` merges the old
+  `planmydays_images`/`countmydays_images`/`images` keys into `shared-images`
+  and deletes them. All `key-prefix` values (app templates + pmd-*/cmd-*
+  component defaults) now come from `smdImagePrefix()`. All test seeds/asserts
+  switched to `shared-images` (74 references).
+- **Settings styles consolidated**: `SETTINGS_STYLES` + `injectSettingsStyles()`
+  moved from `PlanMyDay/js/editor-styles.js` (and the CountMyDays copy) into
+  `shared/js/smd-settings.js`, so the Launch app and future apps get them free;
+  the shared helper composes `CMD_EDITOR_STYLES` when present.
+- `tests/launch-regression.spec.js` added (6 tests: grid, config, settings,
+  menu links, cross-app shared images, legacy image migration). `coverage.js`
+  now also collects `/Launch/js/`.
+- Verified (targeted): launch 6 passed; PMD images 46 passed; PMD Settings 40
+  passed; cmd image/gcal/settings 12 passed; both sub-path SW tests passed.
+  `BUILD_NUMBER` -> `202609131225` (timestamp).
+- Follow-up (3 regressions found by the full run): the shared-image move missed
+  the JSON/MinIO import-export writers in `PlanMyDay/js/app-settings.js` and
+  `shared/js/smd-minio.js` (still `smdKey("images")` -> now `loadImages()` /
+  `saveImages()`), and two tests create `<smd-image key-prefix="planmydays_">`
+  directly. Lesson: when changing the image storage key, also grep for
+  `smdKey("images")` writes and any explicit `key-prefix=` value in tests.
+  Re-verified: smd-image rendering 6, Import/Export Upload 6, MinIO 50 passed.
+  `BUILD_NUMBER` -> `202609140829` (timestamp).
 
 ### 2026-09-13 (3)
 - Removed the "Edit Google Events" menu item (only "Refresh Google Calendar"

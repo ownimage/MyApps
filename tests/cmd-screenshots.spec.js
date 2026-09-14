@@ -100,7 +100,7 @@ test.describe("CountMyDays - Screenshots", () => {
       localStorage.setItem("countmydays_fontSize", "normal");
       localStorage.setItem("countmydays_iconSize", "large");
       localStorage.setItem("countmydays_density", "normal");
-      localStorage.setItem("countmydays_images", JSON.stringify(images));
+      localStorage.setItem("shared-images", JSON.stringify(images));
       localStorage.setItem("countmydays_categories", JSON.stringify(categories));
       localStorage.setItem("countmydays_dates", JSON.stringify(dates));
     }, { images: sampleData.images, categories: sampleData.categories, dates: sampleData.dates });

@@ -356,7 +356,7 @@ function exportToMinio() {
     version: 1,
     exportedAt: new Date().toISOString(),
     streams: JSON.parse(localStorage.getItem(smdKey("streams")) || "[]"),
-    images: JSON.parse(localStorage.getItem(smdKey("images")) || "[]")
+    images: loadImages()
   };
 
   var d = new Date();
@@ -580,7 +580,7 @@ function importMinioFile(bucket, key) {
     }
 
     if (data.streams) localStorage.setItem(smdKey("streams"), JSON.stringify(data.streams));
-    if (data.images) localStorage.setItem(smdKey("images"), JSON.stringify(data.images));
+    if (data.images) saveImages(data.images);
 
     closeMinioImport();
     showMinioAlert("Imported " + key + " successfully.", "info");

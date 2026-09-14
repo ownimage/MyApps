@@ -46,6 +46,7 @@ var SMD_SHARED_ROOT = (function () {
 // ---- App-level config (mutated by the app's constructor) -------
 var SmdConfig = {
   storagePrefix: "planmydays_", // default keeps existing apps' data intact
+  imagePrefix: "",              // image-list namespace; "" = storagePrefix
   themeDefault: "darkly",
   appName: "Application"
 };
@@ -54,6 +55,13 @@ var SmdConfig = {
 // localStorage through this instead of hardcoding a vendor prefix.
 function smdKey(name) {
   return SmdConfig.storagePrefix + (name || "");
+}
+
+// Namespace for the IMAGE LIST. All apps on the origin share one image library
+// by setting SmdConfig.imagePrefix = "shared-" (key `shared-images`); apps that
+// leave it "" keep their own `<storagePrefix>images` list.
+function smdImagePrefix() {
+  return SmdConfig.imagePrefix || SmdConfig.storagePrefix;
 }
 
 // ---- Generic helpers exposed on SmdApp.prototype (and as globals) ----

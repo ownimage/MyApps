@@ -313,3 +313,152 @@ Object.assign(SmdApp.prototype, {
   changeAutoHideMenu,
   updateScreenResolution
 });
+
+// ---- Generic settings-page shadow styles (used by every app's settingsPage) ----
+var SETTINGS_STYLES = `
+  .smd-tab-btn {
+    padding: 0.5rem 0.25rem;
+  }
+  .smd-tab-panel *, .smd-tab-panel *::before, .smd-tab-panel *::after,
+  #settingsFooter *, #settingsFooter *::before, #settingsFooter *::after {
+    box-sizing: border-box;
+  }
+  .smd-tab-panel .row, #settingsFooter .row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    width: 100%;
+    max-width: 1040px;
+    margin-bottom: 1.5rem;
+  }
+  .smd-tab-panel .col-md-8, #settingsFooter .col-md-8 { max-width: 1040px; }
+  .smd-tab-panel .col-4, #settingsFooter .col-4 {
+    flex: 0 0 33.333333%;
+    max-width: 33.333333%;
+    padding-right: 0.75rem;
+  }
+  .smd-tab-panel .col-8, #settingsFooter .col-8 {
+    flex: 0 0 66.666667%;
+    max-width: 66.666667%;
+    padding-left: 0.75rem;
+  }
+  .smd-tab-panel .text-end, #settingsFooter .text-end { text-align: right; }
+  .smd-tab-panel .form-label, #settingsFooter .form-label {
+    margin-bottom: 0;
+    font-weight: 500;
+    color: var(--bs-body-color, #f8f9fa);
+  }
+  .smd-tab-panel .form-select,
+  .smd-tab-panel .form-control {
+    display: block;
+    width: 100%;
+    padding: 0.375rem 0.75rem;
+    font-size: 0.95rem;
+    font-weight: 400;
+    line-height: 1.5;
+    color: var(--bs-body-color, #f8f9fa);
+    background-color: var(--bs-body-bg, #222222);
+    background-clip: padding-box;
+    border: 1px solid var(--bs-border-color, #495057);
+    border-radius: 0.375rem;
+  }
+  .smd-tab-panel .form-control-plaintext {
+    display: block;
+    width: 100%;
+    padding: 0.375rem 0.75rem;
+    color: var(--bs-body-color, #f8f9fa);
+  }
+  .smd-tab-panel .form-switch { padding-left: 0; }
+  .smd-tab-panel .form-check-input[type="checkbox"] {
+    width: 2.5em;
+    height: 1.5em;
+    appearance: none;
+    -webkit-appearance: none;
+    margin: 0;
+    vertical-align: middle;
+    position: relative;
+    background-color: var(--bs-secondary-bg, #495057);
+    border: 1px solid var(--bs-border-color, #495057);
+    border-radius: 2em;
+    cursor: pointer;
+    transition: background-color 0.15s ease-in-out;
+  }
+  .smd-tab-panel .form-check-input[type="checkbox"]::before {
+    content: "";
+    position: absolute;
+    top: 0.15em;
+    left: 0.15em;
+    width: 1.2em;
+    height: 1.2em;
+    border-radius: 50%;
+    background-color: #fff;
+    transition: transform 0.15s ease-in-out;
+  }
+  .smd-tab-panel .form-check-input[type="checkbox"]:checked {
+    background-color: var(--bs-primary, #0d6efd);
+    border-color: var(--bs-primary, #0d6efd);
+  }
+  .smd-tab-panel .form-check-input[type="checkbox"]:checked::before {
+    transform: translateX(1em);
+  }
+  .smd-tab-panel .input-group {
+    display: flex;
+    align-items: stretch;
+    width: 100%;
+  }
+  .smd-tab-panel .input-group > .form-control {
+    flex: 1 1 auto;
+    width: 1%;
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+  }
+  .smd-tab-panel .input-group > .btn-outline-secondary {
+    flex: 0 0 auto;
+    border: 1px solid var(--bs-border-color, #6c757d);
+    border-left: 0;
+    background: var(--bs-tertiary-bg, #303030);
+    color: var(--bs-secondary-color, #adb5bd);
+    padding: 0.375rem 0.75rem;
+    border-radius: 0 0.375rem 0.375rem 0;
+    cursor: pointer;
+  }
+  .smd-tab-panel .btn {
+    display: inline-block;
+    padding: 0.375rem 0.75rem;
+    font-size: 0.95rem;
+    line-height: 1.5;
+    text-align: center;
+    border: 1px solid transparent;
+    border-radius: 0.375rem;
+    cursor: pointer;
+  }
+  .smd-tab-panel .btn-danger { background: var(--bs-danger, #e74c3c); color: var(--smd-danger-text, #fff); }
+  .smd-tab-panel .btn-warning { background: var(--bs-warning, #f39c12); color: var(--smd-warning-text, #000); }
+  .smd-tab-panel .btn-primary { background: var(--bs-primary, #0d6efd); color: var(--smd-primary-text, #fff); }
+  .smd-tab-panel .editor-btn, .smd-tab-panel .btn-wide, .smd-tab-panel .w-100 { display: block; width: 100%; }
+  .smd-tab-panel .mb-2 { margin-bottom: 0.5rem; }
+  .smd-tab-panel .mb-3 { margin-bottom: 1rem; }
+  .smd-tab-panel .mb-4 { margin-bottom: 1.5rem; }
+  .smd-tab-panel .mt-1 { margin-top: 0.25rem; }
+  .smd-tab-panel .mt-3 { margin-top: 1rem; }
+  .d-none { display: none !important; }
+  #settingsFooter .mt-3 { margin-top: 1rem; }
+  #settingsFooter .mt-5 { margin-top: 3rem; }
+  #settingsFooter .mb-3 { margin-bottom: 1rem; }
+  #settingsFooter .small { font-size: 0.875em; }
+  #settingsFooter .build-number { color: var(--bs-secondary-color, #adb5bd); }
+`;
+
+function injectSettingsStyles() {
+  var css = SETTINGS_STYLES;
+  // CountMyDays (and future apps) add their own editor styles on top.
+  if (typeof CMD_EDITOR_STYLES !== "undefined") css += "\n" + CMD_EDITOR_STYLES;
+  var sp = document.getElementById("settingsPage");
+  if (sp && sp.shadowRoot) {
+    injectStyleInto(sp.shadowRoot, css);
+  }
+  var tabs = $id("settingsTabs");
+  if (tabs && tabs.shadowRoot) {
+    injectStyleInto(tabs.shadowRoot, css);
+  }
+}

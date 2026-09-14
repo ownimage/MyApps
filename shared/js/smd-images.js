@@ -8,12 +8,46 @@ let imagesTotalPages = 1;
 const IMAGES_PAGE_SIZE = 30;
 const MAX_RASTER_DIM = 1024;
 
+// The image list key. Apps that share one library across the origin set
+// SmdConfig.imagePrefix = "shared-" (key `shared-images`).
+function smdImagesKey() {
+  return smdImagePrefix() + "images";
+}
+
 function loadImages() {
-  return JSON.parse(localStorage.getItem(smdKey("images")) || "[]");
+  return JSON.parse(localStorage.getItem(smdImagesKey()) || "[]");
 }
 
 function saveImages(images) {
-  localStorage.setItem(smdKey("images"), JSON.stringify(images));
+  localStorage.setItem(smdImagesKey(), JSON.stringify(images));
+}
+
+// One-time migration to the shared image library: when `shared-images` does
+// not exist yet, merge the per-app lists (and the pre-multi-app unprefixed
+// `images`) into it, then drop the old keys. Safe to call on every boot; it is
+// a no-op once the shared list exists.
+function migrateImagesToShared() {
+  const sharedKey = "shared-images";
+  const sources = ["planmydays_images", "countmydays_images", "images"];
+  if (localStorage.getItem(sharedKey) !== null) {
+    // Shared library already in use: drop any stale per-app copies.
+    sources.forEach(function (key) { localStorage.removeItem(key); });
+    return;
+  }
+  const merged = [];
+  const seen = Object.create(null);
+  sources.forEach(function (key) {
+    let list = [];
+    try { list = JSON.parse(localStorage.getItem(key) || "[]"); } catch (e) { list = []; }
+    if (!Array.isArray(list)) return;
+    list.forEach(function (img) {
+      if (!img || !img.name || seen[img.name]) return;
+      seen[img.name] = true;
+      merged.push(img);
+    });
+    localStorage.removeItem(key);
+  });
+  if (merged.length) localStorage.setItem(sharedKey, JSON.stringify(merged));
 }
 
 function getImageColors(dataUrl) {
@@ -890,7 +924,7 @@ function clearImagePickerFilter() {
 }
 
 function seedSampleImages() {
-  if (localStorage.getItem(smdKey("images"))) return;
+  if (localStorage.getItem(smdImagesKey())) return;
   const root = typeof smdAppRoot === "function" ? smdAppRoot() : "";
   fetch(root + "sampleImages.json?v=" + (typeof BUILD_NUMBER !== "undefined" ? BUILD_NUMBER : Date.now()))
     .then(res => res.json())
@@ -955,6 +989,8 @@ function uploadStandardImages() {
 Object.assign(SmdApp.prototype, {
   loadImages,
   saveImages,
+  smdImagesKey,
+  migrateImagesToShared,
   getImageColors,
   updateSvgColor,
   isSvgDataUrl,
