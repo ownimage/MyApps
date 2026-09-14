@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#3ddc84">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <title>Count My Days</title>
+
+  <link id="bootstrap-theme-css" href="../shared/css/themes/darkly/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="../shared/vendor/flatpickr.min.css">
+  <link rel="stylesheet" href="../shared/css/styles.css">
+  <link rel="stylesheet" href="css/styles.css">
+  <link rel="stylesheet" href="../shared/vendor/bootstrap-icons.css">
+  <link rel="stylesheet" href="../shared/vendor/fontawesome/css/fontawesome.min.css">
+  <link rel="stylesheet" href="../shared/vendor/fontawesome/css/solid.min.css">
+  <link rel="stylesheet" href="../shared/vendor/fontawesome/css/regular.min.css">
+  <link rel="stylesheet" href="../shared/vendor/fontawesome/css/brands.min.css">
+  <script src="../shared/js/build-number.js"></script>
+  <script>
+    // Cache-bust every same-origin link (stylesheet/manifest/icon) with the
+    // build number so a new build always fetches fresh assets.
+    (function () {
+      if (typeof BUILD_NUMBER === "undefined") return;
+      var stamp = function (u) { return u + (u.indexOf("?") >= 0 ? "&" : "?") + "v=" + BUILD_NUMBER; };
+      var isLocal = function (u) { return u && u.indexOf("://") === -1 && u.charAt(0) !== "//"; };
+      document.querySelectorAll("link[href]").forEach(function (l) {
+        var h = l.getAttribute("href") || "";
+        if (isLocal(h) && h.indexOf("v=") === -1) l.setAttribute("href", stamp(h));
+      });
+    })();
+  </script>
+</head>
+
+<body>
+
+  <!-- FIXED TOOLBAR -->
+  <nav id="mainNav" class="navbar navbar-expand px-3 py-2 gap-1 flex-wrap">
+
+    <div class="dropdown">
+      <button id="btnMainMenu" class="btn p-1" data-bs-toggle="dropdown" title="Menu" aria-label="Menu">
+        <i class="fa-solid fa-bars" aria-hidden="true" style="font-size:22px"></i>
+      </button>
+      <ul class="dropdown-menu">
+        <li><a class="dropdown-item" href="../">Launch</a></li>
+        <li><hr class="dropdown-divider"></li>
+        <li><a class="dropdown-item" onclick="openSettings()">Settings</a></li>
+        <li><hr class="dropdown-divider"></li>
+        <li><a class="dropdown-item" onclick="openDatesEditor()">Edit Dates</a></li>
+        <li><a class="dropdown-item" onclick="openCategoriesEditor()">Edit Categories</a></li>
+        <li><a class="dropdown-item" onclick="openImagesEditor()">Images</a></li>
+        <li><hr class="dropdown-divider"></li>
+        <li><a class="dropdown-item" onclick="exportData()">Export JSON</a></li>
+        <li><a class="dropdown-item" onclick="exportToQR()">Export QR</a></li>
+        <li><a class="dropdown-item" onclick="importData()">Import JSON</a></li>
+        <li><a class="dropdown-item" onclick="startQRImport()">Import QR</a></li>
+        <li><hr class="dropdown-divider google-menu-item" style="display:none"></li>
+        <li><a class="dropdown-item google-menu-item" style="display:none" onclick="refreshGoogleCalendar()">Refresh Google Calendar</a></li>
+      </ul>
+    </div>
+
+  </nav>
+
+  <!-- MAIN CONTENT -->
+  <div class="container-fluid px-3">
+
+    <div id="countdownContainer"></div>
+
+    <!-- DATES EDITOR -->
+    <smd-page id="datesEditor" class="d-none"></smd-page>
+
+    <!-- SINGLE DATE ADD/EDIT PAGE -->
+    <smd-page id="dateEditPage" class="d-none"></smd-page>
+
+    <!-- GOOGLE EVENTS EDITOR -->
+    <smd-page id="googleEventsPage" class="d-none"></smd-page>
+
+    <!-- SINGLE GOOGLE EVENT EDIT PAGE -->
+    <smd-page id="googleEventEditPage" class="d-none"></smd-page>
+
+    <!-- CATEGORIES EDITOR -->
+    <smd-page id="categoriesEditor" class="d-none"></smd-page>
+
+    <!-- SINGLE CATEGORY ADD/EDIT PAGE -->
+    <smd-page id="categoryEditPage" class="d-none"></smd-page>
+
+    <!-- IMAGES EDITOR (shared smd-images.js) -->
+    <smd-page id="imagesEditor" class="d-none"></smd-page>
+
+    <!-- SETTINGS PAGE -->
+    <smd-page id="settingsPage" class="d-none"></smd-page>
+
+    <!-- EXPORT WIZARD -->
+    <smd-page id="exportWizardPage" class="d-none"></smd-page>
+
+    <!-- QR EXPORT PAGE -->
+    <smd-page id="qrExportPage" class="d-none"></smd-page>
+
+    <!-- QR IMPORT PAGE -->
+    <smd-page id="qrImportPage" class="d-none"></smd-page>
+
+    <!-- IMPORT WIZARD -->
+    <smd-page id="importWizardPage" class="d-none"></smd-page>
+
+    <!-- IMAGE PICKER PAGE -->
+    <smd-page id="imagePickerPage" class="d-none"></smd-page>
+
+    <template id="settingsTemplate">
+      <div class="smd-settings">
+
+        <!-- General -->
+        <section class="smd-settings-tab" data-tab="General" data-tab-id="general-tab">
+          <div class="row mb-3 align-items-center col-md-8 mt-3">
+            <div class="col-4 text-end"><label class="form-label mb-0">Theme</label></div>
+            <div class="col-8">
+              <smd-theme id="themeSelector"></smd-theme>
+            </div>
+          </div>
+
+          <div class="row mb-4 align-items-center col-md-8">
+            <div class="col-4 text-end"><label class="form-label mb-0">Countdown display</label></div>
+            <div class="col-8">
+              <select id="formatSelector" class="form-select" onchange="changeFormat(this.value)">
+                <option value="days">Days</option>
+                <option value="weeksAndDays">Weeks and days</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="row mb-4 align-items-center col-md-8">
+            <div class="col-4 text-end"><label class="form-label mb-0">Font size</label></div>
+            <div class="col-8">
+              <select id="fontSizeSelector" class="form-select" onchange="changeFontSize(this.value)">
+                <option value="xsmall">Extra small</option>
+                <option value="small">Small</option>
+                <option value="normal">Normal</option>
+                <option value="large">Large</option>
+                <option value="xlarge">Extra large</option>
+                <option value="jumbo">Jumbo</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="row mb-4 align-items-center col-md-8">
+            <div class="col-4 text-end"><label class="form-label mb-0">Icon size</label></div>
+            <div class="col-8">
+              <select id="iconSizeSelector" class="form-select" onchange="changeIconSize(this.value)">
+                <option value="small">Small (64x64)</option>
+                <option value="medium">Medium (80x80)</option>
+                <option value="large">Large (100x100)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="row mb-4 align-items-center col-md-8">
+            <div class="col-4 text-end"><label class="form-label mb-0">Tile density</label></div>
+            <div class="col-8">
+              <select id="densitySelector" class="form-select" onchange="changeDensity(this.value)">
+                <option value="normal">Normal</option>
+                <option value="compact">Compact</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="row mb-4 align-items-center col-md-8">
+            <div class="col-4 text-end"><label class="form-label mb-0">Max countdowns</label></div>
+            <div class="col-8">
+              <select id="maxCountdownsSelector" class="form-select" onchange="changeMaxCountdowns(this.value)">
+                <option value="5">5</option>
+                <option value="10">10</option>
+                <option value="20">20</option>
+                <option value="0">All</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="row mb-4 align-items-center col-md-8">
+            <div class="col-4 text-end"><label class="form-label mb-0">Auto-hide menu</label></div>
+            <div class="col-8">
+              <smd-checkbox id="autoHideMenu" switch onchange="changeAutoHideMenu(this.checked)"></smd-checkbox>
+            </div>
+          </div>
+        </section>
+
+        <!-- G Cal -->
+        <section class="smd-settings-tab" data-tab="G Cal" data-tab-id="gcal-tab">
+          <div class="row mb-4 align-items-center col-md-8 mt-3">
+            <div class="col-4 text-end"><label class="form-label mb-0">Enable Google Calendar</label></div>
+            <div class="col-8">
+              <smd-checkbox id="gcalEnabled" switch onchange="changeGCalEnabled(this.checked)"></smd-checkbox>
+            </div>
+          </div>
+
+          <div id="gcalOptions">
+            <div class="row mb-3 align-items-center col-md-8">
+              <div class="col-4 text-end"><label class="form-label mb-0">Name</label></div>
+              <div class="col-8">
+                <input id="gcalName" class="form-control" type="text" placeholder="e.g. keith" onchange="saveGCalSettings()">
+              </div>
+            </div>
+
+            <div class="row mb-3 align-items-center col-md-8">
+              <div class="col-4 text-end"><label class="form-label mb-0">Google OAuth Client ID</label></div>
+              <div class="col-8">
+                <input id="gcalClientId" class="form-control" type="text" placeholder="xxxx.apps.googleusercontent.com" onchange="saveGCalSettings()">
+              </div>
+            </div>
+
+            <div class="row mb-3 align-items-center col-md-8">
+              <div class="col-4 text-end"><label class="form-label mb-0">Calendar ID</label></div>
+              <div class="col-8">
+                <input id="gcalCalendarId" class="form-control" type="text" placeholder="primary" onchange="saveGCalSettings()">
+              </div>
+            </div>
+
+            <div class="row mb-3 col-md-8">
+              <div class="col-4"></div>
+              <div class="col-8">
+                <div class="small text-secondary">Uses the <code>calendar.events</code> scope (read + update). The fetched feed is cached for offline use. Refresh it from the menu or below.</div>
+              </div>
+            </div>
+
+            <div class="row mb-4 col-md-8">
+              <div class="col-4"></div>
+              <div class="col-8">
+                <smd-button variant="primary" onclick="refreshGoogleCalendar()">Refresh</smd-button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Danger -->
+        <section class="smd-settings-tab" data-tab="Danger" data-tab-id="danger-tab">
+          <div class="row mb-3 align-items-center col-md-8 mt-3">
+            <div class="col-4 text-end"><label class="form-label mb-0">Show danger</label></div>
+            <div class="col-8">
+              <smd-checkbox id="showDanger" switch onchange="changeShowDanger(this.checked)"></smd-checkbox>
+            </div>
+          </div>
+
+          <div id="gcalDangerRow" class="row mb-3 align-items-center col-md-8 d-none">
+            <div class="col-4 text-end"></div>
+            <div class="col-8">
+              <div class="d-flex flex-column gap-3">
+                <smd-button variant="success" onclick="loadGCalSampleData()">Load sample data</smd-button>
+                <smd-button variant="secondary" onclick="clearGoogleCalCache()">Clear cache</smd-button>
+              </div>
+            </div>
+          </div>
+
+          <div id="clearAllDataRow" class="row mb-3 align-items-center col-md-8 d-none">
+            <div class="col-4 text-end"></div>
+            <div class="col-8">
+              <button id="btnClearAllData" class="btn btn-danger editor-btn btn-wide w-100" onclick="confirmClearAllData()">Clear All Data</button>
+            </div>
+          </div>
+          <div id="refreshAppRow" class="row mb-3 align-items-center col-md-8 d-none">
+            <div class="col-4 text-end"></div>
+            <div class="col-8">
+              <button id="btnRefreshApp" class="btn btn-warning editor-btn btn-wide w-100" onclick="location.reload()">Refresh App</button>
+            </div>
+          </div>
+        </section>
+
+        <div id="settingsFooter" class="mt-3">
+          <div class="row align-items-center col-md-8 mb-3">
+            <div class="col-4 text-end"></div>
+            <div class="col-8">
+              <a href="https://buymeacoffee.com/ownimage" target="_blank" rel="noopener">
+                <img src="../shared/vendor/bmc-default-yellow.png" alt="Buy Me A Coffee" style="height:50px">
+              </a>
+            </div>
+          </div>
+
+          <div class="row mb-4 align-items-center col-md-8">
+            <div class="col-4 text-end"><label class="form-label mb-0">Share app</label></div>
+            <div class="col-8">
+              <smd-qrcode id="shareQrCode" value="https://ownimage.github.io/CountMyDays" size="120"></smd-qrcode>
+            </div>
+          </div>
+
+          <div class="mt-5 small build-number">Build <span id="buildNumber"></span></div>
+
+          <smd-fontawesome-credit class="mt-2"></smd-fontawesome-credit>
+        </div>
+      </div>
+    </template>
+
+  </div>
+
+  <!-- BOOTSTRAP JS -->
+  <script>document.write('<script src="../shared/vendor/bootstrap.bundle.min.js?v=' + BUILD_NUMBER + '"><\/script>');</script>
+
+  <!-- FLATPICKR -->
+  <script>document.write('<script src="../shared/vendor/flatpickr.min.js?v=' + BUILD_NUMBER + '"><\/script>');</script>
+
+  <!-- IMAGE EDIT MODAL (shared smd-images.js) -->
+  <div id="imageEditModal" class="modal fade" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-dialog-centered modal-fullscreen-lg-down">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3 class="modal-title" id="imageEditModalTitle">Edit Image</h3>
+          <button id="btnImageEditClose" type="button" class="btn btn-sm ms-auto" onclick="cancelImageEdit()" style="font-size:1.5rem;line-height:1;padding:0 0.25rem;color:inherit;border:none;background:none">&times;</button>
+        </div>
+        <div class="modal-body" id="imageEditModalBody"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+  document.write('<script src="../shared/js/components/styles.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../shared/js/components/smd-button.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../shared/js/components/smd-image.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../shared/js/components/smd-modal.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../shared/js/components/smd-page.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../shared/js/components/smd-tabs.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../shared/js/components/smd-image-card.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../shared/js/components/smd-image-select.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../shared/js/components/smd-image-editor.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../shared/js/components/smd-image-picker.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../shared/js/components/smd-theme.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../shared/js/components/smd-checkbox.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../shared/js/components/smd-badge.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../shared/js/components/smd-qr-export.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../shared/js/components/smd-qr-import.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../shared/js/components/smd-qrcode.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../shared/js/components/smd-fontawesome-credit.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="js/components/cmd-countdown-card.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="js/components/cmd-date-card.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="js/components/cmd-category-card.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../shared/js/smd-app.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../shared/js/smd-settings.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../shared/js/smd-images.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="js/storage.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="js/utils.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="js/editor-styles.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="js/main-view.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="js/dates-editor.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="js/categories-editor.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="js/app-settings.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="js/export.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="js/import-wizard.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="js/googleCalendar.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="js/googleCalendarEditor.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="js/app.js?v=' + BUILD_NUMBER + '"><\/script>');
+  </script>
+
+<script>
+  if ("serviceWorker" in navigator) {
+    var __updatePrompted = false;
+    var __applyingUpdate = false;
+    function showUpdatePrompt(reg) {
+      if (__updatePrompted) return;
+      __updatePrompted = true;
+      if (typeof showSmdModal === "function") {
+        showSmdModal({
+          title: "Update available",
+          content: "A new version of Count My Days is ready. Update now to get the latest changes?",
+          buttons: [
+            { text: "Later", variant: "secondary", action: "later" },
+            { text: "Update now", variant: "primary", action: "update" }
+          ],
+          onAction: function(detail) {
+            if (detail.action === "update" && reg.waiting) {
+              __applyingUpdate = true;
+              reg.waiting.postMessage({ type: "SKIP_WAITING" });
+            }
+          }
+        });
+      }
+    }
+    window.__cmdSwUpdater = { showUpdatePrompt: showUpdatePrompt };
+
+    navigator.serviceWorker.register("../sw.js?v=" + BUILD_NUMBER).then(function(reg) {
+      if (navigator.serviceWorker.controller) {
+        if (reg.waiting) showUpdatePrompt(reg);
+        reg.addEventListener("updatefound", function() {
+          var inst = reg.installing;
+          if (!inst) return;
+          inst.addEventListener("statechange", function() {
+            if (inst.state === "installed" && navigator.serviceWorker.controller) showUpdatePrompt(reg);
+          });
+        });
+      }
+      window.addEventListener("focus", function() { if (reg.update) reg.update(); });
+    });
+
+    navigator.serviceWorker.addEventListener("controllerchange", function() {
+      if (!__applyingUpdate) return;
+      window.location.reload();
+    });
+  }
+</script>
+
+</body>
+</html>
