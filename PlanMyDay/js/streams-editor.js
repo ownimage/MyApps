@@ -102,7 +102,7 @@ function getStreamEditFormHTML(data) {
     </div>
     <div class="mb-2">
       <label class="form-label">Image</label>
-      <smd-image-select id="streamImageSelect" key-prefix="planmydays_" image="${escapeHtml(data.image || "")}" label-id="streamImageName" button-id="btnStreamImageChoose"></smd-image-select>
+      <smd-image-select id="streamImageSelect" key-prefix="${escAttr(smdImagePrefix())}" image="${escapeHtml(data.image || "")}" label-id="streamImageName" button-id="btnStreamImageChoose"></smd-image-select>
     </div>
   `;
 }
@@ -146,6 +146,7 @@ function renderStreamsEditor() {
       'stream-idx="' + realIdx + '"',
       'title="' + escAttr(t.title || "") + '"',
       'tab="' + escAttr(t.tab || "progress") + '"',
+      'key-prefix="' + escAttr(smdImagePrefix()) + '"',
       (isExpanded ? 'expanded' : ''),
       (jobs.length === 0 ? 'can-delete' : '')
     ];
@@ -331,7 +332,8 @@ function renderJobsInAccordion(stream, jobs, streamIdx) {
       'job-idx="' + realIdx + '"',
       'title="' + escAttr(j.title || "") + '"',
       'schedule="' + escAttr(scheduleText) + '"',
-      'active="' + (j.active !== false ? "true" : "false") + '"'
+      'active="' + (j.active !== false ? "true" : "false") + '"',
+      'key-prefix="' + escAttr(smdImagePrefix()) + '"'
     ];
     if (jobImageName) attrs.push('image="' + escAttr(jobImageName) + '"');
     if (j.time && j.time.trim()) attrs.push('time="' + escAttr(j.time.trim()) + '"');

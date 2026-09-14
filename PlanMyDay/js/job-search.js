@@ -109,6 +109,7 @@ function renderSearchJobs() {
 function buildJobSearchCard(stream, streamIdx, job, jobIdx) {
   const card = document.createElement("pmd-job-search-card");
   card.dataset.jobId = job.id;
+  card.setAttribute("key-prefix", smdImagePrefix());
   const set = (name, value) => {
     if (value !== undefined && value !== null && value !== "") card.setAttribute(name, value);
   };

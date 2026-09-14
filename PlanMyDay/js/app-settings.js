@@ -264,7 +264,7 @@ function exportData() {
     version: 1,
     exportedAt: new Date().toISOString(),
     streams: JSON.parse(localStorage.getItem(smdKey("streams")) || "[]"),
-    images: JSON.parse(localStorage.getItem(smdKey("images")) || "[]")
+    images: loadImages()
   };
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
@@ -293,7 +293,7 @@ function importData() {
           return;
         }
         if (data.streams) localStorage.setItem(smdKey("streams"), JSON.stringify(data.streams));
-        if (data.images) localStorage.setItem(smdKey("images"), JSON.stringify(data.images));
+        if (data.images) saveImages(data.images);
         regenerateTiles();
       } catch (err) {
         alert("Invalid JSON file.");

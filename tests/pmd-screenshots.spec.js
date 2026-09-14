@@ -265,7 +265,7 @@ test.describe("PlanMyDay - Screenshots", () => {
       localStorage.setItem("planmydays_iconSize", "small");
       localStorage.setItem("planmydays_density", "compact");
       localStorage.setItem("planmydays_touchSize", "normal");
-      localStorage.setItem("planmydays_images", JSON.stringify(images));
+      localStorage.setItem("shared-images", JSON.stringify(images));
     }, sampleImagesData.images);
     await page.reload();
     await page.waitForLoadState("domcontentloaded");

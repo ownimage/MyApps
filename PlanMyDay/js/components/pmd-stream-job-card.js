@@ -57,7 +57,7 @@ const pmdStreamJobCardTemplate = document.createElement('template');
 pmdStreamJobCardTemplate.innerHTML = `
   <div class="row1">
     <slot name="drag-handle"><smd-draghandle class="drag-handle"></smd-draghandle></slot>
-    <div class="thumb"><smd-image key-prefix="planmydays_"></smd-image></div>
+    <div class="thumb"><smd-image key-prefix="shared-"></smd-image></div>
     <div class="title">
       <span class="job-title"></span><smd-badge class="suffix" variant="secondary" hidden></smd-badge>
     </div>
@@ -129,7 +129,7 @@ class PmdStreamJobCard extends HTMLElement {
     root.querySelector('.job-title').textContent = title;
 
     const sImg = root.querySelector('.thumb smd-image');
-    sImg.setAttribute('key-prefix', this.getAttribute('key-prefix') || 'planmydays_');
+    sImg.setAttribute('key-prefix', this.getAttribute('key-prefix') || smdImagePrefix());
     // The thumb wrapper always stays in place (even with no image) so job
     // titles line up in the list.
     if (image) {

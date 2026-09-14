@@ -82,7 +82,7 @@ test.describe("PlanMyDay - iPhone 12 Pro touch", () => {
     await page.goto("/PlanMyDay/");
     await page.evaluate((data) => {
       localStorage.setItem("planmydays_streams", JSON.stringify(data));
-      localStorage.setItem("planmydays_images", "[]");
+      localStorage.setItem("shared-images", "[]");
     }, STREAMS);
     await page.reload();
   });

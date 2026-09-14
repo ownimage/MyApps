@@ -184,7 +184,7 @@ function renderMain() {
     card.setAttribute("stream-title", streamTitle || "");
     card.setAttribute("tab", stream.tab || "progress");
     if (job.description) card.setAttribute("description", job.description);
-    card.setAttribute("key-prefix", "planmydays_");
+    card.setAttribute("key-prefix", smdImagePrefix());
     const handle = document.createElement("smd-draghandle");
     handle.className = "drag-handle";
     handle.setAttribute("slot", "drag-handle");

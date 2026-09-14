@@ -28,7 +28,7 @@
 //   stream-title  — stream title shown under the stream thumbnail, on the badge row
 //   tab           — "progress" (success badge) | "maintenance" (info badge)
 //   description   — optional description line
-//   key-prefix    — smd-image storage prefix (default "planmydays_")
+//   key-prefix    — smd-image storage prefix (default: SmdConfig.imagePrefix)
 //
 // Events:
 //   pmd-today-toggle — detail { jobId, checked }
@@ -154,12 +154,12 @@ pmdTodayCardTemplate.innerHTML = `
       <slot name="drag-handle"><smd-draghandle class="drag-handle"></smd-draghandle></slot>
       <div class="check-col">
         <div class="check-row"><smd-checkbox class="job-checkbox"></smd-checkbox></div>
-        <smd-image class="daily-repeat-icon" key-prefix="planmydays_" size="16" title="Every day" hidden></smd-image>
+        <smd-image class="daily-repeat-icon" key-prefix="shared-" size="16" title="Every day" hidden></smd-image>
       </div>
     </div>
     <div class="images-col">
-      <div class="thumb stream-thumb"><smd-image key-prefix="planmydays_"></smd-image></div>
-      <div class="thumb job-thumb"><smd-image key-prefix="planmydays_"></smd-image></div>
+      <div class="thumb stream-thumb"><smd-image key-prefix="shared-"></smd-image></div>
+      <div class="thumb job-thumb"><smd-image key-prefix="shared-"></smd-image></div>
     </div>
     <div class="content-col">
       <div class="title-row">
@@ -226,7 +226,7 @@ class PmdTodayCard extends HTMLElement {
 
   _render() {
     const root = this.shadowRoot;
-    const keyPrefix = this.getAttribute('key-prefix') || 'planmydays_';
+    const keyPrefix = this.getAttribute('key-prefix') || smdImagePrefix();
 
     root.querySelector('.job-title').textContent = this.getAttribute('title') || '';
 

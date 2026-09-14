@@ -96,7 +96,7 @@ test.describe("PlanMyDay - Regression", () => {
     await page.goto("/PlanMyDay/");
     await page.evaluate(() => {
       localStorage.clear();
-      localStorage.setItem("planmydays_images", "[]");
+      localStorage.setItem("shared-images", "[]");
       document.querySelectorAll("smd-page").forEach((p) => { p.slideDuration = 0; });
     });
     await startCoverage(page);
@@ -233,7 +233,7 @@ test.describe("PlanMyDay - Regression", () => {
         streams[0].image = "stimg";
         streams[0].jobs[0].image = "jobimg";
         localStorage.setItem("planmydays_streams", JSON.stringify(streams));
-        localStorage.setItem("planmydays_images", JSON.stringify([{ name: "stimg", data: svg }, { name: "jobimg", data: svg }]));
+        localStorage.setItem("shared-images", JSON.stringify([{ name: "stimg", data: svg }, { name: "jobimg", data: svg }]));
         localStorage.setItem("planmydays_today_order", JSON.stringify(["job_1", "job_2", "job_3"]));
         localStorage.setItem("planmydays_last_gen", ds);
         localStorage.setItem("planmydays_completed", JSON.stringify([]));
@@ -261,7 +261,7 @@ test.describe("PlanMyDay - Regression", () => {
         streams[0].image = "";
         streams[0].jobs[0].image = "jobimg";
         localStorage.setItem("planmydays_streams", JSON.stringify(streams));
-        localStorage.setItem("planmydays_images", JSON.stringify([{ name: "jobimg", data: svg }]));
+        localStorage.setItem("shared-images", JSON.stringify([{ name: "jobimg", data: svg }]));
         localStorage.setItem("planmydays_today_order", JSON.stringify(["job_1", "job_2", "job_3"]));
         localStorage.setItem("planmydays_last_gen", ds);
         localStorage.setItem("planmydays_completed", JSON.stringify([]));
@@ -295,7 +295,7 @@ test.describe("PlanMyDay - Regression", () => {
         const streams = JSON.parse(JSON.stringify(data));
         streams[0].image = "stimg";
         localStorage.setItem("planmydays_streams", JSON.stringify(streams));
-        localStorage.setItem("planmydays_images", JSON.stringify([thumb]));
+        localStorage.setItem("shared-images", JSON.stringify([thumb]));
         localStorage.setItem("planmydays_today_order", JSON.stringify(["job_1", "job_2", "job_3"]));
         localStorage.setItem("planmydays_last_gen", ds);
         localStorage.setItem("planmydays_completed", JSON.stringify([]));
@@ -514,7 +514,7 @@ test.describe("PlanMyDay - Regression", () => {
       await page.reload();
       // Seed some images too so export has content
       await page.evaluate(() => {
-        localStorage.setItem("planmydays_images", JSON.stringify([]));
+        localStorage.setItem("shared-images", JSON.stringify([]));
       });
 
       const downloadPromise = page.waitForEvent("download");
@@ -812,7 +812,7 @@ test.describe("PlanMyDay - Regression", () => {
         const streams = JSON.parse(localStorage.getItem("planmydays_streams"));
         streams[0].image = "stimg";
         localStorage.setItem("planmydays_streams", JSON.stringify(streams));
-        localStorage.setItem("planmydays_images", JSON.stringify([{ name: "stimg", data: svg }]));
+        localStorage.setItem("shared-images", JSON.stringify([{ name: "stimg", data: svg }]));
         renderStreamsEditor();
       }, svg);
       const titles = page.locator("#streamEditorList .editor-title");
@@ -1007,7 +1007,7 @@ test.describe("PlanMyDay - Regression", () => {
         localStorage.setItem("planmydays_streams", JSON.stringify([{
           id: "stream_1", title: "ImgStream", tab: "progress", image: "testimg", sequence: 1, jobs: []
         }]));
-        localStorage.setItem("planmydays_images", JSON.stringify([{ name: "testimg", data: "" }]));
+        localStorage.setItem("shared-images", JSON.stringify([{ name: "testimg", data: "" }]));
       });
       await page.reload();
       await page.locator("#btnMainMenu").click();
@@ -1142,7 +1142,7 @@ test.describe("PlanMyDay - Regression", () => {
         const streams = JSON.parse(localStorage.getItem("planmydays_streams"));
         streams[0].image = "stimg";
         localStorage.setItem("planmydays_streams", JSON.stringify(streams));
-        localStorage.setItem("planmydays_images", JSON.stringify([{ name: "stimg", data: svg }]));
+        localStorage.setItem("shared-images", JSON.stringify([{ name: "stimg", data: svg }]));
       }, svg);
       await page.reload();
       await openSearchJobs(page);
@@ -1296,7 +1296,7 @@ test.describe("PlanMyDay - Regression", () => {
         const streams = JSON.parse(localStorage.getItem("planmydays_streams"));
         streams[0].jobs[0].image = "jimg";
         localStorage.setItem("planmydays_streams", JSON.stringify(streams));
-        localStorage.setItem("planmydays_images", JSON.stringify([{ name: "jimg", data: svg }]));
+        localStorage.setItem("shared-images", JSON.stringify([{ name: "jimg", data: svg }]));
         renderStreamsEditor();
       }, svg);
       const titles = page.locator("#streamEditorList .accordion-body pmd-stream-job-card .job-title");
@@ -1807,7 +1807,7 @@ test.describe("PlanMyDay - Regression", () => {
       await page.goto("/PlanMyDay/");
       await page.evaluate((svgData) => {
         localStorage.clear();
-        localStorage.setItem("planmydays_images", JSON.stringify([{ name: "EditTest", data: svgData }]));
+        localStorage.setItem("shared-images", JSON.stringify([{ name: "EditTest", data: svgData }]));
       }, svg);
       await page.reload();
       await page.locator("#btnMainMenu").click();
@@ -1838,7 +1838,7 @@ test.describe("PlanMyDay - Regression", () => {
       await page.evaluate((data) => {
         localStorage.clear();
         localStorage.setItem("planmydays_streams", JSON.stringify(data));
-        localStorage.setItem("planmydays_images", JSON.stringify([
+        localStorage.setItem("shared-images", JSON.stringify([
           { name: "PickTest", data: "" },
           { name: "Another", data: "" }
         ]));
@@ -1978,7 +1978,7 @@ test.describe("PlanMyDay - Regression", () => {
       await page.goto("/PlanMyDay/");
       const nestedSvg = "data:image/svg+xml," + encodeURIComponent('<svg fill="#f7f7f7" stroke="#8f8f8f" xmlns="http://www.w3.org/2000/svg"><path fill="#f7f7f7" stroke="#8f8f8f" d="M0 0h10v10H0z"/></svg>');
       await page.evaluate((svgData) => {
-        localStorage.setItem("planmydays_images", JSON.stringify([{
+        localStorage.setItem("shared-images", JSON.stringify([{
           name: "NestedIcon",
           data: svgData,
           themes: {
@@ -1993,7 +1993,7 @@ test.describe("PlanMyDay - Regression", () => {
         await page.evaluate((t) => {
           document.documentElement.setAttribute("data-bs-theme", t);
           const el = document.createElement("smd-image");
-          el.setAttribute("key-prefix", "planmydays_");
+          el.setAttribute("key-prefix", "shared-");
           el.setAttribute("image", "NestedIcon");
           el.setAttribute("size", "64");
           document.body.appendChild(el);
@@ -2103,11 +2103,11 @@ test.describe("PlanMyDay - Regression", () => {
     test("stored images still render when image name is not bi: prefixed", async ({ page }) => {
       await page.goto("/PlanMyDay/");
       await page.evaluate(() => {
-        localStorage.setItem("planmydays_images", JSON.stringify([
+        localStorage.setItem("shared-images", JSON.stringify([
           { name: "Apple", data: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%23ff0000'/%3E%3C/svg%3E" }
         ]));
         const el = document.createElement("smd-image");
-        el.setAttribute("key-prefix", "planmydays_");
+        el.setAttribute("key-prefix", "shared-");
         el.setAttribute("image", "Apple");
         el.setAttribute("size", "32");
         document.body.appendChild(el);
@@ -2129,7 +2129,7 @@ test.describe("PlanMyDay - Regression", () => {
       const streams = JSON.parse(JSON.stringify(TEST_STREAMS));
       streams[0].jobs[0].image = "bi:house";
       await page.evaluate(({ streams, ds }) => {
-        localStorage.setItem("planmydays_images", "[]");
+        localStorage.setItem("shared-images", "[]");
         localStorage.setItem("planmydays_streams", JSON.stringify(streams));
         localStorage.setItem("planmydays_today_order", JSON.stringify(["job_1"]));
         localStorage.setItem("planmydays_last_gen", ds);
@@ -2917,7 +2917,7 @@ test.describe("PlanMyDay - Regression", () => {
       await mp.goto("http://localhost:8080/PlanMyDay/");
       await mp.evaluate(() => {
         localStorage.clear();
-        localStorage.setItem("planmydays_images", "[]");
+        localStorage.setItem("shared-images", "[]");
       });
       await mp.reload();
       const futureDate = futureDateStr(30);
@@ -3036,7 +3036,7 @@ test.describe("PlanMyDay - Regression", () => {
       test.setTimeout(30000);
       const svg = "data:image/svg+xml," + encodeURIComponent('<svg stroke="#000000" fill="#ffffff" stroke-width="2" xmlns="http://www.w3.org/2000/svg"><rect width="100" height="100"/></svg>');
       await page.evaluate((svgData) => {
-        localStorage.setItem("planmydays_images", JSON.stringify([{ name: "TestImg", data: svgData }]));
+        localStorage.setItem("shared-images", JSON.stringify([{ name: "TestImg", data: svgData }]));
       }, svg);
       await page.evaluate((data) => {
         localStorage.setItem("planmydays_streams", JSON.stringify(data));
@@ -3069,7 +3069,7 @@ test.describe("PlanMyDay - Regression", () => {
       const svg = "data:image/svg+xml," + encodeURIComponent('<svg stroke="#000000" fill="#ffffff" stroke-width="2" xmlns="http://www.w3.org/2000/svg"><rect width="100" height="100"/></svg>');
       await page.addInitScript((svgData) => {
         localStorage.clear();
-        localStorage.setItem("planmydays_images", JSON.stringify([{ name: "EditTest", data: svgData }]));
+        localStorage.setItem("shared-images", JSON.stringify([{ name: "EditTest", data: svgData }]));
       }, svg);
       await page.reload();
       await page.locator("#btnMainMenu").click();
@@ -3088,7 +3088,7 @@ test.describe("PlanMyDay - Regression", () => {
       const colorInput = page.locator('#imageEditModal input[type="color"]').first();
       await colorInput.fill("#ff0000");
       await expect.poll(async () => {
-        const images = await page.evaluate(() => JSON.parse(localStorage.getItem("planmydays_images")));
+        const images = await page.evaluate(() => JSON.parse(localStorage.getItem("shared-images")));
         return images?.[0]?.themes?.light?.line || "";
       }, { timeout: 5000 }).toBe("#ff0000");
     });
@@ -3100,7 +3100,7 @@ test.describe("PlanMyDay - Regression", () => {
       const colorInput = page.locator('#imageEditModal input[type="color"]').nth(1);
       await colorInput.fill("#00ff00");
       await expect.poll(async () => {
-        const images = await page.evaluate(() => JSON.parse(localStorage.getItem("planmydays_images")));
+        const images = await page.evaluate(() => JSON.parse(localStorage.getItem("shared-images")));
         return images?.[0]?.themes?.light?.fill || "";
       }, { timeout: 5000 }).toBe("#00ff00");
     });
@@ -3110,7 +3110,7 @@ test.describe("PlanMyDay - Regression", () => {
       await page.locator("#imageEditModal").waitFor({ state: "visible" });
       await page.locator('#imageEditModal input[type="checkbox"]').first().check();
       await expect.poll(async () => {
-        const images = await page.evaluate(() => JSON.parse(localStorage.getItem("planmydays_images")));
+        const images = await page.evaluate(() => JSON.parse(localStorage.getItem("shared-images")));
         return images?.[0]?.themes?.light?.line || "";
       }).toBe("none");
     });
@@ -3120,7 +3120,7 @@ test.describe("PlanMyDay - Regression", () => {
       await page.locator("#imageEditModal").waitFor({ state: "visible" });
       await page.locator('#imageEditModal input[type="checkbox"]').nth(1).check();
       await expect.poll(async () => {
-        const images = await page.evaluate(() => JSON.parse(localStorage.getItem("planmydays_images")));
+        const images = await page.evaluate(() => JSON.parse(localStorage.getItem("shared-images")));
         return images?.[0]?.themes?.light?.fill || "";
       }).toBe("none");
     });
@@ -3133,7 +3133,7 @@ test.describe("PlanMyDay - Regression", () => {
       await colorInput.fill("#ff0000");
       await expect(page.locator('#imageEditModal input[type="checkbox"]').first()).not.toBeChecked();
       await expect.poll(async () => {
-        const images = await page.evaluate(() => JSON.parse(localStorage.getItem("planmydays_images")));
+        const images = await page.evaluate(() => JSON.parse(localStorage.getItem("shared-images")));
         return images?.[0]?.themes?.light?.line || "";
       }, { timeout: 5000 }).toBe("#ff0000");
     });
@@ -3146,7 +3146,7 @@ test.describe("PlanMyDay - Regression", () => {
       await colorInput.fill("#00ff00");
       await expect(page.locator('#imageEditModal input[type="checkbox"]').nth(1)).not.toBeChecked();
       await expect.poll(async () => {
-        const images = await page.evaluate(() => JSON.parse(localStorage.getItem("planmydays_images")));
+        const images = await page.evaluate(() => JSON.parse(localStorage.getItem("shared-images")));
         return images?.[0]?.themes?.light?.fill || "";
       }, { timeout: 5000 }).toBe("#00ff00");
     });
@@ -3157,7 +3157,7 @@ test.describe("PlanMyDay - Regression", () => {
       const widthInput = page.locator('#imageEditModal input[type="number"]').first();
       await widthInput.fill("5");
       await expect.poll(async () => {
-        const images = await page.evaluate(() => JSON.parse(localStorage.getItem("planmydays_images")));
+        const images = await page.evaluate(() => JSON.parse(localStorage.getItem("shared-images")));
         return images?.[0]?.themes?.light?.width || "";
       }, { timeout: 5000 }).toBe("5");
     });
@@ -3219,7 +3219,7 @@ test.describe("PlanMyDay - Regression", () => {
       }, pngB64);
       await expect.poll(async () => {
         return page.evaluate(() => {
-          const images = JSON.parse(localStorage.getItem("planmydays_images") || "[]");
+          const images = JSON.parse(localStorage.getItem("shared-images") || "[]");
           return images?.[editingImageIndex]?.data || "";
         });
       }, { timeout: 5000 }).toContain("data:image/png");
@@ -3245,7 +3245,7 @@ test.describe("PlanMyDay - Regression", () => {
       const darkLineInput = page.locator('#imageEditModal input[type="color"]').nth(2);
       await darkLineInput.fill("#112233");
       await expect.poll(async () => {
-        const images = await page.evaluate(() => JSON.parse(localStorage.getItem("planmydays_images")));
+        const images = await page.evaluate(() => JSON.parse(localStorage.getItem("shared-images")));
         return images?.[0]?.themes?.dark?.line || "";
       }, { timeout: 5000 }).toBe("#112233");
       // themed data URL for dark contains the override
@@ -3281,7 +3281,7 @@ test.describe("PlanMyDay - Regression", () => {
       const darkFillInput = page.locator('#imageEditModal input[type="color"]').nth(3);
       await darkFillInput.fill("#00ff00");
       await expect.poll(async () => {
-        const images = await page.evaluate(() => JSON.parse(localStorage.getItem("planmydays_images")));
+        const images = await page.evaluate(() => JSON.parse(localStorage.getItem("shared-images")));
         return images?.[0]?.themes?.dark?.fill || "";
       }, { timeout: 5000 }).toBe("#00ff00");
       const darkThemed = await page.evaluate(() => getThemedImageDataUrl(loadImages()[0], "dark"));
@@ -3294,7 +3294,7 @@ test.describe("PlanMyDay - Regression", () => {
       const darkWidthInput = page.locator('#imageEditModal input[type="number"]').nth(1);
       await darkWidthInput.fill("7");
       await expect.poll(async () => {
-        const images = await page.evaluate(() => JSON.parse(localStorage.getItem("planmydays_images")));
+        const images = await page.evaluate(() => JSON.parse(localStorage.getItem("shared-images")));
         return images?.[0]?.themes?.dark?.width || "";
       }, { timeout: 5000 }).toBe("7");
     });
@@ -3307,7 +3307,7 @@ test.describe("PlanMyDay - Regression", () => {
       // checkboxes: [0]=light line, [1]=light fill, [2]=dark line, [3]=dark fill
       await page.locator('#imageEditModal input[type="checkbox"]').nth(2).check();
       await expect.poll(async () => {
-        const images = await page.evaluate(() => JSON.parse(localStorage.getItem("planmydays_images")));
+        const images = await page.evaluate(() => JSON.parse(localStorage.getItem("shared-images")));
         return images?.[0]?.themes?.dark?.line || "";
       }).toBe("none");
       const light = await page.evaluate(() => loadImages()[0].themes?.light?.line || "");
@@ -3319,7 +3319,7 @@ test.describe("PlanMyDay - Regression", () => {
       await page.locator("#imageEditModal").waitFor({ state: "visible" });
       await page.locator('#imageEditModal input[type="checkbox"]').nth(3).check();
       await expect.poll(async () => {
-        const images = await page.evaluate(() => JSON.parse(localStorage.getItem("planmydays_images")));
+        const images = await page.evaluate(() => JSON.parse(localStorage.getItem("shared-images")));
         return images?.[0]?.themes?.dark?.fill || "";
       }).toBe("none");
     });
@@ -3332,7 +3332,7 @@ test.describe("PlanMyDay - Regression", () => {
       await darkLineInput.fill("#112233");
       await expect(page.locator('#imageEditModal input[type="checkbox"]').nth(2)).not.toBeChecked();
       await expect.poll(async () => {
-        const images = await page.evaluate(() => JSON.parse(localStorage.getItem("planmydays_images")));
+        const images = await page.evaluate(() => JSON.parse(localStorage.getItem("shared-images")));
         return images?.[0]?.themes?.dark?.line || "";
       }, { timeout: 5000 }).toBe("#112233");
     });
@@ -3345,7 +3345,7 @@ test.describe("PlanMyDay - Regression", () => {
       await darkFillInput.fill("#00ff00");
       await expect(page.locator('#imageEditModal input[type="checkbox"]').nth(3)).not.toBeChecked();
       await expect.poll(async () => {
-        const images = await page.evaluate(() => JSON.parse(localStorage.getItem("planmydays_images")));
+        const images = await page.evaluate(() => JSON.parse(localStorage.getItem("shared-images")));
         return images?.[0]?.themes?.dark?.fill || "";
       }, { timeout: 5000 }).toBe("#00ff00");
     });
@@ -3375,11 +3375,11 @@ test.describe("PlanMyDay - Regression", () => {
       await page.locator('#imageEditModal input[type="color"]').nth(0).fill("#ff0000");
       await page.locator('#imageEditModal input[type="color"]').nth(2).fill("#0000ff");
       await expect.poll(async () => {
-        const images = await page.evaluate(() => JSON.parse(localStorage.getItem("planmydays_images")));
+        const images = await page.evaluate(() => JSON.parse(localStorage.getItem("shared-images")));
         return images?.[0]?.themes?.light?.line || "";
       }, { timeout: 5000 }).toBe("#ff0000");
       await expect.poll(async () => {
-        const images = await page.evaluate(() => JSON.parse(localStorage.getItem("planmydays_images")));
+        const images = await page.evaluate(() => JSON.parse(localStorage.getItem("shared-images")));
         return images?.[0]?.themes?.dark?.line || "";
       }, { timeout: 5000 }).toBe("#0000ff");
       const lightThemed = await page.evaluate(() => getThemedImageDataUrl(loadImages()[0], "light"));
@@ -3419,7 +3419,7 @@ test.describe("PlanMyDay - Regression", () => {
       await startCoverage(page);
       await page.addInitScript((data) => {
         localStorage.setItem("planmydays_streams", JSON.stringify(data));
-        localStorage.setItem("planmydays_images", JSON.stringify([
+        localStorage.setItem("shared-images", JSON.stringify([
           { name: "PickMe", data: "" },
           { name: "PickMeToo", data: "" }
         ]));
@@ -3629,7 +3629,7 @@ test.describe("PlanMyDay - Regression", () => {
       const svg = "data:image/svg+xml," + encodeURIComponent('<svg stroke="#000000" fill="#ffffff" stroke-width="2" xmlns="http://www.w3.org/2000/svg"><rect width="100" height="100"/></svg>');
       await page.addInitScript((svgData) => {
         localStorage.clear();
-        localStorage.setItem("planmydays_images", JSON.stringify([{ name: "OriginalName", data: svgData }]));
+        localStorage.setItem("shared-images", JSON.stringify([{ name: "OriginalName", data: svgData }]));
       }, svg);
       await page.reload();
       await page.locator("#btnMainMenu").click();
@@ -3644,7 +3644,7 @@ test.describe("PlanMyDay - Regression", () => {
       await page.locator("#btnImageEditCancel").click();
       await page.waitForTimeout(150);
       const restored = await page.evaluate(() => {
-        const images = JSON.parse(localStorage.getItem("planmydays_images") || "[]");
+        const images = JSON.parse(localStorage.getItem("shared-images") || "[]");
         return { name: images[0]?.name, data: images[0]?.data };
       });
       expect(restored.name).toBe("OriginalName");
@@ -3655,7 +3655,7 @@ test.describe("PlanMyDay - Regression", () => {
       const svg = "data:image/svg+xml," + encodeURIComponent('<svg stroke="#ff0000" fill="#ffffff" stroke-width="2" xmlns="http://www.w3.org/2000/svg"><rect width="100" height="100"/></svg>');
       await page.addInitScript((svgData) => {
         localStorage.clear();
-        localStorage.setItem("planmydays_images", JSON.stringify([{ name: "StrokeTest", data: svgData }]));
+        localStorage.setItem("shared-images", JSON.stringify([{ name: "StrokeTest", data: svgData }]));
       }, svg);
       await page.reload();
       await page.locator("#btnMainMenu").click();
@@ -3668,7 +3668,7 @@ test.describe("PlanMyDay - Regression", () => {
       await page.waitForTimeout(100);
       await lineCheckbox.uncheck();
       await expect.poll(async () => {
-        const images = await page.evaluate(() => JSON.parse(localStorage.getItem("planmydays_images")));
+        const images = await page.evaluate(() => JSON.parse(localStorage.getItem("shared-images")));
         return images?.[0]?.themes?.light?.line || "";
       }, { timeout: 5000 }).toBe("#ff0000");
     });
@@ -3677,7 +3677,7 @@ test.describe("PlanMyDay - Regression", () => {
       const svg = "data:image/svg+xml," + encodeURIComponent('<svg stroke="#000000" fill="#00ff00" stroke-width="2" xmlns="http://www.w3.org/2000/svg"><rect width="100" height="100"/></svg>');
       await page.addInitScript((svgData) => {
         localStorage.clear();
-        localStorage.setItem("planmydays_images", JSON.stringify([{ name: "FillTest", data: svgData }]));
+        localStorage.setItem("shared-images", JSON.stringify([{ name: "FillTest", data: svgData }]));
       }, svg);
       await page.reload();
       await page.locator("#btnMainMenu").click();
@@ -3690,7 +3690,7 @@ test.describe("PlanMyDay - Regression", () => {
       await page.waitForTimeout(100);
       await fillCheckbox.uncheck();
       await expect.poll(async () => {
-        const images = await page.evaluate(() => JSON.parse(localStorage.getItem("planmydays_images")));
+        const images = await page.evaluate(() => JSON.parse(localStorage.getItem("shared-images")));
         return images?.[0]?.themes?.light?.fill || "";
       }, { timeout: 5000 }).toBe("#00ff00");
     });
@@ -3705,7 +3705,7 @@ test.describe("PlanMyDay - Regression", () => {
         localStorage.setItem("planmydays_streams", JSON.stringify([{
           id: "stream_1", title: "Test", tab: "progress", image: "", sequence: 1, jobs: []
         }]));
-        localStorage.setItem("planmydays_images", JSON.stringify([]));
+        localStorage.setItem("shared-images", JSON.stringify([]));
       });
       await page.reload();
       await page.locator("#btnMainMenu").click();
@@ -3721,7 +3721,7 @@ test.describe("PlanMyDay - Regression", () => {
         localStorage.setItem("planmydays_streams", JSON.stringify([{
           id: "stream_1", title: "Test", tab: "progress", image: "", sequence: 1, jobs: []
         }]));
-        localStorage.setItem("planmydays_images", JSON.stringify([{ name: "Apple", data: "" }]));
+        localStorage.setItem("shared-images", JSON.stringify([{ name: "Apple", data: "" }]));
       });
       await page.reload();
       await page.locator("#btnMainMenu").click();
@@ -4239,7 +4239,7 @@ test.describe("PlanMyDay - Regression", () => {
     test("clear all data removes everything", async ({ page }) => {
       await page.evaluate(() => {
         localStorage.setItem("planmydays_streams", "[]");
-        localStorage.setItem("planmydays_images", "[]");
+        localStorage.setItem("shared-images", "[]");
         localStorage.setItem("planmydays_theme", "darkly");
         localStorage.setItem("theme", "old");
         localStorage.setItem("images", "old");
@@ -4661,7 +4661,7 @@ test.describe("PlanMyDay - Regression", () => {
           id: "stream_1", title: "Work", tab: "progress", image: "", sequence: 1,
           jobs: [{ id: "job_1", title: "Report", active: true, frequency: "daily", sequence: 1, suffix: false, dayType: "dayOfYear", mod: "", tasks: [] }]
         }]));
-        localStorage.setItem("planmydays_images", JSON.stringify([
+        localStorage.setItem("shared-images", JSON.stringify([
           { name: "TestImg", data: "" },
           { name: "TestImg2", data: "" }
         ]));
@@ -4699,7 +4699,7 @@ test.describe("PlanMyDay - Regression", () => {
           id: "stream_1", title: "Work", tab: "progress", image: "", sequence: 1,
           jobs: [{ id: "job_1", title: "Existing", active: true, frequency: "daily", sequence: 1, suffix: false, dayType: "dayOfYear", mod: "", tasks: [] }]
         }]));
-        localStorage.setItem("planmydays_images", JSON.stringify([
+        localStorage.setItem("shared-images", JSON.stringify([
           { name: "AddJobImg", data: "" }
         ]));
       });
@@ -4729,7 +4729,7 @@ test.describe("PlanMyDay - Regression", () => {
           id: "stream_1", title: "Work", tab: "progress", image: "", sequence: 1,
           jobs: [{ id: "job_1", title: "Report", active: true, frequency: "daily", sequence: 1, suffix: false, dayType: "dayOfYear", mod: "", tasks: [] }]
         }]));
-        localStorage.setItem("planmydays_images", JSON.stringify([
+        localStorage.setItem("shared-images", JSON.stringify([
           { name: "Apple", data: "" },
           { name: "Banana", data: "" }
         ]));
@@ -4759,7 +4759,7 @@ test.describe("PlanMyDay - Regression", () => {
     test("selecting image from front page add card", async ({ page }) => {
       test.setTimeout(30000);
       await page.evaluate(() => {
-        localStorage.setItem("planmydays_images", JSON.stringify([
+        localStorage.setItem("shared-images", JSON.stringify([
           { name: "FrontImg", data: "" }
         ]));
       });
@@ -4842,7 +4842,7 @@ test.describe("PlanMyDay - Regression", () => {
       expect(lastGen).toBe(todayStr);
       const todayOrder = await page.evaluate(() => JSON.parse(localStorage.getItem("planmydays_today_order") || "[]"));
       expect(todayOrder).toContain("job_imp");
-      const imgCount = await page.evaluate(() => JSON.parse(localStorage.getItem("planmydays_images") || "[]").length);
+      const imgCount = await page.evaluate(() => JSON.parse(localStorage.getItem("shared-images") || "[]").length);
       expect(imgCount).toBe(1);
     });
 
@@ -4960,10 +4960,10 @@ test.describe("PlanMyDay - Regression", () => {
       await page.locator("#uploadStandardImagesRow").waitFor({ state: "visible" });
       await page.locator("#btnUploadImages").click();
       await page.waitForFunction(() => {
-        const imgs = JSON.parse(localStorage.getItem("planmydays_images") || "[]");
+        const imgs = JSON.parse(localStorage.getItem("shared-images") || "[]");
         return imgs.length > 0;
       }, null, { timeout: 45000 });
-      const count = await page.evaluate(() => JSON.parse(localStorage.getItem("planmydays_images") || "[]").length);
+      const count = await page.evaluate(() => JSON.parse(localStorage.getItem("shared-images") || "[]").length);
       expect(count).toBeGreaterThan(0);
     });
 
@@ -4993,7 +4993,7 @@ test.describe("PlanMyDay - Regression", () => {
       }
       images.push({ name: "Photo 5", data: sampleSvg });
       await page.evaluate((imgs) => {
-        localStorage.setItem("planmydays_images", JSON.stringify(imgs));
+        localStorage.setItem("shared-images", JSON.stringify(imgs));
       }, images);
       await page.reload();
       await page.locator("#btnMainMenu").click();
@@ -5043,7 +5043,7 @@ test.describe("PlanMyDay - Regression", () => {
       }, svgNoAttrs);
       await page.waitForTimeout(100);
       const data = await page.evaluate(() => {
-        const images = JSON.parse(localStorage.getItem("planmydays_images") || "[]");
+        const images = JSON.parse(localStorage.getItem("shared-images") || "[]");
         return images[editingImageIndex]?.data || "";
       });
       expect(data).toContain("data:image/svg+xml");
@@ -5079,7 +5079,7 @@ test.describe("PlanMyDay - Regression", () => {
       }, pngB64);
       await page.waitForTimeout(100);
       const data = await page.evaluate(() => {
-        const images = JSON.parse(localStorage.getItem("planmydays_images") || "[]");
+        const images = JSON.parse(localStorage.getItem("shared-images") || "[]");
         return images[editingImageIndex]?.data || "";
       });
       expect(data.startsWith("data:image/png")).toBeTruthy();
@@ -5148,7 +5148,7 @@ test.describe("PlanMyDay - Regression", () => {
     test("jobs with stream and job images render img tags", async ({ page }) => {
       const svg = "data:image/svg+xml," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" stroke="%23abc" fill="none"><circle r="3"/></svg>');
       await page.evaluate(({ svgData, streams, ds }) => {
-        localStorage.setItem("planmydays_images", JSON.stringify([
+        localStorage.setItem("shared-images", JSON.stringify([
           { name: "StreamIcon", data: svgData },
           { name: "JobIcon", data: svgData }
         ]));
@@ -5227,7 +5227,7 @@ test.describe("PlanMyDay - Regression", () => {
       await page.goto("/PlanMyDay/?dev=true");
       await page.evaluate(() => {
         localStorage.clear();
-        localStorage.setItem("planmydays_images", "[]");
+        localStorage.setItem("shared-images", "[]");
       });
       await startCoverage(page);
       await page.reload();
@@ -5382,7 +5382,7 @@ test.describe("PlanMyDay - Regression", () => {
 
     test("image helper OOB and missing-data branches", async ({ page }) => {
       const result = await page.evaluate(() => {
-        localStorage.setItem("planmydays_images", JSON.stringify([
+        localStorage.setItem("shared-images", JSON.stringify([
           { name: "Only", data: "data:image/svg+xml," + encodeURIComponent("<svg stroke='#111' fill='#222'></svg>") },
           { name: "NoData", data: "" },
           { name: "SingleQuote", data: "data:image/svg+xml," + encodeURIComponent("<svg stroke='#abc' fill='none'></svg>") }
@@ -5442,7 +5442,7 @@ test.describe("PlanMyDay - Regression", () => {
     test("edit image prev color fallbacks and fill/stroke restore defaults", async ({ page }) => {
       await page.evaluate(() => {
         const svg = "data:image/svg+xml," + encodeURIComponent('<svg stroke="none" fill="none" stroke-width="2"><rect/></svg>');
-        localStorage.setItem("planmydays_images", JSON.stringify([
+        localStorage.setItem("shared-images", JSON.stringify([
           { name: "NoneCols", data: svg }
         ]));
         editingImageIndex = 0;
@@ -5470,9 +5470,9 @@ test.describe("PlanMyDay - Regression", () => {
 
     test("seedSampleImages skips when images already present", async ({ page }) => {
       const result = await page.evaluate(() => {
-        localStorage.setItem("planmydays_images", JSON.stringify([{ name: "x", data: "" }]));
+        localStorage.setItem("shared-images", JSON.stringify([{ name: "x", data: "" }]));
         seedSampleImages();
-        return JSON.parse(localStorage.getItem("planmydays_images")).length;
+        return JSON.parse(localStorage.getItem("shared-images")).length;
       });
       expect(result).toBe(1);
     });
@@ -5484,15 +5484,15 @@ test.describe("PlanMyDay - Regression", () => {
         const res = await fetch("../shared/sampleImages.json");
         const data = await res.json();
         if (data.images && data.images[0]) {
-          localStorage.setItem("planmydays_images", JSON.stringify([data.images[0]]));
+          localStorage.setItem("shared-images", JSON.stringify([data.images[0]]));
         }
       });
       await page.evaluate(() => uploadStandardImages());
       await page.waitForFunction(() => {
-        const imgs = JSON.parse(localStorage.getItem("planmydays_images") || "[]");
+        const imgs = JSON.parse(localStorage.getItem("shared-images") || "[]");
         return imgs.length > 1;
       }, null, { timeout: 45000 });
-      const names = await page.evaluate(() => JSON.parse(localStorage.getItem("planmydays_images")).map(i => i.name));
+      const names = await page.evaluate(() => JSON.parse(localStorage.getItem("shared-images")).map(i => i.name));
       expect(new Set(names).size).toBe(names.length);
     });
 
@@ -5502,7 +5502,7 @@ test.describe("PlanMyDay - Regression", () => {
         const res = await fetch("../shared/sampleImages.json");
         const data = await res.json();
         if (data.images && data.images[0]) {
-          localStorage.setItem("planmydays_images", JSON.stringify([data.images[0]]));
+          localStorage.setItem("shared-images", JSON.stringify([data.images[0]]));
         }
       });
       await page.evaluate(() => uploadStandardImages());
@@ -5629,7 +5629,7 @@ test.describe("PlanMyDay - Regression", () => {
     test("updateJobImagePreview and stream preview empty name", async ({ page }) => {
       await page.evaluate((data) => {
         localStorage.setItem("planmydays_streams", JSON.stringify(data));
-        localStorage.setItem("planmydays_images", JSON.stringify([
+        localStorage.setItem("shared-images", JSON.stringify([
           { name: "PrevImg", data: "data:image/svg+xml," + encodeURIComponent("<svg></svg>") }
         ]));
         jobsStreamIndex = 0;

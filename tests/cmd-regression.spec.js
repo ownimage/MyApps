@@ -46,7 +46,7 @@ async function seed(page, overrides = {}) {
     localStorage.clear();
     if (dates) localStorage.setItem("countmydays_dates", JSON.stringify(dates));
     if (categories) localStorage.setItem("countmydays_categories", JSON.stringify(categories));
-    if (images) localStorage.setItem("countmydays_images", JSON.stringify(images));
+    if (images) localStorage.setItem("shared-images", JSON.stringify(images));
     Object.entries(settings).forEach(([key, value]) => localStorage.setItem("countmydays_" + key, value));
   }, data);
   await page.reload();
@@ -120,7 +120,7 @@ test.describe("CountMyDays - Regression", () => {
       const migrated = await page.evaluate(() => ({
         dates: JSON.parse(localStorage.getItem("countmydays_dates") || "[]").length,
         categories: JSON.parse(localStorage.getItem("countmydays_categories") || "[]").length,
-        images: JSON.parse(localStorage.getItem("countmydays_images") || "[]").length,
+        images: JSON.parse(localStorage.getItem("shared-images") || "[]").length,
         theme: localStorage.getItem("countmydays_theme"),
         fontSize: localStorage.getItem("countmydays_fontSize"),
         iconSize: localStorage.getItem("countmydays_iconSize"),
@@ -154,7 +154,7 @@ test.describe("CountMyDays - Regression", () => {
       const counts = await page.evaluate(() => ({
         dates: JSON.parse(localStorage.getItem("countmydays_dates") || "[]").length,
         categories: JSON.parse(localStorage.getItem("countmydays_categories") || "[]").length,
-        images: JSON.parse(localStorage.getItem("countmydays_images") || "[]").length
+        images: JSON.parse(localStorage.getItem("shared-images") || "[]").length
       }));
       expect(counts.dates).toBeGreaterThan(0);
       expect(counts.categories).toBeGreaterThan(0);
@@ -447,7 +447,7 @@ test.describe("CountMyDays - Regression", () => {
         deleteImage(idx);
       });
       const state = await page.evaluate(() => ({
-        images: JSON.parse(localStorage.getItem("countmydays_images") || "[]").map(i => i.name),
+        images: JSON.parse(localStorage.getItem("shared-images") || "[]").map(i => i.name),
         dateRef: JSON.parse(localStorage.getItem("countmydays_dates") || "[]").find(d => d.name === "Anniversary").image
       }));
       expect(state.images).not.toContain("imgB");
@@ -561,7 +561,7 @@ test.describe("CountMyDays - Regression", () => {
       await page.locator("#importWizardPage").getByRole("button", { name: "Next" }).click();
       await page.locator("#importWizardPage").getByRole("button", { name: "Apply & Continue" }).click();
       await page.locator("#importWizardPage").getByRole("button", { name: "Close" }).click();
-      expect(await page.evaluate(() => JSON.parse(localStorage.getItem("countmydays_images") || "[]").some(i => i.name === "imgA copy"))).toBe(true);
+      expect(await page.evaluate(() => JSON.parse(localStorage.getItem("shared-images") || "[]").some(i => i.name === "imgA copy"))).toBe(true);
     });
 
     test("QR import page opens and cancels", async ({ page }) => {
