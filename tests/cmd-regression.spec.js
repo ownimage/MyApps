@@ -421,6 +421,12 @@ test.describe("CountMyDays - Regression", () => {
       // imgA is used by a category and imgC by a date -> delete disabled.
       await expect(imgA.locator('[data-action="delete"]')).toBeDisabled();
       await expect(imgC.locator('[data-action="delete"]')).toBeDisabled();
+
+      // The thumbnails must read the SHARED image library (key-prefix shared-)
+      // and actually render an image, not just the card title.
+      const firstThumb = page.locator("#imagesEditor smd-image-card").first().locator("smd-image");
+      await expect(firstThumb).toHaveAttribute("key-prefix", "shared-");
+      await expect.poll(async () => firstThumb.locator("img").getAttribute("src")).toBeTruthy();
     });
 
     test("renaming an image updates category and date references", async ({ page }) => {

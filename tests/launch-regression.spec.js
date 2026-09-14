@@ -17,17 +17,20 @@ test.describe("Launch - Regression", () => {
     page.on("console", m => { if (m.type() === "error") errors.push(m.text()); });
 
     await page.goto("/");
-    await expect(page.locator("#appGrid .app-tile")).toHaveCount(2);
+    await expect(page.locator("#appGrid .app-tile")).toHaveCount(3);
 
     const tiles = page.locator("#appGrid .app-tile");
     await expect(tiles.nth(0)).toContainText("Plan My Day");
     await expect(tiles.nth(1)).toContainText("Count My Days");
+    await expect(tiles.nth(2)).toContainText("QR Links");
     await expect(tiles.nth(0)).toHaveAttribute("href", "PlanMyDay/");
     await expect(tiles.nth(1)).toHaveAttribute("href", "CountMyDays/");
+    await expect(tiles.nth(2)).toHaveAttribute("href", "QRLinks/");
 
     // App icons actually load.
     await expect(tiles.nth(0).locator("img")).toHaveJSProperty("naturalWidth", 192);
     await expect(tiles.nth(1).locator("img")).toHaveJSProperty("naturalWidth", 192);
+    await expect(tiles.nth(2).locator("img")).toHaveJSProperty("naturalWidth", 192);
 
     expect(errors).toEqual([]);
   });
@@ -62,7 +65,7 @@ test.describe("Launch - Regression", () => {
     await expect.poll(async () => page.evaluate(() => localStorage.getItem("launch_iconSize"))).toBe("small");
   });
 
-  test("both apps' menus link to the Launch app", async ({ page }) => {
+  test("every app's menu links to the Launch app", async ({ page }) => {
     await page.goto("/PlanMyDay/");
     await page.locator("#btnMainMenu").click();
     const pmdLaunch = page.locator(".dropdown-menu .dropdown-item").filter({ hasText: "Launch" });
@@ -76,6 +79,13 @@ test.describe("Launch - Regression", () => {
     const cmdLaunch = page.locator(".dropdown-menu .dropdown-item").filter({ hasText: "Launch" });
     await expect(cmdLaunch).toBeVisible();
     await expect(cmdLaunch).toHaveAttribute("href", "../");
+
+    await page.goto("/QRLinks/");
+    await dismissLegacyReminder(page);
+    await page.locator("#btnMainMenu").click();
+    const qrLaunch = page.locator(".dropdown-menu .dropdown-item").filter({ hasText: "Launch" });
+    await expect(qrLaunch).toBeVisible();
+    await expect(qrLaunch).toHaveAttribute("href", "../");
   });
 
   test("every app reads the same shared image library", async ({ page }) => {
@@ -91,6 +101,10 @@ test.describe("Launch - Regression", () => {
     await expect.poll(async () => page.evaluate(() => loadImages().map(i => i.name))).toEqual(["shared-one", "shared-two"]);
 
     await page.goto("/CountMyDays/");
+    await dismissLegacyReminder(page);
+    await expect.poll(async () => page.evaluate(() => loadImages().map(i => i.name))).toEqual(["shared-one", "shared-two"]);
+
+    await page.goto("/QRLinks/");
     await dismissLegacyReminder(page);
     await expect.poll(async () => page.evaluate(() => loadImages().map(i => i.name))).toEqual(["shared-one", "shared-two"]);
   });

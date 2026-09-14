@@ -80,7 +80,41 @@ Architecture:
   `images` into `shared-images` once, then removes the old keys. Files in
   `tests/*.spec.js` seed/assert
   `shared-images`. `confirmClearAllData` still only clears the app's own
-  settings/data, NOT the shared images.
+  settings/data, NOT the shared images. EVERY image consumer must go through
+  `smdImagePrefix()` — the shared editor's `smd-image-card` list and the legacy
+  `renderImagePicker` were still using `SmdConfig.storagePrefix`, which made
+  the editor thumbnails blank while the card titles still rendered (tests that
+  only assert card text don't catch it; assert `key-prefix="shared-"` + a
+  rendered `src`).
+- QRLINKS APP (2026-09-14): third shared-pattern app (was an old standalone
+  copy). Served at `/QRLinks/`; `SmdConfig.storagePrefix = "qrlinks_"` and
+  `SmdConfig.imagePrefix = "shared-"` in `QRLinks/js/app.js`. Data model:
+  `loadLinks()`/`saveLinks()` (`qrlinks_links`, legacy `qr_links`) — each link
+  is `{ title, url, description, image, sequence }`. Pages: `linksEditor` +
+  `linkEditPage` (Sortable drag reorder via `<smd-draghandle class="drag-handle">`),
+  `imagesEditor` (shared smd-images.js), `settingsPage` (smd-tabs
+  General/Danger), `imagePickerPage`. App component `qrlink-card`
+  (`QRLinks/js/components/qrlink-card.js`) → emits `qrlink-qr`, which
+  `app.js` turns into a shared `showSmdModal` + `<smd-qrcode>` dialog with
+  Open/Close. Legacy `qr_*` keys (incl. `qr_images`) are migrated by
+  `QRLinks/js/storage.js` + the shared `migrateImagesToShared()` (its sources
+  now include `qr_images`); a startup reminder modal shows each boot (same
+  pattern as CountMyDays). `JOBS_EDITOR_STYLES` is copied into
+  `QRLinks/js/editor-styles.js` (now duplicated in 3 apps — candidate for a
+  future shared extraction).
+- SAMPLE IMAGES MERGE (2026-09-14): the old `QRLinks/sampleImages.json` (8
+  images, legacy `{name,data}` format) was merged into the shared set — all 8
+  were already present in `shared/sampleImages.json` (shared is master; e.g.
+  "solar controlar" → "Solar Controlar"), so nothing new was added and the
+  QRLinks copy was deleted. New images go in as NATIVE files in
+  `shared/sampleImages/` then `node shared/regen_sample_images.js regen`
+  (SVG → `data`; non-SVG → `data64`/`data80`/`data100` thumbs, full-size file
+  stays in the folder).
+- FIRST-VISIT SEED RACE (2026-09-14): the async sample seeders must RE-CHECK
+  their storage key inside `.then()` before writing (done for
+  `seedSampleImages` and QRLinks `seedSampleLinks`). Without it, a test/user
+  that clears+seeds storage right after boot gets the fetch overwriting their
+  data when it resolves late.
 - SETTINGS STYLES (2026-09-13): `SETTINGS_STYLES` + `injectSettingsStyles()`
   moved from the apps' `editor-styles.js` into `shared/js/smd-settings.js`
   (generic shadow styles for every app's settings page). PlanMyDay keeps only
@@ -215,6 +249,43 @@ Techniques / gotchas:
 - Line endings: this repo stores text files with LF (`core.autocrlf=input`, `core.eol=lf`; no `.gitattributes`). NEVER write CRLF into a file — git will flag every line as changed (whole-file diff) and warn "CRLF will be replaced by LF the next time Git touches it". Do not round-trip files through PowerShell pipe/Get-Content/Set-Content joins; the Edit/Write/Read tools and Node preserve line endings — if you must convert use node with explicit `\n`, NEVER shell-piped measurements of `git show` (PowerShell pipeline re-encodes — it once reported 914 CRLF for a file whose raw blob via `git cat-file` was entirely LF). Verify with `git cat-file blob HEAD:<file>` + `git diff --stat` so only real edits show.
 
 ## Session log
+
+### 2026-09-14
+- Migrated the old standalone **QRLinks** app into the shared pattern (third
+  app). New files: `QRLinks/js/{app,storage,editor-styles,main-view,links-editor,app-settings,export}.js`
+  + `js/components/qrlink-card.js`; `index.html` rewritten (single hamburger
+  menu with Launch/Settings/Edit Links/Images/Export/Import, `smd-page` hosts,
+  settings template General/Danger, `#imageEditModal`); deleted its own
+  `sw.js`, `js/settings.js`, `js/images.js`, `sampleImages.json`, `README.md`,
+  `todo.md`. `manifest.json` now uses generated PNG icons.
+- Shared image library: `migrateImagesToShared()` sources gained `qr_images`;
+  `seedSampleImages()` now re-checks its key before writing (first-visit seed
+  race fix). QRLinks `seedSampleLinks()` does the same.
+- Sample images merge: all 8 QRLinks sample images already existed in
+  `shared/sampleImages.json` (shared master, new format with `data64/80/100`
+  and native files) — nothing added; the QRLinks copy was deleted.
+- Launch app grid now has 3 tiles (PlanMyDay/CountMyDays/QRLinks); QRLinks
+  menu has a Launch item. `sw.js` gained `APPS["QRLinks/"]`;
+  `tests/coverage.js` collects `/QRLinks/js/`.
+- Tests: new `tests/qrlinks-regression.spec.js` (8 passed: boot/order, empty
+  state, QR modal, link CRUD, settings + sample links, shared images editor,
+  legacy migration + reminder, image rename/delete hooks). `launch-regression`
+  updated for 3 apps (6 passed). Targeted PMD images+sub-path 47 passed; cmd
+  boot/image/sub-path 6 passed; storybook 28 sections clean.
+- Gotchas found: same-page close/open timers can hide a quickly reopened
+  `smd-page` — `linkEditPage` now clears its pending `d-none` timer on open
+  (same fix pattern as `_settingsCloseTimer`); the async sample seeders'
+  re-check above; test helpers must wait for the first-visit seeding to settle
+  before clearing storage.
+- `BUILD_NUMBER` -> `202609141045` (timestamp).
+- Follow-up fix: images were not showing in the image editors — the shared
+  `smd-images.js` rendered `smd-image-card`s (and the legacy `renderImagePicker`
+  items) with `key-prefix="SmdConfig.storagePrefix"` instead of
+  `smdImagePrefix()`, so they read the old per-app list after the shared-image
+  move. Fixed both; added thumbnail assertions (`key-prefix="shared-"` +
+  non-empty `img src`) to `pmd-regression` ("image editor thumbnails render from
+  the shared library"), `cmd-regression` (Images Editor list) and
+  `qrlinks-regression`. `BUILD_NUMBER` -> `202609141245`.
 
 ### 2026-09-13 (4)
 - New **Launch app**: repo-root `index.html` (entry) + `Launch/` (manifest with

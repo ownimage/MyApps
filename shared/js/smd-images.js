@@ -28,7 +28,7 @@ function saveImages(images) {
 // a no-op once the shared list exists.
 function migrateImagesToShared() {
   const sharedKey = "shared-images";
-  const sources = ["planmydays_images", "countmydays_images", "images"];
+  const sources = ["planmydays_images", "countmydays_images", "qr_images", "images"];
   if (localStorage.getItem(sharedKey) !== null) {
     // Shared library already in use: drop any stale per-app copies.
     sources.forEach(function (key) { localStorage.removeItem(key); });
@@ -283,7 +283,7 @@ function renderImagesEditor() {
     card.setAttribute("index", images.indexOf(img));
     card.setAttribute("title", img.name);
     card.setAttribute("image", img.name);
-    card.setAttribute("key-prefix", SmdConfig.storagePrefix);
+    card.setAttribute("key-prefix", smdImagePrefix());
     if (inUse) card.setAttribute("in-use", "");
     listEl.appendChild(card);
   });
@@ -847,7 +847,7 @@ function renderImagePicker() {
     const item = document.createElement("div");
     item.className = "image-picker-item text-center";
     item.style.cssText = "min-width:95px;cursor:pointer;border:2px solid transparent;border-radius:8px;padding:6px;transition:border-color 0.15s";
-    item.innerHTML = `<smd-image key-prefix="${SmdConfig.storagePrefix}" image="${escapeHtml(img.name)}" title="${escapeHtml(img.name)}"></smd-image><div style="font-size:0.75rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:4px">${escapeHtml(img.name)}</div>`;
+    item.innerHTML = `<smd-image key-prefix="${smdImagePrefix()}" image="${escapeHtml(img.name)}" title="${escapeHtml(img.name)}"></smd-image><div style="font-size:0.75rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:4px">${escapeHtml(img.name)}</div>`;
     item.onclick = () => { selectImagePickerItem(img.name); };
     item.onmouseenter = () => { item.style.borderColor = "var(--bs-primary)"; };
     item.onmouseleave = () => { item.style.borderColor = "transparent"; };
@@ -929,7 +929,8 @@ function seedSampleImages() {
   fetch(root + "sampleImages.json?v=" + (typeof BUILD_NUMBER !== "undefined" ? BUILD_NUMBER : Date.now()))
     .then(res => res.json())
     .then(data => {
-      if (data && data.images) {
+      // Someone may have seeded/imported images while the fetch was in flight.
+      if (data && data.images && localStorage.getItem(smdImagesKey()) === null) {
         saveImages(data.images);
       }
     })

@@ -23,6 +23,12 @@ var LAUNCH_APPS = [
     description: "Track countdowns to important events",
     path: "CountMyDays/",
     icon: "CountMyDays/icon-192.png"
+  },
+  {
+    name: "QR Links",
+    description: "Share links as QR codes",
+    path: "QRLinks/",
+    icon: "QRLinks/icon-192.png"
   }
 ];
 

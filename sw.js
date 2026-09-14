@@ -260,6 +260,24 @@ const APPS = {
     "CountMyDays/js/components/cmd-date-card.js",
     "CountMyDays/js/components/cmd-category-card.js"
   ],
+  "QRLinks/": [
+    "QRLinks/",
+    "QRLinks/index.html",
+    "QRLinks/manifest.json",
+    "QRLinks/icon.svg",
+    "QRLinks/icon-192.png",
+    "QRLinks/icon-512.png",
+    "QRLinks/css/styles.css",
+    "QRLinks/sampleLinks.json",
+    "QRLinks/js/app.js",
+    "QRLinks/js/storage.js",
+    "QRLinks/js/editor-styles.js",
+    "QRLinks/js/main-view.js",
+    "QRLinks/js/links-editor.js",
+    "QRLinks/js/app-settings.js",
+    "QRLinks/js/export.js",
+    "QRLinks/js/components/qrlink-card.js"
+  ],
   // The Launch app entry lives at the repo root (index.html); its other files
   // live in Launch/ (manifest, icons, css, js).
   "Launch/": [
