@@ -1601,6 +1601,22 @@ test.describe("PlanMyDay - Regression", () => {
       await expect(page.locator("#imagesEditor")).toBeVisible();
     });
 
+    test("image editor thumbnails render from the shared library", async ({ page }) => {
+      await page.evaluate(() => {
+        localStorage.setItem("shared-images", JSON.stringify([{
+          name: "pmdThumb",
+          data: "data:image/svg+xml," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg"><rect width="8" height="8"/></svg>')
+        }]));
+      });
+      await page.reload();
+      await page.locator("#btnMainMenu").click();
+      await page.locator("a.dropdown-item").filter({ hasText: "Images" }).click();
+      const thumb = page.locator("#imagesEditor smd-image-card").first().locator("smd-image");
+      await expect(thumb).toHaveAttribute("key-prefix", "shared-");
+      await expect(thumb).toHaveAttribute("image", "pmdThumb");
+      await expect.poll(async () => thumb.locator("img").getAttribute("src")).toBeTruthy();
+    });
+
     test("add new image opens edit modal", async ({ page }) => {
       await page.getByRole("button", { name: "Add Image" }).click();
       await expect(page.locator("#imageEditModal")).toBeVisible();

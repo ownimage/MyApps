@@ -266,6 +266,7 @@
   <script src="../CountMyDays/js/components/cmd-countdown-card.js"></script>
   <script src="../CountMyDays/js/components/cmd-date-card.js"></script>
   <script src="../CountMyDays/js/components/cmd-category-card.js"></script>
+  <script src="../QRLinks/js/components/qrlink-card.js"></script>
   <script src="../shared/vendor/qrcode.min.js"></script>
   <script src="../shared/js/build-number.js"></script>
   <script src="../shared/js/smd-app.js"></script>
@@ -1330,6 +1331,31 @@
         document.querySelectorAll("#cmd-category-card cmd-category-card").forEach(card => {
           card.addEventListener("cmd-category-edit", (e) => log("cmd-category-card", "edit idx=" + e.detail.index));
           card.addEventListener("cmd-category-delete", (e) => log("cmd-category-card", "delete idx=" + e.detail.index));
+        });
+      }
+    });
+
+    // ---- qrlink-card ----
+    sections.push({
+      id: "qrlink-card",
+      name: "qrlink-card",
+      tag: "<qrlink-card>",
+      desc: "A QRLinks link tile: image thumbnail (via <code>smd-image</code>), title, description and the QR button (hidden when <code>url</code> is empty). Attributes: <code>index</code>, <code>title</code>, <code>description</code>, <code>url</code>, <code>image</code>, <code>key-prefix</code>. Dispatches <code>qrlink-qr</code> ({ index, url, title }).",
+      html: () => `
+        <div class="sb-canvas" style="flex-direction:column;width:100%">
+          <div class="sb-stack" id="sb-qrlink-cards" style="width:100%">
+            <qrlink-card index="0" title="Example Site" url="https://example.com" description="A demo link" image="Blue" key-prefix="sbq_" style="width:100%"></qrlink-card>
+            <qrlink-card index="1" title="No URL Link" description="QR button hidden" key-prefix="sbq_" style="width:100%"></qrlink-card>
+          </div>
+        </div>
+        <div class="sb-log" id="log-qrlink-card">events: none yet</div>
+      `,
+      init: () => {
+        localStorage.setItem("sbq_images", JSON.stringify([
+          { name: "Blue", data: "data:image/svg+xml," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="4" fill="#39cbfb"/></svg>') }
+        ]));
+        document.querySelectorAll("#qrlink-card qrlink-card").forEach(card => {
+          card.addEventListener("qrlink-qr", (e) => log("qrlink-card", "qr url=" + e.detail.url + " title=" + e.detail.title));
         });
       }
     });
