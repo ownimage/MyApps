@@ -286,6 +286,24 @@ Techniques / gotchas:
   non-empty `img src`) to `pmd-regression` ("image editor thumbnails render from
   the shared library"), `cmd-regression` (Images Editor list) and
   `qrlinks-regression`. `BUILD_NUMBER` -> `202609141245`.
+- Screenshot galleries: added `tests/qrlinks-screenshots.spec.js`
+  (`screenshots/qrlinks/<theme>/`: main view, main menu, links editor, settings,
+  QR dialog) and `tests/launch-screenshots.spec.js`
+  (`screenshots/launch/<theme>/`: app grid, main menu), and a
+  "main menu dropdown" screen to `cmd-screenshots.spec.js` (pmd already had
+  one). All iterate the 26 themes; the screenshot viewer auto-discovers the new
+  galleries. Gotcha: the QR-dialog screenshot must wait for
+  `#smdConfirmModal smd-qrcode canvas/img` to be visible (45s) — qrcode.js is
+  lazily loaded and can lag behind the first-install SW precache, which
+  otherwise captures a QR-less dialog.
+- Screenshot screens for settings tabs (26 themes each, verified visually):
+  `cmd-screenshots.spec.js` gained "settings - g cal" (`settings-gcal.png`,
+  clicks `#settingsPage`'s G Cal tab then `.check()`s `#gcalEnabled`) and
+  "settings - danger" (`settings-danger.png`, `#danger-tab` + `#showDanger`
+  checked so the danger rows are visible); `launch-screenshots.spec.js` gained
+  "settings" (`settings.png` via `openSettings()`). README/commands already
+  describe the galleries generically — no doc change needed for new screens.
+  No `BUILD_NUMBER` bump (test-only change).
 
 ### 2026-09-13 (4)
 - New **Launch app**: repo-root `index.html` (entry) + `Launch/` (manifest with

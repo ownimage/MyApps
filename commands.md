@@ -40,6 +40,16 @@ CountMyDays screenshots (own gallery):
 .\node_modules\.bin\playwright.cmd test tests/cmd-screenshots.spec.js --workers 16
 ```
 Writes to `screenshots/cmd/<theme>/`.
+QRLinks screenshots (own gallery):
+```bash
+.\node_modules\.bin\playwright.cmd test tests/qrlinks-screenshots.spec.js --workers 16
+```
+Writes to `screenshots/qrlinks/<theme>/`.
+Launch screenshots (own gallery):
+```bash
+.\node_modules\.bin\playwright.cmd test tests/launch-screenshots.spec.js --workers 16
+```
+Writes to `screenshots/launch/<theme>/`.
 
 ### Screenshot viewer
 ```bash

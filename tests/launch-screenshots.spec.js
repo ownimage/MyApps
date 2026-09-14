@@ -2,9 +2,7 @@ const { test } = require("@playwright/test");
 const path = require("path");
 const fs = require("fs");
 
-const sampleData = require("../CountMyDays/js/sampleData.json");
-
-const SCREENSHOT_DIR = path.resolve(__dirname, "..", "screenshots", "cmd");
+const SCREENSHOT_DIR = path.resolve(__dirname, "..", "screenshots", "launch");
 
 const bw = "../shared/css/themes";
 const THEME_CONFIG = {
@@ -53,15 +51,10 @@ async function setTheme(page, themeName) {
   try {
     await page.waitForFunction(() => window.__themeReady === true, null, { timeout: 6000 });
   } catch (e) {
-    // CDN/unreachable theme: carry on and capture whatever style is present
+    // unreachable theme: carry on and capture whatever style is present
   }
   await page.evaluate(() => {
     if (typeof applySmdVars === "function") applySmdVars();
-    if (typeof renderMain === "function") renderMain();
-    const imagesEditor = document.getElementById("imagesEditor");
-    if (imagesEditor && !imagesEditor.classList.contains("d-none") && typeof renderImagesEditor === "function") {
-      renderImagesEditor();
-    }
   });
   await page.waitForTimeout(150);
 }
@@ -81,7 +74,7 @@ async function screenshotAllThemes(page, fileName) {
   }
 }
 
-test.describe("CountMyDays - Screenshots", () => {
+test.describe("Launch - Screenshots", () => {
 
   test.describe.configure({ timeout: 180000 });
 
@@ -94,27 +87,18 @@ test.describe("CountMyDays - Screenshots", () => {
   });
 
   test.beforeEach(async ({ page }) => {
-    await page.goto("/CountMyDays/");
-    await page.evaluate(({ images, categories, dates }) => {
-      localStorage.clear();
-      localStorage.setItem("countmydays_fontSize", "normal");
-      localStorage.setItem("countmydays_iconSize", "large");
-      localStorage.setItem("countmydays_density", "normal");
-      localStorage.setItem("shared-images", JSON.stringify(images));
-      localStorage.setItem("countmydays_categories", JSON.stringify(categories));
-      localStorage.setItem("countmydays_dates", JSON.stringify(dates));
-    }, { images: sampleData.images, categories: sampleData.categories, dates: sampleData.dates });
-    await page.reload();
-    await page.waitForLoadState("domcontentloaded");
-    // The app shows a legacy-migration reminder modal on every startup.
-    const reminder = page.locator("#smdConfirmModal");
-    await reminder.waitFor({ state: "visible", timeout: 10000 }).catch(() => {});
-    if (await reminder.isVisible()) await reminder.getByRole("button", { name: "OK" }).click();
-    await page.waitForSelector("cmd-countdown-card");
+    await page.goto("/");
+    await page.waitForSelector("#appGrid .app-tile");
   });
 
-  test("main view", async ({ page }) => {
-    await screenshotAllThemes(page, "main-view.png");
+  test("app grid", async ({ page }) => {
+    await screenshotAllThemes(page, "app-grid.png");
+  });
+
+  test("settings", async ({ page }) => {
+    await page.evaluate(() => openSettings());
+    await page.waitForTimeout(400);
+    await screenshotAllThemes(page, "settings.png");
   });
 
   test("main menu dropdown", async ({ page }) => {
@@ -122,43 +106,5 @@ test.describe("CountMyDays - Screenshots", () => {
     await page.locator(".dropdown-menu.show").waitFor({ state: "visible" });
     await page.waitForTimeout(200);
     await screenshotAllThemes(page, "main-menu-dropdown.png");
-  });
-
-  test("dates editor", async ({ page }) => {
-    await page.evaluate(() => openDatesEditor());
-    await page.waitForTimeout(300);
-    await screenshotAllThemes(page, "dates-editor.png");
-  });
-
-  test("settings", async ({ page }) => {
-    await page.evaluate(() => openSettings());
-    await page.waitForTimeout(300);
-    await screenshotAllThemes(page, "settings.png");
-  });
-
-  test("settings - g cal", async ({ page }) => {
-    await page.evaluate(() => openSettings());
-    await page.waitForTimeout(300);
-    await page.locator("#settingsPage").getByRole("button", { name: "G Cal" }).click();
-    await page.locator("#gcalEnabled").check();
-    await page.waitForTimeout(300);
-    await screenshotAllThemes(page, "settings-gcal.png");
-  });
-
-  test("settings - danger", async ({ page }) => {
-    await page.evaluate(() => openSettings());
-    await page.waitForTimeout(300);
-    await page.locator("#danger-tab").click();
-    await page.locator("#showDanger").check();
-    await page.waitForTimeout(300);
-    await screenshotAllThemes(page, "settings-danger.png");
-  });
-
-  test("image picker", async ({ page }) => {
-    await page.evaluate(() => {
-      window.__openImagePicker(function () {});
-    });
-    await page.waitForTimeout(500);
-    await screenshotAllThemes(page, "image-picker.png");
   });
 });

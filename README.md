@@ -101,6 +101,13 @@ CountMyDays screenshots live in their own `screenshots/cmd/` gallery:
 npx playwright test tests/cmd-screenshots.spec.js --workers 12
 ```
 
+QRLinks (`screenshots/qrlinks/`) and Launch (`screenshots/launch/`):
+
+```bash
+npx playwright test tests/qrlinks-screenshots.spec.js --workers 12
+npx playwright test tests/launch-screenshots.spec.js --workers 12
+```
+
 ### Screenshot viewer
 
 Browse all theme screenshots side by side in a browser:
