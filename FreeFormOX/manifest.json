@@ -1,0 +1,19 @@
+{
+  "name": "FreeFormOX",
+  "short_name": "FreeFormOX",
+  "description": "Free-Form Tic-Tac-Toe on a 5x5 grid",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "background_color": "#1a1a2e",
+  "theme_color": "#1a1a2e",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "img/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

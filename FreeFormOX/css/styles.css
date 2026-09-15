@@ -1,0 +1,126 @@
+#mainNav {
+  padding-top: env(safe-area-inset-top, 0);
+}
+.build-number {
+  opacity: 0.6;
+}
+#settingsPage {
+  padding-top: 20px;
+}
+.editor-btn {
+  min-width: 100px;
+  padding: 0.5rem 1rem;
+  touch-action: manipulation;
+}
+.btn-wide {
+  min-width: 220px;
+  touch-action: manipulation;
+}
+
+#mainContent {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  min-height: calc(100vh - 56px);
+  box-sizing: border-box;
+}
+#turnIndicator {
+  font-size: 1.8rem;
+  font-weight: 800;
+  margin-bottom: 0.5rem;
+  user-select: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+}
+.grid-container {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
+  padding: 6px;
+  width: min(calc(100vw - 3rem), calc(100dvh - 200px));
+  aspect-ratio: 1;
+  box-sizing: border-box;
+}
+.grid-container button {
+  aspect-ratio: 1;
+  border-radius: 8px;
+  touch-action: manipulation;
+  padding: 0;
+  border: 2px solid;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.cell-svg {
+  width: 60%;
+  height: 60%;
+  display: block;
+  pointer-events: none;
+}
+.cell-dino {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+  pointer-events: none;
+  box-sizing: border-box;
+  padding: 2px;
+}
+.cell-available {
+  background: var(--bs-body-bg);
+  border-color: var(--bs-primary);
+  color: var(--bs-primary);
+}
+.cell-available:active {
+  background: var(--bs-primary);
+  color: var(--bs-primary-text);
+}
+.cell-placed {
+  background: rgba(var(--bs-info-rgb), 0.25);
+  border-color: var(--bs-info);
+  color: var(--bs-info);
+}
+.cell-oob {
+  background: rgba(var(--bs-info-rgb), 0.25);
+  border-color: var(--bs-info);
+  color: var(--bs-info);
+  cursor: not-allowed;
+  font-size: 1.5rem;
+  font-weight: 800;
+}
+.cell-unavailable {
+  background: rgba(var(--bs-danger-rgb), 0.15);
+  border-color: var(--bs-danger);
+  color: var(--bs-danger);
+  cursor: not-allowed;
+}
+.cell-winner {
+  background: rgba(var(--bs-warning-rgb), 0.4) !important;
+  border-color: var(--bs-warning) !important;
+}
+
+#gameBtnContainer {
+  position: relative;
+  width: 100%;
+  height: 64px;
+}
+
+.btn-pair {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  gap: 12px;
+}
+
+.btn-pair button {
+  flex: 1;
+  font-size: 1.25rem;
+  padding: 0.75rem 0.5rem;
+  touch-action: manipulation;
+}

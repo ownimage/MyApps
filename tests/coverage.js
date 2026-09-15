@@ -33,6 +33,7 @@ async function stopCoverage(page) {
       return (url.pathname.startsWith("/PlanMyDay/js/") ||
         url.pathname.startsWith("/CountMyDays/js/") ||
         url.pathname.startsWith("/QRLinks/js/") ||
+        url.pathname.startsWith("/FreeFormOX/js/") ||
         url.pathname.startsWith("/Launch/js/") ||
         url.pathname.startsWith("/shared/js/")) && url.origin === "http://localhost:8080";
     } catch {

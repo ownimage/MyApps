@@ -24,12 +24,18 @@ var LAUNCH_APPS = [
     path: "CountMyDays/",
     icon: "CountMyDays/icon-192.png"
   },
-  {
-    name: "QR Links",
-    description: "Share links as QR codes",
-    path: "QRLinks/",
-    icon: "QRLinks/icon-192.png"
-  }
+   {
+     name: "QR Links",
+     description: "Share links as QR codes",
+     path: "QRLinks/",
+     icon: "QRLinks/icon-192.png"
+   },
+   {
+     name: "FreeFormOX",
+     description: "A tactical 5x5 Tic-Tac-Toe game",
+     path: "FreeFormOX/",
+     icon: "shared/sampleImages/Noughts_%26_Crosses.svg"
+   }
 ];
 
 function renderAppGrid() {
