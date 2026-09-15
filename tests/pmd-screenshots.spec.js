@@ -130,6 +130,7 @@ const SCREENSHOT_DIR = path.resolve(__dirname, "..", "screenshots", "pmd");
 
 const bw = "../shared/css/themes";
 const THEME_CONFIG = {
+  brite:     { css: `${bw}/brite/bootstrap.min.css`,      bsTheme: "light" },
   cerulean:  { css: `${bw}/cerulean/bootstrap.min.css`,   bsTheme: "light" },
   cosmo:     { css: `${bw}/cosmo/bootstrap.min.css`,      bsTheme: "light" },
   cyborg:    { css: `${bw}/cyborg/bootstrap.min.css`,     bsTheme: "dark" },
