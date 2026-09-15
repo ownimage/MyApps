@@ -206,6 +206,8 @@ const SHARED_ASSETS = [
   "shared/js/smd-minio.js",
   "shared/js/smd-settings.js",
   "shared/js/smd-images.js",
+  "shared/vendor/chart.umd.min.js",
+  "shared/vendor/chartjs-adapter-date-fns.bundle.min.js",
   "shared/sampleImages/Noughts_&_Crosses.svg"
 ];
 
@@ -280,9 +282,40 @@ const APPS = {
     "QRLinks/js/export.js",
     "QRLinks/js/components/qrlink-card.js"
   ],
+  "SolarControlar/": [
+    "SolarControlar/",
+    "SolarControlar/index.html",
+    "SolarControlar/manifest.json",
+    "SolarControlar/icon.svg",
+    "SolarControlar/icon-192.png",
+    "SolarControlar/icon-512.png",
+    "SolarControlar/css/styles.css",
+    "SolarControlar/js/app.js",
+    "SolarControlar/js/storage.js",
+    "SolarControlar/js/api.js",
+    "SolarControlar/js/editor-styles.js",
+    "SolarControlar/js/main-view.js",
+    "SolarControlar/js/power-tab.js",
+    "SolarControlar/js/settings-tab.js",
+    "SolarControlar/js/solar-settings-view.js",
+    "SolarControlar/js/files-tab.js",
+    "SolarControlar/js/config-tab.js",
+    "SolarControlar/js/forecast-tab.js",
+    "SolarControlar/js/graph-tab.js",
+    "SolarControlar/js/components/solar-top-tiles.js"
+  ],
   // The Launch app entry lives at the repo root (index.html); its other files
   // live in Launch/ (manifest, icons, css, js).
-   "FreeFormOX/": [
+  "Launch/": [
+    "index.html",
+    "Launch/manifest.json",
+    "Launch/icon.svg",
+    "Launch/icon-192.png",
+    "Launch/icon-512.png",
+    "Launch/css/styles.css",
+    "Launch/js/app.js"
+  ],
+  "FreeFormOX/": [
      "FreeFormOX/",
      "FreeFormOX/index.html",
      "FreeFormOX/manifest.json",

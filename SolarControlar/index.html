@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#f59e0b">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <title>Solar Controlar</title>
+
+  <link id="bootstrap-theme-css" href="../shared/css/themes/darkly/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="../shared/css/styles.css">
+  <link rel="stylesheet" href="css/styles.css">
+  <link rel="stylesheet" href="../shared/vendor/bootstrap-icons.css">
+  <link rel="stylesheet" href="../shared/vendor/fontawesome/css/fontawesome.min.css">
+  <link rel="stylesheet" href="../shared/vendor/fontawesome/css/solid.min.css">
+  <link rel="stylesheet" href="../shared/vendor/fontawesome/css/regular.min.css">
+  <link rel="stylesheet" href="../shared/vendor/fontawesome/css/brands.min.css">
+  <script src="../shared/js/build-number.js"></script>
+  <script>
+    (function () {
+      if (typeof BUILD_NUMBER === "undefined") return;
+      var stamp = function (u) { return u + (u.indexOf("?") >= 0 ? "&" : "?") + "v=" + BUILD_NUMBER; };
+      var isLocal = function (u) { return u && u.indexOf("://") === -1 && u.charAt(0) !== "//"; };
+      document.querySelectorAll("link[href]").forEach(function (l) {
+        var h = l.getAttribute("href") || "";
+        if (isLocal(h) && h.indexOf("v=") === -1) l.setAttribute("href", stamp(h));
+      });
+    })();
+  </script>
+</head>
+
+<body>
+
+  <!-- FIXED TOOLBAR -->
+  <nav id="mainNav" class="navbar navbar-expand px-3 py-2 gap-1 flex-wrap">
+
+    <div class="dropdown">
+      <button id="btnMainMenu" class="btn p-1" data-bs-toggle="dropdown" title="Menu" aria-label="Menu">
+        <i class="fa-solid fa-bars" aria-hidden="true" style="font-size:22px"></i>
+      </button>
+      <ul class="dropdown-menu">
+        <li><a class="dropdown-item" href="../">Launch</a></li>
+        <li><hr class="dropdown-divider"></li>
+        <li><a class="dropdown-item" onclick="openSettings()">Settings</a></li>
+        <li><hr class="dropdown-divider"></li>
+        <li><a class="dropdown-item" onclick="refreshData()">Refresh Data</a></li>
+      </ul>
+    </div>
+
+  </nav>
+
+  <!-- MAIN CONTENT -->
+  <div class="container-fluid px-3">
+
+    <!-- FLASH MESSAGES -->
+    <div id="flashContainer"></div>
+
+    <!-- TOP TILES (date, time, battery) -->
+    <solar-top-tiles id="topTiles"></solar-top-tiles>
+
+    <!-- MAIN TABS -->
+    <div class="main-tabs" id="mainTabs">
+      <button class="tab-btn active" data-tab="power" onclick="switchMainTab('power')">Power</button>
+      <button class="tab-btn" data-tab="settings" onclick="switchMainTab('settings')">Settings</button>
+      <button class="tab-btn" data-tab="files" onclick="switchMainTab('files')">Files</button>
+      <button class="tab-btn" data-tab="config" onclick="switchMainTab('config')">Config</button>
+      <button class="tab-btn" data-tab="forecast" onclick="switchMainTab('forecast')">Forecast</button>
+      <button class="tab-btn" data-tab="graph" onclick="switchMainTab('graph')">Graph</button>
+    </div>
+
+    <!-- POWER TAB -->
+    <div id="tab-power" class="tab-content active"></div>
+
+    <!-- SETTINGS TAB (rendered via smd-page) -->
+    <div id="tab-settings" class="tab-content"></div>
+
+    <!-- FILES TAB -->
+    <div id="tab-files" class="tab-content"></div>
+
+    <!-- CONFIG TAB -->
+    <div id="tab-config" class="tab-content"></div>
+
+    <!-- FORECAST TAB -->
+    <div id="tab-forecast" class="tab-content"></div>
+
+    <!-- GRAPH TAB -->
+    <div id="tab-graph" class="tab-content"></div>
+
+    <!-- SETTINGS PAGE (smd-page overlay for the full settings) -->
+    <smd-page id="settingsPage" class="d-none"></smd-page>
+
+    <template id="settingsTemplate">
+      <div class="smd-settings">
+
+        <!-- General -->
+        <section class="smd-settings-tab" data-tab="General" data-tab-id="general-tab">
+          <div class="row mb-4 align-items-center col-md-8 mt-3">
+            <div class="col-4 text-end"><label class="form-label mb-0">Theme</label></div>
+            <div class="col-8">
+              <smd-theme id="themeSelector"></smd-theme>
+            </div>
+          </div>
+
+          <div class="row mb-4 align-items-center col-md-8">
+            <div class="col-4 text-end"><label class="form-label mb-0">Font size</label></div>
+            <div class="col-8">
+              <select id="fontSizeSelector" class="form-select" onchange="changeFontSize(this.value)">
+                <option value="xsmall">Extra small</option>
+                <option value="small">Small</option>
+                <option value="normal">Normal</option>
+                <option value="large">Large</option>
+                <option value="xlarge">Extra large</option>
+                <option value="jumbo">Jumbo</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="row mb-4 align-items-center col-md-8">
+            <div class="col-4 text-end"><label class="form-label mb-0">Flask URL</label></div>
+            <div class="col-8">
+              <input type="text" id="flaskUrlInput" class="form-control" placeholder="/solar" oninput="updateFlaskUrl(this.value)">
+              <div class="form-text">Base URL of the Flask server (e.g. /solar or http://localhost:5000/solar)</div>
+            </div>
+          </div>
+
+          <div class="row mb-4 align-items-center col-md-8">
+            <div class="col-4 text-end"><label class="form-label mb-0">Auto-refresh</label></div>
+            <div class="col-8">
+              <smd-checkbox id="autoRefresh" switch onchange="changeAutoRefresh(this.checked)"></smd-checkbox>
+              <div class="form-text">Reload data every 60 seconds</div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Danger -->
+        <section class="smd-settings-tab" data-tab="Danger" data-tab-id="danger-tab">
+          <div class="row mb-3 align-items-center col-md-8 mt-3">
+            <div class="col-4 text-end"><label class="form-label mb-0">Show danger</label></div>
+            <div class="col-8">
+              <smd-checkbox id="showDanger" switch onchange="changeShowDanger(this.checked)"></smd-checkbox>
+            </div>
+          </div>
+
+          <div id="refreshAppRow" class="row mb-3 align-items-center col-md-8 d-none">
+            <div class="col-4 text-end"></div>
+            <div class="col-8">
+              <button id="btnRefreshApp" class="btn btn-warning editor-btn btn-wide w-100" onclick="location.reload()">Refresh App</button>
+            </div>
+          </div>
+        </section>
+
+        <div id="settingsFooter" class="mt-3">
+          <div class="row align-items-center col-md-8 mb-3">
+            <div class="col-4 text-end"></div>
+            <div class="col-8">
+              <a href="https://buymeacoffee.com/ownimage" target="_blank" rel="noopener">
+                <img src="../shared/vendor/bmc-default-yellow.png" alt="Buy Me A Coffee" style="height:50px">
+              </a>
+            </div>
+          </div>
+
+          <div class="row mb-4 align-items-center col-md-8">
+            <div class="col-4 text-end"><label class="form-label mb-0">Share app</label></div>
+            <div class="col-8">
+              <smd-qrcode id="shareQrCode" value="https://ownimage.github.io/SolarControlar" size="120"></smd-qrcode>
+            </div>
+          </div>
+
+          <div class="mt-5 small build-number">Build <span id="buildNumber"></span></div>
+
+          <smd-fontawesome-credit class="mt-2"></smd-fontawesome-credit>
+        </div>
+      </div>
+    </template>
+
+  </div>
+
+  <!-- BOOTSTRAP JS -->
+  <script>document.write('<script src="../shared/vendor/bootstrap.bundle.min.js?v=' + BUILD_NUMBER + '"><\/script>');</script>
+
+  <!-- CHART.JS (for the graph tab) -->
+  <script>document.write('<script src="../shared/vendor/chart.umd.min.js?v=' + BUILD_NUMBER + '"><\/script>');</script>
+  <script>document.write('<script src="../shared/vendor/chartjs-adapter-date-fns.bundle.min.js?v=' + BUILD_NUMBER + '"><\/script>');</script>
+
+  <script>
+  document.write('<script src="../shared/js/components/styles.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../shared/js/components/smd-button.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../shared/js/components/smd-image.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../shared/js/components/smd-modal.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../shared/js/components/smd-page.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../shared/js/components/smd-tabs.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../shared/js/components/smd-theme.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../shared/js/components/smd-checkbox.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../shared/js/components/smd-badge.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../shared/js/components/smd-qrcode.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../shared/js/components/smd-fontawesome-credit.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="js/components/solar-top-tiles.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../shared/js/smd-app.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../shared/js/smd-settings.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="js/storage.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="js/api.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="js/editor-styles.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="js/main-view.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="js/power-tab.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="js/settings-tab.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="js/solar-settings-view.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="js/files-tab.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="js/config-tab.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="js/forecast-tab.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="js/graph-tab.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="js/app.js?v=' + BUILD_NUMBER + '"><\/script>');
+  </script>
+
+<script>
+  if ("serviceWorker" in navigator) {
+    var __updatePrompted = false;
+    var __applyingUpdate = false;
+    function showUpdatePrompt(reg) {
+      if (__updatePrompted) return;
+      __updatePrompted = true;
+      if (typeof showSmdModal === "function") {
+        showSmdModal({
+          title: "Update available",
+          content: "A new version of Solar Controlar is ready. Update now to get the latest changes?",
+          buttons: [
+            { text: "Later", variant: "secondary", action: "later" },
+            { text: "Update now", variant: "primary", action: "update" }
+          ],
+          onAction: function(detail) {
+            if (detail.action === "update" && reg.waiting) {
+              __applyingUpdate = true;
+              reg.waiting.postMessage({ type: "SKIP_WAITING" });
+            }
+          }
+        });
+      }
+    }
+    window.__solarSwUpdater = { showUpdatePrompt: showUpdatePrompt };
+
+    navigator.serviceWorker.register("../sw.js?v=" + BUILD_NUMBER).then(function(reg) {
+      if (navigator.serviceWorker.controller) {
+        if (reg.waiting) showUpdatePrompt(reg);
+        reg.addEventListener("updatefound", function() {
+          var inst = reg.installing;
+          if (!inst) return;
+          inst.addEventListener("statechange", function() {
+            if (inst.state === "installed" && navigator.serviceWorker.controller) showUpdatePrompt(reg);
+          });
+        });
+      }
+      window.addEventListener("focus", function() { if (reg.update) reg.update(); });
+    });
+
+    navigator.serviceWorker.addEventListener("controllerchange", function() {
+      if (!__applyingUpdate) return;
+      window.location.reload();
+    });
+  }
+</script>
+
+</body>
+</html>

@@ -250,6 +250,48 @@ Techniques / gotchas:
 
 ## Session log
 
+### 2026-09-15
+- Built the **SolarControlar** app: a PWA front-end for the Flask solar control
+  server at `P:\git\solarcontrolar\src\flask_app.py`. Nothing in that repo was
+  touched. New files: `SolarControlar/` with `index.html`, `manifest.json`,
+  `icon.svg` (solar sun + battery), `css/styles.css`, and 13 JS files following
+  the QRLinks pattern (global top-level functions, no ES modules): `app.js`
+  (entry, `SmdConfig.storagePrefix = "solarcontrolar_"`, `smdImagePrefix =
+  "shared-"`), `storage.js`, `api.js` (`solarApi` object — all Flask endpoints),
+  `editor-styles.js` (`POWER_STYLES` + `SOLAR_SETTINGS_STYLES`), `main-view.js`
+  (renderMain, switchMainTab, refreshData), `power-tab.js`, `settings-tab.js`
+  (the app Settings PAGE: theme, flask URL, auto-refresh, BuyMeACoffee, QR,
+  FA credit), `solar-settings-view.js` (the main Settings TAB: parses the
+  Flask-rendered index HTML to get the settings table + csrf_token, renders
+  editable controls and POSTs back), `files-tab.js`, `config-tab.js` (parses
+  charge_to_percentage from the server index HTML — no GET /api/config exists),
+  `forecast-tab.js`, `graph-tab.js` (Chart.js), and
+  `components/solar-top-tiles.js` (`<solar-top-tiles>`).
+- Vendored Chart.js: copied `vendor/chart.umd.min.js` +
+  `vendor/chartjs-adapter-date-fns.bundle.min.js` into `shared/vendor/`;
+  `graph-tab.js` builds cache-busted URLs from `BUILD_NUMBER`.
+- Updated repo plumbing: `sw.js` gained `SolarControlar/` APPS entry + both
+  chart vendor assets in `SHARED_ASSETS`; `Launch/js/app.js` gained a 4th tile
+  (4 tiles total: PlanMyDay/CountMyDays/QRLinks/SolarControlar);
+  `tests/coverage.js` filters `/SolarControlar/js/`;
+  `README.md` has the SolarControlar line; `sw.js` APPS list includes all 13 JS
+  files + `solar-settings-view.js`.
+- Known limitation: the Flask app has no GET /api/config, so the Config tab
+  reads charge_to_percentage by parsing the server-rendered index HTML alongside
+  the Settings tab. The Flask CSRF token is extracted from the same page for
+  settings POST.
+- Tests: new `tests/solarcontrolar-regression.spec.js` (9 tests, all passing):
+  boot/namespace, main tabs switch, main settings tab (fetches + parses the
+  server index, slider interaction), files tab fetch log, config slider shows
+  server value, forecast run, graph loads dates + renders chart, settings page
+  (theme/flaskUrl/BMC/QR/FA), settings Done. `mockFlaskApi` mocks the full
+  Flask surface: `**/solar/api/power_data*`, `**/solar/api/files*`,
+  `**/solar/api/run_forecast`, `**/solar/` (GET=settings+CSRF, POST=save).
+  `tests/launch-regression.spec.js` updated for 4 tiles (6 passed).
+- Regenerated PWA icons (`node regen_pwa_icons.js`).
+- `BUILD_NUMBER` → `202609151331`.
+- Tests: 15 passed (9 solar + 6 launch); all JS syntax-check clean.
+
 ### 2026-09-14
 - Migrated the old standalone **QRLinks** app into the shared pattern (third
   app). New files: `QRLinks/js/{app,storage,editor-styles,main-view,links-editor,app-settings,export}.js`
