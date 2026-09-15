@@ -195,6 +195,7 @@ const SHARED_ASSETS = [
     "shared/js/components/smd-checkbox.js",
   "shared/js/components/smd-draghandle.js",
   "shared/js/components/smd-badge.js",
+  "shared/js/components/smd-buymeacoffee.js",
   "shared/js/components/smd-fontawesome-credit.js",
   "shared/js/components/smd-page.js",
   "shared/js/components/smd-tabs.js",
@@ -204,7 +205,8 @@ const SHARED_ASSETS = [
   "shared/js/smd-app.js",
   "shared/js/smd-minio.js",
   "shared/js/smd-settings.js",
-  "shared/js/smd-images.js"
+  "shared/js/smd-images.js",
+  "shared/sampleImages/Noughts_&_Crosses.svg"
 ];
 
 // ---- Per-app shells ----
@@ -280,15 +282,15 @@ const APPS = {
   ],
   // The Launch app entry lives at the repo root (index.html); its other files
   // live in Launch/ (manifest, icons, css, js).
-  "Launch/": [
-    "index.html",
-    "Launch/manifest.json",
-    "Launch/icon.svg",
-    "Launch/icon-192.png",
-    "Launch/icon-512.png",
-    "Launch/css/styles.css",
-    "Launch/js/app.js"
-  ]
+   "FreeFormOX/": [
+     "FreeFormOX/",
+     "FreeFormOX/index.html",
+     "FreeFormOX/manifest.json",
+     "FreeFormOX/img/icon.svg",
+     "FreeFormOX/css/styles.css",
+     "FreeFormOX/js/app.js",
+     "FreeFormOX/js/settings.js"
+   ],
 };
 
 const APP_ROOTS = Object.keys(APPS);
