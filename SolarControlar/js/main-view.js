@@ -3,6 +3,7 @@
 
 var _solarMainData = null;
 var _autoRefreshTimer = null;
+var _lastRefreshErrorShown = "";
 
 function renderMain() {
   loadPowerDataForTiles();
@@ -11,6 +12,22 @@ function renderMain() {
   renderFilesTab();
   renderConfigTab();
   renderForecastTab();
+}
+
+function showRefreshErrorModal(err) {
+  var detail = (err && err.serverMessage) ? err.serverMessage : (err && err.message ? err.message : String(err));
+  // Don't re-pop the same error modal on every auto-refresh tick.
+  if (detail === _lastRefreshErrorShown) return;
+  _lastRefreshErrorShown = detail;
+
+  showSmdModal({
+    title: "Failed to refresh data",
+    content: '<div class="flash flash-error" style="white-space:pre-wrap;margin-bottom:0;">' +
+              escapeHtml(detail) + '</div>',
+    buttons: [
+      { text: "OK", variant: "primary", action: "ok" }
+    ]
+  });
 }
 
 function loadPowerDataForTiles() {
@@ -52,6 +69,7 @@ function loadPowerDataForTiles() {
     .catch(function (err) {
       console.warn("Failed to load power data:", err);
       document.getElementById("topTiles").setAttribute("no-data", "");
+      showRefreshErrorModal(err);
     });
 }
 

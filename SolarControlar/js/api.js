@@ -1,6 +1,26 @@
 // SolarControlar — Flask API communication layer. All API calls go through
 // the configurable Flask URL stored in localStorage.
 
+// Build an Error that carries the server's actual message (JSON "error" field
+// or raw body) so callers can show the full details to the user.
+function serverError(status, body) {
+  var message = "HTTP " + status;
+  var detail = body ? String(body) : "";
+  if (detail) {
+    try {
+      var parsed = JSON.parse(detail);
+      if (parsed && typeof parsed.error === "string") detail = parsed.error;
+    } catch (e) {
+      // not JSON; keep the raw body
+    }
+    message = message + ": " + detail;
+  }
+  var err = new Error(message);
+  err.status = status;
+  err.serverMessage = detail || message;
+  return err;
+}
+
 var solarApi = {
   _baseUrl: function () {
     var url = getFlaskUrl();
@@ -10,7 +30,25 @@ var solarApi = {
   _fetch: function (path, options) {
     var base = this._baseUrl();
     return fetch(base + path, options || {}).then(function (resp) {
-      if (!resp.ok) throw new Error("HTTP " + resp.status);
+      if (!resp.ok) {
+        return resp.text().then(function (body) {
+          throw serverError(resp.status, body);
+        });
+      }
+      return resp;
+    });
+  },
+
+  _post: function (path, formData) {
+    var base = this._baseUrl();
+    var options = { method: "POST" };
+    if (formData) options.body = formData;
+    return fetch(base + path, options).then(function (resp) {
+      if (!resp.ok) {
+        return resp.text().then(function (body) {
+          throw serverError(resp.status, body);
+        });
+      }
       return resp;
     });
   },
@@ -31,34 +69,14 @@ var solarApi = {
   },
 
   saveSettings: function (formData) {
-    var base = this._baseUrl();
-    return fetch(base + "/", {
-      method: "POST",
-      body: formData
-    }).then(function (r) {
-      if (!r.ok) throw new Error("HTTP " + r.status);
-      return r.text();
-    });
+    return this._post("/", formData).then(function (r) { return r.text(); });
   },
 
   saveConfig: function (formData) {
-    var base = this._baseUrl();
-    return fetch(base + "/api/config", {
-      method: "POST",
-      body: formData
-    }).then(function (r) {
-      if (!r.ok) throw new Error("HTTP " + r.status);
-      return r.text();
-    });
+    return this._post("/api/config", formData).then(function (r) { return r.text(); });
   },
 
   runForecast: function () {
-    var base = this._baseUrl();
-    return fetch(base + "/api/run_forecast", {
-      method: "POST"
-    }).then(function (r) {
-      if (!r.ok) throw new Error("HTTP " + r.status);
-      return r.text();
-    });
+    return this._post("/api/run_forecast").then(function (r) { return r.text(); });
   }
 };
