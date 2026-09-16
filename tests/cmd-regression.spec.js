@@ -187,10 +187,21 @@ test.describe("CountMyDays - Regression", () => {
     });
 
     test("weeks and days format is honoured", async ({ page }) => {
-      await seed(page, { settings: { countdownFormat: "weeksAndDays" } });
+      // Use a "once" date exactly 10 days out (1 week + 3 days) so the days
+      // line can never be blank: an annual date can fall on an exact whole-week
+      // boundary (e.g. 2026-09-16 -> 14 Jul 2027 = 43 weeks + 0 days), which
+      // legitimately renders no count2 line.
+      const anni = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 10);
+      await seed(page, {
+        dates: [{
+          name: "Anniversary", category: "Birthday", image: "imgB",
+          type: "once", month: anni.getMonth() + 1, day: anni.getDate(), year: anni.getFullYear()
+        }],
+        settings: { countdownFormat: "weeksAndDays" }
+      });
       const card = page.locator("cmd-countdown-card").filter({ hasText: "Anniversary" });
-      await expect(card).toHaveAttribute("count1", /week/);
-      await expect(card).toHaveAttribute("count2", /day/);
+      await expect(card).toHaveAttribute("count1", "1 week");
+      await expect(card).toHaveAttribute("count2", "3 days");
     });
 
     test("max countdowns limits the list and + N more expands it", async ({ page }) => {

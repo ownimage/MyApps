@@ -460,6 +460,7 @@ var _minioImportCloseTimer = null;
 function openMinioImportPage() {
   var page = document.getElementById("minioImportPage");
   if (!page) return;
+  clearTimeout(_minioImportCloseTimer);
   if (!page.__minioImportBound) {
     page.__minioImportBound = true;
     page.addEventListener("smd-page-action", function() { closeMinioImport(); });
