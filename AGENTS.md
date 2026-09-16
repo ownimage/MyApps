@@ -250,6 +250,29 @@ Techniques / gotchas:
 
 ## Session log
 
+### 2026-09-16
+- Completed the SolarControlar **Flask basic-auth** feature (carried over as
+  uncommitted WIP): `storage.js` gained `get/setFlaskUser` + `get/setFlaskPass`
+  (`solarcontrolar_flaskUser`/`flaskPass`) and `getFlaskAuthHeader()` (returns
+  `Basic <base64>` — UTF-8-safe via `btoa(unescape(encodeURIComponent(cred)))` —
+  or `null` when no username is set). `api.js` gained `solarApi._withAuth(opts)`
+  which injects the header, used by `_fetch`/`_post`, plus `networkDiagnostics(url)`
+  appended to status-0 `serverError` messages for the common causes (HTTPS page →
+  HTTP Flask target = mixed content; `localhost` on a phone won't reach the PC).
+  The Settings** template gained Flask username/password inputs
+  (`#flaskUserInput`, `#flaskPassInput`, `autocomplete="username|current-password"`).
+- Wired auth into the 3 direct `fetch()` call-sites that bypassed `solarApi`:
+  `solar-settings-view.js` `loadSolarSettings` (GET) + `saveSolarSettings` (POST)
+  and `config-tab.js` `loadConfigData` (GET) — all now use
+  `solarApi._withAuth({...})`. Rule for this app: ANY Flask request must go
+  through `solarApi` or `solarApi._withAuth`, or it silently bypasses auth.
+- Tests (+3, 12 passed): auth header absent on boot requests / present after
+  setting credentials + re-refresh; settings+config tab fetches carry the header
+  (creds seeded via `addInitScript` before app boot); `networkDiagnostics`/
+  `serverError`(0) message includes the localhost tip. Extended the settings-page
+  test (fields visible, empty by default, persist, `getFlaskAuthHeader()` value).
+  `BUILD_NUMBER` -> `202609160654`.
+
 ### 2026-09-15
 - Built the **SolarControlar** app: a PWA front-end for the Flask solar control
   server at `P:\git\solarcontrolar\src\flask_app.py`. Nothing in that repo was

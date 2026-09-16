@@ -176,6 +176,10 @@ test.describe("SolarControlar - Regression", () => {
     await expect(page.locator("#themeSelector select")).toBeVisible();
     await expect(page.locator("#flaskUrlInput")).toBeVisible();
     await expect(page.locator("#flaskUrlInput")).toHaveValue("/solar");
+    await expect(page.locator("#flaskUserInput")).toBeVisible();
+    await expect(page.locator("#flaskPassInput")).toBeVisible();
+    await expect(page.locator("#flaskUserInput")).toHaveValue("");
+    await expect(page.locator("#flaskPassInput")).toHaveValue("");
     await expect(page.locator("#autoRefresh")).toBeVisible();
     await expect(page.locator("#shareQrCode img").first()).toBeVisible({ timeout: 30000 });
     await expect(page.locator("#settingsPage smd-fontawesome-credit")).toBeVisible();
@@ -187,6 +191,15 @@ test.describe("SolarControlar - Regression", () => {
     // Flask URL persists.
     await page.locator("#flaskUrlInput").fill("http://localhost:5000/solar");
     await expect.poll(async () => page.evaluate(() => localStorage.getItem("solarcontrolar_flaskUrl"))).toBe("http://localhost:5000/solar");
+
+    // Flask basic-auth credentials persist + build the header.
+    await page.locator("#flaskUserInput").fill("solar");
+    await page.locator("#flaskPassInput").fill("sekrit");
+    await expect.poll(async () => page.evaluate(() => localStorage.getItem("solarcontrolar_flaskUser"))).toBe("solar");
+    await expect.poll(async () => page.evaluate(() => localStorage.getItem("solarcontrolar_flaskPass"))).toBe("sekrit");
+    await expect.poll(async () => page.evaluate(() => getFlaskAuthHeader())).toBe(
+      "Basic " + Buffer.from("solar:sekrit").toString("base64")
+    );
 
     // Auto-refresh persists + starts.
     await page.locator("#autoRefresh").click();
@@ -200,5 +213,92 @@ test.describe("SolarControlar - Regression", () => {
     await expect(page.locator("#settingsPage")).toHaveAttribute("open", "");
     await page.locator("#settingsPage").getByRole("button", { name: "Done" }).click();
     await expect(page.locator("#settingsPage")).not.toHaveAttribute("open", "");
+  });
+
+  test("basic-auth: no Authorization header without credentials, sent after setting them", async ({ page }) => {
+    const seen = [];
+    await page.route("**/solar/api/power_data*", (route) => {
+      seen.push(route.request().headers()["authorization"] || null);
+      const url = new URL(route.request().url());
+      const date = url.searchParams.get("date");
+      if (!date) {
+        return route.fulfill({ contentType: "application/json", body: JSON.stringify({ dates: ["2026-09-15"] }) });
+      }
+      return route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({ date, times: ["06:00:00"], solar: [0], grid: [0], home: [0], battery: [0], battery_level: [0] })
+      });
+    });
+
+    await page.goto("/SolarControlar/");
+    await expect(page.locator("#topTiles")).not.toHaveAttribute("no-data", "");
+    // Boot = getPowerDates + getPowerData, both without credentials.
+    const bootHeaders = seen.slice();
+
+    await page.evaluate(() => { setFlaskUser("solar"); setFlaskPass("sekrit"); });
+    await page.evaluate(() => refreshData());
+    await expect.poll(() => seen.length).toBeGreaterThan(bootHeaders.length);
+
+    expect(bootHeaders).toEqual([null, null]);
+    const expected = "Basic " + Buffer.from("solar:sekrit").toString("base64");
+    for (const h of seen.slice(bootHeaders.length)) expect(h).toBe(expected);
+  });
+
+  test("basic-auth: settings and config tab fetches carry the Authorization header", async ({ page }) => {
+    await page.addInitScript(() => {
+      window.localStorage.setItem("solarcontrolar_flaskUser", "solar");
+      window.localStorage.setItem("solarcontrolar_flaskPass", "sekrit");
+    });
+    const headers = [];
+    await page.route("**/solar/", (route) => {
+      headers.push(route.request().headers()["authorization"] || null);
+      if (route.request().method() === "POST") {
+        return route.fulfill({ contentType: "text/html", body: "<html>saved</html>" });
+      }
+      return route.fulfill({
+        contentType: "text/html",
+        body: '<html><body><form id="settingsForm" method="POST" action="/solar/">' +
+          '<input type="hidden" name="csrf_token" value="TESTCSRF">' +
+          '<table><tbody>' +
+            '<tr data-key="timezone" data-original="Europe/London"><td>Timezone</td>' +
+              '<td><input type="text" name="timezone" value="Europe/London" readonly></td>' +
+              '<td><span class="access-badge badge-ro">Read Only</span></td><td>tz desc</td></tr>' +
+          '</tbody></table></form></body></html>'
+      });
+    });
+    await page.route("**/solar/api/power_data*", (route) => {
+      const url = new URL(route.request().url());
+      const date = url.searchParams.get("date");
+      if (!date) {
+        return route.fulfill({ contentType: "application/json", body: JSON.stringify({ dates: ["2026-09-15"] }) });
+      }
+      return route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({ date, times: ["06:00:00"], solar: [0], grid: [0], home: [0], battery: [0], battery_level: [0] })
+      });
+    });
+
+    await page.goto("/SolarControlar/");
+    await page.locator(".main-tabs .tab-btn[data-tab='settings']").click();
+    await expect(page.locator("#tab-settings .settings-table")).toBeVisible({ timeout: 10000 });
+    await page.locator(".main-tabs .tab-btn[data-tab='config']").click();
+    await expect(page.locator("#configSlider")).toBeVisible({ timeout: 5000 });
+
+    const expected = "Basic " + Buffer.from("solar:sekrit").toString("base64");
+    await expect.poll(() => headers.length).toBeGreaterThanOrEqual(2);
+    for (const h of headers) expect(h).toBe(expected);
+  });
+
+  test("network diagnostics explain common failure causes", async ({ page }) => {
+    await page.addInitScript(() => { window.localStorage.setItem("solarcontrolar_flaskUrl", "http://localhost:5000/solar"); });
+    await page.goto("/SolarControlar/");
+    const diag = await page.evaluate(() => ({
+      localhost: networkDiagnostics("http://localhost:5000/solar"),
+      clean: networkDiagnostics("https://solar.example.com/solar"),
+      err: serverError(0, "Network error", "http://localhost:5000/solar").message
+    }));
+    expect(diag.localhost).toContain("localhost");
+    expect(diag.clean).toBe("");
+    expect(diag.err).toContain("Likely cause(s):");
   });
 });

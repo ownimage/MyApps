@@ -49,7 +49,7 @@ function renderConfigTab() {
 function loadConfigData() {
   if (_configData) return renderConfigTab();
   var base = getFlaskUrl().replace(/\/+$/, "");
-  fetch(base + "/", { credentials: "same-origin" })
+  fetch(base + "/", solarApi._withAuth({ credentials: "same-origin" }))
     .then(function (resp) {
       if (!resp.ok) throw new Error("HTTP " + resp.status);
       return resp.text();
