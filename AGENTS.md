@@ -250,6 +250,51 @@ Techniques / gotchas:
 
 ## Session log
 
+### 2026-09-16
+- Completed the SolarControlar **Flask basic-auth** feature (carried over as
+  uncommitted WIP): `storage.js` gained `get/setFlaskUser` + `get/setFlaskPass`
+  (`solarcontrolar_flaskUser`/`flaskPass`) and `getFlaskAuthHeader()` (returns
+  `Basic <base64>` — UTF-8-safe via `btoa(unescape(encodeURIComponent(cred)))` —
+  or `null` when no username is set). `api.js` gained `solarApi._withAuth(opts)`
+  which injects the header, used by `_fetch`/`_post`, plus `networkDiagnostics(url)`
+  appended to status-0 `serverError` messages for the common causes (HTTPS page →
+  HTTP Flask target = mixed content; `localhost` on a phone won't reach the PC).
+  The Settings** template gained Flask username/password inputs
+  (`#flaskUserInput`, `#flaskPassInput`, `autocomplete="username|current-password"`).
+- Wired auth into the 3 direct `fetch()` call-sites that bypassed `solarApi`:
+  `solar-settings-view.js` `loadSolarSettings` (GET) + `saveSolarSettings` (POST)
+  and `config-tab.js` `loadConfigData` (GET) — all now use
+  `solarApi._withAuth({...})`. Rule for this app: ANY Flask request must go
+  through `solarApi` or `solarApi._withAuth`, or it silently bypasses auth.
+- Tests (+3, 12 passed): auth header absent on boot requests / present after
+  setting credentials + re-refresh; settings+config tab fetches carry the header
+  (creds seeded via `addInitScript` before app boot); `networkDiagnostics`/
+  `serverError`(0) message includes the localhost tip. Extended the settings-page
+  test (fields visible, empty by default, persist, `getFlaskAuthHeader()` value).
+  `BUILD_NUMBER` -> `202609160654`.
+- Fixed 2 of 3 regression failures after the FreeFormOX merge (commit `d36ff0e`
+  "Added FFOX") and the `=`/`<=` date-boundary change in `entry1.filter`.
+  (1) `cmd-regression.spec.js` "weeks and days format is honoured" was
+  date-dependent: with today on a 301-day (exactly 43 weeks) anniversary, `line2`
+  is intentionally blank, so `count2` is never set. Rewrote the test to seed a
+  `once` event at today+10 days (1 week + 3 days) and assert exact `count1=`
+  "1 week" / `count2=` "3 days" — deterministic on any date. (2)
+  `launch-regression.spec.js` "root shows the grid of available apps": the FFOX
+  assertions were pinned to `nth(3)` (Solar Controlar's index); LAUNCH_APPS order
+  is PlanMyDay(0), CountMyDays(1), QRLinks(2), SolarControlar(3), FreeFormOX(4).
+  Moved them to `nth(4)`. Both pass.
+- Applied the app robustness fix for the minio import page (independent of the
+  test): `openMinioImportPage()` in `shared/js/smd-minio.js` now calls
+  `clearTimeout(_minioImportCloseTimer)` (same fix pattern as `linkEditPage` /
+  `_settingsCloseTimer`) so a fast close→open cycle can't be re-hidden by the
+  pending `d-none` timer. The 5s-behind `pmd-regression.spec.js:6093` test still
+  fails in this environment through no app bug: its minio `server` is
+  `http://localhost:9000` (the dev static server), which answers instantly and
+  non-Minio → the fetch errors fast → `closeMinioImport()` legitimately hides
+  the page before the 150ms `toBeVisible()` assertion. Test premise (slow or
+  hanging minio endpoint holding "Loading buckets") doesn't hold here; left
+  test untouched per scope.
+
 ### 2026-09-15
 - Built the **SolarControlar** app: a PWA front-end for the Flask solar control
   server at `P:\git\solarcontrolar\src\flask_app.py`. Nothing in that repo was

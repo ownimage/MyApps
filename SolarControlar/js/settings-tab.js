@@ -21,6 +21,14 @@ function updateFlaskUrl(value) {
   setFlaskUrl(value);
 }
 
+function updateFlaskUser(value) {
+  setFlaskUser(value);
+}
+
+function updateFlaskPass(value) {
+  setFlaskPass(value);
+}
+
 function changeAutoRefresh(enabled) {
   setAutoRefresh(enabled);
   if (enabled) startAutoRefresh();
@@ -104,6 +112,12 @@ function openSettings() {
   // Flask URL
   var flaskUrlInput = $id("flaskUrlInput");
   if (flaskUrlInput) flaskUrlInput.value = getFlaskUrl();
+
+  // Flask basic-auth credentials
+  var flaskUserInput = $id("flaskUserInput");
+  if (flaskUserInput) flaskUserInput.value = getFlaskUser();
+  var flaskPassInput = $id("flaskPassInput");
+  if (flaskPassInput) flaskPassInput.value = getFlaskPass();
 
   // Auto refresh
   var autoRefreshCb = $id("autoRefresh");

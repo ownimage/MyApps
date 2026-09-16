@@ -24,20 +24,20 @@ test.describe("Launch - Regression", () => {
     await expect(tiles.nth(1)).toContainText("Count My Days");
     await expect(tiles.nth(2)).toContainText("QR Links");
     await expect(tiles.nth(3)).toContainText("Solar Controlar");
-    await expect(tiles.nth(3)).toContainText("FreeFormOX");
+    await expect(tiles.nth(4)).toContainText("FreeFormOX");
     await expect(tiles.nth(0)).toHaveAttribute("href", "PlanMyDay/");
     await expect(tiles.nth(1)).toHaveAttribute("href", "CountMyDays/");
     await expect(tiles.nth(2)).toHaveAttribute("href", "QRLinks/");
     await expect(tiles.nth(3)).toHaveAttribute("href", "SolarControlar/");
-    await expect(tiles.nth(3)).toHaveAttribute("href", "FreeFormOX/");
+    await expect(tiles.nth(4)).toHaveAttribute("href", "FreeFormOX/");
 
     // App icons actually load. FreeFormOX uses the shared Noughts & Crosses image.
     await expect(tiles.nth(0).locator("img")).toHaveJSProperty("naturalWidth", 192);
     await expect(tiles.nth(1).locator("img")).toHaveJSProperty("naturalWidth", 192);
     await expect(tiles.nth(2).locator("img")).toHaveJSProperty("naturalWidth", 192);
     await expect(tiles.nth(3).locator("img")).toHaveJSProperty("naturalWidth", 192);
-    await expect(tiles.nth(3).locator("img")).toHaveAttribute("src", "shared/sampleImages/Noughts_%26_Crosses.svg");
-    await expect.poll(async () => tiles.nth(3).locator("img").evaluate(img => img.naturalWidth)).toBeGreaterThan(0);
+    await expect(tiles.nth(4).locator("img")).toHaveAttribute("src", "shared/sampleImages/Noughts_%26_Crosses.svg");
+    await expect.poll(async () => tiles.nth(4).locator("img").evaluate(img => img.naturalWidth)).toBeGreaterThan(0);
 
     expect(errors).toEqual([]);
   });

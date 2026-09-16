@@ -123,7 +123,21 @@
             <div class="col-4 text-end"><label class="form-label mb-0">Flask URL</label></div>
             <div class="col-8">
               <input type="text" id="flaskUrlInput" class="form-control" placeholder="/solar" oninput="updateFlaskUrl(this.value)">
-              <div class="form-text">Base URL of the Flask server (e.g. /solar or http://localhost:5000/solar)</div>
+              <div class="form-text">Base URL of the Flask server (e.g. /solar, http://localhost:5000/solar or your https endpoint)</div>
+            </div>
+          </div>
+
+          <div class="row mb-4 align-items-center col-md-8">
+            <div class="col-4 text-end"><label class="form-label mb-0">Flask username</label></div>
+            <div class="col-8">
+              <input type="text" id="flaskUserInput" class="form-control" autocomplete="username" placeholder="Optional basic-auth user" oninput="updateFlaskUser(this.value)">
+            </div>
+          </div>
+
+          <div class="row mb-4 align-items-center col-md-8">
+            <div class="col-4 text-end"><label class="form-label mb-0">Flask password</label></div>
+            <div class="col-8">
+              <input type="password" id="flaskPassInput" class="form-control" autocomplete="current-password" placeholder="Optional basic-auth password" oninput="updateFlaskPass(this.value)">
             </div>
           </div>
 

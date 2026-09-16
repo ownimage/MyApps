@@ -32,7 +32,7 @@ function loadSolarSettings() {
   if (container) container.innerHTML = '<p class="text-secondary loading">Loading settings...</p>';
 
   var base = getFlaskUrl().replace(/\/+$/, "");
-  fetch(base + "/", { credentials: "same-origin" })
+  fetch(base + "/", solarApi._withAuth({ credentials: "same-origin" }))
     .then(function (resp) {
       if (!resp.ok) throw new Error("HTTP " + resp.status);
       return resp.text();
@@ -201,11 +201,11 @@ function saveSolarSettings(e) {
   if (_solarCsrfToken) formData.append("csrf_token", _solarCsrfToken);
 
   var base = getFlaskUrl().replace(/\/+$/, "");
-  fetch(base + "/", {
+  fetch(base + "/", solarApi._withAuth({
     method: "POST",
     credentials: "same-origin",
     body: formData
-  })
+  }))
     .then(function (resp) {
       if (!resp.ok) throw new Error("HTTP " + resp.status);
       return resp.text();
