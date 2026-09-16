@@ -2,10 +2,11 @@
 // the configurable Flask URL stored in localStorage.
 
 // Build an Error that carries the server's actual message (JSON "error" field
-// or raw body) so callers can show the full details to the user.
-function serverError(status, body) {
-  var message = "HTTP " + status;
-  var detail = body ? String(body) : "";
+// or raw body) plus the URL it was requested from, so callers can show the
+// full details to the user. status === 0 means a network-level failure (no
+// response reached the app, e.g. CORS blocked or server unreachable).
+function serverError(status, message, url, body) {
+  var detail = body ? String(body).trim() : "";
   if (detail) {
     try {
       var parsed = JSON.parse(detail);
@@ -13,11 +14,18 @@ function serverError(status, body) {
     } catch (e) {
       // not JSON; keep the raw body
     }
-    message = message + ": " + detail;
+    message = message + (detail ? ": " + detail : "");
+  }
+  message = message + " — " + url;
+  if (status === 0) {
+    message = message +
+      " (The Flask server may be down or unreachable, CORS may be blocking the request," +
+      " or the Flask URL in app Settings may be wrong.)";
   }
   var err = new Error(message);
   err.status = status;
-  err.serverMessage = detail || message;
+  err.serverMessage = message;
+  err.isApiError = true;
   return err;
 }
 
@@ -28,28 +36,34 @@ var solarApi = {
   },
 
   _fetch: function (path, options) {
-    var base = this._baseUrl();
-    return fetch(base + path, options || {}).then(function (resp) {
+    var url = this._baseUrl() + path;
+    return fetch(url, options || {}).then(function (resp) {
       if (!resp.ok) {
         return resp.text().then(function (body) {
-          throw serverError(resp.status, body);
+          throw serverError(resp.status, "HTTP " + resp.status, url, body);
         });
       }
       return resp;
+    }).catch(function (err) {
+      if (err && err.isApiError) throw err;
+      throw serverError(0, (err && err.message) ? err.message : "Network error", url);
     });
   },
 
   _post: function (path, formData) {
-    var base = this._baseUrl();
+    var url = this._baseUrl() + path;
     var options = { method: "POST" };
     if (formData) options.body = formData;
-    return fetch(base + path, options).then(function (resp) {
+    return fetch(url, options).then(function (resp) {
       if (!resp.ok) {
         return resp.text().then(function (body) {
-          throw serverError(resp.status, body);
+          throw serverError(resp.status, "HTTP " + resp.status, url, body);
         });
       }
       return resp;
+    }).catch(function (err) {
+      if (err && err.isApiError) throw err;
+      throw serverError(0, (err && err.message) ? err.message : "Network error", url);
     });
   },
 
