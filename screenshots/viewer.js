@@ -177,6 +177,7 @@ body {
 .scroll-container::-webkit-scrollbar-thumb { background: #3a3a5c; border-radius: 4px; }
 .content { min-width: max-content; padding: 8px 20px 20px 20px; }
 .theme-section { margin-bottom: 4px; }
+.theme-section.theme-mode-hidden { display: none; }
 .theme-section.drag-over { outline: 2px dashed #4a9eff; outline-offset: -2px; border-radius: 8px; }
 .theme-header {
   display: flex;
@@ -255,6 +256,13 @@ body {
   <label class="gallery-picker">Folder
     <select id="gallerySelect" onchange="changeGallery()"></select>
   </label>
+  <label class="gallery-picker">Theme
+    <select id="themeModeSelect" onchange="changeThemeMode()">
+      <option value="both" selected>Both</option>
+      <option value="light">Light</option>
+      <option value="dark">Dark</option>
+    </select>
+  </label>
   <div class="filter-toggle">
     <button onclick="toggleFilterPanel()">Filter &#9662;</button>
     <div id="filterPanel">
@@ -280,6 +288,22 @@ const HTML_FOOT = `
   var container = document.getElementById('container');
   var dragEl = null;
   var currentGallery = localStorage.getItem('screenshotViewerGallery');
+  // Bootswatch light/dark (mirrors shared/js/smd-settings.js themeConfig.bsTheme).
+  var DARK_THEMES = { cyborg: 1, darkly: 1, slate: 1, solar: 1, superhero: 1, vapor: 1 };
+
+  function themeMode(themeName) {
+    return DARK_THEMES[themeName.toLowerCase()] ? 'dark' : 'light';
+  }
+
+  window.changeThemeMode = function() {
+    var mode = document.getElementById('themeModeSelect').value;
+    var sections = container.querySelectorAll('.theme-section');
+    for (var i = 0; i < sections.length; i++) {
+      var name = sections[i].querySelector('.theme-name');
+      var show = mode === 'both' || themeMode(name ? name.textContent : '') === mode;
+      sections[i].classList.toggle('theme-mode-hidden', !show);
+    }
+  };
 
   function indexOf(el) {
     var children = container.children;
@@ -545,6 +569,7 @@ const HTML_FOOT = `
       }
 
       window.filterImagesByCheckbox();
+      if (typeof window.changeThemeMode === 'function') window.changeThemeMode();
     };
     xhr.send();
   }

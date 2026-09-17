@@ -311,6 +311,23 @@ Techniques / gotchas:
 
 ## Session log
 
+### 2026-09-17 (3e)
+- **SolarControlar icons updated**: regenerated
+  `SolarControlar/icon-{192,512}.png` from `shared/sampleImages/Solar_Controlar.png`
+  (the unpacked real app icon, 256px) via sharp `fit: contain`, at the correct
+  192/512 scale; rewrote `icon.svg` as a 512×512 `<svg>` wrapper that embeds the
+  PNG (base64), so `node regen_pwa_icons.js` keeps working from the same source.
+  NOTE: `regen_pwa_icons.js` (sharp `density` render) reads icon.svg directly —
+  the wrapper keeps that path valid and produces the same pixels.
+- **Screenshot viewer theme filter (front-end only)**: `screenshots/viewer.js`
+  gained a "Theme" `<select>` in the toolbar — **Both** (default) / **Light** /
+  **Dark**. Pure client-side: `DARK_THEMES = {cyborg,darkly,slate,solar,superhero,
+  vapor}` (mirrors `themeConfig[].bsTheme`), `window.changeThemeMode()` toggles a
+  `theme-mode-hidden` class on `.theme-section`, and it is re-applied after every
+  `loadThemes()` render. The `/api/themes` + `/api/galleries` handlers were NOT
+  touched. Verified in a browser probe: Both=26, Dark=6, Light=20.
+- `BUILD_NUMBER` → `202609172246`.
+
 ### 2026-09-17 (3c)
 - Fixed the **"Update available" dialog popping up twice**. The `__updatePrompted`
   guard was per-page-load, so every reload re-prompted while a SW sat in
@@ -1065,6 +1082,13 @@ Techniques / gotchas:
   to the `pmd` gallery, remembers the choice in `localStorage`
   (`screenshotViewerGallery`), and shows a legacy `(root)` gallery if root-level
   themes exist. `pmd` sorts first, root last.
+- THEME MODE FILTER (2026-09-17): `screenshots/viewer.js` toolbar also has a
+  **Theme** select — Both (default) / Light / Dark — driven by a client-side
+  `DARK_THEMES` map (`cyborg,darkly,slate,solar,superhero,vapor`, mirroring
+  `themeConfig[].bsTheme`). `window.changeThemeMode()` toggles a
+  `theme-mode-hidden` class on `.theme-section`; it is re-applied after every
+  `loadThemes()` render. Pure front-end (the `/api/*` handlers are untouched), so
+  the viewer auto-supports any app gallery with the same hardcoded dark set.
 - Lesson: new app screenshots go in their own `screenshots/<app>/` gallery; the
   viewer auto-discovers them (Refresh re-reads `/api/galleries`).
 
