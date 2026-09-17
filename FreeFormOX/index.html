@@ -11,7 +11,9 @@
   <link rel="apple-touch-icon" href="img/icon.svg">
   <title>FreeFormOX</title>
 
-  <link id="bootstrap-theme-css" href="../shared/css/themes/solar/bootstrap.min.css" rel="stylesheet">
+  <link id="bootstrap-theme-css" href="../shared/css/themes/superhero/bootstrap.min.css" rel="stylesheet">
+  <link id="theme-override-mode" rel="stylesheet" href="../shared/css/themes/dark.css">
+  <link id="theme-override-specific" rel="stylesheet" href="../shared/css/themes/superhero/superhero.css">
   <link rel="stylesheet" href="../shared/css/styles.css">
   <link rel="stylesheet" href="css/styles.css">
   <link rel="stylesheet" href="../shared/vendor/bootstrap-icons.css">
@@ -45,9 +47,9 @@
         <i class="fa-solid fa-bars" aria-hidden="true" style="font-size:22px"></i>
       </button>
       <ul class="dropdown-menu">
-        <li><a class="dropdown-item" href="../">Launch</a></li>
-        <li><hr class="dropdown-divider"></li>
         <li><a class="dropdown-item" onclick="openSettings()">Settings</a></li>
+        <li><hr class="dropdown-divider"></li>
+        <li><a class="dropdown-item" href="../">Launch</a></li>
         <li><hr class="dropdown-divider"></li>
         <li><a class="dropdown-item" onclick="resetGame()">Replay</a></li>
         <li><a class="dropdown-item" onclick="swapPlayersAndRestart()">Swap Players &amp; Replay</a></li>
@@ -86,6 +88,20 @@
             <div class="col-4 text-end"><label class="form-label mb-0">Theme</label></div>
             <div class="col-8">
               <smd-theme id="themeSelector"></smd-theme>
+            </div>
+          </div>
+
+          <div class="row mb-3 align-items-center col-md-8">
+            <div class="col-4 text-end"><label class="form-label mb-0">Font size</label></div>
+            <div class="col-8">
+              <select id="fontSizeSelector" class="form-select" onchange="changeFontSize(this.value)">
+                <option value="xsmall">Extra small</option>
+                <option value="small">Small</option>
+                <option value="normal">Normal</option>
+                <option value="large">Large</option>
+                <option value="xlarge">Extra large</option>
+                <option value="jumbo">Jumbo</option>
+              </select>
             </div>
           </div>
 

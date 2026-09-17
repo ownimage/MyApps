@@ -74,11 +74,11 @@ function renderAppGrid() {
   });
 }
 
-// Icon size setting -> the shared <smd-image> render size (px), wired as a
-// VALUE (matches the other apps' behaviour).
+// Image size setting -> the shared <smd-image> render size (px), wired as a
+// VALUE (one unified six-size scheme across every app).
 function applyImageSize() {
-  const value = localStorage.getItem(smdKey("iconSize")) || "large";
-  const px = { small: 48, medium: 64, large: 80 }[value] || 80;
+  const value = localStorage.getItem(smdKey("iconSize")) || "medium";
+  const px = { xsmall: 32, small: 40, medium: 50, large: 64, xlarge: 80, jumbo: 100 }[value] || 50;
   if (typeof SmdImage !== "undefined" && SmdImage.setDefaultSize) {
     SmdImage.setDefaultSize(px);
   }
@@ -146,11 +146,15 @@ function openSettings() {
   buildSettingsContent();
   page.show();
 
-  const savedTheme = localStorage.getItem(smdKey("theme")) || "darkly";
+  const savedTheme = localStorage.getItem(smdKey("theme")) || "superhero";
   const themeSel = $id("themeSelector");
   if (themeSel) themeSel.setAttribute("theme", savedTheme);
 
-  const savedIconSize = localStorage.getItem(smdKey("iconSize")) || "large";
+  const savedFontSize = localStorage.getItem(smdKey("fontSize")) || "xlarge";
+  const fontSizeSel = $id("fontSizeSelector");
+  if (fontSizeSel) fontSizeSel.value = savedFontSize;
+
+  const savedIconSize = localStorage.getItem(smdKey("iconSize")) || "medium";
   const iconSel = $id("iconSizeSelector");
   if (iconSel) iconSel.value = savedIconSize;
 }
@@ -172,7 +176,7 @@ function closeSettings() {
 
 document.addEventListener("DOMContentLoaded", () => {
   applyImageSize();
-  applyTheme(localStorage.getItem(smdKey("theme")) || "darkly");
+  applyTheme(localStorage.getItem(smdKey("theme")) || "superhero");
   renderAppGrid();
 
   document.addEventListener("smd-theme-change", e => {

@@ -22,7 +22,7 @@ function hideMainPages(exceptId) {
 }
 
 document.addEventListener("DOMContentLoaded", function () {
-  applyTheme(localStorage.getItem(smdKey("theme")) || "darkly");
+  applyTheme(localStorage.getItem(smdKey("theme")) || "superhero");
 
   renderMain();
   startAutoRefresh();

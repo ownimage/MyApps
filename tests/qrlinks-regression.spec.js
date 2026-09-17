@@ -9,15 +9,6 @@ const SEED_IMAGES = [
   { name: "sharedimg", data: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3C/svg%3E" }
 ];
 
-async function dismissLegacyReminder(page) {
-  const modal = page.locator("#smdConfirmModal");
-  await modal.waitFor({ state: "visible", timeout: 10000 }).catch(() => {});
-  if (await modal.isVisible()) {
-    await modal.getByRole("button", { name: "OK" }).click();
-    await expect(modal).not.toBeVisible();
-  }
-}
-
 async function seed(page, overrides = {}) {
   const data = {
     links: SEED_LINKS,
@@ -34,7 +25,6 @@ async function seed(page, overrides = {}) {
   }, data);
   await page.reload();
   await page.waitForLoadState("domcontentloaded");
-  await dismissLegacyReminder(page);
 }
 
 test.describe("QRLinks - Regression", () => {
@@ -153,42 +143,28 @@ test.describe("QRLinks - Regression", () => {
     await expect(page.locator("#imagesEditor")).not.toHaveAttribute("open", "");
   });
 
-  test("legacy qr_ keys migrate and the reminder modal shows", async ({ page }) => {
-    await page.goto("/QRLinks/");
-    // Let the first-visit sample seeding finish before replacing storage, so
-    // its async fetch cannot overwrite the legacy keys we are about to set.
-    await expect.poll(async () => page.evaluate(() => localStorage.getItem("qrlinks_links"))).not.toBeNull();
-    await expect.poll(async () => page.evaluate(() => localStorage.getItem("shared-images"))).not.toBeNull();
+  test("legacy qr_ keys are left untouched (no migration runs)", async ({ page }) => {
+    await seed(page);
     await page.evaluate(() => {
-      localStorage.clear();
       localStorage.setItem("qr_links", JSON.stringify([{ title: "Legacy Link", url: "https://legacy.example", sequence: 1 }]));
       localStorage.setItem("qr_images", JSON.stringify([{ name: "LegacyImg", data: "data:image/svg+xml,%3Csvg/%3E" }]));
       localStorage.setItem("qr_theme", "brite");
-      localStorage.setItem("qr_fontSize", "small");
     });
     await page.reload();
-    await expect(page.locator("#smdConfirmModal")).toBeVisible();
-    await expect(page.locator("#smdConfirmModal")).toContainText("Legacy migration still active");
-
-    const migrated = await page.evaluate(() => ({
+    await page.waitForLoadState("domcontentloaded");
+    const state = await page.evaluate(() => ({
+      legacyLinks: JSON.parse(localStorage.getItem("qr_links") || "null"),
+      legacyImages: localStorage.getItem("qr_images"),
       links: loadLinks().length,
-      title: loadLinks()[0] && loadLinks()[0].title,
-      theme: localStorage.getItem("qrlinks_theme"),
-      fontSize: localStorage.getItem("qrlinks_fontSize"),
-      sharedImages: JSON.parse(localStorage.getItem("shared-images") || "[]").map(i => i.name),
-      legacyLinks: localStorage.getItem("qr_links"),
-      legacyImages: localStorage.getItem("qr_images")
+      theme: localStorage.getItem("qrlinks_theme")
     }));
-    expect(migrated.links).toBe(1);
-    expect(migrated.title).toBe("Legacy Link");
-    expect(migrated.theme).toBe("brite");
-    expect(migrated.fontSize).toBe("small");
-    expect(migrated.sharedImages).toContain("LegacyImg");
-    expect(migrated.legacyLinks).toBeNull();
-    expect(migrated.legacyImages).toBeNull();
-
-    await page.locator("#smdConfirmModal").getByRole("button", { name: "OK" }).click();
-    await expect(page.locator("qrlink-card").filter({ hasText: "Legacy Link" })).toHaveCount(1);
+    // The legacy data stays exactly as written — no migration runs.
+    expect(state.legacyLinks).toEqual([{ title: "Legacy Link", url: "https://legacy.example", sequence: 1 }]);
+    expect(state.legacyImages).toBe(JSON.stringify([{ name: "LegacyImg", data: "data:image/svg+xml,%3Csvg/%3E" }]));
+    // The app only reads its namespaced keys (default theme = "superhero"),
+    // so the legacy qr_theme="brite" is not applied.
+    expect(state.links).toBe(2);
+    expect(state.theme).toBe("superhero");
   });
 
   test("image rename and delete follow through to link references", async ({ page }) => {

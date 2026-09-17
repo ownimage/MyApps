@@ -1,15 +1,5 @@
 const { test, expect } = require("@playwright/test");
 
-// The Launch app's entry is the repo-root index.html (served at "/").
-async function dismissLegacyReminder(page) {
-  const modal = page.locator("#smdConfirmModal");
-  await modal.waitFor({ state: "visible", timeout: 10000 }).catch(() => {});
-  if (await modal.isVisible()) {
-    await modal.getByRole("button", { name: "OK" }).click();
-    await expect(modal).not.toBeVisible();
-  }
-}
-
 test.describe("Launch - Regression", () => {
 
   test("root shows the grid of available apps", async ({ page }) => {
@@ -81,14 +71,12 @@ test.describe("Launch - Regression", () => {
     expect(await pmdLaunch.evaluate(el => new URL(el.href).pathname)).toBe("/");
 
     await page.goto("/CountMyDays/");
-    await dismissLegacyReminder(page);
     await page.locator("#btnMainMenu").click();
     const cmdLaunch = page.locator(".dropdown-menu .dropdown-item").filter({ hasText: "Launch" });
     await expect(cmdLaunch).toBeVisible();
     await expect(cmdLaunch).toHaveAttribute("href", "../");
 
     await page.goto("/QRLinks/");
-    await dismissLegacyReminder(page);
     await page.locator("#btnMainMenu").click();
     const qrLaunch = page.locator(".dropdown-menu .dropdown-item").filter({ hasText: "Launch" });
     await expect(qrLaunch).toBeVisible();
@@ -121,11 +109,9 @@ test.describe("Launch - Regression", () => {
     await expect.poll(async () => page.evaluate(() => loadImages().map(i => i.name))).toEqual(["shared-one", "shared-two"]);
 
     await page.goto("/CountMyDays/");
-    await dismissLegacyReminder(page);
     await expect.poll(async () => page.evaluate(() => loadImages().map(i => i.name))).toEqual(["shared-one", "shared-two"]);
 
     await page.goto("/QRLinks/");
-    await dismissLegacyReminder(page);
     await expect.poll(async () => page.evaluate(() => loadImages().map(i => i.name))).toEqual(["shared-one", "shared-two"]);
   });
 

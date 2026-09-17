@@ -1,9 +1,9 @@
 const { defineConfig, devices } = require("@playwright/test");
 
-// Set PMD_EXTERNAL_SERVERS=1 when the static servers (8080/8081) are already
+// Set EXTERNAL_SERVERS=1 when the static servers (8080/8081) are already
 // running and must be shared by many parallel shard processes: each Playwright
 // process would otherwise spawn/kill its own webServer and race on the ports.
-const externalServers = !!process.env.PMD_EXTERNAL_SERVERS;
+const externalServers = !!process.env.EXTERNAL_SERVERS;
 
 module.exports = defineConfig({
   testDir: "./tests",

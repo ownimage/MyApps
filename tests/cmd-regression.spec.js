@@ -51,18 +51,6 @@ async function seed(page, overrides = {}) {
   }, data);
   await page.reload();
   await page.waitForLoadState("domcontentloaded");
-  await dismissLegacyReminder(page);
-}
-
-// The app intentionally shows a legacy-migration reminder modal on every
-// startup; dismiss it so interactions aren't blocked.
-async function dismissLegacyReminder(page) {
-  const modal = page.locator("#smdConfirmModal");
-  await modal.waitFor({ state: "visible", timeout: 10000 }).catch(() => {});
-  if (await modal.isVisible()) {
-    await modal.getByRole("button", { name: "OK" }).click();
-    await expect(modal).not.toBeVisible();
-  }
 }
 
 test.describe("CountMyDays - Regression", () => {
@@ -90,54 +78,6 @@ test.describe("CountMyDays - Regression", () => {
       expect(await page.locator("cmd-countdown-card").count()).toBe(4);
       expect(pageErrors).toEqual([]);
       expect(consoleErrors).toEqual([]);
-    });
-
-    test("startup shows the legacy migration reminder modal", async ({ page }) => {
-      await page.goto("/CountMyDays/");
-      await page.evaluate(() => { localStorage.clear(); });
-      await page.reload();
-      await expect(page.locator("#smdConfirmModal")).toBeVisible();
-      await expect(page.locator("#smdConfirmModal")).toContainText("legacy storage migration");
-      await page.locator("#smdConfirmModal").getByRole("button", { name: "OK" }).click();
-      await expect(page.locator("#smdConfirmModal")).not.toBeVisible();
-    });
-
-    test("legacy unprefixed keys are migrated and removed", async ({ page }) => {
-      await page.goto("/CountMyDays/");
-      await page.evaluate(() => {
-        localStorage.clear();
-        localStorage.setItem("dates", JSON.stringify([{ name: "Legacy Day", category: "", image: "", type: "annual", month: 12, day: 25 }]));
-        localStorage.setItem("categories", JSON.stringify([{ name: "Legacy Cat", image: null }]));
-        localStorage.setItem("images", JSON.stringify([{ name: "Legacy Img", data: "data:image/svg+xml,%3Csvg/%3E" }]));
-        localStorage.setItem("theme", "darkly");
-        localStorage.setItem("fontSize", "small");
-        localStorage.setItem("iconSize", "medium");
-        localStorage.setItem("countdownFormat", "weeksAndDays");
-      });
-      await page.reload();
-      await page.waitForLoadState("domcontentloaded");
-
-      const migrated = await page.evaluate(() => ({
-        dates: JSON.parse(localStorage.getItem("countmydays_dates") || "[]").length,
-        categories: JSON.parse(localStorage.getItem("countmydays_categories") || "[]").length,
-        images: JSON.parse(localStorage.getItem("shared-images") || "[]").length,
-        theme: localStorage.getItem("countmydays_theme"),
-        fontSize: localStorage.getItem("countmydays_fontSize"),
-        iconSize: localStorage.getItem("countmydays_iconSize"),
-        legacyDates: localStorage.getItem("dates"),
-        legacyTheme: localStorage.getItem("theme")
-      }));
-      expect(migrated.dates).toBe(1);
-      expect(migrated.categories).toBe(1);
-      expect(migrated.images).toBe(1);
-      expect(migrated.theme).toBe("darkly");
-      expect(migrated.fontSize).toBe("small");
-      expect(migrated.iconSize).toBe("medium");
-      expect(migrated.legacyDates).toBeNull();
-      expect(migrated.legacyTheme).toBeNull();
-
-      // The migrated data renders, not the sample data.
-      await expect(page.locator("cmd-countdown-card").first()).toHaveAttribute("title", "Legacy Day");
     });
 
     test("sample data seeds empty stores on first visit", async ({ page }) => {
@@ -272,7 +212,7 @@ test.describe("CountMyDays - Regression", () => {
         const card = document.querySelector("cmd-countdown-card");
         return getComputedStyle(card.shadowRoot.querySelector("smd-image")).width;
       });
-      expect(width).toBe("64px");
+      expect(width).toBe("40px");
       await expect.poll(async () => page.evaluate(() => localStorage.getItem("countmydays_iconSize"))).toBe("small");
     });
 
@@ -807,33 +747,24 @@ test.describe("CountMyDays - Regression", () => {
       await expect(page.locator("#googleEventsPage")).not.toHaveAttribute("open", "");
     });
 
-    test("legacy cmd_gcal keys and feed cache are migrated", async ({ page }) => {
-      await page.goto("/CountMyDays/");
+    test("legacy unprefixed keys are left untouched (no migration runs)", async ({ page }) => {
+      await seed(page);
       await page.evaluate(() => {
-        localStorage.clear();
+        localStorage.setItem("dates", JSON.stringify([{ name: "Legacy Day", type: "annual", month: 12, day: 25 }]));
         localStorage.setItem("cmd_gcal_enabled", "true");
-        localStorage.setItem("cmd_gcal_name", "Legacy User");
-        localStorage.setItem("cmd_gcal_client_id", "legacy.apps.googleusercontent.com");
-        localStorage.setItem("cmd_google_cal", JSON.stringify({ items: [{ id: "legacy1", summary: "Legacy Event", start: { date: "2026-10-01" } }] }));
       });
       await page.reload();
       await page.waitForLoadState("domcontentloaded");
-      await dismissLegacyReminder(page);
-      const migrated = await page.evaluate(() => ({
-        enabled: localStorage.getItem("countmydays_gcal_enabled"),
-        name: localStorage.getItem("countmydays_gcal_name"),
-        feed: JSON.parse(localStorage.getItem("countmydays_google_cal") || "null"),
-        legacyEnabled: localStorage.getItem("cmd_gcal_enabled"),
-        legacyFeed: localStorage.getItem("cmd_google_cal")
+      const state = await page.evaluate(() => ({
+        dates: JSON.parse(localStorage.getItem("dates") || "null"),
+        gcal: localStorage.getItem("cmd_gcal_enabled"),
+        namespacedDates: localStorage.getItem("countmydays_dates")
       }));
-      expect(migrated.enabled).toBe("true");
-      expect(migrated.name).toBe("Legacy User");
-      expect(migrated.feed.items[0].summary).toBe("Legacy Event");
-      expect(migrated.legacyEnabled).toBeNull();
-      expect(migrated.legacyFeed).toBeNull();
-      // The Google menu is visible because the migrated setting enables it.
-      await page.locator("#btnMainMenu").click();
-      await expect(page.locator(".google-menu-item").filter({ hasText: "Refresh Google Calendar" })).toBeVisible();
+      // The legacy data stays exactly as written — no migration runs.
+      expect(state.dates).toEqual([{ name: "Legacy Day", type: "annual", month: 12, day: 25 }]);
+      expect(state.gcal).toBe("true");
+      // The app only reads its namespaced keys, so the legacy data is not used.
+      expect(state.namespacedDates).not.toBeNull();
     });
   });
 

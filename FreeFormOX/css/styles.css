@@ -124,3 +124,36 @@
   padding: 0.75rem 0.5rem;
   touch-action: manipulation;
 }
+
+/* Font-size setting (six shared sizes): scale the game text + chrome too. */
+body.font-size-xsmall,
+body.font-size-xsmall .navbar .btn,
+body.font-size-xsmall .navbar .dropdown-item,
+body.font-size-xsmall #settingsPage { font-size: 0.8rem; }
+body.font-size-small,
+body.font-size-small .navbar .btn,
+body.font-size-small .navbar .dropdown-item,
+body.font-size-small #settingsPage { font-size: 0.925rem; }
+body.font-size-large,
+body.font-size-large .navbar .btn,
+body.font-size-large .navbar .dropdown-item,
+body.font-size-large #settingsPage { font-size: 1.125rem; }
+body.font-size-xlarge,
+body.font-size-xlarge .navbar .btn,
+body.font-size-xlarge .navbar .dropdown-item,
+body.font-size-xlarge #settingsPage { font-size: 1.3rem; }
+body.font-size-jumbo,
+body.font-size-jumbo .navbar .btn,
+body.font-size-jumbo .navbar .dropdown-item,
+body.font-size-jumbo #settingsPage { font-size: 1.6rem; }
+
+body.font-size-xsmall #turnIndicator { font-size: 1.4rem; }
+body.font-size-xsmall .btn-pair button { font-size: 1rem; }
+body.font-size-small #turnIndicator { font-size: 1.5rem; }
+body.font-size-small .btn-pair button { font-size: 1.1rem; }
+body.font-size-large #turnIndicator { font-size: 2rem; }
+body.font-size-large .btn-pair button { font-size: 1.4rem; }
+body.font-size-xlarge #turnIndicator { font-size: 2.2rem; }
+body.font-size-xlarge .btn-pair button { font-size: 1.5rem; }
+body.font-size-jumbo #turnIndicator { font-size: 2.4rem; }
+body.font-size-jumbo .btn-pair button { font-size: 1.6rem; }

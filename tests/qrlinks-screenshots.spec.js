@@ -39,18 +39,23 @@ const THEME_CONFIG = {
 const THEMES = Object.keys(THEME_CONFIG);
 
 async function setTheme(page, themeName) {
-  const config = THEME_CONFIG[themeName] || THEME_CONFIG.darkly;
-  await page.evaluate(({ css, bsTheme, name }) => {
+  const config = THEME_CONFIG[themeName] || THEME_CONFIG.superhero;
+  await page.evaluate(({ css, bsTheme, name, modeCss, specCss }) => {
     const link = document.getElementById("bootstrap-theme-css");
     document.documentElement.setAttribute("data-bs-theme", bsTheme);
     document.documentElement.setAttribute("data-theme", name);
     if (!link) return;
+    // Mirror applyTheme(): swap the light/dark + per-theme override stylesheets.
+    const modeLink = document.getElementById("theme-override-mode");
+    if (modeLink) modeLink.href = modeCss;
+    const specLink = document.getElementById("theme-override-specific");
+    if (specLink) specLink.href = specCss;
     window.__themeReady = false;
     const finish = () => { window.__themeReady = true; };
     link.addEventListener("load", finish, { once: true });
     link.addEventListener("error", finish, { once: true });
     link.href = css;
-  }, { css: config.css, bsTheme: config.bsTheme, name: themeName });
+  }, { css: config.css, bsTheme: config.bsTheme, name: themeName, modeCss: `${bw}/${config.bsTheme}.css`, specCss: `${bw}/${themeName}/${themeName}.css` });
   try {
     await page.waitForFunction(() => window.__themeReady === true, null, { timeout: 6000 });
   } catch (e) {
@@ -102,10 +107,6 @@ test.describe("QRLinks - Screenshots", () => {
     }, { images: sampleImages.images, links: sampleLinks.streams });
     await page.reload();
     await page.waitForLoadState("domcontentloaded");
-    // The app shows a legacy-migration reminder modal on every startup.
-    const reminder = page.locator("#smdConfirmModal");
-    await reminder.waitFor({ state: "visible", timeout: 10000 }).catch(() => {});
-    if (await reminder.isVisible()) await reminder.getByRole("button", { name: "OK" }).click();
     await page.waitForSelector("qrlink-card");
   });
 

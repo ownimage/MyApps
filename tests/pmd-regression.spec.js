@@ -307,11 +307,11 @@ test.describe("PlanMyDay - Regression", () => {
           src: el.shadowRoot.querySelector("img").getAttribute("src")
         }));
       await page.evaluate(() => changeIconSize("small"));
-      expect(await info()).toEqual({ width: "32px", src: thumb.data64 });
-      await page.evaluate(() => changeIconSize("medium"));
       expect(await info()).toEqual({ width: "40px", src: thumb.data80 });
-      await page.evaluate(() => changeIconSize("large"));
+      await page.evaluate(() => changeIconSize("medium"));
       expect(await info()).toEqual({ width: "50px", src: thumb.data100 });
+      await page.evaluate(() => changeIconSize("large"));
+      expect(await info()).toEqual({ width: "64px", src: thumb.data64 });
     });
 
     test("job with future sleepUntil is hidden from main screen", async ({ page }) => {
@@ -2615,7 +2615,7 @@ test.describe("PlanMyDay - Regression", () => {
         const link = document.getElementById("bootstrap-theme-css");
         return link ? link.getAttribute("href") : "";
       });
-      expect(linkHref).toContain("darkly");
+      expect(linkHref).toContain("superhero");
     });
 
     test("settings footer shows the Font Awesome credit", async ({ page }) => {
@@ -3029,9 +3029,9 @@ test.describe("PlanMyDay - Regression", () => {
       const iconWidth = () => page.locator("#jobStreamDropdown #jobStreamBtnIcon smd-image").first()
         .evaluate((el) => getComputedStyle(el).width);
       await page.evaluate(() => changeIconSize("small"));
-      expect(await iconWidth()).toBe("32px");
+      expect(await iconWidth()).toBe("40px");
       await page.evaluate(() => changeIconSize("large"));
-      expect(await iconWidth()).toBe("50px");
+      expect(await iconWidth()).toBe("64px");
     });
 
     test("changing stream and saving moves job to new stream", async ({ page }) => {
@@ -7045,7 +7045,7 @@ test.describe("PlanMyDay - Regression", () => {
       });
       expect(cachedUrls.length).toBeGreaterThan(0);
       expect(cachedUrls).toEqual(expect.arrayContaining([
-        expect.stringContaining("/PlanMyDay/shared/css/themes/darkly/bootstrap.min.css"),
+        expect.stringContaining("/PlanMyDay/shared/css/themes/superhero/bootstrap.min.css"),
         expect.stringContaining("/PlanMyDay/PlanMyDay/js/app.js"),
         expect.stringContaining("/PlanMyDay/PlanMyDay/index.html")
       ]));

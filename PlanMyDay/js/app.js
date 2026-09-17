@@ -13,11 +13,11 @@ SmdConfig.imagePrefix = "shared-";
 
 // Display / Image size setting -> the shared <smd-image> render size (px), wired
 // into the component as a VALUE (not a style). Non-SVG images are sourced from
-// the higher-res thumbnail tier (32->data64, 40->data80, 50->data100).
-const PMD_IMAGE_SIZE_PX = { small: 32, medium: 40, large: 50 };
+// the matching higher-res thumbnail tier (px -> px*2 -> data100/80/64).
+const PMD_IMAGE_SIZE_PX = { xsmall: 32, small: 40, medium: 50, large: 64, xlarge: 80, jumbo: 100 };
 function pmdImageSize() {
-  const value = localStorage.getItem(smdKey("iconSize")) || "large";
-  return PMD_IMAGE_SIZE_PX[value] || 100;
+  const value = localStorage.getItem(smdKey("iconSize")) || "medium";
+  return PMD_IMAGE_SIZE_PX[value] || 50;
 }
 function applyImageSize() {
   if (typeof SmdImage !== "undefined" && SmdImage.setDefaultSize) {
@@ -146,7 +146,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  const savedTheme = localStorage.getItem(smdKey("theme")) || "darkly";
+  const savedTheme = localStorage.getItem(smdKey("theme")) || "superhero";
   applyTheme(savedTheme);
   if (typeof migrateImagesToShared === "function") migrateImagesToShared();
   if (typeof seedSampleImages === "function") seedSampleImages();

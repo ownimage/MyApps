@@ -104,9 +104,13 @@ function openSettings() {
   buildSettingsContent();
   page.show();
 
-  const savedTheme = localStorage.getItem(smdKey("theme")) || "solar";
+  const savedTheme = localStorage.getItem(smdKey("theme")) || "superhero";
   const themeSel = $id("themeSelector");
   if (themeSel) themeSel.setAttribute("theme", savedTheme);
+
+  const savedFontSize = localStorage.getItem(smdKey("fontSize")) || "xlarge";
+  const fontSizeSel = $id("fontSizeSelector");
+  if (fontSizeSel) fontSizeSel.value = savedFontSize;
 
   ["x", "o"].forEach(s => {
     const nameEl = $id(s + "Name");

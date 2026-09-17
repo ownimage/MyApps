@@ -47,7 +47,7 @@ var SMD_SHARED_ROOT = (function () {
 var SmdConfig = {
   storagePrefix: "planmydays_", // default keeps existing apps' data intact
   imagePrefix: "",              // image-list namespace; "" = storagePrefix
-  themeDefault: "darkly",
+  themeDefault: "superhero",
   appName: "Application"
 };
 
@@ -268,7 +268,7 @@ class SmdApp {
 
   init() {
     // Apply the saved (or default) theme.
-    const savedTheme = localStorage.getItem(this.key("theme")) || this.config.themeDefault || "darkly";
+    const savedTheme = localStorage.getItem(this.key("theme")) || this.config.themeDefault || "superhero";
     if (typeof applyTheme === "function") applyTheme(savedTheme);
 
     this.renderShell();

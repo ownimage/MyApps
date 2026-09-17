@@ -47,7 +47,7 @@
     }
 
     get theme() {
-      return this.getAttribute("theme") || (typeof themeConfig !== "undefined" && themeConfig.darkly ? "darkly" : "");
+      return this.getAttribute("theme") || (typeof themeConfig !== "undefined" && themeConfig.superhero ? "superhero" : "");
     }
 
     set theme(val) {

@@ -296,7 +296,7 @@ function redoMove() {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
-  applyTheme(localStorage.getItem(smdKey("theme")) || "solar");
+  applyTheme(localStorage.getItem(smdKey("theme")) || "superhero");
   buildGrid();
   document.getElementById("turnIndicator").innerHTML = playerIcon("X") + " " + getPlayerName("X") + " to go";
   updateGameButtons();

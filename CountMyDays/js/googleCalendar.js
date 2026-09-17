@@ -3,8 +3,7 @@
 // Ported from the newer standalone CountMyDays (temp/CountMyDays) and adapted
 // to the shared multi-app library:
 //   - storage keys are namespaced through smdKey() (countmydays_gcal_*,
-//     countmydays_google_cal); legacy cmd_gcal_*/cmd_google_cal keys are
-//     migrated by storage.js.
+//     countmydays_google_cal).
 //   - the app-info dialog uses the shared showSmdModal (no custom overlay).
 // Loads Google Identity Services (GSI) on demand, exchanges an OAuth token and
 // fetches the calendar event feed. The event feed is cached by app.js.

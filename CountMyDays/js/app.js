@@ -11,9 +11,8 @@
 SmdConfig.storagePrefix = "countmydays_";
 SmdConfig.imagePrefix = "shared-";
 
-// Run the legacy key migration; remove together with the startup reminder.
-migrateLegacyStorage();
-if (typeof migrateImagesToShared === "function") migrateImagesToShared();
+// All apps on this origin share one image library (`shared-images`), so no
+// per-app image migration is needed here.
 
 // Hide every main/editor page except one (null hides them all). Page hosts are
 // light-DOM elements so document.getElementById works.
@@ -100,16 +99,13 @@ document.addEventListener("DOMContentLoaded", () => {
   applyImageSize();
   window.addEventListener("resize", applyImageSize);
 
-  const savedTheme = localStorage.getItem(smdKey("theme")) || "darkly";
+  const savedTheme = localStorage.getItem(smdKey("theme")) || "superhero";
   applyTheme(savedTheme);
 
   // Show/hide the Google menu entries and G Cal settings options.
   if (typeof setGCalVisible === "function") setGCalVisible(isGCalEnabled());
 
   renderMain();
-
-  // Temporary: remember that the legacy storage migration is still active.
-  if (typeof showLegacyMigrationReminder === "function") showLegacyMigrationReminder();
 
   seedSampleData().then(seeded => {
     if (seeded) renderMain();
