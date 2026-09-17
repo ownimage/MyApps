@@ -247,8 +247,52 @@ Techniques / gotchas:
 - Playwright `toHaveText` on an `smd-button` HOST reports the slot fallback text too (e.g. `"Edit\n Button"`), so exact-text assertions fail. Use `toContainText("Edit")` or a `getByRole("button", { name: "Edit" })` locator instead.
 - Grep on minified vendor files breaks the tool (giant matched lines) — scope searches to `PlanMyDay/js/**`, `shared/js/**`, or `tests/**`.
 - Line endings: this repo stores text files with LF (`core.autocrlf=input`, `core.eol=lf`; no `.gitattributes`). NEVER write CRLF into a file — git will flag every line as changed (whole-file diff) and warn "CRLF will be replaced by LF the next time Git touches it". Do not round-trip files through PowerShell pipe/Get-Content/Set-Content joins; the Edit/Write/Read tools and Node preserve line endings — if you must convert use node with explicit `\n`, NEVER shell-piped measurements of `git show` (PowerShell pipeline re-encodes — it once reported 914 CRLF for a file whose raw blob via `git cat-file` was entirely LF). Verify with `git cat-file blob HEAD:<file>` + `git diff --stat` so only real edits show.
+- CROSS-ORIGIN SAVE 302 GOTCHA (2026-09-17): SolarControlar's Flask POST endpoints (`POST /solar/`, `POST /solar/api/config`) are PRG — they answer `302 Location: /solar/`. A PWA `fetch()` that lets the browser follow that cross-origin redirect can lose its `Authorization` header on the follow-up GET (browser-dependent), so Traefik returns a 401 WITHOUT `Access-Control-Allow-Origin` → the fetch blocks as a CORS error / "Failed to fetch". Fix in the APP: `redirect: "manual"` on the POST and treat `resp.type === "opaqueredirect"` as success (server saved; the caller then re-fetches the GET page which carries auth again). `redirect: "manual"` returns an opaque-redirect response (status 0) for a 302 — you cannot read it, only detect it by `type`. Rule for SolarControlar saves: never follow the Flask redirect; `_post` returns the response TEXT (or `""`), so consumers must not chain `.text()`.
 
 ## Session log
+
+### 2026-09-17
+- Fixed a **cross-origin Save CORS failure** in SolarControlar (frontend-only; the
+  Flask side was already correct). Root cause: the Flask POST endpoints
+  (`POST /solar/`, `POST /solar/api/config`) are PRG (Post/Redirect/Get) — they
+  answer `302 Location: /solar/`. From a cross-origin PWA the browser then
+  follows that redirect with a **new GET**, and some browsers drop the
+  `Authorization` header on the cross-origin follow-up, so Traefik's basic-auth
+  returns a `401` that (from Traefik, not Flask) carries **no
+  `Access-Control-Allow-Origin`** → the fetch is blocked as a CORS error →
+  "Failed to fetch". (Did not reproduce in local Chromium because it keeps the
+  header, but it's device/browser-dependent and the fix is correct regardless.)
+- FIX (all in `SolarControlar/js/`): never follow the save redirect — set
+  `redirect: "manual"` on the POSTs and treat the resulting
+  `resp.type === "opaqueredirect"` as success. Concretely:
+  - `api.js` `solarApi._post()` gained `{ method: "POST", redirect: "manual" }`,
+    returns `""` for `opaqueredirect`, else `resp.text()`, and its return type
+    changed from `Response` to a resolved string. Updated its three consumers
+    (`saveSettings`, `saveConfig`, `runForecast` in api.js) to stop calling
+    `.text()` — `forecast-tab.js` `runForecast()` already used the value as text
+    so it kept working unchanged.
+  - `solar-settings-view.js` `saveSolarSettings()` (a raw `fetch`) got the same
+    `redirect: "manual"` + `opaqueredirect` handling.
+  - `config-tab.js` `saveConfig()` goes through `solarApi.saveConfig` so it was
+    fixed by the api.js change.
+  - Various deeper investigated-and-ruled-out paths, for future reference:
+    Flask `add_cors_headers` already echoes `Origin` + `Access-Control-Allow-
+    Credentials` on ALL responses incl. 302 (verified: 302 has the CORS
+    headers); preflight OPTIONS returns 204 with `Allow-Headers: Content-Type,
+    Authorization, X-CSRFToken` for every Origin tested (localhost:9000,
+    127.0.0.1:9000, https://ownimage.duckdns.org). Traefik's `solar-options`
+    router (PathPrefix+METHOD(OPTIONS), no basicauth) is required for the
+    preflight to reach Flask — verified it's in place and working.
+  - Verified live end-to-end (real Chromium → real server, origin
+    localhost:9000 via `python -m http.server -d P:\git 9000`): Settings Save
+    and Config Save both flash success, no `requestfailed`, no CORS console
+    error. The leftover `ERR_ABORTED` lines in the response log are the browser
+    aborting the redirect-follow that `redirect: "manual"` stops us consuming —
+    harmless.
+  - `BUILD_NUMBER` → `202609170601` (was `202609161009`).
+  - Regression: full `solarcontrolar-regression.spec.js` (12) still green (the
+    tests mock POSTs with direct 200 bodies so `redirect:"manual"` is a no-op
+    there).
 
 ### 2026-09-16
 - Completed the SolarControlar **Flask basic-auth** feature (carried over as

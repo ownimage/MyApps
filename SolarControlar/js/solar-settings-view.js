@@ -203,10 +203,15 @@ function saveSolarSettings(e) {
   var base = getFlaskUrl().replace(/\/+$/, "");
   fetch(base + "/", solarApi._withAuth({
     method: "POST",
+    redirect: "manual",
     credentials: "same-origin",
     body: formData
   }))
     .then(function (resp) {
+      // The Flask endpoint answers 302 (PRG). Following the cross-origin
+      // redirect can drop the Authorization header in some browsers -> CORS-less
+      // 401. Treat the opaque redirect as "saved" and re-fetch the GET page.
+      if (resp.type === "opaqueredirect") return "";
       if (!resp.ok) throw new Error("HTTP " + resp.status);
       return resp.text();
     })

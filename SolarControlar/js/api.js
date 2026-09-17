@@ -80,16 +80,22 @@ var solarApi = {
 
   _post: function (path, formData) {
     var url = this._baseUrl() + path;
-    var options = { method: "POST" };
+    var options = { method: "POST", redirect: "manual" };
     if (formData) options.body = formData;
     options = this._withAuth(options);
     return fetch(url, options).then(function (resp) {
+      // The Flask save endpoints answer 302 (PRG). Following a cross-origin
+      // redirect can drop the Authorization header in some browsers, which then
+      // makes Traefik return a CORS-less 401 ("Failed to fetch"). Don't follow
+      // it: an opaque redirect here means the server accepted the save, so the
+      // caller re-fetches the (GET) page, which carries auth again.
+      if (resp.type === "opaqueredirect") return "";
       if (!resp.ok) {
         return resp.text().then(function (body) {
           throw serverError(resp.status, "HTTP " + resp.status, url, body);
         });
       }
-      return resp;
+      return resp.text();
     }).catch(function (err) {
       if (err && err.isApiError) throw err;
       throw serverError(0, (err && err.message) ? err.message : "Network error", url);
@@ -112,14 +118,14 @@ var solarApi = {
   },
 
   saveSettings: function (formData) {
-    return this._post("/", formData).then(function (r) { return r.text(); });
+    return this._post("/", formData);
   },
 
   saveConfig: function (formData) {
-    return this._post("/api/config", formData).then(function (r) { return r.text(); });
+    return this._post("/api/config", formData);
   },
 
   runForecast: function () {
-    return this._post("/api/run_forecast").then(function (r) { return r.text(); });
+    return this._post("/api/run_forecast");
   }
 };
