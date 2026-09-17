@@ -10,38 +10,40 @@
 SmdConfig.storagePrefix = "launch_";
 SmdConfig.imagePrefix = "shared-";
 
-// The apps shown on the launch grid. Add a row when an app is added.
+// The apps shown on the launch grid. Add a row when an app is added. Each
+// `icon` is the NAME of a shared sample image (seeded into `shared-images`),
+// rendered by <smd-image> rather than a raw file path.
 var LAUNCH_APPS = [
   {
     name: "Plan My Day",
     description: "Plan your day and track important events",
     path: "PlanMyDay/",
-    icon: "PlanMyDay/icon-192.png"
+    icon: "Plan My Day"
   },
   {
     name: "Count My Days",
     description: "Track countdowns to important events",
     path: "CountMyDays/",
-    icon: "CountMyDays/icon-192.png"
+    icon: "Count My Days"
   },
   {
     name: "QR Links",
     description: "Share links as QR codes",
     path: "QRLinks/",
-    icon: "QRLinks/icon-192.png"
+    icon: "QR Links"
   },
   {
     name: "Solar Controlar",
     description: "Solar energy monitoring dashboard",
     path: "SolarControlar/",
-    icon: "SolarControlar/icon-192.png"
+    icon: "Solar Controlar"
   },
   {
-     name: "FreeFormOX",
-     description: "A tactical 5x5 Tic-Tac-Toe game",
-     path: "FreeFormOX/",
-     icon: "shared/sampleImages/Noughts_%26_Crosses.svg"
-   }
+    name: "FreeFormOX",
+    description: "A tactical 5x5 Tic-Tac-Toe game",
+    path: "FreeFormOX/",
+    icon: "Noughts & Crosses"
+  }
 ];
 
 function renderAppGrid() {
@@ -53,11 +55,12 @@ function renderAppGrid() {
     tile.className = "app-tile";
     tile.href = app.path;
 
-    const img = document.createElement("img");
-    img.src = app.icon;
-    img.alt = "";
-    img.width = 80;
-    img.height = 80;
+    const img = document.createElement("smd-image");
+    img.setAttribute("key-prefix", smdImagePrefix());
+    img.setAttribute("image", app.icon);
+    img.setAttribute("alt", "");
+    // No explicit `size`: the tile follows the Settings Icon size (the app
+    // applies SmdImage.setDefaultSize from launch_iconSize at boot).
 
     const name = document.createElement("div");
     name.className = "app-name";
@@ -72,6 +75,14 @@ function renderAppGrid() {
     tile.appendChild(desc);
     grid.appendChild(tile);
   });
+  // Re-render once the shared sample library is seeded on first visit.
+  if (grid.__launchSeedTimeout) return;
+  grid.__launchSeedTimeout = setInterval(() => {
+    if (!localStorage.getItem(smdImagesKey())) return;
+    clearInterval(grid.__launchSeedTimeout);
+    grid.__launchSeedTimeout = null;
+    document.querySelectorAll("#appGrid smd-image").forEach(el => el.refresh());
+  }, 200);
 }
 
 // Image size setting -> the shared <smd-image> render size (px), wired as a
@@ -178,6 +189,9 @@ document.addEventListener("DOMContentLoaded", () => {
   applyImageSize();
   applyTheme(localStorage.getItem(smdKey("theme")) || "superhero");
   renderAppGrid();
+  // Seed the shared sample library on first visit so the tiles' <smd-image>
+  // icons resolve by name; renderAppGrid's interval re-renders once it lands.
+  if (typeof seedSampleImages === "function") seedSampleImages();
 
   document.addEventListener("smd-theme-change", e => {
     const theme = e.detail && e.detail.theme;

@@ -21,14 +21,13 @@ test.describe("Launch - Regression", () => {
     await expect(tiles.nth(3)).toHaveAttribute("href", "SolarControlar/");
     await expect(tiles.nth(4)).toHaveAttribute("href", "FreeFormOX/");
 
-    // App icons actually load. FreeFormOX uses the shared Noughts & Crosses image.
-    await expect(tiles.nth(0).locator("img")).toHaveJSProperty("naturalWidth", 192);
-    await expect(tiles.nth(1).locator("img")).toHaveJSProperty("naturalWidth", 192);
-    await expect(tiles.nth(2).locator("img")).toHaveJSProperty("naturalWidth", 192);
-    await expect(tiles.nth(3).locator("img")).toHaveJSProperty("naturalWidth", 192);
-    await expect(tiles.nth(4).locator("img")).toHaveAttribute("src", "shared/sampleImages/Noughts_%26_Crosses.svg");
-    await expect.poll(async () => tiles.nth(4).locator("img").evaluate(img => img.naturalWidth)).toBeGreaterThan(0);
-
+    // App icons load via <smd-image> from the shared sample library (the SVGs are
+    // 512x512; the Solar Controlar icon is the unpacked 256px PNG, rendered at
+    // the tile's data80 thumbnail when the 80px size sheet applies).
+    for (let i = 0; i < 5; i++) {
+      await expect.poll(async () => tiles.nth(i).locator("smd-image img").evaluate(el => el.getAttribute("src") && el.naturalWidth)).toBeGreaterThan(0);
+    }
+    expect(await tiles.nth(3).locator("smd-image img").evaluate(el => (el.getAttribute("src") || "").startsWith("data:image/png;base64"))).toBe(true);
     expect(errors).toEqual([]);
   });
 
@@ -116,14 +115,19 @@ test.describe("Launch - Regression", () => {
   });
 
   test("legacy per-app image lists migrate into the shared library", async ({ page }) => {
-    await page.goto("/");
+    await page.goto("/PlanMyDay/");
+    await page.waitForLoadState("domcontentloaded");
+    // Let the first-visit sample seeding settle before clearing storage, so the
+    // async seedSampleImages fetch cannot re-write shared-images over our legacy
+    // keys (Launch and PlanMyDay both seed samples at boot now).
+    await expect.poll(async () => page.evaluate(() => JSON.parse(localStorage.getItem("shared-images") || "[]").length)).toBeGreaterThan(0);
     await page.evaluate(() => {
       localStorage.removeItem("shared-images");
       localStorage.setItem("planmydays_images", JSON.stringify([{ name: "pmd-img", data: "" }]));
       localStorage.setItem("countmydays_images", JSON.stringify([{ name: "cmd-img", data: "" }]));
     });
 
-    await page.goto("/PlanMyDay/");
+    await page.reload();
     await expect.poll(async () => page.evaluate(() => JSON.parse(localStorage.getItem("shared-images") || "[]").map(i => i.name))).toEqual(["pmd-img", "cmd-img"]);
     const leftovers = await page.evaluate(() => ({
       pmd: localStorage.getItem("planmydays_images"),

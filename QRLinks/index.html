@@ -253,7 +253,11 @@
   if ("serviceWorker" in navigator) {
     var __updatePrompted = false;
     var __applyingUpdate = false;
+    var __dismissedUpdate = "";
+    try { __dismissedUpdate = localStorage.getItem("swUpdateDismissedUrl") || ""; } catch (e) { __dismissedUpdate = ""; }
     function showUpdatePrompt(reg) {
+      var w = reg && reg.waiting;
+      if (w && w.scriptURL === __dismissedUpdate) return; // user already dismissed THIS pending SW
       if (__updatePrompted) return;
       __updatePrompted = true;
       if (typeof showSmdModal === "function") {
@@ -265,9 +269,14 @@
             { text: "Update now", variant: "primary", action: "update" }
           ],
           onAction: function(detail) {
-            if (detail.action === "update" && reg.waiting) {
+            var pending = reg && reg.waiting;
+            if (!pending) return;
+            if (detail.action === "update") {
+              try { localStorage.removeItem("swUpdateDismissedUrl"); } catch (e) {}
               __applyingUpdate = true;
-              reg.waiting.postMessage({ type: "SKIP_WAITING" });
+              pending.postMessage({ type: "SKIP_WAITING" });
+            } else if (detail.action === "later") {
+              try { localStorage.setItem("swUpdateDismissedUrl", pending.scriptURL); } catch (e) {}
             }
           }
         });

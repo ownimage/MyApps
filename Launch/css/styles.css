@@ -30,11 +30,6 @@
   transform: translateY(-2px);
 }
 
-.app-tile img {
-  width: 80px;
-  height: 80px;
-}
-
 .app-name {
   font-weight: 700;
   font-size: 1.05rem;

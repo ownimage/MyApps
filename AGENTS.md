@@ -52,6 +52,11 @@ Architecture:
   Activation is USER-DRIVEN (no `skipWaiting()` on install; page shows an
   "Update available" `smd-modal`; `window.__pmdSwUpdater.showUpdatePrompt` test
   hook; `controllerchange` only reloads after the user chose to update).
+  DISMISSAL IS PERSISTED (2026-09-17): each app's inline SW block stores the
+  dismissed pending SW's `scriptURL` in `localStorage["swUpdateDismissedUrl"]`
+  (one shared key — it's the same root SW) so "Later" isn't re-prompted on the
+  next reload; "Update now" clears it. `__updatePrompted` stays as the in-load
+  fast path.
   `BUILD_NUMBER` is STATIC in `shared/js/build-number.js` — bump it to ship a new
   build (sw.js byte changes still trigger an update, but a same cache name reuses
   old assets). All same-origin ASSET LOADS are cache-busted with `?v=BUILD_NUMBER`
@@ -69,6 +74,15 @@ Architecture:
   (`href="../"`). `sw.js` has an `APPS["Launch/"]` entry whose list includes the
   root `"index.html"`; `appIndexFor()` maps the repo root (and unknown paths) to
   `"index.html"`, and `/Launch/...` also falls back to the root index.
+  TILE ICONS (2026-09-17): `LAUNCH_APPS[].icon` is a **shared sample-image NAME**
+  ("Plan My Day"/"Count My Days"/"QR Links"/"Solar Controlar"/"Noughts &
+  Crosses"), rendered with `<smd-image key-prefix="shared-">` (NOT a raw file
+  path). The Launch page loads `shared/js/smd-images.js` and calls
+  `seedSampleImages()` at boot; `renderAppGrid()` sets a `setInterval` that
+  calls `smd-image.refresh()` once `shared-images` is populated (first-visit
+  async seeding). There is NO explicit `size` on the tiles — they follow the
+  `launch_iconSize` setting via `SmdImage.setDefaultSize` (applied by
+  `applyImageSize()`).
 - SHARED IMAGE LIBRARY (2026-09-13): all apps share ONE images list,
   `shared-images`. `SmdConfig.imagePrefix = "shared-"` is set in every app's
   `app.js`; `smdImagePrefix()` (shared/js/smd-app.js) returns
@@ -297,7 +311,42 @@ Techniques / gotchas:
 
 ## Session log
 
-### 2026-09-17 (3)
+### 2026-09-17 (3c)
+- Fixed the **"Update available" dialog popping up twice**. The `__updatePrompted`
+  guard was per-page-load, so every reload re-prompted while a SW sat in
+  `waiting` (until the user picked Update now). Added a PERSISTED dismissal:
+  each app's inline SW block now stores the dismissed **pending SW's scriptURL**
+  in `localStorage["swUpdateDismissedUrl"]` (same key in all 6 apps — it is the
+  same root SW), checks it in `showUpdatePrompt`, sets it on **Later**, removes
+  it on **Update now**, and keeps the in-load `__updatePrompted` fast path.
+- **Launch icons from the shared library**: replaced the local `icon-192.png`
+  tile refs with shared **sample-image names** and render via `<smd-image>`:
+  Launched apps now point at `Plan My Day` / `Count My Days` / `QR Links` /
+  `Solar Controlar` / `Noughts & Crosses` sample images. `index.html` (Launch)
+  now loads `shared/js/smd-images.js` (for `seedSampleImages`/`smdImagesKey`),
+  the boot seeds samples + `renderAppGrid()` re-renders once they land (a
+  `setInterval` on `#appGrid` calling `smd-image.refresh()`).
+- **SolarControlar sample image**: replaced the old `Solar_Controlar.gif` with
+  the real app icon — unpacked
+  `https://raw.githubusercontent.com/ownimage/solarcontrolar/.../solar%20controlar.ico`
+  (256x256 32bpp DIB frame → PNG `shared/sampleImages/Solar_Controlar.png`) and
+  regenerated only that entry's `data64/80/100` thumbs. NOTE: a full
+  `node shared/regen_sample_images.js regen` rewrote OTHER SVG entries too (the
+  working-copy SVG files carry different EOLs than the committed JSON), so I
+  `git checkout`ed the JSON and patched ONLY the Solar Controlar entry via a
+  node script — all other entries stayed byte-identical.
+- **Launch tiles now respect the Icon size setting**: removed the hardcoded
+  `size="80"` on the tile `<smd-image>`; the tiles use `SmdImage.defaultSize`
+  set from `launch_iconSize` (verified medium→50, large→64, small→40 host px).
+  Removed the dead `.app-tile img` CSS.
+- Tests: launch-regression updated for `<smd-image>` tiles (polls for a rendered
+  `img src` + assert Solar Controlar tile is a PNG data URL; the legacy-
+  migration test now seeds via `/PlanMyDay/` + reload to avoid the Launch sample
+  seeding race). 6/6 launch-regression + 3/3 launch-screenshots pass. The
+  "every app's menu links to find the Launch app" test is a KNOWN flake when all
+  5 pages run in one 30s test (SolarControlar's Chart.js load can exceed the
+  goto timeout); passes in isolation.
+- `BUILD_NUMBER` → `202609172226`.
 
 ### 2026-09-17 (3b)
 - Streams-editor visual tweaks on the Edit Streams page (all in
