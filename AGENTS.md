@@ -298,6 +298,43 @@ Techniques / gotchas:
 ## Session log
 
 ### 2026-09-17 (3)
+
+### 2026-09-17 (3b)
+- Streams-editor visual tweaks on the Edit Streams page (all in
+  `PlanMyDay/js/`):
+  1. **Drag-handle alignment**: `.stream-accordion-header` in
+     `pmd-stream-header.js` now has `padding: 0.25rem 0 0.25rem 0.5rem` +
+     `box-sizing: border-box` (left side matches the `pmd-stream-job-card`
+     host's `0.5rem`, so the header's drag-handle sits the same distance from
+     the left edge as the child job card's handle — was 0px, ~8px too close);
+     the `.chevron` button (the "header dropdown") got `margin-right: 0.5rem`
+     so its right side matches the job card's 8px right padding.
+  2. **Drag collapse + restore**: `initStreamsEditorSortable` in
+     `streams-editor.js` captures the open-collapse indices on `onStart` then
+     collapses EVERY open stream (not just the dragged one) via
+     `setStreamExpanded(idx, false)` — dragging any header closes whatever is
+     open — and restores the pre-drag expanded set via the existing
+     `streamsEditorExpandedIdxs` capture/translate on `onEnd`.
+  3. **Ghost collapsed during drag**: the `.sortable-fallback` ghost is a deep
+     clone made BEFORE `onStart`, so it kept the open collapse + fixed height.
+     onStart now removes `show` from the ghost's `.accordion-collapse`, clears
+     `expanded` on its `pmd-stream-header`, and clears the inline `height`
+     Sortable pinned — the ghost follows at collapsed height (~70px vs ~172px).
+     NOTE: ghost sits in `document.body`, so the shadow-injected
+     `.accordion-collapse:not(.show)` rule can't reach it — Bootstrap's own
+     `.collapse:not(.show)` handles hiding (verified via probe).
+  4. **Rounded badges**: added `pill` to the streams-editor page-header badge
+     (`#editJobsTotalBadge`), the stream-header `.tab-badge`/`.count-badge`,
+     and the job-card `.suffix`/`.schedule`/`.time`/`.extra`.
+- Verified: drag/reorder regression tests (incl. "dragging an expanded stream
+  keeps the same stream expanded") pass; probes confirmed `before:1 →
+  duringDrag:0 → after:1` even when dragging a DIFFERENT header, ghost height
+  172→70px, handle offsets 8px equal, chevron right gap 8px. Sortable save time
+  after mouse-up is ~17ms (the earlier "3661" probe reading was a
+  `performance.now()` absolute-value misread). `BUILD_NUMBER` →
+  `202609172137`.
+
+### 2026-09-17 (3)
 - Removed the legacy storage-key migration + startup reminder from CountMyDays
   and QRLinks (user confirmed: remove BOTH the per-app `migrateLegacyStorage`/
   legacy maps/`showLegacyMigrationReminder` AND the shared

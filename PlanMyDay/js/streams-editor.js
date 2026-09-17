@@ -163,7 +163,7 @@ function renderStreamsEditor() {
     accordionHtml += '<div class="accordion-item stream-accordion-item stream-drag-card mb-2' + (isExpanded ? " expanded" : "") + '" data-stream-idx="' + realIdx + '">' + headerHtml + bodyHtml + '</div>';
   });
 
-  page.headerHtml = '<smd-badge id="editJobsTotalBadge" variant="info" style="font-size:0.8em;vertical-align:middle"></smd-badge>';
+  page.headerHtml = '<smd-badge id="editJobsTotalBadge" variant="info" pill style="font-size:0.8em;vertical-align:middle"></smd-badge>';
   page.content =
     '<div id="streamsEditorHeader">' +
       '<div id="addStreamTileTop" class="mb-3"></div>' +
@@ -242,13 +242,29 @@ function initStreamsEditorSortable() {
     ghostClass: "sortable-ghost",
     chosenClass: "sortable-chosen",
     dragClass: "sortable-drag",
-    onStart: function() {
+    onStart: function(evt) {
       var idxs = [];
       el.querySelectorAll(".accordion-collapse.show").forEach(function(coll) {
         var m = coll.id.match(/streamCollapse_(\d+)/);
         if (m) idxs.push(parseInt(m[1]));
       });
       streamsEditorExpandedIdxs = idxs.length ? idxs : null;
+      // Collapse every currently-open stream (usually just one) so the whole
+      // list compresses while dragging any header; onEnd re-expands the
+      // captured (translated) set to its original state.
+      var ghost = document.querySelector(".sortable-fallback");
+      var ghostCollapse = ghost ? ghost.querySelector(".accordion-collapse.show") : null;
+      var ghostHeader = ghost ? ghost.querySelector("pmd-stream-header") : null;
+      idxs.forEach(function(idx) {
+        setStreamExpanded(idx, false);
+      });
+      // The fallback ghost is a deep clone made BEFORE onStart, so collapse its
+      // copy of the open collapse too, or the drag preview stays expanded.
+      if (ghostCollapse) ghostCollapse.classList.remove("show");
+      if (ghostHeader) ghostHeader.removeAttribute("expanded");
+      // Sortable pins a fixed inline height on the ghost; release it so the
+      // collapsed preview is as short as the real collapsed header.
+      if (ghost) ghost.style.height = "";
     },
     onEnd: function() {
       var streams = loadStreams();

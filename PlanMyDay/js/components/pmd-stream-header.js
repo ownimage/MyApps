@@ -6,7 +6,8 @@ const pmdStreamHeaderSheet = SmdStyles.sheetFor(`
     display: flex;
     align-items: center;
     width: 100%;
-    padding: 0.25rem 0;
+    box-sizing: border-box;
+    padding: 0.25rem 0 0.25rem 0.5rem;
     background-color: var(--bs-light-border-subtle);
     color: var(--bs-emphasis-color, var(--smd-primary-text, #fff));
   }
@@ -66,6 +67,7 @@ const pmdStreamHeaderSheet = SmdStyles.sheetFor(`
     background: transparent;
     position: relative;
     cursor: pointer;
+    margin-right: 0.5rem;
   }
   .chevron::after {
     content: "";
@@ -115,8 +117,8 @@ pmdStreamHeaderTemplate.innerHTML = `
         </div>
       </div>
       <div class="row2">
-        <smd-badge class="tab-badge" variant="success"></smd-badge>
-        <smd-badge class="count-badge" variant="secondary" hidden></smd-badge>
+        <smd-badge class="tab-badge" variant="success" pill></smd-badge>
+        <smd-badge class="count-badge" variant="secondary" pill hidden></smd-badge>
       </div>
     </div>
     <button type="button" class="chevron" aria-label="Expand"></button>
