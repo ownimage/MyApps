@@ -580,7 +580,7 @@
       id: "smd-tabs",
       name: "smd-tabs",
       tag: "<smd-tabs>",
-      desc: "Tab bar + panels. Set the <code>tabs</code> array {title, content, id?}. Dispatches <code>smd-tabs-change</code>. Set <code>bottomline = false</code> to hide the horizontal rule at the bottom of the tab section; set <code>wrap</code> to let the tab buttons wrap onto multiple lines.",
+      desc: "Tab bar + panels. Set the <code>tabs</code> array {title, content, id?, panelClass?}. Dispatches <code>smd-tabs-change</code>. Set <code>bottomline = false</code> to hide the horizontal rule at the bottom of the tab section; set <code>wrap</code> to let the tab buttons wrap onto multiple lines; set <code>padding=\"small\"</code> for compact tab buttons + flush panels (default <code>normal</code>, no change).",
       html: () => `
         <div class="sb-canvas" style="flex-direction:column;width:100%">
           <smd-tabs id="sb-tabs"></smd-tabs>

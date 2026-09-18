@@ -326,6 +326,24 @@ Techniques / gotchas:
 
 ## Session log
 
+### 2026-09-18 (13) — smd-tabs `compact` → `padding="small"` attribute
+- The boolean `compact` attribute on `<smd-tabs>` is GONE. Replaced by a
+  `padding` attribute: `normal` (default = no-op) | `small` (the old compact
+  sizes: `.smd-tab-list` padding 0, `.smd-tab-btn` 0.5rem 0.25rem,
+  `.smd-tab-panel` padding 0). Add more named sizes later by extending the
+  `:host([padding="…"])` block in `smdTabsSheet` (only `small` exists so far —
+  no x-small yet, per user). Wired like `wrap`: in `observedAttributes` + a
+  `get/set padding` JS property (setter stores `small` or removes the attr).
+- Migrated the only consumer: `smd-image-picker.js` renders
+  `<smd-tabs padding="small">` (was `compact`; image picker look unchanged).
+- Applied `padding="small"` to SolarControlar's `#mainTabs`
+  (`SolarControlar/index.html` — `<smd-tabs id="mainTabs" wrap padding="small">`),
+  so the main dashboard tabs are compact like the Choose Image picker.
+- Storybook smd-tabs desc now documents `padding="small"`.
+- Verified: `node --check` smd-tabs.js + smd-image-picker.js; fail-fast solar
+  main-tabs 1/1 + pmd/cmd image picker & Clear batch 37/37. `BUILD_NUMBER`
+  unchanged (user ships).
+
 ### 2026-09-18 (12) — Choose Image page: Clear = danger, No Image = primary
 - "No Image" footer button on `#imagePickerPage` is now `variant: "primary"` in
   all 3 apps' `app.js` `window.__openImagePicker` config (was secondary). The

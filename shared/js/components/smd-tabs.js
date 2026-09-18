@@ -40,10 +40,10 @@ const smdTabsSheet = SmdStyles.sheetFor(`
     width: 100%;
     box-sizing: border-box;
   }
-  /* compact: narrower tab buttons + tighter panels (used by the image picker) */
-  :host([compact]) .smd-tab-list { padding: 0; }
-  :host([compact]) .smd-tab-btn { padding: 0.5rem 0.25rem; }
-  :host([compact]) .smd-tab-panel { padding: 0; }
+  /* padding="small": narrower tab buttons + tighter panels (used by the image picker) */
+  :host([padding="small"]) .smd-tab-list { padding: 0; }
+  :host([padding="small"]) .smd-tab-btn { padding: 0.5rem 0.25rem; }
+  :host([padding="small"]) .smd-tab-panel { padding: 0; }
   :host > .smd-tab-line:last-of-type {
     margin-bottom: 1rem;
   }
@@ -79,7 +79,7 @@ class SmdTabs extends HTMLElement {
     }
 
     static get observedAttributes() {
-        return ['bottomline', 'wrap'];
+        return ['bottomline', 'wrap', 'padding'];
     }
 
     attributeChangedCallback(name, oldValue, newValue) {
@@ -114,6 +114,18 @@ class SmdTabs extends HTMLElement {
 
     set wrap(val) {
         this.toggleAttribute('wrap', !!val);
+    }
+
+    get padding() {
+        return this.getAttribute('padding') || 'normal';
+    }
+
+    set padding(val) {
+        if (val === 'small') {
+            this.setAttribute('padding', 'small');
+        } else {
+            this.removeAttribute('padding');
+        }
     }
 
     _render() {

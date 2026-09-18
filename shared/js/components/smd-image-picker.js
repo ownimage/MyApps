@@ -6,7 +6,7 @@
 // <smd-page>, in a modal, or inline, and just listen for the
 // `smd-image-picker-select` event (detail = { name }) / `smd-image-picker-close`.
 //
-// The tabs use the shared <smd-tabs> component (compact mode); each tab's panel
+// The tabs use the shared <smd-tabs> component (padding="small"); each tab's panel
 // holds its own `.grid`.
 //
 // It needs the vendored icon-font stylesheets loaded document-wide (the app
@@ -181,7 +181,7 @@
             <input type="search" placeholder="Search images or icons...">
             <button type="button" class="clear btn-danger">Clear</button>
           </div>
-          <smd-tabs compact></smd-tabs>
+          <smd-tabs padding="small"></smd-tabs>
         </div>
       `;
     }
