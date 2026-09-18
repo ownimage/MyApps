@@ -50,16 +50,17 @@ function smdAppRoot() {
 }
 
 function applyTheme(name) {
-  const valid = themeConfig[name] ? name : "darkly";
-  const config = themeConfig[valid] || themeConfig.darkly;
+  const valid = themeConfig[name] ? name : "superhero";
+  const config = themeConfig[valid] || themeConfig.superhero;
   const link = document.getElementById("bootstrap-theme-css");
+  // Build the theme URL relative to the page (which may live under a sub-path
+  // under a sub-path). Reuse the link's existing relative prefix so that both
+  // the app root and /storybook/ resolve css/themes correctly.
+  const v = typeof BUILD_NUMBER !== "undefined" ? BUILD_NUMBER : Date.now();
+  const prefix = link
+    ? (link.getAttribute("href") || "").replace(/[^/]*\/bootstrap\.min\.css(\?.*)?$/, "")
+    : smdAppRoot() + "css/themes/";
   if (link) {
-    const v = typeof BUILD_NUMBER !== "undefined" ? BUILD_NUMBER : Date.now();
-    // Build the theme URL relative to the page (which may live under a sub-path
-    // under a sub-path). Reuse the link's existing relative prefix so that both
-    // the app root and /storybook/ resolve css/themes correctly.
-    const rel = link.getAttribute("href") || "";
-    const prefix = rel.replace(/[^/]*\/bootstrap\.min\.css(\?.*)?$/, "");
     link.href = prefix + valid + "/bootstrap.min.css?v=" + v;
     // recompute the shared text colours once the new theme css has loaded
     link.addEventListener("load", applySmdVars, { once: true });
@@ -67,7 +68,34 @@ function applyTheme(name) {
   document.documentElement.setAttribute("data-bs-theme", config.bsTheme);
   document.documentElement.setAttribute("data-theme", name);
   localStorage.setItem(smdKey("theme"), name);
+  // Theme override CSS: one shared light/dark file plus one per-theme file.
+  // The Bootstrap theme files themselves are never modified.
+  applyThemeOverrides(valid, config.bsTheme, prefix, v);
   applySmdVars();
+}
+
+// Wire the two theme-override stylesheets: `theme-override-mode` holds the
+// light.css OR dark.css file (shared by every light/dark theme), and
+// `theme-override-specific` holds css/themes/<theme>/<theme>.css. Links are
+// created on demand (e.g. the storybook) right after the theme link so the
+// override layering is theme base < overrides < shared/app styles.
+function applyThemeOverrides(theme, bsTheme, prefix, v) {
+  setOverrideLink("theme-override-mode", prefix + (bsTheme === "dark" ? "dark" : "light") + ".css?v=" + v);
+  setOverrideLink("theme-override-specific", prefix + theme + "/" + theme + ".css?v=" + v);
+}
+
+function setOverrideLink(id, href) {
+  let el = document.getElementById(id);
+  if (!el) {
+    el = document.createElement("link");
+    el.id = id;
+    el.rel = "stylesheet";
+    const themeLink = document.getElementById("bootstrap-theme-css");
+    if (themeLink && themeLink.parentNode) themeLink.parentNode.insertBefore(el, themeLink.nextSibling);
+    else document.head.appendChild(el);
+  }
+  el.href = href;
+  el.addEventListener("load", applySmdVars, { once: true });
 }
 
 // Computed style of a hidden light-DOM probe carrying real Bootstrap classes.
@@ -148,7 +176,7 @@ function changeFontSize(value) {
 // ICON SIZE
 function changeIconSize(value) {
   localStorage.setItem(smdKey("iconSize"), value);
-  document.body.classList.remove("icon-size-small", "icon-size-medium", "icon-size-large");
+  document.body.classList.remove("icon-size-xsmall", "icon-size-small", "icon-size-medium", "icon-size-large", "icon-size-xlarge", "icon-size-jumbo");
   document.body.classList.add("icon-size-" + value);
   // Optional app hook: push the new value (px) into <smd-image>.
   if (typeof applyImageSize === "function") applyImageSize();
@@ -265,7 +293,7 @@ document.addEventListener("DOMContentLoaded", () => {
     document.body.classList.add("font-size-" + savedFontSize);
   }
 
-  const savedIconSize = localStorage.getItem(smdKey("iconSize")) || "large";
+  const savedIconSize = localStorage.getItem(smdKey("iconSize")) || "medium";
   document.body.classList.add("icon-size-" + savedIconSize);
 
   const savedDensity = localStorage.getItem(smdKey("density")) || "normal";

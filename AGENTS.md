@@ -3,7 +3,7 @@
 3: When running playwright use the command '.\node_modules\.bin\playwright.cmd' to make sure the correct version loads. 
 4: Please capture all the output needed when running a test the first time so that you do not need to rerun the test.
 5: `shared/js/build-number.js` `BUILD_NUMBER` is a TIMESTAMP in `YYYYMMDDHH24MI` format (e.g. `202609131400` = 2026-09-13 14:00). Use `Get-Date -Format "yyyyMMddHHmm"` for a new value when shipping; it is the single cache-busting version for every app + shared asset.
-5: Regression tests (`pmd-regression.spec.js` + `pmd-touch.spec.js`) run as 30 `--shard=$i/30` processes, but this box cannot take 30 concurrent browsers (client ephemeral-port exhaustion → mid-run `ERR_CONNECTION_REFUSED`). Working recipe: start `python tests/http-server.py` + `python tests/subpath-server.py` ONCE, set `$env:PMD_EXTERNAL_SERVERS=1` (config skips webServer management), then run the shards in waves of 10 with `--workers=1 --retries=0 --reporter=line`, each writing its own output file. Build waves as `$wave = $start..($start+9)` in `for ($start=1; $start -le 30; $start += 10)` — NEVER `@(,@(1..10)),@(11..20),…`: that nests the first array (its `$i` becomes the whole wave) and `--shard` errors with "expected format current/all". Without `PMD_EXTERNAL_SERVERS=1` every Playwright process spawns its own `http-server.py` (Windows SO_REUSEADDR lets them all bind 8080) and early finishers kill the server the rest are using. Fix a failure in one shard everywhere before continuing.
+5: Regression tests (`pmd-regression.spec.js` + `pmd-touch.spec.js`) run as 30 `--shard=$i/30` processes, but this box cannot take 30 concurrent browsers (client ephemeral-port exhaustion → mid-run `ERR_CONNECTION_REFUSED`). Working recipe: start `python tests/http-server.py` + `python tests/subpath-server.py` ONCE, set `$env:EXTERNAL_SERVERS=1` (config skips webServer management), then run the shards in waves of 10 with `--workers=1 --retries=0 --reporter=line`, each writing its own output file. Build waves as `$wave = $start..($start+9)` in `for ($start=1; $start -le 30; $start += 10)` — NEVER `@(,@(1..10)),@(11..20),…`: that nests the first array (its `$i` becomes the whole wave) and `--shard` errors with "expected format current/all". Without `EXTERNAL_SERVERS=1` every Playwright process spawns its own `http-server.py` (Windows SO_REUSEADDR lets them all bind 8080) and early finishers kill the server the rest are using. Fix a failure in one shard everywhere before continuing.
 6: After fixing issues with the regression tests apply them to pmd-screenshots.spec.js and validate them using one theme only.
 7: Fail-fast test iterations: after a code/test change, DON'T run a whole batch at once — run only the first 2-3 affected tests first (`--grep "a|b" --workers=2 --retries=0`) to debug on a small surface; grow the batch only once those pass. The config sets `retries: 1`, so pass `--retries=0` while iterating (otherwise failures take twice as long).
 8: A change that ONLY touches `storybook/index.html` and/or `AGENTS.md` does NOT need the regression suite (or screenshot/sample-image specs). Just verify the storybook loads with zero console/page errors and no failed requests.
@@ -52,12 +52,26 @@ Architecture:
   Activation is USER-DRIVEN (no `skipWaiting()` on install; page shows an
   "Update available" `smd-modal`; `window.__pmdSwUpdater.showUpdatePrompt` test
   hook; `controllerchange` only reloads after the user chose to update).
+  DISMISSAL IS PERSISTED (2026-09-17): each app's inline SW block stores the
+  dismissed pending SW's `scriptURL` in `localStorage["swUpdateDismissedUrl"]`
+  (one shared key — it's the same root SW) so "Later" isn't re-prompted on the
+  next reload; "Update now" clears it. `__updatePrompted` stays as the in-load
+  fast path.
+  REGISTER AT A STABLE URL (2026-09-18): the apps register `../sw.js` (the
+  Launch app `sw.js`) with NO `?v=` cache-buster. A versioned script URL was
+  the DOUBLE-PROMPT bug: after "Update now" reloads to the new build, that page
+  registered a DIFFERENT scriptURL than the just-activated worker
+  (`?v=old` vs `?v=new`), so Chromium reinstalled another worker and prompted
+  again (verified in a SW simulation: versioned URL prompts twice, stable URL
+  prompts once). The browser detects updates by comparing sw.js bytes, and a
+  pure `BUILD_NUMBER` bump still triggers it (the imported build-number.js is
+  compared too — verified via simulation), so no versioning is needed.
   `BUILD_NUMBER` is STATIC in `shared/js/build-number.js` — bump it to ship a new
   build (sw.js byte changes still trigger an update, but a same cache name reuses
   old assets). All same-origin ASSET LOADS are cache-busted with `?v=BUILD_NUMBER`
   (head `<script>` stamps `<link href>`; vendor/component scripts use
   `document.write(...?v=…)`; `applyTheme()` stamps theme swaps; `sampleImages.json`
-  fetch + SW registration are versioned).
+  fetch is versioned).
 - LAUNCH APP (2026-09-13): the app launcher's entry is the **repo-root
   `index.html`** (served at `/MyApps/`); its support files live in `Launch/`
   (`manifest.json` with `start_url`/`scope: "../"`, `icon.svg` + generated PNGs,
@@ -69,6 +83,15 @@ Architecture:
   (`href="../"`). `sw.js` has an `APPS["Launch/"]` entry whose list includes the
   root `"index.html"`; `appIndexFor()` maps the repo root (and unknown paths) to
   `"index.html"`, and `/Launch/...` also falls back to the root index.
+  TILE ICONS (2026-09-17): `LAUNCH_APPS[].icon` is a **shared sample-image NAME**
+  ("Plan My Day"/"Count My Days"/"QR Links"/"Solar Controlar"/"Noughts &
+  Crosses"), rendered with `<smd-image key-prefix="shared-">` (NOT a raw file
+  path). The Launch page loads `shared/js/smd-images.js` and calls
+  `seedSampleImages()` at boot; `renderAppGrid()` sets a `setInterval` that
+  calls `smd-image.refresh()` once `shared-images` is populated (first-visit
+  async seeding). There is NO explicit `size` on the tiles — they follow the
+  `launch_iconSize` setting via `SmdImage.setDefaultSize` (applied by
+  `applyImageSize()`).
 - SHARED IMAGE LIBRARY (2026-09-13): all apps share ONE images list,
   `shared-images`. `SmdConfig.imagePrefix = "shared-"` is set in every app's
   `app.js`; `smdImagePrefix()` (shared/js/smd-app.js) returns
@@ -174,6 +197,52 @@ Architecture:
   **5.3.8** (all other themes remain 5.3.3) + `themeConfig` entry + precache —
   theme count is now 26. `pmd-screenshots.spec.js` has its own hardcoded list
   (25) so it is unaffected; `cmd-screenshots.spec.js` screenshots all 26.
+- DEFAULT THEME (2026-09-17): **superhero** everywhere — every app's
+  `app.js`/`app-settings.js` theme fallback, `SmdApp.themeDefault`, the shared
+  `applyTheme()` invalid-name fallback, the storybook's static
+  `<html data-theme>`/`data-bs-theme` hints and every static head `<link>`
+  (`bootstrap-theme-css` + `theme-override-mode`/`specific`) all use `superhero`
+  (mode link stays `dark.css`, since superhero is a `bsTheme: "dark"` theme).
+  The regression/screenshot specs' theme-config fallbacks were updated too;
+  darkly stays a valid selectable theme, just no longer the default.
+- THEME OVERRIDE CSS (2026-09-17): each theme's
+  `shared/css/themes/<theme>/bootstrap.min.css` is NEVER edited. Overrides
+  load through TWO extra stylesheets managed by `applyTheme()` in
+  `shared/js/smd-settings.js`: `#theme-override-mode` = `css/themes/light.css`
+  OR `css/themes/dark.css` (one shared file for every light / every dark
+  theme, chosen from `themeConfig[].bsTheme`), and `#theme-override-specific`
+  = `css/themes/<theme>/<theme>.css` (per theme). Both links are declared
+  statically in every app/storybook `<head>` right after `#bootstrap-theme-css`
+  (so the default theme's overrides apply at first paint) and `applyTheme()`
+  updates them (creating on demand, right after the theme link) on every theme
+  switch — layering is theme base < overrides < shared/app css. All files are
+  in `sw.js` SHARED_ASSETS. All five screenshot specs' `setTheme()` now swap the
+  override links too (via the same `{bw}/...` pattern). The per-theme/files are
+  deliberately EMPTY until specific overrides are decided.
+- IMAGE SIZES (2026-09-17): ONE six-size scheme in every app's Settings
+  (Icon/Image size select): xsmall=32, small=40, medium=50, large=64, xlarge=80,
+  jumbo=100 (labels match the six font sizes). Stored key is still
+  `smdKey("iconSize")`; the default is now `medium` (50px) in ALL apps — the
+  `|| "medium"` fallback lives in `pmdImageSize()` (PlanMyDay/js/app.js),
+  `applyImageSize()` (CountMyDays/QRLinks `app-settings.js`, Launch/js/app.js)
+  and the shared `smd-settings.js` DOMContentLoaded restore. `changeIconSize`
+  clears all six `icon-size-*` body classes. `smd-image` `_renderStored` sources
+  `[px, px*2, 100, 80, 64]`, so it already picks data64/80/100 for every size.
+  TEST NOTE: the pixel literals in pmd-regression ("icon size setting controls
+  the rendered image size..." small→40px/data80, medium→50px/data100,
+  large→64px/data64; "stream selector images follow..." 40/64px) and
+  cmd-regression ("icon size drives the smd-image render size" →40px) encode the
+  mapping — grep spec files for px literals when the mapping changes. Launch's
+  tiles stay fixed 80px (`.app-tile img`); its Image size setting only drives
+  `<smd-image>` defaults, which Launch does not render.
+- MENU ORDER (2026-09-17): every app's hamburger menu lists **Settings**, then
+  a divider, then **Launch**, then a divider, then the rest of the options. The
+  Launch app's own menu keeps only "Settings" (it IS the launcher — no Launch
+  item). All apps
+  also expose the six font sizes (xsmall/small/normal/large/xlarge/jumbo) in
+  Settings; FreeFormOX + Launch gained the Font size selector this session
+  (Launch's `.app-name` rules already covered the sizes; FreeFormOX got new
+  `body.font-size-*` rules for its game text).
 - GOOGLE CALENDAR (2026-09-13): `CountMyDays/js/googleCalendar.js` (GSI OAuth +
   Calendar REST + `{count_my_days{...}}` description payload helpers) and
   `CountMyDays/js/googleCalendarEditor.js` (unified dates editor Google rows +
@@ -250,6 +319,165 @@ Techniques / gotchas:
 - CROSS-ORIGIN SAVE 302 GOTCHA (2026-09-17): SolarControlar's Flask POST endpoints (`POST /solar/`, `POST /solar/api/config`) are PRG — they answer `302 Location: /solar/`. A PWA `fetch()` that lets the browser follow that cross-origin redirect can lose its `Authorization` header on the follow-up GET (browser-dependent), so Traefik returns a 401 WITHOUT `Access-Control-Allow-Origin` → the fetch blocks as a CORS error / "Failed to fetch". Fix in the APP: `redirect: "manual"` on the POST and treat `resp.type === "opaqueredirect"` as success (server saved; the caller then re-fetches the GET page which carries auth again). `redirect: "manual"` returns an opaque-redirect response (status 0) for a 302 — you cannot read it, only detect it by `type`. Rule for SolarControlar saves: never follow the Flask redirect; `_post` returns the response TEXT (or `""`), so consumers must not chain `.text()`.
 
 ## Session log
+
+### 2026-09-17 (3e)
+- **SolarControlar icons updated**: regenerated
+  `SolarControlar/icon-{192,512}.png` from `shared/sampleImages/Solar_Controlar.png`
+  (the unpacked real app icon, 256px) via sharp `fit: contain`, at the correct
+  192/512 scale; rewrote `icon.svg` as a 512×512 `<svg>` wrapper that embeds the
+  PNG (base64), so `node regen_pwa_icons.js` keeps working from the same source.
+  NOTE: `regen_pwa_icons.js` (sharp `density` render) reads icon.svg directly —
+  the wrapper keeps that path valid and produces the same pixels.
+- **Screenshot viewer theme filter (front-end only)**: `screenshots/viewer.js`
+  gained a "Theme" `<select>` in the toolbar — **Both** (default) / **Light** /
+  **Dark**. Pure client-side: `DARK_THEMES = {cyborg,darkly,slate,solar,superhero,
+  vapor}` (mirrors `themeConfig[].bsTheme`), `window.changeThemeMode()` toggles a
+  `theme-mode-hidden` class on `.theme-section`, and it is re-applied after every
+  `loadThemes()` render. The `/api/themes` + `/api/galleries` handlers were NOT
+  touched. Verified in a browser probe: Both=26, Dark=6, Light=20.
+- `BUILD_NUMBER` → `202609172246`.
+
+### 2026-09-17 (3c)
+- Fixed the **"Update available" dialog popping up twice**. The `__updatePrompted`
+  guard was per-page-load, so every reload re-prompted while a SW sat in
+  `waiting` (until the user picked Update now). Added a PERSISTED dismissal:
+  each app's inline SW block now stores the dismissed **pending SW's scriptURL**
+  in `localStorage["swUpdateDismissedUrl"]` (same key in all 6 apps — it is the
+  same root SW), checks it in `showUpdatePrompt`, sets it on **Later**, removes
+  it on **Update now**, and keeps the in-load `__updatePrompted` fast path.
+- **Launch icons from the shared library**: replaced the local `icon-192.png`
+  tile refs with shared **sample-image names** and render via `<smd-image>`:
+  Launched apps now point at `Plan My Day` / `Count My Days` / `QR Links` /
+  `Solar Controlar` / `Noughts & Crosses` sample images. `index.html` (Launch)
+  now loads `shared/js/smd-images.js` (for `seedSampleImages`/`smdImagesKey`),
+  the boot seeds samples + `renderAppGrid()` re-renders once they land (a
+  `setInterval` on `#appGrid` calling `smd-image.refresh()`).
+- **SolarControlar sample image**: replaced the old `Solar_Controlar.gif` with
+  the real app icon — unpacked
+  `https://raw.githubusercontent.com/ownimage/solarcontrolar/.../solar%20controlar.ico`
+  (256x256 32bpp DIB frame → PNG `shared/sampleImages/Solar_Controlar.png`) and
+  regenerated only that entry's `data64/80/100` thumbs. NOTE: a full
+  `node shared/regen_sample_images.js regen` rewrote OTHER SVG entries too (the
+  working-copy SVG files carry different EOLs than the committed JSON), so I
+  `git checkout`ed the JSON and patched ONLY the Solar Controlar entry via a
+  node script — all other entries stayed byte-identical.
+- **Launch tiles now respect the Icon size setting**: removed the hardcoded
+  `size="80"` on the tile `<smd-image>`; the tiles use `SmdImage.defaultSize`
+  set from `launch_iconSize` (verified medium→50, large→64, small→40 host px).
+  Removed the dead `.app-tile img` CSS.
+- Tests: launch-regression updated for `<smd-image>` tiles (polls for a rendered
+  `img src` + assert Solar Controlar tile is a PNG data URL; the legacy-
+  migration test now seeds via `/PlanMyDay/` + reload to avoid the Launch sample
+  seeding race). 6/6 launch-regression + 3/3 launch-screenshots pass. The
+  "every app's menu links to find the Launch app" test is a KNOWN flake when all
+  5 pages run in one 30s test (SolarControlar's Chart.js load can exceed the
+  goto timeout); passes in isolation.
+- `BUILD_NUMBER` → `202609172226`.
+
+### 2026-09-17 (3b)
+- Streams-editor visual tweaks on the Edit Streams page (all in
+  `PlanMyDay/js/`):
+  1. **Drag-handle alignment**: `.stream-accordion-header` in
+     `pmd-stream-header.js` now has `padding: 0.25rem 0 0.25rem 0.5rem` +
+     `box-sizing: border-box` (left side matches the `pmd-stream-job-card`
+     host's `0.5rem`, so the header's drag-handle sits the same distance from
+     the left edge as the child job card's handle — was 0px, ~8px too close);
+     the `.chevron` button (the "header dropdown") got `margin-right: 0.5rem`
+     so its right side matches the job card's 8px right padding.
+  2. **Drag collapse + restore**: `initStreamsEditorSortable` in
+     `streams-editor.js` captures the open-collapse indices on `onStart` then
+     collapses EVERY open stream (not just the dragged one) via
+     `setStreamExpanded(idx, false)` — dragging any header closes whatever is
+     open — and restores the pre-drag expanded set via the existing
+     `streamsEditorExpandedIdxs` capture/translate on `onEnd`.
+  3. **Ghost collapsed during drag**: the `.sortable-fallback` ghost is a deep
+     clone made BEFORE `onStart`, so it kept the open collapse + fixed height.
+     onStart now removes `show` from the ghost's `.accordion-collapse`, clears
+     `expanded` on its `pmd-stream-header`, and clears the inline `height`
+     Sortable pinned — the ghost follows at collapsed height (~70px vs ~172px).
+     NOTE: ghost sits in `document.body`, so the shadow-injected
+     `.accordion-collapse:not(.show)` rule can't reach it — Bootstrap's own
+     `.collapse:not(.show)` handles hiding (verified via probe).
+  4. **Rounded badges**: added `pill` to the streams-editor page-header badge
+     (`#editJobsTotalBadge`), the stream-header `.tab-badge`/`.count-badge`,
+     and the job-card `.suffix`/`.schedule`/`.time`/`.extra`.
+- Verified: drag/reorder regression tests (incl. "dragging an expanded stream
+  keeps the same stream expanded") pass; probes confirmed `before:1 →
+  duringDrag:0 → after:1` even when dragging a DIFFERENT header, ghost height
+  172→70px, handle offsets 8px equal, chevron right gap 8px. Sortable save time
+  after mouse-up is ~17ms (the earlier "3661" probe reading was a
+  `performance.now()` absolute-value misread). `BUILD_NUMBER` →
+  `202609172137`.
+
+### 2026-09-17 (3)
+- Removed the legacy storage-key migration + startup reminder from CountMyDays
+  and QRLinks (user confirmed: remove BOTH the per-app `migrateLegacyStorage`/
+  legacy maps/`showLegacyMigrationReminder` AND the shared
+  `migrateImagesToShared()` boot call from these two apps). Old keys are now
+  simply ignored; `shared-images` is the only image key. Shared code still used
+  by PlanMyDay (`smd-images.js migrateImagesToShared` stays). Also removed the
+  legacy-key clearing in each app's `confirmClearAllData`, the stale
+  `cmd_gcal_*/cmd_google_cal` comment in `googleCalendar.js`, and the
+  `dismissLegacyReminder` helper + reminder-dismissals in cmd/qrlinks/launch
+  regression + screenshot specs. Rewrote the two "legacy keys" tests to assert
+  the keys are LEFT UNTOUCHED (app reads only its namespaced keys); first-visit
+  seeding race avoided by seeding first via the `seed()` helper. Googlegacal:
+  the "legacy cmd_gcal keys migrate" test is gone, replaced by an
+  "untouched" equivalent.
+- Renamed `PMD_EXTERNAL_SERVERS` → `EXTERNAL_SERVERS` (the PMD_ prefix was a
+  leftover from the old pre-multi-app project). Updated `playwright.config.js`
+  + AGENTS.md recipe.
+- Default theme is now **superhero** everywhere (was darkly/solar): app
+  `app.js` + `app-settings.js`/`settings.js` fallbacks, `SmdApp.themeDefault`
+  + `smd-app.js` boot fallback, `applyTheme()` invalid-name fallback, `smd-theme`
+  component default, storybook `data-theme`/`themeConfig` fallback/`storybook_theme`
+  default, and every static `<head>` `bootstrap-theme-css` +
+  `theme-override-(mode|specific)` link (mode stays `dark.css` — superhero is a
+  dark theme). Updated the regression/screenshot specs' config fallbacks +
+  the pmd precache test + qrlinks default-theme assertion.
+- Menu order everywhere is now **Settings, divider, Launch, divider, rest**
+  (PlanMyDay, CountMyDays, QRLinks, SolarControlar, FreeFormOX). The Launch
+  app's own menu keeps only its Settings item (it is the launcher).
+- `BUILD_NUMBER` → `202609172101`.
+- Verified: 4 affected tests pass (menu links, theme selector, unknown-theme
+  fallback → superhero, legacy-untouched). User asked not to run the full
+  regression suite this round — they will test at the end.
+
+### 2026-09-17 (2)
+- Small cross-app tidy-ups (no regression run this session — user will test at
+  the end).
+- **Theme override CSS**: added `shared/css/themes/light.css` + `dark.css`
+  (one file for every light / every dark theme) and 26 `css/themes/<theme>/<theme>.css`
+  per-theme files — all initially empty with a header comment; the Bootstrap
+  theme files were NOT touched. `applyTheme()` in `shared/js/smd-settings.js`
+  now also manages two override `<link>`s: `theme-override-mode` (light/dark)
+  and `theme-override-specific` (per theme), both cache-busted with BUILD_NUMBER
+  and created on demand right after `#bootstrap-theme-css` (so the storybook,
+  which has no static links, gets them at first theme select). Added the static
+  links to all 7 index.html heads matching each app's default theme
+  (FreeFormOX = solar). All 28 new files precached in `sw.js` SHARED_ASSETS.
+  All 5 screenshot specs' `setTheme()` swap the override links too.
+- **Image sizes unified** to xsmall=32, small=40, medium=50, large=64, xlarge=80,
+  jumbo=100 with default `medium`=50 in ALL apps (previously PMD 32/40/50,
+  CMD/QRLinks 64/80/100, Launch 48/64/80, "large" defaults). Updated the 4
+  `iconSizeSelector` selects to the six options, the per-app mappings
+  (`pmdImageSize()`, `applyImageSize()` in CMD/QRLinks/Launch), the shared
+  `changeIconSize()` class-removal list (now all six) and the shared
+  DOMContentLoaded default. Updated the 3 pixel-sensitive tests (pmd-regression
+  icon-size test + stream-selector test, cmd-regression icon-size test).
+- **Font sizes**: FreeFormOX + Launch gained the 6-option Font size selector
+  (they were the only apps missing it). FFOX got `body.font-size-*` rules for
+  the turn indicator/buttons/chrome; Launch's existing `.app-name` rules already
+  covered the sizes. All apps now expose all six.
+- **Menu order**: PlanMyDay, CountMyDays, QRLinks, SolarControlar, FreeFormOX
+  menus reordered to Settings, Launch, divider, rest. The Launch app's own menu
+  stays just "Settings".
+- `BUILD_NUMBER` → `202609172020`.
+- What worked: Node one-liner for the 28 CSS files (LF-safe); extending
+  `applyTheme`/`setTheme` kept override handling in one shared place so the
+  storybook and every screenshot helper pick it up for free.
+- What did not work: a heredoc-style Node `-e` with embedded `'` inside a
+  PowerShell double-quoted string mangles — write a temp script file instead.
 
 ### 2026-09-17
 - Fixed a **cross-origin Save CORS failure** in SolarControlar (frontend-only; the
@@ -710,7 +938,7 @@ Techniques / gotchas:
   `PlanMyDay/index.html` (after the `smd-*` services, `app.js` last), 9 new
   `sw.js` `APPS["PlanMyDay/"]` precache entries; `BUILD_NUMBER` → `202609111945`.
   The sub-path precache test still asserts `js/app.js`.
-- Test-run infra: `playwright.config.js` now supports `PMD_EXTERNAL_SERVERS=1`
+- Test-run infra: `playwright.config.js` now supports `EXTERNAL_SERVERS=1`
   (webServer undefined) so pre-started 8080/8081 servers are shared untouched.
   Without it, every Playwright process spawned its own `http-server.py` (Windows
   SO_REUSEADDR lets them all bind 8080) and early finishers killed the server the
@@ -863,6 +1091,13 @@ Techniques / gotchas:
   to the `pmd` gallery, remembers the choice in `localStorage`
   (`screenshotViewerGallery`), and shows a legacy `(root)` gallery if root-level
   themes exist. `pmd` sorts first, root last.
+- THEME MODE FILTER (2026-09-17): `screenshots/viewer.js` toolbar also has a
+  **Theme** select — Both (default) / Light / Dark — driven by a client-side
+  `DARK_THEMES` map (`cyborg,darkly,slate,solar,superhero,vapor`, mirroring
+  `themeConfig[].bsTheme`). `window.changeThemeMode()` toggles a
+  `theme-mode-hidden` class on `.theme-section`; it is re-applied after every
+  `loadThemes()` render. Pure front-end (the `/api/*` handlers are untouched), so
+  the viewer auto-supports any app gallery with the same hardcoded dark set.
 - Lesson: new app screenshots go in their own `screenshots/<app>/` gallery; the
   viewer auto-discovers them (Refresh re-reads `/api/galleries`).
 

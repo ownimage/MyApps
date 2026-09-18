@@ -1,10 +1,12 @@
 ﻿<!DOCTYPE html>
-<html lang="en" data-bs-theme="dark" data-theme="darkly">
+<html lang="en" data-bs-theme="dark" data-theme="superhero">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>PlanMyDay - Component Storybook</title>
-  <link id="bootstrap-theme-css" href="../shared/css/themes/darkly/bootstrap.min.css" rel="stylesheet">
+  <link id="bootstrap-theme-css" href="../shared/css/themes/superhero/bootstrap.min.css" rel="stylesheet">
+  <link id="theme-override-mode" rel="stylesheet" href="../shared/css/themes/dark.css">
+  <link id="theme-override-specific" rel="stylesheet" href="../shared/css/themes/superhero/superhero.css">
   <link rel="stylesheet" href="../shared/vendor/bootstrap-icons.css">
   <link rel="stylesheet" href="../shared/vendor/fontawesome/css/fontawesome.min.css">
   <link rel="stylesheet" href="../shared/vendor/fontawesome/css/solid.min.css">
@@ -278,7 +280,7 @@
     // (settings.js is loaded above, giving us themeConfig, applyTheme, applySmdVars).
     const appThemeBefore = localStorage.getItem("planmydays_theme");
     function sbApplyTheme(name) {
-      const c = themeConfig[name] || themeConfig.darkly;
+      const c = themeConfig[name] || themeConfig.superhero;
       applyTheme(name); // identical logic to the app (CSS + data-* attrs + --smd-* vars + ?v stamp)
       // neutralize the app-preference side effect applyTheme persisting; storybook
       // keeps its own storage key so it never changes the real app theme.
@@ -308,7 +310,7 @@
       opt.textContent = label + " (" + themeConfig[name].bsTheme + ")";
       themeSelect.appendChild(opt);
     });
-    const sbSavedTheme = localStorage.getItem("storybook_theme") || "darkly";
+    const sbSavedTheme = localStorage.getItem("storybook_theme") || "superhero";
     themeSelect.value = sbSavedTheme;
     sbApplyTheme(sbSavedTheme);
     themeSelect.addEventListener("change", () => {

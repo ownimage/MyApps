@@ -11,9 +11,8 @@
 SmdConfig.storagePrefix = "qrlinks_";
 SmdConfig.imagePrefix = "shared-";
 
-// Run the legacy key migration; remove together with the startup reminder.
-migrateLegacyStorage();
-if (typeof migrateImagesToShared === "function") migrateImagesToShared();
+// All apps on this origin share one image library (`shared-images`), so no
+// per-app image migration is needed here.
 
 // Hide every main/editor page except one (null hides them all). Page hosts are
 // light-DOM elements so document.getElementById works.
@@ -97,10 +96,7 @@ document.addEventListener("DOMContentLoaded", () => {
   applyImageSize();
   window.addEventListener("resize", applyImageSize);
 
-  applyTheme(localStorage.getItem(smdKey("theme")) || "darkly");
-
-  // Temporary: remember that the legacy storage migration is still active.
-  if (typeof showLegacyMigrationReminder === "function") showLegacyMigrationReminder();
+  applyTheme(localStorage.getItem(smdKey("theme")) || "superhero");
 
   renderMain();
   if (typeof seedSampleImages === "function") seedSampleImages();

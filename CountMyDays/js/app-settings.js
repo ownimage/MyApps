@@ -53,12 +53,12 @@ function toggleDangerRows(enabled) {
 }
 
 // Icon size setting -> the shared <smd-image> render size (px). CountMyDays
-// uses larger countdown tiles than PlanMyDay (64/80/100); narrow screens cap
-// the size (the original app shrank its thumbnails in a max-width:480px media
-// query).
+// uses the same six sizes as every other app (32/40/50/64/80/100); narrow
+// screens cap the size (the original app shrank its thumbnails in a
+// max-width:480px media query).
 function applyImageSize() {
-  const value = localStorage.getItem(smdKey("iconSize")) || "large";
-  let px = { small: 64, medium: 80, large: 100 }[value] || 100;
+  const value = localStorage.getItem(smdKey("iconSize")) || "medium";
+  let px = { xsmall: 32, small: 40, medium: 50, large: 64, xlarge: 80, jumbo: 100 }[value] || 50;
   if (window.innerWidth <= 480) px = Math.min(px, 64);
   if (typeof SmdImage !== "undefined" && SmdImage.setDefaultSize) {
     SmdImage.setDefaultSize(px);
@@ -120,7 +120,7 @@ function openSettings() {
   buildSettingsContent();
   page.show();
 
-  const savedTheme = localStorage.getItem(smdKey("theme")) || "darkly";
+  const savedTheme = localStorage.getItem(smdKey("theme")) || "superhero";
   const themeSel = $id("themeSelector");
   if (themeSel) themeSel.setAttribute("theme", savedTheme);
 
@@ -136,7 +136,7 @@ function openSettings() {
   const autoHideCb = $id("autoHideMenu");
   if (autoHideCb) autoHideCb.checked = autoHide;
 
-  const savedIconSize = localStorage.getItem(smdKey("iconSize")) || "large";
+  const savedIconSize = localStorage.getItem(smdKey("iconSize")) || "medium";
   const iconSel = $id("iconSizeSelector");
   if (iconSel) iconSel.value = savedIconSize;
 
@@ -197,7 +197,6 @@ function confirmClearAllData() {
       Object.keys(localStorage).forEach(key => {
         if (key.indexOf(prefix) === 0) localStorage.removeItem(key);
       });
-      Object.keys(CMD_LEGACY_STORAGE_MAP).forEach(key => localStorage.removeItem(key));
       closeSettings();
     }
   });

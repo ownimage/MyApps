@@ -11,7 +11,9 @@
   <link rel="apple-touch-icon" href="icon-192.png">
   <title>Count My Days</title>
 
-  <link id="bootstrap-theme-css" href="../shared/css/themes/darkly/bootstrap.min.css" rel="stylesheet">
+  <link id="bootstrap-theme-css" href="../shared/css/themes/superhero/bootstrap.min.css" rel="stylesheet">
+  <link id="theme-override-mode" rel="stylesheet" href="../shared/css/themes/dark.css">
+  <link id="theme-override-specific" rel="stylesheet" href="../shared/css/themes/superhero/superhero.css">
   <link rel="stylesheet" href="../shared/vendor/flatpickr.min.css">
   <link rel="stylesheet" href="../shared/css/styles.css">
   <link rel="stylesheet" href="css/styles.css">
@@ -46,9 +48,9 @@
         <i class="fa-solid fa-bars" aria-hidden="true" style="font-size:22px"></i>
       </button>
       <ul class="dropdown-menu">
-        <li><a class="dropdown-item" href="../">Launch</a></li>
-        <li><hr class="dropdown-divider"></li>
         <li><a class="dropdown-item" onclick="openSettings()">Settings</a></li>
+        <li><hr class="dropdown-divider"></li>
+        <li><a class="dropdown-item" href="../">Launch</a></li>
         <li><hr class="dropdown-divider"></li>
         <li><a class="dropdown-item" onclick="openDatesEditor()">Edit Dates</a></li>
         <li><a class="dropdown-item" onclick="openCategoriesEditor()">Edit Categories</a></li>
@@ -149,9 +151,12 @@
             <div class="col-4 text-end"><label class="form-label mb-0">Icon size</label></div>
             <div class="col-8">
               <select id="iconSizeSelector" class="form-select" onchange="changeIconSize(this.value)">
-                <option value="small">Small (64x64)</option>
-                <option value="medium">Medium (80x80)</option>
-                <option value="large">Large (100x100)</option>
+                <option value="xsmall">Extra small (32x32)</option>
+                <option value="small">Small (40x40)</option>
+                <option value="medium">Medium (50x50)</option>
+                <option value="large">Large (64x64)</option>
+                <option value="xlarge">Extra large (80x80)</option>
+                <option value="jumbo">Jumbo (100x100)</option>
               </select>
             </div>
           </div>
@@ -353,7 +358,11 @@
   if ("serviceWorker" in navigator) {
     var __updatePrompted = false;
     var __applyingUpdate = false;
+    var __dismissedUpdate = "";
+    try { __dismissedUpdate = localStorage.getItem("swUpdateDismissedUrl") || ""; } catch (e) { __dismissedUpdate = ""; }
     function showUpdatePrompt(reg) {
+      var w = reg && reg.waiting;
+      if (w && w.scriptURL === __dismissedUpdate) return; // user already dismissed THIS pending SW
       if (__updatePrompted) return;
       __updatePrompted = true;
       if (typeof showSmdModal === "function") {
@@ -365,9 +374,14 @@
             { text: "Update now", variant: "primary", action: "update" }
           ],
           onAction: function(detail) {
-            if (detail.action === "update" && reg.waiting) {
+            var pending = reg && reg.waiting;
+            if (!pending) return;
+            if (detail.action === "update") {
+              try { localStorage.removeItem("swUpdateDismissedUrl"); } catch (e) {}
               __applyingUpdate = true;
-              reg.waiting.postMessage({ type: "SKIP_WAITING" });
+              pending.postMessage({ type: "SKIP_WAITING" });
+            } else if (detail.action === "later") {
+              try { localStorage.setItem("swUpdateDismissedUrl", pending.scriptURL); } catch (e) {}
             }
           }
         });
@@ -375,7 +389,7 @@
     }
     window.__cmdSwUpdater = { showUpdatePrompt: showUpdatePrompt };
 
-    navigator.serviceWorker.register("../sw.js?v=" + BUILD_NUMBER).then(function(reg) {
+    navigator.serviceWorker.register("../sw.js").then(function(reg) {
       if (navigator.serviceWorker.controller) {
         if (reg.waiting) showUpdatePrompt(reg);
         reg.addEventListener("updatefound", function() {

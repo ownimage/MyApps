@@ -21,8 +21,8 @@ function toggleDangerRows(enabled) {
 // Icon size setting -> the shared <smd-image> render size (px), wired as a
 // VALUE; narrow screens cap the size.
 function applyImageSize() {
-  const value = localStorage.getItem(smdKey("iconSize")) || "large";
-  let px = { small: 64, medium: 80, large: 100 }[value] || 100;
+  const value = localStorage.getItem(smdKey("iconSize")) || "medium";
+  let px = { xsmall: 32, small: 40, medium: 50, large: 64, xlarge: 80, jumbo: 100 }[value] || 50;
   if (window.innerWidth <= 480) px = Math.min(px, 64);
   if (typeof SmdImage !== "undefined" && SmdImage.setDefaultSize) {
     SmdImage.setDefaultSize(px);
@@ -92,7 +92,7 @@ function openSettings() {
   buildSettingsContent();
   page.show();
 
-  const savedTheme = localStorage.getItem(smdKey("theme")) || "darkly";
+  const savedTheme = localStorage.getItem(smdKey("theme")) || "superhero";
   const themeSel = $id("themeSelector");
   if (themeSel) themeSel.setAttribute("theme", savedTheme);
 
@@ -100,7 +100,7 @@ function openSettings() {
   const fontSizeSel = $id("fontSizeSelector");
   if (fontSizeSel) fontSizeSel.value = savedFontSize;
 
-  const savedIconSize = localStorage.getItem(smdKey("iconSize")) || "large";
+  const savedIconSize = localStorage.getItem(smdKey("iconSize")) || "medium";
   const iconSel = $id("iconSizeSelector");
   if (iconSel) iconSel.value = savedIconSize;
 
@@ -176,7 +176,6 @@ function confirmClearAllData() {
       Object.keys(localStorage).forEach(key => {
         if (key.indexOf(prefix) === 0) localStorage.removeItem(key);
       });
-      Object.keys(QRLINK_LEGACY_STORAGE_MAP).forEach(key => localStorage.removeItem(key));
       closeSettings();
     }
   });

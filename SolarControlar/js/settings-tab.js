@@ -100,7 +100,7 @@ function openSettings() {
   page.show();
 
   // Theme selector
-  var savedTheme = localStorage.getItem(smdKey("theme")) || "darkly";
+  var savedTheme = localStorage.getItem(smdKey("theme")) || "superhero";
   var themeSel = $id("themeSelector");
   if (themeSel) themeSel.setAttribute("theme", savedTheme);
 

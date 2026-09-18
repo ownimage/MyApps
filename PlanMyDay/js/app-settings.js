@@ -105,7 +105,7 @@ function openSettings() {
   settingsPage.show();
   if (typeof bindMinioSettingsTabBehavior === "function") bindMinioSettingsTabBehavior();
 
-  const savedTheme = localStorage.getItem(smdKey("theme")) || "darkly";
+  const savedTheme = localStorage.getItem(smdKey("theme")) || "superhero";
   const themeSel = $id("themeSelector");
   if (themeSel) themeSel.setAttribute("theme", savedTheme);
   const savedFontSize = localStorage.getItem(smdKey("fontSize")) || "xlarge";
@@ -178,7 +178,7 @@ function openSettings() {
     });
   }
 
-  const savedIconSize = localStorage.getItem(smdKey("iconSize")) || "large";
+  const savedIconSize = localStorage.getItem(smdKey("iconSize")) || "medium";
   const iconSel = $id("iconSizeSelector");
   if (iconSel) iconSel.value = savedIconSize;
   const savedDensity = localStorage.getItem(smdKey("density")) || "normal";
