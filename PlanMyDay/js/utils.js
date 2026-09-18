@@ -8,6 +8,11 @@ function getTodayStr() {
   const d = getTodayDate();
   return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
 }
+function getTomorrowStr() {
+  const d = getTodayDate();
+  d.setDate(d.getDate() + 1);
+  return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+}
 function getStoredLastGen() {
   if (isDevMode) {
     const dev = localStorage.getItem("devLastGen");

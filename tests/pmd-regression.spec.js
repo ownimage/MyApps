@@ -2403,6 +2403,103 @@ test.describe("PlanMyDay - Regression", () => {
     });
   });
 
+  // ── Today Card Swipe ──────────────────────────────────────
+
+  test.describe("Today Card Swipe", () => {
+
+    async function swipeCard(page, jobId, direction) {
+      const card = page.locator('#todayCardList .today-drag-card[data-job-id="' + jobId + '"]');
+      await expect(card).toBeVisible();
+      const box = await card.boundingBox();
+      const startX = box.x + box.width / 2;
+      const startY = box.y + box.height / 2;
+      const dist = Math.max(200, Math.round(box.width * 0.4));
+      const endX = startX + (direction === "left" ? -dist : dist);
+      const steps = 12;
+      await page.mouse.move(startX, startY);
+      await page.mouse.down();
+      for (let i = 1; i <= steps; i++) {
+        const r = i / steps;
+        await page.mouse.move(startX + (endX - startX) * r, startY, { steps: 1 });
+      }
+      await page.mouse.up();
+    }
+
+    function allJobIds(page) {
+      return page.evaluate(() => {
+        const streams = JSON.parse(localStorage.getItem("planmydays_streams"));
+        return streams.flatMap(function (s) { return (s.jobs || []).map(function (j) { return j.id; }); });
+      });
+    }
+
+    test("swipe left opens the delete confirm and deletes the job", async ({ page }) => {
+      await seedTodayList(page);
+      await page.reload();
+      await expect(page.locator("#todayCardList .today-drag-card")).toHaveCount(2);
+      await swipeCard(page, "job_1", "left");
+      await expect(page.locator("#smdConfirmModal")).toBeVisible();
+      await expect(page.locator("#smdConfirmModal")).toContainText("Delete Job");
+      await expect(page.locator("#smdConfirmModal")).toContainText("Report");
+      await page.locator("#smdConfirmModal").locator("button").filter({ hasText: "Delete" }).click();
+      await page.locator("#smdConfirmModal").waitFor({ state: "hidden", timeout: 10000 });
+      await expect(page.locator("#todayCardList .today-drag-card")).toHaveCount(1);
+      await expect(page.locator('#todayCardList .today-drag-card[data-job-id="job_3"]')).toBeVisible();
+      await expect.poll(() => allJobIds(page)).toEqual(["job_2", "job_3"]);
+      await expect.poll(() =>
+        page.evaluate(() => JSON.parse(localStorage.getItem("planmydays_today_order")))
+      ).toEqual(["job_3"]);
+    });
+
+    test("swipe left cancel restores the card", async ({ page }) => {
+      await seedTodayList(page);
+      await page.reload();
+      await expect(page.locator("#todayCardList .today-drag-card")).toHaveCount(2);
+      const before = await page.locator('#todayCardList .today-drag-card[data-job-id="job_1"]').boundingBox();
+      await swipeCard(page, "job_1", "left");
+      await expect(page.locator("#smdConfirmModal")).toBeVisible();
+      await page.locator("#smdConfirmModal").locator("button").filter({ hasText: "Cancel" }).click();
+      await expect(page.locator("#smdConfirmModal")).not.toBeVisible();
+      const card = page.locator('#todayCardList .today-drag-card[data-job-id="job_1"]');
+      await expect(card).toBeVisible();
+      await expect.poll(() => card.evaluate((el) => getComputedStyle(el).opacity)).toBe("1");
+      // the card slid back to its original X (a cancelled swipe leaves it in place)
+      await expect.poll(async () => (await card.boundingBox()).x).toBeCloseTo(before.x, 0);
+    });
+
+    test("swipe right snoozes the job until tomorrow", async ({ page }) => {
+      await seedTodayList(page);
+      await page.reload();
+      await expect(page.locator("#todayCardList .today-drag-card")).toHaveCount(2);
+      await swipeCard(page, "job_1", "right");
+      await expect(page.locator('#todayCardList .today-drag-card[data-job-id="job_1"]')).toHaveCount(0);
+      await expect(page.locator("#todayCardList .today-drag-card")).toHaveCount(1);
+      const tomorrow = await page.evaluate(() => {
+        const d = new Date();
+        d.setDate(d.getDate() + 1);
+        return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+      });
+      await expect.poll(() =>
+        page.evaluate(() => {
+          const streams = JSON.parse(localStorage.getItem("planmydays_streams"));
+          const job = streams.flatMap(function (s) { return s.jobs || []; }).find(function (j) { return j.id === "job_1"; });
+          return job ? job.sleepUntil : null;
+        })
+      ).toBe(tomorrow);
+      // a sub-threshold wiggle does not fire any action
+      await page.evaluate(() => {
+        const card = document.querySelector('#todayCardList .today-drag-card[data-job-id="job_3"]');
+        const box = card.getBoundingClientRect();
+        const fire = (type, x) => card.dispatchEvent(new PointerEvent(type, { bubbles: true, cancelable: true, pointerId: 9, clientX: x, clientY: box.y + box.height / 2, button: 0, buttons: type === "pointerup" ? 0 : 1 }));
+        const cx = box.x + box.width / 2;
+        fire("pointerdown", cx);
+        fire("pointermove", cx + 30);
+        fire("pointerup", cx + 30);
+      });
+      await expect(page.locator("#smdConfirmModal")).not.toBeVisible();
+      await expect(page.locator("#todayCardList .today-drag-card")).toHaveCount(1);
+    });
+  });
+
   // ── Main List Sync ────────────────────────────────────────
 
   test.describe("Main List Sync", () => {

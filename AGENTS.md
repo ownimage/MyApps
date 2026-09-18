@@ -311,6 +311,10 @@ Techniques / gotchas:
 - To inspect computed styles/DOM, drop a temp `tests/_probe.spec.js` that writes JSON via `require("fs").writeFileSync(path.join(__dirname, "_probe.out.json"), ...)`, run it with `--reporter=line`, `Get-Content` the JSON, then delete both files. (test `console.log` is hidden by the list reporter).
 - **Playwright TRUNCATES large received/expected values in failure output** (`pretty-format` prints `…` and folds long arrays, e.g. a `expect(cachedUrls).toEqual(expect.arrayContaining([...]))` diff shows only the first ~10 cache URLs). There is NO config to raise the limit. When a failure depends on a full array/object (URL lists, cache keys, response lists), DON'T read it from the error message — extend/replace the probe (`_probe.spec.js`) to `writeFileSync` the ENTIRE array and `Get-Content` that file. "The received list is truncated" is always a probe job, never a reason to rerun the test for inspection.
 - `page.evaluate` can't see inside shadow roots: query `document.getElementById("<pageId>").shadowRoot` first (e.g. `#streamsEditor`, `#jobEditPage`, `#smdConfirmModal`). Playwright locators pierce automatically.
+- SWIPE-GESTURE TESTS (2026-09-18): components that listen for pointer events on
+  their HOST can be driven two ways — (a) real `page.mouse.down()/move()/up()`
+  when the pointer handler runs in a real browser (active pointer exists, so
+  `setPointerCapture` works); (b) `locator.dispatchEvent("pointerdown|pointermove|pointerup", { pointerId, clientX, clientY, button, buttons })` for touch-style tests (synthetic pointer — `setPointerCapture` THROWS `NotFoundError` for a fake pointerId, so the component must try/catch it). A touch drag helper already exists in `pmd-touch.spec.js` (`touchDrag`, pointerType:"touch" via the document's element-from-point) if a real hit-test is preferred. Remember `touch-action` must be pan-y (or similar) on the swipable element so vertical scroll still works and horizontal gestures reach the JS.
 - SW PRECACHE TEST FLAKE (2026-09-13): the sub-path tests (`cmd-regression.spec.js` and `pmd-regression.spec.js`) wait for a fresh SW install that precaches ~250 URLs from the single python server. Under the 10-shard waves a single transient request failure rejects `cache.addAll`, install stays failed with NO worker, and the old 60s poll never saw `active`. Both tests now: `test.setTimeout(300000)`, poll for 240s, and when a registration exists with no `installing`/`waiting`/`active` worker they `unregister()` + `register()` again to retry the install. If a precache URL genuinely 404s the test still fails (as intended).
 - smd-button disabled/`.disabled` assertions must target the inner native button: `#id button`, not the host element.
 - Playwright `toHaveText` on an `smd-button` HOST reports the slot fallback text too (e.g. `"Edit\n Button"`), so exact-text assertions fail. Use `toContainText("Edit")` or a `getByRole("button", { name: "Edit" })` locator instead.
@@ -319,6 +323,40 @@ Techniques / gotchas:
 - CROSS-ORIGIN SAVE 302 GOTCHA (2026-09-17): SolarControlar's Flask POST endpoints (`POST /solar/`, `POST /solar/api/config`) are PRG — they answer `302 Location: /solar/`. A PWA `fetch()` that lets the browser follow that cross-origin redirect can lose its `Authorization` header on the follow-up GET (browser-dependent), so Traefik returns a 401 WITHOUT `Access-Control-Allow-Origin` → the fetch blocks as a CORS error / "Failed to fetch". Fix in the APP: `redirect: "manual"` on the POST and treat `resp.type === "opaqueredirect"` as success (server saved; the caller then re-fetches the GET page which carries auth again). `redirect: "manual"` returns an opaque-redirect response (status 0) for a 302 — you cannot read it, only detect it by `type`. Rule for SolarControlar saves: never follow the Flask redirect; `_post` returns the response TEXT (or `""`), so consumers must not chain `.text()`.
 
 ## Session log
+
+### 2026-09-18
+- **Today-card swipe gestures** (PlanMyDay): `pmd-today-card` now tracks pointer
+  events on its host (`touch-action: pan-y`), so a horizontal swipe on a today
+  card works with finger or mouse:
+  - **Swipe LEFT** past the threshold → the card fades + slides off, then emits
+    `pmd-today-delete`; the app shows the standard "Delete Job?" confirm
+    (`showSmdModal`). Cancel calls the new `card.snapBackSwipe()` to slide it
+    back; Delete uses the new `deleteJobFromStream(streamIdx, idx)` helper
+    (extracted from `confirmDeleteJob`'s onAction in job-editor.js) and
+    `renderMain()`.
+  - **Swipe RIGHT** → emits `pmd-today-tomorrow`; the app sets
+    `job.sleepUntil = getTomorrowStr()` (new in utils.js) and `renderMain()`;
+    the job drops out of today's list and re-enters automatically on the next
+    day's generation (existing `shouldShowJobToday`/`ensureTodayList` logic).
+- Swipe feel: threshold = `min(120, max(60, cardWidth*0.25))`; the card follows
+  the pointer (no resistance) fading to 0.25 opacity at the threshold, then a
+  0.2s ease-out slide-off; sub-threshold releases spring back. Vertical pans
+  are untouched (`pan-y`). The swipe skips `pointerdown`s whose composedPath
+  contains a `.drag-handle` so Sortable reorder drags still win. A capture
+  `click` handler suppresses the late click after a real swipe (would otherwise
+  toggle the checkbox / open View).
+- Tests: +3 in `pmd-regression.spec.js` ("Today Card Swipe": delete-confirm →
+  deleted, cancel → restored in place, right-swipe → sleepUntil=tomorrow) using
+  real `page.mouse`; +1 in `pmd-touch.spec.js` (iPhone, right-swipe via
+  `locator.dispatchEvent("pointerdown|pointermove|pointerup", {...})`)
+  assert the snooze. All 3 new + 11 affected (handle drags, view/checkbox
+  clicks, edit-flow delete, touch reorders) pass. `BUILD_NUMBER` →
+  `202609180840`.
+- What worked: pointer events = one code path for mouse + touch, and Playwright
+  drives them both ways. What did not work: asserting a clean transform after a
+  snap-back via `getComputedStyle(el).transform)` — `translateX(0)` computes to
+  an identity `matrix(...)`, not `"none"`; assert the card's `boundingBox().x`
+  instead.
 
 ### 2026-09-17 (3e)
 - **SolarControlar icons updated**: regenerated
