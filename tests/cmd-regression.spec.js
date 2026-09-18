@@ -180,7 +180,7 @@ test.describe("CountMyDays - Regression", () => {
       await expect(page.locator("#densitySelector")).toBeVisible();
       await expect(page.locator("#maxCountdownsSelector")).toBeVisible();
       await expect(page.locator("#autoHideMenu")).toBeVisible();
-      await page.locator("#settingsPage").getByRole("button", { name: "Done" }).click();
+      await page.locator("#settingsPage").getByRole("button", { name: "OK" }).click();
       await expect(page.locator("#countdownContainer")).not.toHaveClass(/d-none/);
     });
 
@@ -622,16 +622,16 @@ test.describe("CountMyDays - Regression", () => {
       await page.evaluate(() => openDatesEditor());
       await page.locator("#datesEditor").getByRole("button", { name: "Add Date" }).click();
       await page.locator("#dateEditPage").getByRole("button", { name: "Cancel" }).click();
-      await page.locator("#datesEditor").getByRole("button", { name: "Done" }).click();
+      await page.locator("#datesEditor").getByRole("button", { name: "OK" }).click();
 
       await page.evaluate(() => openCategoriesEditor());
-      await page.locator("#categoriesEditor").getByRole("button", { name: "Done" }).click();
+      await page.locator("#categoriesEditor").getByRole("button", { name: "OK" }).click();
 
       await page.evaluate(() => openImagesEditor());
       await page.evaluate(() => closeImagesEditor());
 
       await page.evaluate(() => openSettings());
-      await page.locator("#settingsPage").getByRole("button", { name: "Done" }).click();
+      await page.locator("#settingsPage").getByRole("button", { name: "OK" }).click();
 
       await page.evaluate(() => exportData());
       await page.locator("#exportWizardPage").getByRole("button", { name: "Cancel" }).click();
@@ -673,7 +673,7 @@ test.describe("CountMyDays - Regression", () => {
       await expect.poll(async () => page.evaluate(() => localStorage.getItem("countmydays_gcal_client_id"))).toBe("dummy.apps.googleusercontent.com");
 
       // The Google menu entries become visible ("Edit Google Events" was removed).
-      await page.locator("#settingsPage").getByRole("button", { name: "Done" }).click();
+      await page.locator("#settingsPage").getByRole("button", { name: "OK" }).click();
       await page.locator("#btnMainMenu").click();
       await expect(page.locator(".google-menu-item").filter({ hasText: "Refresh Google Calendar" })).toBeVisible();
       await expect(page.locator(".google-menu-item").filter({ hasText: "Edit Google Events" })).toHaveCount(0);
@@ -830,7 +830,7 @@ test.describe("CountMyDays - Regression", () => {
       await page.evaluate(() => openGoogleEventsEditor());
       await expect(page.locator("#googleEventsPage")).toHaveAttribute("open", "");
       await expect(page.locator("#googleEventsPage cmd-date-card")).toHaveCount(7);
-      await page.locator("#googleEventsPage").getByRole("button", { name: "Done" }).click();
+      await page.locator("#googleEventsPage").getByRole("button", { name: "OK" }).click();
       await expect(page.locator("#googleEventsPage")).not.toHaveAttribute("open", "");
     });
 

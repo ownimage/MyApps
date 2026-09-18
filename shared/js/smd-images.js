@@ -263,7 +263,7 @@ function renderImagesEditor() {
       '<div id="imagesList"></div>';
     page.buttons = [
       { text: "Add Image", variant: "primary", action: "add", close: false },
-      { text: "Done", variant: "success", action: "done" },
+      { text: "OK", variant: "success", action: "done" },
     ];
   } else {
     const input = $id("imageNameSearchInput");

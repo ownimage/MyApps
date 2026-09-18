@@ -206,12 +206,12 @@ test.describe("SolarControlar - Regression", () => {
     await expect.poll(async () => page.evaluate(() => localStorage.getItem("solarcontrolar_autoRefresh"))).toBe("true");
   });
 
-  test("settings Done closes the page", async ({ page }) => {
+  test("settings OK closes the page", async ({ page }) => {
     await mockFlaskApi(page);
     await page.goto("/SolarControlar/");
     await page.evaluate(() => openSettings());
     await expect(page.locator("#settingsPage")).toHaveAttribute("open", "");
-    await page.locator("#settingsPage").getByRole("button", { name: "Done" }).click();
+    await page.locator("#settingsPage").getByRole("button", { name: "OK" }).click();
     await expect(page.locator("#settingsPage")).not.toHaveAttribute("open", "");
   });
 

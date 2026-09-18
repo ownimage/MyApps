@@ -55,7 +55,7 @@ function buildSettingsContent() {
 
   settingsPage.title = "Settings";
   settingsPage.content = '<smd-tabs id="settingsTabs"></smd-tabs>' + footerHtml;
-  settingsPage.buttons = [{ text: "Done", variant: "success", action: "done" }];
+  settingsPage.buttons = [{ text: "OK", variant: "success", action: "done" }];
 
   const tabsEl = $id("settingsTabs");
   if (tabsEl) {

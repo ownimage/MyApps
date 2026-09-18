@@ -175,7 +175,7 @@ function renderStreamsEditor() {
 
   page.buttons = [
     { text: "Add Stream", variant: "primary", action: "add", id: "btnAddStream", close: false },
-    { text: "Done", variant: "success", action: "done", id: "btnStreamsDone" }
+    { text: "OK", variant: "success", action: "done", id: "btnStreamsDone" }
   ];
   page.title = "Edit Streams";
 

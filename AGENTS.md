@@ -325,6 +325,24 @@ Techniques / gotchas:
 
 ## Session log
 
+### 2026-09-18 (8) — every smd-page "Done" button relabelled "OK"
+- Changed every `smd-page` footer button `text: "Done"` → `text: "OK"` (the
+  `action: "done"` AND button ids `btnStreamsDone`/`btnJobSearchDone` were kept).
+  All 15 source spots: Launch/FreeFormOX/CountMyDays/PlanMyDay/QRLinks/
+  SolarControlar settings pages, CM dates/categories/google events editors,
+  PMD streams editor + job search, QRLinks links editor, `shared/js/smd-images.js`,
+  `shared/js/smd-app.js`, and the storybook smd-page demo host. The `smd-page`
+  component itself has no default buttons.
+- Tests: replaced `{ name: "Done" }` with `{ name: "OK" }` in cmd, pmd,
+  solarcontrolar, qrlinks, ffox specs; solarcontrolar test title renamed. PMD's
+  unscoped `page.getByRole("button",{name:"OK"})` clicks were left unscoped —
+  the pre-existing "Top-Level: Streams via Streams" test already clicked an
+  unscoped "OK" while both a hidden jobEditPage OK and the streams-editor OK sat
+  in shadow roots, so hidden footer "OK"s demonstrably don't cause strict-mode
+  collisions on role clicks.
+- Verified: pmd streams/settings flows 3/3, qrlinks+ffox+solarcontrolar 31/31,
+  cmd settings/sweep/google 25/25. `BUILD_NUMBER` → `202609181717`.
+
 ### 2026-09-18 (7) — shared `<smd-date-picker>`: PMD sleep-until + CM once-date
 - **New shared component** `shared/js/components/smd-date-picker.js`: a read-only
   flatpickr-backed date field. Attributes: `value` (a date string in `format`),

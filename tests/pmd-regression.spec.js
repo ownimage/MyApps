@@ -465,7 +465,7 @@ test.describe("PlanMyDay - Regression", () => {
       await page.locator("#btnMainMenu").click();
       await page.locator("a.dropdown-item").filter({ hasText: "Images" }).click();
       await expect(page.locator("#imagesEditor")).toBeVisible();
-      await page.locator("#imagesEditor").getByRole("button", { name: "Done" }).click();
+      await page.locator("#imagesEditor").getByRole("button", { name: "OK" }).click();
       await page.locator("#imagesEditor").waitFor({ state: "hidden" });
       await page.locator("#btnMainMenu").click();
       await page.locator("a.dropdown-item").filter({ hasText: "Streams" }).click();
@@ -476,7 +476,7 @@ test.describe("PlanMyDay - Regression", () => {
     test("closes images editor back to main view", async ({ page }) => {
       await page.locator("#btnMainMenu").click();
       await page.locator("a.dropdown-item").filter({ hasText: "Images" }).click();
-      await page.locator("#imagesEditor").getByRole("button", { name: "Done" }).click();
+      await page.locator("#imagesEditor").getByRole("button", { name: "OK" }).click();
       await expect(page.locator("#countdownContainer")).toBeVisible();
     });
 
@@ -775,7 +775,7 @@ test.describe("PlanMyDay - Regression", () => {
     test("settings close returns to main view", async ({ page }) => {
       await page.locator("#btnMainMenu").click();
       await page.locator("a.dropdown-item").filter({ hasText: "Settings" }).click();
-      await page.getByRole("button", { name: "Done" }).click();
+      await page.getByRole("button", { name: "OK" }).click();
       await expect(page.locator("#countdownContainer")).toBeVisible();
     });
   });
@@ -993,7 +993,7 @@ test.describe("PlanMyDay - Regression", () => {
     });
 
     test("closes streams editor back to main view", async ({ page }) => {
-      await page.getByRole("button", { name: "Done" }).click();
+      await page.getByRole("button", { name: "OK" }).click();
       await expect(page.locator("#countdownContainer")).toBeVisible();
     });
 
@@ -1415,7 +1415,7 @@ test.describe("PlanMyDay - Regression", () => {
     });
 
     test("returns to main view from editor", async ({ page }) => {
-      await page.getByRole("button", { name: "Done" }).click();
+      await page.getByRole("button", { name: "OK" }).click();
       await expect(page.locator("#countdownContainer")).toBeVisible();
     });
 
@@ -1496,7 +1496,7 @@ test.describe("PlanMyDay - Regression", () => {
       await meetingToggle.check();
       await page.waitForTimeout(150);
       // click Done to return to main view
-      await page.getByRole("button", { name: "Done" }).click();
+      await page.getByRole("button", { name: "OK" }).click();
       await expect(page.locator("#countdownContainer")).toBeVisible();
       // verify job_2 is now in today_order (if it matches today's schedule)
       var todayOrder = await page.evaluate(() => JSON.parse(localStorage.getItem("planmydays_today_order")));
@@ -1533,7 +1533,7 @@ test.describe("PlanMyDay - Regression", () => {
         .poll(() => page.evaluate(() => JSON.parse(localStorage.getItem("planmydays_today_order") || "[]")))
         .not.toContain("job_2");
       // click Done to return to main view
-      await page.getByRole("button", { name: "Done" }).click();
+      await page.getByRole("button", { name: "OK" }).click();
       await expect(page.locator("#countdownContainer")).toBeVisible();
       // verify job_2 is removed from today_order
       var orderAfter = await page.evaluate(() => JSON.parse(localStorage.getItem("planmydays_today_order")));
@@ -2538,7 +2538,7 @@ test.describe("PlanMyDay - Regression", () => {
       await expect.poll(() =>
         page.evaluate(() => JSON.parse(localStorage.getItem("planmydays_today_order")))
       ).toContain(newId);
-      await page.getByRole("button", { name: "Done" }).click();
+      await page.getByRole("button", { name: "OK" }).click();
       await expect(page.locator("#countdownContainer")).toBeVisible();
       await expect(page.getByText("NewDailyJob").first()).toBeVisible();
     });
@@ -3723,7 +3723,7 @@ test.describe("PlanMyDay - Regression", () => {
       await todayInput.fill(futureDate);
       await todayInput.press("Enter");
       await page.waitForTimeout(250);
-      await page.getByRole("button", { name: "Done" }).click();
+      await page.getByRole("button", { name: "OK" }).click();
       await page.waitForTimeout(250);
       await expect(page.locator("h2").first()).toContainText(dayMonthStr(futureDate));
     });
@@ -5886,7 +5886,7 @@ test.describe("PlanMyDay - Regression", () => {
       await page.locator("a.dropdown-item").filter({ hasText: "Settings" }).click();
       await page.locator("#minio-tab").click();
       await expect(page.locator("#minioEnabled")).not.toBeChecked();
-      await page.getByRole("button", { name: "Done" }).click();
+      await page.getByRole("button", { name: "OK" }).click();
       // main menu should not show the import/export options
       await page.locator("#btnMainMenu").click();
       await expect(page.locator("a.dropdown-item").filter({ hasText: "Export to Minio" })).not.toBeVisible();
@@ -5895,7 +5895,7 @@ test.describe("PlanMyDay - Regression", () => {
       await page.locator("a.dropdown-item").filter({ hasText: "Settings" }).click();
       await page.locator("#minio-tab").click();
       await page.locator("#minioEnabled").check();
-      await page.getByRole("button", { name: "Done" }).click();
+      await page.getByRole("button", { name: "OK" }).click();
       await page.locator("#btnMainMenu").click();
       await expect(page.locator("a.dropdown-item").filter({ hasText: "Export to Minio" })).toBeVisible();
       await expect(page.locator("a.dropdown-item").filter({ hasText: "Import from Minio" })).toBeVisible();
@@ -5903,7 +5903,7 @@ test.describe("PlanMyDay - Regression", () => {
       await page.locator("a.dropdown-item").filter({ hasText: "Settings" }).click();
       await page.locator("#minio-tab").click();
       await page.locator("#minioEnabled").uncheck();
-      await page.getByRole("button", { name: "Done" }).click();
+      await page.getByRole("button", { name: "OK" }).click();
       await page.locator("#btnMainMenu").click();
       await expect(page.locator("a.dropdown-item").filter({ hasText: "Export to Minio" })).not.toBeVisible();
       await expect(page.locator("a.dropdown-item").filter({ hasText: "Import from Minio" })).not.toBeVisible();

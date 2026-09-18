@@ -58,7 +58,7 @@ function buildSearchJobsContent() {
     '<div id="jobSearchList"></div>';
   page.buttons = [
     { text: "Add Job", variant: "secondary", action: "add", id: "btnJobSearchAdd", close: false },
-    { text: "Done", variant: "success", action: "done", id: "btnJobSearchDone" }
+    { text: "OK", variant: "success", action: "done", id: "btnJobSearchDone" }
   ];
 }
 

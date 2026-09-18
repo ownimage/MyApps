@@ -120,7 +120,7 @@ test.describe("FreeFormOX - Regression", () => {
       await expect(page.locator("#oName")).toBeVisible();
       await expect(page.locator("#oPieceStyle")).toBeVisible();
       await expect(page.locator("#showPlayReplay")).toBeVisible();
-      await page.locator("#settingsPage").getByRole("button", { name: "Done" }).click();
+      await page.locator("#settingsPage").getByRole("button", { name: "OK" }).click();
       await expect(page.locator("#settingsPage")).not.toHaveAttribute("open", "");
     });
 

@@ -69,7 +69,7 @@ function renderDatesEditor() {
       '<div id="dateList"></div>';
     page.buttons = [
       { text: "Add Date", variant: "primary", action: "add", close: false },
-      { text: "Done", variant: "success", action: "done" }
+      { text: "OK", variant: "success", action: "done" }
     ];
   }
   if (!page.__cmdFiltersBound) {

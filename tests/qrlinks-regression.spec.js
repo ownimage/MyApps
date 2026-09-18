@@ -97,7 +97,7 @@ test.describe("QRLinks - Regression", () => {
     await expect(page.locator("#linksEditor .qrlink-list-card")).toHaveCount(2);
     expect(await page.evaluate(() => loadLinks().some(l => l.title === "Renamed Link"))).toBe(false);
 
-    await page.locator("#linksEditor").getByRole("button", { name: "Done" }).click();
+    await page.locator("#linksEditor").getByRole("button", { name: "OK" }).click();
     await expect(page.locator("#countdownContainer")).not.toHaveClass(/d-none/);
   });
 

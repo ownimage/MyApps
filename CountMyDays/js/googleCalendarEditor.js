@@ -102,7 +102,7 @@ function renderGoogleEventsEditor() {
         '</div>' +
       '</div>' +
       '<div id="gcalEditorList"></div>';
-    page.buttons = [{ text: "Done", variant: "success", action: "done" }];
+    page.buttons = [{ text: "OK", variant: "success", action: "done" }];
   }
 
   const list = $id("gcalEditorList");
