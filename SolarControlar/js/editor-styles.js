@@ -115,6 +115,186 @@ var SOLAR_EDITOR_STYLES = `
   }
 `;
 
+// Main dashboard tab panel styles. The six main-tab panels live inside the
+// #mainTabs smd-tabs shadow root, so the light-DOM app stylesheet cannot reach
+// them: these rules re-create the original .tab-content look inside the panels
+// (injected alongside JOBS_EDITOR_STYLES for the shared form/btn utilities).
+var MAIN_TAB_STYLES = `
+  .smd-tab-panel .btn-sm {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.875rem;
+    border-radius: 0.25rem;
+  }
+  .smd-tab-panel .align-items-center { align-items: center; }
+  .smd-tab-panel .text-end { text-align: right; }
+  .smd-tab-panel .flex-grow-1 { flex-grow: 1; }
+
+  .smd-tab-panel .power-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--bs-dark-border-subtle, #303030);
+    border-radius: 0.5rem;
+    overflow: hidden;
+    border: 1px solid var(--bs-border-color, #495057);
+  }
+  .smd-tab-panel .power-table th,
+  .smd-tab-panel .power-table td {
+    padding: 0.6rem 0.8rem;
+    text-align: left;
+    border-bottom: 1px solid var(--bs-border-color, #495057);
+  }
+  .smd-tab-panel .power-table th {
+    background: var(--bs-body-bg, #222);
+    color: var(--bs-secondary-color, #adb5bd);
+    font-weight: 600;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .smd-tab-panel .power-table tr:last-child td { border-bottom: none; }
+  .smd-tab-panel .power-table tr:hover { background: var(--bs-body-bg, #222); }
+  .smd-tab-panel .power-table td:first-child {
+    font-weight: 600;
+    color: var(--bs-body-color, #eee);
+    width: 35%;
+  }
+  .smd-tab-panel .power-table td:nth-child(2) {
+    color: var(--bs-primary, #0d6efd);
+  }
+
+  .smd-tab-panel .access-badge {
+    display: inline-block;
+    padding: 0.15rem 0.5rem;
+    border-radius: 9999px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+  .smd-tab-panel .access-badge.badge-ro {
+    background: var(--bs-secondary-bg, #495057);
+    color: var(--bs-secondary-color, #adb5bd);
+  }
+  .smd-tab-panel .access-badge.badge-rw {
+    background: rgba(34, 197, 94, 0.15);
+    color: #22c55e;
+  }
+  .smd-tab-panel .access-badge.badge-changed {
+    background: rgba(245, 158, 11, 0.2);
+    color: #f59e0b;
+  }
+  .smd-tab-panel .was-text {
+    font-size: 0.75rem;
+    color: #ef4444;
+  }
+
+  .smd-tab-panel .log-controls {
+    margin-bottom: 1rem;
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .smd-tab-panel .log-input {
+    width: 8rem;
+    padding: 0.4rem 0.6rem;
+    border: 1px solid var(--bs-border-color, #495057);
+    border-radius: 0.375rem;
+    font-size: 0.9rem;
+    background: var(--bs-body-bg, #222);
+    color: var(--bs-body-color, #eee);
+  }
+  .smd-tab-panel .log-select {
+    width: 16rem;
+    padding: 0.4rem 0.6rem;
+    border: 1px solid var(--bs-border-color, #495057);
+    border-radius: 0.375rem;
+    font-size: 0.9rem;
+    background: var(--bs-body-bg, #222);
+    color: var(--bs-body-color, #eee);
+  }
+  .smd-tab-panel .log-output {
+    background: var(--bs-body-bg, #111);
+    color: var(--bs-body-color, #e2e8f0);
+    padding: 1rem;
+    border-radius: 0.5rem;
+    font-family: monospace;
+    font-size: 0.85rem;
+    white-space: pre-wrap;
+    height: 60vh;
+    overflow-y: auto;
+    line-height: 1.5;
+    border: 1px solid var(--bs-border-color, #495057);
+  }
+  .smd-tab-panel .loading {
+    color: var(--bs-secondary-color, #adb5bd);
+    font-style: italic;
+  }
+
+  .smd-tab-panel .graph-controls {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+  }
+  .smd-tab-panel .graph-checkboxes {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .smd-tab-panel .graph-checkboxes label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.9rem;
+    cursor: pointer;
+  }
+  .smd-tab-panel .graph-wrap {
+    background: var(--bs-dark-border-subtle, #303030);
+    border-radius: 0.5rem;
+    border: 1px solid var(--bs-border-color, #495057);
+    padding: 1rem;
+    position: relative;
+    height: 60vh;
+  }
+
+  .smd-tab-panel .forecast-output {
+    background: var(--bs-body-bg, #111);
+    color: var(--bs-body-color, #e2e8f0);
+    padding: 1rem;
+    border-radius: 0.5rem;
+    font-family: monospace;
+    font-size: 0.85rem;
+    white-space: pre-wrap;
+    height: 50vh;
+    overflow-y: auto;
+    line-height: 1.5;
+    margin-top: 1rem;
+    border: 1px solid var(--bs-border-color, #495057);
+  }
+
+  .smd-tab-panel .flash {
+    padding: 0.75rem 1rem;
+    margin-bottom: 1rem;
+    border-radius: 0.5rem;
+  }
+  .smd-tab-panel .flash-success {
+    background: rgba(34, 197, 94, 0.15);
+    color: #22c55e;
+    border: 1px solid rgba(34, 197, 94, 0.3);
+  }
+  .smd-tab-panel .flash-error {
+    background: rgba(239, 68, 68, 0.15);
+    color: #ef4444;
+    border: 1px solid rgba(239, 68, 68, 0.3);
+  }
+
+  @media (max-width: 480px) {
+    .smd-tab-panel .log-select { width: 100%; }
+  }
+`;
+
 function injectEditorStyles(page) {
   if (page && page.shadowRoot) {
     injectStyleInto(page.shadowRoot, JOBS_EDITOR_STYLES + SOLAR_EDITOR_STYLES);

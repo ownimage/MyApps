@@ -64,33 +64,8 @@
     <!-- TOP TILES (date, time, battery) -->
     <solar-top-tiles id="topTiles"></solar-top-tiles>
 
-    <!-- MAIN TABS -->
-    <div class="main-tabs" id="mainTabs">
-      <button class="tab-btn active" data-tab="power" onclick="switchMainTab('power')">Power</button>
-      <button class="tab-btn" data-tab="settings" onclick="switchMainTab('settings')">Settings</button>
-      <button class="tab-btn" data-tab="files" onclick="switchMainTab('files')">Files</button>
-      <button class="tab-btn" data-tab="config" onclick="switchMainTab('config')">Config</button>
-      <button class="tab-btn" data-tab="forecast" onclick="switchMainTab('forecast')">Forecast</button>
-      <button class="tab-btn" data-tab="graph" onclick="switchMainTab('graph')">Graph</button>
-    </div>
-
-    <!-- POWER TAB -->
-    <div id="tab-power" class="tab-content active"></div>
-
-    <!-- SETTINGS TAB (rendered via smd-page) -->
-    <div id="tab-settings" class="tab-content"></div>
-
-    <!-- FILES TAB -->
-    <div id="tab-files" class="tab-content"></div>
-
-    <!-- CONFIG TAB -->
-    <div id="tab-config" class="tab-content"></div>
-
-    <!-- FORECAST TAB -->
-    <div id="tab-forecast" class="tab-content"></div>
-
-    <!-- GRAPH TAB -->
-    <div id="tab-graph" class="tab-content"></div>
+    <!-- MAIN TABS (panels owned by the shared smd-tabs component) -->
+    <smd-tabs id="mainTabs" wrap></smd-tabs>
 
     <!-- SETTINGS PAGE (smd-page overlay for the full settings) -->
     <smd-page id="settingsPage" class="d-none"></smd-page>

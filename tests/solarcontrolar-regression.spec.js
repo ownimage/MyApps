@@ -78,8 +78,8 @@ test.describe("SolarControlar - Regression", () => {
     await expect(page.locator("#tab-power .power-table")).toContainText("Solar");
     await expect(page.locator("#tab-power .power-table")).toContainText("300 W");
 
-    // Main tabs present.
-    const tabs = page.locator(".main-tabs .tab-btn");
+    // Main tabs present (shared smd-tabs component in its shadow root).
+    const tabs = page.locator("#mainTabs .smd-tab-btn");
     await expect(tabs).toHaveCount(6);
     await expect(tabs.nth(0)).toContainText("Power");
     await expect(tabs.nth(1)).toContainText("Settings");
@@ -94,25 +94,25 @@ test.describe("SolarControlar - Regression", () => {
   test("main tabs switch content", async ({ page }) => {
     await mockFlaskApi(page);
     await page.goto("/SolarControlar/");
-    await expect(page.locator("#tab-power")).toHaveClass(/active/);
+    await expect(page.locator("#mainTabs #power-panel")).toHaveAttribute("active", "");
 
-    await page.locator(".main-tabs .tab-btn[data-tab='files']").click();
-    await expect(page.locator("#tab-files")).toHaveClass(/active/);
+    await page.locator("#mainTabs .smd-tab-btn").filter({ hasText: "Files" }).click();
+    await expect(page.locator("#mainTabs #files-panel")).toHaveAttribute("active", "");
     await expect(page.locator("#log-file")).toBeVisible({ timeout: 5000 });
 
-    await page.locator(".main-tabs .tab-btn[data-tab='config']").click();
-    await expect(page.locator("#tab-config")).toHaveClass(/active/);
+    await page.locator("#mainTabs .smd-tab-btn").filter({ hasText: "Config" }).click();
+    await expect(page.locator("#mainTabs #config-panel")).toHaveAttribute("active", "");
     await expect(page.locator("#configSlider")).toBeVisible();
 
-    await page.locator(".main-tabs .tab-btn[data-tab='forecast']").click();
-    await expect(page.locator("#tab-forecast")).toHaveClass(/active/);
+    await page.locator("#mainTabs .smd-tab-btn").filter({ hasText: "Forecast" }).click();
+    await expect(page.locator("#mainTabs #forecast-panel")).toHaveAttribute("active", "");
     await expect(page.locator("#btnRunForecast")).toBeVisible();
   });
 
   test("main settings tab shows the solar control settings from the server", async ({ page }) => {
     await mockFlaskApi(page);
     await page.goto("/SolarControlar/");
-    await page.locator(".main-tabs .tab-btn[data-tab='settings']").click();
+    await page.locator("#mainTabs .smd-tab-btn").filter({ hasText: "Settings" }).click();
 
     const table = page.locator("#tab-settings .settings-table");
     await expect(table).toBeVisible({ timeout: 10000 });
@@ -130,8 +130,8 @@ test.describe("SolarControlar - Regression", () => {
   test("files tab fetches the selected log file", async ({ page }) => {
     await mockFlaskApi(page);
     await page.goto("/SolarControlar/");
-    await page.locator(".main-tabs .tab-btn[data-tab='files']").click();
-    await expect(page.locator("#tab-files")).toHaveClass(/active/);
+    await page.locator("#mainTabs .smd-tab-btn").filter({ hasText: "Files" }).click();
+    await expect(page.locator("#mainTabs #files-panel")).toHaveAttribute("active", "");
 
     await expect(page.locator("#log-file")).toBeVisible({ timeout: 5000 });
     await expect(page.locator("#log-file option")).toHaveCount(8);
@@ -143,7 +143,7 @@ test.describe("SolarControlar - Regression", () => {
   test("config slider shows the saved value", async ({ page }) => {
     await mockFlaskApi(page);
     await page.goto("/SolarControlar/");
-    await page.locator(".main-tabs .tab-btn[data-tab='config']").click();
+    await page.locator("#mainTabs .smd-tab-btn").filter({ hasText: "Config" }).click();
     await expect(page.locator("#configSlider")).toBeVisible({ timeout: 5000 });
     await expect(page.locator("#configOutput")).toContainText("50%");
   });
@@ -151,7 +151,7 @@ test.describe("SolarControlar - Regression", () => {
   test("forecast run fetches output", async ({ page }) => {
     await mockFlaskApi(page);
     await page.goto("/SolarControlar/");
-    await page.locator(".main-tabs .tab-btn[data-tab='forecast']").click();
+    await page.locator("#mainTabs .smd-tab-btn").filter({ hasText: "Forecast" }).click();
     await page.locator("#btnRunForecast").click();
     await expect(page.locator("#forecastOutput")).toContainText("mock forecast output", { timeout: 10000 });
   });
@@ -159,8 +159,8 @@ test.describe("SolarControlar - Regression", () => {
   test("graph tab loads dates and renders chart", async ({ page }) => {
     await mockFlaskApi(page);
     await page.goto("/SolarControlar/");
-    await page.locator(".main-tabs .tab-btn[data-tab='graph']").click();
-    await expect(page.locator("#tab-graph")).toHaveClass(/active/);
+    await page.locator("#mainTabs .smd-tab-btn").filter({ hasText: "Graph" }).click();
+    await expect(page.locator("#mainTabs #graph-panel")).toHaveAttribute("active", "");
     await expect(page.locator("#graph-date")).toBeVisible({ timeout: 5000 });
     await expect(page.locator("#graph-date option")).toHaveCount(2);
     await expect(page.locator("#graph-date")).toHaveValue("2026-09-15");
@@ -279,9 +279,9 @@ test.describe("SolarControlar - Regression", () => {
     });
 
     await page.goto("/SolarControlar/");
-    await page.locator(".main-tabs .tab-btn[data-tab='settings']").click();
+    await page.locator("#mainTabs .smd-tab-btn").filter({ hasText: "Settings" }).click();
     await expect(page.locator("#tab-settings .settings-table")).toBeVisible({ timeout: 10000 });
-    await page.locator(".main-tabs .tab-btn[data-tab='config']").click();
+    await page.locator("#mainTabs .smd-tab-btn").filter({ hasText: "Config" }).click();
     await expect(page.locator("#configSlider")).toBeVisible({ timeout: 5000 });
 
     const expected = "Basic " + Buffer.from("solar:sekrit").toString("base64");

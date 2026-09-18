@@ -9,7 +9,7 @@ var _solarCsrfToken = "";
 var _solarSettingsLoading = false;
 
 function renderSolarSettingsTab() {
-  var container = document.getElementById("tab-settings");
+  var container = $id("tab-settings");
   if (!container) return;
 
   if (!_solarSettings) {
@@ -28,7 +28,7 @@ function renderSolarSettingsTab() {
 function loadSolarSettings() {
   if (_solarSettingsLoading) return;
   _solarSettingsLoading = true;
-  var container = document.getElementById("tab-settings");
+  var container = $id("tab-settings");
   if (container) container.innerHTML = '<p class="text-secondary loading">Loading settings...</p>';
 
   var base = getFlaskUrl().replace(/\/+$/, "");
@@ -82,7 +82,7 @@ function loadSolarSettings() {
     })
     .catch(function (err) {
       _solarSettingsLoading = false;
-      var container = document.getElementById("tab-settings");
+      var container = $id("tab-settings");
       if (container) {
         container.innerHTML =
           '<div class="flash flash-error">Error loading settings: ' + escapeHtml(err.message) + '</div>' +
@@ -137,8 +137,8 @@ function buildSolarSettingsHtml() {
 }
 
 function solarSettingSlider(slider) {
-  var output = document.getElementById("output-" + slider.id.replace("slider-", ""));
-  var hidden = document.getElementById("hidden-" + slider.id.replace("slider-", ""));
+  var output = $id("output-" + slider.id.replace("slider-", ""));
+  var hidden = $id("hidden-" + slider.id.replace("slider-", ""));
   if (output) output.textContent = slider.value;
   if (hidden) hidden.value = slider.value;
 }
@@ -146,8 +146,9 @@ function solarSettingSlider(slider) {
 // Mirrors the Flask index.html behaviour: show "Changed" + the original value
 // on the access badge whenever a setting diverges from its server value.
 function wireSolarSettingsChangeDetection() {
-  var rows = document.querySelectorAll("#solarSettingsForm tr[data-key]");
-  rows.forEach(function (row) {
+  var form = $id("solarSettingsForm");
+  if (!form) return;
+  form.querySelectorAll("tr[data-key]").forEach(function (row) {
     var key = row.getAttribute("data-key");
     var original = row.getAttribute("data-original") || "";
     var badge = row.querySelector(".access-badge");
@@ -157,7 +158,7 @@ function wireSolarSettingsChangeDetection() {
     if (!badge) return;
     wasVal.textContent = original;
 
-    var hiddenInput = document.getElementById("hidden-" + key);
+    var hiddenInput = $id("hidden-" + key);
     var visibleInput = row.querySelector('input[name="' + key + '"]:not([type="hidden"])');
 
     if (visibleInput && visibleInput.readOnly) return;
@@ -183,7 +184,7 @@ function wireSolarSettingsChangeDetection() {
       }
     }
 
-    var slider = document.getElementById("slider-" + key);
+    var slider = $id("slider-" + key);
     if (slider) {
       slider.addEventListener("input", checkChange);
     } else if (visibleInput && !visibleInput.readOnly) {
@@ -194,7 +195,7 @@ function wireSolarSettingsChangeDetection() {
 
 function saveSolarSettings(e) {
   e.preventDefault();
-  var form = document.getElementById("solarSettingsForm");
+  var form = $id("solarSettingsForm");
   if (!form) return false;
 
   var formData = new FormData(form);

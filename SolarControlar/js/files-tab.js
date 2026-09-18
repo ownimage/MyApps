@@ -13,7 +13,7 @@ var SOLAR_FILES = [
 ];
 
 function renderFilesTab() {
-  var container = document.getElementById("tab-files");
+  var container = $id("tab-files");
   if (!container) return;
 
   var options = SOLAR_FILES.map(function (f) {
@@ -32,9 +32,9 @@ function renderFilesTab() {
 }
 
 function fetchLogs() {
-  var fileEl = document.getElementById("log-file");
-  var countEl = document.getElementById("line-count");
-  var output = document.getElementById("log-output");
+  var fileEl = $id("log-file");
+  var countEl = $id("line-count");
+  var output = $id("log-output");
   if (!fileEl || !output) return;
 
   var file = fileEl.value;

@@ -324,6 +324,47 @@ Techniques / gotchas:
 
 ## Session log
 
+### 2026-09-18 (2)
+- **SolarControlar main tabs now use the shared `smd-tabs` component**, and the
+  component **OWNS the panels** (renders them in its shadow root). The light-DOM
+  `.main-tabs` button bar + six `#tab-*`/`class="tab-content"` divs were removed
+  from `SolarControlar/index.html`; the markup is now just
+  `<smd-tabs id="mainTabs" wrap>`. Each tab's panel (id `power-panel` etc.)
+  wraps a `#tab-*` content div so the render functions and regression-test
+  locators keep targeting the same ids.
+- `SolarControlar/js/main-view.js`: `MAIN_TAB_DEFS` (title/id/content) +
+  `configureMainTabs()` sets `tabsEl.tabs` ONCE (re-setting wipes panel innerHTML),
+  injects `JOBS_EDITOR_STYLES + MAIN_TAB_STYLES` into the `#mainTabs`
+  shadowRoot, and listens for `smd-tabs-change` → `switchMainTab(tab.id)`.
+  `switchMainTab()` now finds the matching index in `MAIN_TAB_DEFS` and sets
+  `tabsEl.activeIndex` (visibility is driven by the component's `active`
+  attribute) + lazy `initGraphTab()` for the graph.
+- **Shadow-content consequences handled**: `SolarControlar/js/editor-styles.js`
+  gained `MAIN_TAB_STYLES` (the content rules moved out of the light-DOM
+  `css/styles.css` — `.main-tabs`/`.tab-content`/`.power-table`/`.log-*`/
+  `.graph-*`/`.forecast-output`/`.access-badge`/`.loading` are gone from it,
+  plus `.btn-sm`/`.align-items-center`/`.text-end`/`.flex-grow-1` utility gaps).
+  All six tab JS files (`power-tab.js`, `solar-settings-view.js`, `files-tab.js`,
+  `config-tab.js`, `forecast-tab.js`, `graph-tab.js`) switched from
+  `document.getElementById()` to the shadow-piercing `$id()` for EVERY element
+  inside the panels (incl. `document.querySelector("#configForm tr…")` →
+  `$id("configForm").querySelector(...)`, `.graph-series` scan scoped to
+  `$id("tab-graph")`). `MAIN_TAB_STYLES`'s `.flash*` rules cover the in-panel
+  settings error; light-DOM `.flash*` stays for `#flashContainer`.
+- Tests: `tests/solarcontrolar-regression.spec.js` now clicks
+  `#mainTabs .smd-tab-btn` filtered by `hasText` ("Files"/"Config"/…) and asserts
+  panel activity via `#mainTabs #<id>-panel` `toHaveAttribute("active", "")`
+  instead of the old `.main-tabs .tab-btn[data-tab=…]` + `#tab-*` `toHaveClass(/active/)`.
+  Playwright pierces shadow roots, so all the deep controls (`#log-file`,
+  `#configSlider`, `#slider-tolerance_percent`, `#tab-power .power-table`, …)
+  keep working unchanged. Full suite: 12/12 pass.
+- Full regression across apps: pmd 431/431 green (1 flake — "task note button
+  paints outline state on touch devices" timed out mid-suite waiting for
+  `#jobEditPage`, re-ran in isolation: PASS), launch/ffox/cmd/qrlinks 66/67
+  green (the 1 launch fail is the documented known flake: "every app's menu
+  links to the Launch app" under 5-page load; re-ran in isolation: PASS).
+- `BUILD_NUMBER` → `202609181310`.
+
 ### 2026-09-18
 - **Today-card swipe gestures** (PlanMyDay): `pmd-today-card` now tracks pointer
   events on its host (`touch-action: pan-y`), so a horizontal swipe on a today

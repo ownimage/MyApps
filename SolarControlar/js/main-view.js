@@ -5,7 +5,41 @@ var _solarMainData = null;
 var _autoRefreshTimer = null;
 var _lastRefreshErrorShown = "";
 
+// Main dashboard tabs, rendered by the shared <smd-tabs> component (which owns
+// the panels in its shadow root). Each panel wraps a light-DOM-style content
+// div so the per-tab render functions and existing locators keep working.
+var MAIN_TAB_DEFS = [
+  { title: "Power", id: "power", content: '<div id="tab-power" class="tab-content"></div>' },
+  { title: "Settings", id: "settings", content: '<div id="tab-settings" class="tab-content"></div>' },
+  { title: "Files", id: "files", content: '<div id="tab-files" class="tab-content"></div>' },
+  { title: "Config", id: "config", content: '<div id="tab-config" class="tab-content"></div>' },
+  { title: "Forecast", id: "forecast", content: '<div id="tab-forecast" class="tab-content"></div>' },
+  { title: "Graph", id: "graph", content: '<div id="tab-graph" class="tab-content"></div>' }
+];
+
+function configureMainTabs() {
+  var tabsEl = document.getElementById("mainTabs");
+  if (!tabsEl || tabsEl.__solarTabsConfigured) return;
+  tabsEl.__solarTabsConfigured = true;
+
+  // Setting .tabs re-renders the shadow tree, so do it exactly once. Panel
+  // visibility afterwards is driven by activeIndex (no DOM overwrite).
+  tabsEl.tabs = MAIN_TAB_DEFS.map(function (t) {
+    return { title: t.title, id: t.id, content: t.content };
+  });
+
+  // Panel content lives in a shadow root: adopt the form/btn utilities plus the
+  // main-tab content styles so Bootstrap's document stylesheet is not needed.
+  injectStyleInto(tabsEl.shadowRoot, JOBS_EDITOR_STYLES + MAIN_TAB_STYLES);
+
+  tabsEl.addEventListener("smd-tabs-change", function (e) {
+    var tab = e.detail && e.detail.tab;
+    if (tab && tab.id) switchMainTab(tab.id);
+  });
+}
+
 function renderMain() {
+  configureMainTabs();
   loadPowerDataForTiles();
   renderPowerTab();
   renderSolarSettingsTab();
@@ -74,12 +108,14 @@ function loadPowerDataForTiles() {
 }
 
 function switchMainTab(tabName) {
-  document.querySelectorAll(".tab-content").forEach(function (el) { el.classList.remove("active"); });
-  document.querySelectorAll(".main-tabs .tab-btn").forEach(function (el) { el.classList.remove("active"); });
-  var tabEl = document.getElementById("tab-" + tabName);
-  if (tabEl) tabEl.classList.add("active");
-  var btn = document.querySelector('.main-tabs .tab-btn[data-tab="' + tabName + '"]');
-  if (btn) btn.classList.add("active");
+  var tabsEl = document.getElementById("mainTabs");
+  if (!tabsEl) return;
+  for (var i = 0; i < MAIN_TAB_DEFS.length; i++) {
+    if (MAIN_TAB_DEFS[i].id === tabName) {
+      tabsEl.activeIndex = i;
+      break;
+    }
+  }
 
   // Lazy-load graph when switching to graph tab
   if (tabName === "graph" && typeof initGraphTab === "function") {
