@@ -47,7 +47,7 @@ const qrLinkCardSheet = SmdStyles.sheetFor(`
     overflow-wrap: anywhere;
   }
   .description {
-    font-size: var(--smd-type-p, 0.875em);
+    font-size: var(--smd-type-h2, 0.875em);
     color: var(--bs-secondary-color, #aaa);
     overflow-wrap: anywhere;
   }

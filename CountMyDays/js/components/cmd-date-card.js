@@ -33,6 +33,7 @@ const cmdDateCardSheet = SmdStyles.sheetFor(`
   .thumb { display: flex; align-items: center; justify-content: center; }
   .content { flex: 1 1 auto; min-width: 0; }
   .title {
+    font-size: var(--smd-type-h1, 1rem);
     font-weight: 700;
     margin-bottom: 0.5rem;
     overflow-wrap: anywhere;
@@ -51,7 +52,7 @@ const cmdDateCardSheet = SmdStyles.sheetFor(`
   .event-badge-google { background: var(--bs-primary, #0d6efd); color: var(--smd-primary-text, #fff); }
   .event-badge-repeat { background: var(--bs-info, #0dcaf0); color: var(--smd-info-text, #fff); }
   .event-badge-hidden { background: var(--bs-secondary, #6c757d); color: var(--smd-secondary-text, #fff); }
-  .meta { display: flex; gap: 1rem; align-items: center; margin-bottom: 0.5rem; }
+  .meta { display: flex; gap: 1rem; align-items: center; margin-bottom: 0.5rem; font-size: var(--smd-type-h2, 0.95em); }
   .actions { display: flex; gap: 0.5rem; }
   .actions .btn { padding: 0.375rem 0.75rem; }
   .actions .btn-danger { margin-left: auto; }

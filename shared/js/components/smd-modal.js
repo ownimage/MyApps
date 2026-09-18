@@ -62,7 +62,7 @@ const smdModalSheet = SmdStyles.sheetFor(`
     border: none;
     border-radius: 4px;
     cursor: pointer;
-    font-size: var(--smd-type-p, 0.9rem);
+    font-size: var(--smd-type-h2, 1.25rem);
     color: var(--smd-primary-text, #fff);
     background: var(--smd-primary, #0d6efd);
     transition: opacity 0.15s;

@@ -178,7 +178,7 @@ document.addEventListener("DOMContentLoaded", () => {
     pickerHost.content = '<smd-image-picker id="pickerHost" key-prefix="' + escAttr(smdImagePrefix()) + '"></smd-image-picker>';
     pickerHost.buttons = [
       { text: "Cancel", variant: "secondary", action: "cancel" },
-      { text: "No Image", variant: "secondary", action: "no-image" }
+      { text: "No Image", variant: "primary", action: "no-image" }
     ];
     if (!pickerHost.__pickerBound) {
       pickerHost.__pickerBound = true;

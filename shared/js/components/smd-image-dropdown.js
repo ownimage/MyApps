@@ -22,6 +22,7 @@
 const smdImageDropdownSheet = SmdStyles.sheetFor(`
   :host { display: block; position: relative; min-width: 0; }
   .btn {
+    font-size: var(--smd-type-h2, 1.25rem);
     display: flex;
     align-items: center;
     gap: 0.5rem;

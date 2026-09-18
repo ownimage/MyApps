@@ -36,6 +36,12 @@ h2, .h2, h3, .h3, h4, .h4 { font-size: var(--smd-type-h2); }
 h5, .h5, h6, .h6 { font-size: var(--smd-type-p); font-weight: 700; }
 .badge { font-size: var(--smd-type-badge); }
 
+/* The <button> element is its own type: it maps to the h2 token by default,
+   with .btn-sm as the consciously smaller variant kept at p. This is the ONLY
+   place buttons get sized in light DOM. */
+button, .btn { font-size: var(--smd-type-h2, 1.25rem); }
+button.btn-sm, .btn-sm { font-size: var(--smd-type-p, 1rem); }
+
 /* The page (canvas) background always follows the theme body colour. */
 html,
 body {

@@ -59,7 +59,7 @@ const smdPageSheet = SmdStyles.sheetFor(`
   .smd-page-footer smd-button::part(button) {
     width: 100%;
     box-sizing: border-box;
-    font-size: var(--smd-type-p, 0.9rem);
+    font-size: var(--smd-type-h2, 1.25rem);
   }
 `);
 

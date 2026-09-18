@@ -31,6 +31,7 @@
     justify-content: center;
   }
   .editor-title {
+    font-size: var(--smd-type-h1, 1rem);
     font-weight: 700;
     flex: 1;
     min-width: 0;

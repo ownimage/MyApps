@@ -19,7 +19,7 @@ const smdTabsSheet = SmdStyles.sheetFor(`
     background: var(--smd-secondary, #6c757d);
     color: var(--smd-tab-text, #fff);
     cursor: pointer;
-    font-size: var(--smd-type-p, 0.95rem);
+    font-size: var(--smd-type-h2, 1.25rem);
     font-weight: 500;
     transition: background 0.15s, color 0.15s;
   }
@@ -50,6 +50,9 @@ const smdTabsSheet = SmdStyles.sheetFor(`
   .smd-tab-panel {
     display: none;
     padding: 1rem;
+  }
+  .smd-tab-panel.no-padding {
+    padding: 0;
   }
   .smd-tab-panel[active] {
     display: block;
@@ -123,7 +126,8 @@ class SmdTabs extends HTMLElement {
         const panelsHtml = this._tabs.map((tab, i) => {
             const active = i === this._activeIndex ? ' active' : '';
             const idAttr = tab.id ? ` id="${this._escapeAttr(tab.id)}-panel"` : '';
-            return `<div class="smd-tab-panel"${idAttr}${active} data-panel="${i}">${tab.content || ''}</div>`;
+            const panelClass = tab.panelClass ? `smd-tab-panel ${tab.panelClass}` : 'smd-tab-panel';
+            return `<div class="${panelClass}"${idAttr}${active} data-panel="${i}">${tab.content || ''}</div>`;
         }).join('');
 
         const bottomLineHtml = this.bottomline ? '<div class="smd-tab-line"></div>' : '';

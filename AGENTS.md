@@ -32,9 +32,9 @@ Architecture:
   - `smd-modal` = a single shared `#smdConfirmModal` host, driven by `showSmdModal(options)` in app.js; content lives in its shadow root (`.smd-body`); buttons on `smd-modal-action`.
   - `smd-page` = full-screen overlay pages: `settingsPage`, `streamsEditor`, `jobSearchEditor`, `imagesEditor`, `jobEditPage`, `streamEditPage`, `minioImportPage`. Footer buttons fire `smd-page-action` (`cancel`/`done`/`add` etc).
   - z-index stack: smd-page 1040 < smd-modal 1050 < imagePickerModal 1060. No z-index hacks needed.
-- Component styling uses CONSTRUCTABLE STYLESHEETS from `shared/js/components/styles.js` (`window.SmdStyles`): `smdButtonSheet`/`smdTabsSheet`/`smdModalSheet`/`smdPageSheet` are per-component sheets; `SmdStyles.hiddenSheet` + `SmdStyles.btnBadgeSheet` are shared by the pmd-* cards/header. `SmdStyles.sheetFor(css)` caches a sheet by CSS text; `SmdStyles.adoptStyles(root, sheetsOrCss)` adopts (dedup) into `root.adoptedStyleSheets`. Adopted sheets SURVIVE `shadowRoot.innerHTML` re-renders (unlike injected `<style>` elements). `injectStyleInto(root, css)` in app.js is now a wrapper over `SmdStyles.adoptStyles` (page/modal content styles).
+- Component styling uses CONSTRUCTABLE STYLESHEETS from `shared/js/components/styles.js` (`window.SmdStyles`): `smdButtonSheet`/`smdTabsSheet`/`smdModalSheet`/`smdPageSheet` are per-component sheets; `SmdStyles.hiddenSheet` + `SmdStyles.btnBadgeSheet` are shared by the pmd-* cards/header. `SmdStyles.sheetFor(css)` caches a sheet by CSS text; `SmdStyles.adoptStyles(root, sheetsOrCss)` adopts (dedup) into `root.adoptedStyleSheets`. Adopted sheets SURVIVE `shadowRoot.innerHTML` re-renders (unlike injected `<style>` elements). `injectStyleInto(root, css)` in app.js is now a wrapper over `SmdStyles.adoptStyles` (page/modal content styles). `smd-tabs` tab defs accept an optional `panelClass` string (rendered as `smd-tab-panel <panelClass>`, e.g. a tab can opt out of the 1rem panel padding via `panelClass: "no-padding"` and the `.smd-tab-panel.no-padding { padding: 0 }` utility in `smdTabsSheet`). Page/injected CSS can NEVER reach panel padding — panels live in the tabs' own shadow root, so per-panel padding must go through the component.
 - Colour/typography conventions: smd-tabs selected = `--smd-primary`/`--smd-primary-text`, non-selected = `--smd-secondary`/`--smd-tab-text`; stream accordion header expanded = `--bs-info`, collapsed = `--smd-secondary`; page/modal header = lightened band (`color-mix(in srgb, var(--bs-body-bg) 85%, white)`) + title in lighter body-colour variant (`color-mix(... 60%, white)`).
-- TYPESCALE TOKENS (2026-09-18): one shared ramp in `shared/css/styles.css` — `body { --smd-type-base: 1rem }` plus `body.font-size-xsmall/small/large/xlarge/jumbo` overrides (0.8/0.925/1/1.125/1.3/1.6rem) — drives exactly four tokens `--smd-type-badge` (base×0.75), `--smd-type-p` (base), `--smd-type-h2` (base×1.25), `--smd-type-h1` (base×2), all declared on `body` (NOT `:root`: the ramp must recompute per font-size body class, and body custom props pierce shadow DOM while `:host-context()` doesn't). Tag map: h1→h1; h2/h3/h4→h2; h5/h6→p; text/inputs/buttons/tables→p; badges→badge. Every component + app style now uses `var(--smd-type-*, original-value)` (original as fallback so behaviour is unchanged wherever the token is missing). Media-fit sizes are token CALCs (e.g. CM/QR title `calc(var(--smd-type-h1,1.5rem)*0.7667)`, CM count `*0.8333`, CM container h1 `*0.625`, Solar 480px block). Compact density = `--…-title-size: var(--smd-type-p)` overrides. Deliberate non-token exceptions: the 22px hamburger icon in `smd-app.js`, `smd-checkbox` 1em/1.4em + `smd-draghandle` 1.2rem/1.6rem touch sizes, vendor CSS, storybook chrome. Tests assert heading ELEMENT tags (now `h1` for main-view date/"Today!"/"From …" headings) and pmd-touch.spec.js:119 asserts the NEW pixel values (xlarge 41.6, jumbo 51.2, compact-jumbo 25.6) — update those literals together with any ramp change.
+- TYPESCALE TOKENS (2026-09-18): one shared ramp in `shared/css/styles.css` — `body { --smd-type-base: 1rem }` plus `body.font-size-xsmall/small/large/xlarge/jumbo` overrides (0.8/0.925/1/1.125/1.3/1.6rem) — drives exactly four tokens `--smd-type-badge` (base×0.75), `--smd-type-p` (base), `--smd-type-h2` (base×1.25), `--smd-type-h1` (base×2), all declared on `body` (NOT `:root`: the ramp must recompute per font-size body class, and body custom props pierce shadow DOM while `:host-context()` doesn't). Tag map: h1→h1; h2/h3/h4→h2; h5/h6→p; text/inputs/tables→p; badges→badge. BUTTONS ARE h2 (one step above text): `<button>`, `.btn`, `.smd-tab-btn` all use `var(--smd-type-h2)`; `.btn-sm` stays at `var(--smd-type-p)`. Light-DOM home is `shared/css/styles.css` (`button, .btn` / `.btn-sm`); the shared `btnBadgeSheet` covers shadow buttons. Scaffold the h2/p rules inline wherever a shadow root does NOT adopt btnBadgeSheet: the 4 apps' `editor-styles.js`, `smd-settings.js`, `smd-minio.js`, `smd-modal.js`, `smd-image-picker.js`, `smd-image-dropdown.js`. Don't re-add per-component `.btn` font-size rules. Every component + app style now uses `var(--smd-type-*, original-value)` (original as fallback so behaviour is unchanged wherever the token is missing). Media-fit sizes are token CALCs (e.g. CM/QR title `calc(var(--smd-type-h1,1.5rem)*0.7667)`, CM count `*0.8333`, CM container h1 `*0.625`, Solar 480px block). Compact density = `--…-title-size: var(--smd-type-p)` overrides. Deliberate non-token exceptions: the 22px hamburger icon in `smd-app.js`, `smd-checkbox` 1em/1.4em + `smd-draghandle` 1.2rem/1.6rem touch sizes, vendor CSS, storybook chrome. Tests assert heading ELEMENT tags (now `h1` for main-view date/"Today!"/"From …" headings) and pmd-touch.spec.js:119 asserts the NEW pixel values (xlarge 41.6, jumbo 51.2, compact-jumbo 25.6) — update those literals together with any ramp change.
 - THEME TEXT COLOURS (2026-09-12): shadow-DOM buttons/tabs cannot use Bootswatch's `.btn-*` rules (document CSS doesn't cross the boundary, and `--bs-btn-*` is set on the `.btn-*` element, not `:root`). `applySmdVars()` reads a hidden light-DOM `<button class="btn btn-<variant>">` probe (`smdBootstrapColor()`) and publishes `--smd-primary/secondary/success/danger/info/warning-text` + `--smd-tab-text` on `<html>`; every shadow `.btn-*`/variant uses those vars. `applyTheme()` re-runs `applySmdVars` on the theme `<link>`'s `load`. Never hardcode white text for a theme-coloured surface; if Bootswatch's own `.btn-*` rule disagrees with its `--bs-btn-color` var (e.g. cerulean's later `.btn-secondary { color: ... }`), the probe wins — always match the probe.
 - BADGES (2026-09-12): use the shared `<smd-badge variant="primary|secondary|success|danger|warning|info|light|dark" pill?>` component everywhere — never a `<span class="badge bg-*">` (Bootstrap's badge vars live on the `.badge` element and can't reach shadow roots). `applySmdVars()` probes a hidden light-DOM `.badge.text-bg-<variant>` (`smdBootstrapStyle()`) and publishes `--smd-badge-<variant>-{bg,text}`; the component's own sheet consumes them, so text colour follows Bootswatch exactly (white on cerulean's navy info, black on its light secondary, etc.). `btnBadgeSheet` now only carries `.btn*` rules despite its name; `smd-page`'s badge/bg rules were removed.
 - IMAGE DROPDOWN (2026-09-18): the shared `<smd-image-dropdown>` (`shared/js/components/smd-image-dropdown.js`) is the generic image+name picker — the old PlanMyDay `pmd-stream-select` was folded into it and deleted. It is DATA-driven, not DOM: host sets `options = [{name, image}]` (image OPTIONAL → text-only rows, e.g. CountMyDays' no-image "All") and `selected` = the chosen option's NAME string; picks dispatch `smd-image-dropdown-change` ({ name }). Listener wiring: CountMyDays `#dateCategoryFilter` (`smd-image-dropdown-change` → `setDateCategoryFilter`, "" for All) in `dates-editor.js`; PlanMyDay `#jobStreamDropdown` (name mapped back via `streamIndexByName` in `editor-common.js`). Stable shadow ids for test locators: `smdImageDropdownBtn`, `smdImageBtnIcon`, `smdImageBtnText`, `smdImageDropdownMenu`.
@@ -325,6 +325,63 @@ Techniques / gotchas:
 - CROSS-ORIGIN SAVE 302 GOTCHA (2026-09-17): SolarControlar's Flask POST endpoints (`POST /solar/`, `POST /solar/api/config`) are PRG — they answer `302 Location: /solar/`. A PWA `fetch()` that lets the browser follow that cross-origin redirect can lose its `Authorization` header on the follow-up GET (browser-dependent), so Traefik returns a 401 WITHOUT `Access-Control-Allow-Origin` → the fetch blocks as a CORS error / "Failed to fetch". Fix in the APP: `redirect: "manual"` on the POST and treat `resp.type === "opaqueredirect"` as success (server saved; the caller then re-fetches the GET page which carries auth again). `redirect: "manual"` returns an opaque-redirect response (status 0) for a 302 — you cannot read it, only detect it by `type`. Rule for SolarControlar saves: never follow the Flask redirect; `_post` returns the response TEXT (or `""`), so consumers must not chain `.text()`.
 
 ## Session log
+
+### 2026-09-18 (12) — Choose Image page: Clear = danger, No Image = primary
+- "No Image" footer button on `#imagePickerPage` is now `variant: "primary"` in
+  all 3 apps' `app.js` `window.__openImagePicker` config (was secondary). The
+  legacy `openImagePicker()` in `shared/js/smd-images.js` is DEAD (nothing calls
+  it; apps use the `smd-image-picker` component via `__openImagePicker`) — left
+  in place, not updated.
+- The picker's Clear/`Search`-row button (`smd-image-picker.js` shadow) is now
+  `class="clear btn-danger"` with a `.search button.btn-danger` rule in
+  `smdImagePickerSheet` (bg `--bs-danger`, text `--smd-danger-text`). The
+  picker shadow only adopts `smdImagePickerSheet` (no btnBadgeSheet), so the
+  danger rule lives in that sheet; the `.clear` test hook is preserved.
+- Verified: `node --check` all 4 edited files; fail-fast pmd+cmd image-picker
+  batch 25/25. Image picker is NOT a screenshot target, so no screenshot
+  regeneration. `BUILD_NUMBER` unchanged (user ships).
+
+### 2026-09-18 (11) — jobTasks tab panel flush + Add Task buttons h2
+- `id="jobTasks-tab-panel"` (smd-tabs panel for the Tasks tab in PlanMyDay's job
+  editor) now renders padding-free: `getJobEditSections` in `job-editor.js` sets
+  `panelClass: "no-padding"` on the Tasks tab def, and `smd-tabs.js` maps that to
+  `<div class="smd-tab-panel no-padding">` + a `.smd-tab-panel.no-padding { padding: 0 }`
+  rule in `smdTabsSheet`. (The default panel padding is 1rem; page-injected
+  JOBS_EDITOR_STYLES can't style panels through the tabs shadow root.) Now a
+  reusable per-tab option, not app-specific CSS.
+- Both Add Task buttons (`#jobAddTaskBtn` / `#jobAddTaskBottomBtn` in
+  `job-editor.js` `getJobTasksTabHTML`) dropped `btn-sm` → now plain
+  `btn btn-primary`, so they render h2 like every other button (they had been p
+  via the `.btn-sm` exception). The per-task note/delete icon buttons keep
+  `btn-sm` (intentional small icon buttons).
+- Verified: `node --check` both files; jobs editor/tasks fail-fast batch 53/56.
+  3 "failures" were environment-only (a `net::ERR_NETWORK_CHANGED` on
+  `page.reload` + 2× 30s `.stream-header-main` not-visible timeouts in the
+  streams editor, which this change never touches) — all tasks-tab tests passed.
+  `BUILD_NUMBER` unchanged (user ships).
+
+### 2026-09-18 (10) — all buttons are h2 (the `<button>` element type = h2 token)
+- Per user ("All buttons should be h2 size", "keep .btn-sm at p"), the `<button>`
+  element became its own h2 type: `<button>`/`.btn`/`.smd-tab-btn` → `--smd-type-h2`,
+  `.btn-sm` → `--smd-type-p`. Deliberately NO `size` attribute on smd-button (user:
+  "proceed without the size attribute, we can add it later if needed").
+- Map lives in ONE light-DOM + ONE shadow place: `shared/css/styles.css`
+  (`button, .btn` / `.btn-sm`) and `btnBadgeSheet` (`.btn` got the h2 line; `.btn-sm`
+  already p). Per-component `.btn` font-size rules REMOVED (pmd-stream-header,
+  pmd-stream-job-card, pmd-job-search-card, pmd-today-card `.job-view-btn` was
+  badge → now inherits h2) and the injected sheets that can't see btnBadgeSheet
+  switched p→h2 inline: 4× `editor-styles.js`, `smd-settings.js`, `smd-minio.js`,
+  `smd-modal.js` footer, `smd-image-picker.js` search, `smd-image-dropdown.js`.
+- Tabs bumped too: `smd-tabs.js` `.smd-tab-btn` p→h2.
+- Bound the light-DOM `button` selector: dropdown-items keep Bootstrap's `.btn-sm`/
+  `.dropdown-item` at p (their selectors don't set font-size). FFOX grid cells are
+  bare `<button>`s but image-only → h2 has no visual effect there.
+- Verified: probe measured all four contexts (`.job-view-btn`, `#btnAddCard`, page
+  footer smd-button part, settings tab) at 26px on xlarge; pmd-regression
+  button/view/add flows 17/17, pmd-touch 1/1, cmd-regression settings/sweep/gcal
+  7/7; pmd-screenshots smoke (main view, menu, add-job, jobs editor, settings,
+  minio) 12/12 regenerate under the new sizes. `BUILD_NUMBER` unchanged (user
+  ships).
 
 ### 2026-09-18 (9) — font-size harmonisation via shared typescale tokens
 - **One ramp, four tokens** (see the "TYPESCALE TOKENS" note above): the shared

@@ -66,7 +66,7 @@ const cmdCountdownCardSheet = SmdStyles.sheetFor(`
     overflow-wrap: break-word;
   }
   .date-text {
-    font-size: var(--smd-type-p, 0.95em);
+    font-size: var(--smd-type-h2, 0.95em);
     overflow-wrap: break-word;
   }
   .source-row {

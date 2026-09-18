@@ -411,7 +411,7 @@ var MINIO_IMPORT_STYLES = `
     justify-content: center;
     padding: 0.375rem 0.75rem;
     border-radius: 0.375rem;
-    font-size: var(--smd-type-p, 1rem);
+    font-size: var(--smd-type-h2, 1.25rem);
     line-height: 1.5;
     cursor: pointer;
     background: transparent;

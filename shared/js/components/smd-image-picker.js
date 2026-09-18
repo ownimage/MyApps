@@ -104,12 +104,17 @@
   .search button {
     flex: 0 0 auto;
     padding: 0.375rem 0.75rem;
-    font-size: var(--smd-type-p, 0.95rem);
+    font-size: var(--smd-type-h2, 1.25rem);
     color: var(--bs-body-color, #eee);
     background-color: var(--bs-secondary-bg, #303030);
     border: 1px solid var(--bs-border-color, #495057);
     border-radius: 0.375rem;
     cursor: pointer;
+  }
+  .search button.btn-danger {
+    color: var(--smd-danger-text, #fff);
+    background-color: var(--bs-danger, #e74c3c);
+    border-color: var(--bs-danger, #e74c3c);
   }
   `);
 
@@ -174,7 +179,7 @@
         <div class="picker">
           <div class="search" hidden>
             <input type="search" placeholder="Search images or icons...">
-            <button type="button" class="clear">Clear</button>
+            <button type="button" class="clear btn-danger">Clear</button>
           </div>
           <smd-tabs compact></smd-tabs>
         </div>

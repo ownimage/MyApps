@@ -344,7 +344,7 @@ function getJobEditSections(data, readOnly) {
   return [
     { title: "General", id: "jobGeneral-tab", content: getJobGeneralTabHTML(data, readOnly) },
     { title: "Schedule", id: "jobSchedule-tab", content: getJobScheduleTabHTML(data, readOnly) },
-    { title: "Tasks", id: "jobTasks-tab", content: getJobTasksTabHTML(data, readOnly) }
+    { title: "Tasks", id: "jobTasks-tab", content: getJobTasksTabHTML(data, readOnly), panelClass: "no-padding" }
   ];
 }
 
@@ -465,10 +465,10 @@ function getJobTasksTabHTML(data, readOnly) {
   });
   return `
     <div class="mt-2">
-      <button class="btn btn-primary btn-sm mb-2" id="jobAddTaskBtn" ${disabled} onclick="jobAddTaskTop()">Add Task</button>
+      <button class="btn btn-primary mb-2" id="jobAddTaskBtn" ${disabled} onclick="jobAddTaskTop()">Add Task</button>
       <div id="jobTasksList">${tasksHTML}</div>
       <div class="mt-2">
-        <button class="btn btn-primary btn-sm" id="jobAddTaskBottomBtn" ${disabled} onclick="jobAddTask()">Add Task</button>
+        <button class="btn btn-primary" id="jobAddTaskBottomBtn" ${disabled} onclick="jobAddTask()">Add Task</button>
       </div>
     </div>
   `;

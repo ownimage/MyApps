@@ -25,6 +25,7 @@ const cmdCategoryCardSheet = SmdStyles.sheetFor(`
   .thumb { flex: 0 0 auto; display: flex; align-items: center; justify-content: center; }
   .content { flex: 1 1 auto; min-width: 0; }
   .title {
+    font-size: var(--smd-type-h1, 1rem);
     font-weight: 700;
     margin-bottom: 0.5rem;
     overflow-wrap: anywhere;

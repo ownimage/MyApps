@@ -53,6 +53,7 @@
     border-radius: 0.25rem;
     cursor: pointer;
     white-space: nowrap;
+    font-size: var(--smd-type-h2, 1.25rem);
   }
   .btn-primary { background: var(--bs-primary, #0d6efd); color: var(--smd-primary-text, #fff); }
   .btn-secondary { background: var(--bs-secondary, #6c757d); color: var(--smd-secondary-text, #fff); }

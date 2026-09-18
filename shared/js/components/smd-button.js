@@ -7,7 +7,7 @@ const smdButtonSheet = SmdStyles.sheetFor(`
     border: none;
     border-radius: 4px;
     cursor: pointer;
-    font-size: var(--smd-type-p, 1rem);
+    font-size: var(--smd-type-h2, 1.25rem);
     background: var(--smd-primary, #0d6efd);
     color: var(--smd-primary-text, #fff);
     transition: opacity 0.2s;

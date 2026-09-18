@@ -453,7 +453,7 @@ var SETTINGS_STYLES = `
   .smd-tab-panel .btn {
     display: inline-block;
     padding: 0.375rem 0.75rem;
-    font-size: var(--smd-type-p, 0.95rem);
+    font-size: var(--smd-type-h2, 1.25rem);
     line-height: 1.5;
     text-align: center;
     border: 1px solid transparent;

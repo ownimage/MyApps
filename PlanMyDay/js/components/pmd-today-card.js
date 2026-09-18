@@ -133,7 +133,7 @@ const pmdTodayCardSheet = SmdStyles.sheetFor(`
   .stream-title {
     flex: 1 1 auto;
     min-width: 0;
-    font-size: var(--smd-type-p, 0.875em);
+    font-size: var(--smd-type-h2, 0.875em);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -141,7 +141,6 @@ const pmdTodayCardSheet = SmdStyles.sheetFor(`
   .job-view-btn {
     flex: 0 0 auto;
     padding: 0.25em 0.5em;
-    font-size: var(--smd-type-badge, 0.7em);
     line-height: 1;
     font-weight: 700;
   }
