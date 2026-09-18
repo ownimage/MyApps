@@ -36,7 +36,7 @@ const smdPageSheet = SmdStyles.sheetFor(`
   }
   .smd-page-header h2 {
     margin: 0;
-    font-size: 1.2rem;
+    font-size: var(--smd-type-h2, 1.2rem);
     font-weight: 500;
     color: color-mix(in srgb, var(--bs-body-color, #eee) 60%, white);
   }
@@ -59,7 +59,7 @@ const smdPageSheet = SmdStyles.sheetFor(`
   .smd-page-footer smd-button::part(button) {
     width: 100%;
     box-sizing: border-box;
-    font-size: 0.9rem;
+    font-size: var(--smd-type-p, 0.9rem);
   }
 `);
 

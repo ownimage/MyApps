@@ -2,6 +2,40 @@
 /* NOTE: rules that target app-specific ids/classes (countdown cards, stream
    accordions, job/task cards) live in the CONSUMING app's css/styles.css. */
 
+/* TYPESCALE HARMONISATION -----------------------------------------------
+   One base drives exactly four text tokens. smd-settings applies a
+   font-size-xsmall…jumbo class to <body>; those classes only move the base.
+   Every component (light DOM and shadow roots) consumes the tokens via
+   var(--smd-type-*, fallback) so all apps scale identically. The tokens are
+   declared on body (not :root) on purpose: var() resolves at the element that
+   declares it, so deriving the tokens from a body-level base keeps every
+   size-step recomputed. */
+
+body {
+  --smd-type-base: 1rem; /* "normal" — no size class on <body> */
+}
+body.font-size-xsmall { --smd-type-base: 0.8rem; }
+body.font-size-small { --smd-type-base: 0.925rem; }
+body.font-size-large { --smd-type-base: 1.125rem; }
+body.font-size-xlarge { --smd-type-base: 1.3rem; }
+body.font-size-jumbo { --smd-type-base: 1.6rem; }
+
+body {
+  --smd-type-badge: calc(var(--smd-type-base) * 0.75); /* 0.75rem */
+  --smd-type-p: var(--smd-type-base);                  /* 1rem    */
+  --smd-type-h2: calc(var(--smd-type-base) * 1.25);    /* 1.25rem */
+  --smd-type-h1: calc(var(--smd-type-base) * 2);       /* 2rem    */
+  font-size: var(--smd-type-p, 1rem);
+}
+
+/* Fold every heading level into the four-tier scale. Bootswatch themes ship
+   fluid calc() h1–h4 sizes + their own h5/h6; this sheet is linked after the
+   theme CSS in every app, so these equal-specificity rules win the cascade. */
+h1, .h1 { font-size: var(--smd-type-h1); }
+h2, .h2, h3, .h3, h4, .h4 { font-size: var(--smd-type-h2); }
+h5, .h5, h6, .h6 { font-size: var(--smd-type-p); font-weight: 700; }
+.badge { font-size: var(--smd-type-badge); }
+
 /* The page (canvas) background always follows the theme body colour. */
 html,
 body {
@@ -151,7 +185,7 @@ body.auto-hide-menu #mainNav.nav-hidden ~ .container-fluid {
   padding-bottom: 20px;
 }
 #settingsPage .nav-tabs .nav-link {
-  font-size: 0.75rem;
+  font-size: var(--smd-type-p);
   padding: 0.35rem 0.35rem;
   margin-bottom: -1px;
 }

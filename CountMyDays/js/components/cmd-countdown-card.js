@@ -51,7 +51,7 @@ const cmdCountdownCardSheet = SmdStyles.sheetFor(`
   }
   .category-label {
     margin-top: 0.25rem;
-    font-size: 0.85em;
+    font-size: var(--smd-type-p, 0.85em);
     line-height: 1.1;
     overflow-wrap: anywhere;
   }
@@ -61,19 +61,19 @@ const cmdCountdownCardSheet = SmdStyles.sheetFor(`
   }
   .title {
     margin: 0 0 0.25rem;
-    font-size: var(--cmd-countdown-title-size, 1.5rem);
+    font-size: var(--cmd-countdown-title-size, var(--smd-type-h1, 1.5rem));
     font-weight: 800;
     overflow-wrap: break-word;
   }
   .date-text {
-    font-size: 0.95em;
+    font-size: var(--smd-type-p, 0.95em);
     overflow-wrap: break-word;
   }
   .source-row {
     margin-top: 0.25rem;
   }
   .source-badge {
-    font-size: 0.7em;
+    font-size: var(--smd-type-badge, 0.7em);
   }
   .counts {
     flex: 0 0 auto;
@@ -81,7 +81,7 @@ const cmdCountdownCardSheet = SmdStyles.sheetFor(`
     text-align: center;
   }
   .count {
-    font-size: var(--cmd-countdown-count-size, 1.5rem);
+    font-size: var(--cmd-countdown-count-size, var(--smd-type-h1, 1.5rem));
     font-weight: 800;
     line-height: 1.2;
     white-space: nowrap;

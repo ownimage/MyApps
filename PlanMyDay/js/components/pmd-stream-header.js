@@ -91,7 +91,7 @@ const pmdStreamHeaderSheet = SmdStyles.sheetFor(`
     align-items: center;
     justify-content: center;
     padding: 0.25rem 0.5rem;
-    font-size: 0.85rem;
+    font-size: var(--smd-type-p, 0.85rem);
     line-height: 1.5;
     text-align: center;
     border-radius: 0.25rem;

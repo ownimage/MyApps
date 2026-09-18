@@ -44,7 +44,8 @@ function renderCountdowns() {
   }
 
   if (todayEvents.length > 0) {
-    const heading = document.createElement("h2");
+    const heading = document.createElement("h1");
+    heading.className = "h1";
     heading.textContent = "Today!";
     container.appendChild(heading);
     todayEvents.forEach(renderCard);
@@ -53,7 +54,8 @@ function renderCountdowns() {
   if (futureEvents.length > 0) {
     const visible = showAll ? futureEvents : futureEvents.slice(0, maxCountdowns);
 
-    const heading = document.createElement("h2");
+    const heading = document.createElement("h1");
+    heading.className = "h1";
     heading.textContent = "From " + formatDate(new Date()) + " :";
     container.appendChild(heading);
     visible.forEach(renderCard);

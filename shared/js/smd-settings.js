@@ -381,7 +381,7 @@ var SETTINGS_STYLES = `
     display: block;
     width: 100%;
     padding: 0.375rem 0.75rem;
-    font-size: 0.95rem;
+    font-size: var(--smd-type-p, 0.95rem);
     font-weight: 400;
     line-height: 1.5;
     color: var(--bs-body-color, #f8f9fa);
@@ -453,7 +453,7 @@ var SETTINGS_STYLES = `
   .smd-tab-panel .btn {
     display: inline-block;
     padding: 0.375rem 0.75rem;
-    font-size: 0.95rem;
+    font-size: var(--smd-type-p, 0.95rem);
     line-height: 1.5;
     text-align: center;
     border: 1px solid transparent;
@@ -473,7 +473,7 @@ var SETTINGS_STYLES = `
   #settingsFooter .mt-3 { margin-top: 1rem; }
   #settingsFooter .mt-5 { margin-top: 3rem; }
   #settingsFooter .mb-3 { margin-bottom: 1rem; }
-  #settingsFooter .small { font-size: 0.875em; }
+  #settingsFooter .small { font-size: var(--smd-type-p, 0.875em); }
   #settingsFooter .build-number { color: var(--bs-secondary-color, #adb5bd); }
 `;
 

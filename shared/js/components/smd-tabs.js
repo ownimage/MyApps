@@ -19,7 +19,7 @@ const smdTabsSheet = SmdStyles.sheetFor(`
     background: var(--smd-secondary, #6c757d);
     color: var(--smd-tab-text, #fff);
     cursor: pointer;
-    font-size: 0.95rem;
+    font-size: var(--smd-type-p, 0.95rem);
     font-weight: 500;
     transition: background 0.15s, color 0.15s;
   }

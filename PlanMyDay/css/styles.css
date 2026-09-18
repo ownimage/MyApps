@@ -15,10 +15,10 @@ body.compact #countdownContainer .mb-3 {
   margin-bottom: 0.25rem !important;
 }
 body.compact .countdown-card h4 {
-  font-size: 1rem !important;
+  font-size: var(--smd-type-p) !important;
 }
 body.compact .countdown-card .h4 {
-  font-size: 1rem !important;
+  font-size: var(--smd-type-p) !important;
 }
 body.compact .countdown-card .row > div {
   padding-top: 0.1rem;
@@ -70,153 +70,18 @@ body.compact .btn-wide {
   width: 100%;
 }
 
-body.font-size-xsmall,
-body.font-size-xsmall .navbar .btn,
-body.font-size-xsmall .navbar .dropdown-item,
-body.font-size-xsmall #settingsPage,
-body.font-size-xsmall #settingsPage .btn,
-body.font-size-xsmall #settingsPage .form-label,
-body.font-size-xsmall #settingsPage .form-control,
-body.font-size-xsmall #settingsPage .form-select,
-body.font-size-xsmall #settingsPage .nav-link,
-body.font-size-xsmall #streamsEditor,
-body.font-size-xsmall #streamsEditor .btn,
-body.font-size-xsmall #streamsEditor .form-label,
-body.font-size-xsmall #streamsEditor .form-control,
-body.font-size-xsmall #streamsEditor .form-select,
-body.font-size-xsmall #jobSearchEditor,
-body.font-size-xsmall #jobSearchEditor .btn,
-body.font-size-xsmall #jobSearchEditor .form-label,
-body.font-size-xsmall #jobSearchEditor .form-control,
-body.font-size-xsmall #jobSearchEditor .form-select,
-body.font-size-xsmall #countdownContainer,
-body.font-size-xsmall #countdownContainer .btn,
-body.font-size-xsmall #imagesEditor,
-body.font-size-xsmall #imagesEditor .btn,
-body.font-size-xsmall #imagesEditor .form-label,
-body.font-size-xsmall #imagesEditor .form-control,
-body.font-size-xsmall #imagesEditor .form-select {
-  font-size: 0.8rem;
-}
-body.font-size-small,
-body.font-size-small .navbar .btn,
-body.font-size-small .navbar .dropdown-item,
-body.font-size-small #settingsPage,
-body.font-size-small #settingsPage .btn,
-body.font-size-small #settingsPage .form-label,
-body.font-size-small #settingsPage .form-control,
-body.font-size-small #settingsPage .form-select,
-body.font-size-small #streamsEditor,
-body.font-size-small #streamsEditor .btn,
-body.font-size-small #streamsEditor .form-label,
-body.font-size-small #streamsEditor .form-control,
-body.font-size-small #streamsEditor .form-select,
-body.font-size-small #jobSearchEditor,
-body.font-size-small #jobSearchEditor .btn,
-body.font-size-small #jobSearchEditor .form-label,
-body.font-size-small #jobSearchEditor .form-control,
-body.font-size-small #jobSearchEditor .form-select,
-body.font-size-small #countdownContainer,
-body.font-size-small #countdownContainer .btn,
-body.font-size-small #imagesEditor,
-body.font-size-small #imagesEditor .btn,
-body.font-size-small #imagesEditor .form-label,
-body.font-size-small #imagesEditor .form-control,
-body.font-size-small #imagesEditor .form-select {
-  font-size: 0.925rem;
-}
-body.font-size-large,
-body.font-size-large .navbar .btn,
-body.font-size-large .navbar .dropdown-item,
-body.font-size-large #settingsPage,
-body.font-size-large #settingsPage .btn,
-body.font-size-large #settingsPage .form-label,
-body.font-size-large #settingsPage .form-control,
-body.font-size-large #settingsPage .form-select,
-body.font-size-large #streamsEditor,
-body.font-size-large #streamsEditor .btn,
-body.font-size-large #streamsEditor .form-label,
-body.font-size-large #streamsEditor .form-control,
-body.font-size-large #streamsEditor .form-select,
-body.font-size-large #jobSearchEditor,
-body.font-size-large #jobSearchEditor .btn,
-body.font-size-large #jobSearchEditor .form-label,
-body.font-size-large #jobSearchEditor .form-control,
-body.font-size-large #jobSearchEditor .form-select,
-body.font-size-large #countdownContainer,
-body.font-size-large #countdownContainer .btn,
-body.font-size-large #imagesEditor,
-body.font-size-large #imagesEditor .btn,
-body.font-size-large #imagesEditor .form-label,
-body.font-size-large #imagesEditor .form-control,
-body.font-size-large #imagesEditor .form-select {
-  font-size: 1.125rem;
-}
-body.font-size-xlarge,
-body.font-size-xlarge .navbar .btn,
-body.font-size-xlarge .navbar .dropdown-item,
-body.font-size-xlarge #settingsPage,
-body.font-size-xlarge #settingsPage .btn,
-body.font-size-xlarge #settingsPage .form-label,
-body.font-size-xlarge #settingsPage .form-control,
-body.font-size-xlarge #settingsPage .form-select,
-body.font-size-xlarge #streamsEditor,
-body.font-size-xlarge #streamsEditor .btn,
-body.font-size-xlarge #streamsEditor .form-label,
-body.font-size-xlarge #streamsEditor .form-control,
-body.font-size-xlarge #streamsEditor .form-select,
-body.font-size-xlarge #jobSearchEditor,
-body.font-size-xlarge #jobSearchEditor .btn,
-body.font-size-xlarge #jobSearchEditor .form-label,
-body.font-size-xlarge #jobSearchEditor .form-control,
-body.font-size-xlarge #jobSearchEditor .form-select,
-body.font-size-xlarge #countdownContainer,
-body.font-size-xlarge #countdownContainer .btn,
-body.font-size-xlarge #imagesEditor,
-body.font-size-xlarge #imagesEditor .btn,
-body.font-size-xlarge #imagesEditor .form-label,
-body.font-size-xlarge #imagesEditor .form-control,
-body.font-size-xlarge #imagesEditor .form-select {
-  font-size: 1.3rem;
-}
-body.font-size-jumbo,
-body.font-size-jumbo .navbar .btn,
-body.font-size-jumbo .navbar .dropdown-item,
-body.font-size-jumbo #settingsPage,
-body.font-size-jumbo #settingsPage .btn,
-body.font-size-jumbo #settingsPage .form-label,
-body.font-size-jumbo #settingsPage .form-control,
-body.font-size-jumbo #settingsPage .form-select,
-body.font-size-jumbo #streamsEditor,
-body.font-size-jumbo #streamsEditor .btn,
-body.font-size-jumbo #streamsEditor .form-label,
-body.font-size-jumbo #streamsEditor .form-control,
-body.font-size-jumbo #streamsEditor .form-select,
-body.font-size-jumbo #jobSearchEditor,
-body.font-size-jumbo #jobSearchEditor .btn,
-body.font-size-jumbo #jobSearchEditor .form-label,
-body.font-size-jumbo #jobSearchEditor .form-control,
-body.font-size-jumbo #jobSearchEditor .form-select,
-body.font-size-jumbo #countdownContainer,
-body.font-size-jumbo #countdownContainer .btn,
-body.font-size-jumbo #imagesEditor,
-body.font-size-jumbo #imagesEditor .btn,
-body.font-size-jumbo #imagesEditor .form-label,
-body.font-size-jumbo #imagesEditor .form-control,
-body.font-size-jumbo #imagesEditor .form-select {
-  font-size: 1.6rem;
-}
+/* The per-app font-size ramp blocks were removed: the single shared ramp in
+   shared/css/styles.css (the --smd-type-* tokens) now drives every app, and the
+   font-size-xsmall…jumbo body classes only override --smd-type-base there. */
 
 /* pmd-today-card display settings. CSS custom properties inherit into the
-   shadow root, unlike :host-context() which WebKit/Safari (iPhone) ignores. */
-body { --pmd-today-title-size: 1.5rem; }
-body.font-size-large { --pmd-today-title-size: 1.6rem; }
-body.font-size-xlarge { --pmd-today-title-size: 1.75rem; }
-body.font-size-jumbo { --pmd-today-title-size: 2rem; }
+   shadow root, unlike :host-context() which WebKit/Safari (iPhone) ignores.
+   The title defaults to the shared --smd-type-h1 token (see
+   pmd-today-card.js); compact density just collapses it to body size. */
 body.compact {
   --pmd-today-padding: 0.25rem 0.5rem;
   --pmd-today-margin: 0.25rem;
-  --pmd-today-title-size: 1rem;
+  --pmd-today-title-size: var(--smd-type-p);
   --pmd-today-title-margin: 0;
   --pmd-today-description-margin: 0;
   --pmd-today-cell-padding: 0.1rem;

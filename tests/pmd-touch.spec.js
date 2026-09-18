@@ -129,12 +129,14 @@ test.describe("PlanMyDay - iPhone 12 Pro touch", () => {
     const titleFontSize = () => page
       .locator("#todayCardList pmd-today-card .title").first()
       .evaluate((el) => parseFloat(getComputedStyle(el).fontSize));
-    // default saved font size is xlarge -> 1.75rem
-    expect(await titleFontSize()).toBeCloseTo(28, 0);
+    // default saved font size is xlarge -> h1 token = 1.3rem * 2 = 2.6rem
+    expect(await titleFontSize()).toBeCloseTo(41.6, 0);
     await page.evaluate(() => changeFontSize("jumbo"));
-    expect(await titleFontSize()).toBeCloseTo(32, 0);
+    // jumbo -> h1 token = 1.6rem * 2 = 3.2rem
+    expect(await titleFontSize()).toBeCloseTo(51.2, 0);
     await page.evaluate(() => changeDensity("compact"));
-    expect(await titleFontSize()).toBeCloseTo(16, 0);
+    // compact -> --pmd-today-title-size: var(--smd-type-p) = 1.6rem
+    expect(await titleFontSize()).toBeCloseTo(25.6, 0);
   });
 
   test("task rows can be reordered with a touch drag", async ({ page }) => {

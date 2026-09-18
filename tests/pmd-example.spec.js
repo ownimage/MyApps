@@ -4,7 +4,7 @@ test.describe("Plan My Day", () => {
   test("page loads with date heading", async ({ page }) => {
     await page.goto("/PlanMyDay/");
 
-    const heading = page.locator("h2").first();
+    const heading = page.locator("h1").first();
     await expect(heading).toBeVisible();
     await expect(heading).not.toBeEmpty();
   });

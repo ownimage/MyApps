@@ -60,8 +60,8 @@ function renderMain() {
 
   const headingRow = document.createElement("div");
   headingRow.className = "d-flex align-items-center gap-2 mb-3 flex-shrink-0";
-  const dateHeading = document.createElement("h2");
-  dateHeading.className = "mb-0";
+  const dateHeading = document.createElement("h1");
+  dateHeading.className = "mb-0 h1";
   dateHeading.textContent = dateStr;
   headingRow.appendChild(dateHeading);
   const addBtn = document.createElement("button");

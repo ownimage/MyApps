@@ -33,7 +33,7 @@ var JOBS_EDITOR_STYLES = `
     display: block;
     width: 100%;
     padding: 0.375rem 0.75rem;
-    font-size: 0.95rem;
+    font-size: var(--smd-type-p, 0.95rem);
     font-weight: 400;
     line-height: 1.5;
     color: var(--bs-body-color, #f8f9fa);
@@ -46,7 +46,7 @@ var JOBS_EDITOR_STYLES = `
     display: block;
     width: 100%;
     padding: 0.375rem 0.75rem;
-    font-size: 0.95rem;
+    font-size: var(--smd-type-p, 0.95rem);
     color: var(--bs-body-color, #f8f9fa);
     background-color: var(--bs-body-bg, #222222);
     border: 1px solid var(--bs-border-color, #495057);
@@ -74,7 +74,7 @@ var JOBS_EDITOR_STYLES = `
   .smd-page-body .btn, .smd-tab-panel .btn {
     display: inline-block;
     padding: 0.375rem 0.75rem;
-    font-size: 0.95rem;
+    font-size: var(--smd-type-p, 0.95rem);
     font-weight: 400;
     line-height: 1.5;
     text-align: center;
@@ -100,7 +100,7 @@ var JOBS_EDITOR_STYLES = `
   .smd-tab-panel .mt-2 { margin-top: 0.5rem; }
   .smd-tab-panel .mt-3 { margin-top: 1rem; }
   .smd-tab-panel .text-secondary { color: var(--bs-secondary-color, #adb5bd); }
-  .smd-tab-panel .form-text { font-size: 0.8rem; color: var(--bs-secondary-color, #adb5bd); margin-top: 0.25rem; }
+  .smd-tab-panel .form-text { font-size: var(--smd-type-p, 0.8rem); color: var(--bs-secondary-color, #adb5bd); margin-top: 0.25rem; }
   .d-none { display: none !important; }
 `;
 
@@ -122,7 +122,7 @@ var SOLAR_EDITOR_STYLES = `
 var MAIN_TAB_STYLES = `
   .smd-tab-panel .btn-sm {
     padding: 0.25rem 0.5rem;
-    font-size: 0.875rem;
+    font-size: var(--smd-type-p, 0.875rem);
     border-radius: 0.25rem;
   }
   .smd-tab-panel .align-items-center { align-items: center; }
@@ -147,7 +147,7 @@ var MAIN_TAB_STYLES = `
     background: var(--bs-body-bg, #222);
     color: var(--bs-secondary-color, #adb5bd);
     font-weight: 600;
-    font-size: 0.8rem;
+    font-size: var(--smd-type-badge, 0.8rem);
     text-transform: uppercase;
     letter-spacing: 0.05em;
   }
@@ -166,7 +166,7 @@ var MAIN_TAB_STYLES = `
     display: inline-block;
     padding: 0.15rem 0.5rem;
     border-radius: 9999px;
-    font-size: 0.7rem;
+    font-size: var(--smd-type-badge, 0.7rem);
     font-weight: 600;
     text-transform: uppercase;
   }
@@ -183,7 +183,7 @@ var MAIN_TAB_STYLES = `
     color: #f59e0b;
   }
   .smd-tab-panel .was-text {
-    font-size: 0.75rem;
+    font-size: var(--smd-type-badge, 0.75rem);
     color: #ef4444;
   }
 
@@ -199,7 +199,7 @@ var MAIN_TAB_STYLES = `
     padding: 0.4rem 0.6rem;
     border: 1px solid var(--bs-border-color, #495057);
     border-radius: 0.375rem;
-    font-size: 0.9rem;
+    font-size: var(--smd-type-p, 0.9rem);
     background: var(--bs-body-bg, #222);
     color: var(--bs-body-color, #eee);
   }
@@ -208,7 +208,7 @@ var MAIN_TAB_STYLES = `
     padding: 0.4rem 0.6rem;
     border: 1px solid var(--bs-border-color, #495057);
     border-radius: 0.375rem;
-    font-size: 0.9rem;
+    font-size: var(--smd-type-p, 0.9rem);
     background: var(--bs-body-bg, #222);
     color: var(--bs-body-color, #eee);
   }
@@ -218,7 +218,7 @@ var MAIN_TAB_STYLES = `
     padding: 1rem;
     border-radius: 0.5rem;
     font-family: monospace;
-    font-size: 0.85rem;
+    font-size: var(--smd-type-p, 0.85rem);
     white-space: pre-wrap;
     height: 60vh;
     overflow-y: auto;
@@ -247,7 +247,7 @@ var MAIN_TAB_STYLES = `
     display: inline-flex;
     align-items: center;
     gap: 0.35rem;
-    font-size: 0.9rem;
+    font-size: var(--smd-type-p, 0.9rem);
     cursor: pointer;
   }
   .smd-tab-panel .graph-wrap {
@@ -265,7 +265,7 @@ var MAIN_TAB_STYLES = `
     padding: 1rem;
     border-radius: 0.5rem;
     font-family: monospace;
-    font-size: 0.85rem;
+    font-size: var(--smd-type-p, 0.85rem);
     white-space: pre-wrap;
     height: 50vh;
     overflow-y: auto;

@@ -12,7 +12,7 @@ var SCHEDULE_MODAL_STYLES = `
     border: 1px solid var(--bs-border-color, #444);
     border-radius: 0.35rem;
     padding: 0.375rem 2rem 0.375rem 0.75rem;
-    font-size: 0.9rem;
+    font-size: var(--smd-type-p, 0.9rem);
   }
   .smd-body .form-select option { background-color: var(--bs-body-bg, #222); }
   .smd-body .d-none { display: none !important; }
@@ -26,7 +26,7 @@ var SCHEDULE_MODAL_STYLES = `
   .smd-body .gap-2 { gap: 0.5rem; }
   .smd-body .flex-wrap { flex-wrap: wrap; }
   .smd-body .text-muted { opacity: 0.75; }
-  .smd-body .small { font-size: 0.875em; }
+  .smd-body .small { font-size: var(--smd-type-p, 0.875em); }
 `;
 
 var JOBS_EDITOR_STYLES = `
@@ -60,7 +60,7 @@ var JOBS_EDITOR_STYLES = `
     display: block;
     width: 100%;
     padding: 0.375rem 0.75rem;
-    font-size: 0.95rem;
+    font-size: var(--smd-type-p, 0.95rem);
     font-weight: 400;
     line-height: 1.5;
     color: var(--bs-body-color, #f8f9fa);
@@ -73,7 +73,7 @@ var JOBS_EDITOR_STYLES = `
     display: block;
     width: 100%;
     padding: 0.375rem 0.75rem;
-    font-size: 0.95rem;
+    font-size: var(--smd-type-p, 0.95rem);
     color: var(--bs-body-color, #f8f9fa);
     background-color: var(--bs-body-bg, #222222);
     border: 1px solid var(--bs-border-color, #495057);
@@ -149,7 +149,7 @@ var JOBS_EDITOR_STYLES = `
   .smd-page-body .btn, .smd-tab-panel .btn {
     display: inline-block;
     padding: 0.375rem 0.75rem;
-    font-size: 0.95rem;
+    font-size: var(--smd-type-p, 0.95rem);
     font-weight: 400;
     line-height: 1.5;
     text-align: center;
@@ -164,7 +164,7 @@ var JOBS_EDITOR_STYLES = `
   .smd-tab-panel .btn-info { background: var(--bs-info, #0dcaf0); color: var(--smd-info-text, #fff); }
   .smd-tab-panel .btn-outline-info { background: transparent; color: var(--bs-info, #31d2f2); border-color: var(--bs-info, #31d2f2); }
   .smd-tab-panel .btn-outline-secondary { background: transparent; color: var(--bs-secondary-color, #adb5bd); border-color: var(--bs-secondary-color, #6c757d); }
-  .smd-tab-panel .btn-sm { padding: 0.25rem 0.5rem; font-size: 0.85rem; border-radius: 0.25rem; }
+  .smd-tab-panel .btn-sm { padding: 0.25rem 0.5rem; font-size: var(--smd-type-p, 0.85rem); border-radius: 0.25rem; }
   .smd-tab-panel .btn-wide, .smd-tab-panel .w-100 { width: 100%; }
   .smd-tab-panel .dropdown { position: relative; }
   .smd-tab-panel .dropdown-toggle {

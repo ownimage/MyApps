@@ -107,9 +107,9 @@ test.describe("CountMyDays - Regression", () => {
 
     test("renders the today section and future section", async ({ page }) => {
       await seed(page);
-      await expect(page.locator("#countdownContainer h2").first()).toHaveText("Today!");
+      await expect(page.locator("#countdownContainer h1").first()).toHaveText("Today!");
       await expect(page.locator("cmd-countdown-card").first()).toHaveAttribute("title", "Today Event");
-      const headings = await page.locator("#countdownContainer h2").allTextContents();
+      const headings = await page.locator("#countdownContainer h1").allTextContents();
       expect(headings.length).toBe(2);
       expect(headings[1]).toContain("From ");
       // Every tile carries a Local/Google source badge under the date.

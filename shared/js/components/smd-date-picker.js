@@ -28,7 +28,7 @@ const smdDatePickerSheet = SmdStyles.sheetFor(`
     width: 100%;
     min-width: 0;
     padding: 0.375rem 0.75rem;
-    font-size: 0.95rem;
+    font-size: var(--smd-type-p, 0.95rem);
     line-height: 1.5;
     color: var(--bs-body-color, #eee);
     background-color: var(--bs-body-bg, #222);

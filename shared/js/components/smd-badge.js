@@ -13,7 +13,7 @@ const smdBadgeSheet = SmdStyles.sheetFor(`
   :host {
     display: inline-block;
     padding: 0.35em 0.65em;
-    font-size: 0.75em;
+    font-size: var(--smd-type-badge, 0.75em);
     font-weight: 700;
     line-height: 1;
     text-align: center;

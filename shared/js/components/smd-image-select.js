@@ -37,7 +37,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 0.65rem;
+    font-size: var(--smd-type-badge, 0.65rem);
     color: var(--bs-secondary-color, #aaa);
   }
   .meta {
@@ -47,7 +47,7 @@
     min-width: 0;
   }
   .name {
-    font-size: 0.85rem;
+    font-size: var(--smd-type-p, 0.85rem);
     color: var(--bs-secondary-color, #aaa);
     overflow: hidden;
     text-overflow: ellipsis;

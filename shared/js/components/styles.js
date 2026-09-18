@@ -60,7 +60,7 @@
   .btn-info { background: var(--bs-info, #0dcaf0); color: var(--smd-info-text, #fff); }
   .btn-sm {
     padding: 0.25rem 0.5rem;
-    font-size: 0.85rem;
+    font-size: var(--smd-type-p, 0.85rem);
     line-height: 1.5;
   }
 `;

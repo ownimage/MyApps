@@ -29,7 +29,7 @@ const solarTopTilesSheet = SmdStyles.sheetFor(`
     min-height: 120px;
   }
   .tile-label {
-    font-size: 0.65rem;
+    font-size: var(--smd-type-badge, 0.65rem);
     text-transform: uppercase;
     letter-spacing: 0.12em;
     color: var(--bs-secondary-color, #adb5bd);
@@ -39,7 +39,7 @@ const solarTopTilesSheet = SmdStyles.sheetFor(`
 
   /* Date tile */
   .date-dd {
-    font-size: 3rem;
+    font-size: var(--smd-type-h1, 3rem);
     font-weight: 200;
     color: var(--bs-body-color, #eee);
     line-height: 1;
@@ -51,7 +51,7 @@ const solarTopTilesSheet = SmdStyles.sheetFor(`
     align-items: center;
   }
   .date-mon {
-    font-size: 1.2rem;
+    font-size: var(--smd-type-h2, 1.2rem);
     font-weight: 700;
     color: var(--bs-secondary-color, #adb5bd);
     letter-spacing: 0.04em;
@@ -64,7 +64,7 @@ const solarTopTilesSheet = SmdStyles.sheetFor(`
     flex-shrink: 0;
   }
   .date-yyy {
-    font-size: 1.2rem;
+    font-size: var(--smd-type-h2, 1.2rem);
     font-weight: 300;
     color: var(--bs-secondary-color, #adb5bd);
     letter-spacing: 0.06em;
@@ -79,9 +79,9 @@ const solarTopTilesSheet = SmdStyles.sheetFor(`
   .flap-card {
     background: linear-gradient(180deg, #4a5568 0%, #2d3748 48%, #1a202c 52%, #171923 100%);
     color: #f7fafc;
-    font-size: 2rem;
+    font-size: var(--smd-type-h1, 2rem);
     font-weight: 300;
-    width: 1.5rem;
+    width: 0.75em;
     text-align: center;
     border-radius: 4px;
     padding: 0.35rem 0;
@@ -100,7 +100,7 @@ const solarTopTilesSheet = SmdStyles.sheetFor(`
     box-shadow: 0 1px 2px rgba(255,255,255,0.04);
   }
   .flap-sep {
-    font-size: 1.8rem;
+    font-size: var(--smd-type-h1, 1.8rem);
     font-weight: 700;
     color: #fc8181;
     margin: 0 0.06rem;
@@ -143,7 +143,7 @@ const solarTopTilesSheet = SmdStyles.sheetFor(`
     transition: width 0.3s, background 0.3s;
   }
   .battery-info {
-    font-size: 1.3rem;
+    font-size: var(--smd-type-h2, 1.3rem);
     font-weight: 700;
     color: var(--bs-body-color, #eee);
   }
@@ -152,12 +152,12 @@ const solarTopTilesSheet = SmdStyles.sheetFor(`
   :host([no-data]) .top-tiles { display: none; }
 
   @media (max-width: 480px) {
-    .date-dd { font-size: 2.2rem; }
-    .date-mon, .date-yyy { font-size: 1rem; }
-    .flap-card { font-size: 1.5rem; width: 1.2rem; padding: 0.25rem 0; }
-    .flap-sep { font-size: 1.4rem; }
+    .date-dd { font-size: calc(var(--smd-type-h1, 3rem) * 0.7333); }
+    .date-mon, .date-yyy { font-size: calc(var(--smd-type-h2, 1.2rem) * 0.8333); }
+    .flap-card { font-size: calc(var(--smd-type-h1, 2rem) * 0.75); width: 0.8em; padding: 0.25rem 0; }
+    .flap-sep { font-size: calc(var(--smd-type-h1, 2rem) * 0.7); }
     .tile { min-height: 90px; padding: 0.75rem; }
-    .battery-info { font-size: 1.1rem; }
+    .battery-info { font-size: calc(var(--smd-type-h2, 1.3rem) * 0.8462); }
   }
 `);
 

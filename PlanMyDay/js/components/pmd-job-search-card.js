@@ -22,7 +22,7 @@ const pmdJobSearchCardSheet = SmdStyles.sheetFor(`
     align-items: center;
     gap: 0.5rem;
     margin-top: 0.25rem;
-    font-size: 0.875em;
+    font-size: var(--smd-type-p, 0.875em);
     min-width: 0;
   }
   .thumb {
@@ -46,7 +46,7 @@ const pmdJobSearchCardSheet = SmdStyles.sheetFor(`
   .btn {
     min-width: 50px;
     padding: 0.5rem 1rem;
-    font-size: 0.875rem;
+    font-size: var(--smd-type-p, 0.875rem);
     line-height: 1.5;
     flex-shrink: 0;
     align-self: center;

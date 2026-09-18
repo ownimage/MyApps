@@ -5,53 +5,9 @@
    --solar-* custom properties defined below. */
 
 /* FONT SIZE
-   smd-page content lives in shadow roots, but font-size is inherited, so
-   setting it on the host element reaches the shadow tree. */
-body.font-size-xsmall,
-body.font-size-xsmall .navbar .btn,
-body.font-size-xsmall .navbar .dropdown-item,
-body.font-size-xsmall #dashboardContainer,
-body.font-size-xsmall #settingsPage,
-body.font-size-xsmall #filesPage,
-body.font-size-xsmall #configPage {
-  font-size: 0.8rem;
-}
-body.font-size-small,
-body.font-size-small .navbar .btn,
-body.font-size-small .navbar .dropdown-item,
-body.font-size-small #dashboardContainer,
-body.font-size-small #settingsPage,
-body.font-size-small #filesPage,
-body.font-size-small #configPage {
-  font-size: 0.925rem;
-}
-body.font-size-large,
-body.font-size-large .navbar .btn,
-body.font-size-large .navbar .dropdown-item,
-body.font-size-large #dashboardContainer,
-body.font-size-large #settingsPage,
-body.font-size-large #filesPage,
-body.font-size-large #configPage {
-  font-size: 1.125rem;
-}
-body.font-size-xlarge,
-body.font-size-xlarge .navbar .btn,
-body.font-size-xlarge .navbar .dropdown-item,
-body.font-size-xlarge #dashboardContainer,
-body.font-size-xlarge #settingsPage,
-body.font-size-xlarge #filesPage,
-body.font-size-xlarge #configPage {
-  font-size: 1.3rem;
-}
-body.font-size-jumbo,
-body.font-size-jumbo .navbar .btn,
-body.font-size-jumbo .navbar .dropdown-item,
-body.font-size-jumbo #dashboardContainer,
-body.font-size-jumbo #settingsPage,
-body.font-size-jumbo #filesPage,
-body.font-size-jumbo #configPage {
-  font-size: 1.6rem;
-}
+   The per-app font-size ramp blocks were removed: the single shared ramp in
+   shared/css/styles.css (the --smd-type-* tokens) now drives every app, and
+   the font-size-xsmall…jumbo body classes only override --smd-type-base there. */
 
 /* TOP TILES custom properties (read inside solar-top-tiles shadow root). */
 body {

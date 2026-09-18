@@ -112,7 +112,7 @@ test.describe("PlanMyDay - Regression", () => {
   test.describe("Main View", () => {
 
     test("loads with date heading", async ({ page }) => {
-      await expect(page.locator("h2").first()).toBeVisible();
+      await expect(page.locator("h1").first()).toBeVisible();
     });
 
     test("add card opens job edit modal", async ({ page }) => {
@@ -3725,7 +3725,7 @@ test.describe("PlanMyDay - Regression", () => {
       await page.waitForTimeout(250);
       await page.getByRole("button", { name: "OK" }).click();
       await page.waitForTimeout(250);
-      await expect(page.locator("h2").first()).toContainText(dayMonthStr(futureDate));
+      await expect(page.locator("h1").first()).toContainText(dayMonthStr(futureDate));
     });
   });
 
@@ -4481,7 +4481,7 @@ test.describe("PlanMyDay - Regression", () => {
         localStorage.setItem("devToday", ds);
       }, futureDate);
       await page.reload();
-      await expect(page.locator("h2").first()).toContainText(dayMonthStr(futureDate));
+      await expect(page.locator("h1").first()).toContainText(dayMonthStr(futureDate));
     });
 
     test("dev last gen is returned by getStoredLastGen", async ({ page }) => {

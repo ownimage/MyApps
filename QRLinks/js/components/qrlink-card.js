@@ -42,12 +42,12 @@ const qrLinkCardSheet = SmdStyles.sheetFor(`
   .content { flex: 1 1 auto; min-width: 0; }
   .title {
     margin: 0 0 0.25rem;
-    font-size: var(--qrlink-title-size, 1.5rem);
+    font-size: var(--qrlink-title-size, var(--smd-type-h1, 1.5rem));
     font-weight: 800;
     overflow-wrap: anywhere;
   }
   .description {
-    font-size: 0.875em;
+    font-size: var(--smd-type-p, 0.875em);
     color: var(--bs-secondary-color, #aaa);
     overflow-wrap: anywhere;
   }

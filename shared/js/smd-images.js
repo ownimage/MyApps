@@ -693,12 +693,12 @@ const IMAGE_PICKER_STYLES = `
   .smd-page-body .py-4, .smd-tab-panel .py-4 { padding-top: 1.5rem; padding-bottom: 1.5rem; }
   .smd-page-body .flex-wrap, .smd-tab-panel .flex-wrap { flex-wrap: wrap; }
   .smd-tab-panel .icon-picker-item .icon-glyph {
-    font-size: 2rem;
+    font-size: var(--smd-type-h1, 2rem);
     color: var(--bs-body-color, #f8f9fa);
     line-height: 1;
   }
   .smd-tab-panel .icon-picker-item .icon-name {
-    font-size: 0.75rem;
+    font-size: var(--smd-type-badge, 0.75rem);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -847,7 +847,7 @@ function renderImagePicker() {
     const item = document.createElement("div");
     item.className = "image-picker-item text-center";
     item.style.cssText = "min-width:95px;cursor:pointer;border:2px solid transparent;border-radius:8px;padding:6px;transition:border-color 0.15s";
-    item.innerHTML = `<smd-image key-prefix="${smdImagePrefix()}" image="${escapeHtml(img.name)}" title="${escapeHtml(img.name)}"></smd-image><div style="font-size:0.75rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:4px">${escapeHtml(img.name)}</div>`;
+    item.innerHTML = `<smd-image key-prefix="${smdImagePrefix()}" image="${escapeHtml(img.name)}" title="${escapeHtml(img.name)}"></smd-image><div style="font-size:var(--smd-type-badge,0.75rem);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:4px">${escapeHtml(img.name)}</div>`;
     item.onclick = () => { selectImagePickerItem(img.name); };
     item.onmouseenter = () => { item.style.borderColor = "var(--bs-primary)"; };
     item.onmouseleave = () => { item.style.borderColor = "transparent"; };

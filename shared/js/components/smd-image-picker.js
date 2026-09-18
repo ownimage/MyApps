@@ -95,7 +95,7 @@
   .search input {
     flex: 1;
     padding: 0.375rem 0.75rem;
-    font-size: 0.95rem;
+    font-size: var(--smd-type-p, 0.95rem);
     color: var(--bs-body-color, #eee);
     background-color: var(--bs-body-bg, #222);
     border: 1px solid var(--bs-border-color, #495057);
@@ -104,7 +104,7 @@
   .search button {
     flex: 0 0 auto;
     padding: 0.375rem 0.75rem;
-    font-size: 0.95rem;
+    font-size: var(--smd-type-p, 0.95rem);
     color: var(--bs-body-color, #eee);
     background-color: var(--bs-secondary-bg, #303030);
     border: 1px solid var(--bs-border-color, #495057);
@@ -141,13 +141,13 @@
   }
   .item:hover { border-color: var(--bs-primary, #0d6efd); }
   .item .glyph {
-    font-size: 2rem;
+    font-size: var(--smd-type-h1, 2rem);
     line-height: 1;
     color: var(--bs-body-color, #f8f9fa);
   }
   .item .thumb { display: flex; align-items: center; justify-content: center; }
   .item .label {
-    font-size: 0.75rem;
+    font-size: var(--smd-type-badge, 0.75rem);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;

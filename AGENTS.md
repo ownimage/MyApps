@@ -34,6 +34,7 @@ Architecture:
   - z-index stack: smd-page 1040 < smd-modal 1050 < imagePickerModal 1060. No z-index hacks needed.
 - Component styling uses CONSTRUCTABLE STYLESHEETS from `shared/js/components/styles.js` (`window.SmdStyles`): `smdButtonSheet`/`smdTabsSheet`/`smdModalSheet`/`smdPageSheet` are per-component sheets; `SmdStyles.hiddenSheet` + `SmdStyles.btnBadgeSheet` are shared by the pmd-* cards/header. `SmdStyles.sheetFor(css)` caches a sheet by CSS text; `SmdStyles.adoptStyles(root, sheetsOrCss)` adopts (dedup) into `root.adoptedStyleSheets`. Adopted sheets SURVIVE `shadowRoot.innerHTML` re-renders (unlike injected `<style>` elements). `injectStyleInto(root, css)` in app.js is now a wrapper over `SmdStyles.adoptStyles` (page/modal content styles).
 - Colour/typography conventions: smd-tabs selected = `--smd-primary`/`--smd-primary-text`, non-selected = `--smd-secondary`/`--smd-tab-text`; stream accordion header expanded = `--bs-info`, collapsed = `--smd-secondary`; page/modal header = lightened band (`color-mix(in srgb, var(--bs-body-bg) 85%, white)`) + title in lighter body-colour variant (`color-mix(... 60%, white)`).
+- TYPESCALE TOKENS (2026-09-18): one shared ramp in `shared/css/styles.css` — `body { --smd-type-base: 1rem }` plus `body.font-size-xsmall/small/large/xlarge/jumbo` overrides (0.8/0.925/1/1.125/1.3/1.6rem) — drives exactly four tokens `--smd-type-badge` (base×0.75), `--smd-type-p` (base), `--smd-type-h2` (base×1.25), `--smd-type-h1` (base×2), all declared on `body` (NOT `:root`: the ramp must recompute per font-size body class, and body custom props pierce shadow DOM while `:host-context()` doesn't). Tag map: h1→h1; h2/h3/h4→h2; h5/h6→p; text/inputs/buttons/tables→p; badges→badge. Every component + app style now uses `var(--smd-type-*, original-value)` (original as fallback so behaviour is unchanged wherever the token is missing). Media-fit sizes are token CALCs (e.g. CM/QR title `calc(var(--smd-type-h1,1.5rem)*0.7667)`, CM count `*0.8333`, CM container h1 `*0.625`, Solar 480px block). Compact density = `--…-title-size: var(--smd-type-p)` overrides. Deliberate non-token exceptions: the 22px hamburger icon in `smd-app.js`, `smd-checkbox` 1em/1.4em + `smd-draghandle` 1.2rem/1.6rem touch sizes, vendor CSS, storybook chrome. Tests assert heading ELEMENT tags (now `h1` for main-view date/"Today!"/"From …" headings) and pmd-touch.spec.js:119 asserts the NEW pixel values (xlarge 41.6, jumbo 51.2, compact-jumbo 25.6) — update those literals together with any ramp change.
 - THEME TEXT COLOURS (2026-09-12): shadow-DOM buttons/tabs cannot use Bootswatch's `.btn-*` rules (document CSS doesn't cross the boundary, and `--bs-btn-*` is set on the `.btn-*` element, not `:root`). `applySmdVars()` reads a hidden light-DOM `<button class="btn btn-<variant>">` probe (`smdBootstrapColor()`) and publishes `--smd-primary/secondary/success/danger/info/warning-text` + `--smd-tab-text` on `<html>`; every shadow `.btn-*`/variant uses those vars. `applyTheme()` re-runs `applySmdVars` on the theme `<link>`'s `load`. Never hardcode white text for a theme-coloured surface; if Bootswatch's own `.btn-*` rule disagrees with its `--bs-btn-color` var (e.g. cerulean's later `.btn-secondary { color: ... }`), the probe wins — always match the probe.
 - BADGES (2026-09-12): use the shared `<smd-badge variant="primary|secondary|success|danger|warning|info|light|dark" pill?>` component everywhere — never a `<span class="badge bg-*">` (Bootstrap's badge vars live on the `.badge` element and can't reach shadow roots). `applySmdVars()` probes a hidden light-DOM `.badge.text-bg-<variant>` (`smdBootstrapStyle()`) and publishes `--smd-badge-<variant>-{bg,text}`; the component's own sheet consumes them, so text colour follows Bootswatch exactly (white on cerulean's navy info, black on its light secondary, etc.). `btnBadgeSheet` now only carries `.btn*` rules despite its name; `smd-page`'s badge/bg rules were removed.
 - IMAGE DROPDOWN (2026-09-18): the shared `<smd-image-dropdown>` (`shared/js/components/smd-image-dropdown.js`) is the generic image+name picker — the old PlanMyDay `pmd-stream-select` was folded into it and deleted. It is DATA-driven, not DOM: host sets `options = [{name, image}]` (image OPTIONAL → text-only rows, e.g. CountMyDays' no-image "All") and `selected` = the chosen option's NAME string; picks dispatch `smd-image-dropdown-change` ({ name }). Listener wiring: CountMyDays `#dateCategoryFilter` (`smd-image-dropdown-change` → `setDateCategoryFilter`, "" for All) in `dates-editor.js`; PlanMyDay `#jobStreamDropdown` (name mapped back via `streamIndexByName` in `editor-common.js`). Stable shadow ids for test locators: `smdImageDropdownBtn`, `smdImageBtnIcon`, `smdImageBtnText`, `smdImageDropdownMenu`.
@@ -324,6 +325,35 @@ Techniques / gotchas:
 - CROSS-ORIGIN SAVE 302 GOTCHA (2026-09-17): SolarControlar's Flask POST endpoints (`POST /solar/`, `POST /solar/api/config`) are PRG — they answer `302 Location: /solar/`. A PWA `fetch()` that lets the browser follow that cross-origin redirect can lose its `Authorization` header on the follow-up GET (browser-dependent), so Traefik returns a 401 WITHOUT `Access-Control-Allow-Origin` → the fetch blocks as a CORS error / "Failed to fetch". Fix in the APP: `redirect: "manual"` on the POST and treat `resp.type === "opaqueredirect"` as success (server saved; the caller then re-fetches the GET page which carries auth again). `redirect: "manual"` returns an opaque-redirect response (status 0) for a 302 — you cannot read it, only detect it by `type`. Rule for SolarControlar saves: never follow the Flask redirect; `_post` returns the response TEXT (or `""`), so consumers must not chain `.text()`.
 
 ## Session log
+
+### 2026-09-18 (9) — font-size harmonisation via shared typescale tokens
+- **One ramp, four tokens** (see the "TYPESCALE TOKENS" note above): the shared
+  base ramp drives `--smd-type-badge/p/h2/h1` on `body`; every component/shared
+  style + every app's editor/card styles consume them via
+  `var(--smd-type-*, original-fallback)`. Tag map: h1→h1, h2-h4→h2, h5/h6/p→p,
+  badges→badge; both tab systems (smd-tabs + settings chips)→p. All six Font
+  Size settings now scale every app equally.
+- Converted: 13 shared components (`styles.js`, smd-button/badge/tabs/
+  date-picker/theme/fontawesome-credit/qr-export/image-dropdown/image-select/
+  image-picker/page/modal), `smd-minio.js`/`smd-images.js`/`smd-settings.js`,
+  all 4 apps' `editor-styles.js`, the app components (pmd-*, cmd-*, qrlink-card,
+  solar-top-tiles), and 6 rewritten css files (ramps deleted; compact/media-fit
+  sizes became token CALCs). `storybook/index.html` gained the
+  `shared/css/styles.css` link (was missing).
+- **Main-view date headings h2→h1** (`PlanMyDay` "Sun 18 …" and `CountMyDays`
+  "Today!"/"From …") — deliberate; tests + css selectors updated to `h1`.
+- **Tests updated for new sizes**: `pmd-touch.spec.js:119` now asserts the token
+  values (xlarge 41.6px, jumbo 51.2px, compact-jumbo 25.6px — old 28/32/16 no
+  longer apply) — user confirmed "keep ramp, update test"; heading-tag selectors
+  in pmd-regression (3×), cmd-regression (1×), pmd-example moved `h2`→`h1`.
+- Verification: `node --check` on all 30 edited JS files; storybook probe =
+  zero console/page errors + no failed requests; focused fail-fast batches +
+  **full cmd 45/45, solar 12/12, qrlinks 9/9, ffox 10/10, launch 6/6 all green**;
+  pmd targeted subset 13/13 (date heading, font-size settings, touch size,
+  today/streams, icon glyphs). Full pmd suite = user-runs at the end, per
+  usual. Two solar auth/network tests "failed" only under 8-concurrent-workers
+  port exhaustion — 12/12 green when run alone.
+- `BUILD_NUMBER` → `202609181911`.
 
 ### 2026-09-18 (8) — every smd-page "Done" button relabelled "OK"
 - Changed every `smd-page` footer button `text: "Done"` → `text: "OK"` (the

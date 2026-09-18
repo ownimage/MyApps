@@ -52,7 +52,7 @@ const smdImageDropdownSheet = SmdStyles.sheetFor(`
     text-overflow: ellipsis;
     white-space: nowrap;
   }
-  .caret { flex: 0 0 auto; opacity: 0.7; font-size: 0.75rem; }
+  .caret { flex: 0 0 auto; opacity: 0.7; font-size: var(--smd-type-badge, 0.75rem); }
   .menu {
     position: absolute;
     left: 0;

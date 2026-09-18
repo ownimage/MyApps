@@ -39,7 +39,7 @@ const cmdDateCardSheet = SmdStyles.sheetFor(`
   }
   .event-badge {
     display: inline-block;
-    font-size: 0.7em;
+    font-size: var(--smd-type-badge, 0.7em);
     font-weight: 600;
     line-height: 1;
     padding: 0.25em 0.5em;

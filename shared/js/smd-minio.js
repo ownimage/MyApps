@@ -411,7 +411,7 @@ var MINIO_IMPORT_STYLES = `
     justify-content: center;
     padding: 0.375rem 0.75rem;
     border-radius: 0.375rem;
-    font-size: 1rem;
+    font-size: var(--smd-type-p, 1rem);
     line-height: 1.5;
     cursor: pointer;
     background: transparent;
@@ -419,8 +419,8 @@ var MINIO_IMPORT_STYLES = `
     color: var(--bs-body-color, #eee);
   }
   .smd-page-body .btn:hover { opacity: 0.85; }
-  .smd-page-body .btn-lg { padding: 0.5rem 1rem; font-size: 1.25rem; }
-  .smd-page-body .btn-sm { padding: 0.25rem 0.5rem; font-size: 0.875rem; }
+  .smd-page-body .btn-lg { padding: 0.5rem 1rem; font-size: var(--smd-type-h2, 1.25rem); }
+  .smd-page-body .btn-sm { padding: 0.25rem 0.5rem; font-size: var(--smd-type-p, 0.875rem); }
   .smd-page-body .btn-outline-primary { border-color: var(--smd-primary, #0d6efd); color: var(--smd-primary, #0d6efd); }
   .smd-page-body .btn-outline-secondary { border-color: var(--bs-secondary, #6c757d); color: var(--bs-secondary, #6c757d); }
   .smd-page-body .spinner-border {
@@ -522,7 +522,7 @@ function loadMinioBuckets() {
 function loadMinioBucketFiles(bucket) {
   var page = document.getElementById("minioImportPage");
   if (page) {
-    page.headerHtml = '<smd-badge variant="info" style="font-size:0.8em;vertical-align:middle">Bucket: ' +
+    page.headerHtml = '<smd-badge variant="info" style="font-size:var(--smd-type-badge,0.8em);vertical-align:middle">Bucket: ' +
       bucket.replace(/</g, "&lt;").replace(/>/g, "&gt;") + '</smd-badge>';
     // Setting headerHtml re-renders the page shadow root, which wipes any
     // injected style element, so re-apply the import styles.

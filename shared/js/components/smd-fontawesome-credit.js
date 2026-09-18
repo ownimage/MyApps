@@ -10,7 +10,7 @@
   const smdFaCreditSheet = SmdStyles.sheetFor(`
   :host { display: block; }
   .credit {
-    font-size: 0.875em;
+    font-size: var(--smd-type-p, 0.875em);
     color: var(--bs-secondary-color, #adb5bd);
   }
   .credit a {

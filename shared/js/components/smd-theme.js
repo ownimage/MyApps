@@ -23,7 +23,7 @@
     display: block;
     width: 100%;
     padding: 0.375rem 0.75rem;
-    font-size: 0.95rem;
+    font-size: var(--smd-type-p, 0.95rem);
     font-weight: 400;
     line-height: 1.5;
     color: var(--bs-body-color, #f8f9fa);

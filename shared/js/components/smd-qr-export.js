@@ -67,7 +67,7 @@
   }
   .item { display: flex; flex-direction: column; align-items: center; gap: 0.25rem; }
   .box { background: #fff; padding: 0.75rem; border-radius: 8px; display: inline-block; }
-  .label { font-size: 0.85rem; color: var(--bs-body-color, #eee); }
+  .label { font-size: var(--smd-type-p, 0.85rem); color: var(--bs-body-color, #eee); }
   .empty, .error { width: 100%; text-align: center; padding: 1.5rem 0; }
   .empty { color: var(--bs-secondary-color, #aaa); }
   .error { color: var(--bs-danger, #dc3545); }
