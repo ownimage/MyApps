@@ -474,7 +474,7 @@ document.write('<script src="../shared/js/components/smd-checkbox.js?v=' + BUILD
     }
     window.__pmdSwUpdater = { showUpdatePrompt: showUpdatePrompt };
 
-    navigator.serviceWorker.register("../sw.js?v=" + BUILD_NUMBER).then(function(reg) {
+    navigator.serviceWorker.register("../sw.js").then(function(reg) {
       if (navigator.serviceWorker.controller) {
         if (reg.waiting) showUpdatePrompt(reg);
         reg.addEventListener("updatefound", function() {

@@ -57,12 +57,21 @@ Architecture:
   (one shared key — it's the same root SW) so "Later" isn't re-prompted on the
   next reload; "Update now" clears it. `__updatePrompted` stays as the in-load
   fast path.
+  REGISTER AT A STABLE URL (2026-09-18): the apps register `../sw.js` (the
+  Launch app `sw.js`) with NO `?v=` cache-buster. A versioned script URL was
+  the DOUBLE-PROMPT bug: after "Update now" reloads to the new build, that page
+  registered a DIFFERENT scriptURL than the just-activated worker
+  (`?v=old` vs `?v=new`), so Chromium reinstalled another worker and prompted
+  again (verified in a SW simulation: versioned URL prompts twice, stable URL
+  prompts once). The browser detects updates by comparing sw.js bytes, and a
+  pure `BUILD_NUMBER` bump still triggers it (the imported build-number.js is
+  compared too — verified via simulation), so no versioning is needed.
   `BUILD_NUMBER` is STATIC in `shared/js/build-number.js` — bump it to ship a new
   build (sw.js byte changes still trigger an update, but a same cache name reuses
   old assets). All same-origin ASSET LOADS are cache-busted with `?v=BUILD_NUMBER`
   (head `<script>` stamps `<link href>`; vendor/component scripts use
   `document.write(...?v=…)`; `applyTheme()` stamps theme swaps; `sampleImages.json`
-  fetch + SW registration are versioned).
+  fetch is versioned).
 - LAUNCH APP (2026-09-13): the app launcher's entry is the **repo-root
   `index.html`** (served at `/MyApps/`); its support files live in `Launch/`
   (`manifest.json` with `start_url`/`scope: "../"`, `icon.svg` + generated PNGs,

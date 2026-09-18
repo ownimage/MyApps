@@ -6097,6 +6097,14 @@ test.describe("PlanMyDay - Regression", () => {
         localStorage.setItem("planmydays_minio_username", "u");
         localStorage.setItem("planmydays_minio_password", "p");
       });
+      // The intent is a slow/hanging Minio endpoint so the import page stays on
+      // "Loading buckets". localhost:9000 (the dev static server) answers in
+      // milliseconds, so the bucket-list fetch errors fast and closes the page
+      // before the assertion. Delay the S3 request to reproduce a real server.
+      await page.route("http://localhost:9000/**", async (route) => {
+        await new Promise(r => setTimeout(r, 2000));
+        await route.fulfill({ status: 200, contentType: "application/xml", body: "<ListAllMyBucketsResult xmlns='http://s3.amazonaws.com/doc/2006-03-01/'><Buckets><Bucket><Name>empty</Name></Bucket></Buckets></ListAllMyBucketsResult>" });
+      });
       await page.reload();
       await page.evaluate(() => openMinioImportPage());
       await page.waitForTimeout(150);
