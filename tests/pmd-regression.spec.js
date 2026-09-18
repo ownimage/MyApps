@@ -118,7 +118,7 @@ test.describe("PlanMyDay - Regression", () => {
     test("add card opens job edit modal", async ({ page }) => {
       await page.getByText("+ Add Job").click();
       await expect(page.locator("#jobEditPage")).toBeVisible();
-      await expect(page.locator("#jobEditPage .smd-page-header h2")).toHaveText("Add Job");
+      await expect(page.locator("#jobEditPage .smd-page-header h1")).toHaveText("Add Job");
     });
 
     test("add card modal does not show delete button", async ({ page }) => {
@@ -166,7 +166,7 @@ test.describe("PlanMyDay - Regression", () => {
       await expect(page.locator("#todayCardList")).toBeVisible();
       await page.locator(".job-view-btn").first().click();
       await expect(page.locator("#jobEditPage")).toBeVisible();
-      await expect(page.locator("#jobEditPage .smd-page-header h2")).toHaveText("View Job");
+      await expect(page.locator("#jobEditPage .smd-page-header h1")).toHaveText("View Job");
       await expect(page.locator("#jobEditOkBtn")).toContainText("OK");
       await expect(page.locator("#btnViewJobEdit")).toContainText("Edit");
       const titleInput = page.locator("#jobEditPage .form-control").first();
@@ -189,9 +189,9 @@ test.describe("PlanMyDay - Regression", () => {
       await page.reload();
       await page.locator(".job-view-btn").first().click();
       await page.locator("#jobEditPage").waitFor({ state: "visible" });
-      await expect(page.locator("#jobEditPage .smd-page-header h2")).toHaveText("View Job");
+      await expect(page.locator("#jobEditPage .smd-page-header h1")).toHaveText("View Job");
       await page.locator("#btnViewJobEdit").filter({ hasText: "Edit" }).click();
-      await expect(page.locator("#jobEditPage .smd-page-header h2")).toHaveText("Edit Job");
+      await expect(page.locator("#jobEditPage .smd-page-header h1")).toHaveText("Edit Job");
       await expect(page.locator("#jobEditOkBtn")).toContainText("OK");
       const titleInput = page.locator("#jobEditPage .form-control").first();
       await expect(titleInput).toHaveValue("Report");
@@ -203,9 +203,9 @@ test.describe("PlanMyDay - Regression", () => {
       await page.reload();
       await expect(page.locator("#todayCardList")).toBeVisible();
       await page.locator(".job-view-btn").first().click();
-      await expect(page.locator("#jobEditPage .smd-page-header h2")).toHaveText("View Job");
+      await expect(page.locator("#jobEditPage .smd-page-header h1")).toHaveText("View Job");
       await page.locator("#btnViewJobEdit").filter({ hasText: "Edit" }).click();
-      await expect(page.locator("#jobEditPage .smd-page-header h2")).toHaveText("Edit Job");
+      await expect(page.locator("#jobEditPage .smd-page-header h1")).toHaveText("Edit Job");
       await expect(page.locator("#jobEditDelBtn")).toBeVisible();
       await page.locator("#jobEditDelBtn").click();
       await expect(page.locator("#smdConfirmModal")).toBeVisible();
@@ -334,7 +334,7 @@ test.describe("PlanMyDay - Regression", () => {
       await page.locator(".job-view-btn").first().click();
       await page.locator("#jobEditPage").waitFor({ state: "visible" });
       await page.locator("#btnViewJobEdit").filter({ hasText: "Edit" }).click();
-      await expect(page.locator("#jobEditPage .smd-page-header h2")).toHaveText("Edit Job");
+      await expect(page.locator("#jobEditPage .smd-page-header h1")).toHaveText("Edit Job");
       await page.evaluate((ds) => jobField("sleepUntil", ds), futureDateStr(30));
       await page.locator("#jobEditOkBtn").click();
       
@@ -355,10 +355,10 @@ test.describe("PlanMyDay - Regression", () => {
       await expect(page.locator("h4").filter({ hasText: "Report" })).toBeVisible();
       await page.locator(".job-view-btn").first().click();
       await page.locator("#jobEditPage").waitFor({ state: "visible" });
-      await expect(page.locator("#jobEditPage .smd-page-header h2")).toHaveText("View Job");
+      await expect(page.locator("#jobEditPage .smd-page-header h1")).toHaveText("View Job");
       await expect(page.locator("#smdDatePickerInput")).toHaveValue("");
       await page.locator("#btnViewJobEdit").filter({ hasText: "Edit" }).click();
-      await expect(page.locator("#jobEditPage .smd-page-header h2")).toHaveText("Edit Job");
+      await expect(page.locator("#jobEditPage .smd-page-header h1")).toHaveText("Edit Job");
       await expect(page.locator("#smdDatePickerInput")).toHaveValue("");
     });
 
@@ -372,7 +372,7 @@ test.describe("PlanMyDay - Regression", () => {
       await page.reload();
       await page.locator(".job-view-btn").first().click();
       await page.locator("#jobEditPage").waitFor({ state: "visible" });
-      await expect(page.locator("#jobEditPage .smd-page-header h2")).toHaveText("View Job");
+      await expect(page.locator("#jobEditPage .smd-page-header h1")).toHaveText("View Job");
       await page.locator("#jobSchedule-tab").click();
       await expect(page.locator("#smdDatePickerAlt")).toHaveValue(shortDateStr(todayStr));
     });
@@ -396,7 +396,7 @@ test.describe("PlanMyDay - Regression", () => {
       await page.locator(".job-view-btn").first().click();
       await page.locator("#jobEditPage").waitFor({ state: "visible" });
       await page.locator("#btnViewJobEdit").filter({ hasText: "Edit" }).click();
-      await expect(page.locator("#jobEditPage .smd-page-header h2")).toHaveText("Edit Job");
+      await expect(page.locator("#jobEditPage .smd-page-header h1")).toHaveText("Edit Job");
       await page.locator("#jobEditOkBtn").click();
       // hide modal
       
@@ -1240,7 +1240,7 @@ test.describe("PlanMyDay - Regression", () => {
     test("edit button opens edit job modal and returns to search", async ({ page }) => {
       await page.locator("#jobSearchList pmd-job-search-card").first().getByRole("button", { name: "Edit" }).click();
       await expect(page.locator("#jobEditPage")).toBeVisible();
-      await expect(page.locator("#jobEditPage .smd-page-header h2")).toHaveText("Edit Job");
+      await expect(page.locator("#jobEditPage .smd-page-header h1")).toHaveText("Edit Job");
       await page.locator("#jobEditCancelBtn").click();
       await page.locator("#jobEditPage").waitFor({ state: "hidden" });
       await expect(page.locator("#jobSearchEditor:not(.d-none)")).toBeVisible();
@@ -1250,7 +1250,7 @@ test.describe("PlanMyDay - Regression", () => {
     test("add job button opens add job modal", async ({ page }) => {
       await page.locator("#btnJobSearchAdd").click();
       await expect(page.locator("#jobEditPage")).toBeVisible();
-      await expect(page.locator("#jobEditPage .smd-page-header h2")).toHaveText("Add Job");
+      await expect(page.locator("#jobEditPage .smd-page-header h1")).toHaveText("Add Job");
       await page.locator("#jobEditCancelBtn").click();
       await page.locator("#jobEditPage").waitFor({ state: "hidden" });
       await expect(page.locator("#jobSearchEditor:not(.d-none)")).toBeVisible();
@@ -1380,7 +1380,7 @@ test.describe("PlanMyDay - Regression", () => {
     test("opens edit job modal with existing data", async ({ page }) => {
       await page.locator("#streamEditorList .accordion-body .btn-primary").filter({ hasText: "Edit" }).first().click();
       await page.locator("#jobEditPage").waitFor({ state: "visible" });
-      await expect(page.locator("#jobEditPage .smd-page-header h2")).toContainText("Edit");
+      await expect(page.locator("#jobEditPage .smd-page-header h1")).toContainText("Edit");
     });
 
     test("can delete a job", async ({ page }) => {
@@ -2506,7 +2506,7 @@ test.describe("PlanMyDay - Regression", () => {
       await expect(reportCard).toHaveAttribute("data-job-id", "job_1");
       await reportCard.locator(".job-view-btn").click();
       await page.locator("#jobEditPage").waitFor({ state: "visible" });
-      await expect(page.locator("#jobEditPage .smd-page-header h2")).toContainText("View Job");
+      await expect(page.locator("#jobEditPage .smd-page-header h1")).toContainText("View Job");
       await page.locator("#btnViewJobEdit").click();
       await page.locator("#jobEditDelBtn").click();
       await page.locator("#smdConfirmModal").waitFor({ state: "visible" });
@@ -6436,7 +6436,7 @@ test.describe("PlanMyDay - Regression", () => {
       await page.locator("#jobTasks-tab").click();
       await expect(page.locator("#jobTasks-tab")).toHaveAttribute("active", "");
       await page.locator("#btnViewJobEdit").filter({ hasText: "Edit" }).click();
-      await expect(page.locator("#jobEditPage .smd-page-header h2")).toHaveText("Edit Job");
+      await expect(page.locator("#jobEditPage .smd-page-header h1")).toHaveText("Edit Job");
       await expect(page.locator("#jobTasks-tab")).toHaveAttribute("active", "");
       await expect(page.locator("#jobTasks-tab-panel")).toHaveAttribute("active", "");
     });
@@ -6904,9 +6904,9 @@ test.describe("PlanMyDay - Regression", () => {
       });
       await page.locator(".job-view-btn").first().click();
       await expect(page.locator("#jobEditPage")).toBeVisible();
-      await expect(page.locator("#jobEditPage .smd-page-header h2")).toHaveText("View Job");
+      await expect(page.locator("#jobEditPage .smd-page-header h1")).toHaveText("View Job");
       await page.locator("#btnViewJobEdit").click();
-      await expect(page.locator("#jobEditPage .smd-page-header h2")).toHaveText("Edit Job");
+      await expect(page.locator("#jobEditPage .smd-page-header h1")).toHaveText("Edit Job");
       await expect(page.locator("#jobEditPage")).toBeVisible();
       await expect.poll(() => page.evaluate(() => window.__contractActions)).toEqual([
         { index: 0, action: "edit", text: "Edit" }
@@ -7002,7 +7002,7 @@ test.describe("PlanMyDay - Regression", () => {
       });
       await page.reload();
       await page.getByText("+ Add Job").click();
-      await expect(page.locator("#jobEditPage .smd-page-header h2")).toHaveText("Add Job");
+      await expect(page.locator("#jobEditPage .smd-page-header h1")).toHaveText("Add Job");
       const elapsed = await page.evaluate(async () => {
         const p = document.getElementById("jobEditPage");
         p.classList.remove("d-none");

@@ -34,9 +34,9 @@ const smdPageSheet = SmdStyles.sheetFor(`
     border-bottom: 1px solid var(--bs-border-color, #444);
     flex-shrink: 0;
   }
-  .smd-page-header h2 {
+  .smd-page-header h1 {
     margin: 0;
-    font-size: var(--smd-type-h2, 1.2rem);
+    font-size: var(--smd-type-h1, 2rem);
     font-weight: 500;
     color: color-mix(in srgb, var(--bs-body-color, #eee) 60%, white);
   }
@@ -122,7 +122,7 @@ class SmdPage extends HTMLElement {
     this.shadowRoot.innerHTML = `
       <div class="smd-page">
         <div class="smd-page-header">
-          <h2>${this._escapeHtml(this._title)}</h2>${this._headerHtml}
+          <h1>${this._escapeHtml(this._title)}</h1>${this._headerHtml}
         </div>
         <div class="smd-page-body">${this._content}</div>
         <div class="smd-page-footer">${buttonsHtml}</div>
