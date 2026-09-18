@@ -63,8 +63,12 @@ document.addEventListener("DOMContentLoaded", () => {
         deleteJobFromEdit();
       }
     });
-    jobEditPage.addEventListener("pmd-stream-select-change", (e) => {
-      jobChangeStream(e.detail.streamIdx);
+    jobEditPage.addEventListener("smd-image-dropdown-change", (e) => {
+      var newIdx = streamIndexByName(e.detail.name);
+      if (newIdx >= 0) jobChangeStream(newIdx);
+    });
+    jobEditPage.addEventListener("smd-date-picker-change", (e) => {
+      jobField("sleepUntil", (e.detail && e.detail.value) || "");
     });
   }
 

@@ -17,29 +17,12 @@ function jobTimeChanged() {
   const m = $id("jobTimeMin").value;
   jobField("time", h && m ? h + ":" + m : "");
 }
-function clearSleepUntil() {
-  jobField("sleepUntil", "");
-  const fpInput = $id("jobSleepUntil");
-  if (fpInput) {
-    if (fpInput._flatpickr) fpInput._flatpickr.clear();
-    fpInput.value = "";
-  }
-  const btn = $id("jobSleepUntilClearBtn");
-  if (btn) btn.classList.add("d-none");
-}
 function updateJobEditOkBtn() {
   const okBtn = getJobEditFooterBtn("done");
   if (!okBtn) return;
   const title = $id("jobTitleInput");
   okBtn.disabled = !title || !title.value.trim();
 }
-function updateSleepUntilClearBtn() {
-  const btn = $id("jobSleepUntilClearBtn");
-  if (!btn) return;
-  const val = $id("jobSleepUntil").value;
-  btn.classList.toggle("d-none", !val);
-}
-
 function jobAddTask() {
   if (!jobsBuffer) return;
   if (!jobsBuffer.tasks) jobsBuffer.tasks = [];
@@ -372,7 +355,7 @@ function getJobGeneralTabHTML(data, readOnly) {
       <div class="col-6 d-flex flex-column" style="min-height:61px">
         <label class="form-label mb-0">Stream</label>
         <div class="mt-1" style="flex-grow:1">
-          <pmd-stream-select id="jobStreamDropdown" key-prefix="${escAttr(smdImagePrefix())}" ${readOnly ? "disabled" : ""}></pmd-stream-select>
+          <smd-image-dropdown id="jobStreamDropdown" key-prefix="${escAttr(smdImagePrefix())}" ${readOnly ? "disabled" : ""}></smd-image-dropdown>
         </div>
       </div>
       <div class="col-6 d-flex flex-column" style="min-height:61px">
@@ -426,10 +409,7 @@ function getJobScheduleTabHTML(data, readOnly) {
     <div class="row mb-2">
       <div class="col">
         <label class="form-label">Sleep Until</label>
-        <div class="d-flex gap-2">
-          <input class="form-control" id="jobSleepUntil" value="${escapeHtml(readOnly ? formatDate(data.sleepUntil) : (data.sleepUntil || ""))}" ${ro} placeholder="Pick a date">
-          <button class="btn btn-danger btn-sm ${data.sleepUntil ? "" : "d-none"}" id="jobSleepUntilClearBtn" ${disabled} onclick="clearSleepUntil()">Clear</button>
-        </div>
+        <smd-date-picker ${readOnly ? "readonly" : ""} value="${escapeHtml(data.sleepUntil || "")}" first-day-of-week="${parseInt(localStorage.getItem(smdKey("startWeek")) || "1", 10)}"></smd-date-picker>
       </div>
     </div>
     <div class="row mb-2">
@@ -536,7 +516,6 @@ function buildJobEditPage(readOnly, activeTabIndex) {
   }
   injectJobEditStyles();
   initJobStreamSelect();
-  initJobSleepUntilPicker(readOnly);
   if (!readOnly) {
     initJobTasksSortable();
     renderJobTasks();
@@ -551,10 +530,6 @@ function destroyJobEditTransient() {
     jobTasksSortable.destroy();
     jobTasksSortable = null;
   }
-  const fp = $id("jobSleepUntil");
-  if (fp && fp._flatpickr) {
-    try { fp._flatpickr.destroy(); } catch (e) {}
-  }
 }
 
 function hideJobEditPage() {
@@ -567,27 +542,6 @@ function hideJobEditPage() {
       page.classList.add("d-none");
     }, Math.max(0, (page.slideDuration || 0) + 50));
   }
-}
-
-function initJobSleepUntilPicker(readOnly) {
-  const fpInput = $id("jobSleepUntil");
-  if (!fpInput) return;
-  if (readOnly) return;
-  flatpickr(fpInput, {
-    dateFormat: "Y-m-d",
-    altInput: true,
-    altFormat: "D j M Y",
-    altInputClass: "form-control",
-    allowInput: false,
-    monthSelectorType: "dropdown",
-    disableMobile: true,
-    locale: { firstDayOfWeek: parseInt(localStorage.getItem(smdKey("startWeek")) || "1", 10) },
-    onChange: function(selectedDates, dateStr) {
-      jobField("sleepUntil", dateStr);
-      updateSleepUntilClearBtn();
-    }
-  });
-  if (fpInput._flatpickr && fpInput._flatpickr.altInput) fpInput._flatpickr.altInput.id = "jobSleepUntilDisplay";
 }
 
 function focusJobTitle() {

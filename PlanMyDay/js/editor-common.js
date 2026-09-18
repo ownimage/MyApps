@@ -61,19 +61,28 @@ function updateJobImagePreview(name) {
     else removeBtn.classList.add("d-none");
   }
 }
-// The stream dropdown is the <pmd-stream-select> component: the app only feeds
-// it the streams + selected index and reacts to pmd-stream-select-change.
+// The stream dropdown is the shared <smd-image-dropdown> component: the app
+// only feeds it the stream names (+ images) and the current selection, and
+// reacts to smd-image-dropdown-change (detail { name }) mapped back to an index.
+function streamNameAt(idx) {
+  var streams = loadStreams();
+  return (streams[idx] && streams[idx].title) || "";
+}
+function streamIndexByName(name) {
+  var streams = loadStreams();
+  return streams.findIndex(function (s) { return s.title === name; });
+}
 function initJobStreamSelect() {
   const sel = $id("jobStreamDropdown");
   if (!sel) return;
-  sel.streams = loadStreams().map(function(s) {
-    return { title: s.title || "", image: s.image || "" };
+  sel.options = loadStreams().map(function(s) {
+    return { name: s.title || "", image: s.image || "" };
   });
-  sel.selected = jobsTargetStreamIndex >= 0 ? jobsTargetStreamIndex : jobsStreamIndex;
+  sel.selected = streamNameAt(jobsTargetStreamIndex >= 0 ? jobsTargetStreamIndex : jobsStreamIndex);
 }
 function updateJobStreamPreview() {
   const sel = $id("jobStreamDropdown");
-  if (sel) sel.selected = jobsTargetStreamIndex >= 0 ? jobsTargetStreamIndex : jobsStreamIndex;
+  if (sel) sel.selected = streamNameAt(jobsTargetStreamIndex >= 0 ? jobsTargetStreamIndex : jobsStreamIndex);
 }
 function jobChangeStream(newIdx) {
   jobsTargetStreamIndex = newIdx;

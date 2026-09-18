@@ -356,10 +356,10 @@ test.describe("PlanMyDay - Regression", () => {
       await page.locator(".job-view-btn").first().click();
       await page.locator("#jobEditPage").waitFor({ state: "visible" });
       await expect(page.locator("#jobEditPage .smd-page-header h2")).toHaveText("View Job");
-      await expect(page.locator("#jobSleepUntil")).toHaveValue("");
+      await expect(page.locator("#smdDatePickerInput")).toHaveValue("");
       await page.locator("#btnViewJobEdit").filter({ hasText: "Edit" }).click();
       await expect(page.locator("#jobEditPage .smd-page-header h2")).toHaveText("Edit Job");
-      await expect(page.locator("#jobSleepUntil")).toHaveValue("");
+      await expect(page.locator("#smdDatePickerInput")).toHaveValue("");
     });
 
     test("sleep until shows short date format in view mode", async ({ page }) => {
@@ -374,7 +374,7 @@ test.describe("PlanMyDay - Regression", () => {
       await page.locator("#jobEditPage").waitFor({ state: "visible" });
       await expect(page.locator("#jobEditPage .smd-page-header h2")).toHaveText("View Job");
       await page.locator("#jobSchedule-tab").click();
-      await expect(page.locator("#jobSleepUntil")).toHaveValue(shortDateStr(todayStr));
+      await expect(page.locator("#smdDatePickerAlt")).toHaveValue(shortDateStr(todayStr));
     });
 
     test("view then edit preserves custom today order", async ({ page }) => {
@@ -412,19 +412,14 @@ test.describe("PlanMyDay - Regression", () => {
       await page.locator("#jobEditPage").waitFor({ state: "visible" });
       const futureDate = futureDateStr(30);
       await page.evaluate((ds) => {
-        const fp = $id("jobSleepUntil")._flatpickr;
-        if (fp) {
-          fp.setDate(ds, true);
-          fp.input.value = ds;
-        }
-        updateSleepUntilClearBtn();
+        $id("smdDatePickerInput")._flatpickr.setDate(ds, true);
       }, futureDate);
       await page.locator("#jobSchedule-tab").click();
-      await expect(page.locator("#jobSleepUntil")).toHaveValue(futureDate);
-      const clearBtn = page.locator("#jobSleepUntilClearBtn");
+      await expect(page.locator("#smdDatePickerInput")).toHaveValue(futureDate);
+      const clearBtn = page.locator("#smdDatePickerClearBtn");
       await expect(clearBtn).toBeVisible();
       await clearBtn.click();
-      await expect(page.locator("#jobSleepUntil")).toHaveValue("");
+      await expect(page.locator("#smdDatePickerInput")).toHaveValue("");
     });
 
     test("ok button is disabled when title is empty", async ({ page }) => {
@@ -2561,7 +2556,7 @@ test.describe("PlanMyDay - Regression", () => {
       await page.locator("#jobSchedule-tab").click();
       const futureDate = futureDateStr(2);
       await page.evaluate((ds) => {
-        $id("jobSleepUntil")._flatpickr.setDate(ds, true);
+        $id("smdDatePickerInput")._flatpickr.setDate(ds, true);
       }, futureDate);
       await page.locator("#jobEditOkBtn").click();
       await page.locator("#streamEditorList .accordion-collapse.show").waitFor({ state: "visible", timeout: 5000 });
@@ -2918,7 +2913,7 @@ test.describe("PlanMyDay - Regression", () => {
     test("sleep until input exists in job edit", async ({ page }) => {
       await page.locator("#streamEditorList .accordion-body .btn-primary").filter({ hasText: "Edit" }).first().click();
       await page.locator("#jobSchedule-tab").click();
-      await expect(page.locator("#jobSleepUntilDisplay")).toBeVisible();
+      await expect(page.locator("#smdDatePickerAlt")).toBeVisible();
     });
 
     test("sleep until picker starts week on configured day", async ({ page }) => {
@@ -2926,7 +2921,7 @@ test.describe("PlanMyDay - Regression", () => {
       await page.locator("#streamEditorList .accordion-body .btn-primary").filter({ hasText: "Edit" }).first().click();
       await page.locator("#jobEditPage").waitFor({ state: "visible" });
       await page.locator("#jobSchedule-tab").click();
-      await page.locator("#jobSleepUntilDisplay").click();
+      await page.locator("#smdDatePickerAlt").click();
       const firstHead = page.locator(".flatpickr-weekday").first();
       await expect(firstHead).toBeVisible();
       await expect(firstHead).toHaveText("Tue");
@@ -2968,10 +2963,10 @@ test.describe("PlanMyDay - Regression", () => {
       await page.locator("#jobSchedule-tab").click();
       const futureDate = futureDateStr(30);
       await page.evaluate((ds) => {
-        $id("jobSleepUntil")._flatpickr.setDate(ds, true);
+        $id("smdDatePickerInput")._flatpickr.setDate(ds, true);
       }, futureDate);
-      await expect(page.locator("#jobSleepUntilDisplay")).toHaveValue(shortDateStr(futureDate));
-      await expect(page.locator("#jobSleepUntil")).toHaveValue(futureDate);
+      await expect(page.locator("#smdDatePickerAlt")).toHaveValue(shortDateStr(futureDate));
+      await expect(page.locator("#smdDatePickerInput")).toHaveValue(futureDate);
     });
 
     test("sleep until keeps ISO format in storage when saved", async ({ page }) => {
@@ -2980,7 +2975,7 @@ test.describe("PlanMyDay - Regression", () => {
       await page.locator("#jobSchedule-tab").click();
       const futureDate = futureDateStr(30);
       await page.evaluate((ds) => {
-        $id("jobSleepUntil")._flatpickr.setDate(ds, true);
+        $id("smdDatePickerInput")._flatpickr.setDate(ds, true);
       }, futureDate);
       await page.locator("#jobEditOkBtn").click();
       await page.locator("#jobEditPage").waitFor({ state: "hidden", timeout: 10000 });
@@ -2999,7 +2994,7 @@ test.describe("PlanMyDay - Regression", () => {
       await page.locator("#streamEditorList .job-drag-card").filter({ hasText: "Report" }).getByRole("button", { name: "Edit" }).click();
       await page.locator("#jobEditPage").waitFor({ state: "visible" });
       await page.locator("#jobSchedule-tab").click();
-      await expect(page.locator("#jobSleepUntilDisplay")).toHaveValue(shortDateStr(futureDate));
+      await expect(page.locator("#smdDatePickerAlt")).toHaveValue(shortDateStr(futureDate));
     });
 
     test("sleep until displays day-of-week prefix in short format", async ({ page }) => {
@@ -3009,14 +3004,14 @@ test.describe("PlanMyDay - Regression", () => {
       const firstDate = futureDateStr(30);
       const secondDate = futureDateStr(60);
       await page.evaluate((ds) => {
-        $id("jobSleepUntil")._flatpickr.setDate(ds, true);
+        $id("smdDatePickerInput")._flatpickr.setDate(ds, true);
       }, firstDate);
-      await expect(page.locator("#jobSleepUntilDisplay")).toHaveValue(shortDateStr(firstDate));
-      await expect(page.locator("#jobSleepUntil")).toHaveValue(firstDate);
+      await expect(page.locator("#smdDatePickerAlt")).toHaveValue(shortDateStr(firstDate));
+      await expect(page.locator("#smdDatePickerInput")).toHaveValue(firstDate);
       await page.evaluate((ds) => {
-        $id("jobSleepUntil")._flatpickr.setDate(ds, true);
+        $id("smdDatePickerInput")._flatpickr.setDate(ds, true);
       }, secondDate);
-      await expect(page.locator("#jobSleepUntilDisplay")).toHaveValue(shortDateStr(secondDate));
+      await expect(page.locator("#smdDatePickerAlt")).toHaveValue(shortDateStr(secondDate));
     });
 
     test("sleep until formatted field stays visible on mobile devices", async ({ browser }) => {
@@ -3046,8 +3041,8 @@ test.describe("PlanMyDay - Regression", () => {
       }, futureDate);
       await mp.locator("#jobEditPage").waitFor({ state: "visible" });
       await mp.locator("#jobSchedule-tab").click();
-      await expect(mp.locator("#jobSleepUntilDisplay")).toBeVisible();
-      await expect(mp.locator("#jobSleepUntilDisplay")).toHaveValue(shortDateStr(futureDate));
+      await expect(mp.locator("#smdDatePickerAlt")).toBeVisible();
+      await expect(mp.locator("#smdDatePickerAlt")).toHaveValue(shortDateStr(futureDate));
       await expect(mp.locator(".flatpickr-mobile")).toHaveCount(0);
       await context.close();
     });
@@ -3107,14 +3102,14 @@ test.describe("PlanMyDay - Regression", () => {
     test("stream selector defaults to current stream", async ({ page }) => {
       await page.locator("#streamEditorList .accordion-body .btn-primary").filter({ hasText: "Edit" }).first().click();
       await page.locator("#jobEditPage").waitFor({ state: "visible" });
-      await expect(page.locator("#jobStreamBtnText")).toHaveText("Work");
+      await expect(page.locator("#smdImageBtnText")).toHaveText("Work");
     });
 
     test("stream selector shows all stream names", async ({ page }) => {
       await page.locator("#streamEditorList .accordion-body .btn-primary").filter({ hasText: "Edit" }).first().click();
       await page.locator("#jobEditPage").waitFor({ state: "visible" });
-      await page.locator("#jobStreamDropdownBtn").click();
-      var items = page.locator("#jobStreamDropdownMenu .dropdown-item");
+      await page.locator("#smdImageDropdownBtn").click();
+      var items = page.locator("#smdImageDropdownMenu .dropdown-item");
       await expect(items).toHaveCount(2);
       await expect(items.nth(0)).toContainText("Work");
       await expect(items.nth(1)).toContainText("Chores");
@@ -3123,7 +3118,7 @@ test.describe("PlanMyDay - Regression", () => {
     test("stream selector images follow the icon size setting", async ({ page }) => {
       await page.locator("#streamEditorList .accordion-body .btn-primary").filter({ hasText: "Edit" }).first().click();
       await page.locator("#jobEditPage").waitFor({ state: "visible" });
-      const iconWidth = () => page.locator("#jobStreamDropdown #jobStreamBtnIcon smd-image").first()
+      const iconWidth = () => page.locator("#jobStreamDropdown #smdImageBtnIcon smd-image").first()
         .evaluate((el) => getComputedStyle(el).width);
       await page.evaluate(() => changeIconSize("small"));
       expect(await iconWidth()).toBe("40px");
@@ -3134,8 +3129,8 @@ test.describe("PlanMyDay - Regression", () => {
     test("changing stream and saving moves job to new stream", async ({ page }) => {
       await page.locator("#streamEditorList .accordion-body .btn-primary").filter({ hasText: "Edit" }).first().click();
       await page.locator("#jobEditPage").waitFor({ state: "visible" });
-      await page.locator("#jobStreamDropdownBtn").click();
-      await page.locator("#jobStreamDropdownMenu .dropdown-item").nth(1).click();
+      await page.locator("#smdImageDropdownBtn").click();
+      await page.locator("#smdImageDropdownMenu .dropdown-item").nth(1).click();
       await page.locator("#jobEditOkBtn").click();
       
       await page.locator("#jobEditPage").waitFor({ state: "hidden", timeout: 10000 });
@@ -5760,8 +5755,7 @@ test.describe("PlanMyDay - Regression", () => {
         updateStreamImagePreview("PrevImg");
         updateJobStreamPreview();
         jobTimeChanged();
-        clearSleepUntil();
-        updateSleepUntilClearBtn();
+        $id("smdDatePickerInput")._flatpickr.clear();
         updateJobEditOkBtn();
       });
       await page.evaluate(() => {

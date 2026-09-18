@@ -48,9 +48,10 @@ const cmdDateCardSheet = SmdStyles.sheetFor(`
     margin-left: 0.35rem;
   }
   .event-badge-local { background: var(--bs-secondary, #6c757d); color: var(--smd-secondary-text, #fff); }
-  .event-badge-google { background: #4285f4; color: #fff; }
+  .event-badge-google { background: var(--bs-primary, #0d6efd); color: var(--smd-primary-text, #fff); }
   .event-badge-repeat { background: var(--bs-info, #0dcaf0); color: var(--smd-info-text, #fff); }
-  .meta { display: flex; gap: 1rem; margin-bottom: 0.5rem; }
+  .event-badge-hidden { background: var(--bs-secondary, #6c757d); color: var(--smd-secondary-text, #fff); }
+  .meta { display: flex; gap: 1rem; align-items: center; margin-bottom: 0.5rem; }
   .actions { display: flex; gap: 0.5rem; }
   .actions .btn { padding: 0.375rem 0.75rem; }
   .actions .btn-danger { margin-left: auto; }
@@ -64,10 +65,11 @@ cmdDateCardTemplate.innerHTML = `
       <div class="thumb"><smd-image class="date-thumb"></smd-image></div>
     </div>
     <div class="content">
-      <div class="title"><span class="title-text"></span><span class="badges"></span></div>
+      <div class="title"><span class="title-text"></span></div>
       <div class="meta">
         <span class="date-text"></span>
         <span class="type-text"></span>
+        <span class="badges"></span>
       </div>
       <div class="actions">
         <button type="button" class="btn btn-primary" data-action="edit">Edit</button>
@@ -134,7 +136,7 @@ class CmdDateCard extends HTMLElement {
     root.querySelector(".badges").innerHTML = "";
     this._addBadge(root, isGoogle ? "Google" : "Local", isGoogle ? "event-badge-google" : "event-badge-local");
     if (this.getAttribute("recurring") === "true") this._addBadge(root, "Repeat", "event-badge-repeat");
-    if (this.getAttribute("hidden") === "true") this._addBadge(root, "Hidden", "event-badge-local");
+    if (this.getAttribute("hidden") === "true") this._addBadge(root, "Hidden", "event-badge-hidden");
 
     const type = this.getAttribute("type");
     root.querySelector(".type-text").textContent = isGoogle

@@ -223,6 +223,8 @@ const SHARED_ASSETS = [
     "shared/js/components/smd-checkbox.js",
   "shared/js/components/smd-draghandle.js",
   "shared/js/components/smd-badge.js",
+  "shared/js/components/smd-image-dropdown.js",
+  "shared/js/components/smd-date-picker.js",
   "shared/js/components/smd-buymeacoffee.js",
   "shared/js/components/smd-fontawesome-credit.js",
   "shared/js/components/smd-page.js",
@@ -263,7 +265,6 @@ const APPS = {
     "PlanMyDay/js/components/pmd-stream-header.js",
     "PlanMyDay/js/components/pmd-stream-job-card.js",
     "PlanMyDay/js/components/pmd-job-search-card.js",
-    "PlanMyDay/js/components/pmd-stream-select.js",
     "PlanMyDay/js/components/pmd-today-card.js"
   ],
   "CountMyDays/": [

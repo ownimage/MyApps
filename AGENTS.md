@@ -36,6 +36,7 @@ Architecture:
 - Colour/typography conventions: smd-tabs selected = `--smd-primary`/`--smd-primary-text`, non-selected = `--smd-secondary`/`--smd-tab-text`; stream accordion header expanded = `--bs-info`, collapsed = `--smd-secondary`; page/modal header = lightened band (`color-mix(in srgb, var(--bs-body-bg) 85%, white)`) + title in lighter body-colour variant (`color-mix(... 60%, white)`).
 - THEME TEXT COLOURS (2026-09-12): shadow-DOM buttons/tabs cannot use Bootswatch's `.btn-*` rules (document CSS doesn't cross the boundary, and `--bs-btn-*` is set on the `.btn-*` element, not `:root`). `applySmdVars()` reads a hidden light-DOM `<button class="btn btn-<variant>">` probe (`smdBootstrapColor()`) and publishes `--smd-primary/secondary/success/danger/info/warning-text` + `--smd-tab-text` on `<html>`; every shadow `.btn-*`/variant uses those vars. `applyTheme()` re-runs `applySmdVars` on the theme `<link>`'s `load`. Never hardcode white text for a theme-coloured surface; if Bootswatch's own `.btn-*` rule disagrees with its `--bs-btn-color` var (e.g. cerulean's later `.btn-secondary { color: ... }`), the probe wins — always match the probe.
 - BADGES (2026-09-12): use the shared `<smd-badge variant="primary|secondary|success|danger|warning|info|light|dark" pill?>` component everywhere — never a `<span class="badge bg-*">` (Bootstrap's badge vars live on the `.badge` element and can't reach shadow roots). `applySmdVars()` probes a hidden light-DOM `.badge.text-bg-<variant>` (`smdBootstrapStyle()`) and publishes `--smd-badge-<variant>-{bg,text}`; the component's own sheet consumes them, so text colour follows Bootswatch exactly (white on cerulean's navy info, black on its light secondary, etc.). `btnBadgeSheet` now only carries `.btn*` rules despite its name; `smd-page`'s badge/bg rules were removed.
+- IMAGE DROPDOWN (2026-09-18): the shared `<smd-image-dropdown>` (`shared/js/components/smd-image-dropdown.js`) is the generic image+name picker — the old PlanMyDay `pmd-stream-select` was folded into it and deleted. It is DATA-driven, not DOM: host sets `options = [{name, image}]` (image OPTIONAL → text-only rows, e.g. CountMyDays' no-image "All") and `selected` = the chosen option's NAME string; picks dispatch `smd-image-dropdown-change` ({ name }). Listener wiring: CountMyDays `#dateCategoryFilter` (`smd-image-dropdown-change` → `setDateCategoryFilter`, "" for All) in `dates-editor.js`; PlanMyDay `#jobStreamDropdown` (name mapped back via `streamIndexByName` in `editor-common.js`). Stable shadow ids for test locators: `smdImageDropdownBtn`, `smdImageBtnIcon`, `smdImageBtnText`, `smdImageDropdownMenu`.
 - Quartz's "glassmorphism" overrides live in `shared/css/styles.css` (`.modal-content`, `.dropdown-menu`).
 - REPO/PWA LAYOUT (2026-09-10): the repo hosts **multiple PWAs off one origin**
   (`ownimage.github.io/MyApps/…`). `shared/` = library; each app lives in its own
@@ -323,6 +324,155 @@ Techniques / gotchas:
 - CROSS-ORIGIN SAVE 302 GOTCHA (2026-09-17): SolarControlar's Flask POST endpoints (`POST /solar/`, `POST /solar/api/config`) are PRG — they answer `302 Location: /solar/`. A PWA `fetch()` that lets the browser follow that cross-origin redirect can lose its `Authorization` header on the follow-up GET (browser-dependent), so Traefik returns a 401 WITHOUT `Access-Control-Allow-Origin` → the fetch blocks as a CORS error / "Failed to fetch". Fix in the APP: `redirect: "manual"` on the POST and treat `resp.type === "opaqueredirect"` as success (server saved; the caller then re-fetches the GET page which carries auth again). `redirect: "manual"` returns an opaque-redirect response (status 0) for a 302 — you cannot read it, only detect it by `type`. Rule for SolarControlar saves: never follow the Flask redirect; `_post` returns the response TEXT (or `""`), so consumers must not chain `.text()`.
 
 ## Session log
+
+### 2026-09-18 (7) — shared `<smd-date-picker>`: PMD sleep-until + CM once-date
+- **New shared component** `shared/js/components/smd-date-picker.js`: a read-only
+  flatpickr-backed date field. Attributes: `value` (a date string in `format`),
+  `format` (default `Y-m-d`), `alt-format` (default `D j M Y`),
+  `first-day-of-week`, `placeholder`, `readonly`, `disabled`, `no-clear`. Property
+  `.value` get/set (setter SYNCs + EMITS the change); the `value` ATTRIBUTE only
+  seeds silently. Event `smd-date-picker-change` (bubbles + composed,
+  `detail = { value }` = the date string in `format`). Stable shadow ids:
+  `smdDatePickerInput` (raw, holds `_flatpickr`), `smdDatePickerAlt` (visible
+  display), `smdDatePickerClearBtn`. The flatpickr calendar is
+  `appendTo: document.body` — REQUIRED, otherwise `flatpickr.min.css` (a page
+  stylesheet) cannot style a calendar living inside the shadow root. Registered
+  in CM + PMD `index.html`, `sw.js` SHARED_ASSETS, storybook (flatpickr vendor
+  script + css were added to the storybook, plus a demo section).
+- **PlanMyDay migrated**: `job-editor.js` sleep-until picker deleted
+  (`initJobSleepUntilPicker`, `clearSleepUntil`, `updateSleepUntilClearBtn`,
+  destroy-block). Schedule tab now renders `<smd-date-picker … value="(ISO)" …>`;
+  the page-level Change listener lives in `app.js` `jobEditPage`
+  (`smd-date-picker-change` → `jobField("sleepUntil", value)`), next to the
+  stream-dropdown listener.
+- **CountMyDays migrated**: the once-date field on `#dateEditPage` is now
+  `<smd-date-picker no-clear format="d/m/Y" alt-format="d/m/Y" value="dd/mm/yyyy">`.
+  `initDateFlatpickr` deleted. `onceDateValue()` builds the d/m/Y seed;
+  `applyOnceDateValue()` parses the d/m/Y change back into
+  buffer.day/month/year; a `smd-date-picker-change` listener is bound ONCE in
+  `openDateEditPage` (guard `page.__cmdDatePickerBound`), the `doneDateEdit`
+  safety-net re-reads `$id("smdDatePickerInput").value`.
+- **KEY GOTCHAS for tests in `page.evaluate` (both specs)**: `$id()` in
+  `shared/js/smd-app.js` PIERCES shadow roots via a TreeWalker; plain
+  `document.querySelector` / `document.getElementById` do NOT — a component
+  inside `#jobEditPage`/`#dateEditPage` is unreachable without `$id`. The raw
+  input keeps flatpickr's `_flatpickr` reference, so simulate a pick exactly as
+  the old code did: `$id("smdDatePickerInput")._flatpickr.setDate(ds, true)` (it
+  fires onChange → Change event → buffer). flatpickr sets the
+  `readonly="readonly"` ATTRIBUTE on the alt input when `allowInput:false`.
+  Playwright LOCATORS pierce shadow roots fine, so `#smdDatePickerAlt` /
+  `#smdDatePickerClearBtn` work directly.
+- **Results**: targeted pmd sleep-until batch 13/13 and cm dates-editor 13/13
+  green. Full pmd chromium suite NOT run (user runs it at the end).
+
+### 2026-09-18 (3) — CountMyDays dates editor filters + shared smd-image-dropdown
+- **New shared component** `shared/js/components/smd-image-dropdown.js`
+  (`<smd-image-dropdown>`): DATA-driven image+name dropdown. Host sets
+  `options = [{ name, image }]` (image OPTIONAL → text-only row, so a no-image
+  "All" option works) and `selected` = the option's NAME; picks dispatch
+  `smd-image-dropdown-change` (`detail = { name }`). Attributes `key-prefix` /
+  `disabled`. Stable shadow ids for tests: `smdImageDropdownBtn`,
+  `smdImageBtnIcon`, `smdImageBtnText`, `smdImageDropdownMenu`. Registered in
+  both CM + PMD `index.html`, `sw.js` SHARED_ASSETS, and the storybook.
+- **PlanMyDay**: `pmd-stream-select` was REPLACED by the shared component (and
+  `PlanMyDay/js/components/pmd-stream-select.js` DELETED). `job-editor.js`
+  renders `<smd-image-dropdown id="jobStreamDropdown">`;
+  `editor-common.js` `initJobStreamSelect`/`updateJobStreamPreview` now feed
+  `options`/`selected` by stream TITLE (name), added `streamNameAt` /
+  `streamIndexByName`; `app.js` listens to `smd-image-dropdown-change` and maps
+  `streamIndexByName(e.detail.name)` → `jobChangeStream(idx)`.
+- **CountMyDays `#datesEditor` filters**: line 1 = search box (flex:1) + Clear
+  button (`btn btn-danger btn-sm`, capital C); line 2 = category
+  `<smd-image-dropdown id="dateCategoryFilter">` (defaults to no-image "All",
+  images set from `loadCategories`) SAME line as the Local / Google / Google
+  hidden checkboxes (already capital G). Dropdown listener bound ONCE via
+  `page.__cmdFiltersBound`; `e.detail.name === "All"` maps to `""` in
+  `setDateCategoryFilter`. `renderDateFilters()` sets `dd.options` + `dd.selected`.
+- **`cmd-date-card` badges**: moved OFF the title line onto the date line
+  (`.meta`, after the once/annual type-text) so Local/Google sit after "Once".
+  Themed colours for contrast on the tile: Local = secondary, Google = primary,
+  Repeat = info, Hidden = secondary (new `.event-badge-hidden` class; old
+  hardcoded `#4285f4` google / dim `--bs-secondary` local gone). Title row no
+  longer carries badges.
+- Tests updated: cmd "filters by category and title" now drives the dropdown
+  (`#dateCategoryFilter #smdImageDropdownBtn` → menu item click) + asserts All
+  default; Google-unify test asserts badge placement (`.meta .event-badge-*`)
+  and empty `.title .event-badge`; pmd stream-selector tests use the new shadow
+  ids (`#smdImageBtnText`/`#smdImageDropdownBtn`/`#smdImageDropdownMenu`).
+- **Results**: cmd-regression 42/42; pmd-regression 430/430 across 30 shards
+  (all green, `--shard=$i/30 --workers=1 --retries=0` waves of 10);
+  storybook loads `smd-image-dropdown` section with zero console errors.
+- `BUILD_NUMBER` → `202609181433`.
+
+### 2026-09-18 (4) — CountMyDays Edit Date page layout
+- **`#dateEditPage` is now a vertical stack** (`renderDateEditContent` in
+  `dates-editor.js`):
+  - Line 1: `Category` label + category `<select id="dateCategorySelect">` and
+    the `Image` selector (`<smd-image-select id="dateImageSelect">`) on the same
+    row (`d-flex gap-3 align-items-center flex-wrap mb-3`).
+  - Line 2: `Title` label (renamed from "Name"; `#dateNameInput` id + data field
+    unchanged).
+  - Line 3: the Title text box.
+  - Line 4: the date controls (day/month selects OR `#dateOnceInput`) + the
+    type `<select id="dateTypeSelect">`, now ordered **Once first, Annual
+    second** (values unchanged, default remains `annual`).
+- **Removed** the old floating category-preview column (`<smd-image
+  id="dateCategoryPreview">` no longer exists) and the now-dead
+  `updateDateCategoryPreview()`; the category select no longer calls it.
+  `updateDateImagePreview()` still runs.
+- Test: "adds a date and saves its fields" asserts a `Title` label is visible
+  and no `Name` label exists.
+- **Results**: targeted date-editor/date-image tests 4/4; full cmd-regression
+  **42/42 passed** (~2m).
+- `BUILD_NUMBER` → `202609181510`.
+
+### 2026-09-18 (5) — CountMyDays category None filter + Edit Date page labels
+- **`#datesEditor` category filter now has a "None" option** (no-image, like
+  "All") that matches ONLY dates/events with NO category. Implemented with a
+  sentinel `const DATE_CATEGORY_NONE = "__none__"` in `dates-editor.js`:
+  `renderDateFilters()` options = All, None, then categories;
+  `dd.selected` maps `DATE_CATEGORY_NONE → "None"`; the
+  `smd-image-dropdown-change` handler maps `"None" → DATE_CATEGORY_NONE`;
+  `renderDateList()` treats it as "match `!d.category`" (else branch unchanged).
+  (A category literally named "All"/"None" would also collide with the
+  sentinels — names are matched by string, same pre-existing quirk as "All".)
+- **Edit Date page**: the Category + Image labels now sit ABOVE their controls
+  (each label inside its own stacked div, `d-flex gap-3 align-items-start`);
+  previously they were inline to the left on line 1.
+- **Clear button** on the Edit Dates page confirmed `btn btn-danger btn-sm`
+  (capital C) — already danger, no change.
+- **Once date picker verified working** for an existing LOCAL once date:
+  `initDateFlatpickr` uses `$id()` (which pierces smd-page shadow roots), the
+  `<smd-image-select>`/shield inputs render, the `.flatpickr-calendar.open`
+  appears above the page (z-index 99999 vs page 1040) and picking a day updates
+  `dateEditBuffer` and saves on OK.
+- Tests added (cmd-regression):
+  - "none category filter matches only dates with no category" — drops to the
+    single seeded uncategorised date ("Today Event").
+  - "date picker works on a local once date" — edits seeded "Project Deadline"
+    (type once, 25/12/FUTURE_YEAR), asserts the input shows the stored date,
+    opens the flatpickr calendar, clicks day 15, saves, verifies 15/12/year.
+- **Results**: targeted 4/4; full cmd-regression **44/44 passed** (~2m).
+- `BUILD_NUMBER` → `202609181526`.
+
+### 2026-09-18 (6) — Edit Date page: OK/Cancel swap + once-type save fix
+- **Edit Date page footer buttons reordered**: Cancel now appears first (left),
+  OK second (right). Previously OK was first. A test assertion checks the
+  `smd-page-footer smd-button` innerTexts are `["Cancel", "OK"]`.
+- **Once-type date save fix** (the actual "date picker not working" bug):
+  flatpickr's `onChange` only fires on Enter/Tab, so a user who types a new date
+  into the `#dateOnceInput` and then **clicks OK directly** (without pressing
+  Tab/Enter) silently loses the change — the buffer keeps the old day/month/year.
+  Fixed in `doneDateEdit`: when the type is `"once"` and `#dateOnceInput`
+  exists with an initialized `_flatpickr`, the raw input value is re-read via
+  `fp.parseDate(input.value, "d/m/Y")` and written into `buffer.day/month/year`
+  before saving. This guarantees typed dates are committed regardless of whether
+  the user pressed Tab/Enter first. The calendar-pick path (which already fires
+  `onChange`) is unaffected.
+- **Test tightened**: "once type uses a date input and saves the year" no longer
+  presses Tab before OK — exercises the type-then-click-OK path directly.
+- **Results**: targeted 4/4; full cmd-regression **44/44 passed** (~1.9m).
+- `BUILD_NUMBER` → `202609181539`.
 
 ### 2026-09-18 (2)
 - **SolarControlar main tabs now use the shared `smd-tabs` component**, and the
@@ -1057,7 +1207,7 @@ Techniques / gotchas:
   (`adoptStyles` dedups and would otherwise leave an old smaller sheet last).
   Non-SVG images source the higher-res thumbnail for the size (32→data64,
   40→data80, 50→data100; `px` then `px*2` then 100/80/64).
-- Extracted the job-edit stream dropdown into `PlanMyDay/js/components/pmd-stream-select.js`
+- Extracted the job-edit stream dropdown into `PlanMyDay/js/components/pmd-stream-select.js` (SUPERSEDED 2026-09-18 by the shared `smd-image-dropdown`, see the IMAGE DROPDOWN note + session log (3) — `pmd-stream-select.js` was deleted):
   (`<pmd-stream-select>`): button + menu, each entry an `<smd-image>` + title, so
   the images scale with the setting. App feeds it `streams`/`selected` and
   listens for `pmd-stream-select-change` (detail `{ streamIdx }`) — the old
