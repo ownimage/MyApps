@@ -33,6 +33,12 @@
 // Events:
 //   pmd-today-toggle — detail { jobId, checked }
 //   pmd-today-view   — detail { streamIdx, jobIdx }
+//   pmd-today-delete — horizontal swipe LEFT past the threshold (detail { jobId, streamIdx, jobIdx });
+//                      the card animates off before this fires — the app opens the delete confirm.
+//   pmd-today-tomorrow — horizontal swipe RIGHT past the threshold (same detail); the card animates
+//                      off before it fires — the app snoozes the job (sleepUntil = tomorrow).
+//   Methods:
+//   snapBackSwipe() — slide a swiped-out card back into place (used when a delete confirm is cancelled).
 const pmdTodayCardSheet = SmdStyles.sheetFor(`
   :host {
     display: flex;
@@ -45,6 +51,10 @@ const pmdTodayCardSheet = SmdStyles.sheetFor(`
     border-radius: 0.375rem;
     padding: var(--pmd-today-padding, 0.5rem 0.75rem);
     margin-bottom: var(--pmd-today-margin, 0.5rem);
+    /* let the browser keep vertical scrolling while the card claims horizontal
+       gestures for the swipe actions; Sortable's own preventDefault on the
+       .drag-handle still wins there. */
+    touch-action: pan-y;
   }
   :host([hidden]) { display: none !important; }
   :host([done]) { opacity: 0.5; }
@@ -209,11 +219,113 @@ class PmdTodayCard extends HTMLElement {
         }
       }));
     });
+    this._setupSwipe();
     this._render();
   }
 
   attributeChangedCallback() {
     if (this.isConnected) this._render();
+  }
+
+  // Horizontal swipe gesture on the card body (pointer events = mouse + touch).
+  // Left past the threshold -> pmd-today-delete, right past the threshold ->
+  // pmd-today-tomorrow. The card follows the pointer with resistance and fades,
+  // slides fully off past the threshold, then emits the event. Vertical pans are
+  // left to the browser (touch-action: pan-y) and a *small* horizontal drag starts
+  // no gesture, so taps on the checkbox/View button and Sortable'd drag-handle
+  // drags still work.
+  _setupSwipe() {
+    if (this._swipeBound) return;
+    this._swipeBound = true;
+    const root = this;
+    let s = null;
+
+    const thresholdFor = () => {
+      const w = root.offsetWidth || 320;
+      return Math.min(120, Math.max(60, w * 0.25));
+    };
+
+    root.addEventListener('pointerdown', (e) => {
+      if (e.button !== 0) return;
+      if (e.composedPath().some((el) => el && el.classList && el.classList.contains('drag-handle'))) return;
+      s = { id: e.pointerId, startX: e.clientX, startY: e.clientY, active: false };
+    });
+
+    root.addEventListener('pointermove', (e) => {
+      if (!s || e.pointerId !== s.id) return;
+      const dx = e.clientX - s.startX;
+      const dy = e.clientY - s.startY;
+      if (!s.active) {
+        if (Math.abs(dx) < 12 || Math.abs(dx) <= Math.abs(dy)) return;
+        s.active = true;
+        this._suppressClick = true;
+        try { root.setPointerCapture(e.pointerId); } catch (err) { /* synthetic pointer in tests */ }
+      }
+      s.dx = dx;
+      const th = thresholdFor();
+      root.style.transition = 'none';
+      root.style.transform = 'translateX(' + dx + 'px)';
+      root.style.opacity = String(1 - 0.75 * Math.max(0, Math.min(1, Math.abs(dx) / th)));
+    });
+
+    root.addEventListener('pointerup', (e) => {
+      if (!s || e.pointerId !== s.id) return;
+      const dx = s.dx || 0;
+      const th = thresholdFor();
+      const dir = dx <= -th ? 'left' : dx >= th ? 'right' : null;
+      root.style.transition = 'transform 0.2s ease-out, opacity 0.2s ease-out';
+      if (dir) {
+        const w = root.offsetWidth || 320;
+        root.style.transform = 'translateX(' + (dir === 'left' ? -(w + 40) : (w + 40)) + 'px)';
+        root.style.opacity = '0';
+        this._pendingSwipe = dir;
+        setTimeout(() => {
+          if (this._pendingSwipe !== dir) return;
+          this._pendingSwipe = null;
+          this.dispatchEvent(new CustomEvent(dir === 'left' ? 'pmd-today-delete' : 'pmd-today-tomorrow', {
+            bubbles: true,
+            composed: true,
+            detail: {
+              jobId: this.getAttribute('job-id') || '',
+              streamIdx: parseInt(this.getAttribute('stream-idx'), 10),
+              jobIdx: parseInt(this.getAttribute('job-idx'), 10)
+            }
+          }));
+        }, 200);
+      } else {
+        root.style.transform = 'translateX(0)';
+        root.style.opacity = '1';
+      }
+      s = null;
+      if (this._suppressClick) {
+        setTimeout(() => { this._suppressClick = false; }, 500);
+      }
+    });
+
+    root.addEventListener('pointercancel', () => {
+      if (s) {
+        s = null;
+        this.snapBackSwipe();
+      }
+    });
+
+    // consume the (late) click that a completed swipe would otherwise deliver to
+    // whatever was under the finger — e.g. toggling the checkbox or opening View.
+    root.addEventListener('click', (e) => {
+      if (!this._suppressClick) return;
+      e.stopPropagation();
+      e.preventDefault();
+      this._suppressClick = false;
+    }, true);
+  }
+
+  // Slide a swiped-out card back into place (cancelled delete confirm, or a
+  // pointercancel mid-swipe).
+  snapBackSwipe() {
+    this._pendingSwipe = null;
+    this.style.transition = 'transform 0.2s ease-out, opacity 0.2s ease-out';
+    this.style.transform = 'translateX(0)';
+    this.style.opacity = '1';
   }
 
   get checked() {

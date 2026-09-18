@@ -238,6 +238,52 @@ function renderMain() {
     viewJobReadOnly(e.detail.streamIdx, e.detail.jobIdx);
   });
 
+  // swipe LEFT -> the card has animated off; open the standard delete confirm.
+  // cancel snaps the card back, delete removes the job everywhere.
+  cardContainer.addEventListener("pmd-today-delete", (e) => {
+    const card = e.target;
+    const streamIdx = e.detail && e.detail.streamIdx >= 0
+      ? e.detail.streamIdx
+      : (card ? parseInt(card.dataset.streamIdx, 10) : -1);
+    const jobIdx = e.detail && e.detail.jobIdx >= 0 ? e.detail.jobIdx : -1;
+    const streams = loadStreams();
+    const stream = streams[streamIdx] || {};
+    const job = ((stream.jobs) || [])[jobIdx] || {};
+    showSmdModal({
+      title: "Delete Job?",
+      content: 'Delete "<strong>' + escapeHtml(job.title || "") + '</strong>" from "' + escapeHtml(stream.title || "") + '"?',
+      buttons: [
+        { text: "Cancel", variant: "secondary", action: "cancel" },
+        { text: "Delete", variant: "danger", action: "delete" }
+      ],
+      onAction: (detail) => {
+        if (detail.action === "delete") {
+          deleteJobFromStream(streamIdx, jobIdx);
+          renderMain();
+        } else if (card && typeof card.snapBackSwipe === "function") {
+          card.snapBackSwipe();
+        }
+      }
+    });
+  });
+
+  // swipe RIGHT -> snooze the job until tomorrow (sleepUntil); it re-enters
+  // today's list automatically on the next day's generation.
+  cardContainer.addEventListener("pmd-today-tomorrow", (e) => {
+    const card = e.target;
+    const streamIdx = e.detail && e.detail.streamIdx >= 0
+      ? e.detail.streamIdx
+      : (card ? parseInt(card.dataset.streamIdx, 10) : -1);
+    const jobIdx = e.detail && e.detail.jobIdx >= 0 ? e.detail.jobIdx : -1;
+    const streams = loadStreams();
+    const stream = streams[streamIdx];
+    const job = stream && stream.jobs ? stream.jobs[jobIdx] : null;
+    if (!job) return;
+    job.sleepUntil = getTomorrowStr();
+    saveStreams(streams);
+    renderMain();
+  });
+
 function removeAdhocJob(streamIdx, jobId, card) {
   const streams = loadStreams();
   const stream = streams[streamIdx];

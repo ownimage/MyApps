@@ -160,4 +160,43 @@ test.describe("PlanMyDay - iPhone 12 Pro touch", () => {
     ).toEqual(["Second task", "First task"]);
     await expect(page.locator("#jobTasksList .task-note-row")).toHaveCount(2);
   });
+
+  test("swipe right on a today card snoozes the job until tomorrow", async ({ page }) => {
+    await page.evaluate(() => {
+      const d = new Date();
+      const ds = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+      localStorage.setItem("planmydays_today_order", JSON.stringify(["job_1", "job_3"]));
+      localStorage.setItem("planmydays_last_gen", ds);
+      localStorage.setItem("planmydays_completed", "[]");
+    });
+    await page.reload();
+    await expect(page.locator("#todayCardList .today-drag-card")).toHaveCount(2);
+    const card = page.locator('#todayCardList .today-drag-card[data-job-id="job_1"]');
+    await expect(card).toBeVisible();
+    const box = await card.boundingBox();
+    const cx = box.x + box.width / 2;
+    const cy = box.y + box.height / 2;
+    const dist = Math.max(150, Math.round(box.width * 0.45));
+    const steps = 8;
+    await card.dispatchEvent("pointerdown", { pointerId: 1, pointerType: "touch", isPrimary: true, clientX: cx, clientY: cy, button: 0, buttons: 1, bubbles: true, cancelable: true });
+    for (let i = 1; i <= steps; i++) {
+      const r = i / steps;
+      await card.dispatchEvent("pointermove", { pointerId: 1, pointerType: "touch", clientX: cx + dist * r, clientY: cy, button: 0, buttons: 1, bubbles: true, cancelable: true });
+    }
+    await card.dispatchEvent("pointerup", { pointerId: 1, pointerType: "touch", clientX: cx + dist, clientY: cy, button: 0, buttons: 0, bubbles: true, cancelable: true });
+    await expect(page.locator('#todayCardList .today-drag-card[data-job-id="job_1"]')).toHaveCount(0);
+    await expect(page.locator("#todayCardList .today-drag-card")).toHaveCount(1);
+    const tomorrow = await page.evaluate(() => {
+      const d = new Date();
+      d.setDate(d.getDate() + 1);
+      return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+    });
+    await expect.poll(() =>
+      page.evaluate(() => {
+        const streams = JSON.parse(localStorage.getItem("planmydays_streams"));
+        const job = streams.flatMap(function (s) { return s.jobs || []; }).find(function (j) { return j.id === "job_1"; });
+        return job ? job.sleepUntil : null;
+      })
+    ).toBe(tomorrow);
+  });
 });

@@ -721,6 +721,30 @@ function deleteJobFromEdit() {
   confirmDeleteJob(idx);
 }
 
+function deleteJobFromStream(streamIdx, index) {
+  var s = loadStreams();
+  var stream = s[streamIdx];
+  if (!stream) return null;
+  var jbs = stream.jobs || [];
+  var deletedId = (jbs[index] || {}).id;
+  jbs.splice(index, 1);
+  jbs.forEach(function(j, i) { j.sequence = i + 1; });
+  stream.jobs = jbs;
+  saveStreams(s);
+  if (deletedId) {
+    var order = loadTodayOrder();
+    if (order) {
+      order = order.filter(function(id) { return id !== deletedId; });
+      saveTodayOrder(order);
+    }
+    var completed = loadCompletedJobs();
+    if (completed.indexOf(deletedId) !== -1) {
+      saveCompletedJobs(completed.filter(function(id) { return id !== deletedId; }));
+    }
+  }
+  return deletedId;
+}
+
 function confirmDeleteJob(index) {
   jobsEditingIdx = index;
   var streams = loadStreams();
@@ -736,24 +760,7 @@ function confirmDeleteJob(index) {
     ],
     onAction: function(detail) {
       if (detail.action !== "delete") return;
-      var s = loadStreams();
-      var jbs = s[jobsStreamIndex].jobs || [];
-      var deletedId = (jbs[index] || {}).id;
-      jbs.splice(index, 1);
-      jbs.forEach(function(j, i) { j.sequence = i + 1; });
-      s[jobsStreamIndex].jobs = jbs;
-      saveStreams(s);
-      if (deletedId) {
-        var order = loadTodayOrder();
-        if (order) {
-          order = order.filter(function(id) { return id !== deletedId; });
-          saveTodayOrder(order);
-        }
-        var completed = loadCompletedJobs();
-        if (completed.indexOf(deletedId) !== -1) {
-          saveCompletedJobs(completed.filter(function(id) { return id !== deletedId; }));
-        }
-      }
+      deleteJobFromStream(jobsStreamIndex, index);
       jobsEditingIdx = -1; jobsBuffer = null; isNewJob = false;
       refreshActiveView();
     }
