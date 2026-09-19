@@ -109,23 +109,10 @@ function renderSearchJobs() {
 function buildJobSearchCard(stream, streamIdx, job, jobIdx) {
   const card = document.createElement("pmd-job-search-card");
   card.dataset.jobId = job.id;
-  card.setAttribute("key-prefix", smdImagePrefix());
-  const set = (name, value) => {
-    if (value !== undefined && value !== null && value !== "") card.setAttribute(name, value);
-  };
-  set("stream-idx", streamIdx);
-  set("job-idx", jobIdx);
-  set("title", job.title || "");
-  set("stream-title", stream.title || "");
-  set("tab", stream.tab || "progress");
-  set("schedule", getScheduleText(job.schedule));
-  set("active", job.active !== false ? "true" : "false");
-  set("stream-image", stream.image ? stream.image : "");
-  set("image", job.image ? job.image : "");
-  set("suffix", (getJobSuffix(job) || "").trim());
-  if (job.sleepUntil && job.sleepUntil.trim()) set("extra", "Sleep: " + formatDate(job.sleepUntil));
-  else if (job.waitFor && job.waitFor.trim()) set("extra", "Wait: " + job.waitFor.trim());
-  if (job.time && job.time.trim()) set("time", job.time.trim());
+  card.setAttribute("stream-idx", streamIdx);
+  card.setAttribute("job-idx", jobIdx);
+  card.job = job;
+  card.stream = stream;
   return card;
 }
 

@@ -1,4 +1,4 @@
-// <smd-page> — full-screen slide-in page (light DOM). Styles live in
+ // <smd-page> — full-screen slide-in page (light DOM). Styles live in
 // shared/css/styles.css. Renders header/body/footer buttons straight into the
 // host; the app pumps `title`/`headerHtml`/`content`/`buttons` properties.
 class SmdPage extends HTMLElement {

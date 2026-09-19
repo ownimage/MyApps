@@ -51,10 +51,12 @@ class SolarTopTiles extends HTMLElement {
   constructor() {
     super();
     this._clockTimer = null;
+    this._bound = false;
   }
 
   connectedCallback() {
     if (!this.querySelector(".top-tiles")) {
+      this._bound = true;
       this.appendChild(solarTopTilesTemplate.content.cloneNode(true));
     }
     this._render();
@@ -66,7 +68,10 @@ class SolarTopTiles extends HTMLElement {
   }
 
   attributeChangedCallback() {
-    if (this.isConnected) this._render();
+    // Chromium connects elements DURING an innerHTML parse into an already
+    // connected host, so attributeChangedCallback can fire before our
+    // connectedCallback has stamped the template. Only render once bound.
+    if (this.isConnected && this._bound) this._render();
   }
 
   _startClock() {

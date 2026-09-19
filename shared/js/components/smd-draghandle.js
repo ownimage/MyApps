@@ -53,7 +53,10 @@
     }
 
     attributeChangedCallback() {
-      if (this.isConnected) this._applySize();
+      // Chromium connects elements DURING an innerHTML parse into an already
+      // connected host, so attributeChangedCallback can fire before our
+      // connectedCallback has appended the glyph. Only apply size once rendered.
+      if (this.isConnected && this._rendered) this._applySize();
     }
 
     _size() {

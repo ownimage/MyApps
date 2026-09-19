@@ -20,27 +20,7 @@ body.compact {
   --solar-tile-padding: 0.5rem;
 }
 
-/* FLASH MESSAGES */
-.flash {
-  padding: 0.75rem 1rem;
-  margin-bottom: 1rem;
-  border-radius: 0.5rem;
-}
-.flash-success {
-  background: rgba(34, 197, 94, 0.15);
-  color: #22c55e;
-  border: 1px solid rgba(34, 197, 94, 0.3);
-}
-.flash-error {
-  background: rgba(239, 68, 68, 0.15);
-  color: #ef4444;
-  border: 1px solid rgba(239, 68, 68, 0.3);
-}
-.flash-info {
-  background: rgba(59, 130, 246, 0.15);
-  color: #3b82f6;
-  border: 1px solid rgba(59, 130, 246, 0.3);
-}
+/* FLASH MESSAGES now live in shared/css/styles.css. */
 
 /* ==================== solar-top-tiles ==================== */
 solar-top-tiles {

@@ -784,7 +784,7 @@
       id: "pmd-stream-header",
       name: "pmd-stream-header",
       tag: "<pmd-stream-header>",
-      desc: "Header for a stream row in the Jobs editor. Attributes: <code>stream-idx</code>, <code>title</code>, <code>tab</code>, <code>image</code>, <code>expanded</code>, <code>can-delete</code>, <code>jobcounts</code>. Dispatches <code>pmd-header-toggle</code>, <code>pmd-edit</code>, <code>pmd-add-job</code>, <code>pmd-delete</code>.",
+      desc: "Header for a stream row in the Jobs editor. Takes the WHOLE <code>stream</code> JSON (title, image, tab…). Remaining attributes: <code>stream-idx</code>, <code>expanded</code>, <code>can-delete</code>, <code>jobcounts</code>. Dispatches <code>pmd-header-toggle</code>, <code>pmd-edit</code>, <code>pmd-add-job</code>, <code>pmd-delete</code>.",
       html: () => `
         <div class="sb-canvas" style="flex-direction:column;width:100%">
           <div id="sb-stream-header"></div>
@@ -800,8 +800,9 @@
         const renderHeader = () => {
           const expanded = document.getElementById("ctrl-stream-expanded").checked;
           const canDelete = document.getElementById("ctrl-stream-candelete").checked;
-          host.innerHTML = `<pmd-stream-header stream-idx="0" title="Work" tab="progress"
-            image="Blue" key-prefix="sbh_" jobcounts="1/2/3" ${expanded ? "expanded" : ""} ${canDelete ? "can-delete" : ""}></pmd-stream-header>`;
+          const stream = { title: "Work", image: "Blue", tab: "progress" };
+          host.innerHTML = `<pmd-stream-header stream-idx="0" stream='${JSON.stringify(stream)}'
+            key-prefix="sbh_" jobcounts="1/2/3" ${expanded ? "expanded" : ""} ${canDelete ? "can-delete" : ""}></pmd-stream-header>`;
           const header = host.querySelector("pmd-stream-header");
           ["pmd-header-toggle", "pmd-edit", "pmd-add-job", "pmd-delete"].forEach(type => {
             header.addEventListener(type, (e) => log("pmd-stream-header", type + " idx=" + e.detail.streamIdx + (e.detail.expanded !== undefined ? " expanded=" + e.detail.expanded : "")));
@@ -864,17 +865,25 @@
       id: "pmd-job-search-card",
       name: "pmd-job-search-card",
       tag: "<pmd-job-search-card>",
-      desc: "Job card used by the Search Jobs list. Host carries bootstrap <code>card p-2 mb-2</code>. Attributes: <code>stream-idx</code>, <code>job-idx</code>, <code>title</code>, <code>image</code>, <code>stream-image</code>, <code>stream-title</code>, <code>tab</code>, <code>suffix</code>, <code>schedule</code>, <code>time</code>, <code>extra</code>, <code>active</code>. Dispatches <code>pmd-job-edit</code>, <code>pmd-job-toggle-active</code>.",
-      html: () => `
+      desc: "Job card used by the Search Jobs list. Host carries bootstrap <code>card p-2 mb-2</code>. Takes the WHOLE <code>job</code> JSON and the WHOLE <code>stream</code> JSON and derives title, thumbnails, suffix, schedule, time, extra + active itself. Remaining attributes: <code>stream-idx</code>, <code>job-idx</code>, <code>key-prefix</code>. Dispatches <code>pmd-job-edit</code>, <code>pmd-job-toggle-active</code>.",
+      html: () => {
+        const job1 = { id: "sbj1", title: "Report", image: "Green", suffix: true, dayType: "dayOfYear", mod: "", schedule: { type: "daily" }, time: "09:00", waitFor: "the meeting" };
+        const stream1 = { title: "Work", image: "Blue", tab: "progress" };
+        const job2 = { id: "sbj2", title: "Mow the lawn", image: "", schedule: { type: "weekends" } };
+        const stream2 = { title: "Home", image: "", tab: "maintenance" };
+        const job3 = { id: "sbj3", title: "Pay bills", image: "", schedule: { type: "monthly", date: 1 }, sleepUntil: "2026-09-01" };
+        const js = (o) => JSON.stringify(o);
+        return `
         <div class="sb-canvas">
           <div class="sb-stack">
-            <pmd-job-search-card stream-idx="0" job-idx="0" title="Report" stream-title="Work" tab="progress" suffix="(12)" schedule="Every day" time="09:00" extra="Wait: the meeting" active="true" stream-image="Blue" image="Green" key-prefix="sbj_"></pmd-job-search-card>
-            <pmd-job-search-card stream-idx="1" job-idx="0" title="Mow the lawn" stream-title="Home" tab="maintenance" schedule="Weekends" active="true" key-prefix="sbj_"></pmd-job-search-card>
-            <pmd-job-search-card stream-idx="1" job-idx="1" title="Pay bills" stream-title="Home" tab="maintenance" schedule="Monthly" extra="Sleep: 01 Sep 2026" active="false" key-prefix="sbj_"></pmd-job-search-card>
+            <pmd-job-search-card stream-idx="0" job-idx="0" job='${js(job1)}' stream='${js(stream1)}' key-prefix="sbj_"></pmd-job-search-card>
+            <pmd-job-search-card stream-idx="1" job-idx="0" job='${js(job2)}' stream='${js(stream2)}' key-prefix="sbj_"></pmd-job-search-card>
+            <pmd-job-search-card stream-idx="1" job-idx="1" job='${js(job3)}' stream='${js(stream2)}' key-prefix="sbj_"></pmd-job-search-card>
           </div>
         </div>
         <div class="sb-log" id="log-pmd-job-search-card">events: none yet</div>
-      `,
+      `;
+      },
       init: () => {
         document.querySelectorAll("#pmd-job-search-card pmd-job-search-card").forEach((card) => {
           card.addEventListener("pmd-job-edit", (e) => log("pmd-job-search-card", "pmd-job-edit stream=" + e.detail.streamIdx + " job=" + e.detail.jobIdx));
@@ -1231,13 +1240,17 @@
       name: "pmd-stream (header + job cards)",
       tag: "<pmd-stream-header> + <pmd-stream-job-card>",
       desc: "A combined stream row: a <code>pmd-stream-header</code> with its <code>pmd-stream-job-card</code> children, as rendered in the Jobs editor. The header stripes the expanded state and the column background; cards stack beneath. Dispatches header (<code>pmd-header-toggle</code>, <code>pmd-edit</code>, <code>pmd-add-job</code>, <code>pmd-delete</code>) and card (<code>pmd-job-edit</code>, <code>pmd-job-toggle-active</code>) events.",
-      html: () => `
+      html: () => {
+        const js = (o) => JSON.stringify(o);
+        const stream1 = { title: "Work", image: "Blue", tab: "progress" };
+        const stream2 = { title: "Home", image: "Green", tab: "maintenance" };
+        return `
         <div class="sb-canvas">
           <div class="sb-stack">
             <div class="sb-frame-wrapper">
               <div class="sb-label">Collapsed stream</div>
               <div class="sb-stream-card">
-                <div class="sb-stream-head"><pmd-stream-header stream-idx="0" title="Work" tab="progress" image="Blue" key-prefix="sbp_" jobcounts="1/2/3"></pmd-stream-header></div>
+                <div class="sb-stream-head"><pmd-stream-header stream-idx="0" stream='${js(stream1)}' key-prefix="sbp_" jobcounts="1/2/3"></pmd-stream-header></div>
                 <div class="sb-stream-body">
                   <pmd-stream-job-card stream-idx="0" job-idx="0" title="Standup" schedule="Weekdays" active="true" key-prefix="sbp_"></pmd-stream-job-card>
                   <pmd-stream-job-card stream-idx="0" job-idx="1" title="Report" image="Green" key-prefix="sbp_" suffix="(12)" schedule="Every day" time="09:00" extra="Sleep: 28 Sep 2026" active="true"></pmd-stream-job-card>
@@ -1247,7 +1260,7 @@
             <div class="sb-frame-wrapper">
               <div class="sb-label">Expanded stream (with can-delete)</div>
               <div class="sb-stream-card">
-                <div class="sb-stream-head"><pmd-stream-header stream-idx="1" title="Home" tab="maintenance" image="Green" key-prefix="sbp_" jobcounts="0/1/4" expanded can-delete></pmd-stream-header></div>
+                <div class="sb-stream-head"><pmd-stream-header stream-idx="1" stream='${js(stream2)}' key-prefix="sbp_" jobcounts="0/1/4" expanded can-delete></pmd-stream-header></div>
                 <div class="sb-stream-body">
                   <pmd-stream-job-card stream-idx="1" job-idx="0" title="Mow the lawn" schedule="Weekends" active="true" key-prefix="sbp_"></pmd-stream-job-card>
                   <pmd-stream-job-card stream-idx="1" job-idx="1" title="Pay bills" schedule="Monthly" extra="Wait: the direct debit" active="false" key-prefix="sbp_"></pmd-stream-job-card>
@@ -1261,7 +1274,8 @@
           <label><input type="checkbox" id="ctrl-stream-2nd" checked> Show 2nd stream</label>
         </div>
         <div class="sb-log" id="log-pmd-stream">events: none yet</div>
-      `,
+      `;
+      },
       init: () => {
         const render = () => {
           const showHandle = document.getElementById("ctrl-stream-thumb").checked;

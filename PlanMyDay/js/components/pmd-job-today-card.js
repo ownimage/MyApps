@@ -60,12 +60,12 @@ pmdJobTodayCardTemplate.innerHTML = `
     </div>
     <div class="content-col">
       <div class="title-row">
-        <h4 class="title"><span class="job-title"></span><smd-badge class="suffix" variant="secondary" hidden></smd-badge></h4>
+        <h2 class="title"><span class="job-title"></span><smd-badge class="suffix" variant="secondary" hidden></smd-badge></h2>
       </div>
       <div class="meta-row">
         <span class="stream-title"></span>
-        <button type="button" class="btn btn-primary job-view-btn" title="View job">View</button>
         <smd-badge class="tab-badge" pill></smd-badge>
+        <button type="button" class="btn btn-primary job-view-btn" title="View job">View</button>
       </div>
       <div class="description" hidden></div>
     </div>
