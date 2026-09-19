@@ -119,9 +119,9 @@ test.describe("PlanMyDay - iPhone 12 Pro touch", () => {
       localStorage.setItem("planmydays_completed", "[]");
     });
     await page.reload();
-    await expect(page.locator("#todayCardList pmd-today-card").first()).toBeVisible();
+    await expect(page.locator("#todayCardList pmd-job-today-card").first()).toBeVisible();
     const titleFontSize = () => page
-      .locator("#todayCardList pmd-today-card .title").first()
+      .locator("#todayCardList pmd-job-today-card .title").first()
       .evaluate((el) => parseFloat(getComputedStyle(el).fontSize));
     // default saved font size is xlarge -> h1 token = 1.3rem * 2 = 2.6rem
     expect(await titleFontSize()).toBeCloseTo(41.6, 0);

@@ -74,10 +74,10 @@ body.compact .btn-wide {
    shared/css/styles.css (the --smd-type-* tokens) now drives every app, and the
    font-size-xsmall…jumbo body classes only override --smd-type-base there. */
 
-/* pmd-today-card display settings. CSS custom properties inherit into the
+/* pmd-job-today-card display settings. CSS custom properties inherit into the
    shadow root, unlike :host-context() which WebKit/Safari (iPhone) ignores.
    The title defaults to the shared --smd-type-h1 token (see
-   pmd-today-card.js); compact density just collapses it to body size. */
+   pmd-job-today-card.js); compact density just collapses it to body size. */
 body.compact {
   --pmd-today-padding: 0.25rem 0.5rem;
   --pmd-today-margin: 0.25rem;
@@ -233,8 +233,8 @@ body.compact {
   transition: none;
 }
 
-/* ==================== pmd-today-card ==================== */
-pmd-today-card {
+/* ==================== pmd-job-today-card ==================== */
+pmd-job-today-card {
   display: flex;
   flex-direction: column;
   position: relative;
@@ -247,16 +247,16 @@ pmd-today-card {
   margin-bottom: var(--pmd-today-margin, 0.5rem);
   touch-action: pan-y;
 }
-pmd-today-card[done] { opacity: 0.5; }
-pmd-today-card[done] .title { text-decoration: line-through; }
+pmd-job-today-card[done] { opacity: 0.5; }
+pmd-job-today-card[done] .title { text-decoration: line-through; }
 
-pmd-today-card .row {
+pmd-job-today-card .row {
   display: flex;
   align-items: center;
   flex-wrap: nowrap;
   gap: 0.75rem;
 }
-pmd-today-card .row > * {
+pmd-job-today-card .row > * {
   padding-top: var(--pmd-today-cell-padding, 0);
   padding-bottom: var(--pmd-today-cell-padding, 0);
   /* Light DOM: neutralize the document Bootstrap `.row > *` gutter rule
@@ -267,27 +267,27 @@ pmd-today-card .row > * {
   padding-left: 0;
   padding-right: 0;
 }
-pmd-today-card .handle-col {
+pmd-job-today-card .handle-col {
   display: flex;
   align-items: center;
   flex: 0 0 auto;
 }
-pmd-today-card .check-col {
+pmd-job-today-card .check-col {
   display: flex;
   flex-direction: column;
   align-items: center;
   margin-left: 0.25rem;
   padding-right: 0;
 }
-pmd-today-card .check-row {
+pmd-job-today-card .check-row {
   display: flex;
   align-items: center;
   min-height: 0;
   padding-left: 0;
   margin-bottom: 0;
 }
-pmd-today-card .daily-repeat-icon { margin-top: 0.1rem; }
-pmd-today-card .images-col {
+pmd-job-today-card .daily-repeat-icon { margin-top: 0.1rem; }
+pmd-job-today-card .images-col {
   display: flex;
   align-items: center;
   gap: 0.25rem;
@@ -296,32 +296,32 @@ pmd-today-card .images-col {
   flex: 0 0 auto;
   align-self: flex-start;
 }
-pmd-today-card .thumb {
+pmd-job-today-card .thumb {
   display: flex;
   align-items: center;
   justify-content: center;
 }
-pmd-today-card .content-col { flex: 1 1 auto; min-width: 0; }
-pmd-today-card .title-row {
+pmd-job-today-card .content-col { flex: 1 1 auto; min-width: 0; }
+pmd-job-today-card .title-row {
   display: flex;
   align-items: center;
   gap: 0.5rem;
   margin-bottom: var(--pmd-today-title-margin, 0.25rem);
 }
-pmd-today-card .title {
+pmd-job-today-card .title {
   margin: 0;
   font-size: var(--pmd-today-title-size, var(--smd-type-h1, 1.5rem));
   font-weight: 800;
   min-width: 0;
 }
-pmd-today-card .suffix { margin-left: 0.25rem; }
-pmd-today-card .meta-row {
+pmd-job-today-card .suffix { margin-left: 0.25rem; }
+pmd-job-today-card .meta-row {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: 0.15rem 0.4rem;
 }
-pmd-today-card .stream-title {
+pmd-job-today-card .stream-title {
   flex: 1 1 auto;
   min-width: 0;
   font-size: var(--smd-type-h2, 0.875em);
@@ -329,18 +329,18 @@ pmd-today-card .stream-title {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-pmd-today-card .job-view-btn {
+pmd-job-today-card .job-view-btn {
   flex: 0 0 auto;
   padding: 0.25em 0.5em;
   line-height: 1;
   font-weight: 700;
 }
-pmd-today-card .tab-badge {
+pmd-job-today-card .tab-badge {
   flex: 0 0 auto;
   padding: 0.25em 0.5em;
   font-size: var(--smd-type-badge, 0.7em);
 }
-pmd-today-card .description {
+pmd-job-today-card .description {
   margin-top: var(--pmd-today-description-margin, 0.25rem);
   font-size: var(--smd-type-p, 0.875em);
   color: var(--bs-secondary-color, #aaa);
