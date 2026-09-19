@@ -3,6 +3,8 @@
 // the original modal flow, with native <select>s instead of Bootstrap
 // dropdowns (Bootstrap JS does not work inside shadow roots).
 
+// <import-wizard-page> content is light DOM (native <select>s work in the
+// document, no shadow-root workaround needed).
 let importWizardState = null;
 
 function iwPage() {
@@ -11,13 +13,13 @@ function iwPage() {
 
 function iwQuery(sel) {
   const page = iwPage();
-  return page && page.shadowRoot ? page.shadowRoot.querySelector(sel) : document.querySelector(sel);
+  return page ? page.querySelector(sel) : document.querySelector(sel);
 }
 
 function iwQueryAll(sel) {
   const page = iwPage();
-  return page && page.shadowRoot
-    ? Array.from(page.shadowRoot.querySelectorAll(sel))
+  return page
+    ? Array.from(page.querySelectorAll(sel))
     : Array.from(document.querySelectorAll(sel));
 }
 

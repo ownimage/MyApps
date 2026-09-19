@@ -474,7 +474,7 @@ function openMinioImportPage() {
   page.buttons = [
     { text: "Close", variant: "secondary", action: "cancel" }
   ];
-  injectStyleInto(page.shadowRoot, MINIO_IMPORT_STYLES);
+  injectStyleInto(MINIO_IMPORT_STYLES);
   page.show();
 
   var config = getMinioConfig();
@@ -524,9 +524,9 @@ function loadMinioBucketFiles(bucket) {
   if (page) {
     page.headerHtml = '<smd-badge variant="info" style="font-size:var(--smd-type-badge,0.8em);vertical-align:middle">Bucket: ' +
       bucket.replace(/</g, "&lt;").replace(/>/g, "&gt;") + '</smd-badge>';
-    // Setting headerHtml re-renders the page shadow root, which wipes any
-    // injected style element, so re-apply the import styles.
-    injectStyleInto(page.shadowRoot, MINIO_IMPORT_STYLES);
+    // injectStyleInto is idempotent (document-head styles are deduped), so it
+    // is safe to re-apply on every render.
+    injectStyleInto(MINIO_IMPORT_STYLES);
   }
   var body = $id("minioImportBody");
   if (!body) return;

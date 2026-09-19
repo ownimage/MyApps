@@ -14,8 +14,8 @@ function openSearchJobs() {
   jobSearchQuery = "";
   buildSearchJobsContent();
   const sjPage = document.getElementById("jobSearchEditor");
-  if (sjPage && sjPage.shadowRoot) {
-    injectStyleInto(sjPage.shadowRoot, JOBS_EDITOR_STYLES);
+  if (sjPage) {
+    injectStyleInto(JOBS_EDITOR_STYLES);
   }
   page.show();
   const input = $id("jobSearchInput");

@@ -41,3 +41,148 @@ body.compact {
   color: #3b82f6;
   border: 1px solid rgba(59, 130, 246, 0.3);
 }
+
+/* ==================== solar-top-tiles ==================== */
+solar-top-tiles {
+  display: block;
+  margin-bottom: 1rem;
+}
+solar-top-tiles .top-tiles {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 0.75rem;
+}
+solar-top-tiles .tile {
+  background: var(--solar-tile-bg, #303030);
+  border: 1px solid var(--solar-tile-border, #495057);
+  border-radius: var(--solar-tile-radius, 0.5rem);
+  padding: var(--solar-tile-padding, 1rem);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 120px;
+}
+solar-top-tiles .tile-label {
+  font-size: var(--smd-type-badge, 0.65rem);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--bs-secondary-color, #adb5bd);
+  font-weight: 700;
+  margin-top: 0.5rem;
+}
+solar-top-tiles .date-dd {
+  font-size: var(--smd-type-h1, 3rem);
+  font-weight: 200;
+  color: var(--bs-body-color, #eee);
+  line-height: 1;
+  margin-bottom: 0.4rem;
+}
+solar-top-tiles .date-meta {
+  display: flex;
+  gap: 0.6rem;
+  align-items: center;
+}
+solar-top-tiles .date-mon {
+  font-size: var(--smd-type-h2, 1.2rem);
+  font-weight: 700;
+  color: var(--bs-secondary-color, #adb5bd);
+  letter-spacing: 0.04em;
+}
+solar-top-tiles .date-dot {
+  width: 4px;
+  height: 4px;
+  background: var(--bs-secondary-color, #adb5bd);
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+solar-top-tiles .date-yyy {
+  font-size: var(--smd-type-h2, 1.2rem);
+  font-weight: 300;
+  color: var(--bs-secondary-color, #adb5bd);
+  letter-spacing: 0.06em;
+}
+solar-top-tiles .split-flap {
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+}
+solar-top-tiles .flap-card {
+  background: linear-gradient(180deg, #4a5568 0%, #2d3748 48%, #1a202c 52%, #171923 100%);
+  color: #f7fafc;
+  font-size: var(--smd-type-h1, 2rem);
+  font-weight: 300;
+  width: 0.75em;
+  text-align: center;
+  border-radius: 4px;
+  padding: 0.35rem 0;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.06);
+  position: relative;
+  letter-spacing: 0.06em;
+}
+solar-top-tiles .flap-card::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 1px;
+  background: rgba(0,0,0,0.45);
+  box-shadow: 0 1px 2px rgba(255,255,255,0.04);
+}
+solar-top-tiles .flap-sep {
+  font-size: var(--smd-type-h1, 1.8rem);
+  font-weight: 700;
+  color: #fc8181;
+  margin: 0 0.06rem;
+  position: relative;
+  top: -0.12rem;
+  animation: solarFlapPulse 1s ease-in-out infinite;
+}
+@keyframes solarFlapPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+solar-top-tiles .battery-icon {
+  position: relative;
+  width: 56px;
+  height: 28px;
+  border: 3px solid var(--bs-secondary-color, #adb5bd);
+  border-radius: 4px;
+  flex-shrink: 0;
+  margin-bottom: 0.4rem;
+}
+solar-top-tiles .battery-icon::after {
+  content: '';
+  position: absolute;
+  right: -7px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 4px;
+  height: 10px;
+  background: var(--bs-secondary-color, #adb5bd);
+  border-radius: 0 2px 2px 0;
+}
+solar-top-tiles .battery-fill {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  bottom: 3px;
+  border-radius: 1px;
+  transition: width 0.3s, background 0.3s;
+}
+solar-top-tiles .battery-info {
+  font-size: var(--smd-type-h2, 1.3rem);
+  font-weight: 700;
+  color: var(--bs-body-color, #eee);
+}
+solar-top-tiles[no-data] .top-tiles { display: none; }
+
+@media (max-width: 480px) {
+  solar-top-tiles .date-dd { font-size: calc(var(--smd-type-h1, 3rem) * 0.7333); }
+  solar-top-tiles .date-mon, solar-top-tiles .date-yyy { font-size: calc(var(--smd-type-h2, 1.2rem) * 0.8333); }
+  solar-top-tiles .flap-card { font-size: calc(var(--smd-type-h1, 2rem) * 0.75); width: 0.8em; padding: 0.25rem 0; }
+  solar-top-tiles .flap-sep { font-size: calc(var(--smd-type-h1, 2rem) * 0.7); }
+  solar-top-tiles .tile { min-height: 90px; padding: 0.75rem; }
+  solar-top-tiles .battery-info { font-size: calc(var(--smd-type-h2, 1.3rem) * 0.8462); }
+}

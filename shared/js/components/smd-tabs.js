@@ -1,69 +1,16 @@
-const smdTabsSheet = SmdStyles.sheetFor(`
-  :host { display: block; width: 100%; box-sizing: border-box; }
-  .smd-tab-list {
-    display: flex;
-    flex-wrap: nowrap;
-    gap: 2px;
-    padding: 0 4px;
-    position: relative;
-    z-index: 1;
-  }
-  :host([wrap]) .smd-tab-list {
-    flex-wrap: wrap;
-  }
-  .smd-tab-btn {
-    padding: 0.5rem 1.25rem;
-    border: 1px solid transparent;
-    border-bottom: none;
-    border-radius: 6px 6px 0 0;
-    background: var(--smd-secondary, #6c757d);
-    color: var(--smd-tab-text, #fff);
-    cursor: pointer;
-    font-size: var(--smd-type-h2, 1.25rem);
-    font-weight: 500;
-    transition: background 0.15s, color 0.15s;
-  }
-  .smd-tab-btn:hover:not([active]) {
-    filter: brightness(1.12);
-  }
-  .smd-tab-btn[active] {
-    background: var(--smd-primary, #0d6efd);
-    color: var(--smd-primary-text, #fff);
-    border-color: var(--smd-primary, #0d6efd);
-    font-weight: 600;
-    position: relative;
-    z-index: 2;
-  }
-  .smd-tab-line {
-    height: 1px;
-    background: var(--smd-primary, #0d6efd);
-    width: 100%;
-    box-sizing: border-box;
-  }
-  /* padding="small": narrower tab buttons + tighter panels (used by the image picker) */
-  :host([padding="small"]) .smd-tab-list { padding: 0; }
-  :host([padding="small"]) .smd-tab-btn { padding: 0.5rem 0.25rem; }
-  :host([padding="small"]) .smd-tab-panel { padding: 0; }
-  :host > .smd-tab-line:last-of-type {
-    margin-bottom: 1rem;
-  }
-  .smd-tab-panel {
-    display: none;
-    padding: 1rem;
-  }
-  .smd-tab-panel.no-padding {
-    padding: 0;
-  }
-  .smd-tab-panel[active] {
-    display: block;
-  }
-`);
-
+// <smd-tabs> — tabbed panels (light DOM). Styles live in shared/css/styles.css.
+//
+// Renders a tab button list, an underline, and the panels straight into the host
+// in the light DOM. Panels are shown coincident with the active tab. A
+// `hide-panels` attribute hides the panels entirely (used when a parent renders
+// its own content after the tab bar, e.g. the today/maintenance tabs on the
+// PlanMyDay home screen).
+//
+// `tabs = [{title, id?, content?, panelClass?}]`; the active tab is
+// `activeIndex`; changes dispatch `smd-tabs-change` ({index, tab}).
 class SmdTabs extends HTMLElement {
     constructor() {
         super();
-        this.attachShadow({mode: 'open'});
-        SmdStyles.adoptStyles(this.shadowRoot, [smdTabsSheet]);
         this._tabs = [];
         this._activeIndex = 0;
     }
@@ -144,14 +91,14 @@ class SmdTabs extends HTMLElement {
 
         const bottomLineHtml = this.bottomline ? '<div class="smd-tab-line"></div>' : '';
 
-        this.shadowRoot.innerHTML = `
+        this.innerHTML = `
       <div class="smd-tab-list">${headersHtml}</div>
       <div class="smd-tab-line"></div>
       ${panelsHtml}
       ${bottomLineHtml}
     `;
 
-        this.shadowRoot.querySelectorAll('.smd-tab-btn').forEach((btn) => {
+        this.querySelectorAll('.smd-tab-btn').forEach((btn) => {
             btn.addEventListener('click', () => {
                 this._activeIndex = parseInt(btn.dataset.index);
                 this._updateActive();
@@ -165,10 +112,10 @@ class SmdTabs extends HTMLElement {
     }
 
     _updateActive() {
-        this.shadowRoot.querySelectorAll('.smd-tab-btn').forEach((btn, i) => {
+        this.querySelectorAll('.smd-tab-btn').forEach((btn, i) => {
             btn.toggleAttribute('active', i === this._activeIndex);
         });
-        this.shadowRoot.querySelectorAll('.smd-tab-panel').forEach((panel, i) => {
+        this.querySelectorAll('.smd-tab-panel').forEach((panel, i) => {
             panel.toggleAttribute('active', i === this._activeIndex);
         });
     }
@@ -184,5 +131,7 @@ class SmdTabs extends HTMLElement {
     }
 }
 
-customElements.define('smd-tabs', SmdTabs);
-
+if (!window.customElements.get('smd-tabs')) {
+    customElements.define('smd-tabs', SmdTabs);
+}
+window.SmdTabs = SmdTabs;

@@ -52,12 +52,14 @@ function openStreamEditPage() {
     { text: "Cancel", variant: "secondary", action: "cancel", id: "btnStreamEditCancel" },
     { text: "OK", variant: "success", action: "done", id: "btnStreamEditOk" }
   ];
-  injectStyleInto(page.shadowRoot, JOBS_EDITOR_STYLES);
+  injectStyleInto(JOBS_EDITOR_STYLES);
   page.show();
   updateStreamEditOkBtn();
   if (isNew) {
-    const input = $id("streamTitleInput");
-    if (input) input.focus();
+    requestAnimationFrame(function() {
+      const input = $id("streamTitleInput");
+      if (input) input.focus();
+    });
   }
 }
 
@@ -109,7 +111,7 @@ function getStreamEditFormHTML(data) {
 
 function renderStreamsEditor() {
   const page = document.getElementById("streamsEditor");
-  if (!page || !page.shadowRoot) return;
+  if (!page) return;
 
   // remember which accordion items are expanded (by index; after a drag the
   // captured indices are translated through the reorder so the same stream stays open)
@@ -121,7 +123,7 @@ function renderStreamsEditor() {
     expandedStreams = streamsEditorExpandedIdxs;
     streamsEditorExpandedIdxs = null;
   } else {
-    var openCollapses = page.shadowRoot.querySelectorAll(".accordion-collapse.show");
+    var openCollapses = page.querySelectorAll(".accordion-collapse.show");
     for (var ec = 0; ec < openCollapses.length; ec++) {
       var m = openCollapses[ec].id.match(/streamCollapse_(\d+)/);
       if (m) expandedStreams.push(parseInt(m[1]));
@@ -192,9 +194,9 @@ function renderStreamsEditor() {
 
 function setStreamExpanded(index, expanded) {
   const page = document.getElementById("streamsEditor");
-  if (!page || !page.shadowRoot) return;
-  const root = page.shadowRoot;
-  const collapseEl = root.getElementById("streamCollapse_" + index);
+  if (!page) return;
+  const root = page;
+  const collapseEl = root.querySelector("#streamCollapse_" + index);
   const itemEl = collapseEl ? collapseEl.closest(".stream-accordion-item") : null;
   if (expanded) {
     // only one accordion section open at a time

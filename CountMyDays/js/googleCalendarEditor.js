@@ -139,7 +139,7 @@ function renderGoogleEventsEditor() {
     card.setAttribute("type", d.recurring ? "recurring" : "once");
     card.setAttribute("source", "google");
     card.setAttribute("recurring", d.recurring ? "true" : "false");
-    card.setAttribute("hidden", d.show === false ? "true" : "false");
+    if (d.show === false) card.setAttribute("hidden", "true");
     card.setAttribute("key-prefix", smdImagePrefix());
     const category = d.category ? categories.find(c => c.name === d.category) : null;
     if (category && category.image) card.setAttribute("category-image", category.image);

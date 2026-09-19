@@ -223,7 +223,7 @@ function renderDateList() {
       : (d.type || "annual"));
     card.setAttribute("source", entry.source);
     card.setAttribute("recurring", d.recurring ? "true" : "false");
-    card.setAttribute("hidden", d.show === false ? "true" : "false");
+    if (d.show === false) card.setAttribute("hidden", "true");
     card.setAttribute("key-prefix", smdImagePrefix());
     if (catImage) card.setAttribute("category-image", catImage);
     if (d.image) card.setAttribute("image", d.image);

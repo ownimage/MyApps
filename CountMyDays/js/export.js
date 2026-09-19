@@ -70,13 +70,13 @@ function ewPage() {
 
 function ewQuery(sel) {
   const page = ewPage();
-  return page && page.shadowRoot ? page.shadowRoot.querySelector(sel) : document.querySelector(sel);
+  return page ? page.querySelector(sel) : document.querySelector(sel);
 }
 
 function ewQueryAll(sel) {
   const page = ewPage();
-  return page && page.shadowRoot
-    ? Array.from(page.shadowRoot.querySelectorAll(sel))
+  return page
+    ? Array.from(page.querySelectorAll(sel))
     : Array.from(document.querySelectorAll(sel));
 }
 
@@ -96,7 +96,7 @@ function renderExportWizard() {
   const page = ewPage();
   if (!page || !ew) return;
 
-  const active = page.shadowRoot ? page.shadowRoot.activeElement : null;
+  const active = page.activeElement;
   let focusInfo = null;
   if (active && active.tagName === "INPUT" && active.id) {
     focusInfo = { id: active.id, pos: active.selectionStart };

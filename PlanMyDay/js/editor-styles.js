@@ -268,19 +268,13 @@ var STREAMS_EDITOR_STYLES = `
 `;
 
 function injectJobEditStyles() {
-  var page = document.getElementById("jobEditPage");
-  if (page && page.shadowRoot) {
-    injectStyleInto(page.shadowRoot, JOBS_EDITOR_STYLES);
-  }
-  var tabs = $id("jobEditTabs");
-  if (tabs && tabs.shadowRoot) {
-    injectStyleInto(tabs.shadowRoot, JOBS_EDITOR_STYLES);
-  }
+  if (!document.getElementById("jobEditPage")) return;
+  injectStyleInto(JOBS_EDITOR_STYLES);
+  const tabs = $id("jobEditTabs");
+  if (tabs) injectStyleInto(JOBS_EDITOR_STYLES);
 }
 
 function injectStreamsEditorStyles() {
-  var page = document.getElementById("streamsEditor");
-  if (page && page.shadowRoot) {
-    injectStyleInto(page.shadowRoot, JOBS_EDITOR_STYLES + STREAMS_EDITOR_STYLES);
-  }
+  if (!document.getElementById("streamsEditor")) return;
+  injectStyleInto(JOBS_EDITOR_STYLES + STREAMS_EDITOR_STYLES);
 }

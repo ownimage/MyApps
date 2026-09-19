@@ -253,14 +253,14 @@ var QRLINK_EDITOR_STYLES = `
     display: block;
     width: 100%;
   }
-  .smd-tab-panel smd-button::part(button) {
+  .smd-tab-panel smd-button button {
     width: 100%;
     box-sizing: border-box;
   }
 `;
 
 function injectEditorStyles(page) {
-  if (page && page.shadowRoot) {
-    injectStyleInto(page.shadowRoot, JOBS_EDITOR_STYLES + QRLINK_EDITOR_STYLES);
+  if (page) {
+    injectStyleInto(JOBS_EDITOR_STYLES + QRLINK_EDITOR_STYLES);
   }
 }

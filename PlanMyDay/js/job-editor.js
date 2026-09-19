@@ -160,11 +160,11 @@ function jobTaskToggleNote(btn, index) {
 
 function scheduleEl(id) {
   const host = document.getElementById("smdConfirmModal");
-  return host && host.shadowRoot ? host.shadowRoot.getElementById(id) : null;
+  return host ? host.querySelector("#" + id) : null;
 }
 function scheduleRadios() {
   const host = document.getElementById("smdConfirmModal");
-  return host && host.shadowRoot ? host.shadowRoot.querySelectorAll('input[name="scheduleType"]') : [];
+  return host ? host.querySelectorAll('input[name="scheduleType"]') : [];
 }
 
 function getScheduleFormHTML() {
@@ -234,7 +234,7 @@ function openScheduleModal() {
     }
   });
   const host = document.getElementById("smdConfirmModal");
-  if (host && host.shadowRoot) injectStyleInto(host.shadowRoot, SCHEDULE_MODAL_STYLES);
+  if (host) injectStyleInto(SCHEDULE_MODAL_STYLES);
   scheduleRadios().forEach(r => r.checked = r.value === s.type);
   scheduleEl("schedDaysOptions").classList.toggle("d-none", s.type !== "days");
   scheduleEl("schedMonthlyOptions").classList.toggle("d-none", s.type !== "monthly");
@@ -553,10 +553,10 @@ function focusJobTitle() {
 
 function getJobEditFooterBtn(action) {
   const page = document.getElementById("jobEditPage");
-  if (!page || !page.shadowRoot) return null;
+  if (!page) return null;
   const config = _jobEditButtons.find(function(b) { return b.action === action; });
   if (!config || !config.id) return null;
-  return page.shadowRoot.getElementById(config.id);
+  return page.querySelector("#" + config.id);
 }
 
 function jobEditOk() {

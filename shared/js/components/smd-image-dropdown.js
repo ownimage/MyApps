@@ -1,7 +1,7 @@
 // <smd-image-dropdown> — shared dropdown picker for a list of named options,
-// each optionally carrying an image rendered via <smd-image>. It is a generic
-// selector any app can use (CountMyDays category filter, PlanMyDay job stream
-// selector, ...).
+// each optionally carrying an image rendered via <smd-image> (light DOM).
+// Styles live in shared/css/styles.css. It is a generic selector any app can
+// use (CountMyDays category filter, PlanMyDay job stream selector, ...).
 //
 // The host app sets the DATA (no DOM, so the host never builds the menu):
 //   options  = [{ name, image }, ...] — image is OPTIONAL; options without one
@@ -17,78 +17,7 @@
 //   disabled   — view-only mode (button disabled, menu won't open)
 //
 // Internal ids (smdImageDropdownBtn / smdImageBtnIcon / smdImageBtnText /
-// smdImageDropdownMenu) are stable so tests pierce the shadow root with plain
-// selectors.
-const smdImageDropdownSheet = SmdStyles.sheetFor(`
-  :host { display: block; position: relative; min-width: 0; }
-  .btn {
-    font-size: var(--smd-type-h2, 1.25rem);
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    width: 100%;
-    padding: 0.375rem 0.75rem;
-    background-color: transparent;
-    color: var(--bs-body-color, #eee);
-    border: 1px solid var(--bs-border-color, #495057);
-    border-radius: 0.375rem;
-    cursor: pointer;
-    text-align: left;
-  }
-  :host([disabled]) .btn { opacity: 0.65; cursor: default; }
-  .thumb {
-    flex-shrink: 0;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    overflow: hidden;
-    border: 1px solid var(--bs-border-color, #495057);
-    border-radius: 6px;
-  }
-  .thumb[hidden] { display: none !important; }
-  .title {
-    flex: 1 1 auto;
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .caret { flex: 0 0 auto; opacity: 0.7; font-size: var(--smd-type-badge, 0.75rem); }
-  .menu {
-    position: absolute;
-    left: 0;
-    right: 0;
-    top: 100%;
-    z-index: 20;
-    margin: 0.125rem 0 0;
-    padding: 0.25rem 0;
-    list-style: none;
-    background-color: var(--bs-body-bg, #222);
-    border: 1px solid var(--bs-border-color, #495057);
-    border-radius: 0.375rem;
-    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.25);
-    max-height: 16rem;
-    overflow-y: auto;
-  }
-  .menu[hidden] { display: none !important; }
-  .item {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.25rem 0.75rem;
-    color: inherit;
-    cursor: pointer;
-    text-decoration: none;
-  }
-  .item .thumb {
-    width: 1.5rem;
-    height: 1.5rem;
-  }
-  .item .thumb.thumb-blank { border-color: transparent; }
-  .item:hover { background-color: var(--bs-secondary-bg, #303030); }
-  .item.active { background-color: var(--bs-primary, #0d6efd); color: var(--smd-primary-text, #fff); }
-`);
-
+// smdImageDropdownMenu) are stable so tests can target them with plain selectors.
 const smdImageDropdownTemplate = document.createElement('template');
 smdImageDropdownTemplate.innerHTML = `
   <button type="button" class="btn" id="smdImageDropdownBtn" aria-haspopup="listbox">
@@ -106,42 +35,55 @@ class SmdImageDropdown extends HTMLElement {
 
   constructor() {
     super();
-    this.attachShadow({ mode: 'open' });
-    SmdStyles.adoptStyles(this.shadowRoot, [SmdStyles.hiddenSheet, smdImageDropdownSheet]);
-    this.shadowRoot.appendChild(smdImageDropdownTemplate.content.cloneNode(true));
     this._options = [];
     this._selected = "";
+    this._bound = false;
+    this._built = false;
+    this._onDocClick = null;
+  }
+
+  _build() {
+    if (this._built) return;
+    this._built = true;
+    this.appendChild(smdImageDropdownTemplate.content.cloneNode(true));
   }
 
   connectedCallback() {
-    this.shadowRoot.querySelector('#smdImageDropdownBtn').addEventListener('click', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      if (this.hasAttribute('disabled')) return;
-      const menu = this.shadowRoot.querySelector('#smdImageDropdownMenu');
-      if (menu) menu.hidden = !menu.hidden;
-    });
-    this._onDocClick = (e) => {
-      const path = e.composedPath ? e.composedPath() : [];
-      if (path.indexOf(this) !== -1) return;
-      const menu = this.shadowRoot.querySelector('#smdImageDropdownMenu');
-      if (menu) menu.hidden = true;
-    };
-    document.addEventListener('click', this._onDocClick);
+    this._build();
+    if (!this._bound) {
+      this._bound = true;
+      this.querySelector('#smdImageDropdownBtn').addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (this.hasAttribute('disabled')) return;
+        const menu = this.querySelector('#smdImageDropdownMenu');
+        if (menu) menu.hidden = !menu.hidden;
+      });
+      this._onDocClick = (e) => {
+        if (e.composedPath && e.composedPath().indexOf(this) !== -1) return;
+        const menu = this.querySelector('#smdImageDropdownMenu');
+        if (menu) menu.hidden = true;
+      };
+      document.addEventListener('click', this._onDocClick);
+    }
     this._render();
   }
 
   disconnectedCallback() {
-    document.removeEventListener('click', this._onDocClick);
+    if (this._bound) {
+      this._bound = false;
+      document.removeEventListener('click', this._onDocClick);
+      this._onDocClick = null;
+    }
   }
 
   attributeChangedCallback() {
-    if (this.isConnected) this._render();
+    if (this._built) this._render();
   }
 
   set options(list) {
     this._options = Array.isArray(list) ? list : [];
-    if (this.isConnected) this._render();
+    if (this._built) this._render();
   }
 
   get options() {
@@ -150,7 +92,7 @@ class SmdImageDropdown extends HTMLElement {
 
   set selected(name) {
     this._selected = name == null ? "" : String(name);
-    if (this.isConnected) this._render();
+    if (this._built) this._render();
   }
 
   get selected() {
@@ -158,8 +100,8 @@ class SmdImageDropdown extends HTMLElement {
   }
 
   _render() {
-    const root = this.shadowRoot;
-    const keyPrefix = this.getAttribute('key-prefix') || smdImagePrefix();
+    const root = this;
+    const keyPrefix = this.getAttribute('key-prefix') || (typeof smdImagePrefix === "function" ? smdImagePrefix() : "");
     const disabled = this.hasAttribute('disabled');
     const current = this._options.find((o) => String(o.name) === String(this._selected))
       || this._options[0] || {};

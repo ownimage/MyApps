@@ -20,8 +20,8 @@ function updateEditorJobCountBadges() {
     if (el) el.textContent = text;
   });
   var page = document.getElementById("streamsEditor");
-  if (page && page.shadowRoot) {
-    page.shadowRoot.querySelectorAll("pmd-stream-header").forEach(function(header) {
+  if (page) {
+    page.querySelectorAll("pmd-stream-header").forEach(function(header) {
       var idx = parseInt(header.getAttribute("stream-idx"), 10);
       if (isNaN(idx) || !streams[idx]) return;
       var jobs = streams[idx].jobs || [];

@@ -1,51 +1,43 @@
-// <smd-badge> — themed Bootstrap badge.
+// <smd-badge> — themed Bootstrap badge (light DOM).
 //
-// Renders the exact colours the loaded Bootswatch theme gives its
-// `.badge.text-bg-<variant>` badges: `applySmdVars()` probes them in the light
-// DOM and publishes `--smd-badge-<variant>-{bg,text}` on <html>, which this
-// component's own sheet consumes (document CSS cannot style a shadow root, and
-// Bootstrap sets its badge vars on the .badge element, not on :root).
+// Renders straight onto the host element using the real Bootstrap badge classes
+// (`.badge.text-bg-<variant>`, optionally `rounded-pill`), so the colours always
+// match the loaded theme exactly. The text is the element's own light text node
+// (consumers set textContent), so no template is needed. Base sizing and the
+// `[hidden]` rule live in shared/css/styles.css.
 //
 // Attributes:
 //   variant — primary | secondary | success | danger | warning | info | light | dark (default primary)
 //   pill    — rounded-pill instead of the theme's badge radius
-const smdBadgeSheet = SmdStyles.sheetFor(`
-  :host {
-    display: inline-block;
-    padding: 0.35em 0.65em;
-    font-size: var(--smd-type-badge, 0.75em);
-    font-weight: 700;
-    line-height: 1;
-    text-align: center;
-    white-space: nowrap;
-    vertical-align: baseline;
-    border-radius: var(--bs-border-radius, 0.375rem);
-    color: var(--smd-badge-primary-text, #fff);
-    background-color: var(--smd-badge-primary-bg, var(--bs-primary, #0d6efd));
+(function (global) {
+  "use strict";
+
+  const VARIANTS = ["primary", "secondary", "success", "danger", "warning", "info", "light", "dark"];
+
+  class SmdBadge extends HTMLElement {
+    static get observedAttributes() {
+      return ["variant", "pill"];
+    }
+
+    connectedCallback() {
+      this._sync();
+    }
+
+    attributeChangedCallback() {
+      if (this.isConnected) this._sync();
+    }
+
+    _sync() {
+      const requested = this.getAttribute("variant");
+      const variant = VARIANTS.indexOf(requested) !== -1 ? requested : "primary";
+      for (const v of VARIANTS) this.classList.toggle("text-bg-" + v, v === variant);
+      this.classList.toggle("rounded-pill", this.hasAttribute("pill"));
+      this.classList.add("badge");
+    }
   }
-  :host([hidden]) { display: none !important; }
-  :host([pill]) { border-radius: var(--bs-border-radius-pill, 50rem); }
 
-  :host([variant="primary"]) { color: var(--smd-badge-primary-text, #fff); background-color: var(--smd-badge-primary-bg, var(--bs-primary, #0d6efd)); }
-  :host([variant="secondary"]) { color: var(--smd-badge-secondary-text, #fff); background-color: var(--smd-badge-secondary-bg, var(--bs-secondary, #6c757d)); }
-  :host([variant="success"]) { color: var(--smd-badge-success-text, #fff); background-color: var(--smd-badge-success-bg, var(--bs-success, #198754)); }
-  :host([variant="danger"]) { color: var(--smd-badge-danger-text, #fff); background-color: var(--smd-badge-danger-bg, var(--bs-danger, #dc3545)); }
-  :host([variant="warning"]) { color: var(--smd-badge-warning-text, #000); background-color: var(--smd-badge-warning-bg, var(--bs-warning, #ffc107)); }
-  :host([variant="info"]) { color: var(--smd-badge-info-text, #000); background-color: var(--smd-badge-info-bg, var(--bs-info, #0dcaf0)); }
-  :host([variant="light"]) { color: var(--smd-badge-light-text, #000); background-color: var(--smd-badge-light-bg, var(--bs-light, #f8f9fa)); }
-  :host([variant="dark"]) { color: var(--smd-badge-dark-text, #fff); background-color: var(--smd-badge-dark-bg, var(--bs-dark, #212529)); }
-`);
-
-class SmdBadge extends HTMLElement {
-  constructor() {
-    super();
-    this.attachShadow({ mode: "open" });
-    SmdStyles.adoptStyles(this.shadowRoot, [smdBadgeSheet]);
-    this.shadowRoot.appendChild(document.createElement("slot"));
+  if (!global.customElements.get("smd-badge")) {
+    global.customElements.define("smd-badge", SmdBadge);
   }
-}
-
-if (!window.customElements.get("smd-badge")) {
-  window.customElements.define("smd-badge", SmdBadge);
-}
-window.SmdBadge = SmdBadge;
+  global.SmdBadge = SmdBadge;
+})(window);

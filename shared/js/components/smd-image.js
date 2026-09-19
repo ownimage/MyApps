@@ -1,4 +1,5 @@
-// <smd-image> — displays an image looked up from a localStorage images list.
+// <smd-image> — displays an image looked up from a localStorage images list
+// (light DOM). Styles live in shared/css/styles.css.
 //
 // Shared/reusable: the storage key prefix is supplied via the key-prefix
 // attribute (e.g. "planmydays_"), the image to show via `image` (its name),
@@ -8,6 +9,10 @@
 // Each stored image is { name, data, themes: { light: {line,fill,width}, dark: {...} } }.
 // data is a data: URL; SVG data URLs are recoloured from the matching theme
 // override (stroke/fill/stroke-width) on render.
+//
+// The render size is a VALUE (px): it is applied as an inline width/height on
+// the host so the box is exactly `size` px on every side and the selected
+// thumbnail tier matches (see _renderStored).
 (function (global) {
   "use strict";
 
@@ -112,40 +117,6 @@
 
     constructor() {
       super();
-      this.attachShadow({ mode: "open" });
-      this._baseSheets = [
-        SmdStyles.hiddenSheet,
-        SmdStyles.sheetFor(`
-          :host {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            overflow: hidden;
-          }
-          img {
-            display: block;
-            max-width: 100%;
-            max-height: 100%;
-          }
-          .smd-bi {
-            font-family: "bootstrap-icons";
-            font-style: normal;
-            font-weight: normal;
-            font-variant: normal;
-            text-transform: none;
-            line-height: 1;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            width: 100%;
-            height: 100%;
-            -webkit-font-smoothing: antialiased;
-            -moz-osx-font-smoothing: grayscale;
-          }
-        `)
-      ];
-      this.shadowRoot.adoptedStyleSheets = this._baseSheets.slice();
-      this.shadowRoot.innerHTML = '<img alt="">';
     }
 
     get keyPrefix() {
@@ -158,6 +129,14 @@
     }
 
     connectedCallback() {
+      // Light DOM: an element's constructor must not touch attributes/innerHTML
+      // ("The result must not have children" when createElement/parsing creates
+      // it) — the <img> placeholder is added here instead, once per instance.
+      if (!this.querySelector("img")) {
+        const img = document.createElement("img");
+        img.alt = "";
+        this.appendChild(img);
+      }
       liveInstances.add(this);
       this._themeObserver = new MutationObserver(() => this._render());
       this._themeObserver.observe(document.documentElement, {
@@ -214,13 +193,15 @@
       const name = this.getAttribute("image") || "";
       const px = this._sizePx();
 
-      // Sized renders get a shared, cached `:host` stylesheet (one sheet per px).
-      // Size sheet is kept last and replaced (NOT appended) so changing size
-      // later always wins — adoptStyles dedups and would otherwise leave an
-      // older, lower size sheet after it.
-      const sheets = this._baseSheets.slice();
-      if (px > 0) sheets.push(SmdStyles.sheetFor(":host { width: " + px + "px; height: " + px + "px; }"));
-      this.shadowRoot.adoptedStyleSheets = sheets;
+      // Sized renders get an inline fixed box on the host (size is a value, not
+      // a stylesheet; the CSS `smd-image` rule provides the centring layout).
+      if (px > 0) {
+        this.style.width = px + "px";
+        this.style.height = px + "px";
+      } else {
+        this.style.removeProperty("width");
+        this.style.removeProperty("height");
+      }
 
       const colon = name.indexOf(":");
       if (colon > 0) {
@@ -234,8 +215,8 @@
     }
 
     _renderStored(name, px) {
-      const img = this.shadowRoot.querySelector("img");
-      const span = this.shadowRoot.querySelector(".smd-bi");
+      const img = this.querySelector("img");
+      const span = this.querySelector(".smd-bi");
       if (!img) return;
       if (span) span.hidden = true;
       const stored = this._findImage();
@@ -265,12 +246,12 @@
     }
 
     _renderIcon(set, iconName, px) {
-      const img = this.shadowRoot.querySelector("img");
+      const img = this.querySelector("img");
       if (img) {
         img.removeAttribute("src");
         img.hidden = true;
       }
-      let span = this.shadowRoot.querySelector(".smd-bi");
+      let span = this.querySelector(".smd-bi");
       const cfg = ICON_SETS[set];
       const entry = iconEntry(set, iconName);
       const glyph = entry && entry.hex ? String.fromCodePoint(parseInt(entry.hex, 16)) : (iconName || "");
@@ -287,7 +268,7 @@
       if (!span) {
         span = document.createElement("span");
         span.className = "smd-bi";
-        this.shadowRoot.appendChild(span);
+        this.appendChild(span);
       }
       span.textContent = glyph;
       span.style.setProperty("font-family", '"' + cfg.family + '"');

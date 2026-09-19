@@ -22,15 +22,16 @@ function configureMainTabs() {
   if (!tabsEl || tabsEl.__solarTabsConfigured) return;
   tabsEl.__solarTabsConfigured = true;
 
-  // Setting .tabs re-renders the shadow tree, so do it exactly once. Panel
+  // Setting .tabs re-renders the tab list, so do it exactly once. Panel
   // visibility afterwards is driven by activeIndex (no DOM overwrite).
   tabsEl.tabs = MAIN_TAB_DEFS.map(function (t) {
     return { title: t.title, id: t.id, content: t.content };
   });
 
-  // Panel content lives in a shadow root: adopt the form/btn utilities plus the
-  // main-tab content styles so Bootstrap's document stylesheet is not needed.
-  injectStyleInto(tabsEl.shadowRoot, JOBS_EDITOR_STYLES + MAIN_TAB_STYLES);
+  // The tab panels are light DOM now; the form/btn utilities come from the
+  // document stylesheet, and the main-tab content styles are element-scoped
+  // (document-head injection is deduped).
+  injectStyleInto(JOBS_EDITOR_STYLES + MAIN_TAB_STYLES);
 
   tabsEl.addEventListener("smd-tabs-change", function (e) {
     var tab = e.detail && e.detail.tab;

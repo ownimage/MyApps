@@ -109,7 +109,7 @@ var SOLAR_EDITOR_STYLES = `
     display: block;
     width: 100%;
   }
-  .smd-tab-panel smd-button::part(button) {
+  .smd-tab-panel smd-button button {
     width: 100%;
     box-sizing: border-box;
   }
@@ -296,7 +296,7 @@ var MAIN_TAB_STYLES = `
 `;
 
 function injectEditorStyles(page) {
-  if (page && page.shadowRoot) {
-    injectStyleInto(page.shadowRoot, JOBS_EDITOR_STYLES + SOLAR_EDITOR_STYLES);
+  if (page) {
+    injectStyleInto(JOBS_EDITOR_STYLES + SOLAR_EDITOR_STYLES);
   }
 }

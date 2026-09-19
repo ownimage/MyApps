@@ -1,10 +1,9 @@
 // <qrlink-card> — one link tile on the QRLinks main view.
 //
 // Owns its layout (thumbnail via <smd-image>, title, description and the QR
-// button) and its styling. Body display settings (font size / density) reach
-// the shadow root through CSS custom properties (`--qrlink-*`, defined in
-// QRLinks/css/styles.css) because `:host-context()` is NOT supported by
-// WebKit/Safari.
+// button) and its styling (QRLinks/css/styles.css, element-scoped). Body
+// display settings (font size / density) reach the card through CSS custom
+// properties (`--qrlink-*`, defined in QRLinks/css/styles.css) by inheritance.
 //
 // Attributes:
 //   index       — link index (echoed on qrlink-qr)
@@ -16,46 +15,6 @@
 //
 // Events:
 //   qrlink-qr — detail { index, url, title }
-const qrLinkCardSheet = SmdStyles.sheetFor(`
-  :host {
-    display: block;
-    background-color: var(--bs-dark-border-subtle, #303030);
-    border: 1px solid var(--bs-border-color, #495057);
-    border-radius: 0.375rem;
-    padding: var(--qrlink-padding, 0.5rem 0.75rem);
-    margin-bottom: var(--qrlink-margin, 0.5rem);
-    min-width: 0;
-  }
-  .row {
-    display: flex;
-    align-items: center;
-    flex-wrap: nowrap;
-    gap: 0.75rem;
-  }
-  .thumb {
-    flex: 0 0 auto;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 48px;
-  }
-  .content { flex: 1 1 auto; min-width: 0; }
-  .title {
-    margin: 0 0 0.25rem;
-    font-size: var(--qrlink-title-size, var(--smd-type-h1, 1.5rem));
-    font-weight: 800;
-    overflow-wrap: anywhere;
-  }
-  .description {
-    font-size: var(--smd-type-h2, 0.875em);
-    color: var(--bs-secondary-color, #aaa);
-    overflow-wrap: anywhere;
-  }
-  .actions { flex: 0 0 auto; display: flex; align-items: center; }
-  .qr-btn { padding: 0.25rem; line-height: 1; }
-  [hidden] { display: none !important; }
-`);
-
 const qrLinkCardTemplate = document.createElement("template");
 qrLinkCardTemplate.innerHTML = `
   <div class="row">
@@ -84,25 +43,27 @@ class QrLinkCard extends HTMLElement {
 
   constructor() {
     super();
-    this.attachShadow({ mode: "open" });
-    SmdStyles.adoptStyles(this.shadowRoot, [SmdStyles.btnBadgeSheet, qrLinkCardSheet]);
-    this.shadowRoot.appendChild(qrLinkCardTemplate.content.cloneNode(true));
+    this._bound = false;
   }
 
   connectedCallback() {
-    this.shadowRoot.querySelector(".qr-btn").addEventListener("click", () => {
-      if (!this.getAttribute("url")) return;
-      const idx = parseInt(this.getAttribute("index"), 10);
-      this.dispatchEvent(new CustomEvent("qrlink-qr", {
-        bubbles: true,
-        composed: true,
-        detail: {
-          index: isNaN(idx) ? -1 : idx,
-          url: this.getAttribute("url") || "",
-          title: this.getAttribute("title") || ""
-        }
-      }));
-    });
+    if (!this._bound) {
+      this._bound = true;
+      this.appendChild(qrLinkCardTemplate.content.cloneNode(true));
+      this.querySelector(".qr-btn").addEventListener("click", () => {
+        if (!this.getAttribute("url")) return;
+        const idx = parseInt(this.getAttribute("index"), 10);
+        this.dispatchEvent(new CustomEvent("qrlink-qr", {
+          bubbles: true,
+          composed: true,
+          detail: {
+            index: isNaN(idx) ? -1 : idx,
+            url: this.getAttribute("url") || "",
+            title: this.getAttribute("title") || ""
+          }
+        }));
+      });
+    }
     this._render();
   }
 
@@ -111,7 +72,7 @@ class QrLinkCard extends HTMLElement {
   }
 
   _render() {
-    const root = this.shadowRoot;
+    const root = this;
     const keyPrefix = this.getAttribute("key-prefix") ||
       (typeof smdImagePrefix === "function" ? smdImagePrefix() : "shared-");
 

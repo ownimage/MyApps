@@ -119,9 +119,9 @@ function renderMain() {
       { title: "Maintenance", content: "" }
     ];
     tabsEl.activeIndex = tab === "maintenance" ? 1 : 0;
-    const hidePanels = document.createElement("style");
-    hidePanels.textContent = ".smd-tab-panel { display: none !important; }";
-    tabsEl.shadowRoot.appendChild(hidePanels);
+    // smd-tabs is light DOM; hiding its panels is an attribute, not an injected
+    // style (shared/css/styles.css: smd-tabs[hide-panels] .smd-tab-panel).
+    tabsEl.setAttribute("hide-panels", "");
     tabsEl.addEventListener("smd-tabs-change", function(e) {
       const tabTitle = e.detail && e.detail.tab ? (e.detail.tab.title || "") : "";
       container.dataset.todayTab = tabTitle.toLowerCase() === "maintenance" ? "maintenance" : "progress";

@@ -1,13 +1,12 @@
 // <smd-qr-import> — a self-contained camera QR scanner that reassembles the
-// generic chunk envelope produced by <smd-qr-export>:
+// generic chunk envelope produced by <smd-qr-export> (light DOM):
 //
 //   { "index": 0, "total": 3, "chunk": "<compressed text>" }
 //
 // It collects every chunk, decompresses with the shared vendored lz-string and
 // emits the decoded JSON. The component owns its dependencies (lazily loaded
 // lz-string + jsQR) and its camera loop (getUserMedia + canvas), so it works
-// inside a shadow root — the vendored html5-qrcode cannot, because it resolves
-// its reader element with document.getElementById().
+// anywhere in the light DOM. Styles live in shared/css/styles.css.
 //
 // Attributes:
 //   autostart — start scanning as soon as the element is connected
@@ -55,13 +54,6 @@
     return loadScript("jsQR.js");
   }
 
-  const smdQrImportSheet = SmdStyles.sheetFor(`
-  :host { display: block; }
-  .status { margin-bottom: 0.75rem; color: var(--bs-body-color, #eee); }
-  .reader { width: 100%; min-height: 280px; }
-  .reader video { width: 100%; }
-  `);
-
   class SmdQrImport extends HTMLElement {
     static get observedAttributes() {
       return ["autostart"];
@@ -69,15 +61,16 @@
 
     constructor() {
       super();
-      this.attachShadow({ mode: "open" });
-      SmdStyles.adoptStyles(this.shadowRoot, [smdQrImportSheet]);
-      this.shadowRoot.innerHTML =
-        '<div class="status" role="status">Waiting for QR scans\u2026</div>' +
-        '<div class="reader"></div>';
       this._reset();
     }
 
     connectedCallback() {
+      // Light DOM: constructors may not use innerHTML; the shell is built here.
+      if (!this.querySelector(".status")) {
+        this.innerHTML =
+          '<div class="status" role="status">Waiting for QR scans\u2026</div>' +
+          '<div class="reader"></div>';
+      }
       if (this.hasAttribute("autostart")) this.start();
     }
 
@@ -100,12 +93,12 @@
     }
 
     _setStatus(text) {
-      const el = this.shadowRoot.querySelector(".status");
+      const el = this.querySelector(".status");
       if (el) el.textContent = text;
     }
 
     _reader() {
-      return this.shadowRoot.querySelector(".reader");
+      return this.querySelector(".reader");
     }
 
     // ---- public API ----

@@ -47,15 +47,9 @@ async function touchDrag(page, fromLocator, toBox) {
         pressure: type === "pointerup" ? 0 : 0.7,
         buttons,
       });
-      const flatFromPoint = (root, depth = 0) => {
-        if (depth > 8) return null;
-        let el = root.elementFromPoint(x, y);
-        if (!el) return null;
-        if (el.shadowRoot && el.shadowRoot !== root) {
-          const inner = flatFromPoint(el.shadowRoot, depth + 1);
-          if (inner) return inner;
-        }
-        return el;
+      const flatFromPoint = (root) => {
+        // Light DOM: elementFromPoint already returns the deepest element.
+        return root.elementFromPoint(x, y);
       };
       (flatFromPoint(document) || document.body).dispatchEvent(evt);
     }, { type, x, y, buttons });

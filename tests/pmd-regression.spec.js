@@ -280,7 +280,7 @@ test.describe("PlanMyDay - Regression", () => {
       const handle = page.locator("#todayCardList smd-draghandle.drag-handle").first();
       await expect(handle).toBeVisible();
       const info = await page.evaluate(() => {
-        const glyph = document.querySelector("#todayCardList smd-draghandle").shadowRoot.querySelector(".glyph");
+        const glyph = document.querySelector("#todayCardList smd-draghandle").querySelector(".glyph");
         const cs = getComputedStyle(glyph);
         return { code: glyph.textContent.codePointAt(0).toString(16), family: cs.fontFamily, weight: cs.fontWeight };
       });
@@ -304,7 +304,7 @@ test.describe("PlanMyDay - Regression", () => {
       const info = () => page.locator("#todayCardList pmd-today-card .stream-thumb smd-image").first()
         .evaluate((el) => ({
           width: getComputedStyle(el).width,
-          src: el.shadowRoot.querySelector("img").getAttribute("src")
+          src: el.querySelector("img").getAttribute("src")
         }));
       await page.evaluate(() => changeIconSize("small"));
       expect(await info()).toEqual({ width: "40px", src: thumb.data80 });
@@ -579,8 +579,8 @@ test.describe("PlanMyDay - Regression", () => {
       await page.evaluate(() => addNewStream());
       const colors = await page.evaluate(() => {
         const pageEl = document.getElementById("streamEditPage");
-        const host = pageEl.shadowRoot.querySelector('.smd-page-footer smd-button[variant="secondary"]');
-        const cs = getComputedStyle(host.shadowRoot.querySelector("button"));
+        const host = pageEl.querySelector('.smd-page-footer smd-button[variant="secondary"]');
+        const cs = getComputedStyle(host.querySelector("button"));
         return { color: cs.color, bg: cs.backgroundColor };
       });
       await page.evaluate(() => cancelEdit());
@@ -604,7 +604,7 @@ test.describe("PlanMyDay - Regression", () => {
       await page.evaluate(() => { openStreamsEditor(); confirmDeleteStream(0); });
       const color = await page.evaluate(() => {
         const host = document.getElementById("smdConfirmModal");
-        const btn = Array.from(host.shadowRoot.querySelectorAll(".smd-footer button"))
+        const btn = Array.from(host.querySelectorAll(".smd-footer button"))
           .find((b) => b.getAttribute("variant") === "secondary");
         return getComputedStyle(btn).color;
       });
@@ -619,9 +619,9 @@ test.describe("PlanMyDay - Regression", () => {
       await page.reload();
       await page.evaluate(() => openStreamsEditor());
       const color = await page.evaluate(() => {
-        const editor = document.getElementById("streamsEditor").shadowRoot;
+        const editor = document.getElementById("streamsEditor");
         const header = editor.querySelector("pmd-stream-header");
-        const btn = header.shadowRoot.querySelector('[data-action="add-job"]');
+        const btn = header.querySelector('[data-action="add-job"]');
         return getComputedStyle(btn).color;
       });
       expect(color).toBe(await bootswatchColor(page, "btn btn-secondary"));
@@ -631,8 +631,8 @@ test.describe("PlanMyDay - Regression", () => {
       await page.evaluate(() => openSettings());
       const inactiveTabColor = () => page.evaluate(() => {
         const pageEl = document.getElementById("settingsPage");
-        const tabs = pageEl.shadowRoot.querySelector("#settingsTabs");
-        const inactive = Array.from(tabs.shadowRoot.querySelectorAll(".smd-tab-btn"))
+        const tabs = pageEl.querySelector("#settingsTabs");
+        const inactive = Array.from(tabs.querySelectorAll(".smd-tab-btn"))
           .find((b) => !b.hasAttribute("active"));
         return getComputedStyle(inactive).color;
       });
@@ -657,8 +657,8 @@ test.describe("PlanMyDay - Regression", () => {
           return { bg: cs.backgroundColor, color: cs.color };
         };
         return {
-          header: read(pageEl.shadowRoot.querySelector("#editJobsTotalBadge")),
-          tab: read(pageEl.shadowRoot.querySelector("pmd-stream-header").shadowRoot.querySelector(".tab-badge"))
+          header: read(pageEl.querySelector("#editJobsTotalBadge")),
+          tab: read(pageEl.querySelector("pmd-stream-header").querySelector(".tab-badge"))
         };
       });
 
@@ -2010,7 +2010,7 @@ test.describe("PlanMyDay - Regression", () => {
           document.body.appendChild(el);
         }, theme);
         const src = await page.evaluate(() =>
-          document.querySelector("smd-image[image='NestedIcon']").shadowRoot.querySelector("img").getAttribute("src"));
+          document.querySelector("smd-image[image='NestedIcon']").querySelector("img").getAttribute("src"));
         const decoded = decodeURIComponent(src.substring("data:image/svg+xml,".length));
         expect(decoded).toContain(`<svg fill="${wantFill}"`);
         expect(decoded).toContain(`<path fill="${wantFill}"`);
@@ -2030,19 +2030,19 @@ test.describe("PlanMyDay - Regression", () => {
       });
       await page.waitForFunction(() => {
         const el = document.querySelector("smd-image[image='bi:house']");
-        if (!el || !el.shadowRoot) return false;
-        const span = el.shadowRoot.querySelector(".smd-bi");
+        if (!el) return false;
+        const span = el.querySelector(".smd-bi");
         return span && !span.hidden && span.textContent.length > 0;
       }, null, { timeout: 10000 });
       const info = await page.evaluate(() => {
         const el = document.querySelector("smd-image[image='bi:house']");
-        const span = el.shadowRoot.querySelector(".smd-bi");
+        const span = el.querySelector(".smd-bi");
         return {
           glyph: span.textContent,
           fontFamily: getComputedStyle(span).fontFamily,
           fontSize: getComputedStyle(span).fontSize,
           hostW: getComputedStyle(el).width,
-          imgHidden: el.shadowRoot.querySelector("img").hidden
+          imgHidden: el.querySelector("img").hidden
         };
       });
       expect(info.fontFamily).toContain("bootstrap-icons");
@@ -2073,13 +2073,13 @@ test.describe("PlanMyDay - Regression", () => {
         }, sample.image);
         await page.waitForFunction((img) => {
           const el = document.querySelector(`smd-image[image='${img}']`);
-          if (!el || !el.shadowRoot) return false;
-          const span = el.shadowRoot.querySelector(".smd-bi");
+          if (!el) return false;
+          const span = el.querySelector(".smd-bi");
           return span && !span.hidden && span.textContent.length > 0;
         }, sample.image, { timeout: 15000 });
         const info = await page.evaluate((img) => {
           const el = document.querySelector(`smd-image[image='${img}']`);
-          const span = el.shadowRoot.querySelector(".smd-bi");
+          const span = el.querySelector(".smd-bi");
           const cs = getComputedStyle(span);
           return { text: span.textContent, fontFamily: cs.fontFamily, fontWeight: cs.fontWeight };
         }, sample.image);
@@ -2098,13 +2098,13 @@ test.describe("PlanMyDay - Regression", () => {
       });
       await page.waitForFunction(() => {
         const el = document.querySelector("smd-image[image='bi:no-such-icon-xyz']");
-        return el && el.shadowRoot;
+        return !!el;
       });
       await page.waitForTimeout(800);
       const hidden = await page.evaluate(() => {
         const el = document.querySelector("smd-image[image='bi:no-such-icon-xyz']");
-        const span = el.shadowRoot.querySelector(".smd-bi");
-        const img = el.shadowRoot.querySelector("img");
+        const span = el.querySelector(".smd-bi");
+        const img = el.querySelector("img");
         return { spanMissing: !span, imgHidden: img ? img.hidden : null };
       });
       expect(hidden.spanMissing).toBeTruthy();
@@ -2125,13 +2125,13 @@ test.describe("PlanMyDay - Regression", () => {
       });
       await page.waitForFunction(() => {
         const el = document.querySelector("smd-image[image='Apple']");
-        if (!el || !el.shadowRoot) return false;
-        const img = el.shadowRoot.querySelector("img");
+        if (!el) return false;
+        const img = el.querySelector("img");
         return img && !img.hidden && img.hasAttribute("src");
       });
       const hasBiSpan = await page.evaluate(() => {
         const el = document.querySelector("smd-image[image='Apple']");
-        return !!el.shadowRoot.querySelector(".smd-bi");
+        return !!el.querySelector(".smd-bi");
       });
       expect(hasBiSpan).toBeFalsy();
     });
@@ -2150,13 +2150,13 @@ test.describe("PlanMyDay - Regression", () => {
       await page.locator("#todayCardList smd-image[image='bi:house']").waitFor({ state: "attached" });
       await expect.poll(() =>
         page.locator("#todayCardList smd-image[image='bi:house']").evaluate((el) => {
-          if (!el.shadowRoot) return false;
-          const span = el.shadowRoot.querySelector(".smd-bi");
+          if (!el) return false;
+          const span = el.querySelector(".smd-bi");
           return !!span && !span.hidden;
         })
       , { timeout: 10000 }).toBe(true);
       const glyphInfo = await page.locator("#todayCardList smd-image[image='bi:house']").evaluate((el) => {
-        const span = el.shadowRoot.querySelector(".smd-bi");
+        const span = el.querySelector(".smd-bi");
         return { glyph: span.textContent, fontFamily: getComputedStyle(span).fontFamily };
       });
       expect(glyphInfo.fontFamily).toContain("bootstrap-icons");
@@ -2714,8 +2714,8 @@ test.describe("PlanMyDay - Regression", () => {
       await page.locator("#settingsPage:not(.d-none)").waitFor({ state: "visible" });
       await page.evaluate(() => {
         const root = document.getElementById("settingsPage");
-        const inner = root && root.shadowRoot && root.shadowRoot.querySelector("smd-fontawesome-credit");
-        const text = inner && inner.shadowRoot ? inner.shadowRoot.textContent : "";
+        const inner = root && root.querySelector("smd-fontawesome-credit");
+        const text = inner ? inner.textContent : "";
         window.__faCredit = text;
       });
       const text = await page.evaluate(() => window.__faCredit || "");
@@ -2753,7 +2753,7 @@ test.describe("PlanMyDay - Regression", () => {
     test("touch size selector switches between normal and large", async ({ page }) => {
       await page.locator("#appearance-tab").click();
       const inputFontSize = () => page.evaluate(() => {
-        const input = $id("splitList").shadowRoot.querySelector("input");
+        const input = $id("splitList").querySelector("input");
         return parseFloat(getComputedStyle(input).fontSize);
       });
       await page.locator("#touchSizeSelector").selectOption("normal");
@@ -4690,7 +4690,7 @@ test.describe("PlanMyDay - Regression", () => {
       await page.locator("#streamEditorList .accordion-collapse.show").waitFor({ state: "visible", timeout: 5000 });
       await page.locator("#streamEditorList .btn-primary").filter({ hasText: "Edit" }).first().click();
       await page.locator('input[value="EditMe"]').fill("EditedStream");
-      await page.getByRole("button", { name: "OK" }).click();
+      await page.locator("#btnStreamEditOk").click();
       await expect(page.getByText("EditedStream")).toBeVisible();
     });
   });
@@ -6832,7 +6832,7 @@ test.describe("PlanMyDay - Regression", () => {
         await expect(page.locator("#jobTasksList .task-row")).toHaveCount(startLen + 1);
         const focused = await page.evaluate(() => {
           const tabs = $id("jobEditTabs");
-          const el = tabs && tabs.shadowRoot ? tabs.shadowRoot.activeElement : null;
+          const el = tabs ? document.activeElement : null;
           if (!el || !el.classList.contains("task-desc-input")) return null;
           const row = el.closest(".task-row");
           return row ? Number(row.getAttribute("data-task-index")) : null;
@@ -6846,14 +6846,14 @@ test.describe("PlanMyDay - Regression", () => {
           for (let i = 0; i < 20; i++) jobsBuffer.tasks.push({ description: "Task " + i, done: false, note: "" });
           renderJobTasks();
         });
-        await page.evaluate(() => { const body = document.querySelector("#jobEditPage").shadowRoot.querySelector(".smd-page-body"); body.scrollTop = 0; });
-        await expect.poll(() => page.evaluate(() => document.querySelector("#jobEditPage").shadowRoot.querySelector(".smd-page-body").scrollTop)).toBe(0);
+        await page.evaluate(() => { const body = document.querySelector("#jobEditPage .smd-page-body"); body.scrollTop = 0; });
+        await expect.poll(() => page.evaluate(() => document.querySelector("#jobEditPage .smd-page-body").scrollTop)).toBe(0);
         await page.evaluate(() => $id("jobAddTaskBottomBtn").click());
         const result = await page.evaluate(() => {
-          const body = document.querySelector("#jobEditPage").shadowRoot.querySelector(".smd-page-body");
+          const body = document.querySelector("#jobEditPage .smd-page-body");
           const inputs = $id("jobTasksList").querySelectorAll(".task-row .task-desc-input");
           const tabs = $id("jobEditTabs");
-          const active = tabs && tabs.shadowRoot ? tabs.shadowRoot.activeElement : null;
+          const active = tabs ? document.activeElement : null;
           const el = inputs[inputs.length - 1];
           const br = el.getBoundingClientRect();
           const bb = body.getBoundingClientRect();
@@ -6962,7 +6962,7 @@ test.describe("PlanMyDay - Regression", () => {
       });
       const durationOf = () =>
         page.evaluate(() => {
-          const root = window.__slidePage.shadowRoot.querySelector(".smd-page");
+          const root = window.__slidePage.querySelector(".smd-page");
           return getComputedStyle(root).transitionDuration;
         });
       await expect.poll(durationOf).toBe("0s");
@@ -7079,8 +7079,8 @@ test.describe("PlanMyDay - Regression", () => {
         }, image);
         await page.waitForFunction((img) => {
           const el = document.querySelector(`smd-image[image='${img}']`);
-          if (!el || !el.shadowRoot) return false;
-          const span = el.shadowRoot.querySelector(".smd-bi");
+          if (!el) return false;
+          const span = el.querySelector(".smd-bi");
           return span && !span.hidden && span.textContent.length > 0;
         }, image, { timeout: 15000 });
       }

@@ -629,8 +629,8 @@ function openImagesEditor() {
   if (!page) return;
   page.classList.remove("d-none");
   renderImagesEditor();
-  if (page.shadowRoot && typeof injectStyleInto === "function") {
-    injectStyleInto(page.shadowRoot, typeof JOBS_EDITOR_STYLES !== "undefined" ? JOBS_EDITOR_STYLES : undefined);
+  if (typeof injectStyleInto === "function") {
+    injectStyleInto(typeof JOBS_EDITOR_STYLES !== "undefined" ? JOBS_EDITOR_STYLES : undefined);
   }
   page.show();
 }
@@ -823,8 +823,8 @@ function injectPickerStyles() {
   const page = document.getElementById("imagePickerPage");
   const tabs = $id("imagePickerTabs");
   const css = JOBS_EDITOR_STYLES + IMAGE_PICKER_STYLES;
-  if (page && page.shadowRoot) injectStyleInto(page.shadowRoot, css);
-  if (tabs && tabs.shadowRoot) injectStyleInto(tabs.shadowRoot, css);
+  if (page) injectStyleInto(css);
+  if (tabs) injectStyleInto(css);
 }
 
 function renderImagePicker() {

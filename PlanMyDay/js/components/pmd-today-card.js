@@ -1,18 +1,20 @@
-// <pmd-today-card> — a single job row on the Today list.
+// <pmd-today-card> — a single job row on the Today list (light DOM).
 //
 // Owns its own layout (drag handle, completion checkbox + daily-repeat icon,
 // stream/job thumbnails, title + suffix, stream title, View button, tab badge,
-// description) and styling. The host carries the light-DOM class the app/Sortable
-// relies on (`today-drag-card`; the app sets it on the element), so the document
-// theme styles the card chrome while the shadow root holds the content.
+// description) and styling (PlanMyDay/css/styles.css, element-scoped). The host
+// carries the light-DOM class the app/Sortable relies on (`today-drag-card`; the
+// app sets it on the element), so the document theme styles the card chrome
+// while the content lives in the light DOM with it.
 //
 // The body `font-size-*` / `compact` display settings reach the card through CSS
-// custom properties (`--pmd-today-*`, set in PlanMyDay/css/styles.css) because
-// `:host-context()` is NOT supported by WebKit/Safari (iPhone).
+// custom properties (`--pmd-today-*`, set in PlanMyDay/css/styles.css) by
+// inheritance.
 //
-// An `<smd-draghandle class="drag-handle" slot="drag-handle">` is slotted in by
+// An `<smd-draghandle class="drag-handle" slot="drag-handle">` is appended by
 // the consumer (Sortable needs a light-DOM handle); when none is provided the
-// built-in fallback handle is shown.
+// built-in fallback handle is shown. On connect the component moves a slotted
+// handle into the handle cell and drops its own fallback.
 //
 // Attributes:
 //   job-id        — job id (echoed on pmd-today-toggle, set as data-job-id on the checkbox)
@@ -39,128 +41,11 @@
 //                      off before it fires — the app snoozes the job (sleepUntil = tomorrow).
 //   Methods:
 //   snapBackSwipe() — slide a swiped-out card back into place (used when a delete confirm is cancelled).
-const pmdTodayCardSheet = SmdStyles.sheetFor(`
-  :host {
-    display: flex;
-    flex-direction: column;
-    position: relative;
-    min-width: 0;
-    word-wrap: break-word;
-    background-color: var(--bs-dark-border-subtle, #303030);
-    border: 1px solid var(--bs-border-color, #495057);
-    border-radius: 0.375rem;
-    padding: var(--pmd-today-padding, 0.5rem 0.75rem);
-    margin-bottom: var(--pmd-today-margin, 0.5rem);
-    /* let the browser keep vertical scrolling while the card claims horizontal
-       gestures for the swipe actions; Sortable's own preventDefault on the
-       .drag-handle still wins there. */
-    touch-action: pan-y;
-  }
-  :host([hidden]) { display: none !important; }
-  :host([done]) { opacity: 0.5; }
-  :host([done]) .title { text-decoration: line-through; }
-
-  .row {
-    display: flex;
-    align-items: center;
-    flex-wrap: nowrap;
-    gap: 0.75rem;
-  }
-  .row > * {
-    padding-top: var(--pmd-today-cell-padding, 0);
-    padding-bottom: var(--pmd-today-cell-padding, 0);
-  }
-  .handle-col {
-    display: flex;
-    align-items: center;
-    flex: 0 0 auto;
-  }
-
-  .check-col {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    margin-left: 0.25rem;
-    padding-right: 0;
-  }
-  .check-row {
-    display: flex;
-    align-items: center;
-    min-height: 0;
-    padding-left: 0;
-    margin-bottom: 0;
-  }
-  .daily-repeat-icon { margin-top: 0.1rem; }
-
-  .images-col {
-    display: flex;
-    align-items: center;
-    gap: 0.25rem;
-    padding: 0;
-    min-width: 68px;
-    flex: 0 0 auto;
-    align-self: flex-start;
-  }
-  .thumb {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .content-col { flex: 1 1 auto; min-width: 0; }
-  .title-row {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    margin-bottom: var(--pmd-today-title-margin, 0.25rem);
-  }
-  .title {
-    margin: 0;
-    font-size: var(--pmd-today-title-size, var(--smd-type-h1, 1.5rem));
-    font-weight: 800;
-    min-width: 0;
-  }
-  .suffix { margin-left: 0.25rem; }
-
-  /* stream name + View + badge share one line under the title; long badges
-     wrap to a second line rather than truncating the stream name */
-  .meta-row {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 0.15rem 0.4rem;
-  }
-  .stream-title {
-    flex: 1 1 auto;
-    min-width: 0;
-    font-size: var(--smd-type-h2, 0.875em);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .job-view-btn {
-    flex: 0 0 auto;
-    padding: 0.25em 0.5em;
-    line-height: 1;
-    font-weight: 700;
-  }
-  .tab-badge {
-    flex: 0 0 auto;
-    padding: 0.25em 0.5em;
-    font-size: var(--smd-type-badge, 0.7em);
-  }
-  .description {
-    margin-top: var(--pmd-today-description-margin, 0.25rem);
-    font-size: var(--smd-type-p, 0.875em);
-    color: var(--bs-secondary-color, #aaa);
-  }
-`);
-
 const pmdTodayCardTemplate = document.createElement('template');
 pmdTodayCardTemplate.innerHTML = `
   <div class="row">
     <div class="handle-col">
-      <slot name="drag-handle"><smd-draghandle class="drag-handle"></smd-draghandle></slot>
+      <smd-draghandle class="drag-handle"></smd-draghandle>
       <div class="check-col">
         <div class="check-row"><smd-checkbox class="job-checkbox"></smd-checkbox></div>
         <smd-image class="daily-repeat-icon" key-prefix="shared-" size="16" title="Every day" hidden></smd-image>
@@ -192,33 +77,35 @@ class PmdTodayCard extends HTMLElement {
 
   constructor() {
     super();
-    this.attachShadow({ mode: 'open' });
-    SmdStyles.adoptStyles(this.shadowRoot, [SmdStyles.hiddenSheet, SmdStyles.btnBadgeSheet, pmdTodayCardSheet]);
-    this.shadowRoot.appendChild(pmdTodayCardTemplate.content.cloneNode(true));
+    this._bound = false;
   }
 
   connectedCallback() {
-    const root = this.shadowRoot;
-    root.querySelector('smd-checkbox.job-checkbox').addEventListener('change', (e) => {
-      const checked = e.detail ? e.detail.checked : e.target.checked;
-      this.setAttribute('checked', checked ? 'true' : 'false');
-      this.dispatchEvent(new CustomEvent('pmd-today-toggle', {
-        bubbles: true,
-        composed: true,
-        detail: { jobId: this.getAttribute('job-id') || '', checked }
-      }));
-    });
-    root.querySelector('.job-view-btn').addEventListener('click', () => {
-      this.dispatchEvent(new CustomEvent('pmd-today-view', {
-        bubbles: true,
-        composed: true,
-        detail: {
-          streamIdx: parseInt(this.getAttribute('stream-idx'), 10),
-          jobIdx: parseInt(this.getAttribute('job-idx'), 10)
-        }
-      }));
-    });
-    this._setupSwipe();
+    if (!this._bound) {
+      this._bound = true;
+      this.appendChild(pmdTodayCardTemplate.content.cloneNode(true));
+      this._adoptSlottedHandle();
+      this.querySelector('smd-checkbox.job-checkbox').addEventListener('change', (e) => {
+        const checked = e.detail ? e.detail.checked : e.target.checked;
+        this.setAttribute('checked', checked ? 'true' : 'false');
+        this.dispatchEvent(new CustomEvent('pmd-today-toggle', {
+          bubbles: true,
+          composed: true,
+          detail: { jobId: this.getAttribute('job-id') || '', checked }
+        }));
+      });
+      this.querySelector('.job-view-btn').addEventListener('click', () => {
+        this.dispatchEvent(new CustomEvent('pmd-today-view', {
+          bubbles: true,
+          composed: true,
+          detail: {
+            streamIdx: parseInt(this.getAttribute('stream-idx'), 10),
+            jobIdx: parseInt(this.getAttribute('job-idx'), 10)
+          }
+        }));
+      });
+      this._setupSwipe();
+    }
     this._render();
   }
 
@@ -226,13 +113,18 @@ class PmdTodayCard extends HTMLElement {
     if (this.isConnected) this._render();
   }
 
-  // Horizontal swipe gesture on the card body (pointer events = mouse + touch).
-  // Left past the threshold -> pmd-today-delete, right past the threshold ->
-  // pmd-today-tomorrow. The card follows the pointer with resistance and fades,
-  // slides fully off past the threshold, then emits the event. Vertical pans are
-  // left to the browser (touch-action: pan-y) and a *small* horizontal drag starts
-  // no gesture, so taps on the checkbox/View button and Sortable'd drag-handle
-  // drags still work.
+  // Move a consumer-provided drag handle (appended straight onto the host with
+  // slot="drag-handle") into the handle cell and drop our built-in fallback.
+  _adoptSlottedHandle() {
+    const external = this.querySelector(':scope > smd-draghandle.drag-handle');
+    if (!external) return;
+    const fallback = this.querySelector('.handle-col > smd-draghandle.drag-handle');
+    if (fallback) fallback.remove();
+    external.removeAttribute('slot');
+    const cell = this.querySelector('.handle-col');
+    if (cell) cell.insertBefore(external, cell.firstChild);
+  }
+
   _setupSwipe() {
     if (this._swipeBound) return;
     this._swipeBound = true;
@@ -336,7 +228,7 @@ class PmdTodayCard extends HTMLElement {
   }
 
   _render() {
-    const root = this.shadowRoot;
+    const root = this;
     const keyPrefix = this.getAttribute('key-prefix') || smdImagePrefix();
 
     root.querySelector('.job-title').textContent = this.getAttribute('title') || '';
@@ -396,4 +288,7 @@ class PmdTodayCard extends HTMLElement {
   }
 }
 
-customElements.define('pmd-today-card', PmdTodayCard);
+if (!window.customElements.get('pmd-today-card')) {
+  customElements.define('pmd-today-card', PmdTodayCard);
+}
+window.PmdTodayCard = PmdTodayCard;

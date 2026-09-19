@@ -1,5 +1,7 @@
-// Resolve the buy-me-a-coffee image relative to THIS component file so it works
-// whether the shared library is served from a sibling `shared/` folder or under a sub-path.
+// <smd-buymeacoffee> — a Buy Me A Coffee button (light DOM).
+//
+// Resolve the image relative to THIS component file so it works whether the
+// shared library is served from a sibling `shared/` folder or under a sub-path.
 const BMC_IMAGE = (function () {
   const src = document.currentScript && document.currentScript.src;
   if (src) return new URL('../../vendor/bmc-default-yellow.png', src).href;
@@ -13,7 +15,7 @@ class SmdBuyMeACoffee extends HTMLElement {
 
   constructor() {
     super();
-    this.attachShadow({ mode: 'open' });
+    this._rendered = false;
   }
 
   get username() {
@@ -49,9 +51,12 @@ class SmdBuyMeACoffee extends HTMLElement {
 
     link.appendChild(img);
 
-    this.shadowRoot.innerHTML = '';
-    this.shadowRoot.appendChild(link);
+    this.innerHTML = '';
+    this.appendChild(link);
   }
 }
 
-customElements.define('smd-buymeacoffee', SmdBuyMeACoffee);
+if (!window.customElements.get('smd-buymeacoffee')) {
+  customElements.define('smd-buymeacoffee', SmdBuyMeACoffee);
+}
+window.SmdBuyMeACoffee = SmdBuyMeACoffee;

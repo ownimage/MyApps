@@ -1,4 +1,5 @@
-// <smd-image-card> — a card for a single entry of a localStorage images list.
+// <smd-image-card> — a card for a single entry of a localStorage images list
+// (light DOM). Styles live in shared/css/styles.css.
 //
 // Shared/reusable: image lookup is delegated to <smd-image>, so only the
 // storage key prefix is needed (`key-prefix`, list key = keyPrefix + "images")
@@ -10,57 +11,6 @@
 // event: detail = { action: "delete" | "duplicate" | "edit", index }.
 (function (global) {
   "use strict";
-
-  const smdImageCardSheet = SmdStyles.sheetFor(`
-  :host { display: block; }
-  .card {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    background-color: var(--bs-dark-border-subtle, #303030);
-    border: 1px solid var(--bs-border-color, #495057);
-    border-radius: 0.375rem;
-    padding: 1rem;
-    margin-bottom: 0.5rem;
-    min-width: 0;
-  }
-  .thumb {
-    flex-shrink: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-  .editor-title {
-    font-size: var(--smd-type-h1, 1rem);
-    font-weight: 700;
-    flex: 1;
-    min-width: 0;
-    color: inherit;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .image-actions { display: flex; gap: 1rem; flex-shrink: 0; }
-  .image-actions .btn {
-    width: 36px;
-    height: 36px;
-    padding: 0;
-    border: none;
-    border-radius: 4px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    color: var(--smd-primary-text, #fff);
-    flex-shrink: 0;
-    transition: opacity 0.2s;
-  }
-  .image-actions .btn:hover { opacity: 0.85; }
-  .image-actions .btn-danger { background: var(--bs-danger, #dc3545); color: var(--smd-danger-text, #fff); }
-  .image-actions .btn-info { background: var(--bs-info, #0dcaf0); color: var(--smd-info-text, #fff); }
-  .image-actions .btn-primary { background: var(--bs-primary, #0d6efd); color: var(--smd-primary-text, #fff); }
-  .image-actions .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-`);
 
   const smdImageCardTemplate = document.createElement("template");
   smdImageCardTemplate.innerHTML = `
@@ -92,21 +42,29 @@
 
     constructor() {
       super();
-      this.attachShadow({ mode: "open" });
-      SmdStyles.adoptStyles(this.shadowRoot, [SmdStyles.hiddenSheet, SmdStyles.btnBadgeSheet, smdImageCardSheet]);
-      this.shadowRoot.appendChild(smdImageCardTemplate.content.cloneNode(true));
+      this._bound = false;
+      this._built = false;
+    }
+
+    _build() {
+      if (this._built) return;
+      this._built = true;
+      this.appendChild(smdImageCardTemplate.content.cloneNode(true));
     }
 
     connectedCallback() {
-      const root = this.shadowRoot;
-      root.querySelector('[data-action="delete"]').addEventListener("click", () => this._emit("delete"));
-      root.querySelector('[data-action="duplicate"]').addEventListener("click", () => this._emit("duplicate"));
-      root.querySelector('[data-action="edit"]').addEventListener("click", () => this._emit("edit"));
+      this._build();
+      if (!this._bound) {
+        this._bound = true;
+        this.querySelector('[data-action="delete"]').addEventListener("click", () => this._emit("delete"));
+        this.querySelector('[data-action="duplicate"]').addEventListener("click", () => this._emit("duplicate"));
+        this.querySelector('[data-action="edit"]').addEventListener("click", () => this._emit("edit"));
+      }
       this._render();
     }
 
     attributeChangedCallback() {
-      if (this.isConnected) this._render();
+      if (this._built) this._render();
     }
 
     _emit(action) {
@@ -122,22 +80,21 @@
     }
 
     _render() {
-      const root = this.shadowRoot;
       const name = this.getAttribute("image") || "";
       const title = this.getAttribute("title") || name;
       const inUse = this.hasAttribute("in-use");
 
-      const sImg = root.querySelector(".thumb smd-image");
+      const sImg = this.querySelector(".thumb smd-image");
       sImg.setAttribute("key-prefix", this.keyPrefix);
       if (name) sImg.setAttribute("image", name);
       else sImg.removeAttribute("image");
 
-      const thumb = root.querySelector(".thumb");
+      const thumb = this.querySelector(".thumb");
       thumb.hidden = !name;
 
-      root.querySelector(".editor-title").textContent = title;
+      this.querySelector(".editor-title").textContent = title;
 
-      const delBtn = root.querySelector('[data-action="delete"]');
+      const delBtn = this.querySelector('[data-action="delete"]');
       if (inUse) delBtn.setAttribute("disabled", "");
       else delBtn.removeAttribute("disabled");
     }

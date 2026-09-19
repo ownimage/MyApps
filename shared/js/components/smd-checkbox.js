@@ -1,10 +1,15 @@
-// <smd-checkbox> — the shared, themed checkbox used across the app.
+// <smd-checkbox> — the shared, themed checkbox used across the app (light DOM).
 //
-// Renders a native checkbox inside the shadow root so every checkbox shares one
-// look. The host itself is ARIA-checkable (`role=checkbox|switch` +
-// `aria-checked`) so assistive tech — and Playwright's check()/toBeChecked() —
-// treat it like a real checkbox. Clicking anywhere on the built-in label toggles
-// it; a `switch` attribute renders a pill toggle instead of a square.
+// Renders a native checkbox inside the host in the light DOM so every checkbox
+// shares one look (styles live in shared/css/styles.css, element-scoped). The
+// host itself is ARIA-checkable (`role=checkbox|switch` + `aria-checked`) so
+// assistive tech — and Playwright's check()/toBeChecked() — treat it like a real
+// checkbox. Clicking anywhere on the built-in label toggles it; a `switch`
+// attribute renders a pill toggle instead of a square.
+//
+// The light text inside the host is the label (captured on first connect, like
+// smd-button). The checkbox input also carries the host-id suffix "-input" for
+// stable test locators.
 //
 // Attributes:
 //   checked   — boolean; the checkbox state
@@ -20,104 +25,16 @@
 (function (global) {
   "use strict";
 
-  const smdCheckboxSheet = SmdStyles.sheetFor(`
-    :host {
-      display: inline-flex;
-      align-items: center;
-      vertical-align: middle;
-      cursor: pointer;
-    }
-    :host([disabled]) { cursor: not-allowed; opacity: 0.55; }
-    label {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.4em;
-      margin: 0;
-      cursor: inherit;
-    }
-    input {
-      flex: 0 0 auto;
-      display: inline-grid;
-      place-content: center;
-      width: 1.15em;
-      height: 1.15em;
-      margin: 0;
-      padding: 0;
-      vertical-align: middle;
-      appearance: none;
-      -webkit-appearance: none;
-      background-color: var(--bs-secondary-bg, #495057);
-      border: 1px solid var(--bs-secondary-color, #6c757d);
-      border-radius: 0.25em;
-      cursor: inherit;
-      transition: background-color 0.15s ease-in-out, border-color 0.15s ease-in-out;
-    }
-    input::before {
-      content: "";
-      width: 0.65em;
-      height: 0.65em;
-      transform: scale(0);
-      transform-origin: center;
-      transition: transform 0.12s ease-in-out;
-      box-shadow: inset 1em 1em var(--smd-primary-text, #fff);
-      clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
-    }
-    input:checked {
-      background-color: var(--bs-primary, #0d6efd);
-      border-color: var(--bs-primary, #0d6efd);
-    }
-    input:checked::before { transform: scale(1); }
-    input:focus-visible {
-      outline: 2px solid var(--bs-primary, #0d6efd);
-      outline-offset: 1px;
-    }
-
-    /* switch (pill) variant */
-    :host([switch]) input {
-      position: relative;
-      display: inline-block;
-      width: 2.5em;
-      height: 1.5em;
-      border-radius: 2em;
-      background-color: var(--bs-secondary-bg, #495057);
-      transition: background-color 0.15s ease-in-out, border-color 0.15s ease-in-out;
-    }
-    :host([switch]) input::before {
-      content: "";
-      position: absolute;
-      top: 0.15em;
-      left: 0.15em;
-      width: 1.2em;
-      height: 1.2em;
-      border-radius: 50%;
-      background-color: #fff;
-      box-shadow: none;
-      clip-path: none;
-      transform: none;
-      transition: transform 0.15s ease-in-out;
-    }
-    :host([switch]) input:checked {
-      background-color: var(--bs-primary, #0d6efd);
-      border-color: var(--bs-primary, #0d6efd);
-    }
-    :host([switch]) input:checked::before { transform: translateX(1em); }
-  `);
-
   const smdCheckboxTemplate = document.createElement("template");
-  smdCheckboxTemplate.innerHTML = `<label><input type="checkbox"><slot></slot></label>`;
+  smdCheckboxTemplate.innerHTML = `<label><input type="checkbox"><span class="checkbox-label"></span></label>`;
 
-  // Touch size: a VALUE, not a style. The font-size applies to the INPUT only,
-  // so the control (all its em-based dimensions) scales while the slotted label
-  // text stays the same size. Set once from the app via setDefaultSize().
-  const SIZE_CSS = {
-    normal: "input { font-size: 1em; }",
-    large: "input { font-size: 1.4em; }"
+  // Touch size: a VALUE, not a style. It is published as --smd-checkbox-input-size
+  // on the host so the input (and all its em-based dimensions) scales while the
+  // label text stays the same size. Set once from the app via setDefaultSize().
+  const SIZES = {
+    normal: "1em",
+    large: "1.4em"
   };
-  const sizeSheetCache = Object.create(null);
-  function sizeSheet(size) {
-    if (!sizeSheetCache[size]) sizeSheetCache[size] = SmdStyles.sheetFor(SIZE_CSS[size]);
-    return sizeSheetCache[size];
-  }
   const liveInstances = new Set();
 
   class SmdCheckbox extends HTMLElement {
@@ -127,20 +44,25 @@
 
     constructor() {
       super();
-      this.attachShadow({ mode: "open" });
-      this.shadowRoot.appendChild(smdCheckboxTemplate.content.cloneNode(true));
-      this._input = this.shadowRoot.querySelector("input");
+      this._label = undefined;
+    }
+
+    connectedCallback() {
+      // Capture the authored label once (before our render replaces light text).
+      if (this._label === undefined) {
+        this._label = this.textContent.replace(/^\s+|\s+$/g, "");
+      }
+      this.innerHTML = "";
+      this.appendChild(smdCheckboxTemplate.content.cloneNode(true));
+      this._input = this.querySelector("input");
+      this.querySelector(".checkbox-label").textContent = this._label || "";
       this._input.addEventListener("change", () => {
         this._syncCheckedAttr();
         this._emit();
       });
-      this._applySize();
-    }
 
-    connectedCallback() {
       // If the host was assigned `.checked`/`.disabled` as a plain property
-      // before it upgraded (common for nodes inside a freshly-created shadow
-      // root), that own property shadows our accessor. Fold it into attributes.
+      // before it upgraded, that own property shadows our accessor. Fold it in.
       ["checked", "disabled"].forEach((prop) => {
         if (Object.prototype.hasOwnProperty.call(this, prop)) {
           const value = this[prop];
@@ -151,6 +73,7 @@
       });
       liveInstances.add(this);
       this._sync();
+      this._applySize();
     }
 
     disconnectedCallback() {
@@ -158,8 +81,10 @@
     }
 
     attributeChangedCallback() {
-      if (this._input) this._sync();
-      this._applySize();
+      if (this.isConnected) {
+        if (this._input) this._sync();
+        this._applySize();
+      }
     }
 
     get checked() { return this.hasAttribute("checked"); }
@@ -176,16 +101,16 @@
 
     _size() {
       const value = (this.getAttribute("size") || SmdCheckbox.defaultSize || "normal").toLowerCase();
-      return SIZE_CSS[value] ? value : "normal";
+      return SIZES[value] ? value : "normal";
     }
 
     _applySize() {
-      // Size sheet kept LAST and replaced (not appended) so a later size wins.
-      this.shadowRoot.adoptedStyleSheets = [smdCheckboxSheet, sizeSheet(this._size())];
+      this.style.setProperty("--smd-checkbox-input-size", SIZES[this._size()] || "1em");
     }
 
     _sync() {
       const input = this._input;
+      if (!input) return;
       input.checked = this.hasAttribute("checked");
       input.disabled = this.hasAttribute("disabled");
       if (this.id) input.id = this.id + "-input";
@@ -216,7 +141,7 @@
   SmdCheckbox.defaultSize = "normal";
 
   SmdCheckbox.setDefaultSize = function (value) {
-    const v = SIZE_CSS[value] ? value : "normal";
+    const v = SIZES[value] ? value : "normal";
     SmdCheckbox.defaultSize = v;
     liveInstances.forEach((el) => el._applySize());
   };

@@ -64,12 +64,9 @@ function buildSettingsContent() {
   }
   injectSettingsStyles();
   // App extras (full-width smd-buttons in the Danger tab, …) for the settings
-  // shadow roots, on top of the shared SETTINGS_STYLES.
+  // pages, on top of the shared SETTINGS_STYLES.
   if (typeof QRLINK_EDITOR_STYLES !== "undefined") {
-    const sp = document.getElementById("settingsPage");
-    if (sp && sp.shadowRoot) injectStyleInto(sp.shadowRoot, QRLINK_EDITOR_STYLES);
-    const tabs = $id("settingsTabs");
-    if (tabs && tabs.shadowRoot) injectStyleInto(tabs.shadowRoot, QRLINK_EDITOR_STYLES);
+    injectStyleInto(QRLINK_EDITOR_STYLES);
   }
 }
 

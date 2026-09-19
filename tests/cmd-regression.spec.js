@@ -210,7 +210,7 @@ test.describe("CountMyDays - Regression", () => {
       await page.locator("#iconSizeSelector").selectOption("small");
       const width = await page.evaluate(() => {
         const card = document.querySelector("cmd-countdown-card");
-        return getComputedStyle(card.shadowRoot.querySelector("smd-image")).width;
+        return getComputedStyle(card.querySelector("smd-image")).width;
       });
       expect(width).toBe("40px");
       await expect.poll(async () => page.evaluate(() => localStorage.getItem("countmydays_iconSize"))).toBe("small");
