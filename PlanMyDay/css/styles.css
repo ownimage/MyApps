@@ -1,13 +1,74 @@
 /* App-specific styles for PlanMyDay (shared/smd styles live in shared/css/styles.css) */
 
-/* Compact window density moved to shared/css/styles.css (PlanMyDay's values are
-   the shared defaults): body.compact .card / .card.p-3 / #countdownContainer
-   .mb-3 / .editor-btn / .btn-wide. The old .countdown-card rules were dead:
-   the today cards are pmd-job-today-card components now. */
+body.compact .countdown-card {
+  padding: 0.25rem 0.5rem;
+}
+body.compact .countdown-card .countdown-img,
+body.compact .countdown-card .date-img {
+  width: 48px !important;
+  height: 48px !important;
+}
+body.compact .card {
+  margin-bottom: 0.25rem !important;
+}
+body.compact #countdownContainer .mb-3 {
+  margin-bottom: 0.25rem !important;
+}
+body.compact .countdown-card h4 {
+  font-size: var(--smd-type-p) !important;
+}
+body.compact .countdown-card .h4 {
+  font-size: var(--smd-type-p) !important;
+}
+body.compact .countdown-card .row > div {
+  padding-top: 0.1rem;
+  padding-bottom: 0.1rem;
+}
+body.compact .countdown-card .mt-1 {
+  margin-top: 0 !important;
+}
+body.compact .countdown-card .mb-1 {
+  margin-bottom: 0 !important;
+}
+body.compact .countdown-card .gap-1 {
+  gap: 0.15rem !important;
+}
+body.compact .card.p-3 {
+  padding: 0.4rem 0.5rem !important;
+}
+body.compact .editor-btn {
+  min-width: 70px;
+}
+body.compact .btn-wide {
+  min-width: 160px;
+}
 
-/* Dead rules removed: .countdown-card (today cards are pmd-job-today-card),
-   .type-select / .date-day-select / .date-month-select / .flatpickr-date (the
-   date editor selects no longer use these classes). */
+.countdown-card {
+  border-width: 1px;
+  padding: 0.5rem 0.75rem;
+}
+
+.countdown-card .row {
+  flex-wrap: nowrap;
+}
+
+.type-select {
+  width: auto;
+  flex: 0 0 auto;
+}
+.date-day-select {
+  width: 100px;
+  flex-shrink: 0;
+}
+.date-month-select {
+  width: 100px;
+  flex-shrink: 0;
+}
+
+.flatpickr-date {
+  min-width: 120px;
+  width: 100%;
+}
 
 /* The per-app font-size ramp blocks were removed: the single shared ramp in
    shared/css/styles.css (the --smd-type-* tokens) now drives every app, and the
@@ -15,7 +76,7 @@
 
 /* pmd-job-today-card display settings. CSS custom properties inherit into the
    shadow root, unlike :host-context() which WebKit/Safari (iPhone) ignores.
-   The title defaults to the shared --smd-type-h2 token (see
+   The title defaults to the shared --smd-type-h1 token (see
    pmd-job-today-card.js); compact density just collapses it to body size. */
 body.compact {
   --pmd-today-padding: 0.25rem 0.5rem;
@@ -26,8 +87,15 @@ body.compact {
   --pmd-today-cell-padding: 0.1rem;
 }
 
-/* #countdownContainer layout (shared with CountMyDays/QRLinks) and the
-   #imagesEditor page spacing now live in shared/css/styles.css. */
+#countdownContainer {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 56px);
+  padding-top: 20px;
+}
+#countdownContainer > .flex-shrink-0 {
+  flex-shrink: 0;
+}
 
 #streamsEditor {
   padding-top: 20px;
@@ -40,6 +108,10 @@ body.compact {
 }
 #streamsEditor #streamEditorList {
   padding-bottom: 40px;
+}
+
+#imagesEditor {
+  padding-top: 20px;
 }
 
 .stream-accordion-item {
@@ -238,7 +310,7 @@ pmd-job-today-card .title-row {
 }
 pmd-job-today-card .title {
   margin: 0;
-  font-size: var(--pmd-today-title-size, var(--smd-type-h2, 1.25rem));
+  font-size: var(--pmd-today-title-size, var(--smd-type-h1, 1.5rem));
   font-weight: 800;
   min-width: 0;
 }
@@ -252,7 +324,7 @@ pmd-job-today-card .meta-row {
 pmd-job-today-card .stream-title {
   flex: 1 1 auto;
   min-width: 0;
-  font-size: var(--smd-type-p, 0.875em);
+  font-size: var(--smd-type-h2, 0.875em);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -261,6 +333,7 @@ pmd-job-today-card .job-view-btn {
   flex: 0 0 auto;
   padding: 0.25em 0.5em;
   line-height: 1;
+  font-weight: 700;
 }
 pmd-job-today-card .tab-badge {
   flex: 0 0 auto;

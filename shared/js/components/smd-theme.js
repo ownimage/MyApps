@@ -54,10 +54,7 @@
     }
 
     attributeChangedCallback() {
-      // Chromium connects elements DURING an innerHTML parse into an already
-      // connected host, so attributeChangedCallback can fire before our
-      // connectedCallback has stamped the <select>. Only render once rendered.
-      if (this.isConnected && this._rendered) this._render();
+      if (this.isConnected) this._render();
     }
 
     _render() {

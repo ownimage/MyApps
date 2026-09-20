@@ -157,10 +157,7 @@
     }
 
     attributeChangedCallback() {
-      // Chromium connects elements DURING an innerHTML parse into an already
-      // connected host, so attributeChangedCallback can fire before our
-      // connectedCallback has built the light-DOM shell. Only render once bound.
-      if (this.isConnected && this._bound) {
+      if (this.isConnected) {
         rootSearchShown(this);
         this._renderGrid();
       }

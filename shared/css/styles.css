@@ -185,22 +185,6 @@ body.auto-hide-menu #mainNav.nav-hidden ~ .container-fluid {
   opacity: 0.4;
 }
 
-/* MAIN CONTENT AREA + shared page regions (cross-app ids; the values follow
-   PlanMyDay - it is the only app that defined these, so they become the shared
-   baseline for CountMyDays/QRLinks too). */
-#countdownContainer {
-  display: flex;
-  flex-direction: column;
-  height: calc(100vh - 56px);
-  padding-top: 20px;
-}
-#countdownContainer > .flex-shrink-0 {
-  flex-shrink: 0;
-}
-#imagesEditor {
-  padding-top: 20px;
-}
-
 /* SETTINGS PAGE + TABS (generic settings shell) */
 #settingsPage {
   padding-top: 20px;
@@ -266,45 +250,6 @@ body.auto-hide-menu #mainNav.nav-hidden ~ .container-fluid {
 .build-number {
   color: var(--bs-body-color);
   opacity: 0.6;
-}
-
-/* Generic flash/alert messages (previously in SolarControlar) */
-.flash {
-  padding: 0.75rem 1rem;
-  margin-bottom: 1rem;
-  border-radius: 0.5rem;
-}
-.flash-success {
-  background: rgba(34, 197, 94, 0.15);
-  color: #22c55e;
-  border: 1px solid rgba(34, 197, 94, 0.3);
-}
-.flash-error {
-  background: rgba(239, 68, 68, 0.15);
-  color: #ef4444;
-  border: 1px solid rgba(239, 68, 68, 0.3);
-}
-.flash-info {
-  background: rgba(59, 130, 246, 0.15);
-  color: #3b82f6;
-  border: 1px solid rgba(59, 130, 246, 0.3);
-}
-
-/* Compact window density (PlanMyDay's values are the shared defaults). */
-body.compact .card {
-  margin-bottom: 0.25rem !important;
-}
-body.compact .card.p-3 {
-  padding: 0.4rem 0.5rem !important;
-}
-body.compact #countdownContainer .mb-3 {
-  margin-bottom: 0.25rem !important;
-}
-body.compact .editor-btn {
-  min-width: 70px;
-}
-body.compact .btn-wide {
-  min-width: 160px;
 }
 
 /* Sortable drag feedback (fallback clone lives on document.body) */

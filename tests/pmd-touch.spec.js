@@ -123,11 +123,11 @@ test.describe("PlanMyDay - iPhone 12 Pro touch", () => {
     const titleFontSize = () => page
       .locator("#todayCardList pmd-job-today-card .title").first()
       .evaluate((el) => parseFloat(getComputedStyle(el).fontSize));
-    // default saved font size is xlarge -> h2 token = 1.3rem * 1.25 = 1.625rem
-    expect(await titleFontSize()).toBeCloseTo(26, 0);
+    // default saved font size is xlarge -> h1 token = 1.3rem * 2 = 2.6rem
+    expect(await titleFontSize()).toBeCloseTo(41.6, 0);
     await page.evaluate(() => changeFontSize("jumbo"));
-    // jumbo -> h2 token = 1.6rem * 1.25 = 2rem
-    expect(await titleFontSize()).toBeCloseTo(32, 0);
+    // jumbo -> h1 token = 1.6rem * 2 = 3.2rem
+    expect(await titleFontSize()).toBeCloseTo(51.2, 0);
     await page.evaluate(() => changeDensity("compact"));
     // compact -> --pmd-today-title-size: var(--smd-type-p) = 1.6rem
     expect(await titleFontSize()).toBeCloseTo(25.6, 0);

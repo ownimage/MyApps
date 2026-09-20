@@ -135,6 +135,7 @@ function renderStreamsEditor() {
   var accordionHtml = "";
   sorted.forEach(function(t, displayIdx) {
     var realIdx = streams.indexOf(t);
+    var streamImageName = t.image || "";
     var jobs = t.jobs || [];
     var collapseId = "streamCollapse_" + realIdx;
     var isExpanded = expandedStreams.indexOf(realIdx) !== -1;
@@ -145,11 +146,13 @@ function renderStreamsEditor() {
       : "";
     var headerAttrs = [
       'stream-idx="' + realIdx + '"',
-      'stream="' + escAttr(JSON.stringify(t)) + '"',
+      'title="' + escAttr(t.title || "") + '"',
+      'tab="' + escAttr(t.tab || "progress") + '"',
       'key-prefix="' + escAttr(smdImagePrefix()) + '"',
       (isExpanded ? 'expanded' : ''),
       (jobs.length === 0 ? 'can-delete' : '')
     ];
+    if (streamImageName) headerAttrs.push('image="' + escAttr(streamImageName) + '"');
     if (headerJobCounts) headerAttrs.push('jobcounts="' + escAttr(headerJobCounts) + '"');
     var headerHtml = '<pmd-stream-header ' + headerAttrs.filter(Boolean).join(" ") + '></pmd-stream-header>';
 

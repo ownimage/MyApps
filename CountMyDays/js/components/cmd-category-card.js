@@ -44,10 +44,7 @@ class CmdCategoryCard extends HTMLElement {
   }
 
   attributeChangedCallback() {
-    // Chromium connects elements DURING an innerHTML parse into an already
-    // connected host, so attributeChangedCallback can fire before our
-    // connectedCallback has stamped the template. Only render once bound.
-    if (this.isConnected && this._bound) this._render();
+    if (this.isConnected) this._render();
   }
 
   _emit(type) {

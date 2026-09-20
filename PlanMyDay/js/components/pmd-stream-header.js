@@ -1,26 +1,3 @@
-// <pmd-stream-header> — the accordion header for one stream row on the Jobs
-// editor (light DOM).
-//
-// Takes the WHOLE stream object as one attribute and unpicks the display
-// fields itself — so changing what a header shows only touches this component,
-// never the callers.
-//
-// Attributes:
-//   stream       — the WHOLE stream JSON (title, image, tab…). Derived here.
-//   stream-idx   — stream index (echoed on pmd-header-toggle / pmd-edit /
-//                  pmd-add-job / pmd-delete details)
-//   expanded     — presence stripes the header + opens the accordion
-//   can-delete   — presence shows the Delete button
-//   jobcounts    — "due/active/total jobs" badge text (the editor computes it)
-//   key-prefix   — smd-image storage prefix (default: SmdConfig.imagePrefix)
-//
-// .stream is also exposed as a JS property (getter parses the attribute;
-// setter JSON-stringifies into it), so callers can pass the object without
-// escaping.
-//
-// Events:
-//   pmd-header-toggle — detail { streamIdx, expanded }
-//   pmd-edit / pmd-add-job / pmd-delete — detail { streamIdx }
 const pmdStreamHeaderTemplate = document.createElement('template');
 pmdStreamHeaderTemplate.innerHTML = `
   <div class="stream-accordion-header">
@@ -48,7 +25,7 @@ pmdStreamHeaderTemplate.innerHTML = `
 
 class PmdStreamHeader extends HTMLElement {
   static get observedAttributes() {
-    return ['stream-idx', 'stream', 'expanded', 'can-delete', 'jobcounts', 'key-prefix'];
+    return ['stream-idx', 'title', 'image', 'tab', 'expanded', 'can-delete', 'jobcounts', 'key-prefix'];
   }
 
   constructor() {
@@ -79,26 +56,6 @@ class PmdStreamHeader extends HTMLElement {
 
   get streamIdx() {
     return parseInt(this.getAttribute('stream-idx'), 10);
-  }
-
-  get stream() {
-    return this._parseAttr('stream');
-  }
-
-  set stream(value) {
-    if (value === undefined || value === null) this.removeAttribute('stream');
-    else this.setAttribute('stream', JSON.stringify(value));
-  }
-
-  _parseAttr(name) {
-    const raw = this.getAttribute(name);
-    if (!raw) return {};
-    try {
-      const parsed = JSON.parse(raw);
-      return parsed && typeof parsed === 'object' ? parsed : {};
-    } catch (err) {
-      return {};
-    }
   }
 
   set expanded(v) {
@@ -143,11 +100,10 @@ class PmdStreamHeader extends HTMLElement {
 
   _render() {
     const root = this;
-    const stream = this.stream;
     const expanded = this.hasAttribute('expanded');
-    const title = stream.title || '';
-    const image = stream.image || '';
-    const tab = stream.tab || 'progress';
+    const title = this.getAttribute('title') || '';
+    const image = this.getAttribute('image') || '';
+    const tab = this.getAttribute('tab') || 'progress';
     const canDelete = this.hasAttribute('can-delete');
     const jobcounts = this.getAttribute('jobcounts') || '';
 

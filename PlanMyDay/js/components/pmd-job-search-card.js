@@ -1,24 +1,3 @@
-// <pmd-job-search-card> — a single job row on the Search Jobs list (light DOM;
-// the host carries bootstrap `card p-2 mb-2`).
-//
-// Takes the WHOLE job object (and the whole stream object it belongs to) as
-// one attribute each, and unpicks the display fields itself — so changing what
-// a search result shows only touches this component, never the callers.
-//
-// Attributes:
-//   job          — the WHOLE job JSON (id, title, image, suffix, dayType, mod,
-//                  schedule, time, sleepUntil, waitFor, active…). Derived here.
-//   stream       — the WHOLE stream JSON (title, image, tab…). Derived here.
-//   stream-idx   — stream index (echoed on pmd-job-edit / pmd-job-toggle-active)
-//   job-idx      — job index (echoed on those events)
-//
-// .job / .stream are also exposed as JS properties (getter parses the matching
-// attribute; setter JSON-stringifies into it), so callers can pass objects
-// without escaping.
-//
-// Events:
-//   pmd-job-edit         — detail { streamIdx, jobIdx }
-//   pmd-job-toggle-active — detail { streamIdx, jobIdx, checked }
 const pmdJobSearchCardTemplate = document.createElement('template');
 pmdJobSearchCardTemplate.innerHTML = `
   <div class="row1">
@@ -41,7 +20,7 @@ pmdJobSearchCardTemplate.innerHTML = `
 
 class PmdJobSearchCard extends HTMLElement {
   static get observedAttributes() {
-    return ['stream-idx', 'job-idx', 'job', 'stream'];
+    return ['stream-idx', 'job-idx', 'title', 'image', 'stream-image', 'stream-title', 'tab', 'suffix', 'schedule', 'time', 'extra', 'active', 'key-prefix'];
   }
 
   constructor() {
@@ -77,35 +56,6 @@ class PmdJobSearchCard extends HTMLElement {
     if (this.isConnected && this._bound) this._render();
   }
 
-  get job() {
-    return this._parseAttr('job');
-  }
-
-  set job(value) {
-    if (value === undefined || value === null) this.removeAttribute('job');
-    else this.setAttribute('job', JSON.stringify(value));
-  }
-
-  get stream() {
-    return this._parseAttr('stream');
-  }
-
-  set stream(value) {
-    if (value === undefined || value === null) this.removeAttribute('stream');
-    else this.setAttribute('stream', JSON.stringify(value));
-  }
-
-  _parseAttr(name) {
-    const raw = this.getAttribute(name);
-    if (!raw) return {};
-    try {
-      const parsed = JSON.parse(raw);
-      return parsed && typeof parsed === 'object' ? parsed : {};
-    } catch (err) {
-      return {};
-    }
-  }
-
   _emit(type) {
     this.dispatchEvent(new CustomEvent(type, {
       bubbles: true,
@@ -119,14 +69,23 @@ class PmdJobSearchCard extends HTMLElement {
 
   _render() {
     const root = this;
-    const job = this.job;
-    const stream = this.stream;
+    const title = this.getAttribute('title') || '';
+    const image = this.getAttribute('image') || '';
+    const streamImage = this.getAttribute('stream-image') || '';
+    const streamTitle = this.getAttribute('stream-title') || '';
+    const tab = this.getAttribute('tab') || 'progress';
+    const suffix = this.getAttribute('suffix') || '';
+    const schedule = this.getAttribute('schedule') || '';
+    const time = this.getAttribute('time') || '';
+    const extra = this.getAttribute('extra') || '';
+    const active = this.getAttribute('active') !== 'false';
 
-    root.querySelector('.job-title').textContent = job.title || '';
+    root.querySelector('.job-title').textContent = title;
 
     const setThumb = (thumbCls, src) => {
       const thumb = root.querySelector(thumbCls);
       const sImg = thumb.querySelector('smd-image');
+      sImg.setAttribute('key-prefix', this.getAttribute('key-prefix') || smdImagePrefix());
       // The thumb wrapper always stays in place (even with no image) so job
       // titles line up in the results list.
       if (src) {
@@ -135,31 +94,24 @@ class PmdJobSearchCard extends HTMLElement {
         sImg.removeAttribute('image');
       }
     };
-    setThumb('.stream-thumb', stream.image || '');
-    setThumb('.job-thumb', job.image || '');
+    setThumb('.stream-thumb', streamImage);
+    setThumb('.job-thumb', image);
 
     const suffixEl = root.querySelector('.suffix');
-    const suffix = this._jobSuffix(job).trim();
-    if (suffix) {
-      suffixEl.textContent = suffix;
+    if (suffix.trim()) {
+      suffixEl.textContent = suffix.trim();
       suffixEl.hidden = false;
     } else {
       suffixEl.hidden = true;
     }
 
-    root.querySelector('.stream-title').textContent = stream.title || '';
+    root.querySelector('.stream-title').textContent = streamTitle;
 
-    const tab = stream.tab || 'progress';
     const tabBadge = root.querySelector('.tab-badge');
     tabBadge.textContent = tab;
     tabBadge.setAttribute('variant', tab === 'progress' ? 'success' : 'info');
 
     const extraEl = root.querySelector('.extra');
-    const extra = (job.sleepUntil && job.sleepUntil.trim())
-      ? 'Sleep: ' + this._formatDate(job.sleepUntil)
-      : (job.waitFor && job.waitFor.trim())
-        ? 'Wait: ' + job.waitFor.trim()
-        : '';
     if (extra) {
       extraEl.textContent = extra;
       extraEl.hidden = false;
@@ -167,10 +119,9 @@ class PmdJobSearchCard extends HTMLElement {
       extraEl.hidden = true;
     }
 
-    root.querySelector('.schedule').textContent = this._scheduleText(job.schedule);
+    root.querySelector('.schedule').textContent = schedule;
 
     const timeEl = root.querySelector('.time');
-    const time = (job.time && job.time.trim()) ? job.time.trim() : '';
     if (time) {
       timeEl.textContent = time;
       timeEl.hidden = false;
@@ -178,78 +129,7 @@ class PmdJobSearchCard extends HTMLElement {
       timeEl.hidden = true;
     }
 
-    root.querySelector('smd-checkbox.active-toggle').checked = job.active !== false;
-  }
-
-  _today() {
-    const dev = localStorage.getItem('devToday');
-    return dev ? new Date(dev + 'T00:00:00') : new Date();
-  }
-
-  _formatDate(dateStr) {
-    if (!dateStr) return '';
-    const d = new Date(dateStr + 'T00:00:00');
-    if (isNaN(d.getTime())) return dateStr;
-    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    return dayNames[d.getDay()] + ' ' + d.getDate() + ' ' + monthNames[d.getMonth()] + ' ' + d.getFullYear();
-  }
-
-  // Ported from PlanMyDay getScheduleText() so the job-derived schedule text
-  // lives entirely in the component (changing it never touches the callers).
-  _scheduleText(schedule) {
-    if (!schedule) return 'Every day';
-    const s = schedule.type || 'daily';
-    if (s === 'daily') return 'Every day';
-    if (s === 'weekdays') return 'Weekdays (Mon\u2013Fri)';
-    if (s === 'weekends') return 'Weekends (Sat\u2013Sun)';
-    if (s === 'days') {
-      const names = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-      return (schedule.days || []).map(d => names[d]).join(', ');
-    }
-    if (s === 'monthly') return (schedule.date || 1) + 'th of every month';
-    if (s === 'ndays') return 'Every ' + (schedule.interval || 2) + ' day(s)';
-    return 'Every day';
-  }
-
-  // Ported from PlanMyDay getJobSuffix() so the job-derived suffix display
-  // lives entirely in the component (changing it never touches the callers).
-  _jobSuffix(job) {
-    if (!job || !job.suffix) return '';
-    const today = this._today();
-    const dayType = job.dayType || 'dayOfYear';
-    let dayNum;
-
-    if (dayType === 'dayOfWeek') {
-      dayNum = today.getDay();
-      const mondaySetting = localStorage.getItem(smdKey('monday')) || '1';
-      if (mondaySetting === '1') {
-        dayNum = dayNum === 0 ? 7 : dayNum;
-      } else {
-        dayNum = dayNum === 0 ? 6 : dayNum - 1;
-      }
-    } else if (dayType === 'dayOfMonth') {
-      dayNum = today.getDate();
-    } else {
-      const startOfYear = new Date(today.getFullYear(), 0, 0);
-      dayNum = Math.floor((today - startOfYear) / 86400000);
-      const jan1Setting = localStorage.getItem(smdKey('jan1')) || '0';
-      if (jan1Setting === '0') {
-        dayNum -= 1;
-      }
-    }
-
-    if (job.mod && job.mod !== '') {
-      const modVal = parseInt(job.mod, 10);
-      if (modVal > 0) {
-        dayNum = dayNum % modVal;
-      }
-    }
-
-    const suffixStart = localStorage.getItem(smdKey('suffixStart')) || '0';
-    if (suffixStart === '1') dayNum += 1;
-
-    return ' (' + dayNum + ')';
+    root.querySelector('smd-checkbox.active-toggle').checked = active;
   }
 }
 
