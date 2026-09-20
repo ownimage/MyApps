@@ -1,9 +1,4 @@
-// <pmd-job-today-card> — a single job row on the Today list (light DOM).
-//
-// Naming: pmd = PlanMyDay, job = the data it displays. The card takes the WHOLE
-// job object (and the whole stream object it belongs to) as one attribute each,
-// and unpicks the display fields itself — so changing what a job shows (e.g. a
-// future task count) only touches this component, never the callers.
+// <pmd-today-card> — a single job row on the Today list (light DOM).
 //
 // Owns its own layout (drag handle, completion checkbox + daily-repeat icon,
 // stream/job thumbnails, title + suffix, stream title, View button, tab badge,
@@ -22,30 +17,32 @@
 // handle into the handle cell and drops its own fallback.
 //
 // Attributes:
-//   job            — the WHOLE job JSON (id, title, image, description, suffix,
-//                    dayType, mod, schedule…). Display fields are derived here.
-//   stream         — the WHOLE stream JSON (title, image, tab…). Derived here.
-//   stream-idx     — stream index (echoed on pmd-job-today-view)
-//   job-idx        — job index (echoed on pmd-job-today-view)
-//   done           — presence dims the card + strikes through the title
-//   checked        — checkbox state ("true"/"false")
-//   key-prefix     — smd-image storage prefix (default: SmdConfig.imagePrefix)
-//
-// .job / .stream are also exposed as JS properties (getter parses the matching
-// attribute; setter JSON-stringifies into it), so callers can pass objects
-// without escaping.
+//   job-id        — job id (echoed on pmd-today-toggle, set as data-job-id on the checkbox)
+//   stream-idx    — stream index (echoed on pmd-today-view)
+//   job-idx       — job index (echoed on pmd-today-view)
+//   title         — job title
+//   suffix        — optional suffix badge text
+//   daily         — presence shows the bootstrap `repeat-1` icon (Every day)
+//   done          — presence dims the card + strikes through the title
+//   checked       — checkbox state ("true"/"false")
+//   stream-image  — stream image name (rendered via smd-image)
+//   job-image     — job image name (rendered via smd-image)
+//   stream-title  — stream title shown under the stream thumbnail, on the badge row
+//   tab           — "progress" (success badge) | "maintenance" (info badge)
+//   description   — optional description line
+//   key-prefix    — smd-image storage prefix (default: SmdConfig.imagePrefix)
 //
 // Events:
-//   pmd-job-today-toggle — detail { jobId, checked }
-//   pmd-job-today-view   — detail { streamIdx, jobIdx }
-//   pmd-job-today-delete — horizontal swipe LEFT past the threshold (detail { jobId, streamIdx, jobIdx });
-//                          the card animates off before this fires — the app opens the delete confirm.
-//   pmd-job-today-tomorrow — horizontal swipe RIGHT past the threshold (same detail); the card animates
-//                          off before it fires — the app snoozes the job (sleepUntil = tomorrow).
+//   pmd-today-toggle — detail { jobId, checked }
+//   pmd-today-view   — detail { streamIdx, jobIdx }
+//   pmd-today-delete — horizontal swipe LEFT past the threshold (detail { jobId, streamIdx, jobIdx });
+//                      the card animates off before this fires — the app opens the delete confirm.
+//   pmd-today-tomorrow — horizontal swipe RIGHT past the threshold (same detail); the card animates
+//                      off before it fires — the app snoozes the job (sleepUntil = tomorrow).
 //   Methods:
 //   snapBackSwipe() — slide a swiped-out card back into place (used when a delete confirm is cancelled).
-const pmdJobTodayCardTemplate = document.createElement('template');
-pmdJobTodayCardTemplate.innerHTML = `
+const pmdTodayCardTemplate = document.createElement('template');
+pmdTodayCardTemplate.innerHTML = `
   <div class="row">
     <div class="handle-col">
       <smd-draghandle class="drag-handle"></smd-draghandle>
@@ -72,9 +69,10 @@ pmdJobTodayCardTemplate.innerHTML = `
   </div>
 `;
 
-class PmdJobTodayCard extends HTMLElement {
+class PmdTodayCard extends HTMLElement {
   static get observedAttributes() {
-    return ['job', 'stream', 'stream-idx', 'job-idx', 'done', 'checked', 'key-prefix'];
+    return ['job-id', 'title', 'suffix', 'daily', 'done', 'checked',
+      'stream-image', 'job-image', 'stream-title', 'tab', 'description', 'key-prefix'];
   }
 
   constructor() {
@@ -85,19 +83,19 @@ class PmdJobTodayCard extends HTMLElement {
   connectedCallback() {
     if (!this._bound) {
       this._bound = true;
-      this.appendChild(pmdJobTodayCardTemplate.content.cloneNode(true));
+      this.appendChild(pmdTodayCardTemplate.content.cloneNode(true));
       this._adoptSlottedHandle();
       this.querySelector('smd-checkbox.job-checkbox').addEventListener('change', (e) => {
         const checked = e.detail ? e.detail.checked : e.target.checked;
         this.setAttribute('checked', checked ? 'true' : 'false');
-        this.dispatchEvent(new CustomEvent('pmd-job-today-toggle', {
+        this.dispatchEvent(new CustomEvent('pmd-today-toggle', {
           bubbles: true,
           composed: true,
-          detail: { jobId: this._jobId(), checked }
+          detail: { jobId: this.getAttribute('job-id') || '', checked }
         }));
       });
       this.querySelector('.job-view-btn').addEventListener('click', () => {
-        this.dispatchEvent(new CustomEvent('pmd-job-today-view', {
+        this.dispatchEvent(new CustomEvent('pmd-today-view', {
           bubbles: true,
           composed: true,
           detail: {
@@ -112,28 +110,7 @@ class PmdJobTodayCard extends HTMLElement {
   }
 
   attributeChangedCallback() {
-    // Chromium connects elements DURING an innerHTML parse into an already
-    // connected host, so attributeChangedCallback can fire before our
-    // connectedCallback has stamped the template. Only render once _bound.
-    if (this.isConnected && this._bound) this._render();
-  }
-
-  get job() {
-    return this._parseAttr('job');
-  }
-
-  set job(value) {
-    if (value === undefined || value === null) this.removeAttribute('job');
-    else this.setAttribute('job', JSON.stringify(value));
-  }
-
-  get stream() {
-    return this._parseAttr('stream');
-  }
-
-  set stream(value) {
-    if (value === undefined || value === null) this.removeAttribute('stream');
-    else this.setAttribute('stream', JSON.stringify(value));
+    if (this.isConnected) this._render();
   }
 
   // Move a consumer-provided drag handle (appended straight onto the host with
@@ -146,66 +123,6 @@ class PmdJobTodayCard extends HTMLElement {
     external.removeAttribute('slot');
     const cell = this.querySelector('.handle-col');
     if (cell) cell.insertBefore(external, cell.firstChild);
-  }
-
-  _parseAttr(name) {
-    const raw = this.getAttribute(name);
-    if (!raw) return {};
-    try {
-      const parsed = JSON.parse(raw);
-      return parsed && typeof parsed === 'object' ? parsed : {};
-    } catch (err) {
-      return {};
-    }
-  }
-
-  _jobId() {
-    return this.job.id || '';
-  }
-
-  _today() {
-    const dev = localStorage.getItem('devToday');
-    return dev ? new Date(dev + 'T00:00:00') : new Date();
-  }
-
-  // Ported from PlanMyDay getJobSuffix() so the job-derived suffix display lives
-  // entirely in the component (changing it never touches the callers).
-  _jobSuffix(job) {
-    if (!job || !job.suffix) return '';
-    const today = this._today();
-    const dayType = job.dayType || 'dayOfYear';
-    let dayNum;
-
-    if (dayType === 'dayOfWeek') {
-      dayNum = today.getDay();
-      const mondaySetting = localStorage.getItem(smdKey('monday')) || '1';
-      if (mondaySetting === '1') {
-        dayNum = dayNum === 0 ? 7 : dayNum;
-      } else {
-        dayNum = dayNum === 0 ? 6 : dayNum - 1;
-      }
-    } else if (dayType === 'dayOfMonth') {
-      dayNum = today.getDate();
-    } else {
-      const startOfYear = new Date(today.getFullYear(), 0, 0);
-      dayNum = Math.floor((today - startOfYear) / 86400000);
-      const jan1Setting = localStorage.getItem(smdKey('jan1')) || '0';
-      if (jan1Setting === '0') {
-        dayNum -= 1;
-      }
-    }
-
-    if (job.mod && job.mod !== '') {
-      const modVal = parseInt(job.mod, 10);
-      if (modVal > 0) {
-        dayNum = dayNum % modVal;
-      }
-    }
-
-    const suffixStart = localStorage.getItem(smdKey('suffixStart')) || '0';
-    if (suffixStart === '1') dayNum += 1;
-
-    return ' (' + dayNum + ')';
   }
 
   _setupSwipe() {
@@ -256,11 +173,11 @@ class PmdJobTodayCard extends HTMLElement {
         setTimeout(() => {
           if (this._pendingSwipe !== dir) return;
           this._pendingSwipe = null;
-          this.dispatchEvent(new CustomEvent(dir === 'left' ? 'pmd-job-today-delete' : 'pmd-job-today-tomorrow', {
+          this.dispatchEvent(new CustomEvent(dir === 'left' ? 'pmd-today-delete' : 'pmd-today-tomorrow', {
             bubbles: true,
             composed: true,
             detail: {
-              jobId: this._jobId(),
+              jobId: this.getAttribute('job-id') || '',
               streamIdx: parseInt(this.getAttribute('stream-idx'), 10),
               jobIdx: parseInt(this.getAttribute('job-idx'), 10)
             }
@@ -313,13 +230,11 @@ class PmdJobTodayCard extends HTMLElement {
   _render() {
     const root = this;
     const keyPrefix = this.getAttribute('key-prefix') || smdImagePrefix();
-    const job = this.job;
-    const stream = this.stream;
 
-    root.querySelector('.job-title').textContent = job.title || '';
+    root.querySelector('.job-title').textContent = this.getAttribute('title') || '';
 
     const suffixEl = root.querySelector('.suffix');
-    const suffix = this._jobSuffix(job).trim();
+    const suffix = (this.getAttribute('suffix') || '').trim();
     if (suffix) {
       suffixEl.textContent = suffix;
       suffixEl.hidden = false;
@@ -328,8 +243,7 @@ class PmdJobTodayCard extends HTMLElement {
     }
 
     const repeat = root.querySelector('.daily-repeat-icon');
-    const scheduleType = job.schedule && job.schedule.type ? job.schedule.type : 'daily';
-    if (scheduleType === 'daily') {
+    if (this.hasAttribute('daily')) {
       repeat.setAttribute('image', 'bi:repeat-1');
       repeat.hidden = false;
     } else {
@@ -349,18 +263,18 @@ class PmdJobTodayCard extends HTMLElement {
         sImg.removeAttribute('image');
       }
     };
-    setThumb('.stream-thumb', stream.image || '');
-    setThumb('.job-thumb', job.image || '');
+    setThumb('.stream-thumb', this.getAttribute('stream-image') || '');
+    setThumb('.job-thumb', this.getAttribute('job-image') || '');
 
-    root.querySelector('.stream-title').textContent = stream.title || '';
+    root.querySelector('.stream-title').textContent = this.getAttribute('stream-title') || '';
 
-    const tab = stream.tab || 'progress';
+    const tab = this.getAttribute('tab') || 'progress';
     const tabBadge = root.querySelector('.tab-badge');
     tabBadge.textContent = tab;
     tabBadge.setAttribute('variant', tab === 'progress' ? 'success' : 'info');
 
     const descEl = root.querySelector('.description');
-    const description = job.description || '';
+    const description = this.getAttribute('description') || '';
     if (description) {
       descEl.textContent = description;
       descEl.hidden = false;
@@ -369,12 +283,12 @@ class PmdJobTodayCard extends HTMLElement {
     }
 
     const checkbox = root.querySelector('smd-checkbox.job-checkbox');
-    checkbox.dataset.jobId = job.id || '';
+    checkbox.dataset.jobId = this.getAttribute('job-id') || '';
     checkbox.checked = this.getAttribute('checked') === 'true';
   }
 }
 
-if (!window.customElements.get('pmd-job-today-card')) {
-  customElements.define('pmd-job-today-card', PmdJobTodayCard);
+if (!window.customElements.get('pmd-today-card')) {
+  customElements.define('pmd-today-card', PmdTodayCard);
 }
-window.PmdJobTodayCard = PmdJobTodayCard;
+window.PmdTodayCard = PmdTodayCard;

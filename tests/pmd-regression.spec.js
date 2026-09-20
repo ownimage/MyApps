@@ -239,7 +239,7 @@ test.describe("PlanMyDay - Regression", () => {
         localStorage.setItem("planmydays_completed", JSON.stringify([]));
       }, { data: TEST_STREAMS, ds: todayStr, svg });
       await page.reload();
-      const card = page.locator("#todayCardList pmd-job-today-card").first();
+      const card = page.locator("#todayCardList pmd-today-card").first();
       await expect(card).toBeVisible();
       const title = await card.locator(".title").boundingBox();
       const name = await card.locator(".stream-title").boundingBox();
@@ -267,7 +267,7 @@ test.describe("PlanMyDay - Regression", () => {
         localStorage.setItem("planmydays_completed", JSON.stringify([]));
       }, { data: TEST_STREAMS, ds: todayStr, svg });
       await page.reload();
-      const card = page.locator("#todayCardList pmd-job-today-card").first();
+      const card = page.locator("#todayCardList pmd-today-card").first();
       await expect(card).toBeVisible();
       const streamThumb = await card.locator(".stream-thumb").boundingBox();
       const jobThumb = await card.locator(".job-thumb").boundingBox();
@@ -301,7 +301,7 @@ test.describe("PlanMyDay - Regression", () => {
         localStorage.setItem("planmydays_completed", JSON.stringify([]));
       }, { data: TEST_STREAMS, ds: todayStr, thumb });
       await page.reload();
-      const info = () => page.locator("#todayCardList pmd-job-today-card .stream-thumb smd-image").first()
+      const info = () => page.locator("#todayCardList pmd-today-card .stream-thumb smd-image").first()
         .evaluate((el) => ({
           width: getComputedStyle(el).width,
           src: el.querySelector("img").getAttribute("src")

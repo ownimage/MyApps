@@ -268,7 +268,7 @@
   <script src="../PlanMyDay/js/components/pmd-stream-header.js"></script>
   <script src="../PlanMyDay/js/components/pmd-stream-job-card.js"></script>
   <script src="../PlanMyDay/js/components/pmd-job-search-card.js"></script>
-  <script src="../PlanMyDay/js/components/pmd-job-today-card.js"></script>
+  <script src="../PlanMyDay/js/components/pmd-today-card.js"></script>
   <script src="../CountMyDays/js/components/cmd-countdown-card.js"></script>
   <script src="../CountMyDays/js/components/cmd-date-card.js"></script>
   <script src="../CountMyDays/js/components/cmd-category-card.js"></script>
@@ -340,7 +340,7 @@
     sbSeed("sbc_", SB_PMD_PAIRS); // pmd-stream-job-card
     sbSeed("sbj_", SB_PMD_PAIRS); // pmd-job-search-card
     sbSeed("sbp_", SB_PMD_PAIRS); // pmd-stream (combined)
-    sbSeed("sbt_", SB_PMD_PAIRS); // pmd-job-today-card
+    sbSeed("sbt_", SB_PMD_PAIRS); // pmd-today-card
     sbSeed("sbip_", SB_PMD_PAIRS); // smd-image-picker
 
     function log(section, msg) {
@@ -887,12 +887,12 @@
       }
     });
 
-    // ---- pmd-job-today-card ----
+    // ---- pmd-today-card ----
     sections.push({
-      id: "pmd-job-today-card",
-      name: "pmd-job-today-card",
-      tag: "<pmd-job-today-card>",
-      desc: "A single job row on the Today list. Takes the WHOLE <code>job</code> JSON (id, title, image, description, suffix, dayType, mod, schedule…) and the WHOLE <code>stream</code> JSON (title, image, tab…) and derives its display fields itself. Remaining attributes: <code>stream-idx</code>, <code>job-idx</code>, <code>done</code>, <code>checked</code>, <code>key-prefix</code>. Dispatches <code>pmd-job-today-toggle</code> ({ jobId, checked }), <code>pmd-job-today-view</code> ({ streamIdx, jobIdx }) and swipe events <code>pmd-job-today-delete</code>/<code>pmd-job-today-tomorrow</code>. An <code>&lt;smd-draghandle class=\"drag-handle\" slot=\"drag-handle\"&gt;</code> can be slotted in; otherwise the built-in handle is shown.",
+      id: "pmd-today-card",
+      name: "pmd-today-card",
+      tag: "<pmd-today-card>",
+      desc: "A single job row on the Today list. Attributes: <code>job-id</code>, <code>stream-idx</code>, <code>job-idx</code>, <code>title</code>, <code>suffix</code>, <code>daily</code>, <code>done</code>, <code>checked</code>, <code>stream-image</code>, <code>job-image</code>, <code>stream-title</code>, <code>tab</code>, <code>description</code>, <code>key-prefix</code>. Dispatches <code>pmd-today-toggle</code> ({ jobId, checked }) and <code>pmd-today-view</code> ({ streamIdx, jobIdx }). An <code>&lt;smd-draghandle class=\"drag-handle\" slot=\"drag-handle\"&gt;</code> can be slotted in; otherwise the built-in handle is shown.",
       html: () => `
         <div class="sb-canvas" style="flex-direction:column;width:100%">
           <div id="sb-today-cards" style="width:100%"></div>
@@ -902,7 +902,7 @@
           <label><input type="checkbox" id="ctrl-today-done"> done</label>
           <label><input type="checkbox" id="ctrl-today-handle" checked> slot drag handle</label>
         </div>
-        <div class="sb-log" id="log-pmd-job-today-card">events: none yet</div>
+        <div class="sb-log" id="log-pmd-today-card">events: none yet</div>
       `,
       init: () => {
         const render = () => {
@@ -911,22 +911,16 @@
           const slotHandle = document.getElementById("ctrl-today-handle").checked;
           const hostEl = document.getElementById("sb-today-cards");
           const handle = '<smd-draghandle class="drag-handle" slot="drag-handle" title="drag"></smd-draghandle>';
-          const schedType = daily ? "daily" : "weekdays";
-          const job1 = { id: "sb1", title: "Report", suffix: true, dayType: "dayOfYear", mod: "", schedule: { type: schedType }, description: "Weekly report with metrics", image: "Green" };
-          const stream1 = { title: "Work", image: "Blue", tab: "progress" };
-          const job2 = { id: "sb2", title: "Mow the lawn", suffix: false, mod: "", schedule: { type: schedType }, description: "", image: "" };
-          const stream2 = { title: "Home", image: "", tab: "maintenance" };
-          const js = (o) => JSON.stringify(o);
           hostEl.innerHTML = `
-            <pmd-job-today-card job='${js(job1)}' stream='${js(stream1)}' stream-idx="0" job-idx="0"${done ? " done" : ""} key-prefix="sbt_">
+            <pmd-today-card job-id="sb1" stream-idx="0" job-idx="0" title="Report" suffix="(12)" stream-title="Work" tab="progress" description="Weekly report with metrics" stream-image="Blue" job-image="Green" key-prefix="sbt_" ${daily ? "daily" : ""} ${done ? "done" : ""}>
               ${slotHandle ? handle : ""}
-            </pmd-job-today-card>
-            <pmd-job-today-card job='${js(job2)}' stream='${js(stream2)}' stream-idx="1" job-idx="0"${done ? " done" : ""} key-prefix="sbt_">
+            </pmd-today-card>
+            <pmd-today-card job-id="sb2" stream-idx="1" job-idx="0" title="Mow the lawn" stream-title="Home" tab="maintenance" key-prefix="sbt_" ${daily ? "daily" : ""} ${done ? "done" : ""}>
               ${slotHandle ? handle : ""}
-            </pmd-job-today-card>`;
-          hostEl.querySelectorAll("pmd-job-today-card").forEach((card) => {
-            card.addEventListener("pmd-job-today-toggle", (e) => log("pmd-job-today-card", "toggle job=" + e.detail.jobId + " checked=" + e.detail.checked));
-            card.addEventListener("pmd-job-today-view", (e) => log("pmd-job-today-card", "view stream=" + e.detail.streamIdx + " job=" + e.detail.jobIdx));
+            </pmd-today-card>`;
+          hostEl.querySelectorAll("pmd-today-card").forEach((card) => {
+            card.addEventListener("pmd-today-toggle", (e) => log("pmd-today-card", "toggle job=" + e.detail.jobId + " checked=" + e.detail.checked));
+            card.addEventListener("pmd-today-view", (e) => log("pmd-today-card", "view stream=" + e.detail.streamIdx + " job=" + e.detail.jobIdx));
           });
         };
         render();
