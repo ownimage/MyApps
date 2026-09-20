@@ -239,6 +239,27 @@ Architecture:
   mapping — grep spec files for px literals when the mapping changes. Launch's
   tiles stay fixed 80px (`.app-tile img`); its Image size setting only drives
   `<smd-image>` defaults, which Launch does not render.
+- IMAGE RENDER-URL / CACHE (2026-09-20): `<img>`/`<smd-image>` no longer embed the
+  painted data URL in `src`. `shared/js/smd-images.js` `smdImageRenderUrl(painted)`
+  resolves to a short render URL, memoised per session and deduped across cards:
+  `SMD_IMAGE_CACHE_BASE + smdImageHash(painted)` (`…/smd-img/<16-hex>` — FNV-1a ×2,
+   deterministic) when the service worker controls the page, else a per-session
+  blob URL. `smdImageHash`/`smdImageBlobUrl`/`smdImageCacheUrl`/`smdSwControls`/
+  `smdSetImageSrc` are globals EXPORTED on `SmdApp.prototype` too. `sw.js` serves
+  `/smd-img/` from its `myapps-images` Cache Storage (NOT build-tagged, survives
+  rebuilds) or a 1×1 transparent GIF on a miss; the activate keep-list must hold
+  `IMAGE_CACHE`. GC: `smdImagePaintVariants(img)` (data/data64/80/100 × light/dark)
+  computes the live hashes; `purgeStaleImageCache()` deletes any other entry.
+  CRITICAL: `applySvgAttr`/`updateSvgColor` in smd-images.js and smd-image.js are
+  BYTE-IDENTICAL (guards GC live-set correctness) — keep them in sync. **Cache
+  Storage contention gotcha (Chromium serialises per-origin cache ops)**: when the
+  SW does NOT control the page (first visit, most tests), `smdImageRenderUrl` and
+  the GC SKIP Cache Storage entirely (pure blob URL) — running `caches.match/open`
+  on cold parallel test pages stalled navigations/buttons intermittently.
+  `smd-image` `_renderStored` is ASYNC (`_renderSeq` stale-guard, empty box while
+  resolving); preview `<img>` writers use `src="" data-smdsrc="…"` filled via
+  `smdSetImageSrc` after render. Tests must assert async fills (fetch the resolved
+  `src`) rather than `src*=data:`.
 - MENU ORDER (2026-09-17): every app's hamburger menu lists **Settings**, then
   a divider, then **Launch**, then a divider, then the rest of the options. The
   Launch app's own menu keeps only "Settings" (it IS the launcher — no Launch
@@ -330,6 +351,28 @@ Techniques / gotchas:
 - CROSS-ORIGIN SAVE 302 GOTCHA (2026-09-17): SolarControlar's Flask POST endpoints (`POST /solar/`, `POST /solar/api/config`) are PRG — they answer `302 Location: /solar/`. A PWA `fetch()` that lets the browser follow that cross-origin redirect can lose its `Authorization` header on the follow-up GET (browser-dependent), so Traefik returns a 401 WITHOUT `Access-Control-Allow-Origin` → the fetch blocks as a CORS error / "Failed to fetch". Fix in the APP: `redirect: "manual"` on the POST and treat `resp.type === "opaqueredirect"` as success (server saved; the caller then re-fetches the GET page which carries auth again). `redirect: "manual"` returns an opaque-redirect response (status 0) for a 302 — you cannot read it, only detect it by `type`. Rule for SolarControlar saves: never follow the Flask redirect; `_post` returns the response TEXT (or `""`), so consumers must not chain `.text()`.
 
 ## Session log
+
+### 2026-09-20 (14) — shared image cache URLs / blob render (async fills)
+- `shared/js/smd-images.js`, `shared/js/components/smd-image.js`,
+  `smd-image-editor.js`, `sw.js`, plus assertions in `launch-regression.spec.js`
+  + `pmd-regression.spec.js` (see the IMAGE RENDER-URL / CACHE note above).
+- What worked: `smdImageRenderUrl` memo + pending-dedupe; the CONTROL-GATED Cache
+  Storage usage (blob-only when `navigator.serviceWorker.controller` is null) —
+  this fixed intermittent 30s "not stable" button/load stalls in cmd import-wizard
+  tests + a Launch `page.goto` load-stall that appeared when Cache Storage ops ran
+  on cold parallel test pages. `node --check` all 4 files clean.
+- Tests: cmd+launch full (51), qrlinks+sample-images+launch (15), pmd affected
+  subset (5), pmd sub-path SW precache (1) all green; pmd-screenshots "main view"
+  4/4 passed and the pmd storybook probe showed the data-smdsrc preview filling to
+  a blob URL (naturalWidth 45) with no console errors. The tier test's earlier
+  `expected: undefined` anomaly is dead in the new blob-only path (was the now
+  removed cache path on Cold pages).
+- What did NOT work / pre-existing: the storybook has 45 pre-existing
+  `Cannot set properties of null (setting 'textContent')` pageerrors from
+  `PmdStreamHeader._render` (upgrade-order footgun: `innerHTML` fires
+  `attributeChangedCallback` before the template clone in `connectedCallback`) —
+  reproduced with my changes stashed, so unrelated; left untouched.
+- `BUILD_NUMBER` → `202609200847`.
 
 ### 2026-09-18 (13) — smd-tabs `compact` → `padding="small"` attribute
 - The boolean `compact` attribute on `<smd-tabs>` is GONE. Replaced by a

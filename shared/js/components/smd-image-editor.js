@@ -69,7 +69,7 @@ class SmdImageEditor extends HTMLElement {
         <div class="d-flex gap-2 align-items-center mb-2">
           <div style="width:45px;flex-shrink:0"></div>
           ${hasData
-            ? `<img src="${getThemedImageDataUrl(img)}" class="date-img">`
+            ? `<img src="" data-smdsrc="${escAttr(getThemedImageDataUrl(img))}" class="date-img" hidden>`
             : `<div class="date-img d-flex align-items-center justify-content-center text-secondary border rounded">No image</div>`
           }
           <button id="btnImageUpload" class="btn btn-primary btn-sm text-nowrap" type="button">Upload</button>
@@ -85,6 +85,13 @@ class SmdImageEditor extends HTMLElement {
     this.querySelector("#btnImageUpload").addEventListener("click", () => this._emit("upload"));
     this.querySelector("#btnImageEditOk").addEventListener("click", () => this._emit("ok"));
     this.querySelector("#btnImageEditCancel").addEventListener("click", () => this._emit("cancel"));
+
+    const smdSetSrc = typeof window.smdSetImageSrc === "function" ? window.smdSetImageSrc : null;
+    this.querySelectorAll("[data-smdsrc]").forEach((el) => {
+      const src = el.getAttribute("data-smdsrc");
+      if (smdSetSrc) smdSetSrc(el, src);
+      else { el.src = src; el.hidden = false; }
+    });
   }
 }
 

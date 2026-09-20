@@ -219,6 +219,13 @@
       const span = this.querySelector(".smd-bi");
       if (!img) return;
       if (span) span.hidden = true;
+
+      // Sequence token: renders are async (the painted data URL resolves to a
+      // cached /smd-img/ file or a blob URL) and a stale promise must never
+      // repaint the img after a newer render (e.g. a theme flip) has run.
+      this._renderSeq = (this._renderSeq || 0) + 1;
+      const seq = this._renderSeq;
+
       const stored = this._findImage();
       const alt = this.getAttribute("alt") || "";
 
@@ -240,9 +247,28 @@
       }
       const theme = this.theme;
       const overrides = (stored.themes && stored.themes[theme]) || {};
-      img.src = themedSrc(src, theme, overrides);
+      const painted = themedSrc(src, theme, overrides);
       img.alt = alt || escapeHtml(this.getAttribute("image") || "");
+
+      const paint = (url) => {
+        if (seq !== this._renderSeq || !img.isConnected) return;
+        img.src = url;
+        img.hidden = false;
+      };
+
+      // Empty box (no request) until the cached/blob URL resolves: the DOM holds
+      // only that short URL instead of the full painted data URL.
+      img.removeAttribute("src");
       img.hidden = false;
+      if (typeof global.smdImageRenderUrl === "function") {
+        try {
+          global.smdImageRenderUrl(painted).then(paint).catch(() => paint(painted));
+        } catch (e) {
+          paint(painted);
+        }
+      } else {
+        paint(painted);
+      }
     }
 
     _renderIcon(set, iconName, px) {

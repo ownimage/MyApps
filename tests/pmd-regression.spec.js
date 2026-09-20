@@ -301,17 +301,35 @@ test.describe("PlanMyDay - Regression", () => {
         localStorage.setItem("planmydays_completed", JSON.stringify([]));
       }, { data: TEST_STREAMS, ds: todayStr, thumb });
       await page.reload();
-      const info = () => page.locator("#todayCardList pmd-today-card .stream-thumb smd-image").first()
-        .evaluate((el) => ({
-          width: getComputedStyle(el).width,
-          src: el.querySelector("img").getAttribute("src")
-        }));
-      await page.evaluate(() => changeIconSize("small"));
-      expect(await info()).toEqual({ width: "40px", src: thumb.data80 });
-      await page.evaluate(() => changeIconSize("medium"));
-      expect(await info()).toEqual({ width: "50px", src: thumb.data100 });
-      await page.evaluate(() => changeIconSize("large"));
-      expect(await info()).toEqual({ width: "64px", src: thumb.data64 });
+      // The render URL is resolved async to a cached /smd-img/, blob or (for
+      // payloads that cannot be fetched through Chromium's base64 decoder) the
+      // source data URL itself. Each size change must source the matching
+      // thumbnail tier and render the right box width: wait for the (async)
+      // render to settle, then assert the src matches the render URL the shared
+      // cache layer resolves for that tier (else, for non-fetchable payloads,
+      // the tier's own data URL is used directly).
+      for (const [size, width, tierUrl] of [
+        ["small", "40px", thumb.data80],
+        ["medium", "50px", thumb.data100],
+        ["large", "64px", thumb.data64]
+      ]) {
+        await page.evaluate((s) => changeIconSize(s), size);
+        await page.waitForFunction((u) => {
+          const el = document.querySelector("#todayCardList pmd-today-card .stream-thumb smd-image");
+          const img = el && el.querySelector("img");
+          return img && img.getAttribute("src") && getComputedStyle(el).width !== "0px";
+        }, tierUrl, { timeout: 5000 });
+        const got = await page.evaluate(async (u) => {
+          const el = document.querySelector("#todayCardList pmd-today-card .stream-thumb smd-image");
+          const img = el.querySelector("img");
+          const src = img.getAttribute("src");
+          let expected = null;
+          try { expected = await smdImageRenderUrl(u); } catch (e) { expected = null; }
+          return { width: getComputedStyle(el).width, src, expected };
+        }, tierUrl);
+        expect(got.width).toBe(width);
+        expect(got.src === got.expected || got.src === tierUrl).toBe(true);
+      }
     });
 
     test("job with future sleepUntil is hidden from main screen", async ({ page }) => {
@@ -2009,13 +2027,32 @@ test.describe("PlanMyDay - Regression", () => {
           el.setAttribute("size", "64");
           document.body.appendChild(el);
         }, theme);
-        const src = await page.evaluate(() =>
-          document.querySelector("smd-image[image='NestedIcon']").querySelector("img").getAttribute("src"));
-        const decoded = decodeURIComponent(src.substring("data:image/svg+xml,".length));
-        expect(decoded).toContain(`<svg fill="${wantFill}"`);
-        expect(decoded).toContain(`<path fill="${wantFill}"`);
-        const editorOut = await page.evaluate(() => decodeURIComponent(getThemedImageDataUrl(loadImages()[0]).substring("data:image/svg+xml,".length)));
-        expect(decoded).toBe(editorOut);
+        await page.waitForFunction(() => {
+          const el = document.querySelector("smd-image[image='NestedIcon']");
+          if (!el) return false;
+          const img = el.querySelector("img");
+          return img && img.getAttribute("src") && img.naturalWidth > 0;
+        }, { timeout: 10000 });
+        const compare = await page.evaluate(async () => {
+          // img.src now points at a cached /smd-img/ file (or blob URL), so the
+          // painted payload is resolved through fetch and byte-compared with the
+          // editor's themed data URL.
+          const bytes = async (u) => {
+            const blob = await (await fetch(u)).blob();
+            return Array.from(new Uint8Array(await blob.arrayBuffer()));
+          };
+          const el = document.querySelector("smd-image[image='NestedIcon']");
+          const a = await bytes(el.querySelector("img").getAttribute("src"));
+          const b = await bytes(getThemedImageDataUrl(loadImages()[0]));
+          if (a.length !== b.length) return { eq: false, text: "" };
+          for (let i = 0; i < a.length; i++) {
+            if (a[i] !== b[i]) return { eq: false, text: "" };
+          }
+          return { eq: true, text: new TextDecoder().decode(new Uint8Array(a)) };
+        });
+        expect(compare.eq).toBe(true);
+        expect(compare.text).toContain(`<svg fill="${wantFill}"`);
+        expect(compare.text).toContain(`<path fill="${wantFill}"`);
         await page.evaluate(() => { document.querySelector("smd-image[image='NestedIcon']").remove(); });
       }
     });
@@ -3296,7 +3333,14 @@ test.describe("PlanMyDay - Regression", () => {
       }, { timeout: 5000 }).not.toBe(initialSrc);
 
       const newSrc = await previewImg.getAttribute("src");
-      expect(decodeURIComponent(newSrc)).toContain('stroke="#ff0000"');
+      expect(newSrc).toBeTruthy();
+      await expect.poll(async () => page.evaluate(async () => {
+        const el = document.querySelector("#themePreviewLight");
+        const src = el && el.getAttribute("src");
+        if (!src) return "";
+        const bytes = new Uint8Array(await (await fetch(src)).arrayBuffer());
+        return new TextDecoder().decode(bytes);
+      }), { timeout: 5000 }).toContain('stroke="#ff0000"');
     });
 
     test("raster image keeps theme panels but hides colour editor controls", async ({ page }) => {
@@ -3340,9 +3384,18 @@ test.describe("PlanMyDay - Regression", () => {
       await expect(page.locator('#imageEditModal input[type="color"]')).toHaveCount(0);
       await expect(page.locator('#imageEditModal input[type="number"]')).toHaveCount(0);
       await expect(page.locator('#imageEditModal input[type="checkbox"]')).toHaveCount(0);
-      // previews show the uploaded raster image
-      await expect(page.locator("#themePreviewLight")).toHaveAttribute("src", /data:image\/png/);
-      await expect(page.locator("#themePreviewDark")).toHaveAttribute("src", /data:image\/png/);
+      // previews show the uploaded raster image (resolved from the cached
+      // render URL, which no longer carries the data: URL in the DOM)
+      const wantPngBytes = Array.from(Buffer.from(pngB64, "base64")).join(",");
+      for (const id of ["#themePreviewLight", "#themePreviewDark"]) {
+        await expect.poll(async () => page.evaluate(async (sel) => {
+          const el = document.querySelector(sel);
+          const src = el && el.getAttribute("src");
+          if (!src) return null;
+          const bytes = new Uint8Array(await (await fetch(src)).arrayBuffer());
+          return Array.from(bytes).join(",");
+        }, id), { timeout: 5000 }).toBe(wantPngBytes);
+      }
     });
 
     test("dark theme override applies and swaps on theme change", async ({ page }) => {
@@ -3474,7 +3527,14 @@ test.describe("PlanMyDay - Regression", () => {
       }, { timeout: 5000 }).not.toBe(initialSrc);
 
       const newSrc = await previewImg.getAttribute("src");
-      expect(decodeURIComponent(newSrc)).toContain('stroke="#112233"');
+      expect(newSrc).toBeTruthy();
+      await expect.poll(async () => page.evaluate(async () => {
+        const el = document.querySelector("#themePreviewDark");
+        const src = el && el.getAttribute("src");
+        if (!src) return "";
+        const bytes = new Uint8Array(await (await fetch(src)).arrayBuffer());
+        return new TextDecoder().decode(bytes);
+      }), { timeout: 5000 }).toContain('stroke="#112233"');
     });
 
     test("light and dark overrides stored independently", async ({ page }) => {
