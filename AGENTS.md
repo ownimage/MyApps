@@ -319,11 +319,11 @@ Techniques / gotchas:
 - **`:host-context()` is NOT supported by WebKit/Safari** (so it silently does
   nothing in every iOS browser): shadow-DOM styling that keys off `body.*`
   classes (font size, density) must use CSS custom properties set on `body`
-  instead — they inherit into shadow roots and work everywhere. `pmd-today-card`
+  instead — they inherit into shadow roots and work everywhere. `pmd-job-today-card`
   reads `--pmd-today-*` (defined in `PlanMyDay/css/styles.css`). A WebKit test in
   `pmd-touch.spec.js` guards this ("display font size and density settings scale
   the today card title").
-- Card thumbnails (`pmd-today-card`, `pmd-stream-header`, `pmd-stream-job-card`,
+- Card thumbnails (`pmd-job-today-card`, `pmd-stream-header`, `pmd-stream-job-card`,
   `pmd-job-search-card`): the `.thumb` wrappers are ALWAYS rendered (no `hidden`);
   only the inner `smd-image`'s `image` attribute is toggled. Hiding a wrapper lets
   later images slide left, so titles/headings stop lining up across cards.
@@ -351,6 +351,92 @@ Techniques / gotchas:
 - CROSS-ORIGIN SAVE 302 GOTCHA (2026-09-17): SolarControlar's Flask POST endpoints (`POST /solar/`, `POST /solar/api/config`) are PRG — they answer `302 Location: /solar/`. A PWA `fetch()` that lets the browser follow that cross-origin redirect can lose its `Authorization` header on the follow-up GET (browser-dependent), so Traefik returns a 401 WITHOUT `Access-Control-Allow-Origin` → the fetch blocks as a CORS error / "Failed to fetch". Fix in the APP: `redirect: "manual"` on the POST and treat `resp.type === "opaqueredirect"` as success (server saved; the caller then re-fetches the GET page which carries auth again). `redirect: "manual"` returns an opaque-redirect response (status 0) for a 302 — you cannot read it, only detect it by `type`. Rule for SolarControlar saves: never follow the Flask redirect; `_post` returns the response TEXT (or `""`), so consumers must not chain `.text()`.
 
 ## Session log
+
+### 2026-09-21 (15) — rename `pmd-today-card` → `pmd-job-today-card` (component + events)
+- Full rename of the PlanMyDay today-card component: element tag
+  `pmd-today-card` → `pmd-job-today-card`, class `PmdTodayCard` → `PmdJobTodayCard`,
+  template var `pmdTodayCardTemplate` → `pmdJobTodayCardTemplate`, global
+  `window.PmdJobTodayCard`, file `pmd-today-card.js` → `pmd-job-today-card.js`, and
+  the four custom events → `pmd-job-today-toggle` / `-view` / `-delete` /
+  `-tomorrow` (user confirmed the event rename). Updated every consumer:
+  `PlanMyDay/index.html` script tag, `sw.js` precache entry, `main-view.js`
+  (`createElement` + 4 listeners + comment), `storybook/index.html` (script,
+  seed comment, section id/name/tag/desc, log id, demo tags, listeners),
+  `tests/pmd-touch.spec.js` + `pmd-regression.spec.js` locators, and the live
+  AGENTS.md technique references (lines 322/326/437). `today-drag-card` CSS class
+  and `--pmd-today-*` CSS custom props were deliberately left as-is (DOM/style
+  hooks, not the component name — same scope as the reverted 2026-09-19 rename
+  `cfeddc2`/`51b4c63`). The reverted rename used exactly these target names, so
+  this is consistent with the earlier attempt.
+- What worked: `node --check` clean everywhere; storybook probe showed the 2 demo
+  cards render as `pmd-job-today-card`, a checkbox click fires the renamed
+  `pmd-job-today-toggle` (`event: toggle job=sb1 checked=true`), zero console
+  errors, zero failed requests, old tag unregistered; the 45 `textContent`
+  pageerrors are the known pre-existing `PmdStreamHeader._render` footgun
+  (unchanged component, same 45-count as the 2026-09-20 note). Regression
+  fail-fast: swipe/toggle event suite 4/4 green (strikethrough, swipe-left
+  delete, swipe-left cancel restore, swipe-right snooze) + the layout-independent
+  icon-size test green.
+- What did NOT work / pre-existing: 3 today-card tests fail in the CURRENT
+  working tree — "stream name and buttons share the line under the title",
+  "job thumbnail keeps its slot when the stream has no image", and the touch
+  title-font-size test (26px vs expected h1 41.6px). **Proven NOT caused by the
+  rename**: all 3 pass at clean HEAD (`git stash` round-trip + backup in
+  `%LOCALAPPDATA%\Temp\opencode\pmd-rename-backup`, restored byte-identical). They
+  fail because of the user's uncommitted WIP: `PlanMyDay/css/styles.css` is
+  STAGED-DELETED and the component's template was reworked in place (e.g. the
+  `.title` element changed h4→h2, so it now renders the h2 token 26px instead of
+  the old CSS-driven h1 41.6px; layout rows moved). The rename is orthogonal.
+- Gotcha for future: stash round-trips lose `git mv` rename staging
+  (`R` → `A`+`D`) but git re-detects renames at commit-time by similarity, and
+  `Compare-Object` verified the working files stayed byte-identical.
+- Resolved (same session, user-approved): the deleted-but-still-referenced
+  `PlanMyDay/css/styles.css` was the PANDEMIC root cause of this session's wide
+  failure flood — `PlanMyDay/index.html` still `<link>`ed it and `sw.js` still
+  precached it, so every planmydays page 404'd the stylesheet: all "no failed
+  requests / no console errors" tests, the two `/PlanMyDay/` sub-path SW-precache
+  tests (cache.addAll rejects a 404 → worker never activates, e.g. the
+  CountMyDays test too, via the shared sw.js), plus every rule that lived there
+  (`.active-toggle` label 700, `.task-note-btn` outline, stream accordions).
+  FIX: `git restore PlanMyDay/css/styles.css`, then PRUNE to the current layout —
+  re-scoped `pmd-today-card` → `pmd-job-today-card`, dropped host card-chrome
+  (the inner `.card.bg-dark` div carries it now), dropped dead old-template
+  selectors (`.row/.row>*/.check-col/.check-row/.content-col/.title-row/.meta-row`)
+  and the now-unused `--pmd-today-{padding,title-margin,cell-padding}`,
+  `.title` font-size now defaults to the **h2 token** (`var(--pmd-today-title-size,
+  var(--smd-type-h2, 1.25em))`; compact still collapses to `--smd-type-p`),
+  thumb gap kept as `.thumb + .thumb { margin-left: 4px }`. TESTS: the 10 h4
+  card-title locators → h2 (adhoc/sleepUntil/tab-badge/import/regen/sort), 229
+  rewritten for the new layout (name under thumbnails; badge+View aligned right,
+  View right of badge), touch font-size literals 41.6/51.2 → 26/32px (h2 token)
+  with compact 25.6 unchanged. ALL previously failing tests now green: 18-test
+  pmd batch, both touch tests, both sub-path precache tests, 229, cmd-suite spot.
+`pmd-today-card.js`-name comment in the restored CSS updated to
+   `pmd-job-today-card`/h2 token.
+- Further prune (same session, requested): the app sheet was cut to only
+   functional + element-scoped rules (no new styling added). DROPPED as dead or
+   duplicated: `.countdown-card` + compact countdown rules (probe: `#countdownContainer`
+   is empty; no `.countdown-card` markup anywhere in PlanMyDay JS), `.type-select`/
+   `.date-day-select`/`.date-month-select`/`.flatpickr-date` (0 matches), `body.compact
+   .card/.editor-btn/.btn-wide`, `#streamsEditor`/`#jobSearchEditor`/`#imagesEditor`
+   padding-top, the whole unscoped `.stream-accordion-*`/`.stream-header-*` block
+   incl. `[data-theme]` theme accents + the expanded `:has(...)` highlight
+   (STREAMS_EDITOR_STYLES in editor-styles.js covers the accordion, and the
+   element-scoped `pmd-stream-header[expanded]` subtle highlight remains),
+   `#streamsEditor .editor-title`, `.stream-accordion-body(+.card)`, `.stream-drag-card`,
+   `pmd-stream-job-card[drag-handle]` (attr never set). KEPT: `body.compact`
+   `--pmd-today-*` vars, `#countdownContainer` structural rules, `.today/shop/job/
+   task-drag-card` user-select, `.task-note-btn` outline override, and the three
+   element-scoped component sheets (`pmd-job-today-card`, `pmd-stream-header`,
+   `pmd-stream-job-card`, `pmd-job-search-card`) — these carry the components with
+   no other source (note: `.truncate`/`.truncate-2-lines` used by the new template
+   are defined NOWHERE, so the app `.stream-title` ellipsis rule is the only
+   truncation for the name). VERIFIED after prune: pmd-touch full 5/5, pmd batch
+   19/19 (strikethrough/view/229/thumb-slot/sleepUntil×4/1483/swipes×3/2685/
+   uncheck/3950/regen/4677/4722/6653), both sub-path SW-precache tests. Probe
+   files deleted.
+- `BUILD_NUMBER` unchanged (user ships — but it SHOULD be bumped before shipping
+  so the renamed precache entry + script tag get a fresh cache name).
 
 ### 2026-09-20 (14) — shared image cache URLs / blob render (async fills)
 - `shared/js/smd-images.js`, `shared/js/components/smd-image.js`,
@@ -434,7 +520,7 @@ Techniques / gotchas:
 - Map lives in ONE light-DOM + ONE shadow place: `shared/css/styles.css`
   (`button, .btn` / `.btn-sm`) and `btnBadgeSheet` (`.btn` got the h2 line; `.btn-sm`
   already p). Per-component `.btn` font-size rules REMOVED (pmd-stream-header,
-  pmd-stream-job-card, pmd-job-search-card, pmd-today-card `.job-view-btn` was
+  pmd-stream-job-card, pmd-job-search-card, pmd-job-today-card `.job-view-btn` was
   badge → now inherits h2) and the injected sheets that can't see btnBadgeSheet
   switched p→h2 inline: 4× `editor-styles.js`, `smd-settings.js`, `smd-minio.js`,
   `smd-modal.js` footer, `smd-image-picker.js` search, `smd-image-dropdown.js`.

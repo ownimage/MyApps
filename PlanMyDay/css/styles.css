@@ -1,90 +1,15 @@
-/* App-specific styles for PlanMyDay (shared/smd styles live in shared/css/styles.css) */
+/* App-specific styles for PlanMyDay (shared/smd styles live in shared/css/styles.css).
+   Only functional + element-scoped rules survive: the today card carries its chrome
+   with Bootstrap utilities, and the editors inject their own sheets via
+   editor-styles.js (injectStyleInto → document head). */
 
-body.compact .countdown-card {
-  padding: 0.25rem 0.5rem;
-}
-body.compact .countdown-card .countdown-img,
-body.compact .countdown-card .date-img {
-  width: 48px !important;
-  height: 48px !important;
-}
-body.compact .card {
-  margin-bottom: 0.25rem !important;
-}
-body.compact #countdownContainer .mb-3 {
-  margin-bottom: 0.25rem !important;
-}
-body.compact .countdown-card h4 {
-  font-size: var(--smd-type-p) !important;
-}
-body.compact .countdown-card .h4 {
-  font-size: var(--smd-type-p) !important;
-}
-body.compact .countdown-card .row > div {
-  padding-top: 0.1rem;
-  padding-bottom: 0.1rem;
-}
-body.compact .countdown-card .mt-1 {
-  margin-top: 0 !important;
-}
-body.compact .countdown-card .mb-1 {
-  margin-bottom: 0 !important;
-}
-body.compact .countdown-card .gap-1 {
-  gap: 0.15rem !important;
-}
-body.compact .card.p-3 {
-  padding: 0.4rem 0.5rem !important;
-}
-body.compact .editor-btn {
-  min-width: 70px;
-}
-body.compact .btn-wide {
-  min-width: 160px;
-}
-
-.countdown-card {
-  border-width: 1px;
-  padding: 0.5rem 0.75rem;
-}
-
-.countdown-card .row {
-  flex-wrap: nowrap;
-}
-
-.type-select {
-  width: auto;
-  flex: 0 0 auto;
-}
-.date-day-select {
-  width: 100px;
-  flex-shrink: 0;
-}
-.date-month-select {
-  width: 100px;
-  flex-shrink: 0;
-}
-
-.flatpickr-date {
-  min-width: 120px;
-  width: 100%;
-}
-
-/* The per-app font-size ramp blocks were removed: the single shared ramp in
-   shared/css/styles.css (the --smd-type-* tokens) now drives every app, and the
-   font-size-xsmall…jumbo body classes only override --smd-type-base there. */
-
-/* pmd-today-card display settings. CSS custom properties inherit into the
-   shadow root, unlike :host-context() which WebKit/Safari (iPhone) ignores.
-   The title defaults to the shared --smd-type-h1 token (see
-   pmd-today-card.js); compact density just collapses it to body size. */
+/* Display settings for pmd-job-today-card: the --pmd-today-* custom props inherit
+   into the card's light DOM. Title defaults to the shared --smd-type-h2 token;
+   compact density collapses it to the paragraph token. */
 body.compact {
-  --pmd-today-padding: 0.25rem 0.5rem;
   --pmd-today-margin: 0.25rem;
   --pmd-today-title-size: var(--smd-type-p);
-  --pmd-today-title-margin: 0;
   --pmd-today-description-margin: 0;
-  --pmd-today-cell-padding: 0.1rem;
 }
 
 #countdownContainer {
@@ -97,123 +22,9 @@ body.compact {
   flex-shrink: 0;
 }
 
-#streamsEditor {
-  padding-top: 20px;
-}
-#jobSearchEditor {
-  padding-top: 20px;
-}
-#streamsEditorHeader {
-  flex-shrink: 0;
-}
-#streamsEditor #streamEditorList {
-  padding-bottom: 40px;
-}
-
-#imagesEditor {
-  padding-top: 20px;
-}
-
-.stream-accordion-item {
-  border: 1px solid var(--bs-border-color);
-  border-radius: 0.375rem;
-  overflow: hidden;
-}
-.stream-accordion-header {
-  display: flex;
-  align-items: center;
-  width: 100%;
-  padding: 0.25rem 0;
-  background-color: var(--bs-accordion-btn-bg, var(--bs-body-bg));
-}
-.stream-accordion-item:has(.accordion-collapse.show) .stream-accordion-header {
-  background-color: var(--bs-info);
-  color: var(--bs-dark);
-}
-.stream-header-main {
-  display: flex;
-  align-items: center;
-  flex: 1 1 auto;
-  min-width: 0;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: inherit;
-  text-align: left;
-}
-.stream-header-actions {
-  display: flex;
-  align-items: center;
-  flex: 0 0 auto;
-  gap: 0.35rem;
-  padding: 0 0.35rem;
-}
-.stream-header-chevron {
-  flex: 0 0 auto;
-  width: 2.5rem;
-  height: 100%;
-  min-height: 3rem;
-  border: 0;
-  background: transparent;
-  background-image: var(--bs-accordion-btn-icon);
-  background-repeat: no-repeat;
-  background-position: center;
-  background-size: 1.25rem;
-}
-.stream-header-chevron:not(.collapsed) {
-  background-image: var(--bs-accordion-btn-active-icon);
-}
-.stream-accordion-body {
-  padding: 0 !important;
-}
-.stream-accordion-body .card {
-  border-width: 1px;
-  border-left: 0;
-  border-right: 0;
-  border-radius: 0;
-}
-
-[data-theme="cerulean"] .stream-accordion-item.expanded .stream-accordion-header {
-  color: #fff;
-}
-[data-theme="cerulean"] .stream-accordion-item.expanded .stream-header-chevron {
-  filter: brightness(0) invert(1);
-}
-[data-theme="flatly"] .stream-accordion-item.expanded .stream-accordion-header {
-  color: #212529;
-}
-[data-theme="journal"] .stream-accordion-item.expanded .stream-accordion-header {
-  color: #fff;
-}
-[data-theme="journal"] .stream-accordion-item.expanded .stream-header-chevron {
-  filter: brightness(0) invert(1);
-}
-[data-theme="materia"] .stream-accordion-item.expanded .stream-accordion-header {
-  color: #fff;
-}
-[data-theme="materia"] .stream-accordion-item.expanded .stream-header-chevron {
-  filter: brightness(0) invert(1);
-}
-
-#streamsEditor .editor-title {
-  font-weight: 800;
-}
-
-.stream-drag-card {
-  cursor: default;
-  user-select: none;
-}
-.today-drag-card {
-  cursor: default;
-  user-select: none;
-}
-
-.job-drag-card {
-  cursor: default;
-  user-select: none;
-  -webkit-user-select: none;
-}
-
+/* Sortable drag: without user-select none the browser selects text mid-drag. */
+.today-drag-card,
+.job-drag-card,
 .task-drag-card {
   user-select: none;
   -webkit-user-select: none;
@@ -233,114 +44,58 @@ body.compact {
   transition: none;
 }
 
-/* ==================== pmd-today-card ==================== */
-pmd-today-card {
-  display: flex;
-  flex-direction: column;
+/* ==================== pmd-job-today-card ==================== */
+pmd-job-today-card {
+  display: block;
   position: relative;
   min-width: 0;
   word-wrap: break-word;
-  background-color: var(--bs-dark-border-subtle, #303030);
-  border: 1px solid var(--bs-border-color, #495057);
-  border-radius: 0.375rem;
-  padding: var(--pmd-today-padding, 0.5rem 0.75rem);
   margin-bottom: var(--pmd-today-margin, 0.5rem);
   touch-action: pan-y;
 }
-pmd-today-card[done] { opacity: 0.5; }
-pmd-today-card[done] .title { text-decoration: line-through; }
+pmd-job-today-card[done] { opacity: 0.5; }
+pmd-job-today-card[done] .title { text-decoration: line-through; }
 
-pmd-today-card .row {
-  display: flex;
-  align-items: center;
-  flex-wrap: nowrap;
-  gap: 0.75rem;
-}
-pmd-today-card .row > * {
-  padding-top: var(--pmd-today-cell-padding, 0);
-  padding-bottom: var(--pmd-today-cell-padding, 0);
-  /* Light DOM: neutralize the document Bootstrap `.row > *` gutter rule
-     (width:100%/max-width:100% + 0 12px gutters) that shadow DOM used to
-     shield against. */
-  width: auto;
-  max-width: none;
-  padding-left: 0;
-  padding-right: 0;
-}
-pmd-today-card .handle-col {
+pmd-job-today-card .handle-col {
   display: flex;
   align-items: center;
   flex: 0 0 auto;
 }
-pmd-today-card .check-col {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  margin-left: 0.25rem;
-  padding-right: 0;
-}
-pmd-today-card .check-row {
-  display: flex;
-  align-items: center;
-  min-height: 0;
-  padding-left: 0;
-  margin-bottom: 0;
-}
-pmd-today-card .daily-repeat-icon { margin-top: 0.1rem; }
-pmd-today-card .images-col {
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-  padding: 0;
-  min-width: 68px;
-  flex: 0 0 auto;
+pmd-job-today-card .daily-repeat-icon { margin-top: 0.1rem; }
+pmd-job-today-card .images-col {
   align-self: flex-start;
 }
-pmd-today-card .thumb {
+pmd-job-today-card .thumb {
   display: flex;
   align-items: center;
   justify-content: center;
 }
-pmd-today-card .content-col { flex: 1 1 auto; min-width: 0; }
-pmd-today-card .title-row {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  margin-bottom: var(--pmd-today-title-margin, 0.25rem);
-}
-pmd-today-card .title {
+pmd-job-today-card .thumb + .thumb { margin-left: 4px; }
+pmd-job-today-card .title {
   margin: 0;
-  font-size: var(--pmd-today-title-size, var(--smd-type-h1, 1.5rem));
+  font-size: var(--pmd-today-title-size, var(--smd-type-h2, 1.25em));
   font-weight: 800;
   min-width: 0;
 }
-pmd-today-card .suffix { margin-left: 0.25rem; }
-pmd-today-card .meta-row {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 0.15rem 0.4rem;
-}
-pmd-today-card .stream-title {
-  flex: 1 1 auto;
-  min-width: 0;
+pmd-job-today-card .suffix { margin-left: 0.25rem; }
+pmd-job-today-card .stream-title {
   font-size: var(--smd-type-h2, 0.875em);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-pmd-today-card .job-view-btn {
+pmd-job-today-card .job-view-btn {
   flex: 0 0 auto;
   padding: 0.25em 0.5em;
   line-height: 1;
   font-weight: 700;
 }
-pmd-today-card .tab-badge {
+pmd-job-today-card .tab-badge {
   flex: 0 0 auto;
   padding: 0.25em 0.5em;
   font-size: var(--smd-type-badge, 0.7em);
 }
-pmd-today-card .description {
+pmd-job-today-card .description {
   margin-top: var(--pmd-today-description-margin, 0.25rem);
   font-size: var(--smd-type-p, 0.875em);
   color: var(--bs-secondary-color, #aaa);
@@ -459,7 +214,6 @@ pmd-stream-job-card {
   border-radius: 0;
   padding: 0.5rem;
 }
-pmd-stream-job-card[drag-handle] .drag-handle { display: none; }
 pmd-stream-job-card .row1 {
   display: flex;
   align-items: center;
@@ -487,9 +241,7 @@ pmd-stream-job-card .row2 {
   margin-top: 0.25rem;
   font-size: var(--smd-type-h2, 0.875em);
 }
-pmd-stream-job-card .time {
-  margin-left: 0.25rem;
-}
+pmd-stream-job-card .time { margin-left: 0.25rem; }
 pmd-stream-job-card .btn {
   padding: 0.25rem 0.5rem;
   line-height: 1.5;

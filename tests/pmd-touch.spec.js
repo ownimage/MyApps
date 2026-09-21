@@ -119,15 +119,15 @@ test.describe("PlanMyDay - iPhone 12 Pro touch", () => {
       localStorage.setItem("planmydays_completed", "[]");
     });
     await page.reload();
-    await expect(page.locator("#todayCardList pmd-today-card").first()).toBeVisible();
+    await expect(page.locator("#todayCardList pmd-job-today-card").first()).toBeVisible();
     const titleFontSize = () => page
-      .locator("#todayCardList pmd-today-card .title").first()
+      .locator("#todayCardList pmd-job-today-card .title").first()
       .evaluate((el) => parseFloat(getComputedStyle(el).fontSize));
-    // default saved font size is xlarge -> h1 token = 1.3rem * 2 = 2.6rem
-    expect(await titleFontSize()).toBeCloseTo(41.6, 0);
+    // default saved font size is xlarge -> h2 token = 1.3rem * 1.25 = 26px
+    expect(await titleFontSize()).toBeCloseTo(26, 0);
     await page.evaluate(() => changeFontSize("jumbo"));
-    // jumbo -> h1 token = 1.6rem * 2 = 3.2rem
-    expect(await titleFontSize()).toBeCloseTo(51.2, 0);
+    // jumbo -> h2 token = 1.6rem * 1.25 = 2rem = 32px
+    expect(await titleFontSize()).toBeCloseTo(32, 0);
     await page.evaluate(() => changeDensity("compact"));
     // compact -> --pmd-today-title-size: var(--smd-type-p) = 1.6rem
     expect(await titleFontSize()).toBeCloseTo(25.6, 0);

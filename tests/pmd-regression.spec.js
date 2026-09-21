@@ -140,7 +140,7 @@ test.describe("PlanMyDay - Regression", () => {
       await page.locator("#jobEditPage textarea").first().fill("Test description");
       await page.locator("#jobEditOkBtn").click();
       await page.locator("#jobEditPage").waitFor({ state: "hidden", timeout: 10000 });
-      await expect(page.locator("h4").filter({ hasText: "Test Ad Hoc" })).toBeVisible();
+      await expect(page.locator("h2").filter({ hasText: "Test Ad Hoc" })).toBeVisible();
     });
 
     test("completed jobs show strikethrough", async ({ page }) => {
@@ -226,7 +226,7 @@ test.describe("PlanMyDay - Regression", () => {
       }
     });
 
-    test("stream name and buttons share the line under the title", async ({ page }) => {
+    test("stream name sits under the thumbnails; badge and View align on the right", async ({ page }) => {
       const svg = "data:image/svg+xml," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg"><rect width="10" height="10"/></svg>');
       await page.evaluate(({ data, ds, svg }) => {
         const streams = JSON.parse(JSON.stringify(data));
@@ -239,19 +239,22 @@ test.describe("PlanMyDay - Regression", () => {
         localStorage.setItem("planmydays_completed", JSON.stringify([]));
       }, { data: TEST_STREAMS, ds: todayStr, svg });
       await page.reload();
-      const card = page.locator("#todayCardList pmd-today-card").first();
+      const card = page.locator("#todayCardList pmd-job-today-card").first();
       await expect(card).toBeVisible();
       const title = await card.locator(".title").boundingBox();
       const name = await card.locator(".stream-title").boundingBox();
       const view = await card.locator(".job-view-btn").boundingBox();
       const badge = await card.locator(".tab-badge").boundingBox();
+      const streamThumb = await card.locator(".stream-thumb").boundingBox();
       const centerY = (b) => b.y + b.height / 2;
-      // name starts under the title, with View then badge on the same line
-      expect(name.x).toBeCloseTo(title.x, 0);
-      expect(Math.abs(centerY(name) - centerY(view))).toBeLessThan(4);
-      expect(Math.abs(centerY(name) - centerY(badge))).toBeLessThan(4);
-      expect(name.x + name.width).toBeLessThanOrEqual(view.x + 1);
-      expect(view.x + view.width).toBeLessThanOrEqual(badge.x + 1);
+      // name sits under the thumbnails (left column), not under the title
+      expect(name.y).toBeGreaterThan(streamThumb.y + streamThumb.height / 2);
+      expect(name.x).toBeCloseTo(streamThumb.x, 0);
+      // the title column starts right of the thumbnail/name column
+      expect(title.x).toBeGreaterThan(name.x);
+      // badge and View share the right column line, View to the right of the badge
+      expect(Math.abs(centerY(view) - centerY(badge))).toBeLessThan(4);
+      expect(view.x).toBeGreaterThanOrEqual(badge.x + badge.width);
     });
 
     test("job thumbnail keeps its slot when the stream has no image", async ({ page }) => {
@@ -267,7 +270,7 @@ test.describe("PlanMyDay - Regression", () => {
         localStorage.setItem("planmydays_completed", JSON.stringify([]));
       }, { data: TEST_STREAMS, ds: todayStr, svg });
       await page.reload();
-      const card = page.locator("#todayCardList pmd-today-card").first();
+      const card = page.locator("#todayCardList pmd-job-today-card").first();
       await expect(card).toBeVisible();
       const streamThumb = await card.locator(".stream-thumb").boundingBox();
       const jobThumb = await card.locator(".job-thumb").boundingBox();
@@ -315,12 +318,12 @@ test.describe("PlanMyDay - Regression", () => {
       ]) {
         await page.evaluate((s) => changeIconSize(s), size);
         await page.waitForFunction((u) => {
-          const el = document.querySelector("#todayCardList pmd-today-card .stream-thumb smd-image");
+          const el = document.querySelector("#todayCardList pmd-job-today-card .stream-thumb smd-image");
           const img = el && el.querySelector("img");
           return img && img.getAttribute("src") && getComputedStyle(el).width !== "0px";
         }, tierUrl, { timeout: 5000 });
         const got = await page.evaluate(async (u) => {
-          const el = document.querySelector("#todayCardList pmd-today-card .stream-thumb smd-image");
+          const el = document.querySelector("#todayCardList pmd-job-today-card .stream-thumb smd-image");
           const img = el.querySelector("img");
           const src = img.getAttribute("src");
           let expected = null;
@@ -341,14 +344,14 @@ test.describe("PlanMyDay - Regression", () => {
       }, futureDateStr(30));
       await page.reload();
       await expect(page.locator("#todayCardList")).toBeVisible();
-      await expect(page.locator("h4").filter({ hasText: "Report" })).not.toBeVisible();
-      await expect(page.locator("h4").filter({ hasText: "Laundry" })).toBeVisible();
+      await expect(page.locator("h2").filter({ hasText: "Report" })).not.toBeVisible();
+      await expect(page.locator("h2").filter({ hasText: "Laundry" })).toBeVisible();
     });
 
     test("setting sleepUntil to future via edit removes job from main screen", async ({ page }) => {
       await seedTodayList(page);
       await page.reload();
-      await expect(page.locator("h4").filter({ hasText: "Report" })).toBeVisible();
+      await expect(page.locator("h2").filter({ hasText: "Report" })).toBeVisible();
       await page.locator(".job-view-btn").first().click();
       await page.locator("#jobEditPage").waitFor({ state: "visible" });
       await page.locator("#btnViewJobEdit").filter({ hasText: "Edit" }).click();
@@ -357,8 +360,8 @@ test.describe("PlanMyDay - Regression", () => {
       await page.locator("#jobEditOkBtn").click();
       
       await page.locator("#jobEditPage").waitFor({ state: "hidden", timeout: 10000 });
-      await expect(page.locator("h4").filter({ hasText: "Report" })).not.toBeVisible({ timeout: 5000 });
-      await expect(page.locator("h4").filter({ hasText: "Laundry" })).toBeVisible();
+      await expect(page.locator("h2").filter({ hasText: "Report" })).not.toBeVisible({ timeout: 5000 });
+      await expect(page.locator("h2").filter({ hasText: "Laundry" })).toBeVisible();
     });
 
     test("past sleepUntil is blanked when viewing job from main screen", async ({ page }) => {
@@ -370,7 +373,7 @@ test.describe("PlanMyDay - Regression", () => {
         localStorage.setItem("planmydays_streams", JSON.stringify(streams));
       }, pastDate);
       await page.reload();
-      await expect(page.locator("h4").filter({ hasText: "Report" })).toBeVisible();
+      await expect(page.locator("h2").filter({ hasText: "Report" })).toBeVisible();
       await page.locator(".job-view-btn").first().click();
       await page.locator("#jobEditPage").waitFor({ state: "visible" });
       await expect(page.locator("#jobEditPage .smd-page-header h1")).toHaveText("View Job");
@@ -2682,7 +2685,7 @@ test.describe("PlanMyDay - Regression", () => {
     test("tab badge shows progress or maintenance on job cards", async ({ page }) => {
       await seedTodayList(page);
       await page.reload();
-      await expect(page.locator("h4").filter({ hasText: "Report" })).toBeVisible();
+      await expect(page.locator("h2").filter({ hasText: "Report" })).toBeVisible();
       const progressBadge = page.locator("smd-badge[variant=success]").filter({ hasText: "progress" });
       await expect(progressBadge.first()).toBeVisible();
       const maintenanceBadge = page.locator("smd-badge[variant=info]").filter({ hasText: "maintenance" });
@@ -4689,10 +4692,10 @@ test.describe("PlanMyDay - Regression", () => {
         localStorage.setItem("planmydays_completed", JSON.stringify([]));
       });
       await page.reload();
-      const h4s = page.locator("h4");
-      await expect(h4s.nth(0)).toContainText("Early");
-      await expect(h4s.nth(1)).toContainText("Mid");
-      await expect(h4s.nth(2)).toContainText("Late");
+      const todayTitles = page.locator("h2");
+      await expect(todayTitles.nth(0)).toContainText("Early");
+      await expect(todayTitles.nth(1)).toContainText("Mid");
+      await expect(todayTitles.nth(2)).toContainText("Late");
     });
   });
 
@@ -5005,7 +5008,7 @@ test.describe("PlanMyDay - Regression", () => {
         });
       }, payload);
       await page.waitForTimeout(300);
-      await expect(page.locator("h4").filter({ hasText: "Imported Job" })).toBeVisible();
+      await expect(page.locator("h2").filter({ hasText: "Imported Job" })).toBeVisible();
       const lastGen = await page.evaluate(() => localStorage.getItem("planmydays_last_gen"));
       expect(lastGen).toBe(todayStr);
       const todayOrder = await page.evaluate(() => JSON.parse(localStorage.getItem("planmydays_today_order") || "[]"));
@@ -5066,7 +5069,7 @@ test.describe("PlanMyDay - Regression", () => {
       expect(completed).toEqual([]);
       const todayOrder = await page.evaluate(() => JSON.parse(localStorage.getItem("planmydays_today_order") || "[]"));
       expect(todayOrder).toContain("job_regen");
-      await expect(page.locator("h4").filter({ hasText: "Regen Job" })).toBeVisible();
+      await expect(page.locator("h2").filter({ hasText: "Regen Job" })).toBeVisible();
     });
 
     test("importData rejects invalid JSON via alert", async ({ page }) => {

@@ -1,4 +1,4 @@
-// <pmd-today-card> — a single job row on the Today list (light DOM).
+// <pmd-job-today-card> — a single job row on the Today list (light DOM).
 //
 // Owns its own layout (drag handle, completion checkbox + daily-repeat icon,
 // stream/job thumbnails, title + suffix, stream title, View button, tab badge,
@@ -17,9 +17,9 @@
 // handle into the handle cell and drops its own fallback.
 //
 // Attributes:
-//   job-id        — job id (echoed on pmd-today-toggle, set as data-job-id on the checkbox)
-//   stream-idx    — stream index (echoed on pmd-today-view)
-//   job-idx       — job index (echoed on pmd-today-view)
+//   job-id        — job id (echoed on pmd-job-today-toggle, set as data-job-id on the checkbox)
+//   stream-idx    — stream index (echoed on pmd-job-today-view)
+//   job-idx       — job index (echoed on pmd-job-today-view)
 //   title         — job title
 //   suffix        — optional suffix badge text
 //   daily         — presence shows the bootstrap `repeat-1` icon (Every day)
@@ -33,43 +33,69 @@
 //   key-prefix    — smd-image storage prefix (default: SmdConfig.imagePrefix)
 //
 // Events:
-//   pmd-today-toggle — detail { jobId, checked }
-//   pmd-today-view   — detail { streamIdx, jobIdx }
-//   pmd-today-delete — horizontal swipe LEFT past the threshold (detail { jobId, streamIdx, jobIdx });
+//   pmd-job-today-toggle — detail { jobId, checked }
+//   pmd-job-today-view   — detail { streamIdx, jobIdx }
+//   pmd-job-today-delete — horizontal swipe LEFT past the threshold (detail { jobId, streamIdx, jobIdx });
 //                      the card animates off before this fires — the app opens the delete confirm.
-//   pmd-today-tomorrow — horizontal swipe RIGHT past the threshold (same detail); the card animates
+//   pmd-job-today-tomorrow — horizontal swipe RIGHT past the threshold (same detail); the card animates
 //                      off before it fires — the app snoozes the job (sleepUntil = tomorrow).
 //   Methods:
 //   snapBackSwipe() — slide a swiped-out card back into place (used when a delete confirm is cancelled).
-const pmdTodayCardTemplate = document.createElement('template');
-pmdTodayCardTemplate.innerHTML = `
-  <div class="row">
-    <div class="handle-col">
-      <smd-draghandle class="drag-handle"></smd-draghandle>
-      <div class="check-col">
-        <div class="check-row"><smd-checkbox class="job-checkbox"></smd-checkbox></div>
-        <smd-image class="daily-repeat-icon" key-prefix="shared-" size="16" title="Every day" hidden></smd-image>
-      </div>
+const pmdJobTodayCardTemplate = document.createElement('template');
+pmdJobTodayCardTemplate.innerHTML = `
+    <div class="card bg-dark text-white border-0">
+
+        <div class="d-flex align-items-center justify-content-between gap-3 py-2 border rounded-lg">
+
+            <!-- 1️⃣ Drag Handle -->
+            <div class="d-flex align-items-center handle-col">
+                <smd-draghandle class="drag-handle"></smd-draghandle>
+            </div>
+
+            <!-- 2️⃣ Checkbox + Repeat -->
+            <div class="d-flex flex-column align-items-center flex-shrink-0" style="width: 70px;">
+                <smd-checkbox class="job-checkbox"></smd-checkbox>
+                <smd-image class="daily-repeat-icon" key-prefix="shared-" size="16" title="Every day" hidden></smd-image>
+            </div>
+
+            <!-- 3️⃣ Stream / Job / Stream Name -->
+            <div class="d-flex flex-column flex-shrink-0 images-col" style="max-width: 80px;">
+                <div class="d-flex">
+                    <div class="thumb stream-thumb"><smd-image key-prefix="shared-"></smd-image></div>
+                    <div class="thumb job-thumb"><smd-image key-prefix="shared-"></smd-image></div>
+                </div>
+                <span class="truncate mb-0 stream-title"></span>
+            </div>
+
+            <div class="d-flex flex-column flex-grow-1">
+
+                <!-- FULL-WIDTH TITLE -->
+                <h2 class="title"><span class="job-title"></span><smd-badge class="suffix" variant="secondary" hidden></smd-badge></h2>
+
+                <!-- TWO-COLUMN ROW UNDER TITLE -->
+                <div class="d-flex flex-grow-1">
+
+                    <!-- LEFT COLUMN: Description hogs space -->
+                    <div class="flex-grow-1 d-flex flex-column">
+                        <div class="truncate-2-lines flex-grow-1 description" hidden></div>
+                    </div>
+
+                    <!-- RIGHT COLUMN: Badges + View aligned bottom -->
+                    <div class="d-flex flex-column justify-content-end text-end">
+                        <div class="d-flex align-items-center">
+                            <smd-badge class="tab-badge" pill></smd-badge>
+                            <button type="button" class="btn btn-primary job-view-btn" title="View job">View</button>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+
     </div>
-    <div class="images-col">
-      <div class="thumb stream-thumb"><smd-image key-prefix="shared-"></smd-image></div>
-      <div class="thumb job-thumb"><smd-image key-prefix="shared-"></smd-image></div>
-    </div>
-    <div class="content-col">
-      <div class="title-row">
-        <h4 class="title"><span class="job-title"></span><smd-badge class="suffix" variant="secondary" hidden></smd-badge></h4>
-      </div>
-      <div class="meta-row">
-        <span class="stream-title"></span>
-        <button type="button" class="btn btn-primary job-view-btn" title="View job">View</button>
-        <smd-badge class="tab-badge" pill></smd-badge>
-      </div>
-      <div class="description" hidden></div>
-    </div>
-  </div>
 `;
 
-class PmdTodayCard extends HTMLElement {
+class PmdJobTodayCard extends HTMLElement {
   static get observedAttributes() {
     return ['job-id', 'title', 'suffix', 'daily', 'done', 'checked',
       'stream-image', 'job-image', 'stream-title', 'tab', 'description', 'key-prefix'];
@@ -83,19 +109,19 @@ class PmdTodayCard extends HTMLElement {
   connectedCallback() {
     if (!this._bound) {
       this._bound = true;
-      this.appendChild(pmdTodayCardTemplate.content.cloneNode(true));
+      this.appendChild(pmdJobTodayCardTemplate.content.cloneNode(true));
       this._adoptSlottedHandle();
       this.querySelector('smd-checkbox.job-checkbox').addEventListener('change', (e) => {
         const checked = e.detail ? e.detail.checked : e.target.checked;
         this.setAttribute('checked', checked ? 'true' : 'false');
-        this.dispatchEvent(new CustomEvent('pmd-today-toggle', {
+        this.dispatchEvent(new CustomEvent('pmd-job-today-toggle', {
           bubbles: true,
           composed: true,
           detail: { jobId: this.getAttribute('job-id') || '', checked }
         }));
       });
       this.querySelector('.job-view-btn').addEventListener('click', () => {
-        this.dispatchEvent(new CustomEvent('pmd-today-view', {
+        this.dispatchEvent(new CustomEvent('pmd-job-today-view', {
           bubbles: true,
           composed: true,
           detail: {
@@ -173,7 +199,7 @@ class PmdTodayCard extends HTMLElement {
         setTimeout(() => {
           if (this._pendingSwipe !== dir) return;
           this._pendingSwipe = null;
-          this.dispatchEvent(new CustomEvent(dir === 'left' ? 'pmd-today-delete' : 'pmd-today-tomorrow', {
+          this.dispatchEvent(new CustomEvent(dir === 'left' ? 'pmd-job-today-delete' : 'pmd-job-today-tomorrow', {
             bubbles: true,
             composed: true,
             detail: {
@@ -288,7 +314,7 @@ class PmdTodayCard extends HTMLElement {
   }
 }
 
-if (!window.customElements.get('pmd-today-card')) {
-  customElements.define('pmd-today-card', PmdTodayCard);
+if (!window.customElements.get('pmd-job-today-card')) {
+  customElements.define('pmd-job-today-card', PmdJobTodayCard);
 }
-window.PmdTodayCard = PmdTodayCard;
+window.PmdJobTodayCard = PmdJobTodayCard;
