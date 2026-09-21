@@ -57,7 +57,7 @@ function renderCategoriesEditor() {
       '<div id="categoryList"></div>';
     page.buttons = [
       { text: "Add Category", variant: "primary", action: "add", close: false },
-      { text: "Done", variant: "success", action: "done" }
+      { text: "OK", variant: "success", action: "done" }
     ];
   }
   const input = $id("categoryNameSearch");

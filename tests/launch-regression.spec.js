@@ -27,7 +27,12 @@ test.describe("Launch - Regression", () => {
     for (let i = 0; i < 5; i++) {
       await expect.poll(async () => tiles.nth(i).locator("smd-image img").evaluate(el => el.getAttribute("src") && el.naturalWidth)).toBeGreaterThan(0);
     }
-    expect(await tiles.nth(3).locator("smd-image img").evaluate(el => (el.getAttribute("src") || "").startsWith("data:image/png;base64"))).toBe(true);
+    expect(await tiles.nth(3).locator("smd-image img").evaluate(async (imgEl) => {
+      const src = imgEl.getAttribute("src");
+      if (!src) return false;
+      const bytes = new Uint8Array(await (await fetch(src)).arrayBuffer());
+      return bytes.length > 8 && bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47;
+    })).toBe(true);
     expect(errors).toEqual([]);
   });
 

@@ -3,12 +3,14 @@
 3: When running playwright use the command '.\node_modules\.bin\playwright.cmd' to make sure the correct version loads. 
 4: Please capture all the output needed when running a test the first time so that you do not need to rerun the test.
 5: `shared/js/build-number.js` `BUILD_NUMBER` is a TIMESTAMP in `YYYYMMDDHH24MI` format (e.g. `202609131400` = 2026-09-13 14:00). Use `Get-Date -Format "yyyyMMddHHmm"` for a new value when shipping; it is the single cache-busting version for every app + shared asset.
-5: Regression tests (`pmd-regression.spec.js` + `pmd-touch.spec.js`) run as 30 `--shard=$i/30` processes, but this box cannot take 30 concurrent browsers (client ephemeral-port exhaustion → mid-run `ERR_CONNECTION_REFUSED`). Working recipe: start `python tests/http-server.py` + `python tests/subpath-server.py` ONCE, set `$env:EXTERNAL_SERVERS=1` (config skips webServer management), then run the shards in waves of 10 with `--workers=1 --retries=0 --reporter=line`, each writing its own output file. Build waves as `$wave = $start..($start+9)` in `for ($start=1; $start -le 30; $start += 10)` — NEVER `@(,@(1..10)),@(11..20),…`: that nests the first array (its `$i` becomes the whole wave) and `--shard` errors with "expected format current/all". Without `EXTERNAL_SERVERS=1` every Playwright process spawns its own `http-server.py` (Windows SO_REUSEADDR lets them all bind 8080) and early finishers kill the server the rest are using. Fix a failure in one shard everywhere before continuing.
+5: FULL-SUITE RUNS use the ITERATIVE PER-SHARD approach (2026-09-19, ALWAYS): play `--shard=$i/40 --workers=1 --retries=0 --reporter=line` with `EXTERNAL_SERVERS=1` (start `python tests/http-server.py` + `python tests/subpath-server.py` ONCE, verify both ports `TcpClient` first) ONE SHARD AT A TIME in order: run shard 1/40, tell the user WHAT FAILED, fix every failure AND apply the same root-cause fix EVERYWHERE it can happen (use `--grep "a|b"` to re-verify just the fixed tests), then run shard 2/40, and so on. Report progress between shards. This catches a shared root cause in shard 1 instead of failing 30 shards; it also keeps the "wait" granularity small. Do NOT run the whole 40-shard batch blind. `--workers="50%"` also works for speed (or any worker ratio) — BUT be aware it raises infra failures (client ephemeral-port exhaustion in this box → mid-run `ERR_CONNECTION_REFUSED` / "Target page, context or browser has been closed"), so treat a burst of infra-style failures as spurious and re-run the affected tests before calling them real bugs. The old waves-of-10 recipe only applies if a parallel sweep is ever required again: 40 `--shard` processes would exhaust client ephemeral ports (`ERR_CONNECTION_REFUSED`), so build waves as `for ($start=1; $start -le 40; $start += 10)` over `$start..($start+9)` — NEVER `@(,@(1..10)),@(11..20),…`: that nests the first array (its `$i` becomes the whole wave) and `--shard` errors with "expected format current/all". Without `EXTERNAL_SERVERS=1` every Playwright process spawns its own `http-server.py` (Windows SO_REUSEADDR lets them all bind 8080) and early finishers kill the server the rest are using. Config sets `retries: 1`, so always pass `--retries=0` while iterating. Fix a failure in one shard everywhere before continuing.
 6: After fixing issues with the regression tests apply them to pmd-screenshots.spec.js and validate them using one theme only.
 7: Fail-fast test iterations: after a code/test change, DON'T run a whole batch at once — run only the first 2-3 affected tests first (`--grep "a|b" --workers=2 --retries=0`) to debug on a small surface; grow the batch only once those pass. The config sets `retries: 1`, so pass `--retries=0` while iterating (otherwise failures take twice as long).
 8: A change that ONLY touches `storybook/index.html` and/or `AGENTS.md` does NOT need the regression suite (or screenshot/sample-image specs). Just verify the storybook loads with zero console/page errors and no failed requests.
 9: UPSTREAM APP COPIES: `temp/<AppName>/` (e.g. `temp/CountMyDays/`) holds the NEWER standalone version of that app. It is NOT a fork/branch — it is always a later version of the same app. When asked to "update to the temp version", do NOT copy the folder over the repo app: diff the temp sources against the repo app and port the new features/edits into the shared-library architecture (smd-page/smd-components, `smdKey()` storage prefix, root `sw.js` APPS entry, tests). Keep function/feature names close to temp where practical so the next port is a small diff.
 10: AGENTS.md NOTES: whenever you discover something a future session needs (architecture decisions, gotchas, upstream workflow, test recipes), add a useful, dated note to AGENTS.md — not just a session-log line. Keep notes concrete (file paths, function names, exact commands) and delete/condense notes that have gone stale.
+11: LIGHT-DOM CHROMIUM RULE (2026-09-19): a custom element whose CONSTRUCTOR appends child nodes to `this` (e.g. `this.appendChild(TEMPLATE.content.cloneNode(true))`) THROWS `NotSupportedError: Failed to execute 'createElement' on 'Document': The result must not have children` the moment an app creates it via `document.createElement(tag)`. Deferred, guarded append in `connectedCallback()` is safe; `attachShadow()` in the constructor is safe. This is why `shared/js/components/{smd-image-card,smd-image-select,smd-image-dropdown,smd-date-picker}.js` all build via `_build()` from `connectedCallback` (they were the last four hanging onto the constructor pattern and broke `cmd-regression.spec.js` test 444's images editor + the 3x "must not have children" pageerrors seen in test 615). When converting shadow→light DOM, ALWAYS move template cloning into `connectedCallback`, never the constructor. Watch for `setAttribute("hidden", "true"/"false")` too: `hidden` is a BOOLEAN attribute, so ANY presence hides the element (fine as `.hidden = true/false` property only); `CountMyDays/js/dates-editor.js` + `googleCalendarEditor.js` had this and it made every `cmd-date-card` 0x0/display:none.
+12: 12: THEME TEXT VARS ARE LIVE AGAIN (2026-09-19): the light-DOM refactor reduced `applySmdVars()` in `shared/js/smd-settings.js` to a no-op AND dropped `color: var(--smd-tab-text)` from the inactive-tab rule in `shared/css/styles.css` → inactive tabs fell back to hardcoded `#fff`, failing pmd-regression:641 "inactive tabs use the Bootswatch secondary button text colour" (white instead of the theme's `btn btn-secondary` text, e.g. `rgb(73,80,87)` on cerulean). RESTORED the REAL `applySmdVars()` (hidden `.btn btn-secondary` probe → publishes `--smd-tab-text` + the `--smd-{primary,secondary,success,danger,info,warning}-text` vars on `:root`) with `applyTheme()` re-running it on the theme `<link>` `load`, plus DOMContentLoaded + window `load` hooks; tab CSS now `color: var(--smd-tab-text, #fff)`. Rule: a light-DOM component sitting on a theme-coloured surface must consume `var(--smd-<variant>-text)` / `var(--smd-tab-text)` — NEVER a hardcoded colour — or it won't match the Bootswatch theme. The stubs `smdBootstrapStyle/smdBootstrapColor` are real functions again.
 
 ## Self-improving playbook
 At the START of every session, read this file fully and apply all rules.
@@ -32,10 +34,12 @@ Architecture:
   - `smd-modal` = a single shared `#smdConfirmModal` host, driven by `showSmdModal(options)` in app.js; content lives in its shadow root (`.smd-body`); buttons on `smd-modal-action`.
   - `smd-page` = full-screen overlay pages: `settingsPage`, `streamsEditor`, `jobSearchEditor`, `imagesEditor`, `jobEditPage`, `streamEditPage`, `minioImportPage`. Footer buttons fire `smd-page-action` (`cancel`/`done`/`add` etc).
   - z-index stack: smd-page 1040 < smd-modal 1050 < imagePickerModal 1060. No z-index hacks needed.
-- Component styling uses CONSTRUCTABLE STYLESHEETS from `shared/js/components/styles.js` (`window.SmdStyles`): `smdButtonSheet`/`smdTabsSheet`/`smdModalSheet`/`smdPageSheet` are per-component sheets; `SmdStyles.hiddenSheet` + `SmdStyles.btnBadgeSheet` are shared by the pmd-* cards/header. `SmdStyles.sheetFor(css)` caches a sheet by CSS text; `SmdStyles.adoptStyles(root, sheetsOrCss)` adopts (dedup) into `root.adoptedStyleSheets`. Adopted sheets SURVIVE `shadowRoot.innerHTML` re-renders (unlike injected `<style>` elements). `injectStyleInto(root, css)` in app.js is now a wrapper over `SmdStyles.adoptStyles` (page/modal content styles).
+- Component styling uses CONSTRUCTABLE STYLESHEETS from `shared/js/components/styles.js` (`window.SmdStyles`): `smdButtonSheet`/`smdTabsSheet`/`smdModalSheet`/`smdPageSheet` are per-component sheets; `SmdStyles.hiddenSheet` + `SmdStyles.btnBadgeSheet` are shared by the pmd-* cards/header. `SmdStyles.sheetFor(css)` caches a sheet by CSS text; `SmdStyles.adoptStyles(root, sheetsOrCss)` adopts (dedup) into `root.adoptedStyleSheets`. Adopted sheets SURVIVE `shadowRoot.innerHTML` re-renders (unlike injected `<style>` elements). `injectStyleInto(root, css)` in app.js is now a wrapper over `SmdStyles.adoptStyles` (page/modal content styles). `smd-tabs` tab defs accept an optional `panelClass` string (rendered as `smd-tab-panel <panelClass>`, e.g. a tab can opt out of the 1rem panel padding via `panelClass: "no-padding"` and the `.smd-tab-panel.no-padding { padding: 0 }` utility in `smdTabsSheet`). Page/injected CSS can NEVER reach panel padding — panels live in the tabs' own shadow root, so per-panel padding must go through the component.
 - Colour/typography conventions: smd-tabs selected = `--smd-primary`/`--smd-primary-text`, non-selected = `--smd-secondary`/`--smd-tab-text`; stream accordion header expanded = `--bs-info`, collapsed = `--smd-secondary`; page/modal header = lightened band (`color-mix(in srgb, var(--bs-body-bg) 85%, white)`) + title in lighter body-colour variant (`color-mix(... 60%, white)`).
+- TYPESCALE TOKENS (2026-09-18): one shared ramp in `shared/css/styles.css` — `body { --smd-type-base: 1rem }` plus `body.font-size-xsmall/small/large/xlarge/jumbo` overrides (0.8/0.925/1/1.125/1.3/1.6rem) — drives exactly four tokens `--smd-type-badge` (base×0.75), `--smd-type-p` (base), `--smd-type-h2` (base×1.25), `--smd-type-h1` (base×2), all declared on `body` (NOT `:root`: the ramp must recompute per font-size body class, and body custom props pierce shadow DOM while `:host-context()` doesn't). Tag map: h1→h1; h2/h3/h4→h2; h5/h6→p; text/inputs/tables→p; badges→badge. BUTTONS ARE h2 (one step above text): `<button>`, `.btn`, `.smd-tab-btn` all use `var(--smd-type-h2)`; `.btn-sm` stays at `var(--smd-type-p)`. Light-DOM home is `shared/css/styles.css` (`button, .btn` / `.btn-sm`); the shared `btnBadgeSheet` covers shadow buttons. Scaffold the h2/p rules inline wherever a shadow root does NOT adopt btnBadgeSheet: the 4 apps' `editor-styles.js`, `smd-settings.js`, `smd-minio.js`, `smd-modal.js`, `smd-image-picker.js`, `smd-image-dropdown.js`. Don't re-add per-component `.btn` font-size rules. Every component + app style now uses `var(--smd-type-*, original-value)` (original as fallback so behaviour is unchanged wherever the token is missing). Media-fit sizes are token CALCs (e.g. CM/QR title `calc(var(--smd-type-h1,1.5rem)*0.7667)`, CM count `*0.8333`, CM container h1 `*0.625`, Solar 480px block). Compact density = `--…-title-size: var(--smd-type-p)` overrides. Deliberate non-token exceptions: the 22px hamburger icon in `smd-app.js`, `smd-checkbox` 1em/1.4em + `smd-draghandle` 1.2rem/1.6rem touch sizes, vendor CSS, storybook chrome. Tests assert heading ELEMENT tags (now `h1` for main-view date/"Today!"/"From …" headings) and pmd-touch.spec.js:119 asserts the NEW pixel values (xlarge 41.6, jumbo 51.2, compact-jumbo 25.6) — update those literals together with any ramp change.
 - THEME TEXT COLOURS (2026-09-12): shadow-DOM buttons/tabs cannot use Bootswatch's `.btn-*` rules (document CSS doesn't cross the boundary, and `--bs-btn-*` is set on the `.btn-*` element, not `:root`). `applySmdVars()` reads a hidden light-DOM `<button class="btn btn-<variant>">` probe (`smdBootstrapColor()`) and publishes `--smd-primary/secondary/success/danger/info/warning-text` + `--smd-tab-text` on `<html>`; every shadow `.btn-*`/variant uses those vars. `applyTheme()` re-runs `applySmdVars` on the theme `<link>`'s `load`. Never hardcode white text for a theme-coloured surface; if Bootswatch's own `.btn-*` rule disagrees with its `--bs-btn-color` var (e.g. cerulean's later `.btn-secondary { color: ... }`), the probe wins — always match the probe.
 - BADGES (2026-09-12): use the shared `<smd-badge variant="primary|secondary|success|danger|warning|info|light|dark" pill?>` component everywhere — never a `<span class="badge bg-*">` (Bootstrap's badge vars live on the `.badge` element and can't reach shadow roots). `applySmdVars()` probes a hidden light-DOM `.badge.text-bg-<variant>` (`smdBootstrapStyle()`) and publishes `--smd-badge-<variant>-{bg,text}`; the component's own sheet consumes them, so text colour follows Bootswatch exactly (white on cerulean's navy info, black on its light secondary, etc.). `btnBadgeSheet` now only carries `.btn*` rules despite its name; `smd-page`'s badge/bg rules were removed.
+- IMAGE DROPDOWN (2026-09-18): the shared `<smd-image-dropdown>` (`shared/js/components/smd-image-dropdown.js`) is the generic image+name picker — the old PlanMyDay `pmd-stream-select` was folded into it and deleted. It is DATA-driven, not DOM: host sets `options = [{name, image}]` (image OPTIONAL → text-only rows, e.g. CountMyDays' no-image "All") and `selected` = the chosen option's NAME string; picks dispatch `smd-image-dropdown-change` ({ name }). Listener wiring: CountMyDays `#dateCategoryFilter` (`smd-image-dropdown-change` → `setDateCategoryFilter`, "" for All) in `dates-editor.js`; PlanMyDay `#jobStreamDropdown` (name mapped back via `streamIndexByName` in `editor-common.js`). Stable shadow ids for test locators: `smdImageDropdownBtn`, `smdImageBtnIcon`, `smdImageBtnText`, `smdImageDropdownMenu`.
 - Quartz's "glassmorphism" overrides live in `shared/css/styles.css` (`.modal-content`, `.dropdown-menu`).
 - REPO/PWA LAYOUT (2026-09-10): the repo hosts **multiple PWAs off one origin**
   (`ownimage.github.io/MyApps/…`). `shared/` = library; each app lives in its own
@@ -235,6 +239,27 @@ Architecture:
   mapping — grep spec files for px literals when the mapping changes. Launch's
   tiles stay fixed 80px (`.app-tile img`); its Image size setting only drives
   `<smd-image>` defaults, which Launch does not render.
+- IMAGE RENDER-URL / CACHE (2026-09-20): `<img>`/`<smd-image>` no longer embed the
+  painted data URL in `src`. `shared/js/smd-images.js` `smdImageRenderUrl(painted)`
+  resolves to a short render URL, memoised per session and deduped across cards:
+  `SMD_IMAGE_CACHE_BASE + smdImageHash(painted)` (`…/smd-img/<16-hex>` — FNV-1a ×2,
+   deterministic) when the service worker controls the page, else a per-session
+  blob URL. `smdImageHash`/`smdImageBlobUrl`/`smdImageCacheUrl`/`smdSwControls`/
+  `smdSetImageSrc` are globals EXPORTED on `SmdApp.prototype` too. `sw.js` serves
+  `/smd-img/` from its `myapps-images` Cache Storage (NOT build-tagged, survives
+  rebuilds) or a 1×1 transparent GIF on a miss; the activate keep-list must hold
+  `IMAGE_CACHE`. GC: `smdImagePaintVariants(img)` (data/data64/80/100 × light/dark)
+  computes the live hashes; `purgeStaleImageCache()` deletes any other entry.
+  CRITICAL: `applySvgAttr`/`updateSvgColor` in smd-images.js and smd-image.js are
+  BYTE-IDENTICAL (guards GC live-set correctness) — keep them in sync. **Cache
+  Storage contention gotcha (Chromium serialises per-origin cache ops)**: when the
+  SW does NOT control the page (first visit, most tests), `smdImageRenderUrl` and
+  the GC SKIP Cache Storage entirely (pure blob URL) — running `caches.match/open`
+  on cold parallel test pages stalled navigations/buttons intermittently.
+  `smd-image` `_renderStored` is ASYNC (`_renderSeq` stale-guard, empty box while
+  resolving); preview `<img>` writers use `src="" data-smdsrc="…"` filled via
+  `smdSetImageSrc` after render. Tests must assert async fills (fetch the resolved
+  `src`) rather than `src*=data:`.
 - MENU ORDER (2026-09-17): every app's hamburger menu lists **Settings**, then
   a divider, then **Launch**, then a divider, then the rest of the options. The
   Launch app's own menu keeps only "Settings" (it IS the launcher — no Launch
@@ -320,9 +345,346 @@ Techniques / gotchas:
 - Playwright `toHaveText` on an `smd-button` HOST reports the slot fallback text too (e.g. `"Edit\n Button"`), so exact-text assertions fail. Use `toContainText("Edit")` or a `getByRole("button", { name: "Edit" })` locator instead.
 - Grep on minified vendor files breaks the tool (giant matched lines) — scope searches to `PlanMyDay/js/**`, `shared/js/**`, or `tests/**`.
 - Line endings: this repo stores text files with LF (`core.autocrlf=input`, `core.eol=lf`; no `.gitattributes`). NEVER write CRLF into a file — git will flag every line as changed (whole-file diff) and warn "CRLF will be replaced by LF the next time Git touches it". Do not round-trip files through PowerShell pipe/Get-Content/Set-Content joins; the Edit/Write/Read tools and Node preserve line endings — if you must convert use node with explicit `\n`, NEVER shell-piped measurements of `git show` (PowerShell pipeline re-encodes — it once reported 914 CRLF for a file whose raw blob via `git cat-file` was entirely LF). Verify with `git cat-file blob HEAD:<file>` + `git diff --stat` so only real edits show.
+- BACKGROUND STATIC SERVERS (2026-09-19): when running the 30-shard waves with
+  `EXTERNAL_SERVERS=1`, start the two servers ONCE in the background, e.g.
+  `Start-Process python -ArgumentList 'tests/http-server.py' -WorkingDirectory <repo> -WindowStyle Hidden -RedirectStandardOutput $env:TEMP\opencode\srv1.out -RedirectStandardError $env:TEMP\opencode\srv1.err` (same for `subpath-server.py`, port 8081, `srv2.*`). GOTCHA: with `EXTERNAL_SERVERS=1` Playwright does NOT start or verify the servers, so a failed background start makes every shard fail with `ERR_CONNECTION_REFUSED` (or hang on web-server waits) with no diagnostic. ALWAYS verify BOTH ports accept a TCP connection BEFORE any test run: use a raw TcpClient (`(New-Object Net.Sockets.TcpClient).Connect('127.0.0.1',8080)`) — `Test-NetConnection -ComputerName localhost -Port 8080` probes IPv6 `::1` first and prints a scary `failed` warning, then `True` for IPv4, which is easy to misread as a down server (that happened this session: the servers were UP, the health check just looked ambiguous). Also read `srv1.err`/`srv2.err` to confirm real HTTP traffic, not just a listening socket.
 - CROSS-ORIGIN SAVE 302 GOTCHA (2026-09-17): SolarControlar's Flask POST endpoints (`POST /solar/`, `POST /solar/api/config`) are PRG — they answer `302 Location: /solar/`. A PWA `fetch()` that lets the browser follow that cross-origin redirect can lose its `Authorization` header on the follow-up GET (browser-dependent), so Traefik returns a 401 WITHOUT `Access-Control-Allow-Origin` → the fetch blocks as a CORS error / "Failed to fetch". Fix in the APP: `redirect: "manual"` on the POST and treat `resp.type === "opaqueredirect"` as success (server saved; the caller then re-fetches the GET page which carries auth again). `redirect: "manual"` returns an opaque-redirect response (status 0) for a 302 — you cannot read it, only detect it by `type`. Rule for SolarControlar saves: never follow the Flask redirect; `_post` returns the response TEXT (or `""`), so consumers must not chain `.text()`.
 
 ## Session log
+
+### 2026-09-20 (14) — shared image cache URLs / blob render (async fills)
+- `shared/js/smd-images.js`, `shared/js/components/smd-image.js`,
+  `smd-image-editor.js`, `sw.js`, plus assertions in `launch-regression.spec.js`
+  + `pmd-regression.spec.js` (see the IMAGE RENDER-URL / CACHE note above).
+- What worked: `smdImageRenderUrl` memo + pending-dedupe; the CONTROL-GATED Cache
+  Storage usage (blob-only when `navigator.serviceWorker.controller` is null) —
+  this fixed intermittent 30s "not stable" button/load stalls in cmd import-wizard
+  tests + a Launch `page.goto` load-stall that appeared when Cache Storage ops ran
+  on cold parallel test pages. `node --check` all 4 files clean.
+- Tests: cmd+launch full (51), qrlinks+sample-images+launch (15), pmd affected
+  subset (5), pmd sub-path SW precache (1) all green; pmd-screenshots "main view"
+  4/4 passed and the pmd storybook probe showed the data-smdsrc preview filling to
+  a blob URL (naturalWidth 45) with no console errors. The tier test's earlier
+  `expected: undefined` anomaly is dead in the new blob-only path (was the now
+  removed cache path on Cold pages).
+- What did NOT work / pre-existing: the storybook has 45 pre-existing
+  `Cannot set properties of null (setting 'textContent')` pageerrors from
+  `PmdStreamHeader._render` (upgrade-order footgun: `innerHTML` fires
+  `attributeChangedCallback` before the template clone in `connectedCallback`) —
+  reproduced with my changes stashed, so unrelated; left untouched.
+- `BUILD_NUMBER` → `202609200847`.
+
+### 2026-09-18 (13) — smd-tabs `compact` → `padding="small"` attribute
+- The boolean `compact` attribute on `<smd-tabs>` is GONE. Replaced by a
+  `padding` attribute: `normal` (default = no-op) | `small` (the old compact
+  sizes: `.smd-tab-list` padding 0, `.smd-tab-btn` 0.5rem 0.25rem,
+  `.smd-tab-panel` padding 0). Add more named sizes later by extending the
+  `:host([padding="…"])` block in `smdTabsSheet` (only `small` exists so far —
+  no x-small yet, per user). Wired like `wrap`: in `observedAttributes` + a
+  `get/set padding` JS property (setter stores `small` or removes the attr).
+- Migrated the only consumer: `smd-image-picker.js` renders
+  `<smd-tabs padding="small">` (was `compact`; image picker look unchanged).
+- Applied `padding="small"` to SolarControlar's `#mainTabs`
+  (`SolarControlar/index.html` — `<smd-tabs id="mainTabs" wrap padding="small">`),
+  so the main dashboard tabs are compact like the Choose Image picker.
+- Storybook smd-tabs desc now documents `padding="small"`.
+- Verified: `node --check` smd-tabs.js + smd-image-picker.js; fail-fast solar
+  main-tabs 1/1 + pmd/cmd image picker & Clear batch 37/37. `BUILD_NUMBER`
+  unchanged (user ships).
+
+### 2026-09-18 (12) — Choose Image page: Clear = danger, No Image = primary
+- "No Image" footer button on `#imagePickerPage` is now `variant: "primary"` in
+  all 3 apps' `app.js` `window.__openImagePicker` config (was secondary). The
+  legacy `openImagePicker()` in `shared/js/smd-images.js` is DEAD (nothing calls
+  it; apps use the `smd-image-picker` component via `__openImagePicker`) — left
+  in place, not updated.
+- The picker's Clear/`Search`-row button (`smd-image-picker.js` shadow) is now
+  `class="clear btn-danger"` with a `.search button.btn-danger` rule in
+  `smdImagePickerSheet` (bg `--bs-danger`, text `--smd-danger-text`). The
+  picker shadow only adopts `smdImagePickerSheet` (no btnBadgeSheet), so the
+  danger rule lives in that sheet; the `.clear` test hook is preserved.
+- Verified: `node --check` all 4 edited files; fail-fast pmd+cmd image-picker
+  batch 25/25. Image picker is NOT a screenshot target, so no screenshot
+  regeneration. `BUILD_NUMBER` unchanged (user ships).
+
+### 2026-09-18 (11) — jobTasks tab panel flush + Add Task buttons h2
+- `id="jobTasks-tab-panel"` (smd-tabs panel for the Tasks tab in PlanMyDay's job
+  editor) now renders padding-free: `getJobEditSections` in `job-editor.js` sets
+  `panelClass: "no-padding"` on the Tasks tab def, and `smd-tabs.js` maps that to
+  `<div class="smd-tab-panel no-padding">` + a `.smd-tab-panel.no-padding { padding: 0 }`
+  rule in `smdTabsSheet`. (The default panel padding is 1rem; page-injected
+  JOBS_EDITOR_STYLES can't style panels through the tabs shadow root.) Now a
+  reusable per-tab option, not app-specific CSS.
+- Both Add Task buttons (`#jobAddTaskBtn` / `#jobAddTaskBottomBtn` in
+  `job-editor.js` `getJobTasksTabHTML`) dropped `btn-sm` → now plain
+  `btn btn-primary`, so they render h2 like every other button (they had been p
+  via the `.btn-sm` exception). The per-task note/delete icon buttons keep
+  `btn-sm` (intentional small icon buttons).
+- Verified: `node --check` both files; jobs editor/tasks fail-fast batch 53/56.
+  3 "failures" were environment-only (a `net::ERR_NETWORK_CHANGED` on
+  `page.reload` + 2× 30s `.stream-header-main` not-visible timeouts in the
+  streams editor, which this change never touches) — all tasks-tab tests passed.
+  `BUILD_NUMBER` unchanged (user ships).
+
+### 2026-09-18 (10) — all buttons are h2 (the `<button>` element type = h2 token)
+- Per user ("All buttons should be h2 size", "keep .btn-sm at p"), the `<button>`
+  element became its own h2 type: `<button>`/`.btn`/`.smd-tab-btn` → `--smd-type-h2`,
+  `.btn-sm` → `--smd-type-p`. Deliberately NO `size` attribute on smd-button (user:
+  "proceed without the size attribute, we can add it later if needed").
+- Map lives in ONE light-DOM + ONE shadow place: `shared/css/styles.css`
+  (`button, .btn` / `.btn-sm`) and `btnBadgeSheet` (`.btn` got the h2 line; `.btn-sm`
+  already p). Per-component `.btn` font-size rules REMOVED (pmd-stream-header,
+  pmd-stream-job-card, pmd-job-search-card, pmd-today-card `.job-view-btn` was
+  badge → now inherits h2) and the injected sheets that can't see btnBadgeSheet
+  switched p→h2 inline: 4× `editor-styles.js`, `smd-settings.js`, `smd-minio.js`,
+  `smd-modal.js` footer, `smd-image-picker.js` search, `smd-image-dropdown.js`.
+- Tabs bumped too: `smd-tabs.js` `.smd-tab-btn` p→h2.
+- Bound the light-DOM `button` selector: dropdown-items keep Bootstrap's `.btn-sm`/
+  `.dropdown-item` at p (their selectors don't set font-size). FFOX grid cells are
+  bare `<button>`s but image-only → h2 has no visual effect there.
+- Verified: probe measured all four contexts (`.job-view-btn`, `#btnAddCard`, page
+  footer smd-button part, settings tab) at 26px on xlarge; pmd-regression
+  button/view/add flows 17/17, pmd-touch 1/1, cmd-regression settings/sweep/gcal
+  7/7; pmd-screenshots smoke (main view, menu, add-job, jobs editor, settings,
+  minio) 12/12 regenerate under the new sizes. `BUILD_NUMBER` unchanged (user
+  ships).
+
+### 2026-09-18 (9) — font-size harmonisation via shared typescale tokens
+- **One ramp, four tokens** (see the "TYPESCALE TOKENS" note above): the shared
+  base ramp drives `--smd-type-badge/p/h2/h1` on `body`; every component/shared
+  style + every app's editor/card styles consume them via
+  `var(--smd-type-*, original-fallback)`. Tag map: h1→h1, h2-h4→h2, h5/h6/p→p,
+  badges→badge; both tab systems (smd-tabs + settings chips)→p. All six Font
+  Size settings now scale every app equally.
+- Converted: 13 shared components (`styles.js`, smd-button/badge/tabs/
+  date-picker/theme/fontawesome-credit/qr-export/image-dropdown/image-select/
+  image-picker/page/modal), `smd-minio.js`/`smd-images.js`/`smd-settings.js`,
+  all 4 apps' `editor-styles.js`, the app components (pmd-*, cmd-*, qrlink-card,
+  solar-top-tiles), and 6 rewritten css files (ramps deleted; compact/media-fit
+  sizes became token CALCs). `storybook/index.html` gained the
+  `shared/css/styles.css` link (was missing).
+- **Main-view date headings h2→h1** (`PlanMyDay` "Sun 18 …" and `CountMyDays`
+  "Today!"/"From …") — deliberate; tests + css selectors updated to `h1`.
+- **Tests updated for new sizes**: `pmd-touch.spec.js:119` now asserts the token
+  values (xlarge 41.6px, jumbo 51.2px, compact-jumbo 25.6px — old 28/32/16 no
+  longer apply) — user confirmed "keep ramp, update test"; heading-tag selectors
+  in pmd-regression (3×), cmd-regression (1×), pmd-example moved `h2`→`h1`.
+- Verification: `node --check` on all 30 edited JS files; storybook probe =
+  zero console/page errors + no failed requests; focused fail-fast batches +
+  **full cmd 45/45, solar 12/12, qrlinks 9/9, ffox 10/10, launch 6/6 all green**;
+  pmd targeted subset 13/13 (date heading, font-size settings, touch size,
+  today/streams, icon glyphs). Full pmd suite = user-runs at the end, per
+  usual. Two solar auth/network tests "failed" only under 8-concurrent-workers
+  port exhaustion — 12/12 green when run alone.
+- `BUILD_NUMBER` → `202609181911`.
+
+### 2026-09-18 (8) — every smd-page "Done" button relabelled "OK"
+- Changed every `smd-page` footer button `text: "Done"` → `text: "OK"` (the
+  `action: "done"` AND button ids `btnStreamsDone`/`btnJobSearchDone` were kept).
+  All 15 source spots: Launch/FreeFormOX/CountMyDays/PlanMyDay/QRLinks/
+  SolarControlar settings pages, CM dates/categories/google events editors,
+  PMD streams editor + job search, QRLinks links editor, `shared/js/smd-images.js`,
+  `shared/js/smd-app.js`, and the storybook smd-page demo host. The `smd-page`
+  component itself has no default buttons.
+- Tests: replaced `{ name: "Done" }` with `{ name: "OK" }` in cmd, pmd,
+  solarcontrolar, qrlinks, ffox specs; solarcontrolar test title renamed. PMD's
+  unscoped `page.getByRole("button",{name:"OK"})` clicks were left unscoped —
+  the pre-existing "Top-Level: Streams via Streams" test already clicked an
+  unscoped "OK" while both a hidden jobEditPage OK and the streams-editor OK sat
+  in shadow roots, so hidden footer "OK"s demonstrably don't cause strict-mode
+  collisions on role clicks.
+- Verified: pmd streams/settings flows 3/3, qrlinks+ffox+solarcontrolar 31/31,
+  cmd settings/sweep/google 25/25. `BUILD_NUMBER` → `202609181717`.
+
+### 2026-09-18 (7) — shared `<smd-date-picker>`: PMD sleep-until + CM once-date
+- **New shared component** `shared/js/components/smd-date-picker.js`: a read-only
+  flatpickr-backed date field. Attributes: `value` (a date string in `format`),
+  `format` (default `Y-m-d`), `alt-format` (default `D j M Y`),
+  `first-day-of-week`, `placeholder`, `readonly`, `disabled`, `no-clear`. Property
+  `.value` get/set (setter SYNCs + EMITS the change); the `value` ATTRIBUTE only
+  seeds silently. Event `smd-date-picker-change` (bubbles + composed,
+  `detail = { value }` = the date string in `format`). Stable shadow ids:
+  `smdDatePickerInput` (raw, holds `_flatpickr`), `smdDatePickerAlt` (visible
+  display), `smdDatePickerClearBtn`. The flatpickr calendar is
+  `appendTo: document.body` — REQUIRED, otherwise `flatpickr.min.css` (a page
+  stylesheet) cannot style a calendar living inside the shadow root. Registered
+  in CM + PMD `index.html`, `sw.js` SHARED_ASSETS, storybook (flatpickr vendor
+  script + css were added to the storybook, plus a demo section).
+- **PlanMyDay migrated**: `job-editor.js` sleep-until picker deleted
+  (`initJobSleepUntilPicker`, `clearSleepUntil`, `updateSleepUntilClearBtn`,
+  destroy-block). Schedule tab now renders `<smd-date-picker … value="(ISO)" …>`;
+  the page-level Change listener lives in `app.js` `jobEditPage`
+  (`smd-date-picker-change` → `jobField("sleepUntil", value)`), next to the
+  stream-dropdown listener.
+- **CountMyDays migrated**: the once-date field on `#dateEditPage` is now
+  `<smd-date-picker no-clear format="d/m/Y" alt-format="d/m/Y" value="dd/mm/yyyy">`.
+  `initDateFlatpickr` deleted. `onceDateValue()` builds the d/m/Y seed;
+  `applyOnceDateValue()` parses the d/m/Y change back into
+  buffer.day/month/year; a `smd-date-picker-change` listener is bound ONCE in
+  `openDateEditPage` (guard `page.__cmdDatePickerBound`), the `doneDateEdit`
+  safety-net re-reads `$id("smdDatePickerInput").value`.
+- **KEY GOTCHAS for tests in `page.evaluate` (both specs)**: `$id()` in
+  `shared/js/smd-app.js` PIERCES shadow roots via a TreeWalker; plain
+  `document.querySelector` / `document.getElementById` do NOT — a component
+  inside `#jobEditPage`/`#dateEditPage` is unreachable without `$id`. The raw
+  input keeps flatpickr's `_flatpickr` reference, so simulate a pick exactly as
+  the old code did: `$id("smdDatePickerInput")._flatpickr.setDate(ds, true)` (it
+  fires onChange → Change event → buffer). flatpickr sets the
+  `readonly="readonly"` ATTRIBUTE on the alt input when `allowInput:false`.
+  Playwright LOCATORS pierce shadow roots fine, so `#smdDatePickerAlt` /
+  `#smdDatePickerClearBtn` work directly.
+- **Results**: targeted pmd sleep-until batch 13/13 and cm dates-editor 13/13
+  green. Full pmd chromium suite NOT run (user runs it at the end).
+
+### 2026-09-18 (3) — CountMyDays dates editor filters + shared smd-image-dropdown
+- **New shared component** `shared/js/components/smd-image-dropdown.js`
+  (`<smd-image-dropdown>`): DATA-driven image+name dropdown. Host sets
+  `options = [{ name, image }]` (image OPTIONAL → text-only row, so a no-image
+  "All" option works) and `selected` = the option's NAME; picks dispatch
+  `smd-image-dropdown-change` (`detail = { name }`). Attributes `key-prefix` /
+  `disabled`. Stable shadow ids for tests: `smdImageDropdownBtn`,
+  `smdImageBtnIcon`, `smdImageBtnText`, `smdImageDropdownMenu`. Registered in
+  both CM + PMD `index.html`, `sw.js` SHARED_ASSETS, and the storybook.
+- **PlanMyDay**: `pmd-stream-select` was REPLACED by the shared component (and
+  `PlanMyDay/js/components/pmd-stream-select.js` DELETED). `job-editor.js`
+  renders `<smd-image-dropdown id="jobStreamDropdown">`;
+  `editor-common.js` `initJobStreamSelect`/`updateJobStreamPreview` now feed
+  `options`/`selected` by stream TITLE (name), added `streamNameAt` /
+  `streamIndexByName`; `app.js` listens to `smd-image-dropdown-change` and maps
+  `streamIndexByName(e.detail.name)` → `jobChangeStream(idx)`.
+- **CountMyDays `#datesEditor` filters**: line 1 = search box (flex:1) + Clear
+  button (`btn btn-danger btn-sm`, capital C); line 2 = category
+  `<smd-image-dropdown id="dateCategoryFilter">` (defaults to no-image "All",
+  images set from `loadCategories`) SAME line as the Local / Google / Google
+  hidden checkboxes (already capital G). Dropdown listener bound ONCE via
+  `page.__cmdFiltersBound`; `e.detail.name === "All"` maps to `""` in
+  `setDateCategoryFilter`. `renderDateFilters()` sets `dd.options` + `dd.selected`.
+- **`cmd-date-card` badges**: moved OFF the title line onto the date line
+  (`.meta`, after the once/annual type-text) so Local/Google sit after "Once".
+  Themed colours for contrast on the tile: Local = secondary, Google = primary,
+  Repeat = info, Hidden = secondary (new `.event-badge-hidden` class; old
+  hardcoded `#4285f4` google / dim `--bs-secondary` local gone). Title row no
+  longer carries badges.
+- Tests updated: cmd "filters by category and title" now drives the dropdown
+  (`#dateCategoryFilter #smdImageDropdownBtn` → menu item click) + asserts All
+  default; Google-unify test asserts badge placement (`.meta .event-badge-*`)
+  and empty `.title .event-badge`; pmd stream-selector tests use the new shadow
+  ids (`#smdImageBtnText`/`#smdImageDropdownBtn`/`#smdImageDropdownMenu`).
+- **Results**: cmd-regression 42/42; pmd-regression 430/430 across 30 shards
+  (all green, `--shard=$i/30 --workers=1 --retries=0` waves of 10);
+  storybook loads `smd-image-dropdown` section with zero console errors.
+- `BUILD_NUMBER` → `202609181433`.
+
+### 2026-09-18 (4) — CountMyDays Edit Date page layout
+- **`#dateEditPage` is now a vertical stack** (`renderDateEditContent` in
+  `dates-editor.js`):
+  - Line 1: `Category` label + category `<select id="dateCategorySelect">` and
+    the `Image` selector (`<smd-image-select id="dateImageSelect">`) on the same
+    row (`d-flex gap-3 align-items-center flex-wrap mb-3`).
+  - Line 2: `Title` label (renamed from "Name"; `#dateNameInput` id + data field
+    unchanged).
+  - Line 3: the Title text box.
+  - Line 4: the date controls (day/month selects OR `#dateOnceInput`) + the
+    type `<select id="dateTypeSelect">`, now ordered **Once first, Annual
+    second** (values unchanged, default remains `annual`).
+- **Removed** the old floating category-preview column (`<smd-image
+  id="dateCategoryPreview">` no longer exists) and the now-dead
+  `updateDateCategoryPreview()`; the category select no longer calls it.
+  `updateDateImagePreview()` still runs.
+- Test: "adds a date and saves its fields" asserts a `Title` label is visible
+  and no `Name` label exists.
+- **Results**: targeted date-editor/date-image tests 4/4; full cmd-regression
+  **42/42 passed** (~2m).
+- `BUILD_NUMBER` → `202609181510`.
+
+### 2026-09-18 (5) — CountMyDays category None filter + Edit Date page labels
+- **`#datesEditor` category filter now has a "None" option** (no-image, like
+  "All") that matches ONLY dates/events with NO category. Implemented with a
+  sentinel `const DATE_CATEGORY_NONE = "__none__"` in `dates-editor.js`:
+  `renderDateFilters()` options = All, None, then categories;
+  `dd.selected` maps `DATE_CATEGORY_NONE → "None"`; the
+  `smd-image-dropdown-change` handler maps `"None" → DATE_CATEGORY_NONE`;
+  `renderDateList()` treats it as "match `!d.category`" (else branch unchanged).
+  (A category literally named "All"/"None" would also collide with the
+  sentinels — names are matched by string, same pre-existing quirk as "All".)
+- **Edit Date page**: the Category + Image labels now sit ABOVE their controls
+  (each label inside its own stacked div, `d-flex gap-3 align-items-start`);
+  previously they were inline to the left on line 1.
+- **Clear button** on the Edit Dates page confirmed `btn btn-danger btn-sm`
+  (capital C) — already danger, no change.
+- **Once date picker verified working** for an existing LOCAL once date:
+  `initDateFlatpickr` uses `$id()` (which pierces smd-page shadow roots), the
+  `<smd-image-select>`/shield inputs render, the `.flatpickr-calendar.open`
+  appears above the page (z-index 99999 vs page 1040) and picking a day updates
+  `dateEditBuffer` and saves on OK.
+- Tests added (cmd-regression):
+  - "none category filter matches only dates with no category" — drops to the
+    single seeded uncategorised date ("Today Event").
+  - "date picker works on a local once date" — edits seeded "Project Deadline"
+    (type once, 25/12/FUTURE_YEAR), asserts the input shows the stored date,
+    opens the flatpickr calendar, clicks day 15, saves, verifies 15/12/year.
+- **Results**: targeted 4/4; full cmd-regression **44/44 passed** (~2m).
+- `BUILD_NUMBER` → `202609181526`.
+
+### 2026-09-18 (6) — Edit Date page: OK/Cancel swap + once-type save fix
+- **Edit Date page footer buttons reordered**: Cancel now appears first (left),
+  OK second (right). Previously OK was first. A test assertion checks the
+  `smd-page-footer smd-button` innerTexts are `["Cancel", "OK"]`.
+- **Once-type date save fix** (the actual "date picker not working" bug):
+  flatpickr's `onChange` only fires on Enter/Tab, so a user who types a new date
+  into the `#dateOnceInput` and then **clicks OK directly** (without pressing
+  Tab/Enter) silently loses the change — the buffer keeps the old day/month/year.
+  Fixed in `doneDateEdit`: when the type is `"once"` and `#dateOnceInput`
+  exists with an initialized `_flatpickr`, the raw input value is re-read via
+  `fp.parseDate(input.value, "d/m/Y")` and written into `buffer.day/month/year`
+  before saving. This guarantees typed dates are committed regardless of whether
+  the user pressed Tab/Enter first. The calendar-pick path (which already fires
+  `onChange`) is unaffected.
+- **Test tightened**: "once type uses a date input and saves the year" no longer
+  presses Tab before OK — exercises the type-then-click-OK path directly.
+- **Results**: targeted 4/4; full cmd-regression **44/44 passed** (~1.9m).
+- `BUILD_NUMBER` → `202609181539`.
+
+### 2026-09-18 (2)
+- **SolarControlar main tabs now use the shared `smd-tabs` component**, and the
+  component **OWNS the panels** (renders them in its shadow root). The light-DOM
+  `.main-tabs` button bar + six `#tab-*`/`class="tab-content"` divs were removed
+  from `SolarControlar/index.html`; the markup is now just
+  `<smd-tabs id="mainTabs" wrap>`. Each tab's panel (id `power-panel` etc.)
+  wraps a `#tab-*` content div so the render functions and regression-test
+  locators keep targeting the same ids.
+- `SolarControlar/js/main-view.js`: `MAIN_TAB_DEFS` (title/id/content) +
+  `configureMainTabs()` sets `tabsEl.tabs` ONCE (re-setting wipes panel innerHTML),
+  injects `JOBS_EDITOR_STYLES + MAIN_TAB_STYLES` into the `#mainTabs`
+  shadowRoot, and listens for `smd-tabs-change` → `switchMainTab(tab.id)`.
+  `switchMainTab()` now finds the matching index in `MAIN_TAB_DEFS` and sets
+  `tabsEl.activeIndex` (visibility is driven by the component's `active`
+  attribute) + lazy `initGraphTab()` for the graph.
+- **Shadow-content consequences handled**: `SolarControlar/js/editor-styles.js`
+  gained `MAIN_TAB_STYLES` (the content rules moved out of the light-DOM
+  `css/styles.css` — `.main-tabs`/`.tab-content`/`.power-table`/`.log-*`/
+  `.graph-*`/`.forecast-output`/`.access-badge`/`.loading` are gone from it,
+  plus `.btn-sm`/`.align-items-center`/`.text-end`/`.flex-grow-1` utility gaps).
+  All six tab JS files (`power-tab.js`, `solar-settings-view.js`, `files-tab.js`,
+  `config-tab.js`, `forecast-tab.js`, `graph-tab.js`) switched from
+  `document.getElementById()` to the shadow-piercing `$id()` for EVERY element
+  inside the panels (incl. `document.querySelector("#configForm tr…")` →
+  `$id("configForm").querySelector(...)`, `.graph-series` scan scoped to
+  `$id("tab-graph")`). `MAIN_TAB_STYLES`'s `.flash*` rules cover the in-panel
+  settings error; light-DOM `.flash*` stays for `#flashContainer`.
+- Tests: `tests/solarcontrolar-regression.spec.js` now clicks
+  `#mainTabs .smd-tab-btn` filtered by `hasText` ("Files"/"Config"/…) and asserts
+  panel activity via `#mainTabs #<id>-panel` `toHaveAttribute("active", "")`
+  instead of the old `.main-tabs .tab-btn[data-tab=…]` + `#tab-*` `toHaveClass(/active/)`.
+  Playwright pierces shadow roots, so all the deep controls (`#log-file`,
+  `#configSlider`, `#slider-tolerance_percent`, `#tab-power .power-table`, …)
+  keep working unchanged. Full suite: 12/12 pass.
+- Full regression across apps: pmd 431/431 green (1 flake — "task note button
+  paints outline state on touch devices" timed out mid-suite waiting for
+  `#jobEditPage`, re-ran in isolation: PASS), launch/ffox/cmd/qrlinks 66/67
+  green (the 1 launch fail is the documented known flake: "every app's menu
+  links to the Launch app" under 5-page load; re-ran in isolation: PASS).
+- `BUILD_NUMBER` → `202609181310`.
 
 ### 2026-09-18
 - **Today-card swipe gestures** (PlanMyDay): `pmd-today-card` now tracks pointer
@@ -1016,7 +1378,7 @@ Techniques / gotchas:
   (`adoptStyles` dedups and would otherwise leave an old smaller sheet last).
   Non-SVG images source the higher-res thumbnail for the size (32→data64,
   40→data80, 50→data100; `px` then `px*2` then 100/80/64).
-- Extracted the job-edit stream dropdown into `PlanMyDay/js/components/pmd-stream-select.js`
+- Extracted the job-edit stream dropdown into `PlanMyDay/js/components/pmd-stream-select.js` (SUPERSEDED 2026-09-18 by the shared `smd-image-dropdown`, see the IMAGE DROPDOWN note + session log (3) — `pmd-stream-select.js` was deleted):
   (`<pmd-stream-select>`): button + menu, each entry an `<smd-image>` + title, so
   the images scale with the setting. App feeds it `streams`/`selected` and
   listens for `pmd-stream-select-change` (detail `{ streamIdx }`) — the old

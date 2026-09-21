@@ -1,94 +1,88 @@
-const smdButtonSheet = SmdStyles.sheetFor(`
-  :host {
-    display: inline-block;
-  }
-  button {
-    padding: 0.5rem 1rem;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 1rem;
-    background: var(--smd-primary, #0d6efd);
-    color: var(--smd-primary-text, #fff);
-    transition: opacity 0.2s;
-  }
-  button:hover {
-    opacity: 0.85;
-  }
-  button:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-  button[variant="secondary"] {
-    background: var(--smd-secondary, #6c757d);
-    color: var(--smd-secondary-text, #fff);
-  }
-  button[variant="danger"] {
-    background: var(--smd-danger, #dc3545);
-    color: var(--smd-danger-text, #fff);
-  }
-  button[variant="success"] {
-    background: var(--smd-success, #198754);
-    color: var(--smd-success-text, #fff);
-  }
-  button[variant="info"] {
-    background: var(--smd-info, #0dcaf0);
-    color: var(--smd-info-text, #fff);
-  }
-`);
+// <smd-button> — themed Bootstrap button (light DOM).
+//
+// Renders a real `<button class="btn btn-<variant>">` straight into the light
+// DOM, so the loaded theme styles it exactly like a native button. The label is
+// captured from the host's light text on first connect (consumers author it as
+// static text, e.g. `<smd-button variant="danger" onclick="...">Delete</smd-button>`);
+// clicks bubble from the inner button up to the host, so host-level onclick
+// handlers keep firing. `disabled` and `id` are mirrored onto the inner button.
+//
+// Attributes:
+//   variant  — primary | secondary | success | danger | info | warning | light | dark (default primary)
+//   disabled — boolean
+(function (global) {
+  "use strict";
 
-const template = document.createElement('template');
-template.innerHTML = `
-  <button part="button">
-    <slot>Button</slot>
-  </button>
-`;
+  const VARIANTS = ["primary", "secondary", "success", "danger", "info", "warning", "light", "dark"];
 
-class SmdButton extends HTMLElement {
-  static get observedAttributes() {
-    return ['variant', 'disabled'];
-  }
+  const template = document.createElement("template");
+  template.innerHTML = `<button class="btn btn-primary"></button>`;
 
-  constructor() {
-    super();
-    this.attachShadow({ mode: 'open' });
-    SmdStyles.adoptStyles(this.shadowRoot, [smdButtonSheet]);
-    this.shadowRoot.appendChild(template.content.cloneNode(true));
-  }
+  class SmdButton extends HTMLElement {
+    static get observedAttributes() {
+      return ["variant", "disabled"];
+    }
 
-  get variant() {
-    return this.getAttribute('variant') || 'primary';
-  }
+    constructor() {
+      super();
+      this._label = undefined;
+    }
 
-  set variant(val) {
-    this.setAttribute('variant', val);
-  }
+    get variant() {
+      return this.getAttribute("variant") || "primary";
+    }
 
-  get disabled() {
-    return this.hasAttribute('disabled');
-  }
+    set variant(val) {
+      this.setAttribute("variant", val);
+    }
 
-  set disabled(val) {
-    if (val) {
-      this.setAttribute('disabled', '');
-    } else {
-      this.removeAttribute('disabled');
+    get disabled() {
+      return this.hasAttribute("disabled");
+    }
+
+    set disabled(val) {
+      if (val) this.setAttribute("disabled", "");
+      else this.removeAttribute("disabled");
+    }
+
+    attributeChangedCallback(name) {
+      if (!this.isConnected) return;
+      if (name === "disabled") this._applyDisabled();
+      if (name === "variant") this._applyVariant();
+    }
+
+    connectedCallback() {
+      if (this._label === undefined) {
+        this._label = this.textContent.replace(/^\s+|\s+$/g, "");
+      }
+      this.innerHTML = "";
+      const btn = template.content.firstElementChild.cloneNode(true);
+      btn.textContent = this._label || "Button";
+      if (this.id) btn.id = this.id + "-button";
+      this.appendChild(btn);
+      this._applyVariant();
+      this._applyDisabled();
+    }
+
+    _btn() {
+      return this.querySelector("button");
+    }
+
+    _applyVariant() {
+      const btn = this._btn();
+      if (!btn) return;
+      const requested = this.getAttribute("variant");
+      btn.className = "btn btn-" + (VARIANTS.indexOf(requested) !== -1 ? requested : "primary");
+    }
+
+    _applyDisabled() {
+      const btn = this._btn();
+      if (btn) btn.disabled = this.disabled;
     }
   }
 
-  attributeChangedCallback(name) {
-    if (name === 'disabled') {
-      this.shadowRoot.querySelector('button').disabled = this.disabled;
-    }
-    if (name === 'variant') {
-      this.shadowRoot.querySelector('button').setAttribute('variant', this.variant);
-    }
+  if (!global.customElements.get("smd-button")) {
+    global.customElements.define("smd-button", SmdButton);
   }
-
-  connectedCallback() {
-    this.shadowRoot.querySelector('button').disabled = this.disabled;
-    this.shadowRoot.querySelector('button').setAttribute('variant', this.variant);
-  }
-}
-
-customElements.define('smd-button', SmdButton);
+  global.SmdButton = SmdButton;
+})(window);

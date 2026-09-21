@@ -9,6 +9,22 @@ importScripts("shared/js/build-number.js");
 
 const CACHE = "myapps-" + BUILD_NUMBER;
 
+// Cached user-image files. Deliberately NOT build-tagged: the immutable
+// /smd-img/<hash> URLs written by shared/js/smd-images.js (Cache Storage) must
+// survive app rebuilds, or every read would re-download the bytes.
+const IMAGE_CACHE = "myapps-images";
+
+// Transparent 1x1 GIF returned when a /smd-img/ request misses the cache (the
+// page writes the entry just before it renders the same URL, but a stale DOM
+// src could race it, or the browser loaded before the SW took control).
+const TRANSPARENT_GIF = Uint8Array.from(
+  atob("R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"),
+  c => c.charCodeAt(0)
+);
+const TRANSPARENT_GIF_RESPONSE = new Response(TRANSPARENT_GIF, {
+  headers: { "Content-Type": "image/gif", "Cache-Control": "no-store" }
+});
+
 // ---- Shared library assets (used by every app) ----
 const SHARED_ASSETS = [
   "shared/sampleImages.json",
@@ -211,7 +227,6 @@ const SHARED_ASSETS = [
   "shared/css/fonts/XRXV3I6Li01BKofIOOaBXso.woff2",
   "shared/css/fonts/XRXV3I6Li01BKofIOuaBXso.woff2",
   "shared/js/build-number.js",
-  "shared/js/components/styles.js",
   "shared/js/components/smd-button.js",
   "shared/js/components/smd-image.js",
   "shared/js/components/smd-modal.js",
@@ -223,6 +238,8 @@ const SHARED_ASSETS = [
     "shared/js/components/smd-checkbox.js",
   "shared/js/components/smd-draghandle.js",
   "shared/js/components/smd-badge.js",
+  "shared/js/components/smd-image-dropdown.js",
+  "shared/js/components/smd-date-picker.js",
   "shared/js/components/smd-buymeacoffee.js",
   "shared/js/components/smd-fontawesome-credit.js",
   "shared/js/components/smd-page.js",
@@ -263,7 +280,6 @@ const APPS = {
     "PlanMyDay/js/components/pmd-stream-header.js",
     "PlanMyDay/js/components/pmd-stream-job-card.js",
     "PlanMyDay/js/components/pmd-job-search-card.js",
-    "PlanMyDay/js/components/pmd-stream-select.js",
     "PlanMyDay/js/components/pmd-today-card.js"
   ],
   "CountMyDays/": [
@@ -389,7 +405,7 @@ self.addEventListener("message", event => {
 self.addEventListener("activate", event => {
   event.waitUntil(
     caches.keys().then(keys => {
-      const activePrefixes = [CACHE];
+      const activePrefixes = [CACHE, IMAGE_CACHE];
       return Promise.all(
         keys.filter(k => !activePrefixes.some(p => k === p || k.startsWith(p)))
               .map(k => caches.delete(k))
@@ -404,6 +420,17 @@ self.addEventListener("fetch", event => {
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) {
     // MinIO S3 server or other external host — handled directly by the browser
+    return;
+  }
+  // User-image files: the page stores payloads under immutable /smd-img/ URLs
+  // and points <img src> at them (shared/js/smd-images.js). Serve the entry;
+  // never fall through to the network, which has no file at that path.
+  if (url.pathname.indexOf("/smd-img/") !== -1) {
+    event.respondWith(
+      caches.open(IMAGE_CACHE).then(cache =>
+        cache.match(url).then(hit => hit || TRANSPARENT_GIF_RESPONSE.clone())
+      ).catch(() => TRANSPARENT_GIF_RESPONSE.clone())
+    );
     return;
   }
   // Cache by PATHNAME so versioned requests (js/app.js?v=...) hit the same

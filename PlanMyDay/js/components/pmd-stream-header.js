@@ -1,105 +1,3 @@
-const pmdStreamHeaderSheet = SmdStyles.sheetFor(`
-  :host {
-    display: block;
-  }
-  .stream-accordion-header {
-    display: flex;
-    align-items: center;
-    width: 100%;
-    box-sizing: border-box;
-    padding: 0.25rem 0 0.25rem 0.5rem;
-    background-color: var(--bs-light-border-subtle);
-    color: var(--bs-emphasis-color, var(--smd-primary-text, #fff));
-  }
-  :host([expanded]) .stream-accordion-header {
-    background-color: var(--bs-info-border-subtle);
-    color: var(--bs-emphasis-color, var(--smd-primary-text, #fff));
-  }
-  .thumb {
-    flex-shrink: 0;
-    margin: 0 0.5rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-  .body {
-    display: flex;
-    flex-direction: column;
-    min-width: 0;
-    flex: 1;
-    gap: 0.25rem;
-    overflow: hidden;
-    margin-right: 0.5rem;
-  }
-  .row1 { display: flex; align-items: center; gap: 0.35rem; min-width: 0; }
-  .stream-header-main {
-    display: flex;
-    align-items: center;
-    flex: 1 1 auto;
-    min-width: 0;
-    padding: 0;
-    border: 0;
-    background: transparent;
-    color: inherit;
-    text-align: left;
-    cursor: pointer;
-  }
-  .editor-title {
-    font-weight: 800;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  .header-actions {
-    display: flex;
-    align-items: center;
-    flex: 0 0 auto;
-    gap: 0.35rem;
-    padding: 0 0.35rem;
-    color: inherit;
-  }
-  .row2 { display: flex; gap: 0.25rem; flex-wrap: nowrap; }
-  .chevron {
-    flex: 0 0 auto;
-    width: 2.5rem;
-    min-height: 3rem;
-    border: 0;
-    background: transparent;
-    position: relative;
-    cursor: pointer;
-    margin-right: 0.5rem;
-  }
-  .chevron::after {
-    content: "";
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    width: 0.7rem;
-    height: 0.7rem;
-    margin-top: -0.45rem;
-    margin-left: -0.35rem;
-    border-right: 2.5px solid currentColor;
-    border-bottom: 2.5px solid currentColor;
-    transform: rotate(45deg);
-    transition: transform 0.2s ease;
-  }
-  :host([expanded]) .chevron::after {
-    transform: rotate(225deg);
-  }
-  .btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0.25rem 0.5rem;
-    font-size: 0.85rem;
-    line-height: 1.5;
-    text-align: center;
-    border-radius: 0.25rem;
-    cursor: pointer;
-    white-space: nowrap;
-  }
-`);
-
 const pmdStreamHeaderTemplate = document.createElement('template');
 pmdStreamHeaderTemplate.innerHTML = `
   <div class="stream-accordion-header">
@@ -107,7 +5,7 @@ pmdStreamHeaderTemplate.innerHTML = `
     <div class="thumb"><smd-image key-prefix="shared-"></smd-image></div>
     <div class="body">
       <div class="row1">
-        <button type="button" class="stream-header-main" part="header-main" aria-expanded="false">
+        <button type="button" class="stream-header-main" aria-expanded="false">
           <span class="editor-title"></span>
         </button>
         <div class="header-actions">
@@ -132,18 +30,20 @@ class PmdStreamHeader extends HTMLElement {
 
   constructor() {
     super();
-    this.attachShadow({ mode: 'open' });
-    SmdStyles.adoptStyles(this.shadowRoot, [SmdStyles.hiddenSheet, SmdStyles.btnBadgeSheet, pmdStreamHeaderSheet]);
-    this.shadowRoot.appendChild(pmdStreamHeaderTemplate.content.cloneNode(true));
+    this._bound = false;
   }
 
   connectedCallback() {
-    const root = this.shadowRoot;
-    root.querySelector('.stream-header-main').addEventListener('click', () => this._emitToggle());
-    root.querySelector('.chevron').addEventListener('click', () => this._emitToggle());
-    root.querySelector('[data-action="add-job"]').addEventListener('click', () => this._emit('pmd-add-job'));
-    root.querySelector('[data-action="edit"]').addEventListener('click', () => this._emit('pmd-edit'));
-    root.querySelector('[data-action="delete"]').addEventListener('click', () => this._emit('pmd-delete'));
+    if (!this._bound) {
+      this._bound = true;
+      this.appendChild(pmdStreamHeaderTemplate.content.cloneNode(true));
+      this._adoptSlottedHandle();
+      this.querySelector('.stream-header-main').addEventListener('click', () => this._emitToggle());
+      this.querySelector('.chevron').addEventListener('click', () => this._emitToggle());
+      this.querySelector('[data-action="add-job"]').addEventListener('click', () => this._emit('pmd-add-job'));
+      this.querySelector('[data-action="edit"]').addEventListener('click', () => this._emit('pmd-edit'));
+      this.querySelector('[data-action="delete"]').addEventListener('click', () => this._emit('pmd-delete'));
+    }
     this._render();
   }
 
@@ -165,6 +65,19 @@ class PmdStreamHeader extends HTMLElement {
     else this.removeAttribute('jobcounts');
   }
 
+  // Move a consumer-provided drag handle (appended straight onto the host with
+  // slot="drag-handle") into the header and drop our built-in fallback.
+  _adoptSlottedHandle() {
+    const external = this.querySelector(':scope > smd-draghandle.drag-handle');
+    if (!external) return;
+    const header = this.querySelector('.stream-accordion-header');
+    if (!header) return;
+    const fallback = header.querySelector(':scope > smd-draghandle.drag-handle');
+    if (fallback) fallback.remove();
+    external.removeAttribute('slot');
+    header.insertBefore(external, header.firstChild);
+  }
+
   _emitToggle() {
     const toggled = !this.hasAttribute('expanded');
     this.dispatchEvent(new CustomEvent('pmd-header-toggle', {
@@ -183,7 +96,7 @@ class PmdStreamHeader extends HTMLElement {
   }
 
   _render() {
-    const root = this.shadowRoot;
+    const root = this;
     const expanded = this.hasAttribute('expanded');
     const title = this.getAttribute('title') || '';
     const image = this.getAttribute('image') || '';

@@ -1,62 +1,7 @@
-const pmdStreamJobCardSheet = SmdStyles.sheetFor(`
-  :host {
-    display: block;
-    flex: 1 1 auto;
-    min-width: 0;
-    background-color: var(--bs-dark-border-subtle, #303030);
-    border: 1px solid var(--bs-border-color, #495057);
-    border-radius: 0;
-    padding: 0.5rem;
-  }
-  :host([drag-handle]) .drag-handle { display: none; }
-  .row1 {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    min-width: 0;
-  }
-  .thumb {
-    flex-shrink: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-  .title {
-    font-weight: 700;
-    min-width: 0;
-    flex: 1;
-    color: inherit;
-  }
-  .suffix { margin-left: 0.25rem; }
-  .row2 {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    margin-top: 0.25rem;
-    font-size: 0.875em;
-  }
-  .time {
-    margin-left: 0.25rem;
-  }
-  .btn {
-    padding: 0.25rem 0.5rem;
-    font-size: 0.85rem;
-    line-height: 1.5;
-    flex-shrink: 0;
-    align-self: center;
-    margin-left: 0.75rem;
-  }
-  smd-checkbox.active-toggle {
-    font-weight: 700;
-    flex-shrink: 0;
-    color: inherit;
-  }
-`);
-
 const pmdStreamJobCardTemplate = document.createElement('template');
 pmdStreamJobCardTemplate.innerHTML = `
   <div class="row1">
-    <slot name="drag-handle"><smd-draghandle class="drag-handle"></smd-draghandle></slot>
+    <smd-draghandle class="drag-handle"></smd-draghandle>
     <div class="thumb"><smd-image key-prefix="shared-"></smd-image></div>
     <div class="title">
       <span class="job-title"></span><smd-badge class="suffix" variant="secondary" pill hidden></smd-badge>
@@ -78,31 +23,46 @@ class PmdStreamJobCard extends HTMLElement {
 
   constructor() {
     super();
-    this.attachShadow({ mode: 'open' });
-    SmdStyles.adoptStyles(this.shadowRoot, [SmdStyles.hiddenSheet, SmdStyles.btnBadgeSheet, pmdStreamJobCardSheet]);
-    this.shadowRoot.appendChild(pmdStreamJobCardTemplate.content.cloneNode(true));
+    this._bound = false;
   }
 
   connectedCallback() {
-    const root = this.shadowRoot;
-    root.querySelector('[data-action="edit"]').addEventListener('click', () => this._emit('pmd-job-edit'));
-    root.querySelector('smd-checkbox.active-toggle').addEventListener('change', (e) => {
-      const checked = e.detail ? e.detail.checked : e.target.checked;
-      this.dispatchEvent(new CustomEvent('pmd-job-toggle-active', {
-        bubbles: true,
-        composed: true,
-        detail: {
-          streamIdx: parseInt(this.getAttribute('stream-idx'), 10),
-          jobIdx: parseInt(this.getAttribute('job-idx'), 10),
-          checked
-        }
-      }));
-    });
+    if (!this._bound) {
+      this._bound = true;
+      this.appendChild(pmdStreamJobCardTemplate.content.cloneNode(true));
+      this._adoptSlottedHandle();
+      this.querySelector('[data-action="edit"]').addEventListener('click', () => this._emit('pmd-job-edit'));
+      this.querySelector('smd-checkbox.active-toggle').addEventListener('change', (e) => {
+        const checked = e.detail ? e.detail.checked : e.target.checked;
+        this.dispatchEvent(new CustomEvent('pmd-job-toggle-active', {
+          bubbles: true,
+          composed: true,
+          detail: {
+            streamIdx: parseInt(this.getAttribute('stream-idx'), 10),
+            jobIdx: parseInt(this.getAttribute('job-idx'), 10),
+            checked
+          }
+        }));
+      });
+    }
     this._render();
   }
 
   attributeChangedCallback(name) {
     if (this.isConnected) this._render();
+  }
+
+  // Move a consumer-provided drag handle (appended straight onto the host with
+  // slot="drag-handle") into row 1 and drop our built-in fallback. Sortable's
+  // handle needs to sit next to the built-in UI, so it is re-slotted by hand.
+  _adoptSlottedHandle() {
+    const external = this.querySelector(':scope > smd-draghandle.drag-handle');
+    if (!external) return;
+    const fallback = this.querySelector('.row1 > smd-draghandle.drag-handle');
+    if (fallback) fallback.remove();
+    external.removeAttribute('slot');
+    const row1 = this.querySelector('.row1');
+    if (row1) row1.insertBefore(external, row1.firstChild);
   }
 
   _emit(type) {
@@ -117,7 +77,7 @@ class PmdStreamJobCard extends HTMLElement {
   }
 
   _render() {
-    const root = this.shadowRoot;
+    const root = this;
     const title = this.getAttribute('title') || '';
     const image = this.getAttribute('image') || '';
     const suffix = this.getAttribute('suffix') || '';

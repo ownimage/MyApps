@@ -1,4 +1,5 @@
-// <smd-image-select> — image thumbnail + name + an "Edit" (picker) button.
+// <smd-image-select> — image thumbnail + name + an "Edit" (picker) button
+// (light DOM). Styles live in shared/css/styles.css.
 //
 // Shared/reusable: the image is looked up by NAME via <smd-image> using the
 // `key-prefix` (list key = keyPrefix + "images") + `image` attributes, never a
@@ -11,56 +12,12 @@
 (function (global) {
   "use strict";
 
-  const smdImageSelectSheet = SmdStyles.sheetFor(`
-  :host {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    min-width: 0;
-    /* Transparent so it shows the surface it sits on: the smd-page body colour
-       on a page, or the card background when placed on a card. */
-    background-color: transparent;
-  }
-  .thumb {
-    position: relative;
-    flex-shrink: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border: 1px solid var(--bs-border-color, #495057);
-    border-radius: 6px;
-    overflow: hidden;
-  }
-  .thumb .placeholder {
-    position: absolute;
-    inset: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 0.65rem;
-    color: var(--bs-secondary-color, #aaa);
-  }
-  .meta {
-    display: flex;
-    flex-direction: column;
-    gap: 0.35rem;
-    min-width: 0;
-  }
-  .name {
-    font-size: 0.85rem;
-    color: var(--bs-secondary-color, #aaa);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-`);
-
   const smdImageSelectTemplate = document.createElement("template");
   smdImageSelectTemplate.innerHTML = `
   <div class="thumb"><smd-image></smd-image><span class="placeholder">none</span></div>
   <div class="meta">
     <span class="name"></span>
-    <smd-button variant="primary" part="edit-btn">Edit</smd-button>
+    <smd-button variant="primary" class="edit-btn">Edit</smd-button>
   </div>
 `;
 
@@ -75,34 +32,42 @@
 
     constructor() {
       super();
-      this.attachShadow({ mode: "open" });
-      SmdStyles.adoptStyles(this.shadowRoot, [SmdStyles.hiddenSheet, SmdStyles.btnBadgeSheet, smdImageSelectSheet]);
-      this.shadowRoot.appendChild(smdImageSelectTemplate.content.cloneNode(true));
+      this._bound = false;
+      this._built = false;
+    }
+
+    _build() {
+      if (this._built) return;
+      this._built = true;
+      this.appendChild(smdImageSelectTemplate.content.cloneNode(true));
     }
 
     connectedCallback() {
-      this.shadowRoot.querySelector("smd-button[part='edit-btn']").addEventListener("click", () => {
-        if (this.hasAttribute("disabled")) return;
-        this.dispatchEvent(new CustomEvent("smd-image-select-action", {
-          bubbles: true,
-          composed: true,
-          detail: { action: "edit" }
-        }));
-      });
+      this._build();
+      if (!this._bound) {
+        this._bound = true;
+        this.querySelector("smd-button.edit-btn").addEventListener("click", () => {
+          if (this.hasAttribute("disabled")) return;
+          this.dispatchEvent(new CustomEvent("smd-image-select-action", {
+            bubbles: true,
+            composed: true,
+            detail: { action: "edit" }
+          }));
+        });
+      }
       this._render();
     }
 
     attributeChangedCallback() {
-      if (this.isConnected) this._render();
+      if (this._built) this._render();
     }
 
     _render() {
-      const root = this.shadowRoot;
       const name = this.getAttribute("image") || "";
       const label = this.getAttribute("label") || name;
       const idAttr = (id) => id ? ` id="${id}"` : "";
 
-      const sImg = root.querySelector(".thumb smd-image");
+      const sImg = this.querySelector(".thumb smd-image");
       sImg.setAttribute("key-prefix", this.keyPrefix);
       // Keep the <smd-image> mounted even with no image so it reserves the
       // configured image size; the placeholder is overlaid on top.
@@ -112,17 +77,17 @@
         sImg.removeAttribute("image");
       }
 
-      const thumb = root.querySelector(".thumb");
-      const ph = root.querySelector(".placeholder");
+      const thumb = this.querySelector(".thumb");
+      const ph = this.querySelector(".placeholder");
       ph.hidden = !!name;
 
-      const labelEl = root.querySelector(".name");
+      const labelEl = this.querySelector(".name");
       labelEl.textContent = label;
       if (this.getAttribute("label-id")) {
         if (!labelEl.id) labelEl.id = this.getAttribute("label-id");
       }
 
-      const btn = root.querySelector("smd-button[part='edit-btn']");
+      const btn = this.querySelector("smd-button.edit-btn");
       if (this.getAttribute("button-id")) {
         if (!btn.id) btn.id = this.getAttribute("button-id");
       }

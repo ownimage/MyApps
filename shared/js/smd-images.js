@@ -20,6 +20,178 @@ function loadImages() {
 
 function saveImages(images) {
   localStorage.setItem(smdImagesKey(), JSON.stringify(images));
+  scheduleImageCacheGc();
+}
+
+// ---- User-image cache (Cache Storage-backed render URLs) ----
+//
+// Every <smd-image> / editor preview used to embed the FULL painted data URL
+// into the DOM via img.src (SVGs re-derived on every render), bloating the
+// document. Instead the page caches the bytes once (a `myapps-images` Cache
+// Storage entry under an immutable URL) and points <img src> at that file, so
+// the DOM holds a short URL and the bytes live on the device.
+//
+// URL scheme: <origin>/.../smd-img/<64-bit-hash-of-painted-url>. The repo-root
+// prefix is derived from THIS script's own src, so it resolves inside the
+// single repo-root service worker's scope under any deployment sub-path
+// (apps, the Launch root index, tests/subpath-server.py).
+const SMD_IMAGE_CACHE_NAME = "myapps-images";
+
+const SMD_IMAGE_CACHE_BASE = (function () {
+  let src = "";
+  try { if (document.currentScript && document.currentScript.src) src = document.currentScript.src; } catch (e) { /* ignore */ }
+  const i = src.indexOf("/shared/");
+  if (i === -1) return "/smd-img/";
+  return src.substring(0, i + 1) + "smd-img/";
+})();
+
+// Session memo: painted data URL -> render URL (cache URL or blob URL).
+const _imgUrlMemo = new Map();
+const _imgUrlPending = new Map();
+let _imageCacheGcTimer = null;
+
+// The cache URL is only fetchable when this origin's service worker has claimed
+// the page (it serves /smd-img/ entries). Before that (first-ever visit, or
+// tests that load and assert immediately) the browser would 404, so fall back
+// to an in-memory blob URL until the SW controls the page.
+function smdSwControls() {
+  try {
+    return !!(window.navigator && window.navigator.serviceWorker &&
+      window.navigator.serviceWorker.controller);
+  } catch (e) { return false; }
+}
+
+// Two 32-bit FNV-1a passes -> 16 hex chars. Fast, synchronous, deterministic
+// across sessions (needed so the cache URL matches the entry written earlier).
+function smdImageHash(str) {
+  let h1 = 0x811c9dc5, h2 = 0x9e3779b1;
+  for (let i = 0; i < str.length; i++) {
+    const c = str.charCodeAt(i);
+    h1 = Math.imul(h1 ^ c, 0x01000193) >>> 0;
+    h2 = Math.imul(h2 ^ c, 0x1bdd7f81) >>> 0;
+  }
+  return h1.toString(16).padStart(8, "0") + h2.toString(16).padStart(8, "0");
+}
+
+function smdImageBlobUrl(dataUrl) {
+  return fetch(dataUrl).then(function (r) {
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    return r.blob();
+  }).then(function (blob) {
+    return URL.createObjectURL(blob);
+  });
+}
+
+// Resolves a painted data URL to a render URL: the persistent /smd-img/ cache
+// URL when the service worker controls the page, else an in-memory blob URL.
+// The entry is written into Cache Storage once (immutable per content).
+function smdImageCacheUrl(dataUrl) {
+  const cacheUrl = SMD_IMAGE_CACHE_BASE + smdImageHash(dataUrl);
+  return caches.open(SMD_IMAGE_CACHE_NAME).then(function (cache) {
+    return cache.match(cacheUrl).then(function (hit) {
+      if (hit) {
+        return smdSwControls() ? cacheUrl : hit.blob().then(function (b) { return URL.createObjectURL(b); });
+      }
+      return fetch(dataUrl).then(function (r) {
+        if (!r.ok) throw new Error("HTTP " + r.status);
+        return r.blob();
+      }).then(function (blob) {
+        const body = new Response(blob, {
+          headers: { "Content-Type": blob.type || "image/svg+xml", "Cache-Control": "immutable" }
+        });
+        return cache.put(cacheUrl, body).then(function () {
+          return smdSwControls() ? cacheUrl : URL.createObjectURL(blob);
+        });
+      });
+    });
+  });
+}
+
+// The render URL for a painted data URL. Memoised per session and deduped, so N
+// cards of the same image/theme share ONE cached file and (in the happy path)
+// reuse the previous session's entry without re-fetching the bytes.
+function smdImageRenderUrl(dataUrl) {
+  if (!dataUrl || dataUrl.indexOf("data:") !== 0) return Promise.resolve(dataUrl);
+  if (_imgUrlMemo.has(dataUrl)) return Promise.resolve(_imgUrlMemo.get(dataUrl));
+  if (_imgUrlPending.has(dataUrl)) return _imgUrlPending.get(dataUrl);
+  // Only touch Cache Storage when the service worker controls the page: that is
+  // the only case a /smd-img/ URL is fetchable, and cold/first-visit pages (and
+  // automated tests) avoid the per-origin Cache Storage serialisation entirely.
+  const p = (typeof caches !== "undefined" && smdSwControls()
+    ? smdImageCacheUrl(dataUrl)
+    : smdImageBlobUrl(dataUrl)
+  ).catch(function () { return smdImageBlobUrl(dataUrl); })
+   .catch(function () { return dataUrl; }); // last resort: data URL in DOM
+  p.then(function (url) { _imgUrlMemo.set(dataUrl, url); }, function () {});
+  _imgUrlPending.set(dataUrl, p);
+  p.then(function () { _imgUrlPending.delete(dataUrl); }, function () { _imgUrlPending.delete(dataUrl); });
+  return p;
+}
+
+// Sync fill helper for plain <img> writers (editor previews). Keeps consumers
+// DOM-bloat-free without duplicating the async render dance.
+function smdSetImageSrc(el, src) {
+  if (!el) return;
+  if (!src) { el.removeAttribute("src"); el.hidden = true; return; }
+  if (typeof smdImageRenderUrl !== "function") { el.src = src; el.hidden = false; return; }
+  smdImageRenderUrl(src).then(function (url) {
+    if (el.isConnected) { el.src = url; el.hidden = false; }
+  }).catch(function () {
+    if (el.isConnected) { el.src = src; el.hidden = false; }
+  });
+}
+
+// Every painted data URL a stored image can render as (all tiers x themes), so
+// the GC can tell exactly which /smd-img/ cache entries are still live.
+function smdImagePaintVariants(img) {
+  if (!img) return [];
+  const out = [];
+  ["data", "data100", "data80", "data64"].forEach(function (tier) {
+    const src = img[tier];
+    if (!src) return;
+    ["light", "dark"].forEach(function (theme) {
+      const t = (img.themes && img.themes[theme]) || {};
+      let painted = src;
+      if (isSvgDataUrl(src)) {
+        if (t.line != null && t.line !== "") painted = applySvgAttr(painted, "stroke", t.line);
+        if (t.fill != null && t.fill !== "") painted = applySvgAttr(painted, "fill", t.fill);
+        if (t.width != null && t.width !== "") painted = applySvgAttr(painted, "stroke-width", t.width);
+      }
+      out.push(painted);
+    });
+  });
+  return out;
+}
+
+// Prune /smd-img/ entries whose hash no longer matches any stored image variant
+// (deleted images, or re-uploaded/re-coloured images whose old content is gone).
+function purgeStaleImageCache() {
+  if (typeof caches === "undefined" || !smdSwControls()) return Promise.resolve();
+  const live = new Set();
+  loadImages().forEach(function (img) {
+    smdImagePaintVariants(img).forEach(function (painted) {
+      live.add(SMD_IMAGE_CACHE_BASE + smdImageHash(painted));
+    });
+  });
+  return caches.open(SMD_IMAGE_CACHE_NAME).then(function (cache) {
+    return cache.keys().then(function (keys) {
+      return Promise.all(keys.filter(function (k) {
+        const u = typeof k === "string" ? k : k.url;
+        return !!u && !live.has(u);
+      }).map(function (k) { return cache.delete(k); }));
+    });
+  }).catch(function () {});
+}
+
+// Debounced GC kicker — saveImages() runs on every edit keystroke, so collapse
+// a burst of edits into one sweep once they settle.
+function scheduleImageCacheGc() {
+  if (typeof caches === "undefined") return;
+  if (_imageCacheGcTimer) clearTimeout(_imageCacheGcTimer);
+  _imageCacheGcTimer = setTimeout(function () {
+    _imageCacheGcTimer = null;
+    purgeStaleImageCache();
+  }, 1500);
 }
 
 // One-time migration to the shared image library: when `shared-images` does
@@ -138,7 +310,7 @@ function applySvgAttr(dataUrl, attr, value) {
 function updateEditPreview(img, themeIdx) {
   const key = themeKey(themeIdx);
   const previewEl = document.getElementById(key === "light" ? "themePreviewLight" : "themePreviewDark");
-  if (previewEl) previewEl.src = getThemedImageDataUrl(img, key);
+  if (previewEl) smdSetImageSrc(previewEl, getThemedImageDataUrl(img, key));
 }
 
 function buildThemeSection(themeIdx, label, imageOverride) {
@@ -184,7 +356,7 @@ function buildThemeSection(themeIdx, label, imageOverride) {
           ${controlsHtml}
         </div>
         <div class="flex-shrink-0 d-flex align-items-center justify-content-center" style="width:110px;height:110px">
-          <img id="${previewId}" src="${previewSrc}" class="date-img" style="max-width:110px;max-height:110px">
+          <img id="${previewId}" src="" data-smdsrc="${escAttr(previewSrc)}" class="date-img" style="max-width:110px;max-height:110px" hidden>
         </div>
       </div>
     </div>
@@ -263,7 +435,7 @@ function renderImagesEditor() {
       '<div id="imagesList"></div>';
     page.buttons = [
       { text: "Add Image", variant: "primary", action: "add", close: false },
-      { text: "Done", variant: "success", action: "done" },
+      { text: "OK", variant: "success", action: "done" },
     ];
   } else {
     const input = $id("imageNameSearchInput");
@@ -629,8 +801,8 @@ function openImagesEditor() {
   if (!page) return;
   page.classList.remove("d-none");
   renderImagesEditor();
-  if (page.shadowRoot && typeof injectStyleInto === "function") {
-    injectStyleInto(page.shadowRoot, typeof JOBS_EDITOR_STYLES !== "undefined" ? JOBS_EDITOR_STYLES : undefined);
+  if (typeof injectStyleInto === "function") {
+    injectStyleInto(typeof JOBS_EDITOR_STYLES !== "undefined" ? JOBS_EDITOR_STYLES : undefined);
   }
   page.show();
 }
@@ -693,12 +865,12 @@ const IMAGE_PICKER_STYLES = `
   .smd-page-body .py-4, .smd-tab-panel .py-4 { padding-top: 1.5rem; padding-bottom: 1.5rem; }
   .smd-page-body .flex-wrap, .smd-tab-panel .flex-wrap { flex-wrap: wrap; }
   .smd-tab-panel .icon-picker-item .icon-glyph {
-    font-size: 2rem;
+    font-size: var(--smd-type-h1, 2rem);
     color: var(--bs-body-color, #f8f9fa);
     line-height: 1;
   }
   .smd-tab-panel .icon-picker-item .icon-name {
-    font-size: 0.75rem;
+    font-size: var(--smd-type-badge, 0.75rem);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -823,8 +995,8 @@ function injectPickerStyles() {
   const page = document.getElementById("imagePickerPage");
   const tabs = $id("imagePickerTabs");
   const css = JOBS_EDITOR_STYLES + IMAGE_PICKER_STYLES;
-  if (page && page.shadowRoot) injectStyleInto(page.shadowRoot, css);
-  if (tabs && tabs.shadowRoot) injectStyleInto(tabs.shadowRoot, css);
+  if (page) injectStyleInto(css);
+  if (tabs) injectStyleInto(css);
 }
 
 function renderImagePicker() {
@@ -847,7 +1019,7 @@ function renderImagePicker() {
     const item = document.createElement("div");
     item.className = "image-picker-item text-center";
     item.style.cssText = "min-width:95px;cursor:pointer;border:2px solid transparent;border-radius:8px;padding:6px;transition:border-color 0.15s";
-    item.innerHTML = `<smd-image key-prefix="${smdImagePrefix()}" image="${escapeHtml(img.name)}" title="${escapeHtml(img.name)}"></smd-image><div style="font-size:0.75rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:4px">${escapeHtml(img.name)}</div>`;
+    item.innerHTML = `<smd-image key-prefix="${smdImagePrefix()}" image="${escapeHtml(img.name)}" title="${escapeHtml(img.name)}"></smd-image><div style="font-size:var(--smd-type-badge,0.75rem);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:4px">${escapeHtml(img.name)}</div>`;
     item.onclick = () => { selectImagePickerItem(img.name); };
     item.onmouseenter = () => { item.style.borderColor = "var(--bs-primary)"; };
     item.onmouseleave = () => { item.style.borderColor = "transparent"; };
@@ -1004,6 +1176,15 @@ Object.assign(SmdApp.prototype, {
   applySvgAttr,
   updateEditPreview,
   buildThemeSection,
+  smdSwControls,
+  smdImageHash,
+  smdImageBlobUrl,
+  smdImageCacheUrl,
+  smdImageRenderUrl,
+  smdSetImageSrc,
+  smdImagePaintVariants,
+  purgeStaleImageCache,
+  scheduleImageCacheGc,
   renderImagesEditor,
   clearImageNameSearch,
   setImageNameSearch,

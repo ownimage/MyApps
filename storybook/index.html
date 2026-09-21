@@ -8,6 +8,8 @@
   <link id="theme-override-mode" rel="stylesheet" href="../shared/css/themes/dark.css">
   <link id="theme-override-specific" rel="stylesheet" href="../shared/css/themes/superhero/superhero.css">
   <link rel="stylesheet" href="../shared/vendor/bootstrap-icons.css">
+  <link rel="stylesheet" href="../shared/vendor/flatpickr.min.css">
+  <link rel="stylesheet" href="../shared/css/styles.css">
   <link rel="stylesheet" href="../shared/vendor/fontawesome/css/fontawesome.min.css">
   <link rel="stylesheet" href="../shared/vendor/fontawesome/css/solid.min.css">
   <link rel="stylesheet" href="../shared/vendor/fontawesome/css/regular.min.css">
@@ -242,7 +244,6 @@
   <main class="sb-main" id="main"></main>
 
   <!-- ============================ COMPONENT SCRIPTS ============================ -->
-  <script src="../shared/js/components/styles.js"></script>
   <script src="../shared/js/components/smd-button.js"></script>
   <script src="../shared/js/components/smd-image.js"></script>
   <script src="../shared/js/components/smd-modal.js"></script>
@@ -260,7 +261,10 @@
   <script src="../shared/js/components/smd-checkbox.js"></script>
   <script src="../shared/js/components/smd-draghandle.js"></script>
   <script src="../shared/js/components/smd-badge.js"></script>
+  <script src="../shared/js/components/smd-image-dropdown.js"></script>
   <script src="../shared/js/components/smd-image-picker.js"></script>
+  <script src="../shared/vendor/flatpickr.min.js"></script>
+  <script src="../shared/js/components/smd-date-picker.js"></script>
   <script src="../PlanMyDay/js/components/pmd-stream-header.js"></script>
   <script src="../PlanMyDay/js/components/pmd-stream-job-card.js"></script>
   <script src="../PlanMyDay/js/components/pmd-job-search-card.js"></script>
@@ -575,7 +579,7 @@
       id: "smd-tabs",
       name: "smd-tabs",
       tag: "<smd-tabs>",
-      desc: "Tab bar + panels. Set the <code>tabs</code> array {title, content, id?}. Dispatches <code>smd-tabs-change</code>. Set <code>bottomline = false</code> to hide the horizontal rule at the bottom of the tab section; set <code>wrap</code> to let the tab buttons wrap onto multiple lines.",
+      desc: "Tab bar + panels. Set the <code>tabs</code> array {title, content, id?, panelClass?}. Dispatches <code>smd-tabs-change</code>. Set <code>bottomline = false</code> to hide the horizontal rule at the bottom of the tab section; set <code>wrap</code> to let the tab buttons wrap onto multiple lines; set <code>padding=\"small\"</code> for compact tab buttons + flush panels (default <code>normal</code>, no change).",
       html: () => `
         <div class="sb-canvas" style="flex-direction:column;width:100%">
           <smd-tabs id="sb-tabs"></smd-tabs>
@@ -1110,6 +1114,34 @@
       init: () => {}
     });
 
+    // ---- smd-image-dropdown ----
+    sections.push({
+      id: "smd-image-dropdown",
+      name: "smd-image-dropdown",
+      tag: "<smd-image-dropdown>",
+      desc: "Shared dropdown picker fed by JS data, not DOM: set <code>options</code> = [{ name, image }] (image OPTIONAL, so a no-image \"All\" row works) and <code>selected</code> = the chosen option's NAME. Dispatches <code>smd-image-dropdown-change</code> ({ name }). Attributes: <code>key-prefix</code>, <code>disabled</code>.",
+      html: () => `
+        <div class="sb-canvas" style="flex-direction:column;gap:0.75rem;align-items:flex-start">
+          <div style="min-width:200px"><smd-image-dropdown id="sb-image-dropdown" key-prefix="sbc_"></smd-image-dropdown></div>
+          <div style="min-width:200px"><smd-image-dropdown id="sb-image-dropdown-disabled" key-prefix="sbc_" disabled></smd-image-dropdown></div>
+        </div>
+        <div class="sb-log" id="log-smd-image-dropdown">events: none yet</div>
+      `,
+      init: () => {
+        const opts = [
+          { name: "All", image: "" },
+          { name: "Work", image: "Blue" },
+          { name: "Home", image: "Green" }
+        ];
+        ["sb-image-dropdown", "sb-image-dropdown-disabled"].forEach((id) => {
+          const el = document.getElementById(id);
+          el.options = opts;
+          el.selected = "All";
+          el.addEventListener("smd-image-dropdown-change", (e) => log("smd-image-dropdown", "picked \"" + e.detail.name + "\""));
+        });
+      }
+    });
+
     // ---- smd-checkbox ----
     sections.push({
       id: "smd-checkbox",
@@ -1298,7 +1330,7 @@
       id: "cmd-date-card",
       name: "cmd-date-card",
       tag: "<cmd-date-card>",
-      desc: "A date row in the dates editor list. Attributes: <code>index</code>, <code>name</code>, <code>category</code>, <code>type</code>, <code>date-text</code>, <code>source</code> (local/google), <code>recurring</code>, <code>hidden</code>, <code>category-image</code>, <code>image</code>, <code>key-prefix</code>. Dispatches <code>cmd-date-edit</code> / <code>cmd-date-delete</code> ({ index, source }); Google rows have no Delete.",
+      desc: "A date row in the dates editor list. Attributes: <code>index</code>, <code>name</code>, <code>category</code>, <code>type</code>, <code>date-text</code>, <code>source</code> (local/google), <code>recurring</code>, <code>hidden</code>, <code>category-image</code>, <code>image</code>, <code>key-prefix</code>. The Local/Google/Repeat/Hidden badges sit on the DATE line (after the once/annual type text), themed info/primary/secondary. Dispatches <code>cmd-date-edit</code> / <code>cmd-date-delete</code> ({ index, source }); Google rows have no Delete.",
       html: () => `
         <div class="sb-canvas" style="flex-direction:column;width:100%">
           <cmd-date-card index="0" name="Mum's Birthday" category="Birthday" type="annual" date-text="14 Jul" category-image="Blue" image="Drink 1" key-prefix="sbc_" style="width:100%"></cmd-date-card>
@@ -1333,6 +1365,36 @@
         document.querySelectorAll("#cmd-category-card cmd-category-card").forEach(card => {
           card.addEventListener("cmd-category-edit", (e) => log("cmd-category-card", "edit idx=" + e.detail.index));
           card.addEventListener("cmd-category-delete", (e) => log("cmd-category-card", "delete idx=" + e.detail.index));
+        });
+      }
+    });
+
+    // ---- smd-date-picker ----
+    sections.push({
+      id: "smd-date-picker",
+      name: "smd-date-picker",
+      tag: "<smd-date-picker>",
+      desc: "Read-only date field backed by flatpickr with a Clear button. Attributes: <code>value</code> (a date string in <code>format</code>, default ISO <code>Y-m-d</code>), <code>format</code> (default <code>Y-m-d</code>), <code>alt-format</code> (display format, default <code>D j M Y</code>), <code>first-day-of-week</code> (0-6), <code>readonly</code>, <code>disabled</code>, <code>no-clear</code>. Dispatches <code>smd-date-picker-change</code> ({ value }).",
+      html: () => `
+        <div class="sb-canvas" style="flex-direction:column;gap:0.75rem;align-items:flex-start">
+          <div style="min-width:260px;width:100%;max-width:340px">
+            <label class="form-label mb-1">Sleep Until (clearable)</label>
+            <smd-date-picker id="sb-date-picker" first-day-of-week="2"></smd-date-picker>
+          </div>
+          <div style="min-width:260px;width:100%;max-width:340px">
+            <label class="form-label mb-1">Once date, d/m/Y, no Clear</label>
+            <smd-date-picker id="sb-date-picker-cm" no-clear format="d/m/Y" alt-format="d/m/Y" value="18/09/2026"></smd-date-picker>
+          </div>
+          <div style="min-width:260px;width:100%;max-width:340px">
+            <label class="form-label mb-1">Read-only view</label>
+            <smd-date-picker id="sb-date-picker-ro" readonly value="2026-09-18"></smd-date-picker>
+          </div>
+        </div>
+        <div class="sb-log" id="log-smd-date-picker">events: none yet</div>
+      `,
+      init: () => {
+        document.querySelectorAll("smd-date-picker").forEach((el) => {
+          if (el.closest("#smd-date-picker")) el.addEventListener("smd-date-picker-change", (e) => log("smd-date-picker", "changed value=\"" + e.detail.value + "\""));
         });
       }
     });
@@ -1413,7 +1475,7 @@
       page.content = "<p>This is full-screen <code>smd-page</code> content. Click a footer button to see the event log.</p>";
       page.buttons = [
         { text: "Cancel", variant: "secondary", action: "cancel" },
-        { text: "Done", variant: "success", action: "done" }
+        { text: "OK", variant: "success", action: "done" }
       ];
       document.body.appendChild(page);
     }

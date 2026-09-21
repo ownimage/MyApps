@@ -11,6 +11,8 @@ let dateEditIndex = -1;
 let dateEditBuffer = null;
 let isNewDate = false;
 
+const DATE_CATEGORY_NONE = "__none__";
+
 function openDatesEditor() {
   hideMainPages("datesEditor");
   const page = document.getElementById("datesEditor");
@@ -54,11 +56,11 @@ function renderDatesEditor() {
     page.content =
       '<div id="dateFilters" class="mb-3">' +
         '<div class="d-flex gap-2 align-items-center flex-wrap">' +
-          '<select class="form-select" id="dateCategoryFilter" style="width:auto;min-width:160px" onchange="setDateCategoryFilter(this.value)"></select>' +
           '<input class="form-control" id="dateTitleSearch" type="search" placeholder="Search titles..." style="flex:1;min-width:150px" oninput="setDateTitleSearch(this.value)">' +
-          '<button type="button" class="btn btn-outline-secondary btn-sm" onclick="clearDateFilters()">Clear</button>' +
+          '<button type="button" class="btn btn-danger btn-sm" onclick="clearDateFilters()">Clear</button>' +
         '</div>' +
         '<div class="d-flex gap-3 align-items-center flex-wrap mt-2">' +
+          `<smd-image-dropdown id="dateCategoryFilter" key-prefix="${escAttr(smdImagePrefix())}" style="min-width:180px"></smd-image-dropdown>` +
           '<label class="d-flex gap-1 align-items-center"><input class="form-check-input" type="checkbox" id="filterShowLocal" onchange="setFilterShowLocal(this.checked)"> Local</label>' +
           '<label class="d-flex gap-1 align-items-center"><input class="form-check-input" type="checkbox" id="filterShowGoogle" onchange="setFilterShowGoogle(this.checked)"> Google</label>' +
           '<label class="d-flex gap-1 align-items-center"><input class="form-check-input" type="checkbox" id="filterShowGoogleHidden" onchange="setFilterShowGoogleHidden(this.checked)"> Google hidden</label>' +
@@ -67,8 +69,20 @@ function renderDatesEditor() {
       '<div id="dateList"></div>';
     page.buttons = [
       { text: "Add Date", variant: "primary", action: "add", close: false },
-      { text: "Done", variant: "success", action: "done" }
+      { text: "OK", variant: "success", action: "done" }
     ];
+  }
+  if (!page.__cmdFiltersBound) {
+    page.__cmdFiltersBound = true;
+    const dd = $id("dateCategoryFilter");
+    if (dd) {
+      dd.addEventListener("smd-image-dropdown-change", e => {
+        const name = e.detail && e.detail.name;
+        if (!name || name === "All") setDateCategoryFilter("");
+        else if (name === "None") setDateCategoryFilter(DATE_CATEGORY_NONE);
+        else setDateCategoryFilter(name);
+      });
+    }
   }
   renderDateFilters();
   syncDateFilterCheckboxes();
@@ -76,11 +90,13 @@ function renderDatesEditor() {
 }
 
 function renderDateFilters() {
-  const select = $id("dateCategoryFilter");
-  if (select) {
+  const dd = $id("dateCategoryFilter");
+  if (dd) {
     const cats = loadCategories().map(c => c.name).filter(Boolean);
-    select.innerHTML = '<option value="">All</option>' +
-      cats.map(c => `<option value="${escAttr(c)}" ${dateCategoryFilter === c ? "selected" : ""}>${escapeHtml(c)}</option>`).join("");
+    const catImages = {};
+    loadCategories().forEach(c => { if (c.name) catImages[c.name] = c.image || ""; });
+    dd.options = [{ name: "All", image: "" }, { name: "None", image: "" }].concat(cats.map(c => ({ name: c, image: catImages[c] })));
+    dd.selected = dateCategoryFilter === DATE_CATEGORY_NONE ? "None" : (dateCategoryFilter || "All");
   }
   const input = $id("dateTitleSearch");
   if (input && input.value !== dateTitleSearch) input.value = dateTitleSearch;
@@ -168,7 +184,11 @@ function renderDateList() {
   const filtered = getUnifiedDateEntries()
     .filter(entry => {
       const d = entry.d;
-      if (dateCategoryFilter && d.category !== dateCategoryFilter) return false;
+      if (dateCategoryFilter === DATE_CATEGORY_NONE) {
+        if (d.category) return false;
+      } else if (dateCategoryFilter && d.category !== dateCategoryFilter) {
+        return false;
+      }
       if (dateTitleSearch && !(d.name || "").toLowerCase().includes(dateTitleSearch.toLowerCase())) return false;
       if (entry.source === "local") return filterShowLocal;
       if (d.show === false) return filterShowGoogleHidden;
@@ -203,7 +223,7 @@ function renderDateList() {
       : (d.type || "annual"));
     card.setAttribute("source", entry.source);
     card.setAttribute("recurring", d.recurring ? "true" : "false");
-    card.setAttribute("hidden", d.show === false ? "true" : "false");
+    if (d.show === false) card.setAttribute("hidden", "true");
     card.setAttribute("key-prefix", smdImagePrefix());
     if (catImage) card.setAttribute("category-image", catImage);
     if (d.image) card.setAttribute("image", d.image);
@@ -252,14 +272,32 @@ function openDateEditPage() {
     page.__cmdBound = true;
     page.addEventListener("smd-page-action", handleDateEditAction);
   }
+  if (!page.__cmdDateCategoryBound) {
+    page.__cmdDateCategoryBound = true;
+    page.addEventListener("smd-image-dropdown-change", e => {
+      // e.target is retargeted to this page host across the shadow boundary,
+      // so identify the originating dropdown via composedPath().
+      const path = e.composedPath ? e.composedPath() : [];
+      if (!path.some(n => n && n.id === "dateCategorySelect")) return;
+      const name = e.detail && e.detail.name;
+      dateField("category", !name || name === "No Category" ? "" : name);
+    });
+  }
+  if (!page.__cmdDatePickerBound) {
+    page.__cmdDatePickerBound = true;
+    page.addEventListener("smd-date-picker-change", e => {
+      const path = e.composedPath ? e.composedPath() : [];
+      if (!path.some(n => n && n.tagName === "SMD-DATE-PICKER")) return;
+      applyOnceDateValue(e.detail && e.detail.value);
+    });
+  }
   page.title = isNewDate ? "Add Date" : "Edit Date";
   page.buttons = [
-    { text: "OK", variant: "success", action: "ok", close: false },
-    { text: "Cancel", variant: "secondary", action: "cancel", close: false }
+    { text: "Cancel", variant: "secondary", action: "cancel", close: false },
+    { text: "OK", variant: "success", action: "ok", close: false }
   ];
   renderDateEditContent();
   page.show();
-  initDateFlatpickr();
 }
 
 function handleDateEditAction(e) {
@@ -276,14 +314,12 @@ function renderDateEditContent() {
   const day = d.day || 1;
   const month = d.month || 1;
 
-  const catOptions = ['<option value="">No Category</option>']
-    .concat(categories.map(c =>
-      `<option value="${escAttr(c.name)}" ${d.category === c.name ? "selected" : ""}>${escapeHtml(c.name)}</option>`))
-    .join("");
+  const catDropOptions = [{ name: "No Category", image: "" }]
+    .concat(categories.map(c => ({ name: c.name, image: c.image || "" })));
 
   let dateHtml;
   if (d.type === "once") {
-    dateHtml = '<input type="text" id="dateOnceInput" class="form-control" placeholder="dd/mm/yyyy" style="min-width:130px;width:auto">';
+    dateHtml = '<smd-date-picker no-clear value="' + onceDateValue(d) + '" format="d/m/Y" alt-format="d/m/Y" style="min-width:130px"></smd-date-picker>';
   } else {
     dateHtml =
       '<select class="form-select" id="dateDaySelect" style="width:auto" onchange="dateField(\'day\', parseInt(this.value, 10))">' +
@@ -295,32 +331,34 @@ function renderDateEditContent() {
   }
 
   page.content =
-    '<div class="d-flex gap-3 align-items-start flex-wrap">' +
-      '<div class="flex-shrink-0 text-center">' +
-        `<smd-image id="dateCategoryPreview" key-prefix="${escAttr(smdImagePrefix())}"></smd-image>` +
-        `<select class="form-select mt-2" id="dateCategorySelect" onchange="dateField('category', this.value); updateDateCategoryPreview()">${catOptions}</select>` +
+    '<div class="mb-3">' +
+      '<label class="form-label mb-1">Title</label>' +
+      `<input class="form-control" id="dateNameInput" value="${escAttr(d.name || "")}" oninput="dateField('name', this.value)">` +
+    '</div>' +
+    '<div class="d-flex gap-3 align-items-start flex-wrap mb-3">' +
+      '<div>' +
+        '<label class="form-label mb-1">Category</label>' +
+        `<smd-image-dropdown id="dateCategorySelect" key-prefix="${escAttr(smdImagePrefix())}" style="min-width:220px"></smd-image-dropdown>` +
       '</div>' +
-      '<div class="flex-grow-1" style="min-width:220px">' +
-        '<div class="mb-2">' +
-          '<label class="form-label mb-1">Name</label>' +
-          `<input class="form-control" id="dateNameInput" value="${escAttr(d.name || "")}" oninput="dateField('name', this.value)">` +
-        '</div>' +
-        '<div class="d-flex gap-2 align-items-center flex-wrap mb-2">' +
-          dateHtml +
-          '<select class="form-select" id="dateTypeSelect" style="width:auto" onchange="dateField(\'type\', this.value)">' +
-            `<option value="annual" ${d.type !== "once" ? "selected" : ""}>Annual</option>` +
-            `<option value="once" ${d.type === "once" ? "selected" : ""}>Once</option>` +
-          '</select>' +
-        '</div>' +
-        '<div class="mb-1">' +
-          '<label class="form-label mb-1">Image</label>' +
-          `<smd-image-select id="dateImageSelect" key-prefix="${escAttr(smdImagePrefix())}" label-id="dateImageName" button-id="btnDateImageChoose"></smd-image-select>` +
-        '</div>' +
+      '<div>' +
+        '<label class="form-label mb-1">Image</label>' +
+        `<smd-image-select id="dateImageSelect" key-prefix="${escAttr(smdImagePrefix())}" label-id="dateImageName" button-id="btnDateImageChoose"></smd-image-select>` +
       '</div>' +
+    '</div>' +
+    '<div class="d-flex gap-2 align-items-center flex-wrap">' +
+      dateHtml +
+      '<select class="form-select" id="dateTypeSelect" style="width:auto" onchange="dateField(\'type\', this.value)">' +
+        `<option value="once" ${d.type === "once" ? "selected" : ""}>Once</option>` +
+        `<option value="annual" ${d.type !== "once" ? "selected" : ""}>Annual</option>` +
+      '</select>' +
     '</div>';
 
   updateDateImagePreview();
-  updateDateCategoryPreview();
+  const catSel = $id("dateCategorySelect");
+  if (catSel) {
+    catSel.options = catDropOptions;
+    catSel.selected = d.category || "No Category";
+  }
 }
 
 function dateField(field, value) {
@@ -330,7 +368,6 @@ function dateField(field, value) {
     if (value === "annual") delete dateEditBuffer.year;
     else dateEditBuffer.year = new Date().getFullYear();
     renderDateEditContent();
-    initDateFlatpickr();
     return;
   }
   dateEditBuffer[field] = value;
@@ -343,36 +380,23 @@ function updateDateImagePreview() {
   else sel.removeAttribute("image");
 }
 
-function updateDateCategoryPreview() {
-  const preview = $id("dateCategoryPreview");
-  if (!preview || !dateEditBuffer) return;
-  const category = loadCategories().find(c => c.name === dateEditBuffer.category);
-  const name = category ? (category.image || "") : "";
-  if (name) preview.setAttribute("image", name);
-  else preview.removeAttribute("image");
+// The once-date field is the shared <smd-date-picker>, which stores day/month/year
+// here rather than an ISO string, so hand it a "d/m/Y" value (its `format`).
+function onceDateValue(d) {
+  const pad = n => String(n).padStart(2, "0");
+  const y = d.year || new Date().getFullYear();
+  return pad(d.day || 1) + "/" + pad(d.month || 1) + "/" + y;
 }
 
-function initDateFlatpickr() {
-  if (typeof flatpickr === "undefined" || !dateEditBuffer) return;
-  const input = $id("dateOnceInput");
-  if (!input) return;
-  if (input._flatpickr) input._flatpickr.destroy();
-  const day = dateEditBuffer.day || 1;
-  const month = dateEditBuffer.month || 1;
-  const year = dateEditBuffer.year || new Date().getFullYear();
-  flatpickr(input, {
-    dateFormat: "d/m/Y",
-    defaultDate: new Date(year, month - 1, day),
-    allowInput: true,
-    onChange: function (selectedDates) {
-      if (selectedDates.length > 0 && dateEditBuffer) {
-        const sel = selectedDates[0];
-        dateEditBuffer.day = sel.getDate();
-        dateEditBuffer.month = sel.getMonth() + 1;
-        dateEditBuffer.year = sel.getFullYear();
-      }
-    }
-  });
+// <smd-date-picker> emits the picked date (in `format`, i.e. "d/m/Y") on every
+// change; round-trip it into the day/month/year buffer fields.
+function applyOnceDateValue(value) {
+  if (!dateEditBuffer) return;
+  const m = String(value || "").match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (!m) return;
+  dateEditBuffer.day = parseInt(m[1], 10);
+  dateEditBuffer.month = parseInt(m[2], 10);
+  dateEditBuffer.year = parseInt(m[3], 10);
 }
 
 function doneDateEdit() {
@@ -380,7 +404,15 @@ function doneDateEdit() {
     const dates = loadDates();
     const buffer = dateEditBuffer;
     buffer.name = (buffer.name || "").trim() || "Untitled";
-    if (buffer.type === "annual") delete buffer.year;
+    if (buffer.type === "annual") {
+      delete buffer.year;
+    } else {
+      // Safety net: whatever the field currently shows (picked via the
+      // read-only date picker) is committed to the buffer even if the change
+      // event did not fire, before saving.
+      const input = $id("smdDatePickerInput");
+      if (input) applyOnceDateValue(input.value);
+    }
     dates[dateEditIndex] = buffer;
     saveDates(dates);
   }

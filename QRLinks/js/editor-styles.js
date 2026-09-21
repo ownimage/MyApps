@@ -35,7 +35,7 @@ var JOBS_EDITOR_STYLES = `
     display: block;
     width: 100%;
     padding: 0.375rem 0.75rem;
-    font-size: 0.95rem;
+    font-size: var(--smd-type-p, 0.95rem);
     font-weight: 400;
     line-height: 1.5;
     color: var(--bs-body-color, #f8f9fa);
@@ -48,7 +48,7 @@ var JOBS_EDITOR_STYLES = `
     display: block;
     width: 100%;
     padding: 0.375rem 0.75rem;
-    font-size: 0.95rem;
+    font-size: var(--smd-type-p, 0.95rem);
     color: var(--bs-body-color, #f8f9fa);
     background-color: var(--bs-body-bg, #222222);
     border: 1px solid var(--bs-border-color, #495057);
@@ -124,7 +124,7 @@ var JOBS_EDITOR_STYLES = `
   .smd-page-body .btn, .smd-tab-panel .btn {
     display: inline-block;
     padding: 0.375rem 0.75rem;
-    font-size: 0.95rem;
+    font-size: var(--smd-type-h2, 1.25rem);
     font-weight: 400;
     line-height: 1.5;
     text-align: center;
@@ -139,7 +139,7 @@ var JOBS_EDITOR_STYLES = `
   .smd-tab-panel .btn-info { background: var(--bs-info, #0dcaf0); color: var(--smd-info-text, #fff); }
   .smd-tab-panel .btn-outline-info { background: transparent; color: var(--bs-info, #31d2f2); border-color: var(--bs-info, #31d2f2); }
   .smd-tab-panel .btn-outline-secondary { background: transparent; color: var(--bs-secondary-color, #adb5bd); border-color: var(--bs-secondary-color, #6c757d); }
-  .smd-tab-panel .btn-sm { padding: 0.25rem 0.5rem; font-size: 0.85rem; border-radius: 0.25rem; }
+  .smd-tab-panel .btn-sm { padding: 0.25rem 0.5rem; font-size: var(--smd-type-p, 0.85rem); border-radius: 0.25rem; }
   .smd-tab-panel .btn-wide, .smd-tab-panel .w-100 { width: 100%; }
   .smd-tab-panel .dropdown { position: relative; }
   .smd-tab-panel .dropdown-toggle {
@@ -239,13 +239,13 @@ var QRLINK_EDITOR_STYLES = `
   .qrlink-list-card .link-body { flex: 1 1 auto; min-width: 0; }
   .qrlink-list-card .link-title { font-weight: 700; overflow-wrap: anywhere; }
   .qrlink-list-card .link-url {
-    font-size: 0.85rem;
+    font-size: var(--smd-type-p, 0.85rem);
     color: var(--bs-primary, #0d6efd);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
-  .qrlink-list-card .link-desc { font-size: 0.85rem; color: var(--bs-secondary-color, #adb5bd); }
+  .qrlink-list-card .link-desc { font-size: var(--smd-type-p, 0.85rem); color: var(--bs-secondary-color, #adb5bd); }
   .qrlink-list-card .link-actions { display: flex; gap: 0.5rem; flex: 0 0 auto; }
   .sortable-ghost { opacity: 0.4; }
   .sortable-chosen, .sortable-drag { cursor: grabbing; }
@@ -253,14 +253,14 @@ var QRLINK_EDITOR_STYLES = `
     display: block;
     width: 100%;
   }
-  .smd-tab-panel smd-button::part(button) {
+  .smd-tab-panel smd-button button {
     width: 100%;
     box-sizing: border-box;
   }
 `;
 
 function injectEditorStyles(page) {
-  if (page && page.shadowRoot) {
-    injectStyleInto(page.shadowRoot, JOBS_EDITOR_STYLES + QRLINK_EDITOR_STYLES);
+  if (page) {
+    injectStyleInto(JOBS_EDITOR_STYLES + QRLINK_EDITOR_STYLES);
   }
 }

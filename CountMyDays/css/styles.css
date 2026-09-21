@@ -5,124 +5,39 @@
    --cmd-countdown-* custom properties defined below. */
 
 /* FONT SIZE
-   smd-page content lives in shadow roots, but font-size is inherited, so
-   setting it on the host element reaches the shadow tree. */
-body.font-size-xsmall,
-body.font-size-xsmall .navbar .btn,
-body.font-size-xsmall .navbar .dropdown-item,
-body.font-size-xsmall #countdownContainer,
-body.font-size-xsmall #countdownContainer .btn,
-body.font-size-xsmall #settingsPage,
-body.font-size-xsmall #settingsPage .btn,
-body.font-size-xsmall #datesEditor,
-body.font-size-xsmall #categoriesEditor,
-body.font-size-xsmall #dateEditPage,
-body.font-size-xsmall #categoryEditPage,
-body.font-size-xsmall #imagesEditor,
-body.font-size-xsmall #exportWizardPage,
-body.font-size-xsmall #qrExportPage,
-body.font-size-xsmall #importWizardPage {
-  font-size: 0.8rem;
-}
-body.font-size-small,
-body.font-size-small .navbar .btn,
-body.font-size-small .navbar .dropdown-item,
-body.font-size-small #countdownContainer,
-body.font-size-small #countdownContainer .btn,
-body.font-size-small #settingsPage,
-body.font-size-small #settingsPage .btn,
-body.font-size-small #datesEditor,
-body.font-size-small #categoriesEditor,
-body.font-size-small #dateEditPage,
-body.font-size-small #categoryEditPage,
-body.font-size-small #imagesEditor,
-body.font-size-small #exportWizardPage,
-body.font-size-small #qrExportPage,
-body.font-size-small #importWizardPage {
-  font-size: 0.925rem;
-}
-body.font-size-large,
-body.font-size-large .navbar .btn,
-body.font-size-large .navbar .dropdown-item,
-body.font-size-large #countdownContainer,
-body.font-size-large #countdownContainer .btn,
-body.font-size-large #settingsPage,
-body.font-size-large #settingsPage .btn,
-body.font-size-large #datesEditor,
-body.font-size-large #categoriesEditor,
-body.font-size-large #dateEditPage,
-body.font-size-large #categoryEditPage,
-body.font-size-large #imagesEditor,
-body.font-size-large #exportWizardPage,
-body.font-size-large #qrExportPage,
-body.font-size-large #importWizardPage {
-  font-size: 1.125rem;
-}
-body.font-size-xlarge,
-body.font-size-xlarge .navbar .btn,
-body.font-size-xlarge .navbar .dropdown-item,
-body.font-size-xlarge #countdownContainer,
-body.font-size-xlarge #countdownContainer .btn,
-body.font-size-xlarge #settingsPage,
-body.font-size-xlarge #settingsPage .btn,
-body.font-size-xlarge #datesEditor,
-body.font-size-xlarge #categoriesEditor,
-body.font-size-xlarge #dateEditPage,
-body.font-size-xlarge #categoryEditPage,
-body.font-size-xlarge #imagesEditor,
-body.font-size-xlarge #exportWizardPage,
-body.font-size-xlarge #qrExportPage,
-body.font-size-xlarge #importWizardPage {
-  font-size: 1.3rem;
-}
-body.font-size-jumbo,
-body.font-size-jumbo .navbar .btn,
-body.font-size-jumbo .navbar .dropdown-item,
-body.font-size-jumbo #countdownContainer,
-body.font-size-jumbo #countdownContainer .btn,
-body.font-size-jumbo #settingsPage,
-body.font-size-jumbo #settingsPage .btn,
-body.font-size-jumbo #datesEditor,
-body.font-size-jumbo #categoriesEditor,
-body.font-size-jumbo #dateEditPage,
-body.font-size-jumbo #categoryEditPage,
-body.font-size-jumbo #imagesEditor,
-body.font-size-jumbo #exportWizardPage,
-body.font-size-jumbo #qrExportPage,
-body.font-size-jumbo #importWizardPage {
-  font-size: 1.6rem;
-}
+   The per-app font-size ramp blocks were removed: the single shared ramp in
+   shared/css/styles.css (the --smd-type-* tokens) now drives every app, and
+   the font-size-xsmall…jumbo body classes only override --smd-type-base there. */
 
 /* COUNTDOWN CARD VALUES (read inside cmd-countdown-card's shadow root).
-   Body-scoped custom properties are WebKit-safe (unlike :host-context). */
+   Body-scoped custom properties are WebKit-safe (unlike :host-context).
+   The title/count sizes default to the shared --smd-type-h1 token (see
+   cmd-countdown-card.js); compact density collapses them to body size. */
 body {
   --cmd-countdown-padding: 0.5rem 0.75rem;
   --cmd-countdown-margin: 0.5rem;
-  --cmd-countdown-title-size: 1.5rem;
-  --cmd-countdown-count-size: 1.5rem;
 }
-body.font-size-large { --cmd-countdown-title-size: 1.6rem; --cmd-countdown-count-size: 1.6rem; }
-body.font-size-xlarge { --cmd-countdown-title-size: 1.75rem; --cmd-countdown-count-size: 1.75rem; }
-body.font-size-jumbo { --cmd-countdown-title-size: 2rem; --cmd-countdown-count-size: 2rem; }
 body.compact {
   --cmd-countdown-padding: 0.25rem 0.5rem;
   --cmd-countdown-margin: 0.25rem;
-  --cmd-countdown-title-size: 1rem;
-  --cmd-countdown-count-size: 1rem;
+  --cmd-countdown-title-size: var(--smd-type-p);
+  --cmd-countdown-count-size: var(--smd-type-p);
 }
 
-#countdownContainer h2 {
-  font-size: 1.5rem;
+#countdownContainer h1 {
+  font-size: var(--smd-type-h1);
   margin-bottom: 1rem;
 }
-body.compact #countdownContainer h2 {
-  font-size: 1rem;
+body.compact #countdownContainer h1 {
+  font-size: var(--smd-type-p);
   margin-bottom: 0.25rem;
 }
 
 /* NARROW SCREENS: the countdown tile has two large thumbnails plus the count
    column, so shrink the typography (and the app caps the image size at 64px in
-   applyImageSize) to keep the title readable on a 390px phone. */
+   applyImageSize) to keep the title readable on a 390px phone. The sizes are
+   expressed as fractions of the h1 token so they still scale with the Font
+   Size setting, reproducing the original phone-fit values at "normal". */
 @media (max-width: 480px) {
   body,
   body.font-size-xsmall,
@@ -132,11 +47,155 @@ body.compact #countdownContainer h2 {
   body.font-size-xlarge,
   body.font-size-jumbo {
     --cmd-countdown-padding: 0.4rem 0.5rem;
-    --cmd-countdown-title-size: 1.15rem;
-    --cmd-countdown-count-size: 1.25rem;
+    --cmd-countdown-title-size: calc(var(--smd-type-h1, 1.5rem) * 0.7667);
+    --cmd-countdown-count-size: calc(var(--smd-type-h1, 1.5rem) * 0.8333);
   }
-  #countdownContainer h2 {
-    font-size: 1.25rem;
+  #countdownContainer h1 {
+    font-size: calc(var(--smd-type-h1, 2rem) * 0.625);
     margin-bottom: 0.5rem;
   }
 }
+
+/* ==================== cmd-countdown-card ==================== */
+cmd-countdown-card {
+  display: block;
+  background-color: var(--bs-dark-border-subtle, #303030);
+  border: 1px solid var(--bs-border-color, #495057);
+  border-radius: 0.375rem;
+  padding: var(--cmd-countdown-padding, 0.5rem 0.75rem);
+  margin-bottom: var(--cmd-countdown-margin, 0.5rem);
+  min-width: 0;
+}
+cmd-countdown-card .row {
+  display: flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  gap: 0.5rem;
+}
+cmd-countdown-card .row > * {
+  /* Light DOM: neutralize the document Bootstrap `.row > *` gutter rule
+     (width:100%/max-width:100% + 0 12px gutters) that shadow DOM shielded. */
+  width: auto;
+  max-width: none;
+}
+cmd-countdown-card .thumbs {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.25rem;
+  flex: 0 0 auto;
+}
+cmd-countdown-card .thumb-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+cmd-countdown-card .thumb {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+cmd-countdown-card .category-label {
+  margin-top: 0.25rem;
+  font-size: var(--smd-type-p, 0.85em);
+  line-height: 1.1;
+  overflow-wrap: anywhere;
+}
+cmd-countdown-card .content {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+cmd-countdown-card .title {
+  margin: 0 0 0.25rem;
+  font-size: var(--cmd-countdown-title-size, var(--smd-type-h1, 1.5rem));
+  font-weight: 800;
+  overflow-wrap: break-word;
+}
+cmd-countdown-card .date-text {
+  font-size: var(--smd-type-h2, 0.95em);
+  overflow-wrap: break-word;
+}
+cmd-countdown-card .source-row {
+  margin-top: 0.25rem;
+}
+cmd-countdown-card .source-badge {
+  font-size: var(--smd-type-badge, 0.7em);
+}
+cmd-countdown-card .counts {
+  flex: 0 0 auto;
+  min-width: 0;
+  text-align: center;
+}
+cmd-countdown-card .count {
+  font-size: var(--cmd-countdown-count-size, var(--smd-type-h1, 1.5rem));
+  font-weight: 800;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+/* ==================== cmd-date-card ==================== */
+cmd-date-card { display: block; }
+cmd-date-card .card {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  background-color: var(--bs-dark-border-subtle, #303030);
+  border: 1px solid var(--bs-border-color, #495057);
+  border-radius: 0.375rem;
+  padding: 1rem;
+  margin-bottom: 0.75rem;
+  min-width: 0;
+}
+cmd-date-card .thumbs { display: flex; align-items: flex-start; gap: 0.5rem; flex: 0 0 auto; }
+cmd-date-card .thumb { display: flex; align-items: center; justify-content: center; }
+cmd-date-card .content { flex: 1 1 auto; min-width: 0; }
+cmd-date-card .title {
+  font-size: var(--smd-type-h1, 1rem);
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+  overflow-wrap: anywhere;
+}
+cmd-date-card .event-badge {
+  display: inline-block;
+  font-size: var(--smd-type-badge, 0.7em);
+  font-weight: 600;
+  line-height: 1;
+  padding: 0.25em 0.5em;
+  border-radius: 0.35rem;
+  vertical-align: middle;
+  margin-left: 0.35rem;
+}
+cmd-date-card .event-badge-local { background: var(--bs-secondary, #6c757d); color: #fff; }
+cmd-date-card .event-badge-google { background: var(--bs-primary, #0d6efd); color: #fff; }
+cmd-date-card .event-badge-repeat { background: var(--bs-info, #0dcaf0); color: #fff; }
+cmd-date-card .event-badge-hidden { background: var(--bs-secondary, #6c757d); color: #fff; }
+cmd-date-card[hidden] { display: block; } /* "hidden" here marks a google-hidden EVENT (badge), never display:none */
+cmd-date-card .meta { display: flex; gap: 1rem; align-items: center; margin-bottom: 0.5rem; font-size: var(--smd-type-h2, 0.95em); }
+cmd-date-card .actions { display: flex; gap: 0.5rem; }
+cmd-date-card .actions .btn { padding: 0.375rem 0.75rem; }
+cmd-date-card .actions .btn-danger { margin-left: auto; }
+
+/* ==================== cmd-category-card ==================== */
+cmd-category-card { display: block; }
+cmd-category-card .card {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background-color: var(--bs-dark-border-subtle, #303030);
+  border: 1px solid var(--bs-border-color, #495057);
+  border-radius: 0.375rem;
+  padding: 1rem;
+  margin-bottom: 0.75rem;
+  min-width: 0;
+}
+cmd-category-card .thumb { flex: 0 0 auto; display: flex; align-items: center; justify-content: center; }
+cmd-category-card .content { flex: 1 1 auto; min-width: 0; }
+cmd-category-card .title {
+  font-size: var(--smd-type-h1, 1rem);
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+  overflow-wrap: anywhere;
+}
+cmd-category-card .actions { display: flex; gap: 0.5rem; }
+cmd-category-card .actions .btn { padding: 0.375rem 0.75rem; }
+cmd-category-card .actions .btn-danger { margin-left: auto; }

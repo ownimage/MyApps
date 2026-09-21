@@ -17,29 +17,12 @@ function jobTimeChanged() {
   const m = $id("jobTimeMin").value;
   jobField("time", h && m ? h + ":" + m : "");
 }
-function clearSleepUntil() {
-  jobField("sleepUntil", "");
-  const fpInput = $id("jobSleepUntil");
-  if (fpInput) {
-    if (fpInput._flatpickr) fpInput._flatpickr.clear();
-    fpInput.value = "";
-  }
-  const btn = $id("jobSleepUntilClearBtn");
-  if (btn) btn.classList.add("d-none");
-}
 function updateJobEditOkBtn() {
   const okBtn = getJobEditFooterBtn("done");
   if (!okBtn) return;
   const title = $id("jobTitleInput");
   okBtn.disabled = !title || !title.value.trim();
 }
-function updateSleepUntilClearBtn() {
-  const btn = $id("jobSleepUntilClearBtn");
-  if (!btn) return;
-  const val = $id("jobSleepUntil").value;
-  btn.classList.toggle("d-none", !val);
-}
-
 function jobAddTask() {
   if (!jobsBuffer) return;
   if (!jobsBuffer.tasks) jobsBuffer.tasks = [];
@@ -177,11 +160,11 @@ function jobTaskToggleNote(btn, index) {
 
 function scheduleEl(id) {
   const host = document.getElementById("smdConfirmModal");
-  return host && host.shadowRoot ? host.shadowRoot.getElementById(id) : null;
+  return host ? host.querySelector("#" + id) : null;
 }
 function scheduleRadios() {
   const host = document.getElementById("smdConfirmModal");
-  return host && host.shadowRoot ? host.shadowRoot.querySelectorAll('input[name="scheduleType"]') : [];
+  return host ? host.querySelectorAll('input[name="scheduleType"]') : [];
 }
 
 function getScheduleFormHTML() {
@@ -251,7 +234,7 @@ function openScheduleModal() {
     }
   });
   const host = document.getElementById("smdConfirmModal");
-  if (host && host.shadowRoot) injectStyleInto(host.shadowRoot, SCHEDULE_MODAL_STYLES);
+  if (host) injectStyleInto(SCHEDULE_MODAL_STYLES);
   scheduleRadios().forEach(r => r.checked = r.value === s.type);
   scheduleEl("schedDaysOptions").classList.toggle("d-none", s.type !== "days");
   scheduleEl("schedMonthlyOptions").classList.toggle("d-none", s.type !== "monthly");
@@ -361,7 +344,7 @@ function getJobEditSections(data, readOnly) {
   return [
     { title: "General", id: "jobGeneral-tab", content: getJobGeneralTabHTML(data, readOnly) },
     { title: "Schedule", id: "jobSchedule-tab", content: getJobScheduleTabHTML(data, readOnly) },
-    { title: "Tasks", id: "jobTasks-tab", content: getJobTasksTabHTML(data, readOnly) }
+    { title: "Tasks", id: "jobTasks-tab", content: getJobTasksTabHTML(data, readOnly), panelClass: "no-padding" }
   ];
 }
 
@@ -372,7 +355,7 @@ function getJobGeneralTabHTML(data, readOnly) {
       <div class="col-6 d-flex flex-column" style="min-height:61px">
         <label class="form-label mb-0">Stream</label>
         <div class="mt-1" style="flex-grow:1">
-          <pmd-stream-select id="jobStreamDropdown" key-prefix="${escAttr(smdImagePrefix())}" ${readOnly ? "disabled" : ""}></pmd-stream-select>
+          <smd-image-dropdown id="jobStreamDropdown" key-prefix="${escAttr(smdImagePrefix())}" ${readOnly ? "disabled" : ""}></smd-image-dropdown>
         </div>
       </div>
       <div class="col-6 d-flex flex-column" style="min-height:61px">
@@ -426,10 +409,7 @@ function getJobScheduleTabHTML(data, readOnly) {
     <div class="row mb-2">
       <div class="col">
         <label class="form-label">Sleep Until</label>
-        <div class="d-flex gap-2">
-          <input class="form-control" id="jobSleepUntil" value="${escapeHtml(readOnly ? formatDate(data.sleepUntil) : (data.sleepUntil || ""))}" ${ro} placeholder="Pick a date">
-          <button class="btn btn-danger btn-sm ${data.sleepUntil ? "" : "d-none"}" id="jobSleepUntilClearBtn" ${disabled} onclick="clearSleepUntil()">Clear</button>
-        </div>
+        <smd-date-picker ${readOnly ? "readonly" : ""} value="${escapeHtml(data.sleepUntil || "")}" first-day-of-week="${parseInt(localStorage.getItem(smdKey("startWeek")) || "1", 10)}"></smd-date-picker>
       </div>
     </div>
     <div class="row mb-2">
@@ -485,10 +465,10 @@ function getJobTasksTabHTML(data, readOnly) {
   });
   return `
     <div class="mt-2">
-      <button class="btn btn-primary btn-sm mb-2" id="jobAddTaskBtn" ${disabled} onclick="jobAddTaskTop()">Add Task</button>
+      <button class="btn btn-primary mb-2" id="jobAddTaskBtn" ${disabled} onclick="jobAddTaskTop()">Add Task</button>
       <div id="jobTasksList">${tasksHTML}</div>
       <div class="mt-2">
-        <button class="btn btn-primary btn-sm" id="jobAddTaskBottomBtn" ${disabled} onclick="jobAddTask()">Add Task</button>
+        <button class="btn btn-primary" id="jobAddTaskBottomBtn" ${disabled} onclick="jobAddTask()">Add Task</button>
       </div>
     </div>
   `;
@@ -536,7 +516,6 @@ function buildJobEditPage(readOnly, activeTabIndex) {
   }
   injectJobEditStyles();
   initJobStreamSelect();
-  initJobSleepUntilPicker(readOnly);
   if (!readOnly) {
     initJobTasksSortable();
     renderJobTasks();
@@ -550,10 +529,6 @@ function destroyJobEditTransient() {
   if (jobTasksSortable) {
     jobTasksSortable.destroy();
     jobTasksSortable = null;
-  }
-  const fp = $id("jobSleepUntil");
-  if (fp && fp._flatpickr) {
-    try { fp._flatpickr.destroy(); } catch (e) {}
   }
 }
 
@@ -569,27 +544,6 @@ function hideJobEditPage() {
   }
 }
 
-function initJobSleepUntilPicker(readOnly) {
-  const fpInput = $id("jobSleepUntil");
-  if (!fpInput) return;
-  if (readOnly) return;
-  flatpickr(fpInput, {
-    dateFormat: "Y-m-d",
-    altInput: true,
-    altFormat: "D j M Y",
-    altInputClass: "form-control",
-    allowInput: false,
-    monthSelectorType: "dropdown",
-    disableMobile: true,
-    locale: { firstDayOfWeek: parseInt(localStorage.getItem(smdKey("startWeek")) || "1", 10) },
-    onChange: function(selectedDates, dateStr) {
-      jobField("sleepUntil", dateStr);
-      updateSleepUntilClearBtn();
-    }
-  });
-  if (fpInput._flatpickr && fpInput._flatpickr.altInput) fpInput._flatpickr.altInput.id = "jobSleepUntilDisplay";
-}
-
 function focusJobTitle() {
   requestAnimationFrame(function() {
     var el = $id("jobTitleInput");
@@ -599,10 +553,10 @@ function focusJobTitle() {
 
 function getJobEditFooterBtn(action) {
   const page = document.getElementById("jobEditPage");
-  if (!page || !page.shadowRoot) return null;
+  if (!page) return null;
   const config = _jobEditButtons.find(function(b) { return b.action === action; });
   if (!config || !config.id) return null;
-  return page.shadowRoot.getElementById(config.id);
+  return page.querySelector("#" + config.id);
 }
 
 function jobEditOk() {

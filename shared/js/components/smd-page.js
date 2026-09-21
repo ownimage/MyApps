@@ -1,68 +1,6 @@
-const smdPageSheet = SmdStyles.sheetFor(`
-  :host {
-    display: block;
-    position: fixed;
-    inset: 0;
-    z-index: 1040;
-    pointer-events: none;
-    overflow: hidden;
-  }
-  :host(.d-none) {
-    display: none;
-  }
-  .smd-page {
-    position: absolute;
-    inset: 0;
-    display: flex;
-    flex-direction: column;
-    background: var(--bs-body-bg, #222);
-    color: var(--bs-body-color, #eee);
-    transform: translateX(-100%);
-    transition: transform var(--smd-slide-duration, 0s) ease;
-    pointer-events: auto;
-  }
-  :host([open]) .smd-page {
-    transform: translateX(0);
-  }
-  .smd-page-header {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    flex-wrap: wrap;
-    padding: 0.75rem 1.25rem;
-    background: color-mix(in srgb, var(--bs-body-bg, #222) 85%, white);
-    border-bottom: 1px solid var(--bs-border-color, #444);
-    flex-shrink: 0;
-  }
-  .smd-page-header h2 {
-    margin: 0;
-    font-size: 1.2rem;
-    font-weight: 500;
-    color: color-mix(in srgb, var(--bs-body-color, #eee) 60%, white);
-  }
-  .smd-page-body {
-    flex: 1;
-    overflow-y: auto;
-    padding: 1rem 1.25rem;
-  }
-  .smd-page-footer {
-    display: flex;
-    gap: 0.5rem;
-    padding: 0.75rem 1.25rem;
-    border-top: 1px solid var(--bs-border-color, #444);
-    flex-shrink: 0;
-  }
-  .smd-page-footer smd-button {
-    flex: 1;
-    min-width: 0;
-  }
-  .smd-page-footer smd-button::part(button) {
-    width: 100%;
-    box-sizing: border-box;
-    font-size: 0.9rem;
-  }
-`);
-
+// <smd-page> — full-screen slide-in page (light DOM). Styles live in
+// shared/css/styles.css. Renders header/body/footer buttons straight into the
+// host; the app pumps `title`/`headerHtml`/`content`/`buttons` properties.
 class SmdPage extends HTMLElement {
   static get observedAttributes() {
     return ['slide-duration'];
@@ -70,8 +8,6 @@ class SmdPage extends HTMLElement {
 
   constructor() {
     super();
-    this.attachShadow({ mode: 'open' });
-    SmdStyles.adoptStyles(this.shadowRoot, [smdPageSheet]);
     this._buttons = [];
     this._title = '';
     this._content = '';
@@ -119,17 +55,17 @@ class SmdPage extends HTMLElement {
       return `<smd-button data-index="${i}" variant="${variant}"${idAttr}${disabledAttr}${closeAttr}>${text}</smd-button>`;
     }).join('');
 
-    this.shadowRoot.innerHTML = `
+    this.innerHTML = `
       <div class="smd-page">
         <div class="smd-page-header">
-          <h2>${this._escapeHtml(this._title)}</h2>${this._headerHtml}
+          <h1>${this._escapeHtml(this._title)}</h1>${this._headerHtml}
         </div>
         <div class="smd-page-body">${this._content}</div>
         <div class="smd-page-footer">${buttonsHtml}</div>
       </div>
     `;
 
-    this.shadowRoot.querySelectorAll('.smd-page-footer smd-button').forEach((btn) => {
+    this.querySelectorAll('.smd-page-footer smd-button').forEach((btn) => {
       btn.addEventListener('click', () => {
         const index = parseInt(btn.dataset.index);
         const config = this._buttons[index];
@@ -153,4 +89,7 @@ class SmdPage extends HTMLElement {
   }
 }
 
-customElements.define('smd-page', SmdPage);
+if (!window.customElements.get('smd-page')) {
+  customElements.define('smd-page', SmdPage);
+}
+window.SmdPage = SmdPage;

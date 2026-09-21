@@ -1,7 +1,7 @@
 // SolarControlar — Power tab: shows the latest power readings in a table.
 
 function renderPowerTab() {
-  var container = document.getElementById("tab-power");
+  var container = $id("tab-power");
   if (!container) return;
 
   if (!_solarMainData) {

@@ -144,10 +144,22 @@ function updateNavState() {
   if (nav) nav.classList.toggle("nav-inactive", false);
 }
 
+// Light-DOM style injection: components render in the light DOM now, so page
+// chrome styles are appended as plain <style> tags on document.head (deduped by
+// text). The `root` argument is accepted for back-compat with callers that used
+// to pass a shadow root; it is ignored. Retains the old default so existing
+// single-argument callers keep working.
 function injectStyleInto(root, css) {
-  if (!root) return;
-  css = css || SETTINGS_STYLES;
-  SmdStyles.adoptStyles(root, css);
+  css = css || (typeof SETTINGS_STYLES !== "undefined" ? SETTINGS_STYLES : "");
+  if (!css) return;
+  const text = css.replace(/^\s+|\s+$/g, "");
+  const existing = Array.from(document.head.querySelectorAll("style")).some(
+    (sheet) => sheet.textContent.replace(/^\s+|\s+$/g, "") === text
+  );
+  if (existing) return;
+  const style = document.createElement("style");
+  style.textContent = css;
+  document.head.appendChild(style);
 }
 
 // ---- The base class ----
@@ -226,12 +238,10 @@ class SmdApp {
     return Promise.all(this.styles.map((path) => this.loadCss(path)));
   }
 
-  // Inject styles.js + the declared smd-* components (in order).
+  // Inject the declared smd-* components (in order).
   loadComponents() {
-    const paths = [];
-    if (this.components.indexOf("styles") === -1) paths.push(SMD_SHARED_ROOT + "js/components/styles.js");
-    this.components.forEach((name) => {
-      paths.push(SMD_SHARED_ROOT + "js/components/" + (name.indexOf("smd-") === 0 ? name : "smd-" + name) + ".js");
+    const paths = this.components.map((name) => {
+      return SMD_SHARED_ROOT + "js/components/" + (name.indexOf("smd-") === 0 ? name : "smd-" + name) + ".js";
     });
     return this.loadScriptsOrdered(paths);
   }
@@ -428,7 +438,7 @@ class SmdApp {
 
     settingsPage.title = "Settings";
     settingsPage.content = '<smd-tabs id="settingsTabs"></smd-tabs>' + footerHtml;
-    settingsPage.buttons = [{ text: "Done", variant: "success", action: "done" }];
+    settingsPage.buttons = [{ text: "OK", variant: "success", action: "done" }];
 
     const tabsEl = $id("settingsTabs");
     if (tabsEl) {

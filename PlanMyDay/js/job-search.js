@@ -14,8 +14,8 @@ function openSearchJobs() {
   jobSearchQuery = "";
   buildSearchJobsContent();
   const sjPage = document.getElementById("jobSearchEditor");
-  if (sjPage && sjPage.shadowRoot) {
-    injectStyleInto(sjPage.shadowRoot, JOBS_EDITOR_STYLES);
+  if (sjPage) {
+    injectStyleInto(JOBS_EDITOR_STYLES);
   }
   page.show();
   const input = $id("jobSearchInput");
@@ -58,7 +58,7 @@ function buildSearchJobsContent() {
     '<div id="jobSearchList"></div>';
   page.buttons = [
     { text: "Add Job", variant: "secondary", action: "add", id: "btnJobSearchAdd", close: false },
-    { text: "Done", variant: "success", action: "done", id: "btnJobSearchDone" }
+    { text: "OK", variant: "success", action: "done", id: "btnJobSearchDone" }
   ];
 }
 

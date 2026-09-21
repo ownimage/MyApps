@@ -35,7 +35,7 @@ var JOBS_EDITOR_STYLES = `
     display: block;
     width: 100%;
     padding: 0.375rem 0.75rem;
-    font-size: 0.95rem;
+    font-size: var(--smd-type-p, 0.95rem);
     font-weight: 400;
     line-height: 1.5;
     color: var(--bs-body-color, #f8f9fa);
@@ -48,7 +48,7 @@ var JOBS_EDITOR_STYLES = `
     display: block;
     width: 100%;
     padding: 0.375rem 0.75rem;
-    font-size: 0.95rem;
+    font-size: var(--smd-type-p, 0.95rem);
     color: var(--bs-body-color, #f8f9fa);
     background-color: var(--bs-body-bg, #222222);
     border: 1px solid var(--bs-border-color, #495057);
@@ -124,7 +124,7 @@ var JOBS_EDITOR_STYLES = `
   .smd-page-body .btn, .smd-tab-panel .btn {
     display: inline-block;
     padding: 0.375rem 0.75rem;
-    font-size: 0.95rem;
+    font-size: var(--smd-type-h2, 1.25rem);
     font-weight: 400;
     line-height: 1.5;
     text-align: center;
@@ -134,12 +134,12 @@ var JOBS_EDITOR_STYLES = `
     text-decoration: none;
   }
   .smd-page-body .btn:disabled, .smd-tab-panel .btn:disabled { opacity: 0.55; pointer-events: none; }
-  .smd-tab-panel .btn-primary { background: var(--bs-primary, #0d6efd); color: var(--smd-primary-text, #fff); }
-  .smd-tab-panel .btn-danger { background: var(--bs-danger, #e74c3c); color: var(--smd-danger-text, #fff); }
-  .smd-tab-panel .btn-info { background: var(--bs-info, #0dcaf0); color: var(--smd-info-text, #fff); }
-  .smd-tab-panel .btn-outline-info { background: transparent; color: var(--bs-info, #31d2f2); border-color: var(--bs-info, #31d2f2); }
+  .smd-page-body .btn-primary, .smd-tab-panel .btn-primary { background: var(--bs-primary, #0d6efd); color: var(--smd-primary-text, #fff); }
+  .smd-page-body .btn-danger, .smd-tab-panel .btn-danger { background: var(--bs-danger, #e74c3c); color: var(--smd-danger-text, #fff); }
+  .smd-page-body .btn-info, .smd-tab-panel .btn-info { background: var(--bs-info, #0dcaf0); color: var(--smd-info-text, #fff); }
+  .smd-page-body .btn-outline-info, .smd-tab-panel .btn-outline-info { background: transparent; color: var(--bs-info, #31d2f2); border-color: var(--bs-info, #31d2f2); }
   .smd-tab-panel .btn-outline-secondary { background: transparent; color: var(--bs-secondary-color, #adb5bd); border-color: var(--bs-secondary-color, #6c757d); }
-  .smd-tab-panel .btn-sm { padding: 0.25rem 0.5rem; font-size: 0.85rem; border-radius: 0.25rem; }
+  .smd-page-body .btn-sm, .smd-tab-panel .btn-sm { padding: 0.25rem 0.5rem; font-size: var(--smd-type-p, 0.85rem); border-radius: 0.25rem; }
   .smd-tab-panel .btn-wide, .smd-tab-panel .w-100 { width: 100%; }
   .smd-tab-panel .dropdown { position: relative; }
   .smd-tab-panel .dropdown-toggle {
@@ -242,7 +242,7 @@ var CMD_EDITOR_STYLES = `
     display: block;
     width: 100%;
   }
-  .smd-tab-panel smd-button::part(button) {
+  .smd-tab-panel smd-button button {
     width: 100%;
     box-sizing: border-box;
   }
@@ -253,7 +253,7 @@ var CMD_EDITOR_STYLES = `
   .smd-page-body .text-danger, .smd-tab-panel .text-danger { color: var(--bs-danger, #dc3545); }
   .smd-page-body .text-warning, .smd-tab-panel .text-warning { color: var(--bs-warning, #ffc107); }
   .smd-page-body .text-secondary, .smd-tab-panel .text-secondary { color: var(--bs-secondary-color, #adb5bd); }
-  .smd-page-body .small, .smd-tab-panel .small { font-size: 0.875em; }
+  .smd-page-body .small, .smd-tab-panel .small { font-size: var(--smd-type-p, 0.875em); }
   .smd-page-body .fw-bold, .smd-tab-panel .fw-bold { font-weight: 700; }
   .smd-page-body .text-nowrap, .smd-tab-panel .text-nowrap { white-space: nowrap; }
   .smd-page-body .w-100, .smd-tab-panel .w-100 { width: 100%; }
@@ -264,7 +264,7 @@ var CMD_EDITOR_STYLES = `
   .smd-page-body .mt-3, .smd-tab-panel .mt-3 { margin-top: 1rem; }
   .smd-page-body .mt-4, .smd-tab-panel .mt-4 { margin-top: 1.5rem; }
   .smd-page-body .ms-auto, .smd-tab-panel .ms-auto { margin-left: auto; }
-  .smd-page-body .form-select-sm, .smd-tab-panel .form-select-sm { padding: 0.25rem 0.5rem; font-size: 0.85rem; }
+  .smd-page-body .form-select-sm, .smd-tab-panel .form-select-sm { padding: 0.25rem 0.5rem; font-size: var(--smd-type-p, 0.85rem); }
   .smd-page-body .btn-outline-secondary, .smd-tab-panel .btn-outline-secondary {
     background: transparent;
     color: var(--bs-secondary-color, #adb5bd);
@@ -276,7 +276,7 @@ var CMD_EDITOR_STYLES = `
 `;
 
 function injectEditorStyles(page) {
-  if (page && page.shadowRoot) {
-    injectStyleInto(page.shadowRoot, JOBS_EDITOR_STYLES + CMD_EDITOR_STYLES);
+  if (page) {
+    injectStyleInto(JOBS_EDITOR_STYLES + CMD_EDITOR_STYLES);
   }
 }

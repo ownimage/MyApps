@@ -1,5 +1,5 @@
 // <smd-qr-export> — a self-contained "export any JSON string as chunked QR
-// codes" component.
+// codes" component (light DOM). Styles live in shared/css/styles.css.
 //
 // The component owns its dependencies: it lazily loads the shared vendored
 // lz-string (compression) and qrcode.js (rendering) when it first has a value,
@@ -57,22 +57,6 @@
     return loadScript("qrcode.min.js");
   }
 
-  const smdQrExportSheet = SmdStyles.sheetFor(`
-  :host { display: block; }
-  .grid {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 1rem;
-    justify-content: center;
-  }
-  .item { display: flex; flex-direction: column; align-items: center; gap: 0.25rem; }
-  .box { background: #fff; padding: 0.75rem; border-radius: 8px; display: inline-block; }
-  .label { font-size: 0.85rem; color: var(--bs-body-color, #eee); }
-  .empty, .error { width: 100%; text-align: center; padding: 1.5rem 0; }
-  .empty { color: var(--bs-secondary-color, #aaa); }
-  .error { color: var(--bs-danger, #dc3545); }
-  `);
-
   class SmdQrExport extends HTMLElement {
     static get observedAttributes() {
       return ["value", "chunk-size", "size", "label"];
@@ -80,8 +64,6 @@
 
     constructor() {
       super();
-      this.attachShadow({ mode: "open" });
-      SmdStyles.adoptStyles(this.shadowRoot, [smdQrExportSheet]);
       this._token = 0;
     }
 
@@ -101,10 +83,10 @@
       const token = ++this._token;
       const value = this.getAttribute("value");
       if (!value) {
-        this.shadowRoot.innerHTML = '<div class="empty">Nothing to export.</div>';
+        this.innerHTML = '<div class="empty">Nothing to export.</div>';
         return;
       }
-      this.shadowRoot.innerHTML = '<div class="empty">Preparing QR codes\u2026</div>';
+      this.innerHTML = '<div class="empty">Preparing QR codes\u2026</div>';
 
       Promise.all([loadLzString(), loadQrCode()]).then(() => {
         if (token !== this._token) return; // value changed while loading
@@ -143,8 +125,8 @@
           });
         });
 
-        this.shadowRoot.innerHTML = "";
-        this.shadowRoot.appendChild(grid);
+        this.innerHTML = "";
+        this.appendChild(grid);
         this.dispatchEvent(new CustomEvent("smd-qr-export-rendered", {
           bubbles: true,
           composed: true,
@@ -152,7 +134,7 @@
         }));
       }).catch((err) => {
         if (token !== this._token) return;
-        this.shadowRoot.innerHTML = '<div class="error">Failed to load the QR libraries.</div>';
+        this.innerHTML = '<div class="error">Failed to load the QR libraries.</div>';
         this.dispatchEvent(new CustomEvent("smd-qr-export-error", {
           bubbles: true,
           composed: true,

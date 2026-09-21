@@ -19,7 +19,7 @@ function initGraphTab() {
 }
 
 function renderGraphTab() {
-  var container = document.getElementById("tab-graph");
+  var container = $id("tab-graph");
   if (!container) return;
 
   container.innerHTML =
@@ -46,7 +46,7 @@ function renderGraphTab() {
 }
 
 function loadGraphDates() {
-  var select = document.getElementById("graph-date");
+  var select = $id("graph-date");
   if (!select) return;
 
   solarApi.getPowerDates()
@@ -72,8 +72,8 @@ function loadGraphDates() {
 }
 
 function loadGraphData() {
-  var date = document.getElementById("graph-date");
-  var empty = document.getElementById("graph-empty");
+  var date = $id("graph-date");
+  var empty = $id("graph-empty");
   if (!date || !date.value) return;
 
   var dateVal = date.value;
@@ -97,10 +97,13 @@ function loadGraphData() {
         });
       });
 
-      var visible = {};
-      document.querySelectorAll(".graph-series").forEach(function (cb) {
-        visible[cb.value] = cb.checked;
-      });
+var visible = {};
+  var graphTab = $id("tab-graph");
+  if (graphTab) {
+    graphTab.querySelectorAll(".graph-series").forEach(function (cb) {
+      visible[cb.value] = cb.checked;
+    });
+  }
 
       renderGraph(timestamps, seriesData, visible, dateVal);
     })
@@ -118,10 +121,10 @@ function renderGraph(timestamps, seriesData, visible, date) {
     return;
   }
 
-  var ctx = document.getElementById("powerChart");
+  var ctx = $id("powerChart");
   if (!ctx) return;
 
-  var showPoints = document.getElementById("graph-points");
+  var showPoints = $id("graph-points");
   var showPts = showPoints ? showPoints.checked : false;
 
   var datasets = [];

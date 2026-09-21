@@ -112,13 +112,13 @@ test.describe("PlanMyDay - Regression", () => {
   test.describe("Main View", () => {
 
     test("loads with date heading", async ({ page }) => {
-      await expect(page.locator("h2").first()).toBeVisible();
+      await expect(page.locator("h1").first()).toBeVisible();
     });
 
     test("add card opens job edit modal", async ({ page }) => {
       await page.getByText("+ Add Job").click();
       await expect(page.locator("#jobEditPage")).toBeVisible();
-      await expect(page.locator("#jobEditPage .smd-page-header h2")).toHaveText("Add Job");
+      await expect(page.locator("#jobEditPage .smd-page-header h1")).toHaveText("Add Job");
     });
 
     test("add card modal does not show delete button", async ({ page }) => {
@@ -166,7 +166,7 @@ test.describe("PlanMyDay - Regression", () => {
       await expect(page.locator("#todayCardList")).toBeVisible();
       await page.locator(".job-view-btn").first().click();
       await expect(page.locator("#jobEditPage")).toBeVisible();
-      await expect(page.locator("#jobEditPage .smd-page-header h2")).toHaveText("View Job");
+      await expect(page.locator("#jobEditPage .smd-page-header h1")).toHaveText("View Job");
       await expect(page.locator("#jobEditOkBtn")).toContainText("OK");
       await expect(page.locator("#btnViewJobEdit")).toContainText("Edit");
       const titleInput = page.locator("#jobEditPage .form-control").first();
@@ -189,9 +189,9 @@ test.describe("PlanMyDay - Regression", () => {
       await page.reload();
       await page.locator(".job-view-btn").first().click();
       await page.locator("#jobEditPage").waitFor({ state: "visible" });
-      await expect(page.locator("#jobEditPage .smd-page-header h2")).toHaveText("View Job");
+      await expect(page.locator("#jobEditPage .smd-page-header h1")).toHaveText("View Job");
       await page.locator("#btnViewJobEdit").filter({ hasText: "Edit" }).click();
-      await expect(page.locator("#jobEditPage .smd-page-header h2")).toHaveText("Edit Job");
+      await expect(page.locator("#jobEditPage .smd-page-header h1")).toHaveText("Edit Job");
       await expect(page.locator("#jobEditOkBtn")).toContainText("OK");
       const titleInput = page.locator("#jobEditPage .form-control").first();
       await expect(titleInput).toHaveValue("Report");
@@ -203,9 +203,9 @@ test.describe("PlanMyDay - Regression", () => {
       await page.reload();
       await expect(page.locator("#todayCardList")).toBeVisible();
       await page.locator(".job-view-btn").first().click();
-      await expect(page.locator("#jobEditPage .smd-page-header h2")).toHaveText("View Job");
+      await expect(page.locator("#jobEditPage .smd-page-header h1")).toHaveText("View Job");
       await page.locator("#btnViewJobEdit").filter({ hasText: "Edit" }).click();
-      await expect(page.locator("#jobEditPage .smd-page-header h2")).toHaveText("Edit Job");
+      await expect(page.locator("#jobEditPage .smd-page-header h1")).toHaveText("Edit Job");
       await expect(page.locator("#jobEditDelBtn")).toBeVisible();
       await page.locator("#jobEditDelBtn").click();
       await expect(page.locator("#smdConfirmModal")).toBeVisible();
@@ -280,7 +280,7 @@ test.describe("PlanMyDay - Regression", () => {
       const handle = page.locator("#todayCardList smd-draghandle.drag-handle").first();
       await expect(handle).toBeVisible();
       const info = await page.evaluate(() => {
-        const glyph = document.querySelector("#todayCardList smd-draghandle").shadowRoot.querySelector(".glyph");
+        const glyph = document.querySelector("#todayCardList smd-draghandle").querySelector(".glyph");
         const cs = getComputedStyle(glyph);
         return { code: glyph.textContent.codePointAt(0).toString(16), family: cs.fontFamily, weight: cs.fontWeight };
       });
@@ -301,17 +301,35 @@ test.describe("PlanMyDay - Regression", () => {
         localStorage.setItem("planmydays_completed", JSON.stringify([]));
       }, { data: TEST_STREAMS, ds: todayStr, thumb });
       await page.reload();
-      const info = () => page.locator("#todayCardList pmd-today-card .stream-thumb smd-image").first()
-        .evaluate((el) => ({
-          width: getComputedStyle(el).width,
-          src: el.shadowRoot.querySelector("img").getAttribute("src")
-        }));
-      await page.evaluate(() => changeIconSize("small"));
-      expect(await info()).toEqual({ width: "40px", src: thumb.data80 });
-      await page.evaluate(() => changeIconSize("medium"));
-      expect(await info()).toEqual({ width: "50px", src: thumb.data100 });
-      await page.evaluate(() => changeIconSize("large"));
-      expect(await info()).toEqual({ width: "64px", src: thumb.data64 });
+      // The render URL is resolved async to a cached /smd-img/, blob or (for
+      // payloads that cannot be fetched through Chromium's base64 decoder) the
+      // source data URL itself. Each size change must source the matching
+      // thumbnail tier and render the right box width: wait for the (async)
+      // render to settle, then assert the src matches the render URL the shared
+      // cache layer resolves for that tier (else, for non-fetchable payloads,
+      // the tier's own data URL is used directly).
+      for (const [size, width, tierUrl] of [
+        ["small", "40px", thumb.data80],
+        ["medium", "50px", thumb.data100],
+        ["large", "64px", thumb.data64]
+      ]) {
+        await page.evaluate((s) => changeIconSize(s), size);
+        await page.waitForFunction((u) => {
+          const el = document.querySelector("#todayCardList pmd-today-card .stream-thumb smd-image");
+          const img = el && el.querySelector("img");
+          return img && img.getAttribute("src") && getComputedStyle(el).width !== "0px";
+        }, tierUrl, { timeout: 5000 });
+        const got = await page.evaluate(async (u) => {
+          const el = document.querySelector("#todayCardList pmd-today-card .stream-thumb smd-image");
+          const img = el.querySelector("img");
+          const src = img.getAttribute("src");
+          let expected = null;
+          try { expected = await smdImageRenderUrl(u); } catch (e) { expected = null; }
+          return { width: getComputedStyle(el).width, src, expected };
+        }, tierUrl);
+        expect(got.width).toBe(width);
+        expect(got.src === got.expected || got.src === tierUrl).toBe(true);
+      }
     });
 
     test("job with future sleepUntil is hidden from main screen", async ({ page }) => {
@@ -334,7 +352,7 @@ test.describe("PlanMyDay - Regression", () => {
       await page.locator(".job-view-btn").first().click();
       await page.locator("#jobEditPage").waitFor({ state: "visible" });
       await page.locator("#btnViewJobEdit").filter({ hasText: "Edit" }).click();
-      await expect(page.locator("#jobEditPage .smd-page-header h2")).toHaveText("Edit Job");
+      await expect(page.locator("#jobEditPage .smd-page-header h1")).toHaveText("Edit Job");
       await page.evaluate((ds) => jobField("sleepUntil", ds), futureDateStr(30));
       await page.locator("#jobEditOkBtn").click();
       
@@ -355,11 +373,11 @@ test.describe("PlanMyDay - Regression", () => {
       await expect(page.locator("h4").filter({ hasText: "Report" })).toBeVisible();
       await page.locator(".job-view-btn").first().click();
       await page.locator("#jobEditPage").waitFor({ state: "visible" });
-      await expect(page.locator("#jobEditPage .smd-page-header h2")).toHaveText("View Job");
-      await expect(page.locator("#jobSleepUntil")).toHaveValue("");
+      await expect(page.locator("#jobEditPage .smd-page-header h1")).toHaveText("View Job");
+      await expect(page.locator("#smdDatePickerInput")).toHaveValue("");
       await page.locator("#btnViewJobEdit").filter({ hasText: "Edit" }).click();
-      await expect(page.locator("#jobEditPage .smd-page-header h2")).toHaveText("Edit Job");
-      await expect(page.locator("#jobSleepUntil")).toHaveValue("");
+      await expect(page.locator("#jobEditPage .smd-page-header h1")).toHaveText("Edit Job");
+      await expect(page.locator("#smdDatePickerInput")).toHaveValue("");
     });
 
     test("sleep until shows short date format in view mode", async ({ page }) => {
@@ -372,9 +390,9 @@ test.describe("PlanMyDay - Regression", () => {
       await page.reload();
       await page.locator(".job-view-btn").first().click();
       await page.locator("#jobEditPage").waitFor({ state: "visible" });
-      await expect(page.locator("#jobEditPage .smd-page-header h2")).toHaveText("View Job");
+      await expect(page.locator("#jobEditPage .smd-page-header h1")).toHaveText("View Job");
       await page.locator("#jobSchedule-tab").click();
-      await expect(page.locator("#jobSleepUntil")).toHaveValue(shortDateStr(todayStr));
+      await expect(page.locator("#smdDatePickerAlt")).toHaveValue(shortDateStr(todayStr));
     });
 
     test("view then edit preserves custom today order", async ({ page }) => {
@@ -396,7 +414,7 @@ test.describe("PlanMyDay - Regression", () => {
       await page.locator(".job-view-btn").first().click();
       await page.locator("#jobEditPage").waitFor({ state: "visible" });
       await page.locator("#btnViewJobEdit").filter({ hasText: "Edit" }).click();
-      await expect(page.locator("#jobEditPage .smd-page-header h2")).toHaveText("Edit Job");
+      await expect(page.locator("#jobEditPage .smd-page-header h1")).toHaveText("Edit Job");
       await page.locator("#jobEditOkBtn").click();
       // hide modal
       
@@ -412,19 +430,14 @@ test.describe("PlanMyDay - Regression", () => {
       await page.locator("#jobEditPage").waitFor({ state: "visible" });
       const futureDate = futureDateStr(30);
       await page.evaluate((ds) => {
-        const fp = $id("jobSleepUntil")._flatpickr;
-        if (fp) {
-          fp.setDate(ds, true);
-          fp.input.value = ds;
-        }
-        updateSleepUntilClearBtn();
+        $id("smdDatePickerInput")._flatpickr.setDate(ds, true);
       }, futureDate);
       await page.locator("#jobSchedule-tab").click();
-      await expect(page.locator("#jobSleepUntil")).toHaveValue(futureDate);
-      const clearBtn = page.locator("#jobSleepUntilClearBtn");
+      await expect(page.locator("#smdDatePickerInput")).toHaveValue(futureDate);
+      const clearBtn = page.locator("#smdDatePickerClearBtn");
       await expect(clearBtn).toBeVisible();
       await clearBtn.click();
-      await expect(page.locator("#jobSleepUntil")).toHaveValue("");
+      await expect(page.locator("#smdDatePickerInput")).toHaveValue("");
     });
 
     test("ok button is disabled when title is empty", async ({ page }) => {
@@ -470,7 +483,7 @@ test.describe("PlanMyDay - Regression", () => {
       await page.locator("#btnMainMenu").click();
       await page.locator("a.dropdown-item").filter({ hasText: "Images" }).click();
       await expect(page.locator("#imagesEditor")).toBeVisible();
-      await page.locator("#imagesEditor").getByRole("button", { name: "Done" }).click();
+      await page.locator("#imagesEditor").getByRole("button", { name: "OK" }).click();
       await page.locator("#imagesEditor").waitFor({ state: "hidden" });
       await page.locator("#btnMainMenu").click();
       await page.locator("a.dropdown-item").filter({ hasText: "Streams" }).click();
@@ -481,7 +494,7 @@ test.describe("PlanMyDay - Regression", () => {
     test("closes images editor back to main view", async ({ page }) => {
       await page.locator("#btnMainMenu").click();
       await page.locator("a.dropdown-item").filter({ hasText: "Images" }).click();
-      await page.locator("#imagesEditor").getByRole("button", { name: "Done" }).click();
+      await page.locator("#imagesEditor").getByRole("button", { name: "OK" }).click();
       await expect(page.locator("#countdownContainer")).toBeVisible();
     });
 
@@ -584,8 +597,8 @@ test.describe("PlanMyDay - Regression", () => {
       await page.evaluate(() => addNewStream());
       const colors = await page.evaluate(() => {
         const pageEl = document.getElementById("streamEditPage");
-        const host = pageEl.shadowRoot.querySelector('.smd-page-footer smd-button[variant="secondary"]');
-        const cs = getComputedStyle(host.shadowRoot.querySelector("button"));
+        const host = pageEl.querySelector('.smd-page-footer smd-button[variant="secondary"]');
+        const cs = getComputedStyle(host.querySelector("button"));
         return { color: cs.color, bg: cs.backgroundColor };
       });
       await page.evaluate(() => cancelEdit());
@@ -609,7 +622,7 @@ test.describe("PlanMyDay - Regression", () => {
       await page.evaluate(() => { openStreamsEditor(); confirmDeleteStream(0); });
       const color = await page.evaluate(() => {
         const host = document.getElementById("smdConfirmModal");
-        const btn = Array.from(host.shadowRoot.querySelectorAll(".smd-footer button"))
+        const btn = Array.from(host.querySelectorAll(".smd-footer button"))
           .find((b) => b.getAttribute("variant") === "secondary");
         return getComputedStyle(btn).color;
       });
@@ -624,9 +637,9 @@ test.describe("PlanMyDay - Regression", () => {
       await page.reload();
       await page.evaluate(() => openStreamsEditor());
       const color = await page.evaluate(() => {
-        const editor = document.getElementById("streamsEditor").shadowRoot;
+        const editor = document.getElementById("streamsEditor");
         const header = editor.querySelector("pmd-stream-header");
-        const btn = header.shadowRoot.querySelector('[data-action="add-job"]');
+        const btn = header.querySelector('[data-action="add-job"]');
         return getComputedStyle(btn).color;
       });
       expect(color).toBe(await bootswatchColor(page, "btn btn-secondary"));
@@ -636,8 +649,8 @@ test.describe("PlanMyDay - Regression", () => {
       await page.evaluate(() => openSettings());
       const inactiveTabColor = () => page.evaluate(() => {
         const pageEl = document.getElementById("settingsPage");
-        const tabs = pageEl.shadowRoot.querySelector("#settingsTabs");
-        const inactive = Array.from(tabs.shadowRoot.querySelectorAll(".smd-tab-btn"))
+        const tabs = pageEl.querySelector("#settingsTabs");
+        const inactive = Array.from(tabs.querySelectorAll(".smd-tab-btn"))
           .find((b) => !b.hasAttribute("active"));
         return getComputedStyle(inactive).color;
       });
@@ -662,8 +675,8 @@ test.describe("PlanMyDay - Regression", () => {
           return { bg: cs.backgroundColor, color: cs.color };
         };
         return {
-          header: read(pageEl.shadowRoot.querySelector("#editJobsTotalBadge")),
-          tab: read(pageEl.shadowRoot.querySelector("pmd-stream-header").shadowRoot.querySelector(".tab-badge"))
+          header: read(pageEl.querySelector("#editJobsTotalBadge")),
+          tab: read(pageEl.querySelector("pmd-stream-header").querySelector(".tab-badge"))
         };
       });
 
@@ -780,7 +793,7 @@ test.describe("PlanMyDay - Regression", () => {
     test("settings close returns to main view", async ({ page }) => {
       await page.locator("#btnMainMenu").click();
       await page.locator("a.dropdown-item").filter({ hasText: "Settings" }).click();
-      await page.getByRole("button", { name: "Done" }).click();
+      await page.getByRole("button", { name: "OK" }).click();
       await expect(page.locator("#countdownContainer")).toBeVisible();
     });
   });
@@ -998,7 +1011,7 @@ test.describe("PlanMyDay - Regression", () => {
     });
 
     test("closes streams editor back to main view", async ({ page }) => {
-      await page.getByRole("button", { name: "Done" }).click();
+      await page.getByRole("button", { name: "OK" }).click();
       await expect(page.locator("#countdownContainer")).toBeVisible();
     });
 
@@ -1245,7 +1258,7 @@ test.describe("PlanMyDay - Regression", () => {
     test("edit button opens edit job modal and returns to search", async ({ page }) => {
       await page.locator("#jobSearchList pmd-job-search-card").first().getByRole("button", { name: "Edit" }).click();
       await expect(page.locator("#jobEditPage")).toBeVisible();
-      await expect(page.locator("#jobEditPage .smd-page-header h2")).toHaveText("Edit Job");
+      await expect(page.locator("#jobEditPage .smd-page-header h1")).toHaveText("Edit Job");
       await page.locator("#jobEditCancelBtn").click();
       await page.locator("#jobEditPage").waitFor({ state: "hidden" });
       await expect(page.locator("#jobSearchEditor:not(.d-none)")).toBeVisible();
@@ -1255,7 +1268,7 @@ test.describe("PlanMyDay - Regression", () => {
     test("add job button opens add job modal", async ({ page }) => {
       await page.locator("#btnJobSearchAdd").click();
       await expect(page.locator("#jobEditPage")).toBeVisible();
-      await expect(page.locator("#jobEditPage .smd-page-header h2")).toHaveText("Add Job");
+      await expect(page.locator("#jobEditPage .smd-page-header h1")).toHaveText("Add Job");
       await page.locator("#jobEditCancelBtn").click();
       await page.locator("#jobEditPage").waitFor({ state: "hidden" });
       await expect(page.locator("#jobSearchEditor:not(.d-none)")).toBeVisible();
@@ -1385,7 +1398,7 @@ test.describe("PlanMyDay - Regression", () => {
     test("opens edit job modal with existing data", async ({ page }) => {
       await page.locator("#streamEditorList .accordion-body .btn-primary").filter({ hasText: "Edit" }).first().click();
       await page.locator("#jobEditPage").waitFor({ state: "visible" });
-      await expect(page.locator("#jobEditPage .smd-page-header h2")).toContainText("Edit");
+      await expect(page.locator("#jobEditPage .smd-page-header h1")).toContainText("Edit");
     });
 
     test("can delete a job", async ({ page }) => {
@@ -1420,7 +1433,7 @@ test.describe("PlanMyDay - Regression", () => {
     });
 
     test("returns to main view from editor", async ({ page }) => {
-      await page.getByRole("button", { name: "Done" }).click();
+      await page.getByRole("button", { name: "OK" }).click();
       await expect(page.locator("#countdownContainer")).toBeVisible();
     });
 
@@ -1501,7 +1514,7 @@ test.describe("PlanMyDay - Regression", () => {
       await meetingToggle.check();
       await page.waitForTimeout(150);
       // click Done to return to main view
-      await page.getByRole("button", { name: "Done" }).click();
+      await page.getByRole("button", { name: "OK" }).click();
       await expect(page.locator("#countdownContainer")).toBeVisible();
       // verify job_2 is now in today_order (if it matches today's schedule)
       var todayOrder = await page.evaluate(() => JSON.parse(localStorage.getItem("planmydays_today_order")));
@@ -1538,7 +1551,7 @@ test.describe("PlanMyDay - Regression", () => {
         .poll(() => page.evaluate(() => JSON.parse(localStorage.getItem("planmydays_today_order") || "[]")))
         .not.toContain("job_2");
       // click Done to return to main view
-      await page.getByRole("button", { name: "Done" }).click();
+      await page.getByRole("button", { name: "OK" }).click();
       await expect(page.locator("#countdownContainer")).toBeVisible();
       // verify job_2 is removed from today_order
       var orderAfter = await page.evaluate(() => JSON.parse(localStorage.getItem("planmydays_today_order")));
@@ -2014,13 +2027,32 @@ test.describe("PlanMyDay - Regression", () => {
           el.setAttribute("size", "64");
           document.body.appendChild(el);
         }, theme);
-        const src = await page.evaluate(() =>
-          document.querySelector("smd-image[image='NestedIcon']").shadowRoot.querySelector("img").getAttribute("src"));
-        const decoded = decodeURIComponent(src.substring("data:image/svg+xml,".length));
-        expect(decoded).toContain(`<svg fill="${wantFill}"`);
-        expect(decoded).toContain(`<path fill="${wantFill}"`);
-        const editorOut = await page.evaluate(() => decodeURIComponent(getThemedImageDataUrl(loadImages()[0]).substring("data:image/svg+xml,".length)));
-        expect(decoded).toBe(editorOut);
+        await page.waitForFunction(() => {
+          const el = document.querySelector("smd-image[image='NestedIcon']");
+          if (!el) return false;
+          const img = el.querySelector("img");
+          return img && img.getAttribute("src") && img.naturalWidth > 0;
+        }, { timeout: 10000 });
+        const compare = await page.evaluate(async () => {
+          // img.src now points at a cached /smd-img/ file (or blob URL), so the
+          // painted payload is resolved through fetch and byte-compared with the
+          // editor's themed data URL.
+          const bytes = async (u) => {
+            const blob = await (await fetch(u)).blob();
+            return Array.from(new Uint8Array(await blob.arrayBuffer()));
+          };
+          const el = document.querySelector("smd-image[image='NestedIcon']");
+          const a = await bytes(el.querySelector("img").getAttribute("src"));
+          const b = await bytes(getThemedImageDataUrl(loadImages()[0]));
+          if (a.length !== b.length) return { eq: false, text: "" };
+          for (let i = 0; i < a.length; i++) {
+            if (a[i] !== b[i]) return { eq: false, text: "" };
+          }
+          return { eq: true, text: new TextDecoder().decode(new Uint8Array(a)) };
+        });
+        expect(compare.eq).toBe(true);
+        expect(compare.text).toContain(`<svg fill="${wantFill}"`);
+        expect(compare.text).toContain(`<path fill="${wantFill}"`);
         await page.evaluate(() => { document.querySelector("smd-image[image='NestedIcon']").remove(); });
       }
     });
@@ -2035,19 +2067,19 @@ test.describe("PlanMyDay - Regression", () => {
       });
       await page.waitForFunction(() => {
         const el = document.querySelector("smd-image[image='bi:house']");
-        if (!el || !el.shadowRoot) return false;
-        const span = el.shadowRoot.querySelector(".smd-bi");
+        if (!el) return false;
+        const span = el.querySelector(".smd-bi");
         return span && !span.hidden && span.textContent.length > 0;
       }, null, { timeout: 10000 });
       const info = await page.evaluate(() => {
         const el = document.querySelector("smd-image[image='bi:house']");
-        const span = el.shadowRoot.querySelector(".smd-bi");
+        const span = el.querySelector(".smd-bi");
         return {
           glyph: span.textContent,
           fontFamily: getComputedStyle(span).fontFamily,
           fontSize: getComputedStyle(span).fontSize,
           hostW: getComputedStyle(el).width,
-          imgHidden: el.shadowRoot.querySelector("img").hidden
+          imgHidden: el.querySelector("img").hidden
         };
       });
       expect(info.fontFamily).toContain("bootstrap-icons");
@@ -2078,13 +2110,13 @@ test.describe("PlanMyDay - Regression", () => {
         }, sample.image);
         await page.waitForFunction((img) => {
           const el = document.querySelector(`smd-image[image='${img}']`);
-          if (!el || !el.shadowRoot) return false;
-          const span = el.shadowRoot.querySelector(".smd-bi");
+          if (!el) return false;
+          const span = el.querySelector(".smd-bi");
           return span && !span.hidden && span.textContent.length > 0;
         }, sample.image, { timeout: 15000 });
         const info = await page.evaluate((img) => {
           const el = document.querySelector(`smd-image[image='${img}']`);
-          const span = el.shadowRoot.querySelector(".smd-bi");
+          const span = el.querySelector(".smd-bi");
           const cs = getComputedStyle(span);
           return { text: span.textContent, fontFamily: cs.fontFamily, fontWeight: cs.fontWeight };
         }, sample.image);
@@ -2103,13 +2135,13 @@ test.describe("PlanMyDay - Regression", () => {
       });
       await page.waitForFunction(() => {
         const el = document.querySelector("smd-image[image='bi:no-such-icon-xyz']");
-        return el && el.shadowRoot;
+        return !!el;
       });
       await page.waitForTimeout(800);
       const hidden = await page.evaluate(() => {
         const el = document.querySelector("smd-image[image='bi:no-such-icon-xyz']");
-        const span = el.shadowRoot.querySelector(".smd-bi");
-        const img = el.shadowRoot.querySelector("img");
+        const span = el.querySelector(".smd-bi");
+        const img = el.querySelector("img");
         return { spanMissing: !span, imgHidden: img ? img.hidden : null };
       });
       expect(hidden.spanMissing).toBeTruthy();
@@ -2130,13 +2162,13 @@ test.describe("PlanMyDay - Regression", () => {
       });
       await page.waitForFunction(() => {
         const el = document.querySelector("smd-image[image='Apple']");
-        if (!el || !el.shadowRoot) return false;
-        const img = el.shadowRoot.querySelector("img");
+        if (!el) return false;
+        const img = el.querySelector("img");
         return img && !img.hidden && img.hasAttribute("src");
       });
       const hasBiSpan = await page.evaluate(() => {
         const el = document.querySelector("smd-image[image='Apple']");
-        return !!el.shadowRoot.querySelector(".smd-bi");
+        return !!el.querySelector(".smd-bi");
       });
       expect(hasBiSpan).toBeFalsy();
     });
@@ -2155,13 +2187,13 @@ test.describe("PlanMyDay - Regression", () => {
       await page.locator("#todayCardList smd-image[image='bi:house']").waitFor({ state: "attached" });
       await expect.poll(() =>
         page.locator("#todayCardList smd-image[image='bi:house']").evaluate((el) => {
-          if (!el.shadowRoot) return false;
-          const span = el.shadowRoot.querySelector(".smd-bi");
+          if (!el) return false;
+          const span = el.querySelector(".smd-bi");
           return !!span && !span.hidden;
         })
       , { timeout: 10000 }).toBe(true);
       const glyphInfo = await page.locator("#todayCardList smd-image[image='bi:house']").evaluate((el) => {
-        const span = el.shadowRoot.querySelector(".smd-bi");
+        const span = el.querySelector(".smd-bi");
         return { glyph: span.textContent, fontFamily: getComputedStyle(span).fontFamily };
       });
       expect(glyphInfo.fontFamily).toContain("bootstrap-icons");
@@ -2511,7 +2543,7 @@ test.describe("PlanMyDay - Regression", () => {
       await expect(reportCard).toHaveAttribute("data-job-id", "job_1");
       await reportCard.locator(".job-view-btn").click();
       await page.locator("#jobEditPage").waitFor({ state: "visible" });
-      await expect(page.locator("#jobEditPage .smd-page-header h2")).toContainText("View Job");
+      await expect(page.locator("#jobEditPage .smd-page-header h1")).toContainText("View Job");
       await page.locator("#btnViewJobEdit").click();
       await page.locator("#jobEditDelBtn").click();
       await page.locator("#smdConfirmModal").waitFor({ state: "visible" });
@@ -2543,7 +2575,7 @@ test.describe("PlanMyDay - Regression", () => {
       await expect.poll(() =>
         page.evaluate(() => JSON.parse(localStorage.getItem("planmydays_today_order")))
       ).toContain(newId);
-      await page.getByRole("button", { name: "Done" }).click();
+      await page.getByRole("button", { name: "OK" }).click();
       await expect(page.locator("#countdownContainer")).toBeVisible();
       await expect(page.getByText("NewDailyJob").first()).toBeVisible();
     });
@@ -2561,7 +2593,7 @@ test.describe("PlanMyDay - Regression", () => {
       await page.locator("#jobSchedule-tab").click();
       const futureDate = futureDateStr(2);
       await page.evaluate((ds) => {
-        $id("jobSleepUntil")._flatpickr.setDate(ds, true);
+        $id("smdDatePickerInput")._flatpickr.setDate(ds, true);
       }, futureDate);
       await page.locator("#jobEditOkBtn").click();
       await page.locator("#streamEditorList .accordion-collapse.show").waitFor({ state: "visible", timeout: 5000 });
@@ -2719,8 +2751,8 @@ test.describe("PlanMyDay - Regression", () => {
       await page.locator("#settingsPage:not(.d-none)").waitFor({ state: "visible" });
       await page.evaluate(() => {
         const root = document.getElementById("settingsPage");
-        const inner = root && root.shadowRoot && root.shadowRoot.querySelector("smd-fontawesome-credit");
-        const text = inner && inner.shadowRoot ? inner.shadowRoot.textContent : "";
+        const inner = root && root.querySelector("smd-fontawesome-credit");
+        const text = inner ? inner.textContent : "";
         window.__faCredit = text;
       });
       const text = await page.evaluate(() => window.__faCredit || "");
@@ -2758,7 +2790,7 @@ test.describe("PlanMyDay - Regression", () => {
     test("touch size selector switches between normal and large", async ({ page }) => {
       await page.locator("#appearance-tab").click();
       const inputFontSize = () => page.evaluate(() => {
-        const input = $id("splitList").shadowRoot.querySelector("input");
+        const input = $id("splitList").querySelector("input");
         return parseFloat(getComputedStyle(input).fontSize);
       });
       await page.locator("#touchSizeSelector").selectOption("normal");
@@ -2918,7 +2950,7 @@ test.describe("PlanMyDay - Regression", () => {
     test("sleep until input exists in job edit", async ({ page }) => {
       await page.locator("#streamEditorList .accordion-body .btn-primary").filter({ hasText: "Edit" }).first().click();
       await page.locator("#jobSchedule-tab").click();
-      await expect(page.locator("#jobSleepUntilDisplay")).toBeVisible();
+      await expect(page.locator("#smdDatePickerAlt")).toBeVisible();
     });
 
     test("sleep until picker starts week on configured day", async ({ page }) => {
@@ -2926,7 +2958,7 @@ test.describe("PlanMyDay - Regression", () => {
       await page.locator("#streamEditorList .accordion-body .btn-primary").filter({ hasText: "Edit" }).first().click();
       await page.locator("#jobEditPage").waitFor({ state: "visible" });
       await page.locator("#jobSchedule-tab").click();
-      await page.locator("#jobSleepUntilDisplay").click();
+      await page.locator("#smdDatePickerAlt").click();
       const firstHead = page.locator(".flatpickr-weekday").first();
       await expect(firstHead).toBeVisible();
       await expect(firstHead).toHaveText("Tue");
@@ -2968,10 +3000,10 @@ test.describe("PlanMyDay - Regression", () => {
       await page.locator("#jobSchedule-tab").click();
       const futureDate = futureDateStr(30);
       await page.evaluate((ds) => {
-        $id("jobSleepUntil")._flatpickr.setDate(ds, true);
+        $id("smdDatePickerInput")._flatpickr.setDate(ds, true);
       }, futureDate);
-      await expect(page.locator("#jobSleepUntilDisplay")).toHaveValue(shortDateStr(futureDate));
-      await expect(page.locator("#jobSleepUntil")).toHaveValue(futureDate);
+      await expect(page.locator("#smdDatePickerAlt")).toHaveValue(shortDateStr(futureDate));
+      await expect(page.locator("#smdDatePickerInput")).toHaveValue(futureDate);
     });
 
     test("sleep until keeps ISO format in storage when saved", async ({ page }) => {
@@ -2980,7 +3012,7 @@ test.describe("PlanMyDay - Regression", () => {
       await page.locator("#jobSchedule-tab").click();
       const futureDate = futureDateStr(30);
       await page.evaluate((ds) => {
-        $id("jobSleepUntil")._flatpickr.setDate(ds, true);
+        $id("smdDatePickerInput")._flatpickr.setDate(ds, true);
       }, futureDate);
       await page.locator("#jobEditOkBtn").click();
       await page.locator("#jobEditPage").waitFor({ state: "hidden", timeout: 10000 });
@@ -2999,7 +3031,7 @@ test.describe("PlanMyDay - Regression", () => {
       await page.locator("#streamEditorList .job-drag-card").filter({ hasText: "Report" }).getByRole("button", { name: "Edit" }).click();
       await page.locator("#jobEditPage").waitFor({ state: "visible" });
       await page.locator("#jobSchedule-tab").click();
-      await expect(page.locator("#jobSleepUntilDisplay")).toHaveValue(shortDateStr(futureDate));
+      await expect(page.locator("#smdDatePickerAlt")).toHaveValue(shortDateStr(futureDate));
     });
 
     test("sleep until displays day-of-week prefix in short format", async ({ page }) => {
@@ -3009,14 +3041,14 @@ test.describe("PlanMyDay - Regression", () => {
       const firstDate = futureDateStr(30);
       const secondDate = futureDateStr(60);
       await page.evaluate((ds) => {
-        $id("jobSleepUntil")._flatpickr.setDate(ds, true);
+        $id("smdDatePickerInput")._flatpickr.setDate(ds, true);
       }, firstDate);
-      await expect(page.locator("#jobSleepUntilDisplay")).toHaveValue(shortDateStr(firstDate));
-      await expect(page.locator("#jobSleepUntil")).toHaveValue(firstDate);
+      await expect(page.locator("#smdDatePickerAlt")).toHaveValue(shortDateStr(firstDate));
+      await expect(page.locator("#smdDatePickerInput")).toHaveValue(firstDate);
       await page.evaluate((ds) => {
-        $id("jobSleepUntil")._flatpickr.setDate(ds, true);
+        $id("smdDatePickerInput")._flatpickr.setDate(ds, true);
       }, secondDate);
-      await expect(page.locator("#jobSleepUntilDisplay")).toHaveValue(shortDateStr(secondDate));
+      await expect(page.locator("#smdDatePickerAlt")).toHaveValue(shortDateStr(secondDate));
     });
 
     test("sleep until formatted field stays visible on mobile devices", async ({ browser }) => {
@@ -3046,8 +3078,8 @@ test.describe("PlanMyDay - Regression", () => {
       }, futureDate);
       await mp.locator("#jobEditPage").waitFor({ state: "visible" });
       await mp.locator("#jobSchedule-tab").click();
-      await expect(mp.locator("#jobSleepUntilDisplay")).toBeVisible();
-      await expect(mp.locator("#jobSleepUntilDisplay")).toHaveValue(shortDateStr(futureDate));
+      await expect(mp.locator("#smdDatePickerAlt")).toBeVisible();
+      await expect(mp.locator("#smdDatePickerAlt")).toHaveValue(shortDateStr(futureDate));
       await expect(mp.locator(".flatpickr-mobile")).toHaveCount(0);
       await context.close();
     });
@@ -3107,14 +3139,14 @@ test.describe("PlanMyDay - Regression", () => {
     test("stream selector defaults to current stream", async ({ page }) => {
       await page.locator("#streamEditorList .accordion-body .btn-primary").filter({ hasText: "Edit" }).first().click();
       await page.locator("#jobEditPage").waitFor({ state: "visible" });
-      await expect(page.locator("#jobStreamBtnText")).toHaveText("Work");
+      await expect(page.locator("#smdImageBtnText")).toHaveText("Work");
     });
 
     test("stream selector shows all stream names", async ({ page }) => {
       await page.locator("#streamEditorList .accordion-body .btn-primary").filter({ hasText: "Edit" }).first().click();
       await page.locator("#jobEditPage").waitFor({ state: "visible" });
-      await page.locator("#jobStreamDropdownBtn").click();
-      var items = page.locator("#jobStreamDropdownMenu .dropdown-item");
+      await page.locator("#smdImageDropdownBtn").click();
+      var items = page.locator("#smdImageDropdownMenu .dropdown-item");
       await expect(items).toHaveCount(2);
       await expect(items.nth(0)).toContainText("Work");
       await expect(items.nth(1)).toContainText("Chores");
@@ -3123,7 +3155,7 @@ test.describe("PlanMyDay - Regression", () => {
     test("stream selector images follow the icon size setting", async ({ page }) => {
       await page.locator("#streamEditorList .accordion-body .btn-primary").filter({ hasText: "Edit" }).first().click();
       await page.locator("#jobEditPage").waitFor({ state: "visible" });
-      const iconWidth = () => page.locator("#jobStreamDropdown #jobStreamBtnIcon smd-image").first()
+      const iconWidth = () => page.locator("#jobStreamDropdown #smdImageBtnIcon smd-image").first()
         .evaluate((el) => getComputedStyle(el).width);
       await page.evaluate(() => changeIconSize("small"));
       expect(await iconWidth()).toBe("40px");
@@ -3134,8 +3166,8 @@ test.describe("PlanMyDay - Regression", () => {
     test("changing stream and saving moves job to new stream", async ({ page }) => {
       await page.locator("#streamEditorList .accordion-body .btn-primary").filter({ hasText: "Edit" }).first().click();
       await page.locator("#jobEditPage").waitFor({ state: "visible" });
-      await page.locator("#jobStreamDropdownBtn").click();
-      await page.locator("#jobStreamDropdownMenu .dropdown-item").nth(1).click();
+      await page.locator("#smdImageDropdownBtn").click();
+      await page.locator("#smdImageDropdownMenu .dropdown-item").nth(1).click();
       await page.locator("#jobEditOkBtn").click();
       
       await page.locator("#jobEditPage").waitFor({ state: "hidden", timeout: 10000 });
@@ -3301,7 +3333,14 @@ test.describe("PlanMyDay - Regression", () => {
       }, { timeout: 5000 }).not.toBe(initialSrc);
 
       const newSrc = await previewImg.getAttribute("src");
-      expect(decodeURIComponent(newSrc)).toContain('stroke="#ff0000"');
+      expect(newSrc).toBeTruthy();
+      await expect.poll(async () => page.evaluate(async () => {
+        const el = document.querySelector("#themePreviewLight");
+        const src = el && el.getAttribute("src");
+        if (!src) return "";
+        const bytes = new Uint8Array(await (await fetch(src)).arrayBuffer());
+        return new TextDecoder().decode(bytes);
+      }), { timeout: 5000 }).toContain('stroke="#ff0000"');
     });
 
     test("raster image keeps theme panels but hides colour editor controls", async ({ page }) => {
@@ -3345,9 +3384,18 @@ test.describe("PlanMyDay - Regression", () => {
       await expect(page.locator('#imageEditModal input[type="color"]')).toHaveCount(0);
       await expect(page.locator('#imageEditModal input[type="number"]')).toHaveCount(0);
       await expect(page.locator('#imageEditModal input[type="checkbox"]')).toHaveCount(0);
-      // previews show the uploaded raster image
-      await expect(page.locator("#themePreviewLight")).toHaveAttribute("src", /data:image\/png/);
-      await expect(page.locator("#themePreviewDark")).toHaveAttribute("src", /data:image\/png/);
+      // previews show the uploaded raster image (resolved from the cached
+      // render URL, which no longer carries the data: URL in the DOM)
+      const wantPngBytes = Array.from(Buffer.from(pngB64, "base64")).join(",");
+      for (const id of ["#themePreviewLight", "#themePreviewDark"]) {
+        await expect.poll(async () => page.evaluate(async (sel) => {
+          const el = document.querySelector(sel);
+          const src = el && el.getAttribute("src");
+          if (!src) return null;
+          const bytes = new Uint8Array(await (await fetch(src)).arrayBuffer());
+          return Array.from(bytes).join(",");
+        }, id), { timeout: 5000 }).toBe(wantPngBytes);
+      }
     });
 
     test("dark theme override applies and swaps on theme change", async ({ page }) => {
@@ -3479,7 +3527,14 @@ test.describe("PlanMyDay - Regression", () => {
       }, { timeout: 5000 }).not.toBe(initialSrc);
 
       const newSrc = await previewImg.getAttribute("src");
-      expect(decodeURIComponent(newSrc)).toContain('stroke="#112233"');
+      expect(newSrc).toBeTruthy();
+      await expect.poll(async () => page.evaluate(async () => {
+        const el = document.querySelector("#themePreviewDark");
+        const src = el && el.getAttribute("src");
+        if (!src) return "";
+        const bytes = new Uint8Array(await (await fetch(src)).arrayBuffer());
+        return new TextDecoder().decode(bytes);
+      }), { timeout: 5000 }).toContain('stroke="#112233"');
     });
 
     test("light and dark overrides stored independently", async ({ page }) => {
@@ -3728,9 +3783,9 @@ test.describe("PlanMyDay - Regression", () => {
       await todayInput.fill(futureDate);
       await todayInput.press("Enter");
       await page.waitForTimeout(250);
-      await page.getByRole("button", { name: "Done" }).click();
+      await page.getByRole("button", { name: "OK" }).click();
       await page.waitForTimeout(250);
-      await expect(page.locator("h2").first()).toContainText(dayMonthStr(futureDate));
+      await expect(page.locator("h1").first()).toContainText(dayMonthStr(futureDate));
     });
   });
 
@@ -4486,7 +4541,7 @@ test.describe("PlanMyDay - Regression", () => {
         localStorage.setItem("devToday", ds);
       }, futureDate);
       await page.reload();
-      await expect(page.locator("h2").first()).toContainText(dayMonthStr(futureDate));
+      await expect(page.locator("h1").first()).toContainText(dayMonthStr(futureDate));
     });
 
     test("dev last gen is returned by getStoredLastGen", async ({ page }) => {
@@ -4695,7 +4750,7 @@ test.describe("PlanMyDay - Regression", () => {
       await page.locator("#streamEditorList .accordion-collapse.show").waitFor({ state: "visible", timeout: 5000 });
       await page.locator("#streamEditorList .btn-primary").filter({ hasText: "Edit" }).first().click();
       await page.locator('input[value="EditMe"]').fill("EditedStream");
-      await page.getByRole("button", { name: "OK" }).click();
+      await page.locator("#btnStreamEditOk").click();
       await expect(page.getByText("EditedStream")).toBeVisible();
     });
   });
@@ -5760,8 +5815,7 @@ test.describe("PlanMyDay - Regression", () => {
         updateStreamImagePreview("PrevImg");
         updateJobStreamPreview();
         jobTimeChanged();
-        clearSleepUntil();
-        updateSleepUntilClearBtn();
+        $id("smdDatePickerInput")._flatpickr.clear();
         updateJobEditOkBtn();
       });
       await page.evaluate(() => {
@@ -5892,7 +5946,7 @@ test.describe("PlanMyDay - Regression", () => {
       await page.locator("a.dropdown-item").filter({ hasText: "Settings" }).click();
       await page.locator("#minio-tab").click();
       await expect(page.locator("#minioEnabled")).not.toBeChecked();
-      await page.getByRole("button", { name: "Done" }).click();
+      await page.getByRole("button", { name: "OK" }).click();
       // main menu should not show the import/export options
       await page.locator("#btnMainMenu").click();
       await expect(page.locator("a.dropdown-item").filter({ hasText: "Export to Minio" })).not.toBeVisible();
@@ -5901,7 +5955,7 @@ test.describe("PlanMyDay - Regression", () => {
       await page.locator("a.dropdown-item").filter({ hasText: "Settings" }).click();
       await page.locator("#minio-tab").click();
       await page.locator("#minioEnabled").check();
-      await page.getByRole("button", { name: "Done" }).click();
+      await page.getByRole("button", { name: "OK" }).click();
       await page.locator("#btnMainMenu").click();
       await expect(page.locator("a.dropdown-item").filter({ hasText: "Export to Minio" })).toBeVisible();
       await expect(page.locator("a.dropdown-item").filter({ hasText: "Import from Minio" })).toBeVisible();
@@ -5909,7 +5963,7 @@ test.describe("PlanMyDay - Regression", () => {
       await page.locator("a.dropdown-item").filter({ hasText: "Settings" }).click();
       await page.locator("#minio-tab").click();
       await page.locator("#minioEnabled").uncheck();
-      await page.getByRole("button", { name: "Done" }).click();
+      await page.getByRole("button", { name: "OK" }).click();
       await page.locator("#btnMainMenu").click();
       await expect(page.locator("a.dropdown-item").filter({ hasText: "Export to Minio" })).not.toBeVisible();
       await expect(page.locator("a.dropdown-item").filter({ hasText: "Import from Minio" })).not.toBeVisible();
@@ -6442,7 +6496,7 @@ test.describe("PlanMyDay - Regression", () => {
       await page.locator("#jobTasks-tab").click();
       await expect(page.locator("#jobTasks-tab")).toHaveAttribute("active", "");
       await page.locator("#btnViewJobEdit").filter({ hasText: "Edit" }).click();
-      await expect(page.locator("#jobEditPage .smd-page-header h2")).toHaveText("Edit Job");
+      await expect(page.locator("#jobEditPage .smd-page-header h1")).toHaveText("Edit Job");
       await expect(page.locator("#jobTasks-tab")).toHaveAttribute("active", "");
       await expect(page.locator("#jobTasks-tab-panel")).toHaveAttribute("active", "");
     });
@@ -6838,7 +6892,7 @@ test.describe("PlanMyDay - Regression", () => {
         await expect(page.locator("#jobTasksList .task-row")).toHaveCount(startLen + 1);
         const focused = await page.evaluate(() => {
           const tabs = $id("jobEditTabs");
-          const el = tabs && tabs.shadowRoot ? tabs.shadowRoot.activeElement : null;
+          const el = tabs ? document.activeElement : null;
           if (!el || !el.classList.contains("task-desc-input")) return null;
           const row = el.closest(".task-row");
           return row ? Number(row.getAttribute("data-task-index")) : null;
@@ -6852,14 +6906,14 @@ test.describe("PlanMyDay - Regression", () => {
           for (let i = 0; i < 20; i++) jobsBuffer.tasks.push({ description: "Task " + i, done: false, note: "" });
           renderJobTasks();
         });
-        await page.evaluate(() => { const body = document.querySelector("#jobEditPage").shadowRoot.querySelector(".smd-page-body"); body.scrollTop = 0; });
-        await expect.poll(() => page.evaluate(() => document.querySelector("#jobEditPage").shadowRoot.querySelector(".smd-page-body").scrollTop)).toBe(0);
+        await page.evaluate(() => { const body = document.querySelector("#jobEditPage .smd-page-body"); body.scrollTop = 0; });
+        await expect.poll(() => page.evaluate(() => document.querySelector("#jobEditPage .smd-page-body").scrollTop)).toBe(0);
         await page.evaluate(() => $id("jobAddTaskBottomBtn").click());
         const result = await page.evaluate(() => {
-          const body = document.querySelector("#jobEditPage").shadowRoot.querySelector(".smd-page-body");
+          const body = document.querySelector("#jobEditPage .smd-page-body");
           const inputs = $id("jobTasksList").querySelectorAll(".task-row .task-desc-input");
           const tabs = $id("jobEditTabs");
-          const active = tabs && tabs.shadowRoot ? tabs.shadowRoot.activeElement : null;
+          const active = tabs ? document.activeElement : null;
           const el = inputs[inputs.length - 1];
           const br = el.getBoundingClientRect();
           const bb = body.getBoundingClientRect();
@@ -6910,9 +6964,9 @@ test.describe("PlanMyDay - Regression", () => {
       });
       await page.locator(".job-view-btn").first().click();
       await expect(page.locator("#jobEditPage")).toBeVisible();
-      await expect(page.locator("#jobEditPage .smd-page-header h2")).toHaveText("View Job");
+      await expect(page.locator("#jobEditPage .smd-page-header h1")).toHaveText("View Job");
       await page.locator("#btnViewJobEdit").click();
-      await expect(page.locator("#jobEditPage .smd-page-header h2")).toHaveText("Edit Job");
+      await expect(page.locator("#jobEditPage .smd-page-header h1")).toHaveText("Edit Job");
       await expect(page.locator("#jobEditPage")).toBeVisible();
       await expect.poll(() => page.evaluate(() => window.__contractActions)).toEqual([
         { index: 0, action: "edit", text: "Edit" }
@@ -6968,7 +7022,7 @@ test.describe("PlanMyDay - Regression", () => {
       });
       const durationOf = () =>
         page.evaluate(() => {
-          const root = window.__slidePage.shadowRoot.querySelector(".smd-page");
+          const root = window.__slidePage.querySelector(".smd-page");
           return getComputedStyle(root).transitionDuration;
         });
       await expect.poll(durationOf).toBe("0s");
@@ -7008,7 +7062,7 @@ test.describe("PlanMyDay - Regression", () => {
       });
       await page.reload();
       await page.getByText("+ Add Job").click();
-      await expect(page.locator("#jobEditPage .smd-page-header h2")).toHaveText("Add Job");
+      await expect(page.locator("#jobEditPage .smd-page-header h1")).toHaveText("Add Job");
       const elapsed = await page.evaluate(async () => {
         const p = document.getElementById("jobEditPage");
         p.classList.remove("d-none");
@@ -7085,8 +7139,8 @@ test.describe("PlanMyDay - Regression", () => {
         }, image);
         await page.waitForFunction((img) => {
           const el = document.querySelector(`smd-image[image='${img}']`);
-          if (!el || !el.shadowRoot) return false;
-          const span = el.shadowRoot.querySelector(".smd-bi");
+          if (!el) return false;
+          const span = el.querySelector(".smd-bi");
           return span && !span.hidden && span.textContent.length > 0;
         }, image, { timeout: 15000 });
       }

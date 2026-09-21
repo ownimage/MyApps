@@ -1,11 +1,12 @@
-// <smd-theme> — a self-contained theme selector component.
+// <smd-theme> — a self-contained theme selector component (light DOM).
 //
-// Renders a <select> listing every theme from the shared `themeConfig` global
-// (SmdConfig of the lib), labelled "Name (light|dark)". The current value is
-// held in the `theme` attribute (settable for restore). On change it updates
-// that attribute and dispatches a composed `smd-theme-change` event with
-// detail = { theme }. It does NOT apply the theme itself — the host app listens
-// and calls applyTheme()/changeTheme(), so the component stays reusable.
+// Renders a <select class="form-select"> (Bootstrap styles it) listing every
+// theme from the shared `themeConfig` global (SmdConfig of the lib), labelled
+// "Name (light|dark)". The current value is held in the `theme` attribute
+// (settable for restore). On change it updates that attribute and dispatches a
+// composing `smd-theme-change` event with detail = { theme }. It does NOT apply
+// the theme itself — the host app listens and calls applyTheme()/changeTheme(),
+// so the component stays reusable.
 //
 // Attributes:
 //   theme  — the currently selected theme name
@@ -17,23 +18,6 @@
     return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
   }
 
-  const smdThemeSheet = SmdStyles.sheetFor(`
-  :host { display: block; }
-  select {
-    display: block;
-    width: 100%;
-    padding: 0.375rem 0.75rem;
-    font-size: 0.95rem;
-    font-weight: 400;
-    line-height: 1.5;
-    color: var(--bs-body-color, #f8f9fa);
-    background-color: var(--bs-body-bg, #222222);
-    background-clip: padding-box;
-    border: 1px solid var(--bs-border-color, #495057);
-    border-radius: 0.375rem;
-  }
-  `);
-
   class SmdTheme extends HTMLElement {
     static get observedAttributes() {
       return ["theme"];
@@ -41,9 +25,7 @@
 
     constructor() {
       super();
-      this.attachShadow({ mode: "open" });
-      SmdStyles.adoptStyles(this.shadowRoot, [smdThemeSheet]);
-      this.shadowRoot.innerHTML = "<select></select>";
+      this._rendered = false;
     }
 
     get theme() {
@@ -56,7 +38,7 @@
 
     connectedCallback() {
       this._render();
-      const sel = this.shadowRoot.querySelector("select");
+      const sel = this.querySelector("select");
       if (sel && !sel.__smdThemeBound) {
         sel.__smdThemeBound = true;
         sel.addEventListener("change", () => {
@@ -76,8 +58,12 @@
     }
 
     _render() {
+      if (!this._rendered) {
+        this._rendered = true;
+        this.innerHTML = '<select class="form-select"></select>';
+      }
       const config = typeof themeConfig !== "undefined" ? themeConfig : {};
-      const sel = this.shadowRoot.querySelector("select");
+      const sel = this.querySelector("select");
       if (!sel) return;
 
       const names = Object.keys(config);
@@ -97,8 +83,7 @@
       }
       if (hasCurrent) sel.value = current;
     }
-
-    }
+  }
 
   if (!global.customElements.get("smd-theme")) {
     global.customElements.define("smd-theme", SmdTheme);

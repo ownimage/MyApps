@@ -2,6 +2,46 @@
 /* NOTE: rules that target app-specific ids/classes (countdown cards, stream
    accordions, job/task cards) live in the CONSUMING app's css/styles.css. */
 
+/* TYPESCALE HARMONISATION -----------------------------------------------
+   One base drives exactly four text tokens. smd-settings applies a
+   font-size-xsmall…jumbo class to <body>; those classes only move the base.
+   Every component (light DOM and shadow roots) consumes the tokens via
+   var(--smd-type-*, fallback) so all apps scale identically. The tokens are
+   declared on body (not :root) on purpose: var() resolves at the element that
+   declares it, so deriving the tokens from a body-level base keeps every
+   size-step recomputed. */
+
+body {
+  --smd-type-base: 1rem; /* "normal" — no size class on <body> */
+}
+body.font-size-xsmall { --smd-type-base: 0.8rem; }
+body.font-size-small { --smd-type-base: 0.925rem; }
+body.font-size-large { --smd-type-base: 1.125rem; }
+body.font-size-xlarge { --smd-type-base: 1.3rem; }
+body.font-size-jumbo { --smd-type-base: 1.6rem; }
+
+body {
+  --smd-type-badge: calc(var(--smd-type-base) * 0.75); /* 0.75rem */
+  --smd-type-p: var(--smd-type-base);                  /* 1rem    */
+  --smd-type-h2: calc(var(--smd-type-base) * 1.25);    /* 1.25rem */
+  --smd-type-h1: calc(var(--smd-type-base) * 2);       /* 2rem    */
+  font-size: var(--smd-type-p, 1rem);
+}
+
+/* Fold every heading level into the four-tier scale. Bootswatch themes ship
+   fluid calc() h1–h4 sizes + their own h5/h6; this sheet is linked after the
+   theme CSS in every app, so these equal-specificity rules win the cascade. */
+h1, .h1 { font-size: var(--smd-type-h1); }
+h2, .h2, h3, .h3, h4, .h4 { font-size: var(--smd-type-h2); }
+h5, .h5, h6, .h6 { font-size: var(--smd-type-p); font-weight: 700; }
+.badge { font-size: var(--smd-type-badge); }
+
+/* The <button> element is its own type: it maps to the h2 token by default,
+   with .btn-sm as the consciously smaller variant kept at p. This is the ONLY
+   place buttons get sized in light DOM. */
+button, .btn { font-size: var(--smd-type-h2, 1.25rem); }
+button.btn-sm, .btn-sm { font-size: var(--smd-type-p, 1rem); }
+
 /* The page (canvas) background always follows the theme body colour. */
 html,
 body {
@@ -151,7 +191,7 @@ body.auto-hide-menu #mainNav.nav-hidden ~ .container-fluid {
   padding-bottom: 20px;
 }
 #settingsPage .nav-tabs .nav-link {
-  font-size: 0.75rem;
+  font-size: var(--smd-type-p);
   padding: 0.35rem 0.35rem;
   margin-bottom: -1px;
 }
@@ -350,4 +390,578 @@ body.auto-hide-menu #mainNav.nav-hidden ~ .container-fluid {
 .btn-outline-secondary.disabled {
   color: var(--bs-tertiary-color);
   border-color: var(--bs-border-color);
+}
+
+/* ==========================================================================
+   LIGHT-DOM CUSTOM-ELEMENT STYLES
+   The smd-* web components render in the light DOM; their styles live here.
+   ========================================================================== */
+
+/* Honours `hidden` everywhere (Bootstrap ships a similar rule; kept so the
+   storybook / minimal pages still hide correctly). */
+[hidden] {
+  display: none !important;
+}
+
+/* ---- smd-badge (real Bootstrap .badge classes on the host) ---- */
+smd-badge {
+  display: inline-block;
+  padding: 0.35em 0.65em;
+  font-size: var(--smd-type-badge, 0.75em);
+  font-weight: 700;
+  line-height: 1;
+  text-align: center;
+  white-space: nowrap;
+  vertical-align: baseline;
+}
+
+/* ---- smd-button (real Bootstrap .btn classes on the inner button) ---- */
+smd-button {
+  display: inline-block;
+}
+
+/* ---- smd-checkbox ---- */
+smd-checkbox {
+  display: inline-flex;
+  align-items: center;
+  vertical-align: middle;
+  cursor: pointer;
+}
+smd-checkbox[disabled] { cursor: not-allowed; opacity: 0.55; }
+smd-checkbox label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+  margin: 0;
+  cursor: inherit;
+}
+smd-checkbox input {
+  flex: 0 0 auto;
+  display: inline-grid;
+  place-content: center;
+  width: 1.15em;
+  height: 1.15em;
+  margin: 0;
+  padding: 0;
+  vertical-align: middle;
+  appearance: none;
+  -webkit-appearance: none;
+  background-color: var(--bs-secondary-bg, #495057);
+  border: 1px solid var(--bs-secondary-color, #6c757d);
+  border-radius: 0.25em;
+  cursor: inherit;
+  font-size: var(--smd-checkbox-input-size, 1em);
+  transition: background-color 0.15s ease-in-out, border-color 0.15s ease-in-out;
+}
+smd-checkbox input::before {
+  content: "";
+  width: 0.65em;
+  height: 0.65em;
+  transform: scale(0);
+  transform-origin: center;
+  transition: transform 0.12s ease-in-out;
+  box-shadow: inset 1em 1em #fff;
+  clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
+}
+smd-checkbox input:checked {
+  background-color: var(--bs-primary, #0d6efd);
+  border-color: var(--bs-primary, #0d6efd);
+}
+smd-checkbox input:checked::before { transform: scale(1); }
+smd-checkbox input:focus-visible {
+  outline: 2px solid var(--bs-primary, #0d6efd);
+  outline-offset: 1px;
+}
+smd-checkbox[switch] input {
+  position: relative;
+  display: inline-block;
+  width: 2.5em;
+  height: 1.5em;
+  border-radius: 2em;
+}
+smd-checkbox[switch] input::before {
+  position: absolute;
+  top: 0.15em;
+  left: 0.15em;
+  width: 1.2em;
+  height: 1.2em;
+  border-radius: 50%;
+  background-color: #fff;
+  box-shadow: none;
+  clip-path: none;
+  transform: none;
+}
+smd-checkbox[switch] input:checked::before { transform: translateX(1em); }
+
+/* ---- smd-draghandle (sizing applied inline by the component) ---- */
+smd-draghandle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  line-height: 1;
+  cursor: grab;
+  touch-action: none;
+  -webkit-touch-callout: none;
+  color: inherit;
+  opacity: 0.55;
+  user-select: none;
+  -webkit-user-select: none;
+}
+smd-draghandle:active { cursor: grabbing; }
+smd-draghandle .glyph {
+  font-family: "Font Awesome 6 Free";
+  font-weight: 900;
+  font-style: normal;
+  font-variant: normal;
+  text-transform: none;
+  line-height: 1;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ---- smd-fontawesome-credit ---- */
+smd-fontawesome-credit { display: block; }
+smd-fontawesome-credit .credit {
+  font-size: var(--smd-type-p, 0.875em);
+  color: var(--bs-secondary-color, #adb5bd);
+}
+smd-fontawesome-credit .credit a {
+  color: var(--bs-secondary-color, #adb5bd);
+  text-decoration: underline;
+}
+
+/* ---- smd-theme (the .form-select class does the legwork) ---- */
+smd-theme { display: block; }
+smd-theme select { display: block; width: 100%; }
+
+/* ---- smd-tabs ---- */
+smd-tabs { display: block; width: 100%; box-sizing: border-box; }
+smd-tabs .smd-tab-list {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 2px;
+  padding: 0 4px;
+  position: relative;
+  z-index: 1;
+}
+smd-tabs[wrap] .smd-tab-list { flex-wrap: wrap; }
+smd-tabs .smd-tab-btn {
+  padding: 0.5rem 1.25rem;
+  border: 1px solid transparent;
+  border-bottom: none;
+  border-radius: 6px 6px 0 0;
+  background: var(--bs-secondary, #6c757d);
+  color: var(--smd-tab-text, #fff);
+  cursor: pointer;
+  font-size: var(--smd-type-h2, 1.25rem);
+  font-weight: 500;
+  transition: background 0.15s, color 0.15s;
+}
+smd-tabs .smd-tab-btn:hover:not([active]) { filter: brightness(1.12); }
+smd-tabs .smd-tab-btn[active] {
+  background: var(--bs-primary, #0d6efd);
+  color: #fff;
+  border-color: var(--bs-primary, #0d6efd);
+  font-weight: 600;
+  position: relative;
+  z-index: 2;
+}
+smd-tabs .smd-tab-line {
+  height: 1px;
+  background: var(--bs-primary, #0d6efd);
+  width: 100%;
+  box-sizing: border-box;
+}
+smd-tabs[padding="small"] .smd-tab-list { padding: 0; }
+smd-tabs[padding="small"] .smd-tab-btn { padding: 0.5rem 0.25rem; }
+smd-tabs[padding="small"] .smd-tab-panel { padding: 0; }
+smd-tabs > .smd-tab-line:last-of-type { margin-bottom: 1rem; }
+smd-tabs .smd-tab-panel {
+  display: none;
+  padding: 1rem;
+}
+smd-tabs .smd-tab-panel.no-padding { padding: 0; }
+smd-tabs .smd-tab-panel[active] { display: block; }
+smd-tabs[hide-panels] .smd-tab-panel { display: none !important; }
+/* The settings page tabs use narrower buttons. */
+#settingsTabs .smd-tab-btn { padding: 0.5rem 0.25rem; }
+
+/* ---- smd-page ---- */
+smd-page {
+  display: block;
+  position: fixed;
+  inset: 0;
+  z-index: 1040;
+  pointer-events: none;
+  overflow: hidden;
+  visibility: hidden;
+}
+smd-page[open] { visibility: visible; }
+smd-page.d-none { display: none !important; }
+smd-page .smd-page {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--bs-body-bg, #222);
+  color: var(--bs-body-color, #eee);
+  transform: translateX(-100%);
+  transition: transform var(--smd-slide-duration, 0s) ease;
+  pointer-events: auto;
+}
+smd-page[open] .smd-page { transform: translateX(0); }
+smd-page .smd-page-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  padding: 0.75rem 1.25rem;
+  background: color-mix(in srgb, var(--bs-body-bg, #222) 85%, white);
+  border-bottom: 1px solid var(--bs-border-color, #444);
+  flex-shrink: 0;
+}
+smd-page .smd-page-header h1 {
+  margin: 0;
+  font-size: var(--smd-type-h1, 2rem);
+  font-weight: 500;
+  color: color-mix(in srgb, var(--bs-body-color, #eee) 60%, white);
+}
+smd-page .smd-page-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1rem 1.25rem;
+}
+smd-page .smd-page-footer {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.75rem 1.25rem;
+  border-top: 1px solid var(--bs-border-color, #444);
+  flex-shrink: 0;
+}
+smd-page .smd-page-footer smd-button {
+  flex: 1;
+  min-width: 0;
+}
+smd-page .smd-page-footer smd-button button {
+  width: 100%;
+  box-sizing: border-box;
+  font-size: var(--smd-type-h2, 1.25rem);
+}
+
+/* ---- smd-modal (footer buttons are real .btn.btn-* classes) ---- */
+smd-modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 1050;
+}
+smd-modal[open] { display: block; }
+smd-modal .smd-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+}
+smd-modal .smd-dialog {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: var(--bs-body-bg, #222);
+  color: var(--bs-body-color, #eee);
+  border: 1px solid var(--bs-border-color, #444);
+  border-radius: 0.5rem;
+  width: 90%;
+  max-width: 500px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+  overflow: hidden;
+}
+smd-modal .smd-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.25rem 0.5rem;
+  border-bottom: 1px solid var(--bs-border-color, #444);
+  background: color-mix(in srgb, var(--bs-body-bg, #222) 85%, white);
+  flex-shrink: 0;
+}
+smd-modal .smd-header h3 {
+  margin: 0;
+  font-size: var(--smd-type-h2, 1.25rem);
+  font-weight: 500;
+  color: color-mix(in srgb, var(--bs-body-color, #eee) 60%, white);
+}
+smd-modal .smd-body {
+  padding: 1rem 1.25rem;
+  overflow-y: auto;
+  flex: 1;
+}
+smd-modal .smd-footer {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.75rem 1.25rem;
+  border-top: 1px solid var(--bs-border-color, #444);
+}
+smd-modal .smd-footer button { flex: 1; }
+
+/* ---- smd-image (size applied inline by the component) ---- */
+smd-image {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+smd-image img {
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+}
+smd-image .smd-bi {
+  font-family: "bootstrap-icons";
+  font-style: normal;
+  font-weight: normal;
+  font-variant: normal;
+  text-transform: none;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ---- smd-date-picker ---- */
+smd-date-picker { display: block; }
+smd-date-picker .smd-date-picker { display: flex; align-items: center; gap: 0.5rem; }
+smd-date-picker .form-control { min-width: 0; }
+
+/* ---- smd-qr-export ---- */
+smd-qr-export { display: block; }
+smd-qr-export .grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  justify-content: center;
+}
+smd-qr-export .item { display: flex; flex-direction: column; align-items: center; gap: 0.25rem; }
+smd-qr-export .box { background: #fff; padding: 0.75rem; border-radius: 8px; display: inline-block; }
+smd-qr-export .label { font-size: var(--smd-type-p, 0.85rem); color: var(--bs-body-color, #eee); }
+smd-qr-export .empty, smd-qr-export .error { width: 100%; text-align: center; padding: 1.5rem 0; }
+smd-qr-export .empty { color: var(--bs-secondary-color, #aaa); }
+smd-qr-export .error { color: var(--bs-danger, #dc3545); }
+
+/* ---- smd-qr-import ---- */
+smd-qr-import { display: block; }
+smd-qr-import .status { margin-bottom: 0.75rem; color: var(--bs-body-color, #eee); }
+smd-qr-import .reader { width: 100%; min-height: 280px; }
+smd-qr-import .reader video { width: 100%; }
+
+/* ---- smd-image-card (action buttons are real .btn.btn-* classes) ---- */
+smd-image-card { display: block; }
+smd-image-card .card {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background-color: var(--bs-dark-border-subtle, #303030);
+  border: 1px solid var(--bs-border-color, #495057);
+  border-radius: 0.375rem;
+  padding: 1rem;
+  margin-bottom: 0.5rem;
+  min-width: 0;
+}
+smd-image-card .thumb {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+smd-image-card .editor-title {
+  font-size: var(--smd-type-h1, 1rem);
+  font-weight: 700;
+  flex: 1;
+  min-width: 0;
+  color: inherit;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+smd-image-card .image-actions { display: flex; gap: 1rem; flex-shrink: 0; }
+smd-image-card .image-actions .btn {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: opacity 0.2s;
+}
+smd-image-card .image-actions .btn:hover { opacity: 0.85; }
+smd-image-card .image-actions .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ---- smd-image-select ---- */
+smd-image-select {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+  /* Transparent so it shows the surface it sits on: the smd-page body colour
+     on a page, or the card background when placed on a card. */
+  background-color: transparent;
+}
+smd-image-select .thumb {
+  position: relative;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--bs-border-color, #495057);
+  border-radius: 6px;
+  overflow: hidden;
+}
+smd-image-select .thumb .placeholder {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--smd-type-badge, 0.65rem);
+  color: var(--bs-secondary-color, #aaa);
+}
+smd-image-select .meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 0;
+}
+smd-image-select .name {
+  font-size: var(--smd-type-p, 0.85rem);
+  color: var(--bs-secondary-color, #aaa);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---- smd-image-dropdown ---- */
+smd-image-dropdown { display: block; position: relative; min-width: 0; }
+smd-image-dropdown .btn {
+  font-size: var(--smd-type-h2, 1.25rem);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.375rem 0.75rem;
+  background-color: transparent;
+  color: var(--bs-body-color, #eee);
+  border: 1px solid var(--bs-border-color, #495057);
+  border-radius: 0.375rem;
+  cursor: pointer;
+  text-align: left;
+}
+smd-image-dropdown[disabled] .btn { opacity: 0.65; cursor: default; }
+smd-image-dropdown .thumb {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border: 1px solid var(--bs-border-color, #495057);
+  border-radius: 6px;
+}
+smd-image-dropdown .thumb[hidden] { display: none !important; }
+smd-image-dropdown .title {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+smd-image-dropdown .caret { flex: 0 0 auto; opacity: 0.7; font-size: var(--smd-type-badge, 0.75rem); }
+smd-image-dropdown .menu {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 100%;
+  z-index: 20;
+  margin: 0.125rem 0 0;
+  padding: 0.25rem 0;
+  list-style: none;
+  background-color: var(--bs-body-bg, #222);
+  border: 1px solid var(--bs-border-color, #495057);
+  border-radius: 0.375rem;
+  box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.25);
+  max-height: 16rem;
+  overflow-y: auto;
+}
+smd-image-dropdown .menu[hidden] { display: none !important; }
+smd-image-dropdown .item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.25rem 0.75rem;
+  color: inherit;
+  cursor: pointer;
+  text-decoration: none;
+}
+smd-image-dropdown .item .thumb { width: 1.5rem; height: 1.5rem; }
+smd-image-dropdown .item .thumb.thumb-blank { border-color: transparent; }
+smd-image-dropdown .item:hover { background-color: var(--bs-secondary-bg, #303030); }
+smd-image-dropdown .item.active { background-color: var(--bs-primary, #0d6efd); color: #fff; }
+
+/* ---- smd-image-picker ---- */
+smd-image-picker { display: block; }
+smd-image-picker .picker { display: flex; flex-direction: column; gap: 0.5rem; }
+smd-image-picker .search { display: flex; gap: 0.5rem; }
+smd-image-picker .search input { flex: 1; }
+smd-image-picker .search button { flex: 0 0 auto; }
+smd-image-picker .grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  width: 100%;
+  min-height: 140px;
+  padding-top: 0.75rem;
+}
+smd-image-picker .item {
+  width: auto;
+  min-width: 95px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 6px;
+  border: 2px solid transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  text-align: center;
+  color: var(--bs-body-color, #eee);
+  transition: border-color 0.15s;
+}
+smd-image-picker .item:hover { border-color: var(--bs-primary, #0d6efd); }
+smd-image-picker .item .glyph {
+  font-size: var(--smd-type-h1, 2rem);
+  line-height: 1;
+  color: var(--bs-body-color, #f8f9fa);
+}
+smd-image-picker .item .thumb { display: flex; align-items: center; justify-content: center; }
+smd-image-picker .item .label {
+  font-size: var(--smd-type-badge, 0.75rem);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+smd-image-picker .empty {
+  width: 100%;
+  text-align: center;
+  padding: 1.5rem 0;
+  color: var(--bs-secondary-color, #aaa);
 }

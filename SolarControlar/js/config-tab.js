@@ -4,7 +4,7 @@
 var _configData = null;
 
 function renderConfigTab() {
-  var container = document.getElementById("tab-config");
+  var container = $id("tab-config");
   if (!container) return;
 
   if (!_configData) {
@@ -73,15 +73,15 @@ function loadConfigData() {
 }
 
 function updateConfigSlider(value) {
-  var output = document.getElementById("configOutput");
-  var hidden = document.getElementById("configHidden");
+  var output = $id("configOutput");
+  var hidden = $id("configHidden");
   if (output) output.textContent = value + "%";
   if (hidden) hidden.value = value;
 }
 
 function saveConfig(e) {
   e.preventDefault();
-  var form = document.getElementById("configForm");
+  var form = $id("configForm");
   if (!form) return false;
 
   var formData = new FormData(form);
@@ -102,7 +102,9 @@ function saveConfig(e) {
 // Mirrors the Flask behaviour: "Changed" badge + original value when the
 // slider diverges from the server value.
 function wireConfigChangeDetection() {
-  var row = document.querySelector("#configForm tr[data-key]");
+  var form = $id("configForm");
+  if (!form) return;
+  var row = form.querySelector("tr[data-key]");
   if (!row) return;
 
   var key = row.getAttribute("data-key");
@@ -113,8 +115,8 @@ function wireConfigChangeDetection() {
   if (!badge) return;
   wasVal.textContent = original;
 
-  var hiddenInput = document.getElementById("configHidden");
-  var slider = document.getElementById("configSlider");
+  var hiddenInput = $id("configHidden");
+  var slider = $id("configSlider");
 
   function checkChange() {
     var current = hiddenInput ? hiddenInput.value : null;

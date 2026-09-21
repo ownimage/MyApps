@@ -71,7 +71,6 @@ function applyTheme(name) {
   // Theme override CSS: one shared light/dark file plus one per-theme file.
   // The Bootstrap theme files themselves are never modified.
   applyThemeOverrides(valid, config.bsTheme, prefix, v);
-  applySmdVars();
 }
 
 // Wire the two theme-override stylesheets: `theme-override-mode` holds the
@@ -95,7 +94,6 @@ function setOverrideLink(id, href) {
     else document.head.appendChild(el);
   }
   el.href = href;
-  el.addEventListener("load", applySmdVars, { once: true });
 }
 
 // Computed style of a hidden light-DOM probe carrying real Bootstrap classes.
@@ -121,8 +119,10 @@ function smdBootstrapColor(className) {
   return smdBootstrapStyle(className).color;
 }
 
-const SMD_BADGE_VARIANTS = ["primary", "secondary", "success", "danger", "warning", "info", "light", "dark"];
-
+// Per-variant text colours, straight from the loaded Bootstrap theme. Light-DOM
+// components that sit on a theme-coloured surface (smd-tab buttons, editor
+// footer buttons) read these via var(--smd-*-text) so they always match the
+// theme instead of a hardcoded fallback.
 function applySmdVars() {
   const root = document.documentElement;
   root.style.setProperty("--smd-primary", "var(--bs-primary, #0d6efd)");
@@ -131,7 +131,6 @@ function applySmdVars() {
   root.style.setProperty("--smd-danger", "var(--bs-danger, #dc3545)");
   root.style.setProperty("--smd-warning", "var(--bs-warning, #ffc107)");
 
-  // Per-variant text colours, straight from the loaded Bootstrap theme.
   const secondaryText = smdBootstrapColor("btn btn-secondary") || "#fff";
   root.style.setProperty("--smd-primary-text", smdBootstrapColor("btn btn-primary") || "#fff");
   root.style.setProperty("--smd-secondary-text", secondaryText);
@@ -141,13 +140,6 @@ function applySmdVars() {
   root.style.setProperty("--smd-warning-text", smdBootstrapColor("btn btn-warning") || "#000");
   // Inactive smd-tab buttons sit on the secondary colour.
   root.style.setProperty("--smd-tab-text", secondaryText);
-
-  // Badge background/text, exactly as Bootswatch renders `.badge.text-bg-*`.
-  SMD_BADGE_VARIANTS.forEach((variant) => {
-    const style = smdBootstrapStyle("badge text-bg-" + variant);
-    if (style.backgroundColor) root.style.setProperty("--smd-badge-" + variant + "-bg", style.backgroundColor);
-    if (style.color) root.style.setProperty("--smd-badge-" + variant + "-text", style.color);
-  });
 }
 
 // Back-compat alias (older callers/tests): recompute all shared colour vars.
@@ -327,6 +319,7 @@ Object.assign(SmdApp.prototype, {
   applyTheme,
   applySmdVars,
   changeTheme,
+  updateTabTextColor,
   changeFontSize,
   changeIconSize,
   changeDensity,
@@ -342,151 +335,12 @@ Object.assign(SmdApp.prototype, {
   updateScreenResolution
 });
 
-// ---- Generic settings-page shadow styles (used by every app's settingsPage) ----
-var SETTINGS_STYLES = `
-  .smd-tab-btn {
-    padding: 0.5rem 0.25rem;
-  }
-  .smd-tab-panel *, .smd-tab-panel *::before, .smd-tab-panel *::after,
-  #settingsFooter *, #settingsFooter *::before, #settingsFooter *::after {
-    box-sizing: border-box;
-  }
-  .smd-tab-panel .row, #settingsFooter .row {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    width: 100%;
-    max-width: 1040px;
-    margin-bottom: 1.5rem;
-  }
-  .smd-tab-panel .col-md-8, #settingsFooter .col-md-8 { max-width: 1040px; }
-  .smd-tab-panel .col-4, #settingsFooter .col-4 {
-    flex: 0 0 33.333333%;
-    max-width: 33.333333%;
-    padding-right: 0.75rem;
-  }
-  .smd-tab-panel .col-8, #settingsFooter .col-8 {
-    flex: 0 0 66.666667%;
-    max-width: 66.666667%;
-    padding-left: 0.75rem;
-  }
-  .smd-tab-panel .text-end, #settingsFooter .text-end { text-align: right; }
-  .smd-tab-panel .form-label, #settingsFooter .form-label {
-    margin-bottom: 0;
-    font-weight: 500;
-    color: var(--bs-body-color, #f8f9fa);
-  }
-  .smd-tab-panel .form-select,
-  .smd-tab-panel .form-control {
-    display: block;
-    width: 100%;
-    padding: 0.375rem 0.75rem;
-    font-size: 0.95rem;
-    font-weight: 400;
-    line-height: 1.5;
-    color: var(--bs-body-color, #f8f9fa);
-    background-color: var(--bs-body-bg, #222222);
-    background-clip: padding-box;
-    border: 1px solid var(--bs-border-color, #495057);
-    border-radius: 0.375rem;
-  }
-  .smd-tab-panel .form-control-plaintext {
-    display: block;
-    width: 100%;
-    padding: 0.375rem 0.75rem;
-    color: var(--bs-body-color, #f8f9fa);
-  }
-  .smd-tab-panel .form-switch { padding-left: 0; }
-  .smd-tab-panel .form-check-input[type="checkbox"] {
-    width: 2.5em;
-    height: 1.5em;
-    appearance: none;
-    -webkit-appearance: none;
-    margin: 0;
-    vertical-align: middle;
-    position: relative;
-    background-color: var(--bs-secondary-bg, #495057);
-    border: 1px solid var(--bs-border-color, #495057);
-    border-radius: 2em;
-    cursor: pointer;
-    transition: background-color 0.15s ease-in-out;
-  }
-  .smd-tab-panel .form-check-input[type="checkbox"]::before {
-    content: "";
-    position: absolute;
-    top: 0.15em;
-    left: 0.15em;
-    width: 1.2em;
-    height: 1.2em;
-    border-radius: 50%;
-    background-color: #fff;
-    transition: transform 0.15s ease-in-out;
-  }
-  .smd-tab-panel .form-check-input[type="checkbox"]:checked {
-    background-color: var(--bs-primary, #0d6efd);
-    border-color: var(--bs-primary, #0d6efd);
-  }
-  .smd-tab-panel .form-check-input[type="checkbox"]:checked::before {
-    transform: translateX(1em);
-  }
-  .smd-tab-panel .input-group {
-    display: flex;
-    align-items: stretch;
-    width: 100%;
-  }
-  .smd-tab-panel .input-group > .form-control {
-    flex: 1 1 auto;
-    width: 1%;
-    border-top-right-radius: 0;
-    border-bottom-right-radius: 0;
-  }
-  .smd-tab-panel .input-group > .btn-outline-secondary {
-    flex: 0 0 auto;
-    border: 1px solid var(--bs-border-color, #6c757d);
-    border-left: 0;
-    background: var(--bs-tertiary-bg, #303030);
-    color: var(--bs-secondary-color, #adb5bd);
-    padding: 0.375rem 0.75rem;
-    border-radius: 0 0.375rem 0.375rem 0;
-    cursor: pointer;
-  }
-  .smd-tab-panel .btn {
-    display: inline-block;
-    padding: 0.375rem 0.75rem;
-    font-size: 0.95rem;
-    line-height: 1.5;
-    text-align: center;
-    border: 1px solid transparent;
-    border-radius: 0.375rem;
-    cursor: pointer;
-  }
-  .smd-tab-panel .btn-danger { background: var(--bs-danger, #e74c3c); color: var(--smd-danger-text, #fff); }
-  .smd-tab-panel .btn-warning { background: var(--bs-warning, #f39c12); color: var(--smd-warning-text, #000); }
-  .smd-tab-panel .btn-primary { background: var(--bs-primary, #0d6efd); color: var(--smd-primary-text, #fff); }
-  .smd-tab-panel .editor-btn, .smd-tab-panel .btn-wide, .smd-tab-panel .w-100 { display: block; width: 100%; }
-  .smd-tab-panel .mb-2 { margin-bottom: 0.5rem; }
-  .smd-tab-panel .mb-3 { margin-bottom: 1rem; }
-  .smd-tab-panel .mb-4 { margin-bottom: 1.5rem; }
-  .smd-tab-panel .mt-1 { margin-top: 0.25rem; }
-  .smd-tab-panel .mt-3 { margin-top: 1rem; }
-  .d-none { display: none !important; }
-  #settingsFooter .mt-3 { margin-top: 1rem; }
-  #settingsFooter .mt-5 { margin-top: 3rem; }
-  #settingsFooter .mb-3 { margin-bottom: 1rem; }
-  #settingsFooter .small { font-size: 0.875em; }
-  #settingsFooter .build-number { color: var(--bs-secondary-color, #adb5bd); }
-`;
+// ---- Generic settings-page styles (used by every app's settingsPage) ----
+var SETTINGS_STYLES = "";
 
 function injectSettingsStyles() {
   var css = SETTINGS_STYLES;
   // CountMyDays (and future apps) add their own editor styles on top.
   if (typeof CMD_EDITOR_STYLES !== "undefined") css += "\n" + CMD_EDITOR_STYLES;
-  var sp = document.getElementById("settingsPage");
-  if (sp && sp.shadowRoot) {
-    injectStyleInto(sp.shadowRoot, css);
-  }
-  var tabs = $id("settingsTabs");
-  if (tabs && tabs.shadowRoot) {
-    injectStyleInto(tabs.shadowRoot, css);
-  }
+  injectStyleInto(document.body, css);
 }

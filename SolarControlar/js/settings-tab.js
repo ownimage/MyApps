@@ -65,7 +65,7 @@ function buildSettingsContent() {
 
   settingsPage.title = "Settings";
   settingsPage.content = '<smd-tabs id="settingsTabs"></smd-tabs>' + footerHtml;
-  settingsPage.buttons = [{ text: "Done", variant: "success", action: "done" }];
+  settingsPage.buttons = [{ text: "OK", variant: "success", action: "done" }];
 
   var tabsEl = $id("settingsTabs");
   if (tabsEl) {
@@ -74,10 +74,7 @@ function buildSettingsContent() {
   }
   injectSettingsStyles();
   if (typeof SOLAR_EDITOR_STYLES !== "undefined") {
-    var sp = document.getElementById("settingsPage");
-    if (sp && sp.shadowRoot) injectStyleInto(sp.shadowRoot, SOLAR_EDITOR_STYLES);
-    var tabs = $id("settingsTabs");
-    if (tabs && tabs.shadowRoot) injectStyleInto(tabs.shadowRoot, SOLAR_EDITOR_STYLES);
+    injectStyleInto(SOLAR_EDITOR_STYLES);
   }
 }
 

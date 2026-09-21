@@ -5,53 +5,9 @@
    --solar-* custom properties defined below. */
 
 /* FONT SIZE
-   smd-page content lives in shadow roots, but font-size is inherited, so
-   setting it on the host element reaches the shadow tree. */
-body.font-size-xsmall,
-body.font-size-xsmall .navbar .btn,
-body.font-size-xsmall .navbar .dropdown-item,
-body.font-size-xsmall #dashboardContainer,
-body.font-size-xsmall #settingsPage,
-body.font-size-xsmall #filesPage,
-body.font-size-xsmall #configPage {
-  font-size: 0.8rem;
-}
-body.font-size-small,
-body.font-size-small .navbar .btn,
-body.font-size-small .navbar .dropdown-item,
-body.font-size-small #dashboardContainer,
-body.font-size-small #settingsPage,
-body.font-size-small #filesPage,
-body.font-size-small #configPage {
-  font-size: 0.925rem;
-}
-body.font-size-large,
-body.font-size-large .navbar .btn,
-body.font-size-large .navbar .dropdown-item,
-body.font-size-large #dashboardContainer,
-body.font-size-large #settingsPage,
-body.font-size-large #filesPage,
-body.font-size-large #configPage {
-  font-size: 1.125rem;
-}
-body.font-size-xlarge,
-body.font-size-xlarge .navbar .btn,
-body.font-size-xlarge .navbar .dropdown-item,
-body.font-size-xlarge #dashboardContainer,
-body.font-size-xlarge #settingsPage,
-body.font-size-xlarge #filesPage,
-body.font-size-xlarge #configPage {
-  font-size: 1.3rem;
-}
-body.font-size-jumbo,
-body.font-size-jumbo .navbar .btn,
-body.font-size-jumbo .navbar .dropdown-item,
-body.font-size-jumbo #dashboardContainer,
-body.font-size-jumbo #settingsPage,
-body.font-size-jumbo #filesPage,
-body.font-size-jumbo #configPage {
-  font-size: 1.6rem;
-}
+   The per-app font-size ramp blocks were removed: the single shared ramp in
+   shared/css/styles.css (the --smd-type-* tokens) now drives every app, and
+   the font-size-xsmall…jumbo body classes only override --smd-type-base there. */
 
 /* TOP TILES custom properties (read inside solar-top-tiles shadow root). */
 body {
@@ -62,190 +18,6 @@ body {
 }
 body.compact {
   --solar-tile-padding: 0.5rem;
-}
-
-/* MAIN TABS (light-DOM Bootstrap tabs on the dashboard) */
-.main-tabs {
-  display: flex;
-  border-bottom: 2px solid var(--bs-border-color, #495057);
-  margin-bottom: 1rem;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-}
-.main-tabs .tab-btn {
-  padding: 0.6rem 1rem;
-  border: none;
-  background: none;
-  font-size: 0.95rem;
-  font-weight: 600;
-  color: var(--bs-secondary-color, #adb5bd);
-  cursor: pointer;
-  border-bottom: 2px solid transparent;
-  margin-bottom: -2px;
-  transition: all 0.2s;
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-.main-tabs .tab-btn:hover {
-  color: var(--bs-body-color, #eee);
-}
-.main-tabs .tab-btn.active {
-  color: var(--bs-primary, #0d6efd);
-  border-bottom-color: var(--bs-primary, #0d6efd);
-}
-
-/* TAB CONTENT */
-.tab-content { display: none; }
-.tab-content.active { display: block; }
-
-/* POWER TABLE */
-.power-table {
-  width: 100%;
-  border-collapse: collapse;
-  background: var(--bs-dark-border-subtle, #303030);
-  border-radius: 0.5rem;
-  overflow: hidden;
-  border: 1px solid var(--bs-border-color, #495057);
-}
-.power-table th,
-.power-table td {
-  padding: 0.6rem 0.8rem;
-  text-align: left;
-  border-bottom: 1px solid var(--bs-border-color, #495057);
-}
-.power-table th {
-  background: var(--bs-body-bg, #222);
-  color: var(--bs-secondary-color, #adb5bd);
-  font-weight: 600;
-  font-size: 0.8rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-.power-table tr:last-child td { border-bottom: none; }
-.power-table tr:hover { background: var(--bs-body-bg, #222); }
-.power-table td:first-child {
-  font-weight: 600;
-  color: var(--bs-body-color, #eee);
-  width: 35%;
-}
-.power-table td:nth-child(2) {
-  color: var(--bs-primary, #0d6efd);
-}
-
-/* ACCESS BADGE + "WAS" (changed) INDICATOR */
-.access-badge {
-  display: inline-block;
-  padding: 0.15rem 0.5rem;
-  border-radius: 9999px;
-  font-size: 0.7rem;
-  font-weight: 600;
-  text-transform: uppercase;
-}
-.access-badge.badge-ro {
-  background: var(--bs-secondary-bg, #495057);
-  color: var(--bs-secondary-color, #adb5bd);
-}
-.access-badge.badge-rw {
-  background: rgba(34, 197, 94, 0.15);
-  color: #22c55e;
-}
-.access-badge.badge-changed {
-  background: rgba(245, 158, 11, 0.2);
-  color: #f59e0b;
-}
-.was-text {
-  font-size: 0.75rem;
-  color: #ef4444;
-}
-
-/* LOG VIEWER */
-.log-controls {
-  margin-bottom: 1rem;
-  display: flex;
-  gap: 0.5rem;
-  align-items: center;
-  flex-wrap: wrap;
-}
-.log-input {
-  width: 8rem;
-  padding: 0.4rem 0.6rem;
-  border: 1px solid var(--bs-border-color, #495057);
-  border-radius: 0.375rem;
-  font-size: 0.9rem;
-  background: var(--bs-body-bg, #222);
-  color: var(--bs-body-color, #eee);
-}
-.log-select {
-  width: 16rem;
-  padding: 0.4rem 0.6rem;
-  border: 1px solid var(--bs-border-color, #495057);
-  border-radius: 0.375rem;
-  font-size: 0.9rem;
-  background: var(--bs-body-bg, #222);
-  color: var(--bs-body-color, #eee);
-}
-.log-output {
-  background: var(--bs-body-bg, #111);
-  color: var(--bs-body-color, #e2e8f0);
-  padding: 1rem;
-  border-radius: 0.5rem;
-  font-family: monospace;
-  font-size: 0.85rem;
-  white-space: pre-wrap;
-  height: 60vh;
-  overflow-y: auto;
-  line-height: 1.5;
-  border: 1px solid var(--bs-border-color, #495057);
-}
-.loading {
-  color: var(--bs-secondary-color, #adb5bd);
-  font-style: italic;
-}
-
-/* GRAPH */
-.graph-controls {
-  display: flex;
-  gap: 1rem;
-  align-items: center;
-  margin-bottom: 1rem;
-  flex-wrap: wrap;
-}
-.graph-checkboxes {
-  display: flex;
-  gap: 1rem;
-  align-items: center;
-  flex-wrap: wrap;
-}
-.graph-checkboxes label {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  font-size: 0.9rem;
-  cursor: pointer;
-}
-.graph-wrap {
-  background: var(--bs-dark-border-subtle, #303030);
-  border-radius: 0.5rem;
-  border: 1px solid var(--bs-border-color, #495057);
-  padding: 1rem;
-  position: relative;
-  height: 60vh;
-}
-
-/* FORECAST */
-.forecast-output {
-  background: var(--bs-body-bg, #111);
-  color: var(--bs-body-color, #e2e8f0);
-  padding: 1rem;
-  border-radius: 0.5rem;
-  font-family: monospace;
-  font-size: 0.85rem;
-  white-space: pre-wrap;
-  height: 50vh;
-  overflow-y: auto;
-  line-height: 1.5;
-  margin-top: 1rem;
-  border: 1px solid var(--bs-border-color, #495057);
 }
 
 /* FLASH MESSAGES */
@@ -270,8 +42,147 @@ body.compact {
   border: 1px solid rgba(59, 130, 246, 0.3);
 }
 
-/* NARROW SCREENS */
+/* ==================== solar-top-tiles ==================== */
+solar-top-tiles {
+  display: block;
+  margin-bottom: 1rem;
+}
+solar-top-tiles .top-tiles {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 0.75rem;
+}
+solar-top-tiles .tile {
+  background: var(--solar-tile-bg, #303030);
+  border: 1px solid var(--solar-tile-border, #495057);
+  border-radius: var(--solar-tile-radius, 0.5rem);
+  padding: var(--solar-tile-padding, 1rem);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 120px;
+}
+solar-top-tiles .tile-label {
+  font-size: var(--smd-type-badge, 0.65rem);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--bs-secondary-color, #adb5bd);
+  font-weight: 700;
+  margin-top: 0.5rem;
+}
+solar-top-tiles .date-dd {
+  font-size: var(--smd-type-h1, 3rem);
+  font-weight: 200;
+  color: var(--bs-body-color, #eee);
+  line-height: 1;
+  margin-bottom: 0.4rem;
+}
+solar-top-tiles .date-meta {
+  display: flex;
+  gap: 0.6rem;
+  align-items: center;
+}
+solar-top-tiles .date-mon {
+  font-size: var(--smd-type-h2, 1.2rem);
+  font-weight: 700;
+  color: var(--bs-secondary-color, #adb5bd);
+  letter-spacing: 0.04em;
+}
+solar-top-tiles .date-dot {
+  width: 4px;
+  height: 4px;
+  background: var(--bs-secondary-color, #adb5bd);
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+solar-top-tiles .date-yyy {
+  font-size: var(--smd-type-h2, 1.2rem);
+  font-weight: 300;
+  color: var(--bs-secondary-color, #adb5bd);
+  letter-spacing: 0.06em;
+}
+solar-top-tiles .split-flap {
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+}
+solar-top-tiles .flap-card {
+  background: linear-gradient(180deg, #4a5568 0%, #2d3748 48%, #1a202c 52%, #171923 100%);
+  color: #f7fafc;
+  font-size: var(--smd-type-h1, 2rem);
+  font-weight: 300;
+  width: 0.75em;
+  text-align: center;
+  border-radius: 4px;
+  padding: 0.35rem 0;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.06);
+  position: relative;
+  letter-spacing: 0.06em;
+}
+solar-top-tiles .flap-card::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 1px;
+  background: rgba(0,0,0,0.45);
+  box-shadow: 0 1px 2px rgba(255,255,255,0.04);
+}
+solar-top-tiles .flap-sep {
+  font-size: var(--smd-type-h1, 1.8rem);
+  font-weight: 700;
+  color: #fc8181;
+  margin: 0 0.06rem;
+  position: relative;
+  top: -0.12rem;
+  animation: solarFlapPulse 1s ease-in-out infinite;
+}
+@keyframes solarFlapPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+solar-top-tiles .battery-icon {
+  position: relative;
+  width: 56px;
+  height: 28px;
+  border: 3px solid var(--bs-secondary-color, #adb5bd);
+  border-radius: 4px;
+  flex-shrink: 0;
+  margin-bottom: 0.4rem;
+}
+solar-top-tiles .battery-icon::after {
+  content: '';
+  position: absolute;
+  right: -7px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 4px;
+  height: 10px;
+  background: var(--bs-secondary-color, #adb5bd);
+  border-radius: 0 2px 2px 0;
+}
+solar-top-tiles .battery-fill {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  bottom: 3px;
+  border-radius: 1px;
+  transition: width 0.3s, background 0.3s;
+}
+solar-top-tiles .battery-info {
+  font-size: var(--smd-type-h2, 1.3rem);
+  font-weight: 700;
+  color: var(--bs-body-color, #eee);
+}
+solar-top-tiles[no-data] .top-tiles { display: none; }
+
 @media (max-width: 480px) {
-  .log-select { width: 100%; }
-  .main-tabs .tab-btn { padding: 0.5rem 0.75rem; font-size: 0.85rem; }
+  solar-top-tiles .date-dd { font-size: calc(var(--smd-type-h1, 3rem) * 0.7333); }
+  solar-top-tiles .date-mon, solar-top-tiles .date-yyy { font-size: calc(var(--smd-type-h2, 1.2rem) * 0.8333); }
+  solar-top-tiles .flap-card { font-size: calc(var(--smd-type-h1, 2rem) * 0.75); width: 0.8em; padding: 0.25rem 0; }
+  solar-top-tiles .flap-sep { font-size: calc(var(--smd-type-h1, 2rem) * 0.7); }
+  solar-top-tiles .tile { min-height: 90px; padding: 0.75rem; }
+  solar-top-tiles .battery-info { font-size: calc(var(--smd-type-h2, 1.3rem) * 0.8462); }
 }

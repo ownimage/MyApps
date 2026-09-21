@@ -1,63 +1,3 @@
-const pmdJobSearchCardSheet = SmdStyles.sheetFor(`
-  :host {
-    display: flex;
-    flex-direction: column;
-    position: relative;
-    min-width: 0;
-    word-wrap: break-word;
-    background-color: var(--bs-dark-border-subtle, #303030);
-    border: 1px solid var(--bs-border-color, #495057);
-    border-radius: 0.375rem;
-    padding: 0.5rem;
-    margin-bottom: 0.5rem;
-  }
-  .row1 {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    min-width: 0;
-  }
-  .row2 {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    margin-top: 0.25rem;
-    font-size: 0.875em;
-    min-width: 0;
-  }
-  .thumb {
-    flex-shrink: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-  .title {
-    font-weight: 700;
-    min-width: 0;
-    flex: 1;
-    color: inherit;
-  }
-  .suffix { margin-left: 0.25rem; }
-  .stream-title {
-    font-weight: 700;
-    flex-shrink: 0;
-    color: inherit;
-  }
-  .btn {
-    min-width: 50px;
-    padding: 0.5rem 1rem;
-    font-size: 0.875rem;
-    line-height: 1.5;
-    flex-shrink: 0;
-    align-self: center;
-    margin-left: 1rem;
-    touch-action: manipulation;
-  }
-  smd-checkbox.active-toggle {
-    flex-shrink: 0;
-  }
-`);
-
 const pmdJobSearchCardTemplate = document.createElement('template');
 pmdJobSearchCardTemplate.innerHTML = `
   <div class="row1">
@@ -85,26 +25,27 @@ class PmdJobSearchCard extends HTMLElement {
 
   constructor() {
     super();
-    this.attachShadow({ mode: 'open' });
-    SmdStyles.adoptStyles(this.shadowRoot, [SmdStyles.hiddenSheet, SmdStyles.btnBadgeSheet, pmdJobSearchCardSheet]);
-    this.shadowRoot.appendChild(pmdJobSearchCardTemplate.content.cloneNode(true));
+    this._bound = false;
   }
 
   connectedCallback() {
-    const root = this.shadowRoot;
-    root.querySelector('[data-action="edit"]').addEventListener('click', () => this._emit('pmd-job-edit'));
-    root.querySelector('smd-checkbox.active-toggle').addEventListener('change', (e) => {
-      const checked = e.detail ? e.detail.checked : e.target.checked;
-      this.dispatchEvent(new CustomEvent('pmd-job-toggle-active', {
-        bubbles: true,
-        composed: true,
-        detail: {
-          streamIdx: parseInt(this.getAttribute('stream-idx'), 10),
-          jobIdx: parseInt(this.getAttribute('job-idx'), 10),
-          checked
-        }
-      }));
-    });
+    if (!this._bound) {
+      this._bound = true;
+      this.appendChild(pmdJobSearchCardTemplate.content.cloneNode(true));
+      this.querySelector('[data-action="edit"]').addEventListener('click', () => this._emit('pmd-job-edit'));
+      this.querySelector('smd-checkbox.active-toggle').addEventListener('change', (e) => {
+        const checked = e.detail ? e.detail.checked : e.target.checked;
+        this.dispatchEvent(new CustomEvent('pmd-job-toggle-active', {
+          bubbles: true,
+          composed: true,
+          detail: {
+            streamIdx: parseInt(this.getAttribute('stream-idx'), 10),
+            jobIdx: parseInt(this.getAttribute('job-idx'), 10),
+            checked
+          }
+        }));
+      });
+    }
     this._render();
   }
 
@@ -124,7 +65,7 @@ class PmdJobSearchCard extends HTMLElement {
   }
 
   _render() {
-    const root = this.shadowRoot;
+    const root = this;
     const title = this.getAttribute('title') || '';
     const image = this.getAttribute('image') || '';
     const streamImage = this.getAttribute('stream-image') || '';

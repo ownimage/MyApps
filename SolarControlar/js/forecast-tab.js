@@ -3,7 +3,7 @@
 var _forecastOutput = null;
 
 function renderForecastTab() {
-  var container = document.getElementById("tab-forecast");
+  var container = $id("tab-forecast");
   if (!container) return;
 
   container.innerHTML =
@@ -19,7 +19,7 @@ function renderForecastTab() {
     '<div id="forecastLoading" class="loading mt-3" style="display:none;">Forecast pipeline is running...</div>';
 
   if (_forecastOutput) {
-    var outputEl = document.getElementById("forecastOutput");
+    var outputEl = $id("forecastOutput");
     if (outputEl) {
       outputEl.textContent = _forecastOutput;
       outputEl.style.display = "block";
@@ -28,9 +28,9 @@ function renderForecastTab() {
 }
 
 function runForecast() {
-  var btn = document.getElementById("btnRunForecast");
-  var loading = document.getElementById("forecastLoading");
-  var output = document.getElementById("forecastOutput");
+  var btn = $id("btnRunForecast");
+  var loading = $id("forecastLoading");
+  var output = $id("forecastOutput");
 
   if (btn) btn.disabled = true;
   if (loading) loading.style.display = "block";

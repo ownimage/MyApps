@@ -32,17 +32,13 @@
 
 .app-name {
   font-weight: 700;
-  font-size: 1.05rem;
+  font-size: var(--smd-type-h2, 1.05rem);
 }
 
 .app-desc {
-  font-size: 0.85rem;
+  font-size: var(--smd-type-p, 0.85rem);
   color: var(--bs-secondary-color, #adb5bd);
 }
 
-/* Font size settings apply to the launch grid too (light DOM). */
-body.font-size-xsmall .app-name { font-size: 0.85rem; }
-body.font-size-small .app-name { font-size: 0.95rem; }
-body.font-size-large .app-name { font-size: 1.15rem; }
-body.font-size-xlarge .app-name { font-size: 1.3rem; }
-body.font-size-jumbo .app-name { font-size: 1.6rem; }
+/* Font size settings apply to the launch grid too via the shared tokens (the
+   app name above uses --smd-type-h2, which scales with --smd-type-base). */

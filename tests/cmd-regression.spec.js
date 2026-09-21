@@ -107,9 +107,9 @@ test.describe("CountMyDays - Regression", () => {
 
     test("renders the today section and future section", async ({ page }) => {
       await seed(page);
-      await expect(page.locator("#countdownContainer h2").first()).toHaveText("Today!");
+      await expect(page.locator("#countdownContainer h1").first()).toHaveText("Today!");
       await expect(page.locator("cmd-countdown-card").first()).toHaveAttribute("title", "Today Event");
-      const headings = await page.locator("#countdownContainer h2").allTextContents();
+      const headings = await page.locator("#countdownContainer h1").allTextContents();
       expect(headings.length).toBe(2);
       expect(headings[1]).toContain("From ");
       // Every tile carries a Local/Google source badge under the date.
@@ -180,7 +180,7 @@ test.describe("CountMyDays - Regression", () => {
       await expect(page.locator("#densitySelector")).toBeVisible();
       await expect(page.locator("#maxCountdownsSelector")).toBeVisible();
       await expect(page.locator("#autoHideMenu")).toBeVisible();
-      await page.locator("#settingsPage").getByRole("button", { name: "Done" }).click();
+      await page.locator("#settingsPage").getByRole("button", { name: "OK" }).click();
       await expect(page.locator("#countdownContainer")).not.toHaveClass(/d-none/);
     });
 
@@ -210,7 +210,7 @@ test.describe("CountMyDays - Regression", () => {
       await page.locator("#iconSizeSelector").selectOption("small");
       const width = await page.evaluate(() => {
         const card = document.querySelector("cmd-countdown-card");
-        return getComputedStyle(card.shadowRoot.querySelector("smd-image")).width;
+        return getComputedStyle(card.querySelector("smd-image")).width;
       });
       expect(width).toBe("40px");
       await expect.poll(async () => page.evaluate(() => localStorage.getItem("countmydays_iconSize"))).toBe("small");
@@ -244,8 +244,35 @@ test.describe("CountMyDays - Regression", () => {
     test("adds a date and saves its fields", async ({ page }) => {
       await seed(page);
       await page.evaluate(() => openDatesEditor());
+      // The filter Clear button carries danger styling, not the neutral grey.
+      const clearBg = await page.locator("#datesEditor").getByRole("button", { name: "Clear", exact: true }).evaluate(el => getComputedStyle(el).backgroundColor);
+      const dangerColor = await page.evaluate(() => {
+        const t = document.createElement("span");
+        t.style.color = "var(--bs-danger, #e74c3c)";
+        document.body.appendChild(t);
+        const c = getComputedStyle(t).color;
+        t.remove();
+        return c;
+      });
+      expect(clearBg).toBe(dangerColor);
       await page.locator("#datesEditor").getByRole("button", { name: "Add Date" }).click();
       await expect(page.locator("#dateEditPage")).toHaveAttribute("open", "");
+      await expect(page.locator("#dateEditPage").getByText("Title", { exact: true })).toBeVisible();
+      await expect(page.locator("#dateEditPage").getByText("Name", { exact: true })).toHaveCount(0);
+      // Cancel sits to the left of OK in the footer.
+      expect(await page.locator("#dateEditPage .smd-page-footer smd-button").allInnerTexts()).toEqual(["Cancel", "OK"]);
+      // The category picker is the shared dropdown; a new date defaults to the
+      // first category and shows its image thumb.
+      await expect(page.locator("#dateCategorySelect #smdImageBtnText")).toHaveText("Birthday");
+      await page.locator("#dateCategorySelect #smdImageDropdownBtn").click();
+      // "No Category" carries a blank thumb placeholder so all rows line up.
+      const noCategoryRow = page.locator("#dateCategorySelect #smdImageDropdownMenu .dropdown-item").filter({ hasText: "No Category" });
+      await expect(noCategoryRow.locator("smd-image")).toHaveCount(0);
+      await expect(noCategoryRow.locator(".thumb.thumb-blank")).toHaveCount(1);
+      const birthdayRow = page.locator("#dateCategorySelect #smdImageDropdownMenu .dropdown-item").filter({ hasText: "Birthday" });
+      await expect(birthdayRow.locator("smd-image")).toHaveCount(1);
+      await birthdayRow.click();
+      await expect(page.locator("#dateCategorySelect #smdImageBtnText")).toHaveText("Birthday");
       await page.locator("#dateNameInput").fill("New Holiday");
       await page.locator("#dateDaySelect").selectOption("9");
       await page.locator("#dateMonthSelect").selectOption("6");
@@ -260,6 +287,7 @@ test.describe("CountMyDays - Regression", () => {
       expect(saved.day).toBe(9);
       expect(saved.month).toBe(6);
       expect(saved.type).toBe("annual");
+      expect(saved.category).toBe("Birthday");
       expect(await page.locator("#datesEditor cmd-date-card").count()).toBe(5);
     });
 
@@ -268,18 +296,37 @@ test.describe("CountMyDays - Regression", () => {
       await page.evaluate(() => openDatesEditor());
       await page.locator("#datesEditor cmd-date-card").first().getByRole("button", { name: "Edit" }).click();
       await page.locator("#dateTypeSelect").selectOption("once");
-      await expect(page.locator("#dateOnceInput")).toBeVisible();
-      await page.locator("#dateOnceInput").fill("15/03/2030");
-      await page.locator("#dateOnceInput").press("Tab");
+      await expect(page.locator("#smdDatePickerAlt")).toBeVisible();
+      // The field is read-only: clicking anywhere on it opens the date picker.
+      await expect(page.locator("#smdDatePickerAlt")).toHaveAttribute("readonly", "readonly");
+      await page.locator("#smdDatePickerAlt").click();
+      await expect(page.locator(".flatpickr-calendar.open")).toBeVisible();
+      await page.locator(".flatpickr-calendar.open .flatpickr-day:not(.prevMonthDay):not(.nextMonthDay)").filter({ hasText: "15" }).click();
       await page.locator("#dateEditPage").getByRole("button", { name: "OK" }).click();
 
       const saved = await page.evaluate(() => {
         const dates = JSON.parse(localStorage.getItem("countmydays_dates") || "[]");
         return dates.find(d => d.type === "once" && d.name === "Today Event");
       });
-      expect(saved.year).toBe(2030);
-      expect(saved.month).toBe(3);
       expect(saved.day).toBe(15);
+      expect(saved.month).toBe(now.getMonth() + 1);
+      expect(saved.year).toBe(now.getFullYear());
+    });
+
+    test("selecting No Category clears the date category", async ({ page }) => {
+      await seed(page);
+      await page.evaluate(() => openDatesEditor());
+      await page.locator("#datesEditor").getByRole("button", { name: "Add Date" }).click();
+      await expect(page.locator("#dateCategorySelect #smdImageBtnText")).toHaveText("Birthday");
+      await page.locator("#dateCategorySelect #smdImageDropdownBtn").click();
+      await page.locator("#dateCategorySelect #smdImageDropdownMenu .dropdown-item").filter({ hasText: "No Category" }).click();
+      await expect(page.locator("#dateCategorySelect #smdImageBtnText")).toHaveText("No Category");
+      await page.locator("#dateEditPage").getByRole("button", { name: "OK" }).click();
+      const saved = await page.evaluate(() => {
+        const dates = JSON.parse(localStorage.getItem("countmydays_dates") || "[]");
+        return dates[dates.length - 1];
+      });
+      expect(saved.category).toBe("");
     });
 
     test("cancel removes a newly added date", async ({ page }) => {
@@ -303,13 +350,46 @@ test.describe("CountMyDays - Regression", () => {
     test("filters by category and title", async ({ page }) => {
       await seed(page);
       await page.evaluate(() => openDatesEditor());
-      await page.locator("#dateCategoryFilter").selectOption("Birthday");
+      // Category dropdown: shared <smd-image-dropdown>, defaults to the
+      // no-image "All" option on the search button.
+      await expect(page.locator("#dateCategoryFilter #smdImageBtnText")).toHaveText("All");
+      await page.locator("#dateCategoryFilter #smdImageDropdownBtn").click();
+      await page.locator("#dateCategoryFilter #smdImageDropdownMenu .dropdown-item").filter({ hasText: "Birthday" }).click();
+      await expect(page.locator("#dateCategoryFilter #smdImageBtnText")).toHaveText("Birthday");
       expect(await page.locator("#datesEditor cmd-date-card").count()).toBe(2);
       await page.locator("#dateTitleSearch").fill("Trip");
       await expect(page.locator("#datesEditor cmd-date-card")).toHaveCount(1);
       await expect(page.locator("#datesEditor cmd-date-card").first()).toHaveAttribute("name", "Trip");
       await page.locator("#datesEditor").getByRole("button", { name: "Clear" }).click();
       await expect(page.locator("#datesEditor cmd-date-card")).toHaveCount(4);
+      await expect(page.locator("#dateCategoryFilter #smdImageBtnText")).toHaveText("All");
+    });
+
+    test("none category filter matches only dates with no category", async ({ page }) => {
+      await seed(page);
+      await page.evaluate(() => openDatesEditor());
+      await page.locator("#dateCategoryFilter #smdImageDropdownBtn").click();
+      await page.locator("#dateCategoryFilter #smdImageDropdownMenu .dropdown-item").filter({ hasText: "None" }).click();
+      await expect(page.locator("#dateCategoryFilter #smdImageBtnText")).toHaveText("None");
+      await expect(page.locator("#datesEditor cmd-date-card")).toHaveCount(1);
+      await expect(page.locator("#datesEditor cmd-date-card").first()).toHaveAttribute("name", "Today Event");
+    });
+
+    test("date picker works on a local once date", async ({ page }) => {
+      await seed(page);
+      await page.evaluate(() => openDatesEditor());
+      await page.locator("#datesEditor cmd-date-card").filter({ hasText: "Project Deadline" }).getByRole("button", { name: "Edit" }).click();
+      await expect(page.locator("#smdDatePickerAlt")).toBeVisible();
+      await expect(page.locator("#smdDatePickerAlt")).toHaveValue(`${SEED_DATES[2].day}/${SEED_DATES[2].month}/${SEED_DATES[2].year}`);
+      await page.locator("#smdDatePickerAlt").click();
+      await expect(page.locator(".flatpickr-calendar.open")).toBeVisible();
+      await page.locator(".flatpickr-calendar.open .flatpickr-day:not(.prevMonthDay):not(.nextMonthDay)").filter({ hasText: "15" }).click();
+      await page.locator("#dateEditPage").getByRole("button", { name: "OK" }).click();
+
+      const saved = await page.evaluate(() => JSON.parse(localStorage.getItem("countmydays_dates") || "[]").find(d => d.name === "Project Deadline"));
+      expect(saved.day).toBe(15);
+      expect(saved.month).toBe(12);
+      expect(saved.year).toBe(FUTURE_YEAR);
     });
   });
 
@@ -542,16 +622,16 @@ test.describe("CountMyDays - Regression", () => {
       await page.evaluate(() => openDatesEditor());
       await page.locator("#datesEditor").getByRole("button", { name: "Add Date" }).click();
       await page.locator("#dateEditPage").getByRole("button", { name: "Cancel" }).click();
-      await page.locator("#datesEditor").getByRole("button", { name: "Done" }).click();
+      await page.locator("#datesEditor").getByRole("button", { name: "OK" }).click();
 
       await page.evaluate(() => openCategoriesEditor());
-      await page.locator("#categoriesEditor").getByRole("button", { name: "Done" }).click();
+      await page.locator("#categoriesEditor").getByRole("button", { name: "OK" }).click();
 
       await page.evaluate(() => openImagesEditor());
       await page.evaluate(() => closeImagesEditor());
 
       await page.evaluate(() => openSettings());
-      await page.locator("#settingsPage").getByRole("button", { name: "Done" }).click();
+      await page.locator("#settingsPage").getByRole("button", { name: "OK" }).click();
 
       await page.evaluate(() => exportData());
       await page.locator("#exportWizardPage").getByRole("button", { name: "Cancel" }).click();
@@ -593,7 +673,7 @@ test.describe("CountMyDays - Regression", () => {
       await expect.poll(async () => page.evaluate(() => localStorage.getItem("countmydays_gcal_client_id"))).toBe("dummy.apps.googleusercontent.com");
 
       // The Google menu entries become visible ("Edit Google Events" was removed).
-      await page.locator("#settingsPage").getByRole("button", { name: "Done" }).click();
+      await page.locator("#settingsPage").getByRole("button", { name: "OK" }).click();
       await page.locator("#btnMainMenu").click();
       await expect(page.locator(".google-menu-item").filter({ hasText: "Refresh Google Calendar" })).toBeVisible();
       await expect(page.locator(".google-menu-item").filter({ hasText: "Edit Google Events" })).toHaveCount(0);
@@ -617,6 +697,13 @@ test.describe("CountMyDays - Regression", () => {
       await expect(page.locator("#datesEditor cmd-date-card").filter({ hasText: "Google" })).toHaveCount(6);
       await expect(page.locator("#datesEditor cmd-date-card").filter({ hasText: "Local" })).toHaveCount(4);
       await expect(page.locator("#datesEditor cmd-date-card").filter({ hasText: "Repeat" })).toHaveCount(2);
+
+      // Source badges moved to the date line (after the once/annual type text),
+      // with themed info/primary/secondary colours; the title keeps no badges.
+      await expect(page.locator("#datesEditor cmd-date-card").first().locator(".title .event-badge")).toHaveCount(0);
+      const dentistBadgeCard = page.locator("#datesEditor cmd-date-card").filter({ hasText: "Dentist Appointment" });
+      await expect(dentistBadgeCard.locator(".meta .event-badge-google")).toHaveText("Google");
+      await expect(page.locator("#datesEditor cmd-date-card").filter({ hasText: "Local" }).first().locator(".meta .event-badge-local")).toHaveText("Local");
 
       // Hide Google entries.
       await page.locator("#filterShowGoogle").uncheck();
@@ -743,7 +830,7 @@ test.describe("CountMyDays - Regression", () => {
       await page.evaluate(() => openGoogleEventsEditor());
       await expect(page.locator("#googleEventsPage")).toHaveAttribute("open", "");
       await expect(page.locator("#googleEventsPage cmd-date-card")).toHaveCount(7);
-      await page.locator("#googleEventsPage").getByRole("button", { name: "Done" }).click();
+      await page.locator("#googleEventsPage").getByRole("button", { name: "OK" }).click();
       await expect(page.locator("#googleEventsPage")).not.toHaveAttribute("open", "");
     });
 

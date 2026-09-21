@@ -48,7 +48,7 @@ function renderLinksEditor() {
     page.content = '<div id="linkList"></div>';
     page.buttons = [
       { text: "Add Link", variant: "primary", action: "add", close: false },
-      { text: "Done", variant: "success", action: "done" }
+      { text: "OK", variant: "success", action: "done" }
     ];
   }
   renderLinkList();
