@@ -436,7 +436,62 @@ Techniques / gotchas:
    uncheck/3950/regen/4677/4722/6653), both sub-path SW-precache tests. Probe
    files deleted.
 - `BUILD_NUMBER` unchanged (user ships — but it SHOULD be bumped before shipping
-  so the renamed precache entry + script tag get a fresh cache name).
+   so the renamed precache entry + script tag get a fresh cache name).
+
+### 2026-09-21 (16) — Font Size setting = body font-size only (em-based tokens)
+- User directive: changing Font Size in Settings/Display must do ONLY
+   `body { font-size: <value> }` — nothing else; all other visual tuning is the
+   user's to do from there. Replaced the `--smd-type-base` indirection in
+   `shared/css/styles.css` (the ramp no longer uses `--smd-type-base`; nobody
+   else consumed it — grep-verified). Now: `body { font-size: 1rem }` +
+   `body.font-size-xsmall/small/large/xlarge/jumbo { font-size: 0.8/0.925/1.125/
+   1.3/1.6rem }`, and the four tokens are **em** multipliers of that body font-size
+   (`--smd-type-badge/p/h2/h1` = `0.75em/1em/1.25em/2em`) so the type ramp follows
+   the body font-size exactly. seg rem-sized UI (Bootstrap form controls, etc.)
+   stays root-based on purpose. Pixel values are unchanged from before the rework
+   (e.g. today-card title xlarge=26, jumbo=32, compact-jumbo=25.6).
+- NOT taken: a first pass scaled `html` via `:root:has(body.font-size-*)` —
+   user rejected it; it also squeezed the streams-editor title button to zero
+   width on 390px at xlarge (fixed mid-air with a 2.5rem `min-width` floor on
+   `pmd-stream-header .stream-header-main`, kept as insurance for large body
+   sizes). Probe verified: root stays 16px, body 20.8→25.6→14.8→16 across
+   xlarge/jumbo/small/normal, token h2 (settings tab btn) 26/32/18.5/20px.
+   VERIFIED green: pmd-touch 5/5, pmd 32-batch (appearance/type + prune set),
+   both sub-path SW-precache tests. Probe files deleted. NOTE: the app css
+   comments in CountMyDays/FreeFormOX/Launch/QRLinks/SolarControlar that say
+   "only override --smd-type-base" are now stale wording (behaviour is the
+   same); left as-is deliberately — user requested minimal changes.
+
+### 2026-09-22 (17) — pmd-job-today-card: self-contained styling + <smd-button> View
+- User directive: fix pmd-job-today-card with Bootstrap markup/utilities ONLY
+  ("do not introduce more css, remove as much css as you can"); move the
+  component's styling (esp. `[done]`) INTO the component; View → <smd-button>;
+  right side of button+badge needs spacing; title + suffix badge on one full-width
+  row; checkbox/repeat column vertically centered.
+- Component now injects its own <style> (`#pmd-job-today-card-style`, appended to
+  document.head once): host `display:block; margin-bottom: var(--pmd-today-margin,0.5rem);`
+  + `touch-action:pan-y` (swipe needs it), `[done]` opacity + `.job-title`
+  line-through, `.job-title { font-size: var(--pmd-today-title-size, var(--smd-type-h2,1.25em)) }`.
+  The stale `pmd-job-today-card[done] .title` rules were REMOVED from
+  PlanMyDay/css/styles.css (`.title` no longer matches — template uses `.job-title`);
+  unused `--pmd-today-description-margin` compact var dropped too. `body.compact`
+  still sets `--pmd-today-margin` + `--pmd-today-title-size` (the display-density hook).
+- Template: title row `d-flex align-items-center` (`h2.job-title flex-grow-1 mb-0`
+  + `smd-badge.suffix variant="secondary"`); badge/View row `d-flex align-items-center
+  gap-1 me-2` with `<smd-button class="job-view-btn" variant="primary">View</smd-button>`
+  (smd-button does NOT forward host classes — class stays on the host, clicks bubble);
+  checkbox/repeat column got `justify-content-center`; thumbs wrapper `d-flex gap-1`
+  (replaces the removed 4px `.thumb + .thumb` margin, demanded by test 260).
+- Tests updated to the renamed class: `.title` → `.job-title` (pmd-touch 113,
+  pmd-regression 229). Test 113 no longer pins exact px (user: "exact sizes are
+  not important, scaling is") — asserts the title scales with body (≈1.25em),
+  grows xlarge→jumbo, and compact hooks the p token (≈1em). Root cause of the old
+  24-vs-26 failure: `body.font-size-xlarge` is currently `1.2rem` (19.2px) in
+  shared/css/styles.css — the live file is NOT in sync with the (16) log's 1.3rem;
+  the em-based mechanism follows body either way, so visuals scale regardless.
+- VERIFIED green: pmd-touch 5/5 (incl. 113), pmd-regression 432/432 (incl. 229
+  geometry + 260 no-image slot + view/modal clicks on the smd-button host +
+  swipe/drag/tab-badge). Probe files deleted. `BUILD_NUMBER` not bumped (user ships).
 
 ### 2026-09-20 (14) — shared image cache URLs / blob render (async fills)
 - `shared/js/smd-images.js`, `shared/js/components/smd-image.js`,

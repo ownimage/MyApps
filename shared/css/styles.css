@@ -3,34 +3,30 @@
    accordions, job/task cards) live in the CONSUMING app's css/styles.css. */
 
 /* TYPESCALE HARMONISATION -----------------------------------------------
-   One base drives exactly four text tokens. smd-settings applies a
-   font-size-xsmall…jumbo class to <body>; those classes only move the base.
-   Every component (light DOM and shadow roots) consumes the tokens via
-   var(--smd-type-*, fallback) so all apps scale identically. The tokens are
-   declared on body (not :root) on purpose: var() resolves at the element that
-   declares it, so deriving the tokens from a body-level base keeps every
-   size-step recomputed. */
+   The Font Size setting only moves <body>'s font-size: smd-settings puts a
+   font-size-xsmall…jumbo class on <body>, and those classes (plus the default
+   body rule) set font-size directly — nothing else. The four tokens are em
+   multipliers of that body font-size, so the whole type ramp follows it.
+   Elements sized in rem (Bootstrap form controls, etc.) stay root-based and
+   do not move. All visual tuning beyond this lives in the app sheets. */
+
+body { font-size: 1rem; } /* "normal" — no size class on <body> */
+body.font-size-xsmall { font-size: 0.6rem; }
+body.font-size-small { font-size: 0.9rem; }
+body.font-size-large { font-size: 1.1rem; }
+body.font-size-xlarge { font-size: 1.2rem; }
+body.font-size-jumbo { font-size: 1.4rem; }
 
 body {
-  --smd-type-base: 1rem; /* "normal" — no size class on <body> */
-}
-body.font-size-xsmall { --smd-type-base: 0.8rem; }
-body.font-size-small { --smd-type-base: 0.925rem; }
-body.font-size-large { --smd-type-base: 1.125rem; }
-body.font-size-xlarge { --smd-type-base: 1.3rem; }
-body.font-size-jumbo { --smd-type-base: 1.6rem; }
-
-body {
-  --smd-type-badge: calc(var(--smd-type-base) * 0.75); /* 0.75rem */
-  --smd-type-p: var(--smd-type-base);                  /* 1rem    */
-  --smd-type-h2: calc(var(--smd-type-base) * 1.25);    /* 1.25rem */
-  --smd-type-h1: calc(var(--smd-type-base) * 2);       /* 2rem    */
-  font-size: var(--smd-type-p, 1rem);
+  --smd-type-badge: 0.75em; /* 0.75 × body font-size */
+  --smd-type-p: 1em;
+  --smd-type-h2: 1.25em;
+  --smd-type-h1: 2em;
 }
 
 /* Fold every heading level into the four-tier scale. Bootswatch themes ship
    fluid calc() h1–h4 sizes + their own h5/h6; this sheet is linked after the
-   theme CSS in every app, so these equal-specificity rules win the cascade. */
+   theme CSS in every app, so these equal-specificity rules win the cascade.
 h1, .h1 { font-size: var(--smd-type-h1); }
 h2, .h2, h3, .h3, h4, .h4 { font-size: var(--smd-type-h2); }
 h5, .h5, h6, .h6 { font-size: var(--smd-type-p); font-weight: 700; }

@@ -241,7 +241,7 @@ test.describe("PlanMyDay - Regression", () => {
       await page.reload();
       const card = page.locator("#todayCardList pmd-job-today-card").first();
       await expect(card).toBeVisible();
-      const title = await card.locator(".title").boundingBox();
+      const title = await card.locator(".job-title").boundingBox();
       const name = await card.locator(".stream-title").boundingBox();
       const view = await card.locator(".job-view-btn").boundingBox();
       const badge = await card.locator(".tab-badge").boundingBox();

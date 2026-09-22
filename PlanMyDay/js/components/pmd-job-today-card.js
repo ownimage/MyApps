@@ -2,10 +2,12 @@
 //
 // Owns its own layout (drag handle, completion checkbox + daily-repeat icon,
 // stream/job thumbnails, title + suffix, stream title, View button, tab badge,
-// description) and styling (PlanMyDay/css/styles.css, element-scoped). The host
-// carries the light-DOM class the app/Sortable relies on (`today-drag-card`; the
-// app sets it on the element), so the document theme styles the card chrome
-// while the content lives in the light DOM with it.
+// description). The host carries the light-DOM class the app/Sortable relies on
+// (`today-drag-card`; the app sets it on the element), so the document theme
+// styles the card chrome while the content lives in the light DOM with it. All
+// layout is Bootstrap utilities in the template; the card's own minimal
+// functional CSS (done state, compact title hook, swipe touch-action, card
+// margin) is injected into the document head once by this module.
 //
 // The body `font-size-*` / `compact` display settings reach the card through CSS
 // custom properties (`--pmd-today-*`, set in PlanMyDay/css/styles.css) by
@@ -41,11 +43,28 @@
 //                      off before it fires — the app snoozes the job (sleepUntil = tomorrow).
 //   Methods:
 //   snapBackSwipe() — slide a swiped-out card back into place (used when a delete confirm is cancelled).
+
+(function (global) {
+  if (global.document.getElementById("pmd-job-today-card-style")) return;
+  const s = global.document.createElement("style");
+  s.id = "pmd-job-today-card-style";
+  s.textContent =
+    "pmd-job-today-card {" +
+    "  display: block;" +
+    "  margin-bottom: var(--pmd-today-margin, 0.5rem);" +
+    "  touch-action: pan-y;" +
+    "}" +
+    "pmd-job-today-card[done] { opacity: 0.5; }" +
+    "pmd-job-today-card[done] .job-title { text-decoration: line-through; }" +
+    "pmd-job-today-card .job-title { font-size: var(--pmd-today-title-size, var(--smd-type-h2, 1.25em)); }";
+  global.document.head.appendChild(s);
+})(window);
+
 const pmdJobTodayCardTemplate = document.createElement('template');
 pmdJobTodayCardTemplate.innerHTML = `
     <div class="card bg-dark text-white border-0">
 
-        <div class="d-flex align-items-center justify-content-between gap-3 py-2 border rounded-lg">
+        <div class="d-flex py-2 border rounded-lg">
 
             <!-- 1️⃣ Drag Handle -->
             <div class="d-flex align-items-center handle-col">
@@ -53,14 +72,14 @@ pmdJobTodayCardTemplate.innerHTML = `
             </div>
 
             <!-- 2️⃣ Checkbox + Repeat -->
-            <div class="d-flex flex-column align-items-center flex-shrink-0" style="width: 70px;">
+            <div class="d-flex flex-column align-items-center justify-content-center flex-shrink-0">
                 <smd-checkbox class="job-checkbox"></smd-checkbox>
                 <smd-image class="daily-repeat-icon" key-prefix="shared-" size="16" title="Every day" hidden></smd-image>
             </div>
 
             <!-- 3️⃣ Stream / Job / Stream Name -->
             <div class="d-flex flex-column flex-shrink-0 images-col" style="max-width: 80px;">
-                <div class="d-flex">
+                <div class="d-flex gap-1">
                     <div class="thumb stream-thumb"><smd-image key-prefix="shared-"></smd-image></div>
                     <div class="thumb job-thumb"><smd-image key-prefix="shared-"></smd-image></div>
                 </div>
@@ -69,8 +88,11 @@ pmdJobTodayCardTemplate.innerHTML = `
 
             <div class="d-flex flex-column flex-grow-1">
 
-                <!-- FULL-WIDTH TITLE -->
-                <h2 class="title"><span class="job-title"></span><smd-badge class="suffix" variant="secondary" hidden></smd-badge></h2>
+                <!-- FULL-WIDTH TITLE, suffix badge on the same row -->
+                <div class="d-flex align-items-center">
+                    <h2 class="job-title flex-grow-1 mb-0"></h2>
+                    <smd-badge class="suffix" variant="secondary" hidden></smd-badge>
+                </div>
 
                 <!-- TWO-COLUMN ROW UNDER TITLE -->
                 <div class="d-flex flex-grow-1">
@@ -82,9 +104,9 @@ pmdJobTodayCardTemplate.innerHTML = `
 
                     <!-- RIGHT COLUMN: Badges + View aligned bottom -->
                     <div class="d-flex flex-column justify-content-end text-end">
-                        <div class="d-flex align-items-center">
+                        <div class="d-flex align-items-center gap-1 me-2">
                             <smd-badge class="tab-badge" pill></smd-badge>
-                            <button type="button" class="btn btn-primary job-view-btn" title="View job">View</button>
+                            <smd-button class="job-view-btn" variant="primary" title="View job">View</smd-button>
                         </div>
                     </div>
 

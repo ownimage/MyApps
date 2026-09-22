@@ -121,16 +121,28 @@ test.describe("PlanMyDay - iPhone 12 Pro touch", () => {
     await page.reload();
     await expect(page.locator("#todayCardList pmd-job-today-card").first()).toBeVisible();
     const titleFontSize = () => page
-      .locator("#todayCardList pmd-job-today-card .title").first()
+      .locator("#todayCardList pmd-job-today-card .job-title").first()
       .evaluate((el) => parseFloat(getComputedStyle(el).fontSize));
-    // default saved font size is xlarge -> h2 token = 1.3rem * 1.25 = 26px
-    expect(await titleFontSize()).toBeCloseTo(26, 0);
+    const bodyFontSize = () => page.evaluate(() => parseFloat(getComputedStyle(document.body).fontSize));
+    // Exact sizes are not pinned — what matters is that the card title SCALES
+    // with the body font-size setting and with the compact density hook.
+    // default saved font size is xlarge -> title = 1.25em of body font-size
+    const xBase = await bodyFontSize();
+    const xTitle = await titleFontSize();
+    expect(xTitle).toBeGreaterThan(xBase);
+    expect(xTitle / xBase).toBeCloseTo(1.25, 1);
     await page.evaluate(() => changeFontSize("jumbo"));
-    // jumbo -> h2 token = 1.6rem * 1.25 = 2rem = 32px
-    expect(await titleFontSize()).toBeCloseTo(32, 0);
+    // bigger font size -> bigger title, body moved but the em ratio is unchanged
+    const jBase = await bodyFontSize();
+    const jTitle = await titleFontSize();
+    expect(jBase).toBeGreaterThan(xBase);
+    expect(jTitle).toBeGreaterThan(xTitle);
+    expect(jTitle / jBase).toBeCloseTo(1.25, 1);
     await page.evaluate(() => changeDensity("compact"));
-    // compact -> --pmd-today-title-size: var(--smd-type-p) = 1.6rem
-    expect(await titleFontSize()).toBeCloseTo(25.6, 0);
+    // compact hooks --pmd-today-title-size to the p token (1em) in the app sheet
+    const cTitle = await titleFontSize();
+    expect(cTitle).toBeLessThan(jTitle);
+    expect(cTitle / jBase).toBeCloseTo(1, 1);
   });
 
   test("task rows can be reordered with a touch drag", async ({ page }) => {

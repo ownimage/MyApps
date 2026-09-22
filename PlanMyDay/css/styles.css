@@ -9,7 +9,6 @@
 body.compact {
   --pmd-today-margin: 0.25rem;
   --pmd-today-title-size: var(--smd-type-p);
-  --pmd-today-description-margin: 0;
 }
 
 #countdownContainer {
@@ -42,63 +41,6 @@ body.compact {
 }
 .task-note-btn {
   transition: none;
-}
-
-/* ==================== pmd-job-today-card ==================== */
-pmd-job-today-card {
-  display: block;
-  position: relative;
-  min-width: 0;
-  word-wrap: break-word;
-  margin-bottom: var(--pmd-today-margin, 0.5rem);
-  touch-action: pan-y;
-}
-pmd-job-today-card[done] { opacity: 0.5; }
-pmd-job-today-card[done] .title { text-decoration: line-through; }
-
-pmd-job-today-card .handle-col {
-  display: flex;
-  align-items: center;
-  flex: 0 0 auto;
-}
-pmd-job-today-card .daily-repeat-icon { margin-top: 0.1rem; }
-pmd-job-today-card .images-col {
-  align-self: flex-start;
-}
-pmd-job-today-card .thumb {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-pmd-job-today-card .thumb + .thumb { margin-left: 4px; }
-pmd-job-today-card .title {
-  margin: 0;
-  font-size: var(--pmd-today-title-size, var(--smd-type-h2, 1.25em));
-  font-weight: 800;
-  min-width: 0;
-}
-pmd-job-today-card .suffix { margin-left: 0.25rem; }
-pmd-job-today-card .stream-title {
-  font-size: var(--smd-type-h2, 0.875em);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-pmd-job-today-card .job-view-btn {
-  flex: 0 0 auto;
-  padding: 0.25em 0.5em;
-  line-height: 1;
-  font-weight: 700;
-}
-pmd-job-today-card .tab-badge {
-  flex: 0 0 auto;
-  padding: 0.25em 0.5em;
-  font-size: var(--smd-type-badge, 0.7em);
-}
-pmd-job-today-card .description {
-  margin-top: var(--pmd-today-description-margin, 0.25rem);
-  font-size: var(--smd-type-p, 0.875em);
-  color: var(--bs-secondary-color, #aaa);
 }
 
 /* ==================== pmd-stream-header ==================== */
@@ -137,7 +79,9 @@ pmd-stream-header .stream-header-main {
   display: flex;
   align-items: center;
   flex: 1 1 auto;
-  min-width: 0;
+  /* floor width: at larger root font sizes the fixed actions + chevron can
+     exceed narrow viewports and squeeze this button to zero width */
+  min-width: 2.5rem;
   padding: 0;
   border: 0;
   background: transparent;
