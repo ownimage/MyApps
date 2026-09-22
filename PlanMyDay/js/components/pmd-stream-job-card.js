@@ -49,7 +49,7 @@ class PmdStreamJobCard extends HTMLElement {
   }
 
   attributeChangedCallback(name) {
-    if (this.isConnected) this._render();
+    if (this._bound && this.isConnected) this._render();
   }
 
   // Move a consumer-provided drag handle (appended straight onto the host with

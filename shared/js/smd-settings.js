@@ -106,6 +106,9 @@ function smdBootstrapStyle(className) {
   if (probe.tagName === "BUTTON") probe.type = "button";
   probe.className = className;
   probe.setAttribute("aria-hidden", "true");
+  // smd-probe guards the element from the shared contrast overrides (styles.css
+  // targets :not(.smd-probe)) so the probe always reads the RAW Bootswatch colour.
+  probe.classList.add("smd-probe");
   probe.style.cssText = "position:absolute;left:-9999px;top:0;visibility:hidden;pointer-events:none";
   document.body.appendChild(probe);
   const computed = getComputedStyle(probe);
@@ -140,6 +143,11 @@ function applySmdVars() {
   root.style.setProperty("--smd-warning-text", smdBootstrapColor("btn btn-warning") || "#000");
   // Inactive smd-tab buttons sit on the secondary colour.
   root.style.setProperty("--smd-tab-text", secondaryText);
+
+  // Centralized WCAG contrast palette for every themed surface in the UI. Runs
+  // after (and supersedes where equal) the theme-accurate values above; surfaces
+  // that consume --smd-on-* / --smd-tab-active-text get goal>=4.5:1 text.
+  if (typeof applySmdContrastVars === "function") applySmdContrastVars();
 }
 
 // Back-compat alias (older callers/tests): recompute all shared colour vars.

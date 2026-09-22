@@ -568,12 +568,15 @@ test.describe("PlanMyDay - Regression", () => {
     }
 
     // What Bootswatch itself renders for that .btn-* class, read from the light
-    // DOM — the same source applySmdVars() uses for the --smd-*-text values.
+    // DOM — the same source applySmdVars() uses for the --smd-*-text values. The
+    // smd-probe guard keeps the shared contrast overrides from leaking in, so
+    // this always reads the RAW Bootswatch colour.
     async function bootswatchColor(page, classes) {
       return page.evaluate((cls) => {
         const el = document.createElement("button");
         el.type = "button";
         el.className = cls;
+        el.classList.add("smd-probe");
         el.style.cssText = "position:absolute;left:-9999px;visibility:hidden";
         document.body.appendChild(el);
         const color = getComputedStyle(el).color;
@@ -587,6 +590,7 @@ test.describe("PlanMyDay - Regression", () => {
       return page.evaluate((v) => {
         const el = document.createElement("span");
         el.className = "badge text-bg-" + v;
+        el.classList.add("smd-probe");
         el.style.cssText = "position:absolute;left:-9999px;visibility:hidden";
         document.body.appendChild(el);
         const cs = getComputedStyle(el);
@@ -663,7 +667,7 @@ test.describe("PlanMyDay - Regression", () => {
       }
     });
 
-    test("badges match the Bootswatch badge colours", async ({ page }) => {
+    test("badges use the centralized contrast palette and meet WCAG AA", async ({ page }) => {
       await setTheme(page, "cerulean");
       await page.evaluate(() => {
         localStorage.setItem("planmydays_streams", JSON.stringify([{ title: "S", tab: "maintenance", sequence: 1, jobs: [] }]));
@@ -683,11 +687,50 @@ test.describe("PlanMyDay - Regression", () => {
         };
       });
 
+      // WCAG ratio helper mirrors SmdContrast on the page.
+      const ratioOf = (pair) => page.evaluate(({ fg, bg }) => {
+        const parse = (c) => {
+          const m = String(c).trim().match(/rgba?\(\s*([\d.]+)[,\s]+([\d.]+)[,\s]+([\d.]+)/);
+          if (!m) return [0, 0, 0];
+          return [Number(m[1]), Number(m[2]), Number(m[3])];
+        };
+        const lum = (rgb) => {
+          const ch = (v) => {
+            const s = v / 255;
+            return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+          };
+          return 0.2126 * ch(rgb[0]) + 0.7152 * ch(rgb[1]) + 0.0722 * ch(rgb[2]);
+        };
+        const a = lum(parse(fg)), b = lum(parse(bg));
+        const lo = Math.min(a, b), hi = Math.max(a, b);
+        return (hi + 0.05) / (lo + 0.05);
+      }, pair);
+
+      const paletteColor = () => page.evaluate(() => {
+        const el = document.createElement("span");
+        el.style.position = "absolute";
+        el.style.left = "-9999px";
+        el.style.color = "var(--smd-info-text)";
+        document.body.appendChild(el);
+        const color = getComputedStyle(el).color;
+        el.remove();
+        return color;
+      });
+
       for (const theme of ["cerulean", "darkly"]) {
         await setTheme(page, theme);
         const colors = await badgeColors();
-        expect(colors.header).toEqual(await bootswatchBadge(page, "info"));
-        expect(colors.tab).toEqual(await bootswatchBadge(page, "info"));
+        const want = await paletteColor();
+        // Badges consume the centralized palette; if the theme's own badge text
+        // already passed AA the palette keeps it (== Bootswatch), otherwise it
+        // substitutes a readable colour. Either way the badge text must equal
+        // the centralized value and clear the 4.5:1 AA target.
+        expect(colors.header.color).toBe(want);
+        expect(colors.tab.color).toBe(want);
+        expect(await ratioOf({ fg: colors.header.color, bg: colors.header.bg })).toBeGreaterThanOrEqual(4.5);
+        expect(await ratioOf({ fg: colors.tab.color, bg: colors.tab.bg })).toBeGreaterThanOrEqual(4.5);
+        // The badge background itself is still the theme's info surface.
+        expect(colors.header.bg).toBe((await bootswatchBadge(page, "info")).bg);
       }
     });
   });

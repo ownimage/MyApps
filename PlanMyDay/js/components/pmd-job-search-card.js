@@ -1,20 +1,86 @@
+// <pmd-job-search-card> — a single matching job row on the Search Jobs page
+// (light DOM).
+//
+// Mirrors the Bootstrap flex layout of <pmd-job-today-card> (checkbox column,
+// stream/job thumbnails with the stream name underneath, full-width title with
+// suffix badge, badge + Edit row) using Bootstrap utilities in the template so
+// the component needs only a tiny injected functional stylesheet.
+//
+// Attributes:
+//   stream-idx    — stream index (echoed on pmd-job-edit / pmd-job-toggle-active)
+//   job-idx       — job index   (echoed on pmd-job-edit / pmd-job-toggle-active)
+//   title         — job title
+//   image         — job image name (rendered via smd-image)
+//   stream-image  — stream image name (rendered via smd-image)
+//   stream-title  — stream title shown under the thumbnails
+//   tab           — "progress" (success badge) | "maintenance" (info badge)
+//   suffix        — optional suffix badge text
+//   schedule      — schedule text badge
+//   time          — optional time badge
+//   extra         — optional extra badge (Sleep/Wait)
+//   active        — checkbox state ("true"/"false")
+//   key-prefix    — smd-image storage prefix (default: SmdConfig.imagePrefix)
+//
+// Events:
+//   pmd-job-edit          — detail { streamIdx, jobIdx }
+//   pmd-job-toggle-active — detail { streamIdx, jobIdx, checked }
+
+(function (global) {
+  if (global.document.getElementById("pmd-job-search-card-style")) return;
+  const s = global.document.createElement("style");
+  s.id = "pmd-job-search-card-style";
+  s.textContent =
+    "pmd-job-search-card {" +
+    "  display: block;" +
+    "  margin-bottom: 0.5rem;" +
+    "}";
+  global.document.head.appendChild(s);
+})(window);
+
 const pmdJobSearchCardTemplate = document.createElement('template');
 pmdJobSearchCardTemplate.innerHTML = `
-  <div class="row1">
-    <div class="thumb stream-thumb"><smd-image key-prefix="shared-"></smd-image></div>
-    <div class="thumb job-thumb"><smd-image key-prefix="shared-"></smd-image></div>
-    <div class="title">
-      <span class="job-title"></span><smd-badge class="suffix" variant="secondary" hidden></smd-badge>
+  <div class="card bg-dark text-white border-0">
+
+    <div class="d-flex py-2 border rounded-lg">
+
+      <!-- 1️⃣ Checkbox -->
+      <div class="d-flex flex-column align-items-center justify-content-center flex-shrink-0">
+        <smd-checkbox class="active-toggle"></smd-checkbox>
+      </div>
+
+      <!-- 2️⃣ Stream / Job thumbnails + stream name -->
+      <div class="d-flex flex-column flex-shrink-0 images-col">
+        <div class="d-flex gap-1">
+          <div class="thumb stream-thumb"><smd-image key-prefix="shared-"></smd-image></div>
+          <div class="thumb job-thumb"><smd-image key-prefix="shared-"></smd-image></div>
+        </div>
+        <span class="truncate mb-0 stream-title"></span>
+      </div>
+
+      <div class="d-flex flex-column flex-grow-1">
+
+        <!-- FULL-WIDTH TITLE, suffix badge straight after the text with a fixed gap -->
+        <div class="d-flex align-items-center">
+          <smd-h2 class="job-title"></smd-h2>
+          <smd-badge class="suffix ms-2" variant="secondary" hidden></smd-badge>
+        </div>
+
+        <!-- BADGES + EDIT ROW -->
+        <div class="d-flex flex-grow-1">
+          <div class="flex-grow-1 d-flex flex-wrap gap-1 align-items-center">
+            <smd-badge class="tab-badge" pill></smd-badge>
+            <smd-badge class="extra" variant="info" pill hidden></smd-badge>
+            <smd-badge class="schedule" variant="primary" pill></smd-badge>
+            <smd-badge class="time" variant="secondary" pill hidden></smd-badge>
+          </div>
+          <div class="d-flex align-items-end">
+            <smd-button class="job-edit-btn" variant="primary" size="small" data-action="edit">Edit</smd-button>
+          </div>
+        </div>
+
+      </div>
     </div>
-    <button type="button" class="btn btn-primary" data-action="edit">Edit</button>
-  </div>
-  <div class="row2">
-    <smd-checkbox class="active-toggle"></smd-checkbox>
-    <span class="stream-title"></span>
-    <smd-badge class="tab-badge" variant="success"></smd-badge>
-    <smd-badge class="extra" variant="info" hidden></smd-badge>
-    <smd-badge class="schedule" variant="primary"></smd-badge>
-    <smd-badge class="time" variant="secondary" hidden></smd-badge>
+
   </div>
 `;
 
@@ -50,7 +116,7 @@ class PmdJobSearchCard extends HTMLElement {
   }
 
   attributeChangedCallback(name) {
-    if (this.isConnected) this._render();
+    if (this._bound && this.isConnected) this._render();
   }
 
   _emit(type) {
@@ -79,10 +145,12 @@ class PmdJobSearchCard extends HTMLElement {
 
     root.querySelector('.job-title').textContent = title;
 
+    const keyPrefix = this.getAttribute('key-prefix') || smdImagePrefix();
+
     const setThumb = (thumbCls, src) => {
       const thumb = root.querySelector(thumbCls);
       const sImg = thumb.querySelector('smd-image');
-      sImg.setAttribute('key-prefix', this.getAttribute('key-prefix') || smdImagePrefix());
+      sImg.setAttribute('key-prefix', keyPrefix);
       // The thumb wrapper always stays in place (even with no image) so job
       // titles line up in the results list.
       if (src) {
