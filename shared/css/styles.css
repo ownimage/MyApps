@@ -11,8 +11,8 @@
    do not move. All visual tuning beyond this lives in the app sheets. */
 
 body { font-size: 1rem; } /* "normal" — no size class on <body> */
-body.font-size-xsmall { font-size: 0.6rem; }
-body.font-size-small { font-size: 0.9rem; }
+body.font-size-xsmall { font-size: 0.4rem; }
+body.font-size-small { font-size: 0.7rem; }
 body.font-size-large { font-size: 1.1rem; }
 body.font-size-xlarge { font-size: 1.2rem; }
 body.font-size-jumbo { font-size: 1.4rem; }
@@ -31,6 +31,17 @@ h1, .h1 { font-size: var(--smd-type-h1); }
 h2, .h2, h3, .h3, h4, .h4 { font-size: var(--smd-type-h2); }
 h5, .h5, h6, .h6 { font-size: var(--smd-type-p); font-weight: 700; }
 .badge { font-size: var(--smd-type-badge); }
+
+/* smd-h1 / smd-h2 — headings that always track the Font Size setting.
+   These components render a real h1/h2 inside the host; the scoped descendant
+   rule (specificity 0,0,2) beats the theme's rem-based element rule (0,0,1)
+   regardless of applyTheme re-appending the theme links after this sheet, and
+   the em token keeps the heading on the body font-size ramp. Theme colour and
+   weight still apply to the inner element (only font-size + margin are taken
+   over). */
+smd-h1 { display: block; font-size: var(--smd-type-h1, 2em); }
+smd-h2 { display: block; font-size: var(--smd-type-h2, 1.25em); }
+smd-h1 h1, smd-h2 h2 { margin: 0; font-size: inherit; }
 
 /* The <button> element is its own type: it maps to the h2 token by default,
    with .btn-sm as the consciously smaller variant kept at p. This is the ONLY

@@ -469,7 +469,7 @@
       id: "smd-button",
       name: "smd-button",
       tag: "<smd-button>",
-      desc: "A themed button. Set <code>variant</code> (primary | secondary | success | danger) and optionally <code>disabled</code>. Content is slotted.",
+      desc: "A themed button. Set <code>variant</code> (primary | secondary | success | danger), optionally <code>disabled</code>, and <code>size</code> (normal | small — adds <code>btn-sm</code>). Content is slotted.",
       html: () => {
         const variants = ["primary", "secondary", "success", "danger"];
         return `
@@ -477,6 +477,7 @@
             <div class="sb-stack">
               ${variants.map(v =>
                 `<div class="sb-row">
+                  <smd-button variant="${v}" size="small">${v} (small)</smd-button>
                   <smd-button variant="${v}">${v}</smd-button>
                   <smd-button variant="${v}" disabled>${v} (disabled)</smd-button>
                 </div>`).join("")}

@@ -78,7 +78,7 @@ pmdJobTodayCardTemplate.innerHTML = `
             </div>
 
             <!-- 3️⃣ Stream / Job / Stream Name -->
-            <div class="d-flex flex-column flex-shrink-0 images-col" style="max-width: 80px;">
+            <div class="d-flex flex-column flex-shrink-0 images-col">
                 <div class="d-flex gap-1">
                     <div class="thumb stream-thumb"><smd-image key-prefix="shared-"></smd-image></div>
                     <div class="thumb job-thumb"><smd-image key-prefix="shared-"></smd-image></div>
@@ -88,10 +88,10 @@ pmdJobTodayCardTemplate.innerHTML = `
 
             <div class="d-flex flex-column flex-grow-1">
 
-                <!-- FULL-WIDTH TITLE, suffix badge on the same row -->
+                <!-- FULL-WIDTH TITLE, suffix badge straight after the text with a fixed gap -->
                 <div class="d-flex align-items-center">
-                    <h2 class="job-title flex-grow-1 mb-0"></h2>
-                    <smd-badge class="suffix" variant="secondary" hidden></smd-badge>
+                    <smd-h2 class="job-title"></smd-h2>
+                    <smd-badge class="suffix ms-2" variant="secondary" hidden></smd-badge>
                 </div>
 
                 <!-- TWO-COLUMN ROW UNDER TITLE -->
@@ -104,9 +104,9 @@ pmdJobTodayCardTemplate.innerHTML = `
 
                     <!-- RIGHT COLUMN: Badges + View aligned bottom -->
                     <div class="d-flex flex-column justify-content-end text-end">
-                        <div class="d-flex align-items-center gap-1 me-2">
+                        <div class="d-flex align-items-center gap-2 me-2">
                             <smd-badge class="tab-badge" pill></smd-badge>
-                            <smd-button class="job-view-btn" variant="primary" title="View job">View</smd-button>
+                            <smd-button class="job-view-btn" variant="primary" size="small" title="View job">View</smd-button>
                         </div>
                     </div>
 
