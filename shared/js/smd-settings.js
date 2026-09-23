@@ -29,7 +29,7 @@ const themeConfig = (() => {
     slate:     { css: `${bw}/slate/bootstrap.min.css`,      bsTheme: "dark" },
     solar:     { css: `${bw}/solar/bootstrap.min.css`,      bsTheme: "dark" },
     spacelab:  { css: `${bw}/spacelab/bootstrap.min.css`,   bsTheme: "light" },
-    superhero: { css: `${bw}/superhero/bootstrap.min.css`,  bsTheme: "dark" },
+    superhero: { css: `${bw}/superhero/bootstrap.min.css`,  bsTheme: "light" },
     united:    { css: `${bw}/united/bootstrap.min.css`,     bsTheme: "light" },
     vapor:     { css: `${bw}/vapor/bootstrap.min.css`,      bsTheme: "dark" },
     yeti:      { css: `${bw}/yeti/bootstrap.min.css`,       bsTheme: "light" },

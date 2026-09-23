@@ -18,21 +18,23 @@
 //   cmd-date-delete — detail { index, source } (local entries only)
 const cmdDateCardTemplate = document.createElement("template");
 cmdDateCardTemplate.innerHTML = `
-  <div class="card">
-    <div class="thumbs">
-      <div class="thumb"><smd-image class="category-thumb"></smd-image></div>
-      <div class="thumb"><smd-image class="date-thumb"></smd-image></div>
-    </div>
-    <div class="content">
-      <div class="title"><span class="title-text"></span></div>
-      <div class="meta">
-        <span class="date-text"></span>
-        <span class="type-text"></span>
-        <span class="badges"></span>
+  <div class="card bg-dark text-white border-0 mb-3">
+    <div class="d-flex align-items-center gap-3">
+      <div class="d-flex gap-1 flex-shrink-0">
+        <smd-image class="category-thumb" style="width: 48px; height: 48px;"></smd-image>
+        <smd-image class="date-thumb" style="width: 48px; height: 48px;"></smd-image>
       </div>
-      <div class="actions">
-        <button type="button" class="btn btn-primary" data-action="edit">Edit</button>
-        <button type="button" class="btn btn-danger" data-action="delete">Delete</button>
+      <div class="flex-grow-1 overflow-hidden">
+        <div class="fw-bold text-truncate mb-1"><span class="title-text"></span></div>
+        <div class="d-flex flex-wrap align-items-center gap-2 text-secondary small">
+          <span class="date-text"></span>
+          <span class="type-text"></span>
+          <span class="badges d-flex gap-1"></span>
+        </div>
+      </div>
+      <div class="d-flex flex-column gap-1 flex-shrink-0">
+        <smd-button data-action="edit" class="btn-sm">Edit</smd-button>
+        <smd-button data-action="delete" class="btn-sm">Delete</smd-button>
       </div>
     </div>
   </div>

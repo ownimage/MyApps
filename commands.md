@@ -3,7 +3,7 @@
 .\node_modules\.bin\playwright.cmd test tests --retries=0
 ```
 ```bash
-.\node_modules\.bin\playwright.cmd test --last-failed
+.\node_modules\.bin\playwright.cmd test --last-failed --retries=0
 ```
 npx playwright test -g "your test name" --repeat-each=10
 npx playwright test tests/pmd-regression.spec.js --repeat-each=100

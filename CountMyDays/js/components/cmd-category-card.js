@@ -11,13 +11,17 @@
 //   cmd-category-delete — detail { index }
 const cmdCategoryCardTemplate = document.createElement("template");
 cmdCategoryCardTemplate.innerHTML = `
-  <div class="card">
-    <div class="thumb"><smd-image class="category-thumb"></smd-image></div>
-    <div class="content">
-      <div class="title"></div>
-      <div class="actions">
-        <button type="button" class="btn btn-primary" data-action="edit">Edit</button>
-        <button type="button" class="btn btn-danger" data-action="delete">Delete</button>
+  <div class="card border-0 mb-3">
+    <div class="d-flex align-items-center gap-3">
+      <div class="flex-shrink-0">
+        <smd-image class="category-thumb" style="width: 48px; height: 48px;"></smd-image>
+      </div>
+      <div class="flex-grow-1 overflow-hidden">
+        <div class="fw-bold text-truncate mb-1"><span class="title"></span></div>
+      </div>
+      <div class="d-flex gap-1 flex-shrink-0">
+        <smd-button data-action="edit" class="btn-sm">Edit</smd-button>
+        <smd-button data-action="delete" class="btn-sm">Delete</smd-button>
       </div>
     </div>
   </div>

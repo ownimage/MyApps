@@ -18,24 +18,32 @@
 //   key-prefix      — smd-image storage prefix (default: SmdConfig.imagePrefix)
 const cmdCountdownCardTemplate = document.createElement("template");
 cmdCountdownCardTemplate.innerHTML = `
-  <div class="row">
-    <div class="thumbs">
-      <div class="thumb-block">
-        <div class="thumb"><smd-image class="category-thumb"></smd-image></div>
-        <div class="category-label"></div>
+  <div class="card border-0 mb-3">
+    <div class="row g-0 align-items-center">
+      <div class="col-auto d-flex gap-1">
+        <div class="d-flex flex-column align-items-center">
+          <div class="mb-1">
+            <smd-image class="category-thumb" style="width: 40px; height: 40px;"></smd-image>
+          </div>
+          <div class="category-label text-truncate small text-secondary" style="width: 40px; font-size: 0.65rem; line-height: 1;"></div>
+        </div>
+        <div class="d-flex flex-column align-items-center">
+          <div class="mb-1">
+            <smd-image class="date-thumb" style="width: 40px; height: 40px;"></smd-image>
+          </div>
+        </div>
       </div>
-      <div class="thumb-block">
-        <div class="thumb"><smd-image class="date-thumb"></smd-image></div>
+      <div class="col px-3 overflow-hidden">
+        <h4 class="title fw-bold text-truncate mb-0" style="font-size: 1.1rem;"></h4>
+        <div class="date-text text-secondary small mb-1"></div>
+        <div class="source-row">
+          <smd-badge class="source-badge" variant="secondary" style="font-size: 0.7rem; padding: 0 0.2rem;"></smd-badge>
+        </div>
       </div>
-    </div>
-    <div class="content">
-      <h4 class="title"></h4>
-      <div class="date-text"></div>
-      <div class="source-row"><smd-badge class="source-badge" variant="secondary"></smd-badge></div>
-    </div>
-    <div class="counts">
-      <div class="count count-1"></div>
-      <div class="count count-2"></div>
+      <div class="col-auto pe-3 text-end d-flex flex-column justify-content-center">
+        <div class="count count-1 fw-bold" style="font-size: 1.2rem; line-height: 1;"></div>
+        <div class="count count-2 text-secondary small" style="font-size: 0.8rem; line-height: 1;"></div>
+      </div>
     </div>
   </div>
 `;
