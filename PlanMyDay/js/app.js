@@ -123,7 +123,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  const savedTheme = localStorage.getItem(smdKey("theme")) || "superhero";
+  const savedTheme = getStoredTheme();
   applyTheme(savedTheme);
   if (typeof migrateImagesToShared === "function") migrateImagesToShared();
   if (typeof seedSampleImages === "function") seedSampleImages();
@@ -135,8 +135,12 @@ document.addEventListener("DOMContentLoaded", () => {
   // The settings Display tab uses the shared <smd-theme> component; apply the
   // chosen theme when it fires smd-theme-change.
   document.addEventListener("smd-theme-change", function (e) {
-    const theme = e.detail && e.detail.theme;
-    if (theme && typeof changeTheme === "function") changeTheme(theme);
+    const detail = e.detail || {};
+    if (detail.source === "mode" && typeof changeThemeMode === "function") {
+      changeThemeMode(detail.mode);
+    } else if (detail.theme && typeof changeTheme === "function") {
+      changeTheme(detail.theme);
+    }
   });
 
   if (typeof updateMinioMenu === "function") updateMinioMenu();

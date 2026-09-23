@@ -99,21 +99,21 @@ function renderJobTasks() {
   var tasks = jobsBuffer.tasks || [];
   var html = "";
   tasks.forEach(function(task, i) {
-    html += '<div class="d-flex align-items-center gap-2 mb-1 task-row task-drag-card" data-task-index="' + i + '">' +
+    html += '<div class="d-flex align-items-center gap-2 mb-1 task-row task-drag-card user-select-none bg-body-tertiary rounded px-2 py-1" data-task-index="' + i + '">' +
       '<smd-draghandle class="drag-handle"></smd-draghandle>' +
       '<smd-checkbox class="task-done-cb" id="taskDone' + i + '" ' + (task.done ? "checked" : "") + ' onchange="jobTaskField(' + i + ', \'done\', this.checked)"></smd-checkbox>' +
-      '<input class="form-control task-desc-input" value="' + escapeHtml(task.description || "") + '" placeholder="Task description" oninput="jobTaskField(' + i + ', \'description\', this.value)">' +
+      '<input class="form-control task-desc-input flex-grow-1" value="' + escapeHtml(task.description || "") + '" placeholder="Task description" oninput="jobTaskField(' + i + ', \'description\', this.value)">' +
       '<button class="btn btn-sm ' + (task.note ? 'btn-outline-info' : 'btn-info') + ' task-note-btn" onclick="jobTaskToggleNote(this, ' + i + ')" title="Note"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16"><path d="M12.854.146a.5.5 0 0 0-.707 0L10.5 1.793 14.207 5.5l1.647-1.646a.5.5 0 0 0 0-.708l-3-3zm.646 6.061L9.854 2.56a.5.5 0 0 0-.707 0L1.5 10.207V14.5h4.293L13.5 6.207zM12.793 3.207L4 12V14h2L13.793 4.207l-1-1z"/></svg></button>' +
-      '<button class="btn btn-sm btn-danger d-flex align-items-center justify-content-center" style="width:32px;height:32px" onclick="jobDeleteTask(' + i + ')" title="Delete"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/><path d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4zM2.5 3h11V2h-11z"/></svg></button>' +
+      '<button class="btn btn-sm btn-danger d-flex align-items-center justify-content-center p-2 flex-shrink-0" onclick="jobDeleteTask(' + i + ')" title="Delete"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/><path d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4zM2.5 3h11V2h-11z"/></svg></button>' +
       '</div>' +
-      '<div class="task-note-row mb-1 ms-4" id="taskNoteRow' + i + '" style="display:' + (taskNoteOpen(task) ? 'block' : 'none') + '">' +
+      '<div class="task-note-row mb-1 ms-4' + (taskNoteOpen(task) ? '' : ' d-none') + '" id="taskNoteRow' + i + '">' +
         '<textarea class="form-control" rows="2" placeholder="Note" oninput="jobTaskField(' + i + ', \'note\', this.value)">' + escapeHtml(task.note || "") + '</textarea>' +
       '</div>';
   });
   el.innerHTML = html;
   var topBtn = $id("jobAddTaskBtn");
   if (topBtn) {
-    topBtn.style.display = tasks.length >= 1 ? "" : "none";
+    topBtn.classList.toggle("d-none", tasks.length < 1);
   }
   initJobTasksSortable();
 }
@@ -148,8 +148,8 @@ function initJobTasksSortable() {
 function jobTaskToggleNote(btn, index) {
   var row = $id("taskNoteRow" + index);
   if (!row) return;
-  row.style.display = row.style.display === "none" ? "block" : "none";
-  var shown = row.style.display === "block";
+  row.classList.toggle("d-none");
+  var shown = !row.classList.contains("d-none");
   if (jobsBuffer && jobsBuffer.tasks && jobsBuffer.tasks[index]) {
     jobsBuffer.tasks[index].noteOpen = shown;
   }
@@ -181,10 +181,10 @@ function getScheduleFormHTML() {
       <div id="schedNDaysOptions" class="d-none ms-4 mb-2">
         <div class="d-flex align-items-center gap-2 mb-1 flex-wrap">
           <label class="form-label mb-0">Every</label>
-          <select class="form-select" id="schedNInterval" onchange="onScheduleNDaysChange()" style="width:auto;min-width:60px"></select>
+          <select class="form-select w-auto" id="schedNInterval" onchange="onScheduleNDaysChange()"></select>
           <label class="form-label mb-0">day(s)</label>
           <label class="form-label mb-0 ms-2">Offset</label>
-          <select class="form-select" id="schedNOffset" onchange="onScheduleNDaysChange()" style="width:auto;min-width:60px"></select>
+          <select class="form-select w-auto" id="schedNOffset" onchange="onScheduleNDaysChange()"></select>
         </div>
         <div id="schedNextDue" class="text-muted small"></div>
       </div>
@@ -214,7 +214,7 @@ function getScheduleFormHTML() {
         <label class="form-check-label" for="schedMonthly">Day of month</label>
       </div>
       <div id="schedMonthlyOptions" class="d-none ms-4 mb-2">
-        <select class="form-select" id="schedMonthlyDay" style="width:auto"></select>
+        <select class="form-select w-auto" id="schedMonthlyDay"></select>
       </div>
     </div>
   `;
@@ -233,8 +233,6 @@ function openScheduleModal() {
       if (detail.action === "ok") saveScheduleModal();
     }
   });
-  const host = document.getElementById("smdConfirmModal");
-  if (host) injectStyleInto(SCHEDULE_MODAL_STYLES);
   scheduleRadios().forEach(r => r.checked = r.value === s.type);
   scheduleEl("schedDaysOptions").classList.toggle("d-none", s.type !== "days");
   scheduleEl("schedMonthlyOptions").classList.toggle("d-none", s.type !== "monthly");
@@ -352,15 +350,15 @@ function getJobGeneralTabHTML(data, readOnly) {
   const disabled = readOnly ? "disabled" : "";
   return `
     <div class="row mb-2 mt-2">
-      <div class="col-6 d-flex flex-column" style="min-height:61px">
+      <div class="col-6 d-flex flex-column">
         <label class="form-label mb-0">Stream</label>
-        <div class="mt-1" style="flex-grow:1">
+        <div class="mt-1 flex-grow-1">
           <smd-image-dropdown id="jobStreamDropdown" key-prefix="${escAttr(smdImagePrefix())}" ${readOnly ? "disabled" : ""}></smd-image-dropdown>
         </div>
       </div>
-      <div class="col-6 d-flex flex-column" style="min-height:61px">
+      <div class="col-6 d-flex flex-column">
         <label class="form-label mb-0">Image</label>
-        <div class="d-flex align-items-center mt-1" style="flex-grow:1">
+        <div class="d-flex align-items-center mt-1 flex-grow-1">
           <smd-image-select id="jobImageSelect" key-prefix="${escAttr(smdImagePrefix())}" image="${escapeHtml(data.image || "")}" label-id="jobImageName" button-id="btnJobImageChange" ${readOnly ? "disabled" : ""}></smd-image-select>
         </div>
       </div>
@@ -422,7 +420,7 @@ function getJobScheduleTabHTML(data, readOnly) {
       <div class="col">
         <label class="form-label">Schedule Time</label>
         <div class="d-flex gap-2">
-          <select class="form-select" id="jobTimeHour" ${disabled} onchange="jobTimeChanged()" style="width:auto">
+          <select class="form-select w-auto" id="jobTimeHour" ${disabled} onchange="jobTimeChanged()">
             <option value="" ${!data.time ? "selected" : ""}>-</option>
             ${Array.from({length: 24}, (_, i) => {
               const h = String(i).padStart(2, "0");
@@ -431,7 +429,7 @@ function getJobScheduleTabHTML(data, readOnly) {
             }).join("")}
           </select>
           <span class="align-self-center">:</span>
-          <select class="form-select" id="jobTimeMin" ${disabled} onchange="jobTimeChanged()" style="width:auto">
+          <select class="form-select w-auto" id="jobTimeMin" ${disabled} onchange="jobTimeChanged()">
             <option value="" ${!data.time ? "selected" : ""}>-</option>
             <option value="00" ${data.time && data.time.split(":")[1] === "00" ? "selected" : ""}>00</option>
             <option value="15" ${data.time && data.time.split(":")[1] === "15" ? "selected" : ""}>15</option>
@@ -452,14 +450,14 @@ function getJobTasksTabHTML(data, readOnly) {
   tasks.forEach(function(task, i) {
     var dragHandleHtml = readOnly ? "" : '<smd-draghandle class="drag-handle"></smd-draghandle>';
     tasksHTML += `
-      <div class="d-flex align-items-center gap-2 mb-1 task-row task-drag-card" data-task-index="${i}">
+      <div class="d-flex align-items-center gap-2 mb-1 task-row task-drag-card user-select-none bg-body-tertiary rounded px-2 py-1" data-task-index="${i}">
         ${dragHandleHtml}
         <smd-checkbox class="task-done-cb" ${task.done ? "checked" : ""} ${disabled} onchange="jobTaskField(${i}, 'done', this.checked)"></smd-checkbox>
-        <input class="form-control task-desc-input" value="${escapeHtml(task.description || "")}" ${ro} placeholder="Task description" oninput="jobTaskField(${i}, 'description', this.value)">
+        <input class="form-control task-desc-input flex-grow-1" value="${escapeHtml(task.description || "")}" ${ro} placeholder="Task description" oninput="jobTaskField(${i}, 'description', this.value)">
         <button class="btn btn-sm ${task.note ? 'btn-outline-info' : 'btn-info'} task-note-btn" ${disabled} onclick="jobTaskToggleNote(this, ${i})" title="Note"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16"><path d="M12.854.146a.5.5 0 0 0-.707 0L10.5 1.793 14.207 5.5l1.647-1.646a.5.5 0 0 0 0-.708l-3-3zm.646 6.061L9.854 2.56a.5.5 0 0 0-.707 0L1.5 10.207V14.5h4.293L13.5 6.207zM12.793 3.207L4 12V14h2L13.793 4.207l-1-1z"/></svg></button>
-        <button class="btn btn-sm btn-danger d-flex align-items-center justify-content-center" style="width:32px;height:32px" ${disabled} onclick="jobDeleteTask(${i})" title="Delete"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/><path d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4zM2.5 3h11V2h-11z"/></svg></button>
+        <button class="btn btn-sm btn-danger d-flex align-items-center justify-content-center p-2 flex-shrink-0" ${disabled} onclick="jobDeleteTask(${i})" title="Delete"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/><path d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4zM2.5 3h11V2h-11z"/></svg></button>
       </div>
-      <div class="task-note-row mb-1 ms-4" id="taskNoteRow${i}" style="display:${taskNoteOpen(task) ? 'block' : 'none'}">
+      <div class="task-note-row mb-1 ms-4${taskNoteOpen(task) ? '' : ' d-none'}" id="taskNoteRow${i}">
         <textarea class="form-control" rows="2" placeholder="Note" ${ro} oninput="jobTaskField(${i}, 'note', this.value)">${escapeHtml(task.note || "")}</textarea>
       </div>`;
   });

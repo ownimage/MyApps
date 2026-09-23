@@ -50,7 +50,7 @@ function renderCategoriesEditor() {
     page.content =
       '<div id="categoryFilters" class="mb-3">' +
         '<div class="d-flex gap-2 align-items-center flex-wrap">' +
-          '<input class="form-control" id="categoryNameSearch" type="search" placeholder="Search category names..." style="flex:1;min-width:150px" oninput="setCategoryNameSearch(this.value)">' +
+          '<input class="form-control flex-grow-1" id="categoryNameSearch" type="search" placeholder="Search category names..." style="min-width:150px" oninput="setCategoryNameSearch(this.value)">' +
           '<button type="button" class="btn btn-outline-secondary btn-sm" onclick="clearCategoryNameSearch()">Clear</button>' +
         '</div>' +
       '</div>' +
@@ -93,6 +93,7 @@ function renderCategoryList() {
 
   filtered.forEach(({ c, index }) => {
     const card = document.createElement("cmd-category-card");
+    card.className = "d-block mb-3";
     card.setAttribute("index", index);
     card.setAttribute("name", c.name || "");
     card.setAttribute("key-prefix", smdImagePrefix());
@@ -160,7 +161,7 @@ function renderCategoryEditContent() {
         '<div class="mb-2">' +
           '<label class="form-label mb-1">Name</label>' +
           `<input class="form-control" id="categoryNameInput" value="${escAttr(editCategoryBuffer.name || "")}" oninput="categoryField('name', this.value); checkDuplicateCategoryName()">` +
-          '<div id="categoryNameError" class="text-danger mt-1" style="display:none">ERROR: There is already a category with this name.</div>' +
+          '<div id="categoryNameError" class="text-danger mt-1 d-none">ERROR: There is already a category with this name.</div>' +
         '</div>' +
         '<div class="mb-1">' +
           '<label class="form-label mb-1">Image</label>' +
@@ -194,7 +195,7 @@ function checkDuplicateCategoryName() {
   const categories = loadCategories();
   const hasDuplicate = categories.some((c, i) => i !== categoryEditIndex && c.name === trimmed);
   const errorEl = $id("categoryNameError");
-  if (errorEl) errorEl.style.display = hasDuplicate ? "block" : "none";
+  if (errorEl) errorEl.classList.toggle("d-none", !hasDuplicate);
   return !hasDuplicate;
 }
 

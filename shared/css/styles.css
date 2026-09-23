@@ -1,6 +1,6 @@
-/* Shared library styles for any SmdApp consumer. */
-/* NOTE: rules that target app-specific ids/classes (countdown cards, stream
-   accordions, job/task cards) live in the CONSUMING app's css/styles.css. */
+/* Shared library styles for every SmdApp consumer. Application markup uses
+   Bootstrap utilities directly; this file contains only shared shell and
+   component behavior that Bootstrap does not provide. */
 
 /* TYPESCALE HARMONISATION -----------------------------------------------
    The Font Size setting only moves <body>'s font-size: smd-settings puts a

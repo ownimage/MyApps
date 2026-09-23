@@ -139,10 +139,12 @@ function renderMain() {
 
   const scrollBody = document.createElement("div");
   scrollBody.id = "countdownScrollBody";
+  scrollBody.className = "flex-grow-1 overflow-auto";
   container.appendChild(scrollBody);
 
   const cardContainer = document.createElement("div");
   cardContainer.id = "todayCardList";
+  cardContainer.className = "d-block";
 
   if (allJobs.length === 0) {
     const msg = document.createElement("p");
@@ -168,7 +170,7 @@ function renderMain() {
     const suffixLabel = getJobSuffix(job);
     const scheduleType = job.schedule && job.schedule.type ? job.schedule.type : "daily";
     const card = document.createElement("pmd-job-today-card");
-    card.className = "today-drag-card";
+    card.className = "today-drag-card d-block user-select-none";
     card.dataset.jobId = job.id;
     card.dataset.streamIdx = streamIdx;
     card.setAttribute("job-id", job.id);

@@ -2773,24 +2773,105 @@ test.describe("PlanMyDay - Regression", () => {
       await page.locator("a.dropdown-item").filter({ hasText: "Settings" }).click();
     });
 
-    test("theme selector changes theme", async ({ page }) => {
+    test("theme and mode selectors share one global mode", async ({ page }) => {
       await page.locator("#appearance-tab").click();
-      await page.locator("#themeSelector select").selectOption("solar");
-      const val = await page.evaluate(() => localStorage.getItem("planmydays_theme"));
-      expect(val).toBe("solar");
+      const themeSelect = page.locator("#themeSelector .smd-theme-select");
+      const modeSelect = page.locator("#themeSelector .smd-theme-mode-select");
+      await expect(themeSelect).toBeVisible();
+      await expect(modeSelect).toBeVisible();
+      expect(await modeSelect.locator("option").allTextContents()).toEqual(["Default", "Light", "Dark"]);
+      expect(await page.evaluate(() => ({
+        defaultMode: themeConfig.superhero.defaultMode,
+        order: Array.from(document.head.children).map(el => el.id).filter(id => ["bootstrap-theme-css", "theme-override-mode", "theme-override-specific"].includes(id))
+      }))).toEqual({
+        defaultMode: "dark",
+        order: ["bootstrap-theme-css", "theme-override-mode", "theme-override-specific"]
+      });
+
+      await page.evaluate(() => {
+        window.__themeEvents = [];
+        window.__renderMainCalls = 0;
+        window.__smdVarsCalls = 0;
+        const originalRenderMain = renderMain;
+        const originalApplySmdVars = applySmdVars;
+        renderMain = function () {
+          window.__renderMainCalls += 1;
+          return originalRenderMain.apply(this, arguments);
+        };
+        applySmdVars = function () {
+          window.__smdVarsCalls += 1;
+          return originalApplySmdVars.apply(this, arguments);
+        };
+        document.getElementById("themeSelector").addEventListener("smd-theme-change", event => {
+          window.__themeEvents.push(event.detail);
+        });
+      });
+
+      await modeSelect.selectOption("dark");
+      await expect(modeSelect).toHaveValue("dark");
+      await expect(page.locator("html")).toHaveAttribute("data-bs-theme", "dark");
+      expect(await page.evaluate(() => ({
+        mode: localStorage.getItem("planmydays_themeMode"),
+        renderCalls: window.__renderMainCalls,
+        varsCalls: window.__smdVarsCalls,
+        event: window.__themeEvents[window.__themeEvents.length - 1]
+      }))).toEqual({
+        mode: "dark",
+        renderCalls: 0,
+        varsCalls: 1,
+        event: { theme: "superhero", mode: "dark", source: "mode" }
+      });
+
+      await themeSelect.selectOption("brite");
+      await expect(page.locator("html")).toHaveAttribute("data-theme", "brite");
+      await expect(page.locator("html")).toHaveAttribute("data-bs-theme", "dark");
+      expect(await page.evaluate(() => window.__themeEvents[window.__themeEvents.length - 1])).toEqual({
+        theme: "brite",
+        mode: "dark",
+        source: "theme"
+      });
+
+      await modeSelect.selectOption("default");
+      await expect(page.locator("html")).toHaveAttribute("data-bs-theme", "light");
+      await themeSelect.selectOption("solar");
+      await expect(page.locator("html")).toHaveAttribute("data-bs-theme", "dark");
+      expect(await page.evaluate(() => ({
+        theme: localStorage.getItem("planmydays_theme"),
+        mode: localStorage.getItem("planmydays_themeMode")
+      }))).toEqual({ theme: "solar", mode: "default" });
     });
 
-    test("theme fallback on unknown value", async ({ page }) => {
-      await page.evaluate(() => localStorage.setItem("planmydays_theme", "nonexistent"));
+    test("theme and mode fall back on unknown stored values", async ({ page }) => {
+      await page.evaluate(() => {
+        localStorage.setItem("planmydays_theme", "nonexistent");
+        localStorage.setItem("planmydays_themeMode", "sepia");
+      });
       await page.reload();
       await page.locator("#btnMainMenu").click();
       await page.locator("a.dropdown-item").filter({ hasText: "Settings" }).click();
       await page.locator("#settingsPage:not(.d-none)").waitFor({ state: "visible" });
-      const linkHref = await page.evaluate(() => {
+      const state = await page.evaluate(() => {
         const link = document.getElementById("bootstrap-theme-css");
-        return link ? link.getAttribute("href") : "";
+        const selector = document.getElementById("themeSelector");
+        return {
+          linkHref: link ? link.getAttribute("href") : "",
+          theme: localStorage.getItem("planmydays_theme"),
+          mode: localStorage.getItem("planmydays_themeMode"),
+          dataTheme: document.documentElement.getAttribute("data-theme"),
+          dataMode: document.documentElement.getAttribute("data-bs-theme"),
+          selectorTheme: selector && selector.getAttribute("theme"),
+          selectorMode: selector && selector.getAttribute("mode")
+        };
       });
-      expect(linkHref).toContain("superhero");
+      expect(state.linkHref).toContain("superhero");
+      expect(state).toMatchObject({
+        theme: "superhero",
+        mode: "default",
+        dataTheme: "superhero",
+        dataMode: "dark",
+        selectorTheme: "superhero",
+        selectorMode: "default"
+      });
     });
 
     test("settings footer shows the Font Awesome credit", async ({ page }) => {
@@ -5781,7 +5862,7 @@ test.describe("PlanMyDay - Regression", () => {
         changeShowDanger(true);
       });
       const theme = await page.evaluate(() => localStorage.getItem("planmydays_theme"));
-      expect(theme).toBe("not-a-real-theme");
+      expect(theme).toBe("superhero");
       await expect(page.locator("body")).toHaveClass(/font-size-small/);
       await expect(page.locator("body")).toHaveClass(/compact/);
     });

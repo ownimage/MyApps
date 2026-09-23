@@ -26,12 +26,10 @@ const STREAMS = [
   }
 ];
 
-async function touchDrag(page, fromLocator, toBox) {
+async function touchDrag(page, fromLocator, toBoxOrLocator) {
   const fromBox = await fromLocator.boundingBox();
   const startX = fromBox.x + fromBox.width / 2;
   const startY = fromBox.y + fromBox.height / 2;
-  const endX = toBox.x + toBox.width / 2;
-  const endY = toBox.y + toBox.height * 0.9;
   const steps = 20;
   const fireOne = (type, x, y, buttons) =>
     page.evaluate(({ type, x, y, buttons }) => {
@@ -55,6 +53,11 @@ async function touchDrag(page, fromLocator, toBox) {
     }, { type, x, y, buttons });
   await fireOne("pointerdown", startX, startY, 1);
   await page.waitForTimeout(150);
+  const toBox = typeof toBoxOrLocator === "function"
+    ? await toBoxOrLocator()
+    : toBoxOrLocator;
+  const endX = toBox.x + toBox.width / 2;
+  const endY = toBox.y + toBox.height * 0.9;
   for (let i = 1; i <= steps; i++) {
     const r = i / steps;
     await fireOne("pointermove", startX + (endX - startX) * r, startY + (endY - startY) * r, 1);
@@ -103,8 +106,7 @@ test.describe("PlanMyDay - iPhone 12 Pro touch", () => {
     await page.locator("#streamEditorList .stream-header-main").first().tap();
     await page.locator("#streamEditorList .accordion-collapse.show").waitFor({ state: "visible", timeout: 5000 });
     const items = page.locator("#streamEditorList .stream-accordion-item");
-    const lastBox = await items.last().boundingBox();
-    await touchDrag(page, items.first().locator(".stream-accordion-header .drag-handle"), lastBox);
+    await touchDrag(page, items.first().locator(".stream-accordion-header .drag-handle"), () => items.last().boundingBox());
     await expect(page.locator("#streamEditorList .accordion-collapse.show")).toHaveCount(1);
     await expect(page.locator("#streamEditorList .stream-accordion-item").last().locator(".accordion-collapse.show")).toBeVisible();
     await expect(page.locator("#streamEditorList .accordion-collapse.show")).toContainText("Report");

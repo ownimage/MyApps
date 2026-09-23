@@ -32,7 +32,7 @@ function setGCalVisible(enabled) {
   const options = $id("gcalOptions");
   if (options) options.classList.toggle("d-none", !enabled);
   document.querySelectorAll(".google-menu-item").forEach(el => {
-    el.style.display = enabled ? "" : "none";
+    el.classList.toggle("d-none", !enabled);
   });
 }
 
@@ -120,9 +120,13 @@ function openSettings() {
   buildSettingsContent();
   page.show();
 
-  const savedTheme = localStorage.getItem(smdKey("theme")) || "superhero";
+  const savedTheme = getStoredTheme();
+  const savedThemeMode = getStoredThemeMode();
   const themeSel = $id("themeSelector");
-  if (themeSel) themeSel.setAttribute("theme", savedTheme);
+  if (themeSel) {
+    themeSel.setAttribute("theme", savedTheme);
+    themeSel.setAttribute("mode", savedThemeMode);
+  }
 
   const savedFormat = localStorage.getItem(smdKey("countdownFormat")) || "days";
   const formatSel = $id("formatSelector");

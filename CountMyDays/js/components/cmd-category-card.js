@@ -11,17 +11,17 @@
 //   cmd-category-delete — detail { index }
 const cmdCategoryCardTemplate = document.createElement("template");
 cmdCategoryCardTemplate.innerHTML = `
-  <div class="card border-0 mb-3">
+  <div class="card bg-body-tertiary text-body border-0 p-3">
     <div class="d-flex align-items-center gap-3">
-      <div class="flex-shrink-0">
-        <smd-image class="category-thumb" style="width: 48px; height: 48px;"></smd-image>
+      <div class="thumb flex-shrink-0">
+        <smd-image class="category-thumb"></smd-image>
       </div>
-      <div class="flex-grow-1 overflow-hidden">
-        <div class="fw-bold text-truncate mb-1"><span class="title"></span></div>
+      <div class="content flex-grow-1 overflow-hidden">
+        <div class="title fw-bold text-truncate"><span></span></div>
       </div>
-      <div class="d-flex gap-1 flex-shrink-0">
-        <smd-button data-action="edit" class="btn-sm">Edit</smd-button>
-        <smd-button data-action="delete" class="btn-sm">Delete</smd-button>
+      <div class="actions d-flex gap-2 flex-shrink-0">
+        <smd-button variant="primary" size="small" title="Edit" data-action="edit">Edit</smd-button>
+        <smd-button variant="danger" size="small" title="Delete" data-action="delete">Delete</smd-button>
       </div>
     </div>
   </div>
@@ -48,7 +48,7 @@ class CmdCategoryCard extends HTMLElement {
   }
 
   attributeChangedCallback() {
-    if (this.isConnected) this._render();
+    if (this._bound && this.isConnected) this._render();
   }
 
   _emit(type) {

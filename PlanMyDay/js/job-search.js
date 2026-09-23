@@ -13,10 +13,6 @@ function openSearchJobs() {
   page.classList.remove("d-none");
   jobSearchQuery = "";
   buildSearchJobsContent();
-  const sjPage = document.getElementById("jobSearchEditor");
-  if (sjPage) {
-    injectStyleInto(JOBS_EDITOR_STYLES);
-  }
   page.show();
   const input = $id("jobSearchInput");
   if (input) input.value = "";
@@ -41,7 +37,7 @@ function buildSearchJobsContent() {
   const page = document.getElementById("jobSearchEditor");
   if (!page) return;
   page.title = "Search Jobs";
-  page.headerHtml = '<smd-badge id="jobSearchTotalBadge" variant="info" style="font-size:0.8em;vertical-align:middle"></smd-badge>';
+  page.headerHtml = '<smd-badge id="jobSearchTotalBadge" variant="info" class="small align-middle"></smd-badge>';
   page.content =
     '<div id="jobSearchHeader">' +
       '<div id="jobSearchFilters" class="mt-3 d-flex align-items-stretch gap-2">' +
@@ -102,6 +98,7 @@ function renderSearchJobs() {
 
 function buildJobSearchCard(stream, streamIdx, job, jobIdx) {
   const card = document.createElement("pmd-job-search-card");
+  card.className = "d-block mb-2";
   card.dataset.jobId = job.id;
   card.setAttribute("key-prefix", smdImagePrefix());
   const set = (name, value) => {

@@ -16,7 +16,6 @@
   <link id="theme-override-specific" rel="stylesheet" href="../shared/css/themes/superhero/superhero.css">
   <link rel="stylesheet" href="../shared/vendor/flatpickr.min.css">
   <link rel="stylesheet" href="../shared/css/styles.css">
-  <link rel="stylesheet" href="css/styles.css">
   <link rel="stylesheet" href="../shared/vendor/bootstrap-icons.css">
   <link rel="stylesheet" href="../shared/vendor/fontawesome/css/fontawesome.min.css">
   <link rel="stylesheet" href="../shared/vendor/fontawesome/css/solid.min.css">
@@ -45,7 +44,7 @@
 
     <div class="dropdown">
       <button id="btnMainMenu" class="btn p-1" data-bs-toggle="dropdown" title="Menu" aria-label="Menu">
-        <i class="fa-solid fa-bars" aria-hidden="true" style="font-size:22px"></i>
+        <i class="fa-solid fa-bars fs-5" aria-hidden="true"></i>
       </button>
       <ul class="dropdown-menu">
         <li><a class="dropdown-item" onclick="openSettings()">Settings</a></li>
@@ -69,7 +68,7 @@
   <!-- MAIN CONTENT -->
   <div class="container-fluid px-3">
 
-    <div id="countdownContainer"></div>
+    <div id="countdownContainer" class="d-flex flex-column min-vh-100 pt-3"></div>
 
     <!-- JOBS EDITOR -->
     <smd-page id="streamsEditor" class="d-none"></smd-page>
@@ -354,7 +353,7 @@
             <div class="col-4 text-end"></div>
             <div class="col-8">
               <a href="https://buymeacoffee.com/ownimage" target="_blank" rel="noopener">
-                <img src="../shared/vendor/bmc-default-yellow.png" alt="Buy Me A Coffee" style="height:50px">
+                <img src="../shared/vendor/bmc-default-yellow.png" alt="Buy Me A Coffee" height="50">
               </a>
             </div>
           </div>
@@ -362,7 +361,7 @@
           <div class="row mb-4 align-items-center col-md-8">
             <div class="col-4 text-end"><label class="form-label mb-0">Share app</label></div>
             <div class="col-8">
-              <div id="shareQrCode" style="background:white;padding:10px;display:inline-block;border-radius:8px;"></div>
+              <div id="shareQrCode" class="bg-white p-2 d-inline-block rounded-2"></div>
             </div>
           </div>
 
@@ -389,7 +388,7 @@
       <div class="modal-content">
         <div class="modal-header">
           <h3 class="modal-title" id="imageEditModalTitle">Edit Image</h3>
-          <button id="btnImageEditClose" type="button" class="btn btn-sm ms-auto" onclick="cancelImageEdit()" style="font-size:1.5rem;line-height:1;padding:0 0.25rem;color:inherit;border:none;background:none">&times;</button>
+          <button id="btnImageEditClose" type="button" class="btn-close ms-auto" aria-label="Close" onclick="cancelImageEdit()"></button>
         </div>
         <div class="modal-body" id="imageEditModalBody"></div>
       </div>

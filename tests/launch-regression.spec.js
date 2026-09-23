@@ -53,15 +53,21 @@ test.describe("Launch - Regression", () => {
     await page.evaluate(() => openSettings());
     await expect(page.locator("#settingsPage")).toHaveAttribute("open", "");
 
-    await expect(page.locator("#themeSelector select")).toBeVisible();
-    expect(await page.locator("#themeSelector select option").count()).toBe(26);
+    await expect(page.locator("#themeSelector .smd-theme-select")).toBeVisible();
+    await expect(page.locator("#themeSelector .smd-theme-mode-select")).toBeVisible();
+    expect(await page.locator("#themeSelector .smd-theme-select option").count()).toBe(26);
+    expect(await page.locator("#themeSelector .smd-theme-mode-select option").allTextContents()).toEqual(["Default", "Light", "Dark"]);
     await expect(page.locator("#iconSizeSelector")).toBeVisible();
     await expect(page.locator("#shareQrCode img").first()).toBeVisible({ timeout: 30000 });
     await expect(page.locator("#settingsPage smd-fontawesome-credit")).toBeVisible();
 
     // Theme + image size persist in the launch_ namespace.
-    await page.locator("#themeSelector select").selectOption("brite");
+    await page.locator("#themeSelector .smd-theme-select").selectOption("brite");
+    await page.locator("#themeSelector .smd-theme-mode-select").selectOption("dark");
     await expect.poll(async () => page.evaluate(() => localStorage.getItem("launch_theme"))).toBe("brite");
+    await expect.poll(async () => page.evaluate(() => localStorage.getItem("launch_themeMode"))).toBe("dark");
+    await expect(page.locator("html")).toHaveAttribute("data-bs-theme", "dark");
+    await expect(page.locator("#themeSelector")).toHaveAttribute("mode", "dark");
     await page.locator("#iconSizeSelector").selectOption("small");
     await expect.poll(async () => page.evaluate(() => localStorage.getItem("launch_iconSize"))).toBe("small");
   });

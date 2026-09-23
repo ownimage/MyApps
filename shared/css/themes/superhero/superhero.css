@@ -1,2 +1,9 @@
-/* superhero theme overrides — loaded AFTER superhero/bootstrap.min.css whenever this
-   theme is selected. Add theme-specific overrides here. */
+html[data-theme="superhero"] {
+  color-scheme: dark;
+  --bs-body-bg: #0f2537;
+  --bs-body-bg-rgb: 15, 37, 55;
+  --bs-body-color: #ebebeb;
+  --bs-body-color-rgb: 235, 235, 235;
+  --bs-emphasis-color: #ffffff;
+  --bs-emphasis-color-rgb: 255, 255, 255;
+}

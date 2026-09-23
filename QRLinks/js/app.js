@@ -96,7 +96,7 @@ document.addEventListener("DOMContentLoaded", () => {
   applyImageSize();
   window.addEventListener("resize", applyImageSize);
 
-  applyTheme(localStorage.getItem(smdKey("theme")) || "superhero");
+  applyTheme(getStoredTheme());
 
   renderMain();
   if (typeof seedSampleImages === "function") seedSampleImages();
@@ -113,8 +113,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // The settings General tab uses the shared <smd-theme> component.
   document.addEventListener("smd-theme-change", function (e) {
-    const theme = e.detail && e.detail.theme;
-    if (theme && typeof changeTheme === "function") changeTheme(theme);
+    const detail = e.detail || {};
+    if (detail.source === "mode" && typeof changeThemeMode === "function") {
+      changeThemeMode(detail.mode);
+    } else if (detail.theme && typeof changeTheme === "function") {
+      changeTheme(detail.theme);
+    }
   });
 
   // smd-image-select "Edit" buttons open the SHARED image picker on
@@ -194,16 +198,16 @@ document.addEventListener("DOMContentLoaded", () => {
   let startY = 0, pulling = false, pullDist = 0;
   const indicator = document.createElement("div");
   indicator.id = "pwa-pull-indicator";
-  indicator.style.cssText = "position:fixed;top:0;left:0;right:0;z-index:9999;display:flex;align-items:center;justify-content:center;height:0;overflow:hidden;background:var(--bs-body-bg);transition:height 0.1s;color:var(--bs-body-color)";
+  indicator.className = "position-fixed top-0 start-0 end-0 d-flex align-items-center justify-content-center overflow-hidden bg-body text-body";
+  indicator.style.height = "0px";
+  indicator.style.zIndex = "9999";
+  indicator.style.transition = "height 0.1s";
   indicator.textContent = "\u21E9 Pull to refresh";
   document.body.appendChild(indicator);
   const spinner = document.createElement("div");
   spinner.id = "pwa-pull-spinner";
-  spinner.style.cssText = "position:fixed;top:30%;left:50%;transform:translate(-50%,-50%);z-index:10000;display:none;width:40px;height:40px;border:4px solid var(--bs-border-color);border-top-color:var(--bs-primary);border-radius:50%;animation:pwa-spin 0.6s linear infinite";
+  spinner.className = "spinner-border text-primary position-fixed top-50 start-50 translate-middle d-none";
   document.body.appendChild(spinner);
-  const style = document.createElement("style");
-  style.textContent = "@keyframes pwa-spin{to{transform:translate(-50%,-50%) rotate(360deg)}}";
-  document.head.appendChild(style);
   function adjustIcon(dist) {
     indicator.innerHTML = dist >= THRESHOLD ? "\u21E9 Release to refresh" : "\u21E9 Pull to refresh";
     indicator.style.height = Math.min(dist, 50) + "px";
@@ -223,7 +227,7 @@ document.addEventListener("DOMContentLoaded", () => {
   document.addEventListener("touchend", () => {
     if (!pulling) return;
     pulling = false; indicator.style.height = "0";
-    if (pullDist >= THRESHOLD) { spinner.style.display = "block"; setTimeout(() => { location.reload(); }, 400); }
+    if (pullDist >= THRESHOLD) { spinner.classList.remove("d-none"); setTimeout(() => { location.reload(); }, 400); }
     pullDist = 0;
   }, { passive: true });
 })();

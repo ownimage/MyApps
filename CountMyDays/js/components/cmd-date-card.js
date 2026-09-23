@@ -8,7 +8,7 @@
 //   date-text       — formatted day/month (and year for once/google)
 //   source          — "local" (default) | "google"
 //   recurring       — presence/true adds the Repeat badge (google events)
-//   hidden          — presence/true adds the Hidden badge (google events)
+//   data-google-hidden — presence/true adds the Hidden badge (google events)
 //   category-image  — category image name (rendered via smd-image)
 //   image           — date image name (rendered via smd-image)
 //   key-prefix      — smd-image storage prefix (default: SmdConfig.imagePrefix)
@@ -18,23 +18,23 @@
 //   cmd-date-delete — detail { index, source } (local entries only)
 const cmdDateCardTemplate = document.createElement("template");
 cmdDateCardTemplate.innerHTML = `
-  <div class="card bg-dark text-white border-0 mb-3">
-    <div class="d-flex align-items-center gap-3">
-      <div class="d-flex gap-1 flex-shrink-0">
-        <smd-image class="category-thumb" style="width: 48px; height: 48px;"></smd-image>
-        <smd-image class="date-thumb" style="width: 48px; height: 48px;"></smd-image>
+  <div class="card bg-body-tertiary text-body border-0 p-3">
+    <div class="d-flex align-items-start gap-3">
+      <div class="d-flex gap-2 flex-shrink-0">
+        <smd-image class="category-thumb"></smd-image>
+        <smd-image class="date-thumb"></smd-image>
       </div>
-      <div class="flex-grow-1 overflow-hidden">
-        <div class="fw-bold text-truncate mb-1"><span class="title-text"></span></div>
-        <div class="d-flex flex-wrap align-items-center gap-2 text-secondary small">
+      <div class="content flex-grow-1 overflow-hidden">
+        <div class="title fw-bold text-truncate mb-1"><span class="title-text"></span></div>
+        <div class="meta d-flex flex-wrap align-items-center gap-2 mb-1">
           <span class="date-text"></span>
           <span class="type-text"></span>
           <span class="badges d-flex gap-1"></span>
         </div>
       </div>
-      <div class="d-flex flex-column gap-1 flex-shrink-0">
-        <smd-button data-action="edit" class="btn-sm">Edit</smd-button>
-        <smd-button data-action="delete" class="btn-sm">Delete</smd-button>
+      <div class="actions d-flex gap-2 flex-shrink-0">
+        <smd-button variant="primary" size="small" title="Edit" data-action="edit">Edit</smd-button>
+        <smd-button variant="danger" size="small" title="Delete" data-action="delete">Delete</smd-button>
       </div>
     </div>
   </div>
@@ -43,7 +43,7 @@ cmdDateCardTemplate.innerHTML = `
 class CmdDateCard extends HTMLElement {
   static get observedAttributes() {
     return ["index", "name", "category", "type", "date-text", "source",
-      "recurring", "hidden", "category-image", "image", "key-prefix"];
+      "recurring", "data-google-hidden", "category-image", "image", "key-prefix"];
   }
 
   constructor() {
@@ -62,7 +62,7 @@ class CmdDateCard extends HTMLElement {
   }
 
   attributeChangedCallback() {
-    if (this.isConnected) this._render();
+    if (this._bound && this.isConnected) this._render();
   }
 
   get source() {
@@ -82,8 +82,10 @@ class CmdDateCard extends HTMLElement {
   }
 
   _addBadge(root, text, className) {
-    const badge = document.createElement("span");
+    const badge = document.createElement("smd-badge");
     badge.className = "event-badge " + className;
+    badge.setAttribute("variant", className === "event-badge-google" ? "primary" : className === "event-badge-repeat" ? "info" : "secondary");
+    badge.setAttribute("pill", "");
     badge.textContent = text;
     root.querySelector(".badges").appendChild(badge);
   }
@@ -99,7 +101,7 @@ class CmdDateCard extends HTMLElement {
     root.querySelector(".badges").innerHTML = "";
     this._addBadge(root, isGoogle ? "Google" : "Local", isGoogle ? "event-badge-google" : "event-badge-local");
     if (this.getAttribute("recurring") === "true") this._addBadge(root, "Repeat", "event-badge-repeat");
-    if (this.getAttribute("hidden") === "true") this._addBadge(root, "Hidden", "event-badge-hidden");
+    if (this.getAttribute("data-google-hidden") === "true") this._addBadge(root, "Hidden", "event-badge-hidden");
 
     const type = this.getAttribute("type");
     root.querySelector(".type-text").textContent = isGoogle

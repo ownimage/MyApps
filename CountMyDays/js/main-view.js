@@ -31,6 +31,7 @@ function renderCountdowns() {
     const lines = countdownLines(d.days, format);
 
     const card = document.createElement("cmd-countdown-card");
+    card.className = "d-block mb-3";
     card.setAttribute("key-prefix", smdImagePrefix());
     card.setAttribute("title", d.name || "");
     card.setAttribute("date-text", formatDate(targetDate(d)));

@@ -1,25 +1,56 @@
+(function (global) {
+  if (global.document.getElementById("pmd-stream-header-style")) return;
+  const s = global.document.createElement("style");
+  s.id = "pmd-stream-header-style";
+  s.textContent =
+    "pmd-stream-header .body { min-width: 0; }" +
+    "pmd-stream-header .stream-header-main { min-width: 2.5rem; cursor: pointer; }" +
+    "pmd-stream-header .chevron {" +
+    "  flex: 0 0 auto;" +
+    "  position: relative;" +
+    "  width: 2.5rem;" +
+    "  min-height: 3rem;" +
+    "  cursor: pointer;" +
+    "}" +
+    "pmd-stream-header .chevron::after {" +
+    "  content: \"\";" +
+    "  position: absolute;" +
+    "  top: 50%;" +
+    "  left: 50%;" +
+    "  width: 0.7rem;" +
+    "  height: 0.7rem;" +
+    "  margin: -0.35rem 0 0 -0.35rem;" +
+    "  border-right: 2.5px solid currentColor;" +
+    "  border-bottom: 2.5px solid currentColor;" +
+    "  transform: rotate(45deg);" +
+    "  transition: transform 0.2s ease;" +
+    "}" +
+    "pmd-stream-header[expanded] .chevron::after { transform: rotate(225deg); }";
+  global.document.head.appendChild(s);
+})(window);
+
 const pmdStreamHeaderTemplate = document.createElement('template');
 pmdStreamHeaderTemplate.innerHTML = `
-  <div class="stream-accordion-header">
+  <div class="stream-accordion-header bg-body-tertiary text-body d-flex align-items-center w-100 p-1 ps-2">
     <smd-draghandle class="drag-handle"></smd-draghandle>
-    <div class="thumb"><smd-image key-prefix="shared-"></smd-image></div>
-    <div class="body">
-      <div class="row1">
-        <button type="button" class="stream-header-main" aria-expanded="false">
-          <span class="editor-title"></span>
+    <div class="thumb d-flex align-items-center justify-content-center flex-shrink-0 mx-2"><smd-image key-prefix="shared-"></smd-image></div>
+    <div class="body d-flex flex-column flex-grow-1 gap-1 overflow-hidden me-2">
+      <div class="row1 d-flex align-items-center gap-1 flex-nowrap">
+        <button type="button" class="stream-header-main btn btn-link flex-grow-1 text-start text-reset text-decoration-none p-0 border-0" aria-expanded="false">
+          <span class="editor-title d-block fw-bold text-truncate"></span>
         </button>
-        <div class="header-actions">
-          <button type="button" class="btn btn-secondary" data-action="add-job">Add Job</button>
-          <button type="button" class="btn btn-primary" data-action="edit">Edit</button>
-          <button type="button" class="btn btn-danger" data-action="delete" hidden>Delete</button>
+        <div class="header-actions d-flex align-items-center flex-shrink-0 gap-1 px-1">
+          <button type="button" class="btn btn-sm btn-secondary" data-action="add-job">Add Job</button>
+          <button type="button" class="btn btn-sm btn-primary" data-action="edit">Edit</button>
+          <button type="button" class="btn btn-sm btn-danger" data-action="delete" hidden>Delete</button>
         </div>
       </div>
-      <div class="row2">
+      <div class="row2 d-flex gap-1 flex-nowrap">
         <smd-badge class="tab-badge" variant="success" pill></smd-badge>
         <smd-badge class="count-badge" variant="secondary" pill hidden></smd-badge>
       </div>
     </div>
-    <button type="button" class="chevron" aria-label="Expand"></button>
+    <button type="button" class="chevron btn btn-link p-0 border-0 text-reset me-2" aria-label="Expand"></button>
   </div>
 `;
 
@@ -36,6 +67,7 @@ class PmdStreamHeader extends HTMLElement {
   connectedCallback() {
     if (!this._bound) {
       this._bound = true;
+      this.classList.add("d-block");
       this.appendChild(pmdStreamHeaderTemplate.content.cloneNode(true));
       this._adoptSlottedHandle();
       this.querySelector('.stream-header-main').addEventListener('click', () => this._emitToggle());
@@ -103,6 +135,9 @@ class PmdStreamHeader extends HTMLElement {
     const tab = this.getAttribute('tab') || 'progress';
     const canDelete = this.hasAttribute('can-delete');
     const jobcounts = this.getAttribute('jobcounts') || '';
+    const header = root.querySelector('.stream-accordion-header');
+    header.classList.toggle('bg-body-tertiary', !expanded);
+    header.classList.toggle('bg-info-subtle', expanded);
 
     root.querySelector('.editor-title').textContent = title;
     root.querySelector('.stream-header-main').setAttribute('aria-expanded', String(expanded));

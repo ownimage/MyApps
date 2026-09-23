@@ -8,32 +8,32 @@ const themeConfig = (() => {
   // is informational only (kept relative to stay path-agnostic).
   const bw = "css/themes";
   return {
-    brite:     { css: `${bw}/brite/bootstrap.min.css`,      bsTheme: "light" },
-    cerulean:  { css: `${bw}/cerulean/bootstrap.min.css`,   bsTheme: "light" },
-    cosmo:     { css: `${bw}/cosmo/bootstrap.min.css`,      bsTheme: "light" },
-    cyborg:    { css: `${bw}/cyborg/bootstrap.min.css`,     bsTheme: "dark" },
-    darkly:    { css: `${bw}/darkly/bootstrap.min.css`,     bsTheme: "dark" },
-    flatly:    { css: `${bw}/flatly/bootstrap.min.css`,     bsTheme: "light" },
-    journal:   { css: `${bw}/journal/bootstrap.min.css`,    bsTheme: "light" },
-    litera:    { css: `${bw}/litera/bootstrap.min.css`,     bsTheme: "light" },
-    lumen:     { css: `${bw}/lumen/bootstrap.min.css`,      bsTheme: "light" },
-    lux:       { css: `${bw}/lux/bootstrap.min.css`,        bsTheme: "light" },
-    materia:   { css: `${bw}/materia/bootstrap.min.css`,    bsTheme: "light" },
-    minty:     { css: `${bw}/minty/bootstrap.min.css`,      bsTheme: "light" },
-    morph:     { css: `${bw}/morph/bootstrap.min.css`,      bsTheme: "light" },
-    pulse:     { css: `${bw}/pulse/bootstrap.min.css`,      bsTheme: "light" },
-    quartz:    { css: `${bw}/quartz/bootstrap.min.css`,     bsTheme: "light" },
-    sandstone: { css: `${bw}/sandstone/bootstrap.min.css`,  bsTheme: "light" },
-    simplex:   { css: `${bw}/simplex/bootstrap.min.css`,    bsTheme: "light" },
-    sketchy:   { css: `${bw}/sketchy/bootstrap.min.css`,    bsTheme: "light" },
-    slate:     { css: `${bw}/slate/bootstrap.min.css`,      bsTheme: "dark" },
-    solar:     { css: `${bw}/solar/bootstrap.min.css`,      bsTheme: "dark" },
-    spacelab:  { css: `${bw}/spacelab/bootstrap.min.css`,   bsTheme: "light" },
-    superhero: { css: `${bw}/superhero/bootstrap.min.css`,  bsTheme: "light" },
-    united:    { css: `${bw}/united/bootstrap.min.css`,     bsTheme: "light" },
-    vapor:     { css: `${bw}/vapor/bootstrap.min.css`,      bsTheme: "dark" },
-    yeti:      { css: `${bw}/yeti/bootstrap.min.css`,       bsTheme: "light" },
-    zephyr:    { css: `${bw}/zephyr/bootstrap.min.css`,     bsTheme: "light" }
+    brite:     { css: `${bw}/brite/bootstrap.min.css`,      defaultMode: "light", bsTheme: "light" },
+    cerulean:  { css: `${bw}/cerulean/bootstrap.min.css`,   defaultMode: "light", bsTheme: "light" },
+    cosmo:     { css: `${bw}/cosmo/bootstrap.min.css`,      defaultMode: "light", bsTheme: "light" },
+    cyborg:    { css: `${bw}/cyborg/bootstrap.min.css`,     defaultMode: "dark", bsTheme: "dark" },
+    darkly:    { css: `${bw}/darkly/bootstrap.min.css`,     defaultMode: "dark", bsTheme: "dark" },
+    flatly:    { css: `${bw}/flatly/bootstrap.min.css`,     defaultMode: "light", bsTheme: "light" },
+    journal:   { css: `${bw}/journal/bootstrap.min.css`,    defaultMode: "light", bsTheme: "light" },
+    litera:    { css: `${bw}/litera/bootstrap.min.css`,     defaultMode: "light", bsTheme: "light" },
+    lumen:     { css: `${bw}/lumen/bootstrap.min.css`,      defaultMode: "light", bsTheme: "light" },
+    lux:       { css: `${bw}/lux/bootstrap.min.css`,        defaultMode: "light", bsTheme: "light" },
+    materia:   { css: `${bw}/materia/bootstrap.min.css`,    defaultMode: "light", bsTheme: "light" },
+    minty:     { css: `${bw}/minty/bootstrap.min.css`,      defaultMode: "light", bsTheme: "light" },
+    morph:     { css: `${bw}/morph/bootstrap.min.css`,      defaultMode: "light", bsTheme: "light" },
+    pulse:     { css: `${bw}/pulse/bootstrap.min.css`,      defaultMode: "light", bsTheme: "light" },
+    quartz:    { css: `${bw}/quartz/bootstrap.min.css`,     defaultMode: "light", bsTheme: "light" },
+    sandstone: { css: `${bw}/sandstone/bootstrap.min.css`,  defaultMode: "light", bsTheme: "light" },
+    simplex:   { css: `${bw}/simplex/bootstrap.min.css`,    defaultMode: "light", bsTheme: "light" },
+    sketchy:   { css: `${bw}/sketchy/bootstrap.min.css`,    defaultMode: "light", bsTheme: "light" },
+    slate:     { css: `${bw}/slate/bootstrap.min.css`,      defaultMode: "dark", bsTheme: "dark" },
+    solar:     { css: `${bw}/solar/bootstrap.min.css`,      defaultMode: "dark", bsTheme: "dark" },
+    spacelab:  { css: `${bw}/spacelab/bootstrap.min.css`,   defaultMode: "light", bsTheme: "light" },
+    superhero: { css: `${bw}/superhero/bootstrap.min.css`,  defaultMode: "dark", bsTheme: "dark" },
+    united:    { css: `${bw}/united/bootstrap.min.css`,     defaultMode: "light", bsTheme: "light" },
+    vapor:     { css: `${bw}/vapor/bootstrap.min.css`,      defaultMode: "dark", bsTheme: "dark" },
+    yeti:      { css: `${bw}/yeti/bootstrap.min.css`,       defaultMode: "light", bsTheme: "light" },
+    zephyr:    { css: `${bw}/zephyr/bootstrap.min.css`,     defaultMode: "light", bsTheme: "light" }
   };
 })();
 
@@ -49,38 +49,78 @@ function smdAppRoot() {
   return m ? m[1] : "";
 }
 
-function applyTheme(name) {
-  const valid = themeConfig[name] ? name : "superhero";
-  const config = themeConfig[valid] || themeConfig.superhero;
+const SMD_DEFAULT_THEME = "superhero";
+const SMD_THEME_MODES = ["default", "light", "dark"];
+
+function normalizeTheme(name) {
+  const value = String(name || "");
+  return Object.prototype.hasOwnProperty.call(themeConfig, value) ? value : SMD_DEFAULT_THEME;
+}
+
+function normalizeThemeMode(mode) {
+  return SMD_THEME_MODES.indexOf(mode) !== -1 ? mode : "default";
+}
+
+function getStoredTheme() {
+  return normalizeTheme(localStorage.getItem(smdKey("theme")));
+}
+
+function getStoredThemeMode() {
+  return normalizeThemeMode(localStorage.getItem(smdKey("themeMode")));
+}
+
+function getThemeDefaultMode(theme) {
+  const config = themeConfig[normalizeTheme(theme)] || themeConfig[SMD_DEFAULT_THEME];
+  const mode = config.defaultMode || config.bsTheme || "light";
+  return mode === "dark" ? "dark" : "light";
+}
+
+function resolveThemeMode(theme, mode) {
+  const normalized = normalizeThemeMode(mode);
+  return normalized === "default" ? getThemeDefaultMode(theme) : normalized;
+}
+
+function applyTheme(name, modeOverride) {
+  const valid = normalizeTheme(name);
+  const hasModeOverride = typeof modeOverride !== "undefined";
+  const mode = hasModeOverride ? normalizeThemeMode(modeOverride) : getStoredThemeMode();
+  const resolvedMode = resolveThemeMode(valid, mode);
   const link = document.getElementById("bootstrap-theme-css");
-  // Build the theme URL relative to the page (which may live under a sub-path
-  // under a sub-path). Reuse the link's existing relative prefix so that both
-  // the app root and /storybook/ resolve css/themes correctly.
   const v = typeof BUILD_NUMBER !== "undefined" ? BUILD_NUMBER : Date.now();
   const prefix = link
     ? (link.getAttribute("href") || "").replace(/[^/]*\/bootstrap\.min\.css(\?.*)?$/, "")
     : smdAppRoot() + "css/themes/";
   if (link) {
     link.href = prefix + valid + "/bootstrap.min.css?v=" + v;
-    // recompute the shared text colours once the new theme css has loaded
     link.addEventListener("load", applySmdVars, { once: true });
   }
-  document.documentElement.setAttribute("data-bs-theme", config.bsTheme);
-  document.documentElement.setAttribute("data-theme", name);
-  localStorage.setItem(smdKey("theme"), name);
-  // Theme override CSS: one shared light/dark file plus one per-theme file.
-  // The Bootstrap theme files themselves are never modified.
-  applyThemeOverrides(valid, config.bsTheme, prefix, v);
+  document.documentElement.setAttribute("data-bs-theme", resolvedMode);
+  document.documentElement.setAttribute("data-theme", valid);
+  localStorage.setItem(smdKey("theme"), valid);
+  if (!hasModeOverride) localStorage.setItem(smdKey("themeMode"), mode);
+  applyThemeOverrides(valid, resolvedMode, prefix, v, true);
 }
 
-// Wire the two theme-override stylesheets: `theme-override-mode` holds the
-// light.css OR dark.css file (shared by every light/dark theme), and
-// `theme-override-specific` holds css/themes/<theme>/<theme>.css. Links are
-// created on demand (e.g. the storybook) right after the theme link so the
-// override layering is theme base < overrides < shared/app styles.
-function applyThemeOverrides(theme, bsTheme, prefix, v) {
-  setOverrideLink("theme-override-mode", prefix + (bsTheme === "dark" ? "dark" : "light") + ".css?v=" + v);
-  setOverrideLink("theme-override-specific", prefix + theme + "/" + theme + ".css?v=" + v);
+function applyThemeMode(theme, mode) {
+  const valid = normalizeTheme(theme);
+  const resolvedMode = resolveThemeMode(valid, mode);
+  const link = document.getElementById("bootstrap-theme-css");
+  const v = typeof BUILD_NUMBER !== "undefined" ? BUILD_NUMBER : Date.now();
+  const prefix = link
+    ? (link.getAttribute("href") || "").replace(/[^/]*\/bootstrap\.min\.css(\?.*)?$/, "")
+    : smdAppRoot() + "css/themes/";
+  document.documentElement.setAttribute("data-bs-theme", resolvedMode);
+  document.documentElement.setAttribute("data-theme", valid);
+  applyThemeOverrides(valid, resolvedMode, prefix, v, false);
+  applySmdVars();
+}
+
+function applyThemeOverrides(theme, mode, prefix, v, updateSpecific) {
+  setOverrideLink("theme-override-mode", prefix + mode + ".css?v=" + v);
+  if (updateSpecific !== false) {
+    setOverrideLink("theme-override-specific", prefix + theme + "/" + theme + ".css?v=" + v);
+  }
+  orderThemeOverrideLinks();
 }
 
 function setOverrideLink(id, href) {
@@ -93,7 +133,28 @@ function setOverrideLink(id, href) {
     if (themeLink && themeLink.parentNode) themeLink.parentNode.insertBefore(el, themeLink.nextSibling);
     else document.head.appendChild(el);
   }
+  bindThemeOverrideVars(el);
   el.href = href;
+  return el;
+}
+
+function bindThemeOverrideVars(link) {
+  if (!link || link.__smdThemeVarsBound) return;
+  link.__smdThemeVarsBound = true;
+  link.addEventListener("load", applySmdVars);
+}
+
+function orderThemeOverrideLinks() {
+  const base = document.getElementById("bootstrap-theme-css");
+  const mode = document.getElementById("theme-override-mode");
+  const specific = document.getElementById("theme-override-specific");
+  if (!base || !mode || !base.parentNode) return;
+  if (specific && mode.nextElementSibling !== specific) {
+    base.parentNode.insertBefore(specific, mode.nextSibling);
+  }
+  if (mode.previousElementSibling !== base) {
+    base.parentNode.insertBefore(mode, base.nextSibling);
+  }
 }
 
 // Computed style of a hidden light-DOM probe carrying real Bootstrap classes.
@@ -162,6 +223,14 @@ function changeTheme(name) {
     const imagesEditor = document.getElementById("imagesEditor");
     if (imagesEditor && !imagesEditor.classList.contains("d-none")) renderImagesEditor();
   }
+}
+
+function changeThemeMode(mode) {
+  const normalized = normalizeThemeMode(mode);
+  const theme = getStoredTheme();
+  localStorage.setItem(smdKey("theme"), theme);
+  localStorage.setItem(smdKey("themeMode"), normalized);
+  applyThemeMode(theme, normalized);
 }
 
 // FONT SIZE
@@ -324,9 +393,17 @@ document.addEventListener("DOMContentLoaded", () => {
 Object.assign(SmdApp.prototype, {
   themeConfig,
   smdAppRoot,
+  normalizeTheme,
+  normalizeThemeMode,
+  getStoredTheme,
+  getStoredThemeMode,
+  getThemeDefaultMode,
+  resolveThemeMode,
   applyTheme,
+  applyThemeMode,
   applySmdVars,
   changeTheme,
+  changeThemeMode,
   updateTabTextColor,
   changeFontSize,
   changeIconSize,

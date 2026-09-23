@@ -355,6 +355,11 @@ Techniques / gotchas:
 
 ## Session log
 
+### 2026-09-23 (18) — global Default/Light/Dark theme mode
+- Added per-app `smdKey("themeMode")` overrides, `themeConfig[].defaultMode`, resolved `data-bs-theme`, canonical override-link ordering, and a two-select `<smd-theme>` with source-aware events. All six app boots/settings restores use the normalized shared theme and mode values.
+- Storybook persists `storybook_theme` / `storybook_themeMode` and preserves the app theme keys. Mode-only changes update CSS vars without calling `renderMain`; invalid themes normalize to superhero.
+- Verified with `node --check` on 20 edited JS files and 15 targeted Playwright theme/settings tests; all passed. Full regression was intentionally not run per request.
+
 ### 2026-09-21 (15) — rename `pmd-today-card` → `pmd-job-today-card` (component + events)
 - Full rename of the PlanMyDay today-card component: element tag
   `pmd-today-card` → `pmd-job-today-card`, class `PmdTodayCard` → `PmdJobTodayCard`,

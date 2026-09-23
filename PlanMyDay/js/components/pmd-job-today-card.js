@@ -9,10 +9,6 @@
 // functional CSS (done state, compact title hook, swipe touch-action, card
 // margin) is injected into the document head once by this module.
 //
-// The body `font-size-*` / `compact` display settings reach the card through CSS
-// custom properties (`--pmd-today-*`, set in PlanMyDay/css/styles.css) by
-// inheritance.
-//
 // An `<smd-draghandle class="drag-handle" slot="drag-handle">` is appended by
 // the consumer (Sortable needs a light-DOM handle); when none is provided the
 // built-in fallback handle is shown. On connect the component moves a slotted
@@ -50,24 +46,39 @@
   s.id = "pmd-job-today-card-style";
   s.textContent =
     "pmd-job-today-card {" +
+    "  --pmd-today-margin: 0.5rem;" +
+    "  --pmd-today-title-size: var(--smd-type-h2, 1.25em);" +
     "  display: block;" +
     "  margin-bottom: var(--pmd-today-margin, 0.5rem);" +
     "  touch-action: pan-y;" +
     "}" +
+    "body.compact pmd-job-today-card {" +
+    "  --pmd-today-margin: 0.25rem;" +
+    "  --pmd-today-title-size: var(--smd-type-p, 1em);" +
+    "}" +
     "pmd-job-today-card[done] { opacity: 0.5; }" +
     "pmd-job-today-card[done] .job-title { text-decoration: line-through; }" +
-    "pmd-job-today-card .job-title { font-size: var(--pmd-today-title-size, var(--smd-type-h2, 1.25em)); }";
+    "pmd-job-today-card .job-title {" +
+    "  min-width: 0;" +
+    "  font-size: var(--pmd-today-title-size, var(--smd-type-h2, 1.25em));" +
+    "}" +
+    "pmd-job-today-card .description {" +
+    "  display: -webkit-box;" +
+    "  -webkit-box-orient: vertical;" +
+    "  -webkit-line-clamp: 2;" +
+    "  overflow: hidden;" +
+    "}";
   global.document.head.appendChild(s);
 })(window);
 
 const pmdJobTodayCardTemplate = document.createElement('template');
 pmdJobTodayCardTemplate.innerHTML = `
-    <div class="card bg-dark text-white border-0">
+    <div class="card bg-body-tertiary text-body border-0 w-100">
 
-        <div class="d-flex py-2 border rounded-lg">
+        <div class="d-flex py-2 border rounded-3">
 
             <!-- 1️⃣ Drag Handle -->
-            <div class="d-flex align-items-center handle-col ms-2">
+            <div class="d-flex align-items-center handle-col flex-shrink-0 ms-2">
                 <smd-draghandle class="drag-handle"></smd-draghandle>
             </div>
 
@@ -78,19 +89,19 @@ pmdJobTodayCardTemplate.innerHTML = `
             </div>
 
             <!-- 3️⃣ Stream / Job / Stream Name -->
-            <div class="d-flex flex-column flex-shrink-0 images-col">
+            <div class="d-flex flex-column flex-shrink-0 images-col align-self-start">
                 <div class="d-flex gap-1">
-                    <div class="thumb stream-thumb"><smd-image key-prefix="shared-"></smd-image></div>
-                    <div class="thumb job-thumb"><smd-image key-prefix="shared-"></smd-image></div>
+                    <div class="thumb stream-thumb d-flex align-items-center justify-content-center flex-shrink-0"><smd-image key-prefix="shared-"></smd-image></div>
+                    <div class="thumb job-thumb d-flex align-items-center justify-content-center flex-shrink-0"><smd-image key-prefix="shared-"></smd-image></div>
                 </div>
-                <span class="truncate mb-0 stream-title"></span>
+                <span class="stream-title text-truncate d-block mb-0 small fw-semibold"></span>
             </div>
 
-            <div class="d-flex flex-column flex-grow-1">
+            <div class="d-flex flex-column flex-grow-1 overflow-hidden">
 
                 <!-- FULL-WIDTH TITLE, suffix badge straight after the text with a fixed gap -->
                 <div class="d-flex align-items-center">
-                    <smd-h2 class="job-title"></smd-h2>
+                    <smd-h2 class="job-title text-truncate fw-bold mb-0"></smd-h2>
                     <smd-badge class="suffix ms-2" variant="secondary" hidden></smd-badge>
                 </div>
 
@@ -99,14 +110,14 @@ pmdJobTodayCardTemplate.innerHTML = `
 
                     <!-- LEFT COLUMN: Description hogs space -->
                     <div class="flex-grow-1 d-flex flex-column">
-                        <div class="truncate-2-lines flex-grow-1 description" hidden></div>
+                        <div class="flex-grow-1 description small text-secondary" hidden></div>
                     </div>
 
                     <!-- RIGHT COLUMN: Badges + View aligned bottom -->
-                    <div class="d-flex flex-column justify-content-end text-end">
+                    <div class="d-flex flex-column justify-content-end text-end flex-shrink-0">
                         <div class="d-flex align-items-center gap-2 me-2">
-                            <smd-badge class="tab-badge" pill></smd-badge>
-                            <smd-button class="job-view-btn" variant="primary" size="small" title="View job">View</smd-button>
+                            <smd-badge class="tab-badge flex-shrink-0" pill></smd-badge>
+                            <smd-button class="job-view-btn flex-shrink-0" variant="primary" size="small" title="View job">View</smd-button>
                         </div>
                     </div>
 
@@ -131,6 +142,7 @@ class PmdJobTodayCard extends HTMLElement {
   connectedCallback() {
     if (!this._bound) {
       this._bound = true;
+      this.classList.add("d-block");
       this.appendChild(pmdJobTodayCardTemplate.content.cloneNode(true));
       this._adoptSlottedHandle();
       this.querySelector('smd-checkbox.job-checkbox').addEventListener('change', (e) => {

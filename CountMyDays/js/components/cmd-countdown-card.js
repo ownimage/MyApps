@@ -1,11 +1,5 @@
 // <cmd-countdown-card> — one countdown tile on the main view.
 //
-// Owns its layout (category + date image thumbnails, title, event date and the
-// big countdown numbers) and its styling (CountMyDays/css/styles.css,
-// element-scoped). Body display settings (font size / density) reach the card
-// through CSS custom properties (`--cmd-countdown-*`, defined in
-// CountMyDays/css/styles.css) by inheritance.
-//
 // Attributes:
 //   title           — event title
 //   date-text       — formatted event date (e.g. "Sat 12 Sep 2026")
@@ -18,31 +12,27 @@
 //   key-prefix      — smd-image storage prefix (default: SmdConfig.imagePrefix)
 const cmdCountdownCardTemplate = document.createElement("template");
 cmdCountdownCardTemplate.innerHTML = `
-  <div class="card border-0 mb-3">
-    <div class="row g-0 align-items-center">
-      <div class="col-auto d-flex gap-1">
-        <div class="d-flex flex-column align-items-center">
-          <div class="mb-1">
-            <smd-image class="category-thumb" style="width: 40px; height: 40px;"></smd-image>
-          </div>
-          <div class="category-label text-truncate small text-secondary" style="width: 40px; font-size: 0.65rem; line-height: 1;"></div>
+  <div class="card bg-body-tertiary text-body border-0 px-3 py-2">
+    <div class="d-flex align-items-center gap-3">
+      <div class="thumbs d-flex flex-shrink-0 align-items-start gap-1">
+        <div class="thumb-block d-flex flex-column align-items-center">
+          <div class="thumb mb-1 d-flex align-items-center justify-content-center"><smd-image class="category-thumb"></smd-image></div>
+          <div class="category-label small text-secondary text-center"></div>
         </div>
-        <div class="d-flex flex-column align-items-center">
-          <div class="mb-1">
-            <smd-image class="date-thumb" style="width: 40px; height: 40px;"></smd-image>
-          </div>
+        <div class="thumb-block d-flex flex-column align-items-center">
+          <div class="thumb d-flex align-items-center justify-content-center"><smd-image class="date-thumb"></smd-image></div>
         </div>
       </div>
-      <div class="col px-3 overflow-hidden">
-        <h4 class="title fw-bold text-truncate mb-0" style="font-size: 1.1rem;"></h4>
-        <div class="date-text text-secondary small mb-1"></div>
+      <div class="content flex-grow-1 overflow-hidden">
+        <h4 class="title fw-bold text-truncate mb-1"></h4>
+        <div class="date-text text-secondary mb-1"></div>
         <div class="source-row">
-          <smd-badge class="source-badge" variant="secondary" style="font-size: 0.7rem; padding: 0 0.2rem;"></smd-badge>
+          <smd-badge class="source-badge" variant="secondary"></smd-badge>
         </div>
       </div>
-      <div class="col-auto pe-3 text-end d-flex flex-column justify-content-center">
-        <div class="count count-1 fw-bold" style="font-size: 1.2rem; line-height: 1;"></div>
-        <div class="count count-2 text-secondary small" style="font-size: 0.8rem; line-height: 1;"></div>
+      <div class="counts d-flex flex-column text-end flex-shrink-0">
+        <div class="count count-1 h3 mb-0"></div>
+        <div class="count count-2 small text-secondary"></div>
       </div>
     </div>
   </div>
@@ -60,15 +50,15 @@ class CmdCountdownCard extends HTMLElement {
   }
 
   connectedCallback() {
-    if (!this._bound) this._bound = true;
-    if (!this.querySelector(".counts")) {
+    if (!this._bound) {
+      this._bound = true;
       this.appendChild(cmdCountdownCardTemplate.content.cloneNode(true));
     }
     this._render();
   }
 
   attributeChangedCallback() {
-    if (this.isConnected) this._render();
+    if (this._bound && this.isConnected) this._render();
   }
 
   _render() {

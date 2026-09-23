@@ -171,9 +171,11 @@ test.describe("CountMyDays - Regression", () => {
       await seed(page);
       await page.evaluate(() => openSettings());
       await expect(page.locator("#settingsPage")).toHaveAttribute("open", "");
-      await expect(page.locator("#themeSelector select")).toBeVisible();
+      await expect(page.locator("#themeSelector .smd-theme-select")).toBeVisible();
+      await expect(page.locator("#themeSelector .smd-theme-mode-select")).toBeVisible();
       // 26 shared themes (25 + brite)
-      expect(await page.locator("#themeSelector select option").count()).toBe(26);
+      expect(await page.locator("#themeSelector .smd-theme-select option").count()).toBe(26);
+      expect(await page.locator("#themeSelector .smd-theme-mode-select option").allTextContents()).toEqual(["Default", "Light", "Dark"]);
       await expect(page.locator("#formatSelector")).toBeVisible();
       await expect(page.locator("#fontSizeSelector")).toBeVisible();
       await expect(page.locator("#iconSizeSelector")).toBeVisible();
@@ -184,14 +186,19 @@ test.describe("CountMyDays - Regression", () => {
       await expect(page.locator("#countdownContainer")).not.toHaveClass(/d-none/);
     });
 
-    test("theme change persists and swaps the stylesheet", async ({ page }) => {
+    test("theme and mode changes persist in the shared settings keys", async ({ page }) => {
       await seed(page);
       await page.evaluate(() => openSettings());
-      await page.locator("#themeSelector select").selectOption("brite");
+      await page.locator("#themeSelector .smd-theme-select").selectOption("brite");
+      await page.locator("#themeSelector .smd-theme-mode-select").selectOption("dark");
       await expect.poll(async () => page.evaluate(() => localStorage.getItem("countmydays_theme"))).toBe("brite");
+      await expect.poll(async () => page.evaluate(() => localStorage.getItem("countmydays_themeMode"))).toBe("dark");
       const href = await page.locator("#bootstrap-theme-css").getAttribute("href");
       expect(href).toContain("css/themes/brite/bootstrap.min.css");
       await expect.poll(async () => page.evaluate(() => document.documentElement.getAttribute("data-theme"))).toBe("brite");
+      await expect(page.locator("html")).toHaveAttribute("data-bs-theme", "dark");
+      await expect(page.locator("#themeSelector")).toHaveAttribute("theme", "brite");
+      await expect(page.locator("#themeSelector")).toHaveAttribute("mode", "dark");
     });
 
     test("font size and density apply body classes", async ({ page }) => {

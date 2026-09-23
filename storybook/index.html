@@ -15,162 +15,9 @@
   <link rel="stylesheet" href="../shared/vendor/fontawesome/css/regular.min.css">
   <link rel="stylesheet" href="../shared/vendor/fontawesome/css/brands.min.css">
   <style>
-    :root {
-      --sb-bg: var(--bs-body-bg, #222);
-      --sb-fg: var(--bs-body-color, #eee);
-      --sb-border: var(--bs-border-color, #444);
-      --sb-color-scheme: dark;
-    }
-    * { box-sizing: border-box; }
-    html { overflow-x: clip; background-color: var(--bs-body-bg); }
-    body { overflow-x: clip; max-width: 100%; }
-    body {
-      margin: 0;
-      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-      background-color: var(--bs-body-bg);
-      color: var(--sb-fg);
-    }
-    header.sb-header {
-      position: sticky;
-      top: 0;
-      z-index: 1000;
-      display: flex;
-      align-items: center;
-      gap: 1rem;
-      flex-wrap: wrap;
-      padding: 0.75rem 1.25rem;
-      background: color-mix(in srgb, var(--sb-bg) 85%, white);
-      border-bottom: 1px solid var(--sb-border);
-    }
-    header.sb-header h1 {
-      margin: 0;
-      font-size: 1.15rem;
-      font-weight: 600;
-      flex: 0 1 auto;
-      min-width: 0;
-      overflow-wrap: break-word;
-    }
-    .sb-theme-control {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      margin-left: auto;
-    }
-    .sb-theme-control select {
-      padding: 0.3rem 0.6rem;
-      border: 1px solid var(--sb-border);
-      border-radius: 6px;
-      background: var(--sb-select-bg, var(--bs-tertiary-bg, #252525));
-      color: var(--sb-select-color, var(--sb-fg));
-      color-scheme: var(--sb-color-scheme, dark);
-    }
-    .sb-theme-control select option {
-      color: var(--sb-select-color, var(--sb-fg));
-      background: var(--sb-select-bg, var(--bs-tertiary-bg, #252525));
-    }
-    nav.sb-nav {
-      position: sticky;
-      top: 57px;
-      z-index: 999;
-      display: flex;
-      gap: 0.4rem;
-      flex-wrap: wrap;
-      padding: 0.5rem 1.25rem;
-      background: var(--sb-bg);
-      border-bottom: 1px solid var(--sb-border);
-    }
-    nav.sb-nav a {
-      color: var(--bs-secondary-color, #aaa);
-      text-decoration: none;
-      font-size: 0.85rem;
-      padding: 0.2rem 0.6rem;
-      border: 1px solid var(--sb-border);
-      border-radius: 999px;
-    }
-    nav.sb-nav a:hover { color: var(--sb-fg); border-color: var(--bs-primary, #0d6efd); }
-    main.sb-main { padding: 1rem 1.25rem 4rem; max-width: 100%; }
-    section.sb-section {
-      margin-bottom: 2.5rem;
-      border: 1px solid var(--sb-border);
-      border-radius: 10px;
-      padding: 1rem 1.25rem;
-      background: var(--sb-bg);
-      max-width: 100%;
-      overflow-wrap: break-word;
-    }
-    section.sb-section > h2 {
-      margin: 0 0 0.15rem;
-      font-size: 1.1rem;
-      font-weight: 700;
-    }
-    section.sb-section > .sb-tag {
-      display: inline-block;
-      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-      font-size: 0.78rem;
-      color: var(--bs-secondary-color, #aaa);
-      background: var(--sb-bg);
-      border: 1px solid var(--sb-border);
-      border-radius: 6px;
-      padding: 0.1rem 0.45rem;
-      margin-bottom: 0.75rem;
-    }
-    section.sb-section > p.sb-desc {
-      color: var(--bs-secondary-color, #aaa);
-      font-size: 0.9rem;
-      margin: 0 0 1rem;
-    }
-    .sb-canvas {
-      display: flex;
-      gap: 1rem;
-      flex-wrap: wrap;
-      align-items: flex-start;
-      padding: 1rem;
-      border: 1px dashed var(--sb-border);
-      border-radius: 8px;
-      background: var(--sb-bg);
-      max-width: 100%;
-    }
-    .sb-canvas > div, .sb-canvas > * { min-width: 0; max-width: 100%; }
-    .sb-controls {
-      margin-top: 1rem;
-      display: flex;
-      gap: 0.75rem;
-      flex-wrap: wrap;
-      align-items: center;
-    }
-    .sb-controls label { font-size: 0.85rem; }
-    .sb-controls input[type="text"], .sb-controls select {
-      padding: 0.25rem 0.5rem;
-      border: 1px solid var(--sb-border);
-      border-radius: 6px;
-      background: var(--sb-bg);
-      color: var(--sb-fg);
-    }
-    .sb-controls button.btn.sb-run {
-      border: 1px solid var(--bs-primary, #0d6efd);
-      background: var(--bs-primary, #0d6efd);
-      color: #fff;
-      padding: 0.25rem 0.75rem;
-      border-radius: 6px;
-      cursor: pointer;
-      font-size: 0.85rem;
-    }
-    .sb-log {
-      margin-top: 0.75rem;
-      font-family: ui-monospace, monospace;
-      font-size: 0.75rem;
-      color: var(--bs-success, #198754);
-      background: var(--sb-bg);
-      border: 1px solid var(--sb-border);
-      border-radius: 6px;
-      padding: 0.4rem 0.6rem;
-      min-height: 1.6rem;
-    }
-    .sb-placeholder {
-      color: var(--bs-secondary-color, #aaa);
-      font-style: italic;
-      font-size: 0.9rem;
-    }
+    .sb-canvas { border-style: dashed; }
+    .sb-canvas > * { min-width: 0; max-width: 100%; }
+    .sb-log { min-height: 1.6rem; }
     .sb-swatches {
       display: grid;
       grid-template-columns: repeat(12, minmax(0, 1fr));
@@ -201,47 +48,31 @@
       color: var(--bs-secondary-color, #aaa);
       margin-bottom: 0.5rem;
     }
-    .sb-row { display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: flex-start; }
-    .sb-stack { display: flex; flex-direction: column; gap: 0.75rem; min-width: 0; flex: 1 1 260px; max-width: 100%; }
-    code { background: var(--sb-bg); padding: 0.05rem 0.3rem; border-radius: 4px; font-size: 0.82em; }
-    .sb-frame-wrapper { width: 100%; }
-    .sb-frame-wrapper .sb-label {
-      font-size: 0.75rem;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.04em;
-      color: var(--bs-secondary-color, #aaa);
-      margin-bottom: 0.4rem;
-    }
-    /* the pmd-stream-header drag handle is a sibling in the card wrapper */
-    .sb-stream-card {
-      border: 1px solid var(--sb-border);
-      border-radius: 8px;
-      overflow: hidden;
-      background: var(--sb-bg);
-    }
-    .sb-stream-card .sb-stream-head { padding: 0; }
-    .sb-stream-card .sb-stream-body { padding: 0; }
-    /* adjacent job cards touch: overlap borders to keep a single 1px line */
-    .sb-stream-card .sb-stream-body pmd-job-stream-card + pmd-job-stream-card { margin-top: -1px; }
-    .sb-hint { color: var(--bs-secondary-color, #aaa); font-size: 0.8rem; }
+    .sb-label { letter-spacing: 0.04em; }
     .sb-stream-card { transition: border-color 0.2s ease; }
+    .sb-stream-card .sb-stream-body pmd-job-stream-card + pmd-job-stream-card { margin-top: -1px; }
     .sb-stream-card.is-expanded { border-color: var(--bs-info, #0dcaf0); }
   </style>
 </head>
-<body>
+<body class="overflow-x-hidden">
 
-  <header class="sb-header">
-    <h1>PlanMyDay &middot; Web Component Storybook</h1>
-    <div class="sb-theme-control">
+  <header class="sb-header sticky-top d-flex flex-wrap align-items-center gap-3 py-3 px-4 bg-body border-bottom">
+    <h1 class="m-0 fs-5 fw-semibold text-break">PlanMyDay &middot; Web Component Storybook</h1>
+    <div class="sb-theme-control d-flex align-items-center gap-2 ms-auto" style="color-scheme:var(--sb-color-scheme)">
       <label for="themeSelect">Theme</label>
-      <select id="themeSelect"></select>
+      <select class="form-select form-select-sm w-auto" id="themeSelect"></select>
+      <label for="modeSelect">Mode</label>
+      <select class="form-select form-select-sm w-auto" id="modeSelect">
+        <option value="default">Default</option>
+        <option value="light">Light</option>
+        <option value="dark">Dark</option>
+      </select>
     </div>
   </header>
 
-  <nav class="sb-nav" aria-label="Sections"></nav>
+  <nav class="sb-nav sticky-top d-flex flex-wrap gap-2 py-2 px-4 bg-body border-bottom" style="top:57px" aria-label="Sections"></nav>
 
-  <main class="sb-main" id="main"></main>
+  <main class="sb-main p-3 px-xl-4 pb-5 w-100" id="main"></main>
 
   <!-- ============================ COMPONENT SCRIPTS ============================ -->
   <script src="../shared/js/components/smd-button.js"></script>
@@ -284,45 +115,61 @@
     // ---- Theme selector: uses the SAME themeConfig + applyTheme as the app ----
     // (settings.js is loaded above, giving us themeConfig, applyTheme, applySmdVars).
     const appThemeBefore = localStorage.getItem("planmydays_theme");
-    function sbApplyTheme(name) {
-      const c = themeConfig[name] || themeConfig.superhero;
-      applyTheme(name); // identical logic to the app (CSS + data-* attrs + --smd-* vars + ?v stamp)
-      // neutralize the app-preference side effect applyTheme persisting; storybook
-      // keeps its own storage key so it never changes the real app theme.
+    const appThemeModeBefore = localStorage.getItem("planmydays_themeMode");
+    function sbApplyTheme(name, mode) {
+      const valid = normalizeTheme(name);
+      const selectedMode = normalizeThemeMode(mode);
+      const resolvedMode = resolveThemeMode(valid, selectedMode);
+      applyTheme(valid, selectedMode);
       if (appThemeBefore === null) localStorage.removeItem("planmydays_theme");
       else localStorage.setItem("planmydays_theme", appThemeBefore);
+      if (appThemeModeBefore === null) localStorage.removeItem("planmydays_themeMode");
+      else localStorage.setItem("planmydays_themeMode", appThemeModeBefore);
       // set color-scheme so native form controls (e.g. select dropdowns) match
       // the applied theme instead of rendering white-on-white
-      document.documentElement.style.setProperty("--sb-color-scheme", c.bsTheme);
+      document.documentElement.style.setProperty("--sb-color-scheme", resolvedMode);
       // give the theme selector readable colors regardless of the theme's own
       // --bs-* variable combinations (e.g. quartz has light backgrounds + white text)
       document.documentElement.style.setProperty(
         "--sb-select-bg",
-        c.bsTheme === "dark" ? "#252525" : "#f8f9fa"
+        resolvedMode === "dark" ? "#252525" : "#f8f9fa"
       );
       document.documentElement.style.setProperty(
         "--sb-select-color",
-        c.bsTheme === "dark" ? "#eee" : "#111"
+        resolvedMode === "dark" ? "#eee" : "#111"
       );
     }
 
     // ---- Build theme selector ----
     const themeSelect = document.getElementById("themeSelect");
+    const modeSelect = document.getElementById("modeSelect");
     Object.keys(themeConfig).forEach(name => {
       const opt = document.createElement("option");
       opt.value = name;
       const label = name.charAt(0).toUpperCase() + name.slice(1);
-      opt.textContent = label + " (" + themeConfig[name].bsTheme + ")";
+      const defaultMode = themeConfig[name].defaultMode || themeConfig[name].bsTheme || "light";
+      opt.textContent = label + " (" + defaultMode + ")";
       themeSelect.appendChild(opt);
     });
-    const sbSavedTheme = localStorage.getItem("storybook_theme") || "superhero";
+    const sbSavedTheme = normalizeTheme(localStorage.getItem("storybook_theme"));
+    const sbSavedMode = normalizeThemeMode(localStorage.getItem("storybook_themeMode"));
     themeSelect.value = sbSavedTheme;
-    sbApplyTheme(sbSavedTheme);
+    modeSelect.value = sbSavedMode;
+    sbApplyTheme(sbSavedTheme, sbSavedMode);
     themeSelect.addEventListener("change", () => {
-      sbApplyTheme(themeSelect.value);
+      sbApplyTheme(themeSelect.value, modeSelect.value);
       localStorage.setItem("storybook_theme", themeSelect.value);
       // re-render sections that need to reflect theme-changed state
       renderAll();
+    });
+    modeSelect.addEventListener("change", () => {
+      sbApplyTheme(themeSelect.value, modeSelect.value);
+      localStorage.setItem("storybook_themeMode", modeSelect.value);
+      const demo = document.getElementById("sb-theme");
+      if (demo) {
+        demo.setAttribute("theme", themeSelect.value);
+        demo.setAttribute("mode", modeSelect.value);
+      }
     });
 
     // ---- Small SVG image so pmd thumbnails render without the app ----
@@ -451,7 +298,7 @@
       tag: "CSS variables",
       desc: "Every Bootstrap colour variable (the <code>:root</code> / <code>[data-bs-theme]</code> blocks) as a swatch, grouped into rows. Each swatch reads its CSS variable live, so the colours update when you change the theme.",
       html: () => `
-        <div class="sb-canvas" style="flex-direction:column;width:100%">
+        <div class="sb-canvas d-flex flex-column flex-wrap align-items-start gap-3 p-3 w-100 border rounded bg-body">
           ${THEME_COLOR_GROUPS.map((group) => `
             <div class="sb-swatch-group">
               <div class="sb-swatch-group-label">${group.label}</div>
@@ -470,21 +317,21 @@
       id: "smd-button",
       name: "smd-button",
       tag: "<smd-button>",
-      desc: "A themed button. Set <code>variant</code> (primary | secondary | success | danger), optionally <code>disabled</code>, and <code>size</code> (normal | small — adds <code>btn-sm</code>). Content is slotted.",
+      desc: "A themed button. Set <code>variant</code> (primary | secondary | success | danger), optionally <code>disabled</code>, and <code>size</code> (normal | small ï¿½ adds <code>btn-sm</code>). Content is slotted.",
       html: () => {
         const variants = ["primary", "secondary", "success", "danger"];
         return `
-          <div class="sb-canvas">
-            <div class="sb-stack">
+          <div class="sb-canvas d-flex flex-wrap align-items-start gap-3 p-3 w-100 border rounded bg-body">
+            <div class="d-flex flex-column gap-3 w-100">
               ${variants.map(v =>
-                `<div class="sb-row">
+                `<div class="d-flex flex-wrap align-items-start gap-3">
                   <smd-button variant="${v}" size="small">${v} (small)</smd-button>
                   <smd-button variant="${v}">${v}</smd-button>
                   <smd-button variant="${v}" disabled>${v} (disabled)</smd-button>
                 </div>`).join("")}
             </div>
           </div>
-          <div class="sb-log" id="log-smd-button">events: none yet</div>
+          <div class="sb-log mt-3 small font-monospace text-success border rounded bg-body px-2 py-1" id="log-smd-button">events: none yet</div>
         `;
       },
       init: () => {
@@ -501,17 +348,17 @@
       tag: "<smd-modal>",
       desc: "A modal with <code>title</code>, <code>content</code> and <code>buttons</code> (JS properties). Call <code>show()</code>/<code>hide()</code>. Clicking a footer button closes the modal (unless the button sets <code>close: false</code>) and dispatches <code>smd-modal-action</code>.",
       html: () => `
-        <div class="sb-canvas">
+        <div class="sb-canvas d-flex flex-wrap align-items-start gap-3 p-3 w-100 border rounded bg-body">
           <smd-button variant="primary">Open modal</smd-button>
         </div>
-        <div class="sb-controls">
-          <label>Buttons: <select id="ctrl-modal-buttons">
+        <div class="sb-controls d-flex flex-wrap align-items-center gap-3 mt-3 small">
+          <label>Buttons: <select class="form-select form-select-sm w-auto" id="ctrl-modal-buttons">
             <option value="ok">OK</option>
             <option value="okcancel" selected>OK / Cancel</option>
             <option value="3">OK / Cancel / Danger</option>
           </select></label>
         </div>
-        <div class="sb-log" id="log-smd-modal">events: none yet</div>
+        <div class="sb-log mt-3 small font-monospace text-success border rounded bg-body px-2 py-1" id="log-smd-modal">events: none yet</div>
       `,
       init: () => {
         const modal = document.getElementById("sb-modal");
@@ -543,15 +390,15 @@
       tag: "<smd-page>",
       desc: "A full-screen animated page with <code>title</code>, optional <code>headerHtml</code>, <code>content</code>, and footer <code>buttons</code>. Call <code>show()</code>/<code>hide()</code>. Clicking a footer button closes the page (unless the button sets <code>close: false</code>) and dispatches <code>smd-page-action</code>. Slide in/out duration in ms is configurable via the <code>slide-duration</code> attribute or <code>slideDuration</code> property (0 = instant).",
       html: () => `
-        <div class="sb-canvas">
+        <div class="sb-canvas d-flex flex-wrap align-items-start gap-3 p-3 w-100 border rounded bg-body">
           <smd-button variant="success">Open page</smd-button>
         </div>
-        <div class="sb-controls">
-          <label>Title: <input type="text" id="ctrl-page-title" value="SmdPage title"></label>
-          <label><input type="checkbox" id="ctrl-page-badge"> Show badge in header</label>
-          <label>Badge: <input type="text" id="ctrl-page-badge-text" value="8/48/86 jobs" disabled></label>
+        <div class="sb-controls d-flex flex-wrap align-items-center gap-3 mt-3 small">
+          <label>Title: <input class="form-control form-control-sm w-auto" type="text" id="ctrl-page-title" value="SmdPage title"></label>
+          <label><input class="form-check-input" type="checkbox" id="ctrl-page-badge"> Show badge in header</label>
+          <label>Badge: <input class="form-control form-control-sm w-auto" type="text" id="ctrl-page-badge-text" value="8/48/86 jobs" disabled></label>
         </div>
-        <div class="sb-log" id="log-smd-page">events: none yet</div>
+        <div class="sb-log mt-3 small font-monospace text-success border rounded bg-body px-2 py-1" id="log-smd-page">events: none yet</div>
       `,
       init: () => {
         const page = document.getElementById("sb-page");
@@ -561,7 +408,7 @@
         const titleCtl = document.getElementById("ctrl-page-title");
         const applyBadge = () => {
           page.headerHtml = badgeCtl.checked
-            ? '<smd-badge variant="info" style="font-size:0.8em;vertical-align:middle">' + (badgeTextCtl.value || "") + '</smd-badge>'
+            ? '<smd-badge class="align-middle fs-6" variant="info">' + (badgeTextCtl.value || "") + '</smd-badge>'
             : "";
         };
         const apply = () => {
@@ -583,22 +430,22 @@
       tag: "<smd-tabs>",
       desc: "Tab bar + panels. Set the <code>tabs</code> array {title, content, id?, panelClass?}. Dispatches <code>smd-tabs-change</code>. Set <code>bottomline = false</code> to hide the horizontal rule at the bottom of the tab section; set <code>wrap</code> to let the tab buttons wrap onto multiple lines; set <code>padding=\"small\"</code> for compact tab buttons + flush panels (default <code>normal</code>, no change).",
       html: () => `
-        <div class="sb-canvas" style="flex-direction:column;width:100%">
+        <div class="sb-canvas d-flex flex-column flex-wrap align-items-start gap-3 p-3 w-100 border rounded bg-body">
           <smd-tabs id="sb-tabs"></smd-tabs>
         </div>
-        <div class="sb-controls">
-          <label><input type="checkbox" id="ctrl-tabs-bottomline"> Show bottom line</label>
-          <label><input type="checkbox" id="ctrl-tabs-wrap"> Wrap tabs</label>
-          <button type="button" class="btn sb-run" id="btn-tabs-apply">Apply</button>
+        <div class="sb-controls d-flex flex-wrap align-items-center gap-3 mt-3 small">
+          <label><input class="form-check-input" type="checkbox" id="ctrl-tabs-bottomline"> Show bottom line</label>
+          <label><input class="form-check-input" type="checkbox" id="ctrl-tabs-wrap"> Wrap tabs</label>
+          <button type="button" class="btn btn-primary btn-sm" id="btn-tabs-apply">Apply</button>
         </div>
-        <div class="sb-log" id="log-smd-tabs">events: none yet</div>
+        <div class="sb-log mt-3 small font-monospace text-success border rounded bg-body px-2 py-1" id="log-smd-tabs">events: none yet</div>
       `,
       init: () => {
         const tabs = document.getElementById("sb-tabs");
         tabs.tabs = [
-          { id: "progress", title: "Progress", content: "<p class='sb-placeholder'>Panel: Progress</p>" },
-          { id: "maintenance", title: "Maintenance", content: "<p class='sb-placeholder'>Panel: Maintenance</p>" },
-          { id: "archived", title: "Archived", content: "<p class='sb-placeholder'>Panel: Archived</p>" }
+          { id: "progress", title: "Progress", content: "<p class='small text-secondary fst-italic'>Panel: Progress</p>" },
+          { id: "maintenance", title: "Maintenance", content: "<p class='small text-secondary fst-italic'>Panel: Maintenance</p>" },
+          { id: "archived", title: "Archived", content: "<p class='small text-secondary fst-italic'>Panel: Archived</p>" }
         ];
         tabs.addEventListener("smd-tabs-change", (e) => log("smd-tabs", "index=" + e.detail.index + " tab=\"" + (e.detail.tab && e.detail.tab.title) + "\""));
         document.getElementById("btn-tabs-apply").addEventListener("click", () => {
@@ -618,20 +465,20 @@
       tag: "<smd-image>",
       desc: "Displays an image from a localStorage images list. Attribute <code>key-prefix</code> sets the storage key prefix (list key = <code>keyPrefix + \"images\"</code>), <code>image</code> is the image name, <code>theme</code> is <code>auto</code>/<code>light</code>/<code>dark</code> for SVG recolouring, <code>size</code> sets the rendered box in px (the component adopts its own sized stylesheet), and <code>alt</code> is passed to the inner <code>&lt;img&gt;</code>. Missing names hide the image. When <code>data</code> is absent it falls back to <code>data&lt;size&gt;</code> (data64/80/100). An <code>image</code> of <code>bi:&lt;name&gt;</code> (Bootstrap), <code>fa:&lt;name&gt;</code> (Font Awesome) or <code>fab:&lt;name&gt;</code> (FA Brands) renders that set's icon glyph (require the matching vendor css <code>&lt;link&gt;</code>s). Re-renders on attribute change; call <code>refresh()</code> after the store changes.",
       html: () => `
-        <div class="sb-canvas" id="sb-image-canvas" style="min-height:120px">
+        <div class="sb-canvas d-flex flex-wrap align-items-start gap-3 p-3 w-100 border rounded bg-body" id="sb-image-canvas" style="min-height:120px">
           <smd-image id="sb-image" key-prefix="sb_" image="Star" size="80"></smd-image>
         </div>
-        <div class="sb-controls">
-          <label>Name: <input type="text" id="ctrl-image-name" value="Star"></label>
+        <div class="sb-controls d-flex flex-wrap align-items-center gap-3 mt-3 small">
+          <label>Name: <input class="form-control form-control-sm w-auto" type="text" id="ctrl-image-name" value="Star"></label>
           <label>Theme:
-            <select id="ctrl-image-theme">
+            <select class="form-select form-select-sm w-auto" id="ctrl-image-theme">
               <option value="auto">auto</option>
               <option value="light">light</option>
               <option value="dark">dark</option>
             </select>
           </label>
           <label>Size:
-            <select id="ctrl-image-size">
+            <select class="form-select form-select-sm w-auto" id="ctrl-image-size">
               <option value="32">32</option>
               <option value="64">64</option>
               <option value="80" selected>80</option>
@@ -639,9 +486,9 @@
               <option value="0">auto</option>
             </select>
           </label>
-          <button type="button" class="btn sb-run" id="btn-image-apply">Apply</button>
+          <button type="button" class="btn btn-primary btn-sm" id="btn-image-apply">Apply</button>
         </div>
-        <div class="sb-log" id="log-smd-image">events: none yet</div>
+        <div class="sb-log mt-3 small font-monospace text-success border rounded bg-body px-2 py-1" id="log-smd-image">events: none yet</div>
       `,
       init: () => {
         const seed = [
@@ -670,14 +517,14 @@
       tag: "<smd-qrcode>",
       desc: "Renders a QR code from <code>value</code> at a given <code>size</code> (px). Uses qrcodejs (loaded from CDN).",
       html: () => `
-        <div class="sb-canvas">
+        <div class="sb-canvas d-flex flex-wrap align-items-start gap-3 p-3 w-100 border rounded bg-body">
           <smd-qrcode id="sb-qr" value="https://example.com" size="140"></smd-qrcode>
         </div>
-        <div class="sb-controls">
-          <label>Size: <input type="text" id="ctrl-qr-size" value="140" style="width:70px"></label>
-          <button type="button" class="btn sb-run" id="btn-qr-apply">Apply</button>
+        <div class="sb-controls d-flex flex-wrap align-items-center gap-3 mt-3 small">
+          <label>Size: <input class="form-control form-control-sm w-25" type="text" id="ctrl-qr-size" value="140"></label>
+          <button type="button" class="btn btn-primary btn-sm" id="btn-qr-apply">Apply</button>
         </div>
-        <div class="sb-log" id="log-smd-qrcode">events: none</div>
+        <div class="sb-log mt-3 small font-monospace text-success border rounded bg-body px-2 py-1" id="log-smd-qrcode">events: none</div>
       `,
       init: () => {
         const qr = document.getElementById("sb-qr");
@@ -696,13 +543,13 @@
       tag: "<smd-qr-export>",
       desc: "Exports any JSON string as chunked QR codes (lz-string compressed). Attributes: <code>value</code>, <code>chunk-size</code>, <code>size</code>, <code>label</code>. Pair with <code>&lt;smd-qr-import&gt;</code>.",
       html: () => `
-        <div class="sb-canvas" style="flex-direction:column;width:100%">
+        <div class="sb-canvas d-flex flex-column flex-wrap align-items-start gap-3 p-3 w-100 border rounded bg-body">
           <smd-qr-export id="sb-qr-export" chunk-size="80" size="120" label="QR"></smd-qr-export>
         </div>
-        <div class="sb-controls">
-          <button type="button" class="btn sb-run" id="btn-qr-export-apply">Set value</button>
+        <div class="sb-controls d-flex flex-wrap align-items-center gap-3 mt-3 small">
+          <button type="button" class="btn btn-primary btn-sm" id="btn-qr-export-apply">Set value</button>
         </div>
-        <div class="sb-log" id="log-smd-qr-export">events: none</div>
+        <div class="sb-log mt-3 small font-monospace text-success border rounded bg-body px-2 py-1" id="log-smd-qr-export">events: none</div>
       `,
       init: () => {
         const el = document.getElementById("sb-qr-export");
@@ -721,14 +568,14 @@
       tag: "<smd-qr-import>",
       desc: "Camera scanner that reassembles the <code>&lt;smd-qr-export&gt;</code> chunk envelope and emits the decoded JSON. Methods: <code>start()</code>/<code>stop()</code>, attribute <code>autostart</code>.",
       html: () => `
-        <div class="sb-canvas" style="flex-direction:column;width:100%">
+        <div class="sb-canvas d-flex flex-column flex-wrap align-items-start gap-3 p-3 w-100 border rounded bg-body">
           <smd-qr-import id="sb-qr-import"></smd-qr-import>
         </div>
-        <div class="sb-controls">
-          <button type="button" class="btn sb-run" id="btn-qr-import-start">Start</button>
-          <button type="button" class="btn sb-run" id="btn-qr-import-stop">Stop</button>
+        <div class="sb-controls d-flex flex-wrap align-items-center gap-3 mt-3 small">
+          <button type="button" class="btn btn-primary btn-sm" id="btn-qr-import-start">Start</button>
+          <button type="button" class="btn btn-primary btn-sm" id="btn-qr-import-stop">Stop</button>
         </div>
-        <div class="sb-log" id="log-smd-qr-import">events: none</div>
+        <div class="sb-log mt-3 small font-monospace text-success border rounded bg-body px-2 py-1" id="log-smd-qr-import">events: none</div>
       `,
       init: () => {
         const el = document.getElementById("sb-qr-import");
@@ -747,14 +594,14 @@
       tag: "<smd-buymeacoffee>",
       desc: "A Buy Me a Coffee button image (external). Attributes: <code>username</code>, <code>height</code>.",
       html: () => `
-        <div class="sb-canvas">
+        <div class="sb-canvas d-flex flex-wrap align-items-start gap-3 p-3 w-100 border rounded bg-body">
           <smd-buymeacoffee username="ownimage" height="50"></smd-buymeacoffee>
         </div>
-        <div class="sb-controls">
-          <label>Height: <input type="text" id="ctrl-bmc-height" value="50" style="width:60px"></label>
-          <button type="button" class="btn sb-run" id="btn-bmc-apply">Apply</button>
+        <div class="sb-controls d-flex flex-wrap align-items-center gap-3 mt-3 small">
+          <label>Height: <input class="form-control form-control-sm w-25" type="text" id="ctrl-bmc-height" value="50"></label>
+          <button type="button" class="btn btn-primary btn-sm" id="btn-bmc-apply">Apply</button>
         </div>
-        <div class="sb-log" id="log-smd-buymeacoffee">events: none</div>
+        <div class="sb-log mt-3 small font-monospace text-success border rounded bg-body px-2 py-1" id="log-smd-buymeacoffee">events: none</div>
       `,
       init: () => {
         const bmc = document.querySelector("#smd-buymeacoffee smd-buymeacoffee");
@@ -773,10 +620,10 @@
       tag: "<smd-fontawesome-credit>",
       desc: "The Font Awesome attribution line (icons licensed CC BY 4.0 require credit to Fonticons, Inc.). Shown in the settings footer beneath the build number. No attributes.",
       html: () => `
-        <div class="sb-canvas">
+        <div class="sb-canvas d-flex flex-wrap align-items-start gap-3 p-3 w-100 border rounded bg-body">
           <smd-fontawesome-credit></smd-fontawesome-credit>
         </div>
-        <div class="sb-log" id="log-smd-fontawesome-credit">events: none</div>
+        <div class="sb-log mt-3 small font-monospace text-success border rounded bg-body px-2 py-1" id="log-smd-fontawesome-credit">events: none</div>
       `,
       init: () => {}
     });
@@ -788,13 +635,13 @@
       tag: "<pmd-stream-header>",
       desc: "Header for a stream row in the Jobs editor. Attributes: <code>stream-idx</code>, <code>title</code>, <code>tab</code>, <code>image</code>, <code>expanded</code>, <code>can-delete</code>, <code>jobcounts</code>. Dispatches <code>pmd-header-toggle</code>, <code>pmd-edit</code>, <code>pmd-add-job</code>, <code>pmd-delete</code>.",
       html: () => `
-        <div class="sb-canvas" style="flex-direction:column;width:100%">
-          <div id="sb-stream-header"></div>
-          <div class="sb-controls">
-            <label><input type="checkbox" id="ctrl-stream-expanded"> expanded</label>
-            <label><input type="checkbox" id="ctrl-stream-candelete"> can-delete</label>
+        <div class="sb-canvas d-flex flex-column flex-wrap align-items-start gap-3 p-3 w-100 border rounded bg-body">
+          <div class="w-100" id="sb-stream-header"></div>
+          <div class="sb-controls d-flex flex-wrap align-items-center gap-3 mt-3 small">
+            <label><input class="form-check-input" type="checkbox" id="ctrl-stream-expanded"> expanded</label>
+            <label><input class="form-check-input" type="checkbox" id="ctrl-stream-candelete"> can-delete</label>
           </div>
-          <div class="sb-log" id="log-pmd-stream-header">events: none yet</div>
+          <div class="sb-log mt-3 small font-monospace text-success border rounded bg-body px-2 py-1" id="log-pmd-stream-header">events: none yet</div>
         </div>
       `,
       init: () => {
@@ -802,7 +649,7 @@
         const renderHeader = () => {
           const expanded = document.getElementById("ctrl-stream-expanded").checked;
           const canDelete = document.getElementById("ctrl-stream-candelete").checked;
-          host.innerHTML = `<pmd-stream-header stream-idx="0" title="Work" tab="progress"
+          host.innerHTML = `<pmd-stream-header class="d-block" stream-idx="0" title="Work" tab="progress"
             image="Blue" key-prefix="sbh_" jobcounts="1/2/3" ${expanded ? "expanded" : ""} ${canDelete ? "can-delete" : ""}></pmd-stream-header>`;
           const header = host.querySelector("pmd-stream-header");
           ["pmd-header-toggle", "pmd-edit", "pmd-add-job", "pmd-delete"].forEach(type => {
@@ -826,30 +673,30 @@
       tag: "<pmd-job-stream-card>",
       desc: "Job row card (image/thumb, title + suffix, Active toggle, schedule/time/extra badges). Attributes: <code>stream-idx</code>, <code>job-idx</code>, <code>title</code>, <code>image</code>, <code>suffix</code>, <code>schedule</code>, <code>time</code>, <code>active</code>, <code>extra</code>. Dispatches <code>pmd-job-edit</code>, <code>pmd-job-toggle-active</code>.",
       html: () => `
-        <div class="sb-canvas">
-          <div class="sb-stack" id="sb-job-cards"></div>
+        <div class="sb-canvas d-flex flex-wrap align-items-start gap-3 p-3 w-100 border rounded bg-body">
+          <div class="d-flex flex-column gap-3 w-100" id="sb-job-cards"></div>
         </div>
-        <div class="sb-controls">
-          <label><input type="checkbox" id="ctrl-job-thumb"> Show thumb tick</label>
+        <div class="sb-controls d-flex flex-wrap align-items-center gap-3 mt-3 small">
+          <label><input class="form-check-input" type="checkbox" id="ctrl-job-thumb"> Show thumb tick</label>
         </div>
-        <div class="sb-log" id="log-pmd-job-stream-card">events: none yet</div>
+        <div class="sb-log mt-3 small font-monospace text-success border rounded bg-body px-2 py-1" id="log-pmd-job-stream-card">events: none yet</div>
       `,
       init: () => {
         const host = document.getElementById("sb-job-cards");
         const renderCards = () => {
           const showThumb = document.getElementById("ctrl-job-thumb").checked;
           host.innerHTML = `
-            <div class="sb-frame-wrapper">
-              <div class="sb-label">No image / no suffix</div>
-              <pmd-job-stream-card stream-idx="0" job-idx="0" title="Standup" schedule="Weekdays" active="true"${showThumb ? ` image="Blue"` : ""} key-prefix="sbc_"></pmd-job-stream-card>
+            <div class="w-100">
+              <div class="sb-label small fw-semibold text-uppercase text-secondary mb-2">No image / no suffix</div>
+              <pmd-job-stream-card class="d-block" stream-idx="0" job-idx="0" title="Standup" schedule="Weekdays" active="true"${showThumb ? ` image="Blue"` : ""} key-prefix="sbc_"></pmd-job-stream-card>
             </div>
-            <div class="sb-frame-wrapper">
-              <div class="sb-label">Image + suffix + time + sleep extra</div>
-              <pmd-job-stream-card stream-idx="0" job-idx="1" title="Report" image="Green" key-prefix="sbc_" suffix="(12)" schedule="Every day" time="09:00" extra="Sleep: 28 Sep 2026" active="true"></pmd-job-stream-card>
+            <div class="w-100">
+              <div class="sb-label small fw-semibold text-uppercase text-secondary mb-2">Image + suffix + time + sleep extra</div>
+              <pmd-job-stream-card class="d-block" stream-idx="0" job-idx="1" title="Report" image="Green" key-prefix="sbc_" suffix="(12)" schedule="Every day" time="09:00" extra="Sleep: 28 Sep 2026" active="true"></pmd-job-stream-card>
             </div>
-            <div class="sb-frame-wrapper">
-              <div class="sb-label">Inactive + wait extra</div>
-              <pmd-job-stream-card stream-idx="1" job-idx="0" title="Laundry" schedule="Weekends" extra="Wait: the load to finish" active="false"${showThumb ? ` image="Blue"` : ""} key-prefix="sbc_"></pmd-job-stream-card>
+            <div class="w-100">
+              <div class="sb-label small fw-semibold text-uppercase text-secondary mb-2">Inactive + wait extra</div>
+              <pmd-job-stream-card class="d-block" stream-idx="1" job-idx="0" title="Laundry" schedule="Weekends" extra="Wait: the load to finish" active="false"${showThumb ? ` image="Blue"` : ""} key-prefix="sbc_"></pmd-job-stream-card>
             </div>`;
           host.querySelectorAll("pmd-job-stream-card").forEach((card) => {
             card.addEventListener("pmd-job-edit", (e) => log("pmd-job-stream-card", "pmd-job-edit stream=" + e.detail.streamIdx + " job=" + e.detail.jobIdx));
@@ -866,16 +713,16 @@
       id: "pmd-job-search-card",
       name: "pmd-job-search-card",
       tag: "<pmd-job-search-card>",
-      desc: "Job card used by the Search Jobs list. Host carries bootstrap <code>card p-2 mb-2</code>. Attributes: <code>stream-idx</code>, <code>job-idx</code>, <code>title</code>, <code>image</code>, <code>stream-image</code>, <code>stream-title</code>, <code>tab</code>, <code>suffix</code>, <code>schedule</code>, <code>time</code>, <code>extra</code>, <code>active</code>. Dispatches <code>pmd-job-edit</code>, <code>pmd-job-toggle-active</code>.",
+      desc: "Job card used by the Search Jobs list. The block-level host and card surface use theme-aware Bootstrap utilities. Attributes: <code>stream-idx</code>, <code>job-idx</code>, <code>title</code>, <code>image</code>, <code>stream-image</code>, <code>stream-title</code>, <code>tab</code>, <code>suffix</code>, <code>schedule</code>, <code>time</code>, <code>extra</code>, <code>active</code>. Dispatches <code>pmd-job-edit</code>, <code>pmd-job-toggle-active</code>.",
       html: () => `
-        <div class="sb-canvas">
-          <div class="sb-stack">
-            <pmd-job-search-card stream-idx="0" job-idx="0" title="Report" stream-title="Work" tab="progress" suffix="(12)" schedule="Every day" time="09:00" extra="Wait: the meeting" active="true" stream-image="Blue" image="Green" key-prefix="sbj_"></pmd-job-search-card>
-            <pmd-job-search-card stream-idx="1" job-idx="0" title="Mow the lawn" stream-title="Home" tab="maintenance" schedule="Weekends" active="true" key-prefix="sbj_"></pmd-job-search-card>
-            <pmd-job-search-card stream-idx="1" job-idx="1" title="Pay bills" stream-title="Home" tab="maintenance" schedule="Monthly" extra="Sleep: 01 Sep 2026" active="false" key-prefix="sbj_"></pmd-job-search-card>
+        <div class="sb-canvas d-flex flex-wrap align-items-start gap-3 p-3 w-100 border rounded bg-body">
+          <div class="d-flex flex-column gap-3 w-100">
+            <pmd-job-search-card class="d-block mb-2" stream-idx="0" job-idx="0" title="Report" stream-title="Work" tab="progress" suffix="(12)" schedule="Every day" time="09:00" extra="Wait: the meeting" active="true" stream-image="Blue" image="Green" key-prefix="sbj_"></pmd-job-search-card>
+            <pmd-job-search-card class="d-block mb-2" stream-idx="1" job-idx="0" title="Mow the lawn" stream-title="Home" tab="maintenance" schedule="Weekends" active="true" key-prefix="sbj_"></pmd-job-search-card>
+            <pmd-job-search-card class="d-block mb-2" stream-idx="1" job-idx="1" title="Pay bills" stream-title="Home" tab="maintenance" schedule="Monthly" extra="Sleep: 01 Sep 2026" active="false" key-prefix="sbj_"></pmd-job-search-card>
           </div>
         </div>
-        <div class="sb-log" id="log-pmd-job-search-card">events: none yet</div>
+        <div class="sb-log mt-3 small font-monospace text-success border rounded bg-body px-2 py-1" id="log-pmd-job-search-card">events: none yet</div>
       `,
       init: () => {
         document.querySelectorAll("#pmd-job-search-card pmd-job-search-card").forEach((card) => {
@@ -896,15 +743,15 @@
       tag: "<pmd-job-today-card>",
       desc: "A single job row on the Today list. Attributes: <code>job-id</code>, <code>stream-idx</code>, <code>job-idx</code>, <code>title</code>, <code>suffix</code>, <code>daily</code>, <code>done</code>, <code>checked</code>, <code>stream-image</code>, <code>job-image</code>, <code>stream-title</code>, <code>tab</code>, <code>description</code>, <code>key-prefix</code>. Dispatches <code>pmd-job-today-toggle</code> ({ jobId, checked }) and <code>pmd-job-today-view</code> ({ streamIdx, jobIdx }). An <code>&lt;smd-draghandle class=\"drag-handle\" slot=\"drag-handle\"&gt;</code> can be slotted in; otherwise the built-in handle is shown.",
       html: () => `
-        <div class="sb-canvas" style="flex-direction:column;width:100%">
-          <div id="sb-today-cards" style="width:100%"></div>
+        <div class="sb-canvas d-flex flex-column flex-wrap align-items-start gap-3 p-3 w-100 border rounded bg-body">
+          <div class="w-100" id="sb-today-cards"></div>
         </div>
-        <div class="sb-controls">
-          <label><input type="checkbox" id="ctrl-today-daily" checked> daily (repeat icon)</label>
-          <label><input type="checkbox" id="ctrl-today-done"> done</label>
-          <label><input type="checkbox" id="ctrl-today-handle" checked> slot drag handle</label>
+        <div class="sb-controls d-flex flex-wrap align-items-center gap-3 mt-3 small">
+          <label><input class="form-check-input" type="checkbox" id="ctrl-today-daily" checked> daily (repeat icon)</label>
+          <label><input class="form-check-input" type="checkbox" id="ctrl-today-done"> done</label>
+          <label><input class="form-check-input" type="checkbox" id="ctrl-today-handle" checked> slot drag handle</label>
         </div>
-        <div class="sb-log" id="log-pmd-job-today-card">events: none yet</div>
+        <div class="sb-log mt-3 small font-monospace text-success border rounded bg-body px-2 py-1" id="log-pmd-job-today-card">events: none yet</div>
       `,
       init: () => {
         const render = () => {
@@ -914,10 +761,10 @@
           const hostEl = document.getElementById("sb-today-cards");
           const handle = '<smd-draghandle class="drag-handle" slot="drag-handle" title="drag"></smd-draghandle>';
           hostEl.innerHTML = `
-            <pmd-job-today-card job-id="sb1" stream-idx="0" job-idx="0" title="Report" suffix="(12)" stream-title="Work" tab="progress" description="Weekly report with metrics" stream-image="Blue" job-image="Green" key-prefix="sbt_" ${daily ? "daily" : ""} ${done ? "done" : ""}>
+            <pmd-job-today-card class="today-drag-card d-block user-select-none" job-id="sb1" stream-idx="0" job-idx="0" title="Report" suffix="(12)" stream-title="Work" tab="progress" description="Weekly report with metrics" stream-image="Blue" job-image="Green" key-prefix="sbt_" ${daily ? "daily" : ""} ${done ? "done" : ""}>
               ${slotHandle ? handle : ""}
             </pmd-job-today-card>
-            <pmd-job-today-card job-id="sb2" stream-idx="1" job-idx="0" title="Mow the lawn" stream-title="Home" tab="maintenance" key-prefix="sbt_" ${daily ? "daily" : ""} ${done ? "done" : ""}>
+            <pmd-job-today-card class="today-drag-card d-block user-select-none" job-id="sb2" stream-idx="1" job-idx="0" title="Mow the lawn" stream-title="Home" tab="maintenance" key-prefix="sbt_" ${daily ? "daily" : ""} ${done ? "done" : ""}>
               ${slotHandle ? handle : ""}
             </pmd-job-today-card>`;
           hostEl.querySelectorAll("pmd-job-today-card").forEach((card) => {
@@ -939,13 +786,13 @@
       tag: "<smd-image-card>",
       desc: "Card for a single entry of a localStorage images list. The image is looked up by NAME via <code>&lt;smd-image&gt;</code> using <code>key-prefix</code> (list key = <code>keyPrefix + \"images\"</code>) + <code>image</code>; <code>title</code> is the label (defaults to the image name), <code>index</code> is echoed in events, and <code>in-use</code> disables Delete. Dispatches <code>smd-image-card-action</code> with <code>{ action: delete|duplicate|edit, index }</code>.",
       html: () => `
-        <div class="sb-canvas">
-          <div class="sb-stack" id="sb-image-cards"></div>
+        <div class="sb-canvas d-flex flex-wrap align-items-start gap-3 p-3 w-100 border rounded bg-body">
+          <div class="d-flex flex-column gap-3 w-100" id="sb-image-cards"></div>
         </div>
-        <div class="sb-controls">
-          <label><input type="checkbox" id="ctrl-image-inuse"> Mark Delete disabled (in-use)</label>
+        <div class="sb-controls d-flex flex-wrap align-items-center gap-3 mt-3 small">
+          <label><input class="form-check-input" type="checkbox" id="ctrl-image-inuse"> Mark Delete disabled (in-use)</label>
         </div>
-        <div class="sb-log" id="log-smd-image-card">events: none yet</div>
+        <div class="sb-log mt-3 small font-monospace text-success border rounded bg-body px-2 py-1" id="log-smd-image-card">events: none yet</div>
       `,
       init: () => {
         const seed = [
@@ -958,8 +805,8 @@
         const renderCards = () => {
           const inUse = document.getElementById("ctrl-image-inuse").checked;
           host.innerHTML = seed.map((img, i) => `
-            <div class="sb-frame-wrapper">
-              <div class="sb-label">${img.name}</div>
+            <div class="w-100">
+              <div class="sb-label small fw-semibold text-uppercase text-secondary mb-2">${img.name}</div>
               <smd-image-card key-prefix="sbic_" index="${i}" title="${img.name}" image="${img.name}" ${inUse ? "in-use" : ""}></smd-image-card>
             </div>`).join("");
           host.querySelectorAll("smd-image-card").forEach((card) => {
@@ -978,13 +825,13 @@
       tag: "<smd-image-select>",
       desc: "Image thumbnail + name + an Edit button. The image is looked up by NAME via <code>&lt;smd-image&gt;</code> using <code>key-prefix</code> (list key = <code>keyPrefix + \"images\"</code>) + <code>image</code>; <code>label</code> overrides the shown name; <code>disabled</code> disables the Edit button. Clicking Edit dispatches <code>smd-image-select-action</code> (<code>{ action: \"edit\" }</code>).",
       html: () => `
-        <div class="sb-canvas">
-          <div class="sb-stack" id="sb-image-selects"></div>
+        <div class="sb-canvas d-flex flex-wrap align-items-start gap-3 p-3 w-100 border rounded bg-body">
+          <div class="d-flex flex-column gap-3 w-100" id="sb-image-selects"></div>
         </div>
-        <div class="sb-controls">
-          <label><input type="checkbox" id="ctrl-image-select-disabled"> Disabled (view mode)</label>
+        <div class="sb-controls d-flex flex-wrap align-items-center gap-3 mt-3 small">
+          <label><input class="form-check-input" type="checkbox" id="ctrl-image-select-disabled"> Disabled (view mode)</label>
         </div>
-        <div class="sb-log" id="log-smd-image-select">events: none yet</div>
+        <div class="sb-log mt-3 small font-monospace text-success border rounded bg-body px-2 py-1" id="log-smd-image-select">events: none yet</div>
       `,
       init: () => {
         const seed = [
@@ -995,16 +842,16 @@
         const render = () => {
           const disabled = document.getElementById("ctrl-image-select-disabled").checked;
           host.innerHTML = `
-            <div class="sb-frame-wrapper">
-              <div class="sb-label">With image</div>
+            <div class="w-100">
+              <div class="sb-label small fw-semibold text-uppercase text-secondary mb-2">With image</div>
               <smd-image-select key-prefix="sbis_" image="Calendar" label-id="sb-select-name"></smd-image-select>
             </div>
-            <div class="sb-frame-wrapper">
-              <div class="sb-label">No image</div>
+            <div class="w-100">
+              <div class="sb-label small fw-semibold text-uppercase text-secondary mb-2">No image</div>
               <smd-image-select key-prefix="sbis_" label-id="sb-select-empty"></smd-image-select>
             </div>
-            <div class="sb-frame-wrapper">
-              <div class="sb-label">Disabled</div>
+            <div class="w-100">
+              <div class="sb-label small fw-semibold text-uppercase text-secondary mb-2">Disabled</div>
               <smd-image-select key-prefix="sbis_" image="Calendar" ${disabled ? "disabled" : ""}></smd-image-select>
             </div>`;
           host.querySelectorAll("smd-image-select").forEach((sel) => {
@@ -1021,21 +868,21 @@
       id: "smd-image-editor",
       name: "smd-image-editor",
       tag: "<smd-image-editor>",
-      desc: "The shared image edit form (hosted in the Bootstrap <code>#imageEditModal</code> by the apps). Light DOM on purpose so Bootstrap/app CSS styles it and app selectors keep working. Properties: <code>image</code> (the images[] entry), <code>index</code>, <code>isNew</code>, <code>isDuplicate</code>; call <code>render()</code> after setting them. OK / Cancel / Upload dispatch <code>smd-image-editor-action</code> (<code>{ action, index }</code>); the name/colour controls call the shared smd-images.js globals.",
+      desc: "The shared image edit form (hosted in the Bootstrap <code>#imageEditModal</code> by the apps). Light DOM on purpose so Bootstrap and shared CSS style it and app selectors keep working. Properties: <code>image</code> (the images[] entry), <code>index</code>, <code>isNew</code>, <code>isDuplicate</code>; call <code>render()</code> after setting them. OK / Cancel / Upload dispatch <code>smd-image-editor-action</code> (<code>{ action, index }</code>); the name/colour controls call the shared smd-images.js globals.",
       html: () => `
-        <div class="sb-canvas" style="flex-direction:column;width:100%">
-          <div id="sb-image-editor" style="width:100%"></div>
+        <div class="sb-canvas d-flex flex-column flex-wrap align-items-start gap-3 p-3 w-100 border rounded bg-body">
+          <div class="w-100" id="sb-image-editor"></div>
         </div>
-        <div class="sb-controls">
-          <label><input type="checkbox" id="ctrl-image-editor-svg" checked> SVG image (colour controls)</label>
+        <div class="sb-controls d-flex flex-wrap align-items-center gap-3 mt-3 small">
+          <label><input class="form-check-input" type="checkbox" id="ctrl-image-editor-svg" checked> SVG image (colour controls)</label>
         </div>
-        <div class="sb-log" id="log-smd-image-editor">events: none yet</div>
+        <div class="sb-log mt-3 small font-monospace text-success border rounded bg-body px-2 py-1" id="log-smd-image-editor">events: none yet</div>
       `,
       init: () => {
         const host = document.getElementById("sb-image-editor");
         const svg = "data:image/svg+xml," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="45" height="45" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" stroke="#111111" stroke-width="2" fill="none"/></svg>');
         const render = () => {
-          host.innerHTML = "<smd-image-editor></smd-image-editor>";
+          host.innerHTML = '<smd-image-editor class="d-block w-100"></smd-image-editor>';
           const editor = host.querySelector("smd-image-editor");
           editor.index = 0;
           editor.image = {
@@ -1056,21 +903,21 @@
       id: "smd-draghandle",
       name: "smd-draghandle",
       tag: "<smd-draghandle>",
-      desc: "The shared drag handle (Font Awesome <code>fa-bars</code>). Size is a VALUE, not a style: <code>SmdDragHandle.setDefaultSize(\"normal\" | \"large\")</code> (the app's Touch size setting) resizes every handle, including handles nested inside pmd-* components; a per-instance <code>size</code> attribute overrides it. Keep the <code>drag-handle</code> class on it — that is the selector Sortable hooks.",
+      desc: "The shared drag handle (Font Awesome <code>fa-bars</code>). Size is a VALUE, not a style: <code>SmdDragHandle.setDefaultSize(\"normal\" | \"large\")</code> (the app's Touch size setting) resizes every handle, including handles nested inside pmd-* components; a per-instance <code>size</code> attribute overrides it. Keep the <code>drag-handle</code> class on it ï¿½ that is the selector Sortable hooks.",
       html: () => `
-        <div class="sb-canvas">
-          <div class="sb-row" style="gap:1.5rem;align-items:center">
+        <div class="sb-canvas d-flex flex-wrap align-items-start gap-3 p-3 w-100 border rounded bg-body">
+          <div class="d-flex flex-wrap align-items-center gap-4">
             <smd-draghandle class="drag-handle"></smd-draghandle>
             <smd-draghandle class="drag-handle" size="large"></smd-draghandle>
             <smd-draghandle class="drag-handle" size="normal"></smd-draghandle>
           </div>
         </div>
-        <div class="sb-controls">
-          <label><input type="radio" name="ctrl-draghandle-size" value="normal"> Default normal</label>
-          <label><input type="radio" name="ctrl-draghandle-size" value="large"> Default large</label>
+        <div class="sb-controls d-flex flex-wrap align-items-center gap-3 mt-3 small">
+          <label><input class="form-check-input" type="radio" name="ctrl-draghandle-size" value="normal"> Default normal</label>
+          <label><input class="form-check-input" type="radio" name="ctrl-draghandle-size" value="large"> Default large</label>
           <span>(also resizes every smd-checkbox)</span>
         </div>
-        <div class="sb-log" id="log-smd-draghandle">events: none (handles are sized values)</div>
+        <div class="sb-log mt-3 small font-monospace text-success border rounded bg-body px-2 py-1" id="log-smd-draghandle">events: none (handles are sized values)</div>
       `,
       init: () => {
         const setSize = (value) => {
@@ -1092,8 +939,8 @@
       tag: "<smd-badge>",
       desc: "Themed Bootstrap badge. Colours come from the loaded Bootswatch theme: applySmdVars() probes a real <code>.badge.text-bg-&lt;variant&gt;</code> in the light DOM and publishes <code>--smd-badge-&lt;variant&gt;-{bg,text}</code>. Attributes: <code>variant</code> (primary/secondary/success/danger/warning/info/light/dark, default primary) and <code>pill</code>.",
       html: () => `
-        <div class="sb-canvas" style="flex-direction:column;gap:0.75rem">
-          <div class="sb-row" style="flex-wrap:wrap">
+        <div class="sb-canvas d-flex flex-column flex-wrap align-items-start gap-3 p-3 w-100 border rounded bg-body">
+          <div class="d-flex flex-wrap gap-3">
             <smd-badge variant="primary">Primary</smd-badge>
             <smd-badge variant="secondary">Secondary</smd-badge>
             <smd-badge variant="success">Success</smd-badge>
@@ -1103,7 +950,7 @@
             <smd-badge variant="light">Light</smd-badge>
             <smd-badge variant="dark">Dark</smd-badge>
           </div>
-          <div class="sb-row" style="flex-wrap:wrap;align-items:center">
+          <div class="d-flex flex-wrap align-items-center gap-3">
             <span>Pills:</span>
             <smd-badge variant="primary" pill>Primary</smd-badge>
             <smd-badge variant="secondary" pill>Secondary</smd-badge>
@@ -1111,7 +958,7 @@
             <smd-badge variant="info" pill>Progress</smd-badge>
           </div>
         </div>
-        <div class="sb-log" id="log-smd-badge">events: none (badges are sized/coloured values)</div>
+        <div class="sb-log mt-3 small font-monospace text-success border rounded bg-body px-2 py-1" id="log-smd-badge">events: none (badges are sized/coloured values)</div>
       `,
       init: () => {}
     });
@@ -1123,11 +970,11 @@
       tag: "<smd-image-dropdown>",
       desc: "Shared dropdown picker fed by JS data, not DOM: set <code>options</code> = [{ name, image }] (image OPTIONAL, so a no-image \"All\" row works) and <code>selected</code> = the chosen option's NAME. Dispatches <code>smd-image-dropdown-change</code> ({ name }). Attributes: <code>key-prefix</code>, <code>disabled</code>.",
       html: () => `
-        <div class="sb-canvas" style="flex-direction:column;gap:0.75rem;align-items:flex-start">
-          <div style="min-width:200px"><smd-image-dropdown id="sb-image-dropdown" key-prefix="sbc_"></smd-image-dropdown></div>
-          <div style="min-width:200px"><smd-image-dropdown id="sb-image-dropdown-disabled" key-prefix="sbc_" disabled></smd-image-dropdown></div>
+        <div class="sb-canvas d-flex flex-column flex-wrap align-items-start gap-3 p-3 w-100 border rounded bg-body">
+          <div class="w-100 col-sm-4"><smd-image-dropdown class="d-block w-100" id="sb-image-dropdown" key-prefix="sbc_"></smd-image-dropdown></div>
+          <div class="w-100 col-sm-4"><smd-image-dropdown class="d-block w-100" id="sb-image-dropdown-disabled" key-prefix="sbc_" disabled></smd-image-dropdown></div>
         </div>
-        <div class="sb-log" id="log-smd-image-dropdown">events: none yet</div>
+        <div class="sb-log mt-3 small font-monospace text-success border rounded bg-body px-2 py-1" id="log-smd-image-dropdown">events: none yet</div>
       `,
       init: () => {
         const opts = [
@@ -1151,20 +998,20 @@
       tag: "<smd-checkbox>",
       desc: "The themed checkbox used across the app. Add <code>switch</code> for a pill toggle, <code>checked</code>/<code>disabled</code> as usual; the label text is slotted. The host is ARIA-checkable (<code>role</code> + <code>aria-checked</code>) and dispatches <code>change</code>/<code>input</code> with detail <code>{ checked }</code>.",
       html: () => `
-        <div class="sb-canvas" style="flex-direction:column;gap:0.75rem">
-          <div class="sb-row">
+        <div class="sb-canvas d-flex flex-column flex-wrap align-items-start gap-3 p-3 w-100 border rounded bg-body">
+          <div class="d-flex flex-wrap align-items-start gap-3">
             <smd-checkbox checked>Checked</smd-checkbox>
             <smd-checkbox>Unchecked</smd-checkbox>
             <smd-checkbox checked disabled>Checked (disabled)</smd-checkbox>
             <smd-checkbox disabled>Unchecked (disabled)</smd-checkbox>
           </div>
-          <div class="sb-row">
+          <div class="d-flex flex-wrap align-items-start gap-3">
             <smd-checkbox switch checked>Switch on</smd-checkbox>
             <smd-checkbox switch>Switch off</smd-checkbox>
             <smd-checkbox switch disabled>Switch (disabled)</smd-checkbox>
           </div>
         </div>
-        <div class="sb-log" id="log-smd-checkbox">events: none yet</div>
+        <div class="sb-log mt-3 small font-monospace text-success border rounded bg-body px-2 py-1" id="log-smd-checkbox">events: none yet</div>
       `,
       init: () => {
         document.querySelectorAll("#smd-checkbox smd-checkbox").forEach((cb) => {
@@ -1178,17 +1025,18 @@
       id: "smd-theme",
       name: "smd-theme",
       tag: "<smd-theme>",
-      desc: "Theme selector. Renders a <code>&lt;select&gt;</code> of every theme from the shared <code>themeConfig</code>; the current value is the <code>theme</code> attribute. Dispatches <code>smd-theme-change</code> ({ theme }); it does not apply the theme itself (the host app calls applyTheme()).",
+      desc: "Theme selector. Renders theme and Default/Light/Dark mode selects from the shared <code>themeConfig</code>; current values are held in the <code>theme</code> and <code>mode</code> attributes. Dispatches <code>smd-theme-change</code> ({ theme, mode, source }); it does not apply the theme itself.",
       html: () => `
-        <div class="sb-canvas">
-          <div style="min-width:240px"><smd-theme id="sb-theme"></smd-theme></div>
+        <div class="sb-canvas d-flex flex-wrap align-items-start gap-3 p-3 w-100 border rounded bg-body">
+          <div class="w-100 col-sm-4"><smd-theme class="d-block" id="sb-theme"></smd-theme></div>
         </div>
-        <div class="sb-log" id="log-smd-theme">events: none</div>
+        <div class="sb-log mt-3 small font-monospace text-success border rounded bg-body px-2 py-1" id="log-smd-theme">events: none</div>
       `,
       init: () => {
         const el = document.getElementById("sb-theme");
         el.theme = themeSelect.value;
-        el.addEventListener("smd-theme-change", (e) => log("smd-theme", "theme=" + e.detail.theme));
+        el.mode = modeSelect.value;
+        el.addEventListener("smd-theme-change", (e) => log("smd-theme", "theme=" + e.detail.theme + " mode=" + e.detail.mode + " source=" + e.detail.source));
       }
     });
 
@@ -1199,14 +1047,14 @@
       tag: "<smd-image-picker>",
       desc: "Self-contained image + icon picker. Shows the app's localStorage images (list key = <code>key-prefix + \"images\"</code>) plus Bootstrap / Font Awesome / FA Brands icon tabs. Attributes: <code>key-prefix</code>, <code>searchable</code>. Dispatches <code>smd-image-picker-select</code> ({ name }) and <code>smd-image-picker-close</code>.",
       html: () => `
-        <div class="sb-canvas" style="flex-direction:column;width:100%">
-          <div style="width:100%"><smd-image-picker id="sb-picker" key-prefix="sbip_"></smd-image-picker></div>
+        <div class="sb-canvas d-flex flex-column flex-wrap align-items-start gap-3 p-3 w-100 border rounded bg-body">
+          <div class="w-100"><smd-image-picker class="d-block w-100" id="sb-picker" key-prefix="sbip_"></smd-image-picker></div>
         </div>
-        <div class="sb-controls">
-          <label><input type="checkbox" id="ctrl-picker-searchable" checked> Searchable</label>
-          <label>Picked: <span id="sb-picker-result" class="sb-placeholder">none</span></label>
+        <div class="sb-controls d-flex flex-wrap align-items-center gap-3 mt-3 small">
+          <label><input class="form-check-input" type="checkbox" id="ctrl-picker-searchable" checked> Searchable</label>
+          <label>Picked: <span id="sb-picker-result" class="small text-secondary fst-italic">none</span></label>
         </div>
-        <div class="sb-log" id="log-smd-image-picker">events: none yet</div>
+        <div class="sb-log mt-3 small font-monospace text-success border rounded bg-body px-2 py-1" id="log-smd-image-picker">events: none yet</div>
       `,
       init: () => {
         const picker = document.getElementById("sb-picker");
@@ -1228,35 +1076,35 @@
       tag: "<pmd-stream-header> + <pmd-job-stream-card>",
       desc: "A combined stream row: a <code>pmd-stream-header</code> with its <code>pmd-job-stream-card</code> children, as rendered in the Jobs editor. The header stripes the expanded state and the column background; cards stack beneath. Dispatches header (<code>pmd-header-toggle</code>, <code>pmd-edit</code>, <code>pmd-add-job</code>, <code>pmd-delete</code>) and card (<code>pmd-job-edit</code>, <code>pmd-job-toggle-active</code>) events.",
       html: () => `
-        <div class="sb-canvas">
-          <div class="sb-stack">
-            <div class="sb-frame-wrapper">
-              <div class="sb-label">Collapsed stream</div>
-              <div class="sb-stream-card">
-                <div class="sb-stream-head"><pmd-stream-header stream-idx="0" title="Work" tab="progress" image="Blue" key-prefix="sbp_" jobcounts="1/2/3"></pmd-stream-header></div>
-                <div class="sb-stream-body">
-                  <pmd-job-stream-card stream-idx="0" job-idx="0" title="Standup" schedule="Weekdays" active="true" key-prefix="sbp_"></pmd-job-stream-card>
-                  <pmd-job-stream-card stream-idx="0" job-idx="1" title="Report" image="Green" key-prefix="sbp_" suffix="(12)" schedule="Every day" time="09:00" extra="Sleep: 28 Sep 2026" active="true"></pmd-job-stream-card>
+        <div class="sb-canvas d-flex flex-wrap align-items-start gap-3 p-3 w-100 border rounded bg-body">
+          <div class="d-flex flex-column gap-3 w-100">
+            <div class="w-100">
+              <div class="sb-label small fw-semibold text-uppercase text-secondary mb-2">Collapsed stream</div>
+              <div class="sb-stream-card border rounded overflow-hidden bg-body">
+                <div class="sb-stream-head p-0"><pmd-stream-header class="d-block" stream-idx="0" title="Work" tab="progress" image="Blue" key-prefix="sbp_" jobcounts="1/2/3"></pmd-stream-header></div>
+                <div class="sb-stream-body p-0">
+                  <pmd-job-stream-card class="d-block" stream-idx="0" job-idx="0" title="Standup" schedule="Weekdays" active="true" key-prefix="sbp_"></pmd-job-stream-card>
+                  <pmd-job-stream-card class="d-block" stream-idx="0" job-idx="1" title="Report" image="Green" key-prefix="sbp_" suffix="(12)" schedule="Every day" time="09:00" extra="Sleep: 28 Sep 2026" active="true"></pmd-job-stream-card>
                 </div>
               </div>
             </div>
-            <div class="sb-frame-wrapper">
-              <div class="sb-label">Expanded stream (with can-delete)</div>
-              <div class="sb-stream-card">
-                <div class="sb-stream-head"><pmd-stream-header stream-idx="1" title="Home" tab="maintenance" image="Green" key-prefix="sbp_" jobcounts="0/1/4" expanded can-delete></pmd-stream-header></div>
-                <div class="sb-stream-body">
-                  <pmd-job-stream-card stream-idx="1" job-idx="0" title="Mow the lawn" schedule="Weekends" active="true" key-prefix="sbp_"></pmd-job-stream-card>
-                  <pmd-job-stream-card stream-idx="1" job-idx="1" title="Pay bills" schedule="Monthly" extra="Wait: the direct debit" active="false" key-prefix="sbp_"></pmd-job-stream-card>
+            <div class="w-100">
+              <div class="sb-label small fw-semibold text-uppercase text-secondary mb-2">Expanded stream (with can-delete)</div>
+              <div class="sb-stream-card border rounded overflow-hidden bg-body is-expanded">
+                <div class="sb-stream-head p-0"><pmd-stream-header class="d-block" stream-idx="1" title="Home" tab="maintenance" image="Green" key-prefix="sbp_" jobcounts="0/1/4" expanded can-delete></pmd-stream-header></div>
+                <div class="sb-stream-body p-0">
+                  <pmd-job-stream-card class="d-block" stream-idx="1" job-idx="0" title="Mow the lawn" schedule="Weekends" active="true" key-prefix="sbp_"></pmd-job-stream-card>
+                  <pmd-job-stream-card class="d-block" stream-idx="1" job-idx="1" title="Pay bills" schedule="Monthly" extra="Wait: the direct debit" active="false" key-prefix="sbp_"></pmd-job-stream-card>
                 </div>
               </div>
             </div>
           </div>
         </div>
-        <div class="sb-controls">
-          <label><input type="checkbox" id="ctrl-stream-thumb" checked> Show drag handle</label>
-          <label><input type="checkbox" id="ctrl-stream-2nd" checked> Show 2nd stream</label>
+        <div class="sb-controls d-flex flex-wrap align-items-center gap-3 mt-3 small">
+          <label><input class="form-check-input" type="checkbox" id="ctrl-stream-thumb" checked> Show drag handle</label>
+          <label><input class="form-check-input" type="checkbox" id="ctrl-stream-2nd" checked> Show 2nd stream</label>
         </div>
-        <div class="sb-log" id="log-pmd-stream">events: none yet</div>
+        <div class="sb-log mt-3 small font-monospace text-success border rounded bg-body px-2 py-1" id="log-pmd-stream">events: none yet</div>
       `,
       init: () => {
         const render = () => {
@@ -1307,16 +1155,16 @@
       tag: "<cmd-countdown-card>",
       desc: "A CountMyDays countdown tile: category + date image thumbnails (via <code>smd-image</code>), title, event date, a Local/Google source badge and the countdown numbers. Attributes: <code>title</code>, <code>date-text</code>, <code>source</code> (local/google), <code>count1</code>, <code>count2</code>, <code>category</code>, <code>category-image</code>, <code>image</code>, <code>key-prefix</code>.",
       html: () => `
-        <div class="sb-canvas">
-          <div class="sb-stack" id="sb-countdown-cards" style="width:100%">
-            <cmd-countdown-card title="Mum's Birthday" date-text="Tue 14 Jul 2026" source="local" count1="3 weeks" count2="4 days" category="Birthday" category-image="Blue" image="Drink 1" key-prefix="sbc_" style="width:100%"></cmd-countdown-card>
-            <cmd-countdown-card title="Project Deadline" date-text="Fri 30 Jun 2026" source="google" count1="12" count2="days" category="Work" key-prefix="sbc_" style="width:100%"></cmd-countdown-card>
+        <div class="sb-canvas d-flex flex-wrap align-items-start gap-3 p-3 w-100 border rounded bg-body">
+          <div class="d-flex flex-column gap-3 w-100" id="sb-countdown-cards">
+            <cmd-countdown-card class="d-block w-100" title="Mum's Birthday" date-text="Tue 14 Jul 2026" source="local" count1="3 weeks" count2="4 days" category="Birthday" category-image="Blue" image="Drink 1" key-prefix="sbc_"></cmd-countdown-card>
+            <cmd-countdown-card class="d-block w-100" title="Project Deadline" date-text="Fri 30 Jun 2026" source="google" count1="12" count2="days" category="Work" key-prefix="sbc_"></cmd-countdown-card>
           </div>
         </div>
-        <div class="sb-controls">
-          <label><input type="checkbox" id="ctrl-cmd-count2"> second count line</label>
+        <div class="sb-controls d-flex flex-wrap align-items-center gap-3 mt-3 small">
+          <label><input class="form-check-input" type="checkbox" id="ctrl-cmd-count2"> second count line</label>
         </div>
-        <div class="sb-log" id="log-cmd-countdown-card">events: none</div>
+        <div class="sb-log mt-3 small font-monospace text-success border rounded bg-body px-2 py-1" id="log-cmd-countdown-card">events: none</div>
       `,
       init: () => {
         const card = document.getElementById("sb-countdown-cards").querySelector("cmd-countdown-card");
@@ -1332,15 +1180,15 @@
       id: "cmd-date-card",
       name: "cmd-date-card",
       tag: "<cmd-date-card>",
-      desc: "A date row in the dates editor list. Attributes: <code>index</code>, <code>name</code>, <code>category</code>, <code>type</code>, <code>date-text</code>, <code>source</code> (local/google), <code>recurring</code>, <code>hidden</code>, <code>category-image</code>, <code>image</code>, <code>key-prefix</code>. The Local/Google/Repeat/Hidden badges sit on the DATE line (after the once/annual type text), themed info/primary/secondary. Dispatches <code>cmd-date-edit</code> / <code>cmd-date-delete</code> ({ index, source }); Google rows have no Delete.",
+      desc: "A date row in the dates editor list. Attributes: <code>index</code>, <code>name</code>, <code>category</code>, <code>type</code>, <code>date-text</code>, <code>source</code> (local/google), <code>recurring</code>, <code>data-google-hidden</code>, <code>category-image</code>, <code>image</code>, <code>key-prefix</code>. The Local/Google/Repeat/Hidden badges sit on the DATE line (after the once/annual type text), themed info/primary/secondary. Dispatches <code>cmd-date-edit</code> / <code>cmd-date-delete</code> ({ index, source }); Google rows have no Delete.",
       html: () => `
-        <div class="sb-canvas" style="flex-direction:column;width:100%">
-          <cmd-date-card index="0" name="Mum's Birthday" category="Birthday" type="annual" date-text="14 Jul" category-image="Blue" image="Drink 1" key-prefix="sbc_" style="width:100%"></cmd-date-card>
-          <cmd-date-card index="1" name="Project Deadline" category="Work" type="once" date-text="30 Jun 2026" key-prefix="sbc_" style="width:100%"></cmd-date-card>
-          <cmd-date-card index="2" name="Weekly Team Meeting" category="Work" type="recurring" date-text="21 Sep 2026" source="google" recurring="true" key-prefix="sbc_" style="width:100%"></cmd-date-card>
-          <cmd-date-card index="3" name="Surprise Party Planning" type="once" date-text="14 Nov 2026" source="google" hidden="true" key-prefix="sbc_" style="width:100%"></cmd-date-card>
+        <div class="sb-canvas d-flex flex-column flex-wrap align-items-start gap-3 p-3 w-100 border rounded bg-body">
+          <cmd-date-card class="d-block w-100" index="0" name="Mum's Birthday" category="Birthday" type="annual" date-text="14 Jul" category-image="Blue" image="Drink 1" key-prefix="sbc_"></cmd-date-card>
+          <cmd-date-card class="d-block w-100" index="1" name="Project Deadline" category="Work" type="once" date-text="30 Jun 2026" key-prefix="sbc_"></cmd-date-card>
+          <cmd-date-card class="d-block w-100" index="2" name="Weekly Team Meeting" category="Work" type="recurring" date-text="21 Sep 2026" source="google" recurring="true" key-prefix="sbc_"></cmd-date-card>
+          <cmd-date-card class="d-block w-100" index="3" name="Surprise Party Planning" type="once" date-text="14 Nov 2026" source="google" data-google-hidden="true" key-prefix="sbc_"></cmd-date-card>
         </div>
-        <div class="sb-log" id="log-cmd-date-card">events: none</div>
+        <div class="sb-log mt-3 small font-monospace text-success border rounded bg-body px-2 py-1" id="log-cmd-date-card">events: none</div>
       `,
       init: () => {
         document.querySelectorAll("#cmd-date-card cmd-date-card").forEach(card => {
@@ -1357,11 +1205,11 @@
       tag: "<cmd-category-card>",
       desc: "A category row in the categories editor list. Attributes: <code>index</code>, <code>name</code>, <code>image</code>, <code>key-prefix</code>. Dispatches <code>cmd-category-edit</code> / <code>cmd-category-delete</code> ({ index }).",
       html: () => `
-        <div class="sb-canvas" style="flex-direction:column;width:100%">
-          <cmd-category-card index="0" name="Birthday" image="Blue" key-prefix="sbc_" style="width:100%"></cmd-category-card>
-          <cmd-category-card index="1" name="Work" key-prefix="sbc_" style="width:100%"></cmd-category-card>
+        <div class="sb-canvas d-flex flex-column flex-wrap align-items-start gap-3 p-3 w-100 border rounded bg-body">
+          <cmd-category-card class="d-block w-100" index="0" name="Birthday" image="Blue" key-prefix="sbc_"></cmd-category-card>
+          <cmd-category-card class="d-block w-100" index="1" name="Work" key-prefix="sbc_"></cmd-category-card>
         </div>
-        <div class="sb-log" id="log-cmd-category-card">events: none</div>
+        <div class="sb-log mt-3 small font-monospace text-success border rounded bg-body px-2 py-1" id="log-cmd-category-card">events: none</div>
       `,
       init: () => {
         document.querySelectorAll("#cmd-category-card cmd-category-card").forEach(card => {
@@ -1378,21 +1226,21 @@
       tag: "<smd-date-picker>",
       desc: "Read-only date field backed by flatpickr with a Clear button. Attributes: <code>value</code> (a date string in <code>format</code>, default ISO <code>Y-m-d</code>), <code>format</code> (default <code>Y-m-d</code>), <code>alt-format</code> (display format, default <code>D j M Y</code>), <code>first-day-of-week</code> (0-6), <code>readonly</code>, <code>disabled</code>, <code>no-clear</code>. Dispatches <code>smd-date-picker-change</code> ({ value }).",
       html: () => `
-        <div class="sb-canvas" style="flex-direction:column;gap:0.75rem;align-items:flex-start">
-          <div style="min-width:260px;width:100%;max-width:340px">
+        <div class="sb-canvas d-flex flex-column flex-wrap align-items-start gap-3 p-3 w-100 border rounded bg-body">
+          <div class="w-100 col-sm-6 col-xl-4">
             <label class="form-label mb-1">Sleep Until (clearable)</label>
             <smd-date-picker id="sb-date-picker" first-day-of-week="2"></smd-date-picker>
           </div>
-          <div style="min-width:260px;width:100%;max-width:340px">
+          <div class="w-100 col-sm-6 col-xl-4">
             <label class="form-label mb-1">Once date, d/m/Y, no Clear</label>
             <smd-date-picker id="sb-date-picker-cm" no-clear format="d/m/Y" alt-format="d/m/Y" value="18/09/2026"></smd-date-picker>
           </div>
-          <div style="min-width:260px;width:100%;max-width:340px">
+          <div class="w-100 col-sm-6 col-xl-4">
             <label class="form-label mb-1">Read-only view</label>
             <smd-date-picker id="sb-date-picker-ro" readonly value="2026-09-18"></smd-date-picker>
           </div>
         </div>
-        <div class="sb-log" id="log-smd-date-picker">events: none yet</div>
+        <div class="sb-log mt-3 small font-monospace text-success border rounded bg-body px-2 py-1" id="log-smd-date-picker">events: none yet</div>
       `,
       init: () => {
         document.querySelectorAll("smd-date-picker").forEach((el) => {
@@ -1408,13 +1256,13 @@
       tag: "<qrlink-card>",
       desc: "A QRLinks link tile: image thumbnail (via <code>smd-image</code>), title, description and the QR button (hidden when <code>url</code> is empty). Attributes: <code>index</code>, <code>title</code>, <code>description</code>, <code>url</code>, <code>image</code>, <code>key-prefix</code>. Dispatches <code>qrlink-qr</code> ({ index, url, title }).",
       html: () => `
-        <div class="sb-canvas" style="flex-direction:column;width:100%">
-          <div class="sb-stack" id="sb-qrlink-cards" style="width:100%">
-            <qrlink-card index="0" title="Example Site" url="https://example.com" description="A demo link" image="Blue" key-prefix="sbq_" style="width:100%"></qrlink-card>
-            <qrlink-card index="1" title="No URL Link" description="QR button hidden" key-prefix="sbq_" style="width:100%"></qrlink-card>
+        <div class="sb-canvas d-flex flex-column flex-wrap align-items-start gap-3 p-3 w-100 border rounded bg-body">
+          <div class="d-flex flex-column gap-3 w-100" id="sb-qrlink-cards">
+            <qrlink-card class="d-block w-100" index="0" title="Example Site" url="https://example.com" description="A demo link" image="Blue" key-prefix="sbq_"></qrlink-card>
+            <qrlink-card class="d-block w-100" index="1" title="No URL Link" description="QR button hidden" key-prefix="sbq_"></qrlink-card>
           </div>
         </div>
-        <div class="sb-log" id="log-qrlink-card">events: none yet</div>
+        <div class="sb-log mt-3 small font-monospace text-success border rounded bg-body px-2 py-1" id="log-qrlink-card">events: none yet</div>
       `,
       init: () => {
         localStorage.setItem("sbq_images", JSON.stringify([
@@ -1436,19 +1284,20 @@
       sections.forEach(s => {
         // nav link
         const a = document.createElement("a");
+        a.className = "link-secondary link-underline-none text-decoration-none fs-6 py-1 px-2 border rounded-pill";
         a.href = "#" + s.id;
         a.textContent = s.name;
         nav.appendChild(a);
 
         // section
         const section = document.createElement("section");
-        section.className = "sb-section";
+        section.className = "sb-section border rounded-3 bg-body text-body p-3 px-4 mb-5 text-break";
         section.id = s.id;
         section.innerHTML =
           `<a name="${s.id}"></a>` +
-          `<h2>${s.name}</h2>` +
-          `<span class="sb-tag">${escHtml(s.tag)}</span>` +
-          `<p class="sb-desc">${s.desc}</p>` +
+          `<h2 class="fs-5 fw-bold mb-1">${s.name}</h2>` +
+          `<span class="sb-tag d-inline-block font-monospace small text-secondary border rounded bg-body px-2 py-1 mb-3">${escHtml(s.tag)}</span>` +
+          `<p class="sb-desc text-secondary fs-6 mb-4">${s.desc}</p>` +
           s.html();
         main.appendChild(section);
       });

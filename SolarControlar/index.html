@@ -15,7 +15,6 @@
   <link id="theme-override-mode" rel="stylesheet" href="../shared/css/themes/dark.css">
   <link id="theme-override-specific" rel="stylesheet" href="../shared/css/themes/superhero/superhero.css">
   <link rel="stylesheet" href="../shared/css/styles.css">
-  <link rel="stylesheet" href="css/styles.css">
   <link rel="stylesheet" href="../shared/vendor/bootstrap-icons.css">
   <link rel="stylesheet" href="../shared/vendor/fontawesome/css/fontawesome.min.css">
   <link rel="stylesheet" href="../shared/vendor/fontawesome/css/solid.min.css">
@@ -42,7 +41,7 @@
 
     <div class="dropdown">
       <button id="btnMainMenu" class="btn p-1" data-bs-toggle="dropdown" title="Menu" aria-label="Menu">
-        <i class="fa-solid fa-bars" aria-hidden="true" style="font-size:22px"></i>
+        <i class="fa-solid fa-bars fs-4" aria-hidden="true"></i>
       </button>
       <ul class="dropdown-menu">
         <li><a class="dropdown-item" onclick="openSettings()">Settings</a></li>
@@ -59,10 +58,10 @@
   <div class="container-fluid px-3">
 
     <!-- FLASH MESSAGES -->
-    <div id="flashContainer"></div>
+    <div id="flashContainer" aria-live="polite"></div>
 
     <!-- TOP TILES (date, time, battery) -->
-    <solar-top-tiles id="topTiles"></solar-top-tiles>
+    <solar-top-tiles id="topTiles" class="d-block"></solar-top-tiles>
 
     <!-- MAIN TABS (panels owned by the shared smd-tabs component) -->
     <smd-tabs id="mainTabs" wrap padding="small"></smd-tabs>
@@ -78,7 +77,7 @@
           <div class="row mb-4 align-items-center col-md-8 mt-3">
             <div class="col-4 text-end"><label class="form-label mb-0">Theme</label></div>
             <div class="col-8">
-              <smd-theme id="themeSelector"></smd-theme>
+              <smd-theme id="themeSelector" class="d-block w-100"></smd-theme>
             </div>
           </div>
 
@@ -149,7 +148,7 @@
             <div class="col-4 text-end"></div>
             <div class="col-8">
               <a href="https://buymeacoffee.com/ownimage" target="_blank" rel="noopener">
-                <img src="../shared/vendor/bmc-default-yellow.png" alt="Buy Me A Coffee" style="height:50px">
+                <img src="../shared/vendor/bmc-default-yellow.png" alt="Buy Me A Coffee" height="50">
               </a>
             </div>
           </div>
@@ -163,7 +162,7 @@
 
           <div class="mt-5 small build-number">Build <span id="buildNumber"></span></div>
 
-          <smd-fontawesome-credit class="mt-2"></smd-fontawesome-credit>
+          <smd-fontawesome-credit class="mt-2 d-block"></smd-fontawesome-credit>
         </div>
       </div>
     </template>

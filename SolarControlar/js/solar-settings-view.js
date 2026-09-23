@@ -14,7 +14,7 @@ function renderSolarSettingsTab() {
 
   if (!_solarSettings) {
     if (!_solarSettingsLoading) {
-      container.innerHTML = '<p class="text-secondary loading">Loading settings...</p>';
+      container.innerHTML = '<p class="loading text-secondary fst-italic mb-0">Loading settings...</p>';
       loadSolarSettings();
     }
     return;
@@ -29,7 +29,7 @@ function loadSolarSettings() {
   if (_solarSettingsLoading) return;
   _solarSettingsLoading = true;
   var container = $id("tab-settings");
-  if (container) container.innerHTML = '<p class="text-secondary loading">Loading settings...</p>';
+  if (container) container.innerHTML = '<p class="loading text-secondary fst-italic mb-0">Loading settings...</p>';
 
   var base = getFlaskUrl().replace(/\/+$/, "");
   fetch(base + "/", solarApi._withAuth({ credentials: "same-origin" }))
@@ -85,7 +85,7 @@ function loadSolarSettings() {
       var container = $id("tab-settings");
       if (container) {
         container.innerHTML =
-          '<div class="flash flash-error">Error loading settings: ' + escapeHtml(err.message) + '</div>' +
+          '<div class="alert alert-danger flash flash-error" role="alert">Error loading settings: ' + escapeHtml(err.message) + '</div>' +
           '<p class="text-secondary">Check the Flask URL in the app Settings (hamburger menu).</p>';
       }
     });
@@ -96,15 +96,15 @@ function buildSolarSettingsHtml() {
     var valueInput;
 
     if (f.readonly) {
-      valueInput = '<input type="text" class="form-control" name="' + escapeHtml(f.key) + '" value="' + escapeHtml(String(f.value)) + '" readonly>';
+      valueInput = '<input type="text" class="form-control bg-body-secondary" name="' + escapeHtml(f.key) + '" value="' + escapeHtml(String(f.value)) + '" readonly>';
     } else if (f.slider) {
       valueInput =
         '<div class="d-flex align-items-center gap-2">' +
-          '<input type="range" class="flex-grow-1" id="slider-' + escapeHtml(f.key) + '"' +
+          '<input type="range" class="form-range flex-grow-1" id="slider-' + escapeHtml(f.key) + '"' +
             ' min="' + escapeHtml(String(f.slider.min)) + '" max="' + escapeHtml(String(f.slider.max)) + '" step="' + escapeHtml(String(f.slider.step)) + '"' +
             ' value="' + escapeHtml(String(f.value)) + '"' +
             ' oninput="solarSettingSlider(this)">' +
-          '<output id="output-' + escapeHtml(f.key) + '" style="min-width:3rem;text-align:right;font-weight:600">' + escapeHtml(String(f.value)) + '</output>' +
+          '<output id="output-' + escapeHtml(f.key) + '" class="output-value w-auto text-end fw-semibold">' + escapeHtml(String(f.value)) + '</output>' +
         '</div>' +
         '<input type="hidden" name="' + escapeHtml(f.key) + '" id="hidden-' + escapeHtml(f.key) + '" value="' + escapeHtml(String(f.value)) + '">';
     } else {
@@ -112,24 +112,26 @@ function buildSolarSettingsHtml() {
     }
 
     return '<tr data-key="' + escapeHtml(f.key) + '" data-original="' + escapeHtml(String(f.original)) + '">' +
-      '<td>' + escapeHtml(f.label) + '</td>' +
+      '<td class="fw-semibold">' + escapeHtml(f.label) + '</td>' +
       '<td>' + valueInput + '</td>' +
       '<td>' +
-        '<span class="access-badge ' + (f.readonly ? "badge-ro" : "badge-rw") + '">' +
+        '<span class="access-badge badge rounded-pill text-bg-' + (f.readonly ? "secondary" : "success") + ' ' + (f.readonly ? "badge-ro" : "badge-rw") + '">' +
           (f.readonly ? "Read Only" : "Read/Write") +
         '</span>' +
-        '<span class="was-text" style="display:none;"> Was: <strong class="was-val"></strong></span>' +
+        '<span class="was-text d-none text-danger small"> Was: <strong class="was-val"></strong></span>' +
       '</td>' +
       '<td>' + escapeHtml(f.description) + '</td>' +
     '</tr>';
   }).join("");
 
-  return '<form id="solarSettingsForm" onsubmit="return saveSolarSettings(event)">' +
-    '<table class="power-table settings-table">' +
-      '<thead><tr><th>Setting</th><th>Value</th><th>Access</th><th>Description</th></tr></thead>' +
-      '<tbody>' + rows + '</tbody>' +
-    '</table>' +
-    '<div class="actions mt-3 text-end">' +
+  return '<form id="solarSettingsForm" class="solar-settings-form" onsubmit="return saveSolarSettings(event)">' +
+    '<div class="table-responsive">' +
+      '<table class="table table-striped table-hover align-middle w-100 power-table settings-table mb-3">' +
+        '<thead><tr><th scope="col">Setting</th><th scope="col">Value</th><th scope="col">Access</th><th scope="col">Description</th></tr></thead>' +
+        '<tbody>' + rows + '</tbody>' +
+      '</table>' +
+    '</div>' +
+    '<div class="actions d-flex justify-content-end mt-3">' +
       '<button type="submit" class="btn btn-primary btn-sm">Save Changes</button>' +
     '</div>' +
   '</form>';
@@ -174,13 +176,15 @@ function wireSolarSettingsChangeDetection() {
       }
 
       if (current != original) {
-        badge.className = "access-badge badge-changed";
+        badge.className = "access-badge badge rounded-pill text-bg-warning badge-changed";
         badge.textContent = "Changed";
-        wasText.style.display = "inline";
+        wasText.classList.remove("d-none");
+        wasText.classList.add("d-inline");
       } else {
-        badge.className = "access-badge badge-rw";
+        badge.className = "access-badge badge rounded-pill text-bg-success badge-rw";
         badge.textContent = "Read/Write";
-        wasText.style.display = "none";
+        wasText.classList.add("d-none");
+        wasText.classList.remove("d-inline");
       }
     }
 

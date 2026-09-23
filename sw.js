@@ -269,7 +269,6 @@ const APPS = {
     "PlanMyDay/icon.svg",
     "PlanMyDay/icon-192.png",
     "PlanMyDay/icon-512.png",
-    "PlanMyDay/css/styles.css",
     "PlanMyDay/js/app.js",
     "PlanMyDay/js/storage.js",
     "PlanMyDay/js/utils.js",
@@ -295,7 +294,6 @@ const APPS = {
     "CountMyDays/icon.svg",
     "CountMyDays/icon-192.png",
     "CountMyDays/icon-512.png",
-    "CountMyDays/css/styles.css",
     "CountMyDays/js/sampleData.json",
     "CountMyDays/js/googleCalendarSample.json",
     "CountMyDays/js/app.js",
@@ -321,7 +319,6 @@ const APPS = {
     "QRLinks/icon.svg",
     "QRLinks/icon-192.png",
     "QRLinks/icon-512.png",
-    "QRLinks/css/styles.css",
     "QRLinks/sampleLinks.json",
     "QRLinks/js/app.js",
     "QRLinks/js/storage.js",
@@ -339,7 +336,6 @@ const APPS = {
     "SolarControlar/icon.svg",
     "SolarControlar/icon-192.png",
     "SolarControlar/icon-512.png",
-    "SolarControlar/css/styles.css",
     "SolarControlar/js/app.js",
     "SolarControlar/js/storage.js",
     "SolarControlar/js/api.js",
@@ -362,7 +358,6 @@ const APPS = {
     "Launch/icon.svg",
     "Launch/icon-192.png",
     "Launch/icon-512.png",
-    "Launch/css/styles.css",
     "Launch/js/app.js"
   ],
   "FreeFormOX/": [
@@ -370,7 +365,6 @@ const APPS = {
      "FreeFormOX/index.html",
      "FreeFormOX/manifest.json",
      "FreeFormOX/img/icon.svg",
-     "FreeFormOX/css/styles.css",
      "FreeFormOX/js/app.js",
      "FreeFormOX/js/settings.js"
    ],

@@ -1,12 +1,5 @@
 // <pmd-job-stream-card> — a single job row in the streams accordion (light DOM).
 //
-// Mirrors the Bootstrap flex layout of <pmd-job-search-card>/<pmd-job-today-card>
-// (drag handle, job thumbnail, full-width title with suffix badge, Active toggle
-// + schedule/time/extra badges, Edit button) using Bootstrap utilities in the
-// template so the component needs only a tiny injected functional stylesheet.
-// The card surface uses `card bg-dark` like the other job cards so the stream
-// editor, today list and search results all share the same theme background.
-//
 // An `<smd-draghandle class="drag-handle" slot="drag-handle">` is appended by the
 // consumer (Sortable needs a light-DOM handle); when none is provided the
 // built-in fallback handle is shown. On connect the component moves a slotted
@@ -28,52 +21,41 @@
 //   pmd-job-edit          — detail { streamIdx, jobIdx }
 //   pmd-job-toggle-active — detail { streamIdx, jobIdx, checked }
 
-(function (global) {
-  if (global.document.getElementById("pmd-job-stream-card-style")) return;
-  const s = global.document.createElement("style");
-  s.id = "pmd-job-stream-card-style";
-  s.textContent =
-    "pmd-job-stream-card {" +
-    "  display: block;" +
-    "}";
-  global.document.head.appendChild(s);
-})(window);
-
 const pmdJobStreamCardTemplate = document.createElement('template');
 pmdJobStreamCardTemplate.innerHTML = `
-  <div class="card bg-dark text-white border-0">
+  <div class="card bg-body-tertiary text-body border-0 w-100">
 
-    <div class="d-flex py-2 border rounded-lg">
+    <div class="d-flex py-2 border rounded-3">
 
       <!-- 1️⃣ Drag Handle -->
-      <div class="d-flex align-items-center handle-col ms-2">
+      <div class="d-flex align-items-center handle-col flex-shrink-0 ms-2">
         <smd-draghandle class="drag-handle"></smd-draghandle>
       </div>
 
       <!-- 2️⃣ Job Thumbnail -->
-      <div class="d-flex flex-column flex-shrink-0 images-col">
+      <div class="d-flex flex-column flex-shrink-0 images-col align-self-start">
         <div class="d-flex gap-1">
-          <div class="thumb job-thumb"><smd-image key-prefix="shared-"></smd-image></div>
+          <div class="thumb job-thumb d-flex align-items-center justify-content-center flex-shrink-0"><smd-image key-prefix="shared-"></smd-image></div>
         </div>
       </div>
 
-      <div class="d-flex flex-column flex-grow-1">
+      <div class="d-flex flex-column flex-grow-1 overflow-hidden">
 
         <!-- FULL-WIDTH TITLE, suffix badge straight after the text with a fixed gap -->
         <div class="d-flex align-items-center">
-          <smd-h2 class="job-title"></smd-h2>
+          <smd-h2 class="job-title text-truncate fw-bold mb-0"></smd-h2>
           <smd-badge class="suffix ms-2" variant="secondary" pill hidden></smd-badge>
         </div>
 
         <!-- ACTIVE TOGGLE + BADGES + EDIT ROW -->
         <div class="d-flex flex-grow-1">
           <div class="flex-grow-1 d-flex flex-wrap gap-1 align-items-center">
-            <smd-checkbox class="active-toggle"><span>Active</span></smd-checkbox>
+            <smd-checkbox class="active-toggle fw-bold flex-shrink-0"><span>Active</span></smd-checkbox>
             <smd-badge class="schedule" variant="primary" pill></smd-badge>
             <smd-badge class="time" variant="secondary" pill hidden></smd-badge>
             <smd-badge class="extra" variant="info" pill hidden></smd-badge>
           </div>
-          <div class="d-flex align-items-end me-2">
+          <div class="d-flex align-items-end me-2 flex-shrink-0">
             <smd-button class="job-edit-btn" variant="primary" size="small" data-action="edit">Edit</smd-button>
           </div>
         </div>
@@ -97,6 +79,7 @@ class PmdJobStreamCard extends HTMLElement {
   connectedCallback() {
     if (!this._bound) {
       this._bound = true;
+      this.classList.add("d-block");
       this.appendChild(pmdJobStreamCardTemplate.content.cloneNode(true));
       this._adoptSlottedHandle();
       this.querySelector('[data-action="edit"]').addEventListener('click', () => this._emit('pmd-job-edit'));
