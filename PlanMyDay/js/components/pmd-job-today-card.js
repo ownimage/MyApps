@@ -67,7 +67,7 @@ pmdJobTodayCardTemplate.innerHTML = `
         <div class="d-flex py-2 border rounded-lg">
 
             <!-- 1️⃣ Drag Handle -->
-            <div class="d-flex align-items-center handle-col">
+            <div class="d-flex align-items-center handle-col ms-2">
                 <smd-draghandle class="drag-handle"></smd-draghandle>
             </div>
 

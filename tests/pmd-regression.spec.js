@@ -1173,7 +1173,7 @@ test.describe("PlanMyDay - Regression", () => {
 
     async function openSearchJobs(page) {
       await page.locator("#btnMainMenu").click();
-      await page.locator("button.dropdown-item").filter({ hasText: "Search Jobs" }).click();
+      await page.locator("a.dropdown-item").filter({ hasText: "Search Jobs" }).click();
       await page.locator("#jobSearchEditor:not(.d-none)").waitFor({ state: "visible" });
     }
 
@@ -1358,7 +1358,7 @@ test.describe("PlanMyDay - Regression", () => {
         localStorage.setItem("shared-images", JSON.stringify([{ name: "jimg", data: svg }]));
         renderStreamsEditor();
       }, svg);
-      const titles = page.locator("#streamEditorList .accordion-body pmd-stream-job-card .job-title");
+      const titles = page.locator("#streamEditorList .accordion-body pmd-job-stream-card .job-title");
       const withImage = await titles.nth(0).boundingBox();
       const withoutImage = await titles.nth(1).boundingBox();
       expect(withoutImage.x).toBeCloseTo(withImage.x, 0);

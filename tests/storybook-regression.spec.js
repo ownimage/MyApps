@@ -31,7 +31,7 @@ test.describe("Storybook - Regression", () => {
 
     // Combined pmd-stream section renders both headers + all four job cards.
     await expect(page.locator("#pmd-stream pmd-stream-header")).toHaveCount(2);
-    await expect(page.locator("#pmd-stream pmd-stream-job-card")).toHaveCount(4);
+    await expect(page.locator("#pmd-stream pmd-job-stream-card")).toHaveCount(4);
 
     // Theme selector reflects the saved theme.
     await expect(page.locator("#themeSelect option")).toHaveCount(26);

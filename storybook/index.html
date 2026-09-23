@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en" data-bs-theme="dark" data-theme="superhero">
 <head>
   <meta charset="UTF-8">
@@ -223,7 +223,7 @@
     .sb-stream-card .sb-stream-head { padding: 0; }
     .sb-stream-card .sb-stream-body { padding: 0; }
     /* adjacent job cards touch: overlap borders to keep a single 1px line */
-    .sb-stream-card .sb-stream-body pmd-stream-job-card + pmd-stream-job-card { margin-top: -1px; }
+    .sb-stream-card .sb-stream-body pmd-job-stream-card + pmd-job-stream-card { margin-top: -1px; }
     .sb-hint { color: var(--bs-secondary-color, #aaa); font-size: 0.8rem; }
     .sb-stream-card { transition: border-color 0.2s ease; }
     .sb-stream-card.is-expanded { border-color: var(--bs-info, #0dcaf0); }
@@ -266,7 +266,7 @@
   <script src="../shared/vendor/flatpickr.min.js"></script>
   <script src="../shared/js/components/smd-date-picker.js"></script>
   <script src="../PlanMyDay/js/components/pmd-stream-header.js"></script>
-  <script src="../PlanMyDay/js/components/pmd-stream-job-card.js"></script>
+  <script src="../PlanMyDay/js/components/pmd-job-stream-card.js"></script>
   <script src="../PlanMyDay/js/components/pmd-job-search-card.js"></script>
   <script src="../PlanMyDay/js/components/pmd-job-today-card.js"></script>
   <script src="../CountMyDays/js/components/cmd-countdown-card.js"></script>
@@ -338,7 +338,7 @@
     // image="name" resolves its thumbnail immediately.
     const SB_PMD_PAIRS = [["Blue", "#375a7f"], ["Green", "#00bc8c"]];
     sbSeed("sbh_", SB_PMD_PAIRS); // pmd-stream-header
-    sbSeed("sbc_", SB_PMD_PAIRS); // pmd-stream-job-card
+    sbSeed("sbc_", SB_PMD_PAIRS); // pmd-job-stream-card
     sbSeed("sbj_", SB_PMD_PAIRS); // pmd-job-search-card
     sbSeed("sbp_", SB_PMD_PAIRS); // pmd-stream (combined)
     sbSeed("sbt_", SB_PMD_PAIRS); // pmd-job-today-card
@@ -470,7 +470,7 @@
       id: "smd-button",
       name: "smd-button",
       tag: "<smd-button>",
-      desc: "A themed button. Set <code>variant</code> (primary | secondary | success | danger), optionally <code>disabled</code>, and <code>size</code> (normal | small — adds <code>btn-sm</code>). Content is slotted.",
+      desc: "A themed button. Set <code>variant</code> (primary | secondary | success | danger), optionally <code>disabled</code>, and <code>size</code> (normal | small � adds <code>btn-sm</code>). Content is slotted.",
       html: () => {
         const variants = ["primary", "secondary", "success", "danger"];
         return `
@@ -819,11 +819,11 @@
       }
     });
 
-    // ---- pmd-stream-job-card ----
+    // ---- pmd-job-stream-card ----
     sections.push({
-      id: "pmd-stream-job-card",
-      name: "pmd-stream-job-card",
-      tag: "<pmd-stream-job-card>",
+      id: "pmd-job-stream-card",
+      name: "pmd-job-stream-card",
+      tag: "<pmd-job-stream-card>",
       desc: "Job row card (image/thumb, title + suffix, Active toggle, schedule/time/extra badges). Attributes: <code>stream-idx</code>, <code>job-idx</code>, <code>title</code>, <code>image</code>, <code>suffix</code>, <code>schedule</code>, <code>time</code>, <code>active</code>, <code>extra</code>. Dispatches <code>pmd-job-edit</code>, <code>pmd-job-toggle-active</code>.",
       html: () => `
         <div class="sb-canvas">
@@ -832,7 +832,7 @@
         <div class="sb-controls">
           <label><input type="checkbox" id="ctrl-job-thumb"> Show thumb tick</label>
         </div>
-        <div class="sb-log" id="log-pmd-stream-job-card">events: none yet</div>
+        <div class="sb-log" id="log-pmd-job-stream-card">events: none yet</div>
       `,
       init: () => {
         const host = document.getElementById("sb-job-cards");
@@ -841,19 +841,19 @@
           host.innerHTML = `
             <div class="sb-frame-wrapper">
               <div class="sb-label">No image / no suffix</div>
-              <pmd-stream-job-card stream-idx="0" job-idx="0" title="Standup" schedule="Weekdays" active="true"${showThumb ? ` image="Blue"` : ""} key-prefix="sbc_"></pmd-stream-job-card>
+              <pmd-job-stream-card stream-idx="0" job-idx="0" title="Standup" schedule="Weekdays" active="true"${showThumb ? ` image="Blue"` : ""} key-prefix="sbc_"></pmd-job-stream-card>
             </div>
             <div class="sb-frame-wrapper">
               <div class="sb-label">Image + suffix + time + sleep extra</div>
-              <pmd-stream-job-card stream-idx="0" job-idx="1" title="Report" image="Green" key-prefix="sbc_" suffix="(12)" schedule="Every day" time="09:00" extra="Sleep: 28 Sep 2026" active="true"></pmd-stream-job-card>
+              <pmd-job-stream-card stream-idx="0" job-idx="1" title="Report" image="Green" key-prefix="sbc_" suffix="(12)" schedule="Every day" time="09:00" extra="Sleep: 28 Sep 2026" active="true"></pmd-job-stream-card>
             </div>
             <div class="sb-frame-wrapper">
               <div class="sb-label">Inactive + wait extra</div>
-              <pmd-stream-job-card stream-idx="1" job-idx="0" title="Laundry" schedule="Weekends" extra="Wait: the load to finish" active="false"${showThumb ? ` image="Blue"` : ""} key-prefix="sbc_"></pmd-stream-job-card>
+              <pmd-job-stream-card stream-idx="1" job-idx="0" title="Laundry" schedule="Weekends" extra="Wait: the load to finish" active="false"${showThumb ? ` image="Blue"` : ""} key-prefix="sbc_"></pmd-job-stream-card>
             </div>`;
-          host.querySelectorAll("pmd-stream-job-card").forEach((card) => {
-            card.addEventListener("pmd-job-edit", (e) => log("pmd-stream-job-card", "pmd-job-edit stream=" + e.detail.streamIdx + " job=" + e.detail.jobIdx));
-            card.addEventListener("pmd-job-toggle-active", (e) => log("pmd-stream-job-card", "pmd-job-toggle-active job=" + e.detail.jobIdx + " checked=" + e.detail.checked));
+          host.querySelectorAll("pmd-job-stream-card").forEach((card) => {
+            card.addEventListener("pmd-job-edit", (e) => log("pmd-job-stream-card", "pmd-job-edit stream=" + e.detail.streamIdx + " job=" + e.detail.jobIdx));
+            card.addEventListener("pmd-job-toggle-active", (e) => log("pmd-job-stream-card", "pmd-job-toggle-active job=" + e.detail.jobIdx + " checked=" + e.detail.checked));
           });
         };
         renderCards();
@@ -882,7 +882,7 @@
           card.addEventListener("pmd-job-edit", (e) => log("pmd-job-search-card", "pmd-job-edit stream=" + e.detail.streamIdx + " job=" + e.detail.jobIdx));
           card.addEventListener("pmd-job-toggle-active", (e) => log("pmd-job-search-card", "pmd-job-toggle-active job=" + e.detail.jobIdx + " checked=" + e.detail.checked));
         });
-        // static markup above was built before the store was seeded â€” refresh thumbs
+        // static markup above was built before the store was seeded — refresh thumbs
         document.querySelectorAll("#pmd-job-search-card pmd-job-search-card").forEach((card) => {
           if (card.shadowRoot) card.shadowRoot.querySelectorAll("smd-image").forEach((s) => { if (s.refresh) s.refresh(); });
         });
@@ -1056,7 +1056,7 @@
       id: "smd-draghandle",
       name: "smd-draghandle",
       tag: "<smd-draghandle>",
-      desc: "The shared drag handle (Font Awesome <code>fa-bars</code>). Size is a VALUE, not a style: <code>SmdDragHandle.setDefaultSize(\"normal\" | \"large\")</code> (the app's Touch size setting) resizes every handle, including handles nested inside pmd-* components; a per-instance <code>size</code> attribute overrides it. Keep the <code>drag-handle</code> class on it — that is the selector Sortable hooks.",
+      desc: "The shared drag handle (Font Awesome <code>fa-bars</code>). Size is a VALUE, not a style: <code>SmdDragHandle.setDefaultSize(\"normal\" | \"large\")</code> (the app's Touch size setting) resizes every handle, including handles nested inside pmd-* components; a per-instance <code>size</code> attribute overrides it. Keep the <code>drag-handle</code> class on it � that is the selector Sortable hooks.",
       html: () => `
         <div class="sb-canvas">
           <div class="sb-row" style="gap:1.5rem;align-items:center">
@@ -1221,12 +1221,12 @@
       }
     });
 
-    // ---- pmd-stream-header + pmd-stream-job-card (combined) ----
+    // ---- pmd-stream-header + pmd-job-stream-card (combined) ----
     sections.push({
       id: "pmd-stream",
       name: "pmd-stream (header + job cards)",
-      tag: "<pmd-stream-header> + <pmd-stream-job-card>",
-      desc: "A combined stream row: a <code>pmd-stream-header</code> with its <code>pmd-stream-job-card</code> children, as rendered in the Jobs editor. The header stripes the expanded state and the column background; cards stack beneath. Dispatches header (<code>pmd-header-toggle</code>, <code>pmd-edit</code>, <code>pmd-add-job</code>, <code>pmd-delete</code>) and card (<code>pmd-job-edit</code>, <code>pmd-job-toggle-active</code>) events.",
+      tag: "<pmd-stream-header> + <pmd-job-stream-card>",
+      desc: "A combined stream row: a <code>pmd-stream-header</code> with its <code>pmd-job-stream-card</code> children, as rendered in the Jobs editor. The header stripes the expanded state and the column background; cards stack beneath. Dispatches header (<code>pmd-header-toggle</code>, <code>pmd-edit</code>, <code>pmd-add-job</code>, <code>pmd-delete</code>) and card (<code>pmd-job-edit</code>, <code>pmd-job-toggle-active</code>) events.",
       html: () => `
         <div class="sb-canvas">
           <div class="sb-stack">
@@ -1235,8 +1235,8 @@
               <div class="sb-stream-card">
                 <div class="sb-stream-head"><pmd-stream-header stream-idx="0" title="Work" tab="progress" image="Blue" key-prefix="sbp_" jobcounts="1/2/3"></pmd-stream-header></div>
                 <div class="sb-stream-body">
-                  <pmd-stream-job-card stream-idx="0" job-idx="0" title="Standup" schedule="Weekdays" active="true" key-prefix="sbp_"></pmd-stream-job-card>
-                  <pmd-stream-job-card stream-idx="0" job-idx="1" title="Report" image="Green" key-prefix="sbp_" suffix="(12)" schedule="Every day" time="09:00" extra="Sleep: 28 Sep 2026" active="true"></pmd-stream-job-card>
+                  <pmd-job-stream-card stream-idx="0" job-idx="0" title="Standup" schedule="Weekdays" active="true" key-prefix="sbp_"></pmd-job-stream-card>
+                  <pmd-job-stream-card stream-idx="0" job-idx="1" title="Report" image="Green" key-prefix="sbp_" suffix="(12)" schedule="Every day" time="09:00" extra="Sleep: 28 Sep 2026" active="true"></pmd-job-stream-card>
                 </div>
               </div>
             </div>
@@ -1245,8 +1245,8 @@
               <div class="sb-stream-card">
                 <div class="sb-stream-head"><pmd-stream-header stream-idx="1" title="Home" tab="maintenance" image="Green" key-prefix="sbp_" jobcounts="0/1/4" expanded can-delete></pmd-stream-header></div>
                 <div class="sb-stream-body">
-                  <pmd-stream-job-card stream-idx="1" job-idx="0" title="Mow the lawn" schedule="Weekends" active="true" key-prefix="sbp_"></pmd-stream-job-card>
-                  <pmd-stream-job-card stream-idx="1" job-idx="1" title="Pay bills" schedule="Monthly" extra="Wait: the direct debit" active="false" key-prefix="sbp_"></pmd-stream-job-card>
+                  <pmd-job-stream-card stream-idx="1" job-idx="0" title="Mow the lawn" schedule="Weekends" active="true" key-prefix="sbp_"></pmd-job-stream-card>
+                  <pmd-job-stream-card stream-idx="1" job-idx="1" title="Pay bills" schedule="Monthly" extra="Wait: the direct debit" active="false" key-prefix="sbp_"></pmd-job-stream-card>
                 </div>
               </div>
             </div>
@@ -1265,13 +1265,13 @@
           const host = document.getElementById("pmd-stream");
           host.querySelectorAll(".sb-stream-card").forEach((card, i) => {
             card.hidden = (i === 1 && !second);
-            card.querySelectorAll("pmd-stream-job-card").forEach(jc => {
+            card.querySelectorAll("pmd-job-stream-card").forEach(jc => {
               jc.toggleAttribute("drag-handle", !showHandle);
             });
           });
         };
         const bind = () => {
-          const cards = document.getElementById("pmd-stream").querySelectorAll("pmd-stream-header, pmd-stream-job-card");
+          const cards = document.getElementById("pmd-stream").querySelectorAll("pmd-stream-header, pmd-job-stream-card");
           cards.forEach(el => {
             if (el.getAttribute("data-bound")) return;
             el.setAttribute("data-bound", "");

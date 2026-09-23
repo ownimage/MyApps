@@ -284,7 +284,7 @@ const APPS = {
     "PlanMyDay/js/image-picker.js",
     "PlanMyDay/js/pwa.js",
     "PlanMyDay/js/components/pmd-stream-header.js",
-    "PlanMyDay/js/components/pmd-stream-job-card.js",
+    "PlanMyDay/js/components/pmd-job-stream-card.js",
     "PlanMyDay/js/components/pmd-job-search-card.js",
     "PlanMyDay/js/components/pmd-job-today-card.js"
   ],

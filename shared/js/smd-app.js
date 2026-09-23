@@ -147,9 +147,13 @@ function updateNavState() {
 // Light-DOM style injection: components render in the light DOM now, so page
 // chrome styles are appended as plain <style> tags on document.head (deduped by
 // text). The `root` argument is accepted for back-compat with callers that used
-// to pass a shadow root; it is ignored. Retains the old default so existing
-// single-argument callers keep working.
+// to pass a shadow root; it is ignored. A single string argument is the css
+// (this is how the editors call it: `injectStyleInto(JOBS_EDITOR_STYLES)`).
+// With no css the SETTINGS_STYLES default applies.
 function injectStyleInto(root, css) {
+  if (css === undefined && typeof root === "string") {
+    css = root;
+  }
   css = css || (typeof SETTINGS_STYLES !== "undefined" ? SETTINGS_STYLES : "");
   if (!css) return;
   const text = css.replace(/^\s+|\s+$/g, "");

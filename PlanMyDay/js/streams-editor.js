@@ -358,9 +358,9 @@ function renderJobsInAccordion(stream, jobs, streamIdx) {
     if (suffix) attrs.push('suffix="' + escAttr(suffix) + '"');
     if (extra) attrs.push('extra="' + escAttr(extra) + '"');
     return '<div class="job-drag-card" data-job-idx="' + realIdx + '">' +
-      '<pmd-stream-job-card ' + attrs.join(" ") + '>' +
+      '<pmd-job-stream-card ' + attrs.join(" ") + '>' +
         '<smd-draghandle class="drag-handle" title="drag" slot="drag-handle"></smd-draghandle>' +
-      '</pmd-stream-job-card>' +
+      '</pmd-job-stream-card>' +
     '</div>';
   }).join("");
 }
