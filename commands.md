@@ -31,31 +31,45 @@ node shared/regen_sample_images.js extract
 npm run extract:images
 ```
 ### Screenshots
+Screenshots use `screenshots/<app>/<theme>/<light|dark>/<scene>.png`; the viewer also reads legacy `screenshots/<app>/<theme>/<scene>.png` files as `Default` mode.
+
 ```bash
 .\node_modules\.bin\playwright.cmd test tests/pmd-screenshots.spec.js --workers 16
 ```
-Writes per-theme screenshots to `screenshots/pmd/<theme>/`.
+Writes PlanMyDay screenshots to `screenshots/pmd/<theme>/<light|dark>/`.
 CountMyDays screenshots (own gallery):
 ```bash
 .\node_modules\.bin\playwright.cmd test tests/cmd-screenshots.spec.js --workers 16
 ```
-Writes to `screenshots/cmd/<theme>/`.
+Writes to `screenshots/cmd/<theme>/<light|dark>/`.
 QRLinks screenshots (own gallery):
 ```bash
 .\node_modules\.bin\playwright.cmd test tests/qrlinks-screenshots.spec.js --workers 16
 ```
-Writes to `screenshots/qrlinks/<theme>/`.
+Writes to `screenshots/qrlinks/<theme>/<light|dark>/`.
+
+FreeFormOX screenshots (own gallery):
+```bash
+.\node_modules\.bin\playwright.cmd test tests/ffox-screenshots.spec.js --workers 16
+```
+Writes to `screenshots/ffox/<theme>/<light|dark>/`.
+
 Launch screenshots (own gallery):
 ```bash
 .\node_modules\.bin\playwright.cmd test tests/launch-screenshots.spec.js --workers 16
 ```
-Writes to `screenshots/launch/<theme>/`.
+Writes to `screenshots/launch/<theme>/<light|dark>/`.
 
 ### Screenshot viewer
 ```bash
 node screenshots/viewer.js
 ```
-The header has a **Folder** selector to switch between galleries (e.g. `pmd`).
+The header has separate **App**, **Theme** and **Mode** selectors. Theme offers `All themes`; Mode offers `All modes`, `Light` and `Dark`, and adds `Default` only for legacy data. App, theme and mode choices persist in `screenshotViewerGallery`, `screenshotViewerTheme` and `screenshotViewerMode`.
+
+The focused viewer test uses a temporary synthetic directory tree and does not generate screenshots:
+```bash
+.\node_modules\.bin\playwright.cmd test tests/screenshot-viewer.spec.js --workers=1 --retries=0
+```
 
 ### Component storybook
 The storybook is a static page (`storybook/index.html`) that renders every `smd-` and `pmd-` web component and lets you pick the bootswatch theme from a dropdown in the header.
