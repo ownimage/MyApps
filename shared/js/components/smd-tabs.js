@@ -98,12 +98,14 @@ class SmdTabs extends HTMLElement {
             return `<div class="${panelClasses.join(' ')}" id="${panelId}" data-panel="${i}" role="tabpanel" aria-labelledby="${buttonId}" aria-hidden="${active ? 'false' : 'true'}" tabindex="${active ? '0' : '-1'}">${tab.content || ''}</div>`;
         }).join('');
 
+        const topLineHtml = '<div class="smd-tab-line" aria-hidden="true"></div>';
         const bottomLineHtml = this.bottomline ? '<div class="smd-tab-line" aria-hidden="true"></div>' : '';
 
         this.innerHTML = `
       <ul class="nav nav-tabs smd-tab-list" role="tablist">${headersHtml}</ul>
-      ${bottomLineHtml}
+      ${topLineHtml}
       <div class="tab-content">${panelsHtml}</div>
+      ${bottomLineHtml}
     `;
 
         this.querySelectorAll('.smd-tab-btn').forEach((btn) => {

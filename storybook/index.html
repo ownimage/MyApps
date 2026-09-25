@@ -421,9 +421,9 @@
       init: () => {
         const tabs = document.getElementById("sb-tabs");
         tabs.tabs = [
-          { id: "progress", title: "Progress", content: "<p class='small text-secondary fst-italic'>Panel: Progress</p>" },
-          { id: "maintenance", title: "Maintenance", content: "<p class='small text-secondary fst-italic'>Panel: Maintenance</p>" },
-          { id: "archived", title: "Archived", content: "<p class='small text-secondary fst-italic'>Panel: Archived</p>" }
+          { id: "progress", title: "Progress", content: '<div class="p-3"><h3 class="h5">Progress</h3><p class="text-secondary">Current work and completed items for this view.</p><div class="progress mb-3" role="progressbar" aria-label="Progress" aria-valuenow="70" aria-valuemin="0" aria-valuemax="100"><div class="progress-bar" style="width:70%"></div></div><p class="mb-0">7 of 10 tasks complete</p></div>' },
+          { id: "maintenance", title: "Maintenance", content: '<div class="p-3"><h3 class="h5">Maintenance</h3><p class="text-secondary">Recurring checks and upcoming work.</p><ul class="list-group"><li class="list-group-item d-flex justify-content-between align-items-center"><span>Review backups</span><span class="badge text-bg-secondary">Weekly</span></li><li class="list-group-item d-flex justify-content-between align-items-center"><span>Update dependencies</span><span class="badge text-bg-info">Monthly</span></li></ul></div>' },
+          { id: "archived", title: "Archived", content: '<div class="p-3 text-center text-secondary"><div class="h1 mb-2">0</div><p class="mb-0">Archived items appear here.</p></div>' }
         ];
         tabs.addEventListener("smd-tabs-change", (e) => log("smd-tabs", "index=" + e.detail.index + " tab=\"" + (e.detail.tab && e.detail.tab.title) + "\""));
         document.getElementById("btn-tabs-apply").addEventListener("click", () => {
