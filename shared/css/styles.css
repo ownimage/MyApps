@@ -202,7 +202,7 @@ smd-page.d-none {
 
 smd-page .smd-page {
   position: absolute;
-  inset: 0;
+  inset: 0  ;
   display: flex;
   flex-direction: column;
   transform: translateX(-100%);
@@ -226,6 +226,7 @@ smd-page .smd-page-header {
 smd-page .smd-page-body {
   flex: 1;
   overflow-y: auto;
+  margin: 4px;
 }
 
 smd-page .smd-page-footer {
