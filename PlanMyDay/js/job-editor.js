@@ -474,6 +474,42 @@ function getJobTasksTabHTML(data, readOnly) {
 
 var _jobEditButtons = [];
 var _jobEditCloseTimer = null;
+var _jobEditReturnView = null;
+var _jobEditReturnPage = null;
+
+function hideJobEditBackground() {
+  if (_jobEditReturnView) return;
+  const view = activeEditorView();
+  _jobEditReturnView = view;
+  if (view === "streams") _jobEditReturnPage = document.getElementById("streamsEditor");
+  else if (view === "search") _jobEditReturnPage = document.getElementById("jobSearchEditor");
+  else _jobEditReturnPage = null;
+
+  const main = document.getElementById("countdownContainer");
+  if (view === "main" && main) main.classList.add("d-none");
+  if (_jobEditReturnPage) {
+    _jobEditReturnPage.hide();
+    _jobEditReturnPage.classList.add("d-none");
+  }
+}
+
+function restoreJobEditBackground() {
+  const view = _jobEditReturnView || "main";
+  const page = _jobEditReturnPage;
+  _jobEditReturnView = null;
+  _jobEditReturnPage = null;
+
+  if (view === "streams" && page) {
+    page.classList.remove("d-none");
+    page.show();
+  } else if (view === "search" && page) {
+    page.classList.remove("d-none");
+    page.show();
+  } else {
+    const main = document.getElementById("countdownContainer");
+    if (main) main.classList.remove("d-none");
+  }
+}
 
 function buildJobEditPage(readOnly, activeTabIndex) {
   if (!jobsBuffer) return;
@@ -482,6 +518,7 @@ function buildJobEditPage(readOnly, activeTabIndex) {
   const page = document.getElementById("jobEditPage");
   if (!page) return;
 
+  hideJobEditBackground();
   destroyJobEditTransient();
   if (_jobEditCloseTimer) {
     clearTimeout(_jobEditCloseTimer);
@@ -535,6 +572,7 @@ function hideJobEditPage() {
   const page = document.getElementById("jobEditPage");
   if (page) {
     page.hide();
+    restoreJobEditBackground();
     clearTimeout(_jobEditCloseTimer);
     _jobEditCloseTimer = setTimeout(function() {
       page.classList.add("d-none");
@@ -615,7 +653,7 @@ function cancelJobEdit() {
 }
 
 function doneJobEdit() {
-  var view = activeEditorView();
+  var view = _jobEditReturnView || activeEditorView();
   var savedId = null;
   if (jobsEditingIdx >= 0 && jobsBuffer) {
     var streams = loadStreams();
