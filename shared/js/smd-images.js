@@ -421,12 +421,12 @@ function renderImagesEditor() {
     page.headerHtml = "";
     page.content =
       '<div id="imageSearchHeader">' +
-        '<div id="imageSearchFilters" class="mt-3">' +
-          '<div class="row align-items-center">' +
-            '<div class="col" style="padding-left:0">' +
+        '<div id="imageSearchFilters" class="mt-3 mb-3">' +
+          '<div class="row align-items-center g-0">' +
+            '<div class="col">' +
               '<input type="search" class="form-control" id="imageNameSearchInput" placeholder="Search image names..." value="' + escapeHtml(imageNameSearch) + '" oninput="setImageNameSearch(this.value)">' +
             '</div>' +
-            '<div class="col-auto" style="padding-left:0;padding-right:0">' +
+            '<div class="col-auto ms-2">' +
               '<smd-button variant="danger" id="btnImageFilterClear" onclick="clearImageNameSearch()">Clear</smd-button>' +
             '</div>' +
           '</div>' +
