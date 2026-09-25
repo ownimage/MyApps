@@ -393,33 +393,6 @@ smd-image-card {
   display: block;
 }
 
-smd-image-card .card {
-  display: flex;
-  align-items: center;
-  min-width: 0;
-}
-
-smd-image-card .thumb {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-smd-image-card .editor-title {
-  flex: 1;
-  min-width: 0;
-}
-
-smd-image-card .image-actions {
-  display: flex;
-  flex-shrink: 0;
-}
-
-smd-image-card .image-actions .btn {
-  flex-shrink: 0;
-}
-
 smd-image-select {
   display: flex;
   align-items: center;
