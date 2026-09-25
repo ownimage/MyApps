@@ -7189,13 +7189,57 @@ test.describe("PlanMyDay - Regression", () => {
       expect(bad).toEqual([]);
     });
 
-    test("the sw.js build-number mirror matches shared/js/build-number.js", async ({ request }) => {
+    test("the sw.js build-number fallback matches shared/js/build-number.js", async ({ request }) => {
       const buildNumber = (await (await request.get("/shared/js/build-number.js")).text()).match(/const BUILD_NUMBER = "(\d+)"/)[1];
       const swText = await (await request.get("/sw.js")).text();
-      // The worker cannot importScripts the number (imported files are not part
-      // of the update byte-compare), so sw.js mirrors it inline. A drift means
-      // the page and the worker use different precache names.
-      expect(swText).toContain(`const BUILD_NUMBER = "${buildNumber}"`);
+      // A worker reads its build number from its OWN script url (?v=...), which
+      // every shell supplies at registration time, so page and worker can never
+      // disagree. The inline literal is only the fallback for a bare /sw.js
+      // registration; a drift there would mean a different precache name.
+      expect(swText).toContain('self.location.search.match(/[?&]v=(\\d{12})/)');
+      expect(swText).toContain(`|| "${buildNumber}"`);
+    });
+
+    test("every app shell registers the worker with its own build number", async ({ request }) => {
+      const shells = [
+        "/index.html", "/PlanMyDay/index.html", "/CountMyDays/index.html",
+        "/QRLinks/index.html", "/SolarControlar/index.html", "/FreeFormOX/index.html"
+      ];
+      for (const shell of shells) {
+        const html = await (await request.get(shell)).text();
+        // The build number has to be part of the worker script url: a differing
+        // script url is what makes the user agent install a new worker, while
+        // reg.update() reuses the incumbent url and only sees byte changes.
+        expect(html, shell).toContain("smdServiceWorkerScriptUrl(__swPath)");
+        expect(html, shell).toContain('updateViaCache: "none"');
+      }
+    });
+
+    test("a new build number installs a new worker even when sw.js is unchanged", async ({ page }) => {
+      await page.goto("/PlanMyDay/");
+      const build = await page.evaluate(() => String(BUILD_NUMBER));
+      const next = String(Number(build) + 1);
+      // Register the very same file under a different build number. The script
+      // bytes are identical, so only the changed script url can produce the
+      // update — which is exactly the case reg.update() can never detect.
+      const scriptURL = await page.evaluate(async (b) => {
+        const reg = await navigator.serviceWorker.register("/PlanMyDay/sw.js?v=" + b, { updateViaCache: "none" });
+        return await new Promise((resolve) => {
+          const done = () => {
+            const w = reg.waiting || reg.active;
+            if (w && w.scriptURL.indexOf("sw.js?v=" + b) !== -1) return resolve(w.scriptURL);
+            if (!reg.installing && !reg.waiting) return resolve(null);
+          };
+          if (reg.installing) {
+            reg.installing.addEventListener("statechange", done);
+          }
+          reg.addEventListener("updatefound", () => {
+            if (reg.installing) reg.installing.addEventListener("statechange", done);
+          });
+          setTimeout(done, 60000);
+        });
+      }, next);
+      expect(scriptURL, "no worker registered under the new build number").toContain("sw.js?v=" + next);
     });
 
     test("service worker updates use the shared update modal", async ({ page }) => {
@@ -7291,13 +7335,15 @@ test.describe("PlanMyDay - Regression", () => {
           let regs = await navigator.serviceWorker.getRegistrations();
           let r = regs.find((x) => x.scope && x.scope.includes("/PlanMyDay/"));
           if (!r) {
-            try { await navigator.serviceWorker.register("/PlanMyDay/sw.js"); } catch (e) { /* retry next poll */ }
+            // Register with the build number, exactly as the app shells do, so
+            // the worker's cache name matches the page's build.
+            try { await navigator.serviceWorker.register("/PlanMyDay/sw.js?v=" + BUILD_NUMBER); } catch (e) { /* retry next poll */ }
             return "pending";
           }
           if (r.active) return r.active.state + "|" + !!navigator.serviceWorker.controller;
           if (!r.installing && !r.waiting) {
             // Failed/never-started install: unregister and re-register to retry.
-            try { await r.unregister(); await navigator.serviceWorker.register("/PlanMyDay/sw.js"); } catch (e) { /* retry next poll */ }
+            try { await r.unregister(); await navigator.serviceWorker.register("/PlanMyDay/sw.js?v=" + BUILD_NUMBER); } catch (e) { /* retry next poll */ }
           }
           return "pending";
         });

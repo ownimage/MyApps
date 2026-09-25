@@ -2,7 +2,7 @@
 2: Ask questions if there are implementation options
 3: When running playwright use the command '.\node_modules\.bin\playwright.cmd' to make sure the correct version loads. 
 4: Please capture all the output needed when running a test the first time so that you do not need to rerun the test.
-5: `shared/js/build-number.js` `BUILD_NUMBER` is a TIMESTAMP in `YYYYMMDDHH24MI` format (e.g. `202609131400` = 2026-09-13 14:00); it is the single cache-busting version for every app + shared asset. BUMP IT WITH `npm run bump:build` (`node shared/bump-build.js`, optional explicit `YYYYMMDDHHMM` arg) — the script rewrites BOTH `shared/js/build-number.js` AND `sw.js` in one go. Never hand-edit the two apart: browsers detect a service-worker update by re-fetching the REGISTERED worker script (sw.js) and comparing bytes, they do NOT compare `importScripts` files, so a sw.js left on the old number (or commit 17f98ff's importScripts approach) means a pure bump never installs a new worker and the "Update available" prompt never fires (confirmed 2026-09-25 twice).
+5: `shared/js/build-number.js` `BUILD_NUMBER` is a TIMESTAMP in `YYYYMMDDHH24MI` format (e.g. `202609131400` = 2026-09-13 14:00); it is the single cache-busting version for every app + shared asset. BUMP IT WITH `npm run bump:build` (`node shared/bump-build.js`, optional explicit `YYYYMMDDHHMM` arg) — the script rewrites BOTH `shared/js/build-number.js` AND `sw.js` in one go. Never hand-edit the two apart: a bump is what ships a build — the shells register `../sw.js?v=<BUILD_NUMBER>`, and a changed script URL is what installs the new worker (see the service-worker section), so the number MUST change for a new build to reach users. The inline copy in `sw.js` is only the fallback for a bare `/sw.js` registration, but keep it in sync anyway.
 5: FULL-SUITE RUNS use the ITERATIVE PER-SHARD approach (2026-09-19, ALWAYS): play `--shard=$i/40 --workers=1 --retries=0 --reporter=line` with `EXTERNAL_SERVERS=1` (start `python tests/http-server.py` + `python tests/subpath-server.py` ONCE, verify both ports `TcpClient` first) ONE SHARD AT A TIME in order: run shard 1/40, tell the user WHAT FAILED, fix every failure AND apply the same root-cause fix EVERYWHERE it can happen (use `--grep "a|b"` to re-verify just the fixed tests), then run shard 2/40, and so on. Report progress between shards. This catches a shared root cause in shard 1 instead of failing 30 shards; it also keeps the "wait" granularity small. Do NOT run the whole 40-shard batch blind. `--workers="50%"` also works for speed (or any worker ratio) — BUT be aware it raises infra failures (client ephemeral-port exhaustion in this box → mid-run `ERR_CONNECTION_REFUSED` / "Target page, context or browser has been closed"), so treat a burst of infra-style failures as spurious and re-run the affected tests before calling them real bugs. The old waves-of-10 recipe only applies if a parallel sweep is ever required again: 40 `--shard` processes would exhaust client ephemeral ports (`ERR_CONNECTION_REFUSED`), so build waves as `for ($start=1; $start -le 40; $start += 10)` over `$start..($start+9)` — NEVER `@(,@(1..10)),@(11..20),…`: that nests the first array (its `$i` becomes the whole wave) and `--shard` errors with "expected format current/all". Without `EXTERNAL_SERVERS=1` every Playwright process spawns its own `http-server.py` (Windows SO_REUSEADDR lets them all bind 8080) and early finishers kill the server the rest are using. Config sets `retries: 1`, so always pass `--retries=0` while iterating. Fix a failure in one shard everywhere before continuing.
 6: After fixing issues with the regression tests apply them to pmd-screenshots.spec.js and validate them using one theme only.
 7: Fail-fast test iterations: after a code/test change, DON'T run a whole batch at once — run only the first 2-3 affected tests first (`--grep "a|b" --workers=2 --retries=0`) to debug on a small surface; grow the batch only once those pass. The config sets `retries: 1`, so pass `--retries=0` while iterating (otherwise failures take twice as long).
@@ -64,26 +64,40 @@ Architecture:
   (one shared key — it's the same root SW) so "Later" isn't re-prompted on the
   next reload; "Update now" clears it. `__updatePrompted` stays as the in-load
   fast path.
-  REGISTER AT A STABLE URL (2026-09-18): the apps register `../sw.js` (the
-  Launch app `sw.js`) with NO `?v=` cache-buster. A versioned script URL was
-  the DOUBLE-PROMPT bug: after "Update now" reloads to the new build, that page
-  registered a DIFFERENT scriptURL than the just-activated worker
-  (`?v=old` vs `?v=new`), so Chromium reinstalled another worker and prompted
-  again (verified in a SW simulation: versioned URL prompts twice, stable URL
-  prompts once). The browser detects updates by comparing sw.js bytes, so the
-  number is inline-mirrored in sw.js (see rule 5) — the imported build-number.js
-  alone would NOT be re-fetched for that comparison (2026-09-25 correction).
-  Because the URL is now stable across builds, the "Later" dismissal is
-  build-aware: the pages store `swUpdateDismissedBuild` (= the page's
-  BUILD_NUMBER at press time) alongside `swUpdateDismissedUrl` and only suppress
-  the prompt when `swUpdateDismissedBuild` equals the current page build, so one
-  "Later" no longer silences every future update forever.
+  REGISTER WITH THE BUILD NUMBER (2026-09-25, replaced the 09-18 "stable URL"
+  rule): every shell registers `smdServiceWorkerScriptUrl("../sw.js")`, i.e.
+  `../sw.js?v=<BUILD_NUMBER>`, with `{ updateViaCache: "none" }`, and also
+  assigns `reg.updateViaCache = "none"`. WHY — the spec's Update algorithm
+  installs a new worker when the fetched script URL DIFFERS from the incumbent
+  worker's script url, independent of the bytes; `registration.update()` and the
+  browser's own soft updates always reuse the INCUMBENT's url, so they can only
+  ever detect a BYTE change. Registering a stable url therefore made a pure
+  version bump invisible unless sw.js's own bytes also changed — the bug fixed
+  here. The 2026-09-18 DOUBLE-PROMPT concern does not come back: after "Update
+  now" the reload registers the SAME url the just-activated worker already has,
+  and identical script url + worker type + `updateViaCache` mode makes `register()`
+  short-circuit (no reinstall, no second prompt). Keep `updateViaCache: "none"` on
+  every `register()` call — the spec's early-out compares the mode, so a mode
+  change would re-enter the update path.
+  `sw.js` reads its number from its OWN `self.location.search` (`?v=…`), so page
+  and worker can never disagree; the inline literal is only the fallback for a
+  bare `/sw.js` registration (kept in sync by `npm run bump:build`). The page
+  can read the active worker's build via `smdServiceWorkerBuild(reg)`
+  (`{type:"GET_BUILD"}` → `{type:"BUILD", build}`), which logs a warning on
+  drift. The fetch handler serves any `?v=` stamp the worker does not recognise
+  network-first, so a new build is never pinned to old bytes by `ignoreSearch`
+  matching while the update is still pending.
+  The "Later" dismissal is build-aware: the pages store
+  `swUpdateDismissedBuild` (= the page's BUILD_NUMBER at press time) alongside
+  `swUpdateDismissedUrl` and only suppress the prompt when
+  `swUpdateDismissedBuild` equals the current page build, so one "Later" no
+  longer silences every future update forever.
   `BUILD_NUMBER` is STATIC in `shared/js/build-number.js` — bump it to ship a new
-  build (sw.js byte changes still trigger an update, but a same cache name reuses
-  old assets). All same-origin ASSET LOADS are cache-busted with `?v=BUILD_NUMBER`
-  (head `<script>` stamps `<link href>`; vendor/component scripts use
-  `document.write(...?v=…)`; `applyTheme()` stamps theme swaps; `sampleImages.json`
-  fetch is versioned).
+  build (the new number is now what installs the new worker and names the
+  `myapps-<BUILD_NUMBER>` cache). All same-origin ASSET LOADS are cache-busted
+  with `?v=BUILD_NUMBER` (head `<script>` stamps `<link href>`; vendor/component
+  scripts use `document.write(...?v=…)`; `applyTheme()` stamps theme swaps;
+  `sampleImages.json` fetch is versioned).
 - LAUNCH APP (2026-09-13): the app launcher's entry is the **repo-root
   `index.html`** (served at `/MyApps/`); its support files live in `Launch/`
   (`manifest.json` with `start_url`/`scope: "../"`, `icon.svg` + generated PNGs,

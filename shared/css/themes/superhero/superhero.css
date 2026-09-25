@@ -1,13 +1,12 @@
-:root[data-bs-theme="dark"] {
-  --smd-page-header-background: var(--bs-dark);
-  --smd-tab-active-background: var(--bs-primary);
+:root {
   --smd-tab-background: var(--bs-secondary);
   --smd-image-theme: dark;
 }
 
+:root[data-bs-theme="dark"] {
+  --smd-page-header-background: var(--bs-dark);
+}
+
 :root[data-bs-theme="light"] {
   --smd-page-header-background: var(--bs-black);
-  --smd-tab-active-background: var(--bs-primary);
-  --smd-tab-background: var(--bs-secondary);
-  --smd-image-theme: dark;
 }

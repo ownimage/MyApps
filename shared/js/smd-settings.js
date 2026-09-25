@@ -375,6 +375,44 @@ Object.assign(SmdApp.prototype, {
   updateScreenResolution
 });
 
+// ---- Service-worker registration helpers (shared by every app shell) ----
+// Every shell registers the worker with its own build number as a query string.
+// A new build number therefore means a new worker script URL, and the spec
+// installs a fresh waiting worker whenever that URL differs — even if the bytes
+// are identical. That is what makes a build bump surface as "Update available"
+// instead of depending on sw.js itself having changed.
+function smdServiceWorkerScriptUrl(path) {
+  return path + "?v=" + encodeURIComponent(typeof BUILD_NUMBER !== "undefined" ? String(BUILD_NUMBER) : "");
+}
+
+// Ask a worker which build it was registered for. Resolves with the build
+// number string, or null when no worker is active yet / does not answer.
+// The worker takes the same number from its own script URL, so a mismatch means
+// the controlling worker belongs to an older build than the running page.
+function smdServiceWorkerBuild(reg) {
+  return new Promise(function(resolve) {
+    var worker = (reg && (reg.active || reg.waiting)) || (window.navigator && navigator.serviceWorker.controller);
+    if (!worker) return resolve(null);
+    var settled = false;
+    var channel = new MessageChannel();
+    function finish(value) {
+      if (settled) return;
+      settled = true;
+      resolve(value);
+    }
+    setTimeout(function() { finish(null); }, 1000);
+    channel.port1.onmessage = function(event) {
+      var data = event.data || {};
+      finish(data.type === "BUILD" ? String(data.build || "") : null);
+    };
+    try {
+      worker.postMessage({ type: "GET_BUILD" }, [channel.port2]);
+    } catch (e) {
+      finish(null);
+    }
+  });
+}
+
 // ---- Generic settings-page styles (used by every app's settingsPage) ----
 var SETTINGS_STYLES = "";
 

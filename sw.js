@@ -5,13 +5,21 @@
 // the worker must sit at the root to cover both.
 //
 // To add an app: add an entry to APPS below (folder prefix -> its shell files).
-// The worker's own mirror of the build number. Browsers detect a service-worker
-// update by re-fetching the REGISTERED script (sw.js) and comparing bytes —
-// importScripts files are NOT part of that comparison. So the number must sit
-// inline here (bumped together with shared/js/build-number.js), or a pure
-// version bump would never install a new worker and the apps' "Update
-// available" prompt would never fire.
-const BUILD_NUMBER = "202609252246";
+//
+// BUILD NUMBER: every shell registers this worker with its own build number as
+// a query string (`../sw.js?v=<BUILD_NUMBER>`). The number is taken from the
+// script URL, so the worker's cache name can never drift from the build the page
+// is running — that drift is what used to make new builds go unnoticed.
+//
+// Why the query matters (W3C SW spec, "Update" algorithm): the user agent
+// installs a new worker when the fetched script URL DIFFERS from the incumbent
+// worker's script url, regardless of whether the bytes are identical. A changed
+// `?v=` therefore always produces a fresh waiting worker -> "Update available".
+// `registration.update()` and the browser's own (throttled, ~daily) soft updates
+// always reuse the incumbent's script URL, so they can only ever detect a BYTE
+// change — which is why a bump that never reached this file was invisible.
+// The literal below is only a fallback for a bare `/sw.js` registration.
+const BUILD_NUMBER = (self.location.search.match(/[?&]v=(\d{12})/) || [])[1] || "202609252357";
 
 const CACHE = "myapps-" + BUILD_NUMBER;
 
@@ -401,8 +409,15 @@ self.addEventListener("install", event => {
 });
 
 self.addEventListener("message", event => {
-  if (event.data && event.data.type === "SKIP_WAITING") {
+  if (!event.data) return;
+  if (event.data.type === "SKIP_WAITING") {
     self.skipWaiting();
+  } else if (event.data.type === "GET_BUILD") {
+    // Lets a page compare the build it is running against the build this worker
+    // was registered for, so a stale worker is visible instead of silent.
+    const reply = { type: "BUILD", build: BUILD_NUMBER, cache: CACHE };
+    if (event.ports && event.ports[0]) event.ports[0].postMessage(reply);
+    else if (event.source) event.source.postMessage(reply);
   }
 });
 
@@ -450,6 +465,12 @@ self.addEventListener("fetch", event => {
         if (req.mode === "navigate") return cache.match(appIndexFor(url.pathname));
         return cached;
       });
+      // Because matching ignores the search string, a `?v=` stamp this worker
+      // does not recognise is a NEWER build's asset. Serve it from the network
+      // (refreshing the pathname entry on the way) instead of pinning the old
+      // bytes, so a freshly deployed build is never held back by a stale worker.
+      const stamp = url.searchParams.get("v");
+      if (stamp && stamp !== BUILD_NUMBER) return network;
       return cached || network;
     }))
   );

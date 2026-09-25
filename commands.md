@@ -21,7 +21,7 @@ npx playwright test tests/sample-images.spec.js --workers 1
 Writes the shared gallery to `screenshots/sample-images.png`.
 
 ### Bump the build number
-Rewrites the timestamp in BOTH `shared/js/build-number.js` and `sw.js` (the worker mirror must change or the "Update available" prompt never fires):
+Rewrites the timestamp in BOTH `shared/js/build-number.js` and `sw.js`. The new number is what ships a build: every shell registers `../sw.js?v=<BUILD_NUMBER>`, so a changed script URL is what makes the browser install a new worker and show "Update available" (the `sw.js` copy is the fallback for a bare `/sw.js` registration):
 ```bash
 npm run bump:build
 ```
