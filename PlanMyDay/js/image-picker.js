@@ -6,6 +6,32 @@
 (function () {
   let pickerCallback = null;
   let pickerHost = null;
+  let pickerCloseTimer = null;
+  let pickerBackground = [];
+
+  function hideImagePickerBackground() {
+    if (pickerBackground.length) return;
+    const picker = document.getElementById("imagePickerPage");
+    document.querySelectorAll("smd-page").forEach(function (page) {
+      if (page === picker || !page.hasAttribute("open")) return;
+      page.hide();
+      page.classList.add("d-none");
+      pickerBackground.push({ element: page, isPage: true });
+    });
+    const main = document.getElementById("countdownContainer");
+    if (main && !main.classList.contains("d-none")) {
+      main.classList.add("d-none");
+      pickerBackground.push({ element: main, isPage: false });
+    }
+  }
+
+  function restoreImagePickerBackground() {
+    pickerBackground.forEach(function (entry) {
+      entry.element.classList.remove("d-none");
+      if (entry.isPage) entry.element.show();
+    });
+    pickerBackground = [];
+  }
 
   window.__openImagePicker = function (callback) {
     pickerCallback = callback || null;
@@ -24,6 +50,11 @@
         if (action === "cancel" || action === "no-image") window.__finishImagePick(null);
       });
     }
+    if (pickerCloseTimer) {
+      clearTimeout(pickerCloseTimer);
+      pickerCloseTimer = null;
+    }
+    hideImagePickerBackground();
     pickerHost.classList.remove("d-none");
     pickerHost.show();
   };
@@ -36,10 +67,15 @@
     }
     if (pickerHost) {
       pickerHost.hide();
+      restoreImagePickerBackground();
       // The page slides off-screen on hide(), but Playwright counts an off-canvas
       // element as visible. Add d-none (immediately for tests; after slide for UI).
       const ms = pickerHost.slideDuration || 0;
-      setTimeout(function () { pickerHost.classList.add("d-none"); }, ms > 0 ? ms + 50 : 0);
+      if (pickerCloseTimer) clearTimeout(pickerCloseTimer);
+      pickerCloseTimer = setTimeout(function () {
+        pickerHost.classList.add("d-none");
+        pickerCloseTimer = null;
+      }, ms > 0 ? ms + 50 : 0);
     }
   };
 

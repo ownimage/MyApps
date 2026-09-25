@@ -60,7 +60,7 @@ class SmdPage extends HTMLElement {
         <div class="smd-page-header">
           <h1>${this._escapeHtml(this._title)}</h1>${this._headerHtml}
         </div>
-        <div class="smd-page-body">${this._content}</div>
+        <div class="smd-page-body m-1">${this._content}</div>
         <div class="smd-page-footer">${buttonsHtml}</div>
       </div>
     `;
