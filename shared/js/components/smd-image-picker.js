@@ -120,7 +120,7 @@
               <input type="search" class="form-control" placeholder="Search images or icons...">
               <button type="button" class="btn btn-secondary clear">Clear</button>
             </div>
-            <smd-tabs padding="small"></smd-tabs>
+            <smd-tabs padding="small" narrow></smd-tabs>
           </div>
         `;
       }

@@ -28,7 +28,7 @@ class SmdTabs extends HTMLElement {
     }
 
     static get observedAttributes() {
-        return ['bottomline', 'wrap', 'padding'];
+        return ['bottomline', 'wrap', 'padding', 'narrow'];
     }
 
     attributeChangedCallback(name, oldValue, newValue) {
@@ -63,6 +63,14 @@ class SmdTabs extends HTMLElement {
 
     set wrap(val) {
         this.toggleAttribute('wrap', !!val);
+    }
+
+    get narrow() {
+        return this.hasAttribute('narrow');
+    }
+
+    set narrow(val) {
+        this.toggleAttribute('narrow', !!val);
     }
 
     get padding() {

@@ -406,7 +406,7 @@
       id: "smd-tabs",
       name: "smd-tabs",
       tag: "<smd-tabs>",
-      desc: "Tab bar + panels. Set the <code>tabs</code> array {title, content, id?, panelClass?}. Dispatches <code>smd-tabs-change</code>. Set <code>bottomline = false</code> to hide the horizontal rule at the bottom of the tab section; set <code>wrap</code> to let the tab buttons wrap onto multiple lines; set <code>padding=\"small\"</code> for compact tab buttons + flush panels (default <code>normal</code>, no change).",
+      desc: "Tab bar + panels. Set the <code>tabs</code> array {title, content, id?, panelClass?}. Dispatches <code>smd-tabs-change</code>. Set <code>bottomline = false</code> to hide the horizontal rule at the bottom of the tab section; set <code>wrap</code> to let the tab buttons wrap onto multiple lines; set <code>narrow</code> to reduce the tab buttons' left/right padding; set <code>padding=\"small\"</code> for compact tab buttons + flush panels (default <code>normal</code>, no change).",
       html: () => `
         <div class="sb-canvas d-flex flex-column flex-wrap align-items-start gap-3 p-3 w-100 border rounded bg-body">
           <smd-tabs id="sb-tabs"></smd-tabs>
@@ -414,6 +414,7 @@
         <div class="sb-controls d-flex flex-wrap align-items-center gap-3 mt-3 small">
           <label><input class="form-check-input" type="checkbox" id="ctrl-tabs-bottomline"> Show bottom line</label>
           <label><input class="form-check-input" type="checkbox" id="ctrl-tabs-wrap"> Wrap tabs</label>
+          <label><input class="form-check-input" type="checkbox" id="ctrl-tabs-narrow"> Narrow buttons</label>
           <button type="button" class="btn btn-primary btn-sm" id="btn-tabs-apply">Apply</button>
         </div>
         <div class="sb-log mt-3 small font-monospace text-success border rounded bg-body px-2 py-1" id="log-smd-tabs">events: none yet</div>
@@ -431,7 +432,9 @@
           tabs.setAttribute("bottomline", val ? "true" : "false");
           const wrap = document.getElementById("ctrl-tabs-wrap").checked;
           tabs.toggleAttribute("wrap", wrap);
-          log("smd-tabs", "bottomline=" + (val ? "true" : "false") + " wrap=" + (wrap ? "true" : "false"));
+          const narrow = document.getElementById("ctrl-tabs-narrow").checked;
+          tabs.toggleAttribute("narrow", narrow);
+          log("smd-tabs", "bottomline=" + (val ? "true" : "false") + " wrap=" + (wrap ? "true" : "false") + " narrow=" + (narrow ? "true" : "false"));
         });
       }
     });
