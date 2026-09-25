@@ -14,14 +14,16 @@
 
   const smdImageCardTemplate = document.createElement("template");
   smdImageCardTemplate.innerHTML = `
-  <div class="card d-flex flex-column gap-2">
-    <div class="d-flex flex-row align-items-center justify-content-between gap-2">
-      <div class="thumb"><smd-image></smd-image></div>
-      <button type="button" class="btn btn-danger btn-sm d-inline-flex align-items-center justify-content-center" title="Delete" data-action="delete"><i class="bi bi-trash" aria-hidden="true"></i></button>
-      <button type="button" class="btn btn-info btn-sm d-inline-flex align-items-center justify-content-center" title="Duplicate" data-action="duplicate"><i class="bi bi-files" aria-hidden="true"></i></button>
-      <button type="button" class="btn btn-primary btn-sm d-inline-flex align-items-center justify-content-center" title="Edit" data-action="edit"><i class="bi bi-pencil" aria-hidden="true"></i></button>
+  <div class="card d-flex border-0 w-100">
+    <div class="d-flex flex-column gap-2 px-4 py-2 border rounded-3">
+      <div class="d-flex flex-row align-items-center justify-content-between gap-2">
+        <div class="thumb"><smd-image></smd-image></div>
+        <button type="button" class="btn btn-danger btn-sm d-inline-flex align-items-center justify-content-center" title="Delete" data-action="delete"><i class="bi bi-trash" aria-hidden="true"></i></button>
+        <button type="button" class="btn btn-info btn-sm d-inline-flex align-items-center justify-content-center" title="Duplicate" data-action="duplicate"><i class="bi bi-files" aria-hidden="true"></i></button>
+        <button type="button" class="btn btn-primary btn-sm d-inline-flex align-items-center justify-content-center" title="Edit" data-action="edit"><i class="bi bi-pencil" aria-hidden="true"></i></button>
+      </div>
+      <span class="editor-title text-start text-truncate w-100"></span>
     </div>
-    <span class="editor-title text-start text-truncate w-100"></span>
   </div>
 `;
 
@@ -48,6 +50,7 @@
 
     connectedCallback() {
       this._build();
+      this.classList.add("d-block", "mb-2", "mx-2");
       if (!this._bound) {
         this._bound = true;
         this.querySelector('[data-action="delete"]').addEventListener("click", () => this._emit("delete"));

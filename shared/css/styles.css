@@ -389,10 +389,6 @@ smd-qr-import .reader {
   min-height: 280px;
 }
 
-smd-image-card {
-  display: block;
-}
-
 smd-image-select {
   display: flex;
   align-items: center;

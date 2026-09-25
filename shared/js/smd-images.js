@@ -421,8 +421,8 @@ function renderImagesEditor() {
     page.headerHtml = "";
     page.content =
       '<div id="imageSearchHeader">' +
-        '<div id="imageSearchFilters" class="mt-3 mb-3">' +
-          '<div class="row align-items-center g-0">' +
+        '<div id="imageSearchFilters" class="mt-1 mb-3">' +
+          '<div class="row align-items-center g-0 mx-2">' +
             '<div class="col">' +
               '<input type="search" class="form-control" id="imageNameSearchInput" placeholder="Search image names..." value="' + escapeHtml(imageNameSearch) + '" oninput="setImageNameSearch(this.value)">' +
             '</div>' +

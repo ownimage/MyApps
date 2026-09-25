@@ -40,9 +40,15 @@ function buildSearchJobsContent() {
   page.headerHtml = '<smd-badge id="jobSearchTotalBadge" variant="info" class="small align-middle"></smd-badge>';
   page.content =
     '<div id="jobSearchHeader">' +
-      '<div id="jobSearchFilters" class="mt-3 d-flex align-items-stretch gap-2">' +
-        '<input type="search" class="form-control flex-grow-1" id="jobSearchInput" placeholder="Search job titles..." oninput="searchJobsFilter()">' +
-        '<smd-button variant="danger" id="btnJobSearchClear" onclick="clearJobSearchFilter()" class="flex-shrink-0">Clear</smd-button>' +
+      '<div id="jobSearchFilters" class="mt-1 mb-3">' +
+        '<div class="row align-items-center g-0 mx-2">' +
+          '<div class="col">' +
+            '<input type="search" class="form-control" id="jobSearchInput" placeholder="Search job titles..." oninput="searchJobsFilter()">' +
+          '</div>' +
+          '<div class="col-auto ms-2">' +
+            '<smd-button variant="danger" id="btnJobSearchClear" onclick="clearJobSearchFilter()">Clear</smd-button>' +
+          '</div>' +
+        '</div>' +
       '</div>' +
     '</div>' +
     '<div id="jobSearchList"></div>';

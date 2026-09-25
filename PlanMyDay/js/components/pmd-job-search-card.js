@@ -27,7 +27,7 @@ pmdJobSearchCardTemplate.innerHTML = `
     <div class="d-flex py-2 border rounded-3">
 
       <!-- 1️⃣ Checkbox -->
-      <div class="d-flex flex-column align-items-center justify-content-center flex-shrink-0">
+      <div class="d-flex flex-column align-items-center justify-content-center flex-shrink-0 ms-2">
         <smd-checkbox class="active-toggle flex-shrink-0"></smd-checkbox>
       </div>
 
