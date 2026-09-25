@@ -67,7 +67,7 @@ test.describe("CountMyDays - Screenshots", () => {
   test("settings - g cal", async ({ page }) => {
     await page.evaluate(() => openSettings());
     await page.waitForTimeout(300);
-    await page.locator("#settingsPage").getByRole("button", { name: "G Cal" }).click();
+    await page.locator("#settingsPage").getByRole("tab", { name: "G Cal" }).click();
     await page.locator("#gcalEnabled").check();
     await page.waitForTimeout(300);
     await screenshotAllThemes(page, "settings-gcal.png");

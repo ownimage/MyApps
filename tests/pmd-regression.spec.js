@@ -689,7 +689,7 @@ test.describe("PlanMyDay - Regression", () => {
     test("shows all main settings controls", async ({ page }) => {
       await expect(page.locator("html")).toHaveAttribute("data-smd-font-size", "xlarge");
       await expect(page.locator("html")).toHaveAttribute("data-smd-icon-size", "medium");
-      await expect(page.locator("html")).toHaveAttribute("data-smd-touch-size", "normal");
+      await expect(page.locator("html")).toHaveAttribute("data-smd-touch-size", "large");
       await expect(page.locator("html")).toHaveAttribute("data-smd-tile-density", "normal");
       await page.locator("#btnMainMenu").click();
       await page.locator("a.dropdown-item").filter({ hasText: "Settings" }).click();
@@ -1709,7 +1709,7 @@ test.describe("PlanMyDay - Regression", () => {
       await page.locator("#imageEditModalBody .form-control:not(.form-control-sm)").fill("SqImg");
       await page.locator("#btnImageEditOk").click();
       await page.locator("#imageEditModal").waitFor({ state: "hidden" });
-      await expect(page.locator(".card:has-text('SqImg')").getByTitle("Duplicate").locator("svg rect")).toHaveCount(2);
+      await expect(page.locator(".card:has-text('SqImg')").getByTitle("Duplicate").locator("i.bi-files")).toBeVisible();
     });
 
     test("duplicate opens modal titled Duplicate Image", async ({ page }) => {

@@ -656,7 +656,7 @@ test.describe("CountMyDays - Regression", () => {
     test("G Cal settings tab enables Google and renders the share QR", async ({ page }) => {
       await seed(page);
       await page.evaluate(() => openSettings());
-      await page.locator("#settingsPage").getByRole("button", { name: "G Cal" }).click();
+      await page.locator("#settingsPage").getByRole("tab", { name: "G Cal" }).click();
       await expect(page.locator("#gcalOptions")).toBeHidden();
 
       // qrcodejs renders a canvas + an <img> fallback; one of them is visible.
