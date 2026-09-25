@@ -28,14 +28,13 @@
   const smdCheckboxTemplate = document.createElement("template");
   smdCheckboxTemplate.innerHTML = `<label><input type="checkbox"><span class="checkbox-label"></span></label>`;
 
-  // Touch size: a VALUE, not a style. It is published as --smd-checkbox-input-size
-  // on the host so the input (and all its em-based dimensions) scales while the
-  // label text stays the same size. Set once from the app via setDefaultSize().
+  // Touch size is a VALUE: the shared css maps html[data-smd-touch-size] (and a
+  // per-instance size attribute) onto --smd-checkbox-input-size. setDefaultSize()
+  // only mirrors the value onto the html attribute for CSS; no inline styles.
   const SIZES = {
     normal: "1em",
     large: "1.4em"
   };
-  const liveInstances = new Set();
 
   class SmdCheckbox extends HTMLElement {
     static get observedAttributes() {
@@ -71,19 +70,14 @@
           else this.removeAttribute(prop);
         }
       });
-      liveInstances.add(this);
       this._sync();
-      this._applySize();
     }
 
-    disconnectedCallback() {
-      liveInstances.delete(this);
-    }
+    disconnectedCallback() {}
 
     attributeChangedCallback() {
-      if (this.isConnected) {
-        if (this._input) this._sync();
-        this._applySize();
+      if (this.isConnected && this._input) {
+        this._sync();
       }
     }
 
@@ -97,15 +91,6 @@
     set disabled(value) {
       if (value) this.setAttribute("disabled", "");
       else this.removeAttribute("disabled");
-    }
-
-    _size() {
-      const value = (this.getAttribute("size") || SmdCheckbox.defaultSize || "normal").toLowerCase();
-      return SIZES[value] ? value : "normal";
-    }
-
-    _applySize() {
-      this.style.setProperty("--smd-checkbox-input-size", SIZES[this._size()] || "1em");
     }
 
     _sync() {
@@ -143,7 +128,7 @@
   SmdCheckbox.setDefaultSize = function (value) {
     const v = SIZES[value] ? value : "normal";
     SmdCheckbox.defaultSize = v;
-    liveInstances.forEach((el) => el._applySize());
+    document.documentElement.dataset.smdTouchSize = v;
   };
 
   if (!global.customElements.get("smd-checkbox")) {

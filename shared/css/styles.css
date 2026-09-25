@@ -44,6 +44,12 @@ smd-button {
 smd-checkbox {
   display: inline-flex;
   align-items: center;
+  --smd-checkbox-input-size: 1.2em;
+}
+
+html[data-smd-touch-size="large"] smd-checkbox,
+smd-checkbox[size="large"] {
+  --smd-checkbox-input-size: 2em;
 }
 
 smd-checkbox label {
@@ -53,6 +59,8 @@ smd-checkbox label {
 
 smd-checkbox input {
   flex: 0 0 auto;
+  width: var(--smd-checkbox-input-size, 1em);
+  height: var(--smd-checkbox-input-size, 1em);
 }
 
 smd-draghandle {
@@ -64,6 +72,14 @@ smd-draghandle {
   -webkit-touch-callout: none;
   user-select: none;
   -webkit-user-select: none;
+  --smd-draghandle-size: 1.2em;
+  font-size: var(--smd-draghandle-size, 1.2em);
+  padding: 0.15em 0.25em;
+}
+
+html[data-smd-touch-size="large"] smd-draghandle,
+smd-draghandle[size="large"] {
+  --smd-draghandle-size: 2em;
 }
 
 smd-draghandle .glyph {
