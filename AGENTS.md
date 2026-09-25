@@ -2,7 +2,7 @@
 2: Ask questions if there are implementation options
 3: When running playwright use the command '.\node_modules\.bin\playwright.cmd' to make sure the correct version loads. 
 4: Please capture all the output needed when running a test the first time so that you do not need to rerun the test.
-5: `shared/js/build-number.js` `BUILD_NUMBER` is a TIMESTAMP in `YYYYMMDDHH24MI` format (e.g. `202609131400` = 2026-09-13 14:00); it is the single cache-busting version for every app + shared asset. BUMP IT WITH `npm run bump:build` (`node shared/bump-build.js`, optional explicit `YYYYMMDDHHMM` arg) — the script rewrites BOTH `shared/js/build-number.js` AND `sw.js` in one go. Never hand-edit the two apart: a bump is what ships a build — the shells register `../sw.js?v=<BUILD_NUMBER>`, and a changed script URL is what installs the new worker (see the service-worker section), so the number MUST change for a new build to reach users. The inline copy in `sw.js` is only the fallback for a bare `/sw.js` registration, but keep it in sync anyway.
+5: `shared/js/build-number.js` `BUILD_NUMBER` is a TIMESTAMP in `YYYYMMDDHH24MI` format (e.g. `202609131400` = 2026-09-13 14:00); it is the single cache-busting version for every app + shared asset. BUMP IT WITH `npm run bump:build` (`node shared/bump-build.js`, optional explicit `YYYYMMDDHHMM` arg) — the script rewrites BOTH `shared/js/build-number.js` AND `sw.js` in one go. Never hand-edit the two apart: a bump is what ships a build. The worker is registered at a STABLE url (`../sw.js`, no `?v=` — a versioned url makes the app "update twice"), so a BYTE change in sw.js is the only signal that installs a new worker; `npm run bump:build` writes both in one go. If they ever do drift, the page detects it at runtime (GET_BUILD) and re-registers, so a forgotten bump self-heals instead of pinning users to the old build.
 5: FULL-SUITE RUNS use the ITERATIVE PER-SHARD approach (2026-09-19, ALWAYS): play `--shard=$i/40 --workers=1 --retries=0 --reporter=line` with `EXTERNAL_SERVERS=1` (start `python tests/http-server.py` + `python tests/subpath-server.py` ONCE, verify both ports `TcpClient` first) ONE SHARD AT A TIME in order: run shard 1/40, tell the user WHAT FAILED, fix every failure AND apply the same root-cause fix EVERYWHERE it can happen (use `--grep "a|b"` to re-verify just the fixed tests), then run shard 2/40, and so on. Report progress between shards. This catches a shared root cause in shard 1 instead of failing 30 shards; it also keeps the "wait" granularity small. Do NOT run the whole 40-shard batch blind. `--workers="50%"` also works for speed (or any worker ratio) — BUT be aware it raises infra failures (client ephemeral-port exhaustion in this box → mid-run `ERR_CONNECTION_REFUSED` / "Target page, context or browser has been closed"), so treat a burst of infra-style failures as spurious and re-run the affected tests before calling them real bugs. The old waves-of-10 recipe only applies if a parallel sweep is ever required again: 40 `--shard` processes would exhaust client ephemeral ports (`ERR_CONNECTION_REFUSED`), so build waves as `for ($start=1; $start -le 40; $start += 10)` over `$start..($start+9)` — NEVER `@(,@(1..10)),@(11..20),…`: that nests the first array (its `$i` becomes the whole wave) and `--shard` errors with "expected format current/all". Without `EXTERNAL_SERVERS=1` every Playwright process spawns its own `http-server.py` (Windows SO_REUSEADDR lets them all bind 8080) and early finishers kill the server the rest are using. Config sets `retries: 1`, so always pass `--retries=0` while iterating. Fix a failure in one shard everywhere before continuing.
 6: After fixing issues with the regression tests apply them to pmd-screenshots.spec.js and validate them using one theme only.
 7: Fail-fast test iterations: after a code/test change, DON'T run a whole batch at once — run only the first 2-3 affected tests first (`--grep "a|b" --workers=2 --retries=0`) to debug on a small surface; grow the batch only once those pass. The config sets `retries: 1`, so pass `--retries=0` while iterating (otherwise failures take twice as long).
@@ -64,40 +64,52 @@ Architecture:
   (one shared key — it's the same root SW) so "Later" isn't re-prompted on the
   next reload; "Update now" clears it. `__updatePrompted` stays as the in-load
   fast path.
-  REGISTER WITH THE BUILD NUMBER (2026-09-25, replaced the 09-18 "stable URL"
-  rule): every shell registers `smdServiceWorkerScriptUrl("../sw.js")`, i.e.
-  `../sw.js?v=<BUILD_NUMBER>`, with `{ updateViaCache: "none" }`, and also
-  assigns `reg.updateViaCache = "none"`. WHY — the spec's Update algorithm
-  installs a new worker when the fetched script URL DIFFERS from the incumbent
-  worker's script url, independent of the bytes; `registration.update()` and the
-  browser's own soft updates always reuse the INCUMBENT's url, so they can only
-  ever detect a BYTE change. Registering a stable url therefore made a pure
-  version bump invisible unless sw.js's own bytes also changed — the bug fixed
-  here. The 2026-09-18 DOUBLE-PROMPT concern does not come back: after "Update
-  now" the reload registers the SAME url the just-activated worker already has,
-  and identical script url + worker type + `updateViaCache` mode makes `register()`
-  short-circuit (no reinstall, no second prompt). Keep `updateViaCache: "none"` on
-  every `register()` call — the spec's early-out compares the mode, so a mode
-  change would re-enter the update path.
-  `sw.js` reads its number from its OWN `self.location.search` (`?v=…`), so page
-  and worker can never disagree; the inline literal is only the fallback for a
-  bare `/sw.js` registration (kept in sync by `npm run bump:build`). The page
-  can read the active worker's build via `smdServiceWorkerBuild(reg)`
-  (`{type:"GET_BUILD"}` → `{type:"BUILD", build}`), which logs a warning on
-  drift. The fetch handler serves any `?v=` stamp the worker does not recognise
-  network-first, so a new build is never pinned to old bytes by `ignoreSearch`
-  matching while the update is still pending.
+  REGISTER AT A STABLE URL (2026-09-18; re-verified 2026-09-25): the apps
+  register `../sw.js` (the Launch app `sw.js`) with NO `?v=` cache-buster, via
+  `smdRegisterServiceWorker(path)` in `smd-settings.js` (falls back to a plain
+  `register(path, { updateViaCache: "none" })` if that module is missing), and
+  each shell also sets `reg.updateViaCache = "none"` (a persisted, per-
+  registration setting, so sw.js is never reused from the HTTP cache).
+  A VERSIONED script url is the DOUBLE-UPDATE bug and must not come back. A
+  changed `?v=` does guarantee a new worker, but the common flow installs TWO for
+  one bump: the focus/load `reg.update()` reuses the INCUMBENT's url, so it
+  installs the new sw.js bytes under the OLD `?v=old`; the user accepts, the page
+  reloads onto the new build, and `register("?v=new")` differs from that worker's
+  url, so the browser installs a second one and prompts again (traced against the
+  W3C spec: `Update` installs whenever the script url differs; `Install`
+  terminates the previous waiting worker, so the two updates are sequential, not
+  concurrent). The 2026-09-18 verification was right.
+  With a stable url the only update signal is a BYTE change in sw.js, so its
+  inline `BUILD_NUMBER` must be bumped with `shared/js/build-number.js` every
+  time (rule 5) — importScripts files are NOT part of the comparison. The cached
+  app shell is served cache-first by pathname, so a returning user keeps running
+  the OLD build until the new worker is accepted; that is expected, and
+  `reg.update()` on load + `focus` is what surfaces it promptly instead of
+  waiting for the browser's throttled (~daily) check.
+  DRIFT SELF-HEAL (2026-09-25): the page verifies the invariant instead of
+  trusting it. `smdCheckServiceWorkerBuild(reg)` asks the controlling worker
+  `{type:"GET_BUILD"}` (answered in sw.js with `{type:"BUILD", build, cache}`) and
+  compares it with the page's own `BUILD_NUMBER`. If the PAGE is newer than its
+  worker the two files were edited apart; nothing would ever replace that worker
+  (its bytes no longer change), so the page unregisters once and reloads, guarded
+  by `localStorage["smdSwDriftReloadedFor"]` so it cannot loop. The new worker's
+  activate step then deletes the stale `myapps-<old>` cache. A worker NEWER than
+  the page is just a pending update, so it only logs a warning.
   The "Later" dismissal is build-aware: the pages store
   `swUpdateDismissedBuild` (= the page's BUILD_NUMBER at press time) alongside
   `swUpdateDismissedUrl` and only suppress the prompt when
   `swUpdateDismissedBuild` equals the current page build, so one "Later" no
-  longer silences every future update forever.
+  longer silences every future update forever (needed precisely because the
+  script url is stable and can no longer identify a build).
   `BUILD_NUMBER` is STATIC in `shared/js/build-number.js` — bump it to ship a new
-  build (the new number is now what installs the new worker and names the
-  `myapps-<BUILD_NUMBER>` cache). All same-origin ASSET LOADS are cache-busted
-  with `?v=BUILD_NUMBER` (head `<script>` stamps `<link href>`; vendor/component
-  scripts use `document.write(...?v=…)`; `applyTheme()` stamps theme swaps;
-  `sampleImages.json` fetch is versioned).
+  build (the sw.js mirror changes with it, which is what installs the new worker
+  and names the `myapps-<BUILD_NUMBER>` cache). All same-origin ASSET LOADS are
+  cache-busted with `?v=BUILD_NUMBER` (head `<script>` stamps `<link href>`;
+  vendor/component scripts use `document.write(...?v=…)`; `applyTheme()` stamps
+  theme swaps; `sampleImages.json` fetch is versioned). The fetch handler serves a
+  `?v=` stamp the worker does not recognise network-first, so a page that ends up
+  ahead of its worker still gets fresh bytes instead of `ignoreSearch` matches
+  from the old cache.
 - LAUNCH APP (2026-09-13): the app launcher's entry is the **repo-root
   `index.html`** (served at `/MyApps/`); its support files live in `Launch/`
   (`manifest.json` with `start_url`/`scope: "../"`, `icon.svg` + generated PNGs,

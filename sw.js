@@ -6,20 +6,21 @@
 //
 // To add an app: add an entry to APPS below (folder prefix -> its shell files).
 //
-// BUILD NUMBER: every shell registers this worker with its own build number as
-// a query string (`../sw.js?v=<BUILD_NUMBER>`). The number is taken from the
-// script URL, so the worker's cache name can never drift from the build the page
-// is running — that drift is what used to make new builds go unnoticed.
+// BUILD NUMBER: the worker's own mirror of shared/js/build-number.js. DO NOT
+// hand-edit the two apart — use `npm run bump:build`.
 //
-// Why the query matters (W3C SW spec, "Update" algorithm): the user agent
-// installs a new worker when the fetched script URL DIFFERS from the incumbent
-// worker's script url, regardless of whether the bytes are identical. A changed
-// `?v=` therefore always produces a fresh waiting worker -> "Update available".
-// `registration.update()` and the browser's own (throttled, ~daily) soft updates
-// always reuse the incumbent's script URL, so they can only ever detect a BYTE
-// change — which is why a bump that never reached this file was invisible.
-// The literal below is only a fallback for a bare `/sw.js` registration.
-const BUILD_NUMBER = (self.location.search.match(/[?&]v=(\d{12})/) || [])[1] || "202609252357";
+// This literal is load-bearing. The worker is registered at a STABLE url
+// (`../sw.js`, no ?v=): a versioned script url makes the user agent install a
+// SECOND worker for the same bump, i.e. "the app updates twice" — the
+// focus-triggered reg.update() installs the new bytes under the OLD url
+// (`?v=old`), then the reloaded page registers the new url (`?v=new`) and
+// installs again, prompting a second time for one build. With a stable url the
+// only update signal is a BYTE change in this file, so the number has to sit
+// inline and change with every bump; importScripts files are NOT part of that
+// comparison. If the two ever DO drift, the page notices at runtime
+// (GET_BUILD) and re-registers, so the drift self-heals instead of pinning
+// users to a build the worker will never replace.
+const BUILD_NUMBER = "202609260019";
 
 const CACHE = "myapps-" + BUILD_NUMBER;
 

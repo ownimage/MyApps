@@ -897,15 +897,13 @@ test.describe("CountMyDays - Regression", () => {
           let regs = await navigator.serviceWorker.getRegistrations();
           let r = regs.find((x) => x.scope && x.scope.includes("/PlanMyDay/"));
           if (!r) {
-            // Register with the build number, exactly as the app shells do, so
-            // the worker's cache name matches the page's build.
-            try { await navigator.serviceWorker.register("/PlanMyDay/sw.js?v=" + BUILD_NUMBER); } catch (e) { /* retry next poll */ }
+            try { await navigator.serviceWorker.register("/PlanMyDay/sw.js", { updateViaCache: "none" }); } catch (e) { /* retry next poll */ }
             return "pending";
           }
           if (r.active) return r.active.state + "|" + !!navigator.serviceWorker.controller;
           if (!r.installing && !r.waiting) {
             // Failed/never-started install: unregister and re-register to retry.
-            try { await r.unregister(); await navigator.serviceWorker.register("/PlanMyDay/sw.js?v=" + BUILD_NUMBER); } catch (e) { /* retry next poll */ }
+            try { await r.unregister(); await navigator.serviceWorker.register("/PlanMyDay/sw.js", { updateViaCache: "none" }); } catch (e) { /* retry next poll */ }
           }
           return "pending";
         });

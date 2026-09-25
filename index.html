@@ -200,26 +200,15 @@
     }
     window.__launchSwUpdater = { showUpdatePrompt: showUpdatePrompt };
 
-    // The build number belongs in the worker script URL on purpose: a changed
-    // ?v= means a changed script URL, and the spec then always installs a new
-    // waiting worker even if the bytes are identical, so a build bump always
-    // surfaces as "Update available". reg.update() and the browser's own
-    // (throttled) checks reuse the incumbent's URL and therefore only ever
-    // detect a change in sw.js's own bytes.
-    var __swPath = "sw.js";
-    var __swUrl = typeof smdServiceWorkerScriptUrl === "function"
-      ? smdServiceWorkerScriptUrl(__swPath)
-      : __swPath + "?v=" + encodeURIComponent(String(BUILD_NUMBER));
-    navigator.serviceWorker.register(__swUrl, { updateViaCache: "none" }).then(function(reg) {
-      reg.updateViaCache = "none";
-      if (typeof smdServiceWorkerBuild === "function") {
-        smdServiceWorkerBuild(reg).then(function(workerBuild) {
-          if (workerBuild && workerBuild !== String(BUILD_NUMBER) && !reg.installing && !reg.waiting) {
-            console.warn("Service worker is on build " + workerBuild + " but this page is on " + BUILD_NUMBER + "; its update is queued.");
-          }
-        });
-      }
-
+    // STABLE worker url on purpose: versioning it would make the browser install
+    // a second worker for the same bump ("updates twice"). The update signal is
+    // the byte change in sw.js, whose inline BUILD_NUMBER is bumped with
+    // shared/js/build-number.js; smdRegisterServiceWorker also verifies at
+    // runtime that the worker and the page agree and repairs a drift.
+    var __registerSw = typeof smdRegisterServiceWorker === "function"
+      ? smdRegisterServiceWorker
+      : function(p) { return navigator.serviceWorker.register(p, { updateViaCache: "none" }); };
+    __registerSw("sw.js").then(function(reg) {
       if (navigator.serviceWorker.controller) {
         if (reg.waiting) showUpdatePrompt(reg);
         reg.addEventListener("updatefound", function() {

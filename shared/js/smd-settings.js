@@ -375,24 +375,36 @@ Object.assign(SmdApp.prototype, {
   updateScreenResolution
 });
 
-// ---- Service-worker registration helpers (shared by every app shell) ----
-// Every shell registers the worker with its own build number as a query string.
-// A new build number therefore means a new worker script URL, and the spec
-// installs a fresh waiting worker whenever that URL differs — even if the bytes
-// are identical. That is what makes a build bump surface as "Update available"
-// instead of depending on sw.js itself having changed.
-function smdServiceWorkerScriptUrl(path) {
-  return path + "?v=" + encodeURIComponent(typeof BUILD_NUMBER !== "undefined" ? String(BUILD_NUMBER) : "");
+// ---- Service-worker registration (shared by every app shell) ----
+// The worker is registered at a STABLE url on purpose. Versioning the script
+// url (`../sw.js?v=<BUILD_NUMBER>`) does make every bump install a new worker,
+// but it also makes the browser install a SECOND one for the same bump (the
+// focus-triggered reg.update() picks up the new bytes under the old url, then
+// the reloaded page registers the new url) — the app then "updates twice".
+// So the update signal stays a byte change in sw.js, whose inline BUILD_NUMBER
+// is bumped together with shared/js/build-number.js, and the page below
+// verifies at runtime that the two agree.
+function smdRegisterServiceWorker(path) {
+  return navigator.serviceWorker.register(path, { updateViaCache: "none" }).then(function(reg) {
+    // update via cache is a persisted, per-registration setting; set it on the
+    // object too so an existing registration stops reusing an HTTP-cached sw.js.
+    reg.updateViaCache = "none";
+    smdCheckServiceWorkerBuild(reg);
+    return reg;
+  });
 }
 
-// Ask a worker which build it was registered for. Resolves with the build
-// number string, or null when no worker is active yet / does not answer.
-// The worker takes the same number from its own script URL, so a mismatch means
-// the controlling worker belongs to an older build than the running page.
-function smdServiceWorkerBuild(reg) {
+// Ask the worker which build it is, and compare it with the build this page is
+// running. The worker mirrors the number inline, so a page that is NEWER than
+// its worker means the two files drifted (someone bumped build-number.js
+// without sw.js). Nothing would ever replace that worker, because its bytes no
+// longer change, so re-register once and reload to get the current sw.js.
+// Guarded by a per-build localStorage flag so it can never loop.
+function smdCheckServiceWorkerBuild(reg) {
   return new Promise(function(resolve) {
+    var pageBuild = (typeof BUILD_NUMBER !== "undefined" ? String(BUILD_NUMBER) : "");
     var worker = (reg && (reg.active || reg.waiting)) || (window.navigator && navigator.serviceWorker.controller);
-    if (!worker) return resolve(null);
+    if (!worker || !pageBuild) return resolve(null);
     var settled = false;
     var channel = new MessageChannel();
     function finish(value) {
@@ -403,7 +415,21 @@ function smdServiceWorkerBuild(reg) {
     setTimeout(function() { finish(null); }, 1000);
     channel.port1.onmessage = function(event) {
       var data = event.data || {};
-      finish(data.type === "BUILD" ? String(data.build || "") : null);
+      var workerBuild = data.type === "BUILD" ? String(data.build || "") : "";
+      if (!workerBuild || workerBuild === pageBuild) return finish(workerBuild);
+      var drifted = Number(workerBuild) < Number(pageBuild);
+      console.warn("Service worker is on build " + workerBuild + " but this page is on " + pageBuild +
+        (drifted ? " — repairing the registration." : " — an update is pending."));
+      finish(workerBuild);
+      if (!drifted) return;
+      var flag = "smdSwDriftReloadedFor";
+      var already = "";
+      try { already = localStorage.getItem(flag) || ""; } catch (e) {}
+      if (already === pageBuild) return;
+      try { localStorage.setItem(flag, pageBuild); } catch (e) {}
+      Promise.resolve(reg.unregister && reg.unregister()).then(function() {
+        window.location.reload();
+      }, function() { window.location.reload(); });
     };
     try {
       worker.postMessage({ type: "GET_BUILD" }, [channel.port2]);

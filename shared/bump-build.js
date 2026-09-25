@@ -2,14 +2,14 @@
 //
 // Bumps the build number in BOTH files that embed it:
 //   shared/js/build-number.js   (pages' cache-busting BUILD_NUMBER)
-//   sw.js                        (worker's FALLBACK literal)
+//   sw.js                        (worker's inline mirror)
 //
-// Every shell registers the worker as `../sw.js?v=<BUILD_NUMBER>`, and the spec
-// installs a new worker whenever that script url changes, so a bump is what
-// ships a build and what makes the "Update available" prompt fire. The worker
-// reads its own number from that query (so page and worker can never drift); the
-// literal in sw.js is only the fallback for a bare `/sw.js` registration and is
-// kept in sync here so its precache name still matches.
+// The worker mirror MUST change too. The worker is registered at a STABLE url
+// (`../sw.js`, no ?v=) on purpose — a versioned url makes the browser install a
+// second worker for the same bump, so the app "updates twice" — which leaves a
+// byte change in sw.js as the only update signal. Browsers never compare
+// importScripts files, so the number has to be inline in sw.js. If the two ever
+// drift anyway, the page detects it at runtime (GET_BUILD) and re-registers.
 //
 //   node shared/bump-build.js           use the current local time
 //   node shared/bump-build.js 202609252200   use an explicit timestamp
@@ -42,27 +42,21 @@ function nowTimestamp() {
   );
 }
 
-// shared/js/build-number.js: const BUILD_NUMBER = "202609252253"
-// sw.js:                     const BUILD_NUMBER = <url query> || "202609252253";
+// Both files carry the same shape: const BUILD_NUMBER = "202609252253";
 function currentNumber(file, label) {
   const src = fs.readFileSync(file, "utf8");
-  const m = src.match(/const BUILD_NUMBER = "(\d+)"/) || src.match(/\|\| "(\d+)"/);
+  const m = src.match(/const BUILD_NUMBER = "(\d+)"/);
   if (!m) throw new Error(`No "const BUILD_NUMBER" found in ${label}`);
   return m[1];
 }
 
-// shared/js/build-number.js rewrites the assignment, sw.js rewrites the
-// trailing fallback literal that follows the self.location.search lookup.
-function setNumber(file, value, pattern) {
+function setNumber(file, value) {
   const src = fs.readFileSync(file, "utf8");
-  if (!pattern.test(src)) throw new Error(`"${pattern}" not found in ${file}`);
-  const out = src.replace(pattern, "$1" + value + "$2");
+  const out = src.replace(/(const BUILD_NUMBER = ")\d+(")/, "$1" + value + "$2");
+  if (out === src) throw new Error(`"const BUILD_NUMBER" not replaced in ${file}`);
   fs.writeFileSync(file, out);
   return out;
 }
-
-const PAGE_PATTERN = /(const BUILD_NUMBER = ")\d+(")/;
-const SW_PATTERN = /(\|\| ")\d+(")/;
 
 const explicit = process.argv[2];
 const value = explicit || nowTimestamp();
@@ -76,8 +70,8 @@ const swNumber = currentNumber(SW_FILE, "sw.js");
 const jv = path.relative(ROOT, BUILD_NUMBER_FILE);
 
 if (swNumber !== oldNumber) {
-  setNumber(SW_FILE, oldNumber, SW_PATTERN);
-  console.log(`Repaired sw.js fallback ${swNumber} -> ${oldNumber} (it had not been bumped with the rest).`);
+  setNumber(SW_FILE, oldNumber);
+  console.log(`Repaired sw.js mirror ${swNumber} -> ${oldNumber} (it had not been bumped with the rest).`);
 }
 
 if (value === oldNumber) {
@@ -86,8 +80,8 @@ if (value === oldNumber) {
   process.exit(0);
 }
 
-setNumber(BUILD_NUMBER_FILE, value, PAGE_PATTERN);
-setNumber(SW_FILE, value, SW_PATTERN);
+setNumber(BUILD_NUMBER_FILE, value);
+setNumber(SW_FILE, value);
 const prev = oldNumber !== value ? oldNumber : swNumber;
 console.log(`Build number bumped ${prev} -> ${value}`);
 console.log(`   updated ${jv}`);
