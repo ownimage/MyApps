@@ -1,9 +1,9 @@
-html[data-theme="superhero"] {
-  color-scheme: dark;
-  --bs-body-bg: #0f2537;
-  --bs-body-bg-rgb: 15, 37, 55;
-  --bs-body-color: #ebebeb;
-  --bs-body-color-rgb: 235, 235, 235;
-  --bs-emphasis-color: #ffffff;
-  --bs-emphasis-color-rgb: 255, 255, 255;
+html[data-theme="superhero"][data-bs-theme="light"] #smd-app smd-h2 {
+  color: green;
+  font-size: 6rem;
+}
+
+html[data-theme="superhero"][data-bs-theme="dark"] #smd-app smd-h2 {
+  color: red;
+  font-size: 3rem;
 }

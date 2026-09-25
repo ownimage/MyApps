@@ -1,654 +1,109 @@
-/* Shared library styles for every SmdApp consumer. Application markup uses
-   Bootstrap utilities directly; this file contains only shared shell and
-   component behavior that Bootstrap does not provide. */
-
-/* TYPESCALE HARMONISATION -----------------------------------------------
-   The Font Size setting only moves <body>'s font-size: smd-settings puts a
-   font-size-xsmall…jumbo class on <body>, and those classes (plus the default
-   body rule) set font-size directly — nothing else. The four tokens are em
-   multipliers of that body font-size, so the whole type ramp follows it.
-   Elements sized in rem (Bootstrap form controls, etc.) stay root-based and
-   do not move. All visual tuning beyond this lives in the app sheets. */
-
-body { font-size: 1rem; } /* "normal" — no size class on <body> */
-body.font-size-xsmall { font-size: 0.4rem; }
-body.font-size-small { font-size: 0.7rem; }
-body.font-size-large { font-size: 1.1rem; }
-body.font-size-xlarge { font-size: 1.2rem; }
-body.font-size-jumbo { font-size: 1.4rem; }
-
-body {
-  --smd-type-badge: 0.75em; /* 0.75 × body font-size */
-  --smd-type-p: 1em;
-  --smd-type-h2: 1.25em;
-  --smd-type-h1: 2em;
-}
-
-/* Fold every heading level into the four-tier scale. Bootswatch themes ship
-   fluid calc() h1–h4 sizes + their own h5/h6; this sheet is linked after the
-   theme CSS in every app, so these equal-specificity rules win the cascade.
-h1, .h1 { font-size: var(--smd-type-h1); }
-h2, .h2, h3, .h3, h4, .h4 { font-size: var(--smd-type-h2); }
-h5, .h5, h6, .h6 { font-size: var(--smd-type-p); font-weight: 700; }
-.badge { font-size: var(--smd-type-badge); }
-
-/* smd-h1 / smd-h2 — headings that always track the Font Size setting.
-   These components render a real h1/h2 inside the host; the scoped descendant
-   rule (specificity 0,0,2) beats the theme's rem-based element rule (0,0,1)
-   regardless of applyTheme re-appending the theme links after this sheet, and
-   the em token keeps the heading on the body font-size ramp. Theme colour and
-   weight still apply to the inner element (only font-size + margin are taken
-   over). */
-smd-h1 { display: block; font-size: var(--smd-type-h1, 2em); }
-smd-h2 { display: block; font-size: var(--smd-type-h2, 1.25em); }
-smd-h1 h1, smd-h2 h2 { margin: 0; font-size: inherit; }
-
-/* The <button> element is its own type: it maps to the h2 token by default,
-   with .btn-sm as the consciously smaller variant kept at p. This is the ONLY
-   place buttons get sized in light DOM. */
-button, .btn { font-size: var(--smd-type-h2, 1.25rem); }
-button.btn-sm, .btn-sm { font-size: var(--smd-type-p, 1rem); }
-
-/* The page (canvas) background always follows the theme body colour. */
-html,
-body {
-  background-color: var(--bs-body-bg);
-}
-
-/* Image preview sizing for the shared <smd-image-editor> form (the same
-   light-DOM `.date-img` markup in every app's image edit dialog). */
-.date-img {
-  width: 100px;
-  height: 100px;
-  object-fit: contain;
-}
-@media (max-width: 480px) {
-  .date-img {
-    width: 64px;
-    height: 64px;
-  }
-}
-
-[data-bs-theme="light"] .form-control,
-[data-bs-theme="light"] .form-select {
-  border-color: #999;
-}
-[data-bs-theme="light"] .form-control:focus,
-[data-bs-theme="light"] .form-select:focus {
-  border-color: #86b7fe;
-}
-
-[data-bs-theme="dark"] .flatpickr-calendar {
-  background: #1e1e1e;
-  border: 1px solid #444;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.5);
-}
-[data-bs-theme="dark"] .flatpickr-months .flatpickr-month,
-[data-bs-theme="dark"] .flatpickr-current-month .flatpickr-monthDropdown-months {
-  background: transparent;
-  color: #e0e0e0;
-}
-[data-bs-theme="dark"] .flatpickr-current-month .flatpickr-monthDropdown-months {
-  background: #1e1e1e;
-  color: #e0e0e0;
-}
-[data-bs-theme="dark"] .flatpickr-current-month .flatpickr-monthDropdown-months option {
-  background: #1e1e1e;
-  color: #e0e0e0;
-}
-[data-bs-theme="dark"] .flatpickr-current-month input.cur-year {
-  color: #e0e0e0;
-}
-[data-bs-theme="dark"] span.flatpickr-weekday {
-  background: transparent;
-  color: #aaa;
-}
-[data-bs-theme="dark"] .flatpickr-day {
-  color: #e0e0e0;
-}
-[data-bs-theme="dark"] .flatpickr-day.today {
-  border-color: var(--bs-primary);
-}
-[data-bs-theme="dark"] .flatpickr-day:hover {
-  background: #333;
-  border-color: #555;
-}
-[data-bs-theme="dark"] .flatpickr-day.selected,
-[data-bs-theme="dark"] .flatpickr-day.startRange,
-[data-bs-theme="dark"] .flatpickr-day.endRange,
-[data-bs-theme="dark"] .flatpickr-day.selected.inRange {
-  background: var(--bs-primary);
-  border-color: var(--bs-primary);
-  color: #fff;
-}
-[data-bs-theme="dark"] .flatpickr-day.inRange {
-  background: #2a2a2a;
-  border-color: #3a3a3a;
-}
-[data-bs-theme="dark"] .flatpickr-day.flatpickr-disabled,
-[data-bs-theme="dark"] .flatpickr-day.flatpickr-disabled:hover {
-  color: #555;
-}
-[data-bs-theme="dark"] .flatpickr-day.prevMonthDay,
-[data-bs-theme="dark"] .flatpickr-day.nextMonthDay {
-  color: #555;
-}
-[data-bs-theme="dark"] .flatpickr-time {
-  border-top-color: #444;
-}
-[data-bs-theme="dark"] .flatpickr-time input {
-  color: #e0e0e0;
-}
-[data-bs-theme="dark"] .flatpickr-time .flatpickr-time-separator,
-[data-bs-theme="dark"] .flatpickr-time .flatpickr-am-pm {
-  color: #e0e0e0;
-}
-[data-bs-theme="dark"] .flatpickr-calendar.arrowTop:before {
-  border-bottom-color: #444;
-}
-[data-bs-theme="dark"] .flatpickr-calendar.arrowTop:after {
-  border-bottom-color: #1e1e1e;
-}
-[data-bs-theme="dark"] .flatpickr-calendar.arrowBottom:before {
-  border-top-color: #444;
-}
-[data-bs-theme="dark"] .flatpickr-calendar.arrowBottom:after {
-  border-top-color: #1e1e1e;
-}
-
-/* NAVBAR + AUTO-HIDE MENU (generic app shell) */
 #mainNav {
-  background-color: var(--bs-body-bg);
   padding-top: env(safe-area-inset-top, 0);
 }
-[data-theme="minty"] #mainNav .btn,
-[data-theme="minty"] #mainNav .btn:hover {
-  color: var(--bs-emphasis-color);
-}
+
 body.auto-hide-menu #mainNav {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   z-index: 1030;
-  background: var(--bs-body-bg);
-  will-change: transform;
-  -webkit-transition: -webkit-transform 0.3s ease;
   transition: transform 0.3s ease;
 }
+
 body.auto-hide-menu #mainNav.nav-hidden {
-  -webkit-transform: translateY(-100%);
   transform: translateY(-100%);
 }
+
 body.auto-hide-menu .container-fluid {
   padding-top: calc(60px + env(safe-area-inset-top, 0));
   transition: padding-top 0.3s ease;
 }
+
 body.auto-hide-menu #mainNav.nav-hidden ~ .container-fluid {
   padding-top: calc(0.5rem + env(safe-area-inset-top, 0));
 }
+
 #mainNav.nav-inactive {
   pointer-events: none;
-  opacity: 0.4;
 }
 
-/* SETTINGS PAGE + TABS (generic settings shell) */
-#settingsPage {
-  padding-top: 20px;
-  padding-bottom: 20px;
-}
-#settingsPage .nav-tabs .nav-link {
-  font-size: var(--smd-type-p);
-  padding: 0.35rem 0.35rem;
-  margin-bottom: -1px;
-}
-#settingsPage .nav-item {
-  margin-right: 0;
-}
-.nav-tabs-info .nav-link {
-  border-color: var(--bs-border-color);
-}
-.nav-tabs-info .nav-link.active {
-  font-weight: 700;
-  background-color: var(--bs-info);
-  border-color: var(--bs-info);
-  border-bottom-color: transparent;
-  color: var(--smd-on-info, #fff);
-}
-.nav-tabs-info .nav-link.active:hover {
-  background-color: var(--bs-info);
-  border-color: var(--bs-info);
-  border-bottom-color: transparent;
-  color: var(--smd-on-info, #fff);
-}
-.nav-tabs-info .nav-link:hover {
-  border-color: var(--bs-gray-300);
-  isolation: isolate;
-}
-[data-theme="flatly"] .nav-tabs-info .nav-link.active,
-[data-theme="flatly"] .nav-tabs-info .nav-link.active:hover {
-  color: #212529;
-}
-[data-theme="materia"] .nav-tabs-info .nav-link.active,
-[data-theme="materia"] .nav-tabs-info .nav-link.active:hover {
-  color: #fff;
-}
-[data-theme="quartz"] .nav-tabs-info .nav-link.active,
-[data-theme="quartz"] .nav-tabs-info .nav-link.active:hover {
-  color: var(--bs-dark);
-}
-#settingsPage .tab-content {
-  margin-bottom: 1rem;
-  padding-bottom: 1rem;
-  border-bottom: 1px solid var(--bs-border-color);
-}
-
-/* GENERIC EDITOR BUTTONS */
-.editor-btn {
-  min-width: 100px;
-  padding: 0.5rem 1rem;
-  touch-action: manipulation;
-}
+.editor-btn,
 .btn-wide {
-  min-width: 220px;
   touch-action: manipulation;
 }
 
-.build-number {
-  color: var(--bs-body-color);
-  opacity: 0.6;
-}
-
-/* Sortable drag feedback (fallback clone lives on document.body) */
-.sortable-fallback {
-  opacity: 0.6 !important;
-  box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.35);
-  cursor: grabbing !important;
-}
-.sortable-ghost {
-  opacity: 0.4;
-}
-.sortable-drag,
-.sortable-chosen {
-  cursor: grabbing !important;
-}
-
-/* Flatpickr arrow fixes */
-.flatpickr-calendar .flatpickr-months .flatpickr-prev-month svg path,
-.flatpickr-calendar .flatpickr-months .flatpickr-next-month svg path {
-  fill: var(--bs-body-color) !important;
-  stroke: var(--bs-body-color) !important;
-}
-.flatpickr-calendar .flatpickr-months .flatpickr-prev-month svg,
-.flatpickr-calendar .flatpickr-months .flatpickr-next-month svg {
-  width: 12px;
-  height: 12px;
-}
-.flatpickr-calendar .flatpickr-months .flatpickr-prev-month,
-.flatpickr-calendar .flatpickr-months .flatpickr-next-month {
-  padding: 8px;
-}
-.flatpickr-calendar .flatpickr-months .numInputWrapper span.arrowUp,
-.flatpickr-calendar .flatpickr-months .numInputWrapper span.arrowDown {
-  opacity: 1;
-}
-.flatpickr-calendar .flatpickr-months .numInputWrapper span.arrowUp:after,
-.flatpickr-calendar .flatpickr-months .numInputWrapper span.arrowDown:after {
-  border-bottom-color: var(--bs-body-color);
-  border-top-color: var(--bs-body-color);
-}
-[data-bs-theme="dark"] .flatpickr-calendar {
-  background: var(--bs-body-bg);
-  border-color: var(--bs-border-color);
-}
-[data-bs-theme="dark"] .flatpickr-calendar .flatpickr-months .flatpickr-month {
-  background: var(--bs-body-bg);
-}
-[data-bs-theme="dark"] .flatpickr-calendar .flatpickr-current-month .flatpickr-monthDropdown-months {
-  background: var(--bs-body-bg);
-  color: var(--bs-body-color);
-}
-[data-bs-theme="dark"] .flatpickr-calendar .flatpickr-current-month input.cur-year {
-  color: var(--bs-body-color);
-}
-[data-bs-theme="dark"] .flatpickr-calendar .flatpickr-weekday {
-  color: var(--bs-secondary-color);
-  background: var(--bs-body-bg);
-}
-[data-bs-theme="dark"] .flatpickr-calendar .flatpickr-day {
-  color: var(--bs-body-color);
-}
-[data-bs-theme="dark"] .flatpickr-calendar .flatpickr-day.today {
-  border-color: var(--bs-primary);
-}
-[data-bs-theme="dark"] .flatpickr-calendar .flatpickr-day.selected,
-[data-bs-theme="dark"] .flatpickr-calendar .flatpickr-day.selected:hover {
-  background: var(--bs-primary);
-  border-color: var(--bs-primary);
-  color: #fff;
-}
-[data-bs-theme="dark"] .flatpickr-calendar .flatpickr-day:hover {
-  background: var(--bs-gray-700);
-  color: var(--bs-body-color);
-}
-[data-bs-theme="dark"] .flatpickr-calendar .flatpickr-day.flatpickr-disabled,
-[data-bs-theme="dark"] .flatpickr-calendar .flatpickr-day.flatpickr-disabled:hover {
-  color: var(--bs-gray-600);
-}
-[data-bs-theme="dark"] .flatpickr-calendar .flatpickr-day.inRange,
-[data-bs-theme="dark"] .flatpickr-calendar .flatpickr-day.prevMonthDay.inRange,
-[data-bs-theme="dark"] .flatpickr-calendar .flatpickr-day.nextMonthDay.inRange {
-  background: var(--bs-gray-700);
-}
-[data-bs-theme="dark"] .flatpickr-calendar .flatpickr-time {
-  background: var(--bs-body-bg);
-  border-color: var(--bs-border-color);
-}
-[data-bs-theme="dark"] .flatpickr-calendar .flatpickr-time input {
-  color: var(--bs-body-color);
-}
-[data-bs-theme="dark"] .flatpickr-calendar .flatpickr-time .flatpickr-time-separator {
-  color: var(--bs-body-color);
-}
-
-/* Quartz (and any glassmorphism theme) gives .modal-content a translucent
-   treatment that washes out light-DOM text. Fall back to the opaque body bg. */
-.modal-content {
-  background-color: var(--bs-body-bg);
-  background-image: none;
-  -webkit-backdrop-filter: none;
-  backdrop-filter: none;
-}
-
-/* Quartz (and any glassmorphism theme) gives .dropdown-menu a translucent
-   white gradient + backdrop blur, which washes out the white menu text.
-   Fall back to the theme's opaque dropdown background for readability. */
-.dropdown-menu {
-  background-color: var(--bs-dropdown-bg, var(--bs-body-bg));
-  background-image: none;
-  -webkit-backdrop-filter: none;
-  backdrop-filter: none;
-}
-
-/* bg-secondary badges/panels: text should follow the theme's emphasis colour
-   so Quartz's translucent-white secondary doesn't become white-on-white. */
-.bg-secondary {
-  color: var(--bs-emphasis-color, #fff);
-}
-[data-theme="quartz"] .btn-secondary {
-  color: var(--bs-emphasis-color, #000);
-}
-
-/* Outline-secondary buttons: some themes define --bs-secondary as white/very light,
-   making the resting text unreadable. Use body color for contrast; keep the theme's
-   own hover/active/disabled treatment. */
-.btn-outline-secondary {
-  color: var(--bs-body-color);
-  border-color: var(--bs-border-color);
-}
-.btn-outline-secondary:hover,
-.btn-outline-secondary:active,
-.btn-outline-secondary.active,
-.btn-outline-secondary:focus,
-.btn-outline-secondary.focus {
-  color: var(--bs-btn-hover-color, #fff);
-}
-.btn-outline-secondary:disabled,
-.btn-outline-secondary.disabled {
-  color: var(--bs-tertiary-color);
-  border-color: var(--bs-border-color);
-}
-
-/* ==========================================================================
-   LIGHT-DOM CUSTOM-ELEMENT STYLES
-   The smd-* web components render in the light DOM; their styles live here.
-   ========================================================================== */
-
-/* Honours `hidden` everywhere (Bootstrap ships a similar rule; kept so the
-   storybook / minimal pages still hide correctly). */
 [hidden] {
   display: none !important;
 }
 
-/* ---- smd-badge (real Bootstrap .badge classes on the host) ---- */
-smd-badge {
-  display: inline-block;
-  padding: 0.35em 0.65em;
-  font-size: var(--smd-type-badge, 0.75em);
-  font-weight: 700;
-  line-height: 1;
-  text-align: center;
-  white-space: nowrap;
-  vertical-align: baseline;
-}
-
-/* Badge text contrast: many themes bake white-on-colour badge text that fails
-   WCAG (e.g. white-on-info ~1.8–2.1 on quartz/lumen/minty/slate/superhero/yeti).
-   applySmdContrastVars() publishes the theme's own badge text when it already
-   passes, or a computed darker/lighter text when it doesn't — so these rules
-   only change the genuinely unreadable themes. */
-.badge.text-bg-primary:not(.smd-probe),
-smd-badge.text-bg-primary:not(.smd-probe) { color: var(--smd-primary-text, #fff) !important; }
-.badge.text-bg-secondary:not(.smd-probe),
-smd-badge.text-bg-secondary:not(.smd-probe) { color: var(--smd-secondary-text, #fff) !important; }
-.badge.text-bg-success:not(.smd-probe),
-smd-badge.text-bg-success:not(.smd-probe) { color: var(--smd-success-text, #fff) !important; }
-.badge.text-bg-info:not(.smd-probe),
-smd-badge.text-bg-info:not(.smd-probe) { color: var(--smd-info-text, #fff) !important; }
-.badge.text-bg-warning:not(.smd-probe),
-smd-badge.text-bg-warning:not(.smd-probe) { color: var(--smd-warning-text, #000) !important; }
-.badge.text-bg-danger:not(.smd-probe),
-smd-badge.text-bg-danger:not(.smd-probe) { color: var(--smd-danger-text, #fff) !important; }
-
-/* Theme buttons keep their look, but on the themes where the theme's chosen
-   text fails WCAG the palette substitutes a readable text colour. The var is
-   the theme's own value on passing themes, so this is a no-op there. The
-   :not(.smd-probe) guard keeps smdBootstrapStyle()'s hidden probe reading the
-   raw Bootswatch colour. */
-button.btn-primary:not(.smd-probe), a.btn-primary:not(.smd-probe), .btn-primary:not(.smd-probe) {
-  --bs-btn-color: var(--smd-primary-text);
-  --bs-btn-hover-color: var(--smd-primary-text);
-  --bs-btn-active-color: var(--smd-primary-text);
-}
-button.btn-secondary:not(.smd-probe), a.btn-secondary:not(.smd-probe), .btn-secondary:not(.smd-probe) {
-  --bs-btn-color: var(--smd-secondary-text);
-  --bs-btn-hover-color: var(--smd-secondary-text);
-  --bs-btn-active-color: var(--smd-secondary-text);
-}
-button.btn-success:not(.smd-probe), a.btn-success:not(.smd-probe), .btn-success:not(.smd-probe) {
-  --bs-btn-color: var(--smd-success-text);
-  --bs-btn-hover-color: var(--smd-success-text);
-  --bs-btn-active-color: var(--smd-success-text);
-}
-button.btn-info:not(.smd-probe), a.btn-info:not(.smd-probe), .btn-info:not(.smd-probe) {
-  --bs-btn-color: var(--smd-info-text);
-  --bs-btn-hover-color: var(--smd-info-text);
-  --bs-btn-active-color: var(--smd-info-text);
-}
-button.btn-warning:not(.smd-probe), a.btn-warning:not(.smd-probe), .btn-warning:not(.smd-probe) {
-  --bs-btn-color: var(--smd-warning-text);
-  --bs-btn-hover-color: var(--smd-warning-text);
-  --bs-btn-active-color: var(--smd-warning-text);
-}
-button.btn-danger:not(.smd-probe), a.btn-danger:not(.smd-probe), .btn-danger:not(.smd-probe) {
-  --bs-btn-color: var(--smd-danger-text);
-  --bs-btn-hover-color: var(--smd-danger-text);
-  --bs-btn-active-color: var(--smd-danger-text);
-}
-
-/* ---- smd-button (real Bootstrap .btn classes on the inner button) ---- */
 smd-button {
   display: inline-block;
 }
 
-/* ---- smd-checkbox ---- */
 smd-checkbox {
   display: inline-flex;
   align-items: center;
-  vertical-align: middle;
-  cursor: pointer;
 }
-smd-checkbox[disabled] { cursor: not-allowed; opacity: 0.55; }
+
 smd-checkbox label {
   display: inline-flex;
   align-items: center;
-  gap: 0.4em;
-  margin: 0;
-  cursor: inherit;
 }
+
 smd-checkbox input {
   flex: 0 0 auto;
-  display: inline-grid;
-  place-content: center;
-  width: 1.15em;
-  height: 1.15em;
-  margin: 0;
-  padding: 0;
-  vertical-align: middle;
-  appearance: none;
-  -webkit-appearance: none;
-  background-color: var(--bs-secondary-bg, #495057);
-  border: 1px solid var(--bs-secondary-color, #6c757d);
-  border-radius: 0.25em;
-  cursor: inherit;
-  font-size: var(--smd-checkbox-input-size, 1em);
-  transition: background-color 0.15s ease-in-out, border-color 0.15s ease-in-out;
 }
-smd-checkbox input::before {
-  content: "";
-  width: 0.65em;
-  height: 0.65em;
-  transform: scale(0);
-  transform-origin: center;
-  transition: transform 0.12s ease-in-out;
-  box-shadow: inset 1em 1em #fff;
-  clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
-}
-smd-checkbox input:checked {
-  background-color: var(--bs-primary, #0d6efd);
-  border-color: var(--bs-primary, #0d6efd);
-}
-smd-checkbox input:checked::before { transform: scale(1); }
-smd-checkbox input:focus-visible {
-  outline: 2px solid var(--bs-primary, #0d6efd);
-  outline-offset: 1px;
-}
-smd-checkbox[switch] input {
-  position: relative;
-  display: inline-block;
-  width: 2.5em;
-  height: 1.5em;
-  border-radius: 2em;
-}
-smd-checkbox[switch] input::before {
-  position: absolute;
-  top: 0.15em;
-  left: 0.15em;
-  width: 1.2em;
-  height: 1.2em;
-  border-radius: 50%;
-  background-color: #fff;
-  box-shadow: none;
-  clip-path: none;
-  transform: none;
-}
-smd-checkbox[switch] input:checked::before { transform: translateX(1em); }
 
-/* ---- smd-draghandle (sizing applied inline by the component) ---- */
 smd-draghandle {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  line-height: 1;
-  cursor: grab;
   touch-action: none;
   -webkit-touch-callout: none;
-  color: inherit;
-  opacity: 0.55;
   user-select: none;
   -webkit-user-select: none;
 }
-smd-draghandle:active { cursor: grabbing; }
+
 smd-draghandle .glyph {
   font-family: "Font Awesome 6 Free";
-  font-weight: 900;
   font-style: normal;
-  font-variant: normal;
-  text-transform: none;
-  line-height: 1;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  font-weight: 900;
 }
 
-/* ---- smd-fontawesome-credit ---- */
-smd-fontawesome-credit { display: block; }
-smd-fontawesome-credit .credit {
-  font-size: var(--smd-type-p, 0.875em);
-  color: var(--bs-secondary-color, #adb5bd);
-}
-smd-fontawesome-credit .credit a {
-  color: var(--bs-secondary-color, #adb5bd);
-  text-decoration: underline;
+smd-theme {
+  display: block;
 }
 
-/* ---- smd-theme (the .form-select class does the legwork) ---- */
-smd-theme { display: block; }
-smd-theme select { display: block; width: 100%; }
-
-/* ---- smd-tabs ---- */
-smd-tabs { display: block; width: 100%; box-sizing: border-box; }
-smd-tabs .smd-tab-list {
-  display: flex;
-  flex-wrap: nowrap;
-  gap: 2px;
-  padding: 0 4px;
-  position: relative;
-  z-index: 1;
-}
-smd-tabs[wrap] .smd-tab-list { flex-wrap: wrap; }
-smd-tabs .smd-tab-btn {
-  padding: 0.5rem 1.25rem;
-  border: 1px solid transparent;
-  border-bottom: none;
-  border-radius: 6px 6px 0 0;
-  background: var(--bs-secondary, #6c757d);
-  color: var(--smd-tab-text, #fff);
-  cursor: pointer;
-  font-size: var(--smd-type-h2, 1.25rem);
-  font-weight: 500;
-  transition: background 0.15s, color 0.15s;
-}
-smd-tabs .smd-tab-btn:hover:not([active]) { filter: brightness(1.12); }
-smd-tabs .smd-tab-btn[active] {
-  background: var(--bs-primary, #0d6efd);
-  color: var(--smd-tab-active-text, #fff);
-  border-color: var(--bs-primary, #0d6efd);
-  font-weight: 600;
-  position: relative;
-  z-index: 2;
-}
-smd-tabs .smd-tab-line {
-  height: 1px;
-  background: var(--bs-primary, #0d6efd);
+smd-tabs {
+  display: block;
   width: 100%;
   box-sizing: border-box;
 }
-smd-tabs[padding="small"] .smd-tab-list { padding: 0; }
-smd-tabs[padding="small"] .smd-tab-btn { padding: 0.5rem 0.25rem; }
-smd-tabs[padding="small"] .smd-tab-panel { padding: 0; }
-smd-tabs > .smd-tab-line:last-of-type { margin-bottom: 1rem; }
+
+smd-tabs .smd-tab-list {
+  display: flex;
+  flex-wrap: nowrap;
+}
+
+smd-tabs[wrap] .smd-tab-list {
+  flex-wrap: wrap;
+}
+
 smd-tabs .smd-tab-panel {
   display: none;
-  padding: 1rem;
 }
-smd-tabs .smd-tab-panel.no-padding { padding: 0; }
-smd-tabs .smd-tab-panel[active] { display: block; }
-smd-tabs[hide-panels] .smd-tab-panel { display: none !important; }
-/* The settings page tabs use narrower buttons. */
-#settingsTabs .smd-tab-btn { padding: 0.5rem 0.25rem; }
 
-/* ---- smd-page ---- */
+smd-tabs .smd-tab-panel.active,
+smd-tabs .smd-tab-panel[active] {
+  display: block;
+}
+
+smd-tabs[hide-panels] .smd-tab-panel {
+  display: none !important;
+}
+
 smd-page {
   display: block;
   position: fixed;
@@ -658,371 +113,266 @@ smd-page {
   overflow: hidden;
   visibility: hidden;
 }
-smd-page[open] { visibility: visible; }
-smd-page.d-none { display: none !important; }
+
+smd-page[open] {
+  visibility: visible;
+}
+
+smd-page.d-none {
+  display: none !important;
+}
+
 smd-page .smd-page {
   position: absolute;
   inset: 0;
   display: flex;
   flex-direction: column;
-  background: var(--bs-body-bg, #222);
-  color: var(--bs-body-color, #eee);
   transform: translateX(-100%);
   transition: transform var(--smd-slide-duration, 0s) ease;
   pointer-events: auto;
 }
-smd-page[open] .smd-page { transform: translateX(0); }
+
+smd-page[open] .smd-page {
+  transform: translateX(0);
+}
+
 smd-page .smd-page-header {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
   flex-wrap: wrap;
-  padding: 0.75rem 1.25rem;
-  background: color-mix(in srgb, var(--bs-body-bg, #222) 85%, white);
-  border-bottom: 1px solid var(--bs-border-color, #444);
   flex-shrink: 0;
 }
-smd-page .smd-page-header h1 {
-  margin: 0;
-  font-size: var(--smd-type-h1, 2rem);
-  font-weight: 500;
-  color: var(--smd-muted-header-text, color-mix(in srgb, var(--bs-body-color, #eee) 60%, white));
-}
+
 smd-page .smd-page-body {
   flex: 1;
   overflow-y: auto;
-  padding: 1rem 1.25rem;
 }
+
 smd-page .smd-page-footer {
   display: flex;
-  gap: 0.5rem;
-  padding: 0.75rem 1.25rem;
-  border-top: 1px solid var(--bs-border-color, #444);
   flex-shrink: 0;
 }
+
 smd-page .smd-page-footer smd-button {
   flex: 1;
   min-width: 0;
 }
+
 smd-page .smd-page-footer smd-button button {
   width: 100%;
   box-sizing: border-box;
-  font-size: var(--smd-type-h2, 1.25rem);
 }
 
-/* ---- smd-modal (footer buttons are real .btn.btn-* classes) ---- */
 smd-modal {
   display: none;
   position: fixed;
   inset: 0;
   z-index: 1050;
 }
-smd-modal[open] { display: block; }
+
+smd-modal[open] {
+  display: block;
+}
+
 smd-modal .smd-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.5);
 }
+
 smd-modal .smd-dialog {
   position: fixed;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  background: var(--bs-body-bg, #222);
-  color: var(--bs-body-color, #eee);
-  border: 1px solid var(--bs-border-color, #444);
-  border-radius: 0.5rem;
   width: 90%;
   max-width: 500px;
   max-height: 90vh;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
   overflow: hidden;
 }
+
 smd-modal .smd-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 1rem 1.25rem 0.5rem;
-  border-bottom: 1px solid var(--bs-border-color, #444);
-  background: color-mix(in srgb, var(--bs-body-bg, #222) 85%, white);
   flex-shrink: 0;
 }
-smd-modal .smd-header h3 {
-  margin: 0;
-  font-size: var(--smd-type-h2, 1.25rem);
-  font-weight: 500;
-  color: var(--smd-muted-header-text, color-mix(in srgb, var(--bs-body-color, #eee) 60%, white));
-}
+
 smd-modal .smd-body {
-  padding: 1rem 1.25rem;
-  overflow-y: auto;
   flex: 1;
+  overflow-y: auto;
 }
+
 smd-modal .smd-footer {
   display: flex;
-  gap: 0.5rem;
-  padding: 0.75rem 1.25rem;
-  border-top: 1px solid var(--bs-border-color, #444);
 }
-smd-modal .smd-footer button { flex: 1; }
 
-/* ---- smd-image (size applied inline by the component) ---- */
+smd-modal .smd-footer button {
+  flex: 1;
+}
+
 smd-image {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   overflow: hidden;
 }
+
 smd-image img {
   display: block;
   max-width: 100%;
   max-height: 100%;
 }
+
 smd-image .smd-bi {
-  font-family: "bootstrap-icons";
-  font-style: normal;
-  font-weight: normal;
-  font-variant: normal;
-  text-transform: none;
-  line-height: 1;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   width: 100%;
   height: 100%;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
 }
 
-/* ---- smd-date-picker ---- */
-smd-date-picker { display: block; }
-smd-date-picker .smd-date-picker { display: flex; align-items: center; gap: 0.5rem; }
-smd-date-picker .form-control { min-width: 0; }
+smd-date-picker {
+  display: block;
+}
 
-/* ---- smd-qr-export ---- */
-smd-qr-export { display: block; }
-smd-qr-export .grid {
+smd-date-picker .smd-date-picker {
   display: flex;
-  flex-wrap: wrap;
-  gap: 1rem;
-  justify-content: center;
+  align-items: center;
 }
-smd-qr-export .item { display: flex; flex-direction: column; align-items: center; gap: 0.25rem; }
-smd-qr-export .box { background: #fff; padding: 0.75rem; border-radius: 8px; display: inline-block; }
-smd-qr-export .label { font-size: var(--smd-type-p, 0.85rem); color: var(--bs-body-color, #eee); }
-smd-qr-export .empty, smd-qr-export .error { width: 100%; text-align: center; padding: 1.5rem 0; }
-smd-qr-export .empty { color: var(--bs-secondary-color, #aaa); }
-smd-qr-export .error { color: var(--bs-danger, #dc3545); }
 
-/* ---- smd-qr-import ---- */
-smd-qr-import { display: block; }
-smd-qr-import .status { margin-bottom: 0.75rem; color: var(--bs-body-color, #eee); }
-smd-qr-import .reader { width: 100%; min-height: 280px; }
-smd-qr-import .reader video { width: 100%; }
+smd-date-picker .form-control {
+  min-width: 0;
+}
 
-/* ---- smd-image-card (action buttons are real .btn.btn-* classes) ---- */
-smd-image-card { display: block; }
+smd-qr-export,
+smd-qr-import {
+  display: block;
+}
+
+smd-qr-import .reader {
+  width: 100%;
+  min-height: 280px;
+}
+
+smd-image-card {
+  display: block;
+}
+
 smd-image-card .card {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  background-color: var(--bs-dark-border-subtle, #303030);
-  border: 1px solid var(--bs-border-color, #495057);
-  border-radius: 0.375rem;
-  padding: 1rem;
-  margin-bottom: 0.5rem;
   min-width: 0;
 }
+
 smd-image-card .thumb {
   flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
 }
+
 smd-image-card .editor-title {
-  font-size: var(--smd-type-h1, 1rem);
-  font-weight: 700;
   flex: 1;
   min-width: 0;
-  color: inherit;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
-smd-image-card .image-actions { display: flex; gap: 1rem; flex-shrink: 0; }
-smd-image-card .image-actions .btn {
-  width: 36px;
-  height: 36px;
-  padding: 0;
-  border: none;
-  border-radius: 4px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  flex-shrink: 0;
-  transition: opacity 0.2s;
-}
-smd-image-card .image-actions .btn:hover { opacity: 0.85; }
-smd-image-card .image-actions .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
-/* ---- smd-image-select ---- */
+smd-image-card .image-actions {
+  display: flex;
+  flex-shrink: 0;
+}
+
+smd-image-card .image-actions .btn {
+  flex-shrink: 0;
+}
+
 smd-image-select {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
   min-width: 0;
-  /* Transparent so it shows the surface it sits on: the smd-page body colour
-     on a page, or the card background when placed on a card. */
-  background-color: transparent;
 }
+
 smd-image-select .thumb {
   position: relative;
   flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid var(--bs-border-color, #495057);
-  border-radius: 6px;
   overflow: hidden;
 }
+
 smd-image-select .thumb .placeholder {
   position: absolute;
   inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: var(--smd-type-badge, 0.65rem);
-  color: var(--bs-secondary-color, #aaa);
 }
+
 smd-image-select .meta {
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
   min-width: 0;
 }
-smd-image-select .name {
-  font-size: var(--smd-type-p, 0.85rem);
-  color: var(--bs-secondary-color, #aaa);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+
+smd-image-dropdown {
+  display: block;
+  position: relative;
+  min-width: 0;
 }
 
-/* ---- smd-image-dropdown ---- */
-smd-image-dropdown { display: block; position: relative; min-width: 0; }
 smd-image-dropdown .btn {
-  font-size: var(--smd-type-h2, 1.25rem);
   display: flex;
   align-items: center;
-  gap: 0.5rem;
   width: 100%;
-  padding: 0.375rem 0.75rem;
-  background-color: transparent;
-  color: var(--bs-body-color, #eee);
-  border: 1px solid var(--bs-border-color, #495057);
-  border-radius: 0.375rem;
-  cursor: pointer;
-  text-align: left;
 }
-smd-image-dropdown[disabled] .btn { opacity: 0.65; cursor: default; }
+
 smd-image-dropdown .thumb {
   flex-shrink: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  border: 1px solid var(--bs-border-color, #495057);
-  border-radius: 6px;
 }
-smd-image-dropdown .thumb[hidden] { display: none !important; }
+
 smd-image-dropdown .title {
   flex: 1 1 auto;
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
-smd-image-dropdown .caret { flex: 0 0 auto; opacity: 0.7; font-size: var(--smd-type-badge, 0.75rem); }
+
 smd-image-dropdown .menu {
   position: absolute;
   left: 0;
   right: 0;
   top: 100%;
   z-index: 20;
-  margin: 0.125rem 0 0;
-  padding: 0.25rem 0;
-  list-style: none;
-  background-color: var(--bs-body-bg, #222);
-  border: 1px solid var(--bs-border-color, #495057);
-  border-radius: 0.375rem;
-  box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.25);
   max-height: 16rem;
   overflow-y: auto;
 }
-smd-image-dropdown .menu[hidden] { display: none !important; }
+
 smd-image-dropdown .item {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.25rem 0.75rem;
-  color: inherit;
-  cursor: pointer;
-  text-decoration: none;
 }
-smd-image-dropdown .item .thumb { width: 1.5rem; height: 1.5rem; }
-smd-image-dropdown .item .thumb.thumb-blank { border-color: transparent; }
-smd-image-dropdown .item:hover { background-color: var(--bs-secondary-bg, #303030); }
-smd-image-dropdown .item.active { background-color: var(--bs-primary, #0d6efd); color: #fff; }
 
-/* ---- smd-image-picker ---- */
-smd-image-picker { display: block; }
-smd-image-picker .picker { display: flex; flex-direction: column; gap: 0.5rem; }
-smd-image-picker .search { display: flex; gap: 0.5rem; }
-smd-image-picker .search input { flex: 1; }
-smd-image-picker .search button { flex: 0 0 auto; }
-smd-image-picker .grid {
+smd-image-dropdown .item .thumb {
+  width: 1.5rem;
+  height: 1.5rem;
+}
+
+smd-image-picker {
+  display: block;
+}
+
+smd-image-picker .search {
   display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  width: 100%;
-  min-height: 140px;
-  padding-top: 0.75rem;
 }
-smd-image-picker .item {
-  width: auto;
-  min-width: 95px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  padding: 6px;
-  border: 2px solid transparent;
-  border-radius: 8px;
-  cursor: pointer;
-  text-align: center;
-  color: var(--bs-body-color, #eee);
-  transition: border-color 0.15s;
+
+smd-image-picker .search input {
+  flex: 1;
 }
-smd-image-picker .item:hover { border-color: var(--bs-primary, #0d6efd); }
-smd-image-picker .item .glyph {
-  font-size: var(--smd-type-h1, 2rem);
-  line-height: 1;
-  color: var(--bs-body-color, #f8f9fa);
-}
-smd-image-picker .item .thumb { display: flex; align-items: center; justify-content: center; }
-smd-image-picker .item .label {
-  font-size: var(--smd-type-badge, 0.75rem);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  max-width: 100%;
-}
-smd-image-picker .empty {
-  width: 100%;
-  text-align: center;
-  padding: 1.5rem 0;
-  color: var(--bs-secondary-color, #aaa);
+
+smd-image-picker .search button {
+  flex: 0 0 auto;
 }

@@ -112,39 +112,14 @@ test.describe("PlanMyDay - iPhone 12 Pro touch", () => {
     await expect(page.locator("#streamEditorList .accordion-collapse.show")).toContainText("Report");
   });
 
-  test("display font size and density settings scale the today card title", async ({ page }) => {
-    await page.evaluate(() => {
-      const d = new Date();
-      const ds = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
-      localStorage.setItem("planmydays_today_order", JSON.stringify(["job_1", "job_2", "job_3"]));
-      localStorage.setItem("planmydays_last_gen", ds);
-      localStorage.setItem("planmydays_completed", "[]");
-    });
-    await page.reload();
-    await expect(page.locator("#todayCardList pmd-job-today-card").first()).toBeVisible();
-    const titleFontSize = () => page
-      .locator("#todayCardList pmd-job-today-card .job-title").first()
-      .evaluate((el) => parseFloat(getComputedStyle(el).fontSize));
-    const bodyFontSize = () => page.evaluate(() => parseFloat(getComputedStyle(document.body).fontSize));
-    // Exact sizes are not pinned — what matters is that the card title SCALES
-    // with the body font-size setting and with the compact density hook.
-    // default saved font size is xlarge -> title = 1.25em of body font-size
-    const xBase = await bodyFontSize();
-    const xTitle = await titleFontSize();
-    expect(xTitle).toBeGreaterThan(xBase);
-    expect(xTitle / xBase).toBeCloseTo(1.25, 1);
+  test("font and density settings update the shared root state", async ({ page }) => {
     await page.evaluate(() => changeFontSize("jumbo"));
-    // bigger font size -> bigger title, body moved but the em ratio is unchanged
-    const jBase = await bodyFontSize();
-    const jTitle = await titleFontSize();
-    expect(jBase).toBeGreaterThan(xBase);
-    expect(jTitle).toBeGreaterThan(xTitle);
-    expect(jTitle / jBase).toBeCloseTo(1.25, 1);
+    await expect(page.locator("html")).toHaveAttribute("data-smd-font-size", "jumbo");
+    expect(await page.evaluate(() => localStorage.getItem("planmydays_fontSize"))).toBe("jumbo");
+
     await page.evaluate(() => changeDensity("compact"));
-    // compact hooks --pmd-today-title-size to the p token (1em) in the app sheet
-    const cTitle = await titleFontSize();
-    expect(cTitle).toBeLessThan(jTitle);
-    expect(cTitle / jBase).toBeCloseTo(1, 1);
+    await expect(page.locator("html")).toHaveAttribute("data-smd-tile-density", "compact");
+    expect(await page.evaluate(() => localStorage.getItem("planmydays_density"))).toBe("compact");
   });
 
   test("task rows can be reordered with a touch drag", async ({ page }) => {

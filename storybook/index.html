@@ -49,6 +49,9 @@
       margin-bottom: 0.5rem;
     }
     .sb-label { letter-spacing: 0.04em; }
+    .sb-theme-control smd-theme select { width: auto; min-width: 10rem; }
+    .sb-theme-control smd-theme .smd-theme-select { min-width: 11rem; }
+    html[data-theme="superhero"] body { background-color: #0f2537; }
     .sb-stream-card { transition: border-color 0.2s ease; }
     .sb-stream-card .sb-stream-body pmd-job-stream-card + pmd-job-stream-card { margin-top: -1px; }
     .sb-stream-card.is-expanded { border-color: var(--bs-info, #0dcaf0); }
@@ -58,15 +61,10 @@
 
   <header class="sb-header sticky-top d-flex flex-wrap align-items-center gap-3 py-3 px-4 bg-body border-bottom">
     <h1 class="m-0 fs-5 fw-semibold text-break">PlanMyDay &middot; Web Component Storybook</h1>
+    <a class="btn btn-outline-secondary btn-sm" href="cardViewer.html">Card Viewer</a>
     <div class="sb-theme-control d-flex align-items-center gap-2 ms-auto" style="color-scheme:var(--sb-color-scheme)">
-      <label for="themeSelect">Theme</label>
-      <select class="form-select form-select-sm w-auto" id="themeSelect"></select>
-      <label for="modeSelect">Mode</label>
-      <select class="form-select form-select-sm w-auto" id="modeSelect">
-        <option value="default">Default</option>
-        <option value="light">Light</option>
-        <option value="dark">Dark</option>
-      </select>
+      <label>Theme</label>
+      <smd-theme class="d-flex align-items-center gap-2" id="storybookThemeSelector"></smd-theme>
     </div>
   </header>
 
@@ -108,67 +106,46 @@
   <script src="../shared/js/build-number.js"></script>
   <script src="../shared/js/smd-app.js"></script>
   <script src="../shared/js/smd-settings.js"></script>
-  <script src="../shared/js/smd-contrast.js"></script>
   <script src="../shared/js/smd-images.js"></script>
 
   <script>
-    // ---- Theme selector: uses the SAME themeConfig + applyTheme as the app ----
-    // (settings.js is loaded above, giving us themeConfig, applyTheme, applySmdVars).
+    // ---- Theme selector: uses the shared component and theme engine ----
     const appThemeBefore = localStorage.getItem("planmydays_theme");
     const appThemeModeBefore = localStorage.getItem("planmydays_themeMode");
+    const storybookThemeSelector = document.getElementById("storybookThemeSelector");
+
+    function sbRestoreAppTheme() {
+      if (appThemeBefore === null) localStorage.removeItem("planmydays_theme");
+      else localStorage.setItem("planmydays_theme", appThemeBefore);
+      if (appThemeModeBefore === null) localStorage.removeItem("planmydays_themeMode");
+      else localStorage.setItem("planmydays_themeMode", appThemeModeBefore);
+    }
+
     function sbApplyTheme(name, mode) {
       const valid = normalizeTheme(name);
       const selectedMode = normalizeThemeMode(mode);
       const resolvedMode = resolveThemeMode(valid, selectedMode);
       applyTheme(valid, selectedMode);
-      if (appThemeBefore === null) localStorage.removeItem("planmydays_theme");
-      else localStorage.setItem("planmydays_theme", appThemeBefore);
-      if (appThemeModeBefore === null) localStorage.removeItem("planmydays_themeMode");
-      else localStorage.setItem("planmydays_themeMode", appThemeModeBefore);
-      // set color-scheme so native form controls (e.g. select dropdowns) match
-      // the applied theme instead of rendering white-on-white
+      sbRestoreAppTheme();
       document.documentElement.style.setProperty("--sb-color-scheme", resolvedMode);
-      // give the theme selector readable colors regardless of the theme's own
-      // --bs-* variable combinations (e.g. quartz has light backgrounds + white text)
-      document.documentElement.style.setProperty(
-        "--sb-select-bg",
-        resolvedMode === "dark" ? "#252525" : "#f8f9fa"
-      );
-      document.documentElement.style.setProperty(
-        "--sb-select-color",
-        resolvedMode === "dark" ? "#eee" : "#111"
-      );
     }
 
-    // ---- Build theme selector ----
-    const themeSelect = document.getElementById("themeSelect");
-    const modeSelect = document.getElementById("modeSelect");
-    Object.keys(themeConfig).forEach(name => {
-      const opt = document.createElement("option");
-      opt.value = name;
-      const label = name.charAt(0).toUpperCase() + name.slice(1);
-      const defaultMode = themeConfig[name].defaultMode || themeConfig[name].bsTheme || "light";
-      opt.textContent = label + " (" + defaultMode + ")";
-      themeSelect.appendChild(opt);
-    });
-    const sbSavedTheme = normalizeTheme(localStorage.getItem("storybook_theme"));
-    const sbSavedMode = normalizeThemeMode(localStorage.getItem("storybook_themeMode"));
-    themeSelect.value = sbSavedTheme;
-    modeSelect.value = sbSavedMode;
-    sbApplyTheme(sbSavedTheme, sbSavedMode);
-    themeSelect.addEventListener("change", () => {
-      sbApplyTheme(themeSelect.value, modeSelect.value);
-      localStorage.setItem("storybook_theme", themeSelect.value);
-      // re-render sections that need to reflect theme-changed state
-      renderAll();
-    });
-    modeSelect.addEventListener("change", () => {
-      sbApplyTheme(themeSelect.value, modeSelect.value);
-      localStorage.setItem("storybook_themeMode", modeSelect.value);
-      const demo = document.getElementById("sb-theme");
-      if (demo) {
-        demo.setAttribute("theme", themeSelect.value);
-        demo.setAttribute("mode", modeSelect.value);
+    storybookThemeSelector.theme = normalizeTheme(localStorage.getItem("storybook_theme"));
+    storybookThemeSelector.mode = normalizeThemeMode(localStorage.getItem("storybook_themeMode"));
+    sbApplyTheme(storybookThemeSelector.theme, storybookThemeSelector.mode);
+    storybookThemeSelector.addEventListener("smd-theme-change", (event) => {
+      const { theme, mode, source } = event.detail;
+      localStorage.setItem("storybook_theme", theme);
+      localStorage.setItem("storybook_themeMode", mode);
+      sbApplyTheme(theme, mode);
+      if (source === "theme") {
+        renderAll();
+      } else {
+        const demo = document.getElementById("sb-theme");
+        if (demo) {
+          demo.theme = theme;
+          demo.mode = mode;
+        }
       }
     });
 
@@ -937,7 +914,7 @@
       id: "smd-badge",
       name: "smd-badge",
       tag: "<smd-badge>",
-      desc: "Themed Bootstrap badge. Colours come from the loaded Bootswatch theme: applySmdVars() probes a real <code>.badge.text-bg-&lt;variant&gt;</code> in the light DOM and publishes <code>--smd-badge-&lt;variant&gt;-{bg,text}</code>. Attributes: <code>variant</code> (primary/secondary/success/danger/warning/info/light/dark, default primary) and <code>pill</code>.",
+      desc: "Themed Bootstrap badge. Colours come directly from the loaded Bootswatch theme via the Bootstrap <code>badge text-bg-&lt;variant&gt;</code> classes. Attributes: <code>variant</code> (primary/secondary/success/danger/warning/info/light/dark, default primary) and <code>pill</code>.",
       html: () => `
         <div class="sb-canvas d-flex flex-column flex-wrap align-items-start gap-3 p-3 w-100 border rounded bg-body">
           <div class="d-flex flex-wrap gap-3">
@@ -1034,8 +1011,8 @@
       `,
       init: () => {
         const el = document.getElementById("sb-theme");
-        el.theme = themeSelect.value;
-        el.mode = modeSelect.value;
+        el.theme = storybookThemeSelector.theme;
+        el.mode = storybookThemeSelector.mode;
         el.addEventListener("smd-theme-change", (e) => log("smd-theme", "theme=" + e.detail.theme + " mode=" + e.detail.mode + " source=" + e.detail.source));
       }
     });

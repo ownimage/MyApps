@@ -23,7 +23,7 @@
 
 const pmdJobStreamCardTemplate = document.createElement('template');
 pmdJobStreamCardTemplate.innerHTML = `
-  <div class="card bg-body-tertiary text-body border-0 w-100">
+  <div class="card smd-card border-0 w-100">
 
     <div class="d-flex py-2 border rounded-3">
 

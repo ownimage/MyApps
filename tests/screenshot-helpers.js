@@ -63,9 +63,6 @@ function createScreenshotAllThemes(appId, afterTheme) {
           return root.getAttribute("data-theme") === theme && root.getAttribute("data-bs-theme") === mode;
         }, { theme, mode });
 
-        await page.evaluate(() => {
-          if (typeof applySmdVars === "function") applySmdVars();
-        });
         if (afterTheme) {
           await page.evaluate(afterTheme, { theme, mode });
         }

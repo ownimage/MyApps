@@ -144,6 +144,30 @@ function updateNavState() {
   if (nav) nav.classList.toggle("nav-inactive", false);
 }
 
+function updateMainMenuVisibility() {
+  const menu = document.getElementById("btnMainMenu");
+  if (!menu) return;
+  const pageIsOpen = Array.from(document.querySelectorAll("smd-page[open]")).length > 0;
+  if (menu.hidden !== pageIsOpen) menu.hidden = pageIsOpen;
+}
+
+function observeMainMenuVisibility() {
+  updateMainMenuVisibility();
+  if (window.__smdMainMenuObserver || !document.body) return;
+  window.__smdMainMenuObserver = new MutationObserver(updateMainMenuVisibility);
+  window.__smdMainMenuObserver.observe(document.body, {
+    subtree: true,
+    attributes: true,
+    attributeFilter: ["open", "class", "hidden"]
+  });
+}
+
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", observeMainMenuVisibility, { once: true });
+} else {
+  observeMainMenuVisibility();
+}
+
 // Light-DOM style injection: components render in the light DOM now, so page
 // chrome styles are appended as plain <style> tags on document.head (deduped by
 // text). The `root` argument is accepted for back-compat with callers that used

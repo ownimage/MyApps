@@ -1,37 +1,6 @@
-(function (global) {
-  if (global.document.getElementById("pmd-stream-header-style")) return;
-  const s = global.document.createElement("style");
-  s.id = "pmd-stream-header-style";
-  s.textContent =
-    "pmd-stream-header .body { min-width: 0; }" +
-    "pmd-stream-header .stream-header-main { min-width: 2.5rem; cursor: pointer; }" +
-    "pmd-stream-header .chevron {" +
-    "  flex: 0 0 auto;" +
-    "  position: relative;" +
-    "  width: 2.5rem;" +
-    "  min-height: 3rem;" +
-    "  cursor: pointer;" +
-    "}" +
-    "pmd-stream-header .chevron::after {" +
-    "  content: \"\";" +
-    "  position: absolute;" +
-    "  top: 50%;" +
-    "  left: 50%;" +
-    "  width: 0.7rem;" +
-    "  height: 0.7rem;" +
-    "  margin: -0.35rem 0 0 -0.35rem;" +
-    "  border-right: 2.5px solid currentColor;" +
-    "  border-bottom: 2.5px solid currentColor;" +
-    "  transform: rotate(45deg);" +
-    "  transition: transform 0.2s ease;" +
-    "}" +
-    "pmd-stream-header[expanded] .chevron::after { transform: rotate(225deg); }";
-  global.document.head.appendChild(s);
-})(window);
-
 const pmdStreamHeaderTemplate = document.createElement('template');
 pmdStreamHeaderTemplate.innerHTML = `
-  <div class="stream-accordion-header bg-body-tertiary text-body d-flex align-items-center w-100 p-1 ps-2">
+  <div class="stream-accordion-header bg-body-secondary text-body d-flex align-items-center w-100 p-1 ps-2">
     <smd-draghandle class="drag-handle"></smd-draghandle>
     <div class="thumb d-flex align-items-center justify-content-center flex-shrink-0 mx-2"><smd-image key-prefix="shared-"></smd-image></div>
     <div class="body d-flex flex-column flex-grow-1 gap-1 overflow-hidden me-2">

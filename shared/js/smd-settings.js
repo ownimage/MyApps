@@ -92,7 +92,6 @@ function applyTheme(name, modeOverride) {
     : smdAppRoot() + "css/themes/";
   if (link) {
     link.href = prefix + valid + "/bootstrap.min.css?v=" + v;
-    link.addEventListener("load", applySmdVars, { once: true });
   }
   document.documentElement.setAttribute("data-bs-theme", resolvedMode);
   document.documentElement.setAttribute("data-theme", valid);
@@ -112,7 +111,6 @@ function applyThemeMode(theme, mode) {
   document.documentElement.setAttribute("data-bs-theme", resolvedMode);
   document.documentElement.setAttribute("data-theme", valid);
   applyThemeOverrides(valid, resolvedMode, prefix, v, false);
-  applySmdVars();
 }
 
 function applyThemeOverrides(theme, mode, prefix, v, updateSpecific) {
@@ -133,15 +131,8 @@ function setOverrideLink(id, href) {
     if (themeLink && themeLink.parentNode) themeLink.parentNode.insertBefore(el, themeLink.nextSibling);
     else document.head.appendChild(el);
   }
-  bindThemeOverrideVars(el);
   el.href = href;
   return el;
-}
-
-function bindThemeOverrideVars(link) {
-  if (!link || link.__smdThemeVarsBound) return;
-  link.__smdThemeVarsBound = true;
-  link.addEventListener("load", applySmdVars);
 }
 
 function orderThemeOverrideLinks() {
@@ -155,65 +146,6 @@ function orderThemeOverrideLinks() {
   if (mode.previousElementSibling !== base) {
     base.parentNode.insertBefore(mode, base.nextSibling);
   }
-}
-
-// Computed style of a hidden light-DOM probe carrying real Bootstrap classes.
-// Theme CSS cannot reach into shadow roots, and Bootstrap's component vars are
-// set on the component elements themselves (not on :root), so reading the
-// probe's computed style is the only faithful source.
-function smdBootstrapStyle(className) {
-  if (typeof document === "undefined" || !document.body) return { color: "", backgroundColor: "" };
-  const probe = /(^|\s)btn/.test(className) ? document.createElement("button") : document.createElement("span");
-  if (probe.tagName === "BUTTON") probe.type = "button";
-  probe.className = className;
-  probe.setAttribute("aria-hidden", "true");
-  // smd-probe guards the element from the shared contrast overrides (styles.css
-  // targets :not(.smd-probe)) so the probe always reads the RAW Bootswatch colour.
-  probe.classList.add("smd-probe");
-  probe.style.cssText = "position:absolute;left:-9999px;top:0;visibility:hidden;pointer-events:none";
-  document.body.appendChild(probe);
-  const computed = getComputedStyle(probe);
-  const style = { color: computed.color, backgroundColor: computed.backgroundColor };
-  probe.remove();
-  return style;
-}
-
-// Text colour for a theme-coloured surface — exactly as Bootswatch chose it.
-function smdBootstrapColor(className) {
-  return smdBootstrapStyle(className).color;
-}
-
-// Per-variant text colours, straight from the loaded Bootstrap theme. Light-DOM
-// components that sit on a theme-coloured surface (smd-tab buttons, editor
-// footer buttons) read these via var(--smd-*-text) so they always match the
-// theme instead of a hardcoded fallback.
-function applySmdVars() {
-  const root = document.documentElement;
-  root.style.setProperty("--smd-primary", "var(--bs-primary, #0d6efd)");
-  root.style.setProperty("--smd-secondary", "var(--bs-secondary, #6c757d)");
-  root.style.setProperty("--smd-success", "var(--bs-success, #198754)");
-  root.style.setProperty("--smd-danger", "var(--bs-danger, #dc3545)");
-  root.style.setProperty("--smd-warning", "var(--bs-warning, #ffc107)");
-
-  const secondaryText = smdBootstrapColor("btn btn-secondary") || "#fff";
-  root.style.setProperty("--smd-primary-text", smdBootstrapColor("btn btn-primary") || "#fff");
-  root.style.setProperty("--smd-secondary-text", secondaryText);
-  root.style.setProperty("--smd-success-text", smdBootstrapColor("btn btn-success") || "#fff");
-  root.style.setProperty("--smd-danger-text", smdBootstrapColor("btn btn-danger") || "#fff");
-  root.style.setProperty("--smd-info-text", smdBootstrapColor("btn btn-info") || "#fff");
-  root.style.setProperty("--smd-warning-text", smdBootstrapColor("btn btn-warning") || "#000");
-  // Inactive smd-tab buttons sit on the secondary colour.
-  root.style.setProperty("--smd-tab-text", secondaryText);
-
-  // Centralized WCAG contrast palette for every themed surface in the UI. Runs
-  // after (and supersedes where equal) the theme-accurate values above; surfaces
-  // that consume --smd-on-* / --smd-tab-active-text get goal>=4.5:1 text.
-  if (typeof applySmdContrastVars === "function") applySmdContrastVars();
-}
-
-// Back-compat alias (older callers/tests): recompute all shared colour vars.
-function updateTabTextColor() {
-  applySmdVars();
 }
 
 function changeTheme(name) {
@@ -236,6 +168,7 @@ function changeThemeMode(mode) {
 // FONT SIZE
 function changeFontSize(value) {
   localStorage.setItem(smdKey("fontSize"), value);
+  document.documentElement.dataset.smdFontSize = value;
   document.body.classList.remove("font-size-xsmall", "font-size-small", "font-size-normal", "font-size-large", "font-size-xlarge", "font-size-jumbo");
   if (value !== "normal") {
     document.body.classList.add("font-size-" + value);
@@ -245,6 +178,7 @@ function changeFontSize(value) {
 // ICON SIZE
 function changeIconSize(value) {
   localStorage.setItem(smdKey("iconSize"), value);
+  document.documentElement.dataset.smdIconSize = value;
   document.body.classList.remove("icon-size-xsmall", "icon-size-small", "icon-size-medium", "icon-size-large", "icon-size-xlarge", "icon-size-jumbo");
   document.body.classList.add("icon-size-" + value);
   // Optional app hook: push the new value (px) into <smd-image>.
@@ -254,6 +188,7 @@ function changeIconSize(value) {
 // TILE DENSITY
 function changeDensity(value) {
   localStorage.setItem(smdKey("density"), value);
+  document.documentElement.dataset.smdTileDensity = value;
   document.body.classList.remove("compact", "density-normal");
   if (value !== "normal") {
     document.body.classList.add(value);
@@ -263,6 +198,7 @@ function changeDensity(value) {
 // TOUCH SIZE (drag handles + checkboxes)
 function changeTouchSize(value) {
   localStorage.setItem(smdKey("touchSize"), value);
+  document.documentElement.dataset.smdTouchSize = value;
   // Optional app hook: push the new value into <smd-draghandle>/<smd-checkbox>.
   if (typeof applyTouchSize === "function") applyTouchSize();
 }
@@ -358,14 +294,20 @@ function updateScreenResolution() {
 
 document.addEventListener("DOMContentLoaded", () => {
   const savedFontSize = localStorage.getItem(smdKey("fontSize")) || "xlarge";
+  document.documentElement.dataset.smdFontSize = savedFontSize;
   if (savedFontSize !== "normal") {
     document.body.classList.add("font-size-" + savedFontSize);
   }
 
   const savedIconSize = localStorage.getItem(smdKey("iconSize")) || "medium";
+  document.documentElement.dataset.smdIconSize = savedIconSize;
   document.body.classList.add("icon-size-" + savedIconSize);
 
+  const savedTouchSize = localStorage.getItem(smdKey("touchSize")) || "normal";
+  document.documentElement.dataset.smdTouchSize = savedTouchSize;
+
   const savedDensity = localStorage.getItem(smdKey("density")) || "normal";
+  document.documentElement.dataset.smdTileDensity = savedDensity;
   if (savedDensity !== "normal") {
     document.body.classList.add(savedDensity);
   }
@@ -375,9 +317,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
   updateScreenResolution();
   window.addEventListener("resize", updateScreenResolution);
-
-  applySmdVars();
-  window.addEventListener("load", applySmdVars);
 
   const autoHide = localStorage.getItem(smdKey("autoHideMenu")) === "true";
   if (autoHide) {
@@ -401,10 +340,8 @@ Object.assign(SmdApp.prototype, {
   resolveThemeMode,
   applyTheme,
   applyThemeMode,
-  applySmdVars,
   changeTheme,
   changeThemeMode,
-  updateTabTextColor,
   changeFontSize,
   changeIconSize,
   changeDensity,

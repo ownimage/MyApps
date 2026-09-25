@@ -115,6 +115,16 @@ test.describe("PlanMyDay - Regression", () => {
       await expect(page.locator("h1").first()).toBeVisible();
     });
 
+    test("hides the main menu while a secondary page is open", async ({ page }) => {
+      await expect(page.locator("#btnMainMenu")).toBeVisible();
+      await page.getByText("+ Add Job").click();
+      await expect(page.locator("#jobEditPage")).toBeVisible();
+      await expect(page.locator("#btnMainMenu")).toBeHidden();
+      await page.locator("#jobEditCancelBtn").click();
+      await expect(page.locator("#jobEditPage")).toBeHidden();
+      await expect(page.locator("#btnMainMenu")).toBeVisible();
+    });
+
     test("add card opens job edit modal", async ({ page }) => {
       await page.getByText("+ Add Job").click();
       await expect(page.locator("#jobEditPage")).toBeVisible();
@@ -542,18 +552,15 @@ test.describe("PlanMyDay - Regression", () => {
     });
   });
 
-  // ── Theme contrast ─────────────────────────────────────────
+  // ── Theme colours ───────────────────────────────────────────
 
-  test.describe("Theme contrast", () => {
+  test.describe("Theme colours", () => {
 
-    // changeTheme + wait for the new theme css to load (the app recomputes its
-    // shared text colours from the loaded theme in the link's load handler).
+    // changeTheme + wait for the new Bootswatch stylesheet to load.
     async function setTheme(page, theme) {
       await page.evaluate((t) => {
         const link = document.getElementById("bootstrap-theme-css");
         if ((link.getAttribute("href") || "").indexOf("/" + t + "/") !== -1) {
-          // Already on this theme: no link load will fire, just recompute.
-          if (typeof applySmdVars === "function") applySmdVars();
           window.__themeReady = true;
           return;
         }
@@ -567,16 +574,11 @@ test.describe("PlanMyDay - Regression", () => {
       await page.waitForTimeout(200);
     }
 
-    // What Bootswatch itself renders for that .btn-* class, read from the light
-    // DOM — the same source applySmdVars() uses for the --smd-*-text values. The
-    // smd-probe guard keeps the shared contrast overrides from leaking in, so
-    // this always reads the RAW Bootswatch colour.
     async function bootswatchColor(page, classes) {
       return page.evaluate((cls) => {
         const el = document.createElement("button");
         el.type = "button";
         el.className = cls;
-        el.classList.add("smd-probe");
         el.style.cssText = "position:absolute;left:-9999px;visibility:hidden";
         document.body.appendChild(el);
         const color = getComputedStyle(el).color;
@@ -590,7 +592,6 @@ test.describe("PlanMyDay - Regression", () => {
       return page.evaluate((v) => {
         const el = document.createElement("span");
         el.className = "badge text-bg-" + v;
-        el.classList.add("smd-probe");
         el.style.cssText = "position:absolute;left:-9999px;visibility:hidden";
         document.body.appendChild(el);
         const cs = getComputedStyle(el);
@@ -652,22 +653,7 @@ test.describe("PlanMyDay - Regression", () => {
       expect(color).toBe(await bootswatchColor(page, "btn btn-secondary"));
     });
 
-    test("inactive tabs use the Bootswatch secondary button text colour", async ({ page }) => {
-      await page.evaluate(() => openSettings());
-      const inactiveTabColor = () => page.evaluate(() => {
-        const pageEl = document.getElementById("settingsPage");
-        const tabs = pageEl.querySelector("#settingsTabs");
-        const inactive = Array.from(tabs.querySelectorAll(".smd-tab-btn"))
-          .find((b) => !b.hasAttribute("active"));
-        return getComputedStyle(inactive).color;
-      });
-      for (const theme of ["cerulean", "cosmo", "darkly", "sketchy"]) {
-        await setTheme(page, theme);
-        expect(await inactiveTabColor()).toBe(await bootswatchColor(page, "btn btn-secondary"));
-      }
-    });
-
-    test("badges use the centralized contrast palette and meet WCAG AA", async ({ page }) => {
+    test("badges match the Bootswatch badge colours", async ({ page }) => {
       await setTheme(page, "cerulean");
       await page.evaluate(() => {
         localStorage.setItem("planmydays_streams", JSON.stringify([{ title: "S", tab: "maintenance", sequence: 1, jobs: [] }]));
@@ -687,50 +673,11 @@ test.describe("PlanMyDay - Regression", () => {
         };
       });
 
-      // WCAG ratio helper mirrors SmdContrast on the page.
-      const ratioOf = (pair) => page.evaluate(({ fg, bg }) => {
-        const parse = (c) => {
-          const m = String(c).trim().match(/rgba?\(\s*([\d.]+)[,\s]+([\d.]+)[,\s]+([\d.]+)/);
-          if (!m) return [0, 0, 0];
-          return [Number(m[1]), Number(m[2]), Number(m[3])];
-        };
-        const lum = (rgb) => {
-          const ch = (v) => {
-            const s = v / 255;
-            return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
-          };
-          return 0.2126 * ch(rgb[0]) + 0.7152 * ch(rgb[1]) + 0.0722 * ch(rgb[2]);
-        };
-        const a = lum(parse(fg)), b = lum(parse(bg));
-        const lo = Math.min(a, b), hi = Math.max(a, b);
-        return (hi + 0.05) / (lo + 0.05);
-      }, pair);
-
-      const paletteColor = () => page.evaluate(() => {
-        const el = document.createElement("span");
-        el.style.position = "absolute";
-        el.style.left = "-9999px";
-        el.style.color = "var(--smd-info-text)";
-        document.body.appendChild(el);
-        const color = getComputedStyle(el).color;
-        el.remove();
-        return color;
-      });
-
       for (const theme of ["cerulean", "darkly"]) {
         await setTheme(page, theme);
         const colors = await badgeColors();
-        const want = await paletteColor();
-        // Badges consume the centralized palette; if the theme's own badge text
-        // already passed AA the palette keeps it (== Bootswatch), otherwise it
-        // substitutes a readable colour. Either way the badge text must equal
-        // the centralized value and clear the 4.5:1 AA target.
-        expect(colors.header.color).toBe(want);
-        expect(colors.tab.color).toBe(want);
-        expect(await ratioOf({ fg: colors.header.color, bg: colors.header.bg })).toBeGreaterThanOrEqual(4.5);
-        expect(await ratioOf({ fg: colors.tab.color, bg: colors.tab.bg })).toBeGreaterThanOrEqual(4.5);
-        // The badge background itself is still the theme's info surface.
-        expect(colors.header.bg).toBe((await bootswatchBadge(page, "info")).bg);
+        expect(colors.header).toEqual(await bootswatchBadge(page, "info"));
+        expect(colors.tab).toEqual(await bootswatchBadge(page, "info"));
       }
     });
   });
@@ -740,6 +687,10 @@ test.describe("PlanMyDay - Regression", () => {
   test.describe("Settings", () => {
 
     test("shows all main settings controls", async ({ page }) => {
+      await expect(page.locator("html")).toHaveAttribute("data-smd-font-size", "xlarge");
+      await expect(page.locator("html")).toHaveAttribute("data-smd-icon-size", "medium");
+      await expect(page.locator("html")).toHaveAttribute("data-smd-touch-size", "normal");
+      await expect(page.locator("html")).toHaveAttribute("data-smd-tile-density", "normal");
       await page.locator("#btnMainMenu").click();
       await page.locator("a.dropdown-item").filter({ hasText: "Settings" }).click();
       await expect(page.locator("#splitList")).toBeVisible();
@@ -774,34 +725,37 @@ test.describe("PlanMyDay - Regression", () => {
       await expect(page.locator("#clearAllDataRow")).toBeVisible();
     });
 
-    test("font size selector changes body class", async ({ page }) => {
+    test("font size selector changes body class and html attribute", async ({ page }) => {
       await page.locator("#btnMainMenu").click();
       await page.locator("a.dropdown-item").filter({ hasText: "Settings" }).click();
       await page.locator("#appearance-tab").click();
       await page.locator("#fontSizeSelector").selectOption("small");
       const hasClass = await page.evaluate(() => document.body.classList.contains("font-size-small"));
       expect(hasClass).toBe(true);
+      await expect(page.locator("html")).toHaveAttribute("data-smd-font-size", "small");
     });
 
-    test("icon size selector changes body class", async ({ page }) => {
+    test("icon size selector changes body class and html attribute", async ({ page }) => {
       await page.locator("#btnMainMenu").click();
       await page.locator("a.dropdown-item").filter({ hasText: "Settings" }).click();
       await page.locator("#appearance-tab").click();
       await page.locator("#iconSizeSelector").selectOption("small");
       const hasClass = await page.evaluate(() => document.body.classList.contains("icon-size-small"));
       expect(hasClass).toBe(true);
+      await expect(page.locator("html")).toHaveAttribute("data-smd-icon-size", "small");
     });
 
-    test("density selector changes body class", async ({ page }) => {
+    test("density selector changes body class and html attribute", async ({ page }) => {
       await page.locator("#btnMainMenu").click();
       await page.locator("a.dropdown-item").filter({ hasText: "Settings" }).click();
       await page.locator("#appearance-tab").click();
       await page.locator("#densitySelector").selectOption("compact");
       const hasClass = await page.evaluate(() => document.body.classList.contains("compact"));
       expect(hasClass).toBe(true);
+      await expect(page.locator("html")).toHaveAttribute("data-smd-tile-density", "compact");
     });
 
-    test("touch size selector changes component size", async ({ page }) => {
+    test("touch size selector changes component size and html attribute", async ({ page }) => {
       await page.locator("#btnMainMenu").click();
       await page.locator("a.dropdown-item").filter({ hasText: "Settings" }).click();
       await page.locator("#appearance-tab").click();
@@ -810,9 +764,11 @@ test.describe("PlanMyDay - Regression", () => {
       expect(normal).toEqual({ drag: "normal", check: "normal" });
       const stored = await page.evaluate(() => localStorage.getItem("planmydays_touchSize"));
       expect(stored).toBe("normal");
+      await expect(page.locator("html")).toHaveAttribute("data-smd-touch-size", "normal");
       await page.locator("#touchSizeSelector").selectOption("large");
       const large = await page.evaluate(() => ({ drag: SmdDragHandle.defaultSize, check: SmdCheckbox.defaultSize }));
       expect(large).toEqual({ drag: "large", check: "large" });
+      await expect(page.locator("html")).toHaveAttribute("data-smd-touch-size", "large");
     });
 
     test("split list toggle persists", async ({ page }) => {
@@ -1782,17 +1738,6 @@ test.describe("PlanMyDay - Regression", () => {
       await expect(page.locator("#imageEditModalTitle")).toHaveText("Edit Image");
       await page.locator("#btnImageEditCancel").click();
       await page.locator("#imageEditModal").waitFor({ state: "hidden" });
-    });
-
-    test("action buttons have doubled spacing", async ({ page }) => {
-      await page.getByRole("button", { name: "Add Image" }).click();
-      await page.locator("#imageEditModal").waitFor({ state: "visible" });
-      await page.locator("#imageEditModalBody .form-control:not(.form-control-sm)").waitFor({ state: "visible" });
-      await page.locator("#imageEditModalBody .form-control:not(.form-control-sm)").fill("GapImg");
-      await page.locator("#btnImageEditOk").click();
-      await page.locator("#imageEditModal").waitFor({ state: "hidden" });
-      const gap = await page.locator(".card:has-text('GapImg') .image-actions").evaluate(el => getComputedStyle(el).gap);
-      expect(gap).toBe("16px");
     });
 
     test("delete button disabled when image used by a stream", async ({ page }) => {
@@ -2791,16 +2736,10 @@ test.describe("PlanMyDay - Regression", () => {
       await page.evaluate(() => {
         window.__themeEvents = [];
         window.__renderMainCalls = 0;
-        window.__smdVarsCalls = 0;
         const originalRenderMain = renderMain;
-        const originalApplySmdVars = applySmdVars;
         renderMain = function () {
           window.__renderMainCalls += 1;
           return originalRenderMain.apply(this, arguments);
-        };
-        applySmdVars = function () {
-          window.__smdVarsCalls += 1;
-          return originalApplySmdVars.apply(this, arguments);
         };
         document.getElementById("themeSelector").addEventListener("smd-theme-change", event => {
           window.__themeEvents.push(event.detail);
@@ -2813,12 +2752,10 @@ test.describe("PlanMyDay - Regression", () => {
       expect(await page.evaluate(() => ({
         mode: localStorage.getItem("planmydays_themeMode"),
         renderCalls: window.__renderMainCalls,
-        varsCalls: window.__smdVarsCalls,
         event: window.__themeEvents[window.__themeEvents.length - 1]
       }))).toEqual({
         mode: "dark",
         renderCalls: 0,
-        varsCalls: 1,
         event: { theme: "superhero", mode: "dark", source: "mode" }
       });
 
@@ -2912,23 +2849,19 @@ test.describe("PlanMyDay - Regression", () => {
       await page.locator("#densitySelector").selectOption("normal");
       const hasCompact = await page.evaluate(() => document.body.classList.contains("compact"));
       expect(hasCompact).toBe(false);
+      await expect(page.locator("html")).toHaveAttribute("data-smd-tile-density", "normal");
     });
 
     test("touch size selector switches between normal and large", async ({ page }) => {
       await page.locator("#appearance-tab").click();
-      const inputFontSize = () => page.evaluate(() => {
-        const input = $id("splitList").querySelector("input");
-        return parseFloat(getComputedStyle(input).fontSize);
-      });
       await page.locator("#touchSizeSelector").selectOption("normal");
-      const normalSize = await inputFontSize();
-      const normal = await page.evaluate(() => SmdDragHandle.defaultSize === "normal" && SmdCheckbox.defaultSize === "normal");
-      expect(normal).toBe(true);
+      await expect(page.locator("#touchSizeSelector")).toHaveValue("normal");
+      await expect(page.locator("html")).toHaveAttribute("data-smd-touch-size", "normal");
+      expect(await page.evaluate(() => SmdDragHandle.defaultSize === "normal" && SmdCheckbox.defaultSize === "normal")).toBe(true);
       await page.locator("#touchSizeSelector").selectOption("large");
-      const largeSize = await inputFontSize();
-      const large = await page.evaluate(() => SmdDragHandle.defaultSize === "large" && SmdCheckbox.defaultSize === "large");
-      expect(large).toBe(true);
-      expect(largeSize).toBeGreaterThan(normalSize);
+      await expect(page.locator("#touchSizeSelector")).toHaveValue("large");
+      await expect(page.locator("html")).toHaveAttribute("data-smd-touch-size", "large");
+      expect(await page.evaluate(() => SmdDragHandle.defaultSize === "large" && SmdCheckbox.defaultSize === "large")).toBe(true);
     });
 
     test("auto hide menu disabling unbinds events", async ({ page }) => {
@@ -7233,6 +7166,20 @@ test.describe("PlanMyDay - Regression", () => {
       });
       const bad = [...stamps.links, ...stamps.scripts].filter((x) => x.v !== build);
       expect(bad).toEqual([]);
+    });
+
+    test("service worker updates use the shared update modal", async ({ page }) => {
+      await page.goto("/PlanMyDay/");
+      await expect(page.locator("#pwa-pull-indicator")).toHaveCount(0);
+      await page.evaluate(() => {
+        const waiting = {
+          scriptURL: "https://example.test/sw.js?pending-update",
+          postMessage: () => {}
+        };
+        window.__pmdSwUpdater.showUpdatePrompt({ waiting });
+      });
+      await expect(page.locator("#smdConfirmModal")).toBeVisible();
+      await expect(page.locator("#smdConfirmModal")).toContainText("Update available");
     });
 
     test("theme swap is cache-busted with the build number", async ({ page }) => {

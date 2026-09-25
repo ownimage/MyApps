@@ -34,15 +34,15 @@ test.describe("Storybook - Regression", () => {
     await expect(page.locator("#pmd-stream pmd-job-stream-card")).toHaveCount(4);
 
     // Theme selector reflects the saved theme and mode.
-    await expect(page.locator("#themeSelect option")).toHaveCount(26);
-    await expect(page.locator("#modeSelect option")).toHaveText(["Default", "Light", "Dark"]);
+    await expect(page.locator("#storybookThemeSelector .smd-theme-select option")).toHaveCount(26);
+    await expect(page.locator("#storybookThemeSelector .smd-theme-mode-select option")).toHaveText(["Default", "Light", "Dark"]);
     await expect(page.locator("#sb-theme .smd-theme-select")).toHaveCount(1);
     await expect(page.locator("#sb-theme .smd-theme-mode-select")).toHaveCount(1);
     await expect(page.locator("#sb-theme .smd-theme-select")).toBeVisible();
     await expect(page.locator("#sb-theme .smd-theme-mode-select")).toBeVisible();
     await expect(page.locator("#sb-theme .smd-theme-mode-select option")).toHaveText(["Default", "Light", "Dark"]);
-    await expect(page.locator("#sb-theme .smd-theme-select")).toHaveValue(await page.locator("#themeSelect").inputValue());
-    await expect(page.locator("#sb-theme .smd-theme-mode-select")).toHaveValue(await page.locator("#modeSelect").inputValue());
+    await expect(page.locator("#sb-theme .smd-theme-select")).toHaveValue(await page.locator("#storybookThemeSelector .smd-theme-select").inputValue());
+    await expect(page.locator("#sb-theme .smd-theme-mode-select")).toHaveValue(await page.locator("#storybookThemeSelector .smd-theme-mode-select").inputValue());
     await page.locator("#sb-theme .smd-theme-mode-select").selectOption("light");
     await expect(page.locator("#sb-theme")).toHaveAttribute("mode", "light");
     await expect(page.locator("#log-smd-theme")).toContainText("source=mode");
@@ -68,7 +68,7 @@ test.describe("Storybook - Regression", () => {
     }))).toBe(true);
   });
 
-  test("component demo hosts are block-level and theme-aware", async ({ page }) => {
+  test("component demo hosts render their expected elements", async ({ page }) => {
     await page.goto("/storybook/");
 
     const hosts = page.locator([
@@ -86,23 +86,6 @@ test.describe("Storybook - Regression", () => {
       node.classList.contains("d-block") && getComputedStyle(node).display === "block"
     )))).toBe(true);
 
-    const themeCards = page.locator([
-      "main pmd-job-stream-card > .card",
-      "main pmd-job-search-card > .card",
-      "main pmd-job-today-card > .card",
-      "main cmd-countdown-card > .card",
-      "main cmd-date-card > .card",
-      "main cmd-category-card > .card"
-    ].join(", "));
-    await expect(themeCards).toHaveCount(20);
-    expect(await themeCards.evaluateAll((nodes) => nodes.every((node) => (
-      node.classList.contains("bg-body-tertiary") && node.classList.contains("text-body")
-    )))).toBe(true);
-    await expect(page.locator("main qrlink-card > .card")).toHaveCount(2);
-    expect(await page.locator("main qrlink-card > .card").evaluateAll((nodes) => nodes.every((node) => (
-      node.classList.contains("bg-dark") && node.classList.contains("text-white")
-    )))).toBe(true);
-
     const hiddenGoogle = page.locator('#cmd-date-card cmd-date-card[data-google-hidden="true"]');
     await expect(hiddenGoogle).toBeVisible();
     await expect(hiddenGoogle.locator(".event-badge-hidden")).toHaveText("Hidden");
@@ -116,9 +99,10 @@ test.describe("Storybook - Regression", () => {
 
   test("Superhero keeps its dark-blue body surface", async ({ page }) => {
     await page.goto("/storybook/");
-    await page.locator("#themeSelect").selectOption("superhero");
+    await page.locator("#storybookThemeSelector .smd-theme-select").selectOption("flatly");
+    await page.locator("#storybookThemeSelector .smd-theme-select").selectOption("superhero");
     await expect(page.locator("body")).toHaveCSS("background-color", "rgb(15, 37, 55)");
-    await page.locator("#modeSelect").selectOption("light");
+    await page.locator("#storybookThemeSelector .smd-theme-mode-select").selectOption("light");
     await expect(page.locator("body")).toHaveCSS("background-color", "rgb(15, 37, 55)");
   });
 
@@ -127,10 +111,10 @@ test.describe("Storybook - Regression", () => {
     page.on("pageerror", (err) => pageErrors.push(String(err)));
 
     await page.goto("/storybook/");
-    await page.locator("#themeSelect").selectOption("cerulean");
+    await page.locator("#storybookThemeSelector .smd-theme-select").selectOption("cerulean");
     await page.waitForTimeout(500);
     await expect(page.locator("#sb-stream-header .editor-title")).toHaveText("Work");
-    await page.locator("#themeSelect").selectOption("darkly");
+    await page.locator("#storybookThemeSelector .smd-theme-select").selectOption("darkly");
     await page.waitForTimeout(500);
     await expect(page.locator("#sb-stream-header .editor-title")).toHaveText("Work");
 
@@ -147,15 +131,15 @@ test.describe("Storybook - Regression", () => {
     });
     await page.reload();
 
-    await expect(page.locator("#themeSelect")).toHaveValue("cerulean");
-    await expect(page.locator("#modeSelect")).toHaveValue("dark");
+    await expect(page.locator("#storybookThemeSelector .smd-theme-select")).toHaveValue("cerulean");
+    await expect(page.locator("#storybookThemeSelector .smd-theme-mode-select")).toHaveValue("dark");
     await expect(page.locator("html")).toHaveAttribute("data-bs-theme", "dark");
     expect(await page.evaluate(() => ({
       appTheme: localStorage.getItem("planmydays_theme"),
       appMode: localStorage.getItem("planmydays_themeMode")
     }))).toEqual({ appTheme: "flatly", appMode: "light" });
 
-    await page.locator("#modeSelect").selectOption("light");
+    await page.locator("#storybookThemeSelector .smd-theme-mode-select").selectOption("light");
     await expect(page.locator("html")).toHaveAttribute("data-bs-theme", "light");
     await expect(page.locator("#sb-theme")).toHaveAttribute("mode", "light");
     expect(await page.evaluate(() => ({
@@ -163,6 +147,84 @@ test.describe("Storybook - Regression", () => {
       appMode: localStorage.getItem("planmydays_themeMode"),
       storybookMode: localStorage.getItem("storybook_themeMode")
     }))).toEqual({ appTheme: "flatly", appMode: "light", storybookMode: "light" });
+  });
+
+  test("card viewer renders one card across every theme and both modes", async ({ page }) => {
+    const consoleErrors = [];
+    const pageErrors = [];
+    const failed = [];
+    page.on("console", (msg) => { if (msg.type() === "error") consoleErrors.push(msg.text()); });
+    page.on("pageerror", (err) => pageErrors.push(String(err)));
+    page.on("requestfailed", (req) => {
+      const expectedFrameAbort = req.failure()?.errorText === "net::ERR_ABORTED" && req.url().includes("/shared/vendor/fonts/");
+      if (!expectedFrameAbort) failed.push(req.url());
+    });
+
+    await page.goto("/storybook/cardViewer.html");
+    await expect(page.locator("body")).toHaveAttribute("data-card-viewer-ready", "true");
+    await expect(page.locator("#cardSelect option")).toHaveText([
+      "Job Today Card",
+      "Job Stream Card",
+      "Job Search Card",
+      "Countdown Card",
+      "Date Card",
+      "Category Card",
+      "QR Link Card",
+      "Image Card"
+    ]);
+    await expect(page.locator("#themeSelect")).toHaveValue("all");
+    await expect(page.locator("#themeSelect option")).toHaveCount(27);
+    await expect(page.locator("#themeSelect option").first()).toHaveText("All themes");
+
+    await page.locator("#themeSelect").selectOption("morph");
+    await expect(page.locator(".theme-row")).toHaveCount(1);
+    await expect(page.locator("iframe.preview-frame")).toHaveCount(2);
+    expect(await page.locator("iframe.preview-frame").evaluateAll((frames) => frames.every((frame) => (
+      frame.dataset.theme === "morph"
+    )))).toBe(true);
+    await expect(page.locator("#viewerStatus")).toContainText("Morph");
+    await page.reload();
+    await expect(page.locator("body")).toHaveAttribute("data-card-viewer-ready", "true");
+    await expect(page.locator("#themeSelect")).toHaveValue("morph");
+    await expect(page.locator(".theme-row")).toHaveCount(1);
+    await page.locator("#themeSelect").selectOption("all");
+
+    await expect(page.locator(".theme-row")).toHaveCount(26);
+    await expect(page.locator("iframe.preview-frame")).toHaveCount(52);
+    expect(await page.locator("iframe.preview-frame").evaluateAll((frames) => frames.every((frame) => (
+      frame.dataset.card === "pmd-job-today-card" &&
+      ["light", "dark"].includes(frame.dataset.mode) &&
+      frame.dataset.theme
+    )))).toBe(true);
+
+    const lightFrame = page.frameLocator('iframe[data-theme="superhero"][data-mode="light"]');
+    const darkFrame = page.frameLocator('iframe[data-theme="superhero"][data-mode="dark"]');
+    const lightCard = lightFrame.locator("pmd-job-today-card .smd-card");
+    const darkCard = darkFrame.locator("pmd-job-today-card .smd-card");
+    await expect(lightCard).toBeVisible();
+    await expect(darkCard).toBeVisible();
+
+    const recipes = [
+      ["pmd-job-today-card", "pmd-job-today-card > .card"],
+      ["pmd-job-stream-card", "pmd-job-stream-card > .card"],
+      ["pmd-job-search-card", "pmd-job-search-card > .card"],
+      ["cmd-countdown-card", "cmd-countdown-card > .card"],
+      ["cmd-date-card", "cmd-date-card > .card"],
+      ["cmd-category-card", "cmd-category-card > .card"],
+      ["qrlink-card", "qrlink-card > .card"],
+      ["smd-image-card", "smd-image-card > .card"]
+    ];
+    for (const [cardId, selector] of recipes) {
+      await page.locator("#cardSelect").selectOption(cardId);
+      const firstFrame = page.frameLocator('iframe[data-theme="brite"][data-mode="light"]');
+      await expect(firstFrame.locator(selector)).toBeVisible();
+    }
+    await expect(page.frameLocator('iframe[data-theme="brite"][data-mode="light"]').locator("smd-image-card .editor-title")).toHaveText("Calendar");
+    await page.waitForTimeout(500);
+
+    expect(consoleErrors).toEqual([]);
+    expect(pageErrors).toEqual([]);
+    expect(failed).toEqual([]);
   });
 
 });
