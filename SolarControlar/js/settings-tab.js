@@ -64,7 +64,7 @@ function buildSettingsContent() {
   var footerHtml = parts.footerHtml;
 
   settingsPage.title = "Settings";
-  settingsPage.content = '<smd-tabs id="settingsTabs"></smd-tabs>' + footerHtml;
+  settingsPage.content = '<smd-tabs id="settingsTabs" narrow></smd-tabs>' + footerHtml;
   settingsPage.buttons = [{ text: "OK", variant: "success", action: "done" }];
 
   var tabsEl = $id("settingsTabs");

@@ -250,8 +250,19 @@ smd-page .smd-page-body {
   margin: 4px;
 }
 
+#settingsPage .smd-page-body {
+  margin: 4px;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+#settingsPage .smd-page-body::-webkit-scrollbar {
+  display: none;
+}
+
 smd-page .smd-page-footer {
   display: flex;
+  gap: 0.5rem;
   flex-shrink: 0;
 }
 
@@ -430,6 +441,11 @@ smd-image-select .thumb .placeholder {
   display: flex;
   align-items: center;
   justify-content: center;
+  background-color: transparent;
+  opacity: 1;
+  animation: none;
+  color: var(--bs-secondary-color);
+  cursor: default;
 }
 
 smd-image-select .meta {

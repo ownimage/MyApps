@@ -465,7 +465,7 @@ class SmdApp {
     const footerHtml = this.settingsFooterHtml;
 
     settingsPage.title = "Settings";
-    settingsPage.content = '<smd-tabs id="settingsTabs"></smd-tabs>' + footerHtml;
+    settingsPage.content = '<smd-tabs id="settingsTabs" narrow></smd-tabs>' + footerHtml;
     settingsPage.buttons = [{ text: "OK", variant: "success", action: "done" }];
 
     const tabsEl = $id("settingsTabs");
