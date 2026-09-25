@@ -19,6 +19,16 @@ python tests/http-server.py
 npx playwright test tests/sample-images.spec.js --workers 1
 ```
 Writes the shared gallery to `screenshots/sample-images.png`.
+
+### Bump the build number
+Rewrites the timestamp in BOTH `shared/js/build-number.js` and `sw.js` (the worker mirror must change or the "Update available" prompt never fires):
+```bash
+npm run bump:build
+```
+Or with an explicit `YYYYMMDDHHMM` timestamp:
+```bash
+node shared/bump-build.js 202609252200
+```
 Regenerate `sampleImages.json` from the native files in `sampleImages/` (preserves
 per-image metadata from the existing JSON and only updates the `data`):
 ```bash
@@ -32,6 +42,18 @@ npm run extract:images
 ```
 ### Screenshots
 Screenshots use `screenshots/<app>/<theme>/<light|dark>/<scene>.png`; the viewer also reads legacy `screenshots/<app>/<theme>/<scene>.png` files as `Default` mode.
+
+Run for ONE theme only (defaults to all 26 when the env var is unset; works for every screenshot spec below).
+
+Windows Command Prompt:
+```bat
+set SCREENSHOT_THEME=superhero&& .\node_modules\.bin\playwright.cmd test tests/pmd-screenshots.spec.js --workers 16
+```
+Windows PowerShell:
+```powershell
+$env:SCREENSHOT_THEME="darkly"; .\node_modules\.bin\playwright.cmd test tests/pmd-screenshots.spec.js --workers 16
+```
+Writes PlanMyDay screenshots for just `darkly` to `screenshots/pmd/darkly/<light|dark>/`. The theme name is validated against the app's `themeConfig` (i.e. a bootswatch theme name).
 
 ```bash
 .\node_modules\.bin\playwright.cmd test tests/pmd-screenshots.spec.js --workers 16

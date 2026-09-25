@@ -869,7 +869,10 @@ test.describe("CountMyDays - Regression", () => {
       const pageErrors = [];
       const badResponses = [];
       page.on("console", (msg) => { if (msg.type() === "error") consoleErrors.push(msg.text()); });
-      page.on("pageerror", (err) => pageErrors.push(err.message));
+      // The poll below deliberately unregisters + re-registers the worker on a
+      // failed install; Chromium surfaces that as an unhandled "Failed to update
+      // a ServiceWorker" rejection. It is test-harness churn, not an app error.
+      page.on("pageerror", (err) => { if (!/^Failed to update a ServiceWorker/.test(err.message)) pageErrors.push(err.message); });
       page.on("response", (resp) => { if (resp.status() >= 400) badResponses.push(resp.status() + " " + resp.url()); });
 
       // tests/subpath-server.py serves the repo ONLY under /PlanMyDay/, so this

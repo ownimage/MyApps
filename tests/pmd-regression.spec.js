@@ -125,6 +125,27 @@ test.describe("PlanMyDay - Regression", () => {
       await expect(page.locator("#btnMainMenu")).toBeVisible();
     });
 
+    test("opening a new page closes the previous page", async ({ page }) => {
+      await page.evaluate(() => {
+        const first = document.getElementById("settingsPage");
+        first.classList.remove("d-none");
+        first.show();
+      });
+      await expect(page.locator("#settingsPage")).toBeVisible();
+      await page.evaluate(() => {
+        const second = document.getElementById("jobEditPage");
+        second.classList.remove("d-none");
+        second.show();
+      });
+      await expect(page.locator("#jobEditPage")).toBeVisible();
+      await expect(page.locator("#settingsPage")).not.toBeVisible();
+      await expect(page.locator("#settingsPage")).toHaveClass(/smd-page-suspended/);
+      expect(await page.locator("#settingsPage").getAttribute("open")).toBe("");
+      await page.evaluate(() => document.getElementById("jobEditPage").hide());
+      await expect(page.locator("#settingsPage")).toBeVisible();
+      await expect(page.locator("#settingsPage")).not.toHaveClass(/smd-page-suspended/);
+    });
+
     test("add card opens job edit modal", async ({ page }) => {
       await page.getByText("+ Add Job").click();
       await expect(page.locator("#jobEditPage")).toBeVisible();
@@ -7168,6 +7189,15 @@ test.describe("PlanMyDay - Regression", () => {
       expect(bad).toEqual([]);
     });
 
+    test("the sw.js build-number mirror matches shared/js/build-number.js", async ({ request }) => {
+      const buildNumber = (await (await request.get("/shared/js/build-number.js")).text()).match(/const BUILD_NUMBER = "(\d+)"/)[1];
+      const swText = await (await request.get("/sw.js")).text();
+      // The worker cannot importScripts the number (imported files are not part
+      // of the update byte-compare), so sw.js mirrors it inline. A drift means
+      // the page and the worker use different precache names.
+      expect(swText).toContain(`const BUILD_NUMBER = "${buildNumber}"`);
+    });
+
     test("service worker updates use the shared update modal", async ({ page }) => {
       await page.goto("/PlanMyDay/");
       await expect(page.locator("#pwa-pull-indicator")).toHaveCount(0);
@@ -7232,7 +7262,10 @@ test.describe("PlanMyDay - Regression", () => {
       const pageErrors = [];
       const badResponses = [];
       page.on("console", (msg) => { if (msg.type() === "error") consoleErrors.push(msg.text()); });
-      page.on("pageerror", (err) => pageErrors.push(err.message));
+      // The poll below deliberately unregisters + re-registers the worker on a
+      // failed install; Chromium surfaces that as an unhandled "Failed to update
+      // a ServiceWorker" rejection. It is test-harness churn, not an app error.
+      page.on("pageerror", (err) => { if (!/^Failed to update a ServiceWorker/.test(err.message)) pageErrors.push(err.message); });
       page.on("response", (resp) => { if (resp.status() >= 400) badResponses.push(resp.status() + " " + resp.url()); });
 
       // tests/subpath-server.py serves the repo ONLY under /PlanMyDay/ (every

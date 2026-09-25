@@ -11,16 +11,16 @@
   <link rel="apple-touch-icon" href="icon-192.png">
   <title>Count My Days</title>
 
-  <link id="bootstrap-theme-css" href="../shared/css/themes/superhero/bootstrap.min.css" rel="stylesheet">
-  <link id="theme-override-mode" rel="stylesheet" href="../shared/css/themes/dark.css">
-  <link id="theme-override-specific" rel="stylesheet" href="../shared/css/themes/superhero/superhero.css">
   <link rel="stylesheet" href="../shared/vendor/flatpickr.min.css">
-  <link rel="stylesheet" href="../shared/css/styles.css">
   <link rel="stylesheet" href="../shared/vendor/bootstrap-icons.css">
   <link rel="stylesheet" href="../shared/vendor/fontawesome/css/fontawesome.min.css">
   <link rel="stylesheet" href="../shared/vendor/fontawesome/css/solid.min.css">
   <link rel="stylesheet" href="../shared/vendor/fontawesome/css/regular.min.css">
   <link rel="stylesheet" href="../shared/vendor/fontawesome/css/brands.min.css">
+  <link id="bootstrap-theme-css" href="../shared/css/themes/superhero/bootstrap.min.css" rel="stylesheet">
+  <link id="smd-shared-css" rel="stylesheet" href="../shared/css/styles.css">
+  <link id="theme-override-mode" rel="stylesheet" href="../shared/css/themes/dark.css">
+  <link id="theme-override-specific" rel="stylesheet" href="../shared/css/themes/superhero/superhero.css">
   <script src="../shared/js/build-number.js"></script>
   <script>
     // Cache-bust every same-origin link (stylesheet/manifest/icon) with the
@@ -359,7 +359,20 @@
     var __updatePrompted = false;
     var __applyingUpdate = false;
     var __dismissedUpdate = "";
-    try { __dismissedUpdate = localStorage.getItem("swUpdateDismissedUrl") || ""; } catch (e) { __dismissedUpdate = ""; }
+    var __dismissedBuild = "";
+    try {
+      __dismissedBuild = localStorage.getItem("swUpdateDismissedBuild") || "";
+      // The SW registers at a STABLE URL, so scriptURL alone can't tell one
+      // build from another. Only suppress the prompt when the previously
+      // dismissed update belongs to the CURRENT build; once a newer build
+      // loads, forget the dismissal so it can prompt again.
+      if (String(BUILD_NUMBER) === __dismissedBuild) {
+        __dismissedUpdate = localStorage.getItem("swUpdateDismissedUrl") || "";
+      } else {
+        localStorage.removeItem("swUpdateDismissedUrl");
+        localStorage.removeItem("swUpdateDismissedBuild");
+      }
+    } catch (e) { __dismissedUpdate = ""; }
     function showUpdatePrompt(reg) {
       var w = reg && reg.waiting;
       if (w && w.scriptURL === __dismissedUpdate) return; // user already dismissed THIS pending SW
@@ -377,11 +390,14 @@
             var pending = reg && reg.waiting;
             if (!pending) return;
             if (detail.action === "update") {
-              try { localStorage.removeItem("swUpdateDismissedUrl"); } catch (e) {}
+              try { localStorage.removeItem("swUpdateDismissedUrl"); localStorage.removeItem("swUpdateDismissedBuild"); } catch (e) {}
               __applyingUpdate = true;
               pending.postMessage({ type: "SKIP_WAITING" });
             } else if (detail.action === "later") {
-              try { localStorage.setItem("swUpdateDismissedUrl", pending.scriptURL); } catch (e) {}
+              try {
+                localStorage.setItem("swUpdateDismissedUrl", pending.scriptURL);
+                localStorage.setItem("swUpdateDismissedBuild", String(BUILD_NUMBER));
+              } catch (e) {}
             }
           }
         });
@@ -400,6 +416,10 @@
           });
         });
       }
+      // Force an immediate check on every visit: browsers throttle their own
+      // update checks (roughly once a day), so a freshly deployed build could
+      // otherwise take hours to surface the "Update available" prompt.
+      if (reg.update) reg.update();
       window.addEventListener("focus", function() { if (reg.update) reg.update(); });
     });
 

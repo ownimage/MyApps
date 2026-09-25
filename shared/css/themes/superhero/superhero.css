@@ -1,9 +1,13 @@
-#html[data-theme="superhero"][data-bs-theme="light"] #smd-app smd-h2 {
-#  color: green;
-#  font-size: 6rem;
-#}
+:root[data-bs-theme="dark"] {
+  --smd-page-header-background: var(--bs-dark);
+  --smd-tab-active-background: var(--bs-primary);
+  --smd-tab-background: var(--bs-secondary);
+  --smd-image-theme: dark;
+}
 
-#html[data-theme="superhero"][data-bs-theme="dark"] #smd-app smd-h2 {
-#  color: red;
-#  font-size: 3rem;
-#}
+:root[data-bs-theme="light"] {
+  --smd-page-header-background: var(--bs-black);
+  --smd-tab-active-background: var(--bs-primary);
+  --smd-tab-background: var(--bs-secondary);
+  --smd-image-theme: dark;
+}

@@ -118,6 +118,20 @@ test.describe("Storybook - Regression", () => {
     await page.waitForTimeout(500);
     await expect(page.locator("#sb-stream-header .editor-title")).toHaveText("Work");
 
+    // applyTheme() re-points the theme/override sheets at runtime; the override
+    // sheets must stay AFTER the shared functional sheet, or the theme is no
+    // longer the final cascade layer.
+    const linkOrder = await page.evaluate(() => Array.from(document.querySelectorAll('link[rel="stylesheet"]'))
+      .map((link) => (link.getAttribute("href") || "").split(/[?#]/)[0]));
+    const indexOfShared = linkOrder.findIndex((href) => /shared\/css\/styles\.css$/.test(href));
+    const indexOfMode = linkOrder.findIndex((href) => /shared\/css\/themes\/(light|dark)\.css$/.test(href));
+    const indexOfSpecific = linkOrder.findIndex((href) => /shared\/css\/themes\/[^/]+\/[^/]+\.css$/.test(href));
+    const indexOfBase = linkOrder.findIndex((href) => /shared\/css\/themes\/[^/]+\/bootstrap\.min\.css$/.test(href));
+    expect(indexOfShared).toBeGreaterThan(-1);
+    expect(indexOfBase).toBeGreaterThan(-1);
+    expect(indexOfMode).toBeGreaterThan(indexOfShared);
+    expect(indexOfSpecific).toBeGreaterThan(indexOfMode);
+
     expect(pageErrors).toEqual([]);
   });
 
@@ -203,6 +217,23 @@ test.describe("Storybook - Regression", () => {
     const darkCard = darkFrame.locator("pmd-job-today-card .smd-card");
     await expect(lightCard).toBeVisible();
     await expect(darkCard).toBeVisible();
+
+    // Preview frames must use the same cascade as the app shells: vendor, theme
+    // bootstrap, shared styles, mode override, then theme-specific override.
+    const frameRanks = await page.locator("iframe.preview-frame").first().evaluate((frame) => {
+      const links = Array.from(frame.contentDocument.querySelectorAll('link[rel="stylesheet"]'));
+      return links.map((link) => {
+        const href = (link.getAttribute("href") || "").split(/[?#]/)[0];
+        if (/shared\/vendor\//.test(href)) return 0;
+        if (/shared\/css\/themes\/[^/]+\/bootstrap\.min\.css$/.test(href)) return 1;
+        if (/shared\/css\/styles\.css$/.test(href)) return 2;
+        if (/shared\/css\/themes\/(?:light|dark)\.css$/.test(href)) return 3;
+        if (/shared\/css\/themes\/[^/]+\/[^/]+\.css$/.test(href)) return 4;
+        return 5;
+      });
+    });
+    expect(frameRanks.every((rank) => rank < 5)).toBe(true);
+    expect(frameRanks).toEqual([...frameRanks].sort((a, b) => a - b));
 
     const recipes = [
       ["pmd-job-today-card", "pmd-job-today-card > .card"],

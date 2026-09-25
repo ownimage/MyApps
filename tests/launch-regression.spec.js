@@ -2,6 +2,48 @@ const { test, expect } = require("@playwright/test");
 
 test.describe("Launch - Regression", () => {
 
+  // Shared CSS contract: vendor sheets load first so Bootstrap/theme styles win,
+  // then the theme Bootstrap, shared functional styles, the mode override and
+  // finally the theme-specific override.
+  const SHELL_CASCADE = [
+    "/",
+    "/PlanMyDay/",
+    "/CountMyDays/",
+    "/QRLinks/",
+    "/SolarControlar/",
+    "/FreeFormOX/",
+    "/storybook/",
+    "/storybook/cardViewer.html"
+  ];
+
+  function cascadeRank(rawHref) {
+    const href = rawHref.split(/[?#]/)[0];
+    if (/shared\/vendor\//.test(href)) return 0;
+    if (/shared\/css\/themes\/[^/]+\/bootstrap\.min\.css$/.test(href)) return 1;
+    if (/shared\/css\/styles\.css$/.test(href)) return 2;
+    if (/shared\/css\/themes\/(?:light|dark)\.css$/.test(href)) return 3;
+    if (/shared\/css\/themes\/[^/]+\/[^/]+\.css$/.test(href)) return 4;
+    return 5;
+  }
+
+  test("app shells load stylesheets in the documented cascade order", async ({ request }) => {
+    for (const shell of SHELL_CASCADE) {
+      const response = await request.get(shell);
+      expect(response.status(), shell).toBe(200);
+      const html = await response.text();
+      // Only the document head's own links; cardViewer.html also builds links
+      // inside a <script> template, which the Storybook card viewer test covers.
+      const stylesheets = (html.split(/<script\b/i)[0].match(/<link\b[^>]*>/g) || [])
+        .filter((tag) => /rel="stylesheet"/.test(tag))
+        .map((tag) => (tag.match(/href="([^"]+)"/) || [])[1])
+        .filter(Boolean);
+      const ranks = stylesheets.map(cascadeRank);
+      expect(ranks.every((rank) => rank < 5), `${shell} has an unexpected stylesheet: ${stylesheets.join(", ")}`).toBe(true);
+      expect(ranks, shell).toEqual([...ranks].sort((a, b) => a - b));
+      expect(stylesheets.filter((href) => href.split(/[?#]/)[0].endsWith("shared/css/styles.css")), shell).toHaveLength(1);
+    }
+  });
+
   test("root shows the grid of available apps", async ({ page }) => {
     const errors = [];
     page.on("console", m => { if (m.type() === "error") errors.push(m.text()); });

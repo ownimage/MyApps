@@ -127,12 +127,30 @@ function setOverrideLink(id, href) {
     el = document.createElement("link");
     el.id = id;
     el.rel = "stylesheet";
-    const themeLink = document.getElementById("bootstrap-theme-css");
-    if (themeLink && themeLink.parentNode) themeLink.parentNode.insertBefore(el, themeLink.nextSibling);
+    const anchor = themeOverrideAnchor();
+    if (anchor && anchor.parentNode) anchor.parentNode.insertBefore(el, anchor.nextSibling);
     else document.head.appendChild(el);
   }
   el.href = href;
   return el;
+}
+
+// The shared functional sheet is the anchor for the mode/theme override sheets:
+// cascade order is vendor -> theme bootstrap -> shared styles -> mode -> theme.
+// Anchoring on #bootstrap-theme-css instead would push shared styles last, so the
+// mode/theme sheets would no longer be the final override layer.
+function smdSharedStylesLink() {
+  const byId = document.getElementById("smd-shared-css");
+  if (byId) return byId;
+  const links = document.querySelectorAll('link[rel="stylesheet"][href]');
+  for (let i = 0; i < links.length; i++) {
+    if (/(^|\/)shared\/css\/styles\.css(\?|$)/.test(links[i].getAttribute("href") || "")) return links[i];
+  }
+  return null;
+}
+
+function themeOverrideAnchor() {
+  return smdSharedStylesLink() || document.getElementById("bootstrap-theme-css");
 }
 
 function orderThemeOverrideLinks() {
@@ -140,12 +158,12 @@ function orderThemeOverrideLinks() {
   const mode = document.getElementById("theme-override-mode");
   const specific = document.getElementById("theme-override-specific");
   if (!base || !mode || !base.parentNode) return;
-  if (specific && mode.nextElementSibling !== specific) {
-    base.parentNode.insertBefore(specific, mode.nextSibling);
-  }
-  if (mode.previousElementSibling !== base) {
-    base.parentNode.insertBefore(mode, base.nextSibling);
-  }
+  const parent = base.parentNode;
+  const anchor = themeOverrideAnchor();
+  if (anchor && anchor.nextElementSibling !== mode) parent.insertBefore(mode, anchor.nextSibling);
+  if (specific && mode.nextElementSibling !== specific) parent.insertBefore(specific, mode.nextSibling);
+  // Without a shared sheet the overrides still have to follow the theme itself.
+  if (!anchor && mode.previousElementSibling !== base) parent.insertBefore(mode, base.nextSibling);
 }
 
 function changeTheme(name) {

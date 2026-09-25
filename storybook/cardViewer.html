@@ -4,8 +4,11 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Storybook Card Viewer</title>
-  <link rel="stylesheet" href="../shared/css/themes/flatly/bootstrap.min.css">
   <link rel="stylesheet" href="../shared/vendor/bootstrap-icons.css">
+  <link rel="stylesheet" href="../shared/css/themes/flatly/bootstrap.min.css">
+  <link id="smd-shared-css" rel="stylesheet" href="../shared/css/styles.css">
+  <link rel="stylesheet" href="../shared/css/themes/light.css">
+  <link rel="stylesheet" href="../shared/css/themes/flatly/flatly.css">
   <style>
     html { scroll-padding-top: 7rem; }
     body { min-width: 320px; }
@@ -187,15 +190,15 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<link id="bootstrap-theme-css" rel="stylesheet" href="${baseCss}">
-<link rel="stylesheet" href="${modeCss}">
-<link rel="stylesheet" href="${specificCss}">
 <link rel="stylesheet" href="${iconsCss}">
-<link rel="stylesheet" href="${sharedCss}">
 <link rel="stylesheet" href="${assetUrl(fontAwesomeRoot + "fontawesome.min.css")}">
 <link rel="stylesheet" href="${assetUrl(fontAwesomeRoot + "solid.min.css")}">
 <link rel="stylesheet" href="${assetUrl(fontAwesomeRoot + "regular.min.css")}">
 <link rel="stylesheet" href="${assetUrl(fontAwesomeRoot + "brands.min.css")}">
+<link id="bootstrap-theme-css" rel="stylesheet" href="${baseCss}">
+<link id="smd-shared-css" rel="stylesheet" href="${sharedCss}">
+<link rel="stylesheet" href="${modeCss}">
+<link rel="stylesheet" href="${specificCss}">
 </head>
 <body id="smd-app" class="font-size-xlarge icon-size-medium">
 ${scripts}

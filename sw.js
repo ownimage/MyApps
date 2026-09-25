@@ -5,7 +5,13 @@
 // the worker must sit at the root to cover both.
 //
 // To add an app: add an entry to APPS below (folder prefix -> its shell files).
-importScripts("shared/js/build-number.js");
+// The worker's own mirror of the build number. Browsers detect a service-worker
+// update by re-fetching the REGISTERED script (sw.js) and comparing bytes —
+// importScripts files are NOT part of that comparison. So the number must sit
+// inline here (bumped together with shared/js/build-number.js), or a pure
+// version bump would never install a new worker and the apps' "Update
+// available" prompt would never fire.
+const BUILD_NUMBER = "202609252246";
 
 const CACHE = "myapps-" + BUILD_NUMBER;
 
