@@ -1,9 +1,9 @@
-html[data-theme="superhero"][data-bs-theme="light"] #smd-app smd-h2 {
-  color: green;
-  font-size: 6rem;
-}
+#html[data-theme="superhero"][data-bs-theme="light"] #smd-app smd-h2 {
+#  color: green;
+#  font-size: 6rem;
+#}
 
-html[data-theme="superhero"][data-bs-theme="dark"] #smd-app smd-h2 {
-  color: red;
-  font-size: 3rem;
-}
+#html[data-theme="superhero"][data-bs-theme="dark"] #smd-app smd-h2 {
+#  color: red;
+#  font-size: 3rem;
+#}

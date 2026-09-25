@@ -114,6 +114,53 @@ smd-tabs[hide-panels] .smd-tab-panel {
   display: none !important;
 }
 
+#smd-app #streamsEditor pmd-stream-header .stream-accordion-header {
+  background-color: var(--bs-info) !important;
+  color: var(--bs-info-contrast, #fff) !important;
+}
+
+#smd-app #streamsEditor pmd-stream-header[expanded] .stream-accordion-header {
+  background-color: var(--bs-primary) !important;
+  color: var(--bs-primary-contrast, #fff) !important;
+}
+
+#smd-app #streamsEditor pmd-stream-header .stream-header-main,
+#smd-app #streamsEditor pmd-stream-header .chevron {
+  color: inherit !important;
+}
+
+#smd-app #streamsEditor pmd-stream-header .chevron {
+  position: relative;
+  flex: 0 0 auto;
+  width: 2.5rem;
+  min-height: 3rem;
+  margin-right: 0.5rem;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  opacity: 1;
+  visibility: visible;
+}
+
+#smd-app #streamsEditor pmd-stream-header .chevron::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0.7rem;
+  height: 0.7rem;
+  margin-top: -0.45rem;
+  margin-left: -0.35rem;
+  border-right: 2.5px solid currentColor;
+  border-bottom: 2.5px solid currentColor;
+  transform: rotate(45deg);
+  transition: transform 0.2s ease;
+}
+
+#smd-app #streamsEditor pmd-stream-header[expanded] .chevron::after {
+  transform: rotate(225deg);
+}
+
 smd-page {
   display: block;
   position: fixed;
