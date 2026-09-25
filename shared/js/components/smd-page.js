@@ -57,11 +57,11 @@ class SmdPage extends HTMLElement {
 
     this.innerHTML = `
       <div class="smd-page">
-        <div class="smd-page-header">
+        <div class="smd-page-header gap-2">
           <h1 class="mb-0">${this._escapeHtml(this._title)}</h1>${this._headerHtml}
         </div>
         <div class="smd-page-body m-1">${this._content}</div>
-        <div class="smd-page-footer">${buttonsHtml}</div>
+        <div class="smd-page-footer p-2">${buttonsHtml}</div>
       </div>
     `;
 

@@ -264,6 +264,7 @@ smd-page .smd-page-footer {
   display: flex;
   gap: 0.5rem;
   flex-shrink: 0;
+  background-color: var(--bs-emphasis-color, var(--bs-tertiary-bg, var(--bs-body-bg)));
 }
 
 smd-page .smd-page-footer smd-button {
