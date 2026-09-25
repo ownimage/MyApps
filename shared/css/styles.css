@@ -87,6 +87,16 @@ smd-tabs .smd-tab-list {
   flex-wrap: nowrap;
 }
 
+#smd-app smd-tabs .smd-tab-btn {
+  background-color: var(--bs-info);
+  margin: 1px;
+}
+
+#smd-app smd-tabs .smd-tab-btn.active,
+#smd-app smd-tabs .smd-tab-btn[active] {
+  background-color: var(--bs-primary);
+}
+
 smd-tabs[wrap] .smd-tab-list {
   flex-wrap: wrap;
 }
