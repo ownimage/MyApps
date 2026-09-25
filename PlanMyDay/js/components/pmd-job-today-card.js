@@ -110,7 +110,7 @@ pmdJobTodayCardTemplate.innerHTML = `
 
                     <!-- LEFT COLUMN: Description hogs space -->
                     <div class="flex-grow-1 d-flex flex-column">
-                        <div class="flex-grow-1 description small text-secondary" hidden></div>
+                        <div class="flex-grow-1 description small text-body" hidden></div>
                     </div>
 
                     <!-- RIGHT COLUMN: Badges + View aligned bottom -->
