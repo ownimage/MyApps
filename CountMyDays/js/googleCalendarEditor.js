@@ -132,7 +132,7 @@ function renderGoogleEventsEditor() {
 
   filtered.forEach(({ d, index }) => {
     const card = document.createElement("cmd-date-card");
-    card.className = "d-block mb-3";
+    card.className = "d-block mb-2";
     card.setAttribute("index", index);
     card.setAttribute("name", d.name || "");
     card.setAttribute("category", d.category || "");

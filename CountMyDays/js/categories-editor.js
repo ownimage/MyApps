@@ -93,7 +93,7 @@ function renderCategoryList() {
 
   filtered.forEach(({ c, index }) => {
     const card = document.createElement("cmd-category-card");
-    card.className = "d-block mb-3";
+    card.className = "d-block mb-2";
     card.setAttribute("index", index);
     card.setAttribute("name", c.name || "");
     card.setAttribute("key-prefix", smdImagePrefix());

@@ -18,8 +18,8 @@
 //   cmd-date-delete — detail { index, source } (local entries only)
 const cmdDateCardTemplate = document.createElement("template");
 cmdDateCardTemplate.innerHTML = `
-  <div class="card bg-body-tertiary text-body border-0 p-3">
-    <div class="d-flex align-items-start gap-3">
+  <div class="card border-0 w-100">
+    <div class="d-flex align-items-start gap-3 p-3 border rounded-3">
       <div class="d-flex gap-2 flex-shrink-0">
         <smd-image class="category-thumb"></smd-image>
         <smd-image class="date-thumb"></smd-image>

@@ -214,7 +214,7 @@ function renderDateList() {
     }
 
     const card = document.createElement("cmd-date-card");
-    card.className = "d-block mb-3";
+    card.className = "d-block mb-2";
     card.setAttribute("index", entry.index);
     card.setAttribute("name", d.name || "");
     card.setAttribute("category", d.category || "");

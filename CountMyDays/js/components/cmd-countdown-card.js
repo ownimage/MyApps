@@ -12,8 +12,8 @@
 //   key-prefix      — smd-image storage prefix (default: SmdConfig.imagePrefix)
 const cmdCountdownCardTemplate = document.createElement("template");
 cmdCountdownCardTemplate.innerHTML = `
-  <div class="card bg-body-tertiary text-body border-0 px-3 py-2">
-    <div class="d-flex align-items-center gap-3">
+  <div class="card border-0 w-100">
+    <div class="d-flex align-items-center gap-3 px-3 py-2 border rounded-3">
       <div class="thumbs d-flex flex-shrink-0 align-items-start gap-1">
         <div class="thumb-block d-flex flex-column align-items-center">
           <div class="thumb mb-1 d-flex align-items-center justify-content-center"><smd-image class="category-thumb"></smd-image></div>
