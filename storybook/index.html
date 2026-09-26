@@ -132,6 +132,10 @@
       const resolvedMode = resolveThemeMode(valid, selectedMode);
       applyTheme(valid, selectedMode);
       sbRestoreAppTheme();
+      // Persist the storybook's own Theme + Theme Mode (its own namespace, so it
+      // never overwrites the app's saved theme/mode restored above).
+      localStorage.setItem("storybook_theme", valid);
+      localStorage.setItem("storybook_themeMode", selectedMode);
       document.documentElement.style.setProperty("--sb-color-scheme", resolvedMode);
     }
 
@@ -140,8 +144,6 @@
     sbApplyTheme(storybookThemeSelector.theme, storybookThemeSelector.mode);
     storybookThemeSelector.addEventListener("smd-theme-change", (event) => {
       const { theme, mode, source } = event.detail;
-      localStorage.setItem("storybook_theme", theme);
-      localStorage.setItem("storybook_themeMode", mode);
       sbApplyTheme(theme, mode);
       if (source === "theme") {
         renderAll();
