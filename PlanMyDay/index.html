@@ -11,17 +11,15 @@
   <link rel="apple-touch-icon" href="icon-192.png">
   <title>Plan My Day</title>
 
-  <link id="bootstrap-theme-css" href="../shared/css/themes/superhero/bootstrap.min.css" rel="stylesheet">
-  <link id="theme-override-mode" rel="stylesheet" href="../shared/css/themes/dark.css">
-  <link id="theme-override-specific" rel="stylesheet" href="../shared/css/themes/superhero/superhero.css">
   <link rel="stylesheet" href="../shared/vendor/flatpickr.min.css">
-  <link rel="stylesheet" href="../shared/css/styles.css">
-  <link rel="stylesheet" href="css/styles.css">
   <link rel="stylesheet" href="../shared/vendor/bootstrap-icons.css">
   <link rel="stylesheet" href="../shared/vendor/fontawesome/css/fontawesome.min.css">
   <link rel="stylesheet" href="../shared/vendor/fontawesome/css/solid.min.css">
   <link rel="stylesheet" href="../shared/vendor/fontawesome/css/regular.min.css">
   <link rel="stylesheet" href="../shared/vendor/fontawesome/css/brands.min.css">
+  <link id="bootstrap-theme-css" href="../shared/css/themes/superhero/bootstrap.min.css" rel="stylesheet">
+  <link id="smd-shared-css" rel="stylesheet" href="../shared/css/styles.css">
+  <link id="theme-override-specific" rel="stylesheet" href="../shared/css/themes/superhero/superhero.css">
   <script src="../shared/js/build-number.js"></script>
   <script>
     // Cache-bust every same-origin link (stylesheet/manifest/icon) with the
@@ -38,14 +36,14 @@
   </script>
 </head>
 
-<body>
+<body id="smd-app">
 
   <!-- FIXED TOOLBAR -->
   <nav id="mainNav" class="navbar navbar-expand px-3 py-2 gap-1 flex-wrap">
 
     <div class="dropdown">
       <button id="btnMainMenu" class="btn p-1" data-bs-toggle="dropdown" title="Menu" aria-label="Menu">
-        <i class="fa-solid fa-bars" aria-hidden="true" style="font-size:22px"></i>
+        <i class="fa-solid fa-bars fs-5" aria-hidden="true"></i>
       </button>
       <ul class="dropdown-menu">
         <li><a class="dropdown-item" onclick="openSettings()">Settings</a></li>
@@ -53,7 +51,7 @@
         <li><a class="dropdown-item" href="../">Launch</a></li>
         <li><hr class="dropdown-divider"></li>
         <li><a class="dropdown-item" onclick="openStreamsEditor()">Edit Streams</a></li>
-        <li><button type="button" class="dropdown-item" onclick="openSearchJobs()">Search Jobs</button></li>
+        <li><a class="dropdown-item" onclick="openSearchJobs()">Search Jobs</a></li>
         <li><a class="dropdown-item" onclick="openImagesEditor()">Images</a></li>
         <li><hr class="dropdown-divider"></li>
         <li><a class="dropdown-item" onclick="exportData()">Export</a></li>
@@ -69,7 +67,7 @@
   <!-- MAIN CONTENT -->
   <div class="container-fluid px-3">
 
-    <div id="countdownContainer"></div>
+    <div id="countdownContainer" class="d-flex flex-column min-vh-100 pt-3"></div>
 
     <!-- JOBS EDITOR -->
     <smd-page id="streamsEditor" class="d-none"></smd-page>
@@ -130,12 +128,7 @@
 
         <!-- Appearance -->
         <section class="smd-settings-tab" data-tab="Display" data-tab-id="appearance-tab">
-          <div class="row mb-3 align-items-center col-md-8 mt-3">
-            <div class="col-4 text-end"><label class="form-label mb-0">Theme</label></div>
-            <div class="col-8">
-              <smd-theme id="themeSelector"></smd-theme>
-            </div>
-          </div>
+          <smd-theme id="themeSelector" class="col-md-8 mt-3"></smd-theme>
 
           <div class="row mb-4 align-items-center col-md-8">
             <div class="col-4 text-end"><label class="form-label mb-0">Font size</label></div>
@@ -354,7 +347,7 @@
             <div class="col-4 text-end"></div>
             <div class="col-8">
               <a href="https://buymeacoffee.com/ownimage" target="_blank" rel="noopener">
-                <img src="../shared/vendor/bmc-default-yellow.png" alt="Buy Me A Coffee" style="height:50px">
+                <img src="../shared/vendor/bmc-default-yellow.png" alt="Buy Me A Coffee" height="50">
               </a>
             </div>
           </div>
@@ -362,7 +355,7 @@
           <div class="row mb-4 align-items-center col-md-8">
             <div class="col-4 text-end"><label class="form-label mb-0">Share app</label></div>
             <div class="col-8">
-              <div id="shareQrCode" style="background:white;padding:10px;display:inline-block;border-radius:8px;"></div>
+              <div id="shareQrCode" class="bg-white p-2 d-inline-block rounded-2"></div>
             </div>
           </div>
 
@@ -389,7 +382,7 @@
       <div class="modal-content">
         <div class="modal-header">
           <h3 class="modal-title" id="imageEditModalTitle">Edit Image</h3>
-          <button id="btnImageEditClose" type="button" class="btn btn-sm ms-auto" onclick="cancelImageEdit()" style="font-size:1.5rem;line-height:1;padding:0 0.25rem;color:inherit;border:none;background:none">&times;</button>
+          <button id="btnImageEditClose" type="button" class="btn-close ms-auto" aria-label="Close" onclick="cancelImageEdit()"></button>
         </div>
         <div class="modal-body" id="imageEditModalBody"></div>
       </div>
@@ -404,6 +397,8 @@
 
   <script>
   document.write('<script src="../shared/js/components/smd-button.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../shared/js/components/smd-h1.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../shared/js/components/smd-h2.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="../shared/js/components/smd-image.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="../shared/js/components/smd-modal.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="../shared/js/components/smd-page.js?v=' + BUILD_NUMBER + '"><\/script>');
@@ -417,12 +412,13 @@ document.write('<script src="../shared/js/components/smd-checkbox.js?v=' + BUILD
   document.write('<script src="../shared/js/components/smd-draghandle.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="../shared/js/components/smd-badge.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="../shared/js/components/smd-image-dropdown.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../shared/js/components/smd-search.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="../shared/js/components/smd-date-picker.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="../shared/js/components/smd-fontawesome-credit.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="js/components/pmd-stream-header.js?v=' + BUILD_NUMBER + '"><\/script>');
-  document.write('<script src="js/components/pmd-stream-job-card.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="js/components/pmd-job-stream-card.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="js/components/pmd-job-search-card.js?v=' + BUILD_NUMBER + '"><\/script>');
-  document.write('<script src="js/components/pmd-today-card.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="js/components/pmd-job-today-card.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="../shared/js/smd-app.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="../shared/js/smd-minio.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="../shared/js/smd-settings.js?v=' + BUILD_NUMBER + '"><\/script>');
@@ -436,6 +432,8 @@ document.write('<script src="../shared/js/components/smd-checkbox.js?v=' + BUILD
   document.write('<script src="js/job-search.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="js/main-view.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="js/app-settings.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="js/display.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="js/image-picker.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="js/app.js?v=' + BUILD_NUMBER + '"><\/script>');
   </script>
 
@@ -444,7 +442,20 @@ document.write('<script src="../shared/js/components/smd-checkbox.js?v=' + BUILD
     var __updatePrompted = false;
     var __applyingUpdate = false;
     var __dismissedUpdate = "";
-    try { __dismissedUpdate = localStorage.getItem("swUpdateDismissedUrl") || ""; } catch (e) { __dismissedUpdate = ""; }
+    var __dismissedBuild = "";
+    try {
+      __dismissedBuild = localStorage.getItem("swUpdateDismissedBuild") || "";
+      // The SW registers at a STABLE URL, so scriptURL alone can't tell one
+      // build from another. Only suppress the prompt when the previously
+      // dismissed update belongs to the CURRENT build; once a newer build
+      // loads, forget the dismissal so it can prompt again.
+      if (String(BUILD_NUMBER) === __dismissedBuild) {
+        __dismissedUpdate = localStorage.getItem("swUpdateDismissedUrl") || "";
+      } else {
+        localStorage.removeItem("swUpdateDismissedUrl");
+        localStorage.removeItem("swUpdateDismissedBuild");
+      }
+    } catch (e) { __dismissedUpdate = ""; }
     function showUpdatePrompt(reg) {
       var w = reg && reg.waiting;
       if (w && w.scriptURL === __dismissedUpdate) return; // user already dismissed THIS pending SW
@@ -462,11 +473,14 @@ document.write('<script src="../shared/js/components/smd-checkbox.js?v=' + BUILD
             var pending = reg && reg.waiting;
             if (!pending) return;
             if (detail.action === "update") {
-              try { localStorage.removeItem("swUpdateDismissedUrl"); } catch (e) {}
+              try { localStorage.removeItem("swUpdateDismissedUrl"); localStorage.removeItem("swUpdateDismissedBuild"); } catch (e) {}
               __applyingUpdate = true;
               pending.postMessage({ type: "SKIP_WAITING" });
             } else if (detail.action === "later") {
-              try { localStorage.setItem("swUpdateDismissedUrl", pending.scriptURL); } catch (e) {}
+              try {
+                localStorage.setItem("swUpdateDismissedUrl", pending.scriptURL);
+                localStorage.setItem("swUpdateDismissedBuild", String(BUILD_NUMBER));
+              } catch (e) {}
             }
           }
         });
@@ -474,7 +488,15 @@ document.write('<script src="../shared/js/components/smd-checkbox.js?v=' + BUILD
     }
     window.__pmdSwUpdater = { showUpdatePrompt: showUpdatePrompt };
 
-    navigator.serviceWorker.register("../sw.js").then(function(reg) {
+    // STABLE worker url on purpose: versioning it would make the browser install
+    // a second worker for the same bump ("updates twice"). The update signal is
+    // the byte change in sw.js, whose inline BUILD_NUMBER is bumped with
+    // shared/js/build-number.js; smdRegisterServiceWorker also verifies at
+    // runtime that the worker and the page agree and repairs a drift.
+    var __registerSw = typeof smdRegisterServiceWorker === "function"
+      ? smdRegisterServiceWorker
+      : function(p) { return navigator.serviceWorker.register(p, { updateViaCache: "none" }); };
+    __registerSw("../sw.js").then(function(reg) {
       if (navigator.serviceWorker.controller) {
         if (reg.waiting) showUpdatePrompt(reg);
         reg.addEventListener("updatefound", function() {
@@ -486,6 +508,10 @@ document.write('<script src="../shared/js/components/smd-checkbox.js?v=' + BUILD
         });
       }
       // Re-check for a newer build on return visits / poor networks.
+      // Force an immediate check on every visit: browsers throttle their own
+      // update checks (roughly once a day), so a freshly deployed build could
+      // otherwise take hours to surface the "Update available" prompt.
+      if (reg.update) reg.update();
       window.addEventListener("focus", function() { if (reg.update) reg.update(); });
     });
 

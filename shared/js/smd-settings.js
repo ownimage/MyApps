@@ -6,34 +6,37 @@ const themeConfig = (() => {
   // Theme CSS paths are relative to the shared root; applyTheme() derives the
   // real href from the existing #bootstrap-theme-css link prefix, so this value
   // is informational only (kept relative to stay path-agnostic).
+  // Themes carry NO default colour mode: the global Theme Mode (light|dark) is
+  // the only mode source.
   const bw = "css/themes";
   return {
-    brite:     { css: `${bw}/brite/bootstrap.min.css`,      bsTheme: "light" },
-    cerulean:  { css: `${bw}/cerulean/bootstrap.min.css`,   bsTheme: "light" },
-    cosmo:     { css: `${bw}/cosmo/bootstrap.min.css`,      bsTheme: "light" },
-    cyborg:    { css: `${bw}/cyborg/bootstrap.min.css`,     bsTheme: "dark" },
-    darkly:    { css: `${bw}/darkly/bootstrap.min.css`,     bsTheme: "dark" },
-    flatly:    { css: `${bw}/flatly/bootstrap.min.css`,     bsTheme: "light" },
-    journal:   { css: `${bw}/journal/bootstrap.min.css`,    bsTheme: "light" },
-    litera:    { css: `${bw}/litera/bootstrap.min.css`,     bsTheme: "light" },
-    lumen:     { css: `${bw}/lumen/bootstrap.min.css`,      bsTheme: "light" },
-    lux:       { css: `${bw}/lux/bootstrap.min.css`,        bsTheme: "light" },
-    materia:   { css: `${bw}/materia/bootstrap.min.css`,    bsTheme: "light" },
-    minty:     { css: `${bw}/minty/bootstrap.min.css`,      bsTheme: "light" },
-    morph:     { css: `${bw}/morph/bootstrap.min.css`,      bsTheme: "light" },
-    pulse:     { css: `${bw}/pulse/bootstrap.min.css`,      bsTheme: "light" },
-    quartz:    { css: `${bw}/quartz/bootstrap.min.css`,     bsTheme: "light" },
-    sandstone: { css: `${bw}/sandstone/bootstrap.min.css`,  bsTheme: "light" },
-    simplex:   { css: `${bw}/simplex/bootstrap.min.css`,    bsTheme: "light" },
-    sketchy:   { css: `${bw}/sketchy/bootstrap.min.css`,    bsTheme: "light" },
-    slate:     { css: `${bw}/slate/bootstrap.min.css`,      bsTheme: "dark" },
-    solar:     { css: `${bw}/solar/bootstrap.min.css`,      bsTheme: "dark" },
-    spacelab:  { css: `${bw}/spacelab/bootstrap.min.css`,   bsTheme: "light" },
-    superhero: { css: `${bw}/superhero/bootstrap.min.css`,  bsTheme: "dark" },
-    united:    { css: `${bw}/united/bootstrap.min.css`,     bsTheme: "light" },
-    vapor:     { css: `${bw}/vapor/bootstrap.min.css`,      bsTheme: "dark" },
-    yeti:      { css: `${bw}/yeti/bootstrap.min.css`,       bsTheme: "light" },
-    zephyr:    { css: `${bw}/zephyr/bootstrap.min.css`,     bsTheme: "light" }
+    bootstrap: { css: `${bw}/bootstrap/bootstrap.min.css` },
+    brite:     { css: `${bw}/brite/bootstrap.min.css` },
+    cerulean:  { css: `${bw}/cerulean/bootstrap.min.css` },
+    cosmo:     { css: `${bw}/cosmo/bootstrap.min.css` },
+    cyborg:    { css: `${bw}/cyborg/bootstrap.min.css` },
+    darkly:    { css: `${bw}/darkly/bootstrap.min.css` },
+    flatly:    { css: `${bw}/flatly/bootstrap.min.css` },
+    journal:   { css: `${bw}/journal/bootstrap.min.css` },
+    litera:    { css: `${bw}/litera/bootstrap.min.css` },
+    lumen:     { css: `${bw}/lumen/bootstrap.min.css` },
+    lux:       { css: `${bw}/lux/bootstrap.min.css` },
+    materia:   { css: `${bw}/materia/bootstrap.min.css` },
+    minty:     { css: `${bw}/minty/bootstrap.min.css` },
+    morph:     { css: `${bw}/morph/bootstrap.min.css` },
+    pulse:     { css: `${bw}/pulse/bootstrap.min.css` },
+    quartz:    { css: `${bw}/quartz/bootstrap.min.css` },
+    sandstone: { css: `${bw}/sandstone/bootstrap.min.css` },
+    simplex:   { css: `${bw}/simplex/bootstrap.min.css` },
+    sketchy:   { css: `${bw}/sketchy/bootstrap.min.css` },
+    slate:     { css: `${bw}/slate/bootstrap.min.css` },
+    solar:     { css: `${bw}/solar/bootstrap.min.css` },
+    spacelab:  { css: `${bw}/spacelab/bootstrap.min.css` },
+    superhero: { css: `${bw}/superhero/bootstrap.min.css` },
+    united:    { css: `${bw}/united/bootstrap.min.css` },
+    vapor:     { css: `${bw}/vapor/bootstrap.min.css` },
+    yeti:      { css: `${bw}/yeti/bootstrap.min.css` },
+    zephyr:    { css: `${bw}/zephyr/bootstrap.min.css` }
   };
 })();
 
@@ -49,38 +52,58 @@ function smdAppRoot() {
   return m ? m[1] : "";
 }
 
-function applyTheme(name) {
-  const valid = themeConfig[name] ? name : "superhero";
-  const config = themeConfig[valid] || themeConfig.superhero;
+const SMD_DEFAULT_THEME = "superhero";
+
+function normalizeTheme(name) {
+  const value = String(name || "");
+  return Object.prototype.hasOwnProperty.call(themeConfig, value) ? value : SMD_DEFAULT_THEME;
+}
+
+// Themes have no inherent light/dark mode any more: only explicit Light/Dark.
+function normalizeThemeMode(mode) {
+  return mode === "dark" ? "dark" : "light";
+}
+
+function getStoredTheme() {
+  return normalizeTheme(localStorage.getItem(smdKey("theme")));
+}
+
+function getStoredThemeMode() {
+  return normalizeThemeMode(localStorage.getItem(smdKey("themeMode")));
+}
+
+function resolveThemeMode(theme, mode) {
+  return normalizeThemeMode(mode);
+}
+
+function applyTheme(name, modeOverride) {
+  const valid = normalizeTheme(name);
+  const hasModeOverride = typeof modeOverride !== "undefined";
+  const mode = hasModeOverride ? normalizeThemeMode(modeOverride) : getStoredThemeMode();
   const link = document.getElementById("bootstrap-theme-css");
-  // Build the theme URL relative to the page (which may live under a sub-path
-  // under a sub-path). Reuse the link's existing relative prefix so that both
-  // the app root and /storybook/ resolve css/themes correctly.
   const v = typeof BUILD_NUMBER !== "undefined" ? BUILD_NUMBER : Date.now();
   const prefix = link
     ? (link.getAttribute("href") || "").replace(/[^/]*\/bootstrap\.min\.css(\?.*)?$/, "")
     : smdAppRoot() + "css/themes/";
   if (link) {
     link.href = prefix + valid + "/bootstrap.min.css?v=" + v;
-    // recompute the shared text colours once the new theme css has loaded
-    link.addEventListener("load", applySmdVars, { once: true });
   }
-  document.documentElement.setAttribute("data-bs-theme", config.bsTheme);
-  document.documentElement.setAttribute("data-theme", name);
-  localStorage.setItem(smdKey("theme"), name);
-  // Theme override CSS: one shared light/dark file plus one per-theme file.
-  // The Bootstrap theme files themselves are never modified.
-  applyThemeOverrides(valid, config.bsTheme, prefix, v);
+  document.documentElement.setAttribute("data-bs-theme", mode);
+  document.documentElement.setAttribute("data-theme", valid);
+  localStorage.setItem(smdKey("theme"), valid);
+  if (!hasModeOverride) localStorage.setItem(smdKey("themeMode"), mode);
+  applyThemeOverrides(valid, prefix, v);
 }
 
-// Wire the two theme-override stylesheets: `theme-override-mode` holds the
-// light.css OR dark.css file (shared by every light/dark theme), and
-// `theme-override-specific` holds css/themes/<theme>/<theme>.css. Links are
-// created on demand (e.g. the storybook) right after the theme link so the
-// override layering is theme base < overrides < shared/app styles.
-function applyThemeOverrides(theme, bsTheme, prefix, v) {
-  setOverrideLink("theme-override-mode", prefix + (bsTheme === "dark" ? "dark" : "light") + ".css?v=" + v);
+function applyThemeMode(theme, mode) {
+  const valid = normalizeTheme(theme);
+  document.documentElement.setAttribute("data-bs-theme", normalizeThemeMode(mode));
+  document.documentElement.setAttribute("data-theme", valid);
+}
+
+function applyThemeOverrides(theme, prefix, v) {
   setOverrideLink("theme-override-specific", prefix + theme + "/" + theme + ".css?v=" + v);
+  orderThemeOverrideLinks();
 }
 
 function setOverrideLink(id, href) {
@@ -89,62 +112,45 @@ function setOverrideLink(id, href) {
     el = document.createElement("link");
     el.id = id;
     el.rel = "stylesheet";
-    const themeLink = document.getElementById("bootstrap-theme-css");
-    if (themeLink && themeLink.parentNode) themeLink.parentNode.insertBefore(el, themeLink.nextSibling);
+    const anchor = themeOverrideAnchor();
+    if (anchor && anchor.parentNode) anchor.parentNode.insertBefore(el, anchor.nextSibling);
     else document.head.appendChild(el);
   }
   el.href = href;
+  return el;
 }
 
-// Computed style of a hidden light-DOM probe carrying real Bootstrap classes.
-// Theme CSS cannot reach into shadow roots, and Bootstrap's component vars are
-// set on the component elements themselves (not on :root), so reading the
-// probe's computed style is the only faithful source.
-function smdBootstrapStyle(className) {
-  if (typeof document === "undefined" || !document.body) return { color: "", backgroundColor: "" };
-  const probe = /(^|\s)btn/.test(className) ? document.createElement("button") : document.createElement("span");
-  if (probe.tagName === "BUTTON") probe.type = "button";
-  probe.className = className;
-  probe.setAttribute("aria-hidden", "true");
-  probe.style.cssText = "position:absolute;left:-9999px;top:0;visibility:hidden;pointer-events:none";
-  document.body.appendChild(probe);
-  const computed = getComputedStyle(probe);
-  const style = { color: computed.color, backgroundColor: computed.backgroundColor };
-  probe.remove();
-  return style;
+// The shared functional sheet is the anchor for the per-theme override sheet:
+// cascade order is vendor -> theme bootstrap -> shared styles -> theme override.
+// Anchoring on #bootstrap-theme-css instead would push shared styles last, so the
+// theme override would no longer be the final layer.
+function smdSharedStylesLink() {
+  const byId = document.getElementById("smd-shared-css");
+  if (byId) return byId;
+  const links = document.querySelectorAll('link[rel="stylesheet"][href]');
+  for (let i = 0; i < links.length; i++) {
+    if (/(^|\/)shared\/css\/styles\.css(\?|$)/.test(links[i].getAttribute("href") || "")) return links[i];
+  }
+  return null;
 }
 
-// Text colour for a theme-coloured surface — exactly as Bootswatch chose it.
-function smdBootstrapColor(className) {
-  return smdBootstrapStyle(className).color;
+function themeOverrideAnchor() {
+  return smdSharedStylesLink() || document.getElementById("bootstrap-theme-css");
 }
 
-// Per-variant text colours, straight from the loaded Bootstrap theme. Light-DOM
-// components that sit on a theme-coloured surface (smd-tab buttons, editor
-// footer buttons) read these via var(--smd-*-text) so they always match the
-// theme instead of a hardcoded fallback.
-function applySmdVars() {
-  const root = document.documentElement;
-  root.style.setProperty("--smd-primary", "var(--bs-primary, #0d6efd)");
-  root.style.setProperty("--smd-secondary", "var(--bs-secondary, #6c757d)");
-  root.style.setProperty("--smd-success", "var(--bs-success, #198754)");
-  root.style.setProperty("--smd-danger", "var(--bs-danger, #dc3545)");
-  root.style.setProperty("--smd-warning", "var(--bs-warning, #ffc107)");
-
-  const secondaryText = smdBootstrapColor("btn btn-secondary") || "#fff";
-  root.style.setProperty("--smd-primary-text", smdBootstrapColor("btn btn-primary") || "#fff");
-  root.style.setProperty("--smd-secondary-text", secondaryText);
-  root.style.setProperty("--smd-success-text", smdBootstrapColor("btn btn-success") || "#fff");
-  root.style.setProperty("--smd-danger-text", smdBootstrapColor("btn btn-danger") || "#fff");
-  root.style.setProperty("--smd-info-text", smdBootstrapColor("btn btn-info") || "#fff");
-  root.style.setProperty("--smd-warning-text", smdBootstrapColor("btn btn-warning") || "#000");
-  // Inactive smd-tab buttons sit on the secondary colour.
-  root.style.setProperty("--smd-tab-text", secondaryText);
-}
-
-// Back-compat alias (older callers/tests): recompute all shared colour vars.
-function updateTabTextColor() {
-  applySmdVars();
+function orderThemeOverrideLinks() {
+  const specific = document.getElementById("theme-override-specific");
+  if (!specific) return;
+  const anchor = themeOverrideAnchor();
+  if (anchor && anchor.parentNode) {
+    if (anchor.nextElementSibling !== specific) anchor.parentNode.insertBefore(specific, anchor.nextSibling);
+    return;
+  }
+  // Without a shared sheet the override still has to follow the theme itself.
+  const base = document.getElementById("bootstrap-theme-css");
+  if (base && base.parentNode && base.nextElementSibling !== specific) {
+    base.parentNode.insertBefore(specific, base.nextSibling);
+  }
 }
 
 function changeTheme(name) {
@@ -156,9 +162,18 @@ function changeTheme(name) {
   }
 }
 
+function changeThemeMode(mode) {
+  const normalized = normalizeThemeMode(mode);
+  const theme = getStoredTheme();
+  localStorage.setItem(smdKey("theme"), theme);
+  localStorage.setItem(smdKey("themeMode"), normalized);
+  applyThemeMode(theme, normalized);
+}
+
 // FONT SIZE
 function changeFontSize(value) {
   localStorage.setItem(smdKey("fontSize"), value);
+  document.documentElement.dataset.smdFontSize = value;
   document.body.classList.remove("font-size-xsmall", "font-size-small", "font-size-normal", "font-size-large", "font-size-xlarge", "font-size-jumbo");
   if (value !== "normal") {
     document.body.classList.add("font-size-" + value);
@@ -168,6 +183,7 @@ function changeFontSize(value) {
 // ICON SIZE
 function changeIconSize(value) {
   localStorage.setItem(smdKey("iconSize"), value);
+  document.documentElement.dataset.smdIconSize = value;
   document.body.classList.remove("icon-size-xsmall", "icon-size-small", "icon-size-medium", "icon-size-large", "icon-size-xlarge", "icon-size-jumbo");
   document.body.classList.add("icon-size-" + value);
   // Optional app hook: push the new value (px) into <smd-image>.
@@ -177,6 +193,7 @@ function changeIconSize(value) {
 // TILE DENSITY
 function changeDensity(value) {
   localStorage.setItem(smdKey("density"), value);
+  document.documentElement.dataset.smdTileDensity = value;
   document.body.classList.remove("compact", "density-normal");
   if (value !== "normal") {
     document.body.classList.add(value);
@@ -186,6 +203,7 @@ function changeDensity(value) {
 // TOUCH SIZE (drag handles + checkboxes)
 function changeTouchSize(value) {
   localStorage.setItem(smdKey("touchSize"), value);
+  document.documentElement.dataset.smdTouchSize = value;
   // Optional app hook: push the new value into <smd-draghandle>/<smd-checkbox>.
   if (typeof applyTouchSize === "function") applyTouchSize();
 }
@@ -281,14 +299,20 @@ function updateScreenResolution() {
 
 document.addEventListener("DOMContentLoaded", () => {
   const savedFontSize = localStorage.getItem(smdKey("fontSize")) || "xlarge";
+  document.documentElement.dataset.smdFontSize = savedFontSize;
   if (savedFontSize !== "normal") {
     document.body.classList.add("font-size-" + savedFontSize);
   }
 
   const savedIconSize = localStorage.getItem(smdKey("iconSize")) || "medium";
+  document.documentElement.dataset.smdIconSize = savedIconSize;
   document.body.classList.add("icon-size-" + savedIconSize);
 
+  const savedTouchSize = localStorage.getItem(smdKey("touchSize")) || "normal";
+  document.documentElement.dataset.smdTouchSize = savedTouchSize;
+
   const savedDensity = localStorage.getItem(smdKey("density")) || "normal";
+  document.documentElement.dataset.smdTileDensity = savedDensity;
   if (savedDensity !== "normal") {
     document.body.classList.add(savedDensity);
   }
@@ -298,9 +322,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
   updateScreenResolution();
   window.addEventListener("resize", updateScreenResolution);
-
-  applySmdVars();
-  window.addEventListener("load", applySmdVars);
 
   const autoHide = localStorage.getItem(smdKey("autoHideMenu")) === "true";
   if (autoHide) {
@@ -316,10 +337,15 @@ document.addEventListener("DOMContentLoaded", () => {
 Object.assign(SmdApp.prototype, {
   themeConfig,
   smdAppRoot,
+  normalizeTheme,
+  normalizeThemeMode,
+  getStoredTheme,
+  getStoredThemeMode,
+  resolveThemeMode,
   applyTheme,
-  applySmdVars,
+  applyThemeMode,
   changeTheme,
-  updateTabTextColor,
+  changeThemeMode,
   changeFontSize,
   changeIconSize,
   changeDensity,
@@ -334,6 +360,70 @@ Object.assign(SmdApp.prototype, {
   changeAutoHideMenu,
   updateScreenResolution
 });
+
+// ---- Service-worker registration (shared by every app shell) ----
+// The worker is registered at a STABLE url on purpose. Versioning the script
+// url (`../sw.js?v=<BUILD_NUMBER>`) does make every bump install a new worker,
+// but it also makes the browser install a SECOND one for the same bump (the
+// focus-triggered reg.update() picks up the new bytes under the old url, then
+// the reloaded page registers the new url) — the app then "updates twice".
+// So the update signal stays a byte change in sw.js, whose inline BUILD_NUMBER
+// is bumped together with shared/js/build-number.js, and the page below
+// verifies at runtime that the two agree.
+function smdRegisterServiceWorker(path) {
+  return navigator.serviceWorker.register(path, { updateViaCache: "none" }).then(function(reg) {
+    // update via cache is a persisted, per-registration setting; set it on the
+    // object too so an existing registration stops reusing an HTTP-cached sw.js.
+    reg.updateViaCache = "none";
+    smdCheckServiceWorkerBuild(reg);
+    return reg;
+  });
+}
+
+// Ask the worker which build it is, and compare it with the build this page is
+// running. The worker mirrors the number inline, so a page that is NEWER than
+// its worker means the two files drifted (someone bumped build-number.js
+// without sw.js). Nothing would ever replace that worker, because its bytes no
+// longer change, so re-register once and reload to get the current sw.js.
+// Guarded by a per-build localStorage flag so it can never loop.
+function smdCheckServiceWorkerBuild(reg) {
+  return new Promise(function(resolve) {
+    var pageBuild = (typeof BUILD_NUMBER !== "undefined" ? String(BUILD_NUMBER) : "");
+    var worker = (reg && (reg.active || reg.waiting)) || (window.navigator && navigator.serviceWorker.controller);
+    if (!worker || !pageBuild) return resolve(null);
+    var settled = false;
+    var channel = new MessageChannel();
+    function finish(value) {
+      if (settled) return;
+      settled = true;
+      resolve(value);
+    }
+    setTimeout(function() { finish(null); }, 1000);
+    channel.port1.onmessage = function(event) {
+      var data = event.data || {};
+      var workerBuild = data.type === "BUILD" ? String(data.build || "") : "";
+      if (!workerBuild || workerBuild === pageBuild) return finish(workerBuild);
+      var drifted = Number(workerBuild) < Number(pageBuild);
+      console.warn("Service worker is on build " + workerBuild + " but this page is on " + pageBuild +
+        (drifted ? " — repairing the registration." : " — an update is pending."));
+      finish(workerBuild);
+      if (!drifted) return;
+      var flag = "smdSwDriftReloadedFor";
+      var already = "";
+      try { already = localStorage.getItem(flag) || ""; } catch (e) {}
+      if (already === pageBuild) return;
+      try { localStorage.setItem(flag, pageBuild); } catch (e) {}
+      Promise.resolve(reg.unregister && reg.unregister()).then(function() {
+        window.location.reload();
+      }, function() { window.location.reload(); });
+    };
+    try {
+      worker.postMessage({ type: "GET_BUILD" }, [channel.port2]);
+    } catch (e) {
+      finish(null);
+    }
+  });
+}
 
 // ---- Generic settings-page styles (used by every app's settingsPage) ----
 var SETTINGS_STYLES = "";

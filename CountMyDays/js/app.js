@@ -99,7 +99,7 @@ document.addEventListener("DOMContentLoaded", () => {
   applyImageSize();
   window.addEventListener("resize", applyImageSize);
 
-  const savedTheme = localStorage.getItem(smdKey("theme")) || "superhero";
+  const savedTheme = getStoredTheme();
   applyTheme(savedTheme);
 
   // Show/hide the Google menu entries and G Cal settings options.
@@ -114,8 +114,12 @@ document.addEventListener("DOMContentLoaded", () => {
   // The settings Display tab uses the shared <smd-theme> component; apply the
   // chosen theme when it fires smd-theme-change.
   document.addEventListener("smd-theme-change", function (e) {
-    const theme = e.detail && e.detail.theme;
-    if (theme && typeof changeTheme === "function") changeTheme(theme);
+    const detail = e.detail || {};
+    if (detail.source === "mode" && typeof changeThemeMode === "function") {
+      changeThemeMode(detail.mode);
+    } else if (detail.theme && typeof changeTheme === "function") {
+      changeTheme(detail.theme);
+    }
   });
 
   // smd-image-select "Edit" buttons open the SHARED image picker on
@@ -229,12 +233,14 @@ document.addEventListener("DOMContentLoaded", () => {
   let startY = 0, pulling = false, pullDist = 0;
   const indicator = document.createElement("div");
   indicator.id = "pwa-pull-indicator";
-  indicator.style.cssText = "position:fixed;top:0;left:0;right:0;z-index:9999;display:flex;align-items:center;justify-content:center;height:0;overflow:hidden;background:var(--bs-body-bg);transition:height 0.1s;color:var(--bs-body-color)";
+  indicator.className = "position-fixed top-0 start-0 w-100 d-flex align-items-center justify-content-center overflow-hidden";
+  indicator.style.cssText = "height:0;z-index:9999;background:var(--bs-body-bg);transition:height 0.1s;color:var(--bs-body-color)";
   indicator.textContent = "\u21E9 Pull to refresh";
   document.body.appendChild(indicator);
   const spinner = document.createElement("div");
   spinner.id = "pwa-pull-spinner";
-  spinner.style.cssText = "position:fixed;top:30%;left:50%;transform:translate(-50%,-50%);z-index:10000;display:none;width:40px;height:40px;border:4px solid var(--bs-border-color);border-top-color:var(--bs-primary);border-radius:50%;animation:pwa-spin 0.6s linear infinite";
+  spinner.className = "position-fixed d-none";
+  spinner.style.cssText = "top:30%;left:50%;transform:translate(-50%,-50%);z-index:10000;width:40px;height:40px;border:4px solid var(--bs-border-color);border-top-color:var(--bs-primary);border-radius:50%;animation:pwa-spin 0.6s linear infinite";
   document.body.appendChild(spinner);
   const style = document.createElement("style");
   style.textContent = "@keyframes pwa-spin{to{transform:translate(-50%,-50%) rotate(360deg)}}";
@@ -258,7 +264,7 @@ document.addEventListener("DOMContentLoaded", () => {
   document.addEventListener("touchend", () => {
     if (!pulling) return;
     pulling = false; indicator.style.height = "0";
-    if (pullDist >= THRESHOLD) { spinner.style.display = "block"; setTimeout(() => { location.reload(); }, 400); }
+    if (pullDist >= THRESHOLD) { spinner.classList.remove("d-none"); setTimeout(() => { location.reload(); }, 400); }
     pullDist = 0;
   }, { passive: true });
 })();

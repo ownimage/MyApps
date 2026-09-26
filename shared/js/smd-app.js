@@ -144,12 +144,40 @@ function updateNavState() {
   if (nav) nav.classList.toggle("nav-inactive", false);
 }
 
+function updateMainMenuVisibility() {
+  const menu = document.getElementById("btnMainMenu");
+  if (!menu) return;
+  const pageIsOpen = Array.from(document.querySelectorAll("smd-page[open]")).length > 0;
+  if (menu.hidden !== pageIsOpen) menu.hidden = pageIsOpen;
+}
+
+function observeMainMenuVisibility() {
+  updateMainMenuVisibility();
+  if (window.__smdMainMenuObserver || !document.body) return;
+  window.__smdMainMenuObserver = new MutationObserver(updateMainMenuVisibility);
+  window.__smdMainMenuObserver.observe(document.body, {
+    subtree: true,
+    attributes: true,
+    attributeFilter: ["open", "class", "hidden"]
+  });
+}
+
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", observeMainMenuVisibility, { once: true });
+} else {
+  observeMainMenuVisibility();
+}
+
 // Light-DOM style injection: components render in the light DOM now, so page
 // chrome styles are appended as plain <style> tags on document.head (deduped by
 // text). The `root` argument is accepted for back-compat with callers that used
-// to pass a shadow root; it is ignored. Retains the old default so existing
-// single-argument callers keep working.
+// to pass a shadow root; it is ignored. A single string argument is the css
+// (this is how the editors call it: `injectStyleInto(JOBS_EDITOR_STYLES)`).
+// With no css the SETTINGS_STYLES default applies.
 function injectStyleInto(root, css) {
+  if (css === undefined && typeof root === "string") {
+    css = root;
+  }
   css = css || (typeof SETTINGS_STYLES !== "undefined" ? SETTINGS_STYLES : "");
   if (!css) return;
   const text = css.replace(/^\s+|\s+$/g, "");
@@ -437,7 +465,7 @@ class SmdApp {
     const footerHtml = this.settingsFooterHtml;
 
     settingsPage.title = "Settings";
-    settingsPage.content = '<smd-tabs id="settingsTabs"></smd-tabs>' + footerHtml;
+    settingsPage.content = '<smd-tabs id="settingsTabs" narrow></smd-tabs>' + footerHtml;
     settingsPage.buttons = [{ text: "OK", variant: "success", action: "done" }];
 
     const tabsEl = $id("settingsTabs");

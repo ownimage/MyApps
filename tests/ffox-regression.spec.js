@@ -113,8 +113,10 @@ test.describe("FreeFormOX - Regression", () => {
       await gotoGame(page);
       await page.evaluate(() => openSettings());
       await expect(page.locator("#settingsPage")).toHaveAttribute("open", "");
-      await expect(page.locator("#themeSelector select")).toBeVisible();
-      expect(await page.locator("#themeSelector select option").count()).toBe(26);
+      await expect(page.locator("#themeSelector .smd-theme-select")).toBeVisible();
+      await expect(page.locator("#themeSelector .smd-theme-mode-select")).toBeVisible();
+      expect(await page.locator("#themeSelector .smd-theme-select option").count()).toBe(27);
+      expect(await page.locator("#themeSelector .smd-theme-mode-select option").allTextContents()).toEqual(["Light", "Dark"]);
       await expect(page.locator("#xName")).toBeVisible();
       await expect(page.locator("#xPieceStyle")).toBeVisible();
       await expect(page.locator("#oName")).toBeVisible();
@@ -124,14 +126,18 @@ test.describe("FreeFormOX - Regression", () => {
       await expect(page.locator("#settingsPage")).not.toHaveAttribute("open", "");
     });
 
-    test("theme change persists and swaps the stylesheet", async ({ page }) => {
+    test("theme and mode changes persist in the ffox_ namespace", async ({ page }) => {
       await gotoGame(page);
       await page.evaluate(() => openSettings());
-      await page.locator("#themeSelector select").selectOption("brite");
+      await page.locator("#themeSelector .smd-theme-select").selectOption("brite");
+      await page.locator("#themeSelector .smd-theme-mode-select").selectOption("light");
       await expect.poll(async () => page.evaluate(() => localStorage.getItem("ffox_theme"))).toBe("brite");
+      await expect.poll(async () => page.evaluate(() => localStorage.getItem("ffox_themeMode"))).toBe("light");
       const href = await page.locator("#bootstrap-theme-css").getAttribute("href");
       expect(href).toContain("css/themes/brite/bootstrap.min.css");
       await expect.poll(async () => page.evaluate(() => document.documentElement.getAttribute("data-theme"))).toBe("brite");
+      await expect(page.locator("html")).toHaveAttribute("data-bs-theme", "light");
+      await expect(page.locator("#themeSelector")).toHaveAttribute("mode", "light");
     });
 
     test("names and piece styles persist in the ffox_ namespace", async ({ page }) => {

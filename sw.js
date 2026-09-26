@@ -5,7 +5,22 @@
 // the worker must sit at the root to cover both.
 //
 // To add an app: add an entry to APPS below (folder prefix -> its shell files).
-importScripts("shared/js/build-number.js");
+//
+// BUILD NUMBER: the worker's own mirror of shared/js/build-number.js. DO NOT
+// hand-edit the two apart — use `npm run bump:build`.
+//
+// This literal is load-bearing. The worker is registered at a STABLE url
+// (`../sw.js`, no ?v=): a versioned script url makes the user agent install a
+// SECOND worker for the same bump, i.e. "the app updates twice" — the
+// focus-triggered reg.update() installs the new bytes under the OLD url
+// (`?v=old`), then the reloaded page registers the new url (`?v=new`) and
+// installs again, prompting a second time for one build. With a stable url the
+// only update signal is a BYTE change in this file, so the number has to sit
+// inline and change with every bump; importScripts files are NOT part of that
+// comparison. If the two ever DO drift, the page notices at runtime
+// (GET_BUILD) and re-registers, so the drift self-heals instead of pinning
+// users to a build the worker will never replace.
+const BUILD_NUMBER = "202609261630";
 
 const CACHE = "myapps-" + BUILD_NUMBER;
 
@@ -29,6 +44,7 @@ const TRANSPARENT_GIF_RESPONSE = new Response(TRANSPARENT_GIF, {
 const SHARED_ASSETS = [
   "shared/sampleImages.json",
   "shared/css/styles.css",
+  "shared/css/themes/bootstrap/bootstrap.min.css",
   "shared/css/themes/brite/bootstrap.min.css",
   "shared/css/themes/cerulean/bootstrap.min.css",
   "shared/css/themes/cosmo/bootstrap.min.css",
@@ -55,8 +71,7 @@ const SHARED_ASSETS = [
   "shared/css/themes/vapor/bootstrap.min.css",
   "shared/css/themes/yeti/bootstrap.min.css",
   "shared/css/themes/zephyr/bootstrap.min.css",
-  "shared/css/themes/light.css",
-  "shared/css/themes/dark.css",
+  "shared/css/themes/bootstrap/bootstrap.css",
   "shared/css/themes/brite/brite.css",
   "shared/css/themes/cerulean/cerulean.css",
   "shared/css/themes/cosmo/cosmo.css",
@@ -228,6 +243,8 @@ const SHARED_ASSETS = [
   "shared/css/fonts/XRXV3I6Li01BKofIOuaBXso.woff2",
   "shared/js/build-number.js",
   "shared/js/components/smd-button.js",
+  "shared/js/components/smd-h1.js",
+  "shared/js/components/smd-h2.js",
   "shared/js/components/smd-image.js",
   "shared/js/components/smd-modal.js",
   "shared/js/components/smd-image-card.js",
@@ -239,6 +256,7 @@ const SHARED_ASSETS = [
   "shared/js/components/smd-draghandle.js",
   "shared/js/components/smd-badge.js",
   "shared/js/components/smd-image-dropdown.js",
+"shared/js/components/smd-search.js",
   "shared/js/components/smd-date-picker.js",
   "shared/js/components/smd-buymeacoffee.js",
   "shared/js/components/smd-fontawesome-credit.js",
@@ -266,7 +284,6 @@ const APPS = {
     "PlanMyDay/icon.svg",
     "PlanMyDay/icon-192.png",
     "PlanMyDay/icon-512.png",
-    "PlanMyDay/css/styles.css",
     "PlanMyDay/js/app.js",
     "PlanMyDay/js/storage.js",
     "PlanMyDay/js/utils.js",
@@ -277,10 +294,12 @@ const APPS = {
     "PlanMyDay/js/job-search.js",
     "PlanMyDay/js/main-view.js",
     "PlanMyDay/js/app-settings.js",
-    "PlanMyDay/js/components/pmd-stream-header.js",
-    "PlanMyDay/js/components/pmd-stream-job-card.js",
+    "PlanMyDay/js/display.js",
+     "PlanMyDay/js/image-picker.js",
+     "PlanMyDay/js/components/pmd-stream-header.js",
+    "PlanMyDay/js/components/pmd-job-stream-card.js",
     "PlanMyDay/js/components/pmd-job-search-card.js",
-    "PlanMyDay/js/components/pmd-today-card.js"
+    "PlanMyDay/js/components/pmd-job-today-card.js"
   ],
   "CountMyDays/": [
     "CountMyDays/",
@@ -289,7 +308,6 @@ const APPS = {
     "CountMyDays/icon.svg",
     "CountMyDays/icon-192.png",
     "CountMyDays/icon-512.png",
-    "CountMyDays/css/styles.css",
     "CountMyDays/js/sampleData.json",
     "CountMyDays/js/googleCalendarSample.json",
     "CountMyDays/js/app.js",
@@ -315,7 +333,6 @@ const APPS = {
     "QRLinks/icon.svg",
     "QRLinks/icon-192.png",
     "QRLinks/icon-512.png",
-    "QRLinks/css/styles.css",
     "QRLinks/sampleLinks.json",
     "QRLinks/js/app.js",
     "QRLinks/js/storage.js",
@@ -333,7 +350,6 @@ const APPS = {
     "SolarControlar/icon.svg",
     "SolarControlar/icon-192.png",
     "SolarControlar/icon-512.png",
-    "SolarControlar/css/styles.css",
     "SolarControlar/js/app.js",
     "SolarControlar/js/storage.js",
     "SolarControlar/js/api.js",
@@ -356,7 +372,6 @@ const APPS = {
     "Launch/icon.svg",
     "Launch/icon-192.png",
     "Launch/icon-512.png",
-    "Launch/css/styles.css",
     "Launch/js/app.js"
   ],
   "FreeFormOX/": [
@@ -364,7 +379,6 @@ const APPS = {
      "FreeFormOX/index.html",
      "FreeFormOX/manifest.json",
      "FreeFormOX/img/icon.svg",
-     "FreeFormOX/css/styles.css",
      "FreeFormOX/js/app.js",
      "FreeFormOX/js/settings.js"
    ],
@@ -397,8 +411,15 @@ self.addEventListener("install", event => {
 });
 
 self.addEventListener("message", event => {
-  if (event.data && event.data.type === "SKIP_WAITING") {
+  if (!event.data) return;
+  if (event.data.type === "SKIP_WAITING") {
     self.skipWaiting();
+  } else if (event.data.type === "GET_BUILD") {
+    // Lets a page compare the build it is running against the build this worker
+    // was registered for, so a stale worker is visible instead of silent.
+    const reply = { type: "BUILD", build: BUILD_NUMBER, cache: CACHE };
+    if (event.ports && event.ports[0]) event.ports[0].postMessage(reply);
+    else if (event.source) event.source.postMessage(reply);
   }
 });
 
@@ -446,6 +467,12 @@ self.addEventListener("fetch", event => {
         if (req.mode === "navigate") return cache.match(appIndexFor(url.pathname));
         return cached;
       });
+      // Because matching ignores the search string, a `?v=` stamp this worker
+      // does not recognise is a NEWER build's asset. Serve it from the network
+      // (refreshing the pathname entry on the way) instead of pinning the old
+      // bytes, so a freshly deployed build is never held back by a stale worker.
+      const stamp = url.searchParams.get("v");
+      if (stamp && stamp !== BUILD_NUMBER) return network;
       return cached || network;
     }))
   );

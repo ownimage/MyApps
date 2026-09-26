@@ -24,7 +24,7 @@ function iwQueryAll(sel) {
 }
 
 function iwThumb(name, size) {
-  if (!name) return `<div class="ew-thumb-empty" style="width:${size || 32}px;height:${size || 32}px"></div>`;
+  if (!name) return `<div class="ew-thumb-empty" style="--ew-thumb-size:${size || 32}px"></div>`;
   return `<smd-image key-prefix="${escAttr(smdImagePrefix())}" image="${escAttr(name)}" size="${size || 32}"></smd-image>`;
 }
 
@@ -83,17 +83,18 @@ function showSpinner() {
   if (!el) {
     el = document.createElement("div");
     el.id = "spinnerOverlay";
-    el.className = "d-none";
-    el.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:99999;";
-    el.innerHTML = '<div class="spinner-border text-light" style="width:3rem;height:3rem" role="status"><span class="visually-hidden">Loading…</span></div>';
+    el.className = "position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center";
+    el.hidden = true;
+    el.style.cssText = "background:rgba(0,0,0,0.5);z-index:99999;";
+    el.innerHTML = '<div class="spinner-border text-light" role="status"><span class="visually-hidden">Loading…</span></div>';
     document.body.appendChild(el);
   }
-  el.classList.remove("d-none");
+  el.hidden = false;
 }
 
 function hideSpinner() {
   const el = document.getElementById("spinnerOverlay");
-  if (el) el.classList.add("d-none");
+  if (el) el.hidden = true;
 }
 
 // ---- wizard ----
@@ -321,14 +322,14 @@ function renderImageStage(page) {
     page.content = `
       <p class="mb-3">An image with the name "<strong>${escapeHtml(importImg.name)}</strong>" already exists but the content is different. Choose what to do:</p>
       <div class="d-flex gap-3 mb-3 justify-content-center flex-wrap">
-        <div class="text-center" style="flex:1;min-width:140px">
+        <div class="text-center flex-grow-1" style="min-width:140px">
           <h6>Current Image</h6>
           ${existingImg && existingImg.data ? `<smd-image key-prefix="${escAttr(smdImagePrefix())}" image="${escAttr(existingImg.name)}"></smd-image>` : '<div class="text-secondary">No preview</div>'}
           <div class="small mt-1 text-secondary">${colorsExisting.line !== null ? `Line: ${escapeHtml(colorsExisting.line)}` : ""}${colorsExisting.line !== null && colorsExisting.fill !== null ? " | " : ""}${colorsExisting.fill !== null ? `Fill: ${escapeHtml(colorsExisting.fill)}` : ""}</div>
         </div>
-        <div class="text-center" style="flex:1;min-width:140px">
+        <div class="text-center flex-grow-1" style="min-width:140px">
           <h6>Imported Image</h6>
-          ${importImg.data ? `<img src="${importImg.data}" style="max-width:100%;max-height:150px;object-fit:contain" class="border rounded p-1">` : '<div class="text-secondary">No preview</div>'}
+          ${importImg.data ? `<img src="${importImg.data}" class="border rounded p-1 img-fluid" style="max-height:150px;object-fit:contain">` : '<div class="text-secondary">No preview</div>'}
           <div class="small mt-1 text-secondary">${colorsImport.line !== null ? `Line: ${escapeHtml(colorsImport.line)}` : ""}${colorsImport.line !== null && colorsImport.fill !== null ? " | " : ""}${colorsImport.fill !== null ? `Fill: ${escapeHtml(colorsImport.fill)}` : ""}</div>
         </div>
       </div>
@@ -344,16 +345,16 @@ function renderImageStage(page) {
         <div class="form-check mb-2">
           <input class="form-check-input" type="radio" name="imgConflictChoice" id="imgKeepBoth" value="keepBoth" onchange="toggleImageRenameInput();toggleImageUseExisting()">
           <label class="form-check-label" for="imgKeepBoth">
-            <span style="display:inline-block;min-width:240px">Keep Both - import with a different name:</span>
-            <input type="text" id="imgNewName" class="form-control" style="width:auto;min-width:200px;display:inline-block" value="${escAttr(importImg.name)}" disabled oninput="validateNewImageName(this)">
+            <span class="d-inline-block" style="min-width:240px">Keep Both - import with a different name:</span>
+            <input type="text" id="imgNewName" class="form-control w-auto d-inline-block" style="min-width:200px" value="${escAttr(importImg.name)}" disabled oninput="validateNewImageName(this)">
           </label>
-          <div class="text-danger small" style="display:none" id="imgNewNameError">ERROR: There is already an image with this name.</div>
+          <div class="text-danger small d-none" id="imgNewNameError">ERROR: There is already an image with this name.</div>
         </div>
         <div class="form-check">
           <input class="form-check-input" type="radio" name="imgConflictChoice" id="imgUseExisting" value="useExisting" onchange="toggleImageRenameInput();toggleImageUseExisting()">
           <label class="form-check-label" for="imgUseExisting">
-            <span style="display:inline-block;min-width:240px">Use Existing - map import to another image:</span>
-            <select class="form-select" id="imgExistingSelect" style="width:auto;min-width:180px;display:inline-block" disabled>
+            <span class="d-inline-block" style="min-width:240px">Use Existing - map import to another image:</span>
+            <select class="form-select w-auto d-inline-block" id="imgExistingSelect" style="min-width:180px" disabled>
               <option value="">Select image</option>
               ${existingImages.filter(e => e.name !== importImg.name).sort((a, b) => a.name.localeCompare(b.name)).map(e => `<option value="${escAttr(e.name)}">${escapeHtml(e.name)}</option>`).join("")}
             </select>
@@ -412,7 +413,7 @@ function validateNewImageName(input) {
   const conflict = existingConflict || otherDecisionsConflict;
 
   if (errorEl) {
-    errorEl.style.display = (name && !conflict) ? "none" : "block";
+    errorEl.classList.toggle("d-none", Boolean(name) && !conflict);
   }
 }
 
@@ -446,7 +447,7 @@ function resolveImageConflict() {
   } else if (choice.value === "keepBoth") {
     const newName = iwQuery("#imgNewName").value.trim();
     const errorEl = iwQuery("#imgNewNameError");
-    if (!newName || (errorEl && errorEl.style.display !== "none")) return;
+    if (!newName || (errorEl && !errorEl.classList.contains("d-none"))) return;
     state.imageDecisions[imgIdx] = { action: "keepBoth", renameTo: newName };
     state.renameMap[imgIdx] = newName;
     applyImageRename(state.data.images[imgIdx].name, newName);
@@ -570,13 +571,13 @@ function renderCategoryStage(page) {
     page.content = `
       <p class="mb-3">A category with the name "<strong>${escapeHtml(importCat.name)}</strong>" already exists with a different image. Choose what to do:</p>
       <div class="d-flex gap-3 mb-3 justify-content-center flex-wrap">
-        <div class="text-center" style="flex:1;min-width:140px">
+        <div class="text-center flex-grow-1" style="min-width:140px">
           <h6>Current Category</h6>
           <div class="fw-bold mb-1">${escapeHtml(existingCat ? existingCat.name : "")}</div>
           ${existingImg ? `<smd-image key-prefix="${escAttr(smdImagePrefix())}" image="${escAttr(existingImg.name)}"></smd-image>` : '<div class="text-secondary">No image</div>'}
           <div class="small mt-1 text-secondary">Image: ${existingCat && existingCat.image ? escapeHtml(existingCat.image) : "None"}</div>
         </div>
-        <div class="text-center" style="flex:1;min-width:140px">
+        <div class="text-center flex-grow-1" style="min-width:140px">
           <h6>Imported Category</h6>
           <div class="fw-bold mb-1">${escapeHtml(importCat.name)}</div>
           ${iwThumb(importCat.image, 64)}
@@ -595,16 +596,16 @@ function renderCategoryStage(page) {
         <div class="form-check mb-2">
           <input class="form-check-input" type="radio" name="catConflictChoice" id="catKeepBoth" value="keepBoth" onchange="toggleCategoryRenameInput();toggleCategoryUseExisting()">
           <label class="form-check-label" for="catKeepBoth">
-            <span style="display:inline-block;min-width:240px">Keep Both - import with a different name:</span>
-            <input type="text" id="catNewName" class="form-control" style="width:auto;min-width:200px;display:inline-block" value="${escAttr(importCat.name)}" disabled oninput="validateNewCategoryName(this)">
+            <span class="d-inline-block" style="min-width:240px">Keep Both - import with a different name:</span>
+            <input type="text" id="catNewName" class="form-control w-auto d-inline-block" style="min-width:200px" value="${escAttr(importCat.name)}" disabled oninput="validateNewCategoryName(this)">
           </label>
-          <div class="text-danger small" style="display:none" id="catNewNameError">ERROR: There is already a category with this name.</div>
+          <div class="text-danger small d-none" id="catNewNameError">ERROR: There is already a category with this name.</div>
         </div>
         <div class="form-check">
           <input class="form-check-input" type="radio" name="catConflictChoice" id="catUseExisting" value="useExisting" onchange="toggleCategoryRenameInput();toggleCategoryUseExisting()">
           <label class="form-check-label" for="catUseExisting">
-            <span style="display:inline-block;min-width:240px">Use Existing - map import to another category:</span>
-            <select class="form-select" id="catExistingSelect" style="width:auto;min-width:180px;display:inline-block" disabled>
+            <span class="d-inline-block" style="min-width:240px">Use Existing - map import to another category:</span>
+            <select class="form-select w-auto d-inline-block" id="catExistingSelect" style="min-width:180px" disabled>
               <option value="">Select category</option>
               ${existingCategories.filter(e => e.name !== importCat.name).sort((a, b) => a.name.localeCompare(b.name)).map(e => `<option value="${escAttr(e.name)}">${escapeHtml(e.name)}</option>`).join("")}
             </select>
@@ -678,7 +679,7 @@ function validateNewCategoryName(input) {
   const conflict = existingConflict || otherDecisionsConflict;
 
   if (errorEl) {
-    errorEl.style.display = (name && !conflict) ? "none" : "block";
+    errorEl.classList.toggle("d-none", Boolean(name) && !conflict);
   }
 }
 
@@ -695,7 +696,7 @@ function resolveCategoryConflict() {
   } else if (choice.value === "keepBoth") {
     const newName = iwQuery("#catNewName").value.trim();
     const errorEl = iwQuery("#catNewNameError");
-    if (!newName || (errorEl && errorEl.style.display !== "none")) return;
+    if (!newName || (errorEl && !errorEl.classList.contains("d-none"))) return;
     state.catDecisions[catIdx] = { action: "keepBoth", renameTo: newName };
     state.catRenameMap[catIdx] = newName;
   } else if (choice.value === "useExisting") {
@@ -811,7 +812,7 @@ function renderDateStage(page) {
     page.content = `
       <p class="mb-3">A date with the title "<strong>${escapeHtml(importDate.name)}</strong>" already exists but the details are different. Choose what to do:</p>
       <div class="d-flex gap-3 mb-3 justify-content-center flex-wrap">
-        <div class="text-center" style="flex:1;min-width:140px">
+        <div class="text-center flex-grow-1" style="min-width:140px">
           <h6>Current Date</h6>
           <div class="fw-bold mb-1">${escapeHtml(existingPick ? existingPick.name : "")}</div>
           <div>${existingPick ? formatDateShort(existingPick) : ""}</div>
@@ -826,7 +827,7 @@ function renderDateStage(page) {
             </div>
           </div>
         </div>
-        <div class="text-center" style="flex:1;min-width:140px">
+        <div class="text-center flex-grow-1" style="min-width:140px">
           <h6>Imported Date</h6>
           <div class="fw-bold mb-1">${escapeHtml(importDate.name)}</div>
           <div>${formatDateShort(importDate)}</div>
@@ -854,16 +855,16 @@ function renderDateStage(page) {
         <div class="form-check mb-2">
           <input class="form-check-input" type="radio" name="dateConflictChoice" id="dateKeepBoth" value="keepBoth" onchange="toggleDateRenameInput();toggleDateUseExisting()">
           <label class="form-check-label" for="dateKeepBoth">
-            <span style="display:inline-block;min-width:240px">Keep Both - import with a different name:</span>
-            <input type="text" id="dateNewName" class="form-control" style="width:auto;min-width:200px;display:inline-block" value="${escAttr(importDate.name)}" disabled oninput="validateNewDateName(this)">
+            <span class="d-inline-block" style="min-width:240px">Keep Both - import with a different name:</span>
+            <input type="text" id="dateNewName" class="form-control w-auto d-inline-block" style="min-width:200px" value="${escAttr(importDate.name)}" disabled oninput="validateNewDateName(this)">
           </label>
-          <div class="text-danger small" style="display:none" id="dateNewNameError">ERROR: There is already a date with this name.</div>
+          <div class="text-danger small d-none" id="dateNewNameError">ERROR: There is already a date with this name.</div>
         </div>
         <div class="form-check">
           <input class="form-check-input" type="radio" name="dateConflictChoice" id="dateUseExisting" value="useExisting" onchange="toggleDateRenameInput();toggleDateUseExisting()">
           <label class="form-check-label" for="dateUseExisting">
-            <span style="display:inline-block;min-width:240px">Use Existing - skip import, keep existing:</span>
-            <select class="form-select" id="dateExistingSelect" style="width:auto;min-width:180px;display:inline-block" disabled>
+            <span class="d-inline-block" style="min-width:240px">Use Existing - skip import, keep existing:</span>
+            <select class="form-select w-auto d-inline-block" id="dateExistingSelect" style="min-width:180px" disabled>
               <option value="">Select date</option>
               ${existingDates.slice().sort((a, b) => a.name.localeCompare(b.name)).map(e => `<option value="${escAttr(e.name)}">${escapeHtml(e.name)} — ${formatDateShort(e)}${e.category ? " — " + escapeHtml(e.category) : ""}</option>`).join("")}
             </select>
@@ -936,7 +937,7 @@ function validateNewDateName(input) {
   const conflict = existingConflict || otherDecisionsConflict;
 
   if (errorEl) {
-    errorEl.style.display = (name && !conflict) ? "none" : "block";
+    errorEl.classList.toggle("d-none", Boolean(name) && !conflict);
   }
 }
 
@@ -953,7 +954,7 @@ function resolveDateConflict() {
   } else if (choice.value === "keepBoth") {
     const newName = iwQuery("#dateNewName").value.trim();
     const errorEl = iwQuery("#dateNewNameError");
-    if (!newName || (errorEl && errorEl.style.display !== "none")) return;
+    if (!newName || (errorEl && !errorEl.classList.contains("d-none"))) return;
     state.dateDecisions[dIdx] = { action: "keepBoth", renameTo: newName };
   } else if (choice.value === "useExisting") {
     const select = iwQuery("#dateExistingSelect");

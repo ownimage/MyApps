@@ -96,13 +96,15 @@ function renderGoogleEventsEditor() {
     page.title = "Edit Google Events";
     page.content =
       '<div id="gcalEditorFilters" class="mb-3">' +
-        '<div class="d-flex gap-2 align-items-center flex-wrap">' +
-          '<input class="form-control" id="gcalTitleSearch" type="search" placeholder="Search titles..." style="flex:1;min-width:150px" oninput="setGcalTitleSearch(this.value)">' +
-          '<button type="button" class="btn btn-outline-secondary btn-sm" onclick="clearGcalTitleSearch()">Clear</button>' +
-        '</div>' +
+        '<smd-search id="gcalSearch" input-id="gcalTitleSearch" placeholder="Search titles..." value="' + escAttr(gcalTitleSearch) + '"></smd-search>' +
       '</div>' +
       '<div id="gcalEditorList"></div>';
     page.buttons = [{ text: "OK", variant: "success", action: "done" }];
+  }
+  if (!page.__gcalSearchBound) {
+    page.__gcalSearchBound = true;
+    page.addEventListener("smd-search-input", e => setGcalTitleSearch(e.detail.value));
+    page.addEventListener("smd-search-clear", () => clearGcalTitleSearch());
   }
 
   const list = $id("gcalEditorList");
@@ -132,6 +134,7 @@ function renderGoogleEventsEditor() {
 
   filtered.forEach(({ d, index }) => {
     const card = document.createElement("cmd-date-card");
+    card.className = "d-block mb-2";
     card.setAttribute("index", index);
     card.setAttribute("name", d.name || "");
     card.setAttribute("category", d.category || "");
@@ -139,7 +142,8 @@ function renderGoogleEventsEditor() {
     card.setAttribute("type", d.recurring ? "recurring" : "once");
     card.setAttribute("source", "google");
     card.setAttribute("recurring", d.recurring ? "true" : "false");
-    if (d.show === false) card.setAttribute("hidden", "true");
+    if (d.show === false) card.setAttribute("data-google-hidden", "true");
+    else card.removeAttribute("data-google-hidden");
     card.setAttribute("key-prefix", smdImagePrefix());
     const category = d.category ? categories.find(c => c.name === d.category) : null;
     if (category && category.image) card.setAttribute("category-image", category.image);

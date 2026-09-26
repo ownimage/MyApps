@@ -60,8 +60,8 @@ function renderMain() {
 
   const headingRow = document.createElement("div");
   headingRow.className = "d-flex align-items-center gap-2 mb-3 flex-shrink-0";
-  const dateHeading = document.createElement("h1");
-  dateHeading.className = "mb-0 h1";
+  const dateHeading = document.createElement("smd-h1");
+  dateHeading.className = "mb-0";
   dateHeading.textContent = dateStr;
   headingRow.appendChild(dateHeading);
   const addBtn = document.createElement("button");
@@ -111,7 +111,7 @@ function renderMain() {
 
   if (splitList) {
     const tabWrapper = document.createElement("div");
-    tabWrapper.className = "mb-3 flex-shrink-0";
+    tabWrapper.className = "mb-1 flex-shrink-0";
     const tabsEl = document.createElement("smd-tabs");
     tabsEl.id = "todayTabs";
     tabsEl.tabs = [
@@ -139,10 +139,12 @@ function renderMain() {
 
   const scrollBody = document.createElement("div");
   scrollBody.id = "countdownScrollBody";
+  scrollBody.className = "flex-grow-1 overflow-auto";
   container.appendChild(scrollBody);
 
   const cardContainer = document.createElement("div");
   cardContainer.id = "todayCardList";
+  cardContainer.className = "d-block";
 
   if (allJobs.length === 0) {
     const msg = document.createElement("p");
@@ -167,8 +169,8 @@ function renderMain() {
     const jobImageName = job.image || "";
     const suffixLabel = getJobSuffix(job);
     const scheduleType = job.schedule && job.schedule.type ? job.schedule.type : "daily";
-    const card = document.createElement("pmd-today-card");
-    card.className = "today-drag-card";
+    const card = document.createElement("pmd-job-today-card");
+    card.className = "today-drag-card d-block user-select-none mb-1";
     card.dataset.jobId = job.id;
     card.dataset.streamIdx = streamIdx;
     card.setAttribute("job-id", job.id);
@@ -196,8 +198,8 @@ function renderMain() {
 
   scrollBody.appendChild(cardContainer);
 
-  // checkbox + view handlers (composed events emitted by pmd-today-card)
-  cardContainer.addEventListener("pmd-today-toggle", (e) => {
+  // checkbox + view handlers (composed events emitted by pmd-job-today-card)
+  cardContainer.addEventListener("pmd-job-today-toggle", (e) => {
     const jobId = e.detail.jobId;
     const card = e.target;
     if (e.detail.checked) {
@@ -234,13 +236,13 @@ function renderMain() {
     }
   });
 
-  cardContainer.addEventListener("pmd-today-view", (e) => {
+  cardContainer.addEventListener("pmd-job-today-view", (e) => {
     viewJobReadOnly(e.detail.streamIdx, e.detail.jobIdx);
   });
 
   // swipe LEFT -> the card has animated off; open the standard delete confirm.
   // cancel snaps the card back, delete removes the job everywhere.
-  cardContainer.addEventListener("pmd-today-delete", (e) => {
+  cardContainer.addEventListener("pmd-job-today-delete", (e) => {
     const card = e.target;
     const streamIdx = e.detail && e.detail.streamIdx >= 0
       ? e.detail.streamIdx
@@ -269,7 +271,7 @@ function renderMain() {
 
   // swipe RIGHT -> snooze the job until tomorrow (sleepUntil); it re-enters
   // today's list automatically on the next day's generation.
-  cardContainer.addEventListener("pmd-today-tomorrow", (e) => {
+  cardContainer.addEventListener("pmd-job-today-tomorrow", (e) => {
     const card = e.target;
     const streamIdx = e.detail && e.detail.streamIdx >= 0
       ? e.detail.streamIdx

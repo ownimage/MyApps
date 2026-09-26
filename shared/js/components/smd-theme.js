@@ -1,16 +1,3 @@
-// <smd-theme> — a self-contained theme selector component (light DOM).
-//
-// Renders a <select class="form-select"> (Bootstrap styles it) listing every
-// theme from the shared `themeConfig` global (SmdConfig of the lib), labelled
-// "Name (light|dark)". The current value is held in the `theme` attribute
-// (settable for restore). On change it updates that attribute and dispatches a
-// composing `smd-theme-change` event with detail = { theme }. It does NOT apply
-// the theme itself — the host app listens and calls applyTheme()/changeTheme(),
-// so the component stays reusable.
-//
-// Attributes:
-//   theme  — the currently selected theme name
-//   id     — forwarded to the inner <select> (for $id()/tests)
 (function (global) {
   "use strict";
 
@@ -20,7 +7,7 @@
 
   class SmdTheme extends HTMLElement {
     static get observedAttributes() {
-      return ["theme"];
+      return ["theme", "mode"];
     }
 
     constructor() {
@@ -29,26 +16,40 @@
     }
 
     get theme() {
-      return this.getAttribute("theme") || (typeof themeConfig !== "undefined" && themeConfig.superhero ? "superhero" : "");
+      if (this.getAttribute("theme")) return this.getAttribute("theme");
+      return typeof normalizeTheme === "function" ? normalizeTheme(null) : "superhero";
     }
 
-    set theme(val) {
-      this.setAttribute("theme", val || "");
+    set theme(value) {
+      this.setAttribute("theme", value || "");
+    }
+
+    get mode() {
+      return typeof normalizeThemeMode === "function"
+        ? normalizeThemeMode(this.getAttribute("mode"))
+        : (this.getAttribute("mode") === "dark" ? "dark" : "light");
+    }
+
+    set mode(value) {
+      this.setAttribute("mode", value || "light");
     }
 
     connectedCallback() {
       this._render();
-      const sel = this.querySelector("select");
-      if (sel && !sel.__smdThemeBound) {
-        sel.__smdThemeBound = true;
-        sel.addEventListener("change", () => {
-          const value = sel.value;
-          this.setAttribute("theme", value);
-          this.dispatchEvent(new CustomEvent("smd-theme-change", {
-            bubbles: true,
-            composed: true,
-            detail: { theme: value }
-          }));
+      const themeSelect = this.querySelector(".smd-theme-select");
+      const modeSelect = this.querySelector(".smd-theme-mode-select");
+      if (themeSelect && !themeSelect.__smdThemeBound) {
+        themeSelect.__smdThemeBound = true;
+        themeSelect.addEventListener("change", () => {
+          this.setAttribute("theme", themeSelect.value);
+          this._dispatchChange("theme");
+        });
+      }
+      if (modeSelect && !modeSelect.__smdThemeModeBound) {
+        modeSelect.__smdThemeModeBound = true;
+        modeSelect.addEventListener("change", () => {
+          this.setAttribute("mode", modeSelect.value);
+          this._dispatchChange("mode");
         });
       }
     }
@@ -57,31 +58,51 @@
       if (this.isConnected) this._render();
     }
 
+    _dispatchChange(source) {
+      this.dispatchEvent(new CustomEvent("smd-theme-change", {
+        bubbles: true,
+        composed: true,
+        detail: { theme: this.theme, mode: this.mode, source }
+      }));
+    }
+
     _render() {
       if (!this._rendered) {
         this._rendered = true;
-        this.innerHTML = '<select class="form-select"></select>';
+        this.innerHTML =
+          '<div class="smd-theme-field row mb-3 align-items-center">' +
+            '<label class="col-4 text-end form-label mb-0">Theme</label>' +
+            '<div class="col-8"><select class="form-select smd-theme-select"></select></div>' +
+          '</div>' +
+          '<div class="smd-theme-field row mb-3 align-items-center">' +
+            '<label class="col-4 text-end form-label mb-0">Theme Mode</label>' +
+            '<div class="col-8"><select class="form-select smd-theme-mode-select"></select></div>' +
+          '</div>';
       }
       const config = typeof themeConfig !== "undefined" ? themeConfig : {};
-      const sel = this.querySelector("select");
-      if (!sel) return;
+      const themeSelect = this.querySelector(".smd-theme-select");
+      const modeSelect = this.querySelector(".smd-theme-mode-select");
+      if (!themeSelect || !modeSelect) return;
+      if (!modeSelect.__smdThemeModeSig) {
+        modeSelect.__smdThemeModeSig = true;
+        modeSelect.innerHTML = '<option value="light">Light</option>' +
+          '<option value="dark">Dark</option>';
+      }
+      modeSelect.value = this.mode;
 
       const names = Object.keys(config);
       const sig = names.join(",");
       const current = this.theme;
-      const hasCurrent = config && Object.prototype.hasOwnProperty.call(config, current);
-      // (Re)build when the theme set changes, OR while it is still being loaded
-      // (services load after the component; first render sees an empty config).
-      if (!sel.__smdThemeSig || sel.__smdThemeSig !== sig || (current && !hasCurrent)) {
-        if (!names.length) return; // config not loaded yet; retry next render
-        sel.__smdThemeSig = sig;
-        sel.innerHTML = names.map((name) => {
-          const meta = config[name] || {};
-          const label = name.charAt(0).toUpperCase() + name.slice(1) + " (" + (meta.bsTheme || "light") + ")";
+      const hasCurrent = Object.prototype.hasOwnProperty.call(config, current);
+      if (!themeSelect.__smdThemeSig || themeSelect.__smdThemeSig !== sig || (current && !hasCurrent)) {
+        if (!names.length) return;
+        themeSelect.__smdThemeSig = sig;
+        themeSelect.innerHTML = names.map((name) => {
+          const label = name.charAt(0).toUpperCase() + name.slice(1);
           return '<option value="' + escapeHtml(name) + '">' + escapeHtml(label) + "</option>";
         }).join("");
       }
-      if (hasCurrent) sel.value = current;
+      if (hasCurrent) themeSelect.value = current;
     }
   }
 

@@ -1,0 +1,312 @@
+<!doctype html>
+<html lang="en" data-theme="flatly" data-bs-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Storybook Card Viewer</title>
+  <link rel="stylesheet" href="../shared/vendor/bootstrap-icons.css">
+  <link rel="stylesheet" href="../shared/css/themes/flatly/bootstrap.min.css">
+  <link id="smd-shared-css" rel="stylesheet" href="../shared/css/styles.css">
+  <link rel="stylesheet" href="../shared/css/themes/flatly/flatly.css">
+  <style>
+    html { scroll-padding-top: 7rem; }
+    body { min-width: 320px; }
+    .viewer-toolbar { z-index: 1030; }
+    .viewer-heading { min-width: min(100%, 18rem); }
+    .viewer-control { min-width: min(100%, 22rem); }
+    .theme-row {
+      display: grid;
+      grid-template-columns: minmax(8rem, 10rem) repeat(2, minmax(0, 1fr));
+      gap: 0.75rem;
+      align-items: start;
+    }
+    .theme-label {
+      position: sticky;
+      top: 7rem;
+      z-index: 1;
+    }
+    .theme-label-name {
+      font-size: 1.05rem;
+      font-weight: 700;
+    }
+    .preview-frame {
+      display: block;
+      width: 100%;
+      height: 11rem;
+      border: 0;
+      background: transparent;
+    }
+    @media (max-width: 767.98px) {
+      html { scroll-padding-top: 12rem; }
+      .theme-row { grid-template-columns: 1fr; }
+      .theme-label { position: static; }
+      .mode-label { font-size: 0.75rem; }
+    }
+  </style>
+</head>
+<body id="smd-app" data-app="cardviewer">
+  <header class="viewer-toolbar sticky-top bg-body border-bottom px-3 py-3">
+    <div class="d-flex flex-wrap align-items-end gap-3">
+      <div class="viewer-heading">
+        <h1 class="h4 mb-1">Card Viewer</h1>
+        <div class="small text-body-secondary" id="viewerStatus">Preparing card previews…</div>
+      </div>
+      <div class="viewer-control">
+        <label class="form-label small fw-semibold" for="cardSelect">Card</label>
+        <select class="form-select" id="cardSelect"></select>
+      </div>
+      <div class="viewer-control">
+        <label class="form-label small fw-semibold" for="themeSelect">Theme</label>
+        <select class="form-select" id="themeSelect"></select>
+      </div>
+      <a class="btn btn-outline-secondary" href="index.html">Back to Storybook</a>
+    </div>
+  </header>
+
+  <main class="container-fluid px-3 py-4">
+    <div class="d-flex flex-wrap justify-content-between gap-2 mb-3 small text-body-secondary">
+      <span>Each row is a Bootswatch theme.</span>
+      <span>Light and Dark use explicit global modes.</span>
+    </div>
+    <div class="d-flex flex-column gap-4" id="cardMatrix" aria-live="polite"></div>
+  </main>
+
+  <script src="../shared/js/build-number.js"></script>
+  <script src="../shared/js/smd-app.js"></script>
+  <script src="../shared/js/smd-settings.js"></script>
+  <script>
+    (() => {
+      "use strict";
+
+      const rootUrl = new URL("../", document.baseURI).href;
+      const version = typeof BUILD_NUMBER !== "undefined" ? BUILD_NUMBER : String(Date.now());
+      const imagePrefix = "cardviewer_";
+      const defaultCard = "pmd-job-today-card";
+      const allThemes = "all";
+      const cardSelect = document.getElementById("cardSelect");
+      const themeSelect = document.getElementById("themeSelect");
+      const cardMatrix = document.getElementById("cardMatrix");
+      const viewerStatus = document.getElementById("viewerStatus");
+
+      const script = (path) => `<script src="${assetUrl(path)}"><\/script>`;
+      const sharedScripts = {
+        app: "shared/js/smd-app.js",
+        build: "shared/js/build-number.js",
+        settings: "shared/js/smd-settings.js",
+        image: "shared/js/components/smd-image.js",
+        h2: "shared/js/components/smd-h2.js",
+        checkbox: "shared/js/components/smd-checkbox.js",
+        badge: "shared/js/components/smd-badge.js",
+        button: "shared/js/components/smd-button.js",
+        drag: "shared/js/components/smd-draghandle.js"
+      };
+
+      const cardRecipes = {
+        "pmd-job-today-card": {
+          label: "Job Today Card",
+          group: "PlanMyDay",
+          scripts: [sharedScripts.app, sharedScripts.build, sharedScripts.settings, sharedScripts.image, sharedScripts.h2, sharedScripts.checkbox, sharedScripts.badge, sharedScripts.button, sharedScripts.drag, "PlanMyDay/js/components/pmd-job-today-card.js"],
+          markup: `<pmd-job-today-card class="today-drag-card d-block user-select-none" job-id="card-1" stream-idx="0" job-idx="0" title="Weekly report" suffix="(12)" stream-title="Work" tab="progress" description="Report metrics and follow-up actions" stream-image="Blue" job-image="Green" key-prefix="${imagePrefix}" daily></pmd-job-today-card>`
+        },
+        "pmd-job-stream-card": {
+          label: "Job Stream Card",
+          group: "PlanMyDay",
+          scripts: [sharedScripts.app, sharedScripts.build, sharedScripts.settings, sharedScripts.image, sharedScripts.h2, sharedScripts.checkbox, sharedScripts.badge, sharedScripts.button, sharedScripts.drag, "PlanMyDay/js/components/pmd-job-stream-card.js"],
+          markup: `<pmd-job-stream-card class="d-block" stream-idx="0" job-idx="1" title="Weekly report" image="Green" suffix="(12)" schedule="Every day" time="09:00" extra="Sleep: 28 Sep 2026" active="true" key-prefix="${imagePrefix}"></pmd-job-stream-card>`
+        },
+        "pmd-job-search-card": {
+          label: "Job Search Card",
+          group: "PlanMyDay",
+          scripts: [sharedScripts.app, sharedScripts.build, sharedScripts.settings, sharedScripts.image, sharedScripts.h2, sharedScripts.checkbox, sharedScripts.badge, sharedScripts.button, "PlanMyDay/js/components/pmd-job-search-card.js"],
+          markup: `<pmd-job-search-card class="d-block mb-2" stream-idx="0" job-idx="0" title="Weekly report" stream-title="Work" tab="progress" suffix="(12)" schedule="Every day" time="09:00" extra="Wait: the meeting" active="true" stream-image="Blue" image="Green" key-prefix="${imagePrefix}"></pmd-job-search-card>`
+        },
+        "cmd-countdown-card": {
+          label: "Countdown Card",
+          group: "CountMyDays",
+          scripts: [sharedScripts.app, sharedScripts.build, sharedScripts.settings, sharedScripts.image, sharedScripts.badge, "CountMyDays/js/components/cmd-countdown-card.js"],
+          markup: `<cmd-countdown-card class="d-block w-100" title="Mum's Birthday" date-text="Tue 14 Jul 2026" source="local" count1="3 weeks" count2="4 days" category="Birthday" category-image="Blue" image="Drink 1" key-prefix="${imagePrefix}"></cmd-countdown-card>`
+        },
+        "cmd-date-card": {
+          label: "Date Card",
+          group: "CountMyDays",
+          scripts: [sharedScripts.app, sharedScripts.build, sharedScripts.settings, sharedScripts.image, sharedScripts.badge, sharedScripts.button, "CountMyDays/js/components/cmd-date-card.js"],
+          markup: `<cmd-date-card class="d-block w-100" index="0" name="Mum's Birthday" category="Birthday" type="annual" date-text="14 Jul" category-image="Blue" image="Drink 1" key-prefix="${imagePrefix}"></cmd-date-card>`
+        },
+        "cmd-category-card": {
+          label: "Category Card",
+          group: "CountMyDays",
+          scripts: [sharedScripts.app, sharedScripts.build, sharedScripts.settings, sharedScripts.image, sharedScripts.button, "CountMyDays/js/components/cmd-category-card.js"],
+          markup: `<cmd-category-card class="d-block w-100" index="0" name="Birthday" image="Blue" key-prefix="${imagePrefix}"></cmd-category-card>`
+        },
+        "qrlink-card": {
+          label: "QR Link Card",
+          group: "QRLinks",
+          scripts: [sharedScripts.app, sharedScripts.build, sharedScripts.settings, sharedScripts.image, "QRLinks/js/components/qrlink-card.js"],
+          markup: `<qrlink-card class="d-block w-100" index="0" title="Example Site" url="https://example.com" description="A demo link" image="Blue" key-prefix="${imagePrefix}"></qrlink-card>`
+        },
+        "smd-image-card": {
+          label: "Image Card",
+          group: "Shared",
+          scripts: [sharedScripts.app, sharedScripts.build, sharedScripts.settings, sharedScripts.image, sharedScripts.button, "shared/js/components/smd-image-card.js"],
+          markup: `<smd-image-card class="d-block" key-prefix="${imagePrefix}" index="0" title="Calendar" image="Calendar"></smd-image-card>`
+        }
+      };
+
+      function assetUrl(path) {
+        const url = new URL(path, rootUrl);
+        url.searchParams.set("v", version);
+        return url.href;
+      }
+
+      function displayName(value) {
+        return value.charAt(0).toUpperCase() + value.slice(1);
+      }
+
+      function seedImages() {
+        const svg = (fill) => "data:image/svg+xml;utf8," + encodeURIComponent(
+          `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"><rect width="64" height="64" rx="10" fill="${fill}"/><circle cx="32" cy="25" r="11" fill="#fff"/><path d="M12 58c0-12 9-19 20-19s20 7 20 19z" fill="#fff"/></svg>`
+        );
+        localStorage.setItem(imagePrefix + "images", JSON.stringify([
+          { name: "Calendar", data: svg("#6f42c1") },
+          { name: "Pie chart", data: svg("#20c997") },
+          { name: "Clock", data: svg("#375a7f") },
+          { name: "Blue", data: svg("#39cbfb") },
+          { name: "Green", data: svg("#00bc8c") },
+          { name: "Drink 1", data: svg("#fd7e14") }
+        ]));
+      }
+
+      function frameDocument(theme, mode, recipe) {
+        const specificCss = assetUrl(`shared/css/themes/${theme}/${theme}.css`);
+        const baseCss = assetUrl(`shared/${themeConfig[theme].css}`);
+        const sharedCss = assetUrl("shared/css/styles.css");
+        const iconsCss = assetUrl("shared/vendor/bootstrap-icons.css");
+        const fontAwesomeRoot = "shared/vendor/fontawesome/css/";
+        const scripts = recipe.scripts.map(script).join("\n");
+        return `<!doctype html>
+<html lang="en" data-theme="${theme}" data-bs-theme="${mode}" data-app="cardviewer">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="${iconsCss}">
+<link rel="stylesheet" href="${assetUrl(fontAwesomeRoot + "fontawesome.min.css")}">
+<link rel="stylesheet" href="${assetUrl(fontAwesomeRoot + "solid.min.css")}">
+<link rel="stylesheet" href="${assetUrl(fontAwesomeRoot + "regular.min.css")}">
+<link rel="stylesheet" href="${assetUrl(fontAwesomeRoot + "brands.min.css")}">
+<link id="bootstrap-theme-css" rel="stylesheet" href="${baseCss}">
+<link id="smd-shared-css" rel="stylesheet" href="${sharedCss}">
+<link rel="stylesheet" href="${specificCss}">
+</head>
+<body id="smd-app" class="font-size-xlarge icon-size-medium">
+${scripts}
+<main class="p-3">${recipe.markup}</main>
+</body>
+</html>`;
+      }
+
+      function fitFrame(frame) {
+        const fit = () => {
+          if (!frame.isConnected) return;
+          const frameDocument = frame.contentDocument;
+          if (!frameDocument || !frameDocument.body) return;
+          const height = Math.max(176, frameDocument.documentElement.scrollHeight, frameDocument.body.scrollHeight);
+          frame.style.height = Math.min(440, height + 4) + "px";
+        };
+        frame.addEventListener("load", () => {
+          fit();
+          window.setTimeout(fit, 50);
+          window.setTimeout(fit, 250);
+        }, { once: true });
+      }
+
+      function renderMatrix(cardId, themeId) {
+        const recipe = cardRecipes[cardId];
+        const themes = themeId === allThemes ? Object.keys(themeConfig) : [themeId];
+        delete document.body.dataset.cardViewerReady;
+        cardMatrix.replaceChildren();
+        themes.forEach((theme) => {
+          const row = document.createElement("section");
+          row.className = "theme-row";
+          row.dataset.theme = theme;
+          row.setAttribute("aria-labelledby", `theme-${theme}`);
+          row.innerHTML = `
+            <div class="theme-label" id="theme-${theme}">
+              <div class="theme-label-name">${displayName(theme)}</div>
+            </div>
+            <div class="border rounded overflow-hidden">
+              <div class="mode-label small fw-semibold text-body-secondary border-bottom px-2 py-1">Light</div>
+              <iframe class="preview-frame" data-card="${cardId}" data-theme="${theme}" data-mode="light" loading="lazy" title="${displayName(theme)} light ${recipe.label}"></iframe>
+            </div>
+            <div class="border rounded overflow-hidden">
+              <div class="mode-label small fw-semibold text-body-secondary border-bottom px-2 py-1">Dark</div>
+              <iframe class="preview-frame" data-card="${cardId}" data-theme="${theme}" data-mode="dark" loading="lazy" title="${displayName(theme)} dark ${recipe.label}"></iframe>
+            </div>`;
+          const frames = row.querySelectorAll("iframe");
+          frames.forEach((frame) => {
+            const mode = frame.dataset.mode;
+            frame.srcdoc = frameDocument(theme, mode, recipe);
+            fitFrame(frame);
+          });
+          cardMatrix.appendChild(row);
+        });
+        const themeStatus = themeId === allThemes ? `${themes.length} themes` : displayName(themeId);
+        document.title = `${recipe.label} Card Viewer`;
+        viewerStatus.textContent = `${recipe.label} · ${themeStatus} · Light/Dark`;
+        document.body.dataset.cardViewerTheme = themeId;
+        document.body.dataset.cardViewerReady = "true";
+      }
+
+      function populateCards() {
+        const groups = new Map();
+        Object.entries(cardRecipes).forEach(([id, recipe]) => {
+          if (!groups.has(recipe.group)) groups.set(recipe.group, []);
+          groups.get(recipe.group).push({ id, label: recipe.label });
+        });
+        groups.forEach((cards, label) => {
+          const group = document.createElement("optgroup");
+          group.label = label;
+          cards.forEach((card) => {
+            const option = document.createElement("option");
+            option.value = card.id;
+            option.textContent = card.label;
+            group.appendChild(option);
+          });
+          cardSelect.appendChild(group);
+        });
+        const saved = localStorage.getItem("cardViewerCard");
+        cardSelect.value = Object.prototype.hasOwnProperty.call(cardRecipes, saved) ? saved : defaultCard;
+      }
+
+      function populateThemes() {
+        const allOption = document.createElement("option");
+        allOption.value = allThemes;
+        allOption.textContent = "All themes";
+        themeSelect.appendChild(allOption);
+        Object.keys(themeConfig).forEach((theme) => {
+          const option = document.createElement("option");
+          option.value = theme;
+          option.textContent = displayName(theme);
+          themeSelect.appendChild(option);
+        });
+        const saved = localStorage.getItem("cardViewerTheme");
+        themeSelect.value = saved === allThemes || Object.prototype.hasOwnProperty.call(themeConfig, saved) ? saved : allThemes;
+      }
+
+      function renderSelectedViews() {
+        const cardId = cardSelect.value;
+        const themeId = themeSelect.value;
+        localStorage.setItem("cardViewerCard", cardId);
+        localStorage.setItem("cardViewerTheme", themeId);
+        renderMatrix(cardId, themeId);
+      }
+
+      seedImages();
+      populateCards();
+      populateThemes();
+      cardSelect.addEventListener("change", renderSelectedViews);
+      themeSelect.addEventListener("change", renderSelectedViews);
+      renderSelectedViews();
+    })();
+  </script>
+</body>
+</html>

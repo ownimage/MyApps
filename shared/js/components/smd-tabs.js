@@ -8,11 +8,13 @@
 //
 // `tabs = [{title, id?, content?, panelClass?}]`; the active tab is
 // `activeIndex`; changes dispatch `smd-tabs-change` ({index, tab}).
+let smdTabsNextId = 0;
 class SmdTabs extends HTMLElement {
     constructor() {
         super();
         this._tabs = [];
         this._activeIndex = 0;
+        this._instanceId = ++smdTabsNextId;
     }
 
     get tabs() {
@@ -26,7 +28,7 @@ class SmdTabs extends HTMLElement {
     }
 
     static get observedAttributes() {
-        return ['bottomline', 'wrap', 'padding'];
+        return ['bottomline', 'wrap', 'padding', 'narrow'];
     }
 
     attributeChangedCallback(name, oldValue, newValue) {
@@ -63,6 +65,14 @@ class SmdTabs extends HTMLElement {
         this.toggleAttribute('wrap', !!val);
     }
 
+    get narrow() {
+        return this.hasAttribute('narrow');
+    }
+
+    set narrow(val) {
+        this.toggleAttribute('narrow', !!val);
+    }
+
     get padding() {
         return this.getAttribute('padding') || 'normal';
     }
@@ -76,47 +86,71 @@ class SmdTabs extends HTMLElement {
     }
 
     _render() {
+        const instanceId = `smd-tabs-${this._instanceId}`;
         const headersHtml = this._tabs.map((tab, i) => {
-            const active = i === this._activeIndex ? ' active' : '';
-            const idAttr = tab.id ? ` id="${this._escapeAttr(tab.id)}"` : '';
-            return `<button class="smd-tab-btn" data-index="${i}"${idAttr}${active}>${this._escapeHtml(tab.title)}</button>`;
+            const active = i === this._activeIndex;
+            const baseId = tab.id || `${instanceId}-tab-${i}`;
+            const buttonId = this._escapeAttr(baseId);
+            const panelId = this._escapeAttr(`${baseId}-panel`);
+            return `<li class="nav-item" role="presentation"><button type="button" class="nav-link smd-tab-btn${active ? ' active' : ''}" id="${buttonId}" data-index="${i}" data-bs-toggle="tab" data-bs-target="#${panelId}" role="tab" aria-controls="${panelId}" aria-selected="${active ? 'true' : 'false'}" tabindex="${active ? '0' : '-1'}">${this._escapeHtml(tab.title)}</button></li>`;
         }).join('');
 
         const panelsHtml = this._tabs.map((tab, i) => {
-            const active = i === this._activeIndex ? ' active' : '';
-            const idAttr = tab.id ? ` id="${this._escapeAttr(tab.id)}-panel"` : '';
-            const panelClass = tab.panelClass ? `smd-tab-panel ${tab.panelClass}` : 'smd-tab-panel';
-            return `<div class="${panelClass}"${idAttr}${active} data-panel="${i}">${tab.content || ''}</div>`;
+            const active = i === this._activeIndex;
+            const baseId = tab.id || `${instanceId}-tab-${i}`;
+            const buttonId = this._escapeAttr(baseId);
+            const panelId = this._escapeAttr(`${baseId}-panel`);
+            const panelClasses = ['tab-pane', 'fade', 'smd-tab-panel'];
+            if (active) panelClasses.push('show', 'active');
+            if (tab.panelClass) panelClasses.push(tab.panelClass);
+            return `<div class="${panelClasses.join(' ')}" id="${panelId}" data-panel="${i}" role="tabpanel" aria-labelledby="${buttonId}" aria-hidden="${active ? 'false' : 'true'}" tabindex="${active ? '0' : '-1'}">${tab.content || ''}</div>`;
         }).join('');
 
-        const bottomLineHtml = this.bottomline ? '<div class="smd-tab-line"></div>' : '';
+        const topLineHtml = '<div class="smd-tab-line" aria-hidden="true"></div>';
+        const bottomLineHtml = this.bottomline ? '<div class="smd-tab-line" aria-hidden="true"></div>' : '';
 
         this.innerHTML = `
-      <div class="smd-tab-list">${headersHtml}</div>
-      <div class="smd-tab-line"></div>
-      ${panelsHtml}
+      <ul class="nav nav-tabs smd-tab-list" role="tablist">${headersHtml}</ul>
+      ${topLineHtml}
+      <div class="tab-content">${panelsHtml}</div>
       ${bottomLineHtml}
     `;
 
         this.querySelectorAll('.smd-tab-btn').forEach((btn) => {
             btn.addEventListener('click', () => {
-                this._activeIndex = parseInt(btn.dataset.index);
-                this._updateActive();
-                this.dispatchEvent(new CustomEvent('smd-tabs-change', {
-                    bubbles: true,
-                    composed: true,
-                    detail: {index: this._activeIndex, tab: this._tabs[this._activeIndex]},
-                }));
+                this._activate(parseInt(btn.dataset.index, 10));
             });
         });
+        this._updateActive();
+    }
+
+    _activate(index) {
+        if (isNaN(index) || index < 0 || index >= this._tabs.length) return;
+        this._activeIndex = index;
+        this._updateActive();
+        this.dispatchEvent(new CustomEvent('smd-tabs-change', {
+            bubbles: true,
+            composed: true,
+            detail: {index: this._activeIndex, tab: this._tabs[this._activeIndex]},
+        }));
     }
 
     _updateActive() {
         this.querySelectorAll('.smd-tab-btn').forEach((btn, i) => {
-            btn.toggleAttribute('active', i === this._activeIndex);
+            const active = i === this._activeIndex;
+            btn.classList.toggle('active', active);
+            btn.toggleAttribute('active', active);
+            btn.setAttribute('aria-selected', String(active));
+            btn.setAttribute('tabindex', active ? '0' : '-1');
         });
         this.querySelectorAll('.smd-tab-panel').forEach((panel, i) => {
-            panel.toggleAttribute('active', i === this._activeIndex);
+            const active = i === this._activeIndex;
+            panel.classList.toggle('active', active);
+            panel.classList.toggle('show', active);
+            panel.toggleAttribute('active', active);
+            panel.toggleAttribute('hidden', !active);
+            panel.setAttribute('aria-hidden', String(!active));
+            panel.setAttribute('tabindex', active ? '0' : '-1');
         });
     }
 

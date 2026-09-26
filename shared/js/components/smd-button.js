@@ -9,18 +9,18 @@
 //
 // Attributes:
 //   variant  — primary | secondary | success | danger | info | warning | light | dark (default primary)
+//   size     — normal (default) | small (adds Bootstrap's `btn-sm`)
 //   disabled — boolean
 (function (global) {
   "use strict";
 
   const VARIANTS = ["primary", "secondary", "success", "danger", "info", "warning", "light", "dark"];
-
   const template = document.createElement("template");
   template.innerHTML = `<button class="btn btn-primary"></button>`;
 
   class SmdButton extends HTMLElement {
     static get observedAttributes() {
-      return ["variant", "disabled"];
+      return ["variant", "disabled", "size"];
     }
 
     constructor() {
@@ -48,7 +48,10 @@
     attributeChangedCallback(name) {
       if (!this.isConnected) return;
       if (name === "disabled") this._applyDisabled();
-      if (name === "variant") this._applyVariant();
+      if (name === "variant" || name === "size") {
+        this._applyVariant();
+        this._applySize();
+      }
     }
 
     connectedCallback() {
@@ -61,6 +64,7 @@
       if (this.id) btn.id = this.id + "-button";
       this.appendChild(btn);
       this._applyVariant();
+      this._applySize();
       this._applyDisabled();
     }
 
@@ -73,6 +77,12 @@
       if (!btn) return;
       const requested = this.getAttribute("variant");
       btn.className = "btn btn-" + (VARIANTS.indexOf(requested) !== -1 ? requested : "primary");
+    }
+
+    _applySize() {
+      const btn = this._btn();
+      if (!btn) return;
+      btn.classList.toggle("btn-sm", (this.getAttribute("size") || "normal").toLowerCase() === "small");
     }
 
     _applyDisabled() {

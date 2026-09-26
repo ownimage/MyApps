@@ -1,2 +1,15 @@
-/* superhero theme overrides — loaded AFTER superhero/bootstrap.min.css whenever this
-   theme is selected. Add theme-specific overrides here. */
+:root {
+  --smd-tab-background: var(--bs-secondary);
+  --smd-image-theme: dark;
+  --smd-form-background: var(--bs-body-bg);
+  --smd-form-foreground: var(--bs-body-color);
+  --smd-form-border-color: var(--bs-border-color);
+}
+
+:root[data-bs-theme="dark"] {
+  --smd-page-header-background: var(--bs-dark);
+}
+
+:root[data-bs-theme="light"] {
+  --smd-page-header-background: var(--bs-black);
+}

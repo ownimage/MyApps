@@ -14,19 +14,15 @@
 
   const smdImageCardTemplate = document.createElement("template");
   smdImageCardTemplate.innerHTML = `
-  <div class="card">
-    <div class="thumb"><smd-image></smd-image></div>
-    <span class="editor-title"></span>
-    <div class="image-actions">
-      <button type="button" class="btn btn-danger btn-sm" title="Delete" data-action="delete">
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/><path d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4zM2.5 3h11V2h-11z"/></svg>
-      </button>
-      <button type="button" class="btn btn-info btn-sm" title="Duplicate" data-action="duplicate">
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><rect x="1" y="1" width="9" height="9" rx="1"/><rect x="6" y="6" width="9" height="9" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>
-      </button>
-      <button type="button" class="btn btn-primary btn-sm" title="Edit" data-action="edit">
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708l-10 10a.5.5 0 0 1-.168.11l-5 2a.5.5 0 0 1-.65-.65l2-5a.5.5 0 0 1 .11-.168zM11.207 2.5 13.5 4.793 14.793 3.5 12.5 1.207zm1.586 3L10.5 3.207 4 9.707V10h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.293zm-9.761 5.175-.106.106-1.528 3.821 3.821-1.528.106-.106a.5.5 0 0 1-.707-.708l-1.28 1.28-1.414-1.414 1.28-1.28a.5.5 0 0 1-.708-.708z"/></svg>
-      </button>
+  <div class="card d-flex border-0 w-100">
+    <div class="d-flex flex-column gap-2 px-4 py-2 border rounded-3">
+      <div class="d-flex flex-row align-items-center justify-content-between gap-2">
+        <div class="thumb"><smd-image></smd-image></div>
+        <button type="button" class="btn btn-danger btn-sm d-inline-flex align-items-center justify-content-center" title="Delete" data-action="delete"><i class="bi bi-trash" aria-hidden="true"></i></button>
+        <button type="button" class="btn btn-info btn-sm d-inline-flex align-items-center justify-content-center" title="Duplicate" data-action="duplicate"><i class="bi bi-files" aria-hidden="true"></i></button>
+        <button type="button" class="btn btn-primary btn-sm d-inline-flex align-items-center justify-content-center" title="Edit" data-action="edit"><i class="bi bi-pencil" aria-hidden="true"></i></button>
+      </div>
+      <span class="editor-title text-start text-truncate w-100"></span>
     </div>
   </div>
 `;
@@ -54,6 +50,7 @@
 
     connectedCallback() {
       this._build();
+      this.classList.add("d-block", "mb-2", "mx-2");
       if (!this._bound) {
         this._bound = true;
         this.querySelector('[data-action="delete"]').addEventListener("click", () => this._emit("delete"));
@@ -86,11 +83,13 @@
 
       const sImg = this.querySelector(".thumb smd-image");
       sImg.setAttribute("key-prefix", this.keyPrefix);
-      if (name) sImg.setAttribute("image", name);
-      else sImg.removeAttribute("image");
-
-      const thumb = this.querySelector(".thumb");
-      thumb.hidden = !name;
+      if (name) {
+        sImg.setAttribute("image", name);
+        sImg.hidden = false;
+      } else {
+        sImg.removeAttribute("image");
+        sImg.hidden = true;
+      }
 
       this.querySelector(".editor-title").textContent = title;
 

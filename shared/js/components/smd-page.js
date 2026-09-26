@@ -1,6 +1,24 @@
 // <smd-page> — full-screen slide-in page (light DOM). Styles live in
 // shared/css/styles.css. Renders header/body/footer buttons straight into the
 // host; the app pumps `title`/`headerHtml`/`content`/`buttons` properties.
+
+const SMD_PAGE_SUSPENDED = 'smd-page-suspended';
+
+function restoreSmdPageBackgrounds(page) {
+    const pages = page.__smdBackgroundPages || [];
+    page.__smdBackgroundPages = [];
+    pages.forEach((background) => background.classList.remove(SMD_PAGE_SUSPENDED));
+}
+
+function removeSmdPageFromBackgrounds(page) {
+    document.querySelectorAll('smd-page').forEach((owner) => {
+        const pages = owner.__smdBackgroundPages || [];
+        const index = pages.indexOf(page);
+        if (index !== -1) pages.splice(index, 1);
+    });
+    page.classList.remove(SMD_PAGE_SUSPENDED);
+}
+
 class SmdPage extends HTMLElement {
   static get observedAttributes() {
     return ['slide-duration'];
@@ -29,15 +47,32 @@ class SmdPage extends HTMLElement {
   get slideDuration() { return parseFloat(this.getAttribute('slide-duration')) || 0; }
   set slideDuration(ms) { this.setAttribute('slide-duration', ms); }
 
-  show() {
-    requestAnimationFrame(() => {
-      this.setAttribute('open', '');
-    });
-  }
+    show() {
+        this._showToken = (this._showToken || 0) + 1;
+        const token = this._showToken;
+        if (this.hasAttribute('open') && !this.classList.contains(SMD_PAGE_SUSPENDED)) return;
+        restoreSmdPageBackgrounds(this);
+        removeSmdPageFromBackgrounds(this);
+        const backgrounds = Array.from(document.querySelectorAll('smd-page[open]')).filter((page) => (
+            page !== this && !page.classList.contains(SMD_PAGE_SUSPENDED)
+        ));
+        backgrounds.forEach((page) => page.classList.add(SMD_PAGE_SUSPENDED));
+        this.__smdBackgroundPages = backgrounds;
+        requestAnimationFrame(() => {
+            if (token === this._showToken) this.setAttribute('open', '');
+        });
+    }
 
-  hide() {
-    this.removeAttribute('open');
-  }
+    hide() {
+        this._showToken = (this._showToken || 0) + 1;
+        const wasSuspended = this.classList.contains(SMD_PAGE_SUSPENDED);
+        this.removeAttribute('open');
+        if (wasSuspended) {
+            removeSmdPageFromBackgrounds(this);
+        } else {
+            restoreSmdPageBackgrounds(this);
+        }
+    }
 
   attributeChangedCallback(name, oldValue, newValue) {
     if (name !== 'slide-duration') return;
@@ -57,11 +92,11 @@ class SmdPage extends HTMLElement {
 
     this.innerHTML = `
       <div class="smd-page">
-        <div class="smd-page-header">
-          <h1>${this._escapeHtml(this._title)}</h1>${this._headerHtml}
+        <div class="smd-page-header gap-2">
+          <h1 class="mb-0">${this._escapeHtml(this._title)}</h1>${this._headerHtml}
         </div>
-        <div class="smd-page-body">${this._content}</div>
-        <div class="smd-page-footer">${buttonsHtml}</div>
+        <div class="smd-page-body p-2">${this._content}</div>
+        <div class="smd-page-footer p-2">${buttonsHtml}</div>
       </div>
     `;
 

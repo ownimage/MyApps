@@ -2,15 +2,18 @@
 2: Ask questions if there are implementation options
 3: When running playwright use the command '.\node_modules\.bin\playwright.cmd' to make sure the correct version loads. 
 4: Please capture all the output needed when running a test the first time so that you do not need to rerun the test.
-5: `shared/js/build-number.js` `BUILD_NUMBER` is a TIMESTAMP in `YYYYMMDDHH24MI` format (e.g. `202609131400` = 2026-09-13 14:00). Use `Get-Date -Format "yyyyMMddHHmm"` for a new value when shipping; it is the single cache-busting version for every app + shared asset.
-5: FULL-SUITE RUNS use the ITERATIVE PER-SHARD approach (2026-09-19, ALWAYS): play `--shard=$i/40 --workers=1 --retries=0 --reporter=line` with `EXTERNAL_SERVERS=1` (start `python tests/http-server.py` + `python tests/subpath-server.py` ONCE, verify both ports `TcpClient` first) ONE SHARD AT A TIME in order: run shard 1/40, tell the user WHAT FAILED, fix every failure AND apply the same root-cause fix EVERYWHERE it can happen (use `--grep "a|b"` to re-verify just the fixed tests), then run shard 2/40, and so on. Report progress between shards. This catches a shared root cause in shard 1 instead of failing 30 shards; it also keeps the "wait" granularity small. Do NOT run the whole 40-shard batch blind. `--workers="50%"` also works for speed (or any worker ratio) — BUT be aware it raises infra failures (client ephemeral-port exhaustion in this box → mid-run `ERR_CONNECTION_REFUSED` / "Target page, context or browser has been closed"), so treat a burst of infra-style failures as spurious and re-run the affected tests before calling them real bugs. The old waves-of-10 recipe only applies if a parallel sweep is ever required again: 40 `--shard` processes would exhaust client ephemeral ports (`ERR_CONNECTION_REFUSED`), so build waves as `for ($start=1; $start -le 40; $start += 10)` over `$start..($start+9)` — NEVER `@(,@(1..10)),@(11..20),…`: that nests the first array (its `$i` becomes the whole wave) and `--shard` errors with "expected format current/all". Without `EXTERNAL_SERVERS=1` every Playwright process spawns its own `http-server.py` (Windows SO_REUSEADDR lets them all bind 8080) and early finishers kill the server the rest are using. Config sets `retries: 1`, so always pass `--retries=0` while iterating. Fix a failure in one shard everywhere before continuing.
+5: `shared/js/build-number.js` `BUILD_NUMBER` is a TIMESTAMP in `YYYYMMDDHH24MI` format (e.g. `202609131400` = 2026-09-13 14:00); it is the single cache-busting version for every app + shared asset. BUMP IT WITH `npm run bump:build` (`node shared/bump-build.js`, optional explicit `YYYYMMDDHHMM` arg) — the script rewrites BOTH `shared/js/build-number.js` AND `sw.js` in one go. Never hand-edit the two apart: a bump is what ships a build. The worker is registered at a STABLE url (`../sw.js`, no `?v=` — a versioned url makes the app "update twice"), so a BYTE change in sw.js is the only signal that installs a new worker; `npm run bump:build` writes both in one go. If they ever do drift, the page detects it at runtime (GET_BUILD) and re-registers, so a forgotten bump self-heals instead of pinning users to the old build.
+5: FULL-SUITE RUNS use the ITERATIVE PER-SHARD approach (2026-09-19, ALWAYS): play `--shard=$i/40 --workers=1 --retries=0 --reporter=line` with `EXTERNAL_SERVERS=1` (start `npm run dev:test` ONCE — one Vite process serves BOTH origins, 8080 root + 8081 sub-path — and verify both ports accept a TCP connection first) ONE SHARD AT A TIME in order: run shard 1/40, tell the user WHAT FAILED, fix every failure AND apply the same root-cause fix EVERYWHERE it can happen (use `--grep "a|b"` to re-verify just the fixed tests), then run shard 2/40, and so on. Report progress between shards. This catches a shared root cause in shard 1 instead of failing 30 shards; it also keeps the "wait" granularity small. Do NOT run the whole 40-shard batch blind. `--workers="50%"` also works for speed (or any worker ratio) — BUT be aware it raises infra failures (client ephemeral-port exhaustion in this box → mid-run `ERR_CONNECTION_REFUSED` / "Target page, context or browser has been closed"), so treat a burst of infra-style failures as spurious and re-run the affected tests before calling them real bugs. The old waves-of-10 recipe only applies if a parallel sweep is ever required again: 40 `--shard` processes would exhaust client ephemeral ports (`ERR_CONNECTION_REFUSED`), so build waves as `for ($start=1; $start -le 40; $start += 10)` over `$start..($start+9)` — NEVER `@(,@(1..10)),@(11..20),…`: that nests the first array (its `$i` becomes the whole wave) and `--shard` errors with "expected format current/all". Without `EXTERNAL_SERVERS=1` each Playwright process may start its own `tests/serve-tests.mjs`; `reuseExistingServer` makes a later process reuse one that is already listening, but the process that DID start it owns and kills it on exit. Config sets `retries: 1`, so always pass `--retries=0` while iterating. Fix a failure in one shard everywhere before continuing.
 6: After fixing issues with the regression tests apply them to pmd-screenshots.spec.js and validate them using one theme only.
 7: Fail-fast test iterations: after a code/test change, DON'T run a whole batch at once — run only the first 2-3 affected tests first (`--grep "a|b" --workers=2 --retries=0`) to debug on a small surface; grow the batch only once those pass. The config sets `retries: 1`, so pass `--retries=0` while iterating (otherwise failures take twice as long).
 8: A change that ONLY touches `storybook/index.html` and/or `AGENTS.md` does NOT need the regression suite (or screenshot/sample-image specs). Just verify the storybook loads with zero console/page errors and no failed requests.
 9: UPSTREAM APP COPIES: `temp/<AppName>/` (e.g. `temp/CountMyDays/`) holds the NEWER standalone version of that app. It is NOT a fork/branch — it is always a later version of the same app. When asked to "update to the temp version", do NOT copy the folder over the repo app: diff the temp sources against the repo app and port the new features/edits into the shared-library architecture (smd-page/smd-components, `smdKey()` storage prefix, root `sw.js` APPS entry, tests). Keep function/feature names close to temp where practical so the next port is a small diff.
 10: AGENTS.md NOTES: whenever you discover something a future session needs (architecture decisions, gotchas, upstream workflow, test recipes), add a useful, dated note to AGENTS.md — not just a session-log line. Keep notes concrete (file paths, function names, exact commands) and delete/condense notes that have gone stale.
 11: LIGHT-DOM CHROMIUM RULE (2026-09-19): a custom element whose CONSTRUCTOR appends child nodes to `this` (e.g. `this.appendChild(TEMPLATE.content.cloneNode(true))`) THROWS `NotSupportedError: Failed to execute 'createElement' on 'Document': The result must not have children` the moment an app creates it via `document.createElement(tag)`. Deferred, guarded append in `connectedCallback()` is safe; `attachShadow()` in the constructor is safe. This is why `shared/js/components/{smd-image-card,smd-image-select,smd-image-dropdown,smd-date-picker}.js` all build via `_build()` from `connectedCallback` (they were the last four hanging onto the constructor pattern and broke `cmd-regression.spec.js` test 444's images editor + the 3x "must not have children" pageerrors seen in test 615). When converting shadow→light DOM, ALWAYS move template cloning into `connectedCallback`, never the constructor. Watch for `setAttribute("hidden", "true"/"false")` too: `hidden` is a BOOLEAN attribute, so ANY presence hides the element (fine as `.hidden = true/false` property only); `CountMyDays/js/dates-editor.js` + `googleCalendarEditor.js` had this and it made every `cmd-date-card` 0x0/display:none.
-12: 12: THEME TEXT VARS ARE LIVE AGAIN (2026-09-19): the light-DOM refactor reduced `applySmdVars()` in `shared/js/smd-settings.js` to a no-op AND dropped `color: var(--smd-tab-text)` from the inactive-tab rule in `shared/css/styles.css` → inactive tabs fell back to hardcoded `#fff`, failing pmd-regression:641 "inactive tabs use the Bootswatch secondary button text colour" (white instead of the theme's `btn btn-secondary` text, e.g. `rgb(73,80,87)` on cerulean). RESTORED the REAL `applySmdVars()` (hidden `.btn btn-secondary` probe → publishes `--smd-tab-text` + the `--smd-{primary,secondary,success,danger,info,warning}-text` vars on `:root`) with `applyTheme()` re-running it on the theme `<link>` `load`, plus DOMContentLoaded + window `load` hooks; tab CSS now `color: var(--smd-tab-text, #fff)`. Rule: a light-DOM component sitting on a theme-coloured surface must consume `var(--smd-<variant>-text)` / `var(--smd-tab-text)` — NEVER a hardcoded colour — or it won't match the Bootswatch theme. The stubs `smdBootstrapStyle/smdBootstrapColor` are real functions again.
+12: THEME TEXT VARS ARE LIVE AGAIN (2026-09-19): the light-DOM refactor reduced `applySmdVars()` in `shared/js/smd-settings.js` to a no-op AND dropped `color: var(--smd-tab-text)` from the inactive-tab rule in `shared/css/styles.css` → inactive tabs fell back to hardcoded `#fff`, failing pmd-regression:641 "inactive tabs use the Bootswatch secondary button text colour" (white instead of the theme's `btn btn-secondary` text, e.g. `rgb(73,80,87)` on cerulean). RESTORED the REAL `applySmdVars()` (hidden `.btn btn-secondary` probe → publishes `--smd-tab-text` + the `--smd-{primary,secondary,success,danger,info,warning}-text` vars on `:root`) with `applyTheme()` re-running it on the theme `<link>` `load`, plus DOMContentLoaded + window `load` hooks; tab CSS now `color: var(--smd-tab-text, #fff)`. Rule: a light-DOM component sitting on a theme-coloured surface must consume `var(--smd-<variant>-text)` / `var(--smd-tab-text)` — NEVER a hardcoded colour — or it won't match the Bootswatch theme. The stubs `smdBootstrapStyle/smdBootstrapColor` are real functions again.
+13: CENTRALIZED WCAG CONTRAST GENERATOR (2026-09-22): low contrast on themed surfaces was systemic (white-on-info ≈1.8–2.1 on quartz/slate/yeti/superhero/lumen, white-on-success ≈1.5–2.9 on vapor/minty/slate/darkly, white-on-warning ≈1.3–2.5). The fix is ONE shared module `shared/js/smd-contrast.js` (`window.SmdContrast` + global `applySmdContrastVars()`), loaded right AFTER `smd-settings.js` in every app's `index.html` (all 5 apps + root Launch index + storybook) and in `sw.js` SHARED_ASSETS. It reads the loaded theme's `--bs-*` surfaces off `:root` and publishes `--smd-on-{primary,secondary,success,danger,warning,info,body}`, `--smd-tab-active-text`, `--smd-muted-header-text`, `--smd-rgb-*` (debug) and the existing consumer aliases `--smd-{variant}-text`. HYBRID RULE: a theme keeps its OWN text when its choice already meets WCAG AA ≥4.5 (read from the `--smd-*-text` values `applySmdVars()` set just before), otherwise the generator substitutes pure `#000`/`#fff` (`bestText`, max contrast) — so thumb-tested themes (cerulean dark-grey secondary etc.) are untouched and only genuinely failing themes change. `applySmdVars()` in smd-settings.js calls `applySmdContrastVars()` (guarded by `typeof`) at its end, so the theme-selector flow triggers it; the module also self-heals on load if the palette already went live. PROBE GUARD `smd-probe`: shared/css/styles.css overrides `--bs-btn-color`/badge text with the generated vars matched `:not(.smd-probe)` — the hidden probe `smdBootstrapStyle()` in smd-settings.js and the pmd-regression `bootswatchColor()`/`bootswatchBadge()` helpers all add the `smd-probe` class so they keep reading the RAW Bootswatch colour (no circular read). Surfaces that now consume the palette: active tabs `var(--smd-tab-active-text)` (was hardcoded #fff), `.nav-tabs-info .nav-link.active` `var(--smd-on-info)`, page/modal header h1/h3 `var(--smd-muted-header-text)`, `.badge.text-bg-*`/`smd-badge.text-bg-*` colour, and `button/a/.btn-{primary,secondary,success,danger,warning,info}` `--bs-btn-*-color` overrides (hybrid keeps the theme look where it already passes). pmd-regression "badges use the centralized contrast palette and meet WCAG AA" asserts the badge text equals the palette value AND that its contrast ratio ≥4.5 (helper `ratioOf` recomputes WCAG ratio in-page). When wiring a NEW themed surface: consume `var(--smd-on-<variant>)`/`var(--smd-tab-active-text)`/`var(--smd-muted-header-text)` instead of hardcoding `#fff`/`color-mix(..., white)`.
+14: STORYBOOK `_bound` GUARD FOR LIGHT-DOM COMPONENTS (2026-09-22): the pmd-* light-DOM cards/headers (`pmd-stream-header`, `pmd-stream-job-card`, `pmd-job-today-card`, `pmd-job-search-card`) each clone their template in `connectedCallback` under a `this._bound` flag, but their `attributeChangedCallback` used to gate `_render` on only `this.isConnected`. When the storybook's demo code does `host.innerHTML = '<pmd-stream-header ...>'` on an ALREADY-CONNECTED host, the HTML parser fires `attributeChangedCallback` for each attribute BEFORE `connectedCallback` clones the template, so `_render` hit missing nodes (`Cannot set properties of null (setting 'textContent')`, 45 page errors). Chromium's incremental parser inserts the element into the live tree (isConnected=true) before the upgrade finishes, so `isConnected` alone is NOT a sufficient guard. FIX (applied to all four): `attributeChangedCallback() { if (this._bound && this.isConnected) this._render(); }`. Rule: any light-DOM component that builds in `connectedCallback` must gate attribute-triggered renders on the built flag too, NEVER `isConnected` alone. Verify with `tests/storybook-regression.spec.js` (Storybook - Regression: boots with no console/page errors/no failed requests, component demos render their host elements, theme swap re-renders sections without page errors) — run it whenever storybook or the pmd-* components change.
+15: Do not write non UTF-8 characters to AGENTS.md
 
 ## Self-improving playbook
 At the START of every session, read this file fully and apply all rules.
@@ -31,11 +34,11 @@ If there are ways to run code for test purposes that do or do not work, note the
 
 Architecture:
 - Dialog system is custom-web-component based. Only remaining bootstrap modal: `imageEditModal`.
-  - `smd-modal` = a single shared `#smdConfirmModal` host, driven by `showSmdModal(options)` in app.js; content lives in its shadow root (`.smd-body`); buttons on `smd-modal-action`.
-  - `smd-page` = full-screen overlay pages: `settingsPage`, `streamsEditor`, `jobSearchEditor`, `imagesEditor`, `jobEditPage`, `streamEditPage`, `minioImportPage`. Footer buttons fire `smd-page-action` (`cancel`/`done`/`add` etc).
-  - z-index stack: smd-page 1040 < smd-modal 1050 < imagePickerModal 1060. No z-index hacks needed.
-- Component styling uses CONSTRUCTABLE STYLESHEETS from `shared/js/components/styles.js` (`window.SmdStyles`): `smdButtonSheet`/`smdTabsSheet`/`smdModalSheet`/`smdPageSheet` are per-component sheets; `SmdStyles.hiddenSheet` + `SmdStyles.btnBadgeSheet` are shared by the pmd-* cards/header. `SmdStyles.sheetFor(css)` caches a sheet by CSS text; `SmdStyles.adoptStyles(root, sheetsOrCss)` adopts (dedup) into `root.adoptedStyleSheets`. Adopted sheets SURVIVE `shadowRoot.innerHTML` re-renders (unlike injected `<style>` elements). `injectStyleInto(root, css)` in app.js is now a wrapper over `SmdStyles.adoptStyles` (page/modal content styles). `smd-tabs` tab defs accept an optional `panelClass` string (rendered as `smd-tab-panel <panelClass>`, e.g. a tab can opt out of the 1rem panel padding via `panelClass: "no-padding"` and the `.smd-tab-panel.no-padding { padding: 0 }` utility in `smdTabsSheet`). Page/injected CSS can NEVER reach panel padding — panels live in the tabs' own shadow root, so per-panel padding must go through the component.
-- Colour/typography conventions: smd-tabs selected = `--smd-primary`/`--smd-primary-text`, non-selected = `--smd-secondary`/`--smd-tab-text`; stream accordion header expanded = `--bs-info`, collapsed = `--smd-secondary`; page/modal header = lightened band (`color-mix(in srgb, var(--bs-body-bg) 85%, white)`) + title in lighter body-colour variant (`color-mix(... 60%, white)`).
+  - `smd-modal` = a shared custom element driven by `showSmdModal(options)`; it renders light-DOM `.smd-overlay`, `.smd-dialog`, `.smd-header`, `.smd-body`, and `.smd-footer` markup, and buttons emit `smd-modal-action`. Styles live in `shared/css/styles.css`.
+  - `smd-page` = full-screen overlay pages: `settingsPage`, `streamsEditor`, `jobSearchEditor`, `imagesEditor`, `jobEditPage`, `streamEditPage`, `minioImportPage`, `imagePickerPage`. Footer buttons fire `smd-page-action` (`cancel`/`done`/`add` etc).
+  - z-index stack: smd-page 1040 < smd-modal 1050. `imagePickerPage` is an smd-page and uses the page layer; no z-index hacks are needed.
+- Shared components are LIGHT DOM and are styled from `shared/css/styles.css` plus small component/app-injected style blocks. Do not reintroduce constructable stylesheets or shadow-root styling for these components. `smd-modal`, `smd-page`, `smd-tabs`, and the pmd-* cards expose stable light-DOM classes for shared selectors and tests. `smd-tabs` tab definitions may include `panelClass` (for example `no-padding`) for panel-specific layout.
+- Colour/typography conventions: smd-tabs active = `--bs-primary`, inactive = `--bs-secondary`, with `#smd-app` scoping for priority; the Streams Editor header is `--bs-primary` when expanded and `--bs-info` when collapsed; modal/page headers use theme surfaces (`--bs-body-bg`, `--bs-secondary-bg`, `--bs-border-color`) rather than hardcoded colours. Bootstrap/Bootswatch remains authoritative; the runtime contrast layer is not used.
 - TYPESCALE TOKENS (2026-09-18): one shared ramp in `shared/css/styles.css` — `body { --smd-type-base: 1rem }` plus `body.font-size-xsmall/small/large/xlarge/jumbo` overrides (0.8/0.925/1/1.125/1.3/1.6rem) — drives exactly four tokens `--smd-type-badge` (base×0.75), `--smd-type-p` (base), `--smd-type-h2` (base×1.25), `--smd-type-h1` (base×2), all declared on `body` (NOT `:root`: the ramp must recompute per font-size body class, and body custom props pierce shadow DOM while `:host-context()` doesn't). Tag map: h1→h1; h2/h3/h4→h2; h5/h6→p; text/inputs/tables→p; badges→badge. BUTTONS ARE h2 (one step above text): `<button>`, `.btn`, `.smd-tab-btn` all use `var(--smd-type-h2)`; `.btn-sm` stays at `var(--smd-type-p)`. Light-DOM home is `shared/css/styles.css` (`button, .btn` / `.btn-sm`); the shared `btnBadgeSheet` covers shadow buttons. Scaffold the h2/p rules inline wherever a shadow root does NOT adopt btnBadgeSheet: the 4 apps' `editor-styles.js`, `smd-settings.js`, `smd-minio.js`, `smd-modal.js`, `smd-image-picker.js`, `smd-image-dropdown.js`. Don't re-add per-component `.btn` font-size rules. Every component + app style now uses `var(--smd-type-*, original-value)` (original as fallback so behaviour is unchanged wherever the token is missing). Media-fit sizes are token CALCs (e.g. CM/QR title `calc(var(--smd-type-h1,1.5rem)*0.7667)`, CM count `*0.8333`, CM container h1 `*0.625`, Solar 480px block). Compact density = `--…-title-size: var(--smd-type-p)` overrides. Deliberate non-token exceptions: the 22px hamburger icon in `smd-app.js`, `smd-checkbox` 1em/1.4em + `smd-draghandle` 1.2rem/1.6rem touch sizes, vendor CSS, storybook chrome. Tests assert heading ELEMENT tags (now `h1` for main-view date/"Today!"/"From …" headings) and pmd-touch.spec.js:119 asserts the NEW pixel values (xlarge 41.6, jumbo 51.2, compact-jumbo 25.6) — update those literals together with any ramp change.
 - THEME TEXT COLOURS (2026-09-12): shadow-DOM buttons/tabs cannot use Bootswatch's `.btn-*` rules (document CSS doesn't cross the boundary, and `--bs-btn-*` is set on the `.btn-*` element, not `:root`). `applySmdVars()` reads a hidden light-DOM `<button class="btn btn-<variant>">` probe (`smdBootstrapColor()`) and publishes `--smd-primary/secondary/success/danger/info/warning-text` + `--smd-tab-text` on `<html>`; every shadow `.btn-*`/variant uses those vars. `applyTheme()` re-runs `applySmdVars` on the theme `<link>`'s `load`. Never hardcode white text for a theme-coloured surface; if Bootswatch's own `.btn-*` rule disagrees with its `--bs-btn-color` var (e.g. cerulean's later `.btn-secondary { color: ... }`), the probe wins — always match the probe.
 - BADGES (2026-09-12): use the shared `<smd-badge variant="primary|secondary|success|danger|warning|info|light|dark" pill?>` component everywhere — never a `<span class="badge bg-*">` (Bootstrap's badge vars live on the `.badge` element and can't reach shadow roots). `applySmdVars()` probes a hidden light-DOM `.badge.text-bg-<variant>` (`smdBootstrapStyle()`) and publishes `--smd-badge-<variant>-{bg,text}`; the component's own sheet consumes them, so text colour follows Bootswatch exactly (white on cerulean's navy info, black on its light secondary, etc.). `btnBadgeSheet` now only carries `.btn*` rules despite its name; `smd-page`'s badge/bg rules were removed.
@@ -61,21 +64,52 @@ Architecture:
   (one shared key — it's the same root SW) so "Later" isn't re-prompted on the
   next reload; "Update now" clears it. `__updatePrompted` stays as the in-load
   fast path.
-  REGISTER AT A STABLE URL (2026-09-18): the apps register `../sw.js` (the
-  Launch app `sw.js`) with NO `?v=` cache-buster. A versioned script URL was
-  the DOUBLE-PROMPT bug: after "Update now" reloads to the new build, that page
-  registered a DIFFERENT scriptURL than the just-activated worker
-  (`?v=old` vs `?v=new`), so Chromium reinstalled another worker and prompted
-  again (verified in a SW simulation: versioned URL prompts twice, stable URL
-  prompts once). The browser detects updates by comparing sw.js bytes, and a
-  pure `BUILD_NUMBER` bump still triggers it (the imported build-number.js is
-  compared too — verified via simulation), so no versioning is needed.
+  REGISTER AT A STABLE URL (2026-09-18; re-verified 2026-09-25): the apps
+  register `../sw.js` (the Launch app `sw.js`) with NO `?v=` cache-buster, via
+  `smdRegisterServiceWorker(path)` in `smd-settings.js` (falls back to a plain
+  `register(path, { updateViaCache: "none" })` if that module is missing), and
+  each shell also sets `reg.updateViaCache = "none"` (a persisted, per-
+  registration setting, so sw.js is never reused from the HTTP cache).
+  A VERSIONED script url is the DOUBLE-UPDATE bug and must not come back. A
+  changed `?v=` does guarantee a new worker, but the common flow installs TWO for
+  one bump: the focus/load `reg.update()` reuses the INCUMBENT's url, so it
+  installs the new sw.js bytes under the OLD `?v=old`; the user accepts, the page
+  reloads onto the new build, and `register("?v=new")` differs from that worker's
+  url, so the browser installs a second one and prompts again (traced against the
+  W3C spec: `Update` installs whenever the script url differs; `Install`
+  terminates the previous waiting worker, so the two updates are sequential, not
+  concurrent). The 2026-09-18 verification was right.
+  With a stable url the only update signal is a BYTE change in sw.js, so its
+  inline `BUILD_NUMBER` must be bumped with `shared/js/build-number.js` every
+  time (rule 5) — importScripts files are NOT part of the comparison. The cached
+  app shell is served cache-first by pathname, so a returning user keeps running
+  the OLD build until the new worker is accepted; that is expected, and
+  `reg.update()` on load + `focus` is what surfaces it promptly instead of
+  waiting for the browser's throttled (~daily) check.
+  DRIFT SELF-HEAL (2026-09-25): the page verifies the invariant instead of
+  trusting it. `smdCheckServiceWorkerBuild(reg)` asks the controlling worker
+  `{type:"GET_BUILD"}` (answered in sw.js with `{type:"BUILD", build, cache}`) and
+  compares it with the page's own `BUILD_NUMBER`. If the PAGE is newer than its
+  worker the two files were edited apart; nothing would ever replace that worker
+  (its bytes no longer change), so the page unregisters once and reloads, guarded
+  by `localStorage["smdSwDriftReloadedFor"]` so it cannot loop. The new worker's
+  activate step then deletes the stale `myapps-<old>` cache. A worker NEWER than
+  the page is just a pending update, so it only logs a warning.
+  The "Later" dismissal is build-aware: the pages store
+  `swUpdateDismissedBuild` (= the page's BUILD_NUMBER at press time) alongside
+  `swUpdateDismissedUrl` and only suppress the prompt when
+  `swUpdateDismissedBuild` equals the current page build, so one "Later" no
+  longer silences every future update forever (needed precisely because the
+  script url is stable and can no longer identify a build).
   `BUILD_NUMBER` is STATIC in `shared/js/build-number.js` — bump it to ship a new
-  build (sw.js byte changes still trigger an update, but a same cache name reuses
-  old assets). All same-origin ASSET LOADS are cache-busted with `?v=BUILD_NUMBER`
-  (head `<script>` stamps `<link href>`; vendor/component scripts use
-  `document.write(...?v=…)`; `applyTheme()` stamps theme swaps; `sampleImages.json`
-  fetch is versioned).
+  build (the sw.js mirror changes with it, which is what installs the new worker
+  and names the `myapps-<BUILD_NUMBER>` cache). All same-origin ASSET LOADS are
+  cache-busted with `?v=BUILD_NUMBER` (head `<script>` stamps `<link href>`;
+  vendor/component scripts use `document.write(...?v=…)`; `applyTheme()` stamps
+  theme swaps; `sampleImages.json` fetch is versioned). The fetch handler serves a
+  `?v=` stamp the worker does not recognise network-first, so a page that ends up
+  ahead of its worker still gets fresh bytes instead of `ignoreSearch` matches
+  from the old cache.
 - LAUNCH APP (2026-09-13): the app launcher's entry is the **repo-root
   `index.html`** (served at `/MyApps/`); its support files live in `Launch/`
   (`manifest.json` with `start_url`/`scope: "../"`, `icon.svg` + generated PNGs,
@@ -198,31 +232,38 @@ Architecture:
   `document.getElementById`, which cannot see shadow roots. Vendored:
   `shared/vendor/lz-string.min.js`, `shared/vendor/jsQR.js` (precached).
 - Brite theme: `shared/css/themes/brite/bootstrap.min.css` from Bootswatch
-  **5.3.8** (all other themes remain 5.3.3) + `themeConfig` entry + precache —
-  theme count is now 26. `pmd-screenshots.spec.js` has its own hardcoded list
-  (25) so it is unaffected; `cmd-screenshots.spec.js` screenshots all 26.
-- DEFAULT THEME (2026-09-17): **superhero** everywhere — every app's
-  `app.js`/`app-settings.js` theme fallback, `SmdApp.themeDefault`, the shared
-  `applyTheme()` invalid-name fallback, the storybook's static
+  **5.3.8** (all other themes, including the standard-Bootstrap `bootstrap`
+  theme, are 5.3.3) + `themeConfig` entry + precache — theme count is now 27.
+  The `bootstrap` theme (2026-09-26) is the UNTHEMED stock
+  `bootstrap@5.3.3/dist/css/bootstrap.min.css` (folder
+  `shared/css/themes/bootstrap/`, empty override `bootstrap.css`). All screenshot
+  suites iterate `themeConfig` through `tests/screenshot-helpers.js` (which
+  asserts the theme count — bump it in lockstep), so a new theme is picked up
+  automatically; the Storybook card viewer and the screenshots viewer also
+  enumerate the live `themeConfig`/screenshot tree with no hardcoded list.
+- DEFAULT THEME (2026-09-17; mode removed 2026-09-26): **superhero** everywhere —
+  every app's `app.js`/`app-settings.js` theme fallback, `SmdApp.themeDefault`,
+  the shared `applyTheme()` invalid-name fallback, the storybook's static
   `<html data-theme>`/`data-bs-theme` hints and every static head `<link>`
-  (`bootstrap-theme-css` + `theme-override-mode`/`specific`) all use `superhero`
-  (mode link stays `dark.css`, since superhero is a `bsTheme: "dark"` theme).
-  The regression/screenshot specs' theme-config fallbacks were updated too;
-  darkly stays a valid selectable theme, just no longer the default.
-- THEME OVERRIDE CSS (2026-09-17): each theme's
-  `shared/css/themes/<theme>/bootstrap.min.css` is NEVER edited. Overrides
-  load through TWO extra stylesheets managed by `applyTheme()` in
-  `shared/js/smd-settings.js`: `#theme-override-mode` = `css/themes/light.css`
-  OR `css/themes/dark.css` (one shared file for every light / every dark
-  theme, chosen from `themeConfig[].bsTheme`), and `#theme-override-specific`
-  = `css/themes/<theme>/<theme>.css` (per theme). Both links are declared
-  statically in every app/storybook `<head>` right after `#bootstrap-theme-css`
-  (so the default theme's overrides apply at first paint) and `applyTheme()`
-  updates them (creating on demand, right after the theme link) on every theme
-  switch — layering is theme base < overrides < shared/app css. All files are
-  in `sw.js` SHARED_ASSETS. All five screenshot specs' `setTheme()` now swap the
-  override links too (via the same `{bw}/...` pattern). The per-theme/files are
-  deliberately EMPTY until specific overrides are decided.
+  (`bootstrap-theme-css` + `theme-override-specific`) all use `superhero`.
+  THEMES HAVE NO DEFAULT COLOUR MODE: the global Theme Mode (Light/Dark) is the
+  only mode source and normalizes to `light` when unset/invalid. darkly stays a
+  valid selectable theme, just no longer the default.
+- THEME OVERRIDE CSS (2026-09-17; mode sheet removed 2026-09-26): each theme's
+  `shared/css/themes/<theme>/bootstrap.min.css` is NEVER edited. ONE override
+  stylesheet remains, managed by `applyTheme()` in `shared/js/smd-settings.js`:
+  `#theme-override-specific` = `css/themes/<theme>/<theme>.css` (per theme). It
+  is declared statically in every app/storybook `<head>` and `applyTheme()`
+  re-points it (creating on demand) on every theme switch — layering is theme
+  base < shared/app css < per-theme override. `shared/css/themes/light.css` and
+  `dark.css` and the `#theme-override-mode` link were DELETED (the Light/Dark
+  mode now only sets `data-bs-theme`; per-theme files may key off it). All files
+are in `sw.js` SHARED_ASSETS. Most per-theme files are empty; `superhero.css`
+   and `cyborg.css` carry real overrides. The override sheet is the LAST
+   stylesheet in `<head>` (see the "Authoritative CSS cascade" note), so it may
+   use a bare `:root { ... }` (or `:root[data-bs-theme="..."]` for a mode
+   variant) - it wins over `shared/css/styles.css` by document order, no
+   attribute-qualified selector is needed.
 - IMAGE SIZES (2026-09-17): ONE six-size scheme in every app's Settings
   (Icon/Image size select): xsmall=32, small=40, medium=50, large=64, xlarge=80,
   jumbo=100 (labels match the six font sizes). Stored key is still
@@ -319,11 +360,11 @@ Techniques / gotchas:
 - **`:host-context()` is NOT supported by WebKit/Safari** (so it silently does
   nothing in every iOS browser): shadow-DOM styling that keys off `body.*`
   classes (font size, density) must use CSS custom properties set on `body`
-  instead — they inherit into shadow roots and work everywhere. `pmd-today-card`
+  instead — they inherit into shadow roots and work everywhere. `pmd-job-today-card`
   reads `--pmd-today-*` (defined in `PlanMyDay/css/styles.css`). A WebKit test in
   `pmd-touch.spec.js` guards this ("display font size and density settings scale
   the today card title").
-- Card thumbnails (`pmd-today-card`, `pmd-stream-header`, `pmd-stream-job-card`,
+- Card thumbnails (`pmd-job-today-card`, `pmd-stream-header`, `pmd-stream-job-card`,
   `pmd-job-search-card`): the `.thumb` wrappers are ALWAYS rendered (no `hidden`);
   only the inner `smd-image`'s `image` attribute is toggled. Hiding a wrapper lets
   later images slide left, so titles/headings stop lining up across cards.
@@ -345,12 +386,216 @@ Techniques / gotchas:
 - Playwright `toHaveText` on an `smd-button` HOST reports the slot fallback text too (e.g. `"Edit\n Button"`), so exact-text assertions fail. Use `toContainText("Edit")` or a `getByRole("button", { name: "Edit" })` locator instead.
 - Grep on minified vendor files breaks the tool (giant matched lines) — scope searches to `PlanMyDay/js/**`, `shared/js/**`, or `tests/**`.
 - Line endings: this repo stores text files with LF (`core.autocrlf=input`, `core.eol=lf`; no `.gitattributes`). NEVER write CRLF into a file — git will flag every line as changed (whole-file diff) and warn "CRLF will be replaced by LF the next time Git touches it". Do not round-trip files through PowerShell pipe/Get-Content/Set-Content joins; the Edit/Write/Read tools and Node preserve line endings — if you must convert use node with explicit `\n`, NEVER shell-piped measurements of `git show` (PowerShell pipeline re-encodes — it once reported 914 CRLF for a file whose raw blob via `git cat-file` was entirely LF). Verify with `git cat-file blob HEAD:<file>` + `git diff --stat` so only real edits show.
-- BACKGROUND STATIC SERVERS (2026-09-19): when running the 30-shard waves with
-  `EXTERNAL_SERVERS=1`, start the two servers ONCE in the background, e.g.
-  `Start-Process python -ArgumentList 'tests/http-server.py' -WorkingDirectory <repo> -WindowStyle Hidden -RedirectStandardOutput $env:TEMP\opencode\srv1.out -RedirectStandardError $env:TEMP\opencode\srv1.err` (same for `subpath-server.py`, port 8081, `srv2.*`). GOTCHA: with `EXTERNAL_SERVERS=1` Playwright does NOT start or verify the servers, so a failed background start makes every shard fail with `ERR_CONNECTION_REFUSED` (or hang on web-server waits) with no diagnostic. ALWAYS verify BOTH ports accept a TCP connection BEFORE any test run: use a raw TcpClient (`(New-Object Net.Sockets.TcpClient).Connect('127.0.0.1',8080)`) — `Test-NetConnection -ComputerName localhost -Port 8080` probes IPv6 `::1` first and prints a scary `failed` warning, then `True` for IPv4, which is easy to misread as a down server (that happened this session: the servers were UP, the health check just looked ambiguous). Also read `srv1.err`/`srv2.err` to confirm real HTTP traffic, not just a listening socket.
+- TEST SERVERS ARE VITE (2026-09-26): `playwright.config.js` runs `node tests/serve-tests.mjs`, which starts BOTH test origins from ONE Node/Vite process: 8080 = repo root (e.g. `/PlanMyDay/` is the app), 8081 = repo mounted under `/PlanMyDay/` (every origin-root path 404s) mimicking a GitHub Pages sub-path deploy. `npm run dev:test` starts them for a full/sharded run; `reuseExistingServer` means Playwright reuses an already-listening server and never kills it, so no manual per-shard server dance. Vite runs with `appType:"custom"` plus a `sirv` static middleware, so there is NO HTML/JS transform and NO HMR client injected (the tests stay byte-faithful); sirv is in production mode (one startup tree scan, then an in-memory file map) and sets `immutable` Cache-Control for build-stamped assets but `no-cache` for `sw.js` and HTML. GOTCHA (unchanged): with `EXTERNAL_SERVERS=1` Playwright does NOT start or verify the servers, so a failed start makes every shard fail with `ERR_CONNECTION_REFUSED` (or hang on web-server waits) with no diagnostic. ALWAYS verify BOTH ports accept a TCP connection BEFORE any test run: use a raw TcpClient (`(New-Object Net.Sockets.TcpClient).Connect('127.0.0.1',8080)`) — `Test-NetConnection -ComputerName localhost -Port 8080` probes IPv6 `::1` first and prints a scary `failed` warning, then `True` for IPv4, which is easy to misread as a down server. (The old Python `tests/http-server.py` +   `tests/subpath-server.py` were replaced by `tests/serve-tests.mjs`.)
+- STALE TEST SERVER SERVES TRUNCATED FILES (2026-09-26, cost a full test
+  round): `reuseExistingServer: !CI` means Playwright silently REUSES an
+  already-listening `tests/serve-tests.mjs`, and a leaked server (e.g. one left
+  over from a `git stash`/`pop` cycle) can serve a PARTIAL file whose cached
+  size is shorter than the on-disk file. Symptom: a deterministic
+  `SyntaxError: Unexpected end of input` + `ReferenceError: <global> is not
+  defined` for a file that `node --check` says is fine, and
+  `ServiceWorker script evaluation failed` — while surrounding scripts load.
+  CAUSE was a stale process started at an earlier point serving the first
+  16702 bytes of the 16763-byte `smd-settings.js`. ALWAYS check BOTH ports are
+  closed (raw `TcpClient`, not `Test-NetConnection`) before a run and, if a test
+  fails with a syntax/reference error on a file that passes `node --check`,
+  find the listener (`Get-NetTCPConnection -LocalPort 8080 -State Listen`) and
+  `Stop-Process` it so Playwright starts a fresh server. Do not debug the app
+  code first.
 - CROSS-ORIGIN SAVE 302 GOTCHA (2026-09-17): SolarControlar's Flask POST endpoints (`POST /solar/`, `POST /solar/api/config`) are PRG — they answer `302 Location: /solar/`. A PWA `fetch()` that lets the browser follow that cross-origin redirect can lose its `Authorization` header on the follow-up GET (browser-dependent), so Traefik returns a 401 WITHOUT `Access-Control-Allow-Origin` → the fetch blocks as a CORS error / "Failed to fetch". Fix in the APP: `redirect: "manual"` on the POST and treat `resp.type === "opaqueredirect"` as success (server saved; the caller then re-fetches the GET page which carries auth again). `redirect: "manual"` returns an opaque-redirect response (status 0) for a 302 — you cannot read it, only detect it by `type`. Rule for SolarControlar saves: never follow the Flask redirect; `_post` returns the response TEXT (or `""`), so consumers must not chain `.text()`.
 
 ## Session log
+
+### 2026-09-26 (b) - new shared `bootstrap` theme (stock Bootstrap 5.3.3)
+- Added the 27th theme `bootstrap`: `shared/css/themes/bootstrap/` holding the
+  UNMODIFIED stock `bootstrap@5.3.3/dist/css/bootstrap.min.css` (fetched from
+  `https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css`)
+  plus an empty per-theme override `bootstrap.css` (same header shape as the
+  others). Registered in `themeConfig` (`shared/js/smd-settings.js`) and BOTH
+  files in `sw.js` `SHARED_ASSETS`. `data-theme="bootstrap"`, override path
+  `css/themes/bootstrap/bootstrap.css`. No per-theme CSS needed: stock Bootstrap
+  is light in `data-bs-theme="light"` and ships its own dark vars for `dark`.
+- Theme count 26 -> 27 everywhere it is asserted: `tests/screenshot-helpers.js`
+  (throws unless 27), the theme-select option counts in `cmd-regression`,
+  `ffox-regression`, `qrlinks-regression`, `launch-regression`, the Storybook
+  header selector (27) and card viewer (`#themeSelect option` 26+1=28,
+  `.theme-row` 27, `iframe.preview-frame` 54), and `commands.md` ("all 27").
+  No hardcoded theme list remains in the screenshot specs (they use
+  `screenshot-helpers.js`); `screenshots/viewer.js` and
+  `storybook/cardViewer.html` enumerate the live tree/`themeConfig`.
+- Screenshots NOT regenerated (user chose "wire it in only"); the suites pick
+  the theme up from `themeConfig` on the next run.
+- Verified: `node --check` on every edited JS + `git diff --check` clean; the 4
+  targeted chromium tests green (cmd "opens with the theme list...", launch
+  "settings has theme...", storybook "component demos..." and "card viewer
+  renders one card across every theme and both modes" — the last loads all 27
+  themes and asserts ZERO failed requests, so both new CSS files are confirmed
+  reachable). `BUILD_NUMBER` unchanged (user ships).
+- Gotcha (new technique note above): a leftover `tests/serve-tests.mjs` server
+  from a `git stash`/`pop` cycle served a TRUNCATED `smd-settings.js`, giving
+  `SyntaxError: Unexpected end of input` + `injectSettingsStyles is not
+  defined` on the first run. A clean-HEAD stash baseline passed, which isolated
+  it to the stale server; killing the 8080/8081 listener and letting Playwright
+  start a fresh one made all 4 pass.
+
+### 2026-09-26 - theme override cascade verified + cyborg.css fixed
+- User reported `superhero.css` color overrides not applying. Root cause (2026-09-25/26): the two theme override links loaded BEFORE `shared/css/styles.css` (`orderThemeOverrideLinks()` pinned them right after the bootstrap theme link), so the equal-specificity bare `:root` in the per-theme file lost to `styles.css` by document order. The fix that landed 2026-09-26 moved the vendor sheets FIRST, gave `styles.css` `id="smd-shared-css"`, and anchors `#theme-override-specific` AFTER it via `themeOverrideAnchor()`/`orderThemeOverrideLinks()` in `shared/js/smd-settings.js`.
+- Verified live (read-only probe on PlanMyDay): superhero header = `--bs-black` (light) / `--bs-dark` (dark), tabs = `--bs-secondary`, `--smd-image-theme` = dark in light mode; head order is vendor -> `bootstrap-theme-css` -> `smd-shared-css` -> `theme-override-specific`. The reported bug is fixed.
+- Fixed `shared/css/themes/cyborg/cyborg.css`: `tml[` typo (invalid selector) and both rules targeting `data-theme="superhero"` inside the cyborg file. Now `html[data-theme="cyborg"]... .smd-card { color: white }` in both modes; note the forced-Light white-on-light contrast risk is documented at the end of the notes section.
+- What worked: reading computed CSS vars in a headless browser probe beats DOM-text inspection for cascade bugs; the specificity-vs-order asymmetry (bare `:root` dead, `:root[data-bs-theme]` alive) was the tell. What did not work: reasoning about the order from source alone - the file had already been fixed by the time the session got to it, so the live probe was required to separate "already fixed" from "still broken".
+- AGENTS.md updates this session: rule 14 + the authoritative-cascade note now state the per-theme file wins by document order (bare `:root` is safe), and a cyborg note was appended.
+
+### 2026-09-23 (18) — global Default/Light/Dark theme mode
+- Added per-app `smdKey("themeMode")` overrides, `themeConfig[].defaultMode`, resolved `data-bs-theme`, canonical override-link ordering, and a two-select `<smd-theme>` with source-aware events. All six app boots/settings restores use the normalized shared theme and mode values.
+- Storybook persists `storybook_theme` / `storybook_themeMode` and preserves the app theme keys. Mode-only changes update CSS vars without calling `renderMain`; invalid themes normalize to superhero.
+- Verified with `node --check` on 20 edited JS files and 15 targeted Playwright theme/settings tests; all passed. Full regression was intentionally not run per request.
+
+### 2026-09-21 (15) — rename `pmd-today-card` → `pmd-job-today-card` (component + events)
+- Full rename of the PlanMyDay today-card component: element tag
+  `pmd-today-card` → `pmd-job-today-card`, class `PmdTodayCard` → `PmdJobTodayCard`,
+  template var `pmdTodayCardTemplate` → `pmdJobTodayCardTemplate`, global
+  `window.PmdJobTodayCard`, file `pmd-today-card.js` → `pmd-job-today-card.js`, and
+  the four custom events → `pmd-job-today-toggle` / `-view` / `-delete` /
+  `-tomorrow` (user confirmed the event rename). Updated every consumer:
+  `PlanMyDay/index.html` script tag, `sw.js` precache entry, `main-view.js`
+  (`createElement` + 4 listeners + comment), `storybook/index.html` (script,
+  seed comment, section id/name/tag/desc, log id, demo tags, listeners),
+  `tests/pmd-touch.spec.js` + `pmd-regression.spec.js` locators, and the live
+  AGENTS.md technique references (lines 322/326/437). `today-drag-card` CSS class
+  and `--pmd-today-*` CSS custom props were deliberately left as-is (DOM/style
+  hooks, not the component name — same scope as the reverted 2026-09-19 rename
+  `cfeddc2`/`51b4c63`). The reverted rename used exactly these target names, so
+  this is consistent with the earlier attempt.
+- What worked: `node --check` clean everywhere; storybook probe showed the 2 demo
+  cards render as `pmd-job-today-card`, a checkbox click fires the renamed
+  `pmd-job-today-toggle` (`event: toggle job=sb1 checked=true`), zero console
+  errors, zero failed requests, old tag unregistered; the 45 `textContent`
+  pageerrors are the known pre-existing `PmdStreamHeader._render` footgun
+  (unchanged component, same 45-count as the 2026-09-20 note). Regression
+  fail-fast: swipe/toggle event suite 4/4 green (strikethrough, swipe-left
+  delete, swipe-left cancel restore, swipe-right snooze) + the layout-independent
+  icon-size test green.
+- What did NOT work / pre-existing: 3 today-card tests fail in the CURRENT
+  working tree — "stream name and buttons share the line under the title",
+  "job thumbnail keeps its slot when the stream has no image", and the touch
+  title-font-size test (26px vs expected h1 41.6px). **Proven NOT caused by the
+  rename**: all 3 pass at clean HEAD (`git stash` round-trip + backup in
+  `%LOCALAPPDATA%\Temp\opencode\pmd-rename-backup`, restored byte-identical). They
+  fail because of the user's uncommitted WIP: `PlanMyDay/css/styles.css` is
+  STAGED-DELETED and the component's template was reworked in place (e.g. the
+  `.title` element changed h4→h2, so it now renders the h2 token 26px instead of
+  the old CSS-driven h1 41.6px; layout rows moved). The rename is orthogonal.
+- Gotcha for future: stash round-trips lose `git mv` rename staging
+  (`R` → `A`+`D`) but git re-detects renames at commit-time by similarity, and
+  `Compare-Object` verified the working files stayed byte-identical.
+- Resolved (same session, user-approved): the deleted-but-still-referenced
+  `PlanMyDay/css/styles.css` was the PANDEMIC root cause of this session's wide
+  failure flood — `PlanMyDay/index.html` still `<link>`ed it and `sw.js` still
+  precached it, so every planmydays page 404'd the stylesheet: all "no failed
+  requests / no console errors" tests, the two `/PlanMyDay/` sub-path SW-precache
+  tests (cache.addAll rejects a 404 → worker never activates, e.g. the
+  CountMyDays test too, via the shared sw.js), plus every rule that lived there
+  (`.active-toggle` label 700, `.task-note-btn` outline, stream accordions).
+  FIX: `git restore PlanMyDay/css/styles.css`, then PRUNE to the current layout —
+  re-scoped `pmd-today-card` → `pmd-job-today-card`, dropped host card-chrome
+  (the inner `.card.bg-dark` div carries it now), dropped dead old-template
+  selectors (`.row/.row>*/.check-col/.check-row/.content-col/.title-row/.meta-row`)
+  and the now-unused `--pmd-today-{padding,title-margin,cell-padding}`,
+  `.title` font-size now defaults to the **h2 token** (`var(--pmd-today-title-size,
+  var(--smd-type-h2, 1.25em))`; compact still collapses to `--smd-type-p`),
+  thumb gap kept as `.thumb + .thumb { margin-left: 4px }`. TESTS: the 10 h4
+  card-title locators → h2 (adhoc/sleepUntil/tab-badge/import/regen/sort), 229
+  rewritten for the new layout (name under thumbnails; badge+View aligned right,
+  View right of badge), touch font-size literals 41.6/51.2 → 26/32px (h2 token)
+  with compact 25.6 unchanged. ALL previously failing tests now green: 18-test
+  pmd batch, both touch tests, both sub-path precache tests, 229, cmd-suite spot.
+`pmd-today-card.js`-name comment in the restored CSS updated to
+   `pmd-job-today-card`/h2 token.
+- Further prune (same session, requested): the app sheet was cut to only
+   functional + element-scoped rules (no new styling added). DROPPED as dead or
+   duplicated: `.countdown-card` + compact countdown rules (probe: `#countdownContainer`
+   is empty; no `.countdown-card` markup anywhere in PlanMyDay JS), `.type-select`/
+   `.date-day-select`/`.date-month-select`/`.flatpickr-date` (0 matches), `body.compact
+   .card/.editor-btn/.btn-wide`, `#streamsEditor`/`#jobSearchEditor`/`#imagesEditor`
+   padding-top, the whole unscoped `.stream-accordion-*`/`.stream-header-*` block
+   incl. `[data-theme]` theme accents + the expanded `:has(...)` highlight
+   (STREAMS_EDITOR_STYLES in editor-styles.js covers the accordion, and the
+   element-scoped `pmd-stream-header[expanded]` subtle highlight remains),
+   `#streamsEditor .editor-title`, `.stream-accordion-body(+.card)`, `.stream-drag-card`,
+   `pmd-stream-job-card[drag-handle]` (attr never set). KEPT: `body.compact`
+   `--pmd-today-*` vars, `#countdownContainer` structural rules, `.today/shop/job/
+   task-drag-card` user-select, `.task-note-btn` outline override, and the three
+   element-scoped component sheets (`pmd-job-today-card`, `pmd-stream-header`,
+   `pmd-stream-job-card`, `pmd-job-search-card`) — these carry the components with
+   no other source (note: `.truncate`/`.truncate-2-lines` used by the new template
+   are defined NOWHERE, so the app `.stream-title` ellipsis rule is the only
+   truncation for the name). VERIFIED after prune: pmd-touch full 5/5, pmd batch
+   19/19 (strikethrough/view/229/thumb-slot/sleepUntil×4/1483/swipes×3/2685/
+   uncheck/3950/regen/4677/4722/6653), both sub-path SW-precache tests. Probe
+   files deleted.
+- `BUILD_NUMBER` unchanged (user ships — but it SHOULD be bumped before shipping
+   so the renamed precache entry + script tag get a fresh cache name).
+
+### 2026-09-21 (16) — Font Size setting = body font-size only (em-based tokens)
+- User directive: changing Font Size in Settings/Display must do ONLY
+   `body { font-size: <value> }` — nothing else; all other visual tuning is the
+   user's to do from there. Replaced the `--smd-type-base` indirection in
+   `shared/css/styles.css` (the ramp no longer uses `--smd-type-base`; nobody
+   else consumed it — grep-verified). Now: `body { font-size: 1rem }` +
+   `body.font-size-xsmall/small/large/xlarge/jumbo { font-size: 0.8/0.925/1.125/
+   1.3/1.6rem }`, and the four tokens are **em** multipliers of that body font-size
+   (`--smd-type-badge/p/h2/h1` = `0.75em/1em/1.25em/2em`) so the type ramp follows
+   the body font-size exactly. seg rem-sized UI (Bootstrap form controls, etc.)
+   stays root-based on purpose. Pixel values are unchanged from before the rework
+   (e.g. today-card title xlarge=26, jumbo=32, compact-jumbo=25.6).
+- NOT taken: a first pass scaled `html` via `:root:has(body.font-size-*)` —
+   user rejected it; it also squeezed the streams-editor title button to zero
+   width on 390px at xlarge (fixed mid-air with a 2.5rem `min-width` floor on
+   `pmd-stream-header .stream-header-main`, kept as insurance for large body
+   sizes). Probe verified: root stays 16px, body 20.8→25.6→14.8→16 across
+   xlarge/jumbo/small/normal, token h2 (settings tab btn) 26/32/18.5/20px.
+   VERIFIED green: pmd-touch 5/5, pmd 32-batch (appearance/type + prune set),
+   both sub-path SW-precache tests. Probe files deleted. NOTE: the app css
+   comments in CountMyDays/FreeFormOX/Launch/QRLinks/SolarControlar that say
+   "only override --smd-type-base" are now stale wording (behaviour is the
+   same); left as-is deliberately — user requested minimal changes.
+
+### 2026-09-22 (17) — pmd-job-today-card: self-contained styling + <smd-button> View
+- User directive: fix pmd-job-today-card with Bootstrap markup/utilities ONLY
+  ("do not introduce more css, remove as much css as you can"); move the
+  component's styling (esp. `[done]`) INTO the component; View → <smd-button>;
+  right side of button+badge needs spacing; title + suffix badge on one full-width
+  row; checkbox/repeat column vertically centered.
+- Component now injects its own <style> (`#pmd-job-today-card-style`, appended to
+  document.head once): host `display:block; margin-bottom: var(--pmd-today-margin,0.5rem);`
+  + `touch-action:pan-y` (swipe needs it), `[done]` opacity + `.job-title`
+  line-through, `.job-title { font-size: var(--pmd-today-title-size, var(--smd-type-h2,1.25em)) }`.
+  The stale `pmd-job-today-card[done] .title` rules were REMOVED from
+  PlanMyDay/css/styles.css (`.title` no longer matches — template uses `.job-title`);
+  unused `--pmd-today-description-margin` compact var dropped too. `body.compact`
+  still sets `--pmd-today-margin` + `--pmd-today-title-size` (the display-density hook).
+- Template: title row `d-flex align-items-center` (`h2.job-title flex-grow-1 mb-0`
+  + `smd-badge.suffix variant="secondary"`); badge/View row `d-flex align-items-center
+  gap-1 me-2` with `<smd-button class="job-view-btn" variant="primary">View</smd-button>`
+  (smd-button does NOT forward host classes — class stays on the host, clicks bubble);
+  checkbox/repeat column got `justify-content-center`; thumbs wrapper `d-flex gap-1`
+  (replaces the removed 4px `.thumb + .thumb` margin, demanded by test 260).
+- Tests updated to the renamed class: `.title` → `.job-title` (pmd-touch 113,
+  pmd-regression 229). Test 113 no longer pins exact px (user: "exact sizes are
+  not important, scaling is") — asserts the title scales with body (≈1.25em),
+  grows xlarge→jumbo, and compact hooks the p token (≈1em). Root cause of the old
+  24-vs-26 failure: `body.font-size-xlarge` is currently `1.2rem` (19.2px) in
+  shared/css/styles.css — the live file is NOT in sync with the (16) log's 1.3rem;
+  the em-based mechanism follows body either way, so visuals scale regardless.
+- VERIFIED green: pmd-touch 5/5 (incl. 113), pmd-regression 432/432 (incl. 229
+  geometry + 260 no-image slot + view/modal clicks on the smd-button host +
+  swipe/drag/tab-badge). Probe files deleted. `BUILD_NUMBER` not bumped (user ships).
+- FOLLOW-UP: suffix badge now sits straight after the title text with a fixed
+  `ms-2` gap (title row is `h2.job-title mb-0` + `smd-badge.suffix ms-2`, the h2
+  is no longer `flex-grow-1`). And `smd-button` gained a `size` attribute
+  (`normal` default | `small` → Bootstrap `btn-sm` on the inner button), doc'd +
+  demoed in the storybook; the today-card View button uses `size="small"`.
+  Verified: pmd touch+view/modal/geometry/suffix/tab-badge + storybook probe green.
 
 ### 2026-09-20 (14) — shared image cache URLs / blob render (async fills)
 - `shared/js/smd-images.js`, `shared/js/components/smd-image.js`,
@@ -434,7 +679,7 @@ Techniques / gotchas:
 - Map lives in ONE light-DOM + ONE shadow place: `shared/css/styles.css`
   (`button, .btn` / `.btn-sm`) and `btnBadgeSheet` (`.btn` got the h2 line; `.btn-sm`
   already p). Per-component `.btn` font-size rules REMOVED (pmd-stream-header,
-  pmd-stream-job-card, pmd-job-search-card, pmd-today-card `.job-view-btn` was
+  pmd-stream-job-card, pmd-job-search-card, pmd-job-today-card `.job-view-btn` was
   badge → now inherits h2) and the injected sheets that can't see btnBadgeSheet
   switched p→h2 inline: 4× `editor-styles.js`, `smd-settings.js`, `smd-minio.js`,
   `smd-modal.js` footer, `smd-image-picker.js` search, `smd-image-dropdown.js`.
@@ -1705,3 +1950,187 @@ Techniques / gotchas:
 - Job tasks tab now has two distinct Add Task buttons: the top `#jobAddTaskBtn` only shows when there are tasks (hidden when the list is empty) and `jobAddTaskTop()` prepends via `unshift`; the bottom `#jobAddTaskBottomBtn` is always visible and appends via `jobAddTask()`. `renderJobTasks()` toggles the top button's `display` by task count (shown when tasks.length >= 1) and is called once from `buildJobEditPage` (edit mode). Tests: single-task flows use the bottom button; the top button is exercised once a task exists (visibility + prepend at index 0).
 - Lesson: `showSmdModal` is a single shared `#smdConfirmModal` host — every call re-renders its shadow content, so set `.content`/`.buttons`/`.title` before `show()`. Inline global `onchange="..."` handlers inside the shadow content still fire, but the handler bodies must resolve elements via the shadow root.
 - What did not work: `rg` is not available on this machine (use Grep tool instead). Ripgrep via the Grep tool also chokes on very large matched lines (minified vendor files) — limit searches to `js/**` or exclude vendor files.
+
+### 2026-09-22
+- `pmd-job-today-card` rework (the today-list tile): now a self-contained Bootstrap-styled widget with its own injected stylesheet.
+  - Template: a checkbox column (`justify-content-center`) + content column. Each wrapping row is `d-flex flex-row align-items-center justify-content-between` so the title row sits flush with the rows above/below.
+  - Title row: title (`h2.job-title mb-0`) + suffix badge straight after the text with a fixed `ms-2` gap (user preference: badge "straight after the text": `Job Title | gap | badge`). The badge is `<smd-badge class="suffix ms-2" variant="secondary" hidden>` (hidden until a suffix exists; re-check `hidden` when the title changes).
+  - Second row wraps thumbs (`d-flex gap-1`) + the View button; a `.job-view-btn` spacer keeps the title row's checkbox column height when there is no image.
+  - View button is now an `<smd-button class="job-view-btn" variant="primary" size="small">View</smd-button>` (previously a low-utility `<a class="job-view"?>`); smd-button only forwards variant/disabled (NOT host classes) and clicks bubble — keep styling hooks on the host, assert via `#id button` for disabled state.
+  - `smd-button` gained a `size` attribute: `normal` (default) | `small` (adds `btn-sm` to the inner button). Storybook `smd-button` section demos normal + small + disabled. `_applySize()` removes prior size class then adds `btn-sm` only for `small`.
+  - The card's old shared-css style block (`--pmd-today-*`) was removed from `PlanMyDay/css/styles.css` (the bus-width class on `#todayCardList` also got the `mb-*` reset removed since cards inject their own margin).
+  - Test updates: `pmd-regression` today-card titles select `.title` (now `.job-title`); `pmd-touch`/geometry use `.job-title` bounding boxes.
+- Font Size setting = BODY font-size ONLY (`shared/css/styles.css`): classes `font-size-xsmall|small|large|xlarge|jumbo` set `body { font-size: Xrem }`; `normal` removes the class. Type tokens are em-based (`--smd-type-p:1em`, `--smd-type-h2:1.25em`, `--smd-type-h1:2em`, `--smd-type-badge:0.75em`). LIVE FILE VALUES: current classes = 0.6/0.9/1.1/1.2/1.4rem (entry (16) in the log recorded 0.8/0.925/1.125/1.3/1.6 — the FILE is the source of truth; default saved size is `xlarge` = 1.2rem = 19.2px). Exact px don't matter — what matters is that everything scales from the body token.
+- Rebuilt `pmd-touch` test 113 to assert SCALING RELATIONSHIPS instead of exact px: xTitle/xBase ≈ 1.25 (h2 em token), jumbo > xlarge (title grew), body grew, compact → cTitle/jBase ≈ 1 and title = 1em. Exact-px asserts broke once the title became an h4/em-based element (was expecting 26/32/25.6 vs actual 24).
+- `smd-h1`/`smd-h2` shared components (`shared/js/components/smd-h1.js`, `smd-h2.js`): light-DOM wrappers that render a REAL inner `<h1>`/`<h2>` (heading semantics + theme colour/weight on the inner element preserved). Host owns the em font-size token; shared css adds `smd-h1{display:block;font-size:var(--smd-type-h1,2em)}`, `smd-h2{...var(--smd-type-h2,1.25em)}`, `smd-h1 h1,smd-h2 h2{margin:0;font-size:inherit}`. The descendant selector (0,0,2) beats Bootswatch theme element rules (0,0,1) REGARDLESS of link order — this is why they work even though `applyTheme` re-appends themed `<link>`s AFTER the shared stylesheet. Each has a childList MutationObserver that re-mounts the inner heading when the HOST's `textContent` is replaced wholesale (needed by `pmd-job-today-card._render`, which writes host text after connect); `_mount()` is a no-op if the inner element already exists.
+- PlanMyDay uses them: main-view date heading is now `document.createElement("smd-h1")` (class `mb-0`, the old `h1` class dropped), and the today-card title is `<smd-h2 class="job-title">`. The component-injected style keeps `pmd-job-today-card .job-title { font-size: var(--pmd-today-title-size, var(--smd-type-h2, 1.25em)) }` so compact density still pins the title to 1em.
+- The 9-test failure saga: after the today-card title became `<h4 class="job-title mb-0">` (user edit), regression selectors `locator("h2")` went stale → first "fixed" to `locator("h4")` (8/9 then green), but touch test 113 then measured the title at ~1.12× instead of 1.25×. Root cause: the `h4` came from the Bootswatch theme's own `calc(...)` rem rule which BEATS `shared/css/styles.css`'s equal-specificity `h4 { font-size: var(--smd-type-h2) }` — theme links load first AND `applyTheme` re-appends them after shared, so the Font Size setting stopped reaching the title. Solution chosen (with the user): the `smd-h1`/`smd-h2` components above. The `<h4>` was then reverted in code and the 11 `locator("h4")` selectors in `tests/pmd-regression.spec.js` reverted back to `locator("h2")` (smd-h2 renders its inner `<h2>`, so tests should target `h2` again). Both new component files are in `PlanMyDay/index.html` (right after the smd-button script tag) and `sw.js` SHARED_ASSETS.
+- LESSON: user-edited components can invalidate test selectors + theme overrides mid-session. When a Font Size setting stops applying, check for equal-specificity element/font-size rules vs the em token — give headings component-scoped rules with higher specificity instead of relying on shared-vs-theme link order. Verify both suites: pmd-regression + pmd-touch (the touch suite runs at iphone-12-pro viewport and exercises density/em scaling).
+
+# 2026-09-23 Search Jobs layout fix, Search Jobs menu item, pmd-stream-job-card rename, injectStyleInto fix, stream-card surface unification
+
+- Search Jobs page: the header form in `buildSearchJobsContent()` (`PlanMyDay/js/job-search.js`) used Bootstrap `.row`/`.col` gutters (`ml/mr:-12px`) against the editor page body padding (`16px 20px`), which scrolled the controls past the page edges AND left a ~11px gap under the search box (input 38px in a 50px row). Replaced with `d-flex align-items-stretch gap-2`  `<input class="form-control flex-grow-1">` + `<smd-button class="flex-shrink-0">Clear</smd-button>`  so the input fills the 50px row and nothing overflows. Probe-verified: input x=20..1169, Clear x=1177..1260, both h=50, list starts y=153.078. No gap, no overflow.
+- Search Jobs menu item: `PlanMyDay/index.html:56` was `<button class="dropdown-item" onclick="openSearchJobs()">` while its siblings were `<a>`  Bootswatch styles anchors with `.dropdown-item` (14px/21px) but leaves buttons at browser default (17.5px/26.25px), so the item looked oversized. Converted to `<a class="dropdown-item" onclick="openSearchJobs()">`. Menu probe: all 9 items are anchors, 14px/21px. Test selectors updated `button.dropdown-item` ? `a.dropdown-item` for "Search Jobs" in `pmd-regression.spec.js:1176`, `pmd-screenshots.spec.js:458,470`.
+- Renamed `pmd-stream-job-card` ? `pmd-job-stream-card` (`PmdStreamJobCard` ? `PmdJobStreamCard`). The old component was still the pre-Bootstrap-utilities light-DOM sheet-driven style; the new one mirrors `pmd-job-search-card` (Bootstrap utilities in the template, `card bg-dark text-white border-0` surface, single injected element stylesheet `pmd-job-stream-card-style`, `smd-h2.job-title`, `smd-image` thumb, `smd-badge` suffix/schedule/time/extra, `smd-checkbox.active-toggle` + `smd-button` Edit). Keeps `_bound && isConnected` render guard, `_adoptSlottedHandle()` (consumer slots `<smd-draghandle class="drag-handle" slot="drag-handle">`), same observedAttributes + `pmd-job-edit`/`pmd-job-toggle-active` events. Touchpoints renamed: `streams-editor.js` (renderJobsInAccordion emits `<pmd-job-stream-card>`), `PlanMyDay/index.html` script include, `sw.js`, `storybook/index.html` (23 refs incl. section ids, CSS selector, seed), `tests/storybook-regression.spec.js:34`, `tests/pmd-regression.spec.js:1361`. Old file `PlanMyDay/js/components/pmd-stream-job-card.js` deleted; old `pmd-stream-job-card` CSS block in `PlanMyDay/css/styles.css` replaced (only `pmd-job-stream-card smd-checkbox.active-toggle { font-weight:700 }` kept  the label-weight rule the regression test `active label is bold on job tiles` asserts).
+- `injectStyleInto` was broken for 19 single-arg callers: `injectStyleInto(css)` treated the css as `root` and fell back to `SETTINGS_STYLES` (empty)  nothing was ever injected after light-DOM refactor (regression introduced by `2e729b3` "removed shadow dom in components"). Fixed in `shared/js/smd-app.js`: `if (css === undefined && typeof root === "string") { css = root; }`. The 2-arg call (`smd-settings.js:353`) unaffected. Editors (Search Jobs, Streams, Images) now inject their chrome styles again.
+- Stream-card background unification: probe across superhero/quartz/cerulean/flatly/darkly showed stream cards rendered `--bs-dark-border-subtle` (gray, e.g. #b4bcc2 flatly) while today/search cards used `card bg-dark` (`--bs-dark`)  mismatched next to page surfaces. New `pmd-job-stream-card` uses `card bg-dark text-white border-0` like the other job cards. This supersedes the old AGENTS note (85) that said cards use opaque `--bs-body-bg`  the current templates use `bg-dark`.
+- Full regression green: pmd-regression 432/432, qrlinks+cmd+solarcontrolar 65/65, storybook 3/3, touch+example+sample-images+launch 10/10, pmd-touch 5/5. Screenshots suites intentionally not run.
+
+## 2026-09-23 — Bootstrap-only application markup, global theme modes, dual-mode screenshot pipeline
+
+### Application CSS removal and ownership
+
+- The six standalone application stylesheets are deleted: `PlanMyDay/css/styles.css`, `CountMyDays/css/styles.css`, `QRLinks/css/styles.css`, `SolarControlar/css/styles.css`, `Launch/css/styles.css`, and `FreeFormOX/css/styles.css`. Their `<link>` tags and `sw.js` precache entries are removed. `shared/css/styles.css` remains the shared shell/component stylesheet; Bootswatch and vendor CSS remain external dependencies.
+- Application markup now puts Bootstrap utilities directly on static HTML, component templates, and dynamically generated DOM: `d-flex`, `d-grid`, `row`/`col-*`, `gap-*`, `p-*`, `m-*`, `d-none`, `flex-grow-1`, `text-truncate`, `card`, `form-control`, `form-select`, `btn`, `alert`, `table`, and responsive row/column classes. Static inline `display`, flex, width, and spacing declarations were replaced with utilities where Bootstrap has a direct equivalent; runtime-computed geometry remains inline.
+- Custom elements used as block cards receive `d-block` on the HOST in app markup and Storybook demos (`pmd-job-today-card`, `pmd-job-search-card`, `pmd-job-stream-card`, `cmd-countdown-card`, `cmd-date-card`, `cmd-category-card`, `qrlink-card`). Do not rely on an app stylesheet to make an unknown custom element block-level.
+- Theme-aware cards use semantic theme surfaces rather than permanently dark `bg-dark text-white`: CountMyDays cards are `card border-0 w-100` with an inner `border rounded-3` row (host spacing `d-block mb-2`), matching PlanMyDay's `card smd-card border-0 w-100` + inner `border rounded-3`. The old `card bg-body-tertiary text-body border-0` surface is retired. QRLinks `qrlink-card` now follows the same pattern (`card smd-card border-0 w-100` + inner `d-flex align-items-center gap-3 p-2 border rounded-3`, title `<smd-h2 class="title fw-bold mb-0">`, description `small text-body`); the old permanently dark `card bg-dark text-white border-0` link card is retired too.
+- Remaining application-specific CSS is minimal and local to the behavior that owns it. Examples: PMD done/swipe/title/compact state, stream accordion expansion, FreeFormOX board geometry and game states, Solar split-flap/battery animation/output geometry, and empty-image placeholders. Do not recreate `.form-control`, `.row`, `.col-*`, `.d-flex`, `.gap-*`, `.btn-*`, dropdown, or input-group CSS in light DOM—Bootstrap already owns those.
+- The app `editor-styles.js` files were pruned from large Bootstrap recreations to the few true editor exceptions. The pages/components are light DOM, so those old “shadow-root CSS” rules were both obsolete and the source of broad regressions. `injectStyleInto` remains available for the small remaining style blocks.
+- Use Bootstrap flex markup and spacing classes instead of CSS where possible: prefer `d-flex`, `flex-row`/`flex-column`, `align-items-*`, `justify-content-*`, `flex-grow-1`, `flex-fill`, and `gap-*`/`p-*`/`m-*` directly on static HTML, templates, and generated DOM. Do NOT add `display`, `flex-direction`, `gap`, or alignment rules to `shared/css/styles.css` for something Bootstrap utilities already cover; keep layout out of the shared stylesheet and reserve raw CSS for host-level display and behavior-specific exceptions. Watch that Bootswatch's `.card` defaults to `flex-direction: column`, so row-layout cards use `d-flex flex-row`.
+
+### Light-DOM component rules learned
+
+- A component that clones its template in `connectedCallback` MUST gate attribute renders with `if (this._bound && this.isConnected)`. `isConnected` alone is insufficient while Chromium is parsing/upgrading an already-connected custom element; Storybook's `host.innerHTML` is the regression trigger.
+- `<smd-button>` renders a real inner `<button>` and captures authored text once. Use `variant="primary|danger|..."` and `size="small"`; do not put `btn-sm` on the host expecting it to forward. Clicks bubble from the inner button to the host. Accessible button names should be visible text where practical; `title` is supplementary, not a replacement for the accessible label.
+- `<smd-badge>` is the shared themed badge. Prefer it over app-created `.event-badge` colour rules while retaining stable class hooks such as `.event-badge-google` for tests.
+- Custom cards must preserve observable contracts even when markup changes: PMD `.job-title`, `.active-toggle`, drag handles and `pmd-job-edit`/`pmd-job-toggle-active`; CountMyDays `.title`, `.meta`, `.event-badge-*`, Edit/Delete names, image dropdown hooks; Storybook counts for every component demo.
+- CountMyDays no longer overloads the native `hidden` attribute to mean “hidden Google event.” It uses `data-google-hidden="true"`; the row remains visible and shows a Hidden badge. Native `hidden` still means actual UI hiding.
+
+### `injectStyleInto` regression and CountMyDays editor failure
+
+- `injectStyleInto(css)` was broken after the light-DOM refactor: the CSS string was interpreted as the `root` argument and the function fell back to the empty `SETTINGS_STYLES`, so 19 single-argument callers injected nothing. The compatibility fix in `shared/js/smd-app.js` is `if (css === undefined && typeof root === "string") { css = root; }`; the two-argument caller remains valid.
+- During the CSS migration, emptying `CountMyDays/js/editor-styles.js` and removing `injectEditorStyles(page)` caused 18 unrelated editor/wizard/Google tests to fail: `injectEditorStyles` was undefined, every editor action threw, and downstream Add Date/Edit/Import flows silently failed. Root cause was an accidental broad deletion, not selector drift. Lesson: prune editor CSS, but preserve the injection function and every app-specific state rule before running a broad migration.
+- Button selector failures after replacing native `<button>` with `<smd-button>` can look like unrelated editor failures. Verify the actual accessible name and event target before changing test selectors.
+
+### Touch regressions
+
+- The iPhone expanded-stream drag test failed because `touchDrag` measured the last item before pointerdown, while Sortable intentionally collapses the open stream in `onStart`; the target moved before the drag moved. The helper now accepts a target locator/function and remeasures after pointerdown. The product behaviour remains: collapse all streams during drag, then restore the captured expanded stream after reorder.
+- Removing the PlanMyDay app stylesheet initially removed the compact density variables. Compact title sizing now belongs to the injected `pmd-job-today-card` CSS (`body.compact` sets the component title token to `--smd-type-p`). Do not restore a PlanMyDay app stylesheet just for this hook.
+- `pmd-touch` 5/5 is the minimum verification for drag handles, expanded-state restoration, font scaling, task reordering, and swipe behaviour.
+
+### Shared global Light/Dark theme mode (no per-theme default; Default removed 2026-09-26)
+
+- `shared/js/smd-settings.js` is the single theme engine. `themeConfig[theme]` carries ONLY `css`; there is NO `defaultMode`/`bsTheme`. `smdKey("themeMode")` stores ONE GLOBAL mode per app: `light` or `dark` (the old `default` value and any invalid value normalize to `light` — there is no per-theme fallback). The six keys are `planmydays_themeMode`, `countmydays_themeMode`, `qrlinks_themeMode`, `ffox_themeMode`, `launch_themeMode`, and `solarcontrolar_themeMode`.
+- `data-theme` is the normalized Bootswatch slug; `data-bs-theme` is the explicit `light|dark` mode and remains authoritative for Bootstrap variables, native controls, Flatpickr, and `<smd-image theme="auto">`. Invalid stored themes normalize to `superhero`.
+- Override stylesheet order is guaranteed: Bootswatch base -> shared/app CSS -> per-theme `<theme>.css` (the `#theme-override-specific` link). Mode-only switches do not reload the base theme or call `renderMain()`/network refresh; they update `data-bs-theme` and mode-dependent images in place. (`shared/css/themes/light.css`/`dark.css` and the `#theme-override-mode` link are GONE; `applyThemeMode()` now only sets the two attributes.)
+- `<smd-theme>` renders TWO labelled fields with stable hooks: `.smd-theme-select` (label "Theme") and `.smd-theme-mode-select` (label "Theme Mode", options Light/Dark). Theme options show the bare title (e.g. "Superhero"), never "Superhero (dark)". It dispatches `smd-theme-change` with `{ theme, mode, source }`, where source is `theme` or `mode`. Tests must target the stable classes.
+- Storybook uses its own `storybook_theme` / `storybook_themeMode`, preserves the app's PlanMyDay keys around every apply, and exposes the same `<smd-theme>` control in its header. Seeded image stores must exist before elements carrying `image=` are upgraded.
+- Mode-only changes must not trigger `renderMain()`, especially in SolarControlar where that performs a server fetch. Theme changes may rerender as before.
+
+### Component/application refactors
+
+- `pmd-stream-job-card` was renamed to `pmd-job-stream-card` (`PmdJobStreamCard`). All app, Storybook, service-worker, CSS, and test references changed together. Its light-DOM handle adoption and `_bound` guard are required for Sortable and Storybook upgrades.
+- CountMyDays date/category/countdown cards now use Bootstrap cards/flex and shared controls. Date/category action buttons remain named Edit and Delete; Date and Google flows continue through the same delegated events.
+- FreeFormOX state no longer depends on exact `className` strings. Each board cell has `data-state`; Bootstrap state classes and utility classes can be changed without breaking move/winner detection. Only viewport/aspect-ratio and non-Bootstrap game visuals remain in the injected `ffox-game-styles` block.
+- SolarControlar flash/status messages use Bootstrap alerts/badges. Split-flap, battery, pulse, and no-data visuals moved into `solar-top-tiles`; output monospace/overflow geometry remains where the output is created. Removing its app stylesheet exposed that the shared Buy Me A Coffee image had no intrinsic dimensions while loading; `smd-buymeacoffee` now sets its 545×153 aspect-ratio dimensions plus `d-block`.
+- Launch uses a responsive Bootstrap row/column grid and `card bg-body-tertiary text-body` tiles. Screenshot/cross-app tests confirmed the PlanMyDay Launch link remains visible.
+- Static hamburger font size remains a documented shared exception; it is not an application stylesheet concern.
+
+### Screenshots: generation source versus output directory
+
+- `screenshots/` is OUTPUT ONLY (and ignored by Git). The source of screenshot generation is `tests/<app>-screenshots.spec.js`; do not add generation logic or product UI to the output directory. The viewer and generated PNGs live under `screenshots/`, but scene setup/capture belongs in the tests.
+- All five existing screenshot suites (`pmd`, `cmd`, `qrlinks`, `ffox`, `launch`) now import `tests/screenshot-helpers.js`. The helper reads the live 26-theme `themeConfig`, iterates explicit modes `light` then `dark`, calls `applyTheme(theme, mode)`, emulates the requested media colour scheme, waits for all three stylesheet links, fonts, visible image decode, and two animation frames, and preserves app-specific `afterTheme` refresh callbacks.
+- Chosen output structure: `screenshots/<app>/<theme>/<light|dark>/<scene>.png`. There is no `default` output directory for generated images. Scene filenames remain stable. The full matrix is 26 themes × 2 modes × 56 existing scene names = 2,912 gallery images, plus the separate root `sample-images.png` gallery.
+- Screenshot generation ran with `--workers 16`: all 53 screenshot tests passed. Output audit found 2,912 files: pmd 1,872 (936 light + 936 dark), cmd 364, qrlinks 260, ffox 260, launch 156; every app had 26 themes and zero legacy direct PNGs. ALWAYS generate screenshots with `--workers 16`; this is the documented standard for every `tests/*-screenshots.spec.js` command.
+- `screenshots/viewer.js` supports the nested mode layout and legacy direct `<app>/<theme>/<scene>.png` files (shown as synthetic `Default`). The API shape is `theme -> modes[] -> { name, path, images }`. The UI has separate App, Theme, and Mode selectors; section identity is composite app/theme/mode so open state and drag ordering cannot collide. Selections persist under `screenshotViewerGallery`, `screenshotViewerTheme`, and `screenshotViewerMode`.
+- The viewer is covered by `tests/screenshot-viewer.spec.js` with a temporary synthetic tree; it verifies nested mode scans, legacy fallback, deep image serving, app/theme/mode filtering, persisted choices, and composite open-state. `createServer()` is exported behind a `require.main === module` guard so tests can use an ephemeral port.
+
+### Verification state for this session
+
+- Syntax checks passed for all changed JavaScript files; `git diff --check` passed.
+- Targeted/full non-PlanMyDay verification completed: CountMyDays 45/45, Launch 6/6, FreeFormOX 11/11, Storybook 7/7 (including Superhero dark blue), pmd-touch 5/5. QRLinks and SolarControlar passed within the combined 38-test run; its only initial failure was the Buy Me A Coffee image and was fixed/retested.
+- Final workers=16 verification: the complete 522-test non-screenshot regression set reached 519 passed / 3 failed. All three were infrastructure/concurrency flakes, not theme failures: two CountMyDays QR canvas/image render waits under load and one transient `page.reload(): net::ERR_CONNECTION_REFUSED`. Both local servers answered 200 immediately afterward, and the same three tests passed 3/3 on an isolated workers=16 rerun. The final theme-colour tests assert raw Bootswatch button/badge/tab colours without runtime contrast correction.
+
+### Final theme decision — Bootswatch colours are authoritative (2026-09-23)
+
+- This supersedes the earlier `applySmdVars()` / `smd-contrast.js` / centralized-WCAG-colour notes in this history. The runtime contrast layer has been removed permanently: `shared/js/smd-contrast.js` is deleted; `smd-settings.js` no longer creates hidden body probes, no longer publishes generated `--smd-*-text`/`--smd-on-*` variables, and no longer recomputes colours on stylesheet load.
+- Shared CSS no longer overrides Bootstrap button, badge, tab, page-header, or modal-header colours with generated contrast values. Those components now consume the colours and Bootstrap variables supplied directly by the selected Bootswatch stylesheet. Structural layout, sizing, borders, typography, and component behaviour remain shared CSS; colour selection does not.
+- KEEP the theme engine: `themeConfig`, app-namespaced `theme` + global `themeMode`, `applyTheme()`, `applyThemeMode()`, `data-theme`, `data-bs-theme`, base/shared/specific stylesheet order, `<smd-theme>`, Storybook theme/mode controls, and SVG image auto-mode all remain. Users can swap all 27 themes and choose Light/Dark (Default removed 2026-09-26; see the theme-mode note above).
+- Per-theme `shared/css/themes/<theme>/<theme>.css` files are the only permitted colour exceptions (`light.css`/`dark.css` were deleted 2026-09-26). Superhero's specific file keeps its dark-blue `#0f2537` body at its base palette.
+- The PlanMyDay theme test group is now named `Theme colours`. It verifies native button/badge/tab computed colours against fresh Bootswatch elements in Cerulean/Darkly/etc. It does not assert generated WCAG substitutions. Do not reintroduce hidden probes or runtime palette mutation without a new explicit user decision.
+- Screenshot generation still calls `applyTheme(theme, mode)` and therefore captures the actual Bootswatch light/dark result after contrast removal.
+
+### Test policy learned in this session
+
+- Use `--workers 16` for screenshot generation and broad regression runs.
+- For broad runs, classify failures before changing product code: missing resources/404s, `ERR_CONNECTION_REFUSED`, browser/server crashes, and transient canvas/image waits are infrastructure/concurrency failures. Re-run the exact failed tests with the same worker setting; only persistent failures count as regressions.
+- In the final workers=16 run, two QR-render waits and one connection refusal passed immediately on isolated rerun with both servers confirmed healthy. This is the expected handling for transient infra failures.
+
+### Storybook theme selector parity (2026-09-24)
+
+- The user requested a Storybook-only selector fix; do not change the main apps or shared selector component for this issue.
+- `storybook/index.html` now uses the same `<smd-theme>` custom element as the main app instead of maintaining custom theme/mode `<select>` elements. It listens for `smd-theme-change`, applies the selected theme through `applyTheme()`, re-renders demos on theme changes, and mirrors theme/mode changes into the component demo.
+- Storybook continues to persist only `storybook_theme` and `storybook_themeMode`. The existing `planmydays_theme` and `planmydays_themeMode` values are captured before applying Storybook preferences and restored after every call, because `applyTheme()` otherwise writes the app-namespaced theme key.
+- Keep the Storybook-only Superhero body rule (`html[data-theme="superhero"] body { background-color: #0f2537; }`) because Storybook's regression contract requires the dark-blue surface even in forced Light mode.
+- Regression selectors use `#storybookThemeSelector .smd-theme-select` and `#storybookThemeSelector .smd-theme-mode-select`; the old `#themeSelect` / `#modeSelect` IDs must not return. `tests/storybook-regression.spec.js` passes 7/7 with `--workers 16`.
+
+### Storybook all-theme card viewer (2026-09-24)
+
+- `storybook/cardViewer.html` is a standalone comparison tool linked from the Storybook header. The top Card dropdown selects one of eight real card components: Today, Job Stream, Job Search, Countdown, Date, Category, QR Link, and Image. Selection persists under `cardViewerCard`.
+- The top Theme dropdown offers `All themes` plus each of the 26 Bootswatch names and persists under `cardViewerTheme`. `All themes` renders 26 rows/52 iframes; one named theme renders one row/two iframes. Both views always place explicit Light then Dark across the row.
+- Frames are required because Bootstrap/Bootswatch theme CSS and `data-bs-theme` are document-global; changing one frame cannot theme another frame.
+- Each frame writes `data-theme="<bootswatch>"`, `data-bs-theme="light|dark"`, and loads base theme -> mode override -> theme-specific override -> shared CSS. Its base stylesheet uses `id="bootstrap-theme-css"` so shared components can derive the correct shared root through `smdAppRoot()`.
+- Frames seed/read only the `cardviewer_images` image namespace. They load `smd-app.js`, `build-number.js`, `smd-settings.js`, the selected card and its nested-component dependencies. Do not call global `applyTheme()` inside frames because that would mutate app-namespaced storage and the whole document at once.
+- Iframes are lazy-loaded and auto-fit their height after rendering. A card/theme change replaces the currently selected 2 or 52 frames; frame load is not intended to mutate the main Storybook theme. Rapid replacement can intentionally abort in-flight shared font requests, so regression checks ignore only `net::ERR_ABORTED` for `/shared/vendor/fonts/` while retaining all other request failures.
+- The Superhero experiment now lives in `shared/css/themes/superhero/superhero.css`: `.smd-card` text is green for forced Light and red for forced Dark. This supersedes the earlier Storybook-only Superhero body-background experiment; keep this only while it serves as the requested proof of theme- and mode-specific CSS.
+- Verification: `tests/storybook-regression.spec.js` passes 8/8 with `--workers 16`; the card-viewer test verifies All/single-theme filtering and persistence, 26/52 versus 1/2 dimensions, all eight card recipes, and zero unexpected console/page/request failures. Color-specific assertions are intentionally outside the functional-only shared CSS contract.
+
+### HTML size-state attributes (2026-09-24)
+
+- Shared appearance settings mirror their current values onto one root element using the namespaced contract: `html[data-smd-font-size]`, `html[data-smd-icon-size]`, `html[data-smd-touch-size]`, and `html[data-smd-tile-density]`. `changeFontSize()`, `changeIconSize()`, `changeTouchSize()`, and `changeDensity()` update these attributes immediately after persisting the app-namespaced value.
+- The shared `DOMContentLoaded` initializer writes the same attributes from stored values before applying the existing body classes. Defaults are Font `xlarge`, Icon `medium`, Touch `normal`, and Tile Density `normal`.
+- Body classes remain the implementation mechanism for CSS and component behaviour; the root data attributes are the inspectable/selectable state mirror and must not be used to duplicate appearance CSS rules.
+- PlanMyDay Settings regressions assert startup defaults plus live changes for all four root attributes. The Settings-focused run passes 40/40 with `--workers 16`.
+
+### Functional-only shared CSS and shell state (2026-09-24)
+
+- `shared/css/styles.css` is mechanics-first but retains intentional shared component chrome needed for usability and theme fidelity. It includes state selectors, touch/scroll behavior, smd-page slide transforms/transitions, modal open/close positioning and restored modal chrome, page header surface, tab panel visibility, the wrapping image-picker grid, and the Streams Editor header/toggle. Bootstrap/Bootswatch and app-specific CSS own remaining appearance.
+- Do not reintroduce the removed runtime contrast/palette layer or a global font-size ramp without an explicit request. Intentional component skins belong in the shared stylesheet only when they are required for a component to be usable across apps; app-specific exceptions belong in app CSS.
+- The PlanMyDay custom pull-to-refresh script is no longer loaded or precached. Service-worker `waiting`/`updatefound` events use the existing shared `smd-modal` update prompt instead; do not recreate the top pull indicator.
+- `smd-app.js` observes `smd-page[open]` state and hides `#btnMainMenu` only while a secondary page is open, restoring it when the page closes. The observer must only write when the boolean changes to avoid a self-triggering MutationObserver loop.
+- Verification: the full non-screenshot regression set passed **532/532** with `--workers 16`; PlanMyDay passed 432/432, touch passed 5/5, and no infrastructure failures occurred. Visual-only assertions affected by the functional CSS cleanup were removed or rewritten to state/behavior checks.
+
+### 2026-09-25 - Shared light-DOM styling and page-stack recovery
+
+- Every app and Storybook entry body now has `id="smd-app"`. Shared component selectors that must beat Bootswatch use that ID scope, for example `#smd-app smd-tabs .smd-tab-btn`; do not rely on a low-specificity `.nav-link` rule because theme CSS can win the cascade.
+- The current tab contract is Bootstrap-native: `smd-tabs` renders `.nav.nav-tabs`, `.nav-link`, `.tab-content`, and `.tab-pane`, and synchronizes `.active`, `aria-selected`, `tabindex`, and the `hidden` attribute. Use the same `.tabs = [...]`/`activeIndex` API as the Storybook demo.
+- `smd-modal` light-DOM chrome was recovered from the deployed `https://ownimage.github.io/MyApps/shared/css/styles.css` stylesheet. The dialog uses `--bs-body-bg`/`--bs-body-color`/`--bs-border-color`, the overlay dims the page, and header/body/footer padding, borders, radius, and shadow are intentional shared styles. Keep the deployed block as the reference when the local functional CSS cleanup removes component chrome.
+- `smd-page` does not automatically hide a previously open page. App-specific code must capture and restore the underlying page: `PlanMyDay/js/job-editor.js` uses `_jobEditReturnView` plus `hideJobEditBackground()`/`restoreJobEditBackground()`; `PlanMyDay/js/image-picker.js` uses `pickerBackground` to hide every open `smd-page` and `#countdownContainer` before showing `imagePickerPage`, then restores them on every close path (cancel, No Image, and selection). Preserve the `d-none`/slide timing contract.
+- `activeEditorView()` treats the `d-none` state of `#streamsEditor` and `#jobSearchEditor` as the source of truth for the return view. Do not hide an editor page without storing its prior state, or Done/Cancel will render the wrong view.
+- The shared image picker needs a real wrapping layout: `smd-image-picker .grid` is `display:flex; flex-wrap:wrap` with `gap`, and `.item` has a minimum tile width. Without those rules the `.grid` and `.item` divs stack vertically. Restore the shared picker grid styles when changing the functional CSS sheet.
+- The Streams Editor header is scoped to `#smd-app #streamsEditor pmd-stream-header`: expanded uses `--bs-primary`, collapsed uses `--bs-info`, and the chevron is a visible sized button with a rotating `::after` arrow. Verify both states in the browser.
+- `pmd-job-today-card` receives `description` in `main-view.js` and renders it in `.description`; the earlier invisible-text report was a contrast problem, not missing data. `text-secondary` can be nearly the same luminance as a dark themed card, so the card uses `text-body` for readable theme text. Check computed color and bounding boxes before changing data plumbing.
+- `smd-page` headers now use a distinct theme surface (`--bs-secondary-bg` with a `--bs-border-color` separator). Keep page background/header/footer colors theme-driven; do not hardcode a single dark or light value.
+- Browser-only verification pattern for this session: seed localStorage, call the app render function, inspect `getComputedStyle`/bounding rectangles, and wait for CSS transitions before judging colors. `node --check` and `git diff --check` are the lightweight syntax/whitespace checks; the user asked not to run the Playwright suite during the visual iteration.
+- What worked: `node --check` on edited JS, `git diff --check`, and manual browser probes for the page stack, tab state, modal surface, picker wrapping, and card description. What did not work: reading only the DOM text for visual issues; the description existed but its computed color was unreadable, and a screenshot was needed to distinguish that from a layout bug.
+
+### Authoritative CSS cascade and page-stack contract (2026-09-25)
+
+- Required stylesheet order for every app shell: vendor product styles first, then `shared/css/themes/<theme>/bootstrap.min.css`, then `shared/css/styles.css`, and finally the per-theme override `shared/css/themes/<theme>/<theme>.css`. This note is the authoritative cascade order and supersedes older notes that described the mode/specific sheets before shared CSS.
+- The per-theme override is the final override layer. Keep the three theme link ids (`bootstrap-theme-css`, `smd-shared-css`, `theme-override-specific`) and preserve this order when changing index pages or dynamic theme loading. The `theme-override-mode` link was removed 2026-09-26 with `light.css`/`dark.css`.
+- GOTCHA (fixed 2026-09-25, do not reintroduce): `applyTheme()` re-points the override sheet at runtime, and the old `orderThemeOverrideLinks()` anchored it on `#bootstrap-theme-css`. Because the shared sheet sits AFTER the base link in the correct order, that anchored it BEFORE it and pushed `shared/css/styles.css` to the end of `<head>` — so the theme was no longer the last cascade layer. The override is now anchored on the shared sheet: `themeOverrideAnchor()` returns `#smd-shared-css` (falling back to an href match for `shared/css/styles.css`, then the base link), and `setOverrideLink()`/`orderThemeOverrideLinks()` insert `theme-override-specific` immediately after it. Every shell carries `id="smd-shared-css"` on its shared stylesheet link.
+- This order is ENFORCED in every static shell (`index.html`, `PlanMyDay/index.html`, `CountMyDays/index.html`, `QRLinks/index.html`, `SolarControlar/index.html`, `FreeFormOX/index.html`, `storybook/index.html`, `storybook/cardViewer.html` including its iframe `frameDocument()`), and locked in by the "app shells load stylesheets in the documented cascade order" test in `tests/launch-regression.spec.js`, the frame check in `tests/storybook-regression.spec.js`, and the runtime order assertions in the Storybook theme-swap test. Keep new shells and the card viewer generator in the same order.
+- WHY the override file wins without qualification: `shared/css/styles.css` declares its defaults in a bare `:root` (specificity 0,1,0), and so may the per-theme file. Being the LAST stylesheet, the per-theme `:root` beats it by document order. Mode-specific rules key off `[data-bs-theme="light|dark"]` (specificity 0,2,0) inside the per-theme file. This was the 2026-09-26 fix for `superhero.css` overrides not applying (verified live: header = `--bs-black` light / `--bs-dark` dark, tabs = `--bs-secondary`; the old failure came from the override links loading BEFORE `styles.css`).
+- `smd-page` shows a single active overlay without destroying background state. `show()` adds `smd-page-suspended` to every other open `smd-page` (they keep `open`, so app state is preserved) and cancels stale `requestAnimationFrame` opens; `hide()` invalidates pending opens and unsuspends the pages it was covering. `smd-page-suspended` is `display: none !important` in `shared/css/styles.css`, so a suspended page is invisible but alive. `SmdApp.openPage()` must NOT call `closePages()`; opening B over A must leave A with `open` plus `smd-page-suspended`, and closing B must reveal A again. App code that hides pages itself (`PlanMyDay/js/job-editor.js`, `PlanMyDay/js/image-picker.js`, QRLinks picker) still works because it owns its own `d-none`/background restore timing.
+- Nested pages must chain: A opens B, B opens C; closing C restores B, closing B restores A. `restoreSmdPageBackgrounds()` only unsuspends the pages recorded on the closing page's `__smdBackgroundPages`, so do not blanket-unsuspend everything in `hide()`.
+- The menu observer in `smd-app.js` continues to hide `#btnMainMenu` while any `smd-page[open]` is active. Keep the observer write conditional to avoid a MutationObserver feedback loop.
+- Verification for the page-stack change is `tests/pmd-regression.spec.js` plus the workers=16 non-screenshot suite; distinguish infrastructure failures from product failures before changing behavior.
+
+### 2026-09-26 - Themes have NO default colour mode; light.css/dark.css removed; smd-page opaque surface
+
+- `shared/js/smd-settings.js`: `themeConfig` entries now carry ONLY `css` (no `defaultMode`/`bsTheme`). `SMD_THEME_MODES` and `getThemeDefaultMode()` are gone; `normalizeThemeMode(mode)` returns `"dark"` only for `"dark"`, else `"light"` (old `"default"` and any invalid value normalize to `light`). `resolveThemeMode(theme, mode)` is now just `normalizeThemeMode(mode)` (signature kept for the storybook caller). `applyTheme(name, modeOverride)` sets `data-bs-theme` directly from the resolved mode; `applyThemeMode(theme, mode)` only sets `data-theme`/`data-bs-theme`.
+- Removed the mode override sheet: `applyThemeOverrides(theme, prefix, v)` now manages ONLY `#theme-override-specific`; `orderThemeOverrideLinks()` only orders that one link after `#smd-shared-css`. DELETED `shared/css/themes/light.css` and `dark.css`, removed the `#theme-override-mode` link from all 7 shells + `storybook/cardViewer.html`, and removed both entries from `sw.js` SHARED_ASSETS. `storybook/cardViewer.html` frame generator no longer loads a mode css and no longer prints a "Default: <mode>" label.
+- `shared/js/components/smd-theme.js`: theme options are bare titles (`Superhero`, not `Superhero (dark)`); mode options are `Light`/`Dark` only; the component now renders TWO labelled Bootstrap rows - `Theme` + `.smd-theme-select`, and `Theme Mode` + `.smd-theme-mode-select`. App settings pages replace their old "Theme" row with `<smd-theme id="themeSelector" class="col-md-8 mt-3">` (all 6 apps). The storybook header drops its external `<label>Theme</label>` and now shows the component inline (CSS in `storybook/index.html` flexes `.smd-theme-field`); its static `<html data-bs-theme>` is now `light`.
+- Verified: `node --check` on all edited JS; storybook 8/8; pmd-regression 436/436; launch/ffox/cmd/qrlinks/solar/storybook/sample-images/pmd-example/pmd-touch combined 101/101; `pmd-screenshots.spec.js` with `SCREENSHOT_THEME=superhero` 33/33. Tests updated: removed `"Default"` from mode option lists (cmd/ffox/launch/qrlinks/storybook), discarded `themeConfig.superhero.defaultMode`, changed the cascade rank helpers + `screenshot-helpers.js` STYLESHEET_IDS to drop the mode sheet, and the pmd "current app theme selects active override" test now uses explicit `applyTheme("darkly", "dark")` (a dark theme no longer implies dark mode).
+- BUG FIX (reported after the theme change): the Launch settings page let the app grid show through. Root cause was the 2026-09-25 functional-CSS cleanup dropping `background: var(--bs-body-bg)` from `smd-page .smd-page`, leaving the full-screen page surface transparent; apps that explicitly hide their main content (PlanMyDay etc.) masked it, but Launch does not. Restored `background-color: var(--bs-body-bg)` on `smd-page .smd-page` in `shared/css/styles.css` and added a launch-regression assertion that the settings `.smd-page` surface is opaque.
+- `BUILD_NUMBER`: working tree was already at `202609260716` (build-number.js + sw.js agree); left as-is. The user ships.
+- CountMyDays card parity (applied before this note): `cmd-countdown-card`/`cmd-date-card`/`cmd-category-card` templates changed from `card bg-body-tertiary text-body border-0 px-3 py-2|p-3` to `card border-0 w-100` with the existing content row gaining `border rounded-3`. Host spacing `d-block mb-3` -> `d-block mb-2` in `main-view.js`, `dates-editor.js`, `categories-editor.js`, and `googleCalendarEditor.js`. Bootstrap classes only; no new shared CSS.
+- Edit Dates search row now stays on one line: `CountMyDays/js/dates-editor.js` dropped `flex-wrap` from the search row and added `flex-shrink-0` to the Clear button (`.form-control` is `width:100%`, so its flex basis filled the row and wrapped the button). No inline/CSS change.
+- Shared `<smd-image-dropdown>` gained Bootstrap surfaces so its trigger/popup are no longer transparent: button `class="btn btn-outline-secondary bg-body-tertiary"`, menu `class="menu list-unstyled bg-body border rounded shadow-sm mb-0"`. `list-unstyled` (plus `mb-0`) removes the Reboot `ul` bullet markers/padding/ margin. The trigger button and each menu `.item` row carry `gap-2`, which spaces the image from the name (0.5rem, m-2 equivalent). Do NOT add Bootstrap's `dropdown-menu` class to the menu - it sets `display:none` and would break the component's `hidden`-attribute toggling. Applies to CountMyDays `#dateCategoryFilter`/`#dateCategorySelect` and PlanMyDay `#jobStreamDropdown`; no test asserted the old class strings.
+- FLAKY TEST FIX (2026-09-26): `pmd-regression.spec.js` "applies light and dark svg theme overrides..." was flaky under load. `applyTheme("flatly")` swaps `#theme-override-specific` asynchronously, and the default `superhero.css` pins `--smd-image-theme: dark`. Until flatly's override replaces it, BOTH `<smd-image>` and `getThemedImageDataUrl()` resolve `dark`, so the light pass renders/compares `#ffffff` and fails. The test now sets `data-bs-theme`, then `await page.waitForFunction((want) => getThemeKey() === want, theme, ...)` BEFORE creating the element, plus `test.setTimeout(30000)`. When a theme-dependent assertion is flaky, wait on the app's own resolver (`getThemeKey`) rather than the raw `<link>` load.
+- NEW SHARED COMPONENT `shared/js/components/smd-search.js` (`<smd-search>`): the one-line search input + Clear button. Light DOM, template cloned in `connectedCallback` via `_build()`; the host is made `display:block` in `shared/css/styles.css` (`smd-search`), layout is the inner `d-flex gap-2 align-items-center` row. Clear button defaults to `btn btn-danger btn-sm` (user chose danger red), overridable via `variant`/`size`. Attributes: `placeholder`, `value`, `input-id`, `button-id`, `clear-label`, `variant`, `size`, `disabled`. Events bubble+compose: `smd-search-input` ({ value }) per keystroke, `smd-search-clear` ({ value: "" }) on Clear. IMPORTANT: it sets NO default ids (only `input-id`/`button-id` when given) so multiple instances across the always-in-DOM editor pages cannot collide; callers that keep `$id(...)` lookups pass `input-id`, and test-referenced clears pass `button-id` (`#btnJobSearchClear`, `#btnImageFilterClear`). Registered in the root/CountMyDays/PlanMyDay/QRLinks shells, `storybook/index.html`, and `sw.js` SHARED_ASSETS.
+- Replaced every hand-rolled search+Clear row with `<smd-search>`: CountMyDays `categories-editor.js`/`dates-editor.js`/`googleCalendarEditor.js`, PlanMyDay `job-search.js`, shared `smd-images.js` (Edit Images + `openImagePicker`) and `smd-image-picker.js`. Bindings are event-delegated on the persistent page/host (guards like `page.__jobSearchBound`, `page.__imageSearchBound`, `page.__pickerBound`) so a content rebuild does not need rebinding. The CountMyDays export-wizard searches (`ewDateFilterName`/`ewCatFilterName`/`ewImageFilterName`) have NO Clear button and were left as-is. `smd-image-picker .search` is now `display:block` (the removed `.search input`/`.search button` flex rules were superseded by the component row). Storybook gained an `smd-search` section; the nav-link count assertion moved 30 -> 31 in `tests/storybook-regression.spec.js`.
+- The three image-picker clear tests in `pmd-regression.spec.js` target `#imagePickerPage smd-image-picker smd-search button` now (the old picker-local `.clear` class is gone): `clear button resets picker search` (x2) and `bootstrap tab search filters icons and clear restores them`.
+- MAIN-VIEW CARD RHYTHM (2026-09-26): both main screens now space their cards with the Bootstrap `mb-1` utility on the HOST (0.25rem), not a component-owned margin. PlanMyDay's `pmd-job-today-card` injected style dropped `margin-bottom: var(--pmd-today-margin, 0.5rem)` and the `--pmd-today-margin` var (base + `body.compact`); `PlanMyDay/js/main-view.js` host class is now `today-drag-card d-block user-select-none mb-1`. CountMyDays `cmd-countdown-card` never had a margin rule (a density-aware one was trialled and reverted) and `CountMyDays/js/main-view.js` host class is now `d-block mb-1`. Measured: both cards are 4px apart in normal AND compact density. The compact density still only affects the pmd job-title size (`--pmd-today-title-size`).
+- LAUNCH TILES (2026-09-26): `Launch/js/app.js` `renderAppGrid` now wraps each tile in a Bootstrap `.col` and mirrors `pmd-job-today-card`'s card pattern: `<a class="app-tile card smd-card border-0 h-100 d-flex flex-column text-decoration-none">` holding a `border rounded-3` inner surface (with `flex-grow-1`, centred content). Title is `<smd-h2 class="fw-bold mb-0">` (so `smd-h2.js` was added to the root `index.html` script block) and the description is `small text-body mb-0`. This is why the app-name headings are now VISIBLE: the old tile combined `bg-body-tertiary` with `text-body`, and in superhero both resolve to rgb(235,235,235) so the `div.h4 fw-bold` name was light-on-light. The old `rounded-4`/`h4`/`text-secondary` classes are gone. The `.col` wrapper makes the existing `#appGrid` `row row-cols-2 row-cols-md-3 row-cols-xl-4 g-3` gutter show on BOTH axes (16px horizontal AND vertical) and gives equal-height tiles per row; note pure `d-flex flex-wrap gap-3` cannot equalise column widths without a calc() rule, so the Bootstrap grid gutter is the utility-only way to get identical gaps. `tests/launch-regression.spec.js` still passes (it only asserts `.app-tile` count/text/href).
+- CYBORG OVERRIDE FIX (2026-09-26): `shared/css/themes/cyborg/cyborg.css` had a broken selector (`tml[data-theme=...]` missing the `h`) AND both rules targeted `data-theme="superhero"` inside the cyborg file, so neither applied anywhere. Fixed to `html[data-theme="cyborg"][data-bs-theme="light|dark"] .smd-card { color: white }`. `.smd-card` is a real class (PlanMyDay `pmd-job-today-card`/`pmd-job-stream-card`/`pmd-job-search-card`, QRLinks `qrlink-card`, Launch `.app-tile`), so this now whitens card text in cyborg in BOTH modes - including forced-Light, where white-on-light is a contrast risk; revisit if it bothers users (use `var(--bs-body-color)` or drop the light rule).

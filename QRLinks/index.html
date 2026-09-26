@@ -11,16 +11,14 @@
   <link rel="apple-touch-icon" href="icon-192.png">
   <title>QR Links</title>
 
-  <link id="bootstrap-theme-css" href="../shared/css/themes/superhero/bootstrap.min.css" rel="stylesheet">
-  <link id="theme-override-mode" rel="stylesheet" href="../shared/css/themes/dark.css">
-  <link id="theme-override-specific" rel="stylesheet" href="../shared/css/themes/superhero/superhero.css">
-  <link rel="stylesheet" href="../shared/css/styles.css">
-  <link rel="stylesheet" href="css/styles.css">
   <link rel="stylesheet" href="../shared/vendor/bootstrap-icons.css">
   <link rel="stylesheet" href="../shared/vendor/fontawesome/css/fontawesome.min.css">
   <link rel="stylesheet" href="../shared/vendor/fontawesome/css/solid.min.css">
   <link rel="stylesheet" href="../shared/vendor/fontawesome/css/regular.min.css">
   <link rel="stylesheet" href="../shared/vendor/fontawesome/css/brands.min.css">
+  <link id="bootstrap-theme-css" href="../shared/css/themes/superhero/bootstrap.min.css" rel="stylesheet">
+  <link id="smd-shared-css" rel="stylesheet" href="../shared/css/styles.css">
+  <link id="theme-override-specific" rel="stylesheet" href="../shared/css/themes/superhero/superhero.css">
   <script src="../shared/js/build-number.js"></script>
   <script>
     // Cache-bust every same-origin link (stylesheet/manifest/icon) with the
@@ -37,7 +35,7 @@
   </script>
 </head>
 
-<body>
+<body id="smd-app">
 
   <!-- FIXED TOOLBAR -->
   <nav id="mainNav" class="navbar navbar-expand px-3 py-2 gap-1 flex-wrap">
@@ -86,12 +84,7 @@
 
         <!-- General -->
         <section class="smd-settings-tab" data-tab="General" data-tab-id="general-tab">
-          <div class="row mb-4 align-items-center col-md-8 mt-3">
-            <div class="col-4 text-end"><label class="form-label mb-0">Theme</label></div>
-            <div class="col-8">
-              <smd-theme id="themeSelector"></smd-theme>
-            </div>
-          </div>
+          <smd-theme id="themeSelector" class="col-md-8 mt-3"></smd-theme>
 
           <div class="row mb-4 align-items-center col-md-8">
             <div class="col-4 text-end"><label class="form-label mb-0">Font size</label></div>
@@ -212,7 +205,7 @@
       <div class="modal-content">
         <div class="modal-header">
           <h3 class="modal-title" id="imageEditModalTitle">Edit Image</h3>
-          <button id="btnImageEditClose" type="button" class="btn btn-sm ms-auto" onclick="cancelImageEdit()" style="font-size:1.5rem;line-height:1;padding:0 0.25rem;color:inherit;border:none;background:none">&times;</button>
+          <button id="btnImageEditClose" type="button" class="btn-close ms-auto" onclick="cancelImageEdit()" aria-label="Close"></button>
         </div>
         <div class="modal-body" id="imageEditModalBody"></div>
       </div>
@@ -229,9 +222,11 @@
   document.write('<script src="../shared/js/components/smd-image-select.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="../shared/js/components/smd-image-editor.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="../shared/js/components/smd-image-picker.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../shared/js/components/smd-search.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="../shared/js/components/smd-theme.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="../shared/js/components/smd-checkbox.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="../shared/js/components/smd-badge.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../shared/js/components/smd-h2.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="../shared/js/components/smd-draghandle.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="../shared/js/components/smd-qrcode.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="../shared/js/components/smd-fontawesome-credit.js?v=' + BUILD_NUMBER + '"><\/script>');
@@ -253,7 +248,20 @@
     var __updatePrompted = false;
     var __applyingUpdate = false;
     var __dismissedUpdate = "";
-    try { __dismissedUpdate = localStorage.getItem("swUpdateDismissedUrl") || ""; } catch (e) { __dismissedUpdate = ""; }
+    var __dismissedBuild = "";
+    try {
+      __dismissedBuild = localStorage.getItem("swUpdateDismissedBuild") || "";
+      // The SW registers at a STABLE URL, so scriptURL alone can't tell one
+      // build from another. Only suppress the prompt when the previously
+      // dismissed update belongs to the CURRENT build; once a newer build
+      // loads, forget the dismissal so it can prompt again.
+      if (String(BUILD_NUMBER) === __dismissedBuild) {
+        __dismissedUpdate = localStorage.getItem("swUpdateDismissedUrl") || "";
+      } else {
+        localStorage.removeItem("swUpdateDismissedUrl");
+        localStorage.removeItem("swUpdateDismissedBuild");
+      }
+    } catch (e) { __dismissedUpdate = ""; }
     function showUpdatePrompt(reg) {
       var w = reg && reg.waiting;
       if (w && w.scriptURL === __dismissedUpdate) return; // user already dismissed THIS pending SW
@@ -271,11 +279,14 @@
             var pending = reg && reg.waiting;
             if (!pending) return;
             if (detail.action === "update") {
-              try { localStorage.removeItem("swUpdateDismissedUrl"); } catch (e) {}
+              try { localStorage.removeItem("swUpdateDismissedUrl"); localStorage.removeItem("swUpdateDismissedBuild"); } catch (e) {}
               __applyingUpdate = true;
               pending.postMessage({ type: "SKIP_WAITING" });
             } else if (detail.action === "later") {
-              try { localStorage.setItem("swUpdateDismissedUrl", pending.scriptURL); } catch (e) {}
+              try {
+                localStorage.setItem("swUpdateDismissedUrl", pending.scriptURL);
+                localStorage.setItem("swUpdateDismissedBuild", String(BUILD_NUMBER));
+              } catch (e) {}
             }
           }
         });
@@ -283,7 +294,15 @@
     }
     window.__qrlinksSwUpdater = { showUpdatePrompt: showUpdatePrompt };
 
-    navigator.serviceWorker.register("../sw.js").then(function(reg) {
+    // STABLE worker url on purpose: versioning it would make the browser install
+    // a second worker for the same bump ("updates twice"). The update signal is
+    // the byte change in sw.js, whose inline BUILD_NUMBER is bumped with
+    // shared/js/build-number.js; smdRegisterServiceWorker also verifies at
+    // runtime that the worker and the page agree and repairs a drift.
+    var __registerSw = typeof smdRegisterServiceWorker === "function"
+      ? smdRegisterServiceWorker
+      : function(p) { return navigator.serviceWorker.register(p, { updateViaCache: "none" }); };
+    __registerSw("../sw.js").then(function(reg) {
       if (navigator.serviceWorker.controller) {
         if (reg.waiting) showUpdatePrompt(reg);
         reg.addEventListener("updatefound", function() {
@@ -294,6 +313,10 @@
           });
         });
       }
+      // Force an immediate check on every visit: browsers throttle their own
+      // update checks (roughly once a day), so a freshly deployed build could
+      // otherwise take hours to surface the "Update available" prompt.
+      if (reg.update) reg.update();
       window.addEventListener("focus", function() { if (reg.update) reg.update(); });
     });
 

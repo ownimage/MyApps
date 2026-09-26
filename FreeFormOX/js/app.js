@@ -11,6 +11,70 @@ let gameOver = false;
 let moveHistory = [];
 let redoStack = [];
 
+const cellStateClasses = {
+  available: ["cell-available", "btn-outline-primary"],
+  placed: ["cell-placed", "btn-outline-info", "bg-info-subtle"],
+  unavailable: ["cell-unavailable", "btn-outline-danger", "bg-danger-subtle"],
+  oob: ["cell-oob", "btn-info"],
+  winner: ["cell-winner", "btn-warning"]
+};
+const allCellStateClasses = [...new Set(Object.values(cellStateClasses).flat())];
+const gameStyleId = "ffox-game-styles";
+const gameStyles = `
+#mainContent {
+  min-height: calc(100vh - 56px);
+  min-height: calc(100dvh - 56px);
+}
+#gameBtnContainer {
+  height: 4rem;
+}
+#buttonGrid {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  width: min(calc(100vw - 3rem), calc(100dvh - 200px));
+  aspect-ratio: 1;
+}
+#buttonGrid > button {
+  aspect-ratio: 1;
+}
+#buttonGrid > .cell:disabled {
+  opacity: 1;
+}
+#buttonGrid > .cell[data-state="oob"] {
+  --bs-btn-disabled-bg: rgba(var(--bs-info-rgb), 0.25);
+  --bs-btn-disabled-color: var(--bs-info);
+  --bs-btn-disabled-border-color: var(--bs-info);
+}
+#buttonGrid > .cell[data-state="winner"] {
+  --bs-btn-disabled-bg: rgba(var(--bs-warning-rgb), 0.4);
+  --bs-btn-disabled-border-color: var(--bs-warning);
+}
+.cell-dino {
+  padding: 2px;
+}
+.turn-piece {
+  width: 3rem;
+  height: 3rem;
+}
+.turn-piece-sm {
+  width: 1.6rem;
+  height: 1.6rem;
+}
+`;
+
+function injectGameStyles() {
+  if (document.getElementById(gameStyleId)) return;
+  const style = document.createElement("style");
+  style.id = gameStyleId;
+  style.textContent = gameStyles;
+  document.head.appendChild(style);
+}
+
+function setCellState(btn, state) {
+  allCellStateClasses.forEach(className => btn.classList.remove(className));
+  btn.dataset.state = state;
+  btn.classList.add(...cellStateClasses[state]);
+}
+
 // Hide every main/editor page except one (null hides them all). Page hosts are
 // light-DOM elements so document.getElementById works.
 function hideMainPages(exceptId) {
@@ -40,7 +104,7 @@ function pieceFile(symbol, style) {
 
 function getPieceHtml(symbol) {
   const style = getPieceStyle(symbol);
-  return '<img class="cell-dino" src="' + pieceFile(symbol, style) + '" alt="' + symbol + '">';
+  return '<img class="cell-dino w-100 h-100 d-block object-fit-contain pe-none" src="' + pieceFile(symbol, style) + '" alt="' + symbol + '">';
 }
 
 function getPlayerName(symbol) {
@@ -51,7 +115,7 @@ function getPlaced() {
   const cells = document.getElementById("buttonGrid").children;
   const placed = [];
   for (const btn of cells) {
-    if (btn.className === "cell-placed" || btn.className === "cell-oob") {
+    if (btn.dataset.player) {
       placed.push(+btn.dataset.index);
     }
   }
@@ -74,7 +138,7 @@ function updateAvailability() {
     if (!fits3x3([...placed, +btn.dataset.index])) {
       btn.disabled = true;
       btn.innerHTML = "";
-      btn.className = "cell-unavailable";
+      setCellState(btn, "unavailable");
     }
   }
 }
@@ -83,10 +147,13 @@ function recalcAvailability() {
   const cells = document.getElementById("buttonGrid").children;
   const placed = getPlaced();
   for (const btn of cells) {
-    if (btn.dataset.player) continue;
+    if (btn.dataset.player) {
+      if (+btn.dataset.index !== 13) setCellState(btn, "placed");
+      continue;
+    }
     if (+btn.dataset.index === 13) continue;
     btn.disabled = false;
-    btn.className = "cell-available";
+    setCellState(btn, "available");
     btn.innerHTML = "";
   }
   if (placed.length > 0) {
@@ -123,15 +190,15 @@ function checkWin(player) {
 function checkDraw() {
   const cells = document.getElementById("buttonGrid").children;
   for (const btn of cells) {
-    if (btn.className === "cell-available") return false;
+    if (btn.dataset.state === "available") return false;
   }
   return true;
 }
 
 function playerIcon(symbol) {
   const style = getPieceStyle(symbol);
-  const size = style === "classic" ? "1.6rem" : "3rem";
-  return '<span style="display:inline-flex;align-items:center;justify-content:center;width:' + size + ';height:' + size + '"><img src="' + pieceFile(symbol, style) + '" alt="' + symbol + '" style="width:100%;height:100%;object-fit:contain"></span>';
+  const sizeClass = style === "classic" ? "turn-piece-sm" : "turn-piece";
+  return '<span class="turn-piece ' + sizeClass + ' d-inline-flex align-items-center justify-content-center"><img class="w-100 h-100 object-fit-contain pe-none" src="' + pieceFile(symbol, style) + '" alt="' + symbol + '"></span>';
 }
 
 function refreshPieces() {
@@ -181,7 +248,7 @@ function endGame(msg, line) {
   updateGameButtons();
   if (line) {
     const cells = document.getElementById("buttonGrid").children;
-    for (const i of line) cells[i - 1].classList.add("cell-winner");
+    for (const i of line) setCellState(cells[i - 1], "winner");
   }
 }
 
@@ -190,17 +257,16 @@ function resetGame() {
   for (let i = 0; i < cells.length; i++) {
     const btn = cells[i];
     const idx = i + 1;
-    btn.classList.remove("cell-winner");
     if (idx === 13) {
       btn.innerHTML = getPieceHtml("O");
       btn.dataset.player = "O";
       btn.disabled = true;
-      btn.className = "cell-oob";
+      setCellState(btn, "oob");
     } else {
       btn.innerHTML = "";
       delete btn.dataset.player;
       btn.disabled = false;
-      btn.className = "cell-available";
+      setCellState(btn, "available");
       btn.onclick = () => handleClick(btn);
     }
   }
@@ -217,14 +283,15 @@ function buildGrid() {
   for (let i = 1; i <= 25; i++) {
     const btn = document.createElement("button");
     btn.dataset.index = i;
+    btn.classList.add("cell", "btn", "d-flex", "align-items-center", "justify-content-center", "p-0", "border-2", "rounded-2");
     if (i === 13) {
       btn.innerHTML = getPieceHtml("O");
       btn.dataset.player = "O";
       btn.disabled = true;
-      btn.className = "cell-oob";
+      setCellState(btn, "oob");
     } else {
       btn.innerHTML = "";
-      btn.className = "cell-available";
+      setCellState(btn, "available");
       btn.onclick = () => handleClick(btn);
     }
     grid.appendChild(btn);
@@ -237,7 +304,7 @@ function handleClick(btn) {
   btn.innerHTML = getPieceHtml(player);
   btn.dataset.player = player;
   btn.disabled = true;
-  btn.className = "cell-placed";
+  setCellState(btn, "placed");
   moveHistory.push({ index: +btn.dataset.index, player: player });
   redoStack = [];
   currentPlayer = currentPlayer === "X" ? "O" : "X";
@@ -261,8 +328,6 @@ function undoMove() {
   delete cell.dataset.player;
   cell.innerHTML = "";
   cell.disabled = false;
-  const cells = document.getElementById("buttonGrid").children;
-  for (const btn of cells) btn.classList.remove("cell-winner");
   currentPlayer = move.player;
   gameOver = false;
   recalcAvailability();
@@ -278,9 +343,7 @@ function redoMove() {
   cell.innerHTML = getPieceHtml(move.player);
   cell.dataset.player = move.player;
   cell.disabled = true;
-  cell.className = "cell-placed";
-  const cells = document.getElementById("buttonGrid").children;
-  for (const btn of cells) btn.classList.remove("cell-winner");
+  setCellState(cell, "placed");
   currentPlayer = move.player === "X" ? "O" : "X";
   gameOver = false;
   recalcAvailability();
@@ -296,7 +359,8 @@ function redoMove() {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
-  applyTheme(localStorage.getItem(smdKey("theme")) || "superhero");
+  injectGameStyles();
+  applyTheme(getStoredTheme());
   buildGrid();
   document.getElementById("turnIndicator").innerHTML = playerIcon("X") + " " + getPlayerName("X") + " to go";
   updateGameButtons();
@@ -308,6 +372,10 @@ document.addEventListener("DOMContentLoaded", () => {
 // The settings General tab uses the shared <smd-theme> component; it only
 // emits an event, we apply the theme here.
 document.addEventListener("smd-theme-change", function (e) {
-  const theme = e.detail && e.detail.theme;
-  if (theme && typeof changeTheme === "function") changeTheme(theme);
+  const detail = e.detail || {};
+  if (detail.source === "mode" && typeof changeThemeMode === "function") {
+    changeThemeMode(detail.mode);
+  } else if (detail.theme && typeof changeTheme === "function") {
+    changeTheme(detail.theme);
+  }
 });

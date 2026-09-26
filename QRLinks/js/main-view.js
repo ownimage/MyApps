@@ -17,6 +17,7 @@ function renderMain() {
 
   links.forEach((link, index) => {
     const card = document.createElement("qrlink-card");
+    card.className = "d-block mb-2 w-100";
     card.setAttribute("index", index);
     card.setAttribute("key-prefix", smdImagePrefix());
     card.setAttribute("title", link.title || "");

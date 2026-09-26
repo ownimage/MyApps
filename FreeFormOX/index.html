@@ -11,16 +11,14 @@
   <link rel="apple-touch-icon" href="img/icon.svg">
   <title>FreeFormOX</title>
 
-  <link id="bootstrap-theme-css" href="../shared/css/themes/superhero/bootstrap.min.css" rel="stylesheet">
-  <link id="theme-override-mode" rel="stylesheet" href="../shared/css/themes/dark.css">
-  <link id="theme-override-specific" rel="stylesheet" href="../shared/css/themes/superhero/superhero.css">
-  <link rel="stylesheet" href="../shared/css/styles.css">
-  <link rel="stylesheet" href="css/styles.css">
   <link rel="stylesheet" href="../shared/vendor/bootstrap-icons.css">
   <link rel="stylesheet" href="../shared/vendor/fontawesome/css/fontawesome.min.css">
   <link rel="stylesheet" href="../shared/vendor/fontawesome/css/solid.min.css">
   <link rel="stylesheet" href="../shared/vendor/fontawesome/css/regular.min.css">
   <link rel="stylesheet" href="../shared/vendor/fontawesome/css/brands.min.css">
+  <link id="bootstrap-theme-css" href="../shared/css/themes/superhero/bootstrap.min.css" rel="stylesheet">
+  <link id="smd-shared-css" rel="stylesheet" href="../shared/css/styles.css">
+  <link id="theme-override-specific" rel="stylesheet" href="../shared/css/themes/superhero/superhero.css">
   <script src="../shared/js/build-number.js"></script>
   <script>
     // Cache-bust every same-origin link (stylesheet/manifest/icon) with the
@@ -37,14 +35,14 @@
   </script>
 </head>
 
-<body>
+<body id="smd-app">
 
   <!-- FIXED TOOLBAR -->
   <nav id="mainNav" class="navbar navbar-expand px-3 py-2 gap-1 flex-wrap">
 
     <div class="dropdown">
       <button id="btnMainMenu" class="btn p-1" data-bs-toggle="dropdown" title="Menu" aria-label="Menu">
-        <i class="fa-solid fa-bars" aria-hidden="true" style="font-size:22px"></i>
+        <i class="fa-solid fa-bars fs-5" aria-hidden="true"></i>
       </button>
       <ul class="dropdown-menu">
         <li><a class="dropdown-item" onclick="openSettings()">Settings</a></li>
@@ -61,17 +59,17 @@
   <!-- MAIN CONTENT -->
   <div class="container-fluid px-3">
 
-    <div id="mainContent">
-      <div id="turnIndicator">X to go</div>
-      <div id="buttonGrid" class="grid-container"></div>
-      <div id="gameBtnContainer" class="mt-3">
-        <div id="playBtns" class="btn-pair invisible">
-          <button id="undoBtn" class="btn btn-primary" onclick="undoMove()">Undo</button>
-          <button id="redoBtn" class="btn btn-secondary" onclick="redoMove()">Redo</button>
+    <div id="mainContent" class="d-flex flex-column justify-content-center align-items-center">
+      <div id="turnIndicator" class="h1 mb-2 fw-bolder user-select-none d-flex align-items-center justify-content-center gap-1">X to go</div>
+      <div id="buttonGrid" class="d-grid gap-1 p-1"></div>
+      <div id="gameBtnContainer" class="position-relative w-100 mt-3">
+        <div id="playBtns" class="position-absolute top-0 start-0 d-flex gap-3 w-100 h-100 invisible">
+          <button id="undoBtn" class="btn btn-primary flex-grow-1 py-3 px-2" onclick="undoMove()">Undo</button>
+          <button id="redoBtn" class="btn btn-secondary flex-grow-1 py-3 px-2" onclick="redoMove()">Redo</button>
         </div>
-        <div id="endBtns" class="btn-pair invisible">
-          <button id="replayBtn" class="btn btn-primary" onclick="resetGame()">Replay</button>
-          <button id="swapBtn" class="btn btn-outline-secondary" onclick="swapPlayersAndRestart()">Swap Players &amp; Replay</button>
+        <div id="endBtns" class="position-absolute top-0 start-0 d-flex gap-3 w-100 h-100 invisible">
+          <button id="replayBtn" class="btn btn-primary flex-grow-1 py-3 px-2" onclick="resetGame()">Replay</button>
+          <button id="swapBtn" class="btn btn-outline-secondary flex-grow-1 py-3 px-2" onclick="swapPlayersAndRestart()">Swap Players &amp; Replay</button>
         </div>
       </div>
     </div>
@@ -84,12 +82,7 @@
 
         <!-- Game -->
         <section class="smd-settings-tab" data-tab="Game" data-tab-id="game-tab">
-          <div class="row mb-3 align-items-center col-md-8 mt-3">
-            <div class="col-4 text-end"><label class="form-label mb-0">Theme</label></div>
-            <div class="col-8">
-              <smd-theme id="themeSelector"></smd-theme>
-            </div>
-          </div>
+          <smd-theme id="themeSelector" class="col-md-8 mt-3"></smd-theme>
 
           <div class="row mb-3 align-items-center col-md-8">
             <div class="col-4 text-end"><label class="form-label mb-0">Font size</label></div>
@@ -158,7 +151,7 @@
           <div class="row align-items-center col-md-8 mb-3">
             <div class="col-4 text-end"></div>
             <div class="col-8">
-              <smd-buymeacoffee username="ownimage" height="50"></smd-buymeacoffee>
+              <smd-buymeacoffee class="d-block" username="ownimage" height="50"></smd-buymeacoffee>
             </div>
           </div>
 
@@ -201,7 +194,20 @@
     var __updatePrompted = false;
     var __applyingUpdate = false;
     var __dismissedUpdate = "";
-    try { __dismissedUpdate = localStorage.getItem("swUpdateDismissedUrl") || ""; } catch (e) { __dismissedUpdate = ""; }
+    var __dismissedBuild = "";
+    try {
+      __dismissedBuild = localStorage.getItem("swUpdateDismissedBuild") || "";
+      // The SW registers at a STABLE URL, so scriptURL alone can't tell one
+      // build from another. Only suppress the prompt when the previously
+      // dismissed update belongs to the CURRENT build; once a newer build
+      // loads, forget the dismissal so it can prompt again.
+      if (String(BUILD_NUMBER) === __dismissedBuild) {
+        __dismissedUpdate = localStorage.getItem("swUpdateDismissedUrl") || "";
+      } else {
+        localStorage.removeItem("swUpdateDismissedUrl");
+        localStorage.removeItem("swUpdateDismissedBuild");
+      }
+    } catch (e) { __dismissedUpdate = ""; }
     function showUpdatePrompt(reg) {
       var w = reg && reg.waiting;
       if (w && w.scriptURL === __dismissedUpdate) return; // user already dismissed THIS pending SW
@@ -219,18 +225,29 @@
             var pending = reg && reg.waiting;
             if (!pending) return;
             if (detail.action === "update") {
-              try { localStorage.removeItem("swUpdateDismissedUrl"); } catch (e) {}
+              try { localStorage.removeItem("swUpdateDismissedUrl"); localStorage.removeItem("swUpdateDismissedBuild"); } catch (e) {}
               __applyingUpdate = true;
               pending.postMessage({ type: "SKIP_WAITING" });
             } else if (detail.action === "later") {
-              try { localStorage.setItem("swUpdateDismissedUrl", pending.scriptURL); } catch (e) {}
+              try {
+                localStorage.setItem("swUpdateDismissedUrl", pending.scriptURL);
+                localStorage.setItem("swUpdateDismissedBuild", String(BUILD_NUMBER));
+              } catch (e) {}
             }
           }
         });
       }
     }
 
-    navigator.serviceWorker.register("../sw.js").then(function(reg) {
+    // STABLE worker url on purpose: versioning it would make the browser install
+    // a second worker for the same bump ("updates twice"). The update signal is
+    // the byte change in sw.js, whose inline BUILD_NUMBER is bumped with
+    // shared/js/build-number.js; smdRegisterServiceWorker also verifies at
+    // runtime that the worker and the page agree and repairs a drift.
+    var __registerSw = typeof smdRegisterServiceWorker === "function"
+      ? smdRegisterServiceWorker
+      : function(p) { return navigator.serviceWorker.register(p, { updateViaCache: "none" }); };
+    __registerSw("../sw.js").then(function(reg) {
       if (navigator.serviceWorker.controller) {
         if (reg.waiting) showUpdatePrompt(reg);
         reg.addEventListener("updatefound", function() {
@@ -241,6 +258,10 @@
           });
         });
       }
+      // Force an immediate check on every visit: browsers throttle their own
+      // update checks (roughly once a day), so a freshly deployed build could
+      // otherwise take hours to surface the "Update available" prompt.
+      if (reg.update) reg.update();
       window.addEventListener("focus", function() { if (reg.update) reg.update(); });
     });
 
