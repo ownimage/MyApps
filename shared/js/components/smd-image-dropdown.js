@@ -20,12 +20,12 @@
 // smdImageDropdownMenu) are stable so tests can target them with plain selectors.
 const smdImageDropdownTemplate = document.createElement('template');
 smdImageDropdownTemplate.innerHTML = `
-  <button type="button" class="btn" id="smdImageDropdownBtn" aria-haspopup="listbox">
+  <button type="button" class="btn gap-2 btn-outline-secondary bg-body-tertiary" id="smdImageDropdownBtn" aria-haspopup="listbox">
     <span class="thumb" id="smdImageBtnIcon" hidden><smd-image key-prefix="shared-"></smd-image></span>
     <span class="title" id="smdImageBtnText"></span>
     <span class="caret">&#9662;</span>
   </button>
-  <ul class="menu" id="smdImageDropdownMenu" hidden></ul>
+  <ul class="menu list-unstyled bg-body border rounded shadow-sm mb-0" id="smdImageDropdownMenu" hidden></ul>
 `;
 
 class SmdImageDropdown extends HTMLElement {
@@ -129,7 +129,7 @@ class SmdImageDropdown extends HTMLElement {
       const li = document.createElement('li');
       const a = document.createElement('a');
       a.href = '#';
-      a.className = 'item dropdown-item' + (name === String(this._selected) ? ' active' : '');
+      a.className = 'item dropdown-item gap-2' + (name === String(this._selected) ? ' active' : '');
       a.setAttribute('data-name', name);
       const itemThumb = document.createElement('span');
       itemThumb.className = 'thumb';

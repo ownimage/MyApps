@@ -29,7 +29,7 @@ npm run bump:build
 ```
 Or with an explicit `YYYYMMDDHHMM` timestamp:
 ```bash
-node shared/bump-build.js 202609252200
+node shared/bump-build.js 
 ```
 Regenerate `sampleImages.json` from the native files in `sampleImages/` (preserves
 per-image metadata from the existing JSON and only updates the `data`):

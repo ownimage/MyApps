@@ -55,9 +55,9 @@ function renderDatesEditor() {
     page.title = "Edit Dates";
     page.content =
       '<div id="dateFilters" class="mb-3">' +
-        '<div class="d-flex gap-2 align-items-center flex-wrap">' +
+        '<div class="d-flex gap-2 align-items-center">' +
           '<input class="form-control flex-grow-1" id="dateTitleSearch" type="search" placeholder="Search titles..." style="min-width:150px" oninput="setDateTitleSearch(this.value)">' +
-          '<button type="button" class="btn btn-danger btn-sm" onclick="clearDateFilters()">Clear</button>' +
+          '<button type="button" class="btn btn-danger btn-sm flex-shrink-0" onclick="clearDateFilters()">Clear</button>' +
         '</div>' +
         '<div class="d-flex gap-3 align-items-center flex-wrap mt-2">' +
           `<smd-image-dropdown id="dateCategoryFilter" key-prefix="${escAttr(smdImagePrefix())}" style="min-width:180px"></smd-image-dropdown>` +
