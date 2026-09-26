@@ -1923,7 +1923,7 @@ test.describe("PlanMyDay - Regression", () => {
 
     test("clear button resets picker search", async ({ page }) => {
       await page.locator("#imagePickerPage smd-image-picker input[type=search]").fill("PickTest");
-      await page.locator("#imagePickerPage smd-image-picker .clear").click();
+      await page.locator("#imagePickerPage smd-image-picker smd-search button").click();
       await expect(page.locator("#imagePickerPage smd-image-picker input[type=search]")).toHaveValue("");
     });
 
@@ -1986,7 +1986,7 @@ test.describe("PlanMyDay - Regression", () => {
       const filtered = await page.locator("#imagePickerPage smd-image-picker .item").count();
       expect(filtered).toBeGreaterThan(0);
       expect(filtered).toBeLessThan(total);
-      await page.locator("#imagePickerPage smd-image-picker .clear").click();
+      await page.locator("#imagePickerPage smd-image-picker smd-search button").click();
       await expect(page.locator("#imagePickerPage smd-image-picker input[type=search]")).toHaveValue("");
       await expect(page.locator("#imagePickerPage smd-image-picker .item")).toHaveCount(total, { timeout: 10000 });
     });
@@ -3738,7 +3738,7 @@ test.describe("PlanMyDay - Regression", () => {
       test.setTimeout(30000);
       await page.locator("#imagePickerPage smd-image-picker input[type=search]").fill("PickMeToo");
       await page.locator("#imagePickerPage smd-image-picker .label:has-text('PickMeToo')").waitFor({ state: "visible" });
-      await page.locator("#imagePickerPage smd-image-picker .clear").click();
+      await page.locator("#imagePickerPage smd-image-picker smd-search button").click();
       await expect(page.locator("#imagePickerPage smd-image-picker .label").filter({ hasText: /^PickMe$/ })).toBeVisible();
     });
 

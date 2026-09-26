@@ -51,9 +51,17 @@ function renderAppGrid() {
   if (!grid) return;
   grid.innerHTML = "";
   LAUNCH_APPS.forEach(app => {
+    const col = document.createElement("div");
+    col.className = "col";
+
     const tile = document.createElement("a");
-    tile.className = "app-tile card bg-body-tertiary text-body border-0 rounded-4 h-100 d-flex flex-column align-items-center justify-content-center text-center gap-2 p-4 text-decoration-none";
+    tile.className = "app-tile card smd-card border-0 h-100 d-flex flex-column text-decoration-none";
     tile.href = app.path;
+
+    // Same card pattern as pmd-job-today-card: a bordered rounded surface holding
+    // the content, on the theme's card background.
+    const card = document.createElement("div");
+    card.className = "d-flex flex-column flex-grow-1 align-items-center justify-content-center text-center gap-2 p-4 border rounded-3";
 
     const img = document.createElement("smd-image");
     img.setAttribute("key-prefix", smdImagePrefix());
@@ -62,18 +70,21 @@ function renderAppGrid() {
     // No explicit `size`: the tile follows the Settings Icon size (the app
     // applies SmdImage.setDefaultSize from launch_iconSize at boot).
 
-    const name = document.createElement("div");
-    name.className = "h4 fw-bold mb-0";
+    const name = document.createElement("smd-h2");
+    name.className = "fw-bold mb-0";
     name.textContent = app.name;
 
     const desc = document.createElement("div");
-    desc.className = "small text-secondary mb-0";
+    desc.className = "small text-body mb-0";
     desc.textContent = app.description;
 
-    tile.appendChild(img);
-    tile.appendChild(name);
-    tile.appendChild(desc);
-    grid.appendChild(tile);
+    card.appendChild(img);
+    card.appendChild(name);
+    card.appendChild(desc);
+
+    tile.appendChild(card);
+    col.appendChild(tile);
+    grid.appendChild(col);
   });
   // Re-render once the shared sample library is seeded on first visit.
   if (grid.__launchSeedTimeout) return;
