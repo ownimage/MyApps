@@ -7,11 +7,11 @@ const IMAGE_RE = /\.(png|jpg|jpeg|gif|webp|svg|bmp)$/i;
 
 function createScreenshotAllThemes(appId, afterTheme) {
   return async function screenshotAllThemes(page, scene) {
-    // SCREENSHOT_THEME=<theme> runs one theme only (all apps); leave unset for all 26.
+    // SCREENSHOT_THEME=<theme> runs one theme only (all apps); leave unset for all 27.
     const requestedTheme = process.env.SCREENSHOT_THEME;
     const allThemes = await page.evaluate(() => Object.keys(themeConfig));
-    if (allThemes.length !== 26) {
-      throw new Error(`Expected 26 themes, found ${allThemes.length}`);
+    if (allThemes.length !== 27) {
+      throw new Error(`Expected 27 themes, found ${allThemes.length}`);
     }
     const themes = requestedTheme
       ? (() => {

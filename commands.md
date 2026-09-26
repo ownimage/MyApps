@@ -45,7 +45,7 @@ npm run extract:images
 ### Screenshots
 Screenshots use `screenshots/<app>/<theme>/<light|dark>/<scene>.png`; the viewer also reads legacy `screenshots/<app>/<theme>/<scene>.png` files as `Default` mode.
 
-Run for ONE theme only (defaults to all 26 when the env var is unset; works for every screenshot spec below).
+Run for ONE theme only (defaults to all 27 when the env var is unset; works for every screenshot spec below).
 
 Windows Command Prompt:
 ```bash

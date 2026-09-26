@@ -1,10 +1,10 @@
 /* cyborg theme overrides — loaded AFTER cyborg/bootstrap.min.css whenever this
    theme is selected. Add theme-specific overrides here. */
 
-tml[data-theme="superhero"][data-bs-theme="light"] .smd-card {
+html[data-theme="cyborg"][data-bs-theme="light"] .smd-card {
   color: white;
 }
 
-html[data-theme="superhero"][data-bs-theme="dark"] .smd-card {
+html[data-theme="cyborg"][data-bs-theme="dark"] .smd-card {
   color: white;
 }

@@ -10,6 +10,7 @@ const themeConfig = (() => {
   // the only mode source.
   const bw = "css/themes";
   return {
+    bootstrap: { css: `${bw}/bootstrap/bootstrap.min.css` },
     brite:     { css: `${bw}/brite/bootstrap.min.css` },
     cerulean:  { css: `${bw}/cerulean/bootstrap.min.css` },
     cosmo:     { css: `${bw}/cosmo/bootstrap.min.css` },

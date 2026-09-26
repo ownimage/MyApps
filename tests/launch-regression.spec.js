@@ -104,7 +104,7 @@ test.describe("Launch - Regression", () => {
 
     await expect(page.locator("#themeSelector .smd-theme-select")).toBeVisible();
     await expect(page.locator("#themeSelector .smd-theme-mode-select")).toBeVisible();
-    expect(await page.locator("#themeSelector .smd-theme-select option").count()).toBe(26);
+    expect(await page.locator("#themeSelector .smd-theme-select option").count()).toBe(27);
     expect(await page.locator("#themeSelector .smd-theme-mode-select option").allTextContents()).toEqual(["Light", "Dark"]);
     await expect(page.locator("#iconSizeSelector")).toBeVisible();
     await expect(page.locator("#shareQrCode img").first()).toBeVisible({ timeout: 30000 });

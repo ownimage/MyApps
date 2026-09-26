@@ -173,8 +173,8 @@ test.describe("CountMyDays - Regression", () => {
       await expect(page.locator("#settingsPage")).toHaveAttribute("open", "");
       await expect(page.locator("#themeSelector .smd-theme-select")).toBeVisible();
       await expect(page.locator("#themeSelector .smd-theme-mode-select")).toBeVisible();
-      // 26 shared themes (25 + brite)
-      expect(await page.locator("#themeSelector .smd-theme-select option").count()).toBe(26);
+      // 27 shared themes (26 + bootstrap)
+      expect(await page.locator("#themeSelector .smd-theme-select option").count()).toBe(27);
       expect(await page.locator("#themeSelector .smd-theme-mode-select option").allTextContents()).toEqual(["Light", "Dark"]);
       await expect(page.locator("#formatSelector")).toBeVisible();
       await expect(page.locator("#fontSizeSelector")).toBeVisible();

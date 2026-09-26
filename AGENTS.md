@@ -232,9 +232,15 @@ Architecture:
   `document.getElementById`, which cannot see shadow roots. Vendored:
   `shared/vendor/lz-string.min.js`, `shared/vendor/jsQR.js` (precached).
 - Brite theme: `shared/css/themes/brite/bootstrap.min.css` from Bootswatch
-  **5.3.8** (all other themes remain 5.3.3) + `themeConfig` entry + precache —
-  theme count is now 26. `pmd-screenshots.spec.js` has its own hardcoded list
-  (25) so it is unaffected; `cmd-screenshots.spec.js` screenshots all 26.
+  **5.3.8** (all other themes, including the standard-Bootstrap `bootstrap`
+  theme, are 5.3.3) + `themeConfig` entry + precache — theme count is now 27.
+  The `bootstrap` theme (2026-09-26) is the UNTHEMED stock
+  `bootstrap@5.3.3/dist/css/bootstrap.min.css` (folder
+  `shared/css/themes/bootstrap/`, empty override `bootstrap.css`). All screenshot
+  suites iterate `themeConfig` through `tests/screenshot-helpers.js` (which
+  asserts the theme count — bump it in lockstep), so a new theme is picked up
+  automatically; the Storybook card viewer and the screenshots viewer also
+  enumerate the live `themeConfig`/screenshot tree with no hardcoded list.
 - DEFAULT THEME (2026-09-17; mode removed 2026-09-26): **superhero** everywhere —
   every app's `app.js`/`app-settings.js` theme fallback, `SmdApp.themeDefault`,
   the shared `applyTheme()` invalid-name fallback, the storybook's static
@@ -252,8 +258,12 @@ Architecture:
   base < shared/app css < per-theme override. `shared/css/themes/light.css` and
   `dark.css` and the `#theme-override-mode` link were DELETED (the Light/Dark
   mode now only sets `data-bs-theme`; per-theme files may key off it). All files
-  are in `sw.js` SHARED_ASSETS. The per-theme/files are deliberately EMPTY until
-  specific overrides are decided.
+are in `sw.js` SHARED_ASSETS. Most per-theme files are empty; `superhero.css`
+   and `cyborg.css` carry real overrides. The override sheet is the LAST
+   stylesheet in `<head>` (see the "Authoritative CSS cascade" note), so it may
+   use a bare `:root { ... }` (or `:root[data-bs-theme="..."]` for a mode
+   variant) - it wins over `shared/css/styles.css` by document order, no
+   attribute-qualified selector is needed.
 - IMAGE SIZES (2026-09-17): ONE six-size scheme in every app's Settings
   (Icon/Image size select): xsmall=32, small=40, medium=50, large=64, xlarge=80,
   jumbo=100 (labels match the six font sizes). Stored key is still
@@ -376,10 +386,64 @@ Techniques / gotchas:
 - Playwright `toHaveText` on an `smd-button` HOST reports the slot fallback text too (e.g. `"Edit\n Button"`), so exact-text assertions fail. Use `toContainText("Edit")` or a `getByRole("button", { name: "Edit" })` locator instead.
 - Grep on minified vendor files breaks the tool (giant matched lines) — scope searches to `PlanMyDay/js/**`, `shared/js/**`, or `tests/**`.
 - Line endings: this repo stores text files with LF (`core.autocrlf=input`, `core.eol=lf`; no `.gitattributes`). NEVER write CRLF into a file — git will flag every line as changed (whole-file diff) and warn "CRLF will be replaced by LF the next time Git touches it". Do not round-trip files through PowerShell pipe/Get-Content/Set-Content joins; the Edit/Write/Read tools and Node preserve line endings — if you must convert use node with explicit `\n`, NEVER shell-piped measurements of `git show` (PowerShell pipeline re-encodes — it once reported 914 CRLF for a file whose raw blob via `git cat-file` was entirely LF). Verify with `git cat-file blob HEAD:<file>` + `git diff --stat` so only real edits show.
-- TEST SERVERS ARE VITE (2026-09-26): `playwright.config.js` runs `node tests/serve-tests.mjs`, which starts BOTH test origins from ONE Node/Vite process: 8080 = repo root (e.g. `/PlanMyDay/` is the app), 8081 = repo mounted under `/PlanMyDay/` (every origin-root path 404s) mimicking a GitHub Pages sub-path deploy. `npm run dev:test` starts them for a full/sharded run; `reuseExistingServer` means Playwright reuses an already-listening server and never kills it, so no manual per-shard server dance. Vite runs with `appType:"custom"` plus a `sirv` static middleware, so there is NO HTML/JS transform and NO HMR client injected (the tests stay byte-faithful); sirv is in production mode (one startup tree scan, then an in-memory file map) and sets `immutable` Cache-Control for build-stamped assets but `no-cache` for `sw.js` and HTML. GOTCHA (unchanged): with `EXTERNAL_SERVERS=1` Playwright does NOT start or verify the servers, so a failed start makes every shard fail with `ERR_CONNECTION_REFUSED` (or hang on web-server waits) with no diagnostic. ALWAYS verify BOTH ports accept a TCP connection BEFORE any test run: use a raw TcpClient (`(New-Object Net.Sockets.TcpClient).Connect('127.0.0.1',8080)`) — `Test-NetConnection -ComputerName localhost -Port 8080` probes IPv6 `::1` first and prints a scary `failed` warning, then `True` for IPv4, which is easy to misread as a down server. (The old Python `tests/http-server.py` + `tests/subpath-server.py` were replaced by `tests/serve-tests.mjs`.)
+- TEST SERVERS ARE VITE (2026-09-26): `playwright.config.js` runs `node tests/serve-tests.mjs`, which starts BOTH test origins from ONE Node/Vite process: 8080 = repo root (e.g. `/PlanMyDay/` is the app), 8081 = repo mounted under `/PlanMyDay/` (every origin-root path 404s) mimicking a GitHub Pages sub-path deploy. `npm run dev:test` starts them for a full/sharded run; `reuseExistingServer` means Playwright reuses an already-listening server and never kills it, so no manual per-shard server dance. Vite runs with `appType:"custom"` plus a `sirv` static middleware, so there is NO HTML/JS transform and NO HMR client injected (the tests stay byte-faithful); sirv is in production mode (one startup tree scan, then an in-memory file map) and sets `immutable` Cache-Control for build-stamped assets but `no-cache` for `sw.js` and HTML. GOTCHA (unchanged): with `EXTERNAL_SERVERS=1` Playwright does NOT start or verify the servers, so a failed start makes every shard fail with `ERR_CONNECTION_REFUSED` (or hang on web-server waits) with no diagnostic. ALWAYS verify BOTH ports accept a TCP connection BEFORE any test run: use a raw TcpClient (`(New-Object Net.Sockets.TcpClient).Connect('127.0.0.1',8080)`) — `Test-NetConnection -ComputerName localhost -Port 8080` probes IPv6 `::1` first and prints a scary `failed` warning, then `True` for IPv4, which is easy to misread as a down server. (The old Python `tests/http-server.py` +   `tests/subpath-server.py` were replaced by `tests/serve-tests.mjs`.)
+- STALE TEST SERVER SERVES TRUNCATED FILES (2026-09-26, cost a full test
+  round): `reuseExistingServer: !CI` means Playwright silently REUSES an
+  already-listening `tests/serve-tests.mjs`, and a leaked server (e.g. one left
+  over from a `git stash`/`pop` cycle) can serve a PARTIAL file whose cached
+  size is shorter than the on-disk file. Symptom: a deterministic
+  `SyntaxError: Unexpected end of input` + `ReferenceError: <global> is not
+  defined` for a file that `node --check` says is fine, and
+  `ServiceWorker script evaluation failed` — while surrounding scripts load.
+  CAUSE was a stale process started at an earlier point serving the first
+  16702 bytes of the 16763-byte `smd-settings.js`. ALWAYS check BOTH ports are
+  closed (raw `TcpClient`, not `Test-NetConnection`) before a run and, if a test
+  fails with a syntax/reference error on a file that passes `node --check`,
+  find the listener (`Get-NetTCPConnection -LocalPort 8080 -State Listen`) and
+  `Stop-Process` it so Playwright starts a fresh server. Do not debug the app
+  code first.
 - CROSS-ORIGIN SAVE 302 GOTCHA (2026-09-17): SolarControlar's Flask POST endpoints (`POST /solar/`, `POST /solar/api/config`) are PRG — they answer `302 Location: /solar/`. A PWA `fetch()` that lets the browser follow that cross-origin redirect can lose its `Authorization` header on the follow-up GET (browser-dependent), so Traefik returns a 401 WITHOUT `Access-Control-Allow-Origin` → the fetch blocks as a CORS error / "Failed to fetch". Fix in the APP: `redirect: "manual"` on the POST and treat `resp.type === "opaqueredirect"` as success (server saved; the caller then re-fetches the GET page which carries auth again). `redirect: "manual"` returns an opaque-redirect response (status 0) for a 302 — you cannot read it, only detect it by `type`. Rule for SolarControlar saves: never follow the Flask redirect; `_post` returns the response TEXT (or `""`), so consumers must not chain `.text()`.
 
 ## Session log
+
+### 2026-09-26 (b) - new shared `bootstrap` theme (stock Bootstrap 5.3.3)
+- Added the 27th theme `bootstrap`: `shared/css/themes/bootstrap/` holding the
+  UNMODIFIED stock `bootstrap@5.3.3/dist/css/bootstrap.min.css` (fetched from
+  `https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css`)
+  plus an empty per-theme override `bootstrap.css` (same header shape as the
+  others). Registered in `themeConfig` (`shared/js/smd-settings.js`) and BOTH
+  files in `sw.js` `SHARED_ASSETS`. `data-theme="bootstrap"`, override path
+  `css/themes/bootstrap/bootstrap.css`. No per-theme CSS needed: stock Bootstrap
+  is light in `data-bs-theme="light"` and ships its own dark vars for `dark`.
+- Theme count 26 -> 27 everywhere it is asserted: `tests/screenshot-helpers.js`
+  (throws unless 27), the theme-select option counts in `cmd-regression`,
+  `ffox-regression`, `qrlinks-regression`, `launch-regression`, the Storybook
+  header selector (27) and card viewer (`#themeSelect option` 26+1=28,
+  `.theme-row` 27, `iframe.preview-frame` 54), and `commands.md` ("all 27").
+  No hardcoded theme list remains in the screenshot specs (they use
+  `screenshot-helpers.js`); `screenshots/viewer.js` and
+  `storybook/cardViewer.html` enumerate the live tree/`themeConfig`.
+- Screenshots NOT regenerated (user chose "wire it in only"); the suites pick
+  the theme up from `themeConfig` on the next run.
+- Verified: `node --check` on every edited JS + `git diff --check` clean; the 4
+  targeted chromium tests green (cmd "opens with the theme list...", launch
+  "settings has theme...", storybook "component demos..." and "card viewer
+  renders one card across every theme and both modes" — the last loads all 27
+  themes and asserts ZERO failed requests, so both new CSS files are confirmed
+  reachable). `BUILD_NUMBER` unchanged (user ships).
+- Gotcha (new technique note above): a leftover `tests/serve-tests.mjs` server
+  from a `git stash`/`pop` cycle served a TRUNCATED `smd-settings.js`, giving
+  `SyntaxError: Unexpected end of input` + `injectSettingsStyles is not
+  defined` on the first run. A clean-HEAD stash baseline passed, which isolated
+  it to the stale server; killing the 8080/8081 listener and letting Playwright
+  start a fresh one made all 4 pass.
+
+### 2026-09-26 - theme override cascade verified + cyborg.css fixed
+- User reported `superhero.css` color overrides not applying. Root cause (2026-09-25/26): the two theme override links loaded BEFORE `shared/css/styles.css` (`orderThemeOverrideLinks()` pinned them right after the bootstrap theme link), so the equal-specificity bare `:root` in the per-theme file lost to `styles.css` by document order. The fix that landed 2026-09-26 moved the vendor sheets FIRST, gave `styles.css` `id="smd-shared-css"`, and anchors `#theme-override-specific` AFTER it via `themeOverrideAnchor()`/`orderThemeOverrideLinks()` in `shared/js/smd-settings.js`.
+- Verified live (read-only probe on PlanMyDay): superhero header = `--bs-black` (light) / `--bs-dark` (dark), tabs = `--bs-secondary`, `--smd-image-theme` = dark in light mode; head order is vendor -> `bootstrap-theme-css` -> `smd-shared-css` -> `theme-override-specific`. The reported bug is fixed.
+- Fixed `shared/css/themes/cyborg/cyborg.css`: `tml[` typo (invalid selector) and both rules targeting `data-theme="superhero"` inside the cyborg file. Now `html[data-theme="cyborg"]... .smd-card { color: white }` in both modes; note the forced-Light white-on-light contrast risk is documented at the end of the notes section.
+- What worked: reading computed CSS vars in a headless browser probe beats DOM-text inspection for cascade bugs; the specificity-vs-order asymmetry (bare `:root` dead, `:root[data-bs-theme]` alive) was the tell. What did not work: reasoning about the order from source alone - the file had already been fixed by the time the session got to it, so the live probe was required to separate "already fixed" from "still broken".
+- AGENTS.md updates this session: rule 14 + the authoritative-cascade note now state the per-theme file wins by document order (bare `:root` is safe), and a cyborg note was appended.
 
 ### 2026-09-23 (18) — global Default/Light/Dark theme mode
 - Added per-app `smdKey("themeMode")` overrides, `themeConfig[].defaultMode`, resolved `data-bs-theme`, canonical override-link ordering, and a two-select `<smd-theme>` with source-aware events. All six app boots/settings restores use the normalized shared theme and mode values.
@@ -1981,7 +2045,7 @@ Techniques / gotchas:
 
 - This supersedes the earlier `applySmdVars()` / `smd-contrast.js` / centralized-WCAG-colour notes in this history. The runtime contrast layer has been removed permanently: `shared/js/smd-contrast.js` is deleted; `smd-settings.js` no longer creates hidden body probes, no longer publishes generated `--smd-*-text`/`--smd-on-*` variables, and no longer recomputes colours on stylesheet load.
 - Shared CSS no longer overrides Bootstrap button, badge, tab, page-header, or modal-header colours with generated contrast values. Those components now consume the colours and Bootstrap variables supplied directly by the selected Bootswatch stylesheet. Structural layout, sizing, borders, typography, and component behaviour remain shared CSS; colour selection does not.
-- KEEP the theme engine: `themeConfig`, app-namespaced `theme` + global `themeMode`, `applyTheme()`, `applyThemeMode()`, `data-theme`, `data-bs-theme`, base/shared/specific stylesheet order, `<smd-theme>`, Storybook theme/mode controls, and SVG image auto-mode all remain. Users can swap all 26 themes and choose Light/Dark (Default removed 2026-09-26; see the theme-mode note above).
+- KEEP the theme engine: `themeConfig`, app-namespaced `theme` + global `themeMode`, `applyTheme()`, `applyThemeMode()`, `data-theme`, `data-bs-theme`, base/shared/specific stylesheet order, `<smd-theme>`, Storybook theme/mode controls, and SVG image auto-mode all remain. Users can swap all 27 themes and choose Light/Dark (Default removed 2026-09-26; see the theme-mode note above).
 - Per-theme `shared/css/themes/<theme>/<theme>.css` files are the only permitted colour exceptions (`light.css`/`dark.css` were deleted 2026-09-26). Superhero's specific file keeps its dark-blue `#0f2537` body at its base palette.
 - The PlanMyDay theme test group is now named `Theme colours`. It verifies native button/badge/tab computed colours against fresh Bootswatch elements in Cerulean/Darkly/etc. It does not assert generated WCAG substitutions. Do not reintroduce hidden probes or runtime palette mutation without a new explicit user decision.
 - Screenshot generation still calls `applyTheme(theme, mode)` and therefore captures the actual Bootswatch light/dark result after contrast removal.
@@ -2046,6 +2110,7 @@ Techniques / gotchas:
 - The per-theme override is the final override layer. Keep the three theme link ids (`bootstrap-theme-css`, `smd-shared-css`, `theme-override-specific`) and preserve this order when changing index pages or dynamic theme loading. The `theme-override-mode` link was removed 2026-09-26 with `light.css`/`dark.css`.
 - GOTCHA (fixed 2026-09-25, do not reintroduce): `applyTheme()` re-points the override sheet at runtime, and the old `orderThemeOverrideLinks()` anchored it on `#bootstrap-theme-css`. Because the shared sheet sits AFTER the base link in the correct order, that anchored it BEFORE it and pushed `shared/css/styles.css` to the end of `<head>` — so the theme was no longer the last cascade layer. The override is now anchored on the shared sheet: `themeOverrideAnchor()` returns `#smd-shared-css` (falling back to an href match for `shared/css/styles.css`, then the base link), and `setOverrideLink()`/`orderThemeOverrideLinks()` insert `theme-override-specific` immediately after it. Every shell carries `id="smd-shared-css"` on its shared stylesheet link.
 - This order is ENFORCED in every static shell (`index.html`, `PlanMyDay/index.html`, `CountMyDays/index.html`, `QRLinks/index.html`, `SolarControlar/index.html`, `FreeFormOX/index.html`, `storybook/index.html`, `storybook/cardViewer.html` including its iframe `frameDocument()`), and locked in by the "app shells load stylesheets in the documented cascade order" test in `tests/launch-regression.spec.js`, the frame check in `tests/storybook-regression.spec.js`, and the runtime order assertions in the Storybook theme-swap test. Keep new shells and the card viewer generator in the same order.
+- WHY the override file wins without qualification: `shared/css/styles.css` declares its defaults in a bare `:root` (specificity 0,1,0), and so may the per-theme file. Being the LAST stylesheet, the per-theme `:root` beats it by document order. Mode-specific rules key off `[data-bs-theme="light|dark"]` (specificity 0,2,0) inside the per-theme file. This was the 2026-09-26 fix for `superhero.css` overrides not applying (verified live: header = `--bs-black` light / `--bs-dark` dark, tabs = `--bs-secondary`; the old failure came from the override links loading BEFORE `styles.css`).
 - `smd-page` shows a single active overlay without destroying background state. `show()` adds `smd-page-suspended` to every other open `smd-page` (they keep `open`, so app state is preserved) and cancels stale `requestAnimationFrame` opens; `hide()` invalidates pending opens and unsuspends the pages it was covering. `smd-page-suspended` is `display: none !important` in `shared/css/styles.css`, so a suspended page is invisible but alive. `SmdApp.openPage()` must NOT call `closePages()`; opening B over A must leave A with `open` plus `smd-page-suspended`, and closing B must reveal A again. App code that hides pages itself (`PlanMyDay/js/job-editor.js`, `PlanMyDay/js/image-picker.js`, QRLinks picker) still works because it owns its own `d-none`/background restore timing.
 - Nested pages must chain: A opens B, B opens C; closing C restores B, closing B restores A. `restoreSmdPageBackgrounds()` only unsuspends the pages recorded on the closing page's `__smdBackgroundPages`, so do not blanket-unsuspend everything in `hide()`.
 - The menu observer in `smd-app.js` continues to hide `#btnMainMenu` while any `smd-page[open]` is active. Keep the observer write conditional to avoid a MutationObserver feedback loop.
@@ -2068,3 +2133,4 @@ Techniques / gotchas:
 - The three image-picker clear tests in `pmd-regression.spec.js` target `#imagePickerPage smd-image-picker smd-search button` now (the old picker-local `.clear` class is gone): `clear button resets picker search` (x2) and `bootstrap tab search filters icons and clear restores them`.
 - MAIN-VIEW CARD RHYTHM (2026-09-26): both main screens now space their cards with the Bootstrap `mb-1` utility on the HOST (0.25rem), not a component-owned margin. PlanMyDay's `pmd-job-today-card` injected style dropped `margin-bottom: var(--pmd-today-margin, 0.5rem)` and the `--pmd-today-margin` var (base + `body.compact`); `PlanMyDay/js/main-view.js` host class is now `today-drag-card d-block user-select-none mb-1`. CountMyDays `cmd-countdown-card` never had a margin rule (a density-aware one was trialled and reverted) and `CountMyDays/js/main-view.js` host class is now `d-block mb-1`. Measured: both cards are 4px apart in normal AND compact density. The compact density still only affects the pmd job-title size (`--pmd-today-title-size`).
 - LAUNCH TILES (2026-09-26): `Launch/js/app.js` `renderAppGrid` now wraps each tile in a Bootstrap `.col` and mirrors `pmd-job-today-card`'s card pattern: `<a class="app-tile card smd-card border-0 h-100 d-flex flex-column text-decoration-none">` holding a `border rounded-3` inner surface (with `flex-grow-1`, centred content). Title is `<smd-h2 class="fw-bold mb-0">` (so `smd-h2.js` was added to the root `index.html` script block) and the description is `small text-body mb-0`. This is why the app-name headings are now VISIBLE: the old tile combined `bg-body-tertiary` with `text-body`, and in superhero both resolve to rgb(235,235,235) so the `div.h4 fw-bold` name was light-on-light. The old `rounded-4`/`h4`/`text-secondary` classes are gone. The `.col` wrapper makes the existing `#appGrid` `row row-cols-2 row-cols-md-3 row-cols-xl-4 g-3` gutter show on BOTH axes (16px horizontal AND vertical) and gives equal-height tiles per row; note pure `d-flex flex-wrap gap-3` cannot equalise column widths without a calc() rule, so the Bootstrap grid gutter is the utility-only way to get identical gaps. `tests/launch-regression.spec.js` still passes (it only asserts `.app-tile` count/text/href).
+- CYBORG OVERRIDE FIX (2026-09-26): `shared/css/themes/cyborg/cyborg.css` had a broken selector (`tml[data-theme=...]` missing the `h`) AND both rules targeted `data-theme="superhero"` inside the cyborg file, so neither applied anywhere. Fixed to `html[data-theme="cyborg"][data-bs-theme="light|dark"] .smd-card { color: white }`. `.smd-card` is a real class (PlanMyDay `pmd-job-today-card`/`pmd-job-stream-card`/`pmd-job-search-card`, QRLinks `qrlink-card`, Launch `.app-tile`), so this now whitens card text in cyborg in BOTH modes - including forced-Light, where white-on-light is a contrast risk; revisit if it bothers users (use `var(--bs-body-color)` or drop the light rule).

@@ -34,7 +34,7 @@ test.describe("Storybook - Regression", () => {
     await expect(page.locator("#pmd-stream pmd-job-stream-card")).toHaveCount(4);
 
     // Theme selector reflects the saved theme and mode.
-    await expect(page.locator("#storybookThemeSelector .smd-theme-select option")).toHaveCount(26);
+    await expect(page.locator("#storybookThemeSelector .smd-theme-select option")).toHaveCount(27);
     await expect(page.locator("#storybookThemeSelector .smd-theme-mode-select option")).toHaveText(["Light", "Dark"]);
     await expect(page.locator("#sb-theme .smd-theme-select")).toHaveCount(1);
     await expect(page.locator("#sb-theme .smd-theme-mode-select")).toHaveCount(1);
@@ -188,7 +188,7 @@ test.describe("Storybook - Regression", () => {
       "Image Card"
     ]);
     await expect(page.locator("#themeSelect")).toHaveValue("all");
-    await expect(page.locator("#themeSelect option")).toHaveCount(27);
+    await expect(page.locator("#themeSelect option")).toHaveCount(28);
     await expect(page.locator("#themeSelect option").first()).toHaveText("All themes");
 
     await page.locator("#themeSelect").selectOption("morph");
@@ -204,8 +204,8 @@ test.describe("Storybook - Regression", () => {
     await expect(page.locator(".theme-row")).toHaveCount(1);
     await page.locator("#themeSelect").selectOption("all");
 
-    await expect(page.locator(".theme-row")).toHaveCount(26);
-    await expect(page.locator("iframe.preview-frame")).toHaveCount(52);
+    await expect(page.locator(".theme-row")).toHaveCount(27);
+    await expect(page.locator("iframe.preview-frame")).toHaveCount(54);
     expect(await page.locator("iframe.preview-frame").evaluateAll((frames) => frames.every((frame) => (
       frame.dataset.card === "pmd-job-today-card" &&
       ["light", "dark"].includes(frame.dataset.mode) &&
