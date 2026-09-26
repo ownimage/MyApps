@@ -96,13 +96,15 @@ function renderGoogleEventsEditor() {
     page.title = "Edit Google Events";
     page.content =
       '<div id="gcalEditorFilters" class="mb-3">' +
-        '<div class="d-flex gap-2 align-items-center flex-wrap">' +
-          '<input class="form-control flex-grow-1" id="gcalTitleSearch" type="search" placeholder="Search titles..." style="min-width:150px" oninput="setGcalTitleSearch(this.value)">' +
-          '<button type="button" class="btn btn-outline-secondary btn-sm" onclick="clearGcalTitleSearch()">Clear</button>' +
-        '</div>' +
+        '<smd-search id="gcalSearch" input-id="gcalTitleSearch" placeholder="Search titles..." value="' + escAttr(gcalTitleSearch) + '"></smd-search>' +
       '</div>' +
       '<div id="gcalEditorList"></div>';
     page.buttons = [{ text: "OK", variant: "success", action: "done" }];
+  }
+  if (!page.__gcalSearchBound) {
+    page.__gcalSearchBound = true;
+    page.addEventListener("smd-search-input", e => setGcalTitleSearch(e.detail.value));
+    page.addEventListener("smd-search-clear", () => clearGcalTitleSearch());
   }
 
   const list = $id("gcalEditorList");

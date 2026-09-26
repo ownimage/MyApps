@@ -482,6 +482,10 @@ smd-image-dropdown .item .thumb {
   height: 1.5rem;
 }
 
+smd-search {
+  display: block;
+}
+
 smd-image-picker {
   display: block;
 }
@@ -493,16 +497,7 @@ smd-image-picker .picker {
 }
 
 smd-image-picker .search {
-  display: flex;
-  gap: 0.5rem;
-}
-
-smd-image-picker .search input {
-  flex: 1;
-}
-
-smd-image-picker .search button {
-  flex: 0 0 auto;
+  display: block;
 }
 
 smd-image-picker .grid {

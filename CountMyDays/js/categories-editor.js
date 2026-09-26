@@ -49,16 +49,18 @@ function renderCategoriesEditor() {
     page.title = "Edit Categories";
     page.content =
       '<div id="categoryFilters" class="mb-3">' +
-        '<div class="d-flex gap-2 align-items-center flex-wrap">' +
-          '<input class="form-control flex-grow-1" id="categoryNameSearch" type="search" placeholder="Search category names..." style="min-width:150px" oninput="setCategoryNameSearch(this.value)">' +
-          '<button type="button" class="btn btn-outline-secondary btn-sm" onclick="clearCategoryNameSearch()">Clear</button>' +
-        '</div>' +
+        '<smd-search id="categorySearch" input-id="categoryNameSearch" placeholder="Search category names..." value="' + escAttr(categoryNameSearch) + '"></smd-search>' +
       '</div>' +
       '<div id="categoryList"></div>';
     page.buttons = [
       { text: "Add Category", variant: "primary", action: "add", close: false },
       { text: "OK", variant: "success", action: "done" }
     ];
+  }
+  if (!page.__cmdCategorySearchBound) {
+    page.__cmdCategorySearchBound = true;
+    page.addEventListener("smd-search-input", e => setCategoryNameSearch(e.detail.value));
+    page.addEventListener("smd-search-clear", () => clearCategoryNameSearch());
   }
   const input = $id("categoryNameSearch");
   if (input && input.value !== categoryNameSearch) input.value = categoryNameSearch;

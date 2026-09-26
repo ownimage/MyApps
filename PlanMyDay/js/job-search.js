@@ -12,6 +12,14 @@ function openSearchJobs() {
   const page = document.getElementById("jobSearchEditor");
   page.classList.remove("d-none");
   jobSearchQuery = "";
+  if (!page.__jobSearchBound) {
+    page.__jobSearchBound = true;
+    page.addEventListener("smd-search-input", e => {
+      jobSearchQuery = (e.detail.value || "").trim();
+      renderSearchJobs();
+    });
+    page.addEventListener("smd-search-clear", () => clearJobSearchFilter());
+  }
   buildSearchJobsContent();
   page.show();
   const input = $id("jobSearchInput");
@@ -40,15 +48,8 @@ function buildSearchJobsContent() {
   page.headerHtml = '<smd-badge id="jobSearchTotalBadge" variant="info" class="small align-middle"></smd-badge>';
   page.content =
     '<div id="jobSearchHeader">' +
-      '<div id="jobSearchFilters" class="mt-1 mb-3">' +
-        '<div class="row align-items-center g-0 mx-2">' +
-          '<div class="col">' +
-            '<input type="search" class="form-control" id="jobSearchInput" placeholder="Search job titles..." oninput="searchJobsFilter()">' +
-          '</div>' +
-          '<div class="col-auto ms-2">' +
-            '<smd-button variant="danger" id="btnJobSearchClear" onclick="clearJobSearchFilter()">Clear</smd-button>' +
-          '</div>' +
-        '</div>' +
+      '<div id="jobSearchFilters" class="mt-1 mb-3 mx-2">' +
+        '<smd-search id="jobSearch" input-id="jobSearchInput" button-id="btnJobSearchClear" placeholder="Search job titles..." value="' + escAttr(jobSearchQuery || "") + '"></smd-search>' +
       '</div>' +
     '</div>' +
     '<div id="jobSearchList"></div>';
@@ -62,12 +63,6 @@ function clearJobSearchFilter() {
   jobSearchQuery = "";
   const input = $id("jobSearchInput");
   if (input) input.value = "";
-  renderSearchJobs();
-}
-
-function searchJobsFilter() {
-  var input = $id("jobSearchInput");
-  jobSearchQuery = input ? input.value.trim() : "";
   renderSearchJobs();
 }
 

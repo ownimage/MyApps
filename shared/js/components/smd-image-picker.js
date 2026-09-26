@@ -117,22 +117,20 @@
         root.innerHTML = `
           <div class="picker">
             <div class="search" hidden>
-              <input type="search" class="form-control" placeholder="Search images or icons...">
-              <button type="button" class="btn btn-secondary clear">Clear</button>
+              <smd-search input-id="pickerSearchInput" placeholder="Search images or icons..."></smd-search>
             </div>
             <smd-tabs padding="small" narrow></smd-tabs>
           </div>
         `;
       }
-      const input = root.querySelector("input[type=search]");
       if (!this._bound) {
         this._bound = true;
-        input.addEventListener("input", () => {
-          this._search = input.value.trim().toLowerCase();
+        const search = root.querySelector(".search smd-search");
+        search.addEventListener("smd-search-input", (e) => {
+          this._search = (e.detail.value || "").trim().toLowerCase();
           this._renderGrid();
         });
-        root.querySelector(".clear").addEventListener("click", () => {
-          input.value = "";
+        search.addEventListener("smd-search-clear", () => {
           this._search = "";
           this._renderGrid();
         });

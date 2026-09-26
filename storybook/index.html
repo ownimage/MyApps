@@ -95,6 +95,7 @@
   <script src="../shared/js/components/smd-badge.js"></script>
   <script src="../shared/js/components/smd-image-dropdown.js"></script>
   <script src="../shared/js/components/smd-image-picker.js"></script>
+  <script src="../shared/js/components/smd-search.js"></script>
   <script src="../shared/vendor/flatpickr.min.js"></script>
   <script src="../shared/js/components/smd-date-picker.js"></script>
   <script src="../PlanMyDay/js/components/pmd-stream-header.js"></script>
@@ -971,6 +972,26 @@
           el.selected = "All";
           el.addEventListener("smd-image-dropdown-change", (e) => log("smd-image-dropdown", "picked \"" + e.detail.name + "\""));
         });
+      }
+    });
+
+    // ---- smd-search ----
+    sections.push({
+      id: "smd-search",
+      name: "smd-search",
+      tag: "<smd-search>",
+      desc: "Shared one-line search input + Clear button used by the editors. Dispatches <code>smd-search-input</code> ({ value }) on every keystroke and <code>smd-search-clear</code> ({ value: \"\" }) when Clear is pressed. Attributes: <code>placeholder</code>, <code>value</code>, <code>input-id</code>, <code>button-id</code>, <code>clear-label</code>, <code>variant</code> (default <code>danger</code>), <code>size</code> (default <code>small</code>), <code>disabled</code>.",
+      html: () => `
+        <div class="sb-canvas d-flex flex-column flex-wrap align-items-start gap-3 p-3 w-100 border rounded bg-body">
+          <div class="w-100 col-sm-6"><smd-search id="sb-search" input-id="sb-search-input" placeholder="Search something..." value="Hello"></smd-search></div>
+          <div class="w-100 col-sm-6"><smd-search id="sb-search-disabled" input-id="sb-search-input-disabled" placeholder="Disabled example" value="Read only" disabled></smd-search></div>
+        </div>
+        <div class="sb-log mt-3 small font-monospace text-success border rounded bg-body px-2 py-1" id="log-smd-search">events: none yet</div>
+      `,
+      init: () => {
+        const el = document.getElementById("sb-search");
+        el.addEventListener("smd-search-input", (e) => log("smd-search", "input \"" + e.detail.value + "\""));
+        el.addEventListener("smd-search-clear", () => log("smd-search", "clear"));
       }
     });
 
