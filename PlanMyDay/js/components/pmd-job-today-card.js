@@ -36,7 +36,8 @@
 //   pmd-job-today-delete — horizontal swipe LEFT past the threshold (detail { jobId, streamIdx, jobIdx });
 //                      the card animates off before this fires — the app opens the delete confirm.
 //   pmd-job-today-tomorrow — horizontal swipe RIGHT past the threshold (same detail); the card animates
-//                      off before it fires — the app snoozes the job (sleepUntil = tomorrow).
+//                      off before it fires — the app opens the job editor on the Schedule tab with the
+//                      Sleep Until picker popped open on tomorrow.
 //   Methods:
 //   snapBackSwipe() — slide a swiped-out card back into place (used when a delete confirm is cancelled).
 

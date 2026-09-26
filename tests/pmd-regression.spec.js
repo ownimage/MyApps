@@ -2525,28 +2525,35 @@ test.describe("PlanMyDay - Regression", () => {
       await expect.poll(async () => (await card.boundingBox()).x).toBeCloseTo(before.x, 0);
     });
 
-    test("swipe right snoozes the job until tomorrow", async ({ page }) => {
+    test("swipe right opens Edit Job on the Schedule tab with tomorrow selected", async ({ page }) => {
       await seedTodayList(page);
       await page.reload();
       await expect(page.locator("#todayCardList .today-drag-card")).toHaveCount(2);
       await swipeCard(page, "job_1", "right");
-      await expect(page.locator('#todayCardList .today-drag-card[data-job-id="job_1"]')).toHaveCount(0);
-      await expect(page.locator("#todayCardList .today-drag-card")).toHaveCount(1);
+      await expect(page.locator("#jobEditPage")).toBeVisible();
+      await expect(page.locator("#jobEditPage .smd-page-header h1")).toHaveText("Edit Job");
+      await expect(page.locator("#jobSchedule-tab")).toHaveAttribute("active", "");
+      await expect(page.locator("#jobSchedule-tab-panel")).toHaveAttribute("active", "");
+      await expect(page.locator(".flatpickr-calendar.open")).toBeVisible();
       const tomorrow = await page.evaluate(() => {
         const d = new Date();
         d.setDate(d.getDate() + 1);
         return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
       });
-      await expect.poll(() =>
-        page.evaluate(() => {
-          const streams = JSON.parse(localStorage.getItem("planmydays_streams"));
-          const job = streams.flatMap(function (s) { return s.jobs || []; }).find(function (j) { return j.id === "job_1"; });
-          return job ? job.sleepUntil : null;
-        })
-      ).toBe(tomorrow);
-      // a sub-threshold wiggle does not fire any action
+      expect(await page.evaluate(() => (typeof jobsBuffer !== "undefined" && jobsBuffer ? jobsBuffer.sleepUntil : null))).toBe(tomorrow);
+      // the stored job is untouched until OK is pressed
+      expect(await page.evaluate(() => {
+        const streams = JSON.parse(localStorage.getItem("planmydays_streams"));
+        const job = streams.flatMap(function (s) { return s.jobs || []; }).find(function (j) { return j.id === "job_1"; });
+        return job ? job.sleepUntil : null;
+      })).toBeFalsy();
+      // cancelling keeps the job on today's list (it was not snoozed)
+      await page.locator("#jobEditCancelBtn").click();
+      await expect(page.locator("#jobEditPage")).not.toBeVisible();
+      await expect(page.locator("#todayCardList .today-drag-card")).toHaveCount(2);
+      // a sub-threshold wiggle fires no action
       await page.evaluate(() => {
-        const card = document.querySelector('#todayCardList .today-drag-card[data-job-id="job_3"]');
+        const card = document.querySelector('#todayCardList .today-drag-card[data-job-id="job_1"]');
         const box = card.getBoundingClientRect();
         const fire = (type, x) => card.dispatchEvent(new PointerEvent(type, { bubbles: true, cancelable: true, pointerId: 9, clientX: x, clientY: box.y + box.height / 2, button: 0, buttons: type === "pointerup" ? 0 : 1 }));
         const cx = box.x + box.width / 2;
@@ -2554,8 +2561,9 @@ test.describe("PlanMyDay - Regression", () => {
         fire("pointermove", cx + 30);
         fire("pointerup", cx + 30);
       });
-      await expect(page.locator("#smdConfirmModal")).not.toBeVisible();
-      await expect(page.locator("#todayCardList .today-drag-card")).toHaveCount(1);
+      await page.waitForTimeout(100);
+      await expect(page.locator("#jobEditPage")).not.toBeVisible();
+      await expect(page.locator("#todayCardList .today-drag-card")).toHaveCount(2);
     });
   });
 

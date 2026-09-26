@@ -269,21 +269,15 @@ function renderMain() {
     });
   });
 
-  // swipe RIGHT -> snooze the job until tomorrow (sleepUntil); it re-enters
-  // today's list automatically on the next day's generation.
+  // swipe RIGHT -> open the job editor on the Schedule tab with the Sleep Until
+  // picker popped open on tomorrow (swipe-to-reschedule).
   cardContainer.addEventListener("pmd-job-today-tomorrow", (e) => {
     const card = e.target;
     const streamIdx = e.detail && e.detail.streamIdx >= 0
       ? e.detail.streamIdx
       : (card ? parseInt(card.dataset.streamIdx, 10) : -1);
     const jobIdx = e.detail && e.detail.jobIdx >= 0 ? e.detail.jobIdx : -1;
-    const streams = loadStreams();
-    const stream = streams[streamIdx];
-    const job = stream && stream.jobs ? stream.jobs[jobIdx] : null;
-    if (!job) return;
-    job.sleepUntil = getTomorrowStr();
-    saveStreams(streams);
-    renderMain();
+    openJobEditSchedule(streamIdx, jobIdx);
   });
 
 function removeAdhocJob(streamIdx, jobId, card) {

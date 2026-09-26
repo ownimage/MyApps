@@ -407,6 +407,45 @@ Techniques / gotchas:
 
 ## Session log
 
+### 2026-09-26 (h) - swipe right now opens the job editor on Schedule/tomorrow
+- FUNCTIONAL CHANGE (user): on the PlanMyDay main screen, a swipe RIGHT on a
+  today card no longer silently snoozes the job (`sleepUntil = tomorrow`). It
+  now opens the EDITABLE job editor on the **Schedule** tab with the "Sleep
+  Until" date picker popped open showing tomorrow.
+- `PlanMyDay/js/main-view.js`: the `pmd-job-today-tomorrow` handler now just
+  calls the new `openJobEditSchedule(streamIdx, jobIdx)` instead of mutating +
+  `saveStreams` + `renderMain`.
+- `PlanMyDay/js/job-editor.js`: new `openJobEditSchedule()` -> sets
+  `jobsBuffer.sleepUntil = getTomorrowStr()`, `buildJobEditPage(false, 1)`
+  (index 1 = Schedule) and `openJobSleepPickerWhenReady()`, which rAF-polls
+  until the page has `open` AND the picker's `getBoundingClientRect()` is
+  STABLE across two frames (i.e. the page slide has finished), then calls
+  `fp.open()`. Waiting for the slide to settle is required: opening mid-slide
+  makes flatpickr position the calendar against the input's transient
+  (translated) location, so with a non-zero slide-duration the popup appeared
+  in the wrong place. With slide-duration 0 the rect is stable immediately and
+  it opens on the second frame. The stored job is untouched until OK
+  (jobsBuffer is a copy), so Cancel leaves it on today's list. The Schedule
+  date picker gained `id="jobSleepPicker"`.
+  GOTCHA: the raw `#smdDatePickerInput` is hidden by flatpickr's altInput, so
+  its `getBoundingClientRect().width` is 0 — measure the `smd-date-picker`
+  HOST (`#jobSleepPicker`) for the "laid out"/"stable" check, not the raw input.
+  `smd-page.show()` defers the `open` attribute to the next frame, hence the
+  poll rather than opening immediately (opening while hidden puts the calendar
+  at 0,0). Verified via probe with slide-duration 0 AND 300: the calendar opens
+  only once the input is at its final position (x/y match the settled layout).
+- `pmd-job-today-card.js` doc comment for `pmd-job-today-tomorrow` updated.
+- TESTS: rewrote `pmd-regression` "swipe right opens Edit Job on the Schedule
+  tab with tomorrow selected" and `pmd-touch` "swipe right on a today card
+  opens Edit Job on the Schedule tab for tomorrow". Both assert: Edit Job
+  header, `#jobSchedule-tab`/`#jobSchedule-tab-panel` `active`, the
+  `.flatpickr-calendar.open` popup visible, `jobsBuffer.sleepUntil` = tomorrow,
+  and the STORED job unchanged until OK. Regression test also cancels and
+  asserts the job stays on today's list + the sub-threshold wiggle opens
+  nothing. Verified: 44-test pmd batch (swipe + Job Edit Tabs + sleepUntil)
+  green; `node --check` + `git diff --check` clean.
+- `BUILD_NUMBER` bumped after the change.
+
 ### 2026-09-26 (g) - hero light: flatpickr popup + smd-image-select gap
 - Reported (superhero light): the Edit Job / Schedule date-picker popup and the
   General-tab `smd-image-select` gap.

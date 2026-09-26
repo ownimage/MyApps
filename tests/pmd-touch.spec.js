@@ -146,7 +146,7 @@ test.describe("PlanMyDay - iPhone 12 Pro touch", () => {
     await expect(page.locator("#jobTasksList .task-note-row")).toHaveCount(2);
   });
 
-  test("swipe right on a today card snoozes the job until tomorrow", async ({ page }) => {
+  test("swipe right on a today card opens Edit Job on the Schedule tab for tomorrow", async ({ page }) => {
     await page.evaluate(() => {
       const d = new Date();
       const ds = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
@@ -169,19 +169,17 @@ test.describe("PlanMyDay - iPhone 12 Pro touch", () => {
       await card.dispatchEvent("pointermove", { pointerId: 1, pointerType: "touch", clientX: cx + dist * r, clientY: cy, button: 0, buttons: 1, bubbles: true, cancelable: true });
     }
     await card.dispatchEvent("pointerup", { pointerId: 1, pointerType: "touch", clientX: cx + dist, clientY: cy, button: 0, buttons: 0, bubbles: true, cancelable: true });
-    await expect(page.locator('#todayCardList .today-drag-card[data-job-id="job_1"]')).toHaveCount(0);
-    await expect(page.locator("#todayCardList .today-drag-card")).toHaveCount(1);
+    await expect(page.locator("#jobEditPage")).toBeVisible();
+    await expect(page.locator("#jobEditPage .smd-page-header h1")).toHaveText("Edit Job");
+    await expect(page.locator("#jobSchedule-tab")).toHaveAttribute("active", "");
     const tomorrow = await page.evaluate(() => {
       const d = new Date();
       d.setDate(d.getDate() + 1);
       return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
     });
     await expect.poll(() =>
-      page.evaluate(() => {
-        const streams = JSON.parse(localStorage.getItem("planmydays_streams"));
-        const job = streams.flatMap(function (s) { return s.jobs || []; }).find(function (j) { return j.id === "job_1"; });
-        return job ? job.sleepUntil : null;
-      })
+      page.evaluate(() => (typeof jobsBuffer !== "undefined" && jobsBuffer ? jobsBuffer.sleepUntil : null))
     ).toBe(tomorrow);
+    await expect(page.locator(".flatpickr-calendar.open")).toBeVisible();
   });
 });

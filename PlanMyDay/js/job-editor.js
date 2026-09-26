@@ -375,7 +375,7 @@ function getJobScheduleTabHTML(data, readOnly) {
     <div class="row mb-2">
       <div class="col">
         <label class="form-label">Sleep Until</label>
-        <smd-date-picker ${readOnly ? "readonly" : ""} value="${escapeHtml(data.sleepUntil || "")}" first-day-of-week="${parseInt(localStorage.getItem(smdKey("startWeek")) || "1", 10)}"></smd-date-picker>
+        <smd-date-picker id="jobSleepPicker" ${readOnly ? "readonly" : ""} value="${escapeHtml(data.sleepUntil || "")}" first-day-of-week="${parseInt(localStorage.getItem(smdKey("startWeek")) || "1", 10)}"></smd-date-picker>
       </div>
     </div>
     <div class="row mb-2">
@@ -587,6 +587,54 @@ function editJob(index) {
   }
   jobsEditingIdx = index; isNewJob = false;
   buildJobEditPage(false);
+}
+
+// Open the (editable) job editor on the Schedule tab with the "Sleep Until"
+// picker pre-set to tomorrow and its calendar popped open. Used by the main
+// view's swipe-right gesture (previously a silent "snooze until tomorrow").
+function openJobEditSchedule(streamIdx, jobIdx) {
+  var streams = loadStreams();
+  var stream = streams[streamIdx];
+  var job = stream && stream.jobs ? stream.jobs[jobIdx] : null;
+  if (!job) return;
+  jobsStreamIndex = streamIdx;
+  jobsBuffer = JSON.parse(JSON.stringify(job));
+  jobsBuffer.sleepUntil = getTomorrowStr();
+  jobsEditingIdx = jobIdx;
+  isNewJob = false;
+  buildJobEditPage(false, 1);
+  openJobSleepPickerWhenReady();
+}
+
+// smd-page.show() defers the `open` attribute to the next frame and the page
+// may then SLIDE in (slide-duration). Opening flatpickr while the page is still
+// moving positions the calendar against the input's mid-slide location, so wait
+// until the page is shown AND the picker's position is stable for two frames
+// (i.e. the slide has finished) before opening. With slide-duration 0 the rect
+// is stable immediately (opens on the second frame).
+function openJobSleepPickerWhenReady() {
+  var page = document.getElementById("jobEditPage");
+  var attempts = 0;
+  var lastLeft = null;
+  var lastTop = null;
+  function tryOpen() {
+    var picker = $id("jobSleepPicker");
+    var raw = picker && picker.querySelector("#smdDatePickerInput");
+    var fp = raw && raw._flatpickr;
+    if (fp && page && page.hasAttribute("open") && picker) {
+      var rect = picker.getBoundingClientRect();
+      var settled = lastLeft !== null && rect.width > 0 &&
+        Math.abs(rect.left - lastLeft) < 1 && Math.abs(rect.top - lastTop) < 1;
+      lastLeft = rect.left;
+      lastTop = rect.top;
+      if (settled) {
+        fp.open();
+        return;
+      }
+    }
+    if (attempts++ < 120) requestAnimationFrame(tryOpen);
+  }
+  requestAnimationFrame(tryOpen);
 }
 
 function cancelJobEdit() {

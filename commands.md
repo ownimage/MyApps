@@ -49,7 +49,7 @@ Run for ONE theme only (defaults to all 27 when the env var is unset; works for 
 
 Windows Command Prompt:
 ```bash
-.\node_modules\.bin\playwright.cmd test tests/cmd-screenshots.spec.js tests/ffox-screenshots.spec.js tests/launch-screenshots.spec.js tests/pmd-screenshots.spec.js tests/qrlinks-screenshots.spec.js --workers 16
+set SCREENSHOT_THEME=&& .\node_modules\.bin\playwright.cmd test tests/cmd-screenshots.spec.js tests/ffox-screenshots.spec.js tests/launch-screenshots.spec.js tests/pmd-screenshots.spec.js tests/qrlinks-screenshots.spec.js --workers 16
 ```
 ```bat
 set SCREENSHOT_THEME=superhero&& .\node_modules\.bin\playwright.cmd test tests/pmd-screenshots.spec.js --workers 16
