@@ -2,7 +2,7 @@ const fs = require("fs");
 const path = require("path");
 
 const SCREENSHOT_MODES = ["light", "dark"];
-const STYLESHEET_IDS = ["bootstrap-theme-css", "theme-override-mode", "theme-override-specific"];
+const STYLESHEET_IDS = ["bootstrap-theme-css", "theme-override-specific"];
 const IMAGE_RE = /\.(png|jpg|jpeg|gif|webp|svg|bmp)$/i;
 
 function createScreenshotAllThemes(appId, afterTheme) {

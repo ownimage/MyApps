@@ -19,7 +19,6 @@
   <link rel="stylesheet" href="../shared/vendor/fontawesome/css/brands.min.css">
   <link id="bootstrap-theme-css" href="../shared/css/themes/superhero/bootstrap.min.css" rel="stylesheet">
   <link id="smd-shared-css" rel="stylesheet" href="../shared/css/styles.css">
-  <link id="theme-override-mode" rel="stylesheet" href="../shared/css/themes/dark.css">
   <link id="theme-override-specific" rel="stylesheet" href="../shared/css/themes/superhero/superhero.css">
   <script src="../shared/js/build-number.js"></script>
   <script>
@@ -129,12 +128,7 @@
 
         <!-- Appearance -->
         <section class="smd-settings-tab" data-tab="Display" data-tab-id="appearance-tab">
-          <div class="row mb-3 align-items-center col-md-8 mt-3">
-            <div class="col-4 text-end"><label class="form-label mb-0">Theme</label></div>
-            <div class="col-8">
-              <smd-theme id="themeSelector"></smd-theme>
-            </div>
-          </div>
+          <smd-theme id="themeSelector" class="col-md-8 mt-3"></smd-theme>
 
           <div class="row mb-4 align-items-center col-md-8">
             <div class="col-4 text-end"><label class="form-label mb-0">Font size</label></div>

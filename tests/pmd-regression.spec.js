@@ -2750,13 +2750,13 @@ test.describe("PlanMyDay - Regression", () => {
       const modeSelect = page.locator("#themeSelector .smd-theme-mode-select");
       await expect(themeSelect).toBeVisible();
       await expect(modeSelect).toBeVisible();
-      expect(await modeSelect.locator("option").allTextContents()).toEqual(["Default", "Light", "Dark"]);
+      expect(await modeSelect.locator("option").allTextContents()).toEqual(["Light", "Dark"]);
       expect(await page.evaluate(() => ({
-        defaultMode: themeConfig.superhero.defaultMode,
+        hasDefaultMode: Object.prototype.hasOwnProperty.call(themeConfig.superhero, "defaultMode"),
         order: Array.from(document.head.children).map(el => el.id).filter(id => ["bootstrap-theme-css", "theme-override-mode", "theme-override-specific"].includes(id))
       }))).toEqual({
-        defaultMode: "dark",
-        order: ["bootstrap-theme-css", "theme-override-mode", "theme-override-specific"]
+        hasDefaultMode: false,
+        order: ["bootstrap-theme-css", "theme-override-specific"]
       });
 
       await page.evaluate(() => {
@@ -2794,14 +2794,15 @@ test.describe("PlanMyDay - Regression", () => {
         source: "theme"
       });
 
-      await modeSelect.selectOption("default");
-      await expect(page.locator("html")).toHaveAttribute("data-bs-theme", "light");
+      // Changing the theme keeps the explicit global mode; only the mode select changes it.
       await themeSelect.selectOption("solar");
       await expect(page.locator("html")).toHaveAttribute("data-bs-theme", "dark");
+      await modeSelect.selectOption("light");
+      await expect(page.locator("html")).toHaveAttribute("data-bs-theme", "light");
       expect(await page.evaluate(() => ({
         theme: localStorage.getItem("planmydays_theme"),
         mode: localStorage.getItem("planmydays_themeMode")
-      }))).toEqual({ theme: "solar", mode: "default" });
+      }))).toEqual({ theme: "solar", mode: "light" });
     });
 
     test("theme and mode fall back on unknown stored values", async ({ page }) => {
@@ -2829,11 +2830,11 @@ test.describe("PlanMyDay - Regression", () => {
       expect(state.linkHref).toContain("superhero");
       expect(state).toMatchObject({
         theme: "superhero",
-        mode: "default",
+        mode: "light",
         dataTheme: "superhero",
-        dataMode: "dark",
+        dataMode: "light",
         selectorTheme: "superhero",
-        selectorMode: "default"
+        selectorMode: "light"
       });
     });
 
@@ -3654,12 +3655,12 @@ test.describe("PlanMyDay - Regression", () => {
           dark: { line: "#0000ff", fill: null, width: null }
         };
         saveImages(images);
-        applyTheme("darkly");
+        applyTheme("darkly", "dark");
       });
-      // darkly is a dark theme -> default themed URL should use dark override
+      // Explicit dark mode -> themed URL should use the dark override
       const darkUrl = await page.evaluate(() => getThemedImageDataUrl(loadImages()[0]));
       expect(decodeURIComponent(darkUrl)).toContain('stroke="#0000ff"');
-      await page.evaluate(() => applyTheme("flatly"));
+      await page.evaluate(() => applyTheme("flatly", "light"));
       const lightUrl = await page.evaluate(() => getThemedImageDataUrl(loadImages()[0]));
       expect(decodeURIComponent(lightUrl)).toContain('stroke="#ff0000"');
     });

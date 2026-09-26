@@ -3,8 +3,8 @@ const { test, expect } = require("@playwright/test");
 test.describe("Launch - Regression", () => {
 
   // Shared CSS contract: vendor sheets load first so Bootstrap/theme styles win,
-  // then the theme Bootstrap, shared functional styles, the mode override and
-  // finally the theme-specific override.
+  // then the theme Bootstrap, shared functional styles, and finally the
+  // theme-specific override.
   const SHELL_CASCADE = [
     "/",
     "/PlanMyDay/",
@@ -21,8 +21,7 @@ test.describe("Launch - Regression", () => {
     if (/shared\/vendor\//.test(href)) return 0;
     if (/shared\/css\/themes\/[^/]+\/bootstrap\.min\.css$/.test(href)) return 1;
     if (/shared\/css\/styles\.css$/.test(href)) return 2;
-    if (/shared\/css\/themes\/(?:light|dark)\.css$/.test(href)) return 3;
-    if (/shared\/css\/themes\/[^/]+\/[^/]+\.css$/.test(href)) return 4;
+    if (/shared\/css\/themes\/[^/]+\/[^/]+\.css$/.test(href)) return 3;
     return 5;
   }
 
@@ -98,7 +97,7 @@ test.describe("Launch - Regression", () => {
     await expect(page.locator("#themeSelector .smd-theme-select")).toBeVisible();
     await expect(page.locator("#themeSelector .smd-theme-mode-select")).toBeVisible();
     expect(await page.locator("#themeSelector .smd-theme-select option").count()).toBe(26);
-    expect(await page.locator("#themeSelector .smd-theme-mode-select option").allTextContents()).toEqual(["Default", "Light", "Dark"]);
+    expect(await page.locator("#themeSelector .smd-theme-mode-select option").allTextContents()).toEqual(["Light", "Dark"]);
     await expect(page.locator("#iconSizeSelector")).toBeVisible();
     await expect(page.locator("#shareQrCode img").first()).toBeVisible({ timeout: 30000 });
     await expect(page.locator("#settingsPage smd-fontawesome-credit")).toBeVisible();

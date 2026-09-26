@@ -35,12 +35,12 @@ test.describe("Storybook - Regression", () => {
 
     // Theme selector reflects the saved theme and mode.
     await expect(page.locator("#storybookThemeSelector .smd-theme-select option")).toHaveCount(26);
-    await expect(page.locator("#storybookThemeSelector .smd-theme-mode-select option")).toHaveText(["Default", "Light", "Dark"]);
+    await expect(page.locator("#storybookThemeSelector .smd-theme-mode-select option")).toHaveText(["Light", "Dark"]);
     await expect(page.locator("#sb-theme .smd-theme-select")).toHaveCount(1);
     await expect(page.locator("#sb-theme .smd-theme-mode-select")).toHaveCount(1);
     await expect(page.locator("#sb-theme .smd-theme-select")).toBeVisible();
     await expect(page.locator("#sb-theme .smd-theme-mode-select")).toBeVisible();
-    await expect(page.locator("#sb-theme .smd-theme-mode-select option")).toHaveText(["Default", "Light", "Dark"]);
+    await expect(page.locator("#sb-theme .smd-theme-mode-select option")).toHaveText(["Light", "Dark"]);
     await expect(page.locator("#sb-theme .smd-theme-select")).toHaveValue(await page.locator("#storybookThemeSelector .smd-theme-select").inputValue());
     await expect(page.locator("#sb-theme .smd-theme-mode-select")).toHaveValue(await page.locator("#storybookThemeSelector .smd-theme-mode-select").inputValue());
     await page.locator("#sb-theme .smd-theme-mode-select").selectOption("light");
@@ -118,21 +118,20 @@ test.describe("Storybook - Regression", () => {
     await page.waitForTimeout(500);
     await expect(page.locator("#sb-stream-header .editor-title")).toHaveText("Work");
 
-    // applyTheme() re-points the theme/override sheets at runtime; the override
-    // sheets must stay AFTER the shared functional sheet, or the theme is no
-    // longer the final cascade layer.
+    // applyTheme() re-points the theme/override sheets at runtime; the per-theme
+    // override sheet must stay AFTER the shared functional sheet, or the theme is
+    // no longer the final cascade layer.
     const linkOrder = await page.evaluate(() => Array.from(document.querySelectorAll('link[rel="stylesheet"]'))
       .map((link) => (link.getAttribute("href") || "").split(/[?#]/)[0]));
     const indexOfShared = linkOrder.findIndex((href) => /shared\/css\/styles\.css$/.test(href));
-    const indexOfMode = linkOrder.findIndex((href) => /shared\/css\/themes\/(light|dark)\.css$/.test(href));
     // The per-theme sheet (themes/<name>/<name>.css) must not be confused with the
     // theme's bootstrap.min.css, which also matches themes/<name>/<file>.css.
     const indexOfSpecific = linkOrder.findIndex((href) => /shared\/css\/themes\/[^/]+\/[^/]+\.css$/.test(href) && !/bootstrap\.min\.css$/.test(href));
     const indexOfBase = linkOrder.findIndex((href) => /shared\/css\/themes\/[^/]+\/bootstrap\.min\.css$/.test(href));
     expect(indexOfShared).toBeGreaterThan(-1);
     expect(indexOfBase).toBeGreaterThan(-1);
-    expect(indexOfMode).toBeGreaterThan(indexOfShared);
-    expect(indexOfSpecific).toBeGreaterThan(indexOfMode);
+    expect(indexOfShared).toBeGreaterThan(indexOfBase);
+    expect(indexOfSpecific).toBeGreaterThan(indexOfShared);
 
     expect(pageErrors).toEqual([]);
   });
@@ -221,7 +220,7 @@ test.describe("Storybook - Regression", () => {
     await expect(darkCard).toBeVisible();
 
     // Preview frames must use the same cascade as the app shells: vendor, theme
-    // bootstrap, shared styles, mode override, then theme-specific override.
+    // bootstrap, shared styles, then theme-specific override.
     const frameRanks = await page.locator("iframe.preview-frame").first().evaluate((frame) => {
       const links = Array.from(frame.contentDocument.querySelectorAll('link[rel="stylesheet"]'));
       return links.map((link) => {
@@ -229,8 +228,7 @@ test.describe("Storybook - Regression", () => {
         if (/shared\/vendor\//.test(href)) return 0;
         if (/shared\/css\/themes\/[^/]+\/bootstrap\.min\.css$/.test(href)) return 1;
         if (/shared\/css\/styles\.css$/.test(href)) return 2;
-        if (/shared\/css\/themes\/(?:light|dark)\.css$/.test(href)) return 3;
-        if (/shared\/css\/themes\/[^/]+\/[^/]+\.css$/.test(href)) return 4;
+        if (/shared\/css\/themes\/[^/]+\/[^/]+\.css$/.test(href)) return 3;
         return 5;
       });
     });

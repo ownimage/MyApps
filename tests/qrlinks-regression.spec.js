@@ -107,7 +107,7 @@ test.describe("QRLinks - Regression", () => {
     await expect(page.locator("#settingsPage")).toHaveAttribute("open", "");
     await expect(page.locator("#settingsPage smd-tabs .smd-tab-btn")).toHaveText(["General", "Danger"]);
     expect(await page.locator("#themeSelector .smd-theme-select option").count()).toBe(26);
-    expect(await page.locator("#themeSelector .smd-theme-mode-select option").allTextContents()).toEqual(["Default", "Light", "Dark"]);
+    expect(await page.locator("#themeSelector .smd-theme-mode-select option").allTextContents()).toEqual(["Light", "Dark"]);
     await expect(page.locator("#shareQrCode img").first()).toBeVisible({ timeout: 30000 });
 
     // Danger rows are hidden until Show danger; the sample actions live there.

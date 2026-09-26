@@ -7,7 +7,6 @@
   <link rel="stylesheet" href="../shared/vendor/bootstrap-icons.css">
   <link rel="stylesheet" href="../shared/css/themes/flatly/bootstrap.min.css">
   <link id="smd-shared-css" rel="stylesheet" href="../shared/css/styles.css">
-  <link rel="stylesheet" href="../shared/css/themes/light.css">
   <link rel="stylesheet" href="../shared/css/themes/flatly/flatly.css">
   <style>
     html { scroll-padding-top: 7rem; }
@@ -178,7 +177,6 @@
       }
 
       function frameDocument(theme, mode, recipe) {
-        const modeCss = assetUrl(`shared/css/themes/${mode}.css`);
         const specificCss = assetUrl(`shared/css/themes/${theme}/${theme}.css`);
         const baseCss = assetUrl(`shared/${themeConfig[theme].css}`);
         const sharedCss = assetUrl("shared/css/styles.css");
@@ -197,7 +195,6 @@
 <link rel="stylesheet" href="${assetUrl(fontAwesomeRoot + "brands.min.css")}">
 <link id="bootstrap-theme-css" rel="stylesheet" href="${baseCss}">
 <link id="smd-shared-css" rel="stylesheet" href="${sharedCss}">
-<link rel="stylesheet" href="${modeCss}">
 <link rel="stylesheet" href="${specificCss}">
 </head>
 <body id="smd-app" class="font-size-xlarge icon-size-medium">
@@ -228,7 +225,6 @@ ${scripts}
         delete document.body.dataset.cardViewerReady;
         cardMatrix.replaceChildren();
         themes.forEach((theme) => {
-          const defaultMode = themeConfig[theme].defaultMode || themeConfig[theme].bsTheme || "light";
           const row = document.createElement("section");
           row.className = "theme-row";
           row.dataset.theme = theme;
@@ -236,7 +232,6 @@ ${scripts}
           row.innerHTML = `
             <div class="theme-label" id="theme-${theme}">
               <div class="theme-label-name">${displayName(theme)}</div>
-              <div class="small text-body-secondary">Default: ${defaultMode}</div>
             </div>
             <div class="border rounded overflow-hidden">
               <div class="mode-label small fw-semibold text-body-secondary border-bottom px-2 py-1">Light</div>

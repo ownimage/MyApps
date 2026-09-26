@@ -235,28 +235,25 @@ Architecture:
   **5.3.8** (all other themes remain 5.3.3) + `themeConfig` entry + precache —
   theme count is now 26. `pmd-screenshots.spec.js` has its own hardcoded list
   (25) so it is unaffected; `cmd-screenshots.spec.js` screenshots all 26.
-- DEFAULT THEME (2026-09-17): **superhero** everywhere — every app's
-  `app.js`/`app-settings.js` theme fallback, `SmdApp.themeDefault`, the shared
-  `applyTheme()` invalid-name fallback, the storybook's static
+- DEFAULT THEME (2026-09-17; mode removed 2026-09-26): **superhero** everywhere —
+  every app's `app.js`/`app-settings.js` theme fallback, `SmdApp.themeDefault`,
+  the shared `applyTheme()` invalid-name fallback, the storybook's static
   `<html data-theme>`/`data-bs-theme` hints and every static head `<link>`
-  (`bootstrap-theme-css` + `theme-override-mode`/`specific`) all use `superhero`
-  (mode link stays `dark.css`, since superhero is a `bsTheme: "dark"` theme).
-  The regression/screenshot specs' theme-config fallbacks were updated too;
-  darkly stays a valid selectable theme, just no longer the default.
-- THEME OVERRIDE CSS (2026-09-17): each theme's
-  `shared/css/themes/<theme>/bootstrap.min.css` is NEVER edited. Overrides
-  load through TWO extra stylesheets managed by `applyTheme()` in
-  `shared/js/smd-settings.js`: `#theme-override-mode` = `css/themes/light.css`
-  OR `css/themes/dark.css` (one shared file for every light / every dark
-  theme, chosen from `themeConfig[].bsTheme`), and `#theme-override-specific`
-  = `css/themes/<theme>/<theme>.css` (per theme). Both links are declared
-  statically in every app/storybook `<head>` right after `#bootstrap-theme-css`
-  (so the default theme's overrides apply at first paint) and `applyTheme()`
-  updates them (creating on demand, right after the theme link) on every theme
-  switch — layering is theme base < overrides < shared/app css. All files are
-  in `sw.js` SHARED_ASSETS. All five screenshot specs' `setTheme()` now swap the
-  override links too (via the same `{bw}/...` pattern). The per-theme/files are
-  deliberately EMPTY until specific overrides are decided.
+  (`bootstrap-theme-css` + `theme-override-specific`) all use `superhero`.
+  THEMES HAVE NO DEFAULT COLOUR MODE: the global Theme Mode (Light/Dark) is the
+  only mode source and normalizes to `light` when unset/invalid. darkly stays a
+  valid selectable theme, just no longer the default.
+- THEME OVERRIDE CSS (2026-09-17; mode sheet removed 2026-09-26): each theme's
+  `shared/css/themes/<theme>/bootstrap.min.css` is NEVER edited. ONE override
+  stylesheet remains, managed by `applyTheme()` in `shared/js/smd-settings.js`:
+  `#theme-override-specific` = `css/themes/<theme>/<theme>.css` (per theme). It
+  is declared statically in every app/storybook `<head>` and `applyTheme()`
+  re-points it (creating on demand) on every theme switch — layering is theme
+  base < shared/app css < per-theme override. `shared/css/themes/light.css` and
+  `dark.css` and the `#theme-override-mode` link were DELETED (the Light/Dark
+  mode now only sets `data-bs-theme`; per-theme files may key off it). All files
+  are in `sw.js` SHARED_ASSETS. The per-theme/files are deliberately EMPTY until
+  specific overrides are decided.
 - IMAGE SIZES (2026-09-17): ONE six-size scheme in every app's Settings
   (Icon/Image size select): xsmall=32, small=40, medium=50, large=64, xlarge=80,
   jumbo=100 (labels match the six font sizes). Stored key is still
@@ -1947,14 +1944,13 @@ Techniques / gotchas:
 - Removing the PlanMyDay app stylesheet initially removed the compact density variables. Compact title sizing now belongs to the injected `pmd-job-today-card` CSS (`body.compact` sets the component title token to `--smd-type-p`). Do not restore a PlanMyDay app stylesheet just for this hook.
 - `pmd-touch` 5/5 is the minimum verification for drag handles, expanded-state restoration, font scaling, task reordering, and swipe behaviour.
 
-### Shared global Default/Light/Dark theme mode
+### Shared global Light/Dark theme mode (no per-theme default; Default removed 2026-09-26)
 
-- `shared/js/smd-settings.js` is the single theme engine. `themeConfig[theme].defaultMode` describes the theme's natural mode; `smdKey("themeMode")` stores ONE GLOBAL override per app: `default`, `light`, or `dark`. It is not a per-theme map. The six keys are `planmydays_themeMode`, `countmydays_themeMode`, `qrlinks_themeMode`, `ffox_themeMode`, `launch_themeMode`, and `solarcontrolar_themeMode`.
-- `data-theme` is the normalized Bootswatch slug; `data-bs-theme` is the resolved `light|dark` mode and remains authoritative for Bootstrap variables, native controls, Flatpickr, and `<smd-image theme="auto">`. Invalid stored themes normalize to `superhero`; invalid modes normalize to `default`.
-- Override stylesheet order is guaranteed: Bootswatch base -> shared `light.css|dark.css` -> per-theme `<theme>.css` -> shared/app CSS. Mode-only switches do not reload the base theme or call `renderMain()`/network refresh; they update attributes, override links, and mode-dependent images in place.
-- `<smd-theme>` now renders two selects with stable hooks: `.smd-theme-select` and `.smd-theme-mode-select`. It dispatches `smd-theme-change` with `{ theme, mode, source }`, where source is `theme` or `mode`. Tests must target the stable class; generic `#themeSelector select` now matches two controls.
-- `shared/css/themes/light.css` and `dark.css` set the shared body/secondary/tertiary/border variables for explicit mode. Per-theme files own exceptions. Superhero is `defaultMode: dark`; its specific file keeps the authentic dark-blue Bootswatch body `#0f2537` (`rgb(15, 37, 55)`) even when the global mode is Light, matching the user requirement. Do not “fix” this by changing the selector to dark-only without explicit approval.
-- Storybook uses its own `storybook_theme` / `storybook_themeMode`, preserves the app's PlanMyDay keys around every apply, and exposes separate theme/mode controls. Seeded image stores must exist before elements carrying `image=` are upgraded. The inline Storybook stylesheet now contains only story-specific swatches, framing, overlap, and expanded-state rules; general layout uses Bootstrap utilities.
+- `shared/js/smd-settings.js` is the single theme engine. `themeConfig[theme]` carries ONLY `css`; there is NO `defaultMode`/`bsTheme`. `smdKey("themeMode")` stores ONE GLOBAL mode per app: `light` or `dark` (the old `default` value and any invalid value normalize to `light` — there is no per-theme fallback). The six keys are `planmydays_themeMode`, `countmydays_themeMode`, `qrlinks_themeMode`, `ffox_themeMode`, `launch_themeMode`, and `solarcontrolar_themeMode`.
+- `data-theme` is the normalized Bootswatch slug; `data-bs-theme` is the explicit `light|dark` mode and remains authoritative for Bootstrap variables, native controls, Flatpickr, and `<smd-image theme="auto">`. Invalid stored themes normalize to `superhero`.
+- Override stylesheet order is guaranteed: Bootswatch base -> shared/app CSS -> per-theme `<theme>.css` (the `#theme-override-specific` link). Mode-only switches do not reload the base theme or call `renderMain()`/network refresh; they update `data-bs-theme` and mode-dependent images in place. (`shared/css/themes/light.css`/`dark.css` and the `#theme-override-mode` link are GONE; `applyThemeMode()` now only sets the two attributes.)
+- `<smd-theme>` renders TWO labelled fields with stable hooks: `.smd-theme-select` (label "Theme") and `.smd-theme-mode-select` (label "Theme Mode", options Light/Dark). Theme options show the bare title (e.g. "Superhero"), never "Superhero (dark)". It dispatches `smd-theme-change` with `{ theme, mode, source }`, where source is `theme` or `mode`. Tests must target the stable classes.
+- Storybook uses its own `storybook_theme` / `storybook_themeMode`, preserves the app's PlanMyDay keys around every apply, and exposes the same `<smd-theme>` control in its header. Seeded image stores must exist before elements carrying `image=` are upgraded.
 - Mode-only changes must not trigger `renderMain()`, especially in SolarControlar where that performs a server fetch. Theme changes may rerender as before.
 
 ### Component/application refactors
@@ -1985,8 +1981,8 @@ Techniques / gotchas:
 
 - This supersedes the earlier `applySmdVars()` / `smd-contrast.js` / centralized-WCAG-colour notes in this history. The runtime contrast layer has been removed permanently: `shared/js/smd-contrast.js` is deleted; `smd-settings.js` no longer creates hidden body probes, no longer publishes generated `--smd-*-text`/`--smd-on-*` variables, and no longer recomputes colours on stylesheet load.
 - Shared CSS no longer overrides Bootstrap button, badge, tab, page-header, or modal-header colours with generated contrast values. Those components now consume the colours and Bootstrap variables supplied directly by the selected Bootswatch stylesheet. Structural layout, sizing, borders, typography, and component behaviour remain shared CSS; colour selection does not.
-- KEEP the theme engine: `themeConfig`, app-namespaced `theme` + global `themeMode`, `applyTheme()`, `applyThemeMode()`, `data-theme`, `data-bs-theme`, base/mode/specific stylesheet order, `<smd-theme>`, Storybook theme/mode controls, and SVG image auto-mode all remain. Users can swap all 26 themes and choose Default/Light/Dark.
-- `shared/css/themes/light.css`, `dark.css`, and per-theme files are the only permitted colour exceptions. Superhero remains a dark default with its specific dark-blue `#0f2537` body override.
+- KEEP the theme engine: `themeConfig`, app-namespaced `theme` + global `themeMode`, `applyTheme()`, `applyThemeMode()`, `data-theme`, `data-bs-theme`, base/shared/specific stylesheet order, `<smd-theme>`, Storybook theme/mode controls, and SVG image auto-mode all remain. Users can swap all 26 themes and choose Light/Dark (Default removed 2026-09-26; see the theme-mode note above).
+- Per-theme `shared/css/themes/<theme>/<theme>.css` files are the only permitted colour exceptions (`light.css`/`dark.css` were deleted 2026-09-26). Superhero's specific file keeps its dark-blue `#0f2537` body at its base palette.
 - The PlanMyDay theme test group is now named `Theme colours`. It verifies native button/badge/tab computed colours against fresh Bootswatch elements in Cerulean/Darkly/etc. It does not assert generated WCAG substitutions. Do not reintroduce hidden probes or runtime palette mutation without a new explicit user decision.
 - Screenshot generation still calls `applyTheme(theme, mode)` and therefore captures the actual Bootswatch light/dark result after contrast removal.
 

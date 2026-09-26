@@ -27,11 +27,11 @@
     get mode() {
       return typeof normalizeThemeMode === "function"
         ? normalizeThemeMode(this.getAttribute("mode"))
-        : (this.getAttribute("mode") || "default");
+        : (this.getAttribute("mode") === "dark" ? "dark" : "light");
     }
 
     set mode(value) {
-      this.setAttribute("mode", value || "default");
+      this.setAttribute("mode", value || "light");
     }
 
     connectedCallback() {
@@ -69,8 +69,15 @@
     _render() {
       if (!this._rendered) {
         this._rendered = true;
-        this.innerHTML = '<select class="form-select smd-theme-select"></select>' +
-          '<select class="form-select smd-theme-mode-select"></select>';
+        this.innerHTML =
+          '<div class="smd-theme-field row mb-3 align-items-center">' +
+            '<label class="col-4 text-end form-label mb-0">Theme</label>' +
+            '<div class="col-8"><select class="form-select smd-theme-select"></select></div>' +
+          '</div>' +
+          '<div class="smd-theme-field row mb-3 align-items-center">' +
+            '<label class="col-4 text-end form-label mb-0">Theme Mode</label>' +
+            '<div class="col-8"><select class="form-select smd-theme-mode-select"></select></div>' +
+          '</div>';
       }
       const config = typeof themeConfig !== "undefined" ? themeConfig : {};
       const themeSelect = this.querySelector(".smd-theme-select");
@@ -78,8 +85,7 @@
       if (!themeSelect || !modeSelect) return;
       if (!modeSelect.__smdThemeModeSig) {
         modeSelect.__smdThemeModeSig = true;
-        modeSelect.innerHTML = '<option value="default">Default</option>' +
-          '<option value="light">Light</option>' +
+        modeSelect.innerHTML = '<option value="light">Light</option>' +
           '<option value="dark">Dark</option>';
       }
       modeSelect.value = this.mode;
@@ -92,9 +98,7 @@
         if (!names.length) return;
         themeSelect.__smdThemeSig = sig;
         themeSelect.innerHTML = names.map((name) => {
-          const meta = config[name] || {};
-          const defaultMode = meta.defaultMode || meta.bsTheme || "light";
-          const label = name.charAt(0).toUpperCase() + name.slice(1) + " (" + defaultMode + ")";
+          const label = name.charAt(0).toUpperCase() + name.slice(1);
           return '<option value="' + escapeHtml(name) + '">' + escapeHtml(label) + "</option>";
         }).join("");
       }

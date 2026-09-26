@@ -20,7 +20,7 @@
 // comparison. If the two ever DO drift, the page notices at runtime
 // (GET_BUILD) and re-registers, so the drift self-heals instead of pinning
 // users to a build the worker will never replace.
-const BUILD_NUMBER = "202609260020";
+const BUILD_NUMBER = "202609260723";
 
 const CACHE = "myapps-" + BUILD_NUMBER;
 
@@ -70,8 +70,6 @@ const SHARED_ASSETS = [
   "shared/css/themes/vapor/bootstrap.min.css",
   "shared/css/themes/yeti/bootstrap.min.css",
   "shared/css/themes/zephyr/bootstrap.min.css",
-  "shared/css/themes/light.css",
-  "shared/css/themes/dark.css",
   "shared/css/themes/brite/brite.css",
   "shared/css/themes/cerulean/cerulean.css",
   "shared/css/themes/cosmo/cosmo.css",
