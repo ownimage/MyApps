@@ -94,6 +94,14 @@ test.describe("Launch - Regression", () => {
     await page.evaluate(() => openSettings());
     await expect(page.locator("#settingsPage")).toHaveAttribute("open", "");
 
+    // The settings page is an opaque full-screen surface: the Launch grid behind
+    // it must not show through (this app does not explicitly hide its main content).
+    const pageSurface = page.locator("#settingsPage .smd-page");
+    await expect(pageSurface).toBeVisible();
+    const surfaceBg = await pageSurface.evaluate(el => getComputedStyle(el).backgroundColor);
+    expect(surfaceBg).not.toBe("rgba(0, 0, 0, 0)");
+    expect(surfaceBg).not.toBe("transparent");
+
     await expect(page.locator("#themeSelector .smd-theme-select")).toBeVisible();
     await expect(page.locator("#themeSelector .smd-theme-mode-select")).toBeVisible();
     expect(await page.locator("#themeSelector .smd-theme-select option").count()).toBe(26);

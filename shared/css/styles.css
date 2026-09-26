@@ -238,6 +238,9 @@ smd-page .smd-page {
   inset: 0  ;
   display: flex;
   flex-direction: column;
+  /* Opaque page surface: the overlay must hide whatever is behind it (apps that
+     do not explicitly hide their main content rely on this). */
+  background-color: var(--bs-body-bg);
   transform: translateX(-100%);
   transition: transform var(--smd-slide-duration, 0s) ease;
   pointer-events: auto;
