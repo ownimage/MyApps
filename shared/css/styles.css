@@ -75,6 +75,51 @@ html[data-bs-theme="dark"] {
   --smd-date-picker-border-color: var(--smd-form-border-color);
 }
 
+/* TYPESCALE HARMONISATION -----------------------------------------------
+   The Font Size setting only moves <body>'s font-size: smd-settings puts one
+   font-size-* class on <body>, and these rules (plus the default body rule) set
+   font-size directly — nothing else. The four tokens are em multipliers of that
+   body font-size, so the whole type ramp follows the setting. Elements sized in
+   rem (Bootstrap form controls, etc.) stay root-based and do not move. */
+body { font-size: 1rem; } /* "normal" — no size class on <body> */
+body.font-size-xsmall { font-size: 0.8rem; }
+body.font-size-small { font-size: 0.925rem; }
+body.font-size-large { font-size: 1.125rem; }
+body.font-size-xlarge { font-size: 1.3rem; }
+body.font-size-jumbo { font-size: 1.6rem; }
+
+body {
+  --smd-type-badge: 0.75em; /* 0.75 x body font-size */
+  --smd-type-p: 1em;
+  --smd-type-h2: 1.25em;
+  --smd-type-h1: 2em;
+}
+
+/* Fold every heading level into the four-tier scale. Bootswatch themes ship
+   fluid calc() h1-h4 sizes + their own h5/h6; this sheet is linked after the
+   theme CSS in every app, so these equal-specificity rules win the cascade. */
+h1, .h1 { font-size: var(--smd-type-h1); }
+h2, .h2, h3, .h3, h4, .h4 { font-size: var(--smd-type-h2); }
+h5, .h5, h6, .h6 { font-size: var(--smd-type-p); font-weight: 700; }
+.badge { font-size: var(--smd-type-badge); }
+
+/* smd-h1 / smd-h2 — headings that always track the Font Size setting. These
+   components render a real h1/h2 inside the host; the scoped descendant rule
+   (specificity 0,0,2) beats the theme's rem-based element rule (0,0,1)
+   regardless of applyTheme re-appending the theme links after this sheet, and
+   the em token keeps the heading on the body font-size ramp. Theme colour and
+   weight still apply to the inner element (only font-size + margin are taken
+   over). */
+smd-h1 { display: block; font-size: var(--smd-type-h1, 2em); }
+smd-h2 { display: block; font-size: var(--smd-type-h2, 1.25em); }
+smd-h1 h1, smd-h2 h2 { margin: 0; font-size: inherit; }
+
+/* The <button> element is its own type: it maps to the h2 token by default,
+   with .btn-sm as the consciously smaller variant kept at p. This is the ONLY
+   place buttons get sized in light DOM. */
+button, .btn { font-size: var(--smd-type-h2, 1.25rem); }
+button.btn-sm, .btn-sm { font-size: var(--smd-type-p, 1rem); }
+
 /* The bundled Bootswatch themes hardcode a light .form-control / .form-select,
    so fields ignore the active theme's body colours. The rules below repaint
    them from the form palette above. The palette is consumed in both modes, so
