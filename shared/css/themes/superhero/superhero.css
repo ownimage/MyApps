@@ -4,6 +4,36 @@
   --smd-form-background: var(--bs-body-bg);
   --smd-form-foreground: var(--bs-body-color);
   --smd-form-border-color: var(--bs-border-color);
+  /* disabled/read-only controls (e.g. the View Job selects). The shared
+     default is the light `--bs-gray-100` (#ebebeb), which glared on the dark
+     page; keep the field surface and mute the text instead. */
+  --smd-form-disabled-background: var(--smd-form-background);
+  --smd-form-disabled-foreground: var(--bs-secondary-color);
+
+  /* <smd-image-dropdown> palette. Superhero's default `bg-body-tertiary` +
+     `btn-outline-secondary` surfaces came out light/mismatched on the dark
+     page (both modes). Match the themed form fields instead, with a primary
+     hover/active. */
+  --smd-dropdown-background: var(--smd-form-background);
+  --smd-dropdown-foreground: var(--smd-form-foreground);
+  --smd-dropdown-border-color: var(--smd-form-border-color);
+  --smd-dropdown-hover-background: var(--bs-primary);
+  --smd-dropdown-hover-foreground: var(--bs-white);
+  --smd-dropdown-disabled-background: var(--smd-form-background);
+  --smd-dropdown-disabled-foreground: var(--bs-secondary-color);
+  --smd-dropdown-menu-background: var(--smd-form-background);
+  --smd-dropdown-menu-foreground: var(--smd-form-foreground);
+  --smd-dropdown-menu-border-color: var(--smd-form-border-color);
+  --smd-dropdown-item-hover-background: var(--bs-primary);
+  --smd-dropdown-item-hover-foreground: var(--bs-white);
+  --smd-dropdown-item-active-background: var(--bs-primary);
+  --smd-dropdown-item-active-foreground: var(--bs-white);
+
+  /* <pmd-tasks> rows. Superhero's default `bg-body-tertiary` is light
+     (#ebebeb), so the strips glared on the dark page; `--bs-dark` is a subtle
+     navy surface in BOTH modes (light #0f2537 body, dark #212529 body). */
+  --pmd-tasks-row-background: var(--bs-dark);
+  --pmd-tasks-row-foreground: var(--bs-body-color);
 }
 
 :root[data-bs-theme="dark"] {

@@ -43,6 +43,17 @@ document.addEventListener("DOMContentLoaded", () => {
     jobEditPage.addEventListener("smd-date-picker-change", (e) => {
       jobField("sleepUntil", (e.detail && e.detail.value) || "");
     });
+    jobEditPage.addEventListener("pmd-task-change", (e) => {
+      jobTaskField(e.detail.index, e.detail.field, e.detail.value);
+    });
+    jobEditPage.addEventListener("pmd-task-note-toggle", (e) => {
+      if (jobsBuffer && jobsBuffer.tasks && jobsBuffer.tasks[e.detail.index]) {
+        jobsBuffer.tasks[e.detail.index].noteOpen = e.detail.open;
+      }
+    });
+    jobEditPage.addEventListener("pmd-task-delete", (e) => {
+      jobDeleteTask(e.detail.index);
+    });
   }
 
   const streamEditPage = document.getElementById("streamEditPage");

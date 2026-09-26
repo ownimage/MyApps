@@ -103,6 +103,7 @@
   <script src="../PlanMyDay/js/components/pmd-job-stream-card.js"></script>
   <script src="../PlanMyDay/js/components/pmd-job-search-card.js"></script>
   <script src="../PlanMyDay/js/components/pmd-job-today-card.js"></script>
+  <script src="../PlanMyDay/js/components/pmd-tasks.js"></script>
   <script src="../CountMyDays/js/components/cmd-countdown-card.js"></script>
   <script src="../CountMyDays/js/components/cmd-date-card.js"></script>
   <script src="../CountMyDays/js/components/cmd-category-card.js"></script>
@@ -763,6 +764,36 @@
         document.getElementById("ctrl-today-daily").addEventListener("change", render);
         document.getElementById("ctrl-today-done").addEventListener("change", render);
         document.getElementById("ctrl-today-handle").addEventListener("change", render);
+      }
+    });
+
+    // ---- pmd-tasks ----
+    sections.push({
+      id: "pmd-tasks",
+      name: "pmd-tasks",
+      tag: "<pmd-tasks>",
+      desc: "PlanMyDay job-edit Tasks list. Set <code>tasks</code> = [{ description, done, note, noteOpen }] and the <code>read-only</code> attribute; emits <code>pmd-task-change</code> ({ index, field, value }), <code>pmd-task-note-toggle</code> ({ index, open }) and <code>pmd-task-delete</code> ({ index }). Row colours come from the shared <code>--pmd-tasks-*</code> palette.",
+      html: () => `
+        <div class="sb-canvas d-flex flex-column gap-3 p-3 w-100 border rounded bg-body">
+          <pmd-tasks id="sb-pmd-tasks"></pmd-tasks>
+        </div>
+        <div class="sb-controls d-flex flex-wrap align-items-center gap-3 mt-3 small">
+          <label><input class="form-check-input" type="checkbox" id="ctrl-tasks-readonly"> read-only</label>
+        </div>
+        <div class="sb-log mt-3 small font-monospace text-success border rounded bg-body px-2 py-1" id="log-pmd-tasks">events: none yet</div>
+      `,
+      init: () => {
+        const el = document.getElementById("sb-pmd-tasks");
+        el.tasks = [
+          { description: "Check logs", done: false, note: "", noteOpen: false },
+          { description: "Review PRs", done: true, note: "Needs a second look", noteOpen: true }
+        ];
+        el.addEventListener("pmd-task-change", (e) => log("pmd-tasks", "change " + e.detail.field + "[" + e.detail.index + "] = " + JSON.stringify(e.detail.value)));
+        el.addEventListener("pmd-task-note-toggle", (e) => log("pmd-tasks", "note " + e.detail.index + " open=" + e.detail.open));
+        el.addEventListener("pmd-task-delete", (e) => log("pmd-tasks", "delete " + e.detail.index));
+        document.getElementById("ctrl-tasks-readonly").addEventListener("change", (e) => {
+          el.readOnly = e.target.checked;
+        });
       }
     });
 

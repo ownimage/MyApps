@@ -42,7 +42,8 @@ Architecture:
 - TYPESCALE TOKENS (2026-09-18): one shared ramp in `shared/css/styles.css` — `body { --smd-type-base: 1rem }` plus `body.font-size-xsmall/small/large/xlarge/jumbo` overrides (0.8/0.925/1/1.125/1.3/1.6rem) — drives exactly four tokens `--smd-type-badge` (base×0.75), `--smd-type-p` (base), `--smd-type-h2` (base×1.25), `--smd-type-h1` (base×2), all declared on `body` (NOT `:root`: the ramp must recompute per font-size body class, and body custom props pierce shadow DOM while `:host-context()` doesn't). Tag map: h1→h1; h2/h3/h4→h2; h5/h6→p; text/inputs/tables→p; badges→badge. BUTTONS ARE h2 (one step above text): `<button>`, `.btn`, `.smd-tab-btn` all use `var(--smd-type-h2)`; `.btn-sm` stays at `var(--smd-type-p)`. Light-DOM home is `shared/css/styles.css` (`button, .btn` / `.btn-sm`); the shared `btnBadgeSheet` covers shadow buttons. Scaffold the h2/p rules inline wherever a shadow root does NOT adopt btnBadgeSheet: the 4 apps' `editor-styles.js`, `smd-settings.js`, `smd-minio.js`, `smd-modal.js`, `smd-image-picker.js`, `smd-image-dropdown.js`. Don't re-add per-component `.btn` font-size rules. Every component + app style now uses `var(--smd-type-*, original-value)` (original as fallback so behaviour is unchanged wherever the token is missing). Media-fit sizes are token CALCs (e.g. CM/QR title `calc(var(--smd-type-h1,1.5rem)*0.7667)`, CM count `*0.8333`, CM container h1 `*0.625`, Solar 480px block). Compact density = `--…-title-size: var(--smd-type-p)` overrides. Deliberate non-token exceptions: the 22px hamburger icon in `smd-app.js`, `smd-checkbox` 1em/1.4em + `smd-draghandle` 1.2rem/1.6rem touch sizes, vendor CSS, storybook chrome. Tests assert heading ELEMENT tags (now `h1` for main-view date/"Today!"/"From …" headings) and pmd-touch.spec.js:119 asserts the NEW pixel values (xlarge 41.6, jumbo 51.2, compact-jumbo 25.6) — update those literals together with any ramp change.
 - THEME TEXT COLOURS (2026-09-12): shadow-DOM buttons/tabs cannot use Bootswatch's `.btn-*` rules (document CSS doesn't cross the boundary, and `--bs-btn-*` is set on the `.btn-*` element, not `:root`). `applySmdVars()` reads a hidden light-DOM `<button class="btn btn-<variant>">` probe (`smdBootstrapColor()`) and publishes `--smd-primary/secondary/success/danger/info/warning-text` + `--smd-tab-text` on `<html>`; every shadow `.btn-*`/variant uses those vars. `applyTheme()` re-runs `applySmdVars` on the theme `<link>`'s `load`. Never hardcode white text for a theme-coloured surface; if Bootswatch's own `.btn-*` rule disagrees with its `--bs-btn-color` var (e.g. cerulean's later `.btn-secondary { color: ... }`), the probe wins — always match the probe.
 - BADGES (2026-09-12): use the shared `<smd-badge variant="primary|secondary|success|danger|warning|info|light|dark" pill?>` component everywhere — never a `<span class="badge bg-*">` (Bootstrap's badge vars live on the `.badge` element and can't reach shadow roots). `applySmdVars()` probes a hidden light-DOM `.badge.text-bg-<variant>` (`smdBootstrapStyle()`) and publishes `--smd-badge-<variant>-{bg,text}`; the component's own sheet consumes them, so text colour follows Bootswatch exactly (white on cerulean's navy info, black on its light secondary, etc.). `btnBadgeSheet` now only carries `.btn*` rules despite its name; `smd-page`'s badge/bg rules were removed.
-- IMAGE DROPDOWN (2026-09-18): the shared `<smd-image-dropdown>` (`shared/js/components/smd-image-dropdown.js`) is the generic image+name picker — the old PlanMyDay `pmd-stream-select` was folded into it and deleted. It is DATA-driven, not DOM: host sets `options = [{name, image}]` (image OPTIONAL → text-only rows, e.g. CountMyDays' no-image "All") and `selected` = the chosen option's NAME string; picks dispatch `smd-image-dropdown-change` ({ name }). Listener wiring: CountMyDays `#dateCategoryFilter` (`smd-image-dropdown-change` → `setDateCategoryFilter`, "" for All) in `dates-editor.js`; PlanMyDay `#jobStreamDropdown` (name mapped back via `streamIndexByName` in `editor-common.js`). Stable shadow ids for test locators: `smdImageDropdownBtn`, `smdImageBtnIcon`, `smdImageBtnText`, `smdImageDropdownMenu`.
+- IMAGE DROPDOWN (2026-09-18): the shared `<smd-image-dropdown>` (`shared/js/components/smd-image-dropdown.js`) is the generic image+name picker — the old PlanMyDay `pmd-stream-select` was folded into it and deleted. It is DATA-driven, not DOM: host sets `options = [{name, image}]` (image OPTIONAL → text-only rows, e.g. CountMyDays' no-image "All") and `selected` = the chosen option's NAME string; picks dispatch `smd-image-dropdown-change` ({ name }). Listener wiring: CountMyDays `#dateCategoryFilter` (`smd-image-dropdown-change` → `setDateCategoryFilter`, "" for All) in `dates-editor.js`; PlanMyDay `#jobStreamDropdown` (name mapped back via `streamIndexByName` in `editor-common.js`). Stable shadow ids for test locators: `smdImageDropdownBtn`, `smdImageBtnIcon`, `smdImageBtnText`, `smdImageDropdownMenu`. Its colours come from the `--smd-dropdown-*` palette at the top of `shared/css/styles.css` (override per theme in `shared/css/themes/<theme>/<theme>.css`; superhero does) — see the 2026-09-26 (c) session note.
+- PMD TASKS (2026-09-26): the PlanMyDay job-edit Tasks list is the `PlanMyDay/js/components/pmd-tasks.js` component `<pmd-tasks>` (light DOM, host id `#jobTasksList`). DATA-driven: host sets `tasks = [{description, done, note, noteOpen}]` + the `read-only` attribute; it renders `.task-row`/`.task-note-row` keeping every id/class the suite targets (`.task-drag-card`, `.drag-handle`, `.task-done-cb`, `.task-desc-input`, `.task-note-btn`, `#taskNoteRow<i>`), and dispatches `pmd-task-change` ({index, field, value}, field done|description|note), `pmd-task-note-toggle` ({index, open}) and `pmd-task-delete` ({index}). `job-editor.js` `getJobTasksTabHTML` emits `<pmd-tasks id="jobTasksList" [read-only]>`; `renderJobTasks()` just sets `el.tasks = jobsBuffer.tasks`, toggles the top Add button and re-inits Sortable; `buildJobEditPage` calls `renderJobTasks()` for BOTH modes. The 3 events are wired on `#jobEditPage` in `app.js` -> `jobTaskField`/noteOpen/`jobDeleteTask`. `jobTaskToggleNote`/`taskNoteOpen` were deleted; `setTaskNoteBtnClass` stays (jobTaskField). Registered in `PlanMyDay/index.html`, `sw.js` APPS and the storybook (+section, nav count 31->32). Row colours come from the `--pmd-tasks-row-{background,foreground}` palette at the top of `shared/css/styles.css` (superhero overrides background to `--bs-dark`); see the 2026-09-26 (d) note.
 - Quartz's "glassmorphism" overrides live in `shared/css/styles.css` (`.modal-content`, `.dropdown-menu`).
 - REPO/PWA LAYOUT (2026-09-10): the repo hosts **multiple PWAs off one origin**
   (`ownimage.github.io/MyApps/…`). `shared/` = library; each app lives in its own
@@ -405,6 +406,104 @@ Techniques / gotchas:
 - CROSS-ORIGIN SAVE 302 GOTCHA (2026-09-17): SolarControlar's Flask POST endpoints (`POST /solar/`, `POST /solar/api/config`) are PRG — they answer `302 Location: /solar/`. A PWA `fetch()` that lets the browser follow that cross-origin redirect can lose its `Authorization` header on the follow-up GET (browser-dependent), so Traefik returns a 401 WITHOUT `Access-Control-Allow-Origin` → the fetch blocks as a CORS error / "Failed to fetch". Fix in the APP: `redirect: "manual"` on the POST and treat `resp.type === "opaqueredirect"` as success (server saved; the caller then re-fetches the GET page which carries auth again). `redirect: "manual"` returns an opaque-redirect response (status 0) for a 302 — you cannot read it, only detect it by `type`. Rule for SolarControlar saves: never follow the Flask redirect; `_post` returns the response TEXT (or `""`), so consumers must not chain `.text()`.
 
 ## Session log
+
+### 2026-09-26 (e) - superhero disabled-control palette (View Job selects)
+- Reported: on **View Job** (read-only) the two General-tab selects beside the
+  Suffix checkbox ("Day of Year" / "None") and the Schedule tab "Schedule Time"
+  selects (hour/minute) were still LIGHT in superhero. Cause: read-only renders
+  those native selects with the `disabled` attribute, and the shared
+  `.form-control:disabled, .form-select:disabled` rule paints from
+  `--smd-form-disabled-background` (default `var(--bs-gray-100)`) +
+  `--smd-form-disabled-foreground` (`var(--bs-gray-600)`). In superhero those
+  resolve to #ebebeb / #4e5d6c (light) and do NOT flip with `data-bs-theme`
+  (the gray scale is mode-independent), so disabled fields glared on the dark
+  page while enabled fields were fine.
+- Fix (same style as (c)/(d): variables at the top of `shared/css/styles.css`,
+  override per theme): the `--smd-form-disabled-*` palette already exists at the
+  top of `shared/css/styles.css`, so `superhero.css` now overrides only
+  `--smd-form-disabled-background: var(--smd-form-background)` and
+  `--smd-form-disabled-foreground: var(--bs-secondary-color)`. Every disabled
+  form control in superhero (all apps) now keeps the field surface with muted
+  text. Do NOT reach for the mode-specific `[data-bs-theme]` block here — the
+  plain `:root` override covers both modes because it is built from
+  mode-aware vars.
+- Verified with a real View-Job probe (superhero dark): the General selects
+  ("Day of Year", "None"), the Schedule time selects ("09", "00") and the
+  already-fixed disabled stream dropdown all compute
+  bg `rgb(33,37,41)` / text `rgba(206,212,218,.75)` / border `rgb(73,80,87)`.
+  A shared class probe confirmed enabled vs disabled `.form-control`/`.form-select`
+  and the superhero light mode resolve (#0f2537). CSS-only change; no JS/DOM.
+  `git diff --check` clean. `BUILD_NUMBER` workspace-managed.
+
+### 2026-09-26 (d) - <pmd-tasks> component + variable row palette
+- Same class of superhero bug as (c), for the job-edit Tasks list: each row used
+  `bg-body-tertiary`, which is LIGHT (#ebebeb) in superhero while the page is
+  dark -> glaring light strips. Extracted the list into a component and moved
+  the row colour onto a themeable palette.
+- NEW `PlanMyDay/js/components/pmd-tasks.js` (`<pmd-tasks>`, class `PmdTasks`):
+  light DOM, self-contained. Host sets `tasks` (array) + `read-only` attr; it
+  renders one `.task-row` per task plus its `.task-note-row`, preserving
+  `.task-drag-card`/`.drag-handle`/`.task-done-cb`/`.task-desc-input`/
+  `.task-note-btn`/`#taskNoteRow<i>` (all test hooks). Delegated `change`/`input`/
+  `click` handlers on the host (no inline onclick), emitting `pmd-task-change`
+  ({index, field, value}), `pmd-task-note-toggle` ({index, open}) and
+  `pmd-task-delete` ({index}) (bubbles + composed). It owns the note-button
+  `btn-info`/`btn-outline-info` class toggling and the note row `d-none` toggle.
+- `job-editor.js`: `getJobTasksTabHTML` now emits
+  `<pmd-tasks id="jobTasksList" [read-only]>` (empty; the component renders the
+  rows); `renderJobTasks()` sets `el.tasks = jobsBuffer.tasks`, toggles
+  `#jobAddTaskBtn`, and re-inits Sortable; `buildJobEditPage` calls
+  `renderJobTasks()` for BOTH read-only and editable; `initJobTasksSortable` is
+  only reached via `renderJobTasks` now. Deleted the now-unused
+  `jobTaskToggleNote` and `taskNoteOpen` globals. `app.js` adds the three
+  `pmd-task-*` listeners on `#jobEditPage` next to the dropdown/date-picker
+  ones (-> `jobTaskField`, `jobsBuffer.tasks[i].noteOpen`, `jobDeleteTask`).
+- Styling: added `--pmd-tasks-row-background` (default `--bs-tertiary-bg`) and
+  `--pmd-tasks-row-foreground` (default `--bs-body-color`) to the `:root` block
+  at the top of `shared/css/styles.css`, plus `pmd-tasks { display:block }` and
+  `pmd-tasks .task-row { background-color/color : var(--pmd-tasks-*) }`; removed
+  `bg-body-tertiary` from the rows. `superhero.css` overrides
+  `--pmd-tasks-row-background: var(--bs-dark)` — a subtle navy (#20374c) that
+  works in BOTH modes — keeping `--bs-body-color` text.
+- Registration: `PlanMyDay/index.html` (after pmd-job-today-card),
+  `sw.js` `APPS["PlanMyDay/"]`, `storybook/index.html` (script + section);
+  bumped the storybook nav-link assertion 31 -> 32 and added a render assertion
+  (`#sb-pmd-tasks .task-row`/`.task-note-row` = 2).
+- Verified: 35/35 "Job Edit Tabs" (incl. note toggles, reorder, view-only);
+  iphone pmd-touch "task rows can be reordered with a touch drag";
+  pmd-screenshots "job edit modal - tasks tab" (superhero) green; storybook
+  "component demos render their host elements" green; pmd sub-path SW-precache
+  green. Headless probe: task row = rgb(32,55,76) / text rgb(235,235,235) light
+  and rgb(206,212,218) dark. `node --check` + `git diff --check` clean.
+  `BUILD_NUMBER` workspace-managed (not touched).
+
+### 2026-09-26 (c) - smd-image-dropdown variable palette + superhero override
+- Fix: on PlanMyDay's Edit Job page the shared `<smd-image-dropdown>` (the
+  "Stream" picker, `#jobStreamDropdown`) had wrong colours in superhero in BOTH
+  modes. Cause: the trigger used `btn-outline-secondary bg-body-tertiary` and
+  the menu `bg-body border`; superhero's `--bs-tertiary-bg` is LIGHT (#ebebeb)
+  while its body/page is dark (#0f2537 light, #212529 dark), so the control was
+  a light box on the dark page, and the `--bs-secondary` (#4e5d6c) text was
+  low-contrast on dark.
+- Change (per user request: variables at the top of `shared/css/styles.css`,
+  overridable in `superhero.css`): added a `--smd-dropdown-*` palette to the
+  `:root` block of `shared/css/styles.css` (mirroring the existing
+  `--smd-form-*` pattern) and moved the component's colours onto it; removed
+  the colour utility classes from `shared/js/components/smd-image-dropdown.js`
+  (kept `btn`, `gap-2`, `list-unstyled`, `rounded`, `shadow-sm`, `mb-0` and the
+  `.menu`/`.item dropdown-item` hooks + ids). `superhero.css` overrides the
+  palette to the themed form field colours (`--smd-form-*`) with a
+  `--bs-primary` hover/active.
+- Verified with a headless storybook probe (superhero light+dark): trigger,
+  menu and form field all resolve identically — light rgb(15,37,55)/rgb(235,
+  235,235)/rgb(206,212,218), dark rgb(33,37,41)/rgb(206,212,218)/rgb(73,80,87);
+  active item = `--bs-primary` #df6919 with white text. GOTCHA: `.btn` has a
+  150ms colour transition, so a probe that switches `data-bs-theme` and reads
+  immediately catches the OLD mode's colour — wait ~400ms (or a real
+  transitionend) before asserting; the menu (no transition) updates instantly,
+  which is what made the button look wrong in the first probe pass.
+- `node --check` + `git diff --check` clean. `BUILD_NUMBER` managed by the
+  workspace watcher (not touched here).
 
 ### 2026-09-26 (b) - new shared `bootstrap` theme (stock Bootstrap 5.3.3)
 - Added the 27th theme `bootstrap`: `shared/css/themes/bootstrap/` holding the
@@ -2126,7 +2225,7 @@ Techniques / gotchas:
 - `BUILD_NUMBER`: working tree was already at `202609260716` (build-number.js + sw.js agree); left as-is. The user ships.
 - CountMyDays card parity (applied before this note): `cmd-countdown-card`/`cmd-date-card`/`cmd-category-card` templates changed from `card bg-body-tertiary text-body border-0 px-3 py-2|p-3` to `card border-0 w-100` with the existing content row gaining `border rounded-3`. Host spacing `d-block mb-3` -> `d-block mb-2` in `main-view.js`, `dates-editor.js`, `categories-editor.js`, and `googleCalendarEditor.js`. Bootstrap classes only; no new shared CSS.
 - Edit Dates search row now stays on one line: `CountMyDays/js/dates-editor.js` dropped `flex-wrap` from the search row and added `flex-shrink-0` to the Clear button (`.form-control` is `width:100%`, so its flex basis filled the row and wrapped the button). No inline/CSS change.
-- Shared `<smd-image-dropdown>` gained Bootstrap surfaces so its trigger/popup are no longer transparent: button `class="btn btn-outline-secondary bg-body-tertiary"`, menu `class="menu list-unstyled bg-body border rounded shadow-sm mb-0"`. `list-unstyled` (plus `mb-0`) removes the Reboot `ul` bullet markers/padding/ margin. The trigger button and each menu `.item` row carry `gap-2`, which spaces the image from the name (0.5rem, m-2 equivalent). Do NOT add Bootstrap's `dropdown-menu` class to the menu - it sets `display:none` and would break the component's `hidden`-attribute toggling. Applies to CountMyDays `#dateCategoryFilter`/`#dateCategorySelect` and PlanMyDay `#jobStreamDropdown`; no test asserted the old class strings.
+- Shared `<smd-image-dropdown>` styling (2026-09-26; supersedes the earlier utility-class version): the trigger no longer carries `btn-outline-secondary bg-body-tertiary` and the menu no longer carries `bg-body border` — both are skinned from a `--smd-dropdown-*` palette declared at the top of `shared/css/styles.css` (`--smd-dropdown-{background,foreground,border-color,hover-background,hover-foreground,disabled-background,disabled-foreground,menu-background,menu-foreground,menu-border-color,item-hover-background,item-hover-foreground,item-active-background,item-active-foreground}`). Defaults reproduce the old Bootstrap-utility look for every theme; a theme reskins the dropdown by overriding the palette in its own stylesheet (`shared/css/themes/<theme>/<theme>.css`). Superhero overrides it to match its themed form fields (`--smd-form-*`) with a `--bs-primary` hover/active. The trigger/menu keep their structural classes (`btn`, `gap-2`, `list-unstyled`, `rounded`, `shadow-sm`, `mb-0`) and ids (`smdImageDropdownBtn`/`smdImageDropdownMenu`); `list-unstyled`+`mb-0` kill the Reboot `ul` markers/padding/margin, and each `.item` row keeps `gap-2` (0.5rem image/name gap). Do NOT add Bootstrap's `dropdown-menu` class to the menu - it sets `display:none` and would break the component's `hidden`-attribute toggling. Applies to CountMyDays `#dateCategoryFilter`/`#dateCategorySelect` and PlanMyDay `#jobStreamDropdown`; no test asserted the old class strings.
 - FLAKY TEST FIX (2026-09-26): `pmd-regression.spec.js` "applies light and dark svg theme overrides..." was flaky under load. `applyTheme("flatly")` swaps `#theme-override-specific` asynchronously, and the default `superhero.css` pins `--smd-image-theme: dark`. Until flatly's override replaces it, BOTH `<smd-image>` and `getThemedImageDataUrl()` resolve `dark`, so the light pass renders/compares `#ffffff` and fails. The test now sets `data-bs-theme`, then `await page.waitForFunction((want) => getThemeKey() === want, theme, ...)` BEFORE creating the element, plus `test.setTimeout(30000)`. When a theme-dependent assertion is flaky, wait on the app's own resolver (`getThemeKey`) rather than the raw `<link>` load.
 - NEW SHARED COMPONENT `shared/js/components/smd-search.js` (`<smd-search>`): the one-line search input + Clear button. Light DOM, template cloned in `connectedCallback` via `_build()`; the host is made `display:block` in `shared/css/styles.css` (`smd-search`), layout is the inner `d-flex gap-2 align-items-center` row. Clear button defaults to `btn btn-danger btn-sm` (user chose danger red), overridable via `variant`/`size`. Attributes: `placeholder`, `value`, `input-id`, `button-id`, `clear-label`, `variant`, `size`, `disabled`. Events bubble+compose: `smd-search-input` ({ value }) per keystroke, `smd-search-clear` ({ value: "" }) on Clear. IMPORTANT: it sets NO default ids (only `input-id`/`button-id` when given) so multiple instances across the always-in-DOM editor pages cannot collide; callers that keep `$id(...)` lookups pass `input-id`, and test-referenced clears pass `button-id` (`#btnJobSearchClear`, `#btnImageFilterClear`). Registered in the root/CountMyDays/PlanMyDay/QRLinks shells, `storybook/index.html`, and `sw.js` SHARED_ASSETS.
 - Replaced every hand-rolled search+Clear row with `<smd-search>`: CountMyDays `categories-editor.js`/`dates-editor.js`/`googleCalendarEditor.js`, PlanMyDay `job-search.js`, shared `smd-images.js` (Edit Images + `openImagePicker`) and `smd-image-picker.js`. Bindings are event-delegated on the persistent page/host (guards like `page.__jobSearchBound`, `page.__imageSearchBound`, `page.__pickerBound`) so a content rebuild does not need rebinding. The CountMyDays export-wizard searches (`ewDateFilterName`/`ewCatFilterName`/`ewImageFilterName`) have NO Clear button and were left as-is. `smd-image-picker .search` is now `display:block` (the removed `.search input`/`.search button` flex rules were superseded by the component row). Storybook gained an `smd-search` section; the nav-link count assertion moved 30 -> 31 in `tests/storybook-regression.spec.js`.

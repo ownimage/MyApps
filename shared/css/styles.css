@@ -19,6 +19,32 @@
   --smd-form-hover-background: var(--bs-gray-700);
   --smd-form-disabled-background: var(--bs-gray-100);
   --smd-form-disabled-foreground: var(--bs-gray-600);
+
+  /* Palette for <smd-image-dropdown> (the shared image+name selector: the
+     PlanMyDay job Stream picker and the CountMyDays category filter). Like the
+     form palette above it is drawn from the theme's Bootstrap variables so a
+     theme can reskin the dropdown by overriding these in its own stylesheet
+     (shared/css/themes/<theme>/<theme>.css) without touching the component. */
+  --smd-dropdown-background: var(--bs-tertiary-bg);
+  --smd-dropdown-foreground: var(--bs-secondary);
+  --smd-dropdown-border-color: var(--bs-secondary);
+  --smd-dropdown-hover-background: var(--bs-secondary);
+  --smd-dropdown-hover-foreground: var(--bs-white);
+  --smd-dropdown-disabled-background: var(--smd-form-disabled-background);
+  --smd-dropdown-disabled-foreground: var(--smd-form-disabled-foreground);
+  --smd-dropdown-menu-background: var(--bs-body-bg);
+  --smd-dropdown-menu-foreground: var(--bs-body-color);
+  --smd-dropdown-menu-border-color: var(--bs-border-color);
+  --smd-dropdown-item-hover-background: var(--bs-tertiary-bg);
+  --smd-dropdown-item-hover-foreground: var(--bs-emphasis-color);
+  --smd-dropdown-item-active-background: var(--bs-primary);
+  --smd-dropdown-item-active-foreground: var(--bs-white);
+
+  /* Palette for <pmd-tasks> (the PlanMyDay job-edit Tasks rows). A theme
+     reskins the rows by overriding these in its own stylesheet
+     (shared/css/themes/<theme>/<theme>.css); superhero does. */
+  --pmd-tasks-row-background: var(--bs-tertiary-bg);
+  --pmd-tasks-row-foreground: var(--bs-body-color);
 }
 
 html[data-bs-theme="dark"] {
@@ -578,6 +604,23 @@ smd-image-dropdown .btn {
   display: flex;
   align-items: center;
   width: 100%;
+  background-color: var(--smd-dropdown-background);
+  color: var(--smd-dropdown-foreground);
+  border-color: var(--smd-dropdown-border-color);
+}
+
+smd-image-dropdown .btn:hover,
+smd-image-dropdown .btn:focus-visible {
+  background-color: var(--smd-dropdown-hover-background);
+  color: var(--smd-dropdown-hover-foreground);
+  border-color: var(--smd-dropdown-hover-background);
+}
+
+smd-image-dropdown .btn:disabled,
+smd-image-dropdown .btn.disabled {
+  background-color: var(--smd-dropdown-disabled-background);
+  color: var(--smd-dropdown-disabled-foreground);
+  border-color: var(--smd-dropdown-disabled-foreground);
 }
 
 smd-image-dropdown .thumb {
@@ -601,16 +644,44 @@ smd-image-dropdown .menu {
   z-index: 20;
   max-height: 16rem;
   overflow-y: auto;
+  background-color: var(--smd-dropdown-menu-background);
+  color: var(--smd-dropdown-menu-foreground);
+  border: 1px solid var(--smd-dropdown-menu-border-color);
 }
 
 smd-image-dropdown .item {
   display: flex;
   align-items: center;
+  color: var(--smd-dropdown-menu-foreground);
+}
+
+smd-image-dropdown .item:hover,
+smd-image-dropdown .item:focus {
+  background-color: var(--smd-dropdown-item-hover-background);
+  color: var(--smd-dropdown-item-hover-foreground);
+}
+
+smd-image-dropdown .item.active,
+smd-image-dropdown .item.active:hover,
+smd-image-dropdown .item.active:focus {
+  background-color: var(--smd-dropdown-item-active-background);
+  color: var(--smd-dropdown-item-active-foreground);
 }
 
 smd-image-dropdown .item .thumb {
   width: 1.5rem;
   height: 1.5rem;
+}
+
+/* PlanMyDay job-edit Tasks list. The rows keep Bootstrap layout utilities; the
+   surface colour comes from the --pmd-tasks-* palette at the top of this file. */
+pmd-tasks {
+  display: block;
+}
+
+pmd-tasks .task-row {
+  background-color: var(--pmd-tasks-row-background);
+  color: var(--pmd-tasks-row-foreground);
 }
 
 smd-search {
