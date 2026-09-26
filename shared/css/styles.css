@@ -50,10 +50,29 @@
      default (unchanged for most themes); a theme tints it to its own primary
      by overriding this in its stylesheet (shared/css/themes/<theme>/<theme>.css). */
   --smd-checkbox-accent: auto;
+
+  /* Palette for the flatpickr date-picker popup (it is appended to <body> and
+     ships a light skin). A theme overrides these in its own stylesheet
+     (shared/css/themes/<theme>/<theme>.css) and the dark values are set on
+     [data-bs-theme="dark"] below. */
+  --smd-date-picker-background: var(--bs-white);
+  --smd-date-picker-foreground: var(--bs-body-color);
+  --smd-date-picker-muted-foreground: var(--bs-secondary-color);
+  --smd-date-picker-hover-background: var(--bs-secondary-bg);
+  --smd-date-picker-accent: var(--bs-primary);
+  --smd-date-picker-accent-foreground: var(--bs-white);
+  --smd-date-picker-border-color: var(--bs-border-color);
 }
 
 html[data-bs-theme="dark"] {
   --smd-image-theme: dark;
+  --smd-date-picker-background: var(--smd-form-background);
+  --smd-date-picker-foreground: var(--smd-form-foreground);
+  --smd-date-picker-muted-foreground: var(--smd-form-muted-foreground);
+  --smd-date-picker-hover-background: var(--smd-form-hover-background);
+  --smd-date-picker-accent: var(--smd-form-accent);
+  --smd-date-picker-accent-foreground: var(--smd-form-accent-foreground);
+  --smd-date-picker-border-color: var(--smd-form-border-color);
 }
 
 /* The bundled Bootswatch themes hardcode a light .form-control / .form-select,
@@ -83,92 +102,96 @@ html[data-bs-theme="dark"] {
   color: var(--smd-form-disabled-foreground);
 }
 
-[data-bs-theme="dark"] .flatpickr-calendar {
-  background: var(--smd-form-background);
-  border-color: var(--smd-form-border-color);
+/* flatpickr date-picker popup (appended to <body>), repainted from the
+   date-picker palette. The palette carries the light values by default and the
+   dark values on [data-bs-theme="dark"] / per theme, so these rules are shared
+   by every theme and the theme override files only set variables. */
+.flatpickr-calendar {
+  background: var(--smd-date-picker-background);
+  border-color: var(--smd-date-picker-border-color);
 }
 
-[data-bs-theme="dark"] .flatpickr-calendar .flatpickr-months .flatpickr-month,
-[data-bs-theme="dark"] .flatpickr-calendar .flatpickr-current-month .flatpickr-monthDropdown-months {
-  background: var(--smd-form-background);
-  color: var(--smd-form-foreground);
+.flatpickr-calendar .flatpickr-months .flatpickr-month,
+.flatpickr-calendar .flatpickr-current-month .flatpickr-monthDropdown-months {
+  background: var(--smd-date-picker-background);
+  color: var(--smd-date-picker-foreground);
 }
 
-[data-bs-theme="dark"] .flatpickr-calendar .flatpickr-current-month .flatpickr-monthDropdown-months option {
-  background: var(--smd-form-background);
-  color: var(--smd-form-foreground);
+.flatpickr-calendar .flatpickr-current-month .flatpickr-monthDropdown-months option {
+  background: var(--smd-date-picker-background);
+  color: var(--smd-date-picker-foreground);
 }
 
-[data-bs-theme="dark"] .flatpickr-calendar .flatpickr-current-month input.cur-year {
-  color: var(--smd-form-foreground);
+.flatpickr-calendar .flatpickr-current-month input.cur-year {
+  color: var(--smd-date-picker-foreground);
 }
 
-[data-bs-theme="dark"] .flatpickr-calendar .flatpickr-weekday {
-  background: var(--smd-form-background);
-  color: var(--smd-form-muted-foreground);
+.flatpickr-calendar .flatpickr-weekday {
+  background: var(--smd-date-picker-background);
+  color: var(--smd-date-picker-muted-foreground);
 }
 
-[data-bs-theme="dark"] .flatpickr-calendar .flatpickr-day {
-  color: var(--smd-form-foreground);
+.flatpickr-calendar .flatpickr-day {
+  color: var(--smd-date-picker-foreground);
 }
 
-[data-bs-theme="dark"] .flatpickr-calendar .flatpickr-day.today {
-  border-color: var(--smd-form-accent);
+.flatpickr-calendar .flatpickr-day.today {
+  border-color: var(--smd-date-picker-accent);
 }
 
-[data-bs-theme="dark"] .flatpickr-calendar .flatpickr-day:hover {
-  background: var(--smd-form-hover-background);
-  color: var(--smd-form-foreground);
+.flatpickr-calendar .flatpickr-day:hover {
+  background: var(--smd-date-picker-hover-background);
+  color: var(--smd-date-picker-foreground);
 }
 
-[data-bs-theme="dark"] .flatpickr-calendar .flatpickr-day.selected,
-[data-bs-theme="dark"] .flatpickr-calendar .flatpickr-day.selected:hover,
-[data-bs-theme="dark"] .flatpickr-calendar .flatpickr-day.startRange,
-[data-bs-theme="dark"] .flatpickr-calendar .flatpickr-day.endRange,
-[data-bs-theme="dark"] .flatpickr-calendar .flatpickr-day.selected.inRange {
-  background: var(--smd-form-accent);
-  border-color: var(--smd-form-accent);
-  color: var(--smd-form-accent-foreground);
+.flatpickr-calendar .flatpickr-day.selected,
+.flatpickr-calendar .flatpickr-day.selected:hover,
+.flatpickr-calendar .flatpickr-day.startRange,
+.flatpickr-calendar .flatpickr-day.endRange,
+.flatpickr-calendar .flatpickr-day.selected.inRange {
+  background: var(--smd-date-picker-accent);
+  border-color: var(--smd-date-picker-accent);
+  color: var(--smd-date-picker-accent-foreground);
 }
 
-[data-bs-theme="dark"] .flatpickr-calendar .flatpickr-day.inRange,
-[data-bs-theme="dark"] .flatpickr-calendar .flatpickr-day.prevMonthDay.inRange,
-[data-bs-theme="dark"] .flatpickr-calendar .flatpickr-day.nextMonthDay.inRange {
-  background: var(--smd-form-hover-background);
+.flatpickr-calendar .flatpickr-day.inRange,
+.flatpickr-calendar .flatpickr-day.prevMonthDay.inRange,
+.flatpickr-calendar .flatpickr-day.nextMonthDay.inRange {
+  background: var(--smd-date-picker-hover-background);
 }
 
-[data-bs-theme="dark"] .flatpickr-calendar .flatpickr-day.flatpickr-disabled,
-[data-bs-theme="dark"] .flatpickr-calendar .flatpickr-day.flatpickr-disabled:hover,
-[data-bs-theme="dark"] .flatpickr-calendar .flatpickr-day.prevMonthDay,
-[data-bs-theme="dark"] .flatpickr-calendar .flatpickr-day.nextMonthDay {
-  color: var(--smd-form-muted-foreground);
+.flatpickr-calendar .flatpickr-day.flatpickr-disabled,
+.flatpickr-calendar .flatpickr-day.flatpickr-disabled:hover,
+.flatpickr-calendar .flatpickr-day.prevMonthDay,
+.flatpickr-calendar .flatpickr-day.nextMonthDay {
+  color: var(--smd-date-picker-muted-foreground);
 }
 
-[data-bs-theme="dark"] .flatpickr-calendar .flatpickr-time {
-  background: var(--smd-form-background);
-  border-color: var(--smd-form-border-color);
+.flatpickr-calendar .flatpickr-time {
+  background: var(--smd-date-picker-background);
+  border-color: var(--smd-date-picker-border-color);
 }
 
-[data-bs-theme="dark"] .flatpickr-calendar .flatpickr-time input,
-[data-bs-theme="dark"] .flatpickr-calendar .flatpickr-time .flatpickr-time-separator,
-[data-bs-theme="dark"] .flatpickr-calendar .flatpickr-time .flatpickr-am-pm {
-  color: var(--smd-form-foreground);
+.flatpickr-calendar .flatpickr-time input,
+.flatpickr-calendar .flatpickr-time .flatpickr-time-separator,
+.flatpickr-calendar .flatpickr-time .flatpickr-am-pm {
+  color: var(--smd-date-picker-foreground);
 }
 
-[data-bs-theme="dark"] .flatpickr-calendar.arrowTop:before {
-  border-bottom-color: var(--smd-form-border-color);
+.flatpickr-calendar.arrowTop:before {
+  border-bottom-color: var(--smd-date-picker-border-color);
 }
 
-[data-bs-theme="dark"] .flatpickr-calendar.arrowTop:after {
-  border-bottom-color: var(--smd-form-background);
+.flatpickr-calendar.arrowTop:after {
+  border-bottom-color: var(--smd-date-picker-background);
 }
 
-[data-bs-theme="dark"] .flatpickr-calendar.arrowBottom:before {
-  border-top-color: var(--smd-form-border-color);
+.flatpickr-calendar.arrowBottom:before {
+  border-top-color: var(--smd-date-picker-border-color);
 }
 
-[data-bs-theme="dark"] .flatpickr-calendar.arrowBottom:after {
-  border-top-color: var(--smd-form-background);
+.flatpickr-calendar.arrowBottom:after {
+  border-top-color: var(--smd-date-picker-background);
 }
 
 #mainNav {
@@ -570,6 +593,7 @@ smd-image-select {
   display: flex;
   align-items: center;
   min-width: 0;
+  gap: 0.5rem;
 }
 
 smd-image-select .thumb {

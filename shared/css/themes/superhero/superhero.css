@@ -39,6 +39,17 @@
   /* <smd-checkbox> tick. The browser default is a blue OS accent that clashes
      with superhero's orange primary; tint it to the theme primary. */
   --smd-checkbox-accent: var(--bs-primary);
+
+  /* flatpickr date-picker popup. Superhero's light mode is visually dark but
+     sets data-bs-theme="light", so the shared dark calendar palette did not
+     apply; set the dark palette (named colours) for BOTH modes. */
+  --smd-date-picker-background: var(--bs-body-bg);
+  --smd-date-picker-foreground: var(--bs-body-color);
+  --smd-date-picker-muted-foreground: var(--bs-secondary-color);
+  --smd-date-picker-hover-background: var(--bs-gray-700);
+  --smd-date-picker-accent: var(--bs-primary);
+  --smd-date-picker-accent-foreground: var(--bs-white);
+  --smd-date-picker-border-color: var(--bs-border-color);
 }
 
 :root[data-bs-theme="dark"] {

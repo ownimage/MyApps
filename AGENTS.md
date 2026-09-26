@@ -407,6 +407,34 @@ Techniques / gotchas:
 
 ## Session log
 
+### 2026-09-26 (g) - hero light: flatpickr popup + smd-image-select gap
+- Reported (superhero light): the Edit Job / Schedule date-picker popup and the
+  General-tab `smd-image-select` gap.
+- DATE PICKER: the FIELD was already dark (`--smd-form-*`), but the flatpickr
+  POPUP (appended to `<body>`) stayed white because the shared dark skin was
+  gated `[data-bs-theme="dark"]` and superhero's light mode sets
+  `data-bs-theme="light"` (probe: `.flatpickr-calendar` bg `rgb(255,255,255)`,
+  month/day text dark). Fix: the ENTIRE flatpickr calendar skin now lives in
+  `shared/css/styles.css` as UNGATED selectors consuming a `--smd-date-picker-*`
+  palette (background/foreground/muted-foreground/hover-background/accent/
+  accent-foreground/border-color) declared at the top of `:root` with light
+  defaults; the `html[data-bs-theme="dark"]` block sets the dark values. Theme
+  override files now ONLY set that palette: `superhero.css` sets the dark values
+  in `:root` (all named Bootstrap colours) so its light mode gets the dark
+  calendar too.
+  RULE (user, 2026-09-26): `shared/css/themes/<theme>/<theme>.css` must ONLY
+  set variables that `styles.css` consumes — NEVER put component selectors
+  there (the first cut added an `html[data-theme="superhero"] .flatpickr-calendar
+  ...` block, which was reverted). If you need to override an element, add/route
+  it through a variable in `styles.css` first.
+  Other light themes barely change (calendar stays light; the selected day now
+  uses the theme primary, matching the dark skins). Verified via probe:
+  superhero light bg `rgb(15,37,55)` / month text `rgb(235,235,235)`, superhero
+  dark `rgb(33,37,41)`, flatly light still `rgb(255,255,255)`.
+- `smd-image-select`: added `gap: 0.5rem` (Bootstrap `m-2`) between the thumb
+  and the `.meta` name/Edit column in `shared/css/styles.css`.
+- `BUILD_NUMBER` bumped after the change.
+
 ### 2026-09-26 (f) - superhero light: pmd-tasks row surface + checkbox accent
 - Reported: in superhero **light** the `<pmd-tasks>` rows and the General-tab
   Suffix `<smd-checkbox>` looked wrong colourwise (the (c)/(d)/(e) fixes were
