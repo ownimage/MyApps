@@ -17,7 +17,7 @@ cmdCountdownCardTemplate.innerHTML = `
       <div class="thumbs d-flex flex-shrink-0 align-items-start gap-1">
         <div class="thumb-block d-flex flex-column align-items-center">
           <div class="thumb mb-1 d-flex align-items-center justify-content-center"><smd-image class="category-thumb"></smd-image></div>
-          <div class="category-label small text-secondary text-center"></div>
+          <div class="category-label small text-center"></div>
         </div>
         <div class="thumb-block d-flex flex-column align-items-center">
           <div class="thumb d-flex align-items-center justify-content-center"><smd-image class="date-thumb"></smd-image></div>

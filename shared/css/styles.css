@@ -832,3 +832,10 @@ smd-image-picker .empty {
   padding: 1.5rem 0;
   color: var(--bs-secondary-color, #aaa);
 }
+
+/* CountMyDays countdown tile: the category caption under the category thumbnail
+   takes the card TITLE's colour (the theme heading colour) instead of the muted
+   secondary colour, so it reads as part of the title block. */
+cmd-countdown-card .category-label {
+  color: var(--bs-heading-color, inherit);
+}

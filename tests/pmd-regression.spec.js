@@ -2547,6 +2547,13 @@ test.describe("PlanMyDay - Regression", () => {
         const job = streams.flatMap(function (s) { return s.jobs || []; }).find(function (j) { return j.id === "job_1"; });
         return job ? job.sleepUntil : null;
       })).toBeFalsy();
+      // the open popup overlays the page footer, so dismiss it before cancelling
+      await page.evaluate(() => {
+        const picker = $id("jobSleepPicker");
+        const raw = picker && picker.querySelector("#smdDatePickerInput");
+        if (raw && raw._flatpickr) raw._flatpickr.close();
+      });
+      await expect(page.locator(".flatpickr-calendar.open")).toHaveCount(0);
       // cancelling keeps the job on today's list (it was not snoozed)
       await page.locator("#jobEditCancelBtn").click();
       await expect(page.locator("#jobEditPage")).not.toBeVisible();
