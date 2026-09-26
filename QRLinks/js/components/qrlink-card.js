@@ -1,13 +1,13 @@
 const qrLinkCardTemplate = document.createElement("template");
 qrLinkCardTemplate.innerHTML = `
-  <div class="card bg-dark text-white border-0">
-    <div class="card-body d-flex align-items-center gap-3 p-2">
+  <div class="card smd-card border-0 w-100">
+    <div class="d-flex align-items-center gap-3 p-2 border rounded-3">
       <div class="flex-shrink-0">
         <smd-image class="link-thumb"></smd-image>
       </div>
       <div class="flex-grow-1 overflow-hidden">
-        <h4 class="title h1 fw-bold mb-1 text-break"></h4>
-        <div class="description small text-secondary mb-0 text-break"></div>
+        <smd-h2 class="title fw-bold mb-0 text-break"></smd-h2>
+        <div class="description small text-body mb-0 text-break"></div>
       </div>
       <div class="flex-shrink-0">
         <button type="button" class="btn btn-primary btn-sm qr-btn p-1 lh-1" title="QR code">

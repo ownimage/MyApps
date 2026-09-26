@@ -46,14 +46,11 @@
   s.id = "pmd-job-today-card-style";
   s.textContent =
     "pmd-job-today-card {" +
-    "  --pmd-today-margin: 0.5rem;" +
     "  --pmd-today-title-size: var(--smd-type-h2, 1.25em);" +
     "  display: block;" +
-    "  margin-bottom: var(--pmd-today-margin, 0.5rem);" +
     "  touch-action: pan-y;" +
     "}" +
     "body.compact pmd-job-today-card {" +
-    "  --pmd-today-margin: 0.25rem;" +
     "  --pmd-today-title-size: var(--smd-type-p, 1em);" +
     "}" +
     "pmd-job-today-card[done] { opacity: 0.5; }" +

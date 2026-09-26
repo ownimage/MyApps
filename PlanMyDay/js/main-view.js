@@ -111,7 +111,7 @@ function renderMain() {
 
   if (splitList) {
     const tabWrapper = document.createElement("div");
-    tabWrapper.className = "mb-3 flex-shrink-0";
+    tabWrapper.className = "mb-1 flex-shrink-0";
     const tabsEl = document.createElement("smd-tabs");
     tabsEl.id = "todayTabs";
     tabsEl.tabs = [
@@ -170,7 +170,7 @@ function renderMain() {
     const suffixLabel = getJobSuffix(job);
     const scheduleType = job.schedule && job.schedule.type ? job.schedule.type : "daily";
     const card = document.createElement("pmd-job-today-card");
-    card.className = "today-drag-card d-block user-select-none";
+    card.className = "today-drag-card d-block user-select-none mb-1";
     card.dataset.jobId = job.id;
     card.dataset.streamIdx = streamIdx;
     card.setAttribute("job-id", job.id);
