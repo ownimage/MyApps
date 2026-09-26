@@ -93,6 +93,20 @@ function createScreenshotAllThemes(appId, afterTheme) {
             return image.isConnected && style.display !== "none" && style.visibility !== "hidden" && rect.width > 0 && rect.height > 0;
           });
           await Promise.all(visibleImages.map(async (image) => {
+            // <smd-image> clears src while it re-resolves its themed /smd-img URL,
+            // and it does that on every applyTheme(). A visible but source-less img
+            // is therefore a transient paint state, not a broken asset: wait for
+            // the src to appear instead of calling decode() on an empty element.
+            if (!image.currentSrc && !image.getAttribute("src")) {
+              await new Promise((resolve) => {
+                const observer = new MutationObserver(() => {
+                  if (image.getAttribute("src")) { observer.disconnect(); resolve(); }
+                });
+                observer.observe(image, { attributes: true, attributeFilter: ["src"] });
+                setTimeout(() => { observer.disconnect(); resolve(); }, 3000);
+              });
+            }
+            if (!image.currentSrc && !image.getAttribute("src")) return;
             if (!image.complete) {
               await new Promise((resolve, reject) => {
                 image.addEventListener("load", resolve, { once: true });

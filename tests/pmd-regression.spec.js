@@ -2030,6 +2030,11 @@ test.describe("PlanMyDay - Regression", () => {
       }, nestedSvg);
       await page.reload();
 
+      // Superhero deliberately pins --smd-image-theme: dark for BOTH modes, so it
+      // cannot exercise the per-mode overrides. Use a theme that does not pin it,
+      // so the stored light/dark variants are selected by data-bs-theme.
+      await page.evaluate(() => applyTheme("flatly"));
+
       for (const [theme, wantFill] of [["dark", "#ffffff"], ["light", "#000000"]]) {
         await page.evaluate((t) => {
           document.documentElement.setAttribute("data-bs-theme", t);
@@ -7306,7 +7311,7 @@ test.describe("PlanMyDay - Regression", () => {
       page.on("pageerror", (err) => { if (!/^Failed to update a ServiceWorker/.test(err.message)) pageErrors.push(err.message); });
       page.on("response", (resp) => { if (resp.status() >= 400) badResponses.push(resp.status() + " " + resp.url()); });
 
-      // tests/subpath-server.py serves the repo ONLY under /PlanMyDay/ (every
+      // tests/serve-tests.mjs (8081) serves the repo ONLY under /PlanMyDay/ (every
       // origin-root path 404s): the app is at /PlanMyDay/PlanMyDay/ and shared
       // at /PlanMyDay/shared/, mimicking a sub-path deployment.
       await page.goto("http://localhost:8081/PlanMyDay/PlanMyDay/");

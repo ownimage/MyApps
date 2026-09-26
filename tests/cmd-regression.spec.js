@@ -875,7 +875,7 @@ test.describe("CountMyDays - Regression", () => {
       page.on("pageerror", (err) => { if (!/^Failed to update a ServiceWorker/.test(err.message)) pageErrors.push(err.message); });
       page.on("response", (resp) => { if (resp.status() >= 400) badResponses.push(resp.status() + " " + resp.url()); });
 
-      // tests/subpath-server.py serves the repo ONLY under /PlanMyDay/, so this
+      // tests/serve-tests.mjs (8081) serves the repo ONLY under /PlanMyDay/, so this
       // is the repo at /PlanMyDay/ with the app at /PlanMyDay/CountMyDays/ and
       // shared at /PlanMyDay/shared/ — exactly the GitHub Pages layout.
       await page.goto("http://localhost:8081/PlanMyDay/CountMyDays/");

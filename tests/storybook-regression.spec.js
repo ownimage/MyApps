@@ -125,7 +125,9 @@ test.describe("Storybook - Regression", () => {
       .map((link) => (link.getAttribute("href") || "").split(/[?#]/)[0]));
     const indexOfShared = linkOrder.findIndex((href) => /shared\/css\/styles\.css$/.test(href));
     const indexOfMode = linkOrder.findIndex((href) => /shared\/css\/themes\/(light|dark)\.css$/.test(href));
-    const indexOfSpecific = linkOrder.findIndex((href) => /shared\/css\/themes\/[^/]+\/[^/]+\.css$/.test(href));
+    // The per-theme sheet (themes/<name>/<name>.css) must not be confused with the
+    // theme's bootstrap.min.css, which also matches themes/<name>/<file>.css.
+    const indexOfSpecific = linkOrder.findIndex((href) => /shared\/css\/themes\/[^/]+\/[^/]+\.css$/.test(href) && !/bootstrap\.min\.css$/.test(href));
     const indexOfBase = linkOrder.findIndex((href) => /shared\/css\/themes\/[^/]+\/bootstrap\.min\.css$/.test(href));
     expect(indexOfShared).toBeGreaterThan(-1);
     expect(indexOfBase).toBeGreaterThan(-1);

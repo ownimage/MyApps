@@ -1,8 +1,11 @@
 const { defineConfig, devices } = require("@playwright/test");
 
-// Set EXTERNAL_SERVERS=1 when the static servers (8080/8081) are already
-// running and must be shared by many parallel shard processes: each Playwright
-// process would otherwise spawn/kill its own webServer and race on the ports.
+// Set EXTERNAL_SERVERS=1 when the Vite test servers (8080/8081) are already
+// running — e.g. you started `npm run dev:test` for a full/sharded run — so
+// Playwright neither starts nor owns them (nothing kills the shared server when
+// an individual shard exits). With EXTERNAL_SERVERS unset, Playwright runs
+// `node tests/serve-tests.mjs` itself (one command starts BOTH origins) and
+// reuses an already-listening server instead of racing to start a second one.
 const externalServers = !!process.env.EXTERNAL_SERVERS;
 
 module.exports = defineConfig({
@@ -33,16 +36,14 @@ module.exports = defineConfig({
       use: { ...devices["iPhone 12 Pro"] },
     },
   ],
+  // Both test origins (8080 repo root, 8081 repo-under-/PlanMyDay/) are started
+  // by this one command; Playwright waits on the root origin.
   webServer: externalServers ? undefined : [
     {
-      command: 'python tests/http-server.py',
-      url: "http://localhost:8080",
+      command: "node tests/serve-tests.mjs",
+      url: "http://localhost:8080/PlanMyDay/",
       reuseExistingServer: !process.env.CI,
-    },
-    {
-      command: 'python tests/subpath-server.py',
-      url: "http://localhost:8081/PlanMyDay/PlanMyDay/",
-      reuseExistingServer: !process.env.CI,
+      timeout: 120000,
     },
   ],
 });

@@ -1,9 +1,9 @@
 ### Run only the regression tests
 ```bash
-.\node_modules\.bin\playwright.cmd test tests --retries=0
+set SCREENSHOT_THEME=superhero&& .\node_modules\.bin\playwright.cmd test tests --retries=0 --workers=32
 ```
 ```bash
-.\node_modules\.bin\playwright.cmd test --last-failed --retries=0
+set SCREENSHOT_THEME=superhero&& .\node_modules\.bin\playwright.cmd test --last-failed --retries=0
 ```
 npx playwright test -g "your test name" --repeat-each=10
 npx playwright test tests/pmd-regression.spec.js --repeat-each=100
@@ -11,8 +11,10 @@ npx playwright test tests/pmd-screenshot.spec.js
 npx playwright test tests/launch-regression.spec.js
 npx playwright test tests/qrlinks-regression.spec.js
 
+### Serve the test origins
+Starts both Vite test servers (8080 repo root, 8081 sub-path) from one process. Playwright reuses them, so a full run just needs this started once:
 ```bash
-python tests/http-server.py
+npm run dev:test
 ```
 ### SampleImages
 ```bash
@@ -99,7 +101,7 @@ The storybook is a static page (`storybook/index.html`) that renders every `smd-
 Serve the project root, then open it in a browser. The existing dev server is reused, so just run:
 
 ```bash
-python tests/http-server.py
+npm run dev:test
 ```
 
 Then visit: <http://localhost:8080/storybook/index.html>
