@@ -2016,6 +2016,7 @@ test.describe("PlanMyDay - Regression", () => {
   test.describe("smd-image rendering", () => {
 
     test("applies light and dark svg theme overrides to nested elements like the editor preview", async ({ page }) => {
+      test.setTimeout(30000);
       await page.goto("/PlanMyDay/");
       const nestedSvg = "data:image/svg+xml," + encodeURIComponent('<svg fill="#f7f7f7" stroke="#8f8f8f" xmlns="http://www.w3.org/2000/svg"><path fill="#f7f7f7" stroke="#8f8f8f" d="M0 0h10v10H0z"/></svg>');
       await page.evaluate((svgData) => {
@@ -2038,12 +2039,21 @@ test.describe("PlanMyDay - Regression", () => {
       for (const [theme, wantFill] of [["dark", "#ffffff"], ["light", "#000000"]]) {
         await page.evaluate((t) => {
           document.documentElement.setAttribute("data-bs-theme", t);
+        }, theme);
+        // applyTheme() swaps the theme override <link> asynchronously, and the
+        // default superhero.css pins --smd-image-theme to dark. Until flatly's
+        // override replaces it, BOTH <smd-image> and getThemedImageDataUrl()
+        // resolve dark, so the light iteration would render/compare #ffffff and
+        // the #000000 assertion fails under load. Wait for the app's own
+        // resolver to report the requested variant before rendering the element.
+        await page.waitForFunction((want) => getThemeKey() === want, theme, { timeout: 15000 });
+        await page.evaluate(() => {
           const el = document.createElement("smd-image");
           el.setAttribute("key-prefix", "shared-");
           el.setAttribute("image", "NestedIcon");
           el.setAttribute("size", "64");
           document.body.appendChild(el);
-        }, theme);
+        });
         await page.waitForFunction(() => {
           const el = document.querySelector("smd-image[image='NestedIcon']");
           if (!el) return false;
