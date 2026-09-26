@@ -48,6 +48,9 @@ Screenshots use `screenshots/<app>/<theme>/<light|dark>/<scene>.png`; the viewer
 Run for ONE theme only (defaults to all 26 when the env var is unset; works for every screenshot spec below).
 
 Windows Command Prompt:
+```bash
+.\node_modules\.bin\playwright.cmd test tests/pmd-screenshots.spec.js --workers 16
+```
 ```bat
 set SCREENSHOT_THEME=superhero&& .\node_modules\.bin\playwright.cmd test tests/pmd-screenshots.spec.js --workers 16
 ```

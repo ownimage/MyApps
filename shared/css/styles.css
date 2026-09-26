@@ -3,10 +3,141 @@
   --smd-tab-active-background: var(--bs-primary);
   --smd-tab-background: var(--bs-info);
   --smd-image-theme: light;
+
+  /* Form-field palette for inputs, selects and the date picker, drawn from the
+     theme's Bootstrap colour variables. A theme reskins its fields by
+     overriding these in its own stylesheet
+     (shared/css/themes/<theme>/<theme>.css). */
+  --smd-form-background: var(--bs-white);
+  --smd-form-foreground: var(--bs-gray-900);
+  --smd-form-border-color: var(--bs-gray-500);
+
+  --smd-form-focus-border-color: color-mix(in srgb, var(--bs-primary) 50%, var(--bs-white));
+  --smd-form-accent: var(--bs-primary);
+  --smd-form-accent-foreground: var(--bs-white);
+  --smd-form-muted-foreground: var(--bs-gray-600);
+  --smd-form-hover-background: var(--bs-gray-700);
+  --smd-form-disabled-background: var(--bs-gray-100);
+  --smd-form-disabled-foreground: var(--bs-gray-600);
 }
 
 html[data-bs-theme="dark"] {
   --smd-image-theme: dark;
+}
+
+/* The bundled Bootswatch themes hardcode a light .form-control / .form-select,
+   so fields ignore the active theme's body colours. The rules below repaint
+   them from the form palette above. The palette is consumed in both modes, so
+   themes whose "light" scheme is dark (e.g. superhero) get matching fields;
+   the defaults reproduce the hardcoded light values for every other theme.
+   :not(:focus) keeps the theme's own focus border. */
+.form-control:not(:focus),
+.form-select:not(:focus),
+.flatpickr-input {
+  background-color: var(--smd-form-background);
+  color: var(--smd-form-foreground);
+  border-color: var(--smd-form-border-color);
+}
+
+.form-control:focus,
+.form-select:focus {
+  background-color: var(--smd-form-background);
+  color: var(--smd-form-foreground);
+  border-color: var(--smd-form-focus-border-color);
+}
+
+.form-control:disabled,
+.form-select:disabled {
+  background-color: var(--smd-form-disabled-background);
+  color: var(--smd-form-disabled-foreground);
+}
+
+[data-bs-theme="dark"] .flatpickr-calendar {
+  background: var(--smd-form-background);
+  border-color: var(--smd-form-border-color);
+}
+
+[data-bs-theme="dark"] .flatpickr-calendar .flatpickr-months .flatpickr-month,
+[data-bs-theme="dark"] .flatpickr-calendar .flatpickr-current-month .flatpickr-monthDropdown-months {
+  background: var(--smd-form-background);
+  color: var(--smd-form-foreground);
+}
+
+[data-bs-theme="dark"] .flatpickr-calendar .flatpickr-current-month .flatpickr-monthDropdown-months option {
+  background: var(--smd-form-background);
+  color: var(--smd-form-foreground);
+}
+
+[data-bs-theme="dark"] .flatpickr-calendar .flatpickr-current-month input.cur-year {
+  color: var(--smd-form-foreground);
+}
+
+[data-bs-theme="dark"] .flatpickr-calendar .flatpickr-weekday {
+  background: var(--smd-form-background);
+  color: var(--smd-form-muted-foreground);
+}
+
+[data-bs-theme="dark"] .flatpickr-calendar .flatpickr-day {
+  color: var(--smd-form-foreground);
+}
+
+[data-bs-theme="dark"] .flatpickr-calendar .flatpickr-day.today {
+  border-color: var(--smd-form-accent);
+}
+
+[data-bs-theme="dark"] .flatpickr-calendar .flatpickr-day:hover {
+  background: var(--smd-form-hover-background);
+  color: var(--smd-form-foreground);
+}
+
+[data-bs-theme="dark"] .flatpickr-calendar .flatpickr-day.selected,
+[data-bs-theme="dark"] .flatpickr-calendar .flatpickr-day.selected:hover,
+[data-bs-theme="dark"] .flatpickr-calendar .flatpickr-day.startRange,
+[data-bs-theme="dark"] .flatpickr-calendar .flatpickr-day.endRange,
+[data-bs-theme="dark"] .flatpickr-calendar .flatpickr-day.selected.inRange {
+  background: var(--smd-form-accent);
+  border-color: var(--smd-form-accent);
+  color: var(--smd-form-accent-foreground);
+}
+
+[data-bs-theme="dark"] .flatpickr-calendar .flatpickr-day.inRange,
+[data-bs-theme="dark"] .flatpickr-calendar .flatpickr-day.prevMonthDay.inRange,
+[data-bs-theme="dark"] .flatpickr-calendar .flatpickr-day.nextMonthDay.inRange {
+  background: var(--smd-form-hover-background);
+}
+
+[data-bs-theme="dark"] .flatpickr-calendar .flatpickr-day.flatpickr-disabled,
+[data-bs-theme="dark"] .flatpickr-calendar .flatpickr-day.flatpickr-disabled:hover,
+[data-bs-theme="dark"] .flatpickr-calendar .flatpickr-day.prevMonthDay,
+[data-bs-theme="dark"] .flatpickr-calendar .flatpickr-day.nextMonthDay {
+  color: var(--smd-form-muted-foreground);
+}
+
+[data-bs-theme="dark"] .flatpickr-calendar .flatpickr-time {
+  background: var(--smd-form-background);
+  border-color: var(--smd-form-border-color);
+}
+
+[data-bs-theme="dark"] .flatpickr-calendar .flatpickr-time input,
+[data-bs-theme="dark"] .flatpickr-calendar .flatpickr-time .flatpickr-time-separator,
+[data-bs-theme="dark"] .flatpickr-calendar .flatpickr-time .flatpickr-am-pm {
+  color: var(--smd-form-foreground);
+}
+
+[data-bs-theme="dark"] .flatpickr-calendar.arrowTop:before {
+  border-bottom-color: var(--smd-form-border-color);
+}
+
+[data-bs-theme="dark"] .flatpickr-calendar.arrowTop:after {
+  border-bottom-color: var(--smd-form-background);
+}
+
+[data-bs-theme="dark"] .flatpickr-calendar.arrowBottom:before {
+  border-top-color: var(--smd-form-border-color);
+}
+
+[data-bs-theme="dark"] .flatpickr-calendar.arrowBottom:after {
+  border-top-color: var(--smd-form-background);
 }
 
 #mainNav {

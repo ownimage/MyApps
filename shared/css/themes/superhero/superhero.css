@@ -1,6 +1,9 @@
 :root {
   --smd-tab-background: var(--bs-secondary);
   --smd-image-theme: dark;
+  --smd-form-background: var(--bs-body-bg);
+  --smd-form-foreground: var(--bs-body-color);
+  --smd-form-border-color: var(--bs-border-color);
 }
 
 :root[data-bs-theme="dark"] {
