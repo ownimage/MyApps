@@ -1,4 +1,5 @@
-// <smd-tabs> — tabbed panels (light DOM). Styles live in shared/css/styles.css.
+// <smd-tabs> — tabbed panels (light DOM). Layout is applied by the component;
+// theme/cascade rules live in shared/css/styles.css.
 //
 // Renders a tab button list, an underline, and the panels straight into the host
 // in the light DOM. Panels are shown coincident with the active tab. A
@@ -86,6 +87,18 @@ class SmdTabs extends HTMLElement {
     }
 
     _render() {
+        if (typeof injectSmdComponentStyle === "function") {
+            injectSmdComponentStyle("smd-tabs-layout", `
+              smd-tabs { display: block; width: 100%; box-sizing: border-box; }
+              smd-tabs .smd-tab-list { display: flex; flex-wrap: nowrap; }
+              smd-tabs[wrap] .smd-tab-list { flex-wrap: wrap; }
+              smd-tabs[narrow] .smd-tab-btn { padding-left: 0.25rem; padding-right: 0.25rem; }
+              smd-tabs .smd-tab-panel { display: none; }
+              smd-tabs .smd-tab-panel.active,
+              smd-tabs .smd-tab-panel[active] { display: block; }
+              smd-tabs[hide-panels] .smd-tab-panel { display: none !important; }
+            `);
+        }
         const instanceId = `smd-tabs-${this._instanceId}`;
         const headersHtml = this._tabs.map((tab, i) => {
             const active = i === this._activeIndex;

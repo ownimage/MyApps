@@ -1,5 +1,6 @@
 // <smd-image-picker> — a self-contained image + icon picker component
-// (light DOM). Styles live in shared/css/styles.css.
+// (light DOM). Layout is applied by the component; the visual skin lives in
+// shared/css/styles.css.
 //
 // Displays the app's localStorage images (list key = key-prefix + "images")
 // plus reusable icon sets (Bootstrap, Font Awesome, FA Brands). It owns all of
@@ -112,6 +113,17 @@
 
     connectedCallback() {
       const root = this;
+      if (typeof injectSmdComponentStyle === "function") {
+        injectSmdComponentStyle("smd-image-picker-layout", `
+          smd-image-picker { display: block; }
+          smd-image-picker .picker { display: flex; flex-direction: column; gap: 0.5rem; }
+          smd-image-picker .search { display: block; }
+          smd-image-picker .grid { display: flex; flex-wrap: wrap; gap: 8px; padding-top: 0.75rem; }
+          smd-image-picker .item { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 6px; }
+          smd-image-picker .item .thumb { display: flex; align-items: center; justify-content: center; }
+          smd-image-picker .empty { padding: 1.5rem 0; }
+        `);
+      }
       // Light DOM: constructors may not use innerHTML; the shell is built here.
       if (!root.querySelector(".picker")) {
         root.innerHTML = `

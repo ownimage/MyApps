@@ -14,6 +14,19 @@
 (function (global) {
   "use strict";
 
+  // Component scripts are loaded before smd-app.js in the app shells. Define
+  // the shared style injector early so a light-DOM component that upgrades
+  // during body parsing can install its layout before the app boot script.
+  if (typeof global.injectSmdComponentStyle !== "function") {
+    global.injectSmdComponentStyle = function (id, css) {
+      if (document.getElementById(id)) return;
+      const style = document.createElement("style");
+      style.id = id;
+      style.textContent = css;
+      (document.head || document.documentElement).appendChild(style);
+    };
+  }
+
   const VARIANTS = ["primary", "secondary", "success", "danger", "info", "warning", "light", "dark"];
   const template = document.createElement("template");
   template.innerHTML = `<button class="btn btn-primary"></button>`;
@@ -55,6 +68,11 @@
     }
 
     connectedCallback() {
+      // The host is a custom element (display:inline by default); give it the
+      // Bootstrap display utility it needs so no shared `smd-button` CSS rule is
+      // required. Consumers can still override with another `d-*` class (e.g.
+      // `d-block`), which wins by source order.
+      this.classList.add("d-inline-block");
       if (this._label === undefined) {
         this._label = this.textContent.replace(/^\s+|\s+$/g, "");
       }

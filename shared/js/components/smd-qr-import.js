@@ -65,6 +65,7 @@
     }
 
     connectedCallback() {
+      this.classList.add("d-block");
       // Light DOM: constructors may not use innerHTML; the shell is built here.
       if (!this.querySelector(".status")) {
         this.innerHTML =

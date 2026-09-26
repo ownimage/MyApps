@@ -1,7 +1,8 @@
 // <smd-checkbox> — the shared, themed checkbox used across the app (light DOM).
 //
 // Renders a native checkbox inside the host in the light DOM so every checkbox
-// shares one look (styles live in shared/css/styles.css, element-scoped). The
+// shares one look (layout is applied by the component; size/theme values live in
+// shared/css/styles.css). The
 // host itself is ARIA-checkable (`role=checkbox|switch` + `aria-checked`) so
 // assistive tech — and Playwright's check()/toBeChecked() — treat it like a real
 // checkbox. Clicking anywhere on the built-in label toggles it; a `switch`
@@ -26,7 +27,7 @@
   "use strict";
 
   const smdCheckboxTemplate = document.createElement("template");
-  smdCheckboxTemplate.innerHTML = `<label><input type="checkbox"><span class="checkbox-label"></span></label>`;
+  smdCheckboxTemplate.innerHTML = `<label class="d-inline-flex align-items-center"><input class="flex-shrink-0" type="checkbox"><span class="checkbox-label"></span></label>`;
 
   // Touch size is a VALUE: the shared css maps html[data-smd-touch-size] (and a
   // per-instance size attribute) onto --smd-checkbox-input-size. setDefaultSize()
@@ -47,6 +48,7 @@
     }
 
     connectedCallback() {
+      this.classList.add("d-inline-flex", "align-items-center");
       // Capture the authored label once (before our render replaces light text).
       if (this._label === undefined) {
         this._label = this.textContent.replace(/^\s+|\s+$/g, "");

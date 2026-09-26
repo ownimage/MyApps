@@ -2,7 +2,8 @@
 //
 // Renders the Font Awesome solid `fa-bars` glyph as a plain light-DOM span with
 // an inline font-family/weight (the document-level Font Awesome <link> registers
-// the @font-face document-wide). Base layout rules live in shared/css/styles.css.
+// the @font-face document-wide). Layout/touch rules are applied by the component;
+// size remains in shared/css/styles.css.
 //
 // Size is a VALUE: the shared css maps html[data-smd-touch-size] (and a
 // per-instance size attribute) onto --smd-draghandle-size, which sets the host
@@ -26,6 +27,13 @@
     }
 
     connectedCallback() {
+      this.classList.add("d-inline-flex", "align-items-center", "justify-content-center", "flex-shrink-0", "user-select-none");
+      if (typeof injectSmdComponentStyle === "function") {
+        injectSmdComponentStyle("smd-draghandle-layout", `
+          smd-draghandle { touch-action: none; -webkit-touch-callout: none; -webkit-user-select: none; padding: 0.15em 0.25em; }
+          smd-draghandle .glyph { font-family: "Font Awesome 6 Free"; font-style: normal; font-weight: 900; }
+        `);
+      }
       if (!this._rendered) {
         this._rendered = true;
         // Merge in fresh light children (e.g. a slotted handle moved in by a

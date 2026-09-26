@@ -35,6 +35,7 @@
     }
 
     connectedCallback() {
+      this.classList.add("d-block");
       this._render();
       const themeSelect = this.querySelector(".smd-theme-select");
       const modeSelect = this.querySelector(".smd-theme-mode-select");

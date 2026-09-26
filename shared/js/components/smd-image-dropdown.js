@@ -1,6 +1,7 @@
 // <smd-image-dropdown> — shared dropdown picker for a list of named options,
 // each optionally carrying an image rendered via <smd-image> (light DOM).
-// Styles live in shared/css/styles.css. It is a generic selector any app can
+// Layout is applied by the component; the theme palette lives in
+// shared/css/styles.css. It is a generic selector any app can
 // use (CountMyDays category filter, PlanMyDay job stream selector, ...).
 //
 // The host app sets the DATA (no DOM, so the host never builds the menu):
@@ -49,6 +50,16 @@ class SmdImageDropdown extends HTMLElement {
   }
 
   connectedCallback() {
+    this.classList.add("d-block", "position-relative");
+    if (typeof injectSmdComponentStyle === "function") {
+      injectSmdComponentStyle("smd-image-dropdown-layout", `
+        smd-image-dropdown .btn { display: flex; align-items: center; width: 100%; }
+        smd-image-dropdown .thumb { flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; overflow: hidden; }
+        smd-image-dropdown .title { flex: 1 1 auto; min-width: 0; }
+        smd-image-dropdown .menu { position: absolute; left: 0; right: 0; top: 100%; z-index: 20; max-height: 16rem; overflow-y: auto; }
+        smd-image-dropdown .item { display: flex; align-items: center; }
+      `);
+    }
     this._build();
     if (!this._bound) {
       this._bound = true;

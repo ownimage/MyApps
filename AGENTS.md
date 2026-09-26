@@ -407,6 +407,28 @@ Techniques / gotchas:
 
 ## Session log
 
+### 2026-09-26 (i) - component-owned layout mechanics and sectioned shared CSS
+- User requested a cleanup rule: non-colour/non-size layout mechanics (display,
+  flex alignment, positioning, gaps, padding and touch/layout behavior) belong
+  to the component that creates the DOM; leave the date-picker styles shared.
+  `shared/css/styles.css` is now sectioned with component comments and keeps
+  palettes, typography/size, colours, shell behavior and the date-picker.
+- Added `injectSmdComponentStyle(id, css)` to `shared/js/smd-app.js` for
+  one-time component-owned light-DOM mechanics. Moved the relevant layout from
+  shared CSS into `smd-checkbox`, `smd-draghandle`, `smd-image`,
+  `smd-image-select`, `smd-image-dropdown`, `smd-image-picker`, `smd-tabs`,
+  `smd-page`, and `smd-modal`; `smd-theme`, `smd-search`, `smd-qr-export`,
+  `smd-qr-import`, and `pmd-tasks` now apply Bootstrap display classes from the
+  component. Date-picker rules were intentionally not moved.
+- The remaining shared component sections are deliberately visual/theme rules
+  or size values, with comments identifying the owning component. This keeps
+  theme overrides and Bootstrap cascade rules in one place without making
+  `styles.css` the source of component layout.
+- Verified: `node --check` for all touched JS, `git diff --check`, and focused
+  Storybook/CountMyDays/PlanMyDay runs: 39 tests passed, including Storybook
+  boot/component demos and the complete Job Edit Tabs group. No screenshot
+  regeneration was needed.
+
 ### 2026-09-26 (h) - swipe right now opens the job editor on Schedule/tomorrow
 - FUNCTIONAL CHANGE (user): on the PlanMyDay main screen, a swipe RIGHT on a
   today card no longer silently snoozes the job (`sleepUntil = tomorrow`). It

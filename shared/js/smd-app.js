@@ -64,6 +64,16 @@ function smdImagePrefix() {
   return SmdConfig.imagePrefix || SmdConfig.storagePrefix;
 }
 
+// Component-owned light-DOM mechanics. Keeping these rules next to the
+// component avoids making shared/css/styles.css a second component stylesheet.
+function injectSmdComponentStyle(id, css) {
+  if (document.getElementById(id)) return;
+  const style = document.createElement("style");
+  style.id = id;
+  style.textContent = css;
+  (document.head || document.documentElement).appendChild(style);
+}
+
 // ---- Generic helpers exposed on SmdApp.prototype (and as globals) ----
 
 function $id(id, root) {

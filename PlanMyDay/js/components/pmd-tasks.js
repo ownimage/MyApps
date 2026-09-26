@@ -53,6 +53,7 @@ class PmdTasks extends HTMLElement {
   }
 
   connectedCallback() {
+    this.classList.add("d-block");
     if (!this._bound) {
       this._bound = true;
       this.addEventListener('change', (e) => this._onChange(e));

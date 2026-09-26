@@ -1,5 +1,5 @@
 // <smd-search> — shared one-line search input + Clear button (light DOM).
-// Styles live in shared/css/styles.css. It replaces the hand-rolled
+// Layout is supplied by the component template. It replaces the hand-rolled
 // "search input + Clear button" rows that used to live in every editor.
 //
 // The host app supplies the placeholder/value via attributes and reacts to the
@@ -51,6 +51,7 @@
     }
 
     connectedCallback() {
+      this.classList.add("d-block");
       this._build();
       if (!this._bound) {
         this._bound = true;

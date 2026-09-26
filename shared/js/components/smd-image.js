@@ -129,6 +129,13 @@
     }
 
     connectedCallback() {
+      if (typeof injectSmdComponentStyle === "function") {
+        injectSmdComponentStyle("smd-image-layout", `
+          smd-image { display: inline-flex; align-items: center; justify-content: center; overflow: hidden; }
+          smd-image img { display: block; max-width: 100%; max-height: 100%; }
+          smd-image .smd-bi { display: inline-flex; align-items: center; justify-content: center; width: 100%; height: 100%; }
+        `);
+      }
       // Light DOM: an element's constructor must not touch attributes/innerHTML
       // ("The result must not have children" when createElement/parsing creates
       // it) — the <img> placeholder is added here instead, once per instance.

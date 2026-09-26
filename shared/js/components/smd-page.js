@@ -1,5 +1,6 @@
-// <smd-page> — full-screen slide-in page (light DOM). Styles live in
-// shared/css/styles.css. Renders header/body/footer buttons straight into the
+// <smd-page> — full-screen slide-in page (light DOM). Layout is applied by the
+// component; surface/theme rules live in shared/css/styles.css. Renders
+// header/body/footer buttons straight into the
 // host; the app pumps `title`/`headerHtml`/`content`/`buttons` properties.
 
 const SMD_PAGE_SUSPENDED = 'smd-page-suspended';
@@ -30,6 +31,10 @@ class SmdPage extends HTMLElement {
     this._title = '';
     this._content = '';
     this._headerHtml = '';
+  }
+
+  connectedCallback() {
+    this._installLayout();
   }
 
   get title() { return this._title; }
@@ -81,6 +86,7 @@ class SmdPage extends HTMLElement {
   }
 
   _render() {
+    this._installLayout();
     const buttonsHtml = this._buttons.map((btn, i) => {
       const variant = btn.variant || 'primary';
       const text = btn.text || 'OK';
@@ -112,6 +118,23 @@ class SmdPage extends HTMLElement {
         }));
       });
     });
+  }
+
+  _installLayout() {
+    if (typeof injectSmdComponentStyle === "function") {
+      injectSmdComponentStyle("smd-page-layout", `
+        smd-page { display: block; position: fixed; inset: 0; z-index: 1040; pointer-events: none; overflow: hidden; visibility: hidden; }
+        smd-page[open] { visibility: visible; }
+        smd-page.d-none, smd-page.smd-page-suspended { display: none !important; }
+        smd-page .smd-page { position: absolute; inset: 0; display: flex; flex-direction: column; transform: translateX(-100%); transition: transform var(--smd-slide-duration, 0s) ease; pointer-events: auto; }
+        smd-page[open] .smd-page { transform: translateX(0); }
+        smd-page .smd-page-header { display: flex; align-items: center; flex-wrap: wrap; flex-shrink: 0; padding: 0.75rem 1.25rem; }
+        smd-page .smd-page-body { flex: 1; overflow-y: auto; }
+        smd-page .smd-page-footer { display: flex; gap: 0.5rem; flex-shrink: 0; }
+        smd-page .smd-page-footer smd-button { flex: 1; min-width: 0; }
+        smd-page .smd-page-footer smd-button button { width: 100%; box-sizing: border-box; }
+      `);
+    }
   }
 
   _escapeHtml(str) {
