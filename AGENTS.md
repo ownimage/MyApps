@@ -407,6 +407,33 @@ Techniques / gotchas:
 
 ## Session log
 
+### 2026-09-26 (f) - superhero light: pmd-tasks row surface + checkbox accent
+- Reported: in superhero **light** the `<pmd-tasks>` rows and the General-tab
+  Suffix `<smd-checkbox>` looked wrong colourwise (the (c)/(d)/(e) fixes were
+  tuned for dark).
+- Two causes: (1) `--pmd-tasks-row-background` was a single `:root` value
+  (`var(--bs-dark)` #20374c) for BOTH modes; in light it sat too close to the
+  #0f2537 page and did not match the app's card surface. (2) `<smd-checkbox>`
+  is a bare native `<input type=checkbox>` with no accent, so the tick used the
+  browser/OS blue, clashing with superhero's orange primary.
+- Fix (same style as (c)-(e); variables at the top of `shared/css/styles.css`,
+  overridden in `superhero.css`):
+  - `shared/css/styles.css` `:root` gained `--smd-checkbox-accent: auto`
+    (default = unchanged for every other theme), consumed by
+    `smd-checkbox input { accent-color: var(--smd-checkbox-accent); }`.
+    `superhero.css` sets `--smd-checkbox-accent: var(--bs-primary)` (orange).
+  - `superhero.css` `:root[data-bs-theme="light"]` now overrides
+    `--pmd-tasks-row-background: var(--bs-card-bg)` (#4e5d6c, the theme's card
+    surface) so light rows read like the rest of the app; dark keeps `--bs-dark`.
+- KNOWN LIMIT: `accent-color` tints the CHECKED tick only; a native UNCHECKED
+  checkbox in superhero light is still a light square (its `color-scheme` is
+  light while superhero's light mode is visually dark). If that is reported,
+  add `smd-checkbox input { color-scheme: dark; }` in superhero.css (do NOT add
+  that to the shared base — `color-scheme` is inherited and an explicit
+  `normal` there would break every dark theme).
+- Per user request the Playwright suites were NOT run; `git diff --check` clean.
+  `BUILD_NUMBER` bumped after the change (`npm run bump:build`).
+
 ### 2026-09-26 (e) - superhero disabled-control palette (View Job selects)
 - Reported: on **View Job** (read-only) the two General-tab selects beside the
   Suffix checkbox ("Day of Year" / "None") and the Schedule tab "Schedule Time"

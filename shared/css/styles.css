@@ -45,6 +45,11 @@
      (shared/css/themes/<theme>/<theme>.css); superhero does. */
   --pmd-tasks-row-background: var(--bs-tertiary-bg);
   --pmd-tasks-row-foreground: var(--bs-body-color);
+
+  /* Accent colour of the shared <smd-checkbox> tick. `auto` = the browser/OS
+     default (unchanged for most themes); a theme tints it to its own primary
+     by overriding this in its stylesheet (shared/css/themes/<theme>/<theme>.css). */
+  --smd-checkbox-accent: auto;
 }
 
 html[data-bs-theme="dark"] {
@@ -229,6 +234,7 @@ smd-checkbox input {
   flex: 0 0 auto;
   width: var(--smd-checkbox-input-size, 1em);
   height: var(--smd-checkbox-input-size, 1em);
+  accent-color: var(--smd-checkbox-accent);
 }
 
 smd-draghandle {
