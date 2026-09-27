@@ -4,67 +4,161 @@ const path = require('path');
 const { exec } = require('child_process');
 
 const SCREENSHOTS_DIR = __dirname;
-const PORT = 3000;
+const PORT = Number(process.env.VIEWER_PORT) || 3000;
 const IMAGE_RE = /\.(png|jpg|jpeg|gif|webp|svg|bmp)$/i;
+const APP_LABELS = Object.freeze({
+  pmd: 'Plan My Day',
+  cmd: 'Count My Days',
+  qrlinks: 'QR Links',
+  ffox: 'FreeFormOX',
+  solar: 'Solar Controlar',
+  solarcontrolar: 'Solar Controlar',
+  launch: 'Launch'
+});
+const APP_ORDER = Object.freeze(['pmd', 'cmd', 'qrlinks', 'ffox', 'solar', 'solarcontrolar', 'launch']);
 
 function isDirectory(p) {
-  try { return fs.statSync(p).isDirectory(); } catch (e) { return false; }
+  try {
+    return fs.statSync(p).isDirectory();
+  } catch (e) {
+    return false;
+  }
 }
 
 function imageFiles(dir) {
   try {
-    return fs.readdirSync(dir).filter(f => IMAGE_RE.test(f)).sort();
+    return fs.readdirSync(dir).filter(name => {
+      if (!IMAGE_RE.test(name)) return false;
+      try {
+        return fs.statSync(path.join(dir, name)).isFile();
+      } catch (e) {
+        return false;
+      }
+    }).sort();
   } catch (e) {
     return [];
   }
 }
 
-// A gallery is a directory that directly contains one or more theme directories
-// (a theme directory is a directory holding image files). With the multi-app
-// layout, each app's screenshots live in its own gallery, e.g. screenshots/pmd.
-function isGalleryRoot(dir) {
-  if (!isDirectory(dir)) return false;
-  return fs.readdirSync(dir).some(name => {
-    const child = path.join(dir, name);
-    return isDirectory(child) && imageFiles(child).length > 0;
-  });
+function childDirectories(dir) {
+  try {
+    return fs.readdirSync(dir).filter(name => isDirectory(path.join(dir, name))).sort();
+  } catch (e) {
+    return [];
+  }
 }
 
-// Top-level folders the viewer can switch between. Includes the screenshots
-// root itself as "(root)" when legacy themes live directly there.
-function listGalleries() {
-  const galleries = [];
-  if (isGalleryRoot(SCREENSHOTS_DIR)) galleries.push({ id: '', label: '(root)' });
-  for (const name of fs.readdirSync(SCREENSHOTS_DIR)) {
-    if (!isDirectory(path.join(SCREENSHOTS_DIR, name))) continue;
-    if (isGalleryRoot(path.join(SCREENSHOTS_DIR, name))) galleries.push({ id: name, label: name });
+function modeImages(themeDir) {
+  const modes = [];
+  for (const mode of ['light', 'dark']) {
+    const modeDir = path.join(themeDir, mode);
+    if (!isDirectory(modeDir)) continue;
+    const images = imageFiles(modeDir);
+    if (images.length) modes.push({ name: mode, images });
   }
-  galleries.sort((a, b) => {
-    if ((a.id === '') !== (b.id === '')) return a.id === '' ? 1 : -1; // root last
-    if ((a.id === 'pmd') !== (b.id === 'pmd')) return a.id === 'pmd' ? -1 : 1; // pmd first
-    return a.id.localeCompare(b.id);
-  });
+  return modes;
+}
+
+function isThemeDirectory(dir) {
+  return isDirectory(dir) && (imageFiles(dir).length > 0 || modeImages(dir).length > 0);
+}
+
+function isGalleryRoot(dir) {
+  if (!isDirectory(dir)) return false;
+  return childDirectories(dir).some(name => isThemeDirectory(path.join(dir, name)));
+}
+
+function appLabel(id) {
+  if (!id) return '(root)';
+  return APP_LABELS[String(id).toLowerCase()] || String(id);
+}
+
+function gallerySort(a, b) {
+  if ((a.id === '') !== (b.id === '')) return a.id === '' ? 1 : -1;
+  const aKey = String(a.id).toLowerCase();
+  const bKey = String(b.id).toLowerCase();
+  const aOrder = APP_ORDER.indexOf(aKey);
+  const bOrder = APP_ORDER.indexOf(bKey);
+  if (aOrder !== bOrder) {
+    if (aOrder === -1) return 1;
+    if (bOrder === -1) return -1;
+    return aOrder - bOrder;
+  }
+  return a.id.localeCompare(b.id);
+}
+
+function listGalleries(screenshotsDir = SCREENSHOTS_DIR) {
+  const root = path.resolve(screenshotsDir || SCREENSHOTS_DIR);
+  const galleries = [];
+  if (isGalleryRoot(root)) galleries.push({ id: '', label: appLabel('') });
+  for (const name of childDirectories(root)) {
+    const child = path.join(root, name);
+    if (isGalleryRoot(child)) galleries.push({ id: name, label: appLabel(name) });
+  }
+  galleries.sort(gallerySort);
   return galleries;
 }
 
 function defaultGallery(galleries) {
-  if (galleries.some(g => g.id === 'pmd')) return 'pmd';
+  if (galleries.some(gallery => gallery.id === 'pmd')) return 'pmd';
   return galleries.length ? galleries[0].id : '';
 }
 
-// Themes inside a gallery: direct child directories that contain images.
-// `path` is relative to SCREENSHOTS_DIR and is used for image src.
-function scanThemes(group) {
-  const base = group ? path.join(SCREENSHOTS_DIR, group) : SCREENSHOTS_DIR;
-  const themes = [];
-  if (!isDirectory(base)) return themes;
-  for (const name of fs.readdirSync(base)) {
-    const dir = path.join(base, name);
-    if (!isDirectory(dir)) continue;
-    const images = imageFiles(dir);
-    if (!images.length) continue;
-    themes.push({ name, path: (group ? group + '/' : '') + name, images });
+function relativePath(root, target) {
+  return path.relative(root, target).split(path.sep).join('/');
+}
+
+function scanArguments(group, root, suppliedRoot) {
+  if (group && typeof group === 'object' && !Array.isArray(group)) {
+    return {
+      group: group.group || group.app || '',
+      root: group.screenshotsDir || group.root || SCREENSHOTS_DIR
+    };
   }
+  if (root && typeof root === 'object' && !Array.isArray(root)) {
+    return {
+      group: group || '',
+      root: root.screenshotsDir || root.root || SCREENSHOTS_DIR
+    };
+  }
+  if (typeof group === 'string' && typeof root === 'string' && isDirectory(group) && !isDirectory(root)) {
+    return { group: root, root: group };
+  }
+  if (typeof group === 'string' && isDirectory(group) && !suppliedRoot) {
+    return { group: '', root: group };
+  }
+  return { group: group || '', root: root || SCREENSHOTS_DIR };
+}
+
+function safeGroupPath(root, group) {
+  const value = String(group || '');
+  if (!value) return root;
+  if (path.isAbsolute(value) || value.split(/[\\/]/).includes('..')) return null;
+  return path.join(root, value);
+}
+
+function scanThemes(group = '', screenshotsDir = SCREENSHOTS_DIR) {
+  const args = scanArguments(group, screenshotsDir, arguments.length > 1);
+  const root = path.resolve(args.root || SCREENSHOTS_DIR);
+  const base = safeGroupPath(root, args.group);
+  const themes = [];
+  if (!base || !isDirectory(base)) return themes;
+
+  for (const name of childDirectories(base)) {
+    const themeDir = path.join(base, name);
+    const modes = [];
+    const explicitModes = modeImages(themeDir);
+    if (explicitModes.length) {
+      for (const mode of explicitModes) {
+        modes.push({ name: mode.name, path: relativePath(root, path.join(themeDir, mode.name)), images: mode.images });
+      }
+    } else {
+      const directImages = imageFiles(themeDir);
+      if (directImages.length) modes.push({ name: 'default', path: relativePath(root, themeDir), images: directImages });
+    }
+    if (modes.length) themes.push({ name, modes });
+  }
+
   themes.sort((a, b) => a.name.localeCompare(b.name));
   return themes;
 }
@@ -96,6 +190,7 @@ body {
   box-shadow: 0 2px 12px rgba(0,0,0,0.4);
   position: relative;
   z-index: 100;
+  flex-wrap: wrap;
 }
 .toolbar h1 {
   font-size: 1.2em;
@@ -177,7 +272,6 @@ body {
 .scroll-container::-webkit-scrollbar-thumb { background: #3a3a5c; border-radius: 4px; }
 .content { min-width: max-content; padding: 8px 20px 20px 20px; }
 .theme-section { margin-bottom: 4px; }
-.theme-section.theme-mode-hidden { display: none; }
 .theme-section.drag-over { outline: 2px dashed #4a9eff; outline-offset: -2px; border-radius: 8px; }
 .theme-header {
   display: flex;
@@ -193,12 +287,13 @@ body {
   transition: background 0.15s;
   position: sticky;
   left: 0;
+  white-space: nowrap;
 }
 .theme-header:hover { background: #1e2d50; }
 .theme-header.dragging { opacity: 0.4; }
 .drag-handle {
   cursor: grab;
-  color: #555;
+  color: #777;
   font-size: 1.1em;
   line-height: 1;
   padding: 2px 6px;
@@ -215,7 +310,14 @@ body {
   text-align: center;
 }
 .theme-section.open .theme-header .arrow { transform: rotate(90deg); }
-.theme-header .theme-name { text-transform: capitalize; }
+.theme-header .app-name,
+.theme-header .theme-name,
+.theme-header .mode-name {
+  text-transform: none;
+}
+.theme-header .app-name { color: #9ecbff; }
+.theme-header .mode-name { color: #c8c8df; font-weight: 400; }
+.theme-header .separator { color: #6d7899; font-weight: 400; }
 .theme-header .image-count {
   font-size: 0.8em;
   color: #888;
@@ -253,15 +355,14 @@ body {
 <body>
 <div class="toolbar">
   <h1>Screenshot Viewer</h1>
-  <label class="gallery-picker">Folder
-    <select id="gallerySelect" onchange="changeGallery()"></select>
+  <label class="gallery-picker">App
+    <select id="appSelect" onchange="changeGallery()"></select>
   </label>
   <label class="gallery-picker">Theme
-    <select id="themeModeSelect" onchange="changeThemeMode()">
-      <option value="both" selected>Both</option>
-      <option value="light">Light</option>
-      <option value="dark">Dark</option>
-    </select>
+    <select id="themeSelect" onchange="changeTheme()"></select>
+  </label>
+  <label class="gallery-picker">Mode
+    <select id="modeSelect" onchange="changeMode()"></select>
   </label>
   <div class="filter-toggle">
     <button onclick="toggleFilterPanel()">Filter &#9662;</button>
@@ -286,374 +387,646 @@ const HTML_FOOT = `
 <script>
 (function() {
   var container = document.getElementById('container');
+  var appSelect = document.getElementById('appSelect');
+  var themeSelect = document.getElementById('themeSelect');
+  var modeSelect = document.getElementById('modeSelect');
+  var imageCheckboxes = document.getElementById('imageCheckboxes');
+  var currentGallery = null;
+  var currentTheme = storageGet('screenshotViewerTheme') || '';
+  var currentMode = storageGet('screenshotViewerMode') || '';
+  var galleries = [];
+  var themes = [];
+  var checkedImages = Object.create(null);
+  var openSections = Object.create(null);
+  var requestVersion = 0;
   var dragEl = null;
-  var currentGallery = localStorage.getItem('screenshotViewerGallery');
-  // Bootswatch light/dark (mirrors shared/js/smd-settings.js themeConfig.bsTheme).
-  var DARK_THEMES = { cyborg: 1, darkly: 1, slate: 1, solar: 1, superhero: 1, vapor: 1 };
+  var APP_LABELS = {
+    pmd: 'Plan My Day',
+    cmd: 'Count My Days',
+    qrlinks: 'QR Links',
+    ffox: 'FreeFormOX',
+    solar: 'Solar Controlar',
+    solarcontrolar: 'Solar Controlar',
+    launch: 'Launch'
+  };
+  var IMAGE_RE = /\.(png|jpg|jpeg|gif|webp|svg|bmp)$/i;
 
-  function themeMode(themeName) {
-    return DARK_THEMES[themeName.toLowerCase()] ? 'dark' : 'light';
+  function storageGet(key) {
+    try { return localStorage.getItem(key); } catch (e) { return null; }
   }
 
-  window.changeThemeMode = function() {
-    var mode = document.getElementById('themeModeSelect').value;
-    var sections = container.querySelectorAll('.theme-section');
-    for (var i = 0; i < sections.length; i++) {
-      var name = sections[i].querySelector('.theme-name');
-      var show = mode === 'both' || themeMode(name ? name.textContent : '') === mode;
-      sections[i].classList.toggle('theme-mode-hidden', !show);
-    }
-  };
+  function storageSet(key, value) {
+    try { localStorage.setItem(key, value || ''); } catch (e) {}
+  }
 
-  function indexOf(el) {
-    var children = container.children;
-    for (var i = 0; i < children.length; i++) {
-      if (children[i] === el) return i;
+  function hasOwn(object, key) {
+    return Object.prototype.hasOwnProperty.call(object, key);
+  }
+
+  function appLabel(app) {
+    if (!app) return '(root)';
+    for (var i = 0; i < galleries.length; i++) {
+      if (galleries[i].id === app) return galleries[i].label;
     }
-    return -1;
+    return APP_LABELS[app.toLowerCase()] || app;
+  }
+
+  function modeLabel(mode) {
+    return mode.charAt(0).toUpperCase() + mode.slice(1);
+  }
+
+  function defaultGallery() {
+    for (var i = 0; i < galleries.length; i++) {
+      if (galleries[i].id === 'pmd') return 'pmd';
+    }
+    return galleries.length ? galleries[0].id : '';
+  }
+
+  function addOption(select, value, label) {
+    var option = document.createElement('option');
+    option.value = value;
+    option.textContent = label;
+    select.appendChild(option);
+  }
+
+  function setGalleryOptions(list) {
+    galleries = Array.isArray(list) ? list : [];
+    appSelect.innerHTML = '';
+    for (var i = 0; i < galleries.length; i++) {
+      addOption(appSelect, galleries[i].id, galleries[i].label);
+    }
+    var selected = currentGallery;
+    var hadGalleryPreference = selected !== null;
+    if (selected !== null) {
+      for (var j = 0; j < galleries.length; j++) {
+        if (galleries[j].label === selected) {
+          selected = galleries[j].id;
+          break;
+        }
+      }
+    }
+    var hasSelection = galleries.some(function(gallery) { return gallery.id === selected; });
+    if (!hasSelection) {
+      selected = defaultGallery();
+      currentGallery = selected;
+      if (!hadGalleryPreference) storageSet('screenshotViewerGallery', selected);
+    } else {
+      currentGallery = selected;
+    }
+    appSelect.value = currentGallery;
+  }
+
+  function setThemeOptions() {
+    var names = [];
+    for (var i = 0; i < themes.length; i++) {
+      if (names.indexOf(themes[i].name) === -1) names.push(themes[i].name);
+    }
+    names.sort();
+    themeSelect.innerHTML = '';
+    addOption(themeSelect, '', 'All themes');
+    for (var j = 0; j < names.length; j++) addOption(themeSelect, names[j], names[j]);
+    if (currentTheme && names.indexOf(currentTheme) === -1) {
+      currentTheme = '';
+      storageSet('screenshotViewerTheme', currentTheme);
+    }
+    themeSelect.value = currentTheme;
+  }
+
+  function availableModeNames() {
+    var names = [];
+    for (var i = 0; i < themes.length; i++) {
+      if (currentTheme && themes[i].name !== currentTheme) continue;
+      for (var j = 0; j < themes[i].modes.length; j++) {
+        var name = themes[i].modes[j].name;
+        if (names.indexOf(name) === -1) names.push(name);
+      }
+    }
+    return names;
+  }
+
+  function setModeOptions() {
+    var available = availableModeNames();
+    var values = ['light', 'dark'];
+    if (available.indexOf('default') !== -1) values.push('default');
+    if (currentMode && available.indexOf(currentMode) === -1) {
+      currentMode = '';
+      storageSet('screenshotViewerMode', currentMode);
+    }
+    modeSelect.innerHTML = '';
+    addOption(modeSelect, '', 'All modes');
+    addOption(modeSelect, 'light', 'Light');
+    addOption(modeSelect, 'dark', 'Dark');
+    if (values.indexOf('default') !== -1) addOption(modeSelect, 'default', 'Default');
+    modeSelect.value = currentMode;
+  }
+
+  function sectionKey(themeName, modeName) {
+    return JSON.stringify([currentGallery || '', themeName, modeName]);
+  }
+
+  function isOpen(key) {
+    return hasOwn(openSections, key) ? openSections[key] : true;
+  }
+
+  function sourceUrl(modePath, imageName, stamp) {
+    var pieces = String(modePath).split('/').map(function(piece) { return encodeURIComponent(piece); });
+    return '/' + pieces.join('/') + '/' + encodeURIComponent(imageName) + '?v=' + stamp;
+  }
+
+  function configureSection(section, themeName, mode) {
+    var key = sectionKey(themeName, mode.name);
+    var header = section.querySelector('.theme-header');
+    if (!header) {
+      header = document.createElement('div');
+      header.className = 'theme-header';
+      var handle = document.createElement('span');
+      handle.className = 'drag-handle';
+      handle.innerHTML = '&#9776;';
+      handle.setAttribute('draggable', 'true');
+      handle.title = 'Drag to reorder';
+      var arrow = document.createElement('span');
+      arrow.className = 'arrow';
+      arrow.innerHTML = '&#9654;';
+      header.appendChild(handle);
+      header.appendChild(arrow);
+      header.appendChild(document.createElement('span'));
+      header.children[2].className = 'app-name';
+      header.appendChild(document.createElement('span'));
+      header.children[3].className = 'separator';
+      header.lastChild.textContent = ' / ';
+      header.appendChild(document.createElement('span'));
+      header.children[4].className = 'theme-name';
+      header.appendChild(document.createElement('span'));
+      header.children[5].className = 'separator';
+      header.lastChild.textContent = ' / ';
+      header.appendChild(document.createElement('span'));
+      header.children[6].className = 'mode-name';
+      header.appendChild(document.createElement('span'));
+      header.children[7].className = 'image-count';
+      section.appendChild(header);
+    }
+    header.onclick = function() { toggleSectionByKey(key); };
+    header.setAttribute('data-section-key', key);
+    header.title = appLabel(currentGallery) + ' / ' + themeName + ' / ' + modeLabel(mode.name);
+    header.querySelector('.app-name').textContent = appLabel(currentGallery);
+    header.querySelector('.theme-name').textContent = themeName;
+    header.querySelector('.mode-name').textContent = modeLabel(mode.name);
+    header.querySelector('.image-count').textContent = mode.images.length + ' images';
+
+    var body = section.querySelector('.theme-body');
+    if (!body) {
+      body = document.createElement('div');
+      body.className = 'theme-body';
+      section.appendChild(body);
+    }
+    body.innerHTML = '';
+    var stamp = Date.now();
+    for (var i = 0; i < mode.images.length; i++) {
+      var imageName = mode.images[i];
+      var card = document.createElement('div');
+      card.className = 'image-card';
+      var image = document.createElement('img');
+      image.src = sourceUrl(mode.path, imageName, stamp);
+      image.alt = imageName;
+      image.loading = 'lazy';
+      var name = document.createElement('div');
+      name.className = 'image-name';
+      name.textContent = imageName;
+      card.appendChild(image);
+      card.appendChild(name);
+      body.appendChild(card);
+    }
   }
 
   function refreshIds() {
     var sections = container.querySelectorAll('.theme-section');
     for (var i = 0; i < sections.length; i++) {
-      var s = sections[i];
-      s.id = 'section-' + i;
-      var header = s.querySelector('.theme-header');
-      header.setAttribute('onclick', 'toggleSection(' + i + ')');
-      var body = s.querySelector('.theme-body');
+      var body = sections[i].querySelector('.theme-body');
+      sections[i].id = 'section-' + i;
       if (body) body.id = 'body-' + i;
     }
   }
 
+  function renderThemes() {
+    var existing = Object.create(null);
+    var previous = container.querySelectorAll('.theme-section');
+    for (var p = 0; p < previous.length; p++) {
+      var previousKey = previous[p].getAttribute('data-section-key');
+      if (previousKey !== null) existing[previousKey] = previous[p];
+    }
+    var fragment = document.createDocumentFragment();
+    for (var t = 0; t < themes.length; t++) {
+      var theme = themes[t];
+      if (currentTheme && theme.name !== currentTheme) continue;
+      for (var m = 0; m < theme.modes.length; m++) {
+        var mode = theme.modes[m];
+        if (currentMode && mode.name !== currentMode) continue;
+        var key = sectionKey(theme.name, mode.name);
+        var section = existing[key] || document.createElement('div');
+        section.className = 'theme-section mode-section';
+        section.setAttribute('data-section-key', key);
+        section.setAttribute('data-app', currentGallery || '');
+        section.setAttribute('data-theme', theme.name);
+        section.setAttribute('data-mode', mode.name);
+        section.setAttribute('draggable', 'true');
+        if (isOpen(key)) section.classList.add('open');
+        else section.classList.remove('open');
+        configureSection(section, theme.name, mode);
+        fragment.appendChild(section);
+      }
+    }
+    container.innerHTML = '';
+    while (fragment.firstChild) container.appendChild(fragment.firstChild);
+    refreshIds();
+    setImageCheckboxes();
+    filterImagesByCheckbox();
+  }
+
+  function toggleSectionByKey(key) {
+    for (var i = 0; i < container.children.length; i++) {
+      var section = container.children[i];
+      if (section.getAttribute('data-section-key') !== key) continue;
+      var next = !section.classList.contains('open');
+      if (next) section.classList.add('open');
+      else section.classList.remove('open');
+      openSections[key] = next;
+      return;
+    }
+  }
+
+  function normalizeThemes(data) {
+    if (!Array.isArray(data)) return [];
+    return data.map(function(theme) {
+      if (Array.isArray(theme.modes)) return theme;
+      if (Array.isArray(theme.images)) {
+        return {
+          name: theme.name,
+          modes: [{ name: 'default', path: theme.path, images: theme.images }]
+        };
+      }
+      return { name: theme.name, modes: [] };
+    }).filter(function(theme) { return theme.name && theme.modes.length; });
+  }
+
+  function loadThemes() {
+    var version = ++requestVersion;
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', '/api/themes?group=' + encodeURIComponent(currentGallery || ''), true);
+    xhr.onload = function() {
+      if (version !== requestVersion) return;
+      if (xhr.status !== 200) {
+        themes = [];
+      } else {
+        try {
+          themes = normalizeThemes(JSON.parse(xhr.responseText));
+        } catch (e) {
+          themes = [];
+        }
+      }
+      setThemeOptions();
+      setModeOptions();
+      renderThemes();
+    };
+    xhr.onerror = function() {
+      if (version !== requestVersion) return;
+      themes = [];
+      setThemeOptions();
+      setModeOptions();
+      renderThemes();
+    };
+    xhr.send();
+  }
+
+  function imageNames() {
+    var names = [];
+    for (var t = 0; t < themes.length; t++) {
+      var theme = themes[t];
+      for (var m = 0; m < theme.modes.length; m++) {
+        var images = theme.modes[m].images;
+        for (var i = 0; i < images.length; i++) {
+          if (names.indexOf(images[i]) === -1) names.push(images[i]);
+        }
+      }
+    }
+    names.sort();
+    return names;
+  }
+
+  function setImageCheckboxes() {
+    imageCheckboxes.innerHTML = '';
+    var names = imageNames();
+    for (var i = 0; i < names.length; i++) {
+      var name = names[i];
+      if (!hasOwn(checkedImages, name)) checkedImages[name] = true;
+      var label = document.createElement('label');
+      var checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.checked = checkedImages[name];
+      checkbox.setAttribute('data-name', name);
+      checkbox.onchange = function() {
+        checkedImages[this.getAttribute('data-name')] = this.checked;
+        filterImagesByCheckbox();
+      };
+      label.appendChild(checkbox);
+      label.appendChild(document.createTextNode(name.replace(IMAGE_RE, '')));
+      imageCheckboxes.appendChild(label);
+    }
+  }
+
+  function filterImagesByCheckbox() {
+    var inputs = imageCheckboxes.querySelectorAll('input[type="checkbox"]');
+    var selected = Object.create(null);
+    var anyChecked = false;
+    for (var i = 0; i < inputs.length; i++) {
+      if (inputs[i].checked) {
+        selected[inputs[i].getAttribute('data-name')] = true;
+        anyChecked = true;
+      }
+    }
+    var cards = container.querySelectorAll('.image-card');
+    for (var j = 0; j < cards.length; j++) {
+      var cardName = cards[j].querySelector('.image-name').textContent;
+      cards[j].style.display = !anyChecked || selected[cardName] ? '' : 'none';
+    }
+  }
+
+  function changeTheme() {
+    currentTheme = themeSelect.value;
+    storageSet('screenshotViewerTheme', currentTheme);
+    setModeOptions();
+    renderThemes();
+  }
+
+  function changeMode() {
+    currentMode = modeSelect.value;
+    storageSet('screenshotViewerMode', currentMode);
+    renderThemes();
+  }
+
+  function changeGallery() {
+    currentGallery = appSelect.value;
+    storageSet('screenshotViewerGallery', currentGallery);
+    themes = [];
+    renderThemes();
+    loadThemes();
+  }
+
+  function refreshImages() {
+    var version = ++requestVersion;
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', '/api/galleries', true);
+    xhr.onload = function() {
+      if (version !== requestVersion || xhr.status !== 200) return;
+      try {
+        setGalleryOptions(JSON.parse(xhr.responseText));
+      } catch (e) {
+        return;
+      }
+      loadThemes();
+    };
+    xhr.onerror = function() {};
+    xhr.send();
+  }
+
+  function toggleSection(index) {
+    var section = document.getElementById('section-' + index);
+    if (!section) return;
+    toggleSectionByKey(section.getAttribute('data-section-key'));
+  }
+
+  function openAll() {
+    var sections = container.querySelectorAll('.theme-section');
+    for (var i = 0; i < sections.length; i++) {
+      sections[i].classList.add('open');
+      openSections[sections[i].getAttribute('data-section-key')] = true;
+    }
+  }
+
+  function collapseAll() {
+    var sections = container.querySelectorAll('.theme-section');
+    for (var i = 0; i < sections.length; i++) {
+      sections[i].classList.remove('open');
+      openSections[sections[i].getAttribute('data-section-key')] = false;
+    }
+  }
+
+  function toggleFilterPanel() {
+    document.getElementById('filterPanel').classList.toggle('open');
+  }
+
+  function selectAllImages() {
+    var inputs = imageCheckboxes.querySelectorAll('input[type="checkbox"]');
+    var allChecked = inputs.length > 0;
+    for (var i = 0; i < inputs.length; i++) {
+      if (!inputs[i].checked) {
+        allChecked = false;
+        break;
+      }
+    }
+    var newState = !allChecked;
+    for (var j = 0; j < inputs.length; j++) {
+      inputs[j].checked = newState;
+      checkedImages[inputs[j].getAttribute('data-name')] = newState;
+    }
+    filterImagesByCheckbox();
+  }
+
   container.addEventListener('dragstart', function(e) {
-    dragEl = e.target.closest('.theme-section');
+    dragEl = e.target.closest ? e.target.closest('.theme-section') : null;
     if (!dragEl) return;
     dragEl.classList.add('dragging');
-    e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/plain', '');
+    if (e.dataTransfer) {
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', '');
+    }
     setTimeout(function() { if (dragEl) dragEl.style.display = 'none'; }, 0);
   });
 
-  container.addEventListener('dragend', function(e) {
+  container.addEventListener('dragend', function() {
     if (!dragEl) return;
     dragEl.style.display = '';
     dragEl.classList.remove('dragging');
     var all = container.querySelectorAll('.theme-section');
-    for (var i = 0; i < all.length; i++) { all[i].classList.remove('drag-over'); }
+    for (var i = 0; i < all.length; i++) all[i].classList.remove('drag-over');
     dragEl = null;
   });
 
   container.addEventListener('dragover', function(e) {
     e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
+    if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
     if (!dragEl) return;
-
-    var target = e.target.closest('.theme-section');
+    var target = e.target.closest ? e.target.closest('.theme-section') : null;
     if (!target || target === dragEl) return;
-
     var children = Array.from(container.children);
-    var dragIdx = children.indexOf(dragEl);
-    var targetIdx = children.indexOf(target);
-
-    if (dragIdx < targetIdx) {
-      container.insertBefore(dragEl, target.nextSibling);
-    } else {
-      container.insertBefore(dragEl, target);
-    }
+    var dragIndex = children.indexOf(dragEl);
+    var targetIndex = children.indexOf(target);
+    if (dragIndex < targetIndex) container.insertBefore(dragEl, target.nextSibling);
+    else container.insertBefore(dragEl, target);
     refreshIds();
   });
 
   container.addEventListener('dragenter', function(e) {
-    var section = e.target.closest('.theme-section');
-    if (section && section !== dragEl) {
-      section.classList.add('drag-over');
-    }
+    var section = e.target.closest ? e.target.closest('.theme-section') : null;
+    if (section && section !== dragEl) section.classList.add('drag-over');
   });
 
   container.addEventListener('dragleave', function(e) {
-    var section = e.target.closest('.theme-section');
-    if (section && section !== dragEl) {
-      section.classList.remove('drag-over');
-    }
+    var section = e.target.closest ? e.target.closest('.theme-section') : null;
+    if (section && section !== dragEl) section.classList.remove('drag-over');
   });
 
   container.addEventListener('drop', function(e) {
     e.preventDefault();
     var all = container.querySelectorAll('.theme-section');
-    for (var i = 0; i < all.length; i++) { all[i].classList.remove('drag-over'); }
+    for (var i = 0; i < all.length; i++) all[i].classList.remove('drag-over');
   });
-
-  window.filterImagesByCheckbox = function() {
-    var checkedNames = {};
-    var inputs = document.querySelectorAll('#imageCheckboxes input[type="checkbox"]');
-    for (var i = 0; i < inputs.length; i++) {
-      if (inputs[i].checked) checkedNames[inputs[i].getAttribute('data-name')] = true;
-    }
-    var anyChecked = Object.keys(checkedNames).length > 0;
-    var cards = container.querySelectorAll('.image-card');
-    for (var c = 0; c < cards.length; c++) {
-      var name = cards[c].querySelector('.image-name').textContent;
-      if (!anyChecked) {
-        cards[c].style.display = '';
-      } else if (checkedNames[name]) {
-        cards[c].style.display = '';
-      } else {
-        cards[c].style.display = 'none';
-      }
-    }
-  };
-
-  window.selectAllImages = function() {
-    var inputs = document.querySelectorAll('#imageCheckboxes input[type="checkbox"]');
-    var allChecked = true;
-    for (var i = 0; i < inputs.length; i++) {
-      if (!inputs[i].checked) { allChecked = false; break; }
-    }
-    var newState = !allChecked;
-    for (var i = 0; i < inputs.length; i++) {
-      inputs[i].checked = newState;
-    }
-    window.filterImagesByCheckbox();
-  };
-
-  window.toggleFilterPanel = function() {
-    var panel = document.getElementById('filterPanel');
-    panel.classList.toggle('open');
-  };
 
   document.addEventListener('click', function(e) {
     var panel = document.getElementById('filterPanel');
     var toggle = document.querySelector('.filter-toggle');
-    if (!panel.contains(e.target) && !toggle.contains(e.target)) {
-      panel.classList.remove('open');
-    }
+    if (panel && toggle && !panel.contains(e.target) && !toggle.contains(e.target)) panel.classList.remove('open');
   });
 
-  window.toggleSection = function(index) {
-    document.getElementById('section-' + index).classList.toggle('open');
-  };
-  window.openAll = function() {
-    document.querySelectorAll('.theme-section').forEach(function(s) { s.classList.add('open'); });
-  };
-  window.collapseAll = function() {
-    document.querySelectorAll('.theme-section').forEach(function(s) { s.classList.remove('open'); });
-  };
+  window.changeGallery = changeGallery;
+  window.changeTheme = changeTheme;
+  window.changeMode = changeMode;
+  window.changeThemeMode = changeMode;
+  window.refreshImages = refreshImages;
+  window.toggleSection = toggleSection;
+  window.openAll = openAll;
+  window.collapseAll = collapseAll;
+  window.toggleFilterPanel = toggleFilterPanel;
+  window.selectAllImages = selectAllImages;
+  window.filterImagesByCheckbox = filterImagesByCheckbox;
 
-  function setGalleryOptions(galleries) {
-    var select = document.getElementById('gallerySelect');
-    select.innerHTML = '';
-    for (var i = 0; i < galleries.length; i++) {
-      var opt = document.createElement('option');
-      opt.value = galleries[i].id;
-      opt.textContent = galleries[i].label;
-      select.appendChild(opt);
-    }
-    var has = galleries.some(function(g) { return g.id === currentGallery; });
-    if (!has) {
-      currentGallery = galleries.some(function(g) { return g.id === 'pmd'; })
-        ? 'pmd'
-        : (galleries.length ? galleries[0].id : '');
-    }
-    select.value = currentGallery;
-  }
-
-  window.changeGallery = function() {
-    currentGallery = document.getElementById('gallerySelect').value;
-    localStorage.setItem('screenshotViewerGallery', currentGallery);
-    while (container.firstChild) container.removeChild(container.firstChild);
-    loadThemes();
-  };
-
-  function loadThemes() {
-    var xhr = new XMLHttpRequest();
-    xhr.open('GET', '/api/themes?group=' + encodeURIComponent(currentGallery), true);
-    xhr.onload = function() {
-      if (xhr.status !== 200) return;
-      var themes = JSON.parse(xhr.responseText);
-
-      var checkedBoxes = {};
-      var inputs = document.querySelectorAll('#imageCheckboxes input[type="checkbox"]');
-      for (var i = 0; i < inputs.length; i++) {
-        checkedBoxes[inputs[i].getAttribute('data-name')] = inputs[i].checked;
-      }
-
-      var openSections = {};
-      var sections = container.querySelectorAll('.theme-section');
-      for (var s = 0; s < sections.length; s++) {
-        var themeName = sections[s].querySelector('.theme-name').textContent;
-        openSections[themeName] = sections[s].classList.contains('open');
-      }
-
-      var existing = {};
-      var prevSections = container.querySelectorAll('.theme-section');
-      for (var p = 0; p < prevSections.length; p++) {
-        var prevName = prevSections[p].querySelector('.theme-name');
-        if (prevName) existing[prevName.textContent] = prevSections[p];
-      }
-      container.innerHTML = '';
-
-      for (var t = 0; t < themes.length; t++) {
-        var theme = themes[t];
-        var sec = existing[theme.name] || document.createElement('div');
-        sec.className = 'theme-section open';
-        sec.id = 'section-' + t;
-        sec.setAttribute('draggable', 'true');
-
-        if (openSections.hasOwnProperty(theme.name)) {
-          if (!openSections[theme.name]) sec.classList.remove('open');
-        }
-
-        var header = sec.querySelector('.theme-header');
-        if (!header) {
-          header = document.createElement('div');
-          header.className = 'theme-header';
-          var handle = document.createElement('span');
-          handle.className = 'drag-handle';
-          handle.innerHTML = '&#9776;';
-          handle.setAttribute('draggable', 'true');
-          handle.title = 'Drag to reorder';
-          var arrow = document.createElement('span');
-          arrow.className = 'arrow';
-          arrow.innerHTML = '&#9654;';
-          header.appendChild(handle);
-          header.appendChild(arrow);
-          var nameSpan = document.createElement('span');
-          nameSpan.className = 'theme-name';
-          header.appendChild(nameSpan);
-          var countSpan = document.createElement('span');
-          countSpan.className = 'image-count';
-          header.appendChild(countSpan);
-          sec.appendChild(header);
-        }
-        header.setAttribute('onclick', 'toggleSection(' + t + ')');
-        header.querySelector('.theme-name').textContent = theme.name;
-        header.querySelector('.image-count').textContent = theme.images.length + ' images';
-
-        var body = sec.querySelector('.theme-body');
-        if (!body) {
-          body = document.createElement('div');
-          body.className = 'theme-body';
-          sec.appendChild(body);
-        }
-        body.id = 'body-' + t;
-        body.innerHTML = '';
-        var flushts = Date.now();
-        for (var img = 0; img < theme.images.length; img++) {
-          var src = theme.path + '/' + theme.images[img];
-          body.innerHTML += '<div class="image-card"><img src="' + src + '?v=' + flushts + '" alt="' + theme.images[img] + '" loading="lazy"><div class="image-name">' + theme.images[img] + '</div></div>';
-        }
-
-        sec.style.display = '';
-        container.appendChild(sec);
-      }
-
-      var sel = document.getElementById('imageCheckboxes');
-      sel.innerHTML = '';
-      var names = [];
-      var allCards = container.querySelectorAll('.image-card');
-      for (var c = 0; c < allCards.length; c++) {
-        var name = allCards[c].querySelector('.image-name').textContent;
-        if (names.indexOf(name) === -1 && /\.(png|jpg|jpeg|gif|webp|svg|bmp)$/i.test(name)) {
-          names.push(name);
-          var display = name.replace(/\.(png|jpg|jpeg|gif|webp|svg|bmp)$/i, '');
-          var lbl = document.createElement('label');
-          var cb = document.createElement('input');
-          cb.type = 'checkbox';
-          cb.checked = checkedBoxes.hasOwnProperty(name) ? checkedBoxes[name] : true;
-          cb.setAttribute('data-name', name);
-          cb.setAttribute('onchange', 'filterImagesByCheckbox()');
-          lbl.appendChild(cb);
-          lbl.appendChild(document.createTextNode(display));
-          sel.appendChild(lbl);
-        }
-      }
-
-      window.filterImagesByCheckbox();
-      if (typeof window.changeThemeMode === 'function') window.changeThemeMode();
-    };
-    xhr.send();
-  }
-
-  window.refreshImages = function() {
-    var xhr = new XMLHttpRequest();
-    xhr.open('GET', '/api/galleries', true);
-    xhr.onload = function() {
-      if (xhr.status !== 200) return;
-      setGalleryOptions(JSON.parse(xhr.responseText));
-      loadThemes();
-    };
-    xhr.send();
-  };
-
-  window.refreshImages();
+  currentGallery = storageGet('screenshotViewerGallery');
+  refreshImages();
 })();
 </script>
 </body>
 </html>`;
 
-const server = http.createServer((req, res) => {
-  const urlPath = decodeURIComponent(req.url.split('?')[0]);
+function getHtml() {
+  return HTML_HEAD + HTML_FOOT;
+}
 
-  if (urlPath === '/') {
-    // The shell is static; the client fetches /api/galleries + /api/themes and renders.
-    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-    res.end(HTML_HEAD + HTML_FOOT);
-    return;
-  }
-
-  if (urlPath === '/api/galleries') {
-    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-    res.end(JSON.stringify(listGalleries()));
-    return;
-  }
-
-  if (urlPath === '/api/themes') {
-    const galleries = listGalleries();
-    const param = new URL(req.url, 'http://localhost').searchParams.get('group');
-    const group = param === null ? defaultGallery(galleries) : param;
-    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-    res.end(JSON.stringify(scanThemes(group)));
-    return;
-  }
-
-  const filePath = path.join(SCREENSHOTS_DIR, urlPath.replace(/\//g, path.sep));
-  if (!filePath.startsWith(SCREENSHOTS_DIR)) {
-    res.writeHead(403);
-    res.end('Forbidden');
-    return;
-  }
-
-  const ext = path.extname(filePath).toLowerCase();
-  const mimeTypes = {
-    '.png': 'image/png',
-    '.jpg': 'image/jpeg',
-    '.jpeg': 'image/jpeg',
-    '.gif': 'image/gif',
-    '.webp': 'image/webp',
-    '.svg': 'image/svg+xml',
-    '.bmp': 'image/bmp',
-    '.html': 'text/html',
-    '.js': 'text/javascript',
-    '.css': 'text/css'
-  };
-
-  fs.readFile(filePath, (err, data) => {
-    if (err) {
-      res.writeHead(404);
-      res.end('Not Found');
+function createServer(screenshotsDir = SCREENSHOTS_DIR) {
+  const root = path.resolve(screenshotsDir || SCREENSHOTS_DIR);
+  return http.createServer((req, res) => {
+    let requestUrl;
+    let urlPath;
+    try {
+      requestUrl = new URL(req.url, 'http://localhost');
+      urlPath = decodeURIComponent(requestUrl.pathname);
+    } catch (e) {
+      res.writeHead(400);
+      res.end('Bad Request');
       return;
     }
-    res.writeHead(200, { 'Content-Type': mimeTypes[ext] || 'application/octet-stream' });
-    res.end(data);
-  });
-});
 
-server.listen(PORT, () => {
-  console.log(`Screenshot viewer: http://localhost:${PORT}`);
-  const cmd = process.platform === 'win32'
-    ? `start http://localhost:${PORT}`
+    if (urlPath === '/') {
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      res.end(getHtml());
+      return;
+    }
+
+    if (urlPath === '/api/galleries' || urlPath === '/api/apps') {
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify(listGalleries(root)));
+      return;
+    }
+
+    if (urlPath === '/api/themes') {
+      const galleries = listGalleries(root);
+      const group = requestUrl.searchParams.has('group')
+        ? requestUrl.searchParams.get('group')
+        : requestUrl.searchParams.has('app')
+          ? requestUrl.searchParams.get('app')
+          : defaultGallery(galleries);
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify(scanThemes(group, root)));
+      return;
+    }
+
+    if (urlPath.indexOf('\0') !== -1) {
+      res.writeHead(400);
+      res.end('Bad Request');
+      return;
+    }
+
+    const filePath = path.resolve(root, '.' + urlPath);
+    const relative = path.relative(root, filePath);
+    if (relative === '..' || relative.indexOf('..' + path.sep) === 0 || path.isAbsolute(relative)) {
+      res.writeHead(403);
+      res.end('Forbidden');
+      return;
+    }
+
+    const ext = path.extname(filePath).toLowerCase();
+    const mimeTypes = {
+      '.png': 'image/png',
+      '.jpg': 'image/jpeg',
+      '.jpeg': 'image/jpeg',
+      '.gif': 'image/gif',
+      '.webp': 'image/webp',
+      '.svg': 'image/svg+xml',
+      '.bmp': 'image/bmp',
+      '.html': 'text/html',
+      '.js': 'text/javascript',
+      '.css': 'text/css'
+    };
+
+    fs.readFile(filePath, (err, data) => {
+      if (err) {
+        res.writeHead(404);
+        res.end('Not Found');
+        return;
+      }
+      res.writeHead(200, { 'Content-Type': mimeTypes[ext] || 'application/octet-stream' });
+      res.end(data);
+    });
+  });
+}
+
+function openBrowser(port) {
+  const url = `http://localhost:${port}`;
+  const command = process.platform === 'win32'
+    ? `start ${url}`
     : process.platform === 'darwin'
-      ? `open http://localhost:${PORT}`
-      : `xdg-open http://localhost:${PORT}`;
-  exec(cmd);
-});
+      ? `open ${url}`
+      : `xdg-open ${url}`;
+  exec(command);
+}
+
+function startServer(options = {}) {
+  const screenshotsDir = options.screenshotsDir || SCREENSHOTS_DIR;
+  const port = typeof options.port === 'number' ? options.port : PORT;
+  const host = options.host || undefined;
+  const server = createServer(screenshotsDir);
+  server.listen(port, host, () => {
+    const address = server.address();
+    const actualPort = address && typeof address === 'object' ? address.port : port;
+    console.log(`Screenshot viewer: http://localhost:${actualPort}`);
+    if (options.open !== false) openBrowser(actualPort);
+  });
+  return server;
+}
+
+if (require.main === module) startServer();
+
+module.exports = {
+  APP_LABELS,
+  IMAGE_RE,
+  PORT,
+  SCREENSHOTS_DIR,
+  appLabel,
+  createServer,
+  createViewerServer: createServer,
+  defaultGallery,
+  getHtml,
+  isGalleryRoot,
+  isThemeDirectory,
+  listGalleries,
+  scanThemes,
+  startServer
+};

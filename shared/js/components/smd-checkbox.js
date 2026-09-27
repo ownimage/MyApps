@@ -1,7 +1,8 @@
 // <smd-checkbox> — the shared, themed checkbox used across the app (light DOM).
 //
 // Renders a native checkbox inside the host in the light DOM so every checkbox
-// shares one look (styles live in shared/css/styles.css, element-scoped). The
+// shares one look (layout is applied by the component; size/theme values live in
+// shared/css/styles.css). The
 // host itself is ARIA-checkable (`role=checkbox|switch` + `aria-checked`) so
 // assistive tech — and Playwright's check()/toBeChecked() — treat it like a real
 // checkbox. Clicking anywhere on the built-in label toggles it; a `switch`
@@ -26,16 +27,15 @@
   "use strict";
 
   const smdCheckboxTemplate = document.createElement("template");
-  smdCheckboxTemplate.innerHTML = `<label><input type="checkbox"><span class="checkbox-label"></span></label>`;
+  smdCheckboxTemplate.innerHTML = `<label class="d-inline-flex align-items-center"><input class="flex-shrink-0" type="checkbox"><span class="checkbox-label"></span></label>`;
 
-  // Touch size: a VALUE, not a style. It is published as --smd-checkbox-input-size
-  // on the host so the input (and all its em-based dimensions) scales while the
-  // label text stays the same size. Set once from the app via setDefaultSize().
+  // Touch size is a VALUE: the shared css maps html[data-smd-touch-size] (and a
+  // per-instance size attribute) onto --smd-checkbox-input-size. setDefaultSize()
+  // only mirrors the value onto the html attribute for CSS; no inline styles.
   const SIZES = {
     normal: "1em",
     large: "1.4em"
   };
-  const liveInstances = new Set();
 
   class SmdCheckbox extends HTMLElement {
     static get observedAttributes() {
@@ -48,6 +48,7 @@
     }
 
     connectedCallback() {
+      this.classList.add("d-inline-flex", "align-items-center");
       // Capture the authored label once (before our render replaces light text).
       if (this._label === undefined) {
         this._label = this.textContent.replace(/^\s+|\s+$/g, "");
@@ -71,19 +72,14 @@
           else this.removeAttribute(prop);
         }
       });
-      liveInstances.add(this);
       this._sync();
-      this._applySize();
     }
 
-    disconnectedCallback() {
-      liveInstances.delete(this);
-    }
+    disconnectedCallback() {}
 
     attributeChangedCallback() {
-      if (this.isConnected) {
-        if (this._input) this._sync();
-        this._applySize();
+      if (this.isConnected && this._input) {
+        this._sync();
       }
     }
 
@@ -97,15 +93,6 @@
     set disabled(value) {
       if (value) this.setAttribute("disabled", "");
       else this.removeAttribute("disabled");
-    }
-
-    _size() {
-      const value = (this.getAttribute("size") || SmdCheckbox.defaultSize || "normal").toLowerCase();
-      return SIZES[value] ? value : "normal";
-    }
-
-    _applySize() {
-      this.style.setProperty("--smd-checkbox-input-size", SIZES[this._size()] || "1em");
     }
 
     _sync() {
@@ -143,7 +130,7 @@
   SmdCheckbox.setDefaultSize = function (value) {
     const v = SIZES[value] ? value : "normal";
     SmdCheckbox.defaultSize = v;
-    liveInstances.forEach((el) => el._applySize());
+    document.documentElement.dataset.smdTouchSize = v;
   };
 
   if (!global.customElements.get("smd-checkbox")) {

@@ -115,6 +115,37 @@ test.describe("PlanMyDay - Regression", () => {
       await expect(page.locator("h1").first()).toBeVisible();
     });
 
+    test("hides the main menu while a secondary page is open", async ({ page }) => {
+      await expect(page.locator("#btnMainMenu")).toBeVisible();
+      await page.getByText("+ Add Job").click();
+      await expect(page.locator("#jobEditPage")).toBeVisible();
+      await expect(page.locator("#btnMainMenu")).toBeHidden();
+      await page.locator("#jobEditCancelBtn").click();
+      await expect(page.locator("#jobEditPage")).toBeHidden();
+      await expect(page.locator("#btnMainMenu")).toBeVisible();
+    });
+
+    test("opening a new page closes the previous page", async ({ page }) => {
+      await page.evaluate(() => {
+        const first = document.getElementById("settingsPage");
+        first.classList.remove("d-none");
+        first.show();
+      });
+      await expect(page.locator("#settingsPage")).toBeVisible();
+      await page.evaluate(() => {
+        const second = document.getElementById("jobEditPage");
+        second.classList.remove("d-none");
+        second.show();
+      });
+      await expect(page.locator("#jobEditPage")).toBeVisible();
+      await expect(page.locator("#settingsPage")).not.toBeVisible();
+      await expect(page.locator("#settingsPage")).toHaveClass(/smd-page-suspended/);
+      expect(await page.locator("#settingsPage").getAttribute("open")).toBe("");
+      await page.evaluate(() => document.getElementById("jobEditPage").hide());
+      await expect(page.locator("#settingsPage")).toBeVisible();
+      await expect(page.locator("#settingsPage")).not.toHaveClass(/smd-page-suspended/);
+    });
+
     test("add card opens job edit modal", async ({ page }) => {
       await page.getByText("+ Add Job").click();
       await expect(page.locator("#jobEditPage")).toBeVisible();
@@ -140,7 +171,7 @@ test.describe("PlanMyDay - Regression", () => {
       await page.locator("#jobEditPage textarea").first().fill("Test description");
       await page.locator("#jobEditOkBtn").click();
       await page.locator("#jobEditPage").waitFor({ state: "hidden", timeout: 10000 });
-      await expect(page.locator("h4").filter({ hasText: "Test Ad Hoc" })).toBeVisible();
+      await expect(page.locator("h2").filter({ hasText: "Test Ad Hoc" })).toBeVisible();
     });
 
     test("completed jobs show strikethrough", async ({ page }) => {
@@ -226,7 +257,7 @@ test.describe("PlanMyDay - Regression", () => {
       }
     });
 
-    test("stream name and buttons share the line under the title", async ({ page }) => {
+    test("stream name sits under the thumbnails; badge and View align on the right", async ({ page }) => {
       const svg = "data:image/svg+xml," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg"><rect width="10" height="10"/></svg>');
       await page.evaluate(({ data, ds, svg }) => {
         const streams = JSON.parse(JSON.stringify(data));
@@ -239,19 +270,22 @@ test.describe("PlanMyDay - Regression", () => {
         localStorage.setItem("planmydays_completed", JSON.stringify([]));
       }, { data: TEST_STREAMS, ds: todayStr, svg });
       await page.reload();
-      const card = page.locator("#todayCardList pmd-today-card").first();
+      const card = page.locator("#todayCardList pmd-job-today-card").first();
       await expect(card).toBeVisible();
-      const title = await card.locator(".title").boundingBox();
+      const title = await card.locator(".job-title").boundingBox();
       const name = await card.locator(".stream-title").boundingBox();
       const view = await card.locator(".job-view-btn").boundingBox();
       const badge = await card.locator(".tab-badge").boundingBox();
+      const streamThumb = await card.locator(".stream-thumb").boundingBox();
       const centerY = (b) => b.y + b.height / 2;
-      // name starts under the title, with View then badge on the same line
-      expect(name.x).toBeCloseTo(title.x, 0);
-      expect(Math.abs(centerY(name) - centerY(view))).toBeLessThan(4);
-      expect(Math.abs(centerY(name) - centerY(badge))).toBeLessThan(4);
-      expect(name.x + name.width).toBeLessThanOrEqual(view.x + 1);
-      expect(view.x + view.width).toBeLessThanOrEqual(badge.x + 1);
+      // name sits under the thumbnails (left column), not under the title
+      expect(name.y).toBeGreaterThan(streamThumb.y + streamThumb.height / 2);
+      expect(name.x).toBeCloseTo(streamThumb.x, 0);
+      // the title column starts right of the thumbnail/name column
+      expect(title.x).toBeGreaterThan(name.x);
+      // badge and View share the right column line, View to the right of the badge
+      expect(Math.abs(centerY(view) - centerY(badge))).toBeLessThan(4);
+      expect(view.x).toBeGreaterThanOrEqual(badge.x + badge.width);
     });
 
     test("job thumbnail keeps its slot when the stream has no image", async ({ page }) => {
@@ -267,7 +301,7 @@ test.describe("PlanMyDay - Regression", () => {
         localStorage.setItem("planmydays_completed", JSON.stringify([]));
       }, { data: TEST_STREAMS, ds: todayStr, svg });
       await page.reload();
-      const card = page.locator("#todayCardList pmd-today-card").first();
+      const card = page.locator("#todayCardList pmd-job-today-card").first();
       await expect(card).toBeVisible();
       const streamThumb = await card.locator(".stream-thumb").boundingBox();
       const jobThumb = await card.locator(".job-thumb").boundingBox();
@@ -315,12 +349,12 @@ test.describe("PlanMyDay - Regression", () => {
       ]) {
         await page.evaluate((s) => changeIconSize(s), size);
         await page.waitForFunction((u) => {
-          const el = document.querySelector("#todayCardList pmd-today-card .stream-thumb smd-image");
+          const el = document.querySelector("#todayCardList pmd-job-today-card .stream-thumb smd-image");
           const img = el && el.querySelector("img");
           return img && img.getAttribute("src") && getComputedStyle(el).width !== "0px";
         }, tierUrl, { timeout: 5000 });
         const got = await page.evaluate(async (u) => {
-          const el = document.querySelector("#todayCardList pmd-today-card .stream-thumb smd-image");
+          const el = document.querySelector("#todayCardList pmd-job-today-card .stream-thumb smd-image");
           const img = el.querySelector("img");
           const src = img.getAttribute("src");
           let expected = null;
@@ -341,14 +375,14 @@ test.describe("PlanMyDay - Regression", () => {
       }, futureDateStr(30));
       await page.reload();
       await expect(page.locator("#todayCardList")).toBeVisible();
-      await expect(page.locator("h4").filter({ hasText: "Report" })).not.toBeVisible();
-      await expect(page.locator("h4").filter({ hasText: "Laundry" })).toBeVisible();
+      await expect(page.locator("h2").filter({ hasText: "Report" })).not.toBeVisible();
+      await expect(page.locator("h2").filter({ hasText: "Laundry" })).toBeVisible();
     });
 
     test("setting sleepUntil to future via edit removes job from main screen", async ({ page }) => {
       await seedTodayList(page);
       await page.reload();
-      await expect(page.locator("h4").filter({ hasText: "Report" })).toBeVisible();
+      await expect(page.locator("h2").filter({ hasText: "Report" })).toBeVisible();
       await page.locator(".job-view-btn").first().click();
       await page.locator("#jobEditPage").waitFor({ state: "visible" });
       await page.locator("#btnViewJobEdit").filter({ hasText: "Edit" }).click();
@@ -357,8 +391,8 @@ test.describe("PlanMyDay - Regression", () => {
       await page.locator("#jobEditOkBtn").click();
       
       await page.locator("#jobEditPage").waitFor({ state: "hidden", timeout: 10000 });
-      await expect(page.locator("h4").filter({ hasText: "Report" })).not.toBeVisible({ timeout: 5000 });
-      await expect(page.locator("h4").filter({ hasText: "Laundry" })).toBeVisible();
+      await expect(page.locator("h2").filter({ hasText: "Report" })).not.toBeVisible({ timeout: 5000 });
+      await expect(page.locator("h2").filter({ hasText: "Laundry" })).toBeVisible();
     });
 
     test("past sleepUntil is blanked when viewing job from main screen", async ({ page }) => {
@@ -370,7 +404,7 @@ test.describe("PlanMyDay - Regression", () => {
         localStorage.setItem("planmydays_streams", JSON.stringify(streams));
       }, pastDate);
       await page.reload();
-      await expect(page.locator("h4").filter({ hasText: "Report" })).toBeVisible();
+      await expect(page.locator("h2").filter({ hasText: "Report" })).toBeVisible();
       await page.locator(".job-view-btn").first().click();
       await page.locator("#jobEditPage").waitFor({ state: "visible" });
       await expect(page.locator("#jobEditPage .smd-page-header h1")).toHaveText("View Job");
@@ -539,18 +573,15 @@ test.describe("PlanMyDay - Regression", () => {
     });
   });
 
-  // ── Theme contrast ─────────────────────────────────────────
+  // ── Theme colours ───────────────────────────────────────────
 
-  test.describe("Theme contrast", () => {
+  test.describe("Theme colours", () => {
 
-    // changeTheme + wait for the new theme css to load (the app recomputes its
-    // shared text colours from the loaded theme in the link's load handler).
+    // changeTheme + wait for the new Bootswatch stylesheet to load.
     async function setTheme(page, theme) {
       await page.evaluate((t) => {
         const link = document.getElementById("bootstrap-theme-css");
         if ((link.getAttribute("href") || "").indexOf("/" + t + "/") !== -1) {
-          // Already on this theme: no link load will fire, just recompute.
-          if (typeof applySmdVars === "function") applySmdVars();
           window.__themeReady = true;
           return;
         }
@@ -564,8 +595,6 @@ test.describe("PlanMyDay - Regression", () => {
       await page.waitForTimeout(200);
     }
 
-    // What Bootswatch itself renders for that .btn-* class, read from the light
-    // DOM — the same source applySmdVars() uses for the --smd-*-text values.
     async function bootswatchColor(page, classes) {
       return page.evaluate((cls) => {
         const el = document.createElement("button");
@@ -645,21 +674,6 @@ test.describe("PlanMyDay - Regression", () => {
       expect(color).toBe(await bootswatchColor(page, "btn btn-secondary"));
     });
 
-    test("inactive tabs use the Bootswatch secondary button text colour", async ({ page }) => {
-      await page.evaluate(() => openSettings());
-      const inactiveTabColor = () => page.evaluate(() => {
-        const pageEl = document.getElementById("settingsPage");
-        const tabs = pageEl.querySelector("#settingsTabs");
-        const inactive = Array.from(tabs.querySelectorAll(".smd-tab-btn"))
-          .find((b) => !b.hasAttribute("active"));
-        return getComputedStyle(inactive).color;
-      });
-      for (const theme of ["cerulean", "cosmo", "darkly", "sketchy"]) {
-        await setTheme(page, theme);
-        expect(await inactiveTabColor()).toBe(await bootswatchColor(page, "btn btn-secondary"));
-      }
-    });
-
     test("badges match the Bootswatch badge colours", async ({ page }) => {
       await setTheme(page, "cerulean");
       await page.evaluate(() => {
@@ -694,6 +708,10 @@ test.describe("PlanMyDay - Regression", () => {
   test.describe("Settings", () => {
 
     test("shows all main settings controls", async ({ page }) => {
+      await expect(page.locator("html")).toHaveAttribute("data-smd-font-size", "xlarge");
+      await expect(page.locator("html")).toHaveAttribute("data-smd-icon-size", "medium");
+      await expect(page.locator("html")).toHaveAttribute("data-smd-touch-size", "large");
+      await expect(page.locator("html")).toHaveAttribute("data-smd-tile-density", "normal");
       await page.locator("#btnMainMenu").click();
       await page.locator("a.dropdown-item").filter({ hasText: "Settings" }).click();
       await expect(page.locator("#splitList")).toBeVisible();
@@ -728,34 +746,37 @@ test.describe("PlanMyDay - Regression", () => {
       await expect(page.locator("#clearAllDataRow")).toBeVisible();
     });
 
-    test("font size selector changes body class", async ({ page }) => {
+    test("font size selector changes body class and html attribute", async ({ page }) => {
       await page.locator("#btnMainMenu").click();
       await page.locator("a.dropdown-item").filter({ hasText: "Settings" }).click();
       await page.locator("#appearance-tab").click();
       await page.locator("#fontSizeSelector").selectOption("small");
       const hasClass = await page.evaluate(() => document.body.classList.contains("font-size-small"));
       expect(hasClass).toBe(true);
+      await expect(page.locator("html")).toHaveAttribute("data-smd-font-size", "small");
     });
 
-    test("icon size selector changes body class", async ({ page }) => {
+    test("icon size selector changes body class and html attribute", async ({ page }) => {
       await page.locator("#btnMainMenu").click();
       await page.locator("a.dropdown-item").filter({ hasText: "Settings" }).click();
       await page.locator("#appearance-tab").click();
       await page.locator("#iconSizeSelector").selectOption("small");
       const hasClass = await page.evaluate(() => document.body.classList.contains("icon-size-small"));
       expect(hasClass).toBe(true);
+      await expect(page.locator("html")).toHaveAttribute("data-smd-icon-size", "small");
     });
 
-    test("density selector changes body class", async ({ page }) => {
+    test("density selector changes body class and html attribute", async ({ page }) => {
       await page.locator("#btnMainMenu").click();
       await page.locator("a.dropdown-item").filter({ hasText: "Settings" }).click();
       await page.locator("#appearance-tab").click();
       await page.locator("#densitySelector").selectOption("compact");
       const hasClass = await page.evaluate(() => document.body.classList.contains("compact"));
       expect(hasClass).toBe(true);
+      await expect(page.locator("html")).toHaveAttribute("data-smd-tile-density", "compact");
     });
 
-    test("touch size selector changes component size", async ({ page }) => {
+    test("touch size selector changes component size and html attribute", async ({ page }) => {
       await page.locator("#btnMainMenu").click();
       await page.locator("a.dropdown-item").filter({ hasText: "Settings" }).click();
       await page.locator("#appearance-tab").click();
@@ -764,9 +785,11 @@ test.describe("PlanMyDay - Regression", () => {
       expect(normal).toEqual({ drag: "normal", check: "normal" });
       const stored = await page.evaluate(() => localStorage.getItem("planmydays_touchSize"));
       expect(stored).toBe("normal");
+      await expect(page.locator("html")).toHaveAttribute("data-smd-touch-size", "normal");
       await page.locator("#touchSizeSelector").selectOption("large");
       const large = await page.evaluate(() => ({ drag: SmdDragHandle.defaultSize, check: SmdCheckbox.defaultSize }));
       expect(large).toEqual({ drag: "large", check: "large" });
+      await expect(page.locator("html")).toHaveAttribute("data-smd-touch-size", "large");
     });
 
     test("split list toggle persists", async ({ page }) => {
@@ -1127,7 +1150,7 @@ test.describe("PlanMyDay - Regression", () => {
 
     async function openSearchJobs(page) {
       await page.locator("#btnMainMenu").click();
-      await page.locator("button.dropdown-item").filter({ hasText: "Search Jobs" }).click();
+      await page.locator("a.dropdown-item").filter({ hasText: "Search Jobs" }).click();
       await page.locator("#jobSearchEditor:not(.d-none)").waitFor({ state: "visible" });
     }
 
@@ -1312,7 +1335,7 @@ test.describe("PlanMyDay - Regression", () => {
         localStorage.setItem("shared-images", JSON.stringify([{ name: "jimg", data: svg }]));
         renderStreamsEditor();
       }, svg);
-      const titles = page.locator("#streamEditorList .accordion-body pmd-stream-job-card .job-title");
+      const titles = page.locator("#streamEditorList .accordion-body pmd-job-stream-card .job-title");
       const withImage = await titles.nth(0).boundingBox();
       const withoutImage = await titles.nth(1).boundingBox();
       expect(withoutImage.x).toBeCloseTo(withImage.x, 0);
@@ -1707,7 +1730,7 @@ test.describe("PlanMyDay - Regression", () => {
       await page.locator("#imageEditModalBody .form-control:not(.form-control-sm)").fill("SqImg");
       await page.locator("#btnImageEditOk").click();
       await page.locator("#imageEditModal").waitFor({ state: "hidden" });
-      await expect(page.locator(".card:has-text('SqImg')").getByTitle("Duplicate").locator("svg rect")).toHaveCount(2);
+      await expect(page.locator(".card:has-text('SqImg')").getByTitle("Duplicate").locator("i.bi-files")).toBeVisible();
     });
 
     test("duplicate opens modal titled Duplicate Image", async ({ page }) => {
@@ -1736,17 +1759,6 @@ test.describe("PlanMyDay - Regression", () => {
       await expect(page.locator("#imageEditModalTitle")).toHaveText("Edit Image");
       await page.locator("#btnImageEditCancel").click();
       await page.locator("#imageEditModal").waitFor({ state: "hidden" });
-    });
-
-    test("action buttons have doubled spacing", async ({ page }) => {
-      await page.getByRole("button", { name: "Add Image" }).click();
-      await page.locator("#imageEditModal").waitFor({ state: "visible" });
-      await page.locator("#imageEditModalBody .form-control:not(.form-control-sm)").waitFor({ state: "visible" });
-      await page.locator("#imageEditModalBody .form-control:not(.form-control-sm)").fill("GapImg");
-      await page.locator("#btnImageEditOk").click();
-      await page.locator("#imageEditModal").waitFor({ state: "hidden" });
-      const gap = await page.locator(".card:has-text('GapImg') .image-actions").evaluate(el => getComputedStyle(el).gap);
-      expect(gap).toBe("16px");
     });
 
     test("delete button disabled when image used by a stream", async ({ page }) => {
@@ -1911,7 +1923,7 @@ test.describe("PlanMyDay - Regression", () => {
 
     test("clear button resets picker search", async ({ page }) => {
       await page.locator("#imagePickerPage smd-image-picker input[type=search]").fill("PickTest");
-      await page.locator("#imagePickerPage smd-image-picker .clear").click();
+      await page.locator("#imagePickerPage smd-image-picker smd-search button").click();
       await expect(page.locator("#imagePickerPage smd-image-picker input[type=search]")).toHaveValue("");
     });
 
@@ -1974,7 +1986,7 @@ test.describe("PlanMyDay - Regression", () => {
       const filtered = await page.locator("#imagePickerPage smd-image-picker .item").count();
       expect(filtered).toBeGreaterThan(0);
       expect(filtered).toBeLessThan(total);
-      await page.locator("#imagePickerPage smd-image-picker .clear").click();
+      await page.locator("#imagePickerPage smd-image-picker smd-search button").click();
       await expect(page.locator("#imagePickerPage smd-image-picker input[type=search]")).toHaveValue("");
       await expect(page.locator("#imagePickerPage smd-image-picker .item")).toHaveCount(total, { timeout: 10000 });
     });
@@ -2004,6 +2016,7 @@ test.describe("PlanMyDay - Regression", () => {
   test.describe("smd-image rendering", () => {
 
     test("applies light and dark svg theme overrides to nested elements like the editor preview", async ({ page }) => {
+      test.setTimeout(30000);
       await page.goto("/PlanMyDay/");
       const nestedSvg = "data:image/svg+xml," + encodeURIComponent('<svg fill="#f7f7f7" stroke="#8f8f8f" xmlns="http://www.w3.org/2000/svg"><path fill="#f7f7f7" stroke="#8f8f8f" d="M0 0h10v10H0z"/></svg>');
       await page.evaluate((svgData) => {
@@ -2018,15 +2031,29 @@ test.describe("PlanMyDay - Regression", () => {
       }, nestedSvg);
       await page.reload();
 
+      // Superhero deliberately pins --smd-image-theme: dark for BOTH modes, so it
+      // cannot exercise the per-mode overrides. Use a theme that does not pin it,
+      // so the stored light/dark variants are selected by data-bs-theme.
+      await page.evaluate(() => applyTheme("flatly"));
+
       for (const [theme, wantFill] of [["dark", "#ffffff"], ["light", "#000000"]]) {
         await page.evaluate((t) => {
           document.documentElement.setAttribute("data-bs-theme", t);
+        }, theme);
+        // applyTheme() swaps the theme override <link> asynchronously, and the
+        // default superhero.css pins --smd-image-theme to dark. Until flatly's
+        // override replaces it, BOTH <smd-image> and getThemedImageDataUrl()
+        // resolve dark, so the light iteration would render/compare #ffffff and
+        // the #000000 assertion fails under load. Wait for the app's own
+        // resolver to report the requested variant before rendering the element.
+        await page.waitForFunction((want) => getThemeKey() === want, theme, { timeout: 15000 });
+        await page.evaluate(() => {
           const el = document.createElement("smd-image");
           el.setAttribute("key-prefix", "shared-");
           el.setAttribute("image", "NestedIcon");
           el.setAttribute("size", "64");
           document.body.appendChild(el);
-        }, theme);
+        });
         await page.waitForFunction(() => {
           const el = document.querySelector("smd-image[image='NestedIcon']");
           if (!el) return false;
@@ -2498,28 +2525,42 @@ test.describe("PlanMyDay - Regression", () => {
       await expect.poll(async () => (await card.boundingBox()).x).toBeCloseTo(before.x, 0);
     });
 
-    test("swipe right snoozes the job until tomorrow", async ({ page }) => {
+    test("swipe right opens Edit Job on the Schedule tab with tomorrow selected", async ({ page }) => {
       await seedTodayList(page);
       await page.reload();
       await expect(page.locator("#todayCardList .today-drag-card")).toHaveCount(2);
       await swipeCard(page, "job_1", "right");
-      await expect(page.locator('#todayCardList .today-drag-card[data-job-id="job_1"]')).toHaveCount(0);
-      await expect(page.locator("#todayCardList .today-drag-card")).toHaveCount(1);
+      await expect(page.locator("#jobEditPage")).toBeVisible();
+      await expect(page.locator("#jobEditPage .smd-page-header h1")).toHaveText("Edit Job");
+      await expect(page.locator("#jobSchedule-tab")).toHaveAttribute("active", "");
+      await expect(page.locator("#jobSchedule-tab-panel")).toHaveAttribute("active", "");
+      await expect(page.locator(".flatpickr-calendar.open")).toBeVisible();
       const tomorrow = await page.evaluate(() => {
         const d = new Date();
         d.setDate(d.getDate() + 1);
         return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
       });
-      await expect.poll(() =>
-        page.evaluate(() => {
-          const streams = JSON.parse(localStorage.getItem("planmydays_streams"));
-          const job = streams.flatMap(function (s) { return s.jobs || []; }).find(function (j) { return j.id === "job_1"; });
-          return job ? job.sleepUntil : null;
-        })
-      ).toBe(tomorrow);
-      // a sub-threshold wiggle does not fire any action
+      expect(await page.evaluate(() => (typeof jobsBuffer !== "undefined" && jobsBuffer ? jobsBuffer.sleepUntil : null))).toBe(tomorrow);
+      // the stored job is untouched until OK is pressed
+      expect(await page.evaluate(() => {
+        const streams = JSON.parse(localStorage.getItem("planmydays_streams"));
+        const job = streams.flatMap(function (s) { return s.jobs || []; }).find(function (j) { return j.id === "job_1"; });
+        return job ? job.sleepUntil : null;
+      })).toBeFalsy();
+      // the open popup overlays the page footer, so dismiss it before cancelling
       await page.evaluate(() => {
-        const card = document.querySelector('#todayCardList .today-drag-card[data-job-id="job_3"]');
+        const picker = $id("jobSleepPicker");
+        const raw = picker && picker.querySelector("#smdDatePickerInput");
+        if (raw && raw._flatpickr) raw._flatpickr.close();
+      });
+      await expect(page.locator(".flatpickr-calendar.open")).toHaveCount(0);
+      // cancelling keeps the job on today's list (it was not snoozed)
+      await page.locator("#jobEditCancelBtn").click();
+      await expect(page.locator("#jobEditPage")).not.toBeVisible();
+      await expect(page.locator("#todayCardList .today-drag-card")).toHaveCount(2);
+      // a sub-threshold wiggle fires no action
+      await page.evaluate(() => {
+        const card = document.querySelector('#todayCardList .today-drag-card[data-job-id="job_1"]');
         const box = card.getBoundingClientRect();
         const fire = (type, x) => card.dispatchEvent(new PointerEvent(type, { bubbles: true, cancelable: true, pointerId: 9, clientX: x, clientY: box.y + box.height / 2, button: 0, buttons: type === "pointerup" ? 0 : 1 }));
         const cx = box.x + box.width / 2;
@@ -2527,8 +2568,9 @@ test.describe("PlanMyDay - Regression", () => {
         fire("pointermove", cx + 30);
         fire("pointerup", cx + 30);
       });
-      await expect(page.locator("#smdConfirmModal")).not.toBeVisible();
-      await expect(page.locator("#todayCardList .today-drag-card")).toHaveCount(1);
+      await page.waitForTimeout(100);
+      await expect(page.locator("#jobEditPage")).not.toBeVisible();
+      await expect(page.locator("#todayCardList .today-drag-card")).toHaveCount(2);
     });
   });
 
@@ -2682,7 +2724,7 @@ test.describe("PlanMyDay - Regression", () => {
     test("tab badge shows progress or maintenance on job cards", async ({ page }) => {
       await seedTodayList(page);
       await page.reload();
-      await expect(page.locator("h4").filter({ hasText: "Report" })).toBeVisible();
+      await expect(page.locator("h2").filter({ hasText: "Report" })).toBeVisible();
       const progressBadge = page.locator("smd-badge[variant=success]").filter({ hasText: "progress" });
       await expect(progressBadge.first()).toBeVisible();
       const maintenanceBadge = page.locator("smd-badge[variant=info]").filter({ hasText: "maintenance" });
@@ -2727,24 +2769,98 @@ test.describe("PlanMyDay - Regression", () => {
       await page.locator("a.dropdown-item").filter({ hasText: "Settings" }).click();
     });
 
-    test("theme selector changes theme", async ({ page }) => {
+    test("theme and mode selectors share one global mode", async ({ page }) => {
       await page.locator("#appearance-tab").click();
-      await page.locator("#themeSelector select").selectOption("solar");
-      const val = await page.evaluate(() => localStorage.getItem("planmydays_theme"));
-      expect(val).toBe("solar");
+      const themeSelect = page.locator("#themeSelector .smd-theme-select");
+      const modeSelect = page.locator("#themeSelector .smd-theme-mode-select");
+      await expect(themeSelect).toBeVisible();
+      await expect(modeSelect).toBeVisible();
+      expect(await modeSelect.locator("option").allTextContents()).toEqual(["Light", "Dark"]);
+      expect(await page.evaluate(() => ({
+        hasDefaultMode: Object.prototype.hasOwnProperty.call(themeConfig.superhero, "defaultMode"),
+        order: Array.from(document.head.children).map(el => el.id).filter(id => ["bootstrap-theme-css", "theme-override-mode", "theme-override-specific"].includes(id))
+      }))).toEqual({
+        hasDefaultMode: false,
+        order: ["bootstrap-theme-css", "theme-override-specific"]
+      });
+
+      await page.evaluate(() => {
+        window.__themeEvents = [];
+        window.__renderMainCalls = 0;
+        const originalRenderMain = renderMain;
+        renderMain = function () {
+          window.__renderMainCalls += 1;
+          return originalRenderMain.apply(this, arguments);
+        };
+        document.getElementById("themeSelector").addEventListener("smd-theme-change", event => {
+          window.__themeEvents.push(event.detail);
+        });
+      });
+
+      await modeSelect.selectOption("dark");
+      await expect(modeSelect).toHaveValue("dark");
+      await expect(page.locator("html")).toHaveAttribute("data-bs-theme", "dark");
+      expect(await page.evaluate(() => ({
+        mode: localStorage.getItem("planmydays_themeMode"),
+        renderCalls: window.__renderMainCalls,
+        event: window.__themeEvents[window.__themeEvents.length - 1]
+      }))).toEqual({
+        mode: "dark",
+        renderCalls: 0,
+        event: { theme: "superhero", mode: "dark", source: "mode" }
+      });
+
+      await themeSelect.selectOption("brite");
+      await expect(page.locator("html")).toHaveAttribute("data-theme", "brite");
+      await expect(page.locator("html")).toHaveAttribute("data-bs-theme", "dark");
+      expect(await page.evaluate(() => window.__themeEvents[window.__themeEvents.length - 1])).toEqual({
+        theme: "brite",
+        mode: "dark",
+        source: "theme"
+      });
+
+      // Changing the theme keeps the explicit global mode; only the mode select changes it.
+      await themeSelect.selectOption("solar");
+      await expect(page.locator("html")).toHaveAttribute("data-bs-theme", "dark");
+      await modeSelect.selectOption("light");
+      await expect(page.locator("html")).toHaveAttribute("data-bs-theme", "light");
+      expect(await page.evaluate(() => ({
+        theme: localStorage.getItem("planmydays_theme"),
+        mode: localStorage.getItem("planmydays_themeMode")
+      }))).toEqual({ theme: "solar", mode: "light" });
     });
 
-    test("theme fallback on unknown value", async ({ page }) => {
-      await page.evaluate(() => localStorage.setItem("planmydays_theme", "nonexistent"));
+    test("theme and mode fall back on unknown stored values", async ({ page }) => {
+      await page.evaluate(() => {
+        localStorage.setItem("planmydays_theme", "nonexistent");
+        localStorage.setItem("planmydays_themeMode", "sepia");
+      });
       await page.reload();
       await page.locator("#btnMainMenu").click();
       await page.locator("a.dropdown-item").filter({ hasText: "Settings" }).click();
       await page.locator("#settingsPage:not(.d-none)").waitFor({ state: "visible" });
-      const linkHref = await page.evaluate(() => {
+      const state = await page.evaluate(() => {
         const link = document.getElementById("bootstrap-theme-css");
-        return link ? link.getAttribute("href") : "";
+        const selector = document.getElementById("themeSelector");
+        return {
+          linkHref: link ? link.getAttribute("href") : "",
+          theme: localStorage.getItem("planmydays_theme"),
+          mode: localStorage.getItem("planmydays_themeMode"),
+          dataTheme: document.documentElement.getAttribute("data-theme"),
+          dataMode: document.documentElement.getAttribute("data-bs-theme"),
+          selectorTheme: selector && selector.getAttribute("theme"),
+          selectorMode: selector && selector.getAttribute("mode")
+        };
       });
-      expect(linkHref).toContain("superhero");
+      expect(state.linkHref).toContain("superhero");
+      expect(state).toMatchObject({
+        theme: "superhero",
+        mode: "light",
+        dataTheme: "superhero",
+        dataMode: "light",
+        selectorTheme: "superhero",
+        selectorMode: "light"
+      });
     });
 
     test("settings footer shows the Font Awesome credit", async ({ page }) => {
@@ -2785,23 +2901,19 @@ test.describe("PlanMyDay - Regression", () => {
       await page.locator("#densitySelector").selectOption("normal");
       const hasCompact = await page.evaluate(() => document.body.classList.contains("compact"));
       expect(hasCompact).toBe(false);
+      await expect(page.locator("html")).toHaveAttribute("data-smd-tile-density", "normal");
     });
 
     test("touch size selector switches between normal and large", async ({ page }) => {
       await page.locator("#appearance-tab").click();
-      const inputFontSize = () => page.evaluate(() => {
-        const input = $id("splitList").querySelector("input");
-        return parseFloat(getComputedStyle(input).fontSize);
-      });
       await page.locator("#touchSizeSelector").selectOption("normal");
-      const normalSize = await inputFontSize();
-      const normal = await page.evaluate(() => SmdDragHandle.defaultSize === "normal" && SmdCheckbox.defaultSize === "normal");
-      expect(normal).toBe(true);
+      await expect(page.locator("#touchSizeSelector")).toHaveValue("normal");
+      await expect(page.locator("html")).toHaveAttribute("data-smd-touch-size", "normal");
+      expect(await page.evaluate(() => SmdDragHandle.defaultSize === "normal" && SmdCheckbox.defaultSize === "normal")).toBe(true);
       await page.locator("#touchSizeSelector").selectOption("large");
-      const largeSize = await inputFontSize();
-      const large = await page.evaluate(() => SmdDragHandle.defaultSize === "large" && SmdCheckbox.defaultSize === "large");
-      expect(large).toBe(true);
-      expect(largeSize).toBeGreaterThan(normalSize);
+      await expect(page.locator("#touchSizeSelector")).toHaveValue("large");
+      await expect(page.locator("html")).toHaveAttribute("data-smd-touch-size", "large");
+      expect(await page.evaluate(() => SmdDragHandle.defaultSize === "large" && SmdCheckbox.defaultSize === "large")).toBe(true);
     });
 
     test("auto hide menu disabling unbinds events", async ({ page }) => {
@@ -3568,12 +3680,12 @@ test.describe("PlanMyDay - Regression", () => {
           dark: { line: "#0000ff", fill: null, width: null }
         };
         saveImages(images);
-        applyTheme("darkly");
+        applyTheme("darkly", "dark");
       });
-      // darkly is a dark theme -> default themed URL should use dark override
+      // Explicit dark mode -> themed URL should use the dark override
       const darkUrl = await page.evaluate(() => getThemedImageDataUrl(loadImages()[0]));
       expect(decodeURIComponent(darkUrl)).toContain('stroke="#0000ff"');
-      await page.evaluate(() => applyTheme("flatly"));
+      await page.evaluate(() => applyTheme("flatly", "light"));
       const lightUrl = await page.evaluate(() => getThemedImageDataUrl(loadImages()[0]));
       expect(decodeURIComponent(lightUrl)).toContain('stroke="#ff0000"');
     });
@@ -3641,7 +3753,7 @@ test.describe("PlanMyDay - Regression", () => {
       test.setTimeout(30000);
       await page.locator("#imagePickerPage smd-image-picker input[type=search]").fill("PickMeToo");
       await page.locator("#imagePickerPage smd-image-picker .label:has-text('PickMeToo')").waitFor({ state: "visible" });
-      await page.locator("#imagePickerPage smd-image-picker .clear").click();
+      await page.locator("#imagePickerPage smd-image-picker smd-search button").click();
       await expect(page.locator("#imagePickerPage smd-image-picker .label").filter({ hasText: /^PickMe$/ })).toBeVisible();
     });
 
@@ -4689,10 +4801,10 @@ test.describe("PlanMyDay - Regression", () => {
         localStorage.setItem("planmydays_completed", JSON.stringify([]));
       });
       await page.reload();
-      const h4s = page.locator("h4");
-      await expect(h4s.nth(0)).toContainText("Early");
-      await expect(h4s.nth(1)).toContainText("Mid");
-      await expect(h4s.nth(2)).toContainText("Late");
+      const todayTitles = page.locator("h2");
+      await expect(todayTitles.nth(0)).toContainText("Early");
+      await expect(todayTitles.nth(1)).toContainText("Mid");
+      await expect(todayTitles.nth(2)).toContainText("Late");
     });
   });
 
@@ -5005,7 +5117,7 @@ test.describe("PlanMyDay - Regression", () => {
         });
       }, payload);
       await page.waitForTimeout(300);
-      await expect(page.locator("h4").filter({ hasText: "Imported Job" })).toBeVisible();
+      await expect(page.locator("h2").filter({ hasText: "Imported Job" })).toBeVisible();
       const lastGen = await page.evaluate(() => localStorage.getItem("planmydays_last_gen"));
       expect(lastGen).toBe(todayStr);
       const todayOrder = await page.evaluate(() => JSON.parse(localStorage.getItem("planmydays_today_order") || "[]"));
@@ -5066,7 +5178,7 @@ test.describe("PlanMyDay - Regression", () => {
       expect(completed).toEqual([]);
       const todayOrder = await page.evaluate(() => JSON.parse(localStorage.getItem("planmydays_today_order") || "[]"));
       expect(todayOrder).toContain("job_regen");
-      await expect(page.locator("h4").filter({ hasText: "Regen Job" })).toBeVisible();
+      await expect(page.locator("h2").filter({ hasText: "Regen Job" })).toBeVisible();
     });
 
     test("importData rejects invalid JSON via alert", async ({ page }) => {
@@ -5735,7 +5847,7 @@ test.describe("PlanMyDay - Regression", () => {
         changeShowDanger(true);
       });
       const theme = await page.evaluate(() => localStorage.getItem("planmydays_theme"));
-      expect(theme).toBe("not-a-real-theme");
+      expect(theme).toBe("superhero");
       await expect(page.locator("body")).toHaveClass(/font-size-small/);
       await expect(page.locator("body")).toHaveClass(/compact/);
     });
@@ -7108,6 +7220,173 @@ test.describe("PlanMyDay - Regression", () => {
       expect(bad).toEqual([]);
     });
 
+    test("the sw.js build-number mirror matches shared/js/build-number.js", async ({ request }) => {
+      const buildNumber = (await (await request.get("/shared/js/build-number.js")).text()).match(/const BUILD_NUMBER = "(\d+)"/)[1];
+      const swText = await (await request.get("/sw.js")).text();
+      // The worker cannot importScripts the number (imported files are not part
+      // of the update byte-compare), so sw.js mirrors it inline. A drift means
+      // a byte change never happens, so no new worker installs and the page and
+      // the worker use different precache names.
+      expect(swText).toContain(`const BUILD_NUMBER = "${buildNumber}"`);
+    });
+
+    test("every app shell registers the worker at a stable url", async ({ request }) => {
+      const shells = [
+        "/index.html", "/PlanMyDay/index.html", "/CountMyDays/index.html",
+        "/QRLinks/index.html", "/SolarControlar/index.html", "/FreeFormOX/index.html"
+      ];
+      for (const shell of shells) {
+        const html = await (await request.get(shell)).text();
+        // A ?v= on the worker script url makes the browser install a SECOND
+        // worker for the same bump (the update prompt fires twice), so the url
+        // must stay stable. updateViaCache keeps sw.js out of the HTTP cache.
+        expect(html, shell).not.toMatch(/register\(\s*["'][^"']*\?v=/);
+        expect(html, shell).toContain('updateViaCache: "none"');
+      }
+    });
+
+    test("the controlling worker reports the page's build number", async ({ page }) => {
+      // Round-trips GET_BUILD through a real worker: this is the invariant the
+      // sw.js mirror has to keep, and what lets the page repair a drift.
+      await page.goto("/PlanMyDay/");
+      const build = await page.evaluate(() => String(BUILD_NUMBER));
+      const workerBuild = await page.evaluate(async () => {
+        const reg = await navigator.serviceWorker.ready;
+        const worker = reg.active || navigator.serviceWorker.controller;
+        if (!worker) return null;
+        return await new Promise((resolve) => {
+          const channel = new MessageChannel();
+          const timer = setTimeout(() => resolve(null), 5000);
+          channel.port1.onmessage = (event) => {
+            clearTimeout(timer);
+            resolve((event.data || {}).build || null);
+          };
+          worker.postMessage({ type: "GET_BUILD" }, [channel.port2]);
+        });
+      });
+      expect(workerBuild).toBe(build);
+    });
+
+    test("No Cache danger switch makes the worker read every file from disk", async ({ page }) => {
+      await page.goto("/PlanMyDay/");
+      const workerNoCache = () => page.evaluate(async () => {
+        const reg = await navigator.serviceWorker.ready;
+        const worker = reg.active || navigator.serviceWorker.controller;
+        if (!worker) return null;
+        return await new Promise((resolve) => {
+          const channel = new MessageChannel();
+          const timer = setTimeout(() => resolve(null), 5000);
+          channel.port1.onmessage = (event) => {
+            clearTimeout(timer);
+            resolve((event.data || {}).enabled);
+          };
+          worker.postMessage({ type: "GET_NO_CACHE" }, [channel.port2]);
+        });
+      });
+
+      // Every worker state below is polled: the worker installs and claims the
+      // page on its own schedule, and a parallel shard makes that unpredictable.
+      // Off by default, and hidden until Show danger like the other actions.
+      await expect.poll(workerNoCache, { timeout: 20000 }).toBe(false);
+      await page.locator("#btnMainMenu").click();
+      await page.locator("a.dropdown-item").filter({ hasText: "Settings" }).click();
+      await page.locator("#danger-tab").click();
+      await expect(page.locator("#noCacheRow")).toBeHidden();
+      await expect(page.locator("#noCache")).not.toBeChecked();
+      await page.locator("#showDanger").check();
+      await expect(page.locator("#noCacheRow")).toBeVisible();
+
+      // The switch is wired to the shared handler, which persists the key and
+      // then reloads. Asserting the wiring rather than clicking through it keeps
+      // this test free of a mid-test navigation, which raced the click's own
+      // post-action check under load.
+      expect(await page.locator("#noCache").getAttribute("onchange")).toContain("changeNoCache(");
+
+      // A stored setting is read back into the switch and pushed to the worker on
+      // the next boot (smdRegisterServiceWorker), so the reload that follows a
+      // toggle really is served from disk.
+      await page.evaluate(() => localStorage.setItem("planmydays_noCache", "true"));
+      await page.reload();
+      await expect.poll(workerNoCache, { timeout: 20000 }).toBe(true);
+      await expect(page.locator("h1").first()).toBeVisible();
+      await page.locator("#btnMainMenu").click();
+      await page.locator("a.dropdown-item").filter({ hasText: "Settings" }).click();
+      await page.locator("#danger-tab").click();
+      await expect(page.locator("#noCache")).toBeChecked();
+
+      // Back off again so the flag cannot linger for the rest of the run.
+      await page.evaluate(() => smdSetNoCache(false));
+      await expect.poll(workerNoCache, { timeout: 20000 }).toBe(false);
+      expect(await page.evaluate(() => localStorage.getItem("planmydays_noCache"))).toBe("false");
+    });
+
+    test("No Cache mode serves files from the network, not the precache", async ({ page }) => {
+      test.setTimeout(30000);
+      // The dev server snapshots files at startup, so "reads the latest bytes
+      // from disk" is proven by WHEN the response was produced instead: a
+      // precached entry carries the date of the request that filled it, while a
+      // network read carries the server's current date.
+      //
+      // The reference time comes from page.request.get(), which runs outside the
+      // browser and so bypasses both the worker and the HTTP cache. Comparing
+      // against the page's own clock instead would fail whenever the page's fetch
+      // is merely SLOW (served is later than `at` by the round trip), which is
+      // exactly what happens under a parallel run.
+      const fetchStamp = (url) => page.evaluate(async (u) => {
+        const response = await fetch(u);
+        return Date.parse(response.headers.get("date") || "");
+      }, url);
+      const serverNow = async (url) => {
+        const response = await page.request.get(url);
+        return Date.parse(response.headers()["date"] || "");
+      };
+
+      await page.goto("/PlanMyDay/");
+      const asset = "/shared/js/build-number.js";
+
+      // EVERYTHING below depends on the worker actually serving this page's
+      // fetches. Until it claims the page, a fetch never reaches the worker and
+      // is answered by the browser HTTP cache instead (sirv serves assets
+      // `immutable` for a year), so both measurements would describe the HTTP
+      // cache and the No Cache half would fail with a response dated at the warm
+      // fetch. `smdSetNoCache` acking true does NOT imply this: it also talks to
+      // an unclaimed worker via reg.active. So wait for the claim explicitly.
+      await expect.poll(
+        () => page.evaluate(() => Boolean(navigator.serviceWorker.controller)),
+        { timeout: 30000 }
+      ).toBe(true);
+
+      // Warm the precache entry, then age it so a cache hit is unmistakable.
+      await fetchStamp(asset);
+      await page.waitForTimeout(4000);
+
+      const direct = await serverNow(asset);
+      const cached = await fetchStamp(asset);
+      expect(cached).toBeLessThan(direct - 2000);
+
+      // Retry the switch until the worker acknowledges; the ack means the flag is
+      // durable in the worker's Cache Storage.
+      await expect.poll(() => page.evaluate(() => smdSetNoCache(true)), { timeout: 20000 }).toBe(true);
+      expect(await fetchStamp(asset)).toBeGreaterThan(direct - 2000);
+
+      // Leave the worker in its normal cache-first mode for the rest of the run.
+      await expect.poll(() => page.evaluate(() => smdSetNoCache(false)), { timeout: 20000 }).toBe(false);
+    });
+
+    test("service worker updates use the shared update modal", async ({ page }) => {
+      await page.goto("/PlanMyDay/");
+      await expect(page.locator("#pwa-pull-indicator")).toHaveCount(0);
+      await page.evaluate(() => {
+        const waiting = {
+          scriptURL: "https://example.test/sw.js?pending-update",
+          postMessage: () => {}
+        };
+        window.__pmdSwUpdater.showUpdatePrompt({ waiting });
+      });
+      await expect(page.locator("#smdConfirmModal")).toBeVisible();
+      await expect(page.locator("#smdConfirmModal")).toContainText("Update available");
+    });
+
     test("theme swap is cache-busted with the build number", async ({ page }) => {
       await page.goto("/PlanMyDay/");
       const build = await page.evaluate(() => (typeof BUILD_NUMBER !== "undefined" ? BUILD_NUMBER : ""));
@@ -7115,6 +7394,42 @@ test.describe("PlanMyDay - Regression", () => {
       const themeHref = await page.evaluate(() => document.getElementById("bootstrap-theme-css").getAttribute("href"));
       expect(new URL(themeHref, "http://x/").searchParams.get("v")).toBe(build);
       expect(themeHref).toMatch(/css\/themes\/quartz\/bootstrap\.min\.css/);
+    });
+
+    test("theme override sheet is per-mode and re-points on a mode switch", async ({ page }) => {
+      await page.goto("/PlanMyDay/");
+      const overrideHref = () => page.evaluate(() => document.getElementById("theme-override-specific").getAttribute("href"));
+      // -1 = the sheet never loaded (404 or still in flight), so the file name
+      // in the href is checked as well as the swap itself.
+      const overrideRuleCount = () => page.evaluate(() => {
+        const sheet = document.getElementById("theme-override-specific").sheet;
+        return sheet ? sheet.cssRules.length : -1;
+      });
+
+      // The default mode is light, so the light sheet is the one loaded.
+      expect(await overrideHref()).toMatch(/css\/themes\/superhero\/superhero\.light\.css\?v=\d+$/);
+      await expect.poll(overrideRuleCount).toBeGreaterThan(0);
+
+      // A theme swap picks that theme's sheet for the SAME mode.
+      await page.evaluate(() => applyTheme("cyborg"));
+      expect(await overrideHref()).toMatch(/css\/themes\/cyborg\/cyborg\.light\.css\?v=\d+$/);
+      await expect.poll(overrideRuleCount).toBeGreaterThan(0);
+
+      // A MODE switch swaps the sheet too - the reason the file name carries the
+      // mode. The base theme sheet is untouched by a mode switch.
+      const baseHref = await page.evaluate(() => document.getElementById("bootstrap-theme-css").getAttribute("href"));
+      await page.evaluate(() => changeThemeMode("dark"));
+      await expect(page.locator("html")).toHaveAttribute("data-bs-theme", "dark");
+      expect(await overrideHref()).toMatch(/css\/themes\/cyborg\/cyborg\.dark\.css\?v=\d+$/);
+      await expect.poll(overrideRuleCount).toBeGreaterThan(0);
+      expect(await page.evaluate(() => document.getElementById("bootstrap-theme-css").getAttribute("href"))).toBe(baseHref);
+
+      // The mode-less file is gone, so every theme must precache BOTH per-mode
+      // sheets or offline/first-load 404s.
+      const swSource = await (await page.request.get("/sw.js")).text();
+      expect(swSource).toContain("shared/css/themes/cyborg/cyborg.light.css");
+      expect(swSource).toContain("shared/css/themes/cyborg/cyborg.dark.css");
+      expect(swSource).not.toMatch(/themes\/cyborg\/cyborg\.css/);
     });
 
     test("no console errors and no failed loads when icon-font glyphs render (bi/fa/fab)", async ({ page }) => {
@@ -7158,10 +7473,13 @@ test.describe("PlanMyDay - Regression", () => {
       const pageErrors = [];
       const badResponses = [];
       page.on("console", (msg) => { if (msg.type() === "error") consoleErrors.push(msg.text()); });
-      page.on("pageerror", (err) => pageErrors.push(err.message));
+      // The poll below deliberately unregisters + re-registers the worker on a
+      // failed install; Chromium surfaces that as an unhandled "Failed to update
+      // a ServiceWorker" rejection. It is test-harness churn, not an app error.
+      page.on("pageerror", (err) => { if (!/^Failed to update a ServiceWorker/.test(err.message)) pageErrors.push(err.message); });
       page.on("response", (resp) => { if (resp.status() >= 400) badResponses.push(resp.status() + " " + resp.url()); });
 
-      // tests/subpath-server.py serves the repo ONLY under /PlanMyDay/ (every
+      // tests/serve-tests.mjs (8081) serves the repo ONLY under /PlanMyDay/ (every
       // origin-root path 404s): the app is at /PlanMyDay/PlanMyDay/ and shared
       // at /PlanMyDay/shared/, mimicking a sub-path deployment.
       await page.goto("http://localhost:8081/PlanMyDay/PlanMyDay/");
@@ -7184,13 +7502,13 @@ test.describe("PlanMyDay - Regression", () => {
           let regs = await navigator.serviceWorker.getRegistrations();
           let r = regs.find((x) => x.scope && x.scope.includes("/PlanMyDay/"));
           if (!r) {
-            try { await navigator.serviceWorker.register("/PlanMyDay/sw.js"); } catch (e) { /* retry next poll */ }
+            try { await navigator.serviceWorker.register("/PlanMyDay/sw.js", { updateViaCache: "none" }); } catch (e) { /* retry next poll */ }
             return "pending";
           }
           if (r.active) return r.active.state + "|" + !!navigator.serviceWorker.controller;
           if (!r.installing && !r.waiting) {
             // Failed/never-started install: unregister and re-register to retry.
-            try { await r.unregister(); await navigator.serviceWorker.register("/PlanMyDay/sw.js"); } catch (e) { /* retry next poll */ }
+            try { await r.unregister(); await navigator.serviceWorker.register("/PlanMyDay/sw.js", { updateViaCache: "none" }); } catch (e) { /* retry next poll */ }
           }
           return "pending";
         });

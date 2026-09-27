@@ -171,9 +171,11 @@ test.describe("CountMyDays - Regression", () => {
       await seed(page);
       await page.evaluate(() => openSettings());
       await expect(page.locator("#settingsPage")).toHaveAttribute("open", "");
-      await expect(page.locator("#themeSelector select")).toBeVisible();
-      // 26 shared themes (25 + brite)
-      expect(await page.locator("#themeSelector select option").count()).toBe(26);
+      await expect(page.locator("#themeSelector .smd-theme-select")).toBeVisible();
+      await expect(page.locator("#themeSelector .smd-theme-mode-select")).toBeVisible();
+      // 27 shared themes (26 + bootstrap)
+      expect(await page.locator("#themeSelector .smd-theme-select option").count()).toBe(27);
+      expect(await page.locator("#themeSelector .smd-theme-mode-select option").allTextContents()).toEqual(["Light", "Dark"]);
       await expect(page.locator("#formatSelector")).toBeVisible();
       await expect(page.locator("#fontSizeSelector")).toBeVisible();
       await expect(page.locator("#iconSizeSelector")).toBeVisible();
@@ -184,14 +186,19 @@ test.describe("CountMyDays - Regression", () => {
       await expect(page.locator("#countdownContainer")).not.toHaveClass(/d-none/);
     });
 
-    test("theme change persists and swaps the stylesheet", async ({ page }) => {
+    test("theme and mode changes persist in the shared settings keys", async ({ page }) => {
       await seed(page);
       await page.evaluate(() => openSettings());
-      await page.locator("#themeSelector select").selectOption("brite");
+      await page.locator("#themeSelector .smd-theme-select").selectOption("brite");
+      await page.locator("#themeSelector .smd-theme-mode-select").selectOption("dark");
       await expect.poll(async () => page.evaluate(() => localStorage.getItem("countmydays_theme"))).toBe("brite");
+      await expect.poll(async () => page.evaluate(() => localStorage.getItem("countmydays_themeMode"))).toBe("dark");
       const href = await page.locator("#bootstrap-theme-css").getAttribute("href");
       expect(href).toContain("css/themes/brite/bootstrap.min.css");
       await expect.poll(async () => page.evaluate(() => document.documentElement.getAttribute("data-theme"))).toBe("brite");
+      await expect(page.locator("html")).toHaveAttribute("data-bs-theme", "dark");
+      await expect(page.locator("#themeSelector")).toHaveAttribute("theme", "brite");
+      await expect(page.locator("#themeSelector")).toHaveAttribute("mode", "dark");
     });
 
     test("font size and density apply body classes", async ({ page }) => {
@@ -649,7 +656,7 @@ test.describe("CountMyDays - Regression", () => {
     test("G Cal settings tab enables Google and renders the share QR", async ({ page }) => {
       await seed(page);
       await page.evaluate(() => openSettings());
-      await page.locator("#settingsPage").getByRole("button", { name: "G Cal" }).click();
+      await page.locator("#settingsPage").getByRole("tab", { name: "G Cal" }).click();
       await expect(page.locator("#gcalOptions")).toBeHidden();
 
       // qrcodejs renders a canvas + an <img> fallback; one of them is visible.
@@ -862,10 +869,13 @@ test.describe("CountMyDays - Regression", () => {
       const pageErrors = [];
       const badResponses = [];
       page.on("console", (msg) => { if (msg.type() === "error") consoleErrors.push(msg.text()); });
-      page.on("pageerror", (err) => pageErrors.push(err.message));
+      // The poll below deliberately unregisters + re-registers the worker on a
+      // failed install; Chromium surfaces that as an unhandled "Failed to update
+      // a ServiceWorker" rejection. It is test-harness churn, not an app error.
+      page.on("pageerror", (err) => { if (!/^Failed to update a ServiceWorker/.test(err.message)) pageErrors.push(err.message); });
       page.on("response", (resp) => { if (resp.status() >= 400) badResponses.push(resp.status() + " " + resp.url()); });
 
-      // tests/subpath-server.py serves the repo ONLY under /PlanMyDay/, so this
+      // tests/serve-tests.mjs (8081) serves the repo ONLY under /PlanMyDay/, so this
       // is the repo at /PlanMyDay/ with the app at /PlanMyDay/CountMyDays/ and
       // shared at /PlanMyDay/shared/ — exactly the GitHub Pages layout.
       await page.goto("http://localhost:8081/PlanMyDay/CountMyDays/");
@@ -887,13 +897,13 @@ test.describe("CountMyDays - Regression", () => {
           let regs = await navigator.serviceWorker.getRegistrations();
           let r = regs.find((x) => x.scope && x.scope.includes("/PlanMyDay/"));
           if (!r) {
-            try { await navigator.serviceWorker.register("/PlanMyDay/sw.js"); } catch (e) { /* retry next poll */ }
+            try { await navigator.serviceWorker.register("/PlanMyDay/sw.js", { updateViaCache: "none" }); } catch (e) { /* retry next poll */ }
             return "pending";
           }
           if (r.active) return r.active.state + "|" + !!navigator.serviceWorker.controller;
           if (!r.installing && !r.waiting) {
             // Failed/never-started install: unregister and re-register to retry.
-            try { await r.unregister(); await navigator.serviceWorker.register("/PlanMyDay/sw.js"); } catch (e) { /* retry next poll */ }
+            try { await r.unregister(); await navigator.serviceWorker.register("/PlanMyDay/sw.js", { updateViaCache: "none" }); } catch (e) { /* retry next poll */ }
           }
           return "pending";
         });

@@ -92,32 +92,34 @@ coverage-report/index.html
 
 ### Screenshots
 
-Regenerate all screenshots in the `screenshots/pmd/` folder (one subfolder per theme):
+Screenshots use the structure `screenshots/<app>/<theme>/<light|dark>/<scene>.png`. The viewer also supports the legacy layout `screenshots/<app>/<theme>/<scene>.png`, which is shown as the synthetic `Default` mode.
+
+Regenerate all PlanMyDay screenshots in `screenshots/pmd/<theme>/<light|dark>/`:
 
 ```bash
-npx playwright test tests/pmd-screenshots.spec.js --workers 12
+npx playwright test tests/pmd-screenshots.spec.js --workers 16
 ```
 
-CountMyDays screenshots live in their own `screenshots/cmd/` gallery:
+CountMyDays screenshots use `screenshots/cmd/<theme>/<light|dark>/`:
 
 ```bash
-npx playwright test tests/cmd-screenshots.spec.js --workers 12
+npx playwright test tests/cmd-screenshots.spec.js --workers 16
 ```
 
-QRLinks (`screenshots/qrlinks/`), FreeFormOX (`screenshots/ffox/`) and Launch (`screenshots/launch/`):
+QRLinks, FreeFormOX and Launch use the corresponding `screenshots/qrlinks/`, `screenshots/ffox/` and `screenshots/launch/` galleries:
 
 ```bash
-npx playwright test tests/qrlinks-screenshots.spec.js --workers 12
-npx playwright test tests/ffox-screenshots.spec.js --workers 12
-npx playwright test tests/launch-screenshots.spec.js --workers 12
+npx playwright test tests/qrlinks-screenshots.spec.js --workers 16
+npx playwright test tests/ffox-screenshots.spec.js --workers 16
+npx playwright test tests/launch-screenshots.spec.js --workers 16
 ```
 
 ### Screenshot viewer
 
-Browse all theme screenshots side by side in a browser:
+Browse screenshots side by side in a browser:
 
 ```bash
 node screenshots/viewer.js
 ```
 
-Opens a local viewer at `http://localhost:3000` with a **Folder** selector in the header to switch between screenshot galleries (e.g. `pmd`), accordion sections per theme, a unified horizontal scrollbar to compare screenshots across themes, and Open All / Collapse All buttons.
+The viewer opens at `http://localhost:3000` with separate **App**, **Theme** and **Mode** selectors. Theme includes `All themes`; Mode includes `All modes`, `Light` and `Dark`, plus `Default` when legacy data is present. Each accordion section is labelled with its app, theme and mode, and uses the mode directory for image URLs. The selected app, theme and mode are remembered in `screenshotViewerGallery`, `screenshotViewerTheme` and `screenshotViewerMode`.

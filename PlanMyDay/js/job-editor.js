@@ -80,12 +80,6 @@ function jobTaskField(index, field, value) {
   }
 }
 
-function taskNoteOpen(task) {
-  if (!task) return false;
-  if (task.noteOpen === undefined) return !!task.note;
-  return task.noteOpen;
-}
-
 function setTaskNoteBtnClass(btn, task) {
   if (!btn) return;
   var hasNote = !!(task && task.note);
@@ -97,23 +91,10 @@ function renderJobTasks() {
   var el = $id("jobTasksList");
   if (!el || !jobsBuffer) return;
   var tasks = jobsBuffer.tasks || [];
-  var html = "";
-  tasks.forEach(function(task, i) {
-    html += '<div class="d-flex align-items-center gap-2 mb-1 task-row task-drag-card" data-task-index="' + i + '">' +
-      '<smd-draghandle class="drag-handle"></smd-draghandle>' +
-      '<smd-checkbox class="task-done-cb" id="taskDone' + i + '" ' + (task.done ? "checked" : "") + ' onchange="jobTaskField(' + i + ', \'done\', this.checked)"></smd-checkbox>' +
-      '<input class="form-control task-desc-input" value="' + escapeHtml(task.description || "") + '" placeholder="Task description" oninput="jobTaskField(' + i + ', \'description\', this.value)">' +
-      '<button class="btn btn-sm ' + (task.note ? 'btn-outline-info' : 'btn-info') + ' task-note-btn" onclick="jobTaskToggleNote(this, ' + i + ')" title="Note"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16"><path d="M12.854.146a.5.5 0 0 0-.707 0L10.5 1.793 14.207 5.5l1.647-1.646a.5.5 0 0 0 0-.708l-3-3zm.646 6.061L9.854 2.56a.5.5 0 0 0-.707 0L1.5 10.207V14.5h4.293L13.5 6.207zM12.793 3.207L4 12V14h2L13.793 4.207l-1-1z"/></svg></button>' +
-      '<button class="btn btn-sm btn-danger d-flex align-items-center justify-content-center" style="width:32px;height:32px" onclick="jobDeleteTask(' + i + ')" title="Delete"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/><path d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4zM2.5 3h11V2h-11z"/></svg></button>' +
-      '</div>' +
-      '<div class="task-note-row mb-1 ms-4" id="taskNoteRow' + i + '" style="display:' + (taskNoteOpen(task) ? 'block' : 'none') + '">' +
-        '<textarea class="form-control" rows="2" placeholder="Note" oninput="jobTaskField(' + i + ', \'note\', this.value)">' + escapeHtml(task.note || "") + '</textarea>' +
-      '</div>';
-  });
-  el.innerHTML = html;
+  el.tasks = tasks;
   var topBtn = $id("jobAddTaskBtn");
   if (topBtn) {
-    topBtn.style.display = tasks.length >= 1 ? "" : "none";
+    topBtn.classList.toggle("d-none", tasks.length < 1);
   }
   initJobTasksSortable();
 }
@@ -145,19 +126,6 @@ function initJobTasksSortable() {
   });
 }
 
-function jobTaskToggleNote(btn, index) {
-  var row = $id("taskNoteRow" + index);
-  if (!row) return;
-  row.style.display = row.style.display === "none" ? "block" : "none";
-  var shown = row.style.display === "block";
-  if (jobsBuffer && jobsBuffer.tasks && jobsBuffer.tasks[index]) {
-    jobsBuffer.tasks[index].noteOpen = shown;
-  }
-  if (btn && jobsBuffer && jobsBuffer.tasks) {
-    setTaskNoteBtnClass(btn, jobsBuffer.tasks[index]);
-  }
-}
-
 function scheduleEl(id) {
   const host = document.getElementById("smdConfirmModal");
   return host ? host.querySelector("#" + id) : null;
@@ -181,10 +149,10 @@ function getScheduleFormHTML() {
       <div id="schedNDaysOptions" class="d-none ms-4 mb-2">
         <div class="d-flex align-items-center gap-2 mb-1 flex-wrap">
           <label class="form-label mb-0">Every</label>
-          <select class="form-select" id="schedNInterval" onchange="onScheduleNDaysChange()" style="width:auto;min-width:60px"></select>
+          <select class="form-select w-auto" id="schedNInterval" onchange="onScheduleNDaysChange()"></select>
           <label class="form-label mb-0">day(s)</label>
           <label class="form-label mb-0 ms-2">Offset</label>
-          <select class="form-select" id="schedNOffset" onchange="onScheduleNDaysChange()" style="width:auto;min-width:60px"></select>
+          <select class="form-select w-auto" id="schedNOffset" onchange="onScheduleNDaysChange()"></select>
         </div>
         <div id="schedNextDue" class="text-muted small"></div>
       </div>
@@ -214,7 +182,7 @@ function getScheduleFormHTML() {
         <label class="form-check-label" for="schedMonthly">Day of month</label>
       </div>
       <div id="schedMonthlyOptions" class="d-none ms-4 mb-2">
-        <select class="form-select" id="schedMonthlyDay" style="width:auto"></select>
+        <select class="form-select w-auto" id="schedMonthlyDay"></select>
       </div>
     </div>
   `;
@@ -233,8 +201,6 @@ function openScheduleModal() {
       if (detail.action === "ok") saveScheduleModal();
     }
   });
-  const host = document.getElementById("smdConfirmModal");
-  if (host) injectStyleInto(SCHEDULE_MODAL_STYLES);
   scheduleRadios().forEach(r => r.checked = r.value === s.type);
   scheduleEl("schedDaysOptions").classList.toggle("d-none", s.type !== "days");
   scheduleEl("schedMonthlyOptions").classList.toggle("d-none", s.type !== "monthly");
@@ -352,15 +318,15 @@ function getJobGeneralTabHTML(data, readOnly) {
   const disabled = readOnly ? "disabled" : "";
   return `
     <div class="row mb-2 mt-2">
-      <div class="col-6 d-flex flex-column" style="min-height:61px">
+      <div class="col-6 d-flex flex-column">
         <label class="form-label mb-0">Stream</label>
-        <div class="mt-1" style="flex-grow:1">
+        <div class="mt-1 flex-grow-1">
           <smd-image-dropdown id="jobStreamDropdown" key-prefix="${escAttr(smdImagePrefix())}" ${readOnly ? "disabled" : ""}></smd-image-dropdown>
         </div>
       </div>
-      <div class="col-6 d-flex flex-column" style="min-height:61px">
+      <div class="col-6 d-flex flex-column">
         <label class="form-label mb-0">Image</label>
-        <div class="d-flex align-items-center mt-1" style="flex-grow:1">
+        <div class="d-flex align-items-center mt-1 flex-grow-1">
           <smd-image-select id="jobImageSelect" key-prefix="${escAttr(smdImagePrefix())}" image="${escapeHtml(data.image || "")}" label-id="jobImageName" button-id="btnJobImageChange" ${readOnly ? "disabled" : ""}></smd-image-select>
         </div>
       </div>
@@ -409,7 +375,7 @@ function getJobScheduleTabHTML(data, readOnly) {
     <div class="row mb-2">
       <div class="col">
         <label class="form-label">Sleep Until</label>
-        <smd-date-picker ${readOnly ? "readonly" : ""} value="${escapeHtml(data.sleepUntil || "")}" first-day-of-week="${parseInt(localStorage.getItem(smdKey("startWeek")) || "1", 10)}"></smd-date-picker>
+        <smd-date-picker id="jobSleepPicker" ${readOnly ? "readonly" : ""} value="${escapeHtml(data.sleepUntil || "")}" first-day-of-week="${parseInt(localStorage.getItem(smdKey("startWeek")) || "1", 10)}"></smd-date-picker>
       </div>
     </div>
     <div class="row mb-2">
@@ -422,7 +388,7 @@ function getJobScheduleTabHTML(data, readOnly) {
       <div class="col">
         <label class="form-label">Schedule Time</label>
         <div class="d-flex gap-2">
-          <select class="form-select" id="jobTimeHour" ${disabled} onchange="jobTimeChanged()" style="width:auto">
+          <select class="form-select w-auto" id="jobTimeHour" ${disabled} onchange="jobTimeChanged()">
             <option value="" ${!data.time ? "selected" : ""}>-</option>
             ${Array.from({length: 24}, (_, i) => {
               const h = String(i).padStart(2, "0");
@@ -431,7 +397,7 @@ function getJobScheduleTabHTML(data, readOnly) {
             }).join("")}
           </select>
           <span class="align-self-center">:</span>
-          <select class="form-select" id="jobTimeMin" ${disabled} onchange="jobTimeChanged()" style="width:auto">
+          <select class="form-select w-auto" id="jobTimeMin" ${disabled} onchange="jobTimeChanged()">
             <option value="" ${!data.time ? "selected" : ""}>-</option>
             <option value="00" ${data.time && data.time.split(":")[1] === "00" ? "selected" : ""}>00</option>
             <option value="15" ${data.time && data.time.split(":")[1] === "15" ? "selected" : ""}>15</option>
@@ -446,27 +412,10 @@ function getJobScheduleTabHTML(data, readOnly) {
 
 function getJobTasksTabHTML(data, readOnly) {
   const disabled = readOnly ? "disabled" : "";
-  const ro = readOnly ? "readonly" : "";
-  const tasks = data.tasks || [];
-  let tasksHTML = "";
-  tasks.forEach(function(task, i) {
-    var dragHandleHtml = readOnly ? "" : '<smd-draghandle class="drag-handle"></smd-draghandle>';
-    tasksHTML += `
-      <div class="d-flex align-items-center gap-2 mb-1 task-row task-drag-card" data-task-index="${i}">
-        ${dragHandleHtml}
-        <smd-checkbox class="task-done-cb" ${task.done ? "checked" : ""} ${disabled} onchange="jobTaskField(${i}, 'done', this.checked)"></smd-checkbox>
-        <input class="form-control task-desc-input" value="${escapeHtml(task.description || "")}" ${ro} placeholder="Task description" oninput="jobTaskField(${i}, 'description', this.value)">
-        <button class="btn btn-sm ${task.note ? 'btn-outline-info' : 'btn-info'} task-note-btn" ${disabled} onclick="jobTaskToggleNote(this, ${i})" title="Note"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16"><path d="M12.854.146a.5.5 0 0 0-.707 0L10.5 1.793 14.207 5.5l1.647-1.646a.5.5 0 0 0 0-.708l-3-3zm.646 6.061L9.854 2.56a.5.5 0 0 0-.707 0L1.5 10.207V14.5h4.293L13.5 6.207zM12.793 3.207L4 12V14h2L13.793 4.207l-1-1z"/></svg></button>
-        <button class="btn btn-sm btn-danger d-flex align-items-center justify-content-center" style="width:32px;height:32px" ${disabled} onclick="jobDeleteTask(${i})" title="Delete"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/><path d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4zM2.5 3h11V2h-11z"/></svg></button>
-      </div>
-      <div class="task-note-row mb-1 ms-4" id="taskNoteRow${i}" style="display:${taskNoteOpen(task) ? 'block' : 'none'}">
-        <textarea class="form-control" rows="2" placeholder="Note" ${ro} oninput="jobTaskField(${i}, 'note', this.value)">${escapeHtml(task.note || "")}</textarea>
-      </div>`;
-  });
   return `
     <div class="mt-2">
       <button class="btn btn-primary mb-2" id="jobAddTaskBtn" ${disabled} onclick="jobAddTaskTop()">Add Task</button>
-      <div id="jobTasksList">${tasksHTML}</div>
+      <pmd-tasks id="jobTasksList"${readOnly ? " read-only" : ""}></pmd-tasks>
       <div class="mt-2">
         <button class="btn btn-primary" id="jobAddTaskBottomBtn" ${disabled} onclick="jobAddTask()">Add Task</button>
       </div>
@@ -476,6 +425,42 @@ function getJobTasksTabHTML(data, readOnly) {
 
 var _jobEditButtons = [];
 var _jobEditCloseTimer = null;
+var _jobEditReturnView = null;
+var _jobEditReturnPage = null;
+
+function hideJobEditBackground() {
+  if (_jobEditReturnView) return;
+  const view = activeEditorView();
+  _jobEditReturnView = view;
+  if (view === "streams") _jobEditReturnPage = document.getElementById("streamsEditor");
+  else if (view === "search") _jobEditReturnPage = document.getElementById("jobSearchEditor");
+  else _jobEditReturnPage = null;
+
+  const main = document.getElementById("countdownContainer");
+  if (view === "main" && main) main.classList.add("d-none");
+  if (_jobEditReturnPage) {
+    _jobEditReturnPage.hide();
+    _jobEditReturnPage.classList.add("d-none");
+  }
+}
+
+function restoreJobEditBackground() {
+  const view = _jobEditReturnView || "main";
+  const page = _jobEditReturnPage;
+  _jobEditReturnView = null;
+  _jobEditReturnPage = null;
+
+  if (view === "streams" && page) {
+    page.classList.remove("d-none");
+    page.show();
+  } else if (view === "search" && page) {
+    page.classList.remove("d-none");
+    page.show();
+  } else {
+    const main = document.getElementById("countdownContainer");
+    if (main) main.classList.remove("d-none");
+  }
+}
 
 function buildJobEditPage(readOnly, activeTabIndex) {
   if (!jobsBuffer) return;
@@ -484,6 +469,7 @@ function buildJobEditPage(readOnly, activeTabIndex) {
   const page = document.getElementById("jobEditPage");
   if (!page) return;
 
+  hideJobEditBackground();
   destroyJobEditTransient();
   if (_jobEditCloseTimer) {
     clearTimeout(_jobEditCloseTimer);
@@ -516,9 +502,8 @@ function buildJobEditPage(readOnly, activeTabIndex) {
   }
   injectJobEditStyles();
   initJobStreamSelect();
+  renderJobTasks();
   if (!readOnly) {
-    initJobTasksSortable();
-    renderJobTasks();
     updateJobEditOkBtn();
   }
   page.show();
@@ -537,6 +522,7 @@ function hideJobEditPage() {
   const page = document.getElementById("jobEditPage");
   if (page) {
     page.hide();
+    restoreJobEditBackground();
     clearTimeout(_jobEditCloseTimer);
     _jobEditCloseTimer = setTimeout(function() {
       page.classList.add("d-none");
@@ -603,6 +589,54 @@ function editJob(index) {
   buildJobEditPage(false);
 }
 
+// Open the (editable) job editor on the Schedule tab with the "Sleep Until"
+// picker pre-set to tomorrow and its calendar popped open. Used by the main
+// view's swipe-right gesture (previously a silent "snooze until tomorrow").
+function openJobEditSchedule(streamIdx, jobIdx) {
+  var streams = loadStreams();
+  var stream = streams[streamIdx];
+  var job = stream && stream.jobs ? stream.jobs[jobIdx] : null;
+  if (!job) return;
+  jobsStreamIndex = streamIdx;
+  jobsBuffer = JSON.parse(JSON.stringify(job));
+  jobsBuffer.sleepUntil = getTomorrowStr();
+  jobsEditingIdx = jobIdx;
+  isNewJob = false;
+  buildJobEditPage(false, 1);
+  openJobSleepPickerWhenReady();
+}
+
+// smd-page.show() defers the `open` attribute to the next frame and the page
+// may then SLIDE in (slide-duration). Opening flatpickr while the page is still
+// moving positions the calendar against the input's mid-slide location, so wait
+// until the page is shown AND the picker's position is stable for two frames
+// (i.e. the slide has finished) before opening. With slide-duration 0 the rect
+// is stable immediately (opens on the second frame).
+function openJobSleepPickerWhenReady() {
+  var page = document.getElementById("jobEditPage");
+  var attempts = 0;
+  var lastLeft = null;
+  var lastTop = null;
+  function tryOpen() {
+    var picker = $id("jobSleepPicker");
+    var raw = picker && picker.querySelector("#smdDatePickerInput");
+    var fp = raw && raw._flatpickr;
+    if (fp && page && page.hasAttribute("open") && picker) {
+      var rect = picker.getBoundingClientRect();
+      var settled = lastLeft !== null && rect.width > 0 &&
+        Math.abs(rect.left - lastLeft) < 1 && Math.abs(rect.top - lastTop) < 1;
+      lastLeft = rect.left;
+      lastTop = rect.top;
+      if (settled) {
+        fp.open();
+        return;
+      }
+    }
+    if (attempts++ < 120) requestAnimationFrame(tryOpen);
+  }
+  requestAnimationFrame(tryOpen);
+}
+
 function cancelJobEdit() {
   hideJobEditPage();
   if (isNewJob && jobsEditingIdx >= 0) {
@@ -617,7 +651,7 @@ function cancelJobEdit() {
 }
 
 function doneJobEdit() {
-  var view = activeEditorView();
+  var view = _jobEditReturnView || activeEditorView();
   var savedId = null;
   if (jobsEditingIdx >= 0 && jobsBuffer) {
     var streams = loadStreams();

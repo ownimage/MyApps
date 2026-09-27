@@ -1,0 +1,52 @@
+html[data-bs-theme="dark"] {
+  --smd-checkbox-accent: var(--bs-primary);
+
+  /* flatpickr date-picker popup. Superhero's light mode is visually dark but
+     sets data-bs-theme="light", so the shared dark calendar palette did not
+     apply; set the dark palette (named colours) for BOTH modes. */
+  --smd-date-picker-background: var(--bs-body-bg);
+  --smd-date-picker-foreground: var(--bs-body-color);
+  --smd-date-picker-muted-foreground: var(--bs-secondary-color);
+  --smd-date-picker-hover-background: var(--bs-gray-700);
+  --smd-date-picker-accent: var(--bs-primary);
+  --smd-date-picker-accent-foreground: var(--bs-white);
+  --smd-date-picker-border-color: var(--bs-border-color);
+}
+
+#smd-app smd-page .smd-page-header {
+    background-color: var(--bs-primary);
+}
+
+#smd-app smd-page .smd-page-footer {
+    border-top: 2px solid var(--bs-primary);
+    background: var(--bs-body-bg);
+}
+
+.navbar {
+    border: none;
+    border-bottom: 2px solid var(--bs-primary);
+}
+
+.card {
+    background: var(--bs-secondary-bg) ;
+    border: none !important;
+    border-bottom: 2px solid var(--bs-primary) !important;
+}
+
+smd-image-dropdown .btn,
+smd-image-dropdown .btn:disabled,
+smd-image-dropdown .btn:hover,
+smd-image-dropdown .btn:focus-visible
+{
+  background-color: var(--smd-dropdown-background);
+  color: var(--smd-dropdown-foreground);
+  border-color: var(--smd-dropdown-border-color);
+}
+
+#jobSearchTotalBadge {
+    background-color: black !important;
+}
+
+#streamEditorList > div.expanded pmd-stream-header button.btn-primary {
+    background: black;
+}

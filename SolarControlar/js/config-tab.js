@@ -8,7 +8,7 @@ function renderConfigTab() {
   if (!container) return;
 
   if (!_configData) {
-    container.innerHTML = '<p class="text-secondary loading">Loading config...</p>';
+    container.innerHTML = '<p class="loading text-secondary fst-italic mb-0">Loading config...</p>';
     loadConfigData();
     return;
   }
@@ -16,29 +16,31 @@ function renderConfigTab() {
   var val = _configData.charge_to_percentage !== undefined ? _configData.charge_to_percentage : 50;
 
   container.innerHTML =
-    '<form id="configForm" onsubmit="return saveConfig(event)">' +
-      '<table class="power-table">' +
-        '<thead><tr><th>Setting</th><th>Value</th><th>Access</th><th>Description</th></tr></thead>' +
-        '<tbody>' +
-          '<tr data-key="charge_to_percentage" data-original="' + val + '">' +
-            '<td>Charge To Percentage</td>' +
-            '<td>' +
-              '<div class="d-flex align-items-center gap-2">' +
-                '<input type="range" id="configSlider" min="0" max="100" step="1" value="' + val + '" ' +
-                  'oninput="updateConfigSlider(this.value)">' +
-                '<output id="configOutput" style="min-width:3rem;text-align:right;font-weight:600">' + val + '%</output>' +
-              '</div>' +
-              '<input type="hidden" name="charge_to_percentage" id="configHidden" value="' + val + '">' +
-            '</td>' +
-            '<td>' +
-              '<span class="access-badge badge-rw">Read/Write</span>' +
-              '<span class="was-text" style="display:none;"> Was: <strong class="was-val"></strong>%</span>' +
-            '</td>' +
-            '<td>Target battery percentage for overnight charging (applied between 02:00-05:00)</td>' +
-          '</tr>' +
-        '</tbody>' +
-      '</table>' +
-      '<div class="mt-3 text-end">' +
+    '<form id="configForm" class="config-form" onsubmit="return saveConfig(event)">' +
+      '<div class="table-responsive">' +
+        '<table class="table table-striped table-hover align-middle w-100 power-table mb-3">' +
+          '<thead><tr><th scope="col">Setting</th><th scope="col">Value</th><th scope="col">Access</th><th scope="col">Description</th></tr></thead>' +
+          '<tbody>' +
+            '<tr data-key="charge_to_percentage" data-original="' + val + '">' +
+              '<td class="fw-semibold">Charge To Percentage</td>' +
+              '<td>' +
+                '<div class="d-flex align-items-center gap-2">' +
+                  '<input type="range" class="form-range flex-grow-1" id="configSlider" min="0" max="100" step="1" value="' + val + '" ' +
+                    'oninput="updateConfigSlider(this.value)">' +
+                  '<output id="configOutput" class="output-value w-auto text-end fw-semibold">' + val + '%</output>' +
+                '</div>' +
+                '<input type="hidden" name="charge_to_percentage" id="configHidden" value="' + val + '">' +
+              '</td>' +
+              '<td>' +
+                '<span class="access-badge badge rounded-pill text-bg-success badge-rw">Read/Write</span>' +
+                '<span class="was-text d-none text-danger small"> Was: <strong class="was-val"></strong>%</span>' +
+              '</td>' +
+              '<td>Target battery percentage for overnight charging (applied between 02:00-05:00)</td>' +
+            '</tr>' +
+          '</tbody>' +
+        '</table>' +
+      '</div>' +
+      '<div class="actions d-flex justify-content-end mt-3">' +
         '<button type="submit" class="btn btn-primary btn-sm">Save Changes</button>' +
       '</div>' +
     '</form>';
@@ -122,13 +124,15 @@ function wireConfigChangeDetection() {
     var current = hiddenInput ? hiddenInput.value : null;
     if (current === null) return;
     if (current != original) {
-      badge.className = "access-badge badge-changed";
+      badge.className = "access-badge badge rounded-pill text-bg-warning badge-changed";
       badge.textContent = "Changed";
-      wasText.style.display = "inline";
+      wasText.classList.remove("d-none");
+      wasText.classList.add("d-inline");
     } else {
-      badge.className = "access-badge badge-rw";
+      badge.className = "access-badge badge rounded-pill text-bg-success badge-rw";
       badge.textContent = "Read/Write";
-      wasText.style.display = "none";
+      wasText.classList.add("d-none");
+      wasText.classList.remove("d-inline");
     }
   }
 

@@ -1,6 +1,5 @@
 const { test, expect } = require("@playwright/test");
-const path = require("path");
-const fs = require("fs");
+const { createScreenshotAllThemes } = require("./screenshot-helpers");
 
 const sampleImagesData = require("../shared/sampleImages.json");
 
@@ -126,115 +125,33 @@ function futureDateStr(daysFromNow) {
   return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0");
 }
 
-const SCREENSHOT_DIR = path.resolve(__dirname, "..", "screenshots", "pmd");
-
-const bw = "../shared/css/themes";
-const THEME_CONFIG = {
-  brite:     { css: `${bw}/brite/bootstrap.min.css`,      bsTheme: "light" },
-  cerulean:  { css: `${bw}/cerulean/bootstrap.min.css`,   bsTheme: "light" },
-  cosmo:     { css: `${bw}/cosmo/bootstrap.min.css`,      bsTheme: "light" },
-  cyborg:    { css: `${bw}/cyborg/bootstrap.min.css`,     bsTheme: "dark" },
-  darkly:    { css: `${bw}/darkly/bootstrap.min.css`,     bsTheme: "dark" },
-  flatly:    { css: `${bw}/flatly/bootstrap.min.css`,     bsTheme: "light" },
-  journal:   { css: `${bw}/journal/bootstrap.min.css`,    bsTheme: "light" },
-  litera:    { css: `${bw}/litera/bootstrap.min.css`,     bsTheme: "light" },
-  lumen:     { css: `${bw}/lumen/bootstrap.min.css`,      bsTheme: "light" },
-  lux:       { css: `${bw}/lux/bootstrap.min.css`,        bsTheme: "light" },
-  materia:   { css: `${bw}/materia/bootstrap.min.css`,    bsTheme: "light" },
-  minty:     { css: `${bw}/minty/bootstrap.min.css`,      bsTheme: "light" },
-  morph:     { css: `${bw}/morph/bootstrap.min.css`,      bsTheme: "light" },
-  pulse:     { css: `${bw}/pulse/bootstrap.min.css`,      bsTheme: "light" },
-  quartz:    { css: `${bw}/quartz/bootstrap.min.css`,     bsTheme: "light" },
-  sandstone: { css: `${bw}/sandstone/bootstrap.min.css`,  bsTheme: "light" },
-  simplex:   { css: `${bw}/simplex/bootstrap.min.css`,    bsTheme: "light" },
-  sketchy:   { css: `${bw}/sketchy/bootstrap.min.css`,    bsTheme: "light" },
-  slate:     { css: `${bw}/slate/bootstrap.min.css`,      bsTheme: "dark" },
-  solar:     { css: `${bw}/solar/bootstrap.min.css`,      bsTheme: "dark" },
-  spacelab:  { css: `${bw}/spacelab/bootstrap.min.css`,   bsTheme: "light" },
-  superhero: { css: `${bw}/superhero/bootstrap.min.css`,  bsTheme: "dark" },
-  united:    { css: `${bw}/united/bootstrap.min.css`,     bsTheme: "light" },
-  vapor:     { css: `${bw}/vapor/bootstrap.min.css`,      bsTheme: "dark" },
-  yeti:      { css: `${bw}/yeti/bootstrap.min.css`,       bsTheme: "light" },
-  zephyr:    { css: `${bw}/zephyr/bootstrap.min.css`,     bsTheme: "light" }
-};
-const THEMES = Object.keys(THEME_CONFIG);
-
-async function setTheme(page, themeName) {
-  const config = THEME_CONFIG[themeName] || THEME_CONFIG.superhero;
-  await page.evaluate(({ css, bsTheme, name, modeCss, specCss }) => {
-    const link = document.getElementById("bootstrap-theme-css");
-    document.documentElement.setAttribute("data-bs-theme", bsTheme);
-    document.documentElement.setAttribute("data-theme", name);
-    if (!link) return;
-    // Mirror applyTheme(): swap the light/dark + per-theme override stylesheets.
-    const modeLink = document.getElementById("theme-override-mode");
-    if (modeLink) modeLink.href = modeCss;
-    const specLink = document.getElementById("theme-override-specific");
-    if (specLink) specLink.href = specCss;
-    window.__themeReady = false;
-    const finish = () => { window.__themeReady = true; };
-    link.addEventListener("load", finish, { once: true });
-    link.addEventListener("error", finish, { once: true });
-    link.href = css;
-  }, { css: config.css, bsTheme: config.bsTheme, name: themeName, modeCss: `${bw}/${config.bsTheme}.css`, specCss: `${bw}/${themeName}/${themeName}.css` });
-  try {
-    await page.waitForFunction(() => window.__themeReady === true, null, { timeout: 6000 });
-  } catch (e) {
-    // CDN slow/unreachable: carry on and capture whatever style is present
+function refreshPmdAfterTheme() {
+  if (typeof renderMain === "function") renderMain();
+  if (typeof renderImagesEditor === "function") {
+    const imagesEditor = document.getElementById("imagesEditor");
+    if (imagesEditor && !imagesEditor.classList.contains("d-none")) renderImagesEditor();
   }
-  // applyTheme() recomputes the shared colour vars (button/tab text) after the
-  // theme css loads; this helper swaps the <link> directly, so mirror that.
-  await page.evaluate(() => {
-    if (typeof applySmdVars === "function") applySmdVars();
-  });
-  await page.waitForTimeout(150);
-  // Re-render themed images so they reflect the newly selected theme,
-  // mirroring changeTheme() in js/settings.js (which calls renderMain).
-  await page.evaluate(() => {
-    if (typeof renderMain === "function") renderMain();
-    if (typeof renderImagesEditor === "function") {
-      const imagesEditor = document.getElementById("imagesEditor");
-      if (imagesEditor && !imagesEditor.classList.contains("d-none")) renderImagesEditor();
+  const streamsEditor = document.getElementById("streamsEditor");
+  const streamEditPageOpen = !!document.getElementById("streamEditPage") && document.getElementById("streamEditPage").hasAttribute("open");
+  if (streamsEditor && !streamsEditor.classList.contains("d-none") && !streamEditPageOpen && typeof renderStreamsEditor === "function") {
+    renderStreamsEditor();
+  }
+  const jobEditPageEl = document.getElementById("jobEditPage");
+  const jobPageOpen = !!jobEditPageEl && !jobEditPageEl.classList.contains("d-none");
+  if (jobPageOpen) {
+    if (typeof updateJobStreamPreview === "function") updateJobStreamPreview();
+    if (typeof updateJobImagePreview === "function" && typeof jobsBuffer !== "undefined" && jobsBuffer) {
+      updateJobImagePreview(jobsBuffer.image);
     }
-    // The streams editor list also shows themed images but is not re-rendered
-    // by changeTheme(); rebuild it unless the stream add/edit page is open on top
-    // (editingIndex >= 0 makes renderStreamsEditor early-return via the page).
-    const streamsEditor = document.getElementById("streamsEditor");
-    const streamEditPageOpen = !!document.getElementById("streamEditPage") && document.getElementById("streamEditPage").hasAttribute("open");
-    if (streamsEditor && !streamsEditor.classList.contains("d-none") && !streamEditPageOpen && typeof renderStreamsEditor === "function") {
-      renderStreamsEditor();
-    }
-    // Refresh themed preview images in open modals, preserving form/tab state.
-    const jobEditPageEl = document.getElementById("jobEditPage");
-    const jobPageOpen = !!jobEditPageEl && !jobEditPageEl.classList.contains("d-none");
-    if (jobPageOpen) {
-      if (typeof updateJobStreamPreview === "function") updateJobStreamPreview();
-      if (typeof updateJobImagePreview === "function" && typeof jobsBuffer !== "undefined" && jobsBuffer) {
-        updateJobImagePreview(jobsBuffer.image);
-      }
-    }
-    if (streamEditPageOpen) {
-      if (typeof updateStreamImagePreview === "function" && typeof editBuffer !== "undefined" && editBuffer) {
-        updateStreamImagePreview(editBuffer.image);
-      }
-    }
-  });
-}
-
-async function screenshotAllThemes(page, fileName) {
-  for (const theme of THEMES) {
-    await setTheme(page, theme);
-    const themeDir = path.join(SCREENSHOT_DIR, theme);
-    fs.mkdirSync(themeDir, { recursive: true });
-    const target = path.join(themeDir, fileName);
-    try {
-      await page.screenshot({ path: target, fullPage: false });
-    } catch (e) {
-      await page.waitForTimeout(500);
-      await page.screenshot({ path: target, fullPage: false });
+  }
+  if (streamEditPageOpen) {
+    if (typeof updateStreamImagePreview === "function" && typeof editBuffer !== "undefined" && editBuffer) {
+      updateStreamImagePreview(editBuffer.image);
     }
   }
 }
+
+const screenshotAllThemes = createScreenshotAllThemes("pmd", refreshPmdAfterTheme);
 
 function seedMainView(page) {
   return page.evaluate(({ data, ds }) => {
@@ -247,7 +164,7 @@ function seedMainView(page) {
 
 test.describe("PlanMyDay - Screenshots", () => {
 
-  test.describe.configure({ timeout: 180000 });
+  test.describe.configure({ timeout: 360000 });
 
   test.use({
     viewport: { width: 390, height: 797 },
@@ -455,7 +372,7 @@ test.describe("PlanMyDay - Screenshots", () => {
     }, streamsWithSleepWait);
     await page.reload();
     await page.locator("#btnMainMenu").click();
-    await page.locator("button.dropdown-item").filter({ hasText: "Search Jobs" }).click();
+    await page.locator("a.dropdown-item").filter({ hasText: "Search Jobs" }).click();
     await page.waitForSelector("#jobSearchEditor:not(.d-none)");
     await page.waitForSelector("#jobSearchList pmd-job-search-card");
     await screenshotAllThemes(page, "search-jobs.png");
@@ -467,7 +384,7 @@ test.describe("PlanMyDay - Screenshots", () => {
     }, TEST_STREAMS);
     await page.reload();
     await page.locator("#btnMainMenu").click();
-    await page.locator("button.dropdown-item").filter({ hasText: "Search Jobs" }).click();
+    await page.locator("a.dropdown-item").filter({ hasText: "Search Jobs" }).click();
     await page.waitForSelector("#jobSearchEditor:not(.d-none)");
     await page.waitForSelector("#jobSearchList pmd-job-search-card");
     await page.locator("#jobSearchInput").fill("meet");

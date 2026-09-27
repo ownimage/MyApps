@@ -1,5 +1,6 @@
 // <smd-image-picker> — a self-contained image + icon picker component
-// (light DOM). Styles live in shared/css/styles.css.
+// (light DOM). Layout is applied by the component; the visual skin lives in
+// shared/css/styles.css.
 //
 // Displays the app's localStorage images (list key = key-prefix + "images")
 // plus reusable icon sets (Bootstrap, Font Awesome, FA Brands). It owns all of
@@ -112,27 +113,36 @@
 
     connectedCallback() {
       const root = this;
+      if (typeof injectSmdComponentStyle === "function") {
+        injectSmdComponentStyle("smd-image-picker-layout", `
+          smd-image-picker { display: block; }
+          smd-image-picker .picker { display: flex; flex-direction: column; gap: 0.5rem; }
+          smd-image-picker .search { display: block; }
+          smd-image-picker .grid { display: flex; flex-wrap: wrap; gap: 8px; padding-top: 0.75rem; }
+          smd-image-picker .item { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 6px; }
+          smd-image-picker .item .thumb { display: flex; align-items: center; justify-content: center; }
+          smd-image-picker .empty { padding: 1.5rem 0; }
+        `);
+      }
       // Light DOM: constructors may not use innerHTML; the shell is built here.
       if (!root.querySelector(".picker")) {
         root.innerHTML = `
           <div class="picker">
             <div class="search" hidden>
-              <input type="search" class="form-control" placeholder="Search images or icons...">
-              <button type="button" class="btn btn-secondary clear">Clear</button>
+              <smd-search input-id="pickerSearchInput" placeholder="Search images or icons..."></smd-search>
             </div>
-            <smd-tabs padding="small"></smd-tabs>
+            <smd-tabs padding="small" narrow></smd-tabs>
           </div>
         `;
       }
-      const input = root.querySelector("input[type=search]");
       if (!this._bound) {
         this._bound = true;
-        input.addEventListener("input", () => {
-          this._search = input.value.trim().toLowerCase();
+        const search = root.querySelector(".search smd-search");
+        search.addEventListener("smd-search-input", (e) => {
+          this._search = (e.detail.value || "").trim().toLowerCase();
           this._renderGrid();
         });
-        root.querySelector(".clear").addEventListener("click", () => {
-          input.value = "";
+        search.addEventListener("smd-search-clear", () => {
           this._search = "";
           this._renderGrid();
         });

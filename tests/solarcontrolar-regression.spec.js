@@ -173,7 +173,8 @@ test.describe("SolarControlar - Regression", () => {
     await page.evaluate(() => openSettings());
     await expect(page.locator("#settingsPage")).toHaveAttribute("open", "");
 
-    await expect(page.locator("#themeSelector select")).toBeVisible();
+    await expect(page.locator("#themeSelector .smd-theme-select")).toBeVisible();
+    await expect(page.locator("#themeSelector .smd-theme-mode-select")).toBeVisible();
     await expect(page.locator("#flaskUrlInput")).toBeVisible();
     await expect(page.locator("#flaskUrlInput")).toHaveValue("/solar");
     await expect(page.locator("#flaskUserInput")).toBeVisible();
@@ -185,8 +186,12 @@ test.describe("SolarControlar - Regression", () => {
     await expect(page.locator("#settingsPage smd-fontawesome-credit")).toBeVisible();
 
     // Theme persists in the solarcontrolar_ namespace.
-    await page.locator("#themeSelector select").selectOption("brite");
+    await page.locator("#themeSelector .smd-theme-select").selectOption("brite");
+    await page.locator("#themeSelector .smd-theme-mode-select").selectOption("dark");
     await expect.poll(async () => page.evaluate(() => localStorage.getItem("solarcontrolar_theme"))).toBe("brite");
+    await expect.poll(async () => page.evaluate(() => localStorage.getItem("solarcontrolar_themeMode"))).toBe("dark");
+    await expect(page.locator("html")).toHaveAttribute("data-bs-theme", "dark");
+    await expect(page.locator("#themeSelector")).toHaveAttribute("mode", "dark");
 
     // Flask URL persists.
     await page.locator("#flaskUrlInput").fill("http://localhost:5000/solar");

@@ -5,7 +5,22 @@
 // the worker must sit at the root to cover both.
 //
 // To add an app: add an entry to APPS below (folder prefix -> its shell files).
-importScripts("shared/js/build-number.js");
+//
+// BUILD NUMBER: the worker's own mirror of shared/js/build-number.js. DO NOT
+// hand-edit the two apart — use `npm run bump:build`.
+//
+// This literal is load-bearing. The worker is registered at a STABLE url
+// (`../sw.js`, no ?v=): a versioned script url makes the user agent install a
+// SECOND worker for the same bump, i.e. "the app updates twice" — the
+// focus-triggered reg.update() installs the new bytes under the OLD url
+// (`?v=old`), then the reloaded page registers the new url (`?v=new`) and
+// installs again, prompting a second time for one build. With a stable url the
+// only update signal is a BYTE change in this file, so the number has to sit
+// inline and change with every bump; importScripts files are NOT part of that
+// comparison. If the two ever DO drift, the page notices at runtime
+// (GET_BUILD) and re-registers, so the drift self-heals instead of pinning
+// users to a build the worker will never replace.
+const BUILD_NUMBER = "202609271555";
 
 const CACHE = "myapps-" + BUILD_NUMBER;
 
@@ -13,6 +28,46 @@ const CACHE = "myapps-" + BUILD_NUMBER;
 // /smd-img/<hash> URLs written by shared/js/smd-images.js (Cache Storage) must
 // survive app rebuilds, or every read would re-download the bytes.
 const IMAGE_CACHE = "myapps-images";
+
+// ---- "No Cache" mode ----
+// A page can switch the worker to always read the app from disk (PlanMyDay's
+// Danger tab has a "No Cache" switch). The switch is stored in Cache Storage
+// rather than a variable because a worker is killed between visits: an
+// in-memory flag would reset to "cached" on the next load and silently serve
+// stale bytes again. FLAG_CACHE must stay in the activate allow-list below or
+// the flag would be deleted on the next activation.
+const FLAG_CACHE = "myapps-flags";
+const NO_CACHE_FLAG_URL = "/__myapps_no_cache__";
+let noCache = null;
+let noCacheRead = null;
+
+function readNoCache() {
+  if (noCache !== null) return Promise.resolve(noCache);
+  if (!noCacheRead) {
+    noCacheRead = caches.open(FLAG_CACHE)
+      .then(function(cache) { return cache.match(NO_CACHE_FLAG_URL); })
+      .then(function(hit) { return !!(hit && hit.ok); })
+      .catch(function() { return false; });
+  }
+  return noCacheRead;
+}
+
+function writeNoCache(enabled) {
+  noCache = !!enabled;
+  noCacheRead = Promise.resolve(noCache);
+  var open = caches.open(FLAG_CACHE);
+  return open.then(function(cache) {
+    return enabled
+      ? cache.put(NO_CACHE_FLAG_URL, new Response("1", { headers: { "Content-Type": "text/plain" } }))
+      : cache.delete(NO_CACHE_FLAG_URL);
+  }).catch(function() { /* private mode / storage disabled: fall back to cache-first */ });
+}
+
+function replyNoCache(event, enabled) {
+  const reply = { type: "NO_CACHE", enabled: !!enabled };
+  if (event.ports && event.ports[0]) event.ports[0].postMessage(reply);
+  else if (event.source) event.source.postMessage(reply);
+}
 
 // Transparent 1x1 GIF returned when a /smd-img/ request misses the cache (the
 // page writes the entry just before it renders the same URL, but a stale DOM
@@ -29,6 +84,7 @@ const TRANSPARENT_GIF_RESPONSE = new Response(TRANSPARENT_GIF, {
 const SHARED_ASSETS = [
   "shared/sampleImages.json",
   "shared/css/styles.css",
+  "shared/css/themes/bootstrap/bootstrap.min.css",
   "shared/css/themes/brite/bootstrap.min.css",
   "shared/css/themes/cerulean/bootstrap.min.css",
   "shared/css/themes/cosmo/bootstrap.min.css",
@@ -55,34 +111,60 @@ const SHARED_ASSETS = [
   "shared/css/themes/vapor/bootstrap.min.css",
   "shared/css/themes/yeti/bootstrap.min.css",
   "shared/css/themes/zephyr/bootstrap.min.css",
-  "shared/css/themes/light.css",
-  "shared/css/themes/dark.css",
-  "shared/css/themes/brite/brite.css",
-  "shared/css/themes/cerulean/cerulean.css",
-  "shared/css/themes/cosmo/cosmo.css",
-  "shared/css/themes/cyborg/cyborg.css",
-  "shared/css/themes/darkly/darkly.css",
-  "shared/css/themes/flatly/flatly.css",
-  "shared/css/themes/journal/journal.css",
-  "shared/css/themes/litera/litera.css",
-  "shared/css/themes/lumen/lumen.css",
-  "shared/css/themes/lux/lux.css",
-  "shared/css/themes/materia/materia.css",
-  "shared/css/themes/minty/minty.css",
-  "shared/css/themes/morph/morph.css",
-  "shared/css/themes/pulse/pulse.css",
-  "shared/css/themes/quartz/quartz.css",
-  "shared/css/themes/sandstone/sandstone.css",
-  "shared/css/themes/simplex/simplex.css",
-  "shared/css/themes/sketchy/sketchy.css",
-  "shared/css/themes/slate/slate.css",
-  "shared/css/themes/solar/solar.css",
-  "shared/css/themes/spacelab/spacelab.css",
-  "shared/css/themes/superhero/superhero.css",
-  "shared/css/themes/united/united.css",
-  "shared/css/themes/vapor/vapor.css",
-  "shared/css/themes/yeti/yeti.css",
-  "shared/css/themes/zephyr/zephyr.css",
+  "shared/css/themes/bootstrap/bootstrap.light.css",
+  "shared/css/themes/bootstrap/bootstrap.dark.css",
+  "shared/css/themes/brite/brite.light.css",
+  "shared/css/themes/brite/brite.dark.css",
+  "shared/css/themes/cerulean/cerulean.light.css",
+  "shared/css/themes/cerulean/cerulean.dark.css",
+  "shared/css/themes/cosmo/cosmo.light.css",
+  "shared/css/themes/cosmo/cosmo.dark.css",
+  "shared/css/themes/cyborg/cyborg.light.css",
+  "shared/css/themes/cyborg/cyborg.dark.css",
+  "shared/css/themes/darkly/darkly.light.css",
+  "shared/css/themes/darkly/darkly.dark.css",
+  "shared/css/themes/flatly/flatly.light.css",
+  "shared/css/themes/flatly/flatly.dark.css",
+  "shared/css/themes/journal/journal.light.css",
+  "shared/css/themes/journal/journal.dark.css",
+  "shared/css/themes/litera/litera.light.css",
+  "shared/css/themes/litera/litera.dark.css",
+  "shared/css/themes/lumen/lumen.light.css",
+  "shared/css/themes/lumen/lumen.dark.css",
+  "shared/css/themes/lux/lux.light.css",
+  "shared/css/themes/lux/lux.dark.css",
+  "shared/css/themes/materia/materia.light.css",
+  "shared/css/themes/materia/materia.dark.css",
+  "shared/css/themes/minty/minty.light.css",
+  "shared/css/themes/minty/minty.dark.css",
+  "shared/css/themes/morph/morph.light.css",
+  "shared/css/themes/morph/morph.dark.css",
+  "shared/css/themes/pulse/pulse.light.css",
+  "shared/css/themes/pulse/pulse.dark.css",
+  "shared/css/themes/quartz/quartz.light.css",
+  "shared/css/themes/quartz/quartz.dark.css",
+  "shared/css/themes/sandstone/sandstone.light.css",
+  "shared/css/themes/sandstone/sandstone.dark.css",
+  "shared/css/themes/simplex/simplex.light.css",
+  "shared/css/themes/simplex/simplex.dark.css",
+  "shared/css/themes/sketchy/sketchy.light.css",
+  "shared/css/themes/sketchy/sketchy.dark.css",
+  "shared/css/themes/slate/slate.light.css",
+  "shared/css/themes/slate/slate.dark.css",
+  "shared/css/themes/solar/solar.light.css",
+  "shared/css/themes/solar/solar.dark.css",
+  "shared/css/themes/spacelab/spacelab.light.css",
+  "shared/css/themes/spacelab/spacelab.dark.css",
+  "shared/css/themes/superhero/superhero.light.css",
+  "shared/css/themes/superhero/superhero.dark.css",
+  "shared/css/themes/united/united.light.css",
+  "shared/css/themes/united/united.dark.css",
+  "shared/css/themes/vapor/vapor.light.css",
+  "shared/css/themes/vapor/vapor.dark.css",
+  "shared/css/themes/yeti/yeti.light.css",
+  "shared/css/themes/yeti/yeti.dark.css",
+  "shared/css/themes/zephyr/zephyr.light.css",
+  "shared/css/themes/zephyr/zephyr.dark.css",
   "shared/vendor/bootstrap.bundle.min.js",
   "shared/vendor/flatpickr.min.js",
   "shared/vendor/flatpickr.min.css",
@@ -228,6 +310,8 @@ const SHARED_ASSETS = [
   "shared/css/fonts/XRXV3I6Li01BKofIOuaBXso.woff2",
   "shared/js/build-number.js",
   "shared/js/components/smd-button.js",
+  "shared/js/components/smd-h1.js",
+  "shared/js/components/smd-h2.js",
   "shared/js/components/smd-image.js",
   "shared/js/components/smd-modal.js",
   "shared/js/components/smd-image-card.js",
@@ -239,6 +323,7 @@ const SHARED_ASSETS = [
   "shared/js/components/smd-draghandle.js",
   "shared/js/components/smd-badge.js",
   "shared/js/components/smd-image-dropdown.js",
+"shared/js/components/smd-search.js",
   "shared/js/components/smd-date-picker.js",
   "shared/js/components/smd-buymeacoffee.js",
   "shared/js/components/smd-fontawesome-credit.js",
@@ -266,7 +351,6 @@ const APPS = {
     "PlanMyDay/icon.svg",
     "PlanMyDay/icon-192.png",
     "PlanMyDay/icon-512.png",
-    "PlanMyDay/css/styles.css",
     "PlanMyDay/js/app.js",
     "PlanMyDay/js/storage.js",
     "PlanMyDay/js/utils.js",
@@ -277,10 +361,13 @@ const APPS = {
     "PlanMyDay/js/job-search.js",
     "PlanMyDay/js/main-view.js",
     "PlanMyDay/js/app-settings.js",
-    "PlanMyDay/js/components/pmd-stream-header.js",
-    "PlanMyDay/js/components/pmd-stream-job-card.js",
+    "PlanMyDay/js/display.js",
+     "PlanMyDay/js/image-picker.js",
+     "PlanMyDay/js/components/pmd-stream-header.js",
+    "PlanMyDay/js/components/pmd-job-stream-card.js",
     "PlanMyDay/js/components/pmd-job-search-card.js",
-    "PlanMyDay/js/components/pmd-today-card.js"
+    "PlanMyDay/js/components/pmd-job-today-card.js",
+    "PlanMyDay/js/components/pmd-tasks.js"
   ],
   "CountMyDays/": [
     "CountMyDays/",
@@ -289,7 +376,6 @@ const APPS = {
     "CountMyDays/icon.svg",
     "CountMyDays/icon-192.png",
     "CountMyDays/icon-512.png",
-    "CountMyDays/css/styles.css",
     "CountMyDays/js/sampleData.json",
     "CountMyDays/js/googleCalendarSample.json",
     "CountMyDays/js/app.js",
@@ -315,7 +401,6 @@ const APPS = {
     "QRLinks/icon.svg",
     "QRLinks/icon-192.png",
     "QRLinks/icon-512.png",
-    "QRLinks/css/styles.css",
     "QRLinks/sampleLinks.json",
     "QRLinks/js/app.js",
     "QRLinks/js/storage.js",
@@ -333,7 +418,6 @@ const APPS = {
     "SolarControlar/icon.svg",
     "SolarControlar/icon-192.png",
     "SolarControlar/icon-512.png",
-    "SolarControlar/css/styles.css",
     "SolarControlar/js/app.js",
     "SolarControlar/js/storage.js",
     "SolarControlar/js/api.js",
@@ -356,7 +440,6 @@ const APPS = {
     "Launch/icon.svg",
     "Launch/icon-192.png",
     "Launch/icon-512.png",
-    "Launch/css/styles.css",
     "Launch/js/app.js"
   ],
   "FreeFormOX/": [
@@ -364,7 +447,6 @@ const APPS = {
      "FreeFormOX/index.html",
      "FreeFormOX/manifest.json",
      "FreeFormOX/img/icon.svg",
-     "FreeFormOX/css/styles.css",
      "FreeFormOX/js/app.js",
      "FreeFormOX/js/settings.js"
    ],
@@ -397,15 +479,31 @@ self.addEventListener("install", event => {
 });
 
 self.addEventListener("message", event => {
-  if (event.data && event.data.type === "SKIP_WAITING") {
+  if (!event.data) return;
+  if (event.data.type === "SKIP_WAITING") {
     self.skipWaiting();
+  } else if (event.data.type === "SET_NO_CACHE") {
+    // The Danger tab's "No Cache" switch. writeNoCache resolves only after the
+    // flag is durable, so the page's ack means the next load really re-reads
+    // from disk.
+    event.waitUntil(writeNoCache(event.data.enabled).then(function() {
+      replyNoCache(event, noCache);
+    }));
+  } else if (event.data.type === "GET_NO_CACHE") {
+    event.waitUntil(readNoCache().then(replyNoCache.bind(null, event)));
+  } else if (event.data.type === "GET_BUILD") {
+    // Lets a page compare the build it is running against the build this worker
+    // was registered for, so a stale worker is visible instead of silent.
+    const reply = { type: "BUILD", build: BUILD_NUMBER, cache: CACHE };
+    if (event.ports && event.ports[0]) event.ports[0].postMessage(reply);
+    else if (event.source) event.source.postMessage(reply);
   }
 });
 
 self.addEventListener("activate", event => {
   event.waitUntil(
     caches.keys().then(keys => {
-      const activePrefixes = [CACHE, IMAGE_CACHE];
+      const activePrefixes = [CACHE, IMAGE_CACHE, FLAG_CACHE];
       return Promise.all(
         keys.filter(k => !activePrefixes.some(p => k === p || k.startsWith(p)))
               .map(k => caches.delete(k))
@@ -413,6 +511,45 @@ self.addEventListener("activate", event => {
     }).then(() => self.clients.claim())
   );
 });
+
+// Default: serve the precached bytes and revalidate in the background. A
+// `?v=` stamp this worker does not recognise is a NEWER build's asset, so serve
+// it from the network instead of pinning the old bytes.
+function serveCacheFirst(req, url) {
+  return caches.open(CACHE).then(cache => cache.match(url.pathname, { ignoreSearch: true }).then(cached => {
+    const network = fetch(req).then(response => {
+      if (response && response.status === 200) {
+        cache.put(url.pathname, response.clone());
+      }
+      return response;
+    }).catch(() => {
+      if (req.mode === "navigate") return cache.match(appIndexFor(url.pathname));
+      return cached;
+    });
+    const stamp = url.searchParams.get("v");
+    if (stamp && stamp !== BUILD_NUMBER) return network;
+    return cached || network;
+  }));
+}
+
+// "No Cache" mode: the page asked for whatever is on disk right now, so the
+// HTTP cache is bypassed as well (cache: "no-store"), not just this precache.
+// The entry is still refreshed and still the offline fallback, so a dropped
+// connection leaves the app working instead of blank.
+function serveNetworkFirst(req, url) {
+  return fetch(req, { cache: "no-store" }).then(response => {
+    if (!response || response.status !== 200) return response;
+    return caches.open(CACHE)
+      .then(cache => cache.put(url.pathname, response.clone()))
+      .catch(() => {})
+      .then(() => response);
+  }).catch(() => {
+    return caches.open(CACHE).then(cache => cache.match(url.pathname, { ignoreSearch: true })).then(cached => {
+      if (req.mode === "navigate") return cached || cache.match(appIndexFor(url.pathname));
+      return cached;
+    });
+  });
+}
 
 self.addEventListener("fetch", event => {
   const req = event.request;
@@ -424,7 +561,9 @@ self.addEventListener("fetch", event => {
   }
   // User-image files: the page stores payloads under immutable /smd-img/ URLs
   // and points <img src> at them (shared/js/smd-images.js). Serve the entry;
-  // never fall through to the network, which has no file at that path.
+  // never fall through to the network, which has no file at that path. This
+  // stays cache-only even in "No Cache" mode for the same reason — the network
+  // has nothing to offer there.
   if (url.pathname.indexOf("/smd-img/") !== -1) {
     event.respondWith(
       caches.open(IMAGE_CACHE).then(cache =>
@@ -436,17 +575,8 @@ self.addEventListener("fetch", event => {
   // Cache by PATHNAME so versioned requests (js/app.js?v=...) hit the same
   // precached entries as their unversioned forms.
   event.respondWith(
-    caches.open(CACHE).then(cache => cache.match(url.pathname, { ignoreSearch: true }).then(cached => {
-      const network = fetch(req).then(response => {
-        if (response && response.status === 200) {
-          cache.put(url.pathname, response.clone());
-        }
-        return response;
-      }).catch(() => {
-        if (req.mode === "navigate") return cache.match(appIndexFor(url.pathname));
-        return cached;
-      });
-      return cached || network;
-    }))
+    readNoCache().then(function(enabled) {
+      return enabled ? serveNetworkFirst(req, url) : serveCacheFirst(req, url);
+    })
   );
 });

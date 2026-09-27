@@ -15,14 +15,14 @@ function renderForecastTab() {
         '<button type="button" class="btn btn-primary" id="btnRunForecast" onclick="runForecast()">Run Forecast Pipeline</button>' +
       '</div>' +
     '</div>' +
-    '<div id="forecastOutput" class="forecast-output" style="display:none;"></div>' +
-    '<div id="forecastLoading" class="loading mt-3" style="display:none;">Forecast pipeline is running...</div>';
+    '<div id="forecastOutput" class="forecast-output bg-body-tertiary border rounded p-3 font-monospace overflow-auto mt-3 d-none"></div>' +
+    '<div id="forecastLoading" class="loading text-secondary fst-italic mt-3 d-none">Forecast pipeline is running...</div>';
 
   if (_forecastOutput) {
     var outputEl = $id("forecastOutput");
     if (outputEl) {
       outputEl.textContent = _forecastOutput;
-      outputEl.style.display = "block";
+      outputEl.classList.remove("d-none");
     }
   }
 }
@@ -33,26 +33,26 @@ function runForecast() {
   var output = $id("forecastOutput");
 
   if (btn) btn.disabled = true;
-  if (loading) loading.style.display = "block";
-  if (output) output.style.display = "none";
+  if (loading) loading.classList.remove("d-none");
+  if (output) output.classList.add("d-none");
 
   solarApi.runForecast()
     .then(function (text) {
       _forecastOutput = text;
-      if (loading) loading.style.display = "none";
+      if (loading) loading.classList.add("d-none");
       if (output) {
         output.textContent = text;
-        output.style.display = "block";
+        output.classList.remove("d-none");
       }
       if (btn) btn.disabled = false;
       showFlash("Forecast pipeline completed.", "success");
     })
     .catch(function (err) {
       _forecastOutput = "Error: " + err.message;
-      if (loading) loading.style.display = "none";
+      if (loading) loading.classList.add("d-none");
       if (output) {
         output.textContent = _forecastOutput;
-        output.style.display = "block";
+        output.classList.remove("d-none");
       }
       if (btn) btn.disabled = false;
       showFlash("Error running forecast: " + err.message, "error");

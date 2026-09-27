@@ -55,10 +55,7 @@ function renderDatesEditor() {
     page.title = "Edit Dates";
     page.content =
       '<div id="dateFilters" class="mb-3">' +
-        '<div class="d-flex gap-2 align-items-center flex-wrap">' +
-          '<input class="form-control" id="dateTitleSearch" type="search" placeholder="Search titles..." style="flex:1;min-width:150px" oninput="setDateTitleSearch(this.value)">' +
-          '<button type="button" class="btn btn-danger btn-sm" onclick="clearDateFilters()">Clear</button>' +
-        '</div>' +
+        '<smd-search id="dateSearch" input-id="dateTitleSearch" placeholder="Search titles..." value="' + escAttr(dateTitleSearch) + '"></smd-search>' +
         '<div class="d-flex gap-3 align-items-center flex-wrap mt-2">' +
           `<smd-image-dropdown id="dateCategoryFilter" key-prefix="${escAttr(smdImagePrefix())}" style="min-width:180px"></smd-image-dropdown>` +
           '<label class="d-flex gap-1 align-items-center"><input class="form-check-input" type="checkbox" id="filterShowLocal" onchange="setFilterShowLocal(this.checked)"> Local</label>' +
@@ -82,6 +79,11 @@ function renderDatesEditor() {
         else if (name === "None") setDateCategoryFilter(DATE_CATEGORY_NONE);
         else setDateCategoryFilter(name);
       });
+    }
+    const search = $id("dateSearch");
+    if (search) {
+      search.addEventListener("smd-search-input", e => setDateTitleSearch(e.detail.value));
+      search.addEventListener("smd-search-clear", () => clearDateFilters());
     }
   }
   renderDateFilters();
@@ -214,6 +216,7 @@ function renderDateList() {
     }
 
     const card = document.createElement("cmd-date-card");
+    card.className = "d-block mb-2";
     card.setAttribute("index", entry.index);
     card.setAttribute("name", d.name || "");
     card.setAttribute("category", d.category || "");
@@ -223,7 +226,8 @@ function renderDateList() {
       : (d.type || "annual"));
     card.setAttribute("source", entry.source);
     card.setAttribute("recurring", d.recurring ? "true" : "false");
-    if (d.show === false) card.setAttribute("hidden", "true");
+    if (d.show === false) card.setAttribute("data-google-hidden", "true");
+    else card.removeAttribute("data-google-hidden");
     card.setAttribute("key-prefix", smdImagePrefix());
     if (catImage) card.setAttribute("category-image", catImage);
     if (d.image) card.setAttribute("image", d.image);
@@ -322,10 +326,10 @@ function renderDateEditContent() {
     dateHtml = '<smd-date-picker no-clear value="' + onceDateValue(d) + '" format="d/m/Y" alt-format="d/m/Y" style="min-width:130px"></smd-date-picker>';
   } else {
     dateHtml =
-      '<select class="form-select" id="dateDaySelect" style="width:auto" onchange="dateField(\'day\', parseInt(this.value, 10))">' +
+      '<select class="form-select w-auto" id="dateDaySelect" onchange="dateField(\'day\', parseInt(this.value, 10))">' +
         Array.from({ length: 31 }, (_, i) => `<option value="${i + 1}" ${i + 1 === day ? "selected" : ""}>${i + 1}</option>`).join("") +
       '</select>' +
-      '<select class="form-select" id="dateMonthSelect" style="width:auto" onchange="dateField(\'month\', parseInt(this.value, 10))">' +
+      '<select class="form-select w-auto" id="dateMonthSelect" onchange="dateField(\'month\', parseInt(this.value, 10))">' +
         CMD_MONTHS.map((m, i) => `<option value="${i + 1}" ${i + 1 === month ? "selected" : ""}>${m}</option>`).join("") +
       '</select>';
   }
@@ -347,7 +351,7 @@ function renderDateEditContent() {
     '</div>' +
     '<div class="d-flex gap-2 align-items-center flex-wrap">' +
       dateHtml +
-      '<select class="form-select" id="dateTypeSelect" style="width:auto" onchange="dateField(\'type\', this.value)">' +
+      '<select class="form-select w-auto" id="dateTypeSelect" onchange="dateField(\'type\', this.value)">' +
         `<option value="once" ${d.type === "once" ? "selected" : ""}>Once</option>` +
         `<option value="annual" ${d.type !== "once" ? "selected" : ""}>Annual</option>` +
       '</select>' +

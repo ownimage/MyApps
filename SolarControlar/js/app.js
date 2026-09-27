@@ -22,15 +22,19 @@ function hideMainPages(exceptId) {
 }
 
 document.addEventListener("DOMContentLoaded", function () {
-  applyTheme(localStorage.getItem(smdKey("theme")) || "superhero");
+  applyTheme(getStoredTheme());
 
   renderMain();
   startAutoRefresh();
 
   // Theme selector wiring
   document.addEventListener("smd-theme-change", function (e) {
-    var theme = e.detail && e.detail.theme;
-    if (theme && typeof changeTheme === "function") changeTheme(theme);
+    var detail = e.detail || {};
+    if (detail.source === "mode" && typeof changeThemeMode === "function") {
+      changeThemeMode(detail.mode);
+    } else if (detail.theme && typeof changeTheme === "function") {
+      changeTheme(detail.theme);
+    }
   });
 });
 
@@ -41,15 +45,16 @@ document.addEventListener("DOMContentLoaded", function () {
   var startY = 0, pulling = false, pullDist = 0;
   var indicator = document.createElement("div");
   indicator.id = "pwa-pull-indicator";
-  indicator.style.cssText = "position:fixed;top:0;left:0;right:0;z-index:9999;display:flex;align-items:center;justify-content:center;height:0;overflow:hidden;background:var(--bs-body-bg);transition:height 0.1s;color:var(--bs-body-color)";
+  indicator.className = "pwa-pull-indicator d-flex align-items-center justify-content-center";
   indicator.textContent = "\u21E9 Pull to refresh";
   document.body.appendChild(indicator);
   var spinner = document.createElement("div");
   spinner.id = "pwa-pull-spinner";
-  spinner.style.cssText = "position:fixed;top:30%;left:50%;transform:translate(-50%,-50%);z-index:10000;display:none;width:40px;height:40px;border:4px solid var(--bs-border-color);border-top-color:var(--bs-primary);border-radius:50%;animation:solar-spin 0.6s linear infinite";
+  spinner.className = "pwa-pull-spinner d-none";
   document.body.appendChild(spinner);
   var style = document.createElement("style");
-  style.textContent = "@keyframes solar-spin{to{transform:translate(-50%,-50%) rotate(360deg)}}";
+  style.id = "solar-pwa-style";
+  style.textContent = "#pwa-pull-indicator{position:fixed;top:0;left:0;right:0;z-index:9999;height:0;overflow:hidden;background:var(--bs-body-bg);transition:height .1s;color:var(--bs-body-color)}#pwa-pull-spinner{position:fixed;top:30%;left:50%;transform:translate(-50%,-50%);z-index:10000;width:40px;height:40px;border:4px solid var(--bs-border-color);border-top-color:var(--bs-primary);border-radius:50%;animation:solar-spin .6s linear infinite}@keyframes solar-spin{to{transform:translate(-50%,-50%) rotate(360deg)}}";
   document.head.appendChild(style);
   function adjustIcon(dist) {
     indicator.innerHTML = dist >= THRESHOLD ? "\u21E9 Release to refresh" : "\u21E9 Pull to refresh";
@@ -70,7 +75,7 @@ document.addEventListener("DOMContentLoaded", function () {
   document.addEventListener("touchend", function () {
     if (!pulling) return;
     pulling = false; indicator.style.height = "0";
-    if (pullDist >= THRESHOLD) { spinner.style.display = "block"; setTimeout(function () { location.reload(); }, 400); }
+    if (pullDist >= THRESHOLD) { spinner.classList.remove("d-none"); setTimeout(function () { location.reload(); }, 400); }
     pullDist = 0;
   }, { passive: true });
 })();

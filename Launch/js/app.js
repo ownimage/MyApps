@@ -51,9 +51,17 @@ function renderAppGrid() {
   if (!grid) return;
   grid.innerHTML = "";
   LAUNCH_APPS.forEach(app => {
+    const col = document.createElement("div");
+    col.className = "col";
+
     const tile = document.createElement("a");
-    tile.className = "app-tile";
+    tile.className = "app-tile card smd-card border-0 h-100 d-flex flex-column text-decoration-none";
     tile.href = app.path;
+
+    // Same card pattern as pmd-job-today-card: a bordered rounded surface holding
+    // the content, on the theme's card background.
+    const card = document.createElement("div");
+    card.className = "d-flex flex-column flex-grow-1 align-items-center justify-content-center text-center gap-2 p-4 border rounded-3";
 
     const img = document.createElement("smd-image");
     img.setAttribute("key-prefix", smdImagePrefix());
@@ -62,18 +70,21 @@ function renderAppGrid() {
     // No explicit `size`: the tile follows the Settings Icon size (the app
     // applies SmdImage.setDefaultSize from launch_iconSize at boot).
 
-    const name = document.createElement("div");
-    name.className = "app-name";
+    const name = document.createElement("smd-h2");
+    name.className = "fw-bold mb-0";
     name.textContent = app.name;
 
     const desc = document.createElement("div");
-    desc.className = "app-desc";
+    desc.className = "small text-body mb-0";
     desc.textContent = app.description;
 
-    tile.appendChild(img);
-    tile.appendChild(name);
-    tile.appendChild(desc);
-    grid.appendChild(tile);
+    card.appendChild(img);
+    card.appendChild(name);
+    card.appendChild(desc);
+
+    tile.appendChild(card);
+    col.appendChild(tile);
+    grid.appendChild(col);
   });
   // Re-render once the shared sample library is seeded on first visit.
   if (grid.__launchSeedTimeout) return;
@@ -128,7 +139,7 @@ function buildSettingsContent() {
   const { sections, footerHtml } = getSettingsSections();
 
   settingsPage.title = "Settings";
-  settingsPage.content = '<smd-tabs id="settingsTabs"></smd-tabs>' + footerHtml;
+  settingsPage.content = '<smd-tabs id="settingsTabs" narrow></smd-tabs>' + footerHtml;
   settingsPage.buttons = [{ text: "OK", variant: "success", action: "done" }];
 
   const tabsEl = $id("settingsTabs");
@@ -157,9 +168,13 @@ function openSettings() {
   buildSettingsContent();
   page.show();
 
-  const savedTheme = localStorage.getItem(smdKey("theme")) || "superhero";
+  const savedTheme = getStoredTheme();
+  const savedThemeMode = getStoredThemeMode();
   const themeSel = $id("themeSelector");
-  if (themeSel) themeSel.setAttribute("theme", savedTheme);
+  if (themeSel) {
+    themeSel.setAttribute("theme", savedTheme);
+    themeSel.setAttribute("mode", savedThemeMode);
+  }
 
   const savedFontSize = localStorage.getItem(smdKey("fontSize")) || "xlarge";
   const fontSizeSel = $id("fontSizeSelector");
@@ -187,14 +202,18 @@ function closeSettings() {
 
 document.addEventListener("DOMContentLoaded", () => {
   applyImageSize();
-  applyTheme(localStorage.getItem(smdKey("theme")) || "superhero");
+  applyTheme(getStoredTheme());
   renderAppGrid();
   // Seed the shared sample library on first visit so the tiles' <smd-image>
   // icons resolve by name; renderAppGrid's interval re-renders once it lands.
   if (typeof seedSampleImages === "function") seedSampleImages();
 
   document.addEventListener("smd-theme-change", e => {
-    const theme = e.detail && e.detail.theme;
-    if (theme && typeof changeTheme === "function") changeTheme(theme);
+    const detail = e.detail || {};
+    if (detail.source === "mode" && typeof changeThemeMode === "function") {
+      changeThemeMode(detail.mode);
+    } else if (detail.theme && typeof changeTheme === "function") {
+      changeTheme(detail.theme);
+    }
   });
 });

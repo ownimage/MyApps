@@ -23,23 +23,23 @@ function renderGraphTab() {
   if (!container) return;
 
   container.innerHTML =
-    '<div class="graph-controls">' +
-      '<label for="graph-date">Day:</label>' +
-      '<select id="graph-date" class="log-select" onchange="loadGraphData()">' +
+    '<div class="graph-controls d-flex flex-wrap align-items-center gap-3 mb-3">' +
+      '<label class="form-label mb-0" for="graph-date">Day:</label>' +
+      '<select id="graph-date" class="form-select w-auto log-select" onchange="loadGraphData()">' +
         '<option value="">Select a day</option>' +
       '</select>' +
-      '<span class="graph-checkboxes">' +
-        '<label><input type="checkbox" class="graph-series" value="solar" checked onchange="loadGraphData()"> Solar</label>' +
-        '<label><input type="checkbox" class="graph-series" value="grid" checked onchange="loadGraphData()"> Grid</label>' +
-        '<label><input type="checkbox" class="graph-series" value="home" checked onchange="loadGraphData()"> Home</label>' +
-        '<label><input type="checkbox" class="graph-series" value="battery" checked onchange="loadGraphData()"> Battery</label>' +
-        '<label><input type="checkbox" class="graph-series" value="battery_level" checked onchange="loadGraphData()"> Battery Level</label>' +
-      '</span>' +
-      '<label><input type="checkbox" id="graph-points" onchange="loadGraphData()"> Data Points</label>' +
+      '<div class="graph-checkboxes d-flex flex-wrap align-items-center gap-3">' +
+        '<label class="form-check-label d-inline-flex align-items-center gap-1"><input type="checkbox" class="form-check-input graph-series" value="solar" checked onchange="loadGraphData()"> Solar</label>' +
+        '<label class="form-check-label d-inline-flex align-items-center gap-1"><input type="checkbox" class="form-check-input graph-series" value="grid" checked onchange="loadGraphData()"> Grid</label>' +
+        '<label class="form-check-label d-inline-flex align-items-center gap-1"><input type="checkbox" class="form-check-input graph-series" value="home" checked onchange="loadGraphData()"> Home</label>' +
+        '<label class="form-check-label d-inline-flex align-items-center gap-1"><input type="checkbox" class="form-check-input graph-series" value="battery" checked onchange="loadGraphData()"> Battery</label>' +
+        '<label class="form-check-label d-inline-flex align-items-center gap-1"><input type="checkbox" class="form-check-input graph-series" value="battery_level" checked onchange="loadGraphData()"> Battery Level</label>' +
+      '</div>' +
+      '<label class="form-check-label d-inline-flex align-items-center gap-1"><input type="checkbox" class="form-check-input" id="graph-points" onchange="loadGraphData()"> Data Points</label>' +
     '</div>' +
-    '<div class="graph-wrap">' +
-      '<canvas id="powerChart"></canvas>' +
-      '<p id="graph-empty" class="loading" style="display:none;">No power data available for this day.</p>' +
+    '<div class="graph-wrap bg-body-tertiary border rounded p-3 position-relative">' +
+      '<canvas id="powerChart" class="w-100"></canvas>' +
+      '<p id="graph-empty" class="loading text-secondary fst-italic d-none mb-0">No power data available for this day.</p>' +
     '</div>';
 
   loadGraphDates();
@@ -82,7 +82,7 @@ function loadGraphData() {
     .then(function (data) {
       var times = data.times || [];
       var hasData = times.length > 0;
-      if (empty) empty.style.display = hasData ? "none" : "block";
+      if (empty) empty.classList.toggle("d-none", hasData);
 
       var timestamps = times.map(function (t) {
         return new Date(dateVal + "T" + t);
@@ -109,7 +109,7 @@ var visible = {};
     })
     .catch(function () {
       if (empty) {
-        empty.style.display = "block";
+        empty.classList.remove("d-none");
         empty.textContent = "Error loading data";
       }
     });

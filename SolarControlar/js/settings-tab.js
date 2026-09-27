@@ -64,7 +64,7 @@ function buildSettingsContent() {
   var footerHtml = parts.footerHtml;
 
   settingsPage.title = "Settings";
-  settingsPage.content = '<smd-tabs id="settingsTabs"></smd-tabs>' + footerHtml;
+  settingsPage.content = '<smd-tabs id="settingsTabs" narrow></smd-tabs>' + footerHtml;
   settingsPage.buttons = [{ text: "OK", variant: "success", action: "done" }];
 
   var tabsEl = $id("settingsTabs");
@@ -73,9 +73,6 @@ function buildSettingsContent() {
     tabsEl.bottomline = true;
   }
   injectSettingsStyles();
-  if (typeof SOLAR_EDITOR_STYLES !== "undefined") {
-    injectStyleInto(SOLAR_EDITOR_STYLES);
-  }
 }
 
 function openSettings() {
@@ -97,9 +94,13 @@ function openSettings() {
   page.show();
 
   // Theme selector
-  var savedTheme = localStorage.getItem(smdKey("theme")) || "superhero";
+  var savedTheme = getStoredTheme();
+  var savedThemeMode = getStoredThemeMode();
   var themeSel = $id("themeSelector");
-  if (themeSel) themeSel.setAttribute("theme", savedTheme);
+  if (themeSel) {
+    themeSel.setAttribute("theme", savedTheme);
+    themeSel.setAttribute("mode", savedThemeMode);
+  }
 
   // Font size
   var savedFontSize = localStorage.getItem(smdKey("fontSize")) || "normal";

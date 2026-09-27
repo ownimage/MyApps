@@ -1,6 +1,7 @@
 // <smd-image-dropdown> — shared dropdown picker for a list of named options,
 // each optionally carrying an image rendered via <smd-image> (light DOM).
-// Styles live in shared/css/styles.css. It is a generic selector any app can
+// Layout is applied by the component; the theme palette lives in
+// shared/css/styles.css. It is a generic selector any app can
 // use (CountMyDays category filter, PlanMyDay job stream selector, ...).
 //
 // The host app sets the DATA (no DOM, so the host never builds the menu):
@@ -20,12 +21,12 @@
 // smdImageDropdownMenu) are stable so tests can target them with plain selectors.
 const smdImageDropdownTemplate = document.createElement('template');
 smdImageDropdownTemplate.innerHTML = `
-  <button type="button" class="btn" id="smdImageDropdownBtn" aria-haspopup="listbox">
+  <button type="button" class="btn gap-2" id="smdImageDropdownBtn" aria-haspopup="listbox">
     <span class="thumb" id="smdImageBtnIcon" hidden><smd-image key-prefix="shared-"></smd-image></span>
     <span class="title" id="smdImageBtnText"></span>
     <span class="caret">&#9662;</span>
   </button>
-  <ul class="menu" id="smdImageDropdownMenu" hidden></ul>
+  <ul class="menu list-unstyled rounded shadow-sm mb-0" id="smdImageDropdownMenu" hidden></ul>
 `;
 
 class SmdImageDropdown extends HTMLElement {
@@ -49,6 +50,16 @@ class SmdImageDropdown extends HTMLElement {
   }
 
   connectedCallback() {
+    this.classList.add("d-block", "position-relative");
+    if (typeof injectSmdComponentStyle === "function") {
+      injectSmdComponentStyle("smd-image-dropdown-layout", `
+        smd-image-dropdown .btn { display: flex; align-items: center; width: 100%; }
+        smd-image-dropdown .thumb { flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; overflow: hidden; }
+        smd-image-dropdown .title { flex: 1 1 auto; min-width: 0; }
+        smd-image-dropdown .menu { position: absolute; left: 0; right: 0; top: 100%; z-index: 20; max-height: 16rem; overflow-y: auto; }
+        smd-image-dropdown .item { display: flex; align-items: center; }
+      `);
+    }
     this._build();
     if (!this._bound) {
       this._bound = true;
@@ -129,7 +140,7 @@ class SmdImageDropdown extends HTMLElement {
       const li = document.createElement('li');
       const a = document.createElement('a');
       a.href = '#';
-      a.className = 'item dropdown-item' + (name === String(this._selected) ? ' active' : '');
+      a.className = 'item dropdown-item gap-2' + (name === String(this._selected) ? ' active' : '');
       a.setAttribute('data-name', name);
       const itemThumb = document.createElement('span');
       itemThumb.className = 'thumb';

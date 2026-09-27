@@ -1,0 +1,8 @@
+/* cyborg theme overrides (DARK mode) — loaded AFTER cyborg/bootstrap.min.css
+   whenever this theme is selected in Dark mode. Add theme-specific overrides
+   here. This sheet is only ever loaded in this mode, so the old
+   `[data-bs-theme="dark"]` qualifier is no longer needed on selectors here. */
+
+html[data-theme="cyborg"] .smd-card {
+  color: white;
+}

@@ -129,6 +129,13 @@
     }
 
     connectedCallback() {
+      if (typeof injectSmdComponentStyle === "function") {
+        injectSmdComponentStyle("smd-image-layout", `
+          smd-image { display: inline-flex; align-items: center; justify-content: center; overflow: hidden; }
+          smd-image img { display: block; max-width: 100%; max-height: 100%; }
+          smd-image .smd-bi { display: inline-flex; align-items: center; justify-content: center; width: 100%; height: 100%; }
+        `);
+      }
       // Light DOM: an element's constructor must not touch attributes/innerHTML
       // ("The result must not have children" when createElement/parsing creates
       // it) — the <img> placeholder is added here instead, once per instance.
@@ -141,7 +148,7 @@
       this._themeObserver = new MutationObserver(() => this._render());
       this._themeObserver.observe(document.documentElement, {
         attributes: true,
-        attributeFilter: ["data-bs-theme", "data-theme"]
+        attributeFilter: ["data-bs-theme", "data-theme", "style"]
       });
       this._render();
     }
@@ -159,6 +166,10 @@
     }
 
     _autoTheme() {
+      // --smd-image-theme drives image colour rendering (default: mirrors
+      // html[data-bs-theme] via styles.css). Falls back to the attribute.
+      const v = getComputedStyle(this).getPropertyValue("--smd-image-theme").trim().toLowerCase();
+      if (v === "dark" || v === "light") return v;
       return (document.documentElement.getAttribute("data-bs-theme") || "dark") === "dark" ? "dark" : "light";
     }
 

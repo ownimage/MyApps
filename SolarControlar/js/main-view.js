@@ -9,12 +9,12 @@ var _lastRefreshErrorShown = "";
 // the panels in its shadow root). Each panel wraps a light-DOM-style content
 // div so the per-tab render functions and existing locators keep working.
 var MAIN_TAB_DEFS = [
-  { title: "Power", id: "power", content: '<div id="tab-power" class="tab-content"></div>' },
-  { title: "Settings", id: "settings", content: '<div id="tab-settings" class="tab-content"></div>' },
-  { title: "Files", id: "files", content: '<div id="tab-files" class="tab-content"></div>' },
-  { title: "Config", id: "config", content: '<div id="tab-config" class="tab-content"></div>' },
-  { title: "Forecast", id: "forecast", content: '<div id="tab-forecast" class="tab-content"></div>' },
-  { title: "Graph", id: "graph", content: '<div id="tab-graph" class="tab-content"></div>' }
+  { title: "Power", id: "power", content: '<div id="tab-power" class="tab-content p-0"></div>' },
+  { title: "Settings", id: "settings", content: '<div id="tab-settings" class="tab-content p-0"></div>' },
+  { title: "Files", id: "files", content: '<div id="tab-files" class="tab-content p-0"></div>' },
+  { title: "Config", id: "config", content: '<div id="tab-config" class="tab-content p-0"></div>' },
+  { title: "Forecast", id: "forecast", content: '<div id="tab-forecast" class="tab-content p-0"></div>' },
+  { title: "Graph", id: "graph", content: '<div id="tab-graph" class="tab-content p-0"></div>' }
 ];
 
 function configureMainTabs() {
@@ -31,7 +31,7 @@ function configureMainTabs() {
   // The tab panels are light DOM now; the form/btn utilities come from the
   // document stylesheet, and the main-tab content styles are element-scoped
   // (document-head injection is deduped).
-  injectStyleInto(JOBS_EDITOR_STYLES + MAIN_TAB_STYLES);
+  injectStyleInto(MAIN_TAB_STYLES);
 
   tabsEl.addEventListener("smd-tabs-change", function (e) {
     var tab = e.detail && e.detail.tab;
@@ -57,7 +57,7 @@ function showRefreshErrorModal(err) {
 
   showSmdModal({
     title: "Failed to refresh data",
-    content: '<div class="flash flash-error" style="white-space:pre-wrap;margin-bottom:0;">' +
+    content: '<div class="alert alert-danger flash flash-error mb-0 text-wrap">' +
               escapeHtml(detail) + '</div>',
     buttons: [
       { text: "OK", variant: "primary", action: "ok" }
@@ -134,7 +134,11 @@ function showFlash(message, category) {
   var container = document.getElementById("flashContainer");
   if (!container) return;
   var div = document.createElement("div");
-  div.className = "flash flash-" + (category || "info");
+  var type = category || "info";
+  var alertType = type === "success" ? "success" : (type === "error" || type === "danger" ? "danger" : (type === "warning" ? "warning" : "info"));
+  var legacyType = type === "danger" ? "error" : type;
+  div.className = "alert flash flash-" + legacyType + " alert-" + alertType;
+  div.setAttribute("role", "alert");
   div.textContent = message;
   container.appendChild(div);
   setTimeout(function () {

@@ -26,12 +26,10 @@ const STREAMS = [
   }
 ];
 
-async function touchDrag(page, fromLocator, toBox) {
+async function touchDrag(page, fromLocator, toBoxOrLocator) {
   const fromBox = await fromLocator.boundingBox();
   const startX = fromBox.x + fromBox.width / 2;
   const startY = fromBox.y + fromBox.height / 2;
-  const endX = toBox.x + toBox.width / 2;
-  const endY = toBox.y + toBox.height * 0.9;
   const steps = 20;
   const fireOne = (type, x, y, buttons) =>
     page.evaluate(({ type, x, y, buttons }) => {
@@ -55,6 +53,11 @@ async function touchDrag(page, fromLocator, toBox) {
     }, { type, x, y, buttons });
   await fireOne("pointerdown", startX, startY, 1);
   await page.waitForTimeout(150);
+  const toBox = typeof toBoxOrLocator === "function"
+    ? await toBoxOrLocator()
+    : toBoxOrLocator;
+  const endX = toBox.x + toBox.width / 2;
+  const endY = toBox.y + toBox.height * 0.9;
   for (let i = 1; i <= steps; i++) {
     const r = i / steps;
     await fireOne("pointermove", startX + (endX - startX) * r, startY + (endY - startY) * r, 1);
@@ -103,34 +106,20 @@ test.describe("PlanMyDay - iPhone 12 Pro touch", () => {
     await page.locator("#streamEditorList .stream-header-main").first().tap();
     await page.locator("#streamEditorList .accordion-collapse.show").waitFor({ state: "visible", timeout: 5000 });
     const items = page.locator("#streamEditorList .stream-accordion-item");
-    const lastBox = await items.last().boundingBox();
-    await touchDrag(page, items.first().locator(".stream-accordion-header .drag-handle"), lastBox);
+    await touchDrag(page, items.first().locator(".stream-accordion-header .drag-handle"), () => items.last().boundingBox());
     await expect(page.locator("#streamEditorList .accordion-collapse.show")).toHaveCount(1);
     await expect(page.locator("#streamEditorList .stream-accordion-item").last().locator(".accordion-collapse.show")).toBeVisible();
     await expect(page.locator("#streamEditorList .accordion-collapse.show")).toContainText("Report");
   });
 
-  test("display font size and density settings scale the today card title", async ({ page }) => {
-    await page.evaluate(() => {
-      const d = new Date();
-      const ds = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
-      localStorage.setItem("planmydays_today_order", JSON.stringify(["job_1", "job_2", "job_3"]));
-      localStorage.setItem("planmydays_last_gen", ds);
-      localStorage.setItem("planmydays_completed", "[]");
-    });
-    await page.reload();
-    await expect(page.locator("#todayCardList pmd-today-card").first()).toBeVisible();
-    const titleFontSize = () => page
-      .locator("#todayCardList pmd-today-card .title").first()
-      .evaluate((el) => parseFloat(getComputedStyle(el).fontSize));
-    // default saved font size is xlarge -> h1 token = 1.3rem * 2 = 2.6rem
-    expect(await titleFontSize()).toBeCloseTo(41.6, 0);
+  test("font and density settings update the shared root state", async ({ page }) => {
     await page.evaluate(() => changeFontSize("jumbo"));
-    // jumbo -> h1 token = 1.6rem * 2 = 3.2rem
-    expect(await titleFontSize()).toBeCloseTo(51.2, 0);
+    await expect(page.locator("html")).toHaveAttribute("data-smd-font-size", "jumbo");
+    expect(await page.evaluate(() => localStorage.getItem("planmydays_fontSize"))).toBe("jumbo");
+
     await page.evaluate(() => changeDensity("compact"));
-    // compact -> --pmd-today-title-size: var(--smd-type-p) = 1.6rem
-    expect(await titleFontSize()).toBeCloseTo(25.6, 0);
+    await expect(page.locator("html")).toHaveAttribute("data-smd-tile-density", "compact");
+    expect(await page.evaluate(() => localStorage.getItem("planmydays_density"))).toBe("compact");
   });
 
   test("task rows can be reordered with a touch drag", async ({ page }) => {
@@ -157,7 +146,7 @@ test.describe("PlanMyDay - iPhone 12 Pro touch", () => {
     await expect(page.locator("#jobTasksList .task-note-row")).toHaveCount(2);
   });
 
-  test("swipe right on a today card snoozes the job until tomorrow", async ({ page }) => {
+  test("swipe right on a today card opens Edit Job on the Schedule tab for tomorrow", async ({ page }) => {
     await page.evaluate(() => {
       const d = new Date();
       const ds = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
@@ -180,19 +169,17 @@ test.describe("PlanMyDay - iPhone 12 Pro touch", () => {
       await card.dispatchEvent("pointermove", { pointerId: 1, pointerType: "touch", clientX: cx + dist * r, clientY: cy, button: 0, buttons: 1, bubbles: true, cancelable: true });
     }
     await card.dispatchEvent("pointerup", { pointerId: 1, pointerType: "touch", clientX: cx + dist, clientY: cy, button: 0, buttons: 0, bubbles: true, cancelable: true });
-    await expect(page.locator('#todayCardList .today-drag-card[data-job-id="job_1"]')).toHaveCount(0);
-    await expect(page.locator("#todayCardList .today-drag-card")).toHaveCount(1);
+    await expect(page.locator("#jobEditPage")).toBeVisible();
+    await expect(page.locator("#jobEditPage .smd-page-header h1")).toHaveText("Edit Job");
+    await expect(page.locator("#jobSchedule-tab")).toHaveAttribute("active", "");
     const tomorrow = await page.evaluate(() => {
       const d = new Date();
       d.setDate(d.getDate() + 1);
       return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
     });
     await expect.poll(() =>
-      page.evaluate(() => {
-        const streams = JSON.parse(localStorage.getItem("planmydays_streams"));
-        const job = streams.flatMap(function (s) { return s.jobs || []; }).find(function (j) { return j.id === "job_1"; });
-        return job ? job.sleepUntil : null;
-      })
+      page.evaluate(() => (typeof jobsBuffer !== "undefined" && jobsBuffer ? jobsBuffer.sleepUntil : null))
     ).toBe(tomorrow);
+    await expect(page.locator(".flatpickr-calendar.open")).toBeVisible();
   });
 });

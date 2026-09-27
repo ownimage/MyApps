@@ -73,19 +73,19 @@ function renderLinkList() {
 
   sorted.forEach(({ link, index }) => {
     const card = document.createElement("div");
-    card.className = "qrlink-list-card";
+    card.className = "qrlink-list-card card bg-dark text-white border-0 mb-3 p-2 d-flex flex-row align-items-center gap-3";
     card.setAttribute("data-index", index);
     card.innerHTML =
       '<smd-draghandle class="drag-handle" title="drag"></smd-draghandle>' +
-      '<div class="link-thumb">' +
+      '<div class="link-thumb flex-shrink-0 d-flex align-items-center">' +
         `<smd-image key-prefix="${escAttr(smdImagePrefix())}"${link.image ? ` image="${escAttr(link.image)}"` : ""}></smd-image>` +
       '</div>' +
-      '<div class="link-body">' +
-        `<div class="link-title">${escapeHtml(link.title || "")}</div>` +
-        (link.url ? `<div class="link-url">${escapeHtml(link.url)}</div>` : "") +
-        (link.description ? `<div class="link-desc">${escapeHtml(link.description)}</div>` : "") +
+      '<div class="link-body flex-grow-1 overflow-hidden">' +
+        `<div class="link-title fw-bold mb-1 text-break">${escapeHtml(link.title || "")}</div>` +
+        (link.url ? `<div class="link-url small text-primary text-truncate">${escapeHtml(link.url)}</div>` : "") +
+        (link.description ? `<div class="link-desc small text-secondary text-break">${escapeHtml(link.description)}</div>` : "") +
       '</div>' +
-      '<div class="link-actions">' +
+      '<div class="link-actions d-flex gap-2 flex-shrink-0">' +
         '<button type="button" class="btn btn-primary btn-sm" data-action="edit">Edit</button>' +
         '<button type="button" class="btn btn-danger btn-sm" data-action="delete">Delete</button>' +
       '</div>';
@@ -195,7 +195,7 @@ function renderLinkEditContent() {
   const data = linkEditBuffer;
   page.content =
     '<div class="d-flex gap-3 align-items-start flex-wrap">' +
-      '<div class="flex-grow-1" style="min-width:220px">' +
+      '<div class="flex-grow-1 overflow-hidden">' +
         '<div class="mb-2">' +
           '<label class="form-label mb-1">Title</label>' +
           `<input class="form-control" id="linkTitleInput" value="${escAttr(data.title || "")}" oninput="linkField('title', this.value)">` +

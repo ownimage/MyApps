@@ -9,18 +9,31 @@
 //
 // Attributes:
 //   variant  — primary | secondary | success | danger | info | warning | light | dark (default primary)
+//   size     — normal (default) | small (adds Bootstrap's `btn-sm`)
 //   disabled — boolean
 (function (global) {
   "use strict";
 
-  const VARIANTS = ["primary", "secondary", "success", "danger", "info", "warning", "light", "dark"];
+  // Component scripts are loaded before smd-app.js in the app shells. Define
+  // the shared style injector early so a light-DOM component that upgrades
+  // during body parsing can install its layout before the app boot script.
+  if (typeof global.injectSmdComponentStyle !== "function") {
+    global.injectSmdComponentStyle = function (id, css) {
+      if (document.getElementById(id)) return;
+      const style = document.createElement("style");
+      style.id = id;
+      style.textContent = css;
+      (document.head || document.documentElement).appendChild(style);
+    };
+  }
 
+  const VARIANTS = ["primary", "secondary", "success", "danger", "info", "warning", "light", "dark"];
   const template = document.createElement("template");
   template.innerHTML = `<button class="btn btn-primary"></button>`;
 
   class SmdButton extends HTMLElement {
     static get observedAttributes() {
-      return ["variant", "disabled"];
+      return ["variant", "disabled", "size"];
     }
 
     constructor() {
@@ -48,10 +61,18 @@
     attributeChangedCallback(name) {
       if (!this.isConnected) return;
       if (name === "disabled") this._applyDisabled();
-      if (name === "variant") this._applyVariant();
+      if (name === "variant" || name === "size") {
+        this._applyVariant();
+        this._applySize();
+      }
     }
 
     connectedCallback() {
+      // The host is a custom element (display:inline by default); give it the
+      // Bootstrap display utility it needs so no shared `smd-button` CSS rule is
+      // required. Consumers can still override with another `d-*` class (e.g.
+      // `d-block`), which wins by source order.
+      this.classList.add("d-inline-block");
       if (this._label === undefined) {
         this._label = this.textContent.replace(/^\s+|\s+$/g, "");
       }
@@ -61,6 +82,7 @@
       if (this.id) btn.id = this.id + "-button";
       this.appendChild(btn);
       this._applyVariant();
+      this._applySize();
       this._applyDisabled();
     }
 
@@ -73,6 +95,12 @@
       if (!btn) return;
       const requested = this.getAttribute("variant");
       btn.className = "btn btn-" + (VARIANTS.indexOf(requested) !== -1 ? requested : "primary");
+    }
+
+    _applySize() {
+      const btn = this._btn();
+      if (!btn) return;
+      btn.classList.toggle("btn-sm", (this.getAttribute("size") || "normal").toLowerCase() === "small");
     }
 
     _applyDisabled() {

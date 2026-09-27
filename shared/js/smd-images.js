@@ -259,6 +259,10 @@ function isSvgDataUrl(dataUrl) {
 }
 
 function isDarkTheme() {
+  // --smd-image-theme drives image colour rendering (default: mirrors
+  // html[data-bs-theme] via styles.css). Falls back to the attribute.
+  const v = getComputedStyle(document.documentElement).getPropertyValue("--smd-image-theme").trim().toLowerCase();
+  if (v === "dark" || v === "light") return v === "dark";
   return (document.documentElement.getAttribute("data-bs-theme") || "dark") === "dark";
 }
 
@@ -367,6 +371,12 @@ function renderImagesEditor() {
   const page = document.getElementById("imagesEditor");
   if (!page) return;
 
+  if (!page.__imageSearchBound) {
+    page.__imageSearchBound = true;
+    page.addEventListener("smd-search-input", e => setImageNameSearch(e.detail.value));
+    page.addEventListener("smd-search-clear", () => clearImageNameSearch());
+  }
+
   const images = loadImages();
 
   if (editingImageIndex >= 0) {
@@ -421,15 +431,8 @@ function renderImagesEditor() {
     page.headerHtml = "";
     page.content =
       '<div id="imageSearchHeader">' +
-        '<div id="imageSearchFilters" class="mt-3">' +
-          '<div class="row align-items-center">' +
-            '<div class="col" style="padding-left:0">' +
-              '<input type="search" class="form-control" id="imageNameSearchInput" placeholder="Search image names..." value="' + escapeHtml(imageNameSearch) + '" oninput="setImageNameSearch(this.value)">' +
-            '</div>' +
-            '<div class="col-auto" style="padding-left:0;padding-right:0">' +
-              '<smd-button variant="danger" id="btnImageFilterClear" onclick="clearImageNameSearch()">Clear</smd-button>' +
-            '</div>' +
-          '</div>' +
+        '<div id="imageSearchFilters" class="mt-1 mb-3 mx-2">' +
+          '<smd-search id="imageNameSearch" input-id="imageNameSearchInput" button-id="btnImageFilterClear" placeholder="Search image names..." value="' + escAttr(imageNameSearch) + '"></smd-search>' +
         '</div>' +
       '</div>' +
       '<div id="imagesList"></div>';
@@ -927,9 +930,8 @@ function openImagePicker(callback) {
   page.classList.remove("d-none");
   page.title = "Choose Image";
   page.content =
-    '<div class="mb-2 d-flex gap-2">' +
-      '<input class="form-control image-picker-search" id="imagePickerSearch" type="search" placeholder="Search images or icons..." oninput="filterImagePicker(this.value)">' +
-      '<button class="btn btn-outline-secondary" id="btnImagePickerClear" onclick="clearImagePickerFilter()">Clear</button>' +
+    '<div class="mb-2">' +
+      '<smd-search id="imagePickerSearchBox" input-id="imagePickerSearch" placeholder="Search images or icons..." value="' + escAttr(imagePickerSearch) + '"></smd-search>' +
     '</div>' +
     '<smd-tabs id="imagePickerTabs"></smd-tabs>';
   page.buttons = [
@@ -946,6 +948,8 @@ function openImagePicker(callback) {
         closeImagePicker();
       }
     });
+    page.addEventListener("smd-search-input", e => filterImagePicker(e.detail.value));
+    page.addEventListener("smd-search-clear", () => clearImagePickerFilter());
   }
   const tabsEl = $id("imagePickerTabs");
   if (tabsEl) {

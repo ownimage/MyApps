@@ -134,7 +134,7 @@ function renderExportWizard() {
         <input class="form-check-input" type="radio" name="ewDatesChoice" id="ewDatesSpecific" value="specific" ${ew.datesChoice === "specific" ? "checked" : ""} onchange="toggleDatesCascade()">
         <label class="form-check-label" for="ewDatesSpecific">Select specific dates</label>
       </div>
-      <div class="form-check" id="ewDatesCascadeWrapper" style="display:${showCascade ? "block" : "none"}">
+      <div class="form-check ${showCascade ? "d-block" : "d-none"}" id="ewDatesCascadeWrapper">
         <input class="form-check-input" type="checkbox" id="ewDatesCascade" ${ew.datesCascade ? "checked" : ""}>
         <label class="form-check-label" for="ewDatesCascade">Cascade: include related categories and images</label>
       </div>`;
@@ -154,11 +154,11 @@ function renderExportWizard() {
       .sort((a, b) => a.target - b.target);
     page.content = `
       <div class="d-flex gap-2 align-items-center mb-3 flex-wrap">
-        <select class="form-select" style="width:auto;min-width:160px" onchange="ew.dateFilterCategory=this.value;ewSaveCheckboxes();renderExportWizard()">
+        <select class="form-select w-auto" style="min-width:160px" onchange="ew.dateFilterCategory=this.value;ewSaveCheckboxes();renderExportWizard()">
           <option value="">All</option>
           ${catNames.map(c => `<option value="${escAttr(c)}" ${ew.dateFilterCategory === c ? "selected" : ""}>${escapeHtml(c)}</option>`).join("")}
         </select>
-        <input class="form-control" id="ewDateFilterName" type="search" placeholder="Search date names..." style="flex:1;min-width:150px" value="${escAttr(ew.dateFilterName)}" oninput="ew.dateFilterName=this.value;ewSaveCheckboxes();renderExportWizard()">
+        <input class="form-control flex-grow-1" id="ewDateFilterName" type="search" placeholder="Search date names..." style="min-width:150px" value="${escAttr(ew.dateFilterName)}" oninput="ew.dateFilterName=this.value;ewSaveCheckboxes();renderExportWizard()">
       </div>
       <div class="cmd-scroll-list">
       ${withDate.map(item => {
@@ -192,7 +192,7 @@ function renderExportWizard() {
         <input class="form-check-input" type="radio" name="ewCategoriesChoice" id="ewCatsSpecific" value="specific" ${ew.categoriesChoice === "specific" ? "checked" : ""} onchange="toggleCategoriesCascade()">
         <label class="form-check-label" for="ewCatsSpecific">Select specific categories</label>
       </div>
-      <div class="form-check" id="ewCategoriesCascadeWrapper" style="display:${showCatsCascade ? "block" : "none"}">
+      <div class="form-check ${showCatsCascade ? "d-block" : "d-none"}" id="ewCategoriesCascadeWrapper">
         <input class="form-check-input" type="checkbox" id="ewCategoriesCascade" ${ew.categoriesCascade ? "checked" : ""}>
         <label class="form-check-label" for="ewCategoriesCascade">Cascade: include related images</label>
       </div>`;
@@ -207,7 +207,7 @@ function renderExportWizard() {
     const sorted = filtered.slice().sort((a, b) => a.name.localeCompare(b.name));
     page.content = `
       <div class="d-flex gap-2 align-items-center mb-3 flex-wrap">
-        <input class="form-control" id="ewCatFilterName" type="search" placeholder="Search category names..." style="flex:1;min-width:150px" value="${escAttr(ew.catFilterName)}" oninput="ew.catFilterName=this.value;ewSaveCheckboxes();renderExportWizard()">
+        <input class="form-control flex-grow-1" id="ewCatFilterName" type="search" placeholder="Search category names..." style="min-width:150px" value="${escAttr(ew.catFilterName)}" oninput="ew.catFilterName=this.value;ewSaveCheckboxes();renderExportWizard()">
       </div>
       <div class="cmd-scroll-list">
       ${sorted.map(c => {
@@ -249,7 +249,7 @@ function renderExportWizard() {
     const sorted = filtered.slice().sort((a, b) => a.name.localeCompare(b.name));
     page.content = `
       <div class="d-flex gap-2 align-items-center mb-3 flex-wrap">
-        <input class="form-control" id="ewImageFilterName" type="search" placeholder="Search image names..." style="flex:1;min-width:150px" value="${escAttr(ew.imageFilterName)}" oninput="ew.imageFilterName=this.value;ewSaveCheckboxes();renderExportWizard()">
+        <input class="form-control flex-grow-1" id="ewImageFilterName" type="search" placeholder="Search image names..." style="min-width:150px" value="${escAttr(ew.imageFilterName)}" oninput="ew.imageFilterName=this.value;ewSaveCheckboxes();renderExportWizard()">
       </div>
       <div class="cmd-scroll-list">
       ${sorted.map(img => {
@@ -418,7 +418,7 @@ function toggleDatesCascade() {
   const all = ewQuery("#ewDatesAll");
   const specific = ewQuery("#ewDatesSpecific");
   if (!wrapper || !all || !specific) return;
-  wrapper.style.display = (all.checked || specific.checked) ? "block" : "none";
+  wrapper.classList.toggle("d-none", !(all.checked || specific.checked));
 }
 
 function toggleCategoriesCascade() {
@@ -426,7 +426,7 @@ function toggleCategoriesCascade() {
   const all = ewQuery("#ewCatsAll");
   const specific = ewQuery("#ewCatsSpecific");
   if (!wrapper || !all || !specific) return;
-  wrapper.style.display = (all.checked || specific.checked) ? "block" : "none";
+  wrapper.classList.toggle("d-none", !(all.checked || specific.checked));
 }
 
 function finishExportWizard() {

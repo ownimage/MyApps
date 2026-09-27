@@ -73,7 +73,10 @@
       else this.setAttribute("value", String(val));
     }
 
-    connectedCallback() { this._render(); }
+    connectedCallback() {
+      this.classList.add("d-block");
+      this._render();
+    }
 
     attributeChangedCallback() {
       if (this.isConnected) this._render();

@@ -1,5 +1,6 @@
-// <smd-modal> — confirm/info modal (light DOM). Styles live in
-// shared/css/styles.css. Renders overlay/dialog/header/body/footer buttons
+// <smd-modal> — confirm/info modal (light DOM). Layout is applied by the
+// component; surface/theme rules live in shared/css/styles.css. Renders
+// overlay/dialog/header/body/footer buttons
 // straight into the host; the app pumps `title`/`content`/`buttons` properties
 // and footer buttons use real Bootstrap `btn btn-*` classes.
 class SmdModal extends HTMLElement {
@@ -31,6 +32,18 @@ class SmdModal extends HTMLElement {
   }
 
   _render() {
+    if (typeof injectSmdComponentStyle === "function") {
+      injectSmdComponentStyle("smd-modal-layout", `
+        smd-modal { display: none; position: fixed; inset: 0; z-index: 1050; }
+        smd-modal[open] { display: block; }
+        smd-modal .smd-overlay { position: fixed; inset: 0; }
+        smd-modal .smd-dialog { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 90%; max-width: 500px; max-height: 90vh; display: flex; flex-direction: column; overflow: hidden; }
+        smd-modal .smd-header { display: flex; align-items: center; justify-content: space-between; padding: 1rem 1.25rem 0.5rem; flex-shrink: 0; }
+        smd-modal .smd-body { padding: 1rem 1.25rem; overflow-y: auto; flex: 1; }
+        smd-modal .smd-footer { display: flex; gap: 0.5rem; padding: 0.75rem 1.25rem; }
+        smd-modal .smd-footer button { flex: 1; }
+      `);
+    }
     const buttonsHtml = this._buttons.map((btn, i) => {
       const variant = btn.variant || 'primary';
       const text = btn.text || 'OK';

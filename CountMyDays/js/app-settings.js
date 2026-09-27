@@ -32,7 +32,7 @@ function setGCalVisible(enabled) {
   const options = $id("gcalOptions");
   if (options) options.classList.toggle("d-none", !enabled);
   document.querySelectorAll(".google-menu-item").forEach(el => {
-    el.style.display = enabled ? "" : "none";
+    el.classList.toggle("d-none", !enabled);
   });
 }
 
@@ -90,7 +90,7 @@ function buildSettingsContent() {
   const { sections, footerHtml } = getSettingsSections();
 
   settingsPage.title = "Settings";
-  settingsPage.content = '<smd-tabs id="settingsTabs"></smd-tabs>' + footerHtml;
+  settingsPage.content = '<smd-tabs id="settingsTabs" narrow></smd-tabs>' + footerHtml;
   settingsPage.buttons = [{ text: "OK", variant: "success", action: "done" }];
 
   const tabsEl = $id("settingsTabs");
@@ -120,9 +120,13 @@ function openSettings() {
   buildSettingsContent();
   page.show();
 
-  const savedTheme = localStorage.getItem(smdKey("theme")) || "superhero";
+  const savedTheme = getStoredTheme();
+  const savedThemeMode = getStoredThemeMode();
   const themeSel = $id("themeSelector");
-  if (themeSel) themeSel.setAttribute("theme", savedTheme);
+  if (themeSel) {
+    themeSel.setAttribute("theme", savedTheme);
+    themeSel.setAttribute("mode", savedThemeMode);
+  }
 
   const savedFormat = localStorage.getItem(smdKey("countdownFormat")) || "days";
   const formatSel = $id("formatSelector");

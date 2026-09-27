@@ -47,7 +47,12 @@ class SmdBuyMeACoffee extends HTMLElement {
     const img = document.createElement('img');
     img.src = BMC_IMAGE;
     img.alt = 'Buy Me A Coffee';
-    img.style.height = `${this.height}px`;
+    const height = Math.max(1, parseInt(this.height, 10) || 50);
+    img.width = Math.round(height * 545 / 153);
+    img.height = height;
+    img.className = 'd-block';
+    img.style.width = img.width + 'px';
+    img.style.height = height + 'px';
 
     link.appendChild(img);
 

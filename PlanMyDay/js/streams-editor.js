@@ -52,7 +52,6 @@ function openStreamEditPage() {
     { text: "Cancel", variant: "secondary", action: "cancel", id: "btnStreamEditCancel" },
     { text: "OK", variant: "success", action: "done", id: "btnStreamEditOk" }
   ];
-  injectStyleInto(JOBS_EDITOR_STYLES);
   page.show();
   updateStreamEditOkBtn();
   if (isNew) {
@@ -154,24 +153,24 @@ function renderStreamsEditor() {
     ];
     if (streamImageName) headerAttrs.push('image="' + escAttr(streamImageName) + '"');
     if (headerJobCounts) headerAttrs.push('jobcounts="' + escAttr(headerJobCounts) + '"');
-    var headerHtml = '<pmd-stream-header ' + headerAttrs.filter(Boolean).join(" ") + '></pmd-stream-header>';
+    var headerHtml = '<pmd-stream-header class="d-block" ' + headerAttrs.filter(Boolean).join(" ") + '></pmd-stream-header>';
 
     var bodyHtml = '<div id="' + collapseId + '" class="accordion-collapse collapse' + (isExpanded ? " show" : "") + '">' +
-      '<div class="accordion-body stream-accordion-body">' +
+      '<div class="accordion-body stream-accordion-body p-0">' +
         (jobs.length > 0 ? renderJobsInAccordion(t, jobs, realIdx) : '<div class="text-secondary small p-2">No jobs</div>') +
       '</div>' +
     '</div>';
 
-    accordionHtml += '<div class="accordion-item stream-accordion-item stream-drag-card mb-2' + (isExpanded ? " expanded" : "") + '" data-stream-idx="' + realIdx + '">' + headerHtml + bodyHtml + '</div>';
+    accordionHtml += '<div class="accordion-item stream-accordion-item stream-drag-card mb-2 user-select-none border rounded overflow-hidden' + (isExpanded ? " expanded" : "") + '" data-stream-idx="' + realIdx + '">' + headerHtml + bodyHtml + '</div>';
   });
 
-  page.headerHtml = '<smd-badge id="editJobsTotalBadge" variant="info" pill style="font-size:0.8em;vertical-align:middle"></smd-badge>';
+  page.headerHtml = '<smd-badge id="editJobsTotalBadge" variant="info" pill class="small align-middle"></smd-badge>';
   page.content =
-    '<div id="streamsEditorHeader">' +
+    '<div id="streamsEditorHeader" class="flex-shrink-0">' +
       '<div id="addStreamTileTop" class="mb-3"></div>' +
       '<div id="streamEditorFilters" class="mb-3"></div>' +
     '</div>' +
-    '<div id="streamEditorList" class="accordion">' + accordionHtml + '</div>' +
+    '<div id="streamEditorList" class="accordion pb-5">' + accordionHtml + '</div>' +
     '<div id="addStreamTile" class="mt-3"></div>' +
     '<div id="singleStreamEditor" class="d-none"></div>';
 
@@ -357,10 +356,10 @@ function renderJobsInAccordion(stream, jobs, streamIdx) {
     if (j.time && j.time.trim()) attrs.push('time="' + escAttr(j.time.trim()) + '"');
     if (suffix) attrs.push('suffix="' + escAttr(suffix) + '"');
     if (extra) attrs.push('extra="' + escAttr(extra) + '"');
-    return '<div class="job-drag-card" data-job-idx="' + realIdx + '">' +
-      '<pmd-stream-job-card ' + attrs.join(" ") + '>' +
+    return '<div class="job-drag-card mb-0 user-select-none" data-job-idx="' + realIdx + '">' +
+      '<pmd-job-stream-card class="d-block" ' + attrs.join(" ") + '>' +
         '<smd-draghandle class="drag-handle" title="drag" slot="drag-handle"></smd-draghandle>' +
-      '</pmd-stream-job-card>' +
+      '</pmd-job-stream-card>' +
     '</div>';
   }).join("");
 }
