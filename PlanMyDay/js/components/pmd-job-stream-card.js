@@ -39,7 +39,7 @@ pmdJobStreamCardTemplate.innerHTML = `
         </div>
       </div>
 
-      <div class="d-flex flex-column flex-grow-1 overflow-hidden">
+      <div class="d-flex flex-column flex-grow-1 overflow-hidden ms-2">
 
         <!-- FULL-WIDTH TITLE, suffix badge straight after the text with a fixed gap -->
         <div class="d-flex align-items-center">

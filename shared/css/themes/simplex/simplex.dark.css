@@ -1,0 +1,29 @@
+#smd-app smd-page .smd-page-header {
+    background-color: var(--bs-primary);
+}
+
+#smd-app smd-page .smd-page-footer {
+    border-top: 2px solid var(--bs-primary);
+}
+
+.navbar {
+    border: none;
+    border-bottom: 2px solid var(--bs-primary);
+}
+
+.card {
+    background: var(--bs-secondary-bg) ;
+    border: none !important;
+    border-bottom: 2px solid var(--bs-primary) !important;
+}
+
+smd-image-dropdown .btn,
+smd-image-dropdown .btn:disabled,
+smd-image-dropdown .btn:hover,
+smd-image-dropdown .btn:focus-visible
+{
+  background-color: var(--smd-dropdown-background);
+  color: var(--smd-dropdown-foreground);
+  border-color: var(--smd-dropdown-border-color);
+}
+

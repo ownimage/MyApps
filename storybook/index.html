@@ -49,12 +49,37 @@
       margin-bottom: 0.5rem;
     }
     .sb-label { letter-spacing: 0.04em; }
-    .sb-theme-control smd-theme { display: flex; align-items: center; gap: 1rem; }
+    /* The header must stay on ONE line. The component sets `smd-theme
+       { display: block }` and the bottom gap on the fields itself (plain CSS, not
+       a !important utility), so this override needs no !important of its own. */
+    .sb-theme-control smd-theme { display: flex; align-items: center; gap: 0.75rem; }
     .sb-theme-control smd-theme .smd-theme-field { display: flex; align-items: center; gap: 0.5rem; margin: 0; }
+    /* The control does NOT shrink, so its two fields can never wrap onto a second
+       line; the title gives way instead. `max-width` on the selects caps how much
+       of the squeeze they can refuse - without it they keep the intrinsic
+       "longest option" width and the title is crushed to a few characters. */
+    .sb-theme-control { flex-shrink: 0; }
     .sb-theme-control smd-theme .smd-theme-field > label { width: auto; margin: 0; white-space: nowrap; }
-    .sb-theme-control smd-theme .smd-theme-field > div { width: auto; }
-    .sb-theme-control smd-theme select { width: auto; min-width: 10rem; }
-    .sb-theme-control smd-theme .smd-theme-select { min-width: 11rem; }
+    /* The select is inside a wrapper div, so the WRAPPER is the shrinkable flex
+       item; the select then fills it. Without this the select keeps its
+       intrinsic "longest option" width, the control can never give space back,
+       and the title is ellipsized down to a few characters on a narrow window. */
+    .sb-theme-control smd-theme .smd-theme-field > div { width: auto; flex: 1 1 auto; min-width: 0; }
+    .sb-theme-control smd-theme select { width: 100%; min-width: 7rem; max-width: 9rem; }
+    .sb-theme-control smd-theme .smd-theme-select { min-width: 8.5rem; max-width: 11rem; }
+    /* Narrower select floors below the lg breakpoint. */
+    @media (max-width: 991.98px) {
+      .sb-theme-control smd-theme { gap: 0.5rem; }
+      .sb-theme-control smd-theme select { min-width: 5.5rem; }
+      .sb-theme-control smd-theme .smd-theme-select { min-width: 6.5rem; }
+    }
+    /* Below md the header is allowed to wrap; stack the two Theme fields and let
+       the control shrink, so it cannot push the row wider than the viewport. */
+    @media (max-width: 767.98px) {
+      .sb-theme-control { flex-shrink: 1; min-width: 0; }
+      .sb-theme-control smd-theme { flex-wrap: wrap; }
+      .sb-theme-control smd-theme .smd-theme-field { width: 100%; }
+    }
     html[data-theme="superhero"] body { background-color: #0f2537; }
     .sb-stream-card { transition: border-color 0.2s ease; }
     .sb-stream-card .sb-stream-body pmd-job-stream-card + pmd-job-stream-card { margin-top: -1px; }
@@ -63,15 +88,18 @@
 </head>
 <body id="smd-app" class="overflow-x-hidden">
 
-  <header class="sb-header sticky-top d-flex flex-wrap align-items-center gap-3 py-3 px-4 bg-body border-bottom">
-    <h1 class="m-0 fs-5 fw-semibold text-break">PlanMyDay &middot; Web Component Storybook</h1>
-    <a class="btn btn-outline-secondary btn-sm" href="cardViewer.html">Card Viewer</a>
-    <div class="sb-theme-control d-flex align-items-center gap-3 ms-auto" style="color-scheme:var(--sb-color-scheme)">
+  <header class="sb-header sticky-top d-flex flex-wrap flex-md-nowrap align-items-center gap-3 py-3 px-4 bg-body border-bottom">
+    <h1 class="m-0 fs-5 fw-semibold text-truncate min-w-0" title="PlanMyDay &middot; Web Component Storybook">PlanMyDay &middot; Web Component Storybook</h1>
+    <a class="btn btn-outline-secondary btn-sm text-nowrap" href="cardViewer.html">Card Viewer</a>
+    <div class="sb-theme-control d-flex align-items-center gap-3 ms-auto text-nowrap" style="color-scheme:var(--sb-color-scheme)">
       <smd-theme id="storybookThemeSelector"></smd-theme>
     </div>
   </header>
 
-  <nav class="sb-nav sticky-top d-flex flex-wrap gap-2 py-2 px-4 bg-body border-bottom" style="top:57px" aria-label="Sections"></nav>
+  <!-- `top` comes from --sb-header-h, measured in syncStickyOffset(): the header
+       is a single row whose height moves with the font-size setting, so a fixed
+       pixel value leaves the nav overlapping it (or floating below it). -->
+  <nav class="sb-nav sticky-top d-flex flex-wrap gap-2 py-2 px-4 bg-body border-bottom" style="top:var(--sb-header-h, 5rem)" aria-label="Sections"></nav>
 
   <main class="sb-main p-3 px-xl-4 pb-5 w-100" id="main"></main>
 
@@ -1369,7 +1397,26 @@
       document.body.appendChild(page);
     }
 
+    // The nav is sticky directly under the header, so it needs the header's live
+    // height. Measured (not hard-coded) because the header holds a heading and
+    // selects, so its height follows the font-size setting, the viewport width
+    // (it wraps on phones) AND the <smd-theme> component's own render. A
+    // ResizeObserver covers all of those; a single measurement at script time
+    // was ~20px stale because it ran before the component rendered its fields.
+    function syncStickyOffset() {
+      const header = document.querySelector("header.sb-header");
+      if (!header) return;
+      const height = Math.round(header.getBoundingClientRect().height);
+      if (height > 0) document.documentElement.style.setProperty("--sb-header-h", height + "px");
+    }
+
     renderAll();
+    syncStickyOffset();
+    window.addEventListener("resize", syncStickyOffset);
+    const headerEl = document.querySelector("header.sb-header");
+    if (headerEl && typeof ResizeObserver === "function") {
+      new ResizeObserver(syncStickyOffset).observe(headerEl);
+    }
   </script>
 </body>
 </html>
