@@ -4,16 +4,18 @@
 // localStorage image list: name + duplicate check, themed preview + Upload,
 // the per-theme colour sections and OK/Cancel.
 //
-// It renders in the LIGHT DOM on purpose: the host is the Bootstrap
-// #imageEditModal, whose document CSS (Bootstrap + app styles) must style the
-// content, and existing app/test selectors such as
-// `#imageEditModalBody .card input.form-control` keep working.
+// It renders in the LIGHT DOM on purpose: the host is #imageEditModal, which is
+// an <smd-page> (it was a Bootstrap modal until 2026-09-27), so the app's
+// document CSS must style the content, and existing app/test selectors such as
+// `#imageEditModalBody input.form-control` keep working.
 //
 // The field controls call the shared smd-images.js globals (editImageField,
-// checkDuplicateName, editImageColor, ...); the OK / Cancel / Upload buttons
-// dispatch <code>smd-image-editor-action</code> (detail = { action: "ok" |
-// "cancel" | "upload", index }) so the controller (smd-images.js) owns the
-// behaviour and the component stays a view.
+// checkDuplicateName, editImageColor, ...). Upload dispatches
+// <code>smd-image-editor-action</code> (detail = { action: "upload", index })
+// so the controller (smd-images.js) owns the behaviour and the component stays a
+// view. OK / Cancel are NOT here: they are the hosting <smd-page>'s footer
+// buttons (Cancel then OK, ids btnImageEditCancel / btnImageEditOk), which is
+// where the other app dialogs put them.
 //
 // Properties:
 //   image       â€” the images[] entry being edited (required)
@@ -65,32 +67,27 @@ class SmdImageEditor extends HTMLElement {
     const previewPx = typeof smdImagePreviewSizePx === "function" ? smdImagePreviewSizePx() : 100;
     const previewStyle = `width:${previewPx}px;height:${previewPx}px;object-fit:contain;flex-shrink:0`;
 
+    // No wrapper <div class="card">: the host is an <smd-page>, which already
+    // provides the surface and padding, so a card inside it was a second frame
+    // around the content. The form's own blocks are all that is needed.
     this.innerHTML = `
-      <div class="card p-3">
-        <div class="mb-2">
-          <label class="form-label mb-1">Name</label>
-          <input class="form-control" value="${escapeHtml(img.name)}" onchange="editImageField('name', this.value); checkDuplicateName()" oninput="checkDuplicateName()">
-          <div id="imageNameError" class="text-danger mt-1" style="display:none">ERROR: There is already an image with this name.</div>
-        </div>
-        <div class="d-flex gap-2 align-items-center mb-2">
-          <div style="width:45px;flex-shrink:0"></div>
-          ${hasData
-            ? `<img src="" data-smdsrc="${escAttr(getThemedImageDataUrl(img))}" class="data-img" style="${previewStyle}" hidden>`
-            : `<div class="data-img d-flex align-items-center justify-content-center text-secondary border rounded" style="${previewStyle}">No image</div>`
-          }
-          <button id="btnImageUpload" class="btn btn-primary btn-sm text-nowrap" type="button">Upload</button>
-        </div>
-        ${colorEditorHtml}
-        <div class="d-flex gap-2 mt-3">
-          <button id="btnImageEditOk" class="btn btn-success editor-btn flex-fill" type="button">OK</button>
-          <button id="btnImageEditCancel" class="btn btn-secondary editor-btn flex-fill" type="button">Cancel</button>
-        </div>
+      <div class="mb-2">
+        <label class="form-label mb-1">Name</label>
+        <input class="form-control" value="${escapeHtml(img.name)}" onchange="editImageField('name', this.value); checkDuplicateName()" oninput="checkDuplicateName()">
+        <div id="imageNameError" class="text-danger mt-1" style="display:none">ERROR: There is already an image with this name.</div>
       </div>
+      <div class="d-flex gap-2 align-items-center mb-2">
+        <div style="width:45px;flex-shrink:0"></div>
+        ${hasData
+          ? `<img src="" data-smdsrc="${escAttr(getThemedImageDataUrl(img))}" class="data-img" style="${previewStyle}" hidden>`
+          : `<div class="data-img d-flex align-items-center justify-content-center text-secondary border rounded" style="${previewStyle}">No image</div>`
+        }
+        <button id="btnImageUpload" class="btn btn-primary btn-sm text-nowrap" type="button">Upload</button>
+      </div>
+      ${colorEditorHtml}
     `;
 
     this.querySelector("#btnImageUpload").addEventListener("click", () => this._emit("upload"));
-    this.querySelector("#btnImageEditOk").addEventListener("click", () => this._emit("ok"));
-    this.querySelector("#btnImageEditCancel").addEventListener("click", () => this._emit("cancel"));
 
     const smdSetSrc = typeof window.smdSetImageSrc === "function" ? window.smdSetImageSrc : null;
     this.querySelectorAll("[data-smdsrc]").forEach((el) => {

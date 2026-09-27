@@ -914,7 +914,7 @@
       id: "smd-image-editor",
       name: "smd-image-editor",
       tag: "<smd-image-editor>",
-      desc: "The shared image edit form (hosted in the Bootstrap <code>#imageEditModal</code> by the apps). Light DOM on purpose so Bootstrap and shared CSS style it and app selectors keep working. Properties: <code>image</code> (the images[] entry), <code>index</code>, <code>isNew</code>, <code>isDuplicate</code>; call <code>render()</code> after setting them. OK / Cancel / Upload dispatch <code>smd-image-editor-action</code> (<code>{ action, index }</code>); the name/colour controls call the shared smd-images.js globals.",
+      desc: "The shared image edit form (hosted in <code>#imageEditModal</code>, which is an <code>smd-page</code>, by the apps). Light DOM on purpose so the shared and app CSS style it and app selectors keep working. Properties: <code>image</code> (the images[] entry), <code>index</code>, <code>isNew</code>, <code>isDuplicate</code>; call <code>render()</code> after setting them. The preview follows the Settings Icon size, clamped to 40-100px. Upload dispatches <code>smd-image-editor-action</code> (<code>{ action, index }</code>); OK / Cancel are the hosting page's FOOTER buttons (Cancel then OK), which dispatch <code>smd-page-action</code>; the name/colour controls call the shared smd-images.js globals.",
       html: () => `
         <div class="sb-canvas d-flex flex-column flex-wrap align-items-start gap-3 p-3 w-100 border rounded bg-body">
           <div class="w-100" id="sb-image-editor"></div>

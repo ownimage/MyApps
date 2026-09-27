@@ -40,14 +40,14 @@ async function seedImage(page, prefix) {
 }
 
 // The previews unhide only once their src resolves through smdImageRenderUrl
-// (Cache Storage), and the Bootstrap modal fades in asynchronously — an <img>
-// can be "loaded" while its ancestor modal is still display:none, which measures
-// as 0x0. So wait for the modal to be shown AND for real pixels.
+// (Cache Storage), and the page slides in asynchronously — an <img> can be
+// "loaded" while the page is still `d-none`, which measures as 0x0. So wait for
+// the page to be open AND for real pixels.
 async function openDialogAndMeasure(page) {
   await page.evaluate(() => { openImagesEditor(); startEditImage(0); });
   await page.waitForFunction(() => {
-    const modal = document.getElementById("imageEditModal");
-    if (!modal || !modal.classList.contains("show")) return false;
+    const page = document.getElementById("imageEditModal");
+    if (!page || !page.hasAttribute("open") || page.classList.contains("d-none")) return false;
     const imgs = Array.from(document.querySelectorAll("#imageEditModalBody img.data-img"));
     if (imgs.length < 1) return false;
     return imgs.every((i) => !i.hidden && i.complete && i.naturalWidth > 0 && i.getBoundingClientRect().width > 0);

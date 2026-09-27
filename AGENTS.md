@@ -437,6 +437,77 @@ Techniques / gotchas:
 
 ## Session log
 
+### 2026-09-27 (f) - #imageEditModal: Bootstrap modal -> <smd-page>
+- Converted the last Bootstrap modal in the app shells to the shared page
+  component. `PlanMyDay`, `CountMyDays` and `QRLinks` now declare
+  `<smd-page id="imageEditModal" class="d-none"></smd-page>` instead of the
+  `.modal > .modal-dialog > .modal-content > .modal-header/.modal-body` markup.
+  NO `class="modal"` markup remains in any `*.html`.
+- The element ID was deliberately KEPT as `imageEditModal` (it is a page now, not
+  a modal) so the ~90 existing `#imageEditModal ...` test selectors survive;
+  only `#imageEditModalTitle` had to move, because `smd-page` renders its own
+  `<h1>` in `.smd-page-header`. Four assertions were retargeted to
+  `#imageEditModal .smd-page-header h1` (3 in pmd-regression, 1 in
+  cmd-regression) — the same pattern the other pages already use.
+- `#imageEditModalBody` is preserved as an inner div that becomes the page's
+  `content`, so every `#imageEditModalBody ...` selector (and `smd-images.js`'s
+  own name-field lookup) still resolves unchanged.
+- `renderImagesEditor()` no longer builds a `bootstrap.Modal`; it sets the page's
+  properties and shows it. **ORDERING TRAP (cost a debugging round):** EVERY
+  `smd-page` property setter (`title` / `content` / `buttons`) re-renders the
+  whole page via `innerHTML`, which DETACHES anything already mounted in it. So
+  set all the page properties FIRST and mount the `<smd-image-editor>` LAST.
+  Setting `page.buttons` after mounting silently threw the form away and the page
+  rendered empty (no visible images). The page's `smd-page-action` listener is
+  bound once via `page.__smdPageActionsBound`.
+  `safeHideModal("imageEditModal")` (x2) became `hideImageEditPage()` =
+  `page.hide()` + `d-none` re-applied after the slide-out, mirroring
+  `closeSettings()` (a footer button already auto-hides, so it is idempotent).
+- OK / Cancel now live in the page FOOTER, in that order (Cancel left, OK right —
+  the order every other app dialog uses), passed as
+  `page.buttons = [{Cancel, id:"btnImageEditCancel"}, {OK, id:"btnImageEditOk"}]`.
+  The ids were KEPT so the existing `#btnImageEditOk` / `#btnImageEditCancel`
+  selectors still resolve (they now land on the `<smd-button>` host). The card
+  no longer renders its own OK / Cancel, so there is exactly one of each — which
+  also keeps `getByRole("button", { name: "Cancel" })` single-match. `Upload`
+  stays in the form next to the preview; only the "upload" branch of
+  `smd-image-editor-action` remains.
+  `detail.index` in `smd-page-action` is the BUTTON index (0 = Cancel, 1 = OK),
+  so the handler uses the module's `editingImageIndex`, not the event.
+- The duplicate-name guard moved with OK: `checkDuplicateName()` now calls
+  `setImageEditOkDisabled()`, which toggles the `disabled` ATTRIBUTE on the
+  `#btnImageEditOk` host (`smd-button` mirrors it to the inner `<button>`).
+  It must NOT re-assign `page.buttons` to change the state - that would re-render
+  the page and wipe the form mid-typing.
+- Removed the form's wrapper `<div class="card p-3">`: the `<smd-page>` already
+  provides the surface and padding, so the card was a second frame around the
+  content. Two selectors had to follow: `checkDuplicateName()`'s name-field
+  lookup is now `#imageEditModalBody input.form-control:not(.form-control-sm)`
+  (the Name field is the only non-`form-control-sm` text input; the stroke-width
+  input has both classes), and one cmd-regression assertion dropped `.card`.
+- DEAD CODE REMOVED while converting (all verified with a repo-wide reference
+  scan, not by eye): `safeHideModal()` + the two `shown.bs.modal` /
+  `hidden.bs.modal` dataset listeners in `smd-app.js` (their last caller was
+  this dialog); and 7 no-op blocks in `pmd-regression.spec.js` that hid
+  Bootstrap modals — 5 `if (modal) modal.hide()` on `#imagePickerModal` (gone
+  since the picker became `<smd-page id="imagePickerPage">`, and each site
+  already waits for the page to be hidden on the next line) plus 2
+  `querySelectorAll(".modal.show")` scrub blocks in `beforeEach` hooks.
+  `shared/vendor/bootstrap.bundle.min.js` is STILL REQUIRED — it is not
+  modal-only: all 6 shells use `data-bs-toggle="dropdown"` for the main menu and
+  `smd-tabs` uses Bootstrap's tab data-api.
+- BEHAVIOUR CHANGE to know about: the edit page now takes part in `smd-page`'s
+  page STACK, so opening it SUSPENDS the page underneath (`#imagesEditor` gets
+  `smd-page-suspended`, i.e. hidden) and restores it on close. As a Bootstrap
+  modal it merely overlaid. This is the same relationship `imagePickerPage` has
+  with its editor. `updateNavState()` also now sees an open `smd-page` rather
+  than a modal, so the nav hides while editing.
+- `safeHideModal()` in `shared/js/smd-app.js` is now unused but was LEFT in place
+  (it is a documented shared global, and the adjacent `shown.bs.modal` /
+  `hidden.bs.modal` dataset listeners are harmless with no Bootstrap modals).
+- Verified: 439 PlanMyDay + 62 CountMyDays/QRLinks/storybook tests, plus the 10
+  preview-size tests from (e), all pass.
+
 ### 2026-09-27 (e) - image edit dialog preview follows the Settings icon size; `.date-img` -> `.data-img`
 - BUG (user): the main image in the IMAGE EDIT MODAL was "huge". ROOT CAUSE: the
   `.date-img` sizing rule was DELETED from `shared/css/styles.css` in `1dbdfe1

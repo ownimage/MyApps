@@ -503,10 +503,10 @@ test.describe("CountMyDays - Regression", () => {
       await page.evaluate(() => openImagesEditor());
       await page.locator("#imagesEditor").getByRole("button", { name: "Add Image" }).click();
       await expect(page.locator("#imageEditModal")).toBeVisible();
-      await expect(page.locator("#imageEditModalTitle")).toHaveText("Add Image");
+      await expect(page.locator("#imageEditModal .smd-page-header h1")).toHaveText("Add Image");
       // The dialog form is the shared <smd-image-editor> component.
       await expect(page.locator("#imageEditModalBody smd-image-editor")).toBeVisible();
-      await expect(page.locator("#imageEditModalBody smd-image-editor .card input.form-control")).toBeVisible();
+      await expect(page.locator("#imageEditModalBody smd-image-editor input.form-control")).toBeVisible();
       await page.locator("#imageEditModal").getByRole("button", { name: "Cancel" }).click();
     });
   });

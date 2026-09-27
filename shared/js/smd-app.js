@@ -104,19 +104,6 @@ function escAttr(str) {
   return escapeHtml(str).replace(/"/g, "&quot;");
 }
 
-// MODAL HELPERS
-// Bootstrap ignores hide() while a modal's show transition is running, so track
-// the fully-shown state and defer hide() until the "shown" event fires.
-document.addEventListener("shown.bs.modal", function(e) { e.target.dataset.bsShown = "true"; });
-document.addEventListener("hidden.bs.modal", function(e) { e.target.dataset.bsShown = "false"; });
-function safeHideModal(modalId) {
-  const el = document.getElementById(modalId);
-  if (!el) return;
-  const hide = () => bootstrap.Modal.getOrCreateInstance(el).hide();
-  if (el.dataset.bsShown === "true") hide();
-  else el.addEventListener("shown.bs.modal", hide, { once: true });
-}
-
 // Single shared <smd-modal> host, driven by set option objects; resolves via
 // the smd-modal-action event. Every app/modal flow uses showSmdModal.
 let _smdModalHost = null;

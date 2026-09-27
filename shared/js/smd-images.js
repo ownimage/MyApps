@@ -142,8 +142,8 @@ function smdSetImageSrc(el, src) {
 }
 
 // Preview box size for the image edit dialog (the main image and the two
-// per-theme previews). It follows the Settings "Icon size" value — each app
-// pushes that to SmdImage.defaultSize via applyImageSize() — so the preview
+// per-theme previews). It follows the Settings "Icon size" value â€” each app
+// pushes that to SmdImage.defaultSize via applyImageSize() â€” so the preview
 // shows the image at the size the app actually renders it at. Clamped to
 // 40-100px: xsmall (32px) is too small to judge an image in the dialog, and the
 // clamp also stops a future larger setting from overflowing the panel.
@@ -201,7 +201,7 @@ function purgeStaleImageCache() {
   }).catch(function () {});
 }
 
-// Debounced GC kicker — saveImages() runs on every edit keystroke, so collapse
+// Debounced GC kicker â€” saveImages() runs on every edit keystroke, so collapse
 // a burst of edits into one sweep once they settle.
 function scheduleImageCacheGc() {
   if (typeof caches === "undefined") return;
@@ -401,36 +401,54 @@ function renderImagesEditor() {
   if (editingImageIndex >= 0) {
     const img = images[editingImageIndex];
 
-    document.getElementById("imageEditModalTitle").textContent = isNewImage ? "Add Image" : (isDuplicateImage ? "Duplicate Image" : "Edit Image");
+    const page = document.getElementById("imageEditModal");
+    if (!page) return;
     // The form itself is the shared <smd-image-editor> component (light DOM so
-    // the Bootstrap modal + app styles apply, exactly like PlanMyDay).
-    const body = document.getElementById("imageEditModalBody");
-    let editor = body.querySelector("smd-image-editor");
-    if (!editor) {
-      editor = document.createElement("smd-image-editor");
-      body.appendChild(editor);
-    }
-    if (!editor.__smdActionsBound) {
-      editor.__smdActionsBound = true;
-      editor.addEventListener("smd-image-editor-action", (e) => {
-        const detail = e.detail || {};
-        if (detail.action === "upload") openImageUpload(detail.index);
-        else if (detail.action === "ok") doneImageEdit(detail.index);
-        else if (detail.action === "cancel") cancelImageEdit();
+    // the page + app styles apply, exactly like PlanMyDay). It is mounted into
+    // #imageEditModalBody, which is this page's content, so the many existing
+    // `#imageEditModalBody ...` selectors keep working.
+    //
+    // ORDER MATTERS: every smd-page property setter (title / content / buttons)
+    // re-renders the whole page via innerHTML, which detaches anything already
+    // mounted in it. So set ALL the page properties first, then mount the form
+    // LAST - otherwise the editor is thrown away and the page renders empty.
+    page.title = isNewImage ? "Add Image" : (isDuplicateImage ? "Duplicate Image" : "Edit Image");
+    page.content = '<div id="imageEditModalBody"></div>';
+    // OK / Cancel are the page's footer buttons (Cancel first, then OK, the
+    // order every other app dialog uses). The ids are kept so the existing
+    // #btnImageEditOk / #btnImageEditCancel selectors still resolve - they now
+    // land on the <smd-button> host.
+    page.buttons = [
+      { text: "Cancel", variant: "secondary", action: "cancel", id: "btnImageEditCancel" },
+      { text: "OK", variant: "success", action: "ok", id: "btnImageEditOk", disabled: imageEditOkDisabled }
+    ];
+    if (!page.__smdPageActionsBound) {
+      page.__smdPageActionsBound = true;
+      page.addEventListener("smd-page-action", (e) => {
+        const action = e.detail && e.detail.action;
+        // detail.index is the BUTTON index (0 = Cancel, 1 = OK), so the image
+        // being edited comes from the module state, not the event.
+        if (action === "ok") doneImageEdit(editingImageIndex);
+        else if (action === "cancel") cancelImageEdit();
       });
     }
+    // From here on nothing may re-render the page.
+    const body = page.querySelector("#imageEditModalBody");
+    if (!body) return;
+    const editor = document.createElement("smd-image-editor");
+    body.appendChild(editor);
+    editor.addEventListener("smd-image-editor-action", (e) => {
+      const detail = e.detail || {};
+      if (detail.action === "upload") openImageUpload(detail.index);
+    });
     editor.index = editingImageIndex;
     editor.isNew = isNewImage;
     editor.isDuplicate = isDuplicateImage;
     editor.image = img;
     editor.render();
 
-    const modalEl = document.getElementById("imageEditModal");
-    let modal = bootstrap.Modal.getInstance(modalEl);
-    if (!modal) {
-      modal = new bootstrap.Modal(modalEl);
-    }
-    modal.show();
+    page.classList.remove("d-none");
+    page.show();
     updateNavState();
     return;
   }
@@ -737,16 +755,49 @@ function addNewImage() {
   checkDuplicateName();
 }
 
+// Close the image edit page. Mirrors the app pages' pattern (PlanMyDay
+// closeSettings()): smd-page hides itself, then `d-none` is re-applied once the
+// slide-out has finished, otherwise the page would stay hit-testable at its
+// resting position. (A footer button already auto-hides the page before
+// dispatching, so this is idempotent for those.)
+let imageEditHideTimer = null;
+let imageEditOkDisabled = false;
+
+function hideImageEditPage() {
+  const page = document.getElementById("imageEditModal");
+  if (!page) return;
+  page.hide();
+  if (imageEditHideTimer) clearTimeout(imageEditHideTimer);
+  imageEditHideTimer = setTimeout(() => {
+    imageEditHideTimer = null;
+    page.classList.add("d-none");
+  }, Math.max(0, (page.slideDuration || 0) + 50));
+}
+
+// The OK button lives in the page footer, so the duplicate-name guard toggles it
+// through the <smd-button> host's `disabled` attribute (smd-button mirrors it
+// onto the inner <button>). Done via the attribute rather than re-assigning
+// page.buttons, which would re-render the page and wipe the form mid-typing.
+function setImageEditOkDisabled(disabled) {
+  imageEditOkDisabled = !!disabled;
+  const host = document.getElementById("btnImageEditOk");
+  if (!host) return;
+  if (imageEditOkDisabled) host.setAttribute("disabled", "");
+  else host.removeAttribute("disabled");
+}
+
 function checkDuplicateName() {
   const images = loadImages();
-  const input = document.querySelector('#imageEditModalBody .card input.form-control');
+  // The Name field is the dialog's only `input.form-control` WITHOUT
+  // `form-control-sm` (the stroke-width input has both), so this stays precise
+  // now that the form has no wrapping .card to scope it with.
+  const input = document.querySelector('#imageEditModalBody input.form-control:not(.form-control-sm)');
   if (!input) return;
   const trimmed = input.value.trim();
   const hasDuplicate = images.some((img, i) => i !== editingImageIndex && img.name === trimmed);
   const errorEl = document.getElementById("imageNameError");
-  const okBtn = document.querySelector('#imageEditModalBody .btn-success.editor-btn');
   if (errorEl) errorEl.style.display = hasDuplicate ? "block" : "none";
-  if (okBtn) okBtn.disabled = hasDuplicate;
+  setImageEditOkDisabled(hasDuplicate);
 }
 
 function doneImageEdit(index) {
@@ -760,7 +811,7 @@ function doneImageEdit(index) {
   isNewImage = false;
   isDuplicateImage = false;
   editImageBackup = null;
-  safeHideModal("imageEditModal");
+  hideImageEditPage();
   renderImagesEditor();
 }
 
@@ -778,7 +829,7 @@ function cancelImageEdit() {
   isNewImage = false;
   isDuplicateImage = false;
   editImageBackup = null;
-  safeHideModal("imageEditModal");
+  hideImageEditPage();
   renderImagesEditor();
 }
 
@@ -1140,7 +1191,7 @@ function showUploadDialog() {
     dlg.style.cssText = "position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center";
     dlg.innerHTML = '<div style="background:var(--bs-body-bg,#1e1e1e);padding:2rem;border-radius:12px;text-align:center;min-width:200px;box-shadow:0 8px 32px rgba(0,0,0,0.3)">'
       + '<div class="spinner-border mb-3" role="status"></div>'
-      + '<div>Uploading Standard Images…</div></div>';
+      + '<div>Uploading Standard Imagesâ€¦</div></div>';
     document.body.appendChild(dlg);
   }
   dlg.classList.remove("d-none");

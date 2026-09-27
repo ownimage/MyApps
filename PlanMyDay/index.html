@@ -383,18 +383,8 @@
   <!-- FLATPICKR -->
   <script>document.write('<script src="../shared/vendor/flatpickr.min.js?v=' + BUILD_NUMBER + '"><\/script>');</script>
 
-  <!-- IMAGE EDIT MODAL -->
-  <div id="imageEditModal" class="modal fade" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
-    <div class="modal-dialog modal-dialog-centered modal-fullscreen-lg-down">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h3 class="modal-title" id="imageEditModalTitle">Edit Image</h3>
-          <button id="btnImageEditClose" type="button" class="btn-close ms-auto" aria-label="Close" onclick="cancelImageEdit()"></button>
-        </div>
-        <div class="modal-body" id="imageEditModalBody"></div>
-      </div>
-    </div>
-  </div>
+  <!-- IMAGE EDIT PAGE (shared smd-images.js) -->
+  <smd-page id="imageEditModal" class="d-none"></smd-page>
 
   <!-- QR CODE -->
   <script>document.write('<script src="../shared/vendor/qrcode.min.js?v=' + BUILD_NUMBER + '"><\/script>');</script>
