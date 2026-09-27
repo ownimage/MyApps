@@ -436,6 +436,54 @@ Techniques / gotchas:
 
 ## Session log
 
+### 2026-09-27 (d) - <smd-theme> rows align with the app settings rows; storybook header on one line
+- BUG (user, 832x688 in PlanMyDay): the Theme / Theme Mode rows did not line up
+  with the rows around them (Font size, Screen resolution). ROOT CAUSE: the app
+  settings rows are `row.col-md-8` on ONE element, while the theme control is a
+  `col-md-8` HOST with `.row` fields inside it. Those are not the same geometry:
+  an auto-width `.row` inside a fixed-width column has its used width INFLATED by
+  the row's negative margins (auto width = containing width - margins, so
+  +24px), so the `col-4`/`col-8` split was computed on a 24px-wider box and the
+  label/select edges sat **8px** right of the other rows - and only at >=768px,
+  where `.col-md-8` has a width (below md both are full-width auto rows and
+  already matched). So "it looks fine at some widths" is the expected signature.
+- FIX (component-owned, no app/store book markup changes): `smd-theme.js` now
+  injects its own layout - `smd-theme { display: block }`, the field bottom gap
+  (`mb-4` equivalent), and the gutter's negative margin moved ONTO the host
+  (`smd-theme.col-md-8 { margin-left/right: calc(var(--bs-gutter-x) * -.5) }`)
+  with the fields' own horizontal margins zeroed. The host then behaves exactly
+  like `row.col-md-8` at every width, so the fields are geometrically identical
+  to the rows around them.
+- Removed the `d-block` class from the host and the `mb-3` from the fields. Both
+  were Bootstrap UTILITIES, i.e. `!important`, so no page could restyle the
+  control without its own `!important` (the storybook header needed two). The
+  component now sets plain CSS, and the storybook overrides are plain too.
+  Side effect fixed: `<smd-theme>` in a page that flexes it no longer needs
+  `!important`.
+- Storybook header: it is now a SINGLE row down to 768px (was three rows - the
+  `d-block` had killed the page's `display: flex`, so the two Theme fields
+  stacked and the header was 141px tall; now 74px). Title truncates
+  (`text-truncate`) below ~1024px and the selects get width floors per
+  breakpoint; below md the control may shrink so nothing overflows.
+  The sticky nav's `top` was a hard-coded `57px` and was wrong both before
+  (141px header) and after; it is now `var(--sb-header-h)`, measured in
+  `syncStickyOffset()` with a **ResizeObserver** (a single measurement at script
+  time was ~20px stale because it ran before `<smd-theme>` rendered its fields).
+- New `tests/settings-alignment.spec.js`: all 6 apps x {832, 700} assert the
+  Theme field's `col-4`/`col-8` cells match a sibling settings row exactly
+  (0px), plus the bottom-gap check. It activates the tab that CONTAINS
+  `#themeSelector` first - the control is not on the default tab in every app
+  (PlanMyDay has it on Display, the rest on General) and a hidden panel measures
+  as all-zero rects, which would make the comparison pass for the wrong reason.
+  Measured on the grid CELLS, never the `<label>`: a label is an inline box, so
+  its rect is the text box and moves with the wording ("Theme" vs "Swatch").
+- VERIFIED: the alignment spec FAILS with the exact reported symptom when the
+  two gutter rules are removed (8px at 832/1280, 0px at 700, row 24px wider) -
+  it is not a vacuous assertion. 13 alignment + 40 theme/settings/boot tests
+  across all 6 apps + all 8 storybook tests + 61 PlanMyDay theme/settings tests
+  pass. Header probed at 1600/1280/1024/900/768/390: one row and no horizontal
+  overflow at every width.
+
 ### 2026-09-27 (c) - flake fix: the two No Cache tests needed the worker to actually CONTROL the page
 - Both No Cache tests were flaky under a parallel run. Causes, both real:
   (1) "No Cache mode serves files from the network" compared a SW-served

@@ -1,4 +1,4 @@
-:root {c
+:root {
   --smd-page-header-background: var(--bs-primary);
   --smd-page-header-color: var(--bs-white);
 
@@ -129,7 +129,7 @@ button.btn-sm, .btn-sm { font-size: var(--smd-type-p, 1rem); }
    dark values on [data-bs-theme="dark"] / per theme, so these rules are shared
    by every theme and the theme override files only set variables. */
 .flatpickr-calendar {
-  background: var(--smd-date-picker-background);
+  background: #000000;
   border-color: var(--smd-date-picker-border-color);
 }
 
