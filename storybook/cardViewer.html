@@ -7,7 +7,7 @@
   <link rel="stylesheet" href="../shared/vendor/bootstrap-icons.css">
   <link rel="stylesheet" href="../shared/css/themes/flatly/bootstrap.min.css">
   <link id="smd-shared-css" rel="stylesheet" href="../shared/css/styles.css">
-  <link rel="stylesheet" href="../shared/css/themes/flatly/flatly.css">
+  <link rel="stylesheet" href="../shared/css/themes/flatly/flatly.light.css">
   <style>
     html { scroll-padding-top: 7rem; }
     body { min-width: 320px; }
@@ -177,7 +177,7 @@
       }
 
       function frameDocument(theme, mode, recipe) {
-        const specificCss = assetUrl(`shared/css/themes/${theme}/${theme}.css`);
+        const specificCss = assetUrl(`shared/css/themes/${theme}/${theme}.${mode}.css`);
         const baseCss = assetUrl(`shared/${themeConfig[theme].css}`);
         const sharedCss = assetUrl("shared/css/styles.css");
         const iconsCss = assetUrl("shared/vendor/bootstrap-icons.css");

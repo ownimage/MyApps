@@ -76,33 +76,55 @@ function resolveThemeMode(theme, mode) {
   return normalizeThemeMode(mode);
 }
 
+// The `<theme>.<mode>.css` override is the one theme file that changes with the
+// Light/Dark mode, so its directory prefix is derived from the base theme
+// <link> (the same source applyTheme uses) rather than passed in. Works at the
+// domain root, under a sub-path, and in the storybook.
+function smdThemeCssPrefix() {
+  const link = document.getElementById("bootstrap-theme-css");
+  if (link) {
+    return (link.getAttribute("href") || "").replace(/[^/]*\/bootstrap\.min\.css(\?.*)?$/, "");
+  }
+  return smdAppRoot() + "css/themes/";
+}
+
+function smdBuildStamp() {
+  return typeof BUILD_NUMBER !== "undefined" ? BUILD_NUMBER : Date.now();
+}
+
 function applyTheme(name, modeOverride) {
   const valid = normalizeTheme(name);
   const hasModeOverride = typeof modeOverride !== "undefined";
   const mode = hasModeOverride ? normalizeThemeMode(modeOverride) : getStoredThemeMode();
   const link = document.getElementById("bootstrap-theme-css");
-  const v = typeof BUILD_NUMBER !== "undefined" ? BUILD_NUMBER : Date.now();
-  const prefix = link
-    ? (link.getAttribute("href") || "").replace(/[^/]*\/bootstrap\.min\.css(\?.*)?$/, "")
-    : smdAppRoot() + "css/themes/";
   if (link) {
-    link.href = prefix + valid + "/bootstrap.min.css?v=" + v;
+    link.href = smdThemeCssPrefix() + valid + "/bootstrap.min.css?v=" + smdBuildStamp();
   }
   document.documentElement.setAttribute("data-bs-theme", mode);
   document.documentElement.setAttribute("data-theme", valid);
   localStorage.setItem(smdKey("theme"), valid);
   if (!hasModeOverride) localStorage.setItem(smdKey("themeMode"), mode);
-  applyThemeOverrides(valid, prefix, v);
+  applyThemeOverrides(valid, mode);
 }
 
+// A mode switch no longer only flips two attributes: the override sheet is
+// per-mode (`<theme>.<mode>.css`), so the link has to be re-pointed. The base
+// theme sheet is still untouched (no theme change, no renderMain()).
 function applyThemeMode(theme, mode) {
   const valid = normalizeTheme(theme);
-  document.documentElement.setAttribute("data-bs-theme", normalizeThemeMode(mode));
+  const normalized = normalizeThemeMode(mode);
+  document.documentElement.setAttribute("data-bs-theme", normalized);
   document.documentElement.setAttribute("data-theme", valid);
+  applyThemeOverrides(valid, normalized);
 }
 
-function applyThemeOverrides(theme, prefix, v) {
-  setOverrideLink("theme-override-specific", prefix + theme + "/" + theme + ".css?v=" + v);
+// Per-theme AND per-mode override sheet. The mode is part of the filename
+// because the Light/Dark palette lives in the theme's own file now; that also
+// means a mode switch swaps this link (see applyThemeMode) instead of relying on
+// a `[data-bs-theme="..."]` qualifier inside one shared file.
+function applyThemeOverrides(theme, mode) {
+  const file = theme + "." + normalizeThemeMode(mode) + ".css";
+  setOverrideLink("theme-override-specific", smdThemeCssPrefix() + theme + "/" + file + "?v=" + smdBuildStamp());
   orderThemeOverrideLinks();
 }
 
@@ -121,7 +143,8 @@ function setOverrideLink(id, href) {
 }
 
 // The shared functional sheet is the anchor for the per-theme override sheet:
-// cascade order is vendor -> theme bootstrap -> shared styles -> theme override.
+// cascade order is vendor -> theme bootstrap -> shared styles -> theme override
+// (the per-mode `<theme>.<mode>.css` override).
 // Anchoring on #bootstrap-theme-css instead would push shared styles last, so the
 // theme override would no longer be the final layer.
 function smdSharedStylesLink() {

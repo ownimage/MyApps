@@ -1,0 +1,4 @@
+/* lux theme overrides (LIGHT mode) — loaded AFTER lux/bootstrap.min.css
+   whenever this theme is selected in Light mode. Add theme-specific overrides
+   here. This sheet is only ever loaded in this mode, so selectors do not need a
+   `[data-bs-theme="light"]` qualifier. */

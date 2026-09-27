@@ -7367,6 +7367,42 @@ test.describe("PlanMyDay - Regression", () => {
       expect(themeHref).toMatch(/css\/themes\/quartz\/bootstrap\.min\.css/);
     });
 
+    test("theme override sheet is per-mode and re-points on a mode switch", async ({ page }) => {
+      await page.goto("/PlanMyDay/");
+      const overrideHref = () => page.evaluate(() => document.getElementById("theme-override-specific").getAttribute("href"));
+      // -1 = the sheet never loaded (404 or still in flight), so the file name
+      // in the href is checked as well as the swap itself.
+      const overrideRuleCount = () => page.evaluate(() => {
+        const sheet = document.getElementById("theme-override-specific").sheet;
+        return sheet ? sheet.cssRules.length : -1;
+      });
+
+      // The default mode is light, so the light sheet is the one loaded.
+      expect(await overrideHref()).toMatch(/css\/themes\/superhero\/superhero\.light\.css\?v=\d+$/);
+      await expect.poll(overrideRuleCount).toBeGreaterThan(0);
+
+      // A theme swap picks that theme's sheet for the SAME mode.
+      await page.evaluate(() => applyTheme("cyborg"));
+      expect(await overrideHref()).toMatch(/css\/themes\/cyborg\/cyborg\.light\.css\?v=\d+$/);
+      await expect.poll(overrideRuleCount).toBeGreaterThan(0);
+
+      // A MODE switch swaps the sheet too - the reason the file name carries the
+      // mode. The base theme sheet is untouched by a mode switch.
+      const baseHref = await page.evaluate(() => document.getElementById("bootstrap-theme-css").getAttribute("href"));
+      await page.evaluate(() => changeThemeMode("dark"));
+      await expect(page.locator("html")).toHaveAttribute("data-bs-theme", "dark");
+      expect(await overrideHref()).toMatch(/css\/themes\/cyborg\/cyborg\.dark\.css\?v=\d+$/);
+      await expect.poll(overrideRuleCount).toBeGreaterThan(0);
+      expect(await page.evaluate(() => document.getElementById("bootstrap-theme-css").getAttribute("href"))).toBe(baseHref);
+
+      // The mode-less file is gone, so every theme must precache BOTH per-mode
+      // sheets or offline/first-load 404s.
+      const swSource = await (await page.request.get("/sw.js")).text();
+      expect(swSource).toContain("shared/css/themes/cyborg/cyborg.light.css");
+      expect(swSource).toContain("shared/css/themes/cyborg/cyborg.dark.css");
+      expect(swSource).not.toMatch(/themes\/cyborg\/cyborg\.css/);
+    });
+
     test("no console errors and no failed loads when icon-font glyphs render (bi/fa/fab)", async ({ page }) => {
       const consoleErrors = [];
       const pageErrors = [];
