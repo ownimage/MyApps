@@ -141,6 +141,24 @@ function smdSetImageSrc(el, src) {
   });
 }
 
+// Preview box size for the image edit dialog (the main image and the two
+// per-theme previews). It follows the Settings "Icon size" value — each app
+// pushes that to SmdImage.defaultSize via applyImageSize() — so the preview
+// shows the image at the size the app actually renders it at. Clamped to
+// 40-100px: xsmall (32px) is too small to judge an image in the dialog, and the
+// clamp also stops a future larger setting from overflowing the panel.
+//
+// Applied inline (width/height/object-fit) rather than via a CSS rule because
+// size is a VALUE in this codebase, not a style: <smd-image> sizes itself the
+// same way, from the same value. There is deliberately no `.data-img` rule in
+// shared/css/styles.css; the class is only a hook for tests/selectors.
+function smdImagePreviewSizePx() {
+  const base = (typeof SmdImage !== "undefined" && SmdImage.defaultSize) || 100;
+  const px = parseInt(base, 10);
+  if (isNaN(px) || px <= 0) return 100;
+  return Math.min(100, Math.max(40, px));
+}
+
 // Every painted data URL a stored image can render as (all tiers x themes), so
 // the GC can tell exactly which /smd-img/ cache entries are still live.
 function smdImagePaintVariants(img) {
@@ -352,6 +370,7 @@ function buildThemeSection(themeIdx, label, imageOverride) {
             <label class="form-label mb-0" style="min-width:45px">Width:</label>
             <input type="number" min="0.5" max="10" step="0.5" value="${widthVal}" style="width:70px" class="form-control form-control-sm d-inline-block" oninput="editImageStrokeWidth(${editingImageIndex}, ${themeIdx}, this.value)">
           </div>` : "";
+  const previewPx = smdImagePreviewSizePx();
   return `
     <div class="p-3 rounded mb-2" data-bs-theme="${panelTheme}" style="${panelStyle}">
       <div class="fw-bold mb-1">${label}</div>
@@ -359,8 +378,8 @@ function buildThemeSection(themeIdx, label, imageOverride) {
         <div class="d-flex flex-column gap-2 flex-grow-1">
           ${controlsHtml}
         </div>
-        <div class="flex-shrink-0 d-flex align-items-center justify-content-center" style="width:110px;height:110px">
-          <img id="${previewId}" src="" data-smdsrc="${escAttr(previewSrc)}" class="date-img" style="max-width:110px;max-height:110px" hidden>
+        <div class="flex-shrink-0 d-flex align-items-center justify-content-center" style="width:${previewPx}px;height:${previewPx}px">
+          <img id="${previewId}" src="" data-smdsrc="${escAttr(previewSrc)}" class="data-img" style="width:${previewPx}px;height:${previewPx}px;object-fit:contain" hidden>
         </div>
       </div>
     </div>

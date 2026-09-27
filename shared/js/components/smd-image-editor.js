@@ -1,4 +1,4 @@
-// <smd-image-editor> — the shared image edit form.
+// <smd-image-editor> â€” the shared image edit form.
 //
 // Renders the body of the image edit dialog for one entry of an app's
 // localStorage image list: name + duplicate check, themed preview + Upload,
@@ -16,10 +16,10 @@
 // behaviour and the component stays a view.
 //
 // Properties:
-//   image       — the images[] entry being edited (required)
-//   index       — images[] index (echoed in the action events)
-//   isNew       — true while adding a new image
-//   isDuplicate — true while editing a duplicate
+//   image       â€” the images[] entry being edited (required)
+//   index       â€” images[] index (echoed in the action events)
+//   isNew       â€” true while adding a new image
+//   isDuplicate â€” true while editing a duplicate
 //
 // Usage: call render() after setting the properties.
 class SmdImageEditor extends HTMLElement {
@@ -58,6 +58,12 @@ class SmdImageEditor extends HTMLElement {
     const colorEditorHtml = hasData
       ? buildThemeSection(0, "Light theme", img) + buildThemeSection(1, "Dark theme", img)
       : "";
+    // The preview follows the Settings Icon size (clamped, see
+    // smdImagePreviewSizePx in smd-images.js). Applied inline because size is a
+    // VALUE here, not a style; `data-img` is only a hook class (there is
+    // deliberately no CSS rule for it).
+    const previewPx = typeof smdImagePreviewSizePx === "function" ? smdImagePreviewSizePx() : 100;
+    const previewStyle = `width:${previewPx}px;height:${previewPx}px;object-fit:contain;flex-shrink:0`;
 
     this.innerHTML = `
       <div class="card p-3">
@@ -69,8 +75,8 @@ class SmdImageEditor extends HTMLElement {
         <div class="d-flex gap-2 align-items-center mb-2">
           <div style="width:45px;flex-shrink:0"></div>
           ${hasData
-            ? `<img src="" data-smdsrc="${escAttr(getThemedImageDataUrl(img))}" class="date-img" hidden>`
-            : `<div class="date-img d-flex align-items-center justify-content-center text-secondary border rounded">No image</div>`
+            ? `<img src="" data-smdsrc="${escAttr(getThemedImageDataUrl(img))}" class="data-img" style="${previewStyle}" hidden>`
+            : `<div class="data-img d-flex align-items-center justify-content-center text-secondary border rounded" style="${previewStyle}">No image</div>`
           }
           <button id="btnImageUpload" class="btn btn-primary btn-sm text-nowrap" type="button">Upload</button>
         </div>

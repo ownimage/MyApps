@@ -373,8 +373,9 @@ Architecture:
   (`#imageEditModalBody .card input.form-control`, `.fw-bold`, …) keep working.
   `shared/js/smd-images.js` sets `image`/`index`/`isNew`/`isDuplicate` + calls
   `render()`, and handles `smd-image-editor-action` (`ok`/`cancel`/`upload`).
-  The `.date-img` sizing moved from `PlanMyDay/css/styles.css` to
-  `shared/css/styles.css` so the dialogs look identical in every app. The
+  The image-edit preview sizing (the `.data-img` hook class, see the 2026-09-27
+  (e) note) is applied INLINE from `SmdImage.defaultSize`, not from a rule here,
+  so this sheet deliberately has no `.data-img` rule. The
   storybook has a section (its demo needs the `smd-images.js` script, which the
   storybook now loads).
 - `hideNav()` (shared smd-settings.js) now hides when NO
@@ -435,6 +436,53 @@ Techniques / gotchas:
 - CROSS-ORIGIN SAVE 302 GOTCHA (2026-09-17): SolarControlar's Flask POST endpoints (`POST /solar/`, `POST /solar/api/config`) are PRG — they answer `302 Location: /solar/`. A PWA `fetch()` that lets the browser follow that cross-origin redirect can lose its `Authorization` header on the follow-up GET (browser-dependent), so Traefik returns a 401 WITHOUT `Access-Control-Allow-Origin` → the fetch blocks as a CORS error / "Failed to fetch". Fix in the APP: `redirect: "manual"` on the POST and treat `resp.type === "opaqueredirect"` as success (server saved; the caller then re-fetches the GET page which carries auth again). `redirect: "manual"` returns an opaque-redirect response (status 0) for a 302 — you cannot read it, only detect it by `type`. Rule for SolarControlar saves: never follow the Flask redirect; `_post` returns the response TEXT (or `""`), so consumers must not chain `.text()`.
 
 ## Session log
+
+### 2026-09-27 (e) - image edit dialog preview follows the Settings icon size; `.date-img` -> `.data-img`
+- BUG (user): the main image in the IMAGE EDIT MODAL was "huge". ROOT CAUSE: the
+  `.date-img` sizing rule was DELETED from `shared/css/styles.css` in `1dbdfe1
+  minimal css ... not working`, so the dialog's preview
+  (`smd-image-editor.js` -> `<img class="date-img">`) had no width/height and
+  rendered at the data-URL's intrinsic size (100px for the samples, arbitrary
+  for a big upload). The two per-theme previews (`smd-images.js`
+  `buildThemeSection`) were capped at a hard-coded `max-width/height:110px` and
+  did not follow Settings either.
+- The ORIGINAL rule (initial commit) sized `.countdown-img, .date-img` at
+  100px/64px and had `body.icon-size-{small,medium,large} .date-img` overrides
+  with `!important` - i.e. it DID follow the icon-size setting. That CSS
+  mechanism is gone: icon size is now a VALUE on `<smd-image>`
+  (`SmdImage.defaultSize`, pushed by each app's `applyImageSize()`), and the
+  dialog preview is a plain `<img>`, so it inherited nothing. Restoring the CSS
+  rule alone would NOT have made it follow Settings again.
+- FIX: `smdImagePreviewSizePx()` in `shared/js/smd-images.js` reads
+  `SmdImage.defaultSize` and CLAMPS it to 40-100px (xsmall's 32px is too small
+  to judge an image in the dialog; the clamp also stops a future larger setting
+  overflowing the panel). Applied INLINE (`width`/`height`/`object-fit:contain`)
+  at both call sites - the main preview + "No image" placeholder in
+  `smd-image-editor.js`, and the Light/Dark theme previews + their wrapper box
+  in `smd-images.js` - because size is a VALUE in this codebase, not a style
+  (`<smd-image>` sizes itself the same way, from the same value). There is
+  deliberately NO `.data-img` rule in `shared/css/styles.css`.
+  The live colour-edit path (`updateEditPreview` -> `smdSetImageSrc`) only swaps
+  `src`, so the inline size persists across colour changes.
+- RENAME `.date-img` -> `.data-img` (user request) in `smd-images.js` and
+  `smd-image-editor.js` (both the `<img>` and the "No image" placeholder
+  `<div>`), plus the three AGENTS.md references. NOTE the name was NOT a typo:
+  `data-img` has never existed in this repo (0 commits), and `date-img` dates
+  back to the initial commit where it was paired with `.countdown-img` under an
+  `/* IMAGES */` heading - it meant the image on the date/today card. The rename
+  was a user preference, not a bug fix. No CSS or test referenced the class.
+- New `tests/image-edit-preview-size.spec.js`: the whole icon-size ladder on
+  PlanMyDay (32->40, 40->40, 50->50, 64->64, 80->80, 100->100) asserting all
+  three previews, a "never the unsized natural size" guard, and the renamed
+  class in PlanMyDay/CountMyDays/QRLinks. MUTATION-CHECKED: dropping the inline
+  size reproduces the reported bug exactly (main preview 100px regardless of the
+  setting), so the assertion is not vacuous.
+- GOTCHA when writing this kind of measurement: the previews unhide only once
+  their src resolves through `smdImageRenderUrl` (Cache Storage) AND the
+  Bootstrap modal fades in asynchronously - an `<img>` can be "loaded" while its
+  modal is still `display:none`, which measures 0x0. Wait for
+  `#imageEditModal.show` AND `getBoundingClientRect().width > 0` before
+  asserting geometry.
 
 ### 2026-09-27 (d) - <smd-theme> rows align with the app settings rows; storybook header on one line
 - BUG (user, 832x688 in PlanMyDay): the Theme / Theme Mode rows did not line up
@@ -1733,8 +1781,10 @@ Techniques / gotchas:
   two Google buttons stack with `gap-3` (new `.smd-tab-panel .gap-3` rule).
 - Shared `<smd-image-editor>` extracted from `smd-images.js` (light-DOM
   component; buttons emit `smd-image-editor-action`), so CountMyDays and
-  PlanMyDay use the exact same dialog. `.date-img` sizing moved to
-  `shared/css/styles.css` (this was why the CountMyDays dialog looked wrong).
+ PlanMyDay use the exact same dialog. The preview class was `.date-img` at the
+ time (since renamed `.data-img` — see the 2026-09-27 (e) note) and its sizing
+ moved to `shared/css/styles.css` (this was why the CountMyDays dialog looked
+ wrong).
   Verified side-by-side: both dialogs are pixel-identical. Storybook section
   added (needs `smd-images.js`, now loaded by the storybook).
 - Tests updated: cmd asserts "Edit Google Events" is gone and that the dialog
@@ -2283,7 +2333,7 @@ Techniques / gotchas:
 - Added a shared `js/components/smd-image.js` (`<smd-image>`) to display any image from the localStorage images list. It is prefix-agnostic (`key-prefix` attr, e.g. `"planmydays_"`; list key = `keyPrefix + "images"`) with zero planmydays/pmd references. Attributes: `image` (name), `theme` (`auto` default / `light` / `dark`), `alt`; re-renders on attribute change and exposes `refresh()` for after the store changes. It replicates the SVG stroke/fill/stroke-width theme-override logic internally (keep it that way to stay app-agnostic). Verified via probe: dark auto → dark overrides, light forced, missing name → img hidden.
 - `<smd-image>` observers `data-bs-theme`/`data-theme` on `<html>` (MutationObserver in connectedCallback) so mounted images re-theme during screenshot theme sweeps.
 - `<smd-image>` accepts a `size` attribute (px): it adopts a shared per-size `:host { width/height }` stylesheet via `SmdStyles.sheetFor` (one cached sheet per px) and, when an entry has no `data`, falls back to `data<size>` → `data100` → `data80` → `data64`. The image picker uses `size="64"` and the main-view job/stream thumbs `size="32"` (inline sizing dropped); storybook `smd-image` section gained a Size control.
-- The app now uses `<smd-image key-prefix="planmydays_">` everywhere it shows a job or stream image: main view today cards (stream+job thumbs), `pmd-stream-header`/`pmd-stream-job-card`/`pmd-job-search-card` thumbs (their `image`/`stream-image` attributes now carry NAMES, not data URLs, and they render `<smd-image>` internally), the job-edit stream dropdown + image previews, the stream-edit preview, and `updateJobImagePreview`/`updateJobStreamPreview`/`updateStreamImagePreview` (set the `smd-image` `image` attribute instead of innerHTML). The `#todayCardList img.date-img` regression test now targets `#todayCardList smd-image`. Added a storybook `smd-image` section (seeds a neutral `sb_images` store, name + theme controls).
+- The app now uses `<smd-image key-prefix="planmydays_">` everywhere it shows a job or stream image: main view today cards (stream+job thumbs), `pmd-stream-header`/`pmd-stream-job-card`/`pmd-job-search-card` thumbs (their `image`/`stream-image` attributes now carry NAMES, not data URLs, and they render `<smd-image>` internally), the job-edit stream dropdown + image previews, the stream-edit preview, and `updateJobImagePreview`/`updateJobStreamPreview`/`updateStreamImagePreview` (set the `smd-image` `image` attribute instead of innerHTML). The `#todayCardList img.date-img` regression test now targets `#todayCardList smd-image` (that `.date-img` hook was renamed `.data-img` in 2026-09-27 (e); the today-card images themselves render via `<smd-image>` and are unaffected). Added a storybook `smd-image` section (seeds a neutral `sb_images` store, name + theme controls).
 - Converted `pmd-image-card` → shared `smd-image-card` (`js/components/smd-image-card.js`): shows a card for a localStorage images entry via `<smd-image>` (name-based; attributes `key-prefix`/`image`/`title`/`index`/`in-use`), dispatches a single `smd-image-card-action` event (`{ action: delete|duplicate|edit, index }`). App: `images.js` builds them with `key-prefix="planmydays_"`, and `app.js` listens for `smd-image-card-action` on the images editor. Old `pmd-image-card.js` deleted; script refs + storybook section updated. GOTCHA: `parseInt(attr) || -1` turns index `0` into `-1` (0 is falsy) and `startEditImage(-1)` then throws `JSON.parse(JSON.stringify(undefined))` ("undefined" is not valid JSON) — guard falsy index with `isNaN()`.
 - Added shared `smd-image-select` (`js/components/smd-image-select.js`): image thumbnail (via `smd-image`, name + `key-prefix`), name label, and an Edit `smd-button`. Attributes `key-prefix`/`image`/`label`/`label-id`/`button-id`/`disabled`; emits `smd-image-select-action` `{ action: "edit" }`. Keeps a bordered placeholder box ("none") when no image is selected. App uses it on `jobEditPage` (`#jobImageSelect`, label `#jobImageName`, button `#btnJobImageChange`) and `streamEditPage` (`#streamImageSelect`, label `#streamImageName`, button `#btnStreamImageChoose`); `updateJobImagePreview`/`updateStreamImagePreview` set the component's `image` attribute. GOTCHA: composed events crossing shadow boundaries retarget `e.target` to the OUTERMOST host — a `document`-level listener must use `e.composedPath()` (CALL IT: `e.composedPath()`, not `e.composedPath || []`) to find the originating component.
 - `imagePickerModal` (bootstrap) → `<smd-page id="imagePickerPage">`: `openImagePicker`/`closeImagePicker`/`renderImagePicker` rewritten to drive a page (title "Choose Image", search + Clear, `#imagePickerList`, footer "No Image" + Cancel smd-buttons); picker items render `<smd-image key-prefix="planmydays_">`; `IMAGE_PICKER_STYLES` (+ `JOBS_EDITOR_STYLES`) injected. Modal markup removed from `index.html`; old `#imagePickerModal`/`toHaveClass(/show/)`/`bootstrap.Modal.getInstance(...).hide()` test helpers replaced with `#imagePickerPage` + `open` attribute. Only bootstrap modal left is `imageEditModal`.
