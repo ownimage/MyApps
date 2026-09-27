@@ -296,18 +296,8 @@
   <!-- FLATPICKR -->
   <script>document.write('<script src="../shared/vendor/flatpickr.min.js?v=' + BUILD_NUMBER + '"><\/script>');</script>
 
-  <!-- IMAGE EDIT MODAL (shared smd-images.js) -->
-  <div id="imageEditModal" class="modal fade" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
-    <div class="modal-dialog modal-dialog-centered modal-fullscreen-lg-down">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h3 class="modal-title" id="imageEditModalTitle">Edit Image</h3>
-          <button id="btnImageEditClose" type="button" class="btn btn-sm ms-auto" onclick="cancelImageEdit()" style="font-size:1.5rem;line-height:1;padding:0 0.25rem;color:inherit;border:none;background:none">&times;</button>
-        </div>
-        <div class="modal-body" id="imageEditModalBody"></div>
-      </div>
-    </div>
-  </div>
+  <!-- IMAGE EDIT PAGE (shared smd-images.js) -->
+  <smd-page id="imageEditModal" class="d-none"></smd-page>
 
   <script>
   document.write('<script src="../shared/js/components/smd-button.js?v=' + BUILD_NUMBER + '"><\/script>');

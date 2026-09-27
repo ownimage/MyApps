@@ -1656,7 +1656,7 @@ test.describe("PlanMyDay - Regression", () => {
     test("add new image opens edit modal", async ({ page }) => {
       await page.getByRole("button", { name: "Add Image" }).click();
       await expect(page.locator("#imageEditModal")).toBeVisible();
-      await expect(page.locator("#imageEditModalTitle")).toHaveText("Add Image");
+      await expect(page.locator("#imageEditModal .smd-page-header h1")).toHaveText("Add Image");
     });
 
     test("add image modal has all fields", async ({ page }) => {
@@ -1742,7 +1742,7 @@ test.describe("PlanMyDay - Regression", () => {
       await page.locator("#imageEditModal").waitFor({ state: "hidden" });
       await page.locator(".card:has-text('DupTitle')").getByTitle("Duplicate").click();
       await page.locator("#imageEditModal").waitFor({ state: "visible" });
-      await expect(page.locator("#imageEditModalTitle")).toHaveText("Duplicate Image");
+      await expect(page.locator("#imageEditModal .smd-page-header h1")).toHaveText("Duplicate Image");
       await page.locator("#btnImageEditCancel").click();
       await page.locator("#imageEditModal").waitFor({ state: "hidden" });
     });
@@ -1756,7 +1756,7 @@ test.describe("PlanMyDay - Regression", () => {
       await page.locator("#imageEditModal").waitFor({ state: "hidden" });
       await page.locator(".card:has-text('EditTitle')").getByTitle("Edit").click();
       await page.locator("#imageEditModal").waitFor({ state: "visible" });
-      await expect(page.locator("#imageEditModalTitle")).toHaveText("Edit Image");
+      await expect(page.locator("#imageEditModal .smd-page-header h1")).toHaveText("Edit Image");
       await page.locator("#btnImageEditCancel").click();
       await page.locator("#imageEditModal").waitFor({ state: "hidden" });
     });
@@ -1894,14 +1894,7 @@ test.describe("PlanMyDay - Regression", () => {
       await page.locator("#streamEditorList .btn-primary").filter({ hasText: "Edit" }).first().click();
       await page.locator("#btnStreamImageChoose").click();
       await page.locator("#imagePickerPage").waitFor({ state: "visible" });
-      await page.evaluate(() => {
-        document.querySelectorAll(".modal.show").forEach(function(el) {
-          if (el.id !== "imagePickerModal") {
-            var inst = bootstrap.Modal.getInstance(el);
-            if (inst) inst.hide();
-          }
-        });
-      });
+
       await page.waitForTimeout(250);
     });
 
@@ -3714,14 +3707,7 @@ test.describe("PlanMyDay - Regression", () => {
       await page.locator("#streamEditorList .btn-primary").filter({ hasText: "Edit" }).first().click();
       await page.locator("#btnStreamImageChoose").click();
       await page.locator("#imagePickerPage").waitFor({ state: "visible" });
-      await page.evaluate(() => {
-        document.querySelectorAll(".modal.show").forEach(function(el) {
-          if (el.id !== "imagePickerModal") {
-            var inst = bootstrap.Modal.getInstance(el);
-            if (inst) inst.hide();
-          }
-        });
-      });
+
       await page.waitForTimeout(250);
     });
 
@@ -3732,10 +3718,6 @@ test.describe("PlanMyDay - Regression", () => {
       await expect
         .poll(() => page.evaluate(() => (editBuffer && editBuffer.image) || ""), { timeout: 5000 })
         .toBe("PickMe");
-      await page.evaluate(() => {
-        const modal = bootstrap.Modal.getInstance(document.getElementById("imagePickerModal"));
-        if (modal) modal.hide();
-      });
       await page.locator("#imagePickerPage").waitFor({ state: "hidden", timeout: 10000 });
       const name = await page.evaluate(() => editBuffer?.image || "");
       expect(name).toBe("PickMe");
@@ -3761,10 +3743,6 @@ test.describe("PlanMyDay - Regression", () => {
       test.setTimeout(30000);
       await page.locator("#imagePickerPage .smd-page-footer smd-button").filter({ hasText: "Cancel" }).click();
       await page.waitForTimeout(250);
-      await page.evaluate(() => {
-        const modal = bootstrap.Modal.getInstance(document.getElementById("imagePickerModal"));
-        if (modal) modal.hide();
-      });
       await page.locator("#imagePickerPage").waitFor({ state: "hidden", timeout: 10000 });
       await expect(page.locator("#imagePickerPage")).not.toBeVisible();
     });
@@ -3772,10 +3750,6 @@ test.describe("PlanMyDay - Regression", () => {
     test("no image button clears image in editor", async ({ page }) => {
       await page.getByText("No Image").click();
       await page.waitForTimeout(250);
-      await page.evaluate(() => {
-        const modal = bootstrap.Modal.getInstance(document.getElementById("imagePickerModal"));
-        if (modal) modal.hide();
-      });
       await page.locator("#imagePickerPage").waitFor({ state: "hidden", timeout: 10000 });
       const img = await page.evaluate(() => editBuffer?.image || "");
       expect(img).toBe("");
@@ -4964,10 +4938,6 @@ test.describe("PlanMyDay - Regression", () => {
       await expect
         .poll(() => page.evaluate(() => (jobsBuffer && jobsBuffer.image) || ""), { timeout: 5000 })
         .toBe("TestImg");
-      await page.evaluate(() => {
-        const modal = bootstrap.Modal.getInstance(document.getElementById("imagePickerModal"));
-        if (modal) modal.hide();
-      });
       await page.locator("#imagePickerPage").waitFor({ state: "hidden", timeout: 10000 });
       const img = await page.evaluate(() => jobsBuffer?.image || "");
       expect(img).toBe("TestImg");
@@ -5057,10 +5027,6 @@ test.describe("PlanMyDay - Regression", () => {
       await expect
         .poll(() => page.evaluate(() => (jobsBuffer && jobsBuffer.image) || ""), { timeout: 5000 })
         .toBe("FrontImg");
-      await page.evaluate(() => {
-        const modal = bootstrap.Modal.getInstance(document.getElementById("imagePickerModal"));
-        if (modal) modal.hide();
-      });
       await page.locator("#imagePickerPage").waitFor({ state: "hidden", timeout: 10000 });
       const img = await page.evaluate(() => jobsBuffer?.image || "");
       expect(img).toBe("FrontImg");
