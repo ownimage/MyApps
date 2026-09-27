@@ -96,6 +96,26 @@ Architecture:
   by `localStorage["smdSwDriftReloadedFor"]` so it cannot loop. The new worker's
   activate step then deletes the stale `myapps-<old>` cache. A worker NEWER than
   the page is just a pending update, so it only logs a warning.
+  "NO CACHE" MODE (2026-09-27): PlanMyDay's Danger tab has a "No Cache" switch
+  (`#noCacheRow`, key `smdKey("noCache")`) that makes the worker read every file
+  from disk instead of the precache, so a fresh deploy is visible on the next
+  load. It is a worker MODE, not an unregister: `serveNetworkFirst()` re-fetches
+  with `cache: "no-store"` (bypassing the HTTP cache too), still writes the entry
+  back, and still falls back to the cache when the network is gone, so offline
+  keeps working. `smdSetNoCache` persists the flag, posts `SET_NO_CACHE`, and
+  `changeNoCache` reloads afterwards (files already fetched this load predate the
+  flip). THE FLAG LIVES IN CACHE STORAGE (`myapps-flags` cache,
+  `/__myapps_no_cache__` entry), not in a worker variable: a worker is killed
+  between visits, so an in-memory flag would silently revert to cache-first. That
+  cache is in the `activate` allow-list — dropping it from `activePrefixes`
+  deletes the setting on the next activation. `smdPushNoCacheToWorker` re-asserts
+  it on every boot from `smdRegisterServiceWorker`. `/smd-img/` user images stay
+  cache-ONLY even in this mode: the network has no file at that path, so falling
+  through would blank every stored image. Tests: "No Cache danger switch makes the
+  worker read every file from disk" and "No Cache mode serves files from the
+  network, not the precache" (the latter proves it by response DATE, because
+  `tests/serve-tests.mjs` snapshots files at startup and cannot serve changed
+  bytes).
   The "Later" dismissal is build-aware: the pages store
   `swUpdateDismissedBuild` (= the page's BUILD_NUMBER at press time) alongside
   `swUpdateDismissedUrl` and only suppress the prompt when
@@ -406,6 +426,31 @@ Techniques / gotchas:
 - CROSS-ORIGIN SAVE 302 GOTCHA (2026-09-17): SolarControlar's Flask POST endpoints (`POST /solar/`, `POST /solar/api/config`) are PRG — they answer `302 Location: /solar/`. A PWA `fetch()` that lets the browser follow that cross-origin redirect can lose its `Authorization` header on the follow-up GET (browser-dependent), so Traefik returns a 401 WITHOUT `Access-Control-Allow-Origin` → the fetch blocks as a CORS error / "Failed to fetch". Fix in the APP: `redirect: "manual"` on the POST and treat `resp.type === "opaqueredirect"` as success (server saved; the caller then re-fetches the GET page which carries auth again). `redirect: "manual"` returns an opaque-redirect response (status 0) for a 302 — you cannot read it, only detect it by `type`. Rule for SolarControlar saves: never follow the Flask redirect; `_post` returns the response TEXT (or `""`), so consumers must not chain `.text()`.
 
 ## Session log
+
+### 2026-09-27 (a) - Danger tab "No Cache" switch reads the app from disk
+- PlanMyDay's Danger tab gained a "No Cache" switch (`#noCacheRow` ->
+  `<smd-checkbox id="noCache">`, key `planmydays_noCache`). It flips the shared
+  worker into network-first mode so every file is re-read from disk instead of
+  the precache, and the app reloads so the next load is served that way. Hidden
+  until "Show danger", like the other danger rows.
+- `sw.js` gained `serveNetworkFirst()` (`cache: "no-store"`, still refreshes the
+  entry, still falls back to the cache offline), the `SET_NO_CACHE` /
+  `GET_NO_CACHE` messages, and a `myapps-flags` Cache Storage flag (an in-memory
+  flag would be lost when the worker is killed between visits; the flag cache is
+  now in the `activate` allow-list). `/smd-img/` user images stay cache-only in
+  this mode — the network has no file there.
+- `shared/js/smd-settings.js` gained `smdNoCacheEnabled` / `smdWorkerNoCache` /
+  `smdPushNoCacheToWorker` / `smdSetNoCache`; `smdRegisterServiceWorker`
+  re-asserts the flag on every boot so a restarted worker picks the mode back up.
+  Another app can reuse the helpers by adding its own switch — the worker side is
+  already global.
+- Verified: 2 new tests in `tests/pmd-regression.spec.js` (switch visibility,
+  persistence, worker ack both ways; and a response-DATE proof that No Cache
+  actually serves from the network while cache-first serves the older precached
+  copy), plus 27 focused PMD tests (all Danger tab, page-stack, and asset
+  cache-busting groups including the `/PlanMyDay/` sub-path precache test) and
+  the CountMyDays sub-path SW test. `node --check` clean on sw.js,
+  smd-settings.js, app-settings.js and the spec.
 
 ### 2026-09-26 (i) - component-owned layout mechanics and sectioned shared CSS
 - User requested a cleanup rule: non-colour/non-size layout mechanics (display,

@@ -1,7 +1,10 @@
-:root {
+:root {c
   --smd-page-header-background: var(--bs-primary);
+  --smd-page-header-color: var(--bs-white);
+
   --smd-tab-active-background: var(--bs-primary);
   --smd-tab-background: var(--bs-info);
+  --smd-tab-color: var(--bs-white);
   --smd-image-theme: light;
 
   /* Form-field palette for inputs, selects and the date picker, drawn from the
@@ -316,8 +319,11 @@ smd-draghandle[size="large"] {
 
 #smd-app smd-tabs .smd-tab-btn {
   background-color: var(--smd-tab-background);
+  color: var(--smd-tab-color);
   margin: 0 4px 0 0;
 }
+
+button#smd-tabs-4-tab-1 {}
 
 #smd-app smd-tabs .smd-tab-line {
   width: 100%;
@@ -389,13 +395,18 @@ smd-draghandle[size="large"] {
 }
 
 /* COMPONENT: smd-page (surface/theme rules; layout is in smd-page.js) */
-smd-page .smd-page {
+#smd-app smd-page .smd-page {
   /* Opaque page surface: the overlay must hide whatever is behind it (apps that
      do not explicitly hide their main content rely on this). */
   background-color: var(--bs-body-bg);
 }
 
-smd-page .smd-page-header {
+#smd-app smd-page .smd-page-header {
+  background-color: var(--smd-page-header-background);
+  color: var(--smd-page-header-color);
+}
+
+#smd-app smd-page .smd-page-footer {
   background-color: var(--smd-page-header-background);
 }
 
@@ -406,10 +417,6 @@ smd-page .smd-page-header {
 
 #settingsPage .smd-page-body::-webkit-scrollbar {
   display: none;
-}
-
-smd-page .smd-page-footer {
-  background-color: var(--smd-page-header-background);
 }
 
 /* COMPONENT: smd-modal (surface/theme rules; layout is in smd-modal.js) */

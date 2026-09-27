@@ -375,6 +375,12 @@ function smdRegisterServiceWorker(path) {
     // update via cache is a persisted, per-registration setting; set it on the
     // object too so an existing registration stops reusing an HTTP-cached sw.js.
     reg.updateViaCache = "none";
+    // Re-assert the Danger tab's "No Cache" switch on every boot: the worker
+    // may have been terminated since the last visit and lost the in-memory
+    // half of the setting.
+    if (typeof smdPushNoCacheToWorker === "function") {
+      smdPushNoCacheToWorker((reg && (reg.active || reg.waiting)) || navigator.serviceWorker.controller);
+    }
     smdCheckServiceWorkerBuild(reg);
     return reg;
   });
@@ -423,6 +429,84 @@ function smdCheckServiceWorkerBuild(reg) {
       finish(null);
     }
   });
+}
+
+// ---- "No Cache" mode (the Danger tab of an app that exposes it) ----
+// The page owns the switch (localStorage) and mirrors it into the worker, which
+// then serves every file from disk instead of its precache. The mirror is
+// needed because a worker is killed between visits: without it the setting
+// would be forgotten and the app would go stale again on the next load.
+function smdNoCacheEnabled() {
+  try {
+    return localStorage.getItem(smdKey("noCache")) === "true";
+  } catch (e) {
+    return false;
+  }
+}
+
+function smdTellWorkerNoCache(worker, enabled) {
+  return new Promise(function(resolve) {
+    if (!worker) return resolve(false);
+    var settled = false;
+    var timer = setTimeout(function() { finish(false); }, 2000);
+    function finish(value) {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve(value);
+    }
+    var channel = new MessageChannel();
+    channel.port1.onmessage = function(event) {
+      finish(!!(event.data || {}).enabled);
+    };
+    try {
+      worker.postMessage({ type: "SET_NO_CACHE", enabled: !!enabled }, [channel.port2]);
+    } catch (e) {
+      finish(false);
+    }
+  });
+}
+
+// Ask the worker which mode it is in. Returns null when there is no worker to
+// ask, so callers can tell "not supported" from "off".
+function smdWorkerNoCache(worker) {
+  return new Promise(function(resolve) {
+    if (!worker) return resolve(null);
+    var settled = false;
+    var timer = setTimeout(function() { finish(null); }, 2000);
+    function finish(value) {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve(value);
+    }
+    var channel = new MessageChannel();
+    channel.port1.onmessage = function(event) {
+      var data = event.data || {};
+      finish(data.type === "NO_CACHE" ? !!data.enabled : null);
+    };
+    try {
+      worker.postMessage({ type: "GET_NO_CACHE" }, [channel.port2]);
+    } catch (e) {
+      finish(null);
+    }
+  });
+}
+
+// Push the stored setting to a worker (idempotent). Called on every boot from
+// smdRegisterServiceWorker, so a worker that restarted picks the mode back up.
+function smdPushNoCacheToWorker(worker) {
+  if (!worker || !smdNoCacheEnabled()) return Promise.resolve(false);
+  return smdTellWorkerNoCache(worker, true);
+}
+
+// Settings handler: persist, tell the worker, and let the caller reload so the
+// new mode applies to the very next load (the current page's own files were
+// already fetched before the switch flipped).
+function smdSetNoCache(enabled) {
+  try { localStorage.setItem(smdKey("noCache"), enabled ? "true" : "false"); } catch (e) { /* ignore */ }
+  var worker = (window.navigator && navigator.serviceWorker && navigator.serviceWorker.controller) || null;
+  return smdTellWorkerNoCache(worker, enabled);
 }
 
 // ---- Generic settings-page styles (used by every app's settingsPage) ----

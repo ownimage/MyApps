@@ -44,12 +44,24 @@ function changeStartWeek(value) {
 
 function changeShowDanger(enabled) {
   localStorage.setItem(smdKey("showDanger"), enabled);
-  const dangerIds = ["clearAllDataRow", "refreshAppRow", "regenerateTilesRow", "sortJobsInStreamsRow", "uploadStandardImagesRow"];
+  const dangerIds = ["clearAllDataRow", "refreshAppRow", "regenerateTilesRow", "sortJobsInStreamsRow", "uploadStandardImagesRow", "noCacheRow"];
   if (isDevMode) dangerIds.push("devTodayRow", "devLastGenRow");
   dangerIds.forEach(id => {
     const el = $id(id);
     if (el) el.classList.toggle("d-none", !enabled);
   });
+}
+
+// "No Cache": the worker stops serving its precache and re-reads every file from
+// disk, so a deploy is visible on the next load. The switch only takes effect
+// for files loaded AFTER it flips, hence the reload.
+function changeNoCache(enabled) {
+  const done = function() { window.location.reload(); };
+  if (typeof smdSetNoCache !== "function") {
+    localStorage.setItem(smdKey("noCache"), enabled);
+    return done();
+  }
+  smdSetNoCache(enabled).then(done, done);
 }
 
 function changeSkipAdhocConfirm(enabled) {
@@ -139,10 +151,13 @@ function openSettings() {
   const showDanger = localStorage.getItem(smdKey("showDanger")) === "true";
   const showDangerCb = $id("showDanger");
   if (showDangerCb) showDangerCb.checked = showDanger;
+  const noCache = localStorage.getItem(smdKey("noCache")) === "true";
+  const noCacheCb = $id("noCache");
+  if (noCacheCb) noCacheCb.checked = noCache;
   const skipAdhoc = localStorage.getItem(smdKey("skipAdhocConfirm")) === "true";
   const skipAdhocCb = $id("skipAdhocConfirm");
   if (skipAdhocCb) skipAdhocCb.checked = skipAdhoc;
-  const dangerIds = ["clearAllDataRow", "refreshAppRow", "regenerateTilesRow", "sortJobsInStreamsRow", "uploadStandardImagesRow"];
+  const dangerIds = ["clearAllDataRow", "refreshAppRow", "regenerateTilesRow", "sortJobsInStreamsRow", "uploadStandardImagesRow", "noCacheRow"];
   if (isDevMode) dangerIds.push("devTodayRow", "devLastGenRow");
   dangerIds.forEach(id => {
     const el = $id(id);

@@ -20,7 +20,7 @@
 // comparison. If the two ever DO drift, the page notices at runtime
 // (GET_BUILD) and re-registers, so the drift self-heals instead of pinning
 // users to a build the worker will never replace.
-const BUILD_NUMBER = "202609262159";
+const BUILD_NUMBER = "202609270052";
 
 const CACHE = "myapps-" + BUILD_NUMBER;
 
@@ -28,6 +28,46 @@ const CACHE = "myapps-" + BUILD_NUMBER;
 // /smd-img/<hash> URLs written by shared/js/smd-images.js (Cache Storage) must
 // survive app rebuilds, or every read would re-download the bytes.
 const IMAGE_CACHE = "myapps-images";
+
+// ---- "No Cache" mode ----
+// A page can switch the worker to always read the app from disk (PlanMyDay's
+// Danger tab has a "No Cache" switch). The switch is stored in Cache Storage
+// rather than a variable because a worker is killed between visits: an
+// in-memory flag would reset to "cached" on the next load and silently serve
+// stale bytes again. FLAG_CACHE must stay in the activate allow-list below or
+// the flag would be deleted on the next activation.
+const FLAG_CACHE = "myapps-flags";
+const NO_CACHE_FLAG_URL = "/__myapps_no_cache__";
+let noCache = null;
+let noCacheRead = null;
+
+function readNoCache() {
+  if (noCache !== null) return Promise.resolve(noCache);
+  if (!noCacheRead) {
+    noCacheRead = caches.open(FLAG_CACHE)
+      .then(function(cache) { return cache.match(NO_CACHE_FLAG_URL); })
+      .then(function(hit) { return !!(hit && hit.ok); })
+      .catch(function() { return false; });
+  }
+  return noCacheRead;
+}
+
+function writeNoCache(enabled) {
+  noCache = !!enabled;
+  noCacheRead = Promise.resolve(noCache);
+  var open = caches.open(FLAG_CACHE);
+  return open.then(function(cache) {
+    return enabled
+      ? cache.put(NO_CACHE_FLAG_URL, new Response("1", { headers: { "Content-Type": "text/plain" } }))
+      : cache.delete(NO_CACHE_FLAG_URL);
+  }).catch(function() { /* private mode / storage disabled: fall back to cache-first */ });
+}
+
+function replyNoCache(event, enabled) {
+  const reply = { type: "NO_CACHE", enabled: !!enabled };
+  if (event.ports && event.ports[0]) event.ports[0].postMessage(reply);
+  else if (event.source) event.source.postMessage(reply);
+}
 
 // Transparent 1x1 GIF returned when a /smd-img/ request misses the cache (the
 // page writes the entry just before it renders the same URL, but a stale DOM
@@ -415,6 +455,15 @@ self.addEventListener("message", event => {
   if (!event.data) return;
   if (event.data.type === "SKIP_WAITING") {
     self.skipWaiting();
+  } else if (event.data.type === "SET_NO_CACHE") {
+    // The Danger tab's "No Cache" switch. writeNoCache resolves only after the
+    // flag is durable, so the page's ack means the next load really re-reads
+    // from disk.
+    event.waitUntil(writeNoCache(event.data.enabled).then(function() {
+      replyNoCache(event, noCache);
+    }));
+  } else if (event.data.type === "GET_NO_CACHE") {
+    event.waitUntil(readNoCache().then(replyNoCache.bind(null, event)));
   } else if (event.data.type === "GET_BUILD") {
     // Lets a page compare the build it is running against the build this worker
     // was registered for, so a stale worker is visible instead of silent.
@@ -427,7 +476,7 @@ self.addEventListener("message", event => {
 self.addEventListener("activate", event => {
   event.waitUntil(
     caches.keys().then(keys => {
-      const activePrefixes = [CACHE, IMAGE_CACHE];
+      const activePrefixes = [CACHE, IMAGE_CACHE, FLAG_CACHE];
       return Promise.all(
         keys.filter(k => !activePrefixes.some(p => k === p || k.startsWith(p)))
               .map(k => caches.delete(k))
@@ -435,6 +484,45 @@ self.addEventListener("activate", event => {
     }).then(() => self.clients.claim())
   );
 });
+
+// Default: serve the precached bytes and revalidate in the background. A
+// `?v=` stamp this worker does not recognise is a NEWER build's asset, so serve
+// it from the network instead of pinning the old bytes.
+function serveCacheFirst(req, url) {
+  return caches.open(CACHE).then(cache => cache.match(url.pathname, { ignoreSearch: true }).then(cached => {
+    const network = fetch(req).then(response => {
+      if (response && response.status === 200) {
+        cache.put(url.pathname, response.clone());
+      }
+      return response;
+    }).catch(() => {
+      if (req.mode === "navigate") return cache.match(appIndexFor(url.pathname));
+      return cached;
+    });
+    const stamp = url.searchParams.get("v");
+    if (stamp && stamp !== BUILD_NUMBER) return network;
+    return cached || network;
+  }));
+}
+
+// "No Cache" mode: the page asked for whatever is on disk right now, so the
+// HTTP cache is bypassed as well (cache: "no-store"), not just this precache.
+// The entry is still refreshed and still the offline fallback, so a dropped
+// connection leaves the app working instead of blank.
+function serveNetworkFirst(req, url) {
+  return fetch(req, { cache: "no-store" }).then(response => {
+    if (!response || response.status !== 200) return response;
+    return caches.open(CACHE)
+      .then(cache => cache.put(url.pathname, response.clone()))
+      .catch(() => {})
+      .then(() => response);
+  }).catch(() => {
+    return caches.open(CACHE).then(cache => cache.match(url.pathname, { ignoreSearch: true })).then(cached => {
+      if (req.mode === "navigate") return cached || cache.match(appIndexFor(url.pathname));
+      return cached;
+    });
+  });
+}
 
 self.addEventListener("fetch", event => {
   const req = event.request;
@@ -446,7 +534,9 @@ self.addEventListener("fetch", event => {
   }
   // User-image files: the page stores payloads under immutable /smd-img/ URLs
   // and points <img src> at them (shared/js/smd-images.js). Serve the entry;
-  // never fall through to the network, which has no file at that path.
+  // never fall through to the network, which has no file at that path. This
+  // stays cache-only even in "No Cache" mode for the same reason — the network
+  // has nothing to offer there.
   if (url.pathname.indexOf("/smd-img/") !== -1) {
     event.respondWith(
       caches.open(IMAGE_CACHE).then(cache =>
@@ -458,23 +548,8 @@ self.addEventListener("fetch", event => {
   // Cache by PATHNAME so versioned requests (js/app.js?v=...) hit the same
   // precached entries as their unversioned forms.
   event.respondWith(
-    caches.open(CACHE).then(cache => cache.match(url.pathname, { ignoreSearch: true }).then(cached => {
-      const network = fetch(req).then(response => {
-        if (response && response.status === 200) {
-          cache.put(url.pathname, response.clone());
-        }
-        return response;
-      }).catch(() => {
-        if (req.mode === "navigate") return cache.match(appIndexFor(url.pathname));
-        return cached;
-      });
-      // Because matching ignores the search string, a `?v=` stamp this worker
-      // does not recognise is a NEWER build's asset. Serve it from the network
-      // (refreshing the pathname entry on the way) instead of pinning the old
-      // bytes, so a freshly deployed build is never held back by a stale worker.
-      const stamp = url.searchParams.get("v");
-      if (stamp && stamp !== BUILD_NUMBER) return network;
-      return cached || network;
-    }))
+    readNoCache().then(function(enabled) {
+      return enabled ? serveNetworkFirst(req, url) : serveCacheFirst(req, url);
+    })
   );
 });

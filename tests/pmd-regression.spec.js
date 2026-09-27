@@ -7267,6 +7267,83 @@ test.describe("PlanMyDay - Regression", () => {
       expect(workerBuild).toBe(build);
     });
 
+    test("No Cache danger switch makes the worker read every file from disk", async ({ page }) => {
+      await page.goto("/PlanMyDay/");
+      const workerNoCache = async () => page.evaluate(async () => {
+        const reg = await navigator.serviceWorker.ready;
+        const worker = reg.active || navigator.serviceWorker.controller;
+        if (!worker) return null;
+        return await new Promise((resolve) => {
+          const channel = new MessageChannel();
+          const timer = setTimeout(() => resolve(null), 5000);
+          channel.port1.onmessage = (event) => {
+            clearTimeout(timer);
+            resolve((event.data || {}).enabled);
+          };
+          worker.postMessage({ type: "GET_NO_CACHE" }, [channel.port2]);
+        });
+      });
+
+      // Off by default, and hidden until Show danger like the other actions.
+      expect(await workerNoCache()).toBe(false);
+      await page.locator("#btnMainMenu").click();
+      await page.locator("a.dropdown-item").filter({ hasText: "Settings" }).click();
+      await page.locator("#danger-tab").click();
+      await expect(page.locator("#noCacheRow")).toBeHidden();
+      await page.locator("#showDanger").check();
+      await expect(page.locator("#noCacheRow")).toBeVisible();
+
+      // Flipping it persists the setting and switches the worker over. The
+      // handler reloads, so wait for the new document before asserting.
+      const reloaded = page.waitForEvent("load");
+      await page.locator("#noCache").check();
+      await reloaded;
+      expect(await page.evaluate(() => localStorage.getItem("planmydays_noCache"))).toBe("true");
+      expect(await workerNoCache()).toBe(true);
+
+      // The reloaded app still renders, and the switch reads back as on.
+      await expect(page.locator("h1").first()).toBeVisible();
+      await page.locator("#btnMainMenu").click();
+      await page.locator("a.dropdown-item").filter({ hasText: "Settings" }).click();
+      await page.locator("#danger-tab").click();
+      await expect(page.locator("#noCache")).toBeChecked();
+
+      // Back off again so the flag cannot linger for other specs.
+      const reloadedBack = page.waitForEvent("load");
+      await page.locator("#noCache").uncheck();
+      await reloadedBack;
+      expect(await page.evaluate(() => localStorage.getItem("planmydays_noCache"))).toBe("false");
+      expect(await workerNoCache()).toBe(false);
+    });
+
+    test("No Cache mode serves files from the network, not the precache", async ({ page }) => {
+      // The dev server snapshots files at startup, so "reads the latest bytes
+      // from disk" is proven by WHEN the response was produced instead: a
+      // precached entry carries the date of the request that filled it, while a
+      // network read carries the server's current date.
+      const fetchStamp = (url) => page.evaluate(async (u) => {
+        const response = await fetch(u);
+        return { at: Date.now(), served: Date.parse(response.headers.get("date") || "") };
+      }, url);
+
+      await page.goto("/PlanMyDay/");
+      const asset = "/shared/js/build-number.js";
+      // Warm the precache, then let the background revalidate settle so the
+      // entry the worker will serve is a fixed, older response.
+      await fetchStamp(asset);
+      await page.waitForTimeout(4000);
+
+      const cached = await fetchStamp(asset);
+      expect(cached.served).toBeLessThan(cached.at - 2000);
+
+      await page.evaluate(() => smdSetNoCache(true));
+      const fromNetwork = await fetchStamp(asset);
+      expect(Math.abs(fromNetwork.served - fromNetwork.at)).toBeLessThan(2000);
+
+      // Leave the worker in its normal cache-first mode for the rest of the run.
+      await page.evaluate(() => smdSetNoCache(false));
+    });
+
     test("service worker updates use the shared update modal", async ({ page }) => {
       await page.goto("/PlanMyDay/");
       await expect(page.locator("#pwa-pull-indicator")).toHaveCount(0);

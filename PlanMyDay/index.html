@@ -296,6 +296,13 @@
             </div>
           </div>
 
+          <div id="noCacheRow" class="row mb-4 align-items-center col-md-8 d-none">
+            <div class="col-4 text-end"><label class="form-label mb-0">No Cache</label></div>
+            <div class="col-8">
+              <smd-checkbox id="noCache" switch title="Always load the app from disk instead of the offline cache. The app reloads when you change this." onchange="changeNoCache(this.checked)"></smd-checkbox>
+            </div>
+          </div>
+
           <div id="regenerateTilesRow" class="row mb-4 align-items-center col-md-8 d-none">
             <div class="col-4 text-end"></div>
             <div class="col-8">

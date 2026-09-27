@@ -168,7 +168,7 @@
     _autoTheme() {
       // --smd-image-theme drives image colour rendering (default: mirrors
       // html[data-bs-theme] via styles.css). Falls back to the attribute.
-      const v = getComputedStyle(document.documentElement).getPropertyValue("--smd-image-theme").trim().toLowerCase();
+      const v = getComputedStyle(this).getPropertyValue("--smd-image-theme").trim().toLowerCase();
       if (v === "dark" || v === "light") return v;
       return (document.documentElement.getAttribute("data-bs-theme") || "dark") === "dark" ? "dark" : "light";
     }
