@@ -467,6 +467,17 @@ function smdNoCacheEnabled() {
   }
 }
 
+// The worker that will serve the NEXT request. `controller` is null on a first
+// visit (or before the worker claims the page), and dropping the setting then
+// would leave the worker in cache-first mode for the reload that follows.
+function smdActiveWorker() {
+  if (!window.navigator || !navigator.serviceWorker) return Promise.resolve(null);
+  if (navigator.serviceWorker.controller) return Promise.resolve(navigator.serviceWorker.controller);
+  return navigator.serviceWorker.getRegistration().then(function(reg) {
+    return (reg && (reg.active || reg.waiting || reg.installing)) || null;
+  }).catch(function() { return null; });
+}
+
 function smdTellWorkerNoCache(worker, enabled) {
   return new Promise(function(resolve) {
     if (!worker) return resolve(false);
@@ -528,8 +539,9 @@ function smdPushNoCacheToWorker(worker) {
 // already fetched before the switch flipped).
 function smdSetNoCache(enabled) {
   try { localStorage.setItem(smdKey("noCache"), enabled ? "true" : "false"); } catch (e) { /* ignore */ }
-  var worker = (window.navigator && navigator.serviceWorker && navigator.serviceWorker.controller) || null;
-  return smdTellWorkerNoCache(worker, enabled);
+  return smdActiveWorker().then(function(worker) {
+    return smdTellWorkerNoCache(worker, enabled);
+  });
 }
 
 // ---- Generic settings-page styles (used by every app's settingsPage) ----

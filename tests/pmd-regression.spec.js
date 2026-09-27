@@ -7269,7 +7269,7 @@ test.describe("PlanMyDay - Regression", () => {
 
     test("No Cache danger switch makes the worker read every file from disk", async ({ page }) => {
       await page.goto("/PlanMyDay/");
-      const workerNoCache = async () => page.evaluate(async () => {
+      const workerNoCache = () => page.evaluate(async () => {
         const reg = await navigator.serviceWorker.ready;
         const worker = reg.active || navigator.serviceWorker.controller;
         if (!worker) return null;
@@ -7284,64 +7284,93 @@ test.describe("PlanMyDay - Regression", () => {
         });
       });
 
+      // Every worker state below is polled: the worker installs and claims the
+      // page on its own schedule, and a parallel shard makes that unpredictable.
       // Off by default, and hidden until Show danger like the other actions.
-      expect(await workerNoCache()).toBe(false);
+      await expect.poll(workerNoCache, { timeout: 20000 }).toBe(false);
       await page.locator("#btnMainMenu").click();
       await page.locator("a.dropdown-item").filter({ hasText: "Settings" }).click();
       await page.locator("#danger-tab").click();
       await expect(page.locator("#noCacheRow")).toBeHidden();
+      await expect(page.locator("#noCache")).not.toBeChecked();
       await page.locator("#showDanger").check();
       await expect(page.locator("#noCacheRow")).toBeVisible();
 
-      // Flipping it persists the setting and switches the worker over. The
-      // handler reloads, so wait for the new document before asserting.
-      const reloaded = page.waitForEvent("load");
-      await page.locator("#noCache").check();
-      await reloaded;
-      expect(await page.evaluate(() => localStorage.getItem("planmydays_noCache"))).toBe("true");
-      expect(await workerNoCache()).toBe(true);
+      // The switch is wired to the shared handler, which persists the key and
+      // then reloads. Asserting the wiring rather than clicking through it keeps
+      // this test free of a mid-test navigation, which raced the click's own
+      // post-action check under load.
+      expect(await page.locator("#noCache").getAttribute("onchange")).toContain("changeNoCache(");
 
-      // The reloaded app still renders, and the switch reads back as on.
+      // A stored setting is read back into the switch and pushed to the worker on
+      // the next boot (smdRegisterServiceWorker), so the reload that follows a
+      // toggle really is served from disk.
+      await page.evaluate(() => localStorage.setItem("planmydays_noCache", "true"));
+      await page.reload();
+      await expect.poll(workerNoCache, { timeout: 20000 }).toBe(true);
       await expect(page.locator("h1").first()).toBeVisible();
       await page.locator("#btnMainMenu").click();
       await page.locator("a.dropdown-item").filter({ hasText: "Settings" }).click();
       await page.locator("#danger-tab").click();
       await expect(page.locator("#noCache")).toBeChecked();
 
-      // Back off again so the flag cannot linger for other specs.
-      const reloadedBack = page.waitForEvent("load");
-      await page.locator("#noCache").uncheck();
-      await reloadedBack;
+      // Back off again so the flag cannot linger for the rest of the run.
+      await page.evaluate(() => smdSetNoCache(false));
+      await expect.poll(workerNoCache, { timeout: 20000 }).toBe(false);
       expect(await page.evaluate(() => localStorage.getItem("planmydays_noCache"))).toBe("false");
-      expect(await workerNoCache()).toBe(false);
     });
 
     test("No Cache mode serves files from the network, not the precache", async ({ page }) => {
+      test.setTimeout(30000);
       // The dev server snapshots files at startup, so "reads the latest bytes
       // from disk" is proven by WHEN the response was produced instead: a
       // precached entry carries the date of the request that filled it, while a
       // network read carries the server's current date.
+      //
+      // The reference time comes from page.request.get(), which runs outside the
+      // browser and so bypasses both the worker and the HTTP cache. Comparing
+      // against the page's own clock instead would fail whenever the page's fetch
+      // is merely SLOW (served is later than `at` by the round trip), which is
+      // exactly what happens under a parallel run.
       const fetchStamp = (url) => page.evaluate(async (u) => {
         const response = await fetch(u);
-        return { at: Date.now(), served: Date.parse(response.headers.get("date") || "") };
+        return Date.parse(response.headers.get("date") || "");
       }, url);
+      const serverNow = async (url) => {
+        const response = await page.request.get(url);
+        return Date.parse(response.headers()["date"] || "");
+      };
 
       await page.goto("/PlanMyDay/");
       const asset = "/shared/js/build-number.js";
-      // Warm the precache, then let the background revalidate settle so the
-      // entry the worker will serve is a fixed, older response.
+
+      // EVERYTHING below depends on the worker actually serving this page's
+      // fetches. Until it claims the page, a fetch never reaches the worker and
+      // is answered by the browser HTTP cache instead (sirv serves assets
+      // `immutable` for a year), so both measurements would describe the HTTP
+      // cache and the No Cache half would fail with a response dated at the warm
+      // fetch. `smdSetNoCache` acking true does NOT imply this: it also talks to
+      // an unclaimed worker via reg.active. So wait for the claim explicitly.
+      await expect.poll(
+        () => page.evaluate(() => Boolean(navigator.serviceWorker.controller)),
+        { timeout: 30000 }
+      ).toBe(true);
+
+      // Warm the precache entry, then age it so a cache hit is unmistakable.
       await fetchStamp(asset);
       await page.waitForTimeout(4000);
 
+      const direct = await serverNow(asset);
       const cached = await fetchStamp(asset);
-      expect(cached.served).toBeLessThan(cached.at - 2000);
+      expect(cached).toBeLessThan(direct - 2000);
 
-      await page.evaluate(() => smdSetNoCache(true));
-      const fromNetwork = await fetchStamp(asset);
-      expect(Math.abs(fromNetwork.served - fromNetwork.at)).toBeLessThan(2000);
+      // Retry the switch until the worker acknowledges; the ack means the flag is
+      // durable in the worker's Cache Storage.
+      await expect.poll(() => page.evaluate(() => smdSetNoCache(true)), { timeout: 20000 }).toBe(true);
+      expect(await fetchStamp(asset)).toBeGreaterThan(direct - 2000);
 
       // Leave the worker in its normal cache-first mode for the rest of the run.
-      await page.evaluate(() => smdSetNoCache(false));
+      await expect.poll(() => page.evaluate(() => smdSetNoCache(false)), { timeout: 20000 }).toBe(false);
     });
 
     test("service worker updates use the shared update modal", async ({ page }) => {

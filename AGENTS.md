@@ -436,6 +436,37 @@ Techniques / gotchas:
 
 ## Session log
 
+### 2026-09-27 (c) - flake fix: the two No Cache tests needed the worker to actually CONTROL the page
+- Both No Cache tests were flaky under a parallel run. Causes, both real:
+  (1) "No Cache mode serves files from the network" compared a SW-served
+  response date against `page.request.get()`, but on a first visit the worker
+  may not have CLAIMED the page yet — then the page's `fetch()` never reaches
+  the worker at all and the BROWSER HTTP CACHE answers it, because
+  `tests/serve-tests.mjs` serves every non-sw.js/non-HTML asset as
+  `public, max-age=31536000, immutable`. The test then measured the HTTP cache
+  and failed with a response dated at the warm fetch. Fix: poll
+  `navigator.serviceWorker.controller` until set before measuring anything.
+  GOTCHA worth remembering: an ack from `smdSetNoCache` does NOT imply control —
+  it also talks to an unclaimed worker via `reg.active`, so the ack and "this
+  page's fetches go through the worker" are independent facts.
+  (2) The other test drove `#noCache.check()`, whose handler RELOADS the page, so
+  the navigation raced Playwright's own post-click verification. Fix: assert the
+  switch's `onchange="changeNoCache(...)"` wiring and the persisted-key read-back
+  across one controlled `page.reload()` instead of clicking through a reload.
+- Also hardened the app, not just the test: `smdSetNoCache` now resolves the
+  worker via `smdActiveWorker()` = `controller` OR `reg.active|waiting|installing`.
+  Before, toggling No Cache on a first visit (no controller) persisted the
+  localStorage flag but never reached the worker, so the reload that follows was
+  still served cache-first.
+- Verified: the network-vs-cache test still FAILS when the worker's
+  `serveNetworkFirst` is mutated back to `serveCacheFirst` (so it is not
+  vacuous), passes with it, and passes 10/10 with `--workers=12 --repeat-each=5`.
+  User then ran the full regression clean.
+- LESSON (any future test that measures what the SW serves, e.g. offline
+  work): wait for `navigator.serviceWorker.controller` first, and never let an
+  app handler's own `location.reload()` happen mid-assertion — assert the wiring
+  and use an explicit `page.reload()`.
+
 ### 2026-09-27 (b) - per-mode theme override sheets (`<theme>.<mode>.css`)
 - User request: the theme override is applied as `<theme>.css`; make it
   `<theme>.<mode>.css` and split the existing files. All 27 per-theme override
