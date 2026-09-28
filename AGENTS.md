@@ -440,6 +440,31 @@ Techniques / gotchas:
 
 ## Session log
 
+### 2026-09-28 (e) - PMD CPD: shared settings-page framework + QR helpers + JSON export/import (CPD now ZERO)
+- Extracted the per-app SETTINGS-PAGE FRAMEWORK into `shared/js/smd-app.js`: `smdGetSettingsSections()`, `smdBuildSettingsPage(extraStyles)`, `smdSetupSettingsPage(opts)`, `smdHideSettingsPage()`, `smdToggleDangerRows(enabled, ids)`, `smdChangeShowDanger(enabled, ids)`, `smdApplyImageSize(capSmall)`, `smdConfirmClearAllData(opts)`, plus `smdDownloadJson(data, baseName)` and `smdReadJsonFile(onJson)`.
+  - `smdSetupSettingsPage(opts)`: `onBeforeOpen` (app hides the background), `extraStyles`, `dangerIds`, `restore()` (app-specific select restores), `bindDone` (false for PlanMyDay, which binds the done listener in app.js), `onDone`. It rebuilds `#settingsPage`, shows it, restores the SHARED selects (theme/mode, font/icon/density, auto-hide, show-danger + danger rows), then runs `restore()`.
+  - Migrated CountMyDays, QRLinks, PlanMyDay, FreeFormOX and Launch. Each keeps its global `openSettings` / `closeSettings` / `buildSettingsContent` / `getSettingsSections` / `toggleDangerRows` / `applyImageSize` / `changeShowDanger` / `exportData` / `importData` names (inline HTML + tests call them) as thin wrappers.
+  - `smdBindImagePicker(opts)` gained `opts.manageBackground` (hide/restore open smd-pages + the main container behind the picker) and a re-open timer clear, so `PlanMyDay/js/image-picker.js` is now just two calls.
+- NEW `shared/js/smd-qr.js` (`window.SmdQr`): vendor-root resolution + lazy `<script>` loader + `loadLzString()`, shared by `smd-qr-export.js` / `smd-qr-import.js` (each had a 34-line copy). Loaded BEFORE the QR components in `CountMyDays/index.html` + `storybook/index.html`, and added to `sw.js` SHARED_ASSETS.
+- CPD (`--minimum-tokens 100`) is now **0 groups** (was 22 -> 17 -> 3 -> 0). Every app-file duplicate from the original scan is gone.
+- Verified: full launch 7/7, ffox 11/11, cmd 55/55, qrlinks 9/9, solar 12/12, storybook 8/8; pmd subsets settings 40 + Danger 17 + picker 25 + `--grep stream` 53 + importData 3 + boot 7.
+- `BUILD_NUMBER` -> `202609281039`.
+
+### 2026-09-28 (d) - PMD CPD cleanup: merged the two job cards + shared app-shell wiring
+- Merged `pmd-job-stream-card` + `pmd-job-search-card` into ONE `PlanMyDay/js/components/pmd-job-summary-card.js` (`<pmd-job-summary-card>`), selected by `variant="stream"` (default) | `"search"`. The template holds BOTH layouts; `_applyVariant()` drops the nodes the variant does not use (stream drops `.check-col`/`.tab-badge`/`.stream-thumb`/`.stream-title`; search drops `.handle-col`/`.active-toggle-inline`). BOTH keep exactly one `.active-toggle` so tests still target it. Deleted the two old files.
+  - GOTCHA: the search variant MUST keep `.stream-thumb` - dropping it changed the flex column width and broke the "job tiles keep the image slots so titles line up" test. Only the STREAM variant drops the stream thumb/title.
+  - Consumers updated: `streams-editor.js` (emits `variant="stream"` + slotted `<smd-draghandle>`), `job-search.js` (`variant="search"`), `PlanMyDay/index.html`, `sw.js` precache, `storybook/index.html` (script tag + merged section + CSS selector + seeds), `storybook/cardViewer.html` (two recipes: "Job Summary Card (stream)"/"(search)"), and the specs (`pmd-regression`, `pmd-screenshots`, `storybook-regression` incl. nav count 32->31, host list, card labels).
+- Deduped the app-shell wiring out of `CountMyDays/js/app.js` + `QRLinks/js/app.js` into NEW `shared/js/smd-app.js` helpers (all idempotent via `window.__smd*Bound`):
+  - `smdBindThemeChange()` - the `smd-theme-change` -> `changeTheme`/`changeThemeMode` listener.
+  - `smdBindImagePicker()` - installs `window.__openImagePicker`/`__finishImagePick` + the `smd-image-picker-select` listener (drives `#imagePickerPage`).
+  - `smdBindImageSelectActions(routes)` - routes an element id (e.g. `dateImageSelect`) to `function(name)`.
+  - `smdBindImagesEditor()` - the shared images-editor page + `smd-image-card-action` wiring.
+  - `smdEnablePullToRefresh()` - canonical Bootstrap-spinner pull-to-refresh (the two apps had diverging spinner markup; now unified).
+  - PlanMyDay keeps its OWN richer picker (`PlanMyDay/js/image-picker.js` adds background-page stacking) - deliberately not migrated.
+- CPD: 22 -> 17 groups (`--minimum-tokens 100`). The `app.js` duplicates are gone. REMAINING bulk = the per-app SETTINGS-PAGE FRAMEWORK (`getSettingsSections` / `buildSettingsContent` / `openSettings` / `closeSettings` / `toggleDangerRows` / `applyImageSize`) copied across `CountMyDays|QRLinks|PlanMyDay/js/app-settings.js`, `FreeFormOX/js/settings.js`, `Launch/js/app.js` - the next extraction into `smd-app.js` - plus `smd-qr-export.js` vs `smd-qr-import.js`. See the PMD CPD section in commands.md.
+- Verified: storybook-regression 8/8; pmd `--grep "Search Jobs"` 15/15; pmd `--grep stream` 53/53; the streams job-title alignment test; pmd-screenshots one theme 33/33; qrlinks-regression 9/9; cmd `--grep image` 9/9.
+- `BUILD_NUMBER` -> `202609281023`.
+
 ### 2026-09-28 (c) - coverage push: import/export/google tests, removed the dead legacy image picker
 - Goal: lift FUNCTION coverage to 85%. The monocart report is `coverage-report/coverage-data.js`, a single `window.reportData = '<base64>';` blob; decode it with `node`'s `zlib.inflateRawSync(Buffer.from(b64,"base64"))` (NOT inflateSync/gunzip) to get the v8 JSON `{summary, files:[{url, source, data:{functions:[{name,start,count}]}}]}`. A function is uncovered when `count` is 0; map `start` to a line via `source.slice(0,start).split("\n").length`. (Handy throwaway scripts: decode+list uncovered; per-file uncovered list.)
 - CRITICAL to know before extending coverage: FUNCTION coverage only needs each function INVOKED once, not every branch. Many "uncovered" entries are tiny anonymous callbacks inside `forEach`/`.filter`/`.map`/promise `.then` - they stay uncovered only because the array was EMPTY or the branch never ran. Populating the arrays (e.g. sending categories+dates through the import wizard) lights up dozens at once.

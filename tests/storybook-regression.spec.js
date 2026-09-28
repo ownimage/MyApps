@@ -11,7 +11,7 @@ test.describe("Storybook - Regression", () => {
     page.on("requestfailed", (req) => failed.push(req.url()));
 
     await page.goto("/storybook/");
-    await expect(page.locator("nav.sb-nav a")).toHaveCount(32);
+    await expect(page.locator("nav.sb-nav a")).toHaveCount(31);
 
     // Settle window (section init code runs synchronously after renderAll).
     await page.waitForTimeout(1000);
@@ -31,7 +31,7 @@ test.describe("Storybook - Regression", () => {
 
     // Combined pmd-stream section renders both headers + all four job cards.
     await expect(page.locator("#pmd-stream pmd-stream-header")).toHaveCount(2);
-    await expect(page.locator("#pmd-stream pmd-job-stream-card")).toHaveCount(4);
+    await expect(page.locator("#pmd-stream pmd-job-summary-card")).toHaveCount(4);
 
     // pmd-tasks demo renders one row per seeded task (+ its note row).
     await expect(page.locator("#sb-pmd-tasks .task-row")).toHaveCount(2);
@@ -77,8 +77,7 @@ test.describe("Storybook - Regression", () => {
 
     const hosts = page.locator([
       "main pmd-stream-header",
-      "main pmd-job-stream-card",
-      "main pmd-job-search-card",
+      "main pmd-job-summary-card",
       "main pmd-job-today-card",
       "main cmd-countdown-card",
       "main cmd-date-card",
@@ -183,8 +182,8 @@ test.describe("Storybook - Regression", () => {
     await expect(page.locator("body")).toHaveAttribute("data-card-viewer-ready", "true");
     await expect(page.locator("#cardSelect option")).toHaveText([
       "Job Today Card",
-      "Job Stream Card",
-      "Job Search Card",
+      "Job Summary Card (stream)",
+      "Job Summary Card (search)",
       "Countdown Card",
       "Date Card",
       "Category Card",
@@ -241,8 +240,8 @@ test.describe("Storybook - Regression", () => {
 
     const recipes = [
       ["pmd-job-today-card", "pmd-job-today-card > .card"],
-      ["pmd-job-stream-card", "pmd-job-stream-card > .card"],
-      ["pmd-job-search-card", "pmd-job-search-card > .card"],
+      ["pmd-job-summary-card", "pmd-job-summary-card > .card"],
+      ["pmd-job-summary-card-search", "pmd-job-summary-card > .card"],
       ["cmd-countdown-card", "cmd-countdown-card > .card"],
       ["cmd-date-card", "cmd-date-card > .card"],
       ["cmd-category-card", "cmd-category-card > .card"],

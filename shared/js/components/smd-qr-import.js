@@ -22,36 +22,14 @@
 (function (global) {
   "use strict";
 
-  const VENDOR_ROOT = (function () {
-    const src = document.currentScript && document.currentScript.src;
-    if (src) {
-      try { return new URL("../../vendor/", src).href; } catch (e) { /* ignore */ }
-    }
-    return "vendor/";
-  })();
+  // Vendor root + lazy script loading live in the shared smd-qr.js helper.
+  const SmdQr = global.SmdQr;
 
-  const scriptPromises = Object.create(null);
-  function loadScript(name) {
-    if (!scriptPromises[name]) {
-      scriptPromises[name] = new Promise((resolve, reject) => {
-        const s = document.createElement("script");
-        s.src = VENDOR_ROOT + name;
-        s.onload = () => resolve();
-        s.onerror = () => reject(new Error("Failed to load " + name));
-        document.head.appendChild(s);
-      });
-    }
-    return scriptPromises[name];
-  }
-
-  function loadLzString() {
-    if (typeof global.LZString !== "undefined") return Promise.resolve();
-    return loadScript("lz-string.min.js");
-  }
+  function loadLzString() { return SmdQr.loadLzString(); }
 
   function loadJsQr() {
     if (typeof global.jsQR === "function") return Promise.resolve();
-    return loadScript("jsQR.js");
+    return SmdQr.loadScript("jsQR.js");
   }
 
   class SmdQrImport extends HTMLElement {

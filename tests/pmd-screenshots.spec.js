@@ -374,7 +374,7 @@ test.describe("PlanMyDay - Screenshots", () => {
     await page.locator("#btnMainMenu").click();
     await page.locator("a.dropdown-item").filter({ hasText: "Search Jobs" }).click();
     await page.waitForSelector("#jobSearchEditor:not(.d-none)");
-    await page.waitForSelector("#jobSearchList pmd-job-search-card");
+    await page.waitForSelector("#jobSearchList pmd-job-summary-card");
     await screenshotAllThemes(page, "search-jobs.png");
   });
 
@@ -386,7 +386,7 @@ test.describe("PlanMyDay - Screenshots", () => {
     await page.locator("#btnMainMenu").click();
     await page.locator("a.dropdown-item").filter({ hasText: "Search Jobs" }).click();
     await page.waitForSelector("#jobSearchEditor:not(.d-none)");
-    await page.waitForSelector("#jobSearchList pmd-job-search-card");
+    await page.waitForSelector("#jobSearchList pmd-job-summary-card");
     await page.locator("#jobSearchInput").fill("meet");
     await page.waitForTimeout(200);
     await screenshotAllThemes(page, "search-jobs-filtered.png");

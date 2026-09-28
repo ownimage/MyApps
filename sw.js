@@ -20,7 +20,7 @@
 // comparison. If the two ever DO drift, the page notices at runtime
 // (GET_BUILD) and re-registers, so the drift self-heals instead of pinning
 // users to a build the worker will never replace.
-const BUILD_NUMBER = "202609280857";
+const BUILD_NUMBER = "202609281039";
 
 const CACHE = "myapps-" + BUILD_NUMBER;
 
@@ -330,7 +330,8 @@ const SHARED_ASSETS = [
   "shared/js/components/smd-page.js",
   "shared/js/components/smd-tabs.js",
   "shared/js/components/smd-qrcode.js",
-  "shared/js/components/smd-qr-export.js",
+    "shared/js/smd-qr.js",
+    "shared/js/components/smd-qr-export.js",
   "shared/js/components/smd-qr-import.js",
   "shared/js/smd-app.js",
   "shared/js/smd-minio.js",
@@ -364,8 +365,7 @@ const APPS = {
     "PlanMyDay/js/display.js",
      "PlanMyDay/js/image-picker.js",
      "PlanMyDay/js/components/pmd-stream-header.js",
-    "PlanMyDay/js/components/pmd-job-stream-card.js",
-    "PlanMyDay/js/components/pmd-job-search-card.js",
+    "PlanMyDay/js/components/pmd-job-summary-card.js",
     "PlanMyDay/js/components/pmd-job-today-card.js",
     "PlanMyDay/js/components/pmd-tasks.js"
   ],
