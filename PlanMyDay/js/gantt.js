@@ -67,7 +67,11 @@ function buildGanttContent() {
   const page = document.getElementById("ganttPage");
   if (!page) return;
   page.title = "Gantt";
-  page.content = '<div id="ganttChart" style="position:relative;min-height:60vh"></div>';
+  // The `gantt` class is REQUIRED: much of the vendored stylesheet is scoped to
+  // `.gantt` (including `div.gantt { color: #656565 }`, the base text colour).
+  // Without it those rules silently miss and the text inherits the app theme's
+  // colour, which is unreadable on the library's own light surfaces.
+  page.content = '<div id="ganttChart" class="gantt" style="position:relative;min-height:60vh"></div>';
   page.buttons = [{ text: "Close", variant: "secondary", action: "close" }];
 }
 
@@ -249,3 +253,121 @@ function changeShowGantt(enabled) {
   localStorage.setItem(smdKey("showGantt"), enabled);
   updateGanttMenu();
 }
+
+// THEME OVERRIDE for the vendored chart.
+//
+// jsGantt's own stylesheet is a fixed LIGHT theme: `.glineitem` / `.ggroupitem`
+// hard-code #ffffff / #fbfbfb row fills, `.gminorheading` hard-codes #ffffff,
+// and the summary bar is a solid #000000. None of the task-list cells declare a
+// `color` at all, so the text inherits whatever the active app theme sets - and
+// under a dark theme that is light text landing on a white row, i.e. the
+// washed-out, near-invisible chart.
+//
+// Rather than patch the vendored file (it is a verbatim third-party copy), this
+// re-points every hard-coded surface at the Bootstrap variables the rest of the
+// app already uses, so the chart follows whichever theme AND light/dark mode is
+// active with no per-theme work.
+(function injectGanttTheme() {
+  if (typeof document === "undefined") return;
+  if (document.getElementById("pmd-gantt-theme-style")) return;
+  var s = document.createElement("style");
+  s.id = "pmd-gantt-theme-style";
+  s.textContent = [
+    "#ganttPage .gantt {",
+    "  --gantt-surface: var(--bs-body-bg);",
+    "  --gantt-surface-alt: var(--bs-tertiary-bg);",
+    "  --gantt-text: var(--bs-body-color);",
+    "  --gantt-muted: var(--bs-secondary-color);",
+    "  --gantt-border: var(--bs-border-color);",
+    "  --gantt-summary-bar: #000000;",
+    "  color: var(--gantt-text);",
+    "  background: var(--gantt-surface);",
+    "}",
+    "/* Task list: the vendor sets row fills but never a text colour. */",
+    "#ganttPage .glineitem,",
+    "#ganttPage .ggroupitem,",
+    "#ganttPage tr.glineitem td,",
+    "#ganttPage tr.ggroupitem td,",
+    "#ganttPage .gtasktable td,",
+    "#ganttPage .gtasktableh td,",
+    "#ganttPage .gmainleft,",
+    "#ganttPage .gmainright,",
+    "#ganttPage .gcontainercol {",
+    "  background-color: var(--gantt-surface);",
+    "  color: var(--gantt-text);",
+    "}",
+    "#ganttPage .ggroupitem,",
+    "#ganttPage .gtaskheading,",
+    "#ganttPage .gspanning,",
+    "#ganttPage .gtasklist {",
+    "  background-color: var(--gantt-surface-alt);",
+    "}",
+    "#ganttPage .gname div,",
+    "#ganttPage .gtaskname div,",
+    "#ganttPage .gdur div,",
+    "#ganttPage .gstartdate div,",
+    "#ganttPage .genddate div,",
+    "#ganttPage .gres div,",
+    "#ganttPage .gtaskheading div,",
+    "#ganttPage .gspanning {",
+    "  color: var(--gantt-text);",
+    "}",
+    "/* Child rows read as secondary so the stream group headers stand out. */",
+    "/* NOTE: the library puts `gname` AND `glineitem` on the SAME <tr>, so this",
+    "   must be `tr.glineitem` (descendant) - `.glineitem .gname` never matches. */",
+    "#ganttPage tr.glineitem td div {",
+    "  color: var(--gantt-muted);",
+    "}",
+    "#ganttPage .glineitem.gitemhighlight td {",
+    "  background-color: var(--bs-secondary-bg-subtle);",
+    "}",
+    "#ganttPage .glineitem.gitemdifferent td {",
+    "  background-color: var(--gantt-surface-alt);",
+    "}",
+    "/* Timeline grid: day/week-end headers, today marker, gridlines. */",
+    "#ganttPage .gminorheading {",
+    "  background-color: var(--gantt-surface);",
+    "  border-color: var(--gantt-border);",
+    "}",
+    "#ganttPage .gminorheadingwkend {",
+    "  background-color: var(--gantt-surface-alt);",
+    "}",
+    "#ganttPage .gtaskcellcurrent {",
+    "  background-color: var(--bs-primary-bg-subtle);",
+    "}",
+    "#ganttPage .gcharttable,",
+    "#ganttPage .gcharttableh {",
+    "  border-color: var(--gantt-border);",
+    "}",
+    "/* Format selector (Day / Week / Month). */",
+    "#ganttPage .gselector,",
+    "#ganttPage .gselector a {",
+    "  color: var(--gantt-muted);",
+    "}",
+    "#ganttPage .gselector a.gselected,",
+    "#ganttPage .gselector span.gselected {",
+    "  color: var(--bs-emphasis-color);",
+    "  background-color: var(--bs-primary-bg-subtle);",
+    "}",
+    "#ganttPage .gfoldercollapse {",
+    "  color: var(--gantt-text);",
+    "}",
+    "/* Summary bar: #000 is invisible on a dark chart, so lighten it. */",
+    "html[data-bs-theme=\"dark\"] #ganttPage .gantt {",
+    "  --gantt-summary-bar: #9aa0a6;",
+    "}",
+    "html[data-bs-theme=\"dark\"] #ganttPage .ggroupblack {",
+    "  background: var(--gantt-summary-bar);",
+    "}",
+    "html[data-bs-theme=\"dark\"] #ganttPage .ggroupblackendpointleft,",
+    "html[data-bs-theme=\"dark\"] #ganttPage .ggroupblackendpointright {",
+    "  border-color: var(--gantt-summary-bar);",
+    "}",
+    "/* Tooltip. */",
+    "#ganttPage .JSGanttToolTipcont,",
+    "#ganttPage .gTtTitle {",
+    "  color: var(--gantt-text);",
+    "}"
+  ].join("\n");
+  (document.head || document.documentElement).appendChild(s);
+})();

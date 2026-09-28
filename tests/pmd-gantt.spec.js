@@ -154,6 +154,87 @@ test.describe("Gantt page", () => {
     expect(legacy.duration).toBeUndefined();
   });
 
+  test("task text meets WCAG AA contrast in BOTH light and dark mode", async ({ page }) => {
+    // Regression guard for the washed-out chart: jsGantt hard-codes white row
+    // fills but never sets a text colour, so under a dark theme the text
+    // inherited a LIGHT colour and landed on a WHITE row (effectively invisible).
+    test.setTimeout(60000);
+    await page.goto("/PlanMyDay/");
+    await seedStreams(page, SAMPLE);
+    // Reload FIRST (to pick up the setting), then switch theme - doing it the
+    // other way round would have the reload wipe the theme we just applied.
+    await enableGantt(page);
+
+    // WCAG relative-luminance contrast ratio.
+    const ratio = ([r1, g1, b1], [r2, g2, b2]) => {
+      const lum = ([r, g, b]) => {
+        const f = (v) => (v / 255 <= 0.03928 ? v / 255 / 12.92 : Math.pow((v / 255 + 0.055) / 1.055, 2.4));
+        return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
+      };
+      const a = lum([r1, g1, b1]), b = lum([r2, g2, b2]);
+      const [hi, lo] = a > b ? [a, b] : [b, a];
+      return (hi + 0.05) / (lo + 0.05);
+    };
+    const parse = (s) => s.match(/[\d.]+/g).slice(0, 3).map(Number);
+
+    for (const [mode, theme] of [["dark", "superhero"], ["light", "flatly"]]) {
+      await page.evaluate(([t, m]) => applyTheme(t, m), [theme, mode]);
+      await page.waitForFunction((m) => document.documentElement.getAttribute("data-bs-theme") === m, mode);
+      // let the per-mode override stylesheet <theme>.<mode>.css land
+      await page.waitForTimeout(700);
+      await page.evaluate(() => openGantt());
+      await page.waitForTimeout(900);
+
+      const samples = await page.evaluate(() => {
+        const read = (sel) => {
+          const el = document.querySelector(sel);
+          if (!el) return null;
+          let bg = "rgba(0, 0, 0, 0)", node = el;
+          while (node && bg === "rgba(0, 0, 0, 0)") {
+            const c = getComputedStyle(node).backgroundColor;
+            if (c && !/rgba\(0, 0, 0, 0\)|transparent/.test(c)) bg = c;
+            node = node.parentElement;
+          }
+          return { color: getComputedStyle(el).color, bg };
+        };
+        return {
+          groupName: read("tr.ggroupitem .gtaskname div"),
+          childName: read("tr.glineitem .gtaskname div"),
+          dur: read("tr.glineitem .gdur div"),
+          startDate: read("tr.glineitem .gstartdate div"),
+          weekHeader: read("#ganttChart .gcharttableh .gminorheading"),
+          dayHeader: read("#ganttChart .gcharttableh .gminorheadingwkend"),
+          // The chart SURFACE must follow the page surface too. A pure
+          // text-contrast check is not enough: with the `gantt` class present
+          // the vendor's own `div.gantt { color: #656565 }` keeps text readable
+          // on its hard-coded WHITE rows, so a regression to a white panel in
+          // dark mode would still pass a contrast-only assertion. Comparing the
+          // row fill to <body>'s fill is what actually pins the theming.
+          rowFill: read("tr.glineitem .gdur div").bg,
+          bodyFill: getComputedStyle(document.body).backgroundColor
+        };
+      });
+
+      for (const [what, v] of Object.entries(samples)) {
+        if (what === "rowFill" || what === "bodyFill") continue;
+        expect(v, `${mode}: ${what} cell not found`).not.toBeNull();
+        // Composite any alpha in the text colour onto the resolved background.
+        const fgRaw = v.color.match(/[\d.]+/g).map(Number);
+        const bg = parse(v.bg);
+        const a = fgRaw.length > 3 ? fgRaw[3] : 1;
+        const fg = [0, 1, 2].map((i) => fgRaw[i] * a + bg[i] * (1 - a));
+        expect(ratio(fg, bg), `${mode}: ${what} contrast`).toBeGreaterThan(4.5);
+      }
+
+      // Chart surface must match the page surface (no white panel in dark mode).
+      const row = parse(samples.rowFill).slice(0, 3);
+      const body = parse(samples.bodyFill).slice(0, 3);
+      const drift = Math.max(...row.map((v, i) => Math.abs(v - body[i])));
+      expect(drift, `${mode}: chart row fill ${samples.rowFill} should track body ${samples.bodyFill}`).toBeLessThan(12);
+      await page.evaluate(() => closeGantt());
+    }
+  });
+
   test("Close returns to the main view", async ({ page }) => {
     await page.goto("/PlanMyDay/");
     await seedStreams(page, SAMPLE);
