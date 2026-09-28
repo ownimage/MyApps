@@ -1,6 +1,6 @@
 // PlanMyDay — the Gantt page.
 //
-// A READ-ONLY view of the Stream → Job hierarchy, drawn with the vendored
+// A projection of the Stream → Job hierarchy, drawn with the vendored
 // jsgantt-improved library (window.JSGantt). It is a PROJECTION of the stored
 // data: PlanMyDay jobs carry a recurrence rule (schedule), an optional
 // "sleepUntil" not-before date, and a "duration" in days — but they have no
@@ -12,13 +12,17 @@
 // A Stream becomes a collapsible GROUP row (pGroup: 1). A stream WITH jobs
 // spans them (min start → max end) and acts as a summary header; a stream with
 // NO jobs keeps empty pStart/pEnd, which the library renders as a plain
-// "empty header line" — exactly what we want (it gives every stream a row, so
-// stream reordering / drag-drop can come later). Jobs are CHILD rows of their
-// stream (pParent). Tasks are deliberately NOT drawn yet.
+// "empty header line" — exactly what we want (it gives every stream a row, and
+// the row-drag layer in js/gantt-drag.js relies on every stream having one so a
+// job can be dropped onto a stream even when it has no jobs yet). Jobs are CHILD
+// rows of their stream (pParent). Tasks are deliberately NOT drawn yet.
 //
-// The whole thing is READ-ONLY on purpose: it is a view, not an editor, so no
-// user data is mutated. Legacy jobs with no `duration` fall back to 1 at read
-// time (no migration, nothing written back just by opening the page).
+// The whole thing is a projection: opening the page writes NOTHING. The user
+// can EDIT it two ways, both of which rewrite `sleepUntil`/`duration` or the
+// stream/job order and then re-render — see js/gantt-drag.js:
+//   * dragging a JOB bar's left edge / right edge / middle
+//   * dragging a row in the LEFT task list to reorder or move it
+// Legacy jobs with no `duration` fall back to 1 at read time (no migration, nothing written back just by opening the page).
 
 // GANTT
 var _ganttChart = null;
@@ -234,11 +238,19 @@ function buildGanttTasks(streams, todayStr) {
   const items = [];
   let id = 1;
   const hidden = ganttHiddenStreamSet();
-  const ordered = (streams || []).slice().sort((a, b) => (a.sequence || 0) - (b.sequence || 0));
+  // Keep each stream's index in the STORED array alongside it. The drag code
+  // needs a handle back to `loadStreams()` order, and the sort below must not
+  // lose it. This index is only valid for THIS render pass (adding/removing a
+  // stream renumbers it); a job's durable identity is always its `id`.
+  const withIndex = (streams || []).map((s, i) => ({ stream: s, idx: i }));
+  const ordered = withIndex.slice().sort((a, b) => (a.stream.sequence || 0) - (b.stream.sequence || 0));
   // Streams excluded by the header filter are dropped entirely, so both the
   // group row and all of its jobs disappear from the chart.
-  const visible = ordered.filter((s) => !hidden.has(s.title || "Untitled stream"));
-  visible.forEach((stream) => {
+  const visible = ordered.filter((x) => !hidden.has(x.stream.title || "Untitled stream"));
+  visible.forEach((x) => {
+    const stream = x.stream;
+    const streamIdx = x.idx;
+    const streamTitle = stream.title || "Untitled stream";
     const groupId = id++;
     const jobs = (stream.jobs || []).slice().sort((a, b) => (a.sequence || 0) - (b.sequence || 0));
     // Derive each job's start/end once.
@@ -273,7 +285,9 @@ function buildGanttTasks(streams, todayStr) {
       pDepend: "",
       pCaption: "",
       pNotes: stream.description || "",
-      __isGroup: true
+      __isGroup: true,
+      __streamIdx: streamIdx,
+      __streamTitle: streamTitle
     });
     spans.forEach(({ job, start, end }) => {
       items.push({
@@ -295,7 +309,9 @@ function buildGanttTasks(streams, todayStr) {
         pCaption: "",
         pNotes: ganttJobNotes(job, start, end),
         __jobId: job.id,
-        __isGroup: false
+        __isGroup: false,
+        __streamIdx: streamIdx,
+        __streamTitle: streamTitle
       });
     });
   });
@@ -349,8 +365,8 @@ function ganttJobNotes(job, start, end) {
   return lines.join("<br>");
 }
 
-// Draws the chart. Read-only on purpose; jsGantt's bar-drag and in-table
-// editing are NOT enabled, so nothing the user does here can persist a change.
+// Draws the chart. The draw itself is read-only; the drag layer installed by
+// `afterDraw` (js/gantt-drag.js) is what can persist a change.
 function renderGantt() {
   const page = document.getElementById("ganttPage");
   const el = page && page.querySelector("#ganttChart");
@@ -380,6 +396,18 @@ function renderGantt() {
       vDateTaskDisplayFormat: "day dd month yyyy",
       vDateTaskTableDisplayFormat: "dd/mm/yyyy",
       vLang: "en"
+    });
+    // Re-bind the drag layer after EVERY draw. The library's own Day/Week/Month
+    // selector calls Draw() directly (via setFormat), so renderGantt() is NOT
+    // back in the loop on a format switch - `afterDraw` is the only hook that
+    // fires for both that and our own draws. The handler is wrapped because the
+    // drag layer must never be able to break the chart.
+    g.setEvents({
+      afterDraw: function () {
+        try {
+          if (typeof ganttBindDragDrop === "function") ganttBindDragDrop(g, items);
+        } catch (e) { /* swallow: an unavailable drag layer is better than no chart */ }
+      }
     });
     items.forEach((item) => {
       const payload = {
@@ -723,11 +751,28 @@ function changeShowGantt(enabled) {
     "   two halves then scale consistently. The 88px is the vendor's own width",
     "   for the date columns and is what fits \"Start Date\" / \"28/09/2026\";",
     "   going narrower makes adjacent columns run together. The pane floor above",
-    "   must leave room for 6px + 3 x 88px plus a usable name column. */",
-    "#ganttPage .gtasklist { width: 6px; }",
+    "   must leave room for the gutter + 3 x 88px plus a usable name column. */",
+    "/* The first cell is the GUTTER that holds the row drag handle (injected by",
+    "   js/gantt-drag.js). It stays narrow; the handle overflows it to the right",
+    "   (the vendor's `max-width` must still be overridden for its padding). A",
+    "   little left padding gives the handle rail breathing room. */",
+    "#ganttPage .gtasklist {",
+    "  width: 24px;",
+    "  min-width: 24px;",
+    "  max-width: 24px;",
+    "  padding-left: 4px;",
+    "}",
     "#ganttPage .gdur,",
     "#ganttPage .gstartdate,",
     "#ganttPage .genddate { width: 88px; }",
+    "/* Shift the row's TEXT clear of the handle WITHOUT widening the Name cell:",
+    "   the child div's text is what ellipsises, so a text-indent on it moves the",
+    "   visible text and lets the ellipsis shrink accordingly. Using padding on",
+    "   the cell instead would widen the fixed-layout `auto` column by the same",
+    "   amount and squash the bar area. The title is still fully readable and the",
+    "   title textContent (which the tests and the Streams filter read) is",
+    "   unchanged. */",
+    "#ganttPage .gtaskname div { text-indent: 26px; }",
     "#ganttPage .gtaskname,",
     "#ganttPage .gtaskname div { width: auto; }",
     "#ganttPage .gtaskname div {",

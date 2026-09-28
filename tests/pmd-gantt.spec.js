@@ -595,3 +595,426 @@ test.describe("Gantt page", () => {
     await expect(page.locator("#countdownContainer")).toBeVisible();
   });
 });
+
+// ---------------------------------------------------------------------------
+// Drag and drop (js/gantt-drag.js).
+//
+// The chart is drawn by the vendored library, so the drag layer stamps its own
+// `data-gantt-*` identity attributes and installs the handlers from the chart's
+// `afterDraw` hook. These tests drive the real pointer/Sortable interactions
+// rather than calling the helpers directly, except where the interesting logic
+// is the filter-safety of the storage rebuild.
+// ---------------------------------------------------------------------------
+
+async function openGanttReady(page) {
+  await page.evaluate(() => openGantt());
+  await page.waitForFunction(() => {
+    const el = document.querySelector("#ganttChart .gmainleft");
+    return el && el.getBoundingClientRect().width > 0;
+  });
+}
+
+async function seedAndOpen(page, streams) {
+  await page.goto("/PlanMyDay/");
+  await page.evaluate((s) => {
+    localStorage.setItem("planmydays_streams", JSON.stringify(s));
+    localStorage.setItem("planmydays_showGantt", "true");
+  }, streams);
+  await page.reload();
+  await openGanttReady(page);
+}
+
+// Geometry of a job's bar, addressed by job id via the stamped row attribute
+// (the library's own pID is renumbered by the Streams filter, so it is never a
+// stable handle).
+async function jobBar(page, jobId) {
+  return page.evaluate((id) => {
+    const row = document.querySelector('tr[data-gantt-job-id="' + id + '"]');
+    if (!row) return null;
+    const pid = row.id.replace(/^ganttChartchild_/, "");
+    const bar = document.getElementById("ganttChartbardiv_" + pid);
+    if (!bar) return null;
+    const r = bar.getBoundingClientRect();
+    const probe = _ganttChart.chartRowDateToX.bind(_ganttChart);
+    const n = new Date();
+    const d0 = new Date(n.getFullYear(), n.getMonth(), n.getDate());
+    const d1 = new Date(d0.getFullYear(), d0.getMonth(), d0.getDate() + 1);
+    return { x: r.left, y: r.top, w: r.width, h: r.height, pxPerDay: probe(d1) - probe(d0) };
+  }, jobId);
+}
+
+// Grabs the bar at `fraction` across its width and drags by `days` days
+// (negative = left). 0.1 is the left edge zone, 0.9 the right edge, 0.5 middle.
+async function dragBar(page, jobId, fraction, days) {
+  const b = await jobBar(page, jobId);
+  expect(b).not.toBeNull();
+  const y = b.y + b.h / 2;
+  const startX = b.x + b.w * fraction;
+  await page.mouse.move(startX, y);
+  await page.mouse.down();
+  await page.mouse.move(startX + b.pxPerDay * days, y, { steps: 10 });
+  await page.mouse.up();
+  await page.waitForTimeout(400);
+}
+
+function storedJob(page, jobId) {
+  return page.evaluate((id) => {
+    const streams = JSON.parse(localStorage.getItem("planmydays_streams"));
+    for (const s of streams) {
+      const j = (s.jobs || []).find((x) => x.id === id);
+      if (j) return j;
+    }
+    return null;
+  }, jobId);
+}
+
+const DRAG_SAMPLE = [
+  {
+    title: "Work",
+    sequence: 1,
+    jobs: [
+      { id: "job_move", title: "Movable", sequence: 1, active: true, schedule: { type: "daily" }, sleepUntil: "2026-10-05", duration: 5 },
+      { id: "job_resize", title: "Resizable", sequence: 2, active: true, schedule: { type: "daily" }, sleepUntil: "2026-10-05", duration: 2 }
+    ]
+  },
+  { title: "Home", sequence: 2, jobs: [] }
+];
+
+test.describe("Gantt drag and drop", () => {
+  test("dragging the left edge of a bar moves the start and keeps the end", async ({ page }) => {
+    test.setTimeout(60000);
+    await seedAndOpen(page, DRAG_SAMPLE);
+
+    // Left edge 1 day earlier: 2026-10-05 -> 2026-10-04, end fixed at +2 days,
+    // so the duration grows from 2 to 3.
+    await dragBar(page, "job_resize", 0.1, -1);
+
+    const job = await storedJob(page, "job_resize");
+    expect(job.sleepUntil).toBe("2026-10-04");
+    expect(job.duration).toBe(3);
+  });
+
+  test("dragging the right edge of a bar changes the duration and keeps the start", async ({ page }) => {
+    test.setTimeout(60000);
+    await seedAndOpen(page, DRAG_SAMPLE);
+
+    await dragBar(page, "job_resize", 0.9, 1);
+
+    const job = await storedJob(page, "job_resize");
+    expect(job.sleepUntil).toBe("2026-10-05");
+    expect(job.duration).toBe(3);
+  });
+
+  test("dragging the middle of a bar moves it and keeps the duration", async ({ page }) => {
+    test.setTimeout(60000);
+    await seedAndOpen(page, DRAG_SAMPLE);
+
+    await dragBar(page, "job_move", 0.5, 2);
+
+    const job = await storedJob(page, "job_move");
+    expect(job.sleepUntil).toBe("2026-10-07");
+    expect(job.duration).toBe(5);
+  });
+
+  test("a bar cannot be dragged before today (start clamps, nothing is written)", async ({ page }) => {
+    test.setTimeout(60000);
+    await seedAndOpen(page, [
+      { title: "Work", sequence: 1, jobs: [
+        { id: "job_today", title: "Starts today", sequence: 1, active: true, schedule: { type: "daily" }, duration: 2 }
+      ]}
+    ]);
+
+    const before = await page.evaluate(() => localStorage.getItem("planmydays_streams"));
+    await dragBar(page, "job_today", 0.1, -3);
+
+    // Dragged left, but clamped to today -> the stored value is unchanged.
+    const after = await page.evaluate(() => localStorage.getItem("planmydays_streams"));
+    expect(after).toBe(before);
+    const job = await storedJob(page, "job_today");
+    expect(job.sleepUntil || "").toBe("");
+    expect(job.duration).toBe(2);
+  });
+
+  test("a bar drag persists across a reload", async ({ page }) => {
+    test.setTimeout(60000);
+    await seedAndOpen(page, DRAG_SAMPLE);
+    await dragBar(page, "job_move", 0.5, 2);
+
+    await page.reload();
+    await openGanttReady(page);
+    const job = await storedJob(page, "job_move");
+    expect(job.sleepUntil).toBe("2026-10-07");
+    expect(job.duration).toBe(5);
+  });
+
+  test("switching Day -> Week re-binds the drag layer and snaps to week boundaries", async ({ page }) => {
+    test.setTimeout(60000);
+    await seedAndOpen(page, [
+      { title: "Work", sequence: 1, jobs: [
+        // 2026-10-07 is a Wednesday, deliberately NOT on the week grid.
+        { id: "job_wk", title: "Weekly", sequence: 1, active: true, schedule: { type: "daily" }, sleepUntil: "2026-10-07", duration: 2 }
+      ]}
+    ]);
+
+    // The vendor's format selector calls Draw() directly, bypassing renderGantt,
+    // so this also proves the afterDraw hook re-binds the grips.
+    await page.locator("#ganttPage .gformlabel", { hasText: "Week" }).first().click();
+    await page.waitForTimeout(400);
+    expect(await page.locator("#ganttChart .gantt-grip-left").count()).toBeGreaterThan(0);
+
+    await dragBar(page, "job_wk", 0.1, 7);
+
+    const job = await storedJob(page, "job_wk");
+    // Snapped to a week boundary, which the library's grid starts on a Monday.
+    const day = new Date(job.sleepUntil + "T00:00:00Z").getUTCDay();
+    expect(day).toBe(1);
+  });
+
+  test("dragging a stream row reorders the streams", async ({ page }) => {
+    test.setTimeout(60000);
+    await seedAndOpen(page, DRAG_SAMPLE);
+
+    const handle = await page.locator('tr[data-gantt-stream-title="Home"] smd-draghandle.gantt-drag-handle').first().boundingBox();
+    const work = await page.locator('tr[data-gantt-stream-title="Work"]').first().boundingBox();
+    await page.mouse.move(handle.x + handle.width / 2, handle.y + handle.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(handle.x + 4, handle.y + 4, { steps: 3 });
+    await page.mouse.move(handle.x + handle.width / 2, work.y + 4, { steps: 14 });
+    await page.mouse.up();
+    await page.waitForTimeout(400);
+
+    const order = await page.evaluate(() =>
+      JSON.parse(localStorage.getItem("planmydays_streams"))
+        .slice().sort((a, b) => a.sequence - b.sequence).map((s) => s.title));
+    expect(order[0]).toBe("Home");
+    expect(order[1]).toBe("Work");
+  });
+
+  test("the Name column is indented clear of the drag handle, and stream rows keep their collapse toggle", async ({ page }) => {
+    test.setTimeout(60000);
+    await seedAndOpen(page, DRAG_SAMPLE);
+
+    const geom = await page.evaluate(() => {
+      const r = (e) => { const b = e.getBoundingClientRect(); return { left: b.left, right: b.right, width: b.width }; };
+      const groupRow = document.querySelector('tr[data-gantt-stream-title="Work"]');
+      const jobRow = document.querySelector('tr[data-gantt-job-id="job_move"]');
+      const groupHandle = groupRow.querySelector("smd-draghandle.gantt-drag-handle");
+      const folder = groupRow.querySelector("span.gfoldercollapse");
+      // Where the visible text starts: measure the div's first text range.
+      const nameDiv = jobRow.querySelector("td.gtaskname div");
+      const range = document.createRange();
+      range.selectNodeContents(nameDiv);
+      const textRect = range.getBoundingClientRect();
+      return {
+        handle: r(groupHandle),
+        folder: folder ? r(folder) : null,
+        folderText: folder ? folder.textContent : null,
+        textLeft: textRect.left,
+        // the handle must not paint over the title text
+        nameText: nameDiv.textContent.trim()
+      };
+    });
+
+    // The handle is present and the title text starts to its right.
+    expect(geom.handle.width).toBeGreaterThan(0);
+    expect(geom.textLeft).toBeGreaterThan(geom.handle.right - 4);
+    // The stream row still has its expand/collapse toggle, now with room to show.
+    expect(geom.folder).not.toBeNull();
+    expect(geom.folderText).toBe("-");
+    expect(geom.folder.width).toBeGreaterThan(0);
+    // ...and it sits clear of the drag handle.
+    expect(geom.folder.left).toBeGreaterThan(geom.handle.left);
+  });
+
+  test("clicking a stream's collapse toggle hides and restores its jobs", async ({ page }) => {
+    test.setTimeout(60000);
+    await seedAndOpen(page, DRAG_SAMPLE);
+
+    const jobVisible = () => page.evaluate(() => {
+      const row = document.querySelector('tr[data-gantt-job-id="job_move"]');
+      if (!row) return null;
+      return row.getBoundingClientRect().height > 0;
+    });
+
+    expect(await jobVisible()).toBe(true);
+    await page.locator('tr[data-gantt-stream-title="Work"] span.gfoldercollapse').first().click();
+    await page.waitForTimeout(200);
+    expect(await jobVisible()).toBe(false);
+    // The toggle flipped to "+" and the stream row is still there.
+    expect(await page.locator('tr[data-gantt-stream-title="Work"] span.gfoldercollapse').first().textContent()).toBe("+");
+
+    await page.locator('tr[data-gantt-stream-title="Work"] span.gfoldercollapse').first().click();
+    await page.waitForTimeout(200);
+    expect(await jobVisible()).toBe(true);
+  });
+
+  test("a stream drag carries its jobs with it and never reassigns them", async ({ page }) => {
+    test.setTimeout(60000);
+    await seedAndOpen(page, DRAG_SAMPLE);
+
+    // Drag the WORK stream (which has jobs) down past Home.
+    const handle = await page.locator('tr[data-gantt-stream-title="Work"] smd-draghandle.gantt-drag-handle').first().boundingBox();
+    const home = await page.locator('tr[data-gantt-stream-title="Home"]').first().boundingBox();
+    await page.mouse.move(handle.x + handle.width / 2, handle.y + handle.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(handle.x + 4, handle.y + 4, { steps: 3 });
+    await page.mouse.move(handle.x + handle.width / 2, home.y + home.height - 2, { steps: 14 });
+
+    // Mid-drag: the dragged stream's job rows are de-emphasised so the list
+    // reads as a list of streams, while the ghost carries the jobs.
+    const mid = await page.evaluate(() => ({
+      marked: document.querySelectorAll("#ganttChart tr.gantt-jobs-dragging").length,
+      workJobs: document.querySelectorAll('tr[data-gantt-kind="job"][data-gantt-stream-idx="0"]').length
+    }));
+    expect(mid.workJobs).toBeGreaterThan(0);
+    expect(mid.marked).toBe(mid.workJobs);
+
+    await page.mouse.up();
+    await page.waitForTimeout(400);
+    expect(await page.evaluate(() => document.querySelectorAll("#ganttChart tr.gantt-jobs-dragging").length)).toBe(0);
+
+    // The whole point: the stream moved but its jobs came with it. While the
+    // dragged stream row is out of the table flow its job rows sit under the
+    // PREVIOUS stream, so a positional rebuild would hand them to the wrong
+    // stream and lose them.
+    const stored = await page.evaluate(() => {
+      const byTitle = {};
+      JSON.parse(localStorage.getItem("planmydays_streams"))
+        .forEach((s) => { byTitle[s.title] = (s.jobs || []).map((j) => j.id).sort(); });
+      return byTitle;
+    });
+    expect(stored.Work).toEqual(["job_move", "job_resize"]);
+    expect(stored.Home).toEqual([]);
+
+    const order = await page.evaluate(() =>
+      JSON.parse(localStorage.getItem("planmydays_streams"))
+        .slice().sort((a, b) => a.sequence - b.sequence).map((s) => s.title));
+    expect(order[0]).toBe("Home");
+    expect(order[1]).toBe("Work");
+  });
+
+  test("dragging a job within a stream reorders it", async ({ page }) => {
+    test.setTimeout(60000);
+    await seedAndOpen(page, DRAG_SAMPLE);
+
+    const handle = await page.locator('tr[data-gantt-job-id="job_resize"] smd-draghandle.gantt-drag-handle').first().boundingBox();
+    const target = await page.locator('tr[data-gantt-job-id="job_move"]').first().boundingBox();
+    await page.mouse.move(handle.x + handle.width / 2, handle.y + handle.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(handle.x + 4, handle.y + 4, { steps: 3 });
+    await page.mouse.move(handle.x + handle.width / 2, target.y + 2, { steps: 14 });
+    await page.mouse.up();
+    await page.waitForTimeout(400);
+
+    const titles = await page.evaluate(() => {
+      const s = JSON.parse(localStorage.getItem("planmydays_streams")).find((x) => x.title === "Work");
+      return s.jobs.slice().sort((a, b) => a.sequence - b.sequence).map((j) => j.title);
+    });
+    expect(titles[0]).toBe("Resizable");
+    expect(titles[1]).toBe("Movable");
+  });
+
+  test("dragging a job onto another stream moves it there", async ({ page }) => {
+    test.setTimeout(60000);
+    await seedAndOpen(page, DRAG_SAMPLE);
+
+    const handle = await page.locator('tr[data-gantt-job-id="job_resize"] smd-draghandle.gantt-drag-handle').first().boundingBox();
+    const home = await page.locator('tr[data-gantt-stream-title="Home"]').first().boundingBox();
+    await page.mouse.move(handle.x + handle.width / 2, handle.y + handle.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(handle.x + 4, handle.y + 4, { steps: 3 });
+    // Drop just below the Home header so it lands as Home's first job (a job
+    // dropped above the header would still belong to the preceding stream).
+    await page.mouse.move(handle.x + handle.width / 2, home.y + home.height - 3, { steps: 14 });
+    await page.mouse.up();
+    await page.waitForTimeout(400);
+
+    const result = await page.evaluate(() => {
+      const streams = JSON.parse(localStorage.getItem("planmydays_streams"));
+      const find = (t) => streams.find((s) => s.title === t);
+      return {
+        inWork: (find("Work").jobs || []).some((j) => j.id === "job_resize"),
+        inHome: (find("Home").jobs || []).some((j) => j.id === "job_resize"),
+        homeSeq: find("Home").jobs.map((j) => j.sequence)
+      };
+    });
+    expect(result.inWork).toBe(false);
+    expect(result.inHome).toBe(true);
+    expect(result.homeSeq).toEqual([1]);
+  });
+
+  test("dragging a stream between two OTHERS keeps every stream's own jobs", async ({ page }) => {
+    // Regression: with three or more streams, Sortable removes the dragged row
+    // from the table flow, which shifts the OTHER streams' group/job rows apart
+    // too. Deriving ownership from DOM adjacency at drop time then rotated each
+    // stream's jobs onto its neighbour (Beta's jobs landed in Alpha, Gamma's in
+    // Beta). Ownership must come from a snapshot taken BEFORE the drag.
+    test.setTimeout(60000);
+    await seedAndOpen(page, [
+      { title: "Alpha", sequence: 1, jobs: [
+        { id: "a1", title: "A1", sequence: 1, active: true, schedule: { type: "daily" }, duration: 2 },
+        { id: "a2", title: "A2", sequence: 2, active: true, schedule: { type: "daily" }, duration: 2 }
+      ] },
+      { title: "Beta", sequence: 2, jobs: [
+        { id: "b1", title: "B1", sequence: 1, active: true, schedule: { type: "daily" }, duration: 2 },
+        { id: "b2", title: "B2", sequence: 2, active: true, schedule: { type: "daily" }, duration: 2 }
+      ] },
+      { title: "Gamma", sequence: 3, jobs: [
+        { id: "g1", title: "G1", sequence: 1, active: true, schedule: { type: "daily" }, duration: 2 }
+      ] }
+    ]);
+
+    // Drag Beta DOWN past Gamma.
+    const handle = await page.locator('tr[data-gantt-stream-title="Beta"] smd-draghandle.gantt-drag-handle').first().boundingBox();
+    const gamma = await page.locator('tr[data-gantt-stream-title="Gamma"]').first().boundingBox();
+    await page.mouse.move(handle.x + handle.width / 2, handle.y + handle.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(handle.x + 4, handle.y + 4, { steps: 3 });
+    await page.mouse.move(handle.x + handle.width / 2, gamma.y + gamma.height - 2, { steps: 14 });
+    await page.mouse.up();
+    await page.waitForTimeout(400);
+
+    const owned = await page.evaluate(() => {
+      const out = {};
+      JSON.parse(localStorage.getItem("planmydays_streams")).forEach((s) => {
+        out[s.title] = { seq: s.sequence, jobs: (s.jobs || []).map((j) => j.id).sort() };
+      });
+      return out;
+    });
+
+    // Every stream kept exactly the jobs it started with...
+    expect(owned.Alpha.jobs).toEqual(["a1", "a2"]);
+    expect(owned.Beta.jobs).toEqual(["b1", "b2"]);
+    expect(owned.Gamma.jobs).toEqual(["g1"]);
+    // ...and only the order moved.
+    expect(owned.Alpha.seq).toBe(1);
+    expect(owned.Gamma.seq).toBe(2);
+    expect(owned.Beta.seq).toBe(3);
+  });
+
+  test("reordering visible streams never drops or resequences a stream hidden by the filter", async ({ page }) => {    await page.goto("/PlanMyDay/");
+    const result = await page.evaluate(() => {
+      localStorage.setItem("planmydays_streams", JSON.stringify([
+        { title: "A", sequence: 1, jobs: [{ id: "a1", title: "A1", sequence: 1 }] },
+        { title: "B", sequence: 2, jobs: [{ id: "b1", title: "B1", sequence: 1 }] },
+        { title: "Hidden", sequence: 3, jobs: [{ id: "h1", title: "H1", sequence: 1 }] }
+      ]));
+      // The filter hid "Hidden", so its rows are absent. The user swapped A/B.
+      ganttDragPersistRows([
+        { kind: "group", streamIdx: 1 }, { kind: "job", streamIdx: 1, jobId: "b1" },
+        { kind: "group", streamIdx: 0 }, { kind: "job", streamIdx: 0, jobId: "a1" }
+      ]);
+      return JSON.parse(localStorage.getItem("planmydays_streams"));
+    });
+
+    const byTitle = {};
+    result.forEach((s) => { byTitle[s.title] = s; });
+    // The hidden stream survives, keeps its job, and is still last.
+    expect(byTitle.Hidden).toBeTruthy();
+    expect(byTitle.Hidden.jobs.map((j) => j.id)).toEqual(["h1"]);
+    // The visible pair swapped and was renumbered without collisions.
+    expect(byTitle.B.sequence).toBe(1);
+    expect(byTitle.A.sequence).toBe(2);
+    expect(byTitle.Hidden.sequence).toBe(3);
+  });
+});
