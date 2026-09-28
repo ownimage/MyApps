@@ -447,6 +447,79 @@ test.describe("Gantt page", () => {
     }
   });
 
+  test("bars and the format selector use the theme palette (danger/success), and only the selected format is highlighted", async ({ page }) => {
+    // The vendor hard-codes a black stream summary bar, a blue gradient job bar
+    // and a light-blue selected-format fill. There is no dark-mode override any
+    // more: everything follows --bs-danger / --bs-success so any Bootswatch
+    // theme AND light/dark mode works with no extra rules.
+    test.setTimeout(90000);
+    const jobs = [
+      { id: "a", title: "Job one", sequence: 1, active: true, schedule: { type: "daily" }, duration: 3 }
+    ];
+    await page.goto("/PlanMyDay/");
+    await page.evaluate((j) => {
+      localStorage.setItem("planmydays_streams", JSON.stringify([{ title: "Work", sequence: 1, jobs: j }]));
+      localStorage.setItem("planmydays_showGantt", "true");
+    }, jobs);
+
+    for (const [mode, theme] of [["light", "superhero"], ["dark", "superhero"]]) {
+      await page.evaluate(([t, m]) => applyTheme(t, m), [theme, mode]);
+      await page.waitForFunction((m) => document.documentElement.getAttribute("data-bs-theme") === m, mode);
+      await page.evaluate(() => openGantt());
+      await page.waitForFunction(() => {
+        const el = document.querySelector("#ganttChart .gmainleft");
+        return el && el.getBoundingClientRect().width > 0;
+      });
+      await page.waitForTimeout(300);
+
+      const probe = await page.evaluate(() => {
+        const root = getComputedStyle(document.documentElement);
+        const bg = (sel) => {
+          const el = document.querySelector(sel);
+          return el ? getComputedStyle(el).backgroundColor : null;
+        };
+        const labels = Array.from(document.querySelectorAll("#ganttChart .gformlabel")).map((l) => ({
+          text: l.textContent,
+          selected: l.classList.contains("gselected"),
+          color: getComputedStyle(l).color
+        }));
+        return {
+          bsDanger: root.getPropertyValue("--bs-danger").trim(),
+          bsSuccess: root.getPropertyValue("--bs-success").trim(),
+          groupBar: bg("#ganttChart .ggroupblack"),
+          taskBar: bg("#ganttChart .gtaskblue"),
+          endpoint: document.querySelector("#ganttChart .ggroupblackendpointleft")
+            ? getComputedStyle(document.querySelector("#ganttChart .ggroupblackendpointleft")).borderTopColor : null,
+          labels
+        };
+      });
+
+      // Helper: normalise #rrggbb to rgb() so it can be compared to computed values.
+      const toRgb = (hex) => {
+        const h = hex.replace("#", "");
+        return `rgb(${parseInt(h.slice(0, 2), 16)}, ${parseInt(h.slice(2, 4), 16)}, ${parseInt(h.slice(4, 6), 16)})`;
+      };
+
+      // Stream bar == --bs-danger, job bar == --bs-success.
+      expect(probe.groupBar, `${mode}: stream bar not danger`).toBe(toRgb(probe.bsDanger));
+      expect(probe.taskBar, `${mode}: job bar not success`).toBe(toRgb(probe.bsSuccess));
+      // The summary bar's angled end-caps must match, or they stay black.
+      expect(probe.endpoint, `${mode}: stream end-cap not danger`).toBe(toRgb(probe.bsDanger));
+
+      // Exactly ONE format option is highlighted, and it is the selected one.
+      const selected = probe.labels.filter((l) => l.selected);
+      expect(selected.length, `${mode}: not exactly one selected format`).toBe(1);
+      expect(selected[0].text).toBe("Day");
+      expect(selected[0].color, `${mode}: selected format not danger`).toBe(toRgb(probe.bsDanger));
+      // The unselected options are NOT danger - they read as plain text.
+      probe.labels.filter((l) => !l.selected).forEach((l) => {
+        expect(l.color, `${mode}: unselected "${l.text}" is highlighted`).not.toBe(toRgb(probe.bsDanger));
+      });
+
+      await page.evaluate(() => closeGantt());
+    }
+  });
+
   test("light mode renders the Gantt page black-on-white, not white-on-black", async ({ page }) => {
     // Regression guard: the shared rule paints EVERY smd-page header/footer with
     // `var(--bs-primary)`, and flatly's light primary is the dark navy #2c3e50,
