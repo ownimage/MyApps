@@ -159,8 +159,12 @@ function openSettings() {
       const slideSel = $id("slideDurationSelector");
       if (slideSel) slideSel.value = savedSlideDuration;
 
-      if (typeof updateScreenResolution === "function") updateScreenResolution();
-    }
+  if (typeof updateScreenResolution === "function") updateScreenResolution();
+  const showGantt = localStorage.getItem(smdKey("showGantt")) === "true";
+  const showGanttCb = $id("showGantt");
+  if (showGanttCb) showGanttCb.checked = showGantt;
+  if (typeof updateGanttMenu === "function") updateGanttMenu();
+  }
   });
 }
 

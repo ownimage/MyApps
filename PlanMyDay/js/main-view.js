@@ -317,7 +317,7 @@ function addTodayCardWithModal() {
   const streamIdx = streams.indexOf(stream);
   jobsStreamIndex = streamIdx;
   const seq = jobs.length + 1;
-  const newJob = { id: "job_" + Date.now(), title: "", sequence: seq, description: "", active: true, frequency: "daily", time: "", sleepUntil: "", waitFor: "", schedule: { type: "daily" } };
+  const newJob = { id: "job_" + Date.now(), title: "", sequence: seq, description: "", active: true, frequency: "daily", time: "", sleepUntil: "", waitFor: "", schedule: { type: "daily" }, duration: 1 };
   jobs.push(newJob);
   stream.jobs = jobs;
   saveStreams(streams);
