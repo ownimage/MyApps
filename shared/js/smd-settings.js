@@ -1,6 +1,6 @@
-// Theme engine + generic appearance/shell settings for SmdApp.
-// Every function is registered onto SmdApp.prototype at the bottom AND exposed
-// as a thin global facade so inline onchange handlers keep working.
+// Theme engine + generic appearance/shell settings shared by every app.
+// The globals below are used directly by the apps (inline onchange handlers and
+// the storybook); they were previously also mirrored onto SmdApp.prototype.
 
 const themeConfig = (() => {
   // Theme CSS paths are relative to the shared root; applyTheme() derives the
@@ -352,36 +352,6 @@ document.addEventListener("DOMContentLoaded", () => {
     bindAutoHideEvents();
     resetAutoHideTimer();
   }
-});
-
-// Register every shared setting as an SmdApp method (instance API for apps that
-// extend SmdApp). The globals above remain the thin facade used by the app's
-// inline onchange handlers and the storybook.
-Object.assign(SmdApp.prototype, {
-  themeConfig,
-  smdAppRoot,
-  normalizeTheme,
-  normalizeThemeMode,
-  getStoredTheme,
-  getStoredThemeMode,
-  resolveThemeMode,
-  applyTheme,
-  applyThemeMode,
-  changeTheme,
-  changeThemeMode,
-  changeFontSize,
-  changeIconSize,
-  changeDensity,
-  changeTouchSize,
-  applySlideDuration,
-  changeSlideDuration,
-  showNav,
-  hideNav,
-  resetAutoHideTimer,
-  bindAutoHideEvents,
-  unbindAutoHideEvents,
-  changeAutoHideMenu,
-  updateScreenResolution
 });
 
 // ---- Service-worker registration (shared by every app shell) ----
