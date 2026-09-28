@@ -204,6 +204,10 @@ test.describe("Gantt page", () => {
           startDate: read("tr.glineitem .gstartdate div"),
           weekHeader: read("#ganttChart .gcharttableh .gminorheading"),
           dayHeader: read("#ganttChart .gcharttableh .gminorheadingwkend"),
+          // The WEEK-RANGE dates ("21/09/2026 - 27/09/2026"). The vendor pairs
+          // .gmajorheading with .gminorheading on one `#ffffff` rule, so theming
+          // only the minor heading left these labels white-on-white in dark mode.
+          majorHeader: read("#ganttChart .gcharttableh .gmajorheading"),
           // The chart SURFACE must follow the page surface too. A pure
           // text-contrast check is not enough: with the `gantt` class present
           // the vendor's own `div.gantt { color: #656565 }` keeps text readable
@@ -233,6 +237,118 @@ test.describe("Gantt page", () => {
       expect(drift, `${mode}: chart row fill ${samples.rowFill} should track body ${samples.bodyFill}`).toBeLessThan(12);
       await page.evaluate(() => closeGantt());
     }
+  });
+
+  test("left data columns scale predictably and stay aligned with the bars", async ({ page }) => {
+    // Regression guard for "the data columns scale at the wrong rate". Two
+    // vendor defects combine here: `.gmainleft` declares `flex: 0 0 20%` and
+    // then overrides it with `flex: 1 0 auto` (the 20% basis is dead), and
+    // `.gtaskname` is pinned to a fixed 220px, so the task table is a constant
+    // ~472px that ignores the pane and overflows it on a narrow window.
+    test.setTimeout(90000);
+    const jobs = [
+      { id: "s", title: "A very long job title that would previously have stretched the entire left pane wide", sequence: 1, active: true, schedule: { type: "daily" }, duration: 12 },
+      { id: "a", title: "sadsad", sequence: 2, active: true, schedule: { type: "daily" }, duration: 1 },
+      { id: "b", title: "Weekly review", sequence: 3, active: true, schedule: { type: "weekdays" }, duration: 5 }
+    ];
+    await page.goto("/PlanMyDay/");
+    await page.evaluate((j) => {
+      localStorage.setItem("planmydays_streams", JSON.stringify([{ title: "Ad Hoc", sequence: 1, jobs: j }]));
+      localStorage.setItem("planmydays_showGantt", "true");
+    }, jobs);
+
+    const widths = [];
+    for (const vp of [800, 1200, 1600]) {
+      await page.setViewportSize({ width: vp, height: 700 });
+      await page.reload();
+      await page.evaluate(() => openGantt());
+      await page.waitForTimeout(700);
+      widths.push(await page.evaluate(() => {
+        const left = document.querySelector("#ganttChart .gmainleft");
+        const table = document.querySelector("#ganttChart .gtasktable");
+        const endCell = document.querySelector("#ganttChart .gtasktable .genddate");
+        const rows = Array.from(document.querySelectorAll("#ganttChart .gtasktable tr"));
+        const bars = Array.from(document.querySelectorAll("#ganttChart .gtaskcellbar"));
+        let drift = 0;
+        rows.forEach((r, i) => {
+          if (r.textContent.trim() && bars[i]) {
+            drift = Math.max(drift, Math.abs(r.getBoundingClientRect().top - bars[i].getBoundingClientRect().top));
+          }
+        });
+        const lw = left.getBoundingClientRect().width;
+        const chart = document.querySelector("#ganttChart").getBoundingClientRect().width;
+        const lcs = getComputedStyle(left);
+        return {
+          leftW: Math.round(lw),
+          // The pane must never dominate the timeline. Before the fix it took
+          // 64% of the chart at 800px and ~52% at 1600px; that non-proportional
+          // share is the actual "wrong rate" symptom, and it is the assertion
+          // that fails without the fix (the width/clamping checks all pass
+          // either way, because the vendor pins the columns either way).
+          leftShare: +(lw / chart).toFixed(3),
+          // The vendor ships `.gmain { resize: horizontal }` - the
+          // double-headed-arrow grip that resizes a pane by writing an inline
+          // `width`. A flex-basis would override that width and silently kill
+          // the drag, so the basis MUST stay `auto`.
+          flexBasis: lcs.flexBasis,
+          resize: lcs.resize,
+          tableW: Math.round(table.getBoundingClientRect().width),
+          // End Date must not be clipped by .gmainleft's overflow:hidden
+          endVisible: endCell.getBoundingClientRect().right <= left.getBoundingClientRect().right + 1,
+          // rows must line up with their bars at every width
+          drift: Math.round(drift),
+          // date columns stay a constant width, like the timeline day columns
+          dateCols: Array.from(rows[1].children).slice(2).map((td) => Math.round(td.getBoundingClientRect().width))
+        };
+      }));
+      await page.evaluate(() => closeGantt());
+    }
+
+    for (const w of widths) {
+      // the table must fill its pane rather than overflow it
+      expect(w.tableW, `table should fill the pane @${JSON.stringify(w)}`).toBeLessThanOrEqual(w.leftW + 1);
+      expect(w.endVisible, "End Date column must not be clipped").toBe(true);
+      expect(w.drift, "task rows must stay aligned with the bars").toBeLessThanOrEqual(1);
+      // the task list must never take over the timeline
+      expect(w.leftShare, `left pane took ${Math.round(w.leftShare * 50) * 2}% of the chart`).toBeLessThan(0.5);
+      // The proportional width must come from `width`, and the flex-basis must
+      // stay `auto` or the vendor's native resize grip is dead.
+      expect(w.flexBasis, "flex-basis must stay auto or the resize grip breaks").toBe("auto");
+      expect(w.resize, "the native horizontal resize grip must remain available").toBe("horizontal");
+    }
+    // The pane grows with the window (it is clamped, but never fixed at one value).
+    expect(widths[2].leftW).toBeGreaterThan(widths[0].leftW);
+    // Date columns are constant width across every viewport - that is what makes
+    // the scaling "the right rate". Only the name column absorbs slack.
+    const [c0, c1, c2] = widths.map((w) => w.dateCols.join("/"));
+    expect(c1).toBe(c0);
+    expect(c2).toBe(c0);
+    // Simulate exactly what the native `resize: horizontal` grip does: it writes
+    // an inline `width` on the pane. That must actually resize the pane. When we
+    // expressed the width as a flex-basis instead, the grip still showed its
+    // double-headed arrow but this write was silently overridden.
+    await page.reload();
+    await page.evaluate(() => { localStorage.setItem("planmydays_showGantt", "true"); });
+    await page.reload();
+    await page.evaluate(() => openGantt());
+    // The page is display:none until smd-page shows it, so wait for a real
+    // layout before measuring anything.
+    await page.waitForFunction(() => {
+      const el = document.querySelector("#ganttChart .gmainleft");
+      return el && el.getBoundingClientRect().width > 0;
+    });
+    const grip = await page.evaluate(() => {
+      const left = document.querySelector("#ganttChart .gmainleft");
+      const before = Math.round(left.getBoundingClientRect().width);
+      left.style.width = "620px";
+      const after = Math.round(left.getBoundingClientRect().width);
+      const tableAfter = Math.round(document.querySelector("#ganttChart .gtasktable").getBoundingClientRect().width);
+      left.style.width = "";
+      return { before, after, tableAfter };
+    });
+    expect(grip.after, `grip drag did not resize the pane (${grip.before} -> ${grip.after})`).toBeGreaterThan(grip.before + 50);
+    // ...and the task table tracks the new pane width rather than overflowing.
+    expect(grip.tableAfter).toBeLessThanOrEqual(grip.after + 1);
   });
 
   test("Close returns to the main view", async ({ page }) => {

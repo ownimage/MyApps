@@ -325,9 +325,15 @@ function changeShowGantt(enabled) {
     "  background-color: var(--gantt-surface-alt);",
     "}",
     "/* Timeline grid: day/week-end headers, today marker, gridlines. */",
+    "/* `.gmajorheading` carries the week-range dates (\"21/09/2026 - 27/09/2026\")",
+    "   and the vendor pairs it with `.gminorheading` on one rule -",
+    "   `background-color: #ffffff` - so it MUST be themed too or the range",
+    "   labels stay white-on-white in a dark theme. */",
+    "#ganttPage .gmajorheading,",
     "#ganttPage .gminorheading {",
     "  background-color: var(--gantt-surface);",
     "  border-color: var(--gantt-border);",
+    "  color: var(--gantt-text);",
     "}",
     "#ganttPage .gminorheadingwkend {",
     "  background-color: var(--gantt-surface-alt);",
@@ -367,6 +373,85 @@ function changeShowGantt(enabled) {
     "#ganttPage .JSGanttToolTipcont,",
     "#ganttPage .gTtTitle {",
     "  color: var(--gantt-text);",
+    "}"
+  ].join("\n");
+  (document.head || document.documentElement).appendChild(s);
+})();
+
+// LAYOUT OVERRIDE: left/right pane split + the data columns.
+//
+// The vendored stylesheet has `.gmainleft { flex: 0 0 20%; }` and then
+// overrides it on the very next line with `flex: 1 0 auto`, so the 20% basis is
+// dead code and the task list is sized purely by leftover flex space. Worse, the
+// task cells are `white-space: nowrap`, so the pane also stretches to fit the
+// LONGEST job title. Meanwhile the timeline is a fixed pixel grid
+// (`vTaskLeftPx = vNumCols * (vColWidth + 3)`), so on a window resize the data
+// columns absorb every pixel of slack while the day columns do not - they scale
+// at an arbitrary rate and end up out of proportion with the chart.
+//
+// Fix: give the pane a real proportional width (clamped so the date columns
+// always fit and the list never dominates), and let the table fill that pane so
+// the columns share it instead of the pane chasing nowrap content. Long job
+// names truncate with an ellipsis rather than widening the pane.
+(function injectGanttLayout() {
+  if (typeof document === "undefined") return;
+  if (document.getElementById("pmd-gantt-layout-style")) return;
+  var s = document.createElement("style");
+  s.id = "pmd-gantt-layout-style";
+  s.textContent = [
+    "/* IMPORTANT: express the proportional width as `width`, NOT as a",
+    "   flex-basis. The vendor ships `.gmain { resize: horizontal }` (the",
+    "   double-headed-arrow grip in the pane's bottom-right corner) and a",
+    "   native resize grip works by writing an INLINE `width` - but flex-basis",
+    "   takes precedence over `width` for a flex item, so setting",
+    "   `flex: 0 0 clamp(...)` silently killed the grip: the arrow still showed",
+    "   but the drag did nothing. `flex: 0 0 auto` leaves the basis as `auto`,",
+    "   so the clamp drives the initial width AND the grip still works. Keep",
+    "   min-width from the vendor (220px) so the pane cannot be dragged below a",
+    "   usable width. */",
+    "#ganttPage .gmainleft {",
+    "  flex: 0 0 auto;",
+    "  width: clamp(360px, 32%, 460px);",
+    "}",
+    "#ganttPage .gmainright {",
+    "  flex: 1 1 auto;",
+    "  min-width: 0;",
+    "}",
+    "#ganttPage .gtasktableouterwrapper,",
+    "#ganttPage .gtasktablewrapper,",
+    "#ganttPage .gtasktable,",
+    "#ganttPage .gtasktableh {",
+    "  width: 100%;",
+    "}",
+    "#ganttPage .gtasktable {",
+    "  table-layout: fixed;",
+    "}",
+    "/* The header table CANNOT be fixed-layout: its first row is a single",
+    "   `.gspanning` cell with colspan=11 (the \"Format:\" row), so fixed layout",
+    "   derives a 12-column grid from it and every label collapses to ~36px,",
+    "   leaving the header unaligned with the 5-column body. Auto layout honours",
+    "   the explicit widths below, which are the same values the body uses. */",
+    "#ganttPage .gtasktableh .gtaskheading { white-space: nowrap; }",
+    "/* Column widths. The vendor pins `.gtaskname` to a FIXED 220px, which",
+    "   makes the whole task table a constant ~472px: it no longer tracks the",
+    "   pane at all, and on a narrow window it overflows and the End Date",
+    "   column is clipped by `overflow:hidden` on .gmainleft. So make the NAME",
+    "   column the flexible one (it ellipsises) and keep the date columns at a",
+    "   constant width - which is what the timeline day columns do too, so the",
+    "   two halves then scale consistently. The 88px is the vendor's own width",
+    "   for the date columns and is what fits \"Start Date\" / \"28/09/2026\";",
+    "   going narrower makes adjacent columns run together. The pane floor above",
+    "   must leave room for 6px + 3 x 88px plus a usable name column. */",
+    "#ganttPage .gtasklist { width: 6px; }",
+    "#ganttPage .gdur,",
+    "#ganttPage .gstartdate,",
+    "#ganttPage .genddate { width: 88px; }",
+    "#ganttPage .gtaskname,",
+    "#ganttPage .gtaskname div { width: auto; }",
+    "#ganttPage .gtaskname div {",
+    "  overflow: hidden;",
+    "  text-overflow: ellipsis;",
+    "  white-space: nowrap;",
     "}"
   ].join("\n");
   (document.head || document.documentElement).appendChild(s);
