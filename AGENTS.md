@@ -437,6 +437,17 @@ Techniques / gotchas:
 
 ## Session log
 
+### 2026-09-28 - flatpickr popup day grid painted BLACK in every theme (stray #000000 in styles.css)
+- Bug (user): PlanMyDay Edit Job -> Schedule tab (`#jobSchedule-tab`) `<smd-date-picker>` popup was BLACK with theme `bootstrap` + mode `light`. It was actually black in EVERY theme/mode; bootstrap/light just made it glaring.
+- Root cause: `shared/css/styles.css` had `.flatpickr-calendar { background: #000000; }`. `git blame` + `git show e8e91ee3` ("simplex dark theme changes", 2026-09-27) prove it was a stray edit that replaced the correct `background: var(--smd-date-picker-background);`. The vendor skin sets `background: transparent` and `flatpickr.min.css` is linked BEFORE `#smd-shared-css` in every shell, so the shared rule won and painted the container black.
+- Why only the DAY GRID looked black: `styles.css` already repaints `.flatpickr-months .flatpickr-month`, `.flatpickr-weekday` and `.flatpickr-time` from the `--smd-date-picker-*` palette, but nothing painted `.flatpickr-days` (the vendor leaves it with no background), so the container's black showed through. The arrow `:after` borders already used `--smd-date-picker-background`, so they were light while the body was black - the "other colours messed up too" part.
+- Fix: 4 rules, all in `shared/css/styles.css`, variables only (NO theme override file touched, per the 2026-09-26 (g) rule): (1) revert the container to `var(--smd-date-picker-background)`; (2) add `.flatpickr-calendar .flatpickr-days { background: var(--smd-date-picker-background); }` so the grid no longer depends on the container showing through; (3) palette-drive the year spinner arrows at 0,5,0 - the vendor hardcodes `border-*-color: rgba(0,0,0,0.9)` at 0,4,1, so they were invisible on a dark calendar; (4) pin `.flatpickr-day.today:hover/:focus` at 0,4,0 - the vendor hardcodes `background:#959ea9; color:#fff` at 0,3,0, which the existing shared `.flatpickr-calendar .flatpickr-day:hover` only tied (0,3,0) and beat by document order alone.
+- VERIFIED with a deleted `tests/_probe.spec.js` (bootstrap light/dark + superhero light): bootstrap+light calendar and days = `rgb(255,255,255)` with `rgb(33,37,41)` text and arrows; superhero+light = `rgb(15,37,55)` with `rgb(235,235,235)`; arrow colour now follows the palette. Probe + JSON deleted afterwards.
+- NO regression test added (user request), so this remains an unguarded area: the existing suites only assert the calendar is VISIBLE/clickable, never its colour. If it regresses again, add a `getComputedStyle(".flatpickr-calendar")` assertion.
+- LESSON: a hardcoded hex inside a palette block is a regression smell - `git blame` + `git show` pinned it to one stray commit. And same-specificity ties (0,3,0 vs 0,3,0) are decided by document order, so verify `styles.css` is linked AFTER the vendor sheet before assuming a shared rule is dead (or alive).
+- Known pre-existing behaviour (NOT changed here): with the stock `bootstrap` theme, `--smd-date-picker-background` / `--smd-form-background` resolve from `--bs-white` in BOTH modes (Bootstrap dark does not redefine `--bs-white`), so bootstrap dark gets a light popup and light form fields.
+- `BUILD_NUMBER` -> `202609280427`.
+
 ### 2026-09-27 (f) - #imageEditModal: Bootstrap modal -> <smd-page>
 - Converted the last Bootstrap modal in the app shells to the shared page
   component. `PlanMyDay`, `CountMyDays` and `QRLinks` now declare
