@@ -82,18 +82,21 @@ test.describe("Gantt page", () => {
     const today = await page.evaluate(() => getTodayStr());
     const items = await page.evaluate((t) => buildGanttTasks(JSON.parse(localStorage.getItem("planmydays_streams")), t), today);
 
-    const byName = Object.fromEntries(items.map((i) => [i.pName, i]));
+    // Job rows are labelled "<title> [<frequency>]", so look them up by title
+    // rather than by the whole cell text.
+    const byTitle = {};
+    items.forEach((i) => { byTitle[i.pName.replace(/\s*\[.*\]$/, "")] = i; });
 
     // job with an explicit duration, no sleepUntil -> starts today, spans 3 days
-    expect(byName["Daily standup"].pStart).toBe(today);
-    expect(byName["Daily standup"].pEnd).toBe(await page.evaluate((t) => ganttAddDaysStr(t, 3), today));
+    expect(byTitle["Daily standup"].pStart).toBe(today);
+    expect(byTitle["Daily standup"].pEnd).toBe(await page.evaluate((t) => ganttAddDaysStr(t, 3), today));
 
     // job with sleepUntil + duration -> starts on sleepUntil, spans 2 days
-    expect(byName["Planned review"].pStart).toBe("2026-10-05");
-    expect(byName["Planned review"].pEnd).toBe("2026-10-07");
+    expect(byTitle["Planned review"].pStart).toBe("2026-10-05");
+    expect(byTitle["Planned review"].pEnd).toBe("2026-10-07");
 
     // legacy job with no duration -> 1 day
-    expect(byName["Legacy job"].pEnd).toBe(await page.evaluate((t) => ganttAddDaysStr(t, 1), today));
+    expect(byTitle["Legacy job"].pEnd).toBe(await page.evaluate((t) => ganttAddDaysStr(t, 1), today));
   });
 
   test("renders one row per stream and job, including an empty header for a job-less stream", async ({ page }) => {
@@ -152,6 +155,39 @@ test.describe("Gantt page", () => {
         .flatMap((s) => s.jobs)
         .find((j) => j.id === "job_legacy"));
     expect(legacy.duration).toBeUndefined();
+  });
+
+  test("job rows show the repeat frequency in brackets after the title", async ({ page }) => {
+    await page.goto("/PlanMyDay/");
+    const items = await page.evaluate(() => buildGanttTasks([
+      { title: "Work", sequence: 1, jobs: [
+        { id: "j1", title: "Standup", sequence: 1, schedule: { type: "daily" } },
+        { id: "j2", title: "Review", sequence: 2, schedule: { type: "weekdays" } },
+        { id: "j3", title: "Payday", sequence: 3, schedule: { type: "monthly", date: 15 } },
+        { id: "j4", title: "Fortnightly", sequence: 4, schedule: { type: "ndays", interval: 14 } },
+        { id: "j5", title: "Pick days", sequence: 5, schedule: { type: "days", days: [1, 3] } },
+        { id: "j6", title: "Untitled-less", sequence: 6 }
+      ]}
+    ], getTodayStr()));
+
+    const name = (t) => items.find((i) => i.pName.includes(t));
+    // A plain daily job is the DEFAULT schedule, so it gets no bracket at all.
+    expect(name("Standup").pName).toBe("Standup");
+    // A job with no schedule at all is the same default -> also no bracket.
+    expect(name("Untitled-less").pName).toBe("Untitled-less");
+    // Everything that is NOT the default does get the frequency.
+    // The parenthetical detail is trimmed: the name column ellipsises, so
+    // "Weekdays (Mon-Fri)" would be cut to "Weekda..." and lose the meaning.
+    expect(name("Review").pName).toBe("Review [Weekdays]");
+    expect(name("Payday").pName).toBe("Payday [15th of every month]");
+    // "day(s)" is part of the word, not parenthetical detail - must not be mangled.
+    expect(name("Fortnightly").pName).toBe("Fortnightly [Every 14 day(s)]");
+    expect(name("Pick days").pName).toBe("Pick days [Mon, Wed]");
+
+    // Stream group rows are NOT labelled with a frequency - they are not jobs.
+    const streamRow = items.find((i) => i.pName === "Work");
+    expect(streamRow).toBeTruthy();
+    expect(streamRow.pName).not.toContain("[");
   });
 
   test("task text meets WCAG AA contrast in BOTH light and dark mode", async ({ page }) => {
@@ -349,6 +385,66 @@ test.describe("Gantt page", () => {
     expect(grip.after, `grip drag did not resize the pane (${grip.before} -> ${grip.after})`).toBeGreaterThan(grip.before + 50);
     // ...and the task table tracks the new pane width rather than overflowing.
     expect(grip.tableAfter).toBeLessThanOrEqual(grip.after + 1);
+  });
+
+  test("today/weekend tints and scrollbars are themed in both modes", async ({ page }) => {
+    // Regression guards for three "colours not quite right" defects:
+    //  1. the "today" column lost its highlight and weekends lost their shading
+    //     because the surface rule contains `#ganttPage tr.glineitem td` = (1,1,2),
+    //     which outranks any `td.gtaskcellcurrent` variant -> needs !important;
+    //  2. the chart's scrollbars were browser-default light grey, reading as a
+    //     foreign light panel inside a dark chart (and a light `///` corner grip);
+    //  3. the today tint must not use --bs-primary-bg-subtle, which renders as a
+    //     muddy smear on a saturated theme (superhero's primary is orange).
+    test.setTimeout(90000);
+    const jobs = [
+      { id: "a", title: "Job one", sequence: 1, active: true, schedule: { type: "daily" }, duration: 3 },
+      { id: "b", title: "Job two", sequence: 2, active: true, schedule: { type: "weekdays" }, duration: 2 }
+    ];
+    await page.goto("/PlanMyDay/");
+    await page.evaluate((j) => {
+      localStorage.setItem("planmydays_streams", JSON.stringify([{ title: "Work", sequence: 1, jobs: j }]));
+      localStorage.setItem("planmydays_showGantt", "true");
+    }, jobs);
+
+    for (const [mode, theme] of [["dark", "superhero"], ["light", "flatly"]]) {
+      await page.evaluate(([t, m]) => applyTheme(t, m), [theme, mode]);
+      await page.waitForFunction((m) => document.documentElement.getAttribute("data-bs-theme") === m, mode);
+      await page.evaluate(() => openGantt());
+      await page.waitForFunction(() => {
+        const el = document.querySelector("#ganttChart .gmainleft");
+        return el && el.getBoundingClientRect().width > 0;
+      });
+      await page.waitForTimeout(400);
+
+      const probe = await page.evaluate(() => {
+        const first = (sel) => {
+          const el = document.querySelector(sel);
+          return el ? getComputedStyle(el).backgroundColor : null;
+        };
+        const grid = document.querySelector("#ganttChart .gchartgrid");
+        const gcs = grid ? getComputedStyle(grid) : null;
+        return {
+          today: first("#ganttChart td.gtaskcellcurrent"),
+          weekend: first("#ganttChart td.gtaskcellwkend"),
+          plain: first("#ganttChart td.gtaskcellbar"),
+          surface: first("#ganttChart td.gtaskcellbar"),
+          scrollbarWidth: gcs ? gcs.scrollbarWidth : null,
+          scrollbarColor: gcs ? gcs.scrollbarColor : null,
+          bodyBg: getComputedStyle(document.body).backgroundColor
+        };
+      });
+
+      // the "today" column and weekends must be distinguishable from a normal cell
+      expect(probe.today, `${mode}: no today cell`).not.toBeNull();
+      expect(probe.today, `${mode}: today cell lost its tint`).not.toBe(probe.plain);
+      expect(probe.weekend, `${mode}: weekend cell lost its shading`).not.toBe(probe.plain);
+
+      // scrollbars must be themed, not the browser default
+      expect(probe.scrollbarWidth, `${mode}: scrollbar-width not set`).toBe("thin");
+      expect(probe.scrollbarColor, `${mode}: scrollbar-color not set`).not.toBe("auto");
+      await page.evaluate(() => closeGantt());
+    }
   });
 
   test("Close returns to the main view", async ({ page }) => {

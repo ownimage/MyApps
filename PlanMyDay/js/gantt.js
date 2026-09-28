@@ -124,7 +124,7 @@ function buildGanttTasks(streams, todayStr) {
       items.push({
         pID: id++,
         pParent: groupId,
-        pName: job.title || "Untitled job",
+        pName: ganttJobLabel(job),
         pStart: start,
         pEnd: end,
         pPlanStart: "",
@@ -156,6 +156,26 @@ function ganttAddDaysStr(dateStr, days) {
   return d.getUTCFullYear() + "-" +
     String(d.getUTCMonth() + 1).padStart(2, "0") + "-" +
     String(d.getUTCDate()).padStart(2, "0");
+}
+
+// Row label for a job: the title, plus the repeat frequency in brackets when it
+// is worth saying - e.g. "Review [Weekdays]" or "Gym [Mon, Wed, Fri]".
+//
+// A plain daily job gets NOTHING: "Every day" is the default schedule, so
+// labelling every row "[Every day]" is noise. The frequency text comes from the
+// app's own `getScheduleText` so the chart never grows a second, drifting
+// wording for the same schedule.
+function ganttJobLabel(job) {
+  const title = job.title || "Untitled job";
+  // "daily" (and an absent schedule) IS the default, so say nothing.
+  const type = (job.schedule && job.schedule.type) || "daily";
+  if (type === "daily") return title;
+  const raw = typeof getScheduleText === "function" ? getScheduleText(job.schedule) : "";
+  // Only drop the parenthetical when it really is extra detail. It must contain
+  // a space or a dash ("Mon-Fri"); otherwise "Every 14 day(s)" would be mangled
+  // into "Every 14 day" by mistake.
+  const freq = String(raw || "").replace(/\s*\(([^)]*)\)\s*$/, (m, inner) => (/[\s\-–]/.test(inner) ? "" : m)).trim();
+  return freq ? title + " [" + freq + "]" : title;
 }
 
 // Tooltip body for a job row: the things the app already knows how to phrase
@@ -338,8 +358,45 @@ function changeShowGantt(enabled) {
     "#ganttPage .gminorheadingwkend {",
     "  background-color: var(--gantt-surface-alt);",
     "}",
-    "#ganttPage .gtaskcellcurrent {",
-    "  background-color: var(--bs-primary-bg-subtle);",
+    "/* Day-cell tints. `!important` is REQUIRED here, not lazy: the surface rule",
+    "   above contains `#ganttPage tr.glineitem td`, which is (1,1,2) - one",
+    "   element type higher than any `td.gtaskcellcurrent` variant - so without",
+    "   it the \"today\" column silently lost its highlight and weekends lost their",
+    "   shading. The repo already uses !important for vendor overrides.",
+    "   The today tint is a color-mix of the theme primary into the surface rather",
+    "   than --bs-primary-bg-subtle: on a saturated theme (superhero's primary is",
+    "   orange) the subtle variant renders as a muddy dark-orange smear.",
+    "   color-mix is already used elsewhere in the shared CSS. */",
+    "#ganttPage td.gtaskcellcurrent {",
+    "  background-color: color-mix(in srgb, var(--bs-primary) 12%, var(--gantt-surface)) !important;",
+    "}",
+    "#ganttPage td.gtaskcellwkend {",
+    "  background-color: var(--gantt-surface-alt) !important;",
+    "}",
+    "/* Scrollbars: the browser default is light grey, which reads as a foreign",
+    "   light panel inside a dark chart (and the corner grip showed as a light",
+    "   `///` block). `scrollbar-*` covers Firefox, the ::-webkit rules cover",
+    "   Chrome/Edge/Safari - both are needed, they are not alternatives. */",
+    "#ganttPage .gchartgrid,",
+    "#ganttPage .gmainleft,",
+    "#ganttPage .gmainright,",
+    "#ganttPage .gtasktablewrapper {",
+    "  scrollbar-width: thin;",
+    "  scrollbar-color: var(--gantt-border) var(--gantt-surface-alt);",
+    "}",
+    "#ganttPage .gchartgrid::-webkit-scrollbar {",
+    "  width: 12px;",
+    "  height: 12px;",
+    "}",
+    "#ganttPage .gchartgrid::-webkit-scrollbar-track {",
+    "  background-color: var(--gantt-surface-alt);",
+    "}",
+    "#ganttPage .gchartgrid::-webkit-scrollbar-thumb {",
+    "  background-color: var(--gantt-border);",
+    "  border-radius: 6px;",
+    "}",
+    "#ganttPage .gchartgrid::-webkit-scrollbar-corner {",
+    "  background-color: var(--gantt-surface-alt);",
     "}",
     "#ganttPage .gcharttable,",
     "#ganttPage .gcharttableh {",
@@ -411,7 +468,7 @@ function changeShowGantt(enabled) {
     "   usable width. */",
     "#ganttPage .gmainleft {",
     "  flex: 0 0 auto;",
-    "  width: clamp(360px, 32%, 460px);",
+    "  width: clamp(360px, 34%, 520px);",
     "}",
     "#ganttPage .gmainright {",
     "  flex: 1 1 auto;",
