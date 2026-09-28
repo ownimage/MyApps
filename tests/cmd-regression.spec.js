@@ -553,6 +553,86 @@ test.describe("CountMyDays - Regression", () => {
       await expect(page.locator("#exportWizardPage")).not.toHaveAttribute("open", "");
     });
 
+    test("export wizard walks every partial step with cascades, filters and back", async ({ page }) => {
+      await seed(page);
+      await page.evaluate(() => exportData());
+      const wiz = page.locator("#exportWizardPage");
+
+      await wiz.locator("#ewPartial").check();
+      await wiz.getByRole("button", { name: "Next" }).click();
+
+      // dates: specific + cascade, exercise the name filter and Back
+      await wiz.locator("#ewDatesSpecific").check();
+      await wiz.locator("#ewDatesCascade").check();
+      await wiz.getByRole("button", { name: "Next" }).click();
+      const dateBoxes = wiz.locator(".ew-date-cb");
+      for (let i = 0; i < await dateBoxes.count(); i++) await dateBoxes.nth(i).check();
+      await wiz.locator("#ewDateFilterName").fill("Ann");
+      await wiz.locator("#ewDateFilterName").fill("");
+      await wiz.getByRole("button", { name: "Next" }).click();
+
+      // categories: specific + cascade, Back, then filter + forward
+      await wiz.locator("#ewCatsSpecific").check();
+      await wiz.locator("#ewCategoriesCascade").check();
+      await wiz.getByRole("button", { name: "Next" }).click();
+      await wiz.getByRole("button", { name: "Back" }).click();
+      await expect(wiz).toContainText("Export Categories");
+      await wiz.getByRole("button", { name: "Next" }).click();
+      await wiz.locator(".ew-cat-cb").first().check();
+      await wiz.locator("#ewCatFilterName").fill("Birth");
+      await wiz.locator("#ewCatFilterName").fill("");
+      await wiz.getByRole("button", { name: "Next" }).click();
+
+      // images: specific, filter
+      await wiz.locator("#ewImgsSpecific").check();
+      await wiz.getByRole("button", { name: "Next" }).click();
+      await wiz.locator(".ew-img-cb").first().check();
+      await wiz.locator("#ewImageFilterName").fill("img");
+      await wiz.locator("#ewImageFilterName").fill("");
+      await wiz.getByRole("button", { name: "Export" }).click();
+
+      await expect(wiz).toContainText("Export Summary");
+      const [download] = await Promise.all([
+        page.waitForEvent("download"),
+        wiz.getByRole("button", { name: "Export" }).click()
+      ]);
+      expect(download.suggestedFilename()).toBe("countmydays-export.json");
+    });
+
+    test("export wizard all-choices branches build the full payload", async ({ page }) => {
+      await seed(page);
+      await page.evaluate(() => exportData());
+      const wiz = page.locator("#exportWizardPage");
+      await wiz.locator("#ewPartial").check();
+      await wiz.getByRole("button", { name: "Next" }).click();
+      await wiz.locator("#ewDatesAll").check();
+      await wiz.locator("#ewDatesCascade").check();
+      await wiz.getByRole("button", { name: "Next" }).click();
+      await wiz.locator("#ewCatsAll").check();
+      await wiz.locator("#ewCategoriesCascade").check();
+      await wiz.getByRole("button", { name: "Next" }).click();
+      await wiz.locator("#ewImgsAll").check();
+      await wiz.getByRole("button", { name: "Next" }).click();
+      await expect(wiz).toContainText("Export Summary");
+      await expect(wiz).toContainText("Dates (");
+      await expect(wiz).toContainText("Categories (");
+      await expect(wiz).toContainText("Images (");
+      const [download] = await Promise.all([
+        page.waitForEvent("download"),
+        wiz.getByRole("button", { name: "Export" }).click()
+      ]);
+      expect(download.suggestedFilename()).toBe("countmydays-export.json");
+    });
+
+    test("exportToQR opens the QR export wizard", async ({ page }) => {
+      await seed(page);
+      await page.evaluate(() => exportToQR());
+      const wiz = page.locator("#exportWizardPage");
+      await expect(wiz).toHaveAttribute("open", "");
+      await wiz.getByRole("button", { name: "Cancel" }).click();
+      await expect(wiz).not.toHaveAttribute("open", "");
+    });
+
     test("QR export renders chunked QR codes", async ({ page }) => {
       await seed(page, {
         dates: [{ name: "Tiny", category: "", image: "", type: "annual", month: 3, day: 3 }],
@@ -569,6 +649,7 @@ test.describe("CountMyDays - Regression", () => {
       await expect(page.locator("#qrExportPage smd-qr-export .label").first()).toContainText("QR 1 of");
       await page.locator("#qrExportPage").getByRole("button", { name: "Close" }).click();
       await expect(page.locator("#qrExportPage")).not.toHaveAttribute("open", "");
+      await expect(page.locator("#qrExportPage")).toHaveClass(/d-none/);
     });
 
     test("import wizard imports a JSON payload", async ({ page }) => {
@@ -606,6 +687,85 @@ test.describe("CountMyDays - Regression", () => {
       await page.locator("#importWizardPage").getByRole("button", { name: "Apply & Continue" }).click();
       await page.locator("#importWizardPage").getByRole("button", { name: "Close" }).click();
       expect(await page.evaluate(() => JSON.parse(localStorage.getItem("shared-images") || "[]").some(i => i.name === "imgA copy"))).toBe(true);
+    });
+
+    test("import wizard walks image, category and date conflict stages", async ({ page }) => {
+      await seed(page);
+      await page.evaluate(() => {
+        startImportWizard({
+          images: [{ name: "imgA", data: "data:image/svg+xml," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" stroke="#00ff00" fill="none"><rect width="9" height="9"/></svg>') }],
+          categories: [{ name: "Work", image: "imgC" }],
+          dates: [
+            { name: "Anniversary", type: "annual", month: 1, day: 1, category: "Birthday", image: "imgB" },
+            { name: "Trip", type: "annual", month: 9, day: 9, category: "Work", image: "imgA" },
+            { name: "Standup", type: "annual", month: 6, day: 6, category: "Work", image: "" }
+          ]
+        });
+      });
+      const wiz = page.locator("#importWizardPage");
+
+      // images section: conflict -> keep both (rename the imported image)
+      await wiz.getByRole("button", { name: "Import" }).click();
+      await wiz.locator("#imgKeepBoth").check();
+      await wiz.locator("#imgNewName").fill("imgA copy");
+      await wiz.getByRole("button", { name: "Next" }).click();
+      await expect(wiz).toContainText("Image Summary");
+      await wiz.getByRole("button", { name: "Apply & Continue" }).click();
+
+      // categories section: conflict -> keep both
+      await wiz.getByRole("button", { name: "Import" }).click();
+      await wiz.locator("#catKeepBoth").check();
+      await wiz.locator("#catNewName").fill("Work 2");
+      await wiz.getByRole("button", { name: "Next" }).click();
+      await expect(wiz).toContainText("Category Summary");
+      await wiz.getByRole("button", { name: "Apply & Continue" }).click();
+
+      // dates section: two conflicts -> keep both, then use existing
+      await wiz.getByRole("button", { name: "Import" }).click();
+      await wiz.locator("#dateKeepBoth").check();
+      await wiz.locator("#dateNewName").fill("Anniversary 2");
+      await wiz.getByRole("button", { name: "Next" }).click();
+      await wiz.locator("#dateUseExisting").check();
+      await wiz.locator("#dateExistingSelect").selectOption("Anniversary");
+      await wiz.getByRole("button", { name: "Next" }).click();
+      await expect(wiz).toContainText("Date Summary");
+      await wiz.getByRole("button", { name: "Apply & Continue" }).click();
+      await expect(wiz).toContainText("Import complete");
+      await wiz.getByRole("button", { name: "Close" }).click();
+
+      const stored = await page.evaluate(() => ({
+        images: JSON.parse(localStorage.getItem("shared-images") || "[]"),
+        categories: JSON.parse(localStorage.getItem("countmydays_categories") || "[]"),
+        dates: JSON.parse(localStorage.getItem("countmydays_dates") || "[]")
+      }));
+      expect(stored.images.some((i) => i.name === "imgA copy")).toBe(true);
+      expect(stored.categories.some((c) => c.name === "Work 2" && c.image === "imgC")).toBe(true);
+      expect(stored.dates.some((d) => d.name === "Anniversary 2")).toBe(true);
+      // The kept category rename propagates to an imported date that used it.
+      expect(stored.dates.find((d) => d.name === "Standup").category).toBe("Work 2");
+    });
+
+    test("import wizard skips every section", async ({ page }) => {
+      await seed(page);
+      await page.evaluate(() => {
+        startImportWizard({
+          images: [{ name: "brandNewImage", data: "data:image/svg+xml," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg"><rect width="4" height="4"/></svg>') }],
+          categories: [{ name: "BrandNewCat", image: null }],
+          dates: [{ name: "BrandNewDate", type: "annual", month: 2, day: 2, category: "", image: "" }]
+        });
+      });
+      const wiz = page.locator("#importWizardPage");
+      await wiz.getByRole("button", { name: "Skip" }).click();
+      await wiz.getByRole("button", { name: "Skip" }).click();
+      await wiz.getByRole("button", { name: "Skip" }).click();
+      await expect(wiz).toContainText("Import complete");
+      await wiz.getByRole("button", { name: "Close" }).click();
+      const stored = await page.evaluate(() => ({
+        images: JSON.parse(localStorage.getItem("shared-images") || "[]"),
+        dates: JSON.parse(localStorage.getItem("countmydays_dates") || "[]")
+      }));
+      expect(stored.images.some((i) => i.name === "brandNewImage")).toBe(false);
+      expect(stored.dates.some((d) => d.name === "BrandNewDate")).toBe(false);
     });
 
     test("QR import page opens and cancels", async ({ page }) => {
@@ -789,6 +949,82 @@ test.describe("CountMyDays - Regression", () => {
       await page.locator("#smdConfirmModal").getByRole("button", { name: "OK" }).click();
     });
 
+    test("OAuth helpers request, cache and clear the access token", async ({ page }) => {
+      await seed(page, {
+        settings: { gcal_enabled: "true", gcal_client_id: "test-client", gcal_calendar_id: "primary" }
+      });
+      const out = await page.evaluate(async () => {
+        const prompts = [];
+        window.google = {
+          accounts: {
+            oauth2: {
+              initTokenClient: (cfg) => ({
+                requestAccessToken: (opts) => {
+                  prompts.push(opts && opts.prompt);
+                  cfg.callback({ access_token: "tok-" + ((opts && opts.prompt) || "silent"), expires_in: 3600 });
+                }
+              })
+            }
+          }
+        };
+        const res = {};
+        res.clientId = getGCalClientId();
+        storeGoogleAccessToken({ access_token: "cached-1", expires_in: 3600 });
+        res.cached = getCachedGoogleAccessToken();
+        clearGoogleAccessToken();
+        res.cleared = getCachedGoogleAccessToken();
+        await loadGoogleIdentityScript();
+        res.token = await requestGoogleAccessToken(false);
+        res.prompts = prompts;
+
+        const origFetch = window.fetch;
+        const seen = [];
+        window.fetch = (url, opts) => {
+          seen.push({ url, auth: opts && opts.headers && opts.headers.Authorization });
+          return Promise.resolve({ status: 200, ok: true, json: () => Promise.resolve({ id: "evt1", description: "desc" }) });
+        };
+        res.updated = await updateGoogleEventDescription("evt1", "desc");
+        res.seen = seen;
+        window.fetch = origFetch;
+        return res;
+      });
+      expect(out.clientId).toBe("test-client");
+      expect(out.cached).toBe("cached-1");
+      expect(out.cleared).toBe(null);
+      expect(out.token).toBe("tok-silent");
+      expect(out.prompts).toEqual([""]);
+      expect(out.updated.id).toBe("evt1");
+      expect(out.seen[0].auth).toBe("Bearer tok-silent");
+    });
+
+    test("googleApiFetch retries interactively after a 401", async ({ page }) => {
+      await seed(page, { settings: { gcal_enabled: "true", gcal_client_id: "test-client" } });
+      const out = await page.evaluate(async () => {
+        window.google = {
+          accounts: {
+            oauth2: {
+              initTokenClient: (cfg) => ({
+                requestAccessToken: () => cfg.callback({ access_token: "fresh", expires_in: 3600 })
+              })
+            }
+          }
+        };
+        storeGoogleAccessToken({ access_token: "stale", expires_in: 3600 });
+        let calls = 0;
+        const origFetch = window.fetch;
+        window.fetch = () => {
+          calls++;
+          if (calls === 1) return Promise.resolve({ status: 401, ok: false });
+          return Promise.resolve({ status: 200, ok: true, json: () => Promise.resolve({ items: [] }) });
+        };
+        const feed = await fetchEvents();
+        window.fetch = origFetch;
+        return { calls, items: feed.items.length };
+      });
+      expect(out.calls).toBe(2);
+      expect(out.items).toBe(0);
+    });
+
     test("Clear cache only clears the CountMyDays Google cache entry", async ({ page }) => {
       await seed(page, {
         settings: {
@@ -839,6 +1075,87 @@ test.describe("CountMyDays - Regression", () => {
       await expect(page.locator("#googleEventsPage cmd-date-card")).toHaveCount(7);
       await page.locator("#googleEventsPage").getByRole("button", { name: "OK" }).click();
       await expect(page.locator("#googleEventsPage")).not.toHaveAttribute("open", "");
+    });
+
+    test("google events editor search, edit, cancel and close", async ({ page }) => {
+      await seed(page, { settings: { gcal_enabled: "true", gcal_name: "Test User" } });
+      await page.evaluate(() => loadGCalSampleData());
+      await page.locator("#smdConfirmModal").getByRole("button", { name: "OK" }).click();
+      await page.evaluate(() => openGoogleEventsEditor());
+      const listPage = page.locator("#googleEventsPage");
+      await expect(listPage.locator("cmd-date-card")).toHaveCount(7);
+
+      await page.evaluate(() => {
+        document.getElementById("googleEventsPage").dispatchEvent(new CustomEvent("smd-search-input", { detail: { value: "Dentist" } }));
+      });
+      await expect(listPage.locator("cmd-date-card")).toHaveCount(1);
+      await page.evaluate(() => {
+        document.getElementById("googleEventsPage").dispatchEvent(new CustomEvent("smd-search-clear"));
+      });
+      await expect(listPage.locator("cmd-date-card")).toHaveCount(7);
+
+      await listPage.locator("cmd-date-card").first().getByRole("button", { name: "Edit" }).click();
+      await expect(page.locator("#googleEventEditPage")).toHaveAttribute("open", "");
+      await page.locator("#gcalCategorySelect").selectOption("Birthday");
+      await page.locator("#gcalShowCheck").uncheck();
+      await page.locator("#googleEventEditPage").getByRole("button", { name: "Cancel" }).click();
+      await expect(page.locator("#googleEventEditPage")).not.toHaveAttribute("open", "");
+
+      await listPage.getByRole("button", { name: "OK" }).click();
+      await expect(listPage).toHaveClass(/d-none/);
+    });
+
+    test("editing a recurring Google event patches the master series", async ({ page }) => {
+      await seed(page, { settings: { gcal_enabled: "true", gcal_name: "Test User" } });
+      await page.evaluate(() => {
+        localStorage.setItem("countmydays_google_cal", JSON.stringify({
+          items: [
+            { id: "master", summary: "Series Master", start: { date: "2026-10-01" } },
+            { id: "inst1", recurringEventId: "master", summary: "Series Instance", start: { date: "2026-10-08" } }
+          ]
+        }));
+        window.__patched = [];
+        updateGoogleEventDescription = (id, description) => {
+          window.__patched.push({ id, description });
+          return Promise.resolve({ id, description, etag: "etag-1" });
+        };
+      });
+      await page.evaluate(() => openGoogleEventsEditor());
+      await page.locator('#googleEventsPage cmd-date-card[recurring="true"]').first().getByRole("button", { name: "Edit" }).click();
+      await page.locator("#googleEventEditPage").getByRole("button", { name: "OK" }).click();
+      await expect(page.locator("#smdConfirmModal")).toContainText("Series description updated");
+      await page.locator("#smdConfirmModal").getByRole("button", { name: "OK" }).click();
+      expect(await page.evaluate(() => window.__patched.length)).toBe(1);
+      expect(await page.evaluate(() => window.__patched[0].id)).toBe("master");
+      const cached = await page.evaluate(() => JSON.parse(localStorage.getItem("countmydays_google_cal") || "null"));
+      expect(cached.items.filter((i) => i._cmd).length).toBe(2);
+    });
+
+    test("google event save failures surface via the shared modal", async ({ page }) => {
+      await seed(page, { settings: { gcal_enabled: "true", gcal_name: "Test User" } });
+      await page.evaluate(() => {
+        localStorage.setItem("countmydays_google_cal", JSON.stringify({
+          items: [
+            { id: "master", summary: "Series Master", start: { date: "2026-10-01" } },
+            { id: "inst1", recurringEventId: "master", summary: "Series Instance", start: { date: "2026-10-08" } }
+          ]
+        }));
+        updateGoogleEventDescription = () => Promise.reject(new Error("boom"));
+      });
+
+      // single event failure
+      await page.evaluate(() => openGoogleEventsEditor());
+      await page.locator('#googleEventsPage cmd-date-card[recurring="false"]').first().getByRole("button", { name: "Edit" }).click();
+      await page.locator("#googleEventEditPage").getByRole("button", { name: "OK" }).click();
+      await expect(page.locator("#smdConfirmModal")).toContainText("Failed to update event");
+      await page.locator("#smdConfirmModal").getByRole("button", { name: "OK" }).click();
+
+      // recurring series failure
+      await page.evaluate(() => openGoogleEventsEditor());
+      await page.locator('#googleEventsPage cmd-date-card[recurring="true"]').first().getByRole("button", { name: "Edit" }).click();
+      await page.locator("#googleEventEditPage").getByRole("button", { name: "OK" }).click();
+      await expect(page.locator("#smdConfirmModal")).toContainText("Failed to update series");
+      await page.locator("#smdConfirmModal").getByRole("button", { name: "OK" }).click();
     });
 
     test("legacy unprefixed keys are left untouched (no migration runs)", async ({ page }) => {
