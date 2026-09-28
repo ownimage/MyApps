@@ -447,6 +447,142 @@ test.describe("Gantt page", () => {
     }
   });
 
+  test("light mode renders the Gantt page black-on-white, not white-on-black", async ({ page }) => {
+    // Regression guard: the shared rule paints EVERY smd-page header/footer with
+    // `var(--bs-primary)`, and flatly's light primary is the dark navy #2c3e50,
+    // so the Gantt rendered white-on-black in light mode. The user asked for
+    // this page only, so the override must stay scoped to #ganttPage.
+    test.setTimeout(60000);
+    await page.goto("/PlanMyDay/");
+    await seedStreams(page, SAMPLE);
+    await enableGantt(page);
+    await page.evaluate(() => applyTheme("flatly", "light"));
+    await page.waitForFunction(() => document.documentElement.getAttribute("data-bs-theme") === "light");
+    await page.waitForTimeout(600);
+    await page.evaluate(() => openGantt());
+    await page.waitForFunction(() => {
+      const el = document.querySelector("#ganttChart .gmainleft");
+      return el && el.getBoundingClientRect().width > 0;
+    });
+
+    const probe = await page.evaluate(() => {
+      const p = document.getElementById("ganttPage");
+      const read = (sel) => {
+        const el = p.querySelector(sel);
+        return el ? { bg: getComputedStyle(el).backgroundColor, color: getComputedStyle(el).color } : null;
+      };
+      return {
+        header: read(".smd-page-header"),
+        footer: read(".smd-page-footer"),
+        h1: read(".smd-page-header h1"),
+        body: getComputedStyle(document.body).backgroundColor
+      };
+    });
+
+    const rgb = (s) => s.match(/[\d.]+/g).slice(0, 3).map(Number);
+    const lum = (c) => {
+      const f = (v) => (v / 255 <= 0.03928 ? v / 255 / 12.92 : Math.pow((v / 255 + 0.055) / 1.055, 2.4));
+      return 0.2126 * f(c[0]) + 0.7152 * f(c[1]) + 0.0722 * f(c[2]);
+    };
+    const ratio = (a, b) => {
+      const [hi, lo] = lum(a) > lum(b) ? [lum(a), lum(b)] : [lum(b), lum(a)];
+      return (hi + 0.05) / (lo + 0.05);
+    };
+
+    // The header must no longer be the dark navy primary: it should now track
+    // the page surface, i.e. sit at the same luminance as <body>.
+    const bodyLum = lum(rgb(probe.body));
+    expect(
+      Math.abs(lum(rgb(probe.header.bg)) - bodyLum),
+      `header ${probe.header.bg} should track body ${probe.body}`
+    ).toBeLessThan(0.05);
+    expect(ratio(rgb(probe.h1.color), rgb(probe.header.bg)), "header title contrast")
+      .toBeGreaterThan(4.5);
+    expect(ratio(rgb(probe.footer.color), rgb(probe.footer.bg)), "footer text contrast")
+      .toBeGreaterThan(4.5);
+  });
+
+  test("Streams dropdown filters the chart and persists", async ({ page }) => {
+    test.setTimeout(90000);
+    const streams = [
+      { title: "Work", sequence: 1, jobs: [
+        { id: "a", title: "Alpha", sequence: 1, active: true, schedule: { type: "daily" }, duration: 2 }
+      ]},
+      { title: "Home", sequence: 2, jobs: [
+        { id: "b", title: "Beta", sequence: 1, active: true, schedule: { type: "weekdays" }, duration: 1 }
+      ]},
+      { title: "Someday", sequence: 3, jobs: [] }
+    ];
+    await page.goto("/PlanMyDay/");
+    await page.evaluate((s) => {
+      localStorage.setItem("planmydays_streams", JSON.stringify(s));
+      localStorage.setItem("planmydays_showGantt", "true");
+    }, streams);
+    await page.reload();
+    await page.evaluate(() => openGantt());
+    await page.waitForFunction(() => {
+      const el = document.querySelector("#ganttChart .gmainleft");
+      return el && el.getBoundingClientRect().width > 0;
+    });
+
+    // The dropdown button shows how many streams are included, and starts at all.
+    const btn = page.locator("#ganttStreamMenuBtn");
+    await expect(btn).toHaveText("Streams (3/3)");
+    await btn.click();
+    await expect(page.locator("#ganttStreamMenu")).toHaveClass(/show/);
+
+    // one checkbox per stream, plus the All master
+    await expect(page.locator("#ganttPage smd-checkbox[data-stream]")).toHaveCount(3);
+    await expect(page.locator("#ganttStreamAll")).toBeChecked();
+
+    // Group rows carry the library's collapse tick, so strip the leading
+    // tick/whitespace or "- Work" never matches "Work".
+    const chartNames = () => page.evaluate(() => Array.from(
+      document.querySelectorAll("#ganttChart .gtasktable .gtaskname")
+    ).map((c) => c.textContent.replace(/^[\s\-–+• ]+/, "").trim()).filter(Boolean));
+
+    // unticking a stream removes its group row AND its jobs
+    await page.locator('#ganttPage smd-checkbox[data-stream="Home"]').click();
+    await page.waitForTimeout(400);
+    await expect(btn).toHaveText("Streams (2/3)");
+    expect(await chartNames()).not.toContain("Home");
+    expect(await chartNames()).not.toContain("Beta");
+    expect(await chartNames()).toContain("Work");
+    // All becomes a partial state when not everything is included
+    await expect(page.locator("#ganttStreamAll")).not.toBeChecked();
+
+    // All is a master toggle. It is currently UNCHECKED (partial state), so
+    // clicking it ticks it -> everything comes back.
+    await page.locator("#ganttStreamAll").click();
+    await page.waitForTimeout(400);
+    await expect(btn).toHaveText("Streams (3/3)");
+    expect(await chartNames()).toContain("Someday");
+
+    // clicking it again unticks it -> every stream is excluded
+    await page.locator("#ganttStreamAll").click();
+    await page.waitForTimeout(400);
+    await expect(btn).toHaveText("Streams (0/3)");
+    expect((await chartNames()).length).toBe(0);
+
+    // put everything back before the persistence check
+    await page.locator("#ganttStreamAll").click();
+    await page.waitForTimeout(400);
+    await expect(btn).toHaveText("Streams (3/3)");
+
+    // the filter is persisted, not per-session
+    await page.locator('#ganttPage smd-checkbox[data-stream="Work"]').click();
+    await page.waitForTimeout(400);
+    await expect(btn).toHaveText("Streams (2/3)");
+    await page.reload();
+    await page.evaluate(() => openGantt());
+    await page.waitForFunction(() => {
+      const el = document.querySelector("#ganttChart .gmainleft");
+      return el && el.getBoundingClientRect().width > 0;
+    });
+    await expect(page.locator("#ganttStreamMenuBtn")).toHaveText("Streams (2/3)");
+    expect(await chartNames()).not.toContain("Work");
+  });
+
   test("Close returns to the main view", async ({ page }) => {
     await page.goto("/PlanMyDay/");
     await seedStreams(page, SAMPLE);

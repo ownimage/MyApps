@@ -37,6 +37,10 @@ function openGantt() {
   if (!page.__ganttActionsBound) {
     page.__ganttActionsBound = true;
     page.addEventListener("smd-page-action", () => closeGantt());
+    // Delegated on the page: the header HTML is rebuilt by buildGanttContent()
+    // on every open, so listeners attached to the individual checkboxes would
+    // not survive. One listener on the page does.
+    page.addEventListener("change", ganttStreamFilterChanged);
   }
   page.show();
   // The page's content is in place; the chart is drawn on the next frame so the
@@ -67,12 +71,159 @@ function buildGanttContent() {
   const page = document.getElementById("ganttPage");
   if (!page) return;
   page.title = "Gantt";
+  page.headerHtml = ganttStreamFilterHtml();
   // The `gantt` class is REQUIRED: much of the vendored stylesheet is scoped to
   // `.gantt` (including `div.gantt { color: #656565 }`, the base text colour).
   // Without it those rules silently miss and the text inherits the app theme's
   // colour, which is unreadable on the library's own light surfaces.
   page.content = '<div id="ganttChart" class="gantt" style="position:relative;min-height:60vh"></div>';
   page.buttons = [{ text: "Close", variant: "secondary", action: "close" }];
+}
+
+// STREAM FILTER
+//
+// A "Streams" dropdown in the page header: a checkbox per stream, plus an "All"
+// toggle. The excluded streams are persisted (a set of titles) rather than the
+// included ones, so a stream added later is SHOWN by default rather than being
+// silently hidden by a stale list.
+var ganttHiddenStreams = null;
+
+// Reads the persisted filter. Null until first use.
+function ganttHiddenStreamSet() {
+  if (ganttHiddenStreams) return ganttHiddenStreams;
+  ganttHiddenStreams = new Set();
+  try {
+    const raw = localStorage.getItem(smdKey("ganttHiddenStreams"));
+    if (raw) JSON.parse(raw).forEach((t) => ganttHiddenStreams.add(t));
+  } catch (e) {
+    ganttHiddenStreams = new Set();
+  }
+  return ganttHiddenStreams;
+}
+
+function ganttSaveHiddenStreams() {
+  try {
+    localStorage.setItem(smdKey("ganttHiddenStreams"), JSON.stringify(Array.from(ganttHiddenStreams)));
+  } catch (e) {
+    /* storage unavailable (private mode); filter stays session-only */
+  }
+}
+
+function ganttEscapeHtml(text) {
+  return String(text == null ? "" : text).replace(/[&<>"']/g, (c) => (
+    { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]
+  ));
+}
+
+// The dropdown markup. `btn` classes are used rather than raw Bootstrap
+// dropdown JS so no data-bs-toggle wiring is needed and it works inside the
+// smd-page header; the open/close state is driven by ganttToggleStreamMenu().
+function ganttStreamFilterHtml() {
+  const hidden = ganttHiddenStreamSet();
+  const streams = (typeof loadStreams === "function" ? loadStreams() : []) || [];
+  const ordered = streams.slice().sort((a, b) => (a.sequence || 0) - (b.sequence || 0));
+  const shown = ordered.filter((s) => !hidden.has(s.title || "Untitled stream"));
+
+  const rows = ordered.map((s) => {
+    const title = s.title || "Untitled stream";
+    const id = "ganttStream_" + ganttStreamFilterIndex(s);
+    const isOn = !hidden.has(title);
+    return (
+      '<label class="d-flex align-items-center gap-2 px-2 py-1 gantt-stream-row" for="' + id + '">' +
+        '<smd-checkbox id="' + id + '" data-stream="' + ganttEscapeHtml(title) + '"' +
+          (isOn ? " checked" : "") + '></smd-checkbox>' +
+        '<span class="gantt-stream-label text-truncate" title="' + ganttEscapeHtml(title) + '">' +
+          ganttEscapeHtml(title) +
+        "</span>" +
+      "</label>"
+    );
+  }).join("");
+
+  return (
+    '<div class="dropdown gantt-stream-filter">' +
+      '<button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle" ' +
+        'id="ganttStreamMenuBtn" aria-expanded="false" onclick="ganttToggleStreamMenu()">' +
+        "Streams (" + shown.length + "/" + ordered.length + ")" +
+      "</button>" +
+      '<div class="dropdown-menu dropdown-menu-end p-0 gantt-stream-menu" id="ganttStreamMenu" role="list">' +
+        '<div class="gantt-stream-all px-2 py-1 border-bottom">' +
+          '<label class="d-flex align-items-center gap-2" for="ganttStreamAll">' +
+            '<smd-checkbox id="ganttStreamAll"' + (hidden.size === 0 ? " checked" : "") + "></smd-checkbox>" +
+            "<span>All</span>" +
+          "</label>" +
+        "</div>" +
+        '<div class="gantt-stream-list" style="max-height:14rem;overflow-y:auto">' + rows + "</div>" +
+      "</div>" +
+    "</div>"
+  );
+}
+
+// Stable per-stream checkbox id. Index within the sorted list is fine and keeps
+// the id readable; the stream TITLE is what actually identifies the filter state.
+function ganttStreamFilterIndex(stream) {
+  const streams = (typeof loadStreams === "function" ? loadStreams() : []) || [];
+  const ordered = streams.slice().sort((a, b) => (a.sequence || 0) - (b.sequence || 0));
+  return ordered.indexOf(stream);
+}
+
+function ganttToggleStreamMenu(force) {
+  const menu = document.getElementById("ganttStreamMenu");
+  const btn = document.getElementById("ganttStreamMenuBtn");
+  if (!menu || !btn) return;
+  const show = typeof force === "boolean" ? force : !menu.classList.contains("show");
+  menu.classList.toggle("show", show);
+  btn.setAttribute("aria-expanded", show ? "true" : "false");
+}
+
+// One change handler for every checkbox in the dropdown. Delegated on the menu
+// because smd-page re-renders the header HTML on every property set, so
+// per-checkbox listeners would be lost each time.
+function ganttStreamFilterChanged(e) {
+  const box = e.target.closest("smd-checkbox");
+  if (!box) return;
+  const hidden = ganttHiddenStreamSet();
+  if (box.id === "ganttStreamAll") {
+    hidden.clear();
+    if (!box.checked) {
+      // "All" unticked means hide everything currently listed.
+      const streams = (typeof loadStreams === "function" ? loadStreams() : []) || [];
+      streams.forEach((s) => hidden.add(s.title || "Untitled stream"));
+    }
+  } else {
+    const title = box.getAttribute("data-stream");
+    if (box.checked) hidden.delete(title);
+    else hidden.add(title);
+  }
+  ganttSaveHiddenStreams();
+  ganttRefreshStreamFilter();
+}
+
+// Redraws the chart and syncs the dropdown's own state (checkbox positions and
+// the "n/m" count) without going through buildGanttContent(), which would
+// re-render the page and close the menu.
+function ganttRefreshStreamFilter() {
+  const page = document.getElementById("ganttPage");
+  if (!page) return;
+  const btn = document.getElementById("ganttStreamMenuBtn");
+  const menu = document.getElementById("ganttStreamMenu");
+  const wasOpen = menu && menu.classList.contains("show");
+  const hidden = ganttHiddenStreamSet();
+
+  if (btn) {
+    const streams = (typeof loadStreams === "function" ? loadStreams() : []) || [];
+    const total = streams.length;
+    const shown = streams.filter((s) => !hidden.has(s.title || "Untitled stream")).length;
+    btn.textContent = "Streams (" + shown + "/" + total + ")";
+  }
+  if (menu) {
+    menu.querySelectorAll("smd-checkbox[data-stream]").forEach((box) => {
+      box.checked = !hidden.has(box.getAttribute("data-stream"));
+    });
+    const all = document.getElementById("ganttStreamAll");
+    if (all) all.checked = hidden.size === 0;
+  }
+  renderGantt();
+  if (wasOpen) ganttToggleStreamMenu(true);
 }
 
 // Derives the jsGantt task list from the stored streams. Streams are group rows
@@ -82,8 +233,12 @@ function buildGanttContent() {
 function buildGanttTasks(streams, todayStr) {
   const items = [];
   let id = 1;
+  const hidden = ganttHiddenStreamSet();
   const ordered = (streams || []).slice().sort((a, b) => (a.sequence || 0) - (b.sequence || 0));
-  ordered.forEach((stream) => {
+  // Streams excluded by the header filter are dropped entirely, so both the
+  // group row and all of its jobs disappear from the chart.
+  const visible = ordered.filter((s) => !hidden.has(s.title || "Untitled stream"));
+  visible.forEach((stream) => {
     const groupId = id++;
     const jobs = (stream.jobs || []).slice().sort((a, b) => (a.sequence || 0) - (b.sequence || 0));
     // Derive each job's start/end once.
@@ -293,13 +448,18 @@ function changeShowGantt(enabled) {
   var s = document.createElement("style");
   s.id = "pmd-gantt-theme-style";
   s.textContent = [
-    "#ganttPage .gantt {",
+    "#ganttPage {",
     "  --gantt-surface: var(--bs-body-bg);",
     "  --gantt-surface-alt: var(--bs-tertiary-bg);",
     "  --gantt-text: var(--bs-body-color);",
     "  --gantt-muted: var(--bs-secondary-color);",
     "  --gantt-border: var(--bs-border-color);",
     "  --gantt-summary-bar: #000000;",
+    "}",
+    "/* The variables live on #ganttPage, NOT on `.gantt`, so the page chrome",
+    "   (header, footer, Streams button/menu) can use them too - they are",
+    "   siblings of the chart, not descendants of it. */",
+    "#ganttPage .gantt {",
     "  color: var(--gantt-text);",
     "  background: var(--gantt-surface);",
     "}",
@@ -415,8 +575,59 @@ function changeShowGantt(enabled) {
     "#ganttPage .gfoldercollapse {",
     "  color: var(--gantt-text);",
     "}",
+    "/* Streams filter dropdown. `.dropdown-menu` is absolutely positioned by",
+    "   Bootstrap, but the smd-page header is a flex row with no positioning",
+    "   context of its own, so the menu would anchor to the nearest positioned",
+    "   ancestor instead of the button. Make the wrapper the positioning context",
+    "   and pin the menu to it. `.show` is toggled in JS rather than by",
+    "   data-bs-toggle, so no Bootstrap dropdown instance is required. */",
+    "#ganttPage .gantt-stream-filter {",
+    "  position: relative;",
+    "  margin-left: auto;",
+    "}",
+    "/* The button follows the page chrome rather than the theme's button palette.",
+    "   `btn-outline-secondary` is NOT reliably an outline - flatly renders it",
+    "   as a filled grey block with white text (~2.5:1), which is unreadable in",
+    "   light mode. */",
+    "#ganttPage .gantt-stream-filter > .btn {",
+    "  background-color: var(--gantt-surface);",
+    "  color: var(--gantt-text);",
+    "  border: 1px solid var(--gantt-border);",
+    "}",
+    "#ganttPage .gantt-stream-filter > .btn:hover,",
+    "#ganttPage .gantt-stream-filter > .btn:focus {",
+    "  background-color: var(--gantt-surface-alt);",
+    "  color: var(--gantt-text);",
+    "  border-color: var(--gantt-border);",
+    "}",
+    "#ganttPage .gantt-stream-menu {",
+    "  position: absolute;",
+    "  top: 100%;",
+    "  right: 0;",
+    "  left: auto;",
+    "  z-index: 1080;",
+    "  min-width: 14rem;",
+    "  display: none;",
+    "  background-color: var(--gantt-surface);",
+    "  color: var(--gantt-text);",
+    "  border: 1px solid var(--gantt-border);",
+    "  border-radius: 0.375rem;",
+    "  box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);",
+    "}",
+    "#ganttPage .gantt-stream-menu.show {",
+    "  display: block;",
+    "}",
+    "#ganttPage .gantt-stream-row {",
+    "  cursor: pointer;",
+    "}",
+    "#ganttPage .gantt-stream-row:hover {",
+    "  background-color: var(--gantt-surface-alt);",
+    "}",
+    "#ganttPage .gantt-stream-label {",
+    "  min-width: 0;",
+    "}",
     "/* Summary bar: #000 is invisible on a dark chart, so lighten it. */",
-    "html[data-bs-theme=\"dark\"] #ganttPage .gantt {",
+    "html[data-bs-theme=\"dark\"] #ganttPage {",
     "  --gantt-summary-bar: #9aa0a6;",
     "}",
     "html[data-bs-theme=\"dark\"] #ganttPage .ggroupblack {",
@@ -429,6 +640,20 @@ function changeShowGantt(enabled) {
     "/* Tooltip. */",
     "#ganttPage .JSGanttToolTipcont,",
     "#ganttPage .gTtTitle {",
+    "  color: var(--gantt-text);",
+    "}",
+    "/* Page chrome. The shared rule paints EVERY smd-page header/footer with",
+    "   `var(--bs-primary)`, and in flatly LIGHT mode that primary is the dark",
+    "   navy #2c3e50 - so the Gantt rendered white-on-black in the light theme.",
+    "   The user asked for THIS PAGE ONLY, so the override is scoped to",
+    "   #ganttPage and the header follows body colours like the chart does.",
+    "   `#smd-app #ganttPage` is needed to outrank the shared (1,1,2) rule; the",
+    "   h1 has no colour rule of its own and inherits from the header. Note the",
+    "   shared FOOTER rule sets a background but no foreground, so in light mode",
+    "   the footer inherited dark text onto a dark fill - this fixes that too. */",
+    "#smd-app #ganttPage .smd-page-header,",
+    "#smd-app #ganttPage .smd-page-footer {",
+    "  background-color: var(--gantt-surface);",
     "  color: var(--gantt-text);",
     "}"
   ].join("\n");
