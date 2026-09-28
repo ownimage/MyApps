@@ -20,7 +20,7 @@
 // comparison. If the two ever DO drift, the page notices at runtime
 // (GET_BUILD) and re-registers, so the drift self-heals instead of pinning
 // users to a build the worker will never replace.
-const BUILD_NUMBER = "202609280427";
+const BUILD_NUMBER = "202609280504";
 
 const CACHE = "myapps-" + BUILD_NUMBER;
 
@@ -489,8 +489,6 @@ self.addEventListener("message", event => {
     event.waitUntil(writeNoCache(event.data.enabled).then(function() {
       replyNoCache(event, noCache);
     }));
-  } else if (event.data.type === "GET_NO_CACHE") {
-    event.waitUntil(readNoCache().then(replyNoCache.bind(null, event)));
   } else if (event.data.type === "GET_BUILD") {
     // Lets a page compare the build it is running against the build this worker
     // was registered for, so a stale worker is visible instead of silent.

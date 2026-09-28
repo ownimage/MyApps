@@ -372,11 +372,6 @@ function editJobInAccordion(streamIdx, jobIdx) {
   jobsStreamIndex = streamIdx;
   editJob(jobIdx);
 }
-function confirmDeleteJobInAccordion(streamIdx, jobIdx) {
-  jobsStreamIndex = streamIdx;
-  confirmDeleteJob(jobIdx);
-}
-
 function editField(field, value) {
   if (!editBuffer) return;
   editBuffer[field] = value;

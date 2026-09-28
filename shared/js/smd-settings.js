@@ -501,32 +501,6 @@ function smdTellWorkerNoCache(worker, enabled) {
   });
 }
 
-// Ask the worker which mode it is in. Returns null when there is no worker to
-// ask, so callers can tell "not supported" from "off".
-function smdWorkerNoCache(worker) {
-  return new Promise(function(resolve) {
-    if (!worker) return resolve(null);
-    var settled = false;
-    var timer = setTimeout(function() { finish(null); }, 2000);
-    function finish(value) {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timer);
-      resolve(value);
-    }
-    var channel = new MessageChannel();
-    channel.port1.onmessage = function(event) {
-      var data = event.data || {};
-      finish(data.type === "NO_CACHE" ? !!data.enabled : null);
-    };
-    try {
-      worker.postMessage({ type: "GET_NO_CACHE" }, [channel.port2]);
-    } catch (e) {
-      finish(null);
-    }
-  });
-}
-
 // Push the stored setting to a worker (idempotent). Called on every boot from
 // smdRegisterServiceWorker, so a worker that restarted picks the mode back up.
 function smdPushNoCacheToWorker(worker) {

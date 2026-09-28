@@ -48,14 +48,6 @@ const EXT_BY_MIME = [
   [/^image\/webp/, "webp"]
 ];
 
-const DATA_URL_PREFIX = {
-  png: "image/png",
-  gif: "image/gif",
-  ico: "image/x-icon",
-  jpg: "image/jpeg",
-  webp: "image/webp"
-};
-
 // --- name <-> filename helpers ----------------------------------------------
 
 function extOf(file) {

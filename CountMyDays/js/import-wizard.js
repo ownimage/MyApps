@@ -16,13 +16,6 @@ function iwQuery(sel) {
   return page ? page.querySelector(sel) : document.querySelector(sel);
 }
 
-function iwQueryAll(sel) {
-  const page = iwPage();
-  return page
-    ? Array.from(page.querySelectorAll(sel))
-    : Array.from(document.querySelectorAll(sel));
-}
-
 function iwThumb(name, size) {
   if (!name) return `<div class="ew-thumb-empty" style="--ew-thumb-size:${size || 32}px"></div>`;
   return `<smd-image key-prefix="${escAttr(smdImagePrefix())}" image="${escAttr(name)}" size="${size || 32}"></smd-image>`;
@@ -54,28 +47,6 @@ function importData() {
     reader.readAsText(file);
   };
   input.click();
-}
-
-function importSampleData() {
-  const cacheBuster = typeof BUILD_NUMBER !== "undefined" ? BUILD_NUMBER : Date.now();
-  showSpinner();
-  fetch("js/sampleData.json?v=" + cacheBuster)
-    .then(res => {
-      if (!res.ok) throw new Error("HTTP " + res.status);
-      return res.json();
-    })
-    .then(json => {
-      hideSpinner();
-      if (!json.dates || !json.categories || !json.images) {
-        alert("Sample data file is missing required fields.");
-        return;
-      }
-      startImportWizard(json);
-    })
-    .catch(err => {
-      hideSpinner();
-      alert("Failed to load sample data: " + err.message);
-    });
 }
 
 function showSpinner() {

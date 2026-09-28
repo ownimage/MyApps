@@ -109,7 +109,10 @@ Architecture:
   between visits, so an in-memory flag would silently revert to cache-first. That
   cache is in the `activate` allow-list — dropping it from `activePrefixes`
   deletes the setting on the next activation. `smdPushNoCacheToWorker` re-asserts
-  it on every boot from `smdRegisterServiceWorker`. `/smd-img/` user images stay
+  it on every boot from `smdRegisterServiceWorker`. (`smdWorkerNoCache` and its
+  `GET_NO_CACHE` read-back message were removed 2026-09-28 as unused; the
+  regression test now reads the worker-written `myapps-flags` entry directly.)
+  `/smd-img/` user images stay
   cache-ONLY even in this mode: the network has no file at that path, so falling
   through would blank every stored image. Tests: "No Cache danger switch makes the
   worker read every file from disk" and "No Cache mode serves files from the
@@ -437,6 +440,16 @@ Techniques / gotchas:
 
 ## Session log
 
+### 2026-09-28 (b) - dead-code sweep: 7 unused functions, 2 consts, 1 orphan file, and the smdWorkerNoCache/GET_NO_CACHE pair
+- Method: scanned 122 non-vendor JS/HTML files (811 function definitions + all top-level declarations), counted every word-boundary occurrence across the whole corpus (inline `onclick`, string refs and test `page.evaluate` included), then hand-verified each hit.
+- NOT dead (contrary to the suspicion that prompted the sweep): the `injectStyle*` family is all live - `injectSmdComponentStyle` (19 refs), `injectStyleInto` (16), `injectEditorStyles` (14), `injectSettingsStyles` (10), plus `injectPickerStyles` / `injectJobEditStyles` / `injectStreamsEditorStyles` / `injectGameStyles`. The retired constructable-stylesheet layer (`shared/js/components/styles.js`, `SmdStyles`, `adoptStyles`, `sheetFor`) was already fully gone.
+- Removed (0 refs each): `closeAppInfoModal`, `isGcalSequenceEvent`, `CMD_PAYLOAD_MARKER` (CountMyDays/js/googleCalendar.js - the marker const was unused AND the code hardcodes `"{count_my_days{"` inline at :229/:327); `iwQueryAll`, `importSampleData` (CountMyDays/js/import-wizard.js - the singular `iwQuery` is the one used); `confirmDeleteJobInAccordion` (PlanMyDay/js/streams-editor.js - `editJobInAccordion` is used); `formatLongDate` (PlanMyDay/js/utils.js - `formatDate` is used); `DATA_URL_PREFIX` (shared/regen_sample_images.js build script, which hardcodes `"data:image/png;base64,"` inline).
+- `smdWorkerNoCache` (shared/js/smd-settings.js) was a `GET_NO_CACHE` read-back helper with no caller; its `GET_NO_CACHE` message was removed from sw.js too. The Danger -> No Cache switch flows `changeNoCache` -> `smdSetNoCache` -> `smdTellWorkerNoCache` (`SET_NO_CACHE`), the boot re-assert is `smdPushNoCacheToWorker`, and `smdSetNoCache` reads state from its own ack, so the separate GET was never needed in production.
+- The "No Cache danger switch" test read the worker via `GET_NO_CACHE`; it now reads the flag the WORKER writes into Cache Storage (`caches.open("myapps-flags").match("/__myapps_no_cache__")`) - the page never writes it, so presence still proves the worker applied the mode, and no bespoke worker message is kept alive for tests. LESSON: a worker message used ONLY by a spec is not automatically dead, but REWRITE THE SPEC to observe the real artifact rather than keeping a production handler alive just for the test.
+- Deleted the orphan `PlanMyDay/js/pwa.js` (pull-to-refresh): its `<script>` tag was removed in `1dbdfe1` and no file referenced it; CountMyDays/QRLinks/SolarControlar carry the feature inline. Removed the stale `js/pwa.js` line from `PlanMyDay/js/app.js`'s header comment.
+- Verified: `node --check` clean on all 8 edited JS files; leftover-reference grep clean; 16 focused tests green (pmd No Cache x2, controlling-worker build, service-worker update modal, both sub-path precache tests, cmd Google Calendar x5, import wizard, sample-data seed, streams editor x2) via `--workers=2 --retries=0`.
+- `BUILD_NUMBER` -> `202609280455`.
+
 ### 2026-09-28 - flatpickr popup day grid painted BLACK in every theme (stray #000000 in styles.css)
 - Bug (user): PlanMyDay Edit Job -> Schedule tab (`#jobSchedule-tab`) `<smd-date-picker>` popup was BLACK with theme `bootstrap` + mode `light`. It was actually black in EVERY theme/mode; bootstrap/light just made it glaring.
 - Root cause: `shared/css/styles.css` had `.flatpickr-calendar { background: #000000; }`. `git blame` + `git show e8e91ee3` ("simplex dark theme changes", 2026-09-27) prove it was a stray edit that replaced the correct `background: var(--smd-date-picker-background);`. The vendor skin sets `background: transparent` and `flatpickr.min.css` is linked BEFORE `#smd-shared-css` in every shell, so the shared rule won and painted the container black.
@@ -689,8 +702,10 @@ Techniques / gotchas:
   flag would be lost when the worker is killed between visits; the flag cache is
   now in the `activate` allow-list). `/smd-img/` user images stay cache-only in
   this mode — the network has no file there.
-- `shared/js/smd-settings.js` gained `smdNoCacheEnabled` / `smdWorkerNoCache` /
-  `smdPushNoCacheToWorker` / `smdSetNoCache`; `smdRegisterServiceWorker`
+- `shared/js/smd-settings.js` gained `smdNoCacheEnabled` /
+  `smdPushNoCacheToWorker` / `smdSetNoCache` (the `smdWorkerNoCache` read-back
+  helper added here was removed 2026-09-28 as unused - see that entry);
+  `smdRegisterServiceWorker`
   re-asserts the flag on every boot so a restarted worker picks the mode back up.
   Another app can reuse the helpers by adding its own switch — the worker side is
   already global.
@@ -1892,7 +1907,8 @@ Techniques / gotchas:
   coloured line/background on themes whose primary is orange (e.g. brite).
 - Settings/app tweaks (follow-up): the `.card p-3` wrapper is gone from the edit
   pages (content sits directly on the page); "Import Sample Data" removed from
-  the main menu (`importSampleData()` remains but is unused); G Cal Refresh is a
+  the main menu (`importSampleData()` was removed 2026-09-28 as dead code - see
+  that entry); G Cal Refresh is a
   full-width `smd-button` (`.smd-tab-panel smd-button` + `::part(button)` width
   rules in `CMD_EDITOR_STYLES`), and Load sample data / Clear cache moved to the
   Danger tab inside `#gcalDangerRow` (toggled with the other danger rows by

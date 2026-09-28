@@ -7235,19 +7235,14 @@ test.describe("PlanMyDay - Regression", () => {
 
     test("No Cache danger switch makes the worker read every file from disk", async ({ page }) => {
       await page.goto("/PlanMyDay/");
+      // Read the flag the WORKER writes into Cache Storage. The page never
+      // writes it, so its presence proves the worker applied the mode (via the
+      // boot push smdPushNoCacheToWorker, or smdSetNoCache). This replaces the
+      // old GET_NO_CACHE message probe, removed from sw.js as dead code.
       const workerNoCache = () => page.evaluate(async () => {
-        const reg = await navigator.serviceWorker.ready;
-        const worker = reg.active || navigator.serviceWorker.controller;
-        if (!worker) return null;
-        return await new Promise((resolve) => {
-          const channel = new MessageChannel();
-          const timer = setTimeout(() => resolve(null), 5000);
-          channel.port1.onmessage = (event) => {
-            clearTimeout(timer);
-            resolve((event.data || {}).enabled);
-          };
-          worker.postMessage({ type: "GET_NO_CACHE" }, [channel.port2]);
-        });
+        const cache = await caches.open("myapps-flags");
+        const hit = await cache.match("/__myapps_no_cache__");
+        return !!(hit && hit.ok);
       });
 
       // Every worker state below is polled: the worker installs and claims the
