@@ -704,6 +704,82 @@ test.describe("Gantt page", () => {
     expect(await order(page)).toEqual(["job_a2", "job_a1", "job_a3"]);
   });
 
+  test("dragging a JOB shows a ghost title following the cursor and highlights the source row", async ({ page }) => {
+    test.setTimeout(60000);
+    const streams = [
+      { title: "Work", sequence: 1, jobs: [
+        { id: "job_a1", title: "A1", sequence: 1, active: true, schedule: { type: "daily" }, duration: 1 },
+        { id: "job_a2", title: "A2", sequence: 2, active: true, schedule: { type: "daily" }, duration: 1 },
+        { id: "job_a3", title: "A3", sequence: 3, active: true, schedule: { type: "daily" }, duration: 1 }
+      ]},
+      { title: "Home", sequence: 2, jobs: [] }
+    ];
+    await page.goto("/PlanMyDay/");
+    await seedStreams(page, streams);
+    await enableGantt(page);
+    await openChart(page);
+
+    const nameRect = (text) => page.evaluate((t) => {
+      const el = Array.from(document.querySelectorAll(".pmd-gantt-job-name")).find((s) => s.textContent.trim() === t);
+      if (!el) return null;
+      const r = el.getBoundingClientRect();
+      return { x: r.x, y: r.y, w: r.width, h: r.height };
+    }, text);
+    const rowRect = (text) => page.evaluate((t) => {
+      const name = Array.from(document.querySelectorAll(".pmd-gantt-job-name")).find((s) => s.textContent.trim() === t);
+      const row = name && name.closest(".rgRow");
+      if (!row) return null;
+      const r = row.getBoundingClientRect();
+      return { x: r.x, y: r.y, w: r.width, h: r.height };
+    }, text);
+
+    const a1 = await nameRect("A1");
+    const a2 = await rowRect("A2");
+    expect(a1).toBeTruthy();
+    expect(a2).toBeTruthy();
+    await page.mouse.move(a1.x + a1.w / 2, a1.y + a1.h / 2);
+    await page.mouse.down();
+    await page.mouse.move(a1.x + a1.w / 2, a2.y + a2.h / 2, { steps: 5 });
+
+    // A ghost of the job's title follows the cursor
+    const during = await page.evaluate(() => {
+      const ghost = document.querySelector(".pmd-gantt-drag-ghost");
+      const dragging = document.querySelector(".pmd-gantt-dragging");
+      return {
+        ghostExists: !!ghost,
+        ghostText: ghost ? ghost.textContent.trim() : null,
+        ghostPointerEvents: ghost ? getComputedStyle(ghost).pointerEvents : null,
+        ghostY: ghost ? Math.round(ghost.getBoundingClientRect().y) : null,
+        draggingExists: !!dragging,
+        draggingIdx: dragging ? dragging.getAttribute("data-rgrow") : null
+      };
+    });
+    expect(during.ghostExists).toBe(true);
+    expect(during.ghostText).toBe("A1");
+    expect(during.ghostPointerEvents).toBe("none");
+    expect(during.draggingExists).toBe(true);
+    expect(during.draggingIdx).toBe("1"); // A1's row
+
+    // ghost moves when the pointer does
+    const y1 = during.ghostY;
+    await page.mouse.move(a1.x + a1.w / 2, a2.y + a2.h * 0.75, { steps: 3 });
+    const y2 = await page.evaluate(() => {
+      const ghost = document.querySelector(".pmd-gantt-drag-ghost");
+      return ghost ? Math.round(ghost.getBoundingClientRect().y) : null;
+    });
+    expect(y2).not.toBe(y1);
+
+    // releasing removes the ghost and the row highlight
+    await page.mouse.up();
+    await page.waitForTimeout(500);
+    const after = await page.evaluate(() => ({
+      ghostExists: !!document.querySelector(".pmd-gantt-drag-ghost"),
+      draggingRows: document.querySelectorAll(".pmd-gantt-dragging").length
+    }));
+    expect(after.ghostExists).toBe(false);
+    expect(after.draggingRows).toBe(0);
+  });
+
   test("dragging a JOB onto its OWN stream header shows no drop target (no valid drop)", async ({ page }) => {
     test.setTimeout(60000);
     const streams = [

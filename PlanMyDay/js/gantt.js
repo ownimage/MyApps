@@ -798,7 +798,10 @@ function ganttBindRowDrag(grid) {
     if (!row || row.type !== "task" || !row.id) return;
     _ganttRowDrag = {
       grid: grid,
+      rowEl: rowEl,
+      ghostEl: null,
       jobId: row.id.slice(1),          // strip "j"
+      jobTitle: (row.name || "").replace(/\s*\([^)]*\)\s*$/, ""),
       fromStreamIdx: ganttStoredStreamIndexForTask(row.id),
       startX: e.clientX,
       startY: e.clientY,
@@ -818,12 +821,20 @@ function ganttBindRowDrag(grid) {
         Math.abs(e.clientY - _ganttRowDrag.startY) < 4) {
       return;
     }
-    _ganttRowDrag.moved = true;
+    if (!_ganttRowDrag.moved) {
+      _ganttRowDrag.moved = true;
+      // Keep a "grabbing" cursor over the whole chart for the duration of the
+      // drag: without this, moving over another job's name re-applies that cell's
+      // `cursor: grab` and the hand flickers back mid-drag.
+      grid.classList.add("pmd-gantt-row-dragging");
+      // Highlight the row being dragged in the grid so it stays visible among
+      // the target highlighting.
+      if (_ganttRowDrag.rowEl) _ganttRowDrag.rowEl.classList.add("pmd-gantt-dragging");
+      // Create a ghost of the job title that follows the cursor.
+      _ganttRowDrag.ghostEl = ganttRowGhostCreate(_ganttRowDrag.jobTitle);
+    }
+    if (_ganttRowDrag.ghostEl) ganttRowGhostMove(_ganttRowDrag.ghostEl, e.clientX, e.clientY);
     e.preventDefault();
-    // Keep a "grabbing" cursor over the whole chart for the duration of the
-    // drag: without this, moving over another job's name re-applies that cell's
-    // `cursor: grab` and the hand flickers back mid-drag.
-    grid.classList.add("pmd-gantt-row-dragging");
     ganttRowDragHighlight(grid, e.clientX, e.clientY);
   });
 
@@ -835,10 +846,32 @@ function ganttBindRowDrag(grid) {
     // clear the highlight BEFORE anything can change the DOM; the element is
     // captured from the record because _ganttRowDrag is null by now
     if (targetEl) targetEl.classList.remove("pmd-gantt-drop-target", "pmd-gantt-drop-target--after");
+    if (drag.rowEl) drag.rowEl.classList.remove("pmd-gantt-dragging");
+    if (drag.ghostEl) ganttRowGhostRemove(drag.ghostEl);
     grid.classList.remove("pmd-gantt-row-dragging");
     if (!drag.moved) return; // it was a click, not a drag
     ganttPersistRowDrag(drag, e.clientX, e.clientY);
   });
+}
+
+// A floating ghost of the dragged job's title that follows the cursor. Fixed so
+// it can escape the grid's scroll containers; pointer-events:none so it never
+// blocks the pointer. Styled from the same theme tokens as the chart.
+function ganttRowGhostCreate(title) {
+  var el = document.createElement("div");
+  el.className = "pmd-gantt-drag-ghost";
+  el.textContent = title || "";
+  document.body.appendChild(el);
+  return el;
+}
+
+function ganttRowGhostMove(el, x, y) {
+  el.style.left = x + "px";
+  el.style.top = y + "px";
+}
+
+function ganttRowGhostRemove(el) {
+  if (el && el.parentNode) el.parentNode.removeChild(el);
 }
 
 // The stored stream index that a task id ("j" + jobid) belongs to, found by
@@ -1334,6 +1367,34 @@ function changeShowGantt(enabled) {
     "}",
     "#ganttPage revo-grid .rgRow.pmd-gantt-drop-target--after {",
     "  box-shadow: inset 0 -2px 0 var(--rg-gantt-task);",
+    "}",
+    "/* Highlight the row being dragged in the grid so the source job stays",
+    "   visible among the target highlighting. A subtle tint of the theme's",
+    "   success (the task-bar colour) keeps it distinct from the drop-target",
+    "   edge markers and from the (already disabled) focus highlight. */",
+    "#ganttPage revo-grid .rgRow.pmd-gantt-dragging {",
+    "  background-color: color-mix(in srgb, var(--rg-gantt-task) 15%, transparent);",
+    "}",
+    "/* The floating ghost of the dragged job's title. Fixed so it escapes the",
+    "   grid's scroll containers; pointer-events:none so it never blocks the",
+    "   pointer; a small offset from the cursor so the title is readable next to",
+    "   it. Follows the theme surface/text like the chart. */",
+    ".pmd-gantt-drag-ghost {",
+    "  position: fixed;",
+    "  left: 0;",
+    "  top: 0;",
+    "  transform: translate(12px, 10px);",
+    "  pointer-events: none;",
+    "  z-index: 2000;",
+    "  padding: 0.15rem 0.5rem;",
+    "  border-radius: 0.25rem;",
+    "  border: 1px solid var(--gantt-border);",
+    "  background-color: var(--gantt-surface);",
+    "  color: var(--gantt-text);",
+    "  font: 500 0.875rem/1.2 var(--bs-body-font-family, system-ui, sans-serif);",
+    "  white-space: nowrap;",
+    "  box-shadow: 0 0.25rem 0.5rem rgba(0, 0, 0, 0.2);",
+    "  opacity: 0.95;",
     "}",
     "/* 2. The timeline's own tokens. */",
     "#ganttPage {",
