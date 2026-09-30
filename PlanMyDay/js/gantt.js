@@ -126,8 +126,10 @@ function buildGanttContent() {
   page.headerHtml = ganttHeaderHtml();
   // RevoGrid does its own vertical virtualisation and scrolling, so the host
   // needs a BOUNDED height (min-height would let it grow forever and defeat the
-  // internal scroll). 60vh matches what the old chart container asked for.
-  page.content = '<div id="ganttChart" class="gantt" style="height:60vh;min-height:320px"></div>';
+  // internal scroll). The chart fills the page: the smd-page body is flex, and
+  // this host flex-grows to take the space between the header and the Close
+  // footer (see the LAYOUT rules in injectGanttTheme).
+  page.content = '<div id="ganttChart" class="gantt"></div>';
   page.buttons = [{ text: "Close", variant: "secondary", action: "close" }];
 }
 
@@ -429,24 +431,22 @@ function ganttAddDaysStr(dateStr, days) {
     String(d.getUTCDate()).padStart(2, "0");
 }
 
-// Row label for a job: the title, plus the repeat frequency in brackets when it
-// is worth saying - e.g. "Review [Weekdays]" or "Gym [Mon, Wed, Fri]".
+// Row label for a job: the title, plus the repeat frequency in round brackets
+// when it is worth saying - e.g. "Review (Weekdays)" or "Gym (Mon, Wed, Fri)".
 //
-// A plain daily job gets NOTHING: "Every day" is the default schedule, so
-// labelling every row "[Every day]" is noise. The frequency text comes from the
-// app's own `getScheduleText` so the chart never grows a second, drifting
-// wording for the same schedule.
+// "Every day" is the default schedule, so a plain daily job (or one with no
+// schedule at all) gets NOTHING: labelling every row "(Every day)" is noise.
+// The frequency text comes from the app's own `getScheduleText` so the chart
+// never grows a second, drifting wording for the same schedule.
 function ganttJobLabel(job) {
   const title = job.title || "Untitled job";
-  // "daily" (and an absent schedule) IS the default, so say nothing.
-  const type = (job.schedule && job.schedule.type) || "daily";
-  if (type === "daily") return title;
   const raw = typeof getScheduleText === "function" ? getScheduleText(job.schedule) : "";
   // Only drop the parenthetical when it really is extra detail. It must contain
   // a space or a dash ("Mon-Fri"); otherwise "Every 14 day(s)" would be mangled
   // into "Every 14 day" by mistake.
   const freq = String(raw || "").replace(/\s*\(([^)]*)\)\s*$/, (m, inner) => (/[\s\-–]/.test(inner) ? "" : m)).trim();
-  return freq ? title + " [" + freq + "]" : title;
+  if (!freq || /^every\s*day$/i.test(freq)) return title;
+  return title + " (" + freq + ")";
 }
 
 // RENDER
@@ -497,7 +497,21 @@ function drawGantt(host, lib) {
     // falls back to true when the property is absent — and pins the task
     // columns to the start edge so the timeline scrolls under them.
     grid.columns = lib.DEFAULT_TASK_COLUMNS.map(function (col) {
-      return Object.assign({}, col, { sortable: false });
+      var copy = Object.assign({}, col, { sortable: false });
+      // Indent the Task column for JOB rows so a job is visually nested under
+      // its stream. The rows carry no DOM marker for task vs summary, so this
+      // is done in the cell template (the row model has `type`). The template
+      // returns a vnode exactly like the vendored cell renderer does, keeping
+      // the ellipsis/truncation the default text node would have.
+      if (col.prop === "name") {
+        copy.cellTemplate = function (h, schemaModel) {
+          var model = schemaModel && schemaModel.model;
+          var value = model && model.name != null ? String(model.name) : "";
+          var cls = model && model.type === "task" ? "pmd-gantt-job-name" : "pmd-gantt-stream-name";
+          return h("span", { class: cls }, value);
+        };
+      }
+      return copy;
     });
     // The plugin MUST be registered before `gantt` is set: its constructor
     // installs the `gantt` accessor that the config is written through, and it
@@ -507,10 +521,12 @@ function drawGantt(host, lib) {
     // stop the bars being dragged — that is a separate pointer handler inside
     // the plugin and is disabled in CSS. Both are needed.
     grid.readonly = true;
-    // 42px rows: the vendor's timeline cell declares min-height 40px and its
-    // bars are 28px tall, so the default ~27px row clipped both. This is also
-    // the row height the plugin's own dependency layout assumes.
-    grid.rowSize = 42;
+    // 30px rows: the vendor ships 40px min-height cells and 28px bars, which on
+    // a full-page chart read as a handful of chunky rows with dead space below.
+    // Compact rows are overridden in CSS (the timeline cell keeps its 40px
+    // min-height unless it is dropped too), so the full page shows far more
+    // rows - the chart fills with content instead of looking stretched.
+    grid.rowSize = 30;
     ganttApplyMode(grid);
     grid.gantt = {
       id: "planmyday-gantt",
@@ -655,6 +671,13 @@ function changeShowGantt(enabled) {
     "     header cell background, so it needs the documented name too. */",
     "  --revo-grid-focused-bg: var(--bs-tertiary-bg);",
     "}",
+    "/* Job names are indented under their stream by the name-column cellTemplate",
+    "   (which stamps .pmd-gantt-job-name on task rows). The cell is a flex row, so",
+    "   the padding must go on the cell itself - the span inside is the truncating",
+    "   line, and padding it would push the ellipsis instead of the text. */",
+    "#ganttPage revo-grid .pmd-gantt-job-name {",
+    "  padding-left: 1.5rem;",
+    "}",
     "/* 2. The timeline's own tokens. */",
     "#ganttPage {",
     "  --rg-gantt-background: var(--bs-body-bg);",
@@ -674,6 +697,7 @@ function changeShowGantt(enabled) {
     "   Selector beats the vendors' bare `.rg-gantt-cell`, so no !important. */",
     "#ganttPage .rg-gantt-cell {",
     "  background-image: linear-gradient(to right, var(--rg-gantt-gridline) 1px, transparent 1px);",
+    "  min-height: 0;",
     "}",
     "/* READ-ONLY. The bars are draggable by default: each carries",
     "   data-gantt-interaction=\"move\" and the plugin binds a document-level",
@@ -696,6 +720,17 @@ function changeShowGantt(enabled) {
     "#ganttPage .rg-gantt-bar-handle,",
     "#ganttPage .rg-gantt-progress-handle {",
     "  display: none;",
+    "}",
+    "/* COMPACT ROWS. The rows are 30px (grid.rowSize) instead of the vendor's",
+    "   42px, so the full-page chart shows far more rows. The vendor's bar sizes",
+    "   are sized for 42px rows; shrink them to sit cleanly inside the 30px row",
+    "   (bars are vertically centred on the row). The label keeps the 12px font",
+    "   but its text-shadow is off so it stays readable at the tighter pitch. */",
+    "#ganttPage .rg-gantt-bar {",
+    "  height: 18px;",
+    "}",
+    "#ganttPage .rg-gantt-bar--summary {",
+    "  height: 8px;",
     "}",
     "/* Zoom buttons: the active preset is filled, the rest stay outline-only.",
     "   The button group follows the page chrome rather than the theme's button",
@@ -767,6 +802,22 @@ function changeShowGantt(enabled) {
     "#smd-app #ganttPage .smd-page-footer {",
     "  background-color: var(--gantt-surface);",
     "  color: var(--gantt-text);",
+    "}",
+    "/* LAYOUT: the chart fills the page. The smd-page body is `flex: 1",
+    "   overflow-y: auto`, which would wrap the grid in a scroll pane and cap it",
+    "   at the body's own scroll height - the grid needs the body's flex space",
+    "   directly so its internal virtualiser owns the scrollbar. Turn the body",
+    "   into a column flex container, drop its padding (the p-2 utility is",
+    "   `!important`, so this has to be too), and let the host grow. */",
+    "#smd-app #ganttPage .smd-page-body {",
+    "  display: flex;",
+    "  flex-direction: column;",
+    "  overflow: hidden;",
+    "  padding: 0 !important;",
+    "}",
+    "#ganttPage #ganttChart {",
+    "  flex: 1 1 auto;",
+    "  min-height: 0;",
     "}"
   ].join("\n");
   (document.head || document.documentElement).appendChild(s);

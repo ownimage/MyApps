@@ -102,7 +102,7 @@ test.describe("Gantt page", () => {
     // Rows are labelled "<title> [<frequency>]", so look them up by title
     // rather than by the whole name.
     const byTitle = {};
-    items.forEach((i) => { byTitle[i.name.replace(/\s*\[.*\]$/, "")] = i; });
+    items.forEach((i) => { byTitle[i.name.replace(/\s*\(.*\)$/, "")] = i; });
 
     // job with an explicit duration, no sleepUntil -> starts today, spans 3 days
     expect(byTitle["Daily standup"].startDate).toBe(today);
@@ -150,15 +150,70 @@ test.describe("Gantt page", () => {
     expect(chart.bodyCells).toBe(20);  // 5 rows x (name, start, end) + 5 timeline labels
     expect(chart.themeAttr).toBe("default");
     expect(chart.readonly).toBe(true);
-    expect(chart.rowSize).toBe(42);
+    expect(chart.rowSize).toBe(30);
 
     // every stream and job is labelled; the summary stream rows carry no
     // frequency bracket, the empty stream still appears
     expect(chart.labels).toContain("Work");
     expect(chart.labels).toContain("Home");
     expect(chart.labels).toContain("Daily standup");
-    expect(chart.labels).toContain("Planned review [Weekdays]");
+    expect(chart.labels).toContain("Planned review (Weekdays)");
     expect(chart.labels).toContain("Legacy job");
+  });
+
+  test("job names are indented under their stream so rows read as a hierarchy", async ({ page }) => {
+    await page.goto("/PlanMyDay/");
+    await seedStreams(page, SAMPLE);
+    await enableGantt(page);
+    await openChart(page);
+
+    const state = await page.evaluate(() => {
+      const pad = (text) => {
+        const cell = Array.from(document.querySelectorAll("#ganttChart .pmd-gantt-job-name, #ganttChart .pmd-gantt-stream-name"))
+          .find((s) => s.textContent.trim() === text);
+        return cell ? parseFloat(getComputedStyle(cell).paddingLeft) : null;
+      };
+      return {
+        jobCount: document.querySelectorAll("#ganttChart .pmd-gantt-job-name").length,
+        streamCount: document.querySelectorAll("#ganttChart .pmd-gantt-stream-name").length,
+        jobPad: pad("Daily standup"),
+        streamPad: pad("Work")
+      };
+    });
+
+    // 3 jobs + 2 streams, every row is stamped with the right class
+    expect(state.jobCount).toBe(3);
+    expect(state.streamCount).toBe(2);
+    // jobs are indented a clear step; streams stay flush
+    expect(state.jobPad).toBeGreaterThan(0);
+    expect(state.jobPad).toBeGreaterThan(state.streamPad);
+  });
+
+  test("the chart fills the page between the header and the Close footer", async ({ page }) => {
+    await page.goto("/PlanMyDay/");
+    await seedStreams(page, SAMPLE);
+    await enableGantt(page);
+    await openChart(page);
+
+    const boxes = await page.evaluate(() => {
+      const body = document.querySelector("#ganttPage .smd-page-body");
+      const chart = document.querySelector("#ganttChart");
+      const grid = document.querySelector("#ganttChart revo-grid");
+      return {
+        body: Math.round(body.getBoundingClientRect().height),
+        chart: Math.round(chart.getBoundingClientRect().height),
+        grid: Math.round(grid.getBoundingClientRect().height),
+        bodyFlex: getComputedStyle(body).display,
+        chartMinHeight: getComputedStyle(chart).minHeight
+      };
+    });
+
+    // the chart (and the grid inside it) reach the bottom of the page body
+    expect(boxes.chart).toBeGreaterThanOrEqual(boxes.body - 2);
+    expect(boxes.grid).toBeGreaterThanOrEqual(boxes.body - 2);
+    // the body is a column flex container so the host can flex-grow into it
+    expect(boxes.bodyFlex).toBe("flex");
+    expect(boxes.chartMinHeight).toBe("0px");
   });
 
   test("opening the Gantt does not mutate the stored streams (read-only projection)", async ({ page }) => {
@@ -203,11 +258,11 @@ test.describe("Gantt page", () => {
     // Everything that is NOT the default does get the frequency.
     // The parenthetical detail is trimmed: the name column ellipsises, so
     // "Weekdays (Mon-Fri)" would be cut to "Weekda..." and lose the meaning.
-    expect(name("Review").name).toBe("Review [Weekdays]");
-    expect(name("Payday").name).toBe("Payday [15th of every month]");
+    expect(name("Review").name).toBe("Review (Weekdays)");
+    expect(name("Payday").name).toBe("Payday (15th of every month)");
     // "day(s)" is part of the word, not parenthetical detail - must not be mangled.
-    expect(name("Fortnightly").name).toBe("Fortnightly [Every 14 day(s)]");
-    expect(name("Pick days").name).toBe("Pick days [Mon, Wed]");
+    expect(name("Fortnightly").name).toBe("Fortnightly (Every 14 day(s))");
+    expect(name("Pick days").name).toBe("Pick days (Mon, Wed)");
 
     // Stream group rows are NOT labelled with a frequency - they are not jobs.
     const streamRow = items.find((i) => i.name === "Work");
