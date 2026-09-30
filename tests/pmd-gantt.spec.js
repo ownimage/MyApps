@@ -345,7 +345,10 @@ test.describe("Gantt page", () => {
       const grid = document.querySelector("#ganttChart revo-grid");
       const bar = document.querySelector(".rg-gantt-bar--task");
       const summary = document.querySelector(".rg-gantt-bar--summary");
-      const endHandle = document.querySelector(".rg-gantt-bar-handle--end");
+      // scope the end handle to the measured bar: the FIRST handle in the whole
+      // document belongs to a summary bar (Work comes before its jobs), where it
+      // is display:none and its rect is all zeros
+      const endHandle = bar ? bar.querySelector(".rg-gantt-bar-handle--end") : null;
       // the plugin appends its own __ganttTimeline column (no sortable prop);
       // the three APP columns must all be explicitly non-sortable
       const appCols = (grid.columns || []).filter((c) => c.prop !== "__ganttTimeline");
@@ -359,6 +362,12 @@ test.describe("Gantt page", () => {
         taskBarCursor: bar ? getComputedStyle(bar).cursor : null,
         taskBarInteraction: bar ? bar.getAttribute("data-gantt-interaction") : null,
         summaryPointerEvents: summary ? getComputedStyle(summary).pointerEvents : null,
+        summaryCursor: summary ? getComputedStyle(summary).cursor : null,
+        summaryHasEndHandle: !!document.querySelector(".rg-gantt-bar--summary .rg-gantt-bar-handle--end"),
+        // summary bar must be a MOVE-only zone (no resize handle on it)
+        summaryEndHandleDisplay: document.querySelector(".rg-gantt-bar--summary .rg-gantt-bar-handle--end")
+          ? getComputedStyle(document.querySelector(".rg-gantt-bar--summary .rg-gantt-bar-handle--end")).display
+          : null,
         // the resize zone must cover the RIGHT half of the bar
         handleCoversRightHalf: barRect && handleRect
           ? handleRect.left >= barRect.left + barRect.width / 2 - 1
@@ -379,8 +388,10 @@ test.describe("Gantt page", () => {
     // the resize zone is the end handle stretched over the right half
     expect(state.handleCoversRightHalf).toBe(true);
     expect(state.endHandleCursor).toBe("ew-resize");
-    // summary (stream) bars stay inert
-    expect(state.summaryPointerEvents).toBe("none");
+    // summary (stream) bars are draggable as a whole (move only, no resize)
+    expect(state.summaryPointerEvents).not.toBe("none");
+    expect(state.summaryCursor).toBe("grab");
+    expect(state.summaryEndHandleDisplay).toBe("none");
   });
 
   test("dragging the LEFT half of a job bar moves it and persists sleepUntil", async ({ page }) => {
@@ -441,6 +452,42 @@ test.describe("Gantt page", () => {
         .flatMap((s) => s.jobs).find((j) => j.id === "job_daily"));
     // widening to the right must have grown the duration (job_daily had 3)
     expect(Number(after.duration)).toBeGreaterThan(Number(before.duration));
+  });
+
+  test("dragging a STREAM bar shifts every child job's start by the same days", async ({ page }) => {
+    test.setTimeout(60000);
+    await page.goto("/PlanMyDay/");
+    await seedStreams(page, SAMPLE);
+    await enableGantt(page);
+    await openChart(page);
+
+    // grab the first SUMMARY bar (the Work stream)
+    const bar = page.locator(".rg-gantt-bar--summary").first();
+    const box = await bar.boundingBox();
+    expect(box).toBeTruthy();
+    const start = { x: box.x + box.width * 0.5, y: box.y + box.height / 2 };
+    const before = await page.evaluate(() =>
+      JSON.parse(localStorage.getItem("planmydays_streams"))[0].jobs
+        .map((j) => ({ id: j.id, sleepUntil: j.sleepUntil || null })));
+
+    await page.mouse.move(start.x, start.y);
+    await page.mouse.down();
+    await page.mouse.move(start.x + 120, start.y, { steps: 8 });
+    await page.mouse.up();
+    await page.waitForTimeout(500);
+
+    const after = await page.evaluate(() =>
+      JSON.parse(localStorage.getItem("planmydays_streams"))[0].jobs
+        .map((j) => ({ id: j.id, sleepUntil: j.sleepUntil || null })));
+
+    // every child job in the stream gained a later sleepUntil
+    expect(after.length).toBeGreaterThan(0);
+    for (const a of after) {
+      const b = before.find((x) => x.id === a.id);
+      expect(a.sleepUntil).toBeTruthy();
+      expect(a.sleepUntil).not.toBe(b.sleepUntil);
+      expect(a.sleepUntil > (b.sleepUntil || "")).toBe(true);
+    }
   });
 
   test("Streams dropdown filters the chart and persists", async ({ page }) => {
@@ -550,9 +597,10 @@ test.describe("Gantt page", () => {
   test("every vendored Revolist file is served (no failed dynamic imports)", async ({ page }) => {
     test.setTimeout(60000);
     const failed = [];
-    page.on("requestfailed", (r) => failed.push(r.url()));
-    page.on("pageerror", (e) => failed.push("pageerror: " + e.message));
-    page.on("console", (m) => { if (m.type() === "error" && /revolist|revo-grid|dynamically imported/.test(m.text())) failed.push(m.text()); });
+    const isRevolist = (s) => /revolist|revo-grid|dynamically imported/.test(s);
+    page.on("requestfailed", (r) => { if (isRevolist(r.url())) failed.push(r.url()); });
+    page.on("pageerror", (e) => { if (isRevolist(e.message)) failed.push("pageerror: " + e.message); });
+    page.on("console", (m) => { if (m.type() === "error" && isRevolist(m.text())) failed.push(m.text()); });
 
     await page.goto("/PlanMyDay/");
     await seedStreams(page, SAMPLE);

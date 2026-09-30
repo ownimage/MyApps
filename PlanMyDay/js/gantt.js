@@ -575,9 +575,11 @@ function drawGantt(host, lib) {
 //
 // A move keeps the duration (both ends shift together) so only sleepUntil is
 // written; a resize-end changes endDate only, so the duration is recomputed from
-// the new span. The grid's own scrollbar / zoom re-render must not be disturbed:
-// no re-render is forced here — the plugin already drew the moved bar — but the
-// stored streams are updated so a later open/reload keeps the change.
+// the new span. A SUMMARY drag (stream bar) shifts every child job's start by
+// the same day delta (see ganttPersistStreamShift). The grid's own scrollbar /
+// zoom re-render must not be disturbed: no re-render is forced here — the plugin
+// already drew the moved bar — but the stored streams are updated so a later
+// open/reload keeps the change.
 function ganttBindBarDrag(grid) {
   if (!grid) return;
   _ganttDragGrid = grid;
@@ -588,7 +590,7 @@ function ganttBindBarDrag(grid) {
     var hit = ganttDragTarget(e);
     if (!hit) return;
     var row = (grid.source || []).find(function (r) { return r.id === hit.taskId; });
-    if (!row || row.type !== "task") return;
+    if (!row || (row.type !== "task" && row.type !== "summary")) return;
     _ganttDragRecord = {
       taskId: hit.taskId,
       mode: hit.mode,
@@ -629,14 +631,20 @@ function ganttDragTarget(e) {
 
 // Reads the dragged task's final dates from grid.source (the plugin updated
 // them) and writes the equivalent job fields back into the stored streams.
-// Task ids are "j" + job.id; a job without a match is left alone.
+// Task ids are "j" + job.id for jobs and "s" + storedArrayIndex for streams. A
+// row without a match in storage is left alone.
 function ganttPersistBarDrag(rec) {
   var grid = _ganttDragGrid;
   var row = (grid.source || []).find(function (r) { return r.id === rec.taskId; });
-  if (!row || row.type !== "task") return;
+  if (!row) return;
   // Only write when the drag actually moved something.
   if (row.startDate === rec.startDate && row.endDate === rec.endDate) return;
   var streams = loadStreams();
+  if (row.type === "summary") {
+    ganttPersistStreamShift(streams, rec, row);
+    return;
+  }
+  if (row.type !== "task") return;
   var jobId = rec.taskId.slice(1); // strip the "j" prefix
   var job = null;
   for (var s = 0; s < streams.length && !job; s++) {
@@ -652,9 +660,32 @@ function ganttPersistBarDrag(rec) {
     var days = ganttDaysBetween(row.startDate, row.endDate);
     job.duration = Math.max(1, days);
   }
+  ganttSaveShiftedStreams(streams);
+}
+
+// A stream bar was moved: shift every job in that stream by the same number of
+// days the stream's start moved, so the children follow their parent's new
+// position. Stream task ids are "s" + the stream's index in the STORED array
+// (buildGanttTasks assigns them that way, before any sequence sort). A job with
+// no sleepUntil starts "today" by definition, so shifting it means recording
+// today + delta explicitly.
+function ganttPersistStreamShift(streams, rec, row) {
+  var idx = Number(rec.taskId.slice(1));
+  var stream = streams[idx];
+  if (!stream) return;
+  var delta = ganttDaysBetween(rec.startDate, row.startDate);
+  if (delta === 0) return;
+  var todayStr = getTodayStr();
+  (stream.jobs || []).forEach(function (job) {
+    job.sleepUntil = ganttAddDaysStr(job.sleepUntil || todayStr, delta);
+  });
+  ganttSaveShiftedStreams(streams);
+}
+
+// Persists the streams and re-projects from them so the summary bars and any
+// other derived rows follow the new spans immediately.
+function ganttSaveShiftedStreams(streams) {
   saveStreams(streams);
-  // Re-project from the now-updated streams so the summary bars and any other
-  // derived rows follow the job's new span immediately.
   renderGantt();
 }
 
@@ -820,6 +851,12 @@ function changeShowGantt(enabled) {
     "  background-image: linear-gradient(to right, var(--rg-gantt-gridline) 1px, transparent 1px);",
     "  min-height: 0;",
     "}",
+    "/* Stream headers are the summary row names in the Task column (the cell",
+    "   template stamps .pmd-gantt-stream-name on them). Bold separates a stream",
+    "   from its nested jobs visually, on top of the indent. */",
+    "#ganttPage revo-grid .pmd-gantt-stream-name {",
+    "  font-weight: 600;",
+    "}",
     "/* BAR INTERACTION. The plugin draws each bar with the whole bar set to",
     "   data-gantt-interaction=\"move\" and a small end handle set to",
     "   \"resize-end\", then binds a document-level pointerdown/move/up that",
@@ -832,20 +869,23 @@ function changeShowGantt(enabled) {
     "     - RIGHT half is the end handle stretched across it -> ew-resize cursor",
     "       + \"resize-end\" mode. Dragging it changes the end date only, which",
     "       persists as the job's duration.",
+    "   SUMMARY (stream) bars are draggable too, but as a WHOLE BAR only (move",
+    "   mode): dragging a stream bar shifts every job in that stream by the same",
+    "   number of days (persisted in ganttPersistBarDrag). Resizing a stream makes",
+    "   no sense - its span is derived from its jobs - so the end handle is",
+    "   removed from summary bars and the whole bar is one move zone.",
     "   The start/progress handles are hidden so only move + duration-resize can",
-    "   ever start. Summary (stream) bars stay inert - they are derived from their",
-    "   jobs, not user-editable - and cell editing is still off (grid.readonly).",
-    "   The vendor only moves the grid; persisting to the stored streams is done",
-    "   by ganttBindBarDrag(). */",
+    "   ever start, and cell editing is still off (grid.readonly). The vendor",
+    "   only moves the grid; persisting to the stored streams is done by",
+    "   ganttBindBarDrag(). */",
     "#ganttPage .rg-gantt-bar {",
     "  cursor: grab;",
     "}",
-    "#ganttPage .rg-gantt-bar--summary,",
-    "#ganttPage .rg-gantt-bar--summary * {",
-    "  pointer-events: none;",
-    "}",
     "#ganttPage .rg-gantt-bar-handle--start,",
     "#ganttPage .rg-gantt-progress-handle {",
+    "  display: none;",
+    "}",
+    "#ganttPage .rg-gantt-bar--summary .rg-gantt-bar-handle--end {",
     "  display: none;",
     "}",
     "#ganttPage .rg-gantt-bar-handle--end {",
