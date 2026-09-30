@@ -334,7 +334,7 @@ test.describe("Gantt page", () => {
     }
   });
 
-  test("the chart is read-only: no edit cells, no sort arrows, no drag handles", async ({ page }) => {
+  test("cells and hierarchy are read-only, but job bars are draggable", async ({ page }) => {
     test.setTimeout(60000);
     await page.goto("/PlanMyDay/");
     await seedStreams(page, SAMPLE);
@@ -343,44 +343,104 @@ test.describe("Gantt page", () => {
 
     const state = await page.evaluate(() => {
       const grid = document.querySelector("#ganttChart revo-grid");
-      const bar = document.querySelector(".rg-gantt-bar:not(.rg-gantt-bar--summary)");
-      const handle = document.querySelector(".rg-gantt-bar-handle");
+      const bar = document.querySelector(".rg-gantt-bar--task");
+      const summary = document.querySelector(".rg-gantt-bar--summary");
+      const endHandle = document.querySelector(".rg-gantt-bar-handle--end");
       // the plugin appends its own __ganttTimeline column (no sortable prop);
       // the three APP columns must all be explicitly non-sortable
       const appCols = (grid.columns || []).filter((c) => c.prop !== "__ganttTimeline");
+      const barRect = bar ? bar.getBoundingClientRect() : null;
+      const handleRect = endHandle ? endHandle.getBoundingClientRect() : null;
       return {
         readonly: grid.readonly,
         sortable: appCols.length === 3 && appCols.every((c) => c.sortable === false),
         headerSortArrows: document.querySelectorAll("revogr-header .rgHeaderCell[aria-sort]").length,
-        barPointerEvents: bar ? getComputedStyle(bar).pointerEvents : null,
-        barInteraction: bar ? bar.getAttribute("data-gantt-interaction") : null,
-        handleDisplay: handle ? getComputedStyle(handle).display : null,
-        cursor: bar ? getComputedStyle(bar).cursor : null
+        taskBarPointerEvents: bar ? getComputedStyle(bar).pointerEvents : null,
+        taskBarCursor: bar ? getComputedStyle(bar).cursor : null,
+        taskBarInteraction: bar ? bar.getAttribute("data-gantt-interaction") : null,
+        summaryPointerEvents: summary ? getComputedStyle(summary).pointerEvents : null,
+        // the resize zone must cover the RIGHT half of the bar
+        handleCoversRightHalf: barRect && handleRect
+          ? handleRect.left >= barRect.left + barRect.width / 2 - 1
+            && handleRect.right >= barRect.right - 1
+          : false,
+        endHandleCursor: endHandle ? getComputedStyle(endHandle).cursor : null
       };
     });
 
+    // cells still cannot be edited, and sorting is still off
     expect(state.readonly).toBe(true);
     expect(state.sortable).toBe(true);
     expect(state.headerSortArrows).toBe(0);
-    // bars are drawn draggable by the plugin; our CSS takes that away
-    expect(state.barPointerEvents).toBe("none");
-    expect(state.barInteraction).toBe("move"); // the plugin's own markup, inert here
-    expect(state.handleDisplay).toBe("none");
-    expect(state.cursor).toBe("default");
+    // JOB bars are draggable again: left half = move (grab), right half = resize
+    expect(state.taskBarPointerEvents).toBe("auto");
+    expect(state.taskBarCursor).toBe("grab");
+    expect(state.taskBarInteraction).toBe("move");
+    // the resize zone is the end handle stretched over the right half
+    expect(state.handleCoversRightHalf).toBe(true);
+    expect(state.endHandleCursor).toBe("ew-resize");
+    // summary (stream) bars stay inert
+    expect(state.summaryPointerEvents).toBe("none");
+  });
 
-    // Try to drag a bar: its position tokens must not change.
-    const bar = page.locator(".rg-gantt-bar:not(.rg-gantt-bar--summary)").first();
-    const before = await bar.getAttribute("style");
+  test("dragging the LEFT half of a job bar moves it and persists sleepUntil", async ({ page }) => {
+    test.setTimeout(60000);
+    await page.goto("/PlanMyDay/");
+    await seedStreams(page, SAMPLE);
+    await enableGantt(page);
+    await openChart(page);
+
+    // pick a task bar; grab it at 25% width (left half = move zone)
+    const bar = page.locator(".rg-gantt-bar--task").first();
     const box = await bar.boundingBox();
-    if (box) {
-      await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-      await page.mouse.down();
-      await page.mouse.move(box.x + box.width / 2 + 120, box.y + box.height / 2 + 40, { steps: 8 });
-      await page.mouse.up();
-      await page.waitForTimeout(300);
-    }
-    const after = await bar.getAttribute("style");
-    expect(after).toBe(before);
+    expect(box).toBeTruthy();
+    const start = { x: box.x + box.width * 0.25, y: box.y + box.height / 2 };
+    const before = await page.evaluate(() =>
+      JSON.parse(localStorage.getItem("planmydays_streams"))
+        .flatMap((s) => s.jobs).find((j) => j.id === "job_daily"));
+
+    await page.mouse.move(start.x, start.y);
+    await page.mouse.down();
+    await page.mouse.move(start.x + 120, start.y, { steps: 8 });
+    await page.mouse.up();
+    // let the plugin re-render and the persist listener run
+    await page.waitForTimeout(500);
+
+    const after = await page.evaluate(() =>
+      JSON.parse(localStorage.getItem("planmydays_streams"))
+        .flatMap((s) => s.jobs).find((j) => j.id === "job_daily"));
+    // moving right must have pushed sleepUntil later (job_daily had none)
+    expect(after.sleepUntil).toBeTruthy();
+    expect(after.sleepUntil > (before.sleepUntil || "")).toBe(true);
+  });
+
+  test("dragging the RIGHT half of a job bar resizes it and persists duration", async ({ page }) => {
+    test.setTimeout(60000);
+    await page.goto("/PlanMyDay/");
+    await seedStreams(page, SAMPLE);
+    await enableGantt(page);
+    await openChart(page);
+
+    // grab at 75% width (right half = resize zone)
+    const bar = page.locator(".rg-gantt-bar--task").first();
+    const box = await bar.boundingBox();
+    expect(box).toBeTruthy();
+    const start = { x: box.x + box.width * 0.75, y: box.y + box.height / 2 };
+    const before = await page.evaluate(() =>
+      JSON.parse(localStorage.getItem("planmydays_streams"))
+        .flatMap((s) => s.jobs).find((j) => j.id === "job_daily"));
+
+    await page.mouse.move(start.x, start.y);
+    await page.mouse.down();
+    await page.mouse.move(start.x + 120, start.y, { steps: 8 });
+    await page.mouse.up();
+    await page.waitForTimeout(500);
+
+    const after = await page.evaluate(() =>
+      JSON.parse(localStorage.getItem("planmydays_streams"))
+        .flatMap((s) => s.jobs).find((j) => j.id === "job_daily"));
+    // widening to the right must have grown the duration (job_daily had 3)
+    expect(Number(after.duration)).toBeGreaterThan(Number(before.duration));
   });
 
   test("Streams dropdown filters the chart and persists", async ({ page }) => {

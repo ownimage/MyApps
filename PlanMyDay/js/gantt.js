@@ -24,17 +24,18 @@
 // nothing scheduled yet. Jobs are `type: "task"` rows whose parentId is the
 // stream's id.
 //
-// THE PAGE IS READ-ONLY. Opening it writes nothing, and there is no drag, drop,
-// resize, reorder or edit path at all:
+// EDITS: cells are read-only and the stream → job order is fixed, but JOB bars
+// are horizontally draggable (this replaces the old js/gantt-drag.js behaviour):
 //   * the grid gets `readonly = true`, so no cell can be edited
 //   * the task columns get `sortable: false`, because sorting would scramble
 //     the stream → job hierarchy (this replaces jsgantt's `vUseSort: 0`)
-//   * the bars themselves are draggable by DEFAULT in this package (they carry
-//     data-gantt-interaction="move" and the plugin listens for pointerdown), so
-//     they are switched off in CSS — see injectGanttTheme() and the
-//     "READ-ONLY" comment there. Removing that one rule is the whole of the
-//     future work if bar dragging is ever wanted; the old js/gantt-drag.js
-//     persisted those edits and has been deleted with it.
+//   * each job bar splits into two drag zones (see injectGanttTheme, "BAR
+//     INTERACTION"): dragging the LEFT half moves the bar (updates the job's
+//     sleepUntil / start date) and dragging the RIGHT half resizes it (updates
+//     the job's duration). The vendored plugin performs the pointer drag and
+//     updates the grid live; ganttBindBarDrag()/ganttPersistBarDrag() read the
+//     result back and persist it to the stored streams. Summary (stream) bars
+//     are NOT draggable — they are derived from their jobs.
 //
 // Legacy jobs with no `duration` fall back to 1 at read time (no migration,
 // nothing written back just by opening the page).
@@ -50,6 +51,13 @@ var _ganttCloseTimer = null;
 var _ganttRenderToken = 0;
 // Live light/dark watcher. See ganttApplyMode().
 var _ganttModeObserver = null;
+// Bar-drag persistence state. The vendored plugin handles the pointer
+// interaction and updates the grid's source live; these track which task was
+// grabbed (and how) so the pointerup listener can write the result back to the
+// stored streams. See ganttBindBarDrag()/ganttPersistBarDrag().
+var _ganttDragRecord = null;
+var _ganttDragGrid = null;
+var _ganttDragBound = false;
 
 // Resolves once the ESM library in js/gantt-lib.js has finished booting.
 //
@@ -546,6 +554,119 @@ function drawGantt(host, lib) {
 
   grid.source = items;
   ganttWatchMode(grid);
+  ganttBindBarDrag(grid);
+}
+
+// BAR DRAG PERSISTENCE
+//
+// The vendored plugin owns the pointer interaction (see the BAR INTERACTION
+// comment in injectGanttTheme): a pointerdown on a bar element that carries
+// `data-gantt-interaction="move"` (the whole bar — our left half) or on the end
+// handle's `"resize-end"` (our right half) opens a range edit, and each
+// pointermove rewrites that task's startDate/endDate in the plugin's own copy of
+// the source, re-rendering the grid as it goes. This code never duplicates the
+// drag itself; it only needs to (a) remember which task + mode was grabbed when
+// the pointer went down, and (b) after pointerup read the updated dates out of
+// `grid.source` and persist them to the app's stored streams. Both halves map
+// back to the job model used by buildGanttTasks():
+//
+//   start = job.sleepUntil || today      (a MOVE shifts start, so sleepUntil)
+//   end   = start + (job.duration || 1)  (a resize-end changes end => duration)
+//
+// A move keeps the duration (both ends shift together) so only sleepUntil is
+// written; a resize-end changes endDate only, so the duration is recomputed from
+// the new span. The grid's own scrollbar / zoom re-render must not be disturbed:
+// no re-render is forced here — the plugin already drew the moved bar — but the
+// stored streams are updated so a later open/reload keeps the change.
+function ganttBindBarDrag(grid) {
+  if (!grid) return;
+  _ganttDragGrid = grid;
+  // Capture what is being grabbed. Pointerdown bubbles, and the plugin's own
+  // handler is registered on the grid before ours, but we only READ the target's
+  // data attributes here — nothing we do can fight the drag.
+  grid.addEventListener("pointerdown", function (e) {
+    var hit = ganttDragTarget(e);
+    if (!hit) return;
+    var row = (grid.source || []).find(function (r) { return r.id === hit.taskId; });
+    if (!row || row.type !== "task") return;
+    _ganttDragRecord = {
+      taskId: hit.taskId,
+      mode: hit.mode,
+      startDate: row.startDate,
+      endDate: row.endDate
+    };
+  });
+  // One document-level listener for the whole page lifetime: grids are recreated
+  // on every open, but the stored drag state is module-level, so the listener is
+  // installed once.
+  if (!_ganttDragBound) {
+    _ganttDragBound = true;
+    document.addEventListener("pointerup", function () {
+      if (!_ganttDragRecord || !_ganttDragGrid || !_ganttDragGrid.isConnected) return;
+      var rec = _ganttDragRecord;
+      _ganttDragRecord = null;
+      ganttPersistBarDrag(rec);
+    });
+  }
+}
+
+// Walks the event's composed path for the first element that names a gantt bar
+// and an interaction mode, mirroring the plugin's own hit test (An()). Returns
+// null when the pointer went down somewhere else entirely.
+function ganttDragTarget(e) {
+  var path = e.composedPath ? e.composedPath() : [];
+  for (var i = 0; i < path.length; i++) {
+    var el = path[i];
+    if (!(el instanceof HTMLElement)) continue;
+    var taskId = el.getAttribute && el.getAttribute("data-gantt-task-id");
+    var mode = el.getAttribute && el.getAttribute("data-gantt-interaction");
+    if (taskId && (mode === "move" || mode === "resize-end")) {
+      return { taskId: taskId, mode: mode };
+    }
+  }
+  return null;
+}
+
+// Reads the dragged task's final dates from grid.source (the plugin updated
+// them) and writes the equivalent job fields back into the stored streams.
+// Task ids are "j" + job.id; a job without a match is left alone.
+function ganttPersistBarDrag(rec) {
+  var grid = _ganttDragGrid;
+  var row = (grid.source || []).find(function (r) { return r.id === rec.taskId; });
+  if (!row || row.type !== "task") return;
+  // Only write when the drag actually moved something.
+  if (row.startDate === rec.startDate && row.endDate === rec.endDate) return;
+  var streams = loadStreams();
+  var jobId = rec.taskId.slice(1); // strip the "j" prefix
+  var job = null;
+  for (var s = 0; s < streams.length && !job; s++) {
+    var jobs = streams[s].jobs || [];
+    for (var j = 0; j < jobs.length; j++) {
+      if (jobs[j].id === jobId) { job = jobs[j]; break; }
+    }
+  }
+  if (!job) return;
+  if (rec.mode === "move") {
+    job.sleepUntil = row.startDate;
+  } else if (rec.mode === "resize-end") {
+    var days = ganttDaysBetween(row.startDate, row.endDate);
+    job.duration = Math.max(1, days);
+  }
+  saveStreams(streams);
+  // Re-project from the now-updated streams so the summary bars and any other
+  // derived rows follow the job's new span immediately.
+  renderGantt();
+}
+
+// Whole days between two YYYY-MM-DD strings (end - start), UTC arithmetic like
+// ganttAddDaysStr(). The app's duration is exactly this span: end = start +
+// duration days.
+function ganttDaysBetween(startStr, endStr) {
+  var ps = String(startStr).split("-");
+  var pe = String(endStr).split("-");
+  var d0 = Date.UTC(Number(ps[0]), Number(ps[1]) - 1, Number(ps[2]));
+  var d1 = Date.UTC(Number(pe[0]), Number(pe[1]) - 1, Number(pe[2]));
+  return Math.round((d1 - d0) / 86400000);
 }
 
 // LIGHT / DARK
@@ -699,27 +820,45 @@ function changeShowGantt(enabled) {
     "  background-image: linear-gradient(to right, var(--rg-gantt-gridline) 1px, transparent 1px);",
     "  min-height: 0;",
     "}",
-    "/* READ-ONLY. The bars are draggable by default: each carries",
-    "   data-gantt-interaction=\"move\" and the plugin binds a document-level",
-    "   pointerdown/pointermove that rewrites startDate/endDate in its own copy",
-    "   of the source. `pointer-events: none` on the bar and everything inside it",
-    "   means the target is never hit, so no drag can start - and because the bar",
-    "   cannot be hovered, the resize/progress handles (which only appear on",
-    "   :hover) never show either. The rule is repeated for the descendants so a",
-    "   later vendor change that adds a child element cannot reopen the path.",
-    "   THIS IS THE SWITCH FOR FUTURE BAR DRAGGING: delete these three rules and",
-    "   the vendor's own move/resize behaviour comes back (it would then need a",
-    "   listener to persist the new dates, as the deleted js/gantt-drag.js did). */",
-    "#ganttPage .rg-gantt-bar,",
-    "#ganttPage .rg-gantt-bar * {",
+    "/* BAR INTERACTION. The plugin draws each bar with the whole bar set to",
+    "   data-gantt-interaction=\"move\" and a small end handle set to",
+    "   \"resize-end\", then binds a document-level pointerdown/move/up that",
+    "   rewrites startDate/endDate in its own copy of the source and re-renders",
+    "   (grid.source ends up carrying the new dates). That drag is wanted for JOB",
+    "   bars, split by which half you grab:",
+    "     - LEFT half is the bar element itself -> grab cursor + \"move\" mode.",
+    "       Dragging it shifts the whole bar (start AND end), which persists as",
+    "       the job's start date (sleepUntil; see ganttBindBarDrag).",
+    "     - RIGHT half is the end handle stretched across it -> ew-resize cursor",
+    "       + \"resize-end\" mode. Dragging it changes the end date only, which",
+    "       persists as the job's duration.",
+    "   The start/progress handles are hidden so only move + duration-resize can",
+    "   ever start. Summary (stream) bars stay inert - they are derived from their",
+    "   jobs, not user-editable - and cell editing is still off (grid.readonly).",
+    "   The vendor only moves the grid; persisting to the stored streams is done",
+    "   by ganttBindBarDrag(). */",
+    "#ganttPage .rg-gantt-bar {",
+    "  cursor: grab;",
+    "}",
+    "#ganttPage .rg-gantt-bar--summary,",
+    "#ganttPage .rg-gantt-bar--summary * {",
     "  pointer-events: none;",
     "}",
-    "#ganttPage .rg-gantt-bar {",
-    "  cursor: default;",
-    "}",
-    "#ganttPage .rg-gantt-bar-handle,",
+    "#ganttPage .rg-gantt-bar-handle--start,",
     "#ganttPage .rg-gantt-progress-handle {",
     "  display: none;",
+    "}",
+    "#ganttPage .rg-gantt-bar-handle--end {",
+    "  left: 50%;",
+    "  right: auto;",
+    "  width: 50%;",
+    "  top: 0;",
+    "  height: 100%;",
+    "  transform: none;",
+    "  border-radius: 0;",
+    "  background: transparent;",
+    "  opacity: 1;",
+    "  cursor: ew-resize;",
     "}",
     "/* COMPACT ROWS. The rows are 30px (grid.rowSize) instead of the vendor's",
     "   42px, so the full-page chart shows far more rows. The vendor's bar sizes",
