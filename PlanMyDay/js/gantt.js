@@ -60,6 +60,9 @@ var _ganttDragGrid = null;
 var _ganttDragBound = false;
 // Row-drag state (reordering jobs within/across streams). See ganttBindRowDrag.
 var _ganttRowDrag = null;
+// Timer used to defer the drop-target re-resolve after an auto-scroll, giving
+// the virtualiser a frame to move rows before we hit-test against them.
+var ganttRowDragAutoScrollTimer = null;
 
 // Resolves once the ESM library in js/gantt-lib.js has finished booting.
 //
@@ -805,6 +808,8 @@ function ganttBindRowDrag(grid) {
       fromStreamIdx: ganttStoredStreamIndexForTask(row.id),
       startX: e.clientX,
       startY: e.clientY,
+      lastClientX: e.clientX,
+      lastClientY: e.clientY,
       moved: false,
       targetRowEl: null,
       targetAfter: false,
@@ -834,6 +839,11 @@ function ganttBindRowDrag(grid) {
       _ganttRowDrag.ghostEl = ganttRowGhostCreate(_ganttRowDrag.jobTitle);
     }
     if (_ganttRowDrag.ghostEl) ganttRowGhostMove(_ganttRowDrag.ghostEl, e.clientX, e.clientY);
+    _ganttRowDrag.lastClientX = e.clientX;
+    _ganttRowDrag.lastClientY = e.clientY;
+    // Auto-scroll the grid when the pointer nears its top/bottom edge so hidden
+    // rows come into reach. Only works while the drag is moving.
+    ganttRowDragAutoScroll(grid, e.clientY);
     e.preventDefault();
     ganttRowDragHighlight(grid, e.clientX, e.clientY);
   });
@@ -848,9 +858,23 @@ function ganttBindRowDrag(grid) {
     if (targetEl) targetEl.classList.remove("pmd-gantt-drop-target", "pmd-gantt-drop-target--after");
     if (drag.rowEl) drag.rowEl.classList.remove("pmd-gantt-dragging");
     if (drag.ghostEl) ganttRowGhostRemove(drag.ghostEl);
+    clearInterval(ganttRowDragAutoScrollTimer);
     grid.classList.remove("pmd-gantt-row-dragging");
     if (!drag.moved) return; // it was a click, not a drag
     ganttPersistRowDrag(drag, e.clientX, e.clientY);
+  });
+
+  document.addEventListener("pointercancel", function (e) {
+    // Same cleanup as pointerup but never persists the drag.
+    if (!_ganttRowDrag || _ganttRowDrag.grid !== grid) return;
+    var drag = _ganttRowDrag;
+    var targetEl = drag.targetRowEl;
+    _ganttRowDrag = null;
+    if (targetEl) targetEl.classList.remove("pmd-gantt-drop-target", "pmd-gantt-drop-target--after");
+    if (drag.rowEl) drag.rowEl.classList.remove("pmd-gantt-dragging");
+    if (drag.ghostEl) ganttRowGhostRemove(drag.ghostEl);
+    clearInterval(ganttRowDragAutoScrollTimer);
+    grid.classList.remove("pmd-gantt-row-dragging");
   });
 }
 
@@ -934,6 +958,57 @@ function ganttRowDragHighlight(grid, clientX, clientY) {
   _ganttRowDrag.targetRowEl = highlightEl;
   _ganttRowDrag.targetAfter = cls;
   if (highlightEl) highlightEl.classList.add(cls);
+}
+
+// Auto-scrolls the grid's vertical viewport when the pointer nears its top or
+// bottom edge, so rows above/below the visible area become reachable while
+// dragging. RevoGrid virtualises rows inside a `.vertical-inner` scroller; we
+// scroll that element directly (not the window). The speed ramps up the closer
+// the pointer is to the edge, and while the pointer stays in the edge zone a
+// short interval keeps scrolling so the user does not have to keep jiggling
+// the mouse. Each scroll re-resolves the drop target against the fresh rows.
+function ganttRowDragAutoScroll(grid, clientY) {
+  var scroller = ganttRowScrollerEl(grid);
+  if (!scroller) return;
+  clearInterval(ganttRowDragAutoScrollTimer);
+  var rect = scroller.getBoundingClientRect();
+  var threshold = 48; // px from the edge to start scrolling
+  var maxStep = 24;   // px per tick at the very edge
+  var topGap = clientY - rect.top;
+  var bottomGap = rect.bottom - clientY;
+  var dir = 0;
+  if (topGap < threshold) dir = -1;
+  else if (bottomGap < threshold) dir = 1;
+  if (dir === 0) return;
+  var step = function () {
+    if (!_ganttRowDrag || !scroller.isConnected) { clearInterval(ganttRowDragAutoScrollTimer); return; }
+    var r = scroller.getBoundingClientRect();
+    var g = _ganttRowDrag.lastClientY;
+    var t = 0;
+    if (dir < 0) t = Math.max(0, 1 - (g - r.top) / threshold);
+    else t = Math.max(0, 1 - (r.bottom - g) / threshold);
+    if (t <= 0) { clearInterval(ganttRowDragAutoScrollTimer); return; }
+    scroller.scrollTop += dir * Math.ceil(t * t * maxStep);
+    if (_ganttRowDrag) ganttRowDragHighlight(grid, _ganttRowDrag.lastClientX, _ganttRowDrag.lastClientY);
+  };
+  step();
+  ganttRowDragAutoScrollTimer = setInterval(step, 50);
+}
+
+// The element RevoGrid scrolls vertically. The `.vertical-inner` inside the
+// pinned scroll viewport is the one with overflow-y:auto. Cached on the grid.
+function ganttRowScrollerEl(grid) {
+  if (grid.__ganttRowScroller) return grid.__ganttRowScroller;
+  var el = grid.querySelector(".vertical-inner") || grid.querySelector("revogr-viewport-scroll .vertical-inner");
+  if (!el) {
+    var scrollers = grid.querySelectorAll("revogr-viewport-scroll");
+    for (var i = 0; i < scrollers.length; i++) {
+      var inner = scrollers[i].querySelector(".vertical-inner");
+      if (inner) { el = inner; break; }
+    }
+  }
+  grid.__ganttRowScroller = el;
+  return el;
 }
 
 // The row element whose vertical band contains dropY, across ALL rows (summary

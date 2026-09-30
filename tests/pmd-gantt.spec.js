@@ -780,6 +780,65 @@ test.describe("Gantt page", () => {
     expect(after.draggingRows).toBe(0);
   });
 
+  test("dragging auto-scrolls the grid when the cursor nears the bottom edge", async ({ page }) => {
+    test.setTimeout(60000);
+    // Many rows so the grid's vertical viewport overflows and can scroll.
+    const streams = Array.from({ length: 6 }, (_, si) => ({
+      title: "S" + (si + 1),
+      sequence: si + 1,
+      jobs: Array.from({ length: 6 }, (_, ji) => ({
+        id: "s" + si + "_j" + ji,
+        title: "S" + (si + 1) + "J" + (ji + 1),
+        sequence: ji + 1,
+        active: true,
+        schedule: { type: "daily" },
+        duration: 1
+      }))
+    }));
+    await page.goto("/PlanMyDay/");
+    await seedStreams(page, streams);
+    await enableGantt(page);
+    await openChart(page);
+
+    const nameRect = (text) => page.evaluate((t) => {
+      const el = Array.from(document.querySelectorAll(".pmd-gantt-job-name")).find((s) => s.textContent.trim() === t);
+      if (!el) return null;
+      const r = el.getBoundingClientRect();
+      return { x: r.x, y: r.y, w: r.width, h: r.height };
+    }, text);
+    const scrollerState = (page) => page.evaluate(() => {
+      const s = document.querySelector("#ganttChart revo-grid .vertical-inner");
+      return s ? { scrollTop: s.scrollTop, clientH: s.clientHeight, scrollH: s.scrollHeight } : null;
+    });
+
+    const st = await scrollerState(page);
+    expect(st).toBeTruthy();
+    expect(st.scrollH).toBeGreaterThan(st.clientH); // confirm it can scroll
+
+    const s1j1 = await nameRect("S1J1");
+    expect(s1j1).toBeTruthy();
+    const bottom = await page.evaluate(() => {
+      const s = document.querySelector("#ganttChart revo-grid .vertical-inner");
+      const r = s.getBoundingClientRect();
+      return r.bottom;
+    });
+    const before = await scrollerState(page);
+
+    // drag S1J1 and hold the cursor near the bottom edge -> auto-scroll begins
+    await page.mouse.move(s1j1.x + s1j1.w / 2, s1j1.y + s1j1.h / 2);
+    await page.mouse.down();
+    await page.mouse.move(s1j1.x + s1j1.w / 2, bottom - 10, { steps: 8 });
+    await page.waitForTimeout(400); // let the interval-driven scroll run
+    const during = await scrollerState(page);
+    expect(during.scrollTop).toBeGreaterThan(before.scrollTop);
+
+    // releasing ends the drag and stops scrolling
+    await page.mouse.up();
+    await page.waitForTimeout(300);
+    const after = await scrollerState(page);
+    expect(after.scrollTop).toBe(during.scrollTop);
+  });
+
   test("dragging a JOB onto its OWN stream header shows no drop target (no valid drop)", async ({ page }) => {
     test.setTimeout(60000);
     const streams = [
