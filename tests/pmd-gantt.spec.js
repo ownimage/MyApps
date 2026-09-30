@@ -515,6 +515,544 @@ test.describe("Gantt page", () => {
     expect(Number(after.duration)).toBeGreaterThan(Number(before.duration));
   });
 
+  test("dragging a JOB row within its stream reorders it and renumbers sequence", async ({ page }) => {
+    test.setTimeout(60000);
+    const streams = [
+      { title: "Work", sequence: 1, jobs: [
+        { id: "job_a", title: "Alpha", sequence: 1, active: true, schedule: { type: "daily" }, duration: 2 },
+        { id: "job_b", title: "Beta", sequence: 2, active: true, schedule: { type: "daily" }, duration: 3 },
+        { id: "job_c", title: "Gamma", sequence: 3, active: true, schedule: { type: "daily" }, duration: 1 }
+      ]},
+      { title: "Home", sequence: 2, jobs: [
+        { id: "job_x", title: "Delta", sequence: 1, active: true, schedule: { type: "daily" }, duration: 2 }
+      ]}
+    ];
+    await page.goto("/PlanMyDay/");
+    await seedStreams(page, streams);
+    await enableGantt(page);
+    await openChart(page);
+
+    const nameRect = (text) => page.evaluate((t) => {
+      const el = Array.from(document.querySelectorAll(".pmd-gantt-job-name")).find((s) => s.textContent.trim() === t);
+      const r = el.getBoundingClientRect();
+      return { x: r.x, y: r.y, w: r.width, h: r.height };
+    }, text);
+    const rowRect = (text) => page.evaluate((t) => {
+      const name = Array.from(document.querySelectorAll(".pmd-gantt-job-name")).find((s) => s.textContent.trim() === t);
+      const row = name && name.closest(".rgRow");
+      if (!row) return null;
+      const r = row.getBoundingClientRect();
+      return { x: r.x, y: r.y, w: r.width, h: r.height };
+    }, text);
+
+    // reported regression: drag item 3 (Gamma) above item 1 (Alpha) — it must
+    // land as item 1, not item 2. The drop line is the pointer's Y, so place the
+    // pointer on Alpha's row (upper quarter) to move Gamma above it.
+    const gammaName = await nameRect("Gamma");
+    const alphaRow = await rowRect("Alpha");
+    expect(gammaName).toBeTruthy();
+    expect(alphaRow).toBeTruthy();
+    const lineY = alphaRow.y + alphaRow.h * 0.25; // upper quarter of Alpha's row
+    await page.mouse.move(gammaName.x + gammaName.w / 2, gammaName.y + gammaName.h / 2);
+    await page.mouse.down();
+    await page.mouse.move(alphaRow.x + alphaRow.w / 2, lineY, { steps: 6 });
+    await page.mouse.up();
+    await page.waitForTimeout(600);
+
+    const order = await page.evaluate(() =>
+      JSON.parse(localStorage.getItem("planmydays_streams"))[0].jobs
+        .map((j) => ({ id: j.id, sequence: j.sequence })));
+    expect(order.map((j) => j.id)).toEqual(["job_c", "job_a", "job_b"]);
+    expect(order.map((j) => j.sequence)).toEqual([1, 2, 3]);
+
+    // the drop-target highlight must be gone after the drag ends
+    const highlight = await page.evaluate(() =>
+      document.querySelectorAll("#ganttChart .rgRow.pmd-gantt-drop-target").length);
+    expect(highlight).toBe(0);
+  });
+
+  test("dropping a job below another requires the cursor only at the target's midpoint (not past it)", async ({ page }) => {
+    test.setTimeout(60000);
+    // A1, A2, A3 in one stream. The drop line is the POINTER's Y, so placing A1
+    // below A2 only needs the cursor at A2's midpoint — not a further half-row
+    // past it (the sluggish-feeling regression).
+    const streams = [
+      { title: "Work", sequence: 1, jobs: [
+        { id: "job_a1", title: "A1", sequence: 1, active: true, schedule: { type: "daily" }, duration: 1 },
+        { id: "job_a2", title: "A2", sequence: 2, active: true, schedule: { type: "daily" }, duration: 1 },
+        { id: "job_a3", title: "A3", sequence: 3, active: true, schedule: { type: "daily" }, duration: 1 }
+      ]},
+      { title: "Home", sequence: 2, jobs: [] }
+    ];
+    await page.goto("/PlanMyDay/");
+    await seedStreams(page, streams);
+    await enableGantt(page);
+    await openChart(page);
+
+    const nameRect = (text) => page.evaluate((t) => {
+      const el = Array.from(document.querySelectorAll(".pmd-gantt-job-name")).find((s) => s.textContent.trim() === t);
+      if (!el) return null;
+      const r = el.getBoundingClientRect();
+      return { x: r.x, y: r.y, w: r.width, h: r.height };
+    }, text);
+    const rowRect = (text) => page.evaluate((t) => {
+      const name = Array.from(document.querySelectorAll(".pmd-gantt-job-name")).find((s) => s.textContent.trim() === t);
+      const row = name && name.closest(".rgRow");
+      if (!row) return null;
+      const r = row.getBoundingClientRect();
+      return { x: r.x, y: r.y, w: r.width, h: r.height };
+    }, text);
+    const order = (page) => page.evaluate(() =>
+      JSON.parse(localStorage.getItem("planmydays_streams"))[0].jobs.map((j) => j.id));
+    const hasTarget = (page) => page.evaluate(() => {
+      const el = document.querySelector(".pmd-gantt-drop-target, .pmd-gantt-drop-target--after");
+      if (!el) return null;
+      return {
+        cls: el.classList.contains("pmd-gantt-drop-target--after") ? "after" : "before",
+        idx: el.getAttribute("data-rgrow"),
+        top: Math.round(el.getBoundingClientRect().top)
+      };
+    });
+
+    // Drag A1. The boundary right below A1 (A2's TOP) is where A1 already sits,
+    // so it is a NO-OP and must show NO drop target.
+    const a1 = await nameRect("A1");
+    const a2 = await rowRect("A2");
+    const a3 = await rowRect("A3");
+    expect(a1).toBeTruthy();
+    expect(a2).toBeTruthy();
+    expect(a3).toBeTruthy();
+    await page.mouse.move(a1.x + a1.w / 2, a1.y + a1.h / 2);
+    await page.mouse.down();
+    await page.mouse.move(a1.x + a1.w / 2, a2.y + a2.h * 0.25, { steps: 2 });
+    expect(await hasTarget(page)).toBe(null); // no-op boundary suppressed
+
+    // A2's MIDPOINT is the first valid "below A2" position; the drop line is the
+    // pointer's Y, so the cursor only needs to reach it (not past A3). The
+    // highlight normalizes "after A2" to a top border on the row below (A3).
+    await page.mouse.move(a1.x + a1.w / 2, a2.y + a2.h / 2, { steps: 2 });
+    const midTarget = await hasTarget(page);
+    expect(midTarget).toBeTruthy();
+    expect(midTarget.idx).toBe("3"); // normalized to a top border on A3
+    await page.mouse.up();
+    await page.waitForTimeout(600);
+    expect(await order(page)).toEqual(["job_a2", "job_a1", "job_a3"]);
+
+    // Control: release on the no-op boundary (A2's top) leaves A1 in place.
+    await page.evaluate((s) => localStorage.setItem("planmydays_streams", JSON.stringify(s)), streams);
+    await page.reload({ waitUntil: "load" });
+    await page.evaluate(() => openGantt());
+    await page.waitForFunction(() => document.querySelectorAll(".rg-gantt-bar").length > 0, null, { timeout: 30000 });
+    await page.waitForTimeout(400);
+    const a1b = await nameRect("A1");
+    const a2b = await rowRect("A2");
+    await page.mouse.move(a1b.x + a1b.w / 2, a1b.y + a1b.h / 2);
+    await page.mouse.down();
+    await page.mouse.move(a1b.x + a1b.w / 2, a2b.y + a2b.h * 0.25, { steps: 5 });
+    expect(await hasTarget(page)).toBe(null); // no target while over the no-op
+    await page.mouse.up();
+    await page.waitForTimeout(600);
+    expect(await order(page)).toEqual(["job_a1", "job_a2", "job_a3"]);
+  });
+
+  test("a JOB row can be grabbed from anywhere in its title cell (not just the text)", async ({ page }) => {
+    test.setTimeout(60000);
+    const streams = [
+      { title: "Work", sequence: 1, jobs: [
+        { id: "job_a1", title: "A1", sequence: 1, active: true, schedule: { type: "daily" }, duration: 1 },
+        { id: "job_a2", title: "A2", sequence: 2, active: true, schedule: { type: "daily" }, duration: 1 },
+        { id: "job_a3", title: "A3", sequence: 3, active: true, schedule: { type: "daily" }, duration: 1 }
+      ]},
+      { title: "Home", sequence: 2, jobs: [] }
+    ];
+    await page.goto("/PlanMyDay/");
+    await seedStreams(page, streams);
+    await enableGantt(page);
+    await openChart(page);
+
+    const cellRect = (text) => page.evaluate((t) => {
+      const name = Array.from(document.querySelectorAll(".pmd-gantt-job-name")).find((s) => s.textContent.trim() === t);
+      const cell = name && name.closest(".rgCell");
+      if (!cell) return null;
+      const r = cell.getBoundingClientRect();
+      return { x: r.x, y: r.y, w: r.width, h: r.height };
+    }, text);
+    const rowRect = (text) => page.evaluate((t) => {
+      const name = Array.from(document.querySelectorAll(".pmd-gantt-job-name")).find((s) => s.textContent.trim() === t);
+      const row = name && name.closest(".rgRow");
+      if (!row) return null;
+      const r = row.getBoundingClientRect();
+      return { x: r.x, y: r.y, w: r.width, h: r.height };
+    }, text);
+    const order = (page) => page.evaluate(() =>
+      JSON.parse(localStorage.getItem("planmydays_streams"))[0].jobs.map((j) => j.id));
+
+    // Grab A1 from the FAR RIGHT of its title cell (empty cell padding, well
+    // away from the name text) - the drag must still start.
+    const a1Cell = await cellRect("A1");
+    const a2 = await rowRect("A2");
+    expect(a1Cell).toBeTruthy();
+    expect(a2).toBeTruthy();
+    const grabX = a1Cell.x + a1Cell.w - 20;
+    const grabY = a1Cell.y + a1Cell.h / 2;
+    await page.mouse.move(grabX, grabY);
+    await page.mouse.down();
+    // moving to A2's midpoint and releasing must reorder A1 below A2
+    await page.mouse.move(grabX, a2.y + a2.h / 2, { steps: 5 });
+    await page.mouse.up();
+    await page.waitForTimeout(600);
+    expect(await order(page)).toEqual(["job_a2", "job_a1", "job_a3"]);
+  });
+
+  test("dragging a JOB onto its OWN stream header shows no drop target (no valid drop)", async ({ page }) => {
+    test.setTimeout(60000);
+    const streams = [
+      { title: "Work", sequence: 1, jobs: [
+        { id: "job_a1", title: "A1", sequence: 1, active: true, schedule: { type: "daily" }, duration: 1 },
+        { id: "job_a2", title: "A2", sequence: 2, active: true, schedule: { type: "daily" }, duration: 1 },
+        { id: "job_a3", title: "A3", sequence: 3, active: true, schedule: { type: "daily" }, duration: 1 }
+      ]},
+      { title: "Home", sequence: 2, jobs: [] }
+    ];
+    await page.goto("/PlanMyDay/");
+    await seedStreams(page, streams);
+    await enableGantt(page);
+    await openChart(page);
+
+    const nameRect = (text) => page.evaluate((t) => {
+      const el = Array.from(document.querySelectorAll(".pmd-gantt-job-name")).find((s) => s.textContent.trim() === t);
+      if (!el) return null;
+      const r = el.getBoundingClientRect();
+      return { x: r.x, y: r.y, w: r.width, h: r.height };
+    }, text);
+    const headerRect = (title) => page.evaluate((t) => {
+      const name = Array.from(document.querySelectorAll(".pmd-gantt-stream-title")).find((s) => s.textContent.trim() === t);
+      if (!name) return null;
+      const r = name.closest(".rgRow").getBoundingClientRect();
+      return { x: r.x, y: r.y, w: r.width, h: r.height };
+    }, title);
+    const hasTarget = (page) => page.evaluate(() =>
+      !!document.querySelector(".pmd-gantt-drop-target, .pmd-gantt-drop-target--after"));
+    const order = (page) => page.evaluate(() =>
+      JSON.parse(localStorage.getItem("planmydays_streams"))[0].jobs.map((j) => j.id));
+
+    // Drag A1 onto its OWN stream header (Work). There is no valid drop: it is
+    // not part of the stream above (Work is first) and it would not move.
+    const a1 = await nameRect("A1");
+    const header = await headerRect("Work");
+    expect(a1).toBeTruthy();
+    expect(header).toBeTruthy();
+    await page.mouse.move(a1.x + a1.w / 2, a1.y + a1.h / 2);
+    await page.mouse.down();
+    // both halves of the header must show no target
+    await page.mouse.move(a1.x + a1.w / 2, header.y + header.h * 0.25, { steps: 2 });
+    expect(await hasTarget(page)).toBe(false);
+    await page.mouse.move(a1.x + a1.w / 2, header.y + header.h * 0.75, { steps: 2 });
+    expect(await hasTarget(page)).toBe(false);
+    // releasing there leaves the order unchanged
+    await page.mouse.up();
+    await page.waitForTimeout(600);
+    expect(await order(page)).toEqual(["job_a1", "job_a2", "job_a3"]);
+  });
+
+  test("dragging a JOB onto its OWN stream header is a no-op (never reparents to the stream above)", async ({ page }) => {
+    test.setTimeout(60000);
+    // A/B/C/D all open. Dragging C1 onto Stream C's header (its OWN stream) must
+    // show no drop target and must NOT move it into B (the stream above C): the
+    // boundary just below C's header is C1's own first-job slot, so it is a
+    // no-op. But dragging a job from ANOTHER stream (D1) onto C's header still
+    // goes to the stream above (B) - that is the "above the header is not part
+    // of this stream" rule.
+    const streams = [
+      { title: "A", sequence: 1, jobs: [
+        { id: "job_a1", title: "A1", sequence: 1, active: true, schedule: { type: "daily" }, duration: 1 },
+        { id: "job_a2", title: "A2", sequence: 2, active: true, schedule: { type: "daily" }, duration: 1 },
+        { id: "job_a3", title: "A3", sequence: 3, active: true, schedule: { type: "daily" }, duration: 1 }
+      ]},
+      { title: "B", sequence: 2, jobs: [
+        { id: "job_b1", title: "B1", sequence: 1, active: true, schedule: { type: "daily" }, duration: 1 },
+        { id: "job_b2", title: "B2", sequence: 2, active: true, schedule: { type: "daily" }, duration: 1 },
+        { id: "job_b3", title: "B3", sequence: 3, active: true, schedule: { type: "daily" }, duration: 1 }
+      ]},
+      { title: "C", sequence: 3, jobs: [
+        { id: "job_c1", title: "C1", sequence: 1, active: true, schedule: { type: "daily" }, duration: 1 },
+        { id: "job_c2", title: "C2", sequence: 2, active: true, schedule: { type: "daily" }, duration: 1 },
+        { id: "job_c3", title: "C3", sequence: 3, active: true, schedule: { type: "daily" }, duration: 1 }
+      ]},
+      { title: "D", sequence: 4, jobs: [
+        { id: "job_d1", title: "D1", sequence: 1, active: true, schedule: { type: "daily" }, duration: 1 }
+      ]}
+    ];
+    await page.goto("/PlanMyDay/");
+    await seedStreams(page, streams);
+    await enableGantt(page);
+    await openChart(page);
+
+    const nameRect = (text) => page.evaluate((t) => {
+      const el = Array.from(document.querySelectorAll(".pmd-gantt-job-name")).find((s) => s.textContent.trim() === t);
+      if (!el) return null;
+      const r = el.getBoundingClientRect();
+      return { x: r.x, y: r.y, w: r.width, h: r.height };
+    }, text);
+    const headerRect = (title) => page.evaluate((t) => {
+      const name = Array.from(document.querySelectorAll(".pmd-gantt-stream-title")).find((s) => s.textContent.trim() === t);
+      if (!name) return null;
+      const r = name.closest(".rgRow").getBoundingClientRect();
+      return { x: r.x, y: r.y, w: r.width, h: r.height };
+    }, title);
+    const hasTarget = (page) => page.evaluate(() =>
+      !!document.querySelector(".pmd-gantt-drop-target, .pmd-gantt-drop-target--after"));
+    const order = (page) => page.evaluate(() =>
+      JSON.parse(localStorage.getItem("planmydays_streams")).map((s) => ({
+        title: s.title, jobs: (s.jobs || []).map((j) => j.id)
+      })));
+
+    // Drag C1 onto Stream C's header -> no target, no change
+    const c1 = await nameRect("C1");
+    const cHeader = await headerRect("C");
+    expect(c1).toBeTruthy();
+    expect(cHeader).toBeTruthy();
+    await page.mouse.move(c1.x + c1.w / 2, c1.y + c1.h / 2);
+    await page.mouse.down();
+    await page.mouse.move(c1.x + c1.w / 2, cHeader.y + cHeader.h * 0.75, { steps: 2 });
+    expect(await hasTarget(page)).toBe(false);
+    await page.mouse.up();
+    await page.waitForTimeout(600);
+    let o = await order(page);
+    expect(o.find((s) => s.title === "C").jobs).toEqual(["job_c1", "job_c2", "job_c3"]);
+    expect(o.find((s) => s.title === "B").jobs).toEqual(["job_b1", "job_b2", "job_b3"]);
+
+    // Control: drag D1 (from D) onto C's header -> target shown, goes to B (above C)
+    await page.evaluate((s) => localStorage.setItem("planmydays_streams", JSON.stringify(s)), streams);
+    await page.reload({ waitUntil: "load" });
+    await page.evaluate(() => openGantt());
+    await page.waitForFunction(() => document.querySelectorAll(".rg-gantt-bar").length > 0, null, { timeout: 30000 });
+    await page.waitForTimeout(400);
+    const d1 = await nameRect("D1");
+    const cHeader2 = await headerRect("C");
+    await page.mouse.move(d1.x + d1.w / 2, d1.y + d1.h / 2);
+    await page.mouse.down();
+    await page.mouse.move(d1.x + d1.w / 2, cHeader2.y + cHeader2.h * 0.75, { steps: 2 });
+    expect(await hasTarget(page)).toBe(true);
+    await page.mouse.up();
+    await page.waitForTimeout(600);
+    o = await order(page);
+    expect(o.find((s) => s.title === "B").jobs).toEqual(["job_b1", "job_b2", "job_b3", "job_d1"]);
+    expect(o.find((s) => s.title === "C").jobs).toEqual(["job_c1", "job_c2", "job_c3"]);
+  });
+
+  test("dropping a JOB on its own original slot keeps it there (regression: it went to the end)", async ({ page }) => {
+    test.setTimeout(60000);
+    const streams = [
+      { title: "Work", sequence: 1, jobs: [
+        { id: "job_a", title: "Alpha", sequence: 1, active: true, schedule: { type: "daily" }, duration: 2 },
+        { id: "job_b", title: "Beta", sequence: 2, active: true, schedule: { type: "daily" }, duration: 3 },
+        { id: "job_c", title: "Gamma", sequence: 3, active: true, schedule: { type: "daily" }, duration: 1 }
+      ]},
+      { title: "Home", sequence: 2, jobs: [] }
+    ];
+    await page.goto("/PlanMyDay/");
+    await seedStreams(page, streams);
+    await enableGantt(page);
+    await openChart(page);
+
+    // helper that returns the ROW rect (not the name span) for a job name
+    const rowRect = (text) => page.evaluate((t) => {
+      const name = Array.from(document.querySelectorAll(".pmd-gantt-job-name")).find((s) => s.textContent.trim() === t);
+      const row = name && name.closest(".rgRow");
+      if (!row) return null;
+      const r = row.getBoundingClientRect();
+      return { x: r.x, y: r.y, w: r.width, h: r.height };
+    }, text);
+
+    const alpha = await rowRect("Alpha");
+    const beta = await rowRect("Beta");
+    expect(alpha).toBeTruthy();
+    expect(beta).toBeTruthy();
+
+    // grab item 2 (Beta) at its row's vertical middle
+    await page.mouse.move(beta.x + beta.w / 2, beta.y + beta.h / 2);
+    await page.mouse.down();
+    // drag it up above item 1 (Alpha)
+    await page.mouse.move(alpha.x + alpha.w / 2, alpha.y - 8, { steps: 4 });
+    // then drag back DOWN so the pointer sits at the boundary between Alpha's
+    // bottom and Beta's top (Beta's own original slot). This used to resolve to
+    // Beta itself as the anchor, which after removal was unfindable and sent the
+    // job to the end of the stream. The insertion line skips the dragged row, so
+    // Beta stays in place.
+    const boundaryY = beta.y; // top of Beta's row == boundary between Alpha and Beta
+    await page.mouse.move(alpha.x + alpha.w / 2, boundaryY + beta.h / 2, { steps: 4 });
+    await page.mouse.up();
+    await page.waitForTimeout(600);
+
+    const order = await page.evaluate(() =>
+      JSON.parse(localStorage.getItem("planmydays_streams"))[0].jobs.map((j) => j.id));
+    expect(order).toEqual(["job_a", "job_b", "job_c"]);
+  });
+
+  test("dropping a JOB on a stream header appends it to the stream above (bottom), never the header's own stream", async ({ page }) => {
+    test.setTimeout(60000);
+    // A open, B closed, C open, D open. Dragging D2 "between B and C" (on B's or
+    // C's header, i.e. above C's header) must add it to the BOTTOM of B, never the
+    // top of C: a drop above a stream's header is not part of that stream.
+    const streams = [
+      { title: "A", sequence: 1, jobs: [
+        { id: "job_a1", title: "A1", sequence: 1, active: true, schedule: { type: "daily" }, duration: 1 },
+        { id: "job_a2", title: "A2", sequence: 2, active: true, schedule: { type: "daily" }, duration: 1 },
+        { id: "job_a3", title: "A3", sequence: 3, active: true, schedule: { type: "daily" }, duration: 1 }
+      ]},
+      { title: "B", sequence: 2, jobs: [
+        { id: "job_b1", title: "B1", sequence: 1, active: true, schedule: { type: "daily" }, duration: 1 },
+        { id: "job_b2", title: "B2", sequence: 2, active: true, schedule: { type: "daily" }, duration: 1 },
+        { id: "job_b3", title: "B3", sequence: 3, active: true, schedule: { type: "daily" }, duration: 1 }
+      ]},
+      { title: "C", sequence: 3, jobs: [
+        { id: "job_c1", title: "C1", sequence: 1, active: true, schedule: { type: "daily" }, duration: 1 },
+        { id: "job_c2", title: "C2", sequence: 2, active: true, schedule: { type: "daily" }, duration: 1 },
+        { id: "job_c3", title: "C3", sequence: 3, active: true, schedule: { type: "daily" }, duration: 1 }
+      ]},
+      { title: "D", sequence: 4, jobs: [
+        { id: "job_d1", title: "D1", sequence: 1, active: true, schedule: { type: "daily" }, duration: 1 },
+        { id: "job_d2", title: "D2", sequence: 2, active: true, schedule: { type: "daily" }, duration: 1 },
+        { id: "job_d3", title: "D3", sequence: 3, active: true, schedule: { type: "daily" }, duration: 1 }
+      ]}
+    ];
+    await page.goto("/PlanMyDay/");
+    await seedStreams(page, streams);
+    await page.evaluate(() => localStorage.setItem("planmydays_ganttCollapsedStreams", JSON.stringify(["B"])));
+    await enableGantt(page);
+    await openChart(page);
+
+    const nameRect = (text) => page.evaluate((t) => {
+      const el = Array.from(document.querySelectorAll(".pmd-gantt-job-name")).find((s) => s.textContent.trim() === t);
+      if (!el) return null;
+      const r = el.getBoundingClientRect();
+      return { x: r.x, y: r.y, w: r.width, h: r.height };
+    }, text);
+    const rowRect = (text) => page.evaluate((t) => {
+      const name = Array.from(document.querySelectorAll(".pmd-gantt-job-name")).find((s) => s.textContent.trim() === t);
+      const row = name && name.closest(".rgRow");
+      if (!row) return null;
+      const r = row.getBoundingClientRect();
+      return { x: r.x, y: r.y, w: r.width, h: r.height };
+    }, text);
+    const headerRect = (title) => page.evaluate((t) => {
+      const name = Array.from(document.querySelectorAll(".pmd-gantt-stream-title")).find((s) => s.textContent.trim() === t);
+      if (!name) return null;
+      const r = name.closest(".rgRow").getBoundingClientRect();
+      return { x: r.x, y: r.y, w: r.width, h: r.height };
+    }, title);
+    const order = (page) => page.evaluate(() =>
+      JSON.parse(localStorage.getItem("planmydays_streams")).map((s) => ({
+        title: s.title, jobs: (s.jobs || []).map((j) => j.id)
+      })));
+
+    async function reset() {
+      await page.evaluate((s) => localStorage.setItem("planmydays_streams", JSON.stringify(s)), streams);
+      await page.evaluate(() => localStorage.setItem("planmydays_ganttCollapsedStreams", JSON.stringify(["B"])));
+      await page.reload({ waitUntil: "load" });
+      await page.evaluate(() => openGantt());
+      await page.waitForFunction(() => document.querySelectorAll(".rg-gantt-bar").length > 0, null, { timeout: 30000 });
+      await page.waitForTimeout(400);
+    }
+
+    // Drop D2 (from D) "between B and C". First on B's (collapsed) header.
+    await reset();
+    const bHeader = await headerRect("B");
+    expect(bHeader).toBeTruthy();
+    const d2 = await nameRect("D2");
+    const lineY = bHeader.y + bHeader.h / 2;
+    await page.mouse.move(d2.x + d2.w / 2, d2.y + d2.h / 2);
+    await page.mouse.down();
+    await page.mouse.move(d2.x + d2.w / 2, lineY, { steps: 5 });
+    await page.mouse.up();
+    await page.waitForTimeout(600);
+
+    let o = await order(page);
+    expect(o.find((s) => s.title === "B").jobs).toEqual(["job_b1", "job_b2", "job_b3", "job_d2"]);
+    expect(o.find((s) => s.title === "D").jobs).toEqual(["job_d1", "job_d3"]);
+
+    // Now drop D2 on C's (expanded) header — still "above C's header", so it must
+    // go to B's bottom, NOT to the top of C.
+    await reset();
+    const cHeader = await headerRect("C");
+    expect(cHeader).toBeTruthy();
+    const d2b = await nameRect("D2");
+    const lineYb = cHeader.y + cHeader.h / 2;
+    await page.mouse.move(d2b.x + d2b.w / 2, d2b.y + d2b.h / 2);
+    await page.mouse.down();
+    await page.mouse.move(d2b.x + d2b.w / 2, lineYb, { steps: 5 });
+    await page.mouse.up();
+    await page.waitForTimeout(600);
+
+    o = await order(page);
+    expect(o.find((s) => s.title === "B").jobs).toEqual(["job_b1", "job_b2", "job_b3", "job_d2"]);
+    expect(o.find((s) => s.title === "C").jobs).toEqual(["job_c1", "job_c2", "job_c3"]);
+    expect(o.find((s) => s.title === "D").jobs).toEqual(["job_d1", "job_d3"]);
+  });
+
+  test("dragging a JOB row onto another stream reparents it and renumbers both", async ({ page }) => {
+    test.setTimeout(60000);
+    const streams = [
+      { title: "Work", sequence: 1, jobs: [
+        { id: "job_a", title: "Alpha", sequence: 1, active: true, schedule: { type: "daily" }, duration: 2 },
+        { id: "job_c", title: "Gamma", sequence: 2, active: true, schedule: { type: "daily" }, duration: 1 }
+      ]},
+      { title: "Home", sequence: 2, jobs: [
+        { id: "job_x", title: "Delta", sequence: 1, active: true, schedule: { type: "daily" }, duration: 2 }
+      ]}
+    ];
+    await page.goto("/PlanMyDay/");
+    await seedStreams(page, streams);
+    await enableGantt(page);
+    await openChart(page);
+
+    const nameRect = (text) => page.evaluate((t) => {
+      const el = Array.from(document.querySelectorAll(".pmd-gantt-job-name")).find((s) => s.textContent.trim() === t);
+      const r = el.getBoundingClientRect();
+      return { x: r.x, y: r.y, w: r.width, h: r.height };
+    }, text);
+
+    // drag Gamma (in Work) onto Delta's row (a Home job) -> reparents into Home
+    const gamma = await nameRect("Gamma");
+    const gammaRow = await page.evaluate(() => {
+      const name = Array.from(document.querySelectorAll(".pmd-gantt-job-name")).find((s) => s.textContent.trim() === "Gamma");
+      const row = name && name.closest(".rgRow");
+      if (!row) return null;
+      const r = row.getBoundingClientRect();
+      return { x: r.x, y: r.y, w: r.width, h: r.height };
+    });
+    const deltaRow = await page.evaluate(() => {
+      const name = Array.from(document.querySelectorAll(".pmd-gantt-job-name")).find((s) => s.textContent.trim() === "Delta");
+      const row = name && name.closest(".rgRow");
+      if (!row) return null;
+      const r = row.getBoundingClientRect();
+      return { x: r.x, y: r.y, w: r.width, h: r.height };
+    });
+    expect(gammaRow).toBeTruthy();
+    expect(deltaRow).toBeTruthy();
+    // drop the line in Delta's UPPER half -> before Delta; the drop line is the
+    // pointer's Y, so the pointer goes straight to Delta's row
+    const lineY = deltaRow.y + deltaRow.h * 0.25;
+    await page.mouse.move(gamma.x + gamma.w / 2, gamma.y + gamma.h / 2);
+    await page.mouse.down();
+    await page.mouse.move(deltaRow.x + deltaRow.w / 2, lineY, { steps: 6 });
+    await page.mouse.up();
+    await page.waitForTimeout(600);
+
+    const streamsAfter = await page.evaluate(() =>
+      JSON.parse(localStorage.getItem("planmydays_streams")).map((s) => ({
+        title: s.title,
+        jobs: (s.jobs || []).map((j) => ({ id: j.id, sequence: j.sequence }))
+      })));
+    const work = streamsAfter.find((s) => s.title === "Work");
+    const home = streamsAfter.find((s) => s.title === "Home");
+    expect(work.jobs.map((j) => j.id)).toEqual(["job_a"]);
+    expect(work.jobs.map((j) => j.sequence)).toEqual([1]);
+    expect(home.jobs.map((j) => j.id)).toEqual(["job_c", "job_x"]);
+    expect(home.jobs.map((j) => j.sequence)).toEqual([1, 2]);
+  });
+
   test("dragging a STREAM bar shifts every child job's start by the same days", async ({ page }) => {
     test.setTimeout(60000);
     await page.goto("/PlanMyDay/");

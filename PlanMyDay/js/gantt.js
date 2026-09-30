@@ -58,6 +58,8 @@ var _ganttModeObserver = null;
 var _ganttDragRecord = null;
 var _ganttDragGrid = null;
 var _ganttDragBound = false;
+// Row-drag state (reordering jobs within/across streams). See ganttBindRowDrag.
+var _ganttRowDrag = null;
 
 // Resolves once the ESM library in js/gantt-lib.js has finished booting.
 //
@@ -596,6 +598,13 @@ function drawGantt(host, lib) {
     // stop the bars being dragged — that is a separate pointer handler inside
     // the plugin and is disabled in CSS. Both are needed.
     grid.readonly = true;
+    // No cell focus. RevoGrid otherwise adds `.focused-rgRow` / a focus ring on
+    // click (the row gets `background-color: var(--rg-theme-focused-bg)` and a
+    // `revogr-focus` box-shadow border), which reads as a red/theme-coloured
+    // highlight on a read-only chart. canFocus=false stops the focus machinery
+    // entirely so the class never appears; the CSS override below is a second
+    // line of defence for any focus that slips through.
+    grid.canFocus = false;
     // 30px rows: the vendor ships 40px min-height cells and 28px bars, which on
     // a full-page chart read as a handful of chunky rows with dead space below.
     // Compact rows are overridden in CSS (the timeline cell keeps its 40px
@@ -622,6 +631,7 @@ function drawGantt(host, lib) {
   grid.source = items;
   ganttWatchMode(grid);
   ganttBindBarDrag(grid);
+  ganttBindRowDrag(grid);
 }
 
 // BAR DRAG PERSISTENCE
@@ -754,6 +764,387 @@ function ganttPersistStreamShift(streams, rec, row) {
 function ganttSaveShiftedStreams(streams) {
   saveStreams(streams);
   renderGantt();
+}
+
+// ROW DRAG (reorder jobs within a stream, or reparent to another stream)
+//
+// RevoGrid's own row drag reorders the raw grid source, but the Gantt plugin
+// re-projects `grid.source` from the stored streams on every render, so a native
+// reorder would be thrown away. Instead this is a custom pointer drag on the job
+// name cells (.pmd-gantt-job-name). On pointerdown we record which stored job was
+// grabbed; on pointermove we find the row currently under the cursor and
+// highlight it; on pointerup we remove the job from its old stream's jobs array
+// and insert it into the target stream at the position matching where it was
+// dropped, then renumber `sequence` (the same ordering field the streams/job
+// editors use) and save + re-render. Drop targets may be either a stream
+// (summary) row — the job lands at the START of that stream — or a job row,
+// where the job lands just BEFORE that job (dropping onto the lower half of a
+// job row lands AFTER it, so you can place a job between two others).
+function ganttBindRowDrag(grid) {
+  if (!grid || grid.__ganttRowDragBound) return;
+  grid.__ganttRowDragBound = true;
+
+  grid.addEventListener("pointerdown", function (e) {
+    // The grab handle is the whole TITLE CELL (the Task column, data-rgcol="0",
+    // which contains the .pmd-gantt-job-name span), not just the text span - so
+    // the user can start the drag anywhere in the cell, including its padding.
+    var cellEl = e.target && e.target.closest ? e.target.closest("revogr-data .rgCell[data-rgcol='0']") : null;
+    if (!cellEl || !cellEl.querySelector(".pmd-gantt-job-name")) return;
+    // find the task row for this cell
+    var rowEl = cellEl.closest(".rgRow");
+    if (!rowEl) return;
+    var idx = Number(rowEl.getAttribute("data-rgrow"));
+    var row = (grid.source || [])[idx];
+    if (!row || row.type !== "task" || !row.id) return;
+    _ganttRowDrag = {
+      grid: grid,
+      jobId: row.id.slice(1),          // strip "j"
+      fromStreamIdx: ganttStoredStreamIndexForTask(row.id),
+      startX: e.clientX,
+      startY: e.clientY,
+      moved: false,
+      targetRowEl: null,
+      targetAfter: false,
+      targetIndex: idx
+    };
+    // swallow the pointer so the grid does not also focus/scroll on the press
+    e.preventDefault();
+  });
+
+  document.addEventListener("pointermove", function (e) {
+    if (!_ganttRowDrag || _ganttRowDrag.grid !== grid) return;
+    if (!_ganttRowDrag.moved &&
+        Math.abs(e.clientX - _ganttRowDrag.startX) < 4 &&
+        Math.abs(e.clientY - _ganttRowDrag.startY) < 4) {
+      return;
+    }
+    _ganttRowDrag.moved = true;
+    e.preventDefault();
+    // Keep a "grabbing" cursor over the whole chart for the duration of the
+    // drag: without this, moving over another job's name re-applies that cell's
+    // `cursor: grab` and the hand flickers back mid-drag.
+    grid.classList.add("pmd-gantt-row-dragging");
+    ganttRowDragHighlight(grid, e.clientX, e.clientY);
+  });
+
+  document.addEventListener("pointerup", function (e) {
+    if (!_ganttRowDrag || _ganttRowDrag.grid !== grid) return;
+    var drag = _ganttRowDrag;
+    var targetEl = drag.targetRowEl;
+    _ganttRowDrag = null;
+    // clear the highlight BEFORE anything can change the DOM; the element is
+    // captured from the record because _ganttRowDrag is null by now
+    if (targetEl) targetEl.classList.remove("pmd-gantt-drop-target", "pmd-gantt-drop-target--after");
+    grid.classList.remove("pmd-gantt-row-dragging");
+    if (!drag.moved) return; // it was a click, not a drag
+    ganttPersistRowDrag(drag, e.clientX, e.clientY);
+  });
+}
+
+// The stored stream index that a task id ("j" + jobid) belongs to, found by
+// scanning the stored streams' job ids. Returns -1 if the job is not stored.
+function ganttStoredStreamIndexForTask(taskId) {
+  var streams = loadStreams();
+  var jobId = taskId.slice(1);
+  for (var s = 0; s < streams.length; s++) {
+    var jobs = streams[s].jobs || [];
+    for (var j = 0; j < jobs.length; j++) {
+      if (jobs[j].id === jobId) return s;
+    }
+  }
+  return -1;
+}
+
+// Highlights the insertion boundary under the pointer. The band row is the row
+// whose vertical band contains the pointer; the cursor's half of that row picks
+// the edge. The boundary between two adjacent jobs is the SAME line whether it
+// is reached from the bottom half of the job above (insert after it) or the top
+// half of the job below (insert before it), so it must render identically: the
+// highlight lands on the row that follows the boundary, drawn as a top border
+// (the same as "before that next row"). Concretely:
+//   - cursor in the TOP half of a job -> insert before it -> top border on it;
+//   - cursor in the BOTTOM half of a job -> insert after it -> top border on the
+//     NEXT row below (the same line as "before the next job"); if there is no
+//     next row, the bottom border on the current row marks the stream's end;
+//   - a SUMMARY band row means "append to the stream above" and keeps its own
+//     top border (the boundary is just below that stream's jobs).
+function ganttRowDragHighlight(grid, clientX, clientY) {
+  var dropY = clientY;
+  // A target that is invalid (no stream resolves) or a no-op (job back into its
+  // own slot) must not be shown.
+  if (!ganttRowDropValid(grid, dropY, _ganttRowDrag.jobId, _ganttRowDrag.fromStreamIdx)) {
+    if (_ganttRowDrag.targetRowEl) {
+      _ganttRowDrag.targetRowEl.classList.remove("pmd-gantt-drop-target", "pmd-gantt-drop-target--after");
+      _ganttRowDrag.targetRowEl = null;
+      _ganttRowDrag.targetAfter = false;
+    }
+    return;
+  }
+  var bandEl = ganttRowBandEl(grid, dropY, _ganttRowDrag.jobId);
+  var highlightEl = bandEl;
+  var useAfter = false;
+  if (bandEl) {
+    var rect = bandEl.getBoundingClientRect();
+    var after = clientY >= rect.top + rect.height / 2;
+    if (after) {
+      // Bottom half: the boundary is below this row. If a row follows, show it
+      // as a top border on that row (identical to "before the next job"); only
+      // the very last row (no next) uses its bottom border.
+      var next = ganttRowBelowEl(grid, bandEl);
+      if (next) highlightEl = next;
+      else useAfter = true;
+    }
+  }
+  var cls = useAfter ? "pmd-gantt-drop-target--after" : "pmd-gantt-drop-target";
+  if (highlightEl === _ganttRowDrag.targetRowEl && cls === _ganttRowDrag.targetAfter) return;
+  if (_ganttRowDrag.targetRowEl) _ganttRowDrag.targetRowEl.classList.remove("pmd-gantt-drop-target", "pmd-gantt-drop-target--after");
+  _ganttRowDrag.targetRowEl = highlightEl;
+  _ganttRowDrag.targetAfter = cls;
+  if (highlightEl) highlightEl.classList.add(cls);
+}
+
+// The row element whose vertical band contains dropY, across ALL rows (summary
+// included), excluding the dragged job's own row. If the line is over the
+// dragged row's own band, fall through to the row below it. Returns null when
+// there is no row under the line.
+function ganttRowBandEl(grid, dropY, jobId) {
+  var seen = {};
+  var rows = [];
+  document.querySelectorAll("#ganttChart .rgRow").forEach(function (el) {
+    var idx = Number(el.getAttribute("data-rgrow"));
+    if (isNaN(idx) || seen[idx]) return;
+    seen[idx] = true;
+    var row = (grid.source || [])[idx];
+    if (!row) return;
+    if (row.type === "task" && row.id.slice(1) === jobId) return; // the dragged row
+    var rect = el.getBoundingClientRect();
+    rows.push({ el: el, top: rect.top, bottom: rect.bottom });
+  });
+  rows.sort(function (a, b) { return a.top - b.top; });
+  for (var i = 0; i < rows.length; i++) {
+    if (dropY < rows[i].bottom) return rows[i].el;
+  }
+  // Line below every row: highlight the last row so the user sees the boundary.
+  return rows.length ? rows[rows.length - 1].el : null;
+}
+
+// The row element directly below a given row, in visual (top-sorted) order,
+// excluding the dragged job's own row. Returns null when the given row is the
+// last one rendered. Used by the drop highlight to render the "after this row"
+// boundary on the same line as "before the next row".
+function ganttRowBelowEl(grid, rowEl) {
+  var seen = {};
+  var rows = [];
+  document.querySelectorAll("#ganttChart .rgRow").forEach(function (el) {
+    var idx = Number(el.getAttribute("data-rgrow"));
+    if (isNaN(idx) || seen[idx]) return;
+    seen[idx] = true;
+    var row = (grid.source || [])[idx];
+    if (!row) return;
+    if (row.type === "task" && row.id.slice(1) === _ganttRowDrag.jobId) return; // the dragged row
+    var rect = el.getBoundingClientRect();
+    rows.push({ el: el, top: rect.top, bottom: rect.bottom });
+  });
+  rows.sort(function (a, b) { return a.top - b.top; });
+  var target = Number(rowEl.getAttribute("data-rgrow"));
+  var found = false;
+  for (var i = 0; i < rows.length; i++) {
+    if (found) return rows[i].el; // first row strictly below the target
+    if (Number(rows[i].el.getAttribute("data-rgrow")) === target) found = true;
+  }
+  return null;
+}
+
+// The row that the insertion line (dropY) anchors on. The line is resolved by
+// the vertical band it falls in across ALL rows (summary included). A JOB row is
+// always a valid anchor (insert before/after it by the midpoint). A SUMMARY row
+// is NEVER a target for its own stream's top; it always resolves to the stream
+// ABOVE the line, appended to its bottom:
+//   - COLLAPSED stream -> the header is the visible target for that (hidden)
+//     stream, so it is returned as-is and ganttRowDropTarget appends to it.
+//   - EXPANDED stream -> if the dragged job BELONGS to that header's stream,
+//     dropping on its own header means "top of my stream" (before the first job
+//     below it) - which is a no-op when that job is already first, and moves it
+//     up otherwise. For a job from ANOTHER stream the row directly above the
+//     header is the anchor: a job above means "after that job" (the previous
+//     stream's bottom), and a header above means "append to that stream" (e.g.
+//     dropping between two streams appends to the TOP one's bottom). "Above
+//     C's header" is never part of C.
+//   - the very first header with nothing above it -> rejected.
+// When the line is below every row, the last JOB row anchors the drop (lands
+// after it). Excludes the dragged job's own row.
+function ganttRowAnchor(grid, dropY, jobId) {
+  var seen = {};
+  var rows = [];
+  document.querySelectorAll("#ganttChart .rgRow").forEach(function (el) {
+    var idx = Number(el.getAttribute("data-rgrow"));
+    if (isNaN(idx) || seen[idx]) return;
+    seen[idx] = true;
+    var row = (grid.source || [])[idx];
+    if (!row) return;
+    if (row.type === "task" && row.id.slice(1) === jobId) return; // the dragged row
+    var rect = el.getBoundingClientRect();
+    rows.push({ el: el, row: row, top: rect.top, bottom: rect.bottom, mid: rect.top + rect.height / 2 });
+  });
+  rows.sort(function (a, b) { return a.top - b.top; });
+  if (!rows.length) return null;
+  // The row whose vertical band contains the insertion line.
+  for (var i = 0; i < rows.length; i++) {
+    if (dropY < rows[i].bottom) {
+      if (rows[i].row.type === "task") return rows[i];
+      // Summary band.
+      if (ganttRowIsCollapsedStream(rows[i].row)) return rows[i]; // into this (hidden) stream
+      // Expanded stream: if the dragged job is IN this stream, dropping on its
+      // own header means "top of my stream" - anchor on the first job below.
+      var sidx = ganttStoredStreamIndexForId(rows[i].row.id);
+      var dragStream = ganttStoredStreamIndexForTask("j" + jobId);
+      if (sidx === dragStream) {
+        var first = i + 1 < rows.length ? rows[i + 1] : null;
+        return (first && first.row.type === "task") ? first : null;
+      }
+      // Otherwise: the stream ABOVE the line, never this stream.
+      var prev = i > 0 ? rows[i - 1] : null;
+      if (prev) return prev;   // job above -> after it; header above -> append to that stream
+      return null;             // first header, nothing above it
+    }
+  }
+  // Line below every row: anchor on the last JOB row so the drop lands after it.
+  for (var j = rows.length - 1; j >= 0; j--) {
+    if (rows[j].row.type === "task") return rows[j];
+  }
+  return null;
+}
+
+// Whether the summary row's stream is in the collapsed set. Summary ids are
+// positional ("s" + stored index); the title keys the collapsed set.
+function ganttRowIsCollapsedStream(row) {
+  var sidx = ganttStoredStreamIndexForId(row.id);
+  if (sidx < 0) return false;
+  var streams = loadStreams();
+  var title = (streams[sidx] || {}).title || "Untitled stream";
+  return ganttCollapsedStreamSet().has(title);
+}
+
+// Whether a drop at dropY for jobId would be a NO-OP: the job already sits at
+// the resolved position in the same stream (e.g. hovering on the boundary just
+// below the job being dragged, which would put it right back where it is).
+// Such a target must not be shown and must not be applied. The check mirrors
+// ganttPersistRowDrag's insert math AFTER removal, compared to the job's current
+// index. A reparent (different target stream) is never a no-op.
+function ganttRowDropIsNoop(grid, dropY, jobId, fromStreamIdx) {
+  var streams = loadStreams();
+  var fromStream = fromStreamIdx >= 0 ? streams[fromStreamIdx] : null;
+  if (!fromStream) return false;
+  var jobs = fromStream.jobs || [];
+  var current = jobs.findIndex(function (j) { return j.id === jobId; });
+  if (current < 0) return false;
+  var target = ganttRowDropTarget(grid, dropY, jobId);
+  if (!target) return false;
+  if (target.streamIdx !== fromStreamIdx) return false; // reparent, always valid
+  // Simulate removal then insertion, like ganttPersistRowDrag does.
+  var others = jobs.filter(function (j) { return j.id !== jobId; });
+  var insertAt;
+  if (target.anchorJobId === null) {
+    insertAt = others.length;
+  } else {
+    var anchorPos = others.findIndex(function (j) { return j.id === target.anchorJobId; });
+    insertAt = anchorPos < 0 ? others.length : (target.after ? anchorPos + 1 : anchorPos);
+  }
+  insertAt = Math.max(0, Math.min(insertAt, others.length));
+  return insertAt === current;
+}
+
+// Whether a drop at dropY is a valid, non-noop target that should be shown and
+// applied. A null target (e.g. the very first stream header with nothing above
+// it, which resolves to no stream) or a no-op position both mean "no target".
+function ganttRowDropValid(grid, dropY, jobId, fromStreamIdx) {
+  if (ganttRowDropIsNoop(grid, dropY, jobId, fromStreamIdx)) return false;
+  return !!ganttRowDropTarget(grid, dropY, jobId);
+}
+
+// Applies the drop: move the job to the target stream/position and renumber.
+function ganttPersistRowDrag(drag, clientX, clientY) {
+  var grid = drag.grid;
+  var streams = loadStreams();
+  var fromStream = drag.fromStreamIdx >= 0 ? streams[drag.fromStreamIdx] : null;
+  if (!fromStream) return;
+  var job = (fromStream.jobs || []).find(function (j) { return j.id === drag.jobId; });
+  if (!job) return;
+
+  // The drop line is the POINTER's Y position. RevoGrid rows are 30px tall, so
+  // resolving by the pointer directly means: to place a job below A2 you only
+  // need the cursor at A2's midpoint (the band model's "after" threshold), not
+  // a further half-row past it. (A previous version subtracted a grab offset so
+  // the line tracked the dragged row's top edge; that made the drag feel
+  // sluggish — you had to drag well past the target before it registered.)
+  var dropY = clientY;
+
+  // A no-op drop (job back into its own slot) is ignored entirely.
+  if (ganttRowDropIsNoop(grid, dropY, drag.jobId, drag.fromStreamIdx)) return;
+
+  var target = ganttRowDropTarget(grid, dropY, drag.jobId);
+  if (!target) return;
+
+  // Remove the job from its old stream FIRST; the insert position is recomputed
+  // against the array as it stands after removal, so indices cannot shift.
+  fromStream.jobs = (fromStream.jobs || []).filter(function (j) { return j.id !== drag.jobId; });
+
+  var toStream = streams[target.streamIdx];
+  var toJobs = toStream.jobs || [];
+  var insertAt;
+  if (target.anchorJobId === null) {
+    // no job anchor (should not normally happen) => end of last stream
+    insertAt = toJobs.length;
+  } else {
+    var anchorPos = toJobs.findIndex(function (j) { return j.id === target.anchorJobId; });
+    insertAt = anchorPos < 0 ? toJobs.length : (target.after ? anchorPos + 1 : anchorPos);
+  }
+  insertAt = Math.max(0, Math.min(insertAt, toJobs.length));
+  toJobs.splice(insertAt, 0, job);
+  toStream.jobs = toJobs;
+
+  // Renumber sequence in both affected streams (the editors do the same).
+  if (fromStream === toStream) {
+    fromStream.jobs.forEach(function (j, i) { j.sequence = i + 1; });
+  } else {
+    (fromStream.jobs || []).forEach(function (j, i) { j.sequence = i + 1; });
+    toStream.jobs.forEach(function (j, i) { j.sequence = i + 1; });
+  }
+  saveStreams(streams);
+  renderGantt();
+}
+
+// Resolves a drop point into { streamIdx, anchorJobId, after }. The anchor comes
+// from ganttRowAnchor: a JOB anchor inserts before/after that job (by the line's
+// position in the row); a SUMMARY anchor (a stream header above the line) means
+// "append to the bottom of that stream's jobs", which is how drops after the last
+// job or between two closed streams are resolved. Returns null when there is no
+// valid target.
+function ganttRowDropTarget(grid, dropY, jobId) {
+  var anchor = ganttRowAnchor(grid, dropY, jobId);
+  if (!anchor) return null;
+  if (anchor.row.type === "summary") {
+    // The line sits on a stream header; the drop joins the stream ABOVE it by
+    // appending to that stream's jobs (the anchor row IS that upper summary row,
+    // or the job above resolves to its stream with after=true). Append to the
+    // anchor stream's bottom.
+    var sidx = ganttStoredStreamIndexForId(anchor.row.id);
+    if (sidx < 0) return null;
+    return { streamIdx: sidx, anchorJobId: null, after: true };
+  }
+  var jidx = ganttStoredStreamIndexForTask(anchor.row.id);
+  if (jidx < 0) return null;
+  var after = dropY >= anchor.mid;
+  return { streamIdx: jidx, anchorJobId: anchor.row.id.slice(1), after: after };
+}
+
+// Stored stream index for a summary row id ("s" + storedIndex). Summary ids are
+// positional and equal the stored array index (see buildGanttTasks).
+function ganttStoredStreamIndexForId(id) {
+  if (!/^s\d+$/.test(id || "")) return -1;
+  var idx = Number(id.slice(1));
+  var streams = loadStreams();
+  return idx >= 0 && idx < streams.length ? idx : -1;
 }
 
 // Whole days between two YYYY-MM-DD strings (end - start), UTC arithmetic like
@@ -890,12 +1281,59 @@ function changeShowGantt(enabled) {
     "     header cell background, so it needs the documented name too. */",
     "  --revo-grid-focused-bg: var(--bs-tertiary-bg);",
     "}",
+    "/* No focus/selection chrome. The chart is read-only: clicking a cell must",
+    "   not draw the vendor's focus ring (revogr-focus.focused-cell paints a",
+    "   1px box-shadow border in --rg-theme-selection-border, which follows",
+    "   --bs-primary and reads as a red outline) or the selection range border.",
+    "   Hide the focus layer and neutralise the selection colours so a click is",
+    "   inert. Cells are not focusable anyway once readonly=true; this just kills",
+    "   the visual. */",
+    "#ganttPage revo-grid revogr-focus.focused-cell {",
+    "  display: none !important;",
+    "}",
+    "#ganttPage revo-grid .selection-range {",
+    "  box-shadow: none;",
+    "}",
+    "#ganttPage revo-grid .rgCell:focus {",
+    "  outline: none;",
+    "}",
+    "#ganttPage revo-grid revogr-data .rgRow.focused-rgRow {",
+    "  background-color: transparent;",
+    "}",
     "/* Job names are indented under their stream by the name-column cellTemplate",
     "   (which stamps .pmd-gantt-job-name on task rows). The cell is a flex row, so",
     "   the padding must go on the cell itself - the span inside is the truncating",
-    "   line, and padding it would push the ellipsis instead of the text. */",
+    "   line, and padding it would push the ellipsis instead of the text. The",
+    "   grab cursor marks the row as draggable (reorder within/across streams via",
+    "   ganttBindRowDrag). */",
     "#ganttPage revo-grid .pmd-gantt-job-name {",
     "  padding-left: 1.5rem;",
+    "  cursor: grab;",
+    "}",
+    "#ganttPage revo-grid .pmd-gantt-job-name:active {",
+    "  cursor: grabbing;",
+    "}",
+    "/* During a row drag the grid carries .pmd-gantt-row-dragging; every job-name",
+    "   cell then shows the grabbing hand so the cursor does not flick back to the",
+    "   grab affordance when the pointer passes over another row. !important is",
+    "   required: the job names set cursor:grab themselves (and :active = grabbing",
+    "   only on the element actually pressed), so without it the hovered row's own",
+    "   rule would win mid-drag. */",
+    "#ganttPage revo-grid.pmd-gantt-row-dragging,",
+    "#ganttPage revo-grid.pmd-gantt-row-dragging .pmd-gantt-job-name,",
+    "#ganttPage revo-grid.pmd-gantt-row-dragging .pmd-gantt-job-name:active,",
+    "#ganttPage revo-grid.pmd-gantt-row-dragging revogr-data .rgCell {",
+    "  cursor: grabbing !important;",
+    "}",
+    "/* Drop-target highlight while a job row is being dragged (ganttBindRowDrag).",
+    "   The cursor's half of the band row picks the edge: top half inserts BEFORE",
+    "   the row (top border), bottom half inserts AFTER it (bottom border) - so",
+    "   the highlighted edge is exactly where the job lands. */",
+    "#ganttPage revo-grid .rgRow.pmd-gantt-drop-target {",
+    "  box-shadow: inset 0 2px 0 var(--rg-gantt-task);",
+    "}",
+    "#ganttPage revo-grid .rgRow.pmd-gantt-drop-target--after {",
+    "  box-shadow: inset 0 -2px 0 var(--rg-gantt-task);",
     "}",
     "/* 2. The timeline's own tokens. */",
     "#ganttPage {",
