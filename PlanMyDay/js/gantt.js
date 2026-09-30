@@ -1,32 +1,80 @@
 // PlanMyDay — the Gantt page.
 //
-// A projection of the Stream → Job hierarchy, drawn with the vendored
-// jsgantt-improved library (window.JSGantt). It is a PROJECTION of the stored
-// data: PlanMyDay jobs carry a recurrence rule (schedule), an optional
-// "sleepUntil" not-before date, and a "duration" in days — but they have no
-// start/end dates. So each bar is derived at render time:
+// A projection of the Stream → Job hierarchy, drawn with the vendored MIT
+// `@revolist/gantt` plugin running on a `@revolist/revogrid` <revo-grid>
+// (see js/gantt-lib.js for how the two ESM packages are loaded, and
+// PlanMyDay/index.html for the import map that resolves them).
+//
+// It is a PROJECTION of the stored data: PlanMyDay jobs carry a recurrence rule
+// (schedule), an optional "sleepUntil" not-before date, and a "duration" in
+// days — but they have no start/end dates. So each bar is derived at render
+// time:
 //
 //   start = job.sleepUntil || today   (today is ASSUMED here, never written back)
 //   end   = start + (job.duration || 1) days
 //
-// A Stream becomes a collapsible GROUP row (pGroup: 1). A stream WITH jobs
-// spans them (min start → max end) and acts as a summary header; a stream with
-// NO jobs keeps empty pStart/pEnd, which the library renders as a plain
-// "empty header line" — exactly what we want (it gives every stream a row, and
-// the row-drag layer in js/gantt-drag.js relies on every stream having one so a
-// job can be dropped onto a stream even when it has no jobs yet). Jobs are CHILD
-// rows of their stream (pParent). Tasks are deliberately NOT drawn yet.
+// `end` is INCLUSIVE, which is what the vendor expects: createGanttBarLayout()
+// draws a bar from startDate to endDate + 1 day. That is the same convention
+// the previous jsgantt page used, so the bar widths are unchanged.
 //
-// The whole thing is a projection: opening the page writes NOTHING. The user
-// can EDIT it two ways, both of which rewrite `sleepUntil`/`duration` or the
-// stream/job order and then re-render — see js/gantt-drag.js:
-//   * dragging a JOB bar's left edge / right edge / middle
-//   * dragging a row in the LEFT task list to reorder or move it
-// Legacy jobs with no `duration` fall back to 1 at read time (no migration, nothing written back just by opening the page).
+// A Stream becomes a `type: "summary"` row whose parentId is null. A stream WITH
+// jobs spans them (min start → max end) and acts as a summary bar; a stream with
+// NO jobs gets today's date for both ends, which draws the vendor's 6px minimum
+// bar as a small tick - so every stream still has a row, including one with
+// nothing scheduled yet. Jobs are `type: "task"` rows whose parentId is the
+// stream's id.
+//
+// THE PAGE IS READ-ONLY. Opening it writes nothing, and there is no drag, drop,
+// resize, reorder or edit path at all:
+//   * the grid gets `readonly = true`, so no cell can be edited
+//   * the task columns get `sortable: false`, because sorting would scramble
+//     the stream → job hierarchy (this replaces jsgantt's `vUseSort: 0`)
+//   * the bars themselves are draggable by DEFAULT in this package (they carry
+//     data-gantt-interaction="move" and the plugin listens for pointerdown), so
+//     they are switched off in CSS — see injectGanttTheme() and the
+//     "READ-ONLY" comment there. Removing that one rule is the whole of the
+//     future work if bar dragging is ever wanted; the old js/gantt-drag.js
+//     persisted those edits and has been deleted with it.
+//
+// Legacy jobs with no `duration` fall back to 1 at read time (no migration,
+// nothing written back just by opening the page).
 
 // GANTT
-var _ganttChart = null;
 var _ganttCloseTimer = null;
+// Monotonic render token. renderGantt() is async (it waits for the ESM library
+// and for the element's own updateComplete), so two opens in quick succession —
+// or a stream-filter change while the page is still opening — can have renders
+// in flight at once. Each render captures the token it started with and bails
+// if a newer render has since begun, so a slow earlier pass cannot paint into a
+// container that has since been replaced.
+var _ganttRenderToken = 0;
+// Live light/dark watcher. See ganttApplyMode().
+var _ganttModeObserver = null;
+
+// Resolves once the ESM library in js/gantt-lib.js has finished booting.
+//
+// The hand-off is an EVENT, not a poll: the library module is deferred until
+// after parsing, while this file is a classic script that runs during parsing,
+// so on a cold load this is called long before window.PMD_GANTT_LIB exists. The
+// promise is created once and latched; a failure is resolved too (as a rejection
+// the caller renders as the "library unavailable" message) so the page can never
+// hang waiting for a chunk that will never arrive.
+var _ganttLibPromise = null;
+
+function ganttLibReady() {
+  if (_ganttLibPromise) return _ganttLibPromise;
+  _ganttLibPromise = new Promise(function (resolve, reject) {
+    if (window.PMD_GANTT_LIB) return resolve(window.PMD_GANTT_LIB);
+    if (window.PMD_GANTT_LIB_ERROR) return reject(window.PMD_GANTT_LIB_ERROR);
+    window.addEventListener("pmd-gantt-lib-ready", function () {
+      resolve(window.PMD_GANTT_LIB);
+    }, { once: true });
+    window.addEventListener("pmd-gantt-lib-failed", function () {
+      reject(window.PMD_GANTT_LIB_ERROR || new Error("Gantt library unavailable"));
+    }, { once: true });
+  });
+  return _ganttLibPromise;
+}
 
 function openGantt() {
   document.getElementById("countdownContainer").classList.add("d-none");
@@ -48,8 +96,8 @@ function openGantt() {
   }
   page.show();
   // The page's content is in place; the chart is drawn on the next frame so the
-  // library measures a laid-out container (an smd-page sets its `open` attribute
-  // in a requestAnimationFrame, so an immediate draw can see a zero-width box).
+  // grid measures a laid-out container (an smd-page sets its `open` attribute
+  // in a requestAnimationFrame, so an immediate draw can see a zero-height box).
   requestAnimationFrame(() => requestAnimationFrame(renderGantt));
   updateNavState();
 }
@@ -68,20 +116,92 @@ function closeGantt() {
 }
 
 // smd-page re-renders its whole innerHTML on every property setter, so the
-// chart's container is (re)created here on each open and populated afterwards by
+// grid's container is (re)created here on each open and populated afterwards by
 // renderGantt(). ORDER: set every page property, then draw — see the ordering
 // trap noted in smd-images.js.
 function buildGanttContent() {
   const page = document.getElementById("ganttPage");
   if (!page) return;
   page.title = "Gantt";
-  page.headerHtml = ganttStreamFilterHtml();
-  // The `gantt` class is REQUIRED: much of the vendored stylesheet is scoped to
-  // `.gantt` (including `div.gantt { color: #656565 }`, the base text colour).
-  // Without it those rules silently miss and the text inherits the app theme's
-  // colour, which is unreadable on the library's own light surfaces.
-  page.content = '<div id="ganttChart" class="gantt" style="position:relative;min-height:60vh"></div>';
+  page.headerHtml = ganttHeaderHtml();
+  // RevoGrid does its own vertical virtualisation and scrolling, so the host
+  // needs a BOUNDED height (min-height would let it grow forever and defeat the
+  // internal scroll). 60vh matches what the old chart container asked for.
+  page.content = '<div id="ganttChart" class="gantt" style="height:60vh;min-height:320px"></div>';
   page.buttons = [{ text: "Close", variant: "secondary", action: "close" }];
+}
+
+// ZOOM
+//
+// The old chart offered Day / Week / Month via jsgantt's vFormatArr. The
+// equivalent here is the plugin's `zoomPreset`, whose three values differ only
+// in tick width and how many calendar days a tick covers:
+//
+//   day-week      44px per  1 day     <- "Day"
+//   week-month    84px per  7 days    <- "Week"
+//   month-quarter 112px per 30 days   <- "Month"
+//
+// The selection is persisted because it is a view preference like the Show
+// Gantt flag, and unlike jsgantt's selector (which reset on every open) there
+// is no redraw cost to remembering it.
+var ganttZoomPresets = [
+  { id: "day-week", label: "Day" },
+  { id: "week-month", label: "Week" },
+  { id: "month-quarter", label: "Month" },
+];
+
+function ganttZoom() {
+  try {
+    const raw = localStorage.getItem(smdKey("ganttZoom"));
+    // Validate against the known list: localStorage is user-writable and an
+    // unknown value would be passed straight to the plugin, where it indexes a
+    // lookup table and would throw.
+    if (raw && ganttZoomPresets.some((p) => p.id === raw)) return raw;
+  } catch (e) {
+    /* storage unavailable; fall through to the default */
+  }
+  return "day-week";
+}
+
+function ganttSetZoom(preset) {
+  if (!ganttZoomPresets.some((p) => p.id === preset)) return;
+  try {
+    localStorage.setItem(smdKey("ganttZoom"), preset);
+  } catch (e) {
+    /* storage unavailable; zoom stays session-only */
+  }
+  ganttPaintZoomButtons();
+  renderGantt();
+}
+
+// The buttons are rebuilt with the header on every open, so the "active" state
+// has to be re-asserted from the stored value rather than remembered in a
+// variable that a rebuild would silently discard.
+function ganttPaintZoomButtons() {
+  const active = ganttZoom();
+  document.querySelectorAll("#ganttPage [data-gantt-zoom]").forEach((btn) => {
+    const on = btn.getAttribute("data-gantt-zoom") === active;
+    btn.classList.toggle("active", on);
+    btn.setAttribute("aria-pressed", on ? "true" : "false");
+  });
+}
+
+function ganttZoomHtml() {
+  return (
+    '<div class="gantt-zoom btn-group btn-group-sm" role="group" aria-label="Timeline zoom">' +
+    ganttZoomPresets.map((p) => (
+      '<button type="button" class="btn btn-outline-secondary" data-gantt-zoom="' + p.id + '"' +
+      ' aria-pressed="false" onclick="ganttSetZoom(\'' + p.id + '\')">' + p.label + "</button>"
+    )).join("") +
+    "</div>"
+  );
+}
+
+function ganttHeaderHtml() {
+  // Zoom first, then the Streams dropdown. The dropdown carries `margin-left:auto`
+  // (see injectGanttTheme), so it stays hard right and the zoom group sits beside
+  // the page title.
+  return ganttZoomHtml() + ganttStreamFilterHtml();
 }
 
 // STREAM FILTER
@@ -230,28 +350,32 @@ function ganttRefreshStreamFilter() {
   if (wasOpen) ganttToggleStreamMenu(true);
 }
 
-// Derives the jsGantt task list from the stored streams. Streams are group rows
-// (pGroup: 1); jobs are children (pParent = the group's numeric id). Dates are
-// "YYYY-MM-DD", which is the library's default input format. Nothing here writes
-// to storage — the whole chart is a read-only projection.
+// PROJECTION
+//
+// Derives the <revo-grid> source from the stored streams: a `summary` row per
+// stream and a `task` row per job, grouped by parentId. Dates are "YYYY-MM-DD",
+// which is what the plugin's ISODateString expects. Nothing here writes to
+// storage — the whole chart is a read-only projection.
 function buildGanttTasks(streams, todayStr) {
   const items = [];
-  let id = 1;
   const hidden = ganttHiddenStreamSet();
-  // Keep each stream's index in the STORED array alongside it. The drag code
-  // needs a handle back to `loadStreams()` order, and the sort below must not
-  // lose it. This index is only valid for THIS render pass (adding/removing a
-  // stream renumbers it); a job's durable identity is always its `id`.
+  // Keep each stream's index in the STORED array alongside it so the sort below
+  // has something stable to move. This index is only valid for THIS render pass
+  // (adding/removing a stream renumbers it); a job's durable identity is always
+  // its `id`, which is what the task ids below use.
   const withIndex = (streams || []).map((s, i) => ({ stream: s, idx: i }));
   const ordered = withIndex.slice().sort((a, b) => (a.stream.sequence || 0) - (b.stream.sequence || 0));
   // Streams excluded by the header filter are dropped entirely, so both the
-  // group row and all of its jobs disappear from the chart.
+  // summary row and all of its jobs disappear from the chart.
   const visible = ordered.filter((x) => !hidden.has(x.stream.title || "Untitled stream"));
   visible.forEach((x) => {
     const stream = x.stream;
-    const streamIdx = x.idx;
     const streamTitle = stream.title || "Untitled stream";
-    const groupId = id++;
+    // The stream id is positional and only has to be unique within this one
+    // source array, which is all the plugin's `new Map(tasks.map(t => [t.id]))`
+    // grouping needs. Job ids come from the stored `id` so they survive a
+    // re-projection.
+    const groupId = "s" + x.idx;
     const jobs = (stream.jobs || []).slice().sort((a, b) => (a.sequence || 0) - (b.sequence || 0));
     // Derive each job's start/end once.
     const spans = jobs.map((job) => {
@@ -260,58 +384,34 @@ function buildGanttTasks(streams, todayStr) {
       const end = ganttAddDaysStr(start, days);
       return { job, start, end };
     });
-    // A stream WITH jobs spans them; one WITHOUT jobs stays empty (header line).
-    let groupStart = "";
-    let groupEnd = "";
-    if (spans.length) {
-      groupStart = spans.reduce((min, s) => (s.start < min ? s.start : min), spans[0].start);
-      groupEnd = spans.reduce((max, s) => (s.end > max ? s.end : max), spans[0].end);
-    }
+    // A stream WITH jobs spans them. One WITHOUT jobs gets a zero-length span on
+    // today, which the vendor draws as its 6px minimum bar: the stream still
+    // gets a row, so a new empty stream is visible on the chart instead of
+    // silently vanishing.
+    const groupStart = spans.length
+      ? spans.reduce((min, s) => (s.start < min ? s.start : min), spans[0].start)
+      : todayStr;
+    const groupEnd = spans.length
+      ? spans.reduce((max, s) => (s.end > max ? s.end : max), spans[0].end)
+      : todayStr;
     items.push({
-      pID: groupId,
-      pName: stream.title || "Untitled stream",
-      pStart: groupStart,
-      pEnd: groupEnd,
-      pPlanStart: "",
-      pPlanEnd: "",
-      pClass: "ggroupblack",
-      pLink: "",
-      pMile: 0,
-      pRes: "",
-      pComp: 0,
-      pGroup: 1,
-      pParent: 0,
-      pOpen: 1,
-      pDepend: "",
-      pCaption: "",
-      pNotes: stream.description || "",
-      __isGroup: true,
-      __streamIdx: streamIdx,
-      __streamTitle: streamTitle
+      id: groupId,
+      parentId: null,
+      name: streamTitle,
+      type: "summary",
+      startDate: groupStart,
+      endDate: groupEnd,
+      progressPercent: 0
     });
     spans.forEach(({ job, start, end }) => {
       items.push({
-        pID: id++,
-        pParent: groupId,
-        pName: ganttJobLabel(job),
-        pStart: start,
-        pEnd: end,
-        pPlanStart: "",
-        pPlanEnd: "",
-        pClass: "gtaskblue",
-        pLink: "",
-        pMile: 0,
-        pRes: "",
-        pComp: 0,
-        pGroup: 0,
-        pOpen: 1,
-        pDepend: "",
-        pCaption: "",
-        pNotes: ganttJobNotes(job, start, end),
-        __jobId: job.id,
-        __isGroup: false,
-        __streamIdx: streamIdx,
-        __streamTitle: streamTitle
+        id: "j" + job.id,
+        parentId: groupId,
+        name: ganttJobLabel(job),
+        type: "task",
+        startDate: start,
+        endDate: end,
+        progressPercent: 0
       });
     });
   });
@@ -349,93 +449,119 @@ function ganttJobLabel(job) {
   return freq ? title + " [" + freq + "]" : title;
 }
 
-// Tooltip body for a job row: the things the app already knows how to phrase
-// (schedule text, sleep-until, time, wait-for) plus the derived Gantt span.
-function ganttJobNotes(job, start, end) {
-  const lines = [];
-  if (typeof getScheduleText === "function") {
-    const sched = getScheduleText(job.schedule);
-    if (sched) lines.push(sched);
-  }
-  if (job.sleepUntil) lines.push("Sleep Until: " + formatDate(job.sleepUntil));
-  if (job.time) lines.push("Time: " + job.time);
-  if (job.waitFor) lines.push("Wait for: " + job.waitFor);
-  if (job.active === false) lines.push("Inactive");
-  lines.push("Gantt: " + start + " to " + end);
-  return lines.join("<br>");
+// RENDER
+//
+// Draws the chart. The whole function is read-only: it sets properties on the
+// grid and never subscribes to anything, so there is no path by which the chart
+// can write back to storage.
+function renderGantt() {
+  const token = ++_ganttRenderToken;
+  const page = document.getElementById("ganttPage");
+  const host = page && page.querySelector("#ganttChart");
+  if (!host) return;
+  ganttPaintZoomButtons();
+  ganttLibReady().then(function (lib) {
+    // Bail if a newer render started, or if the page was closed/rebuilt while we
+    // were waiting — the element we captured may no longer be the one on screen.
+    if (token !== _ganttRenderToken || !host.isConnected) return;
+    try {
+      drawGantt(host, lib);
+    } catch (err) {
+      host.innerHTML = '<div class="text-danger p-3">Could not draw the Gantt chart.</div>';
+    }
+  }).catch(function (err) {
+    if (token !== _ganttRenderToken || !host.isConnected) return;
+    console.error("PlanMyDay: Gantt draw failed", err);
+    host.innerHTML = '<div class="text-secondary p-3">Gantt library unavailable.</div>';
+  });
 }
 
-// Draws the chart. The draw itself is read-only; the drag layer installed by
-// `afterDraw` (js/gantt-drag.js) is what can persist a change.
-function renderGantt() {
-  const page = document.getElementById("ganttPage");
-  const el = page && page.querySelector("#ganttChart");
-  if (!el || typeof JSGantt === "undefined" || typeof JSGantt.GanttChart !== "function") {
-    if (el) el.innerHTML = '<div class="text-secondary p-3">Gantt library unavailable.</div>';
-    return;
-  }
+function drawGantt(host, lib) {
   const todayStr = getTodayStr();
   const items = buildGanttTasks(loadStreams(), todayStr);
-  el.innerHTML = "";
-  try {
-    const g = new JSGantt.GanttChart(el, "day");
-    g.setOptions({
-      // Do NOT let the library re-sort by start time — that would scramble the
-      // stream → job hierarchy we just built. Show Day/Week/Month only.
-      vUseSort: 0,
-      vFormatArr: ["Day", "Week", "Month"],
-      vShowSelector: "Top",
-      vScrollTo: new Date(),
-      // Resource column is hidden (empty pRes above).
-      vShowRes: 0,
-      vShowComp: 0,
-      vShowCost: 0,
-      vShowPlanStartDate: 0,
-      vShowPlanEndDate: 0,
-      vDateInputFormat: "yyyy-mm-dd",
-      vDateTaskDisplayFormat: "day dd month yyyy",
-      vDateTaskTableDisplayFormat: "dd/mm/yyyy",
-      vLang: "en"
-    });
-    // Re-bind the drag layer after EVERY draw. The library's own Day/Week/Month
-    // selector calls Draw() directly (via setFormat), so renderGantt() is NOT
-    // back in the loop on a format switch - `afterDraw` is the only hook that
-    // fires for both that and our own draws. The handler is wrapped because the
-    // drag layer must never be able to break the chart.
-    g.setEvents({
-      afterDraw: function () {
-        try {
-          if (typeof ganttBindDragDrop === "function") ganttBindDragDrop(g, items);
-        } catch (e) { /* swallow: an unavailable drag layer is better than no chart */ }
-      }
-    });
-    items.forEach((item) => {
-      const payload = {
-        pID: item.pID,
-        pName: item.pName,
-        pStart: item.pStart,
-        pEnd: item.pEnd,
-        pPlanStart: item.pPlanStart,
-        pPlanEnd: item.pPlanEnd,
-        pClass: item.pClass,
-        pLink: item.pLink,
-        pMile: item.pMile,
-        pRes: item.pRes,
-        pComp: item.pComp,
-        pGroup: item.pGroup,
-        pParent: item.pParent,
-        pOpen: item.pOpen,
-        pDepend: item.pDepend,
-        pCaption: item.pCaption,
-        pNotes: item.pNotes
-      };
-      g.AddTaskItemObject(payload);
-    });
-    g.Draw();
-    _ganttChart = g;
-  } catch (err) {
-    el.innerHTML = '<div class="text-danger p-3">Could not draw the Gantt chart.</div>';
+  // Reuse the grid if this container already has one. Re-creating it on every
+  // stream-filter change would re-register the plugin and throw away the
+  // horizontal scroll position, so the element is built once per container and
+  // afterwards only `source` (and `gantt`, for zoom) is touched.
+  let grid = host.querySelector("revo-grid");
+  const isNew = !grid;
+  if (isNew) {
+    grid = document.createElement("revo-grid");
+    grid.style.height = "100%";
+    host.appendChild(grid);
   }
+
+  if (isNew) {
+    // The plugin's own column set (Task / Start / End) with sorting switched
+    // off. normalizeTaskColumns() keeps an explicit `sortable: false` — it only
+    // falls back to true when the property is absent — and pins the task
+    // columns to the start edge so the timeline scrolls under them.
+    grid.columns = lib.DEFAULT_TASK_COLUMNS.map(function (col) {
+      return Object.assign({}, col, { sortable: false });
+    });
+    // The plugin MUST be registered before `gantt` is set: its constructor
+    // installs the `gantt` accessor that the config is written through, and it
+    // projects the current grid source on construction.
+    grid.plugins = [lib.GanttPlugin];
+    // readonly is what stops the Task/Start/End cells being edited. It does NOT
+    // stop the bars being dragged — that is a separate pointer handler inside
+    // the plugin and is disabled in CSS. Both are needed.
+    grid.readonly = true;
+    // 42px rows: the vendor's timeline cell declares min-height 40px and its
+    // bars are 28px tall, so the default ~27px row clipped both. This is also
+    // the row height the plugin's own dependency layout assumes.
+    grid.rowSize = 42;
+    ganttApplyMode(grid);
+    grid.gantt = {
+      id: "planmyday-gantt",
+      name: "PlanMyDay Gantt",
+      version: "1",
+      timeZone: "UTC",
+      updatedAt: new Date().toISOString(),
+      zoomPreset: ganttZoom(),
+      visuals: { showDependencies: false, showTaskLabels: true }
+    };
+  } else if (grid.gantt && grid.gantt.zoomPreset !== ganttZoom()) {
+    // Reassigning the whole object is how the plugin is reconfigured: the
+    // accessor is reactive, so a new object re-reads the zoom preset and
+    // re-lays-out the timeline in place.
+    grid.gantt = Object.assign({}, grid.gantt, { zoomPreset: ganttZoom() });
+  }
+
+  grid.source = items;
+  ganttWatchMode(grid);
+}
+
+// LIGHT / DARK
+//
+// RevoGrid's theme system is gated on the `theme` ATTRIBUTE, and the shipped
+// stylesheet only has rules for `default`, `dark`, `compact`, `darkCompact`,
+// `material` and `darkMaterial`. The five bundled named palettes (ocean,
+// midnight, aurora, highContrast, highContrastDark) are built with defineTheme()
+// but have no matching CSS, so naming one leaves the grid UNSTYLED — the cells
+// fall back to transparent/black and the text vanishes. So the attribute is
+// pinned to the two real modes, and the actual colours come from the
+// --rg-theme-* overrides in injectGanttTheme(), which point at the app's
+// Bootstrap variables and so follow the active Bootswatch theme for free.
+function ganttApplyMode(grid) {
+  const dark = document.documentElement.getAttribute("data-bs-theme") === "dark";
+  grid.setAttribute("theme", dark ? "dark" : "default");
+}
+
+// Keeps the attribute in step with the app's Theme Mode setting while the chart
+// is on screen. The app flips `data-bs-theme` on <html> and dispatches no event,
+// so this is the only way a mid-view mode switch reaches the grid. The observer
+// is stored on the window rather than leaked per grid element, and is replaced
+// (not stacked) when a new grid is drawn.
+function ganttWatchMode(grid) {
+  if (_ganttModeObserver) _ganttModeObserver.disconnect();
+  _ganttModeObserver = new MutationObserver(function () {
+    ganttApplyMode(grid);
+  });
+  _ganttModeObserver.observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ["data-bs-theme"]
+  });
 }
 
 // SETTINGS (Show Gantt) — mirrors the Show danger pattern: persist the flag and
@@ -457,20 +583,35 @@ function changeShowGantt(enabled) {
   updateGanttMenu();
 }
 
-// THEME OVERRIDE for the vendored chart.
+// THEME OVERRIDE for the vendored grid + timeline.
 //
-// jsGantt's own stylesheet is a fixed LIGHT theme: `.glineitem` / `.ggroupitem`
-// hard-code #ffffff / #fbfbfb row fills, `.gminorheading` hard-codes #ffffff,
-// the stream summary bar is a solid #000000 and the job bar a fixed blue
-// gradient. None of the task-list cells declare a
-// `color` at all, so the text inherits whatever the active app theme sets - and
-// under a dark theme that is light text landing on a white row, i.e. the
-// washed-out, near-invisible chart.
+// Both libraries expose their colours as CSS custom properties, so the whole
+// override is one scoped block of variable assignments rather than a pile of
+// rules fighting the vendors' DOM classes (which is what the previous jsgantt
+// page had to do — it patched `.glineitem`, `.gmajorheading`, `.gselector` and
+// friends by hand).
 //
-// Rather than patch the vendored file (it is a verbatim third-party copy), this
-// re-points every hard-coded surface at the Bootstrap variables the rest of the
-// app already uses, so the chart follows whichever theme AND light/dark mode is
-// active with no per-theme work.
+// Three separate things are themed here:
+//
+//  1. --rg-theme-*    RevoGrid's grid tokens. NOTE the name mismatch: the
+//     public `themeTokenCssVariables` map documents these as --revo-grid-*, but
+//     the shipped stylesheet actually reads --rg-theme-*. Overriding the
+//     documented names would do nothing at all, so the real ones are used here.
+//     The grid paints its own surface from --rg-theme-background and leaves the
+//     individual cells transparent, which is why the cells need no rules of
+//     their own.
+//
+//  2. --rg-gantt-*   The timeline's own tokens (header, gridlines, bars,
+//     summary bars, dependency arrows). Every one of these has a hard-coded
+//     light fallback in gantt.css, so all of them must be set or the timeline
+//     stays white inside a dark chart.
+//
+//  3. The one rule the tokens cannot express: `.rg-gantt-cell` bakes a white
+//     wash into its background-image (a hard-coded
+//     `linear-gradient(#fafafaa3, #fff6)`) with no variable to turn it off. Left
+//     alone it lays a milky film over the cells in a dark theme, so the
+//     background-image is replaced with just the gridline gradient — the
+//     background-size that drives the gridline pitch is left untouched.
 (function injectGanttTheme() {
   if (typeof document === "undefined") return;
   if (document.getElementById("pmd-gantt-theme-style")) return;
@@ -484,137 +625,98 @@ function changeShowGantt(enabled) {
     "  --gantt-muted: var(--bs-secondary-color);",
     "  --gantt-border: var(--bs-border-color);",
     "}",
-    "/* The variables live on #ganttPage, NOT on `.gantt`, so the page chrome",
-    "   (header, footer, Streams button/menu) can use them too - they are",
-    "   siblings of the chart, not descendants of it. */",
-    "#ganttPage .gantt {",
-    "  color: var(--gantt-text);",
-    "  background: var(--gantt-surface);",
+    "/* 1. RevoGrid grid tokens. Explicit values only: anything left unset falls",
+    "   back to the vendors' light defaults and shows through as a white panel.",
+    "   Every value is a Bootstrap variable, so all of this follows the active",
+    "   Bootswatch theme AND light/dark mode with no per-theme work. */",
+    "#ganttPage revo-grid {",
+    "  --rg-theme-background: var(--bs-body-bg);",
+    "  --rg-theme-foreground: var(--bs-body-color);",
+    "  --rg-theme-text: var(--bs-body-color);",
+    "  --rg-theme-border: var(--bs-border-color);",
+    "  --rg-theme-divider: var(--bs-border-color);",
+    "  --rg-theme-cell-border: var(--bs-border-color);",
+    "  --rg-theme-cell-vertical-border: var(--bs-border-color);",
+    "  --rg-theme-cell-disabled-bg: var(--bs-body-bg);",
+    "  --rg-theme-header-bg: var(--bs-secondary-bg);",
+    "  --rg-theme-header-color: var(--bs-body-color);",
+    "  --rg-theme-header-border: var(--bs-border-color);",
+    "  --rg-theme-header-focused-bg: var(--bs-tertiary-bg);",
+    "  --rg-theme-header-hover-bg: var(--bs-tertiary-bg);",
+    "  --rg-theme-row-headers-bg: var(--bs-secondary-bg);",
+    "  --rg-theme-row-headers-color: var(--bs-body-color);",
+    "  --rg-theme-row-hover: var(--bs-tertiary-bg);",
+    "  --rg-theme-focused-bg: var(--bs-tertiary-bg);",
+    "  --rg-theme-primary: var(--bs-primary);",
+    "  --rg-theme-primary-transparent: color-mix(in srgb, var(--bs-primary) 12%, transparent);",
+    "  --rg-theme-selection-bg: color-mix(in srgb, var(--bs-primary) 12%, transparent);",
+    "  --rg-theme-selection-border: var(--bs-primary);",
+    "  /* gantt.css reads --revo-grid-focused-bg (not --rg-theme-*) for the",
+    "     header cell background, so it needs the documented name too. */",
+    "  --revo-grid-focused-bg: var(--bs-tertiary-bg);",
     "}",
-    "/* Task list: the vendor sets row fills but never a text colour. */",
-    "#ganttPage .glineitem,",
-    "#ganttPage .ggroupitem,",
-    "#ganttPage tr.glineitem td,",
-    "#ganttPage tr.ggroupitem td,",
-    "#ganttPage .gtasktable td,",
-    "#ganttPage .gtasktableh td,",
-    "#ganttPage .gmainleft,",
-    "#ganttPage .gmainright,",
-    "#ganttPage .gcontainercol {",
+    "/* 2. The timeline's own tokens. */",
+    "#ganttPage {",
+    "  --rg-gantt-background: var(--bs-body-bg);",
+    "  --rg-gantt-foreground: var(--bs-body-color);",
+    "  --rg-gantt-muted: var(--bs-secondary-bg);",
+    "  --rg-gantt-muted-foreground: var(--bs-body-color);",
+    "  --rg-gantt-border: var(--bs-border-color);",
+    "  --rg-gantt-gridline: var(--bs-border-color);",
+    "  --rg-gantt-task: var(--bs-success);",
+    "  --rg-gantt-task-strong: color-mix(in srgb, var(--bs-success) 82%, black);",
+    "  --rg-gantt-summary: var(--bs-danger);",
+    "  --rg-gantt-dependency: var(--bs-body-color);",
+    "}",
+    "/* 3. Drop the hard-coded white wash. The vendor rule is a `background`",
+    "   shorthand carrying BOTH gradients; only background-image is replaced, so",
+    "   the background-size (the gridline pitch) still applies.",
+    "   Selector beats the vendors' bare `.rg-gantt-cell`, so no !important. */",
+    "#ganttPage .rg-gantt-cell {",
+    "  background-image: linear-gradient(to right, var(--rg-gantt-gridline) 1px, transparent 1px);",
+    "}",
+    "/* READ-ONLY. The bars are draggable by default: each carries",
+    "   data-gantt-interaction=\"move\" and the plugin binds a document-level",
+    "   pointerdown/pointermove that rewrites startDate/endDate in its own copy",
+    "   of the source. `pointer-events: none` on the bar and everything inside it",
+    "   means the target is never hit, so no drag can start - and because the bar",
+    "   cannot be hovered, the resize/progress handles (which only appear on",
+    "   :hover) never show either. The rule is repeated for the descendants so a",
+    "   later vendor change that adds a child element cannot reopen the path.",
+    "   THIS IS THE SWITCH FOR FUTURE BAR DRAGGING: delete these three rules and",
+    "   the vendor's own move/resize behaviour comes back (it would then need a",
+    "   listener to persist the new dates, as the deleted js/gantt-drag.js did). */",
+    "#ganttPage .rg-gantt-bar,",
+    "#ganttPage .rg-gantt-bar * {",
+    "  pointer-events: none;",
+    "}",
+    "#ganttPage .rg-gantt-bar {",
+    "  cursor: default;",
+    "}",
+    "#ganttPage .rg-gantt-bar-handle,",
+    "#ganttPage .rg-gantt-progress-handle {",
+    "  display: none;",
+    "}",
+    "/* Zoom buttons: the active preset is filled, the rest stay outline-only.",
+    "   The button group follows the page chrome rather than the theme's button",
+    "   palette - `btn-outline-secondary` is NOT reliably an outline (it renders",
+    "   as a filled grey block with white text in flatly light mode). */",
+    "#ganttPage .gantt-zoom > .btn {",
     "  background-color: var(--gantt-surface);",
     "  color: var(--gantt-text);",
+    "  border: 1px solid var(--gantt-border);",
     "}",
-    "#ganttPage .ggroupitem,",
-    "#ganttPage .gtaskheading,",
-    "#ganttPage .gspanning,",
-    "#ganttPage .gtasklist {",
+    "#ganttPage .gantt-zoom > .btn:hover,",
+    "#ganttPage .gantt-zoom > .btn:focus {",
     "  background-color: var(--gantt-surface-alt);",
-    "}",
-    "#ganttPage .gname div,",
-    "#ganttPage .gtaskname div,",
-    "#ganttPage .gdur div,",
-    "#ganttPage .gstartdate div,",
-    "#ganttPage .genddate div,",
-    "#ganttPage .gres div,",
-    "#ganttPage .gtaskheading div,",
-    "#ganttPage .gspanning {",
     "  color: var(--gantt-text);",
-    "}",
-    "/* Child rows read as secondary so the stream group headers stand out. */",
-    "/* NOTE: the library puts `gname` AND `glineitem` on the SAME <tr>, so this",
-    "   must be `tr.glineitem` (descendant) - `.glineitem .gname` never matches. */",
-    "#ganttPage tr.glineitem td div {",
-    "  color: var(--gantt-muted);",
-    "}",
-    "#ganttPage .glineitem.gitemhighlight td {",
-    "  background-color: var(--bs-secondary-bg-subtle);",
-    "}",
-    "#ganttPage .glineitem.gitemdifferent td {",
-    "  background-color: var(--gantt-surface-alt);",
-    "}",
-    "/* Timeline grid: day/week-end headers, today marker, gridlines. */",
-    "/* `.gmajorheading` carries the week-range dates (\"21/09/2026 - 27/09/2026\")",
-    "   and the vendor pairs it with `.gminorheading` on one rule -",
-    "   `background-color: #ffffff` - so it MUST be themed too or the range",
-    "   labels stay white-on-white in a dark theme. */",
-    "#ganttPage .gmajorheading,",
-    "#ganttPage .gminorheading {",
-    "  background-color: var(--gantt-surface);",
-    "  border-color: var(--gantt-border);",
-    "  color: var(--gantt-text);",
-    "}",
-    "#ganttPage .gminorheadingwkend {",
-    "  background-color: var(--gantt-surface-alt);",
-    "}",
-    "/* Day-cell tints. `!important` is REQUIRED here, not lazy: the surface rule",
-    "   above contains `#ganttPage tr.glineitem td`, which is (1,1,2) - one",
-    "   element type higher than any `td.gtaskcellcurrent` variant - so without",
-    "   it the \"today\" column silently lost its highlight and weekends lost their",
-    "   shading. The repo already uses !important for vendor overrides.",
-    "   The today tint is a color-mix of the theme primary into the surface rather",
-    "   than --bs-primary-bg-subtle: on a saturated theme (superhero's primary is",
-    "   orange) the subtle variant renders as a muddy dark-orange smear.",
-    "   color-mix is already used elsewhere in the shared CSS. */",
-    "#ganttPage td.gtaskcellcurrent {",
-    "  background-color: color-mix(in srgb, var(--bs-primary) 12%, var(--gantt-surface)) !important;",
-    "}",
-    "#ganttPage td.gtaskcellwkend {",
-    "  background-color: var(--gantt-surface-alt) !important;",
-    "}",
-    "/* Scrollbars: the browser default is light grey, which reads as a foreign",
-    "   light panel inside a dark chart (and the corner grip showed as a light",
-    "   `///` block). `scrollbar-*` covers Firefox, the ::-webkit rules cover",
-    "   Chrome/Edge/Safari - both are needed, they are not alternatives. */",
-    "#ganttPage .gchartgrid,",
-    "#ganttPage .gmainleft,",
-    "#ganttPage .gmainright,",
-    "#ganttPage .gtasktablewrapper {",
-    "  scrollbar-width: thin;",
-    "  scrollbar-color: var(--gantt-border) var(--gantt-surface-alt);",
-    "}",
-    "#ganttPage .gchartgrid::-webkit-scrollbar {",
-    "  width: 12px;",
-    "  height: 12px;",
-    "}",
-    "#ganttPage .gchartgrid::-webkit-scrollbar-track {",
-    "  background-color: var(--gantt-surface-alt);",
-    "}",
-    "#ganttPage .gchartgrid::-webkit-scrollbar-thumb {",
-    "  background-color: var(--gantt-border);",
-    "  border-radius: 6px;",
-    "}",
-    "#ganttPage .gchartgrid::-webkit-scrollbar-corner {",
-    "  background-color: var(--gantt-surface-alt);",
-    "}",
-    "#ganttPage .gcharttable,",
-    "#ganttPage .gcharttableh {",
     "  border-color: var(--gantt-border);",
     "}",
-    "/* Format selector (Day / Week / Month). Only the SELECTED option is",
-    "   highlighted, in the theme danger colour, on a danger-tinted fill so it",
-    "   still reads as the active one. The unselected labels stay at the normal",
-    "   text colour. `span.gselected` is the vendor's own selector for the active",
-    "   format (the label is a <span>, not an <a>); the vendor's",
-    "   `span.gformlabel:hover` sets a hard-coded background and is overridden so",
-    "   the only highlighted option is the selected one. */",
-    "#ganttPage .gselector,",
-    "#ganttPage .gselector a,",
-    "#ganttPage .gselector .gformlabel {",
+    "#ganttPage .gantt-zoom > .btn.active {",
+    "  background-color: var(--gantt-surface-alt);",
     "  color: var(--gantt-text);",
-    "}",
-    "#ganttPage .gselector a.gselected,",
-    "#ganttPage .gselector span.gselected {",
-    "  color: var(--bs-danger);",
-    "  background-color: var(--bs-danger-bg-subtle);",
-    "  border-color: var(--bs-danger);",
-    "}",
-    "#ganttPage .gselector .gformlabel:hover {",
-    "  color: var(--bs-danger);",
-    "  background-color: transparent;",
-    "  border-color: var(--bs-danger);",
-    "}",
-    "#ganttPage .gfoldercollapse {",
-    "  color: var(--gantt-text);",
+    "  border-color: var(--gantt-border);",
+    "  font-weight: 600;",
     "}",
     "/* Streams filter dropdown. `.dropdown-menu` is absolutely positioned by",
     "   Bootstrap, but the smd-page header is a flex row with no positioning",
@@ -625,21 +727,6 @@ function changeShowGantt(enabled) {
     "#ganttPage .gantt-stream-filter {",
     "  position: relative;",
     "  margin-left: auto;",
-    "}",
-    "/* The button follows the page chrome rather than the theme's button palette.",
-    "   `btn-outline-secondary` is NOT reliably an outline - flatly renders it",
-    "   as a filled grey block with white text (~2.5:1), which is unreadable in",
-    "   light mode. */",
-    "#ganttPage .gantt-stream-filter > .btn {",
-    "  background-color: var(--gantt-surface);",
-    "  color: var(--gantt-text);",
-    "  border: 1px solid var(--gantt-border);",
-    "}",
-    "#ganttPage .gantt-stream-filter > .btn:hover,",
-    "#ganttPage .gantt-stream-filter > .btn:focus {",
-    "  background-color: var(--gantt-surface-alt);",
-    "  color: var(--gantt-text);",
-    "  border-color: var(--gantt-border);",
     "}",
     "#ganttPage .gantt-stream-menu {",
     "  position: absolute;",
@@ -667,27 +754,6 @@ function changeShowGantt(enabled) {
     "#ganttPage .gantt-stream-label {",
     "  min-width: 0;",
     "}",
-    "/* Bars. The vendor hard-codes a solid black stream summary bar and a blue",
-    "   gradient job bar. Re-point them at the theme palette: the STREAM summary",
-    "   bar takes the theme danger colour and the JOB bar the theme success",
-    "   colour, so both follow whatever Bootswatch theme AND light/dark mode is",
-    "   active. The summary bar's angled end-caps are drawn with borders, so they",
-    "   are re-coloured too (they would otherwise stay black and stick out). */",
-    "#ganttPage .ggroupblack {",
-    "  background: var(--bs-danger);",
-    "}",
-    "#ganttPage .ggroupblackendpointleft,",
-    "#ganttPage .ggroupblackendpointright {",
-    "  border-top-color: var(--bs-danger);",
-    "}",
-    "#ganttPage .gtaskblue {",
-    "  background: var(--bs-success);",
-    "}",
-    "/* Tooltip. */",
-    "#ganttPage .JSGanttToolTipcont,",
-    "#ganttPage .gTtTitle {",
-    "  color: var(--gantt-text);",
-    "}",
     "/* Page chrome. The shared rule paints EVERY smd-page header/footer with",
     "   `var(--bs-primary)`, and in flatly LIGHT mode that primary is the dark",
     "   navy #2c3e50 - so the Gantt rendered white-on-black in the light theme.",
@@ -701,102 +767,6 @@ function changeShowGantt(enabled) {
     "#smd-app #ganttPage .smd-page-footer {",
     "  background-color: var(--gantt-surface);",
     "  color: var(--gantt-text);",
-    "}"
-  ].join("\n");
-  (document.head || document.documentElement).appendChild(s);
-})();
-
-// LAYOUT OVERRIDE: left/right pane split + the data columns.
-//
-// The vendored stylesheet has `.gmainleft { flex: 0 0 20%; }` and then
-// overrides it on the very next line with `flex: 1 0 auto`, so the 20% basis is
-// dead code and the task list is sized purely by leftover flex space. Worse, the
-// task cells are `white-space: nowrap`, so the pane also stretches to fit the
-// LONGEST job title. Meanwhile the timeline is a fixed pixel grid
-// (`vTaskLeftPx = vNumCols * (vColWidth + 3)`), so on a window resize the data
-// columns absorb every pixel of slack while the day columns do not - they scale
-// at an arbitrary rate and end up out of proportion with the chart.
-//
-// Fix: give the pane a real proportional width (clamped so the date columns
-// always fit and the list never dominates), and let the table fill that pane so
-// the columns share it instead of the pane chasing nowrap content. Long job
-// names truncate with an ellipsis rather than widening the pane.
-(function injectGanttLayout() {
-  if (typeof document === "undefined") return;
-  if (document.getElementById("pmd-gantt-layout-style")) return;
-  var s = document.createElement("style");
-  s.id = "pmd-gantt-layout-style";
-  s.textContent = [
-    "/* IMPORTANT: express the proportional width as `width`, NOT as a",
-    "   flex-basis. The vendor ships `.gmain { resize: horizontal }` (the",
-    "   double-headed-arrow grip in the pane's bottom-right corner) and a",
-    "   native resize grip works by writing an INLINE `width` - but flex-basis",
-    "   takes precedence over `width` for a flex item, so setting",
-    "   `flex: 0 0 clamp(...)` silently killed the grip: the arrow still showed",
-    "   but the drag did nothing. `flex: 0 0 auto` leaves the basis as `auto`,",
-    "   so the clamp drives the initial width AND the grip still works. Keep",
-    "   min-width from the vendor (220px) so the pane cannot be dragged below a",
-    "   usable width. */",
-    "#ganttPage .gmainleft {",
-    "  flex: 0 0 auto;",
-    "  width: clamp(360px, 34%, 520px);",
-    "}",
-    "#ganttPage .gmainright {",
-    "  flex: 1 1 auto;",
-    "  min-width: 0;",
-    "}",
-    "#ganttPage .gtasktableouterwrapper,",
-    "#ganttPage .gtasktablewrapper,",
-    "#ganttPage .gtasktable,",
-    "#ganttPage .gtasktableh {",
-    "  width: 100%;",
-    "}",
-    "#ganttPage .gtasktable {",
-    "  table-layout: fixed;",
-    "}",
-    "/* The header table CANNOT be fixed-layout: its first row is a single",
-    "   `.gspanning` cell with colspan=11 (the \"Format:\" row), so fixed layout",
-    "   derives a 12-column grid from it and every label collapses to ~36px,",
-    "   leaving the header unaligned with the 5-column body. Auto layout honours",
-    "   the explicit widths below, which are the same values the body uses. */",
-    "#ganttPage .gtasktableh .gtaskheading { white-space: nowrap; }",
-    "/* Column widths. The vendor pins `.gtaskname` to a FIXED 220px, which",
-    "   makes the whole task table a constant ~472px: it no longer tracks the",
-    "   pane at all, and on a narrow window it overflows and the End Date",
-    "   column is clipped by `overflow:hidden` on .gmainleft. So make the NAME",
-    "   column the flexible one (it ellipsises) and keep the date columns at a",
-    "   constant width - which is what the timeline day columns do too, so the",
-    "   two halves then scale consistently. The 88px is the vendor's own width",
-    "   for the date columns and is what fits \"Start Date\" / \"28/09/2026\";",
-    "   going narrower makes adjacent columns run together. The pane floor above",
-    "   must leave room for the gutter + 3 x 88px plus a usable name column. */",
-    "/* The first cell is the GUTTER that holds the row drag handle (injected by",
-    "   js/gantt-drag.js). It stays narrow; the handle overflows it to the right",
-    "   (the vendor's `max-width` must still be overridden for its padding). A",
-    "   little left padding gives the handle rail breathing room. */",
-    "#ganttPage .gtasklist {",
-    "  width: 24px;",
-    "  min-width: 24px;",
-    "  max-width: 24px;",
-    "  padding-left: 4px;",
-    "}",
-    "#ganttPage .gdur,",
-    "#ganttPage .gstartdate,",
-    "#ganttPage .genddate { width: 88px; }",
-    "/* Shift the row's TEXT clear of the handle WITHOUT widening the Name cell:",
-    "   the child div's text is what ellipsises, so a text-indent on it moves the",
-    "   visible text and lets the ellipsis shrink accordingly. Using padding on",
-    "   the cell instead would widen the fixed-layout `auto` column by the same",
-    "   amount and squash the bar area. The title is still fully readable and the",
-    "   title textContent (which the tests and the Streams filter read) is",
-    "   unchanged. */",
-    "#ganttPage .gtaskname div { text-indent: 26px; }",
-    "#ganttPage .gtaskname,",
-    "#ganttPage .gtaskname div { width: auto; }",
-    "#ganttPage .gtaskname div {",
-    "  overflow: hidden;",
-    "  text-overflow: ellipsis;",
-    "  white-space: nowrap;",
     "}"
   ].join("\n");
   (document.head || document.documentElement).appendChild(s);
