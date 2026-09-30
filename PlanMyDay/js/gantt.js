@@ -243,6 +243,45 @@ function ganttSaveHiddenStreams() {
   }
 }
 
+// COLLAPSED STREAMS
+//
+// A stream's row can be collapsed so its job rows (and bars) are hidden. The
+// state is a set of stream TITLES persisted under smdKey("ganttCollapsedStreams")
+// (same shape as the hidden-stream filter). Collapsing only affects the rows the
+// projection emits — the summary bar keeps its full min..max span so the stream
+// stays visible on the timeline — and the toggle lives in the name-column cell
+// template (see the pmd-gantt-collapse-toggle rule in injectGanttTheme).
+var ganttCollapsedStreams = null;
+
+function ganttCollapsedStreamSet() {
+  if (ganttCollapsedStreams) return ganttCollapsedStreams;
+  ganttCollapsedStreams = new Set();
+  try {
+    const raw = localStorage.getItem(smdKey("ganttCollapsedStreams"));
+    if (raw) JSON.parse(raw).forEach((t) => ganttCollapsedStreams.add(t));
+  } catch (e) {
+    ganttCollapsedStreams = new Set();
+  }
+  return ganttCollapsedStreams;
+}
+
+function ganttSaveCollapsedStreams() {
+  try {
+    localStorage.setItem(smdKey("ganttCollapsedStreams"), JSON.stringify(Array.from(ganttCollapsedStreams)));
+  } catch (e) {
+    /* storage unavailable (private mode); collapse stays session-only */
+  }
+}
+
+// Called by the toggle button in the stream name cell.
+function ganttToggleStreamCollapsed(title) {
+  const set = ganttCollapsedStreamSet();
+  if (set.has(title)) set.delete(title);
+  else set.add(title);
+  ganttSaveCollapsedStreams();
+  renderGantt();
+}
+
 function ganttEscapeHtml(text) {
   return String(text == null ? "" : text).replace(/[&<>"']/g, (c) => (
     { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]
@@ -369,6 +408,7 @@ function ganttRefreshStreamFilter() {
 function buildGanttTasks(streams, todayStr) {
   const items = [];
   const hidden = ganttHiddenStreamSet();
+  const collapsed = ganttCollapsedStreamSet();
   // Keep each stream's index in the STORED array alongside it so the sort below
   // has something stable to move. This index is only valid for THIS render pass
   // (adding/removing a stream renumbers it); a job's durable identity is always
@@ -387,7 +427,9 @@ function buildGanttTasks(streams, todayStr) {
     // re-projection.
     const groupId = "s" + x.idx;
     const jobs = (stream.jobs || []).slice().sort((a, b) => (a.sequence || 0) - (b.sequence || 0));
-    // Derive each job's start/end once.
+    // Derive each job's start/end once. ALL jobs are measured so a collapsed
+    // stream's summary bar still spans its full min..max range; only the ROWS
+    // that are emitted below change when collapsed.
     const spans = jobs.map((job) => {
       const start = job.sleepUntil || todayStr;
       const days = Math.max(1, parseInt(job.duration, 10) || 1);
@@ -413,17 +455,21 @@ function buildGanttTasks(streams, todayStr) {
       endDate: groupEnd,
       progressPercent: 0
     });
-    spans.forEach(({ job, start, end }) => {
-      items.push({
-        id: "j" + job.id,
-        parentId: groupId,
-        name: ganttJobLabel(job),
-        type: "task",
-        startDate: start,
-        endDate: end,
-        progressPercent: 0
+    // A collapsed stream emits NO job rows (their bars disappear) but keeps the
+    // summary row + span above. An expanded stream emits every job.
+    if (!collapsed.has(streamTitle)) {
+      spans.forEach(({ job, start, end }) => {
+        items.push({
+          id: "j" + job.id,
+          parentId: groupId,
+          name: ganttJobLabel(job),
+          type: "task",
+          startDate: start,
+          endDate: end,
+          progressPercent: 0
+        });
       });
-    });
+    }
   });
   return items;
 }
@@ -515,6 +561,27 @@ function drawGantt(host, lib) {
         copy.cellTemplate = function (h, schemaModel) {
           var model = schemaModel && schemaModel.model;
           var value = model && model.name != null ? String(model.name) : "";
+          if (model && model.type === "summary") {
+            // Stream header: a collapse toggle + the (bold) stream name. The
+            // toggle calls ganttToggleStreamCollapsed() which flips the stored
+            // collapsed set and re-renders. The glyph is ▸ when collapsed
+            // (click to expand) and ▾ when expanded (click to collapse), like a
+            // file tree; aria-expanded reflects the CURRENT state.
+            var isCollapsed = ganttCollapsedStreamSet().has(value);
+            return h("span", { class: "pmd-gantt-stream-name" }, [
+              h("button", {
+                type: "button",
+                class: "pmd-gantt-collapse-toggle",
+                "aria-expanded": String(!isCollapsed),
+                "aria-label": (isCollapsed ? "Expand" : "Collapse") + " stream " + value,
+                onClick: function (e) {
+                  e.stopPropagation();
+                  ganttToggleStreamCollapsed(value);
+                }
+              }, isCollapsed ? "▸" : "▾"),
+              h("span", { class: "pmd-gantt-stream-title" }, value)
+            ]);
+          }
           var cls = model && model.type === "task" ? "pmd-gantt-job-name" : "pmd-gantt-stream-name";
           return h("span", { class: cls }, value);
         };
@@ -853,9 +920,20 @@ function changeShowGantt(enabled) {
     "}",
     "/* Stream headers are the summary row names in the Task column (the cell",
     "   template stamps .pmd-gantt-stream-name on them). Bold separates a stream",
-    "   from its nested jobs visually, on top of the indent. */",
+    "   from its nested jobs visually, on top of the indent. The collapse toggle",
+    "   sits before the name; it is a bare text button that follows the theme",
+    "   text colour. */",
     "#ganttPage revo-grid .pmd-gantt-stream-name {",
     "  font-weight: 600;",
+    "}",
+    "#ganttPage revo-grid .pmd-gantt-collapse-toggle {",
+    "  border: 0;",
+    "  background: transparent;",
+    "  padding: 0 0.4rem 0 0;",
+    "  font: inherit;",
+    "  color: inherit;",
+    "  cursor: pointer;",
+    "  line-height: 1;",
     "}",
     "/* BAR INTERACTION. The plugin draws each bar with the whole bar set to",
     "   data-gantt-interaction=\"move\" and a small end handle set to",

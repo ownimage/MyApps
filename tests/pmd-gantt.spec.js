@@ -161,6 +161,63 @@ test.describe("Gantt page", () => {
     expect(chart.labels).toContain("Legacy job");
   });
 
+  test("a stream can be collapsed so its job rows hide, and the state persists", async ({ page }) => {
+    await page.goto("/PlanMyDay/");
+    await seedStreams(page, SAMPLE);
+    await enableGantt(page);
+    await openChart(page);
+
+    const state = () => page.evaluate(() => {
+      const grid = document.querySelector("#ganttChart revo-grid");
+      return {
+        rows: Number(grid.getAttribute("aria-rowcount")),
+        bars: document.querySelectorAll(".rg-gantt-bar").length,
+        summaryBars: document.querySelectorAll(".rg-gantt-bar--summary").length,
+        taskBars: document.querySelectorAll(".rg-gantt-bar--task").length,
+        toggleGlyphs: Array.from(document.querySelectorAll(".pmd-gantt-collapse-toggle")).map((b) => b.textContent),
+        ariaExpanded: Array.from(document.querySelectorAll(".pmd-gantt-collapse-toggle")).map((b) => b.getAttribute("aria-expanded")),
+        persisted: JSON.parse(localStorage.getItem("planmydays_ganttCollapsedStreams") || "[]")
+      };
+    });
+
+    // both streams expanded by default: 2 summary + 3 job rows
+    let s = await state();
+    expect(s.rows).toBe(5);
+    expect(s.taskBars).toBe(3);
+    expect(s.summaryBars).toBe(2);
+    expect(s.toggleGlyphs).toEqual(["▾", "▾"]);
+    expect(s.persisted).toEqual([]);
+
+    // collapse the first stream (Work)
+    await page.evaluate(() => document.querySelector(".pmd-gantt-collapse-toggle").click());
+    await page.waitForTimeout(400);
+
+    s = await state();
+    // job rows gone, summary rows remain
+    expect(s.rows).toBe(2);
+    expect(s.taskBars).toBe(0);
+    expect(s.summaryBars).toBe(2);
+    expect(s.toggleGlyphs).toEqual(["▸", "▾"]);
+    expect(s.ariaExpanded).toEqual(["false", "true"]);
+    expect(s.persisted).toEqual(["Work"]);
+
+    // persists across a reload
+    await page.reload();
+    await openChart(page);
+    s = await state();
+    expect(s.rows).toBe(2);
+    expect(s.taskBars).toBe(0);
+    expect(s.toggleGlyphs).toEqual(["▸", "▾"]);
+
+    // and can be expanded again
+    await page.evaluate(() => document.querySelector(".pmd-gantt-collapse-toggle").click());
+    await page.waitForTimeout(400);
+    s = await state();
+    expect(s.rows).toBe(5);
+    expect(s.taskBars).toBe(3);
+    expect(s.persisted).toEqual([]);
+  });
+
   test("job names are indented under their stream so rows read as a hierarchy", async ({ page }) => {
     await page.goto("/PlanMyDay/");
     await seedStreams(page, SAMPLE);
@@ -169,8 +226,12 @@ test.describe("Gantt page", () => {
 
     const state = await page.evaluate(() => {
       const pad = (text) => {
-        const cell = Array.from(document.querySelectorAll("#ganttChart .pmd-gantt-job-name, #ganttChart .pmd-gantt-stream-name"))
+        // stream cells are "▾ + <title span>", so match on the title span
+        const streamCell = Array.from(document.querySelectorAll("#ganttChart .pmd-gantt-stream-title"))
           .find((s) => s.textContent.trim() === text);
+        const jobCell = Array.from(document.querySelectorAll("#ganttChart .pmd-gantt-job-name"))
+          .find((s) => s.textContent.trim() === text);
+        const cell = streamCell ? streamCell.closest(".pmd-gantt-stream-name") : jobCell;
         return cell ? parseFloat(getComputedStyle(cell).paddingLeft) : null;
       };
       return {
