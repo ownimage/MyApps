@@ -37,7 +37,7 @@ Architecture:
   - `smd-modal` = a shared custom element driven by `showSmdModal(options)`; it renders light-DOM `.smd-overlay`, `.smd-dialog`, `.smd-header`, `.smd-body`, and `.smd-footer` markup, and buttons emit `smd-modal-action`. Styles live in `shared/css/styles.css`.
   - `smd-page` = full-screen overlay pages: `settingsPage`, `streamsEditor`, `jobSearchEditor`, `imagesEditor`, `jobEditPage`, `streamEditPage`, `minioImportPage`, `imagePickerPage`. Footer buttons fire `smd-page-action` (`cancel`/`done`/`add` etc).
   - z-index stack: smd-page 1040 < smd-modal 1050. `imagePickerPage` is an smd-page and uses the page layer; no z-index hacks are needed.
-- Shared components are LIGHT DOM and are styled from `shared/css/styles.css` plus small component/app-injected style blocks. Do not reintroduce constructable stylesheets or shadow-root styling for these components. `smd-modal`, `smd-page`, `smd-tabs`, and the pmd-* cards expose stable light-DOM classes for shared selectors and tests. `smd-tabs` tab definitions may include `panelClass` (for example `no-padding`) for panel-specific layout.
+- Shared components are LIGHT DOM. `shared/css/styles.css` now holds ONLY theme colour + spatial-size declarations; every layout MECHANIC (display/flex/position/gap/margin/padding/transform/transition/border-reset/cursor/opacity) lives in the component's own `injectSmdComponentStyle()` block (or, for the app shell, `injectSettingsLayout()` in `shared/js/smd-settings.js`). Do not reintroduce constructable stylesheets or shadow-root styling for these components. `smd-modal`, `smd-page`, `smd-tabs`, and the pmd-* cards expose stable light-DOM classes for shared selectors and tests. `smd-tabs` tab definitions may include `panelClass` (for example `no-padding`) for panel-specific layout.
 - Colour/typography conventions: smd-tabs active = `--bs-primary`, inactive = `--bs-secondary`, with `#smd-app` scoping for priority; the Streams Editor header is `--bs-primary` when expanded and `--bs-info` when collapsed; modal/page headers use theme surfaces (`--bs-body-bg`, `--bs-secondary-bg`, `--bs-border-color`) rather than hardcoded colours. Bootstrap/Bootswatch remains authoritative; the runtime contrast layer is not used.
 - TYPESCALE TOKENS (2026-09-18): one shared ramp in `shared/css/styles.css` — `body { --smd-type-base: 1rem }` plus `body.font-size-xsmall/small/large/xlarge/jumbo` overrides (0.8/0.925/1/1.125/1.3/1.6rem) — drives exactly four tokens `--smd-type-badge` (base×0.75), `--smd-type-p` (base), `--smd-type-h2` (base×1.25), `--smd-type-h1` (base×2), all declared on `body` (NOT `:root`: the ramp must recompute per font-size body class, and body custom props pierce shadow DOM while `:host-context()` doesn't). Tag map: h1→h1; h2/h3/h4→h2; h5/h6→p; text/inputs/tables→p; badges→badge. BUTTONS ARE h2 (one step above text): `<button>`, `.btn`, `.smd-tab-btn` all use `var(--smd-type-h2)`; `.btn-sm` stays at `var(--smd-type-p)`. Light-DOM home is `shared/css/styles.css` (`button, .btn` / `.btn-sm`); the shared `btnBadgeSheet` covers shadow buttons. Scaffold the h2/p rules inline wherever a shadow root does NOT adopt btnBadgeSheet: the 4 apps' `editor-styles.js`, `smd-settings.js`, `smd-minio.js`, `smd-modal.js`, `smd-image-picker.js`, `smd-image-dropdown.js`. Don't re-add per-component `.btn` font-size rules. Every component + app style now uses `var(--smd-type-*, original-value)` (original as fallback so behaviour is unchanged wherever the token is missing). Media-fit sizes are token CALCs (e.g. CM/QR title `calc(var(--smd-type-h1,1.5rem)*0.7667)`, CM count `*0.8333`, CM container h1 `*0.625`, Solar 480px block). Compact density = `--…-title-size: var(--smd-type-p)` overrides. Deliberate non-token exceptions: the 22px hamburger icon in `smd-app.js`, `smd-checkbox` 1em/1.4em + `smd-draghandle` 1.2rem/1.6rem touch sizes, vendor CSS, storybook chrome. Tests assert heading ELEMENT tags (now `h1` for main-view date/"Today!"/"From …" headings) and pmd-touch.spec.js:119 asserts the NEW pixel values (xlarge 41.6, jumbo 51.2, compact-jumbo 25.6) — update those literals together with any ramp change.
 - THEME TEXT COLOURS (2026-09-12): shadow-DOM buttons/tabs cannot use Bootswatch's `.btn-*` rules (document CSS doesn't cross the boundary, and `--bs-btn-*` is set on the `.btn-*` element, not `:root`). `applySmdVars()` reads a hidden light-DOM `<button class="btn btn-<variant>">` probe (`smdBootstrapColor()`) and publishes `--smd-primary/secondary/success/danger/info/warning-text` + `--smd-tab-text` on `<html>`; every shadow `.btn-*`/variant uses those vars. `applyTheme()` re-runs `applySmdVars` on the theme `<link>`'s `load`. Never hardcode white text for a theme-coloured surface; if Bootswatch's own `.btn-*` rule disagrees with its `--bs-btn-color` var (e.g. cerulean's later `.btn-secondary { color: ... }`), the probe wins — always match the probe.
@@ -437,8 +437,114 @@ Techniques / gotchas:
   `Stop-Process` it so Playwright starts a fresh server. Do not debug the app
   code first.
 - CROSS-ORIGIN SAVE 302 GOTCHA (2026-09-17): SolarControlar's Flask POST endpoints (`POST /solar/`, `POST /solar/api/config`) are PRG — they answer `302 Location: /solar/`. A PWA `fetch()` that lets the browser follow that cross-origin redirect can lose its `Authorization` header on the follow-up GET (browser-dependent), so Traefik returns a 401 WITHOUT `Access-Control-Allow-Origin` → the fetch blocks as a CORS error / "Failed to fetch". Fix in the APP: `redirect: "manual"` on the POST and treat `resp.type === "opaqueredirect"` as success (server saved; the caller then re-fetches the GET page which carries auth again). `redirect: "manual"` returns an opaque-redirect response (status 0) for a 302 — you cannot read it, only detect it by `type`. Rule for SolarControlar saves: never follow the Flask redirect; `_post` returns the response TEXT (or `""`), so consumers must not chain `.text()`.
+- SHARED CSS IS COLOUR + SIZE ONLY (2026-09-30): `shared/css/styles.css` no longer holds any
+  layout MECHANIC. When you move a rule out, copy the SELECTOR TEXT VERBATIM — including
+  multi-selector lists and the `#smd-app` / `#streamsEditor` prefixes. Specificity is the whole
+  game: a rule's effective specificity is that of its HIGHEST-matching selector, so adding a
+  plausible middle selector to a list (e.g. `#smd-app smd-tabs .nav-tabs .nav-link` at
+  1,2,2) silently outranks `#smd-app smd-tabs .smd-tab-btn.active` at 1,2,1 and flipped the
+  active tab's `margin-bottom` from 0 to 2px, which grew every `ul.smd-tab-list` by 2px. The
+  injected sheet is appended to `<head>` so it beats the theme links in document order, but it
+  does NOT beat a higher-specificity theme rule — keeping the original selector is the only
+  way to move a rule without changing the cascade. `border-radius`/`box-shadow` stay with
+  colour; `border: 0`/`border: none` are mechanics and move. Ownerless `.editor-btn`/
+  `.btn-wide { touch-action }` and `[hidden] { display: none !important }` stay shared.
+  Flatpickr popup colours stay shared (that node is appended to `<body>`). To verify a move
+  like this, diff computed styles + `getBoundingClientRect` of the affected elements between a
+  stashed baseline run and a patched run — PNG hashes are useless here: two untouched
+  `pmd-screenshots` runs differ in 654 of 1,944 images.
 
 ## Session log
+
+### 2026-09-30 (b) - mode-based light.css / dark.css re-added (empty, for now)
+- WHAT (user request): put the shared MODE-based colour sheets back so the file
+  loaded follows the settings "Theme Mode" (Light/Dark), not the theme select.
+  `shared/css/themes/light.css` + `shared/css/themes/dark.css` exist again, both
+  EMPTY apart from a header comment - they are placeholders for mode-wide colour
+  work, not for layout mechanics. This reverses the 2026-09-26 removal; the
+  per-theme `themes/<theme>/<theme>.<mode>.css` sheets are untouched.
+- CASCADE now has FIVE layers, and both override sheets are re-pointed by
+  `applyThemeOverrides()`: vendor -> `<theme>/bootstrap.min.css` ->
+  `shared/css/styles.css` -> `themes/<mode>.css` (`#theme-override-mode`) ->
+  `themes/<t>/<t>.<mode>.css` (`#theme-override-specific`). A THEME swap re-points
+  only the specific link; a MODE swap re-points both. `orderThemeOverrideLinks()`
+  was rewritten to place a LIST (`theme-override-mode`, then
+  `theme-override-specific`) immediately after the `#smd-shared-css` anchor
+  instead of moving a single link, so the mode sheet can never land after the
+  per-theme sheet.
+- The mode files need no `[data-bs-theme="dark"]` qualifier - the link only loads
+  the sheet for the mode it names, which is why they are separate files.
+- ALSO TOUCHED (all mechanical, all needed for the above): static
+  `<link id="theme-override-mode" href=".../light.css">` in all 7 shells
+  (root, CountMyDays, FreeFormOX, PlanMyDay, QRLinks, SolarControlar, storybook) +
+  `storybook/cardViewer.html` and its `frameDocument()` iframe generator (which
+  now emits the mode link per `data-mode`); both files added to `sw.js`
+  SHARED_ASSETS; `tests/screenshot-helpers.js` `STYLESHEET_IDS` now waits for
+  `theme-override-mode` so screenshots never race the swap.
+- TESTS THAT ENCODED THE REMOVAL (updated, not run - the user is testing):
+  `tests/pmd-regression.spec.js` "theme and mode selectors share one global mode"
+  expected the head order `["bootstrap-theme-css", "theme-override-specific"]` and
+  now expects the `theme-override-mode` link between them; and
+  `tests/launch-regression.spec.js` `cascadeRank()` FAILED any stylesheet it did
+  not recognise (rank 5), so `themes/<mode>.css` would have failed the shell
+  cascade test - it now ranks 3 and the per-theme sheet 4.
+- GOTCHA (2026-09-30, the cascade-rank check is DUPLICATED): the same ranking
+  logic exists as a second, independent copy INLINE in
+  `tests/storybook-regression.spec.js` (the "card viewer renders one card across
+  every theme and both modes" test, inside its `frameRanks` evaluate). Both
+  copies return rank 5 for any href they do not recognise, and BOTH needed a
+  `themes/(light|dark).css` branch - fixing only `launch-regression.spec.js` made
+  the card-viewer test fail. When the cascade changes, grep for `rank < 5` and
+  update every copy, not just the obvious one.
+- GOTCHA worth keeping: when adding a `<link>` to an `index.html` here, match the
+  file's existing line endings. The shells are LF; a PowerShell `-replace` +
+  `Set-Content` round-trip inserted a lone CRLF line into an otherwise-LF file.
+- NOT VERIFIED: per the user's instruction no Playwright run was made for this
+  change (`node --check` on `smd-settings.js` only). `BUILD_NUMBER` was already
+  bumped to `202609300620` earlier in the session, and `sw.js` keeps the same
+  number, so the new precache entries ship under it.
+
+### 2026-09-30 (a) - shared/css/styles.css reduced to colour + size; mechanics moved to components
+- WHAT: finished the 2026-09-26 (i) split. `shared/css/styles.css` now carries only theme
+  colour and spatial-size declarations; every layout mechanic moved into the owning
+  component's `injectSmdComponentStyle()` block. 10 files: `shared/css/styles.css`,
+  `shared/js/smd-settings.js`, `smd-h1.js`, `smd-h2.js`, `smd-tabs.js`, `smd-modal.js`,
+  `smd-date-picker.js`, `smd-image-select.js`, `smd-image-picker.js`,
+  `PlanMyDay/js/components/pmd-stream-header.js`. User decisions: split mixed rules
+  declaration-by-declaration; keep the ownerless `.editor-btn`/`.btn-wide` `touch-action` and
+  `[hidden] { display: none !important }` shared; move the `#mainNav` / `body.auto-hide-menu`
+  rules into `injectSettingsLayout()` in `smd-settings.js`. `border-radius`/`box-shadow` stay
+  with colour; `border: 0`/`border: none` are mechanics and moved. The date-picker's own layout
+  moved (only the flatpickr POPUP palette stays shared — flatpickr appends that node to
+  `<body>`). The stream-header chevron `::after` moved WHOLE (its `currentColor` border cannot
+  be split from the rotate/transition). Dead `button#smd-tabs-4-tab-1 {}` deleted.
+- WHAT WORKED: a computed-style + `getBoundingClientRect` probe diffed between a stashed
+  baseline run and a patched run. It caught a real 2px regression that every suite missed
+  (settings-alignment 13, pmd-regression 439, pmd-screenshots 33 all passed with it).
+- WHAT DID NOT WORK: PNG-hash screenshot comparison. Two UNTOUCHED `pmd-screenshots` runs
+  differ in 654 of 1,944 images, and a later control-vs-control run still differed, so any
+  single differing PNG proves nothing. Do not use screenshot hashes to validate a CSS move.
+- LEARNED (the bug, worth remembering): I "tidied" the tab rule into
+  `#smd-app smd-tabs .nav-tabs .nav-item.show .nav-link, #smd-app smd-tabs .nav-tabs
+  .nav-link, .nav-tabs .nav-link`, adding a middle selector. `.nav-item.show` never matches,
+  so in the ORIGINAL rule the only matching selector was `.nav-tabs .nav-link` (0,2,0) and
+  `#smd-app smd-tabs .smd-tab-btn.active { margin-bottom: 0 }` (1,2,1) won. My added selector
+  matches at 1,2,2 and outranks it, so the active tab got `margin-bottom: 2px` and every
+  `ul.smd-tab-list` grew 2px, shifting the image picker +2px. A rule's specificity is that of
+  its HIGHEST-MATCHING selector, not the one you were thinking about. Fix: verbatim selector
+  text. Same for `pmd-stream-header .chevron::after` — I first widened it to component scope,
+  which styled headers outside `#streamsEditor`; reverted to the verbatim
+  `#smd-app #streamsEditor pmd-stream-header ...` to keep scope AND specificity identical.
+  (Diagnosing it needed CDP `CSS.getMatchedStylesForNode` plus a CSSOM A/B: setting
+  `cssRules[2].style.marginBottom` had no effect while `cssRules[3]` did, proving which rule
+  won despite the apparent specificity inversion.)
+- VERIFIED: `node --check` on all touched JS; probe diff vs baseline is now identical except
+  two `#mainNav` transform values 6e-9 px apart (sampling the 0.3s transition) and the 5 new
+  style ids. Suites: settings-alignment + pmd-regression 452 passed; pmd-screenshots 33
+  passed; cmd/ffox/launch/qrlinks screenshots 20 passed; the other 11 regression specs 122
+  passed. `pmd-gantt.spec.js:823` still fails ("switching Day -> Week re-binds the drag
+  layer...") — confirmed pre-existing by running it on the stashed baseline, unrelated to
+  this change. `BUILD_NUMBER` bumped `202609282142` -> `202609300620` via `npm run bump:build`.
 
 ### 2026-09-28 (g) - Gantt layout, stream-drag job ownership, and theme colours
 - ROW LAYOUT: the row drag handle moved into the vendor's narrow FIRST cell (`td.gtasklist`), which is widened to a 6px gutter; the title is shifted clear of the handle with `text-indent` on `.gtaskname div` - NOT padding on the cell. `padding` would widen the fixed-layout `auto` Name column and squash the bar area, and the title text is the ellipsis target so a text-indent lets it shrink correctly. The row's textContent is unchanged (the Gantt tests and the Streams filter read it). The stream row's `-`/`+` collapse toggle then has room to show again - it was never missing, just squeezed by the handle.
@@ -779,6 +885,9 @@ Techniques / gotchas:
 - User requested a cleanup rule: non-colour/non-size layout mechanics (display,
   flex alignment, positioning, gaps, padding and touch/layout behavior) belong
   to the component that creates the DOM; leave the date-picker styles shared.
+  (SUPERSEDED 2026-09-30: the date-picker's own layout moved to the component
+  too; only the flatpickr POPUP palette stays shared, because flatpickr appends
+  that node to `<body>`, where no component owns it.)
   `shared/css/styles.css` is now sectioned with component comments and keeps
   palettes, typography/size, colours, shell behavior and the date-picker.
 - Added `injectSmdComponentStyle(id, css)` to `shared/js/smd-app.js` for
@@ -2599,7 +2708,7 @@ Techniques / gotchas:
 
 - `shared/js/smd-settings.js` is the single theme engine. `themeConfig[theme]` carries ONLY `css`; there is NO `defaultMode`/`bsTheme`. `smdKey("themeMode")` stores ONE GLOBAL mode per app: `light` or `dark` (the old `default` value and any invalid value normalize to `light` — there is no per-theme fallback). The six keys are `planmydays_themeMode`, `countmydays_themeMode`, `qrlinks_themeMode`, `ffox_themeMode`, `launch_themeMode`, and `solarcontrolar_themeMode`.
 - `data-theme` is the normalized Bootswatch slug; `data-bs-theme` is the explicit `light|dark` mode and remains authoritative for Bootstrap variables, native controls, Flatpickr, and `<smd-image theme="auto">`. Invalid stored themes normalize to `superhero`.
-- Override stylesheet order is guaranteed: Bootswatch base -> shared/app CSS -> per-theme+mode `<theme>.<mode>.css` (the `#theme-override-specific` link). Mode-only switches do not reload the base theme or call `renderMain()`/network refresh for the APP assets; they update `data-bs-theme` and mode-dependent images in place, and they DO re-point the per-mode override link (2026-09-27: the mode is in the file name). (`shared/css/themes/light.css`/`dark.css` and the `#theme-override-mode` link are still GONE.)
+- Override stylesheet order is guaranteed: Bootswatch base -> shared/app CSS -> shared MODE layer `shared/css/themes/<mode>.css` (the `#theme-override-mode` link) -> per-theme+mode `<theme>.<mode>.css` (the `#theme-override-specific` link). Both are re-pointed by `applyThemeOverrides()`; a theme swap re-points only the specific one, a mode swap re-points both. Mode-only switches do not reload the base theme or call `renderMain()`/network refresh for the APP assets; they update `data-bs-theme` and mode-dependent images in place. (The `light.css`/`dark.css` mode files were REMOVED on 2026-09-26 and RE-ADDED, empty, on 2026-09-30 — see that session's log entry.)
 - `<smd-theme>` renders TWO labelled fields with stable hooks: `.smd-theme-select` (label "Theme") and `.smd-theme-mode-select` (label "Theme Mode", options Light/Dark). Theme options show the bare title (e.g. "Superhero"), never "Superhero (dark)". It dispatches `smd-theme-change` with `{ theme, mode, source }`, where source is `theme` or `mode`. Tests must target the stable classes.
 - Storybook uses its own `storybook_theme` / `storybook_themeMode`, preserves the app's PlanMyDay keys around every apply, and exposes the same `<smd-theme>` control in its header. Seeded image stores must exist before elements carrying `image=` are upgraded.
 - Mode-only changes must not trigger `renderMain()`, especially in SolarControlar where that performs a server fetch. Theme changes may rerender as before.
@@ -2693,9 +2802,9 @@ Techniques / gotchas:
 
 ### Authoritative CSS cascade and page-stack contract (2026-09-25)
 
-- Required stylesheet order for every app shell: vendor product styles first, then `shared/css/themes/<theme>/bootstrap.min.css`, then `shared/css/styles.css`, and finally the per-theme+mode override `shared/css/themes/<theme>/<theme>.<mode>.css`. This note is the authoritative cascade order and supersedes older notes that described the mode/specific sheets before shared CSS.
-- The per-theme override is the final override layer. Keep the three theme link ids (`bootstrap-theme-css`, `smd-shared-css`, `theme-override-specific`) and preserve this order when changing index pages or dynamic theme loading. The `theme-override-mode` link was removed 2026-09-26 with `light.css`/`dark.css`.
-- GOTCHA (fixed 2026-09-25, do not reintroduce): `applyTheme()` re-points the override sheet at runtime, and the old `orderThemeOverrideLinks()` anchored it on `#bootstrap-theme-css`. Because the shared sheet sits AFTER the base link in the correct order, that anchored it BEFORE it and pushed `shared/css/styles.css` to the end of `<head>` — so the theme was no longer the last cascade layer. The override is now anchored on the shared sheet: `themeOverrideAnchor()` returns `#smd-shared-css` (falling back to an href match for `shared/css/styles.css`, then the base link), and `setOverrideLink()`/`orderThemeOverrideLinks()` insert `theme-override-specific` immediately after it. Every shell carries `id="smd-shared-css"` on its shared stylesheet link.
+- Required stylesheet order for every app shell: vendor product styles first, then `shared/css/themes/<theme>/bootstrap.min.css`, then `shared/css/styles.css`, then the shared mode layer `shared/css/themes/<mode>.css`, and finally the per-theme+mode override `shared/css/themes/<theme>/<theme>.<mode>.css`. This note is the authoritative cascade order and supersedes older notes that described the mode/specific sheets before shared CSS.
+- The two overrides are the final layers. Keep the four theme link ids (`bootstrap-theme-css`, `smd-shared-css`, `theme-override-mode`, `theme-override-specific`) and preserve this order when changing index pages or dynamic theme loading. The `theme-override-mode` link and `light.css`/`dark.css` were removed 2026-09-26 and re-added 2026-09-30.
+- GOTCHA (fixed 2026-09-25, do not reintroduce): `applyTheme()` re-points the override sheet at runtime, and the old `orderThemeOverrideLinks()` anchored it on `#bootstrap-theme-css`. Because the shared sheet sits AFTER the base link in the correct order, that anchored it BEFORE it and pushed `shared/css/styles.css` to the end of `<head>` — so the theme was no longer the last cascade layer. The overrides are now anchored on the shared sheet: `themeOverrideAnchor()` returns `#smd-shared-css` (falling back to an href match for `shared/css/styles.css`, then the base link), and `setOverrideLink()`/`orderThemeOverrideLinks()` insert `theme-override-mode` then `theme-override-specific` immediately after it, in that order. Every shell carries `id="smd-shared-css"` on its shared stylesheet link.
 - This order is ENFORCED in every static shell (`index.html`, `PlanMyDay/index.html`, `CountMyDays/index.html`, `QRLinks/index.html`, `SolarControlar/index.html`, `FreeFormOX/index.html`, `storybook/index.html`, `storybook/cardViewer.html` including its iframe `frameDocument()`), and locked in by the "app shells load stylesheets in the documented cascade order" test in `tests/launch-regression.spec.js`, the frame check in `tests/storybook-regression.spec.js`, and the runtime order assertions in the Storybook theme-swap test. Keep new shells and the card viewer generator in the same order.
 - WHY the override file wins without qualification: `shared/css/styles.css` declares its defaults in a bare `:root` (specificity 0,1,0), and so may the per-theme file. Being the LAST stylesheet, the per-theme `:root` beats it by document order. Since the 2026-09-27 split the mode lives in the FILE NAME, so mode variants are separate `<theme>.light.css` / `<theme>.dark.css` sheets rather than `[data-bs-theme="light|dark"]` rules inside one file. This was the 2026-09-26 fix for `superhero.css` overrides not applying (verified live: header = `--bs-black` light / `--bs-dark` dark, tabs = `--bs-secondary`; the old failure came from the override links loading BEFORE `styles.css`).
 - `smd-page` shows a single active overlay without destroying background state. `show()` adds `smd-page-suspended` to every other open `smd-page` (they keep `open`, so app state is preserved) and cancels stale `requestAnimationFrame` opens; `hide()` invalidates pending opens and unsuspends the pages it was covering. `smd-page-suspended` is `display: none !important` in `shared/css/styles.css`, so a suspended page is invisible but alive. `SmdApp.openPage()` must NOT call `closePages()`; opening B over A must leave A with `open` plus `smd-page-suspended`, and closing B must reveal A again. App code that hides pages itself (`PlanMyDay/js/job-editor.js`, `PlanMyDay/js/image-picker.js`, QRLinks picker) still works because it owns its own `d-none`/background restore timing.

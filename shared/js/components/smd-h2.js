@@ -12,8 +12,8 @@
 // Usage: `<smd-h2 class="job-title">Report</smd-h2>` — static light text is
 // captured on first connect; if the HOST's textContent is replaced wholesale
 // later (as components that re-render do), a childList MutationObserver
-// re-mounts the inner <h2> with the new label. Styles live in
-// shared/css/styles.css (element-scoped).
+// re-mounts the inner <h2> with the new label. The em type token is shared
+// (shared/css/styles.css); the host display + inner margin are injected here.
 (function (global) {
   "use strict";
 
@@ -23,6 +23,12 @@
   class SmdH2 extends HTMLElement {
     connectedCallback() {
       if (this._mo) return;
+      if (typeof injectSmdComponentStyle === "function") {
+        injectSmdComponentStyle("smd-h2-layout", `
+          smd-h2 { display: block; }
+          smd-h2 h2 { margin: 0; }
+        `);
+      }
       this._mount();
       this._mo = new MutationObserver(() => this._mount());
       this._mo.observe(this, { childList: true });

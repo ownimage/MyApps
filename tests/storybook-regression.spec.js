@@ -223,7 +223,8 @@ test.describe("Storybook - Regression", () => {
     await expect(darkCard).toBeVisible();
 
     // Preview frames must use the same cascade as the app shells: vendor, theme
-    // bootstrap, shared styles, then theme-specific override.
+    // bootstrap, shared styles, the shared mode layer, then the theme-specific
+    // override. Keep the ranks in step with cascadeRank() in launch-regression.spec.js.
     const frameRanks = await page.locator("iframe.preview-frame").first().evaluate((frame) => {
       const links = Array.from(frame.contentDocument.querySelectorAll('link[rel="stylesheet"]'));
       return links.map((link) => {
@@ -231,7 +232,10 @@ test.describe("Storybook - Regression", () => {
         if (/shared\/vendor\//.test(href)) return 0;
         if (/shared\/css\/themes\/[^/]+\/bootstrap\.min\.css$/.test(href)) return 1;
         if (/shared\/css\/styles\.css$/.test(href)) return 2;
-        if (/shared\/css\/themes\/[^/]+\/[^/]+\.css$/.test(href)) return 3;
+        // Shared MODE layer: shared/css/themes/<mode>.css (one file per mode).
+        if (/shared\/css\/themes\/(light|dark)\.css$/.test(href)) return 3;
+        // Per-theme + per-mode layer: shared/css/themes/<theme>/<theme>.<mode>.css.
+        if (/shared\/css\/themes\/[^/]+\/[^/]+\.css$/.test(href)) return 4;
         return 5;
       });
     });

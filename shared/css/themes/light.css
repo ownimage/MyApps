@@ -1,0 +1,13 @@
+/* shared/css/themes/light.css - MODE-BASED (Light) shared colour overrides.
+ *
+ * One file for EVERY light theme, swapped by the Theme Mode setting (not by the
+ * theme select). It is the shared mode layer: it sits AFTER
+ * shared/css/styles.css and BEFORE the per-theme
+ * shared/css/themes/<theme>/<theme>.<mode>.css, so a theme still wins.
+ *
+ * Loaded by applyThemeOverrides() in shared/js/smd-settings.js through the
+ * #theme-override-mode <link>; that link is re-pointed to dark.css by a Theme
+ * Mode switch. Colour (and size) only - no layout mechanics; those belong to
+ * the component that creates the DOM.
+ *
+ * Intentionally empty for now. */

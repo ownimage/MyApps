@@ -7,6 +7,7 @@
   <link rel="stylesheet" href="../shared/vendor/bootstrap-icons.css">
   <link rel="stylesheet" href="../shared/css/themes/flatly/bootstrap.min.css">
   <link id="smd-shared-css" rel="stylesheet" href="../shared/css/styles.css">
+  <link id="theme-override-mode" rel="stylesheet" href="../shared/css/themes/light.css">
   <link rel="stylesheet" href="../shared/css/themes/flatly/flatly.light.css">
   <style>
     html { scroll-padding-top: 7rem; }
@@ -178,6 +179,7 @@
 
       function frameDocument(theme, mode, recipe) {
         const specificCss = assetUrl(`shared/css/themes/${theme}/${theme}.${mode}.css`);
+        const modeCss = assetUrl(`shared/css/themes/${mode}.css`);
         const baseCss = assetUrl(`shared/${themeConfig[theme].css}`);
         const sharedCss = assetUrl("shared/css/styles.css");
         const iconsCss = assetUrl("shared/vendor/bootstrap-icons.css");
@@ -195,6 +197,7 @@
 <link rel="stylesheet" href="${assetUrl(fontAwesomeRoot + "brands.min.css")}">
 <link id="bootstrap-theme-css" rel="stylesheet" href="${baseCss}">
 <link id="smd-shared-css" rel="stylesheet" href="${sharedCss}">
+<link id="theme-override-mode" rel="stylesheet" href="${modeCss}">
 <link rel="stylesheet" href="${specificCss}">
 </head>
 <body id="smd-app" class="font-size-xlarge icon-size-medium">

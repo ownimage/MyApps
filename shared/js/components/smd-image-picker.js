@@ -1,5 +1,5 @@
 // <smd-image-picker> — a self-contained image + icon picker component
-// (light DOM). Layout is applied by the component; the visual skin lives in
+// (light DOM). Layout is applied by the component; the size/colour skin lives in
 // shared/css/styles.css.
 //
 // Displays the app's localStorage images (list key = key-prefix + "images")
@@ -119,9 +119,11 @@
           smd-image-picker .picker { display: flex; flex-direction: column; gap: 0.5rem; }
           smd-image-picker .search { display: block; }
           smd-image-picker .grid { display: flex; flex-wrap: wrap; gap: 8px; padding-top: 0.75rem; }
-          smd-image-picker .item { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 6px; }
+          smd-image-picker .item { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 6px; cursor: pointer; text-align: center; transition: border-color 0.15s; }
           smd-image-picker .item .thumb { display: flex; align-items: center; justify-content: center; }
-          smd-image-picker .empty { padding: 1.5rem 0; }
+          smd-image-picker .item .glyph { line-height: 1; }
+          smd-image-picker .item .label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+          smd-image-picker .empty { padding: 1.5rem 0; text-align: center; }
         `);
       }
       // Light DOM: constructors may not use innerHTML; the shell is built here.

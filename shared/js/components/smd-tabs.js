@@ -98,6 +98,19 @@ class SmdTabs extends HTMLElement {
               smd-tabs .smd-tab-panel[active] { display: block; }
               smd-tabs[hide-panels] .smd-tab-panel { display: none !important; }
             `);
+            // Layout that used to live in shared/css/styles.css. The selector text
+            // is kept verbatim (including the #smd-app prefix and the unscoped
+            // .nav-tabs alternatives) so the cascade is unchanged; injected styles
+            // are appended to <head>, so these win over the theme links that
+            // applyTheme re-points. Colours/sizes stay in the shared sheet.
+            injectSmdComponentStyle("smd-tabs-nav", `
+              #smd-app smd-tabs .smd-tab-list { border-bottom: 0; margin-bottom: 0; }
+              #smd-app smd-tabs .smd-tab-btn { margin: 0 4px 0 0; }
+              #smd-app smd-tabs .smd-tab-btn.active,
+              #smd-app smd-tabs .smd-tab-btn[active] { margin-bottom: 0; }
+              #smd-app smd-tabs .nav-tabs .nav-item.show .nav-link, .nav-tabs .nav-link { border: none; margin-bottom: 2px; }
+              #smd-app smd-tabs .nav-tabs .nav-item.show .nav-link, .nav-tabs .nav-link.active { border: none; }
+            `);
         }
         const instanceId = `smd-tabs-${this._instanceId}`;
         const headersHtml = this._tabs.map((tab, i) => {

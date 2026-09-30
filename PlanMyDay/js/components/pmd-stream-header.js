@@ -36,6 +36,19 @@ class PmdStreamHeader extends HTMLElement {
   connectedCallback() {
     if (!this._bound) {
       this._bound = true;
+      if (typeof injectSmdComponentStyle === 'function') {
+        // Chevron mechanics that used to live in shared/css/styles.css. The ::after
+        // glyph moves whole (its border uses currentColor, so it cannot be split
+        // from the rotate/transition without leaving the arrow unrotatable); the
+        // button's own width/min-height and transparent background stay in the
+        // shared sheet as size/colour. Selectors are kept verbatim so both the
+        // scope and the specificity the theme sheets compete with are unchanged.
+        injectSmdComponentStyle('pmd-stream-header-layout', `
+          #smd-app #streamsEditor pmd-stream-header .chevron { position: relative; flex: 0 0 auto; margin-right: 0.5rem; border: 0; cursor: pointer; opacity: 1; visibility: visible; }
+          #smd-app #streamsEditor pmd-stream-header .chevron::after { content: ""; position: absolute; top: 50%; left: 50%; width: 0.7rem; height: 0.7rem; margin-top: -0.45rem; margin-left: -0.35rem; border-right: 2.5px solid currentColor; border-bottom: 2.5px solid currentColor; transform: rotate(45deg); transition: transform 0.2s ease; }
+          #smd-app #streamsEditor pmd-stream-header[expanded] .chevron::after { transform: rotate(225deg); }
+        `);
+      }
       this.classList.add("d-block");
       this.appendChild(pmdStreamHeaderTemplate.content.cloneNode(true));
       this._adoptSlottedHandle();

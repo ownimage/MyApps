@@ -2774,7 +2774,7 @@ test.describe("PlanMyDay - Regression", () => {
         order: Array.from(document.head.children).map(el => el.id).filter(id => ["bootstrap-theme-css", "theme-override-mode", "theme-override-specific"].includes(id))
       }))).toEqual({
         hasDefaultMode: false,
-        order: ["bootstrap-theme-css", "theme-override-specific"]
+        order: ["bootstrap-theme-css", "theme-override-mode", "theme-override-specific"]
       });
 
       await page.evaluate(() => {
