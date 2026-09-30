@@ -357,9 +357,9 @@ function renderJobsInAccordion(stream, jobs, streamIdx) {
     if (suffix) attrs.push('suffix="' + escAttr(suffix) + '"');
     if (extra) attrs.push('extra="' + escAttr(extra) + '"');
     return '<div class="job-drag-card mb-0 user-select-none" data-job-idx="' + realIdx + '">' +
-      '<pmd-job-stream-card class="d-block" ' + attrs.join(" ") + '>' +
+      '<pmd-job-summary-card class="d-block" variant="stream" ' + attrs.join(" ") + '>' +
         '<smd-draghandle class="drag-handle" title="drag" slot="drag-handle"></smd-draghandle>' +
-      '</pmd-job-stream-card>' +
+      '</pmd-job-summary-card>' +
     '</div>';
   }).join("");
 }
@@ -372,11 +372,6 @@ function editJobInAccordion(streamIdx, jobIdx) {
   jobsStreamIndex = streamIdx;
   editJob(jobIdx);
 }
-function confirmDeleteJobInAccordion(streamIdx, jobIdx) {
-  jobsStreamIndex = streamIdx;
-  confirmDeleteJob(jobIdx);
-}
-
 function editField(field, value) {
   if (!editBuffer) return;
   editBuffer[field] = value;

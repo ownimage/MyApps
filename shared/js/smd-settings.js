@@ -1,6 +1,6 @@
-// Theme engine + generic appearance/shell settings for SmdApp.
-// Every function is registered onto SmdApp.prototype at the bottom AND exposed
-// as a thin global facade so inline onchange handlers keep working.
+// Theme engine + generic appearance/shell settings shared by every app.
+// The globals below are used directly by the apps (inline onchange handlers and
+// the storybook); they were previously also mirrored onto SmdApp.prototype.
 
 const themeConfig = (() => {
   // Theme CSS paths are relative to the shared root; applyTheme() derives the
@@ -118,13 +118,21 @@ function applyThemeMode(theme, mode) {
   applyThemeOverrides(valid, normalized);
 }
 
-// Per-theme AND per-mode override sheet. The mode is part of the filename
-// because the Light/Dark palette lives in the theme's own file now; that also
-// means a mode switch swaps this link (see applyThemeMode) instead of relying on
-// a `[data-bs-theme="..."]` qualifier inside one shared file.
+// The override layer is TWO sheets, both re-pointed here:
+//   #theme-override-mode      shared/css/themes/<mode>.css          (mode layer)
+//   #theme-override-specific  shared/css/themes/<t>/<t>.<mode>.css  (per theme)
+// The mode layer is shared by every light/dark theme, so it is chosen by the
+// Theme Mode setting alone - a theme swap leaves it alone and a mode swap
+// re-points it. The per-theme sheet is per-theme AND per-mode because the
+// Light/Dark palette lives in the theme's own file; that also means a mode
+// switch swaps that link too (see applyThemeMode) instead of relying on a
+// `[data-bs-theme="..."]` qualifier inside one shared file.
 function applyThemeOverrides(theme, mode) {
-  const file = theme + "." + normalizeThemeMode(mode) + ".css";
-  setOverrideLink("theme-override-specific", smdThemeCssPrefix() + theme + "/" + file + "?v=" + smdBuildStamp());
+  const normalized = normalizeThemeMode(mode);
+  const prefix = smdThemeCssPrefix();
+  const stamp = smdBuildStamp();
+  setOverrideLink("theme-override-mode", prefix + normalized + ".css?v=" + stamp);
+  setOverrideLink("theme-override-specific", prefix + theme + "/" + theme + "." + normalized + ".css?v=" + stamp);
   orderThemeOverrideLinks();
 }
 
@@ -142,11 +150,11 @@ function setOverrideLink(id, href) {
   return el;
 }
 
-// The shared functional sheet is the anchor for the per-theme override sheet:
-// cascade order is vendor -> theme bootstrap -> shared styles -> theme override
-// (the per-mode `<theme>.<mode>.css` override).
+// The shared functional sheet is the anchor for BOTH override sheets: cascade
+// order is vendor -> theme bootstrap -> shared styles -> shared mode override
+// (`themes/<mode>.css`) -> per-theme override (`themes/<t>/<t>.<mode>.css`).
 // Anchoring on #bootstrap-theme-css instead would push shared styles last, so the
-// theme override would no longer be the final layer.
+// overrides would no longer be the final layers.
 function smdSharedStylesLink() {
   const byId = document.getElementById("smd-shared-css");
   if (byId) return byId;
@@ -161,18 +169,28 @@ function themeOverrideAnchor() {
   return smdSharedStylesLink() || document.getElementById("bootstrap-theme-css");
 }
 
+// Cascade order: vendor -> theme bootstrap -> shared styles -> shared MODE
+// override -> per-theme override. Both sheets are anchored on the shared sheet,
+// because anchoring on #bootstrap-theme-css would push shared styles last and the
+// overrides would no longer be the final layers.
 function orderThemeOverrideLinks() {
-  const specific = document.getElementById("theme-override-specific");
-  if (!specific) return;
-  const anchor = themeOverrideAnchor();
-  if (anchor && anchor.parentNode) {
-    if (anchor.nextElementSibling !== specific) anchor.parentNode.insertBefore(specific, anchor.nextSibling);
+  const ordered = ["theme-override-mode", "theme-override-specific"]
+    .map((id) => document.getElementById(id))
+    .filter(Boolean);
+  if (!ordered.length) return;
+  const anchor = themeOverrideAnchor() || document.getElementById("bootstrap-theme-css");
+  if (!anchor || !anchor.parentNode) {
+    ordered.forEach((el) => document.head.appendChild(el));
     return;
   }
-  // Without a shared sheet the override still has to follow the theme itself.
-  const base = document.getElementById("bootstrap-theme-css");
-  if (base && base.parentNode && base.nextElementSibling !== specific) {
-    base.parentNode.insertBefore(specific, base.nextSibling);
+  let ref = anchor.nextElementSibling;
+  for (const el of ordered) {
+    if (ref === el) {
+      ref = el.nextElementSibling;
+      continue;
+    }
+    anchor.parentNode.insertBefore(el, ref);
+    ref = el.nextElementSibling;
   }
 }
 
@@ -244,6 +262,28 @@ function changeSlideDuration(value) {
   localStorage.setItem(smdKey("slideDuration"), value);
   applySlideDuration(value);
 }
+
+// APP SHELL LAYOUT (was in shared/css/styles.css)
+// This module owns the #mainNav auto-hide chrome (the body.auto-hide-menu /
+// .nav-hidden classes below) and the settings page, so the layout that goes with
+// them is injected here instead of living in the shared theme sheet. Selectors
+// are unchanged, and injected styles are appended to <head> after the theme
+// links, so the cascade is at least as strong as it was in styles.css.
+function injectSettingsLayout() {
+  if (typeof injectSmdComponentStyle !== "function") return;
+  injectSmdComponentStyle("smd-settings-layout", `
+    #mainNav { padding-top: env(safe-area-inset-top, 0); }
+    body.auto-hide-menu #mainNav { position: fixed; top: 0; left: 0; right: 0; z-index: 1030; transition: transform 0.3s ease; }
+    body.auto-hide-menu #mainNav.nav-hidden { transform: translateY(-100%); }
+    body.auto-hide-menu .container-fluid { padding-top: calc(60px + env(safe-area-inset-top, 0)); transition: padding-top 0.3s ease; }
+    body.auto-hide-menu #mainNav.nav-hidden ~ .container-fluid { padding-top: calc(0.5rem + env(safe-area-inset-top, 0)); }
+    #mainNav.nav-inactive { pointer-events: none; }
+    #settingsPage .smd-page-body { scrollbar-width: none; -ms-overflow-style: none; }
+    #settingsPage .smd-page-body::-webkit-scrollbar { display: none; }
+  `);
+}
+
+injectSettingsLayout();
 
 // AUTO-HIDE MENU
 let autoHideTimer = null;
@@ -321,6 +361,7 @@ function updateScreenResolution() {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
+  injectSettingsLayout();
   const savedFontSize = localStorage.getItem(smdKey("fontSize")) || "xlarge";
   document.documentElement.dataset.smdFontSize = savedFontSize;
   if (savedFontSize !== "normal") {
@@ -352,36 +393,6 @@ document.addEventListener("DOMContentLoaded", () => {
     bindAutoHideEvents();
     resetAutoHideTimer();
   }
-});
-
-// Register every shared setting as an SmdApp method (instance API for apps that
-// extend SmdApp). The globals above remain the thin facade used by the app's
-// inline onchange handlers and the storybook.
-Object.assign(SmdApp.prototype, {
-  themeConfig,
-  smdAppRoot,
-  normalizeTheme,
-  normalizeThemeMode,
-  getStoredTheme,
-  getStoredThemeMode,
-  resolveThemeMode,
-  applyTheme,
-  applyThemeMode,
-  changeTheme,
-  changeThemeMode,
-  changeFontSize,
-  changeIconSize,
-  changeDensity,
-  changeTouchSize,
-  applySlideDuration,
-  changeSlideDuration,
-  showNav,
-  hideNav,
-  resetAutoHideTimer,
-  bindAutoHideEvents,
-  unbindAutoHideEvents,
-  changeAutoHideMenu,
-  updateScreenResolution
 });
 
 // ---- Service-worker registration (shared by every app shell) ----
@@ -497,32 +508,6 @@ function smdTellWorkerNoCache(worker, enabled) {
       worker.postMessage({ type: "SET_NO_CACHE", enabled: !!enabled }, [channel.port2]);
     } catch (e) {
       finish(false);
-    }
-  });
-}
-
-// Ask the worker which mode it is in. Returns null when there is no worker to
-// ask, so callers can tell "not supported" from "off".
-function smdWorkerNoCache(worker) {
-  return new Promise(function(resolve) {
-    if (!worker) return resolve(null);
-    var settled = false;
-    var timer = setTimeout(function() { finish(null); }, 2000);
-    function finish(value) {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timer);
-      resolve(value);
-    }
-    var channel = new MessageChannel();
-    channel.port1.onmessage = function(event) {
-      var data = event.data || {};
-      finish(data.type === "NO_CACHE" ? !!data.enabled : null);
-    };
-    try {
-      worker.postMessage({ type: "GET_NO_CACHE" }, [channel.port2]);
-    } catch (e) {
-      finish(null);
     }
   });
 }

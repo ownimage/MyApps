@@ -21,7 +21,10 @@ test.describe("Launch - Regression", () => {
     if (/shared\/vendor\//.test(href)) return 0;
     if (/shared\/css\/themes\/[^/]+\/bootstrap\.min\.css$/.test(href)) return 1;
     if (/shared\/css\/styles\.css$/.test(href)) return 2;
-    if (/shared\/css\/themes\/[^/]+\/[^/]+\.css$/.test(href)) return 3;
+    // Shared MODE layer: shared/css/themes/<mode>.css (one file per mode).
+    if (/shared\/css\/themes\/(light|dark)\.css$/.test(href)) return 3;
+    // Per-theme + per-mode layer: shared/css/themes/<theme>/<theme>.<mode>.css.
+    if (/shared\/css\/themes\/[^/]+\/[^/]+\.css$/.test(href)) return 4;
     return 5;
   }
 

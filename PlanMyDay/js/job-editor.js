@@ -17,6 +17,15 @@ function jobTimeChanged() {
   const m = $id("jobTimeMin").value;
   jobField("time", h && m ? h + ":" + m : "");
 }
+// Duration in DAYS, stored on the job and drawn as the Gantt bar length. Clamped
+// to >= 1 (a 0/negative/NaN value would make the bar invisible or inverted).
+// Legacy jobs with no `duration` fall back to 1 at READ time (the Gantt), so no
+// migration is needed and nothing is written back just by viewing the chart.
+function jobDurationChanged(value) {
+  var n = parseInt(value, 10);
+  if (isNaN(n) || n < 1) n = 1;
+  jobField("duration", n);
+}
 function updateJobEditOkBtn() {
   const okBtn = getJobEditFooterBtn("done");
   if (!okBtn) return;
@@ -376,6 +385,13 @@ function getJobScheduleTabHTML(data, readOnly) {
       <div class="col">
         <label class="form-label">Sleep Until</label>
         <smd-date-picker id="jobSleepPicker" ${readOnly ? "readonly" : ""} value="${escapeHtml(data.sleepUntil || "")}" first-day-of-week="${parseInt(localStorage.getItem(smdKey("startWeek")) || "1", 10)}"></smd-date-picker>
+      </div>
+    </div>
+    <div class="row mb-2">
+      <div class="col">
+        <label class="form-label">Duration (days)</label>
+        <input class="form-control" id="jobDuration" type="number" min="1" step="1" value="${escapeHtml(String(parseInt(data.duration, 10) || 1))}" ${ro} oninput="jobDurationChanged(this.value)">
+        <div class="form-text">How many days the Gantt bar spans. The bar starts at Sleep Until (or today when that is empty).</div>
       </div>
     </div>
     <div class="row mb-2">
@@ -759,7 +775,7 @@ function addNewJob() {
   var streams = loadStreams();
   var jobs = streams[jobsStreamIndex].jobs || [];
   var seq = jobs.length + 1;
-  var newJob = { id: "job_" + Date.now(), title: "", sequence: seq, description: "", active: true, frequency: "daily", time: "", sleepUntil: "", waitFor: "", schedule: { type: "daily" }, tasks: [] };
+  var newJob = { id: "job_" + Date.now(), title: "", sequence: seq, description: "", active: true, frequency: "daily", time: "", sleepUntil: "", waitFor: "", schedule: { type: "daily" }, tasks: [], duration: 1 };
   jobs.push(newJob);
   streams[jobsStreamIndex].jobs = jobs;
   saveStreams(streams);

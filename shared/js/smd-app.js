@@ -1,47 +1,15 @@
-// SmdApp — the shared application base class. Apps built on the shared library
-// (the sibling `shared/` folder) extend this class (e.g. an app's js/app.js).
+// Shared application config + generic helpers for the MyApps shared library.
 //
-// The shared SERVICE FILES (smd-settings.js, smd-images.js, smd-minio.js) attach
-// their methods onto SmdApp.prototype, so an app instance inherits them all.
-// Every service reads its storage keys through smdKey(name) below, so the
-// per-app storage prefix in SmdConfig is honoured everywhere.
-//
-// CONSUMER CONFIG (passed to the constructor / super()):
-//   storagePrefix   — localStorage key namespace (e.g. "planmydays_")
-//   themeDefault    — bootswatch theme name applied at boot
-//   appName         — human app name
-//   styles          — ["css/path", ...] stylesheets injected at boot (app + shared)
-//   components      — ["button", "tabs", "page", ...] smd-* component names this
-//                     app needs; each maps to SMD_SHARED_ROOT + "js/components/smd-<n>.js"
-//   services        — ["smd-settings", ...] service file names this app needs;
-//                     each maps to SMD_SHARED_ROOT + "js/<n>.js"
-//   appScripts      — ["js/components/foo.js", ...] additional app scripts
-//   menuItems       — menu items (label/action/page/select/divider/minio/button)
-//   pages           — { id: { title, contentFn?/content, buttons?, onAction? } }
-//   settingsSections / settingsFooterHtml — settings page tabs (+ footer)
-//
-// BOOT / LAZY LOADING
-//   The consumer's index.html only needs ONE script tag (js/app.js). boot()
-//   injects the declared stylesheet <link>s and <script> tags (styles.js first,
-//   then services, components, app scripts) lazily + asynchronously, so an app
-//   only ever fetches the pieces it declares. ONE build number is honoured:
-//   BUILD_NUMBER comes from shared/js/build-number.js and cache-busts every
-//   asset (app + shared alike).
+// NOTE: this file used to also define an SmdApp base class (boot-time asset
+// loading, shell/menu rendering, page registry). No app ever instantiated it:
+// every app uses a static index.html shell (document.write cache-busting) and
+// drives <smd-page> directly, so the class and the SmdApp.prototype exports
+// were removed as dead code. What remains are the globals every app + service
+// relies on: SmdConfig, smdKey(), smdImagePrefix(), the <smd-modal> helper
+// (showSmdModal/showInfoConfirm), the menu-visibility observer, $id/escapeHtml/
+// escAttr, injectSmdComponentStyle() and injectStyleInto().
 
 "use strict";
-
-// Absolute URL of the shared library root, derived from THIS script's own
-// location (.../shared/js/smd-app.js -> .../shared/). This keeps the loader
-// path-agnostic: it works from any app depth / sub-path without hardcoding a
-// folder name. `document.currentScript` is valid for classic scripts (the
-// library is always loaded via a classic <script>).
-var SMD_SHARED_ROOT = (function () {
-  var s = document.currentScript;
-  if (s && s.src) {
-    try { return new URL("../", s.src).href; } catch (e) { /* ignore */ }
-  }
-  return "shared/";
-})();
 
 // ---- App-level config (mutated by the app's constructor) -------
 var SmdConfig = {
@@ -74,7 +42,7 @@ function injectSmdComponentStyle(id, css) {
   (document.head || document.documentElement).appendChild(style);
 }
 
-// ---- Generic helpers exposed on SmdApp.prototype (and as globals) ----
+// ---- Generic helpers (globals used by every app and shared service) ----
 
 function $id(id, root) {
   root = root || document;
@@ -187,293 +155,371 @@ function injectStyleInto(root, css) {
   document.head.appendChild(style);
 }
 
-// ---- The base class ----
-class SmdApp {
-  constructor(config) {
-    config = config || {};
-    if (typeof config.storagePrefix !== "undefined") SmdConfig.storagePrefix = config.storagePrefix;
-    if (typeof config.themeDefault !== "undefined") SmdConfig.themeDefault = config.themeDefault;
-    if (typeof config.appName !== "undefined") SmdConfig.appName = config.appName;
-    this.config = Object.assign({}, SmdConfig, config);
-    this.menuItems = config.menuItems || [];
-    this.settingsSections = config.settingsSections || [];
-    this.settingsFooterHtml = config.settingsFooterHtml || "";
-    this.styles = config.styles || [];
-    this.components = config.components || [];
-    this.services = config.services || [];
-    this.appScripts = config.appScripts || [];
-    this.pages = config.pages || {};
-    this._booted = false;
-    SmdApp.current = this;
-    window.SMD = this;
-  }
+// ---- Shared app-shell wiring (used by several apps) -------------------------
+// These were copy-pasted into each app's js/app.js; they live here so the app
+// entry points only keep their app-specific bits.
 
-  // Storage key helper (prefix-aware): this.key("theme") -> "planmydays_theme".
-  key(name) { return smdKey(name); }
-
-  // ---------------------------------------------------------------------------
-  // Asset loading (lazy, ordered, cache-busted with the single build number)
-  // ---------------------------------------------------------------------------
-
-  // Build the cache-busting query for a URL using the one BUILD_NUMBER global.
-  buildNumberFor(url) {
-    const v = typeof BUILD_NUMBER !== "undefined" ? BUILD_NUMBER : "";
-    if (!v) return url;
-    return url + (url.indexOf("?") >= 0 ? "&" : "?") + "v=" + v;
-  }
-
-  // Inject a stylesheet <link>. Bootswatch theme stylesheets automatically get
-  // id="bootstrap-theme-css" so applyTheme()/smdAppRoot() can find them.
-  loadCss(path, id) {
-    const autoThemeId = path.indexOf("css/themes/") !== -1 && /bootstrap\.min\.css/.test(path);
-    id = id || (autoThemeId ? "bootstrap-theme-css" : "");
-    if (id && document.getElementById(id)) { document.getElementById(id).href = this.buildNumberFor(path); return Promise.resolve(); }
-    if (document.querySelector('link[href="' + path + '"]')) return Promise.resolve();
-    return new Promise((resolve) => {
-      const link = document.createElement("link");
-      link.rel = "stylesheet";
-      link.href = this.buildNumberFor(path);
-      if (id) link.id = id;
-      link.onload = () => resolve();
-      link.onerror = () => resolve(); // don't block boot on a missing sheet
-      document.head.appendChild(link);
-    });
-  }
-
-  // Inject a <script> asynchronously, resolving once it has executed.
-  loadScript(path) {
-    const src = this.buildNumberFor(path);
-    if (document.querySelector('script[src="' + src + '"]')) return Promise.resolve();
-    return new Promise((resolve, reject) => {
-      const s = document.createElement("script");
-      s.src = src;
-      s.onload = () => resolve();
-      s.onerror = () => reject(new Error("Failed to load " + path));
-      document.head.appendChild(s);
-    });
-  }
-
-  // Load many scripts strictly in order (dependencies like styles.js first).
-  loadScriptsOrdered(paths) {
-    return paths.reduce((p, path) => p.then(() => this.loadScript(path)), Promise.resolve());
-  }
-
-  // Inject all declared stylesheets (shared styles + app styles).
-  loadStyles() {
-    return Promise.all(this.styles.map((path) => this.loadCss(path)));
-  }
-
-  // Inject the declared smd-* components (in order).
-  loadComponents() {
-    const paths = this.components.map((name) => {
-      return SMD_SHARED_ROOT + "js/components/" + (name.indexOf("smd-") === 0 ? name : "smd-" + name) + ".js";
-    });
-    return this.loadScriptsOrdered(paths);
-  }
-
-  // Inject the declared shared service files.
-  loadServices() {
-    const paths = this.services.map((name) => SMD_SHARED_ROOT + "js/" + name + ".js");
-    return this.loadScriptsOrdered(paths);
-  }
-
-  // Inject the app's own scripts.
-  loadAppScripts() {
-    return this.loadScriptsOrdered(this.appScripts || []);
-  }
-
-  // Lazy-load a single shared component on demand (after boot).
-  ensureComponent(name) {
-    const path = SMD_SHARED_ROOT + "js/components/" + (name.indexOf("smd-") === 0 ? name : "smd-" + name) + ".js";
-    return this.loadScript(path);
-  }
-
-  // ---- Boot: inject everything, then render the shell + first page ----
-  boot() {
-    if (this._booted) return Promise.resolve();
-    this._booted = true;
-    return Promise.resolve()
-      .then(() => this.loadScriptsOrdered([SMD_SHARED_ROOT + "js/build-number.js"]))
-      .then(() => this.loadStyles())
-      .then(() => this.loadComponents())
-      .then(() => this.loadServices())
-      .then(() => this.loadAppScripts())
-      .then(() => this.init());
-  }
-
-  init() {
-    // Apply the saved (or default) theme.
-    const savedTheme = localStorage.getItem(this.key("theme")) || this.config.themeDefault || "superhero";
-    if (typeof applyTheme === "function") applyTheme(savedTheme);
-
-    this.renderShell();
-    this.renderMenu();
-    if (typeof this.configure === "function") this.configure();
-    if (typeof this.onReady === "function") this.onReady();
-  }
-
-  // Build the app shell: nav + main host. Override renderMain() for the
-  // initial page content; registerPage()/openPage() manage smd-page overlays.
-  renderShell() {
-    if (!document.getElementById("main")) {
-      const div = document.createElement("div");
-      div.id = "main";
-      document.body.appendChild(div);
+// The settings <smd-theme> component emits smd-theme-change; apply the chosen
+// theme (and mode) through the shared theme engine.
+function smdBindThemeChange() {
+  if (window.__smdThemeChangeBound) return;
+  window.__smdThemeChangeBound = true;
+  document.addEventListener("smd-theme-change", function (e) {
+    const detail = e.detail || {};
+    if (detail.source === "mode" && typeof changeThemeMode === "function") {
+      changeThemeMode(detail.mode);
+    } else if (detail.theme && typeof changeTheme === "function") {
+      changeTheme(detail.theme);
     }
-    if (!document.getElementById("mainNav")) {
-      const nav = document.createElement("nav");
-      nav.id = "mainNav";
-      nav.className = "navbar navbar-expand px-3 py-2 gap-1 flex-wrap";
-      nav.innerHTML =
-        '<div class="dropdown">' +
-          '<button id="btnMainMenu" class="btn p-1" data-bs-toggle="dropdown" title="Menu" aria-label="Menu">' +
-            '<i class="fa-solid fa-bars" aria-hidden="true" style="font-size:22px"></i>' +
-          '</button>' +
-          '<ul class="dropdown-menu"></ul>' +
-        '</div>';
-      document.body.insertBefore(nav, document.body.firstChild);
-    }
-    // Page hosts are appended to #main; registerPage/openPage lazily create them.
-    return this;
-  }
+  });
+}
 
-  // Build the main menu from this.menuItems. Each item:
-  //   { label, action: "fn()" } | { label, page: "pageId" } | { label, select: fn }
-  //   { divider?, minio?, button? }
-  renderMenu(root) {
-    root = root || document.getElementById("mainNav");
-    if (!root) return null;
-    const ul = root.querySelector(".dropdown-menu");
-    if (!ul) return root;
-    ul.innerHTML = this.menuItems.map(function (item, i) {
-      if (item.divider) {
-        return '<li><hr class="dropdown-divider' + (item.minio ? ' minio-menu-item' : '') + '"' + (item.minio ? ' style="display:none"' : '') + '></li>';
-      }
-      const cls = "dropdown-item" + (item.minio ? " minio-menu-item" : "");
-      const style = item.minio ? ' style="display:none"' : '';
-      const tag = item.button ? "button" : "a";
-      const type = item.button ? ' type="button"' : "";
-      if (item.page) {
-        return '<li><' + tag + classAndMore(cls, style) + type + ' data-page="' + escAttr(item.page) + '">' + escapeHtml(item.label) + '</' + tag + '></li>';
-      }
-      if (typeof item.select === "function") {
-        return '<li><' + tag + classAndMore(cls, style) + type + ' data-select="' + i + '">' + escapeHtml(item.label) + '</' + tag + '></li>';
-      }
-      return '<li><' + tag + classAndMore(cls, style) + type + ' onclick="' + item.action + '">' + escapeHtml(item.label) + '</' + tag + '></li>';
-    }).join("");
-    ul.querySelectorAll("[data-page]").forEach(function (el) {
-      el.addEventListener("click", function () {
-        const id = el.getAttribute("data-page");
-        if (window.SMD && window.SMD.openPage) window.SMD.openPage(id);
-      });
-    });
-    ul.querySelectorAll("[data-select]").forEach(function (el) {
-      el.addEventListener("click", function () {
-        const fn = window.SMD.menuItems[parseInt(el.getAttribute("data-select"), 10)];
-        if (fn && typeof fn.select === "function") fn.select();
-      });
-    });
-    return root;
-  }
+// Shared image-picker plumbing: an app calls window.__openImagePicker(cb) (from
+// an <smd-image-select> Edit button); selecting/no-image/cancel resolves cb with
+// the image name ("" / null for none) and hides #imagePickerPage.
+// opts.manageBackground: also hide any open smd-pages (+ the main container)
+// behind the picker and restore them on finish (PlanMyDay stacks editors).
+function smdBindImagePicker(opts) {
+  opts = opts || {};
+  if (window.__smdImagePickerBound) return;
+  window.__smdImagePickerBound = true;
+  let pickerCallback = null;
+  let pickerHost = null;
+  let pickerCloseTimer = null;
+  let pickerBackground = [];
 
-  // Register an smd-page overlay. cfg: { title?, content?|contentFn?, buttons?, onAction? }
-  registerPage(id, cfg) {
-    this.pages[id] = cfg || {};
-    return this;
-  }
-
-  // Lazily create the <smd-page id="..."> host (once) and show it.
-  // cfg options:
-  //   open: fn(page) OR "methodName" — full-page builder (sets title/content/buttons itself)
-  //   title / content / buttons — applied when `open` is absent
-  //   afterOpen: fn(page) OR "methodName" — runs after the page is shown (e.g. restore form state)
-  //   onAction(detail, page) OR "methodName" — handles smd-page-action
-  openPage(id) {
-    const cfg = this.pages[id];
-    if (!cfg) return;
-    let page = document.getElementById(id) || this._createPageHost(id);
-
-    if (typeof cfg.open === "string") {
-      if (typeof this[cfg.open] === "function") this[cfg.open](page);
-    } else if (typeof cfg.open === "function") {
-      cfg.open.call(this, page);
-    } else {
-      if (cfg.content !== undefined) page.content = cfg.content;
-      if (cfg.title) page.title = cfg.title;
-      if (cfg.buttons) page.buttons = cfg.buttons;
-    }
-
-    page.classList.remove("d-none");
-    page.show();
-    this._bindPageAction(page, id);
-
-    if (typeof cfg.afterOpen === "string" && typeof this[cfg.afterOpen] === "function") this[cfg.afterOpen](page);
-    else if (typeof cfg.afterOpen === "function") cfg.afterOpen.call(this, page);
-    return page;
-  }
-
-  closePage(id) {
-    const page = document.getElementById(id);
-    if (!page) return;
-    page.hide();
-    setTimeout(() => page.classList.add("d-none"), 150);
-  }
-
-  closePages() {
-    // Page hosts live on <body>, NOT inside #main (renderMain replaces #main's
-    // innerHTML and would destroy hosts appended there).
-    document.querySelectorAll("smd-page:not([hidden])").forEach((page) => {
+  function hideBackground() {
+    if (!opts.manageBackground || pickerBackground.length) return;
+    const picker = document.getElementById("imagePickerPage");
+    document.querySelectorAll("smd-page").forEach(function (page) {
+      if (page === picker || !page.hasAttribute("open")) return;
       page.hide();
       page.classList.add("d-none");
+      pickerBackground.push({ element: page, isPage: true });
     });
-  }
-
-  _createPageHost(id) {
-    const page = document.createElement("smd-page");
-    page.id = id;
-    page.classList.add("d-none");
-    // Append to <body>: `openPage`/`renderMain` re-write #main.innerHTML, which
-    // would wipe hosts nested inside it.
-    document.body.appendChild(page);
-    // Lazily-created hosts must honour the persisted slide speed too (smd-settings
-    // only applies it to pages present at boot).
-    const ms = parseInt(localStorage.getItem(smdKey("slideDuration")) || "0", 10);
-    page.slideDuration = isNaN(ms) ? 0 : ms;
-    return page;
-  }
-
-  _bindPageAction(page, id) {
-    if (page.__smdPageActionBound) return;
-    page.__smdPageActionBound = true;
-    page.addEventListener("smd-page-action", (e) => {
-      const cfg = this.pages[id] || {};
-      const detail = e.detail || {};
-      if (typeof cfg.onAction === "string" && typeof this[cfg.onAction] === "function") this[cfg.onAction](detail, page);
-      else if (typeof cfg.onAction === "function") cfg.onAction.call(this, detail, page);
-      else if (detail.action && typeof this["on" + detail.action] === "function") this["on" + detail.action](detail);
-    });
-  }
-
-  // Build the settings page content from this.settingsSections (+ footer).
-  buildSettingsContent() {
-    const settingsPage = document.getElementById("settingsPage");
-    if (!settingsPage) return;
-    const sections = this.settingsSections;
-    const footerHtml = this.settingsFooterHtml;
-
-    settingsPage.title = "Settings";
-    settingsPage.content = '<smd-tabs id="settingsTabs" narrow></smd-tabs>' + footerHtml;
-    settingsPage.buttons = [{ text: "OK", variant: "success", action: "done" }];
-
-    const tabsEl = $id("settingsTabs");
-    if (tabsEl) {
-      tabsEl.tabs = sections;
-      tabsEl.bottomline = true;
+    const main = document.getElementById("countdownContainer");
+    if (main && !main.classList.contains("d-none")) {
+      main.classList.add("d-none");
+      pickerBackground.push({ element: main, isPage: false });
     }
-    if (typeof injectSettingsStyles === "function") injectSettingsStyles();
+  }
+
+  function restoreBackground() {
+    if (!opts.manageBackground) return;
+    pickerBackground.forEach(function (entry) {
+      entry.element.classList.remove("d-none");
+      if (entry.isPage) entry.element.show();
+    });
+    pickerBackground = [];
+  }
+
+  window.__openImagePicker = function (callback) {
+    pickerCallback = callback || null;
+    pickerHost = document.getElementById("imagePickerPage");
+    if (!pickerHost) return;
+    pickerHost.title = "Choose Image";
+    pickerHost.content = '<smd-image-picker id="pickerHost" key-prefix="' + escAttr(smdImagePrefix()) + '"></smd-image-picker>';
+    pickerHost.buttons = [
+      { text: "Cancel", variant: "secondary", action: "cancel" },
+      { text: "No Image", variant: "primary", action: "no-image" }
+    ];
+    if (!pickerHost.__pickerBound) {
+      pickerHost.__pickerBound = true;
+      pickerHost.addEventListener("smd-page-action", function (e) {
+        const action = e.detail && (typeof e.detail === "string" ? e.detail : e.detail.action);
+        if (action === "cancel" || action === "no-image") window.__finishImagePick(null);
+      });
+    }
+    if (pickerCloseTimer) { clearTimeout(pickerCloseTimer); pickerCloseTimer = null; }
+    hideBackground();
+    pickerHost.classList.remove("d-none");
+    pickerHost.show();
+  };
+
+  window.__finishImagePick = function (name) {
+    if (pickerCallback) {
+      const cb = pickerCallback;
+      pickerCallback = null;
+      cb(name);
+    }
+    if (pickerHost) {
+      pickerHost.hide();
+      restoreBackground();
+      // The page slides off-screen on hide(), but Playwright counts an off-canvas
+      // element as visible. Add d-none (after the slide for UI; immediately in tests).
+      const ms = pickerHost.slideDuration || 0;
+      if (pickerCloseTimer) clearTimeout(pickerCloseTimer);
+      pickerCloseTimer = setTimeout(function () {
+        pickerHost.classList.add("d-none");
+        pickerCloseTimer = null;
+      }, ms > 0 ? ms + 50 : 0);
+    }
+  };
+
+  document.addEventListener("smd-image-picker-select", function (e) {
+    window.__finishImagePick(e.detail ? e.detail.name : null);
+  });
+}
+
+// Bind an app's <smd-image-select> Edit buttons to the shared picker. `routes`
+// maps the element's id to a function that stores the picked name, e.g.
+//   smdBindImageSelectActions({ jobImageSelect: (name) => { jobField("image", name); updateJobImagePreview(name); } });
+function smdBindImageSelectActions(routes) {
+  document.addEventListener("smd-image-select-action", function (e) {
+    const path = e.composedPath ? e.composedPath() : [];
+    const sel = (path && path.find(function (el) { return el && el.tagName === "SMD-IMAGE-SELECT"; })) || null;
+    if (!sel || !sel.id || !routes[sel.id]) return;
+    window.__openImagePicker(function (name) { routes[sel.id](name || ""); });
+  });
+}
+
+// Images editor (shared smd-images.js) page + card-action wiring.
+function smdBindImagesEditor() {
+  const page = document.getElementById("imagesEditor");
+  if (!page || page.__smdImagesEditorBound) return;
+  page.__smdImagesEditorBound = true;
+  page.addEventListener("smd-page-action", function (e) {
+    const action = e.detail && (typeof e.detail === "string" ? e.detail : e.detail.action);
+    if (action === "add") addNewImage();
+    else if (action === "done") closeImagesEditor();
+  });
+  page.addEventListener("smd-image-card-action", function (e) {
+    const action = e.detail && e.detail.action;
+    const idx = e.detail && e.detail.index;
+    if (action === "delete") confirmDeleteImage(idx);
+    else if (action === "duplicate") duplicateImage(idx);
+    else if (action === "edit") startEditImage(idx);
+  });
+}
+
+// PWA pull-to-refresh: drag down from the top to reload. No-op without service
+// workers (installed PWAs only) and binds once.
+function smdEnablePullToRefresh() {
+  if (!("serviceWorker" in navigator)) return;
+  if (window.__smdPullToRefreshBound) return;
+  window.__smdPullToRefreshBound = true;
+  const THRESHOLD = 80;
+  let startY = 0, pulling = false, pullDist = 0;
+  const indicator = document.createElement("div");
+  indicator.id = "pwa-pull-indicator";
+  indicator.className = "position-fixed top-0 start-0 end-0 d-flex align-items-center justify-content-center overflow-hidden bg-body text-body";
+  indicator.style.height = "0px";
+  indicator.style.zIndex = "9999";
+  indicator.style.transition = "height 0.1s";
+  indicator.textContent = "\u21E9 Pull to refresh";
+  document.body.appendChild(indicator);
+  const spinner = document.createElement("div");
+  spinner.id = "pwa-pull-spinner";
+  spinner.className = "spinner-border text-primary position-fixed top-50 start-50 translate-middle d-none";
+  document.body.appendChild(spinner);
+  function adjustIcon(dist) {
+    indicator.innerHTML = dist >= THRESHOLD ? "\u21E9 Release to refresh" : "\u21E9 Pull to refresh";
+    indicator.style.height = Math.min(dist, 50) + "px";
+  }
+  document.addEventListener("touchstart", e => {
+    if (window.scrollY !== 0) return;
+    if (e.target.closest(".modal")) return;
+    startY = e.touches[0].clientY; pulling = true; pullDist = 0;
+  }, { passive: true });
+  document.addEventListener("touchmove", e => {
+    if (!pulling) return;
+    if (e.defaultPrevented) { pulling = false; pullDist = 0; indicator.style.height = "0"; return; }
+    const dy = e.touches[0].clientY - startY;
+    if (dy <= 0) { pullDist = 0; return; }
+    pullDist = dy; adjustIcon(dy);
+  }, { passive: true });
+  document.addEventListener("touchend", () => {
+    if (!pulling) return;
+    pulling = false; indicator.style.height = "0";
+    if (pullDist >= THRESHOLD) { spinner.classList.remove("d-none"); setTimeout(() => { location.reload(); }, 400); }
+    pullDist = 0;
+  }, { passive: true });
+}
+
+// ---- Shared settings-page framework ----------------------------------------
+// Every app's js/app-settings.js (or js/settings.js) used to copy this
+// #settingsTemplate -> smd-tabs/smd-page build, the open/close slide dance and
+// the danger-row toggling. The apps keep their app-specific handlers and select
+// restores; the shared machinery lives here.
+
+let _smdSettingsSections = null;
+let _smdSettingsFooterHtml = null;
+let _smdSettingsCloseTimer = null;
+
+// Parse #settingsTemplate ONCE into { sections, footerHtml } (buildNumber stamped).
+function smdGetSettingsSections() {
+  if (_smdSettingsSections) return { sections: _smdSettingsSections, footerHtml: _smdSettingsFooterHtml };
+  const template = document.getElementById("settingsTemplate");
+  if (!template) return { sections: [], footerHtml: "" };
+  const clone = template.content.cloneNode(true);
+  _smdSettingsSections = Array.from(clone.querySelectorAll(".smd-settings-tab")).map(sec => ({
+    id: sec.dataset.tabId || null,
+    title: sec.dataset.tab,
+    content: sec.innerHTML
+  }));
+  const footer = clone.querySelector("#settingsFooter");
+  _smdSettingsFooterHtml = (footer ? footer.outerHTML : "").replace(
+    'id="buildNumber"></span>',
+    'id="buildNumber">' + (typeof BUILD_NUMBER !== "undefined" ? BUILD_NUMBER : "") + '</span>'
+  );
+  template.remove();
+  return { sections: _smdSettingsSections, footerHtml: _smdSettingsFooterHtml };
+}
+
+// Build the #settingsPage content (tabs + footer + OK button). `extraStyles` is
+// an optional app-specific CSS string injected after the shared settings styles.
+function smdBuildSettingsPage(extraStyles) {
+  const settingsPage = document.getElementById("settingsPage");
+  if (!settingsPage) return;
+  const { sections, footerHtml } = smdGetSettingsSections();
+  settingsPage.title = "Settings";
+  settingsPage.content = '<smd-tabs id="settingsTabs" narrow></smd-tabs>' + footerHtml;
+  settingsPage.buttons = [{ text: "OK", variant: "success", action: "done" }];
+  const tabsEl = $id("settingsTabs");
+  if (tabsEl) { tabsEl.tabs = sections; tabsEl.bottomline = true; }
+  injectSettingsStyles();
+  if (extraStyles) injectStyleInto(extraStyles);
+}
+
+// Open #settingsPage: run onBeforeOpen (app hide-the-background), rebuild the
+// content, show it, restore the SHARED select values (theme/mode, font/icon/
+// density/touch-ish, auto-hide, show-danger + danger rows), then run the app's
+// `restore()` for its own fields. `onDone` defaults to the app's closeSettings.
+function smdSetupSettingsPage(opts) {
+  opts = opts || {};
+  if (opts.onBeforeOpen) opts.onBeforeOpen();
+  const page = document.getElementById("settingsPage");
+  if (!page) return;
+  if (_smdSettingsCloseTimer) { clearTimeout(_smdSettingsCloseTimer); _smdSettingsCloseTimer = null; }
+  page.classList.remove("d-none");
+  if (opts.bindDone !== false && !page.__smdSettingsDoneBound) {
+    page.__smdSettingsDoneBound = true;
+    page.addEventListener("smd-page-action", function (e) {
+      const action = e.detail && (typeof e.detail === "string" ? e.detail : e.detail.action);
+      if (action === "done") (opts.onDone || closeSettings)();
+    });
+  }
+  smdBuildSettingsPage(opts.extraStyles);
+  page.show();
+
+  const savedTheme = getStoredTheme();
+  const savedThemeMode = getStoredThemeMode();
+  const themeSel = $id("themeSelector");
+  if (themeSel) { themeSel.setAttribute("theme", savedTheme); themeSel.setAttribute("mode", savedThemeMode); }
+
+  const savedFontSize = localStorage.getItem(smdKey("fontSize")) || "xlarge";
+  const fontSizeSel = $id("fontSizeSelector");
+  if (fontSizeSel) fontSizeSel.value = savedFontSize;
+
+  const savedIconSize = localStorage.getItem(smdKey("iconSize")) || "medium";
+  const iconSel = $id("iconSizeSelector");
+  if (iconSel) iconSel.value = savedIconSize;
+
+  const savedDensity = localStorage.getItem(smdKey("density")) || "normal";
+  const densitySel = $id("densitySelector");
+  if (densitySel) densitySel.value = savedDensity;
+
+  const autoHide = localStorage.getItem(smdKey("autoHideMenu")) === "true";
+  const autoHideCb = $id("autoHideMenu");
+  if (autoHideCb) autoHideCb.checked = autoHide;
+
+  const showDanger = localStorage.getItem(smdKey("showDanger")) === "true";
+  const showDangerCb = $id("showDanger");
+  if (showDangerCb) showDangerCb.checked = showDanger;
+  if (opts.dangerIds) smdToggleDangerRows(showDanger, opts.dangerIds);
+
+  if (opts.restore) opts.restore();
+}
+
+// Hide #settingsPage immediately and add d-none once the slide finishes (the
+// off-canvas page would otherwise still be "visible" to tests).
+function smdHideSettingsPage() {
+  const page = document.getElementById("settingsPage");
+  if (page) {
+    page.hide();
+    if (_smdSettingsCloseTimer) clearTimeout(_smdSettingsCloseTimer);
+    _smdSettingsCloseTimer = setTimeout(function () {
+      page.classList.add("d-none");
+    }, Math.max(0, (page.slideDuration || 0) + 50));
   }
 }
 
-function classAndMore(cls, style) {
-  return ' class="' + cls + '"' + style;
+// Show/hide a list of danger rows (ids) from the "Show danger" switch.
+function smdToggleDangerRows(enabled, ids) {
+  (ids || []).forEach(function (id) {
+    const el = $id(id);
+    if (el) el.classList.toggle("d-none", !enabled);
+  });
+}
+
+// Persist + apply the "Show danger" switch for the given danger-row ids.
+function smdChangeShowDanger(enabled, ids) {
+  localStorage.setItem(smdKey("showDanger"), enabled);
+  smdToggleDangerRows(enabled, ids);
+}
+
+// Icon size setting -> shared <smd-image> render size (px). `capSmall` also caps
+// the size to 64px on <=480px screens (the apps whose original code did).
+function smdApplyImageSize(capSmall) {
+  const value = localStorage.getItem(smdKey("iconSize")) || "medium";
+  let px = { xsmall: 32, small: 40, medium: 50, large: 64, xlarge: 80, jumbo: 100 }[value] || 50;
+  if (capSmall && window.innerWidth <= 480) px = Math.min(px, 64);
+  if (typeof SmdImage !== "undefined" && SmdImage.setDefaultSize) SmdImage.setDefaultSize(px);
+}
+
+// "Clear all data?" confirm. Clears ONLY this app's prefixed keys (the shared
+// image library is left alone); `onClear` defaults to the app's closeSettings.
+function smdConfirmClearAllData(opts) {
+  opts = opts || {};
+  showSmdModal({
+    title: opts.title || "Clear All Data?",
+    content: opts.content || "Clear all data? This cannot be undone.",
+    buttons: [
+      { text: "Cancel", variant: "secondary", action: "cancel" },
+      { text: "Clear", variant: "danger", action: "clear" }
+    ],
+    onAction: function (detail) {
+      if (detail.action !== "clear") return;
+      const prefix = SmdConfig.storagePrefix;
+      Object.keys(localStorage).forEach(function (key) {
+        if (key.indexOf(prefix) === 0) localStorage.removeItem(key);
+      });
+      if (opts.onClear) opts.onClear();
+      else if (typeof closeSettings === "function") closeSettings();
+    }
+  });
+}
+
+// Download `data` as pretty-printed JSON named `<baseName>-YYYYMMDDHHMM.json`.
+function smdDownloadJson(data, baseName) {
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  const d = new Date();
+  const ts = d.getFullYear() + String(d.getMonth() + 1).padStart(2, "0") + String(d.getDate()).padStart(2, "0") +
+    String(d.getHours()).padStart(2, "0") + String(d.getMinutes()).padStart(2, "0");
+  a.download = baseName + "-" + ts + ".json";
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// Prompt for a .json file and hand the parsed value to onJson. On a parse error
+// onJson is called with `undefined` so the caller can show its own message.
+function smdReadJsonFile(onJson) {
+  const input = document.createElement("input");
+  input.type = "file";
+  input.accept = ".json,application/json";
+  input.onchange = e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = evt => {
+      let data;
+      try { data = JSON.parse(evt.target.result); } catch (err) { data = undefined; }
+      onJson(data);
+    };
+    reader.readAsText(file);
+  };
+  input.click();
 }

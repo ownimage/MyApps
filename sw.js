@@ -20,7 +20,7 @@
 // comparison. If the two ever DO drift, the page notices at runtime
 // (GET_BUILD) and re-registers, so the drift self-heals instead of pinning
 // users to a build the worker will never replace.
-const BUILD_NUMBER = "202609271957";
+const BUILD_NUMBER = "202609300620";
 
 const CACHE = "myapps-" + BUILD_NUMBER;
 
@@ -165,6 +165,8 @@ const SHARED_ASSETS = [
   "shared/css/themes/yeti/yeti.dark.css",
   "shared/css/themes/zephyr/zephyr.light.css",
   "shared/css/themes/zephyr/zephyr.dark.css",
+  "shared/css/themes/light.css",
+  "shared/css/themes/dark.css",
   "shared/vendor/bootstrap.bundle.min.js",
   "shared/vendor/flatpickr.min.js",
   "shared/vendor/flatpickr.min.css",
@@ -172,6 +174,8 @@ const SHARED_ASSETS = [
   "shared/vendor/lz-string.min.js",
   "shared/vendor/jsQR.js",
   "shared/vendor/sortable.min.js",
+  "shared/vendor/jsgantt.js",
+  "shared/vendor/jsgantt.css",
   "shared/vendor/bmc-default-yellow.png",
   "shared/vendor/bootstrap-icons.css",
   "shared/vendor/fonts/bootstrap-icons.woff",
@@ -330,7 +334,8 @@ const SHARED_ASSETS = [
   "shared/js/components/smd-page.js",
   "shared/js/components/smd-tabs.js",
   "shared/js/components/smd-qrcode.js",
-  "shared/js/components/smd-qr-export.js",
+    "shared/js/smd-qr.js",
+    "shared/js/components/smd-qr-export.js",
   "shared/js/components/smd-qr-import.js",
   "shared/js/smd-app.js",
   "shared/js/smd-minio.js",
@@ -359,13 +364,14 @@ const APPS = {
     "PlanMyDay/js/job-editor.js",
     "PlanMyDay/js/streams-editor.js",
     "PlanMyDay/js/job-search.js",
+    "PlanMyDay/js/gantt.js",
+    "PlanMyDay/js/gantt-drag.js",
     "PlanMyDay/js/main-view.js",
     "PlanMyDay/js/app-settings.js",
     "PlanMyDay/js/display.js",
      "PlanMyDay/js/image-picker.js",
      "PlanMyDay/js/components/pmd-stream-header.js",
-    "PlanMyDay/js/components/pmd-job-stream-card.js",
-    "PlanMyDay/js/components/pmd-job-search-card.js",
+    "PlanMyDay/js/components/pmd-job-summary-card.js",
     "PlanMyDay/js/components/pmd-job-today-card.js",
     "PlanMyDay/js/components/pmd-tasks.js"
   ],
@@ -489,8 +495,6 @@ self.addEventListener("message", event => {
     event.waitUntil(writeNoCache(event.data.enabled).then(function() {
       replyNoCache(event, noCache);
     }));
-  } else if (event.data.type === "GET_NO_CACHE") {
-    event.waitUntil(readNoCache().then(replyNoCache.bind(null, event)));
   } else if (event.data.type === "GET_BUILD") {
     // Lets a page compare the build it is running against the build this worker
     // was registered for, so a stale worker is visible instead of silent.

@@ -7,7 +7,6 @@
 // files carry the actual features:
 //   js/display.js      — Font/Image/Touch size display settings
 //   js/image-picker.js — shared image picker glue + image "Edit" buttons
-//   js/pwa.js          — PWA pull-to-refresh
 
 // DEV MODE
 window.isDevMode = new URLSearchParams(window.location.search).get("dev") === "true";
@@ -155,4 +154,6 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   if (typeof updateMinioMenu === "function") updateMinioMenu();
+  // The Gantt menu item is opt-in via Settings -> Display -> Show Gantt.
+  if (typeof updateGanttMenu === "function") updateGanttMenu();
 });

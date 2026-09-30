@@ -11,7 +11,6 @@
 
 const GSI_SCRIPT_URL = "https://accounts.google.com/gsi/client";
 const GOOGLE_CAL_SCOPE = "https://www.googleapis.com/auth/calendar.events";
-const CMD_PAYLOAD_MARKER = "count_my_days";
 
 // Prefix-aware key helpers (evaluated at call time, after SmdConfig is set).
 function gcalKey(name) {
@@ -352,13 +351,6 @@ function parseCmdPayloadFromDescription(description) {
   };
 }
 
-function isGcalSequenceEvent(evt) {
-  if (!evt) return false;
-  if (evt.recurringEventId) return true;
-  if (evt.recurrence && evt.recurrence.length) return true;
-  return false;
-}
-
 // PATCH event description on Google Calendar (single event or series master id).
 function updateGoogleEventDescription(eventId, description) {
   const calendarId = getGCalCalendarId();
@@ -391,11 +383,6 @@ function showAppInfoModal(title, message) {
     content: escapeHtml(message).replace(/\n/g, "<br>"),
     buttons: [{ text: "OK", variant: "primary", action: "ok" }]
   });
-}
-
-function closeAppInfoModal() {
-  const modal = document.getElementById("smdConfirmModal");
-  if (modal && typeof modal.hide === "function") modal.hide();
 }
 
 // -------------------------------

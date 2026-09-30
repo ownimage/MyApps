@@ -1,15 +1,26 @@
-// <pmd-job-stream-card> — a single job row in the streams accordion (light DOM).
+// <pmd-job-summary-card> — one job row, shared by the streams accordion and the
+// Search Jobs results list (light DOM). Replaces the former pmd-job-stream-card
+// and pmd-job-search-card.
 //
-// An `<smd-draghandle class="drag-handle" slot="drag-handle">` is appended by the
-// consumer (Sortable needs a light-DOM handle); when none is provided the
-// built-in fallback handle is shown. On connect the component moves a slotted
-// handle into the handle cell and drops its own fallback.
+// `variant` selects the layout:
+//   "stream" (default) — drag-handle column, job thumbnail only, an inline
+//                        "Active" checkbox in the badge row. The streams editor
+//                        slots an `<smd-draghandle class="drag-handle"
+//                        slot="drag-handle">`; when none is supplied the built-in
+//                        fallback handle is shown and adopted on connect.
+//   "search"           — leading checkbox column, stream + job thumbnails with
+//                        the stream title under them, and a progress/maintenance
+//                        tab badge. No drag handle (Sortable does not run here).
 //
 // Attributes:
+//   variant       — "stream" (default) | "search"
 //   stream-idx    — stream index (echoed on pmd-job-edit / pmd-job-toggle-active)
 //   job-idx       — job index   (echoed on pmd-job-edit / pmd-job-toggle-active)
 //   title         — job title
 //   image         — job image name (rendered via smd-image)
+//   stream-image  — stream image name  (search variant)
+//   stream-title  — stream title under the thumbnails (search variant)
+//   tab           — "progress" (success badge) | "maintenance" (info badge) (search)
 //   suffix        — optional suffix badge text
 //   schedule      — schedule text badge
 //   time          — optional time badge
@@ -21,22 +32,29 @@
 //   pmd-job-edit          — detail { streamIdx, jobIdx }
 //   pmd-job-toggle-active — detail { streamIdx, jobIdx, checked }
 
-const pmdJobStreamCardTemplate = document.createElement('template');
-pmdJobStreamCardTemplate.innerHTML = `
+const pmdJobSummaryCardTemplate = document.createElement('template');
+pmdJobSummaryCardTemplate.innerHTML = `
   <div class="card smd-card border-0 w-100">
 
     <div class="d-flex py-2 border rounded-3">
 
-      <!-- 1️⃣ Drag Handle -->
-      <div class="d-flex align-items-center handle-col flex-shrink-0 ms-2">
+      <!-- 1️⃣ Drag handle (stream variant only) -->
+      <div class="handle-col d-flex align-items-center flex-shrink-0 ms-2">
         <smd-draghandle class="drag-handle"></smd-draghandle>
       </div>
 
-      <!-- 2️⃣ Job Thumbnail -->
+      <!-- 1️⃣ Active checkbox column (search variant only) -->
+      <div class="check-col d-flex flex-column align-items-center justify-content-center flex-shrink-0 ms-2">
+        <smd-checkbox class="active-toggle flex-shrink-0"></smd-checkbox>
+      </div>
+
+      <!-- 2️⃣ Thumbnails (+ stream title, search variant only) -->
       <div class="d-flex flex-column flex-shrink-0 images-col align-self-start">
         <div class="d-flex gap-1">
+          <div class="thumb stream-thumb d-flex align-items-center justify-content-center flex-shrink-0"><smd-image key-prefix="shared-"></smd-image></div>
           <div class="thumb job-thumb d-flex align-items-center justify-content-center flex-shrink-0"><smd-image key-prefix="shared-"></smd-image></div>
         </div>
+        <span class="stream-title text-truncate d-block mb-0 small fw-semibold"></span>
       </div>
 
       <div class="d-flex flex-column flex-grow-1 overflow-hidden ms-2">
@@ -47,10 +65,11 @@ pmdJobStreamCardTemplate.innerHTML = `
           <smd-badge class="suffix ms-2" variant="secondary" pill hidden></smd-badge>
         </div>
 
-        <!-- ACTIVE TOGGLE + BADGES + EDIT ROW -->
+        <!-- BADGES + EDIT ROW -->
         <div class="d-flex flex-grow-1">
           <div class="flex-grow-1 d-flex flex-wrap gap-1 align-items-center">
-            <smd-checkbox class="active-toggle fw-bold flex-shrink-0"><span>Active</span></smd-checkbox>
+            <smd-checkbox class="active-toggle active-toggle-inline fw-bold flex-shrink-0"><span>Active</span></smd-checkbox>
+            <smd-badge class="tab-badge" pill></smd-badge>
             <smd-badge class="schedule" variant="primary" pill></smd-badge>
             <smd-badge class="time" variant="secondary" pill hidden></smd-badge>
             <smd-badge class="extra" variant="info" pill hidden></smd-badge>
@@ -66,9 +85,10 @@ pmdJobStreamCardTemplate.innerHTML = `
   </div>
 `;
 
-class PmdJobStreamCard extends HTMLElement {
+class PmdJobSummaryCard extends HTMLElement {
   static get observedAttributes() {
-    return ['stream-idx', 'job-idx', 'title', 'image', 'suffix', 'schedule', 'time', 'active', 'extra', 'key-prefix'];
+    return ['variant', 'stream-idx', 'job-idx', 'title', 'image', 'stream-image', 'stream-title',
+      'tab', 'suffix', 'schedule', 'time', 'extra', 'active', 'key-prefix'];
   }
 
   constructor() {
@@ -76,12 +96,17 @@ class PmdJobStreamCard extends HTMLElement {
     this._bound = false;
   }
 
+  get _variant() {
+    return this.getAttribute('variant') === 'search' ? 'search' : 'stream';
+  }
+
   connectedCallback() {
     if (!this._bound) {
       this._bound = true;
-      this.classList.add("d-block");
-      this.appendChild(pmdJobStreamCardTemplate.content.cloneNode(true));
-      this._adoptSlottedHandle();
+      this.classList.add('d-block');
+      this.appendChild(pmdJobSummaryCardTemplate.content.cloneNode(true));
+      this._applyVariant();
+      if (this._variant === 'stream') this._adoptSlottedHandle();
       this.querySelector('[data-action="edit"]').addEventListener('click', () => this._emit('pmd-job-edit'));
       this.querySelector('smd-checkbox.active-toggle').addEventListener('change', (e) => {
         const checked = e.detail ? e.detail.checked : e.target.checked;
@@ -101,6 +126,25 @@ class PmdJobStreamCard extends HTMLElement {
 
   attributeChangedCallback(name) {
     if (this._bound && this.isConnected) this._render();
+  }
+
+  // Drop the nodes that do not belong to the current variant so exactly one
+  // `.active-toggle` and the right column/thumbnail layout remain.
+  _applyVariant() {
+    const drop = (sel) => {
+      const el = this.querySelector(sel);
+      if (el) el.remove();
+    };
+    if (this._variant === 'search') {
+      this.classList.add('mb-2');
+      drop('.handle-col');
+      drop('.active-toggle-inline');
+    } else {
+      drop('.check-col');
+      drop('.tab-badge');
+      drop('.stream-thumb');
+      drop('.stream-title');
+    }
   }
 
   // Move a consumer-provided drag handle (appended straight onto the host with
@@ -130,8 +174,12 @@ class PmdJobStreamCard extends HTMLElement {
 
   _render() {
     const root = this;
+    const search = this._variant === 'search';
     const title = this.getAttribute('title') || '';
     const image = this.getAttribute('image') || '';
+    const streamImage = this.getAttribute('stream-image') || '';
+    const streamTitle = this.getAttribute('stream-title') || '';
+    const tab = this.getAttribute('tab') || 'progress';
     const suffix = this.getAttribute('suffix') || '';
     const schedule = this.getAttribute('schedule') || '';
     const time = this.getAttribute('time') || '';
@@ -141,15 +189,21 @@ class PmdJobStreamCard extends HTMLElement {
     root.querySelector('.job-title').textContent = title;
 
     const keyPrefix = this.getAttribute('key-prefix') || smdImagePrefix();
-    const sImg = root.querySelector('.job-thumb smd-image');
-    sImg.setAttribute('key-prefix', keyPrefix);
-    // The thumb wrapper always stays in place (even with no image) so job
-    // titles line up in the list.
-    if (image) {
-      sImg.setAttribute('image', image);
-    } else {
-      sImg.removeAttribute('image');
-    }
+    const setThumb = (thumbSel, src) => {
+      const thumb = root.querySelector(thumbSel);
+      if (!thumb) return;
+      const sImg = thumb.querySelector('smd-image');
+      sImg.setAttribute('key-prefix', keyPrefix);
+      // The thumb wrapper always stays in place (even with no image) so job
+      // titles line up in the list.
+      if (src) {
+        sImg.setAttribute('image', src);
+      } else {
+        sImg.removeAttribute('image');
+      }
+    };
+    setThumb('.job-thumb', image);
+    if (search) setThumb('.stream-thumb', streamImage);
 
     const suffixEl = root.querySelector('.suffix');
     if (suffix.trim()) {
@@ -157,6 +211,16 @@ class PmdJobStreamCard extends HTMLElement {
       suffixEl.hidden = false;
     } else {
       suffixEl.hidden = true;
+    }
+
+    if (search) {
+      const streamTitleEl = root.querySelector('.stream-title');
+      if (streamTitleEl) streamTitleEl.textContent = streamTitle;
+      const tabBadge = root.querySelector('.tab-badge');
+      if (tabBadge) {
+        tabBadge.textContent = tab;
+        tabBadge.setAttribute('variant', tab === 'progress' ? 'success' : 'info');
+      }
     }
 
     root.querySelector('.schedule').textContent = schedule;
@@ -181,8 +245,8 @@ class PmdJobStreamCard extends HTMLElement {
   }
 }
 
-if (!window.customElements.get('pmd-job-stream-card')) {
-  customElements.define('pmd-job-stream-card', PmdJobStreamCard);
+if (!window.customElements.get('pmd-job-summary-card')) {
+  customElements.define('pmd-job-summary-card', PmdJobSummaryCard);
 }
 
-window.PmdJobStreamCard = PmdJobStreamCard;
+window.PmdJobSummaryCard = PmdJobSummaryCard;

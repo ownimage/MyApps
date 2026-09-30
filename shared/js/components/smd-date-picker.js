@@ -1,7 +1,8 @@
 // <smd-date-picker> — a read-only date field backed by flatpickr, generalised
 // from the PlanMyDay "Sleep Until" picker (light DOM). Renders a raw input
 // holding the value in `format`, a human-readable display input (alt-format) and
-// a Clear button, all in the light DOM. Styles live in shared/css/styles.css.
+// a Clear button, all in the light DOM. Layout is applied by the component; the
+// flatpickr popup palette lives in shared/css/styles.css.
 //
 // Host contract:
 //   attributes: value              a date string in `format` (default ISO "Y-m-d")
@@ -48,6 +49,16 @@
     _build() {
       if (this._built) return;
       this._built = true;
+      if (typeof injectSmdComponentStyle === 'function') {
+        // Host/field layout that used to live in shared/css/styles.css. The field
+        // needs min-width: 0 so it can shrink inside the flex row instead of
+        // forcing the picker wider than its column.
+        injectSmdComponentStyle('smd-date-picker-layout', `
+          smd-date-picker { display: block; }
+          smd-date-picker .smd-date-picker { display: flex; align-items: center; }
+          smd-date-picker .form-control { min-width: 0; }
+        `);
+      }
       this.appendChild(smdDatePickerTemplate.content.cloneNode(true));
     }
 

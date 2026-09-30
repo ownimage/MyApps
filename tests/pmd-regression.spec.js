@@ -1166,7 +1166,7 @@ test.describe("PlanMyDay - Regression", () => {
 
     test("shows all jobs from all streams", async ({ page }) => {
       await expect(page.getByRole("heading", { name: /Search Jobs/ })).toBeVisible();
-      await expect(page.locator("#jobSearchList pmd-job-search-card")).toHaveCount(3);
+      await expect(page.locator("#jobSearchList pmd-job-summary-card")).toHaveCount(3);
       await expect(page.getByText("Report")).toBeVisible();
       await expect(page.getByText("Meeting")).toBeVisible();
       await expect(page.getByText("Laundry")).toBeVisible();
@@ -1182,7 +1182,7 @@ test.describe("PlanMyDay - Regression", () => {
       }, svg);
       await page.reload();
       await openSearchJobs(page);
-      const titles = page.locator("#jobSearchList pmd-job-search-card .job-title");
+      const titles = page.locator("#jobSearchList pmd-job-summary-card .job-title");
       const withImage = await titles.nth(0).boundingBox();
       const withoutImage = await titles.nth(2).boundingBox();
       expect(withoutImage.x).toBeCloseTo(withImage.x, 0);
@@ -1205,40 +1205,40 @@ test.describe("PlanMyDay - Regression", () => {
 
     test("search filters jobs by partial title", async ({ page }) => {
       await page.fill("#jobSearchInput", "meet");
-      await expect(page.locator("#jobSearchList pmd-job-search-card")).toHaveCount(1);
-      await expect(page.locator("#jobSearchList pmd-job-search-card .job-title").filter({ hasText: "Meeting" })).toBeVisible();
+      await expect(page.locator("#jobSearchList pmd-job-summary-card")).toHaveCount(1);
+      await expect(page.locator("#jobSearchList pmd-job-summary-card .job-title").filter({ hasText: "Meeting" })).toBeVisible();
       await expect(page.getByText("Report")).not.toBeVisible();
       await expect(page.getByText("Laundry")).not.toBeVisible();
     });
 
     test("search is case insensitive", async ({ page }) => {
       await page.fill("#jobSearchInput", "MEETING");
-      await expect(page.locator("#jobSearchList pmd-job-search-card")).toHaveCount(1);
-      await expect(page.locator("#jobSearchList pmd-job-search-card .job-title").filter({ hasText: "Meeting" })).toBeVisible();
+      await expect(page.locator("#jobSearchList pmd-job-summary-card")).toHaveCount(1);
+      await expect(page.locator("#jobSearchList pmd-job-summary-card .job-title").filter({ hasText: "Meeting" })).toBeVisible();
     });
 
     test("enter key triggers search", async ({ page }) => {
       await page.fill("#jobSearchInput", "laundry");
       await page.keyboard.press("Enter");
-      await expect(page.locator("#jobSearchList pmd-job-search-card")).toHaveCount(1);
-      await expect(page.locator("#jobSearchList pmd-job-search-card .job-title").filter({ hasText: "Laundry" })).toBeVisible();
+      await expect(page.locator("#jobSearchList pmd-job-summary-card")).toHaveCount(1);
+      await expect(page.locator("#jobSearchList pmd-job-summary-card .job-title").filter({ hasText: "Laundry" })).toBeVisible();
     });
 
     test("shows message when no jobs match", async ({ page }) => {
       await page.fill("#jobSearchInput", "zzz");
-      await expect(page.locator("#jobSearchList pmd-job-search-card")).toHaveCount(0);
+      await expect(page.locator("#jobSearchList pmd-job-summary-card")).toHaveCount(0);
       await expect(page.locator("#jobSearchList")).toContainText("No jobs match");
     });
 
     test("clear resets the search", async ({ page }) => {
       await page.fill("#jobSearchInput", "meet");
-      await expect(page.locator("#jobSearchList pmd-job-search-card")).toHaveCount(1);
+      await expect(page.locator("#jobSearchList pmd-job-summary-card")).toHaveCount(1);
       await page.locator("#btnJobSearchClear").click();
-      await expect(page.locator("#jobSearchList pmd-job-search-card")).toHaveCount(3);
+      await expect(page.locator("#jobSearchList pmd-job-summary-card")).toHaveCount(3);
     });
 
     test("tile shows stream name and badges instead of active label", async ({ page }) => {
-      const firstTile = page.locator("#jobSearchList pmd-job-search-card").first();
+      const firstTile = page.locator("#jobSearchList pmd-job-summary-card").first();
       await expect(firstTile).toContainText("Work");
       await expect(firstTile.locator("smd-badge[variant=success]").filter({ hasText: "progress" })).toBeVisible();
       await expect(firstTile.locator("smd-badge[variant=primary]")).toBeVisible();
@@ -1255,9 +1255,9 @@ test.describe("PlanMyDay - Regression", () => {
       }, futureDate);
       await page.reload();
       await openSearchJobs(page);
-      const meetingTile = page.locator("#jobSearchList pmd-job-search-card").filter({ hasText: "Meeting" });
+      const meetingTile = page.locator("#jobSearchList pmd-job-summary-card").filter({ hasText: "Meeting" });
       await expect(meetingTile.locator("smd-badge").filter({ hasText: "Wait:" })).toContainText("Wait: the meeting to start");
-      const laundryTile = page.locator("#jobSearchList pmd-job-search-card").filter({ hasText: "Laundry" });
+      const laundryTile = page.locator("#jobSearchList pmd-job-summary-card").filter({ hasText: "Laundry" });
       await expect(laundryTile.locator("smd-badge").filter({ hasText: "Sleep:" })).toContainText("Sleep: " + shortDateStr(futureDate));
     });
 
@@ -1266,7 +1266,7 @@ test.describe("PlanMyDay - Regression", () => {
     });
 
     test("active checkbox toggles job active state without label", async ({ page }) => {
-      const cb = page.locator("#jobSearchList pmd-job-search-card .active-toggle").first();
+      const cb = page.locator("#jobSearchList pmd-job-summary-card .active-toggle").first();
       await expect(page.locator("#jobSearchList")).not.toContainText("Active");
       await cb.uncheck();
       await expect(cb).not.toBeChecked();
@@ -1279,13 +1279,13 @@ test.describe("PlanMyDay - Regression", () => {
     });
 
     test("edit button opens edit job modal and returns to search", async ({ page }) => {
-      await page.locator("#jobSearchList pmd-job-search-card").first().getByRole("button", { name: "Edit" }).click();
+      await page.locator("#jobSearchList pmd-job-summary-card").first().getByRole("button", { name: "Edit" }).click();
       await expect(page.locator("#jobEditPage")).toBeVisible();
       await expect(page.locator("#jobEditPage .smd-page-header h1")).toHaveText("Edit Job");
       await page.locator("#jobEditCancelBtn").click();
       await page.locator("#jobEditPage").waitFor({ state: "hidden" });
       await expect(page.locator("#jobSearchEditor:not(.d-none)")).toBeVisible();
-      await expect(page.locator("#jobSearchList pmd-job-search-card")).toHaveCount(3);
+      await expect(page.locator("#jobSearchList pmd-job-summary-card")).toHaveCount(3);
     });
 
     test("add job button opens add job modal", async ({ page }) => {
@@ -1335,7 +1335,7 @@ test.describe("PlanMyDay - Regression", () => {
         localStorage.setItem("shared-images", JSON.stringify([{ name: "jimg", data: svg }]));
         renderStreamsEditor();
       }, svg);
-      const titles = page.locator("#streamEditorList .accordion-body pmd-job-stream-card .job-title");
+      const titles = page.locator("#streamEditorList .accordion-body pmd-job-summary-card .job-title");
       const withImage = await titles.nth(0).boundingBox();
       const withoutImage = await titles.nth(1).boundingBox();
       expect(withoutImage.x).toBeCloseTo(withImage.x, 0);
@@ -2774,7 +2774,7 @@ test.describe("PlanMyDay - Regression", () => {
         order: Array.from(document.head.children).map(el => el.id).filter(id => ["bootstrap-theme-css", "theme-override-mode", "theme-override-specific"].includes(id))
       }))).toEqual({
         hasDefaultMode: false,
-        order: ["bootstrap-theme-css", "theme-override-specific"]
+        order: ["bootstrap-theme-css", "theme-override-mode", "theme-override-specific"]
       });
 
       await page.evaluate(() => {
@@ -7235,19 +7235,14 @@ test.describe("PlanMyDay - Regression", () => {
 
     test("No Cache danger switch makes the worker read every file from disk", async ({ page }) => {
       await page.goto("/PlanMyDay/");
+      // Read the flag the WORKER writes into Cache Storage. The page never
+      // writes it, so its presence proves the worker applied the mode (via the
+      // boot push smdPushNoCacheToWorker, or smdSetNoCache). This replaces the
+      // old GET_NO_CACHE message probe, removed from sw.js as dead code.
       const workerNoCache = () => page.evaluate(async () => {
-        const reg = await navigator.serviceWorker.ready;
-        const worker = reg.active || navigator.serviceWorker.controller;
-        if (!worker) return null;
-        return await new Promise((resolve) => {
-          const channel = new MessageChannel();
-          const timer = setTimeout(() => resolve(null), 5000);
-          channel.port1.onmessage = (event) => {
-            clearTimeout(timer);
-            resolve((event.data || {}).enabled);
-          };
-          worker.postMessage({ type: "GET_NO_CACHE" }, [channel.port2]);
-        });
+        const cache = await caches.open("myapps-flags");
+        const hit = await cache.match("/__myapps_no_cache__");
+        return !!(hit && hit.ok);
       });
 
       // Every worker state below is polled: the worker installs and claims the

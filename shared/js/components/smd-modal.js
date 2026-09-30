@@ -39,6 +39,7 @@ class SmdModal extends HTMLElement {
         smd-modal .smd-overlay { position: fixed; inset: 0; }
         smd-modal .smd-dialog { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 90%; max-width: 500px; max-height: 90vh; display: flex; flex-direction: column; overflow: hidden; }
         smd-modal .smd-header { display: flex; align-items: center; justify-content: space-between; padding: 1rem 1.25rem 0.5rem; flex-shrink: 0; }
+        smd-modal .smd-header h3 { margin: 0; }
         smd-modal .smd-body { padding: 1rem 1.25rem; overflow-y: auto; flex: 1; }
         smd-modal .smd-footer { display: flex; gap: 0.5rem; padding: 0.75rem 1.25rem; }
         smd-modal .smd-footer button { flex: 1; }

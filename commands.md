@@ -70,3 +70,33 @@ cd p:\git
 python -m http.server 9090
 ```
 Then open http://localhost:9090/
+
+### Code duplication check (PMD CPD)
+PMD's Copy/Paste Detector finds duplicated code blocks across the repo. PMD is a
+Java tool, so a JDK must be on `PATH` first. Install (no admin needed):
+
+```powershell
+# 1) A JDK. This box already has one; otherwise install from https://adoptium.net
+$env:Path = "$env:USERPROFILE\.jdks\openjdk-24.0.1\bin;$env:Path"
+
+# 2) PMD binary distribution -> %USERPROFILE%\tools\pmd
+$ver = "7.28.0"
+Invoke-WebRequest "https://github.com/pmd/pmd/releases/download/pmd_releases/$ver/pmd-dist-$ver-bin.zip" -OutFile "$env:TEMP\pmd.zip"
+Expand-Archive "$env:TEMP\pmd.zip" -DestinationPath "$env:TEMP\pmd-x" -Force
+New-Item -ItemType Directory "$env:USERPROFILE\tools\pmd" -Force | Out-Null
+Copy-Item "$env:TEMP\pmd-x\pmd-bin-$ver\*" "$env:USERPROFILE\tools\pmd\" -Recurse -Force
+```
+
+Run it over the app + shared JS (vendor and generated dirs are excluded simply by
+not listing them):
+
+```powershell
+& "$env:USERPROFILE\tools\pmd\bin\pmd.bat" cpd --minimum-tokens 100 --language ecmascript --format text --skip-lexical-errors --no-fail-on-error --no-fail-on-violation shared/js PlanMyDay/js CountMyDays/js QRLinks/js SolarControlar/js FreeFormOX/js Launch/js
+```
+
+Notes:
+- `--minimum-tokens 100` sets the smallest duplicated block to report; lower it to surface shorter copies (much noisier). `--format text` is human-readable (also `csv`, `xml`, `markdown` via `-f`).
+- `--no-fail-on-error` / `--no-fail-on-violation` keep the exit code at 0 so the command can run in a script; drop them to get PMD's codes instead (5 = parse/lexer error, 4 = duplicates found).
+- Output groups look like `Found a 54 line (429 tokens) duplication in the following files:` followed by `Starting at line N of <path>` lines and the code block.
+- PMD's ecmascript lexer SKIPS files containing certain non-ASCII characters (e.g. an em dash `—` inside a template literal). `--skip-lexical-errors` hides the error and continues; currently `CountMyDays/js/export.js` and `CountMyDays/js/import-wizard.js` are skipped for this reason, so duplication inside those two files is not reported.
+- Last run (min 100 tokens): **0 duplication groups**. The earlier 22 groups were eliminated by (1) the `smd-app.js` app-shell helpers (`smdBindThemeChange`, `smdBindImagePicker` with `manageBackground`, `smdBindImageSelectActions`, `smdBindImagesEditor`, `smdEnablePullToRefresh`), (2) the shared settings-page framework (`smdGetSettingsSections`/`smdBuildSettingsPage`/`smdSetupSettingsPage`/`smdHideSettingsPage`/`smdToggleDangerRows`/`smdChangeShowDanger`/`smdApplyImageSize`/`smdConfirmClearAllData`), (3) `smdDownloadJson`/`smdReadJsonFile`, (4) the new `shared/js/smd-qr.js` (`window.SmdQr`) used by both QR components, and (5) merging `pmd-job-stream-card`/`pmd-job-search-card` into `pmd-job-summary-card`.
