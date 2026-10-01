@@ -435,12 +435,25 @@ test.describe("Gantt page", () => {
           }
           return { color: getComputedStyle(el).color, bg };
         };
+        // The bar label is positioned to the RIGHT of its bar (offset by
+        // `left: calc(100% + 12px)` in the vendor CSS) but is DOM-nested inside
+        // the bar element, so walking up its ancestors stops at the solid bar
+        // background even though the label is painted on the timeline cell
+        // behind it. Resolve the ACTUAL painted background under the label via
+        // elementFromPoint instead, so the contrast check reflects what is on
+        // screen (the timeline cell, which follows the page surface).
+        const readLabel = (el) => {
+          if (!el) return null;
+          const r = el.getBoundingClientRect();
+          const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+          return { color: getComputedStyle(el).color, bg: hit ? read(hit).bg : null };
+        };
         const cell = document.querySelector("revogr-data .rgCell");
         const label = document.querySelector(".rg-gantt-bar-label");
         const timeline = document.querySelector(".rg-gantt-cell");
         return {
           nameCell: read(cell),
-          timelineLabel: read(label || timeline),
+          timelineLabel: readLabel(label || timeline),
           bodyFill: getComputedStyle(document.body).backgroundColor
         };
       });
@@ -453,6 +466,210 @@ test.describe("Gantt page", () => {
       // the grid surface must actually track the page: text would otherwise stay
       // readable on a hard-coded white panel while the chart broke visually
       expect(samples.nameCell.bg).toBe(samples.bodyFill);
+      await page.evaluate(() => closeGantt());
+    }
+  });
+
+  test("Gantt uses theme primary/secondary for the zoom buttons, solid success/danger bars, and a standard header background in light and dark", async ({ page }) => {
+    // (1) zoom buttons: the SELECTED preset is the theme PRIMARY button colour,
+    //     the unselected ones are SECONDARY;
+    // (2) task bars are SOLID --bs-success, stream bars SOLID --bs-danger (the
+    //     vendor ships a gradient for both);
+    // (3) the timeline header background is the standard theme background for
+    //     the mode (no dark-navy gradient showing through on themes like
+    //     superhero whose light mode still has a dark --bs-body-bg).
+    test.setTimeout(120000);
+    await page.goto("/PlanMyDay/");
+    await seedStreams(page, SAMPLE);
+    await enableGantt(page);
+
+    const parse = (s) => String(s).match(/[\d.]+/g).slice(0, 3).map(Number);
+    const rgb = (v) => {
+      // Accept either "rgb(r, g, b)" (as the browser reports computed colors) or
+      // a hex "#rrggbb" / "#rgb" (as the --bs-* custom props are declared).
+      const s = String(v).trim();
+      if (s.charAt(0) === "#") {
+        let h = s.slice(1);
+        if (h.length === 3) h = h.split("").map((c) => c + c).join("");
+        return "rgb(" + [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16)).join(", ") + ")";
+      }
+      return "rgb(" + parse(s).join(", ") + ")";
+    };
+
+    for (const [theme, mode] of [["superhero", "light"], ["superhero", "dark"], ["bootstrap", "light"], ["bootstrap", "dark"]]) {
+      await page.evaluate(([t, m]) => applyTheme(t, m), [theme, mode]);
+      await page.waitForFunction((m) => document.documentElement.getAttribute("data-bs-theme") === m, mode);
+      await page.waitForTimeout(700); // let the per-mode override stylesheet land
+      await openChart(page);
+
+      const expected = await page.evaluate(() => {
+        const root = getComputedStyle(document.documentElement);
+        return {
+          primary: root.getPropertyValue("--bs-primary").trim(),
+          secondary: root.getPropertyValue("--bs-secondary").trim(),
+          success: root.getPropertyValue("--bs-success").trim(),
+          danger: root.getPropertyValue("--bs-danger").trim(),
+          secondaryBg: root.getPropertyValue("--bs-secondary-bg").trim(),
+          bodyBg: root.getPropertyValue("--bs-body-bg").trim()
+        };
+      });
+      const primary = rgb(expected.primary), secondary = rgb(expected.secondary);
+      const success = rgb(expected.success), danger = rgb(expected.danger);
+
+      // (1) zoom buttons
+      const zoom = await page.evaluate(() => {
+        const active = document.querySelector('#ganttPage .gantt-zoom > .btn.active');
+        const inactive = document.querySelector('#ganttPage .gantt-zoom > .btn:not(.active)');
+        return {
+          activeBg: active ? getComputedStyle(active).backgroundColor : null,
+          inactiveBg: inactive ? getComputedStyle(inactive).backgroundColor : null,
+          activeColor: active ? getComputedStyle(active).color : null,
+          inactiveColor: inactive ? getComputedStyle(inactive).color : null
+        };
+      });
+      expect(zoom.activeBg, `${theme}/${mode} active zoom is primary`).toBe(primary);
+      expect(zoom.inactiveBg, `${theme}/${mode} inactive zoom is secondary`).toBe(secondary);
+      // Button text is WHITE on both the filled primary (selected) and secondary
+      // (unselected) surfaces, exactly like Bootstrap's own `.btn-primary`/
+      // `.btn-secondary` (`--bs-btn-color: #fff`). A `--bs-body-color` fallback
+      // would render black in light mode.
+      expect(zoom.activeColor, `${theme}/${mode} active zoom text is white`).toBe("rgb(255, 255, 255)");
+      expect(zoom.inactiveColor, `${theme}/${mode} inactive zoom text is white`).toBe("rgb(255, 255, 255)");
+
+      // (2) bars: solid, matching the theme success/danger exactly
+      const bars = await page.evaluate(() => {
+        const job = document.querySelector('#ganttPage .rg-gantt-bar:not(.rg-gantt-bar--summary)');
+        const stream = document.querySelector('#ganttPage .rg-gantt-bar--summary');
+        return {
+          jobBg: job ? getComputedStyle(job).backgroundColor : null,
+          jobImage: job ? getComputedStyle(job).backgroundImage : null,
+          streamBg: stream ? getComputedStyle(stream).backgroundColor : null,
+          streamImage: stream ? getComputedStyle(stream).backgroundImage : null
+        };
+      });
+      expect(bars.jobBg, `${theme}/${mode} job bar is solid success`).toBe(success);
+      expect(bars.jobImage, `${theme}/${mode} job bar has no gradient`).toBe("none");
+      expect(bars.streamBg, `${theme}/${mode} stream bar is solid danger`).toBe(danger);
+      expect(bars.streamImage, `${theme}/${mode} stream bar has no gradient`).toBe("none");
+
+      // (3) the timeline header background = the gantt BODY surface (--bs-body-bg)
+      //     for this theme/mode, matching the cells - NOT --bs-secondary-bg
+      //     (which is light-grey in superhero light and would render the
+      //     near-white header text white-on-white) and NOT the vendor's dark
+      //     gradient.
+      const header = await page.evaluate(() => {
+        const h = document.querySelector('#ganttPage .rg-gantt-header');
+        const revo = document.querySelector('#ganttChart revo-grid revogr-header');
+        const cell = document.querySelector('#ganttChart .rg-gantt-cell');
+        return {
+          hBg: h ? getComputedStyle(h).backgroundColor : null,
+          hImage: h ? getComputedStyle(h).backgroundImage : null,
+          hColor: h ? getComputedStyle(h).color : null,
+          revoBg: revo ? getComputedStyle(revo).backgroundColor : null,
+          cellBg: cell ? getComputedStyle(cell).backgroundColor : null
+        };
+      });
+      expect(header.hBg, `${theme}/${mode} timeline header uses --bs-body-bg`).toBe(rgb(expected.bodyBg));
+      expect(header.hImage, `${theme}/${mode} timeline header has no gradient`).toBe("none");
+      expect(header.revoBg, `${theme}/${mode} revogr-header uses --bs-body-bg`).toBe(rgb(expected.bodyBg));
+      // header text must contrast on the body surface (readable, not white-on-white)
+      expect(header.hColor, `${theme}/${mode} header text readable on body bg`).not.toBe(rgb(expected.bodyBg));
+
+      await page.evaluate(() => closeGantt());
+    }
+  });
+
+  test("the Streams filter dropdown uses the themed dropdown surface, a solid secondary toggle, and readable hover in light and dark", async ({ page }) => {
+    // The dropdown must NOT look "dull"/broken on themes whose light mode is
+    // still dark (superhero): the menu follows Bootstrap's own --bs-dropdown-*
+    // tokens (themed surface + hover), and the toggle is a solid secondary
+    // button with white text like the zoom buttons.
+    test.setTimeout(120000);
+    await page.goto("/PlanMyDay/");
+    await seedStreams(page, SAMPLE);
+    await enableGantt(page);
+
+    const parse = (s) => String(s).match(/[\d.]+/g).slice(0, 3).map(Number);
+    const rgb = (v) => {
+      const s = String(v).trim();
+      if (s.charAt(0) === "#") {
+        let h = s.slice(1);
+        if (h.length === 3) h = h.split("").map((c) => c + c).join("");
+        return "rgb(" + [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16)).join(", ") + ")";
+      }
+      return "rgb(" + parse(s).join(", ") + ")";
+    };
+
+    for (const [theme, mode] of [["superhero", "light"], ["superhero", "dark"], ["bootstrap", "light"], ["bootstrap", "dark"]]) {
+      await page.evaluate(([t, m]) => applyTheme(t, m), [theme, mode]);
+      await page.waitForFunction((m) => document.documentElement.getAttribute("data-bs-theme") === m, mode);
+      await page.waitForTimeout(700); // let the per-mode override stylesheet land
+      await openChart(page);
+
+      await page.evaluate(() => ganttToggleStreamMenu());
+      await page.waitForTimeout(200);
+
+      const expected = await page.evaluate(() => {
+        const root = getComputedStyle(document.documentElement);
+        // Resolve --bs-dropdown-bg through a real element (it may be a var()).
+        const probeMenu = document.createElement("div");
+        probeMenu.className = "dropdown-menu";
+        probeMenu.style.cssText = "position:absolute;left:-9999px;display:block";
+        document.body.appendChild(probeMenu);
+        const menuCs = getComputedStyle(probeMenu);
+        const out = { secondary: root.getPropertyValue("--bs-secondary").trim(), dropdownBg: menuCs.backgroundColor };
+        probeMenu.remove();
+        return out;
+      });
+      const secondary = rgb(expected.secondary);
+
+      const dropdown = await page.evaluate(() => {
+        const menu = document.querySelector("#ganttStreamMenu");
+        const btn = document.querySelector("#ganttStreamMenuBtn");
+        const row = document.querySelector(".gantt-stream-row");
+        const hoverBg = Array.from(document.styleSheets)
+          .flatMap((s) => { try { return Array.from(s.cssRules); } catch (e) { return []; } })
+          .filter((r) => r.selectorText && r.selectorText.includes(".gantt-stream-row:hover"))
+          .map((r) => r.style.getPropertyValue("background-color"))
+          .filter(Boolean)
+          .pop();
+        return {
+          menuBg: menu ? getComputedStyle(menu).backgroundColor : null,
+          menuColor: menu ? getComputedStyle(menu).color : null,
+          btnBg: btn ? getComputedStyle(btn).backgroundColor : null,
+          btnColor: btn ? getComputedStyle(btn).color : null,
+          rowColor: row ? getComputedStyle(row).color : null,
+          hoverBgRule: hoverBg || null
+        };
+      });
+
+      // (1) the toggle is a SOLID secondary button with white text
+      expect(dropdown.btnBg, `${theme}/${mode} toggle is solid secondary`).toBe(secondary);
+      expect(dropdown.btnColor, `${theme}/${mode} toggle text is white`).toBe("rgb(255, 255, 255)");
+
+      // (2) the menu surface comes from Bootstrap's theme-aware dropdown token,
+      //     so it is NOT the dull dark-navy body background of superhero light
+      expect(dropdown.menuBg, `${theme}/${mode} menu uses --bs-dropdown-bg`).toBe(rgb(expected.dropdownBg));
+
+      // (3) the menu + row text is readable on the menu surface (contrast, not
+      //     white-on-white)
+      const contrast = (c1, c2) => {
+        const lum = (v) => {
+          const f = (x) => (x / 255 <= 0.03928 ? x / 255 / 12.92 : Math.pow((x / 255 + 0.055) / 1.055, 2.4));
+          const [r, g, b] = v.map(Number);
+          return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
+        };
+        const a = lum(parse(c1)), b = lum(parse(c2));
+        const [hi, lo] = a > b ? [a, b] : [b, a];
+        return (hi + 0.05) / (lo + 0.05);
+      };
+      expect(contrast(dropdown.menuColor, dropdown.menuBg), `${theme}/${mode} menu text contrasts on menu bg`).toBeGreaterThanOrEqual(3);
+      expect(contrast(dropdown.rowColor, dropdown.menuBg), `${theme}/${mode} row text contrasts on menu bg`).toBeGreaterThanOrEqual(3);
+
+      // (4) the row :hover has a rule (themed translucent overlay, not a solid
+      //     light-grey that would render white-on-white in superhero light)
+      expect(dropdown.hoverBgRule, `${theme}/${mode} row hover has a background rule`).toBeTruthy();
+
       await page.evaluate(() => closeGantt());
     }
   });

@@ -211,8 +211,11 @@ function ganttPaintZoomButtons() {
 function ganttZoomHtml() {
   return (
     '<div class="gantt-zoom btn-group btn-group-sm" role="group" aria-label="Timeline zoom">' +
-    ganttZoomPresets.map((p) => (
-      '<button type="button" class="btn btn-outline-secondary" data-gantt-zoom="' + p.id + '"' +
+    ganttZoomPresets.map((p, i) => (
+      // Every preset except the LAST carries `me-1` (margin-end), so the Day and
+      // Week buttons get right-margin and the presets read as evenly-spaced
+      // controls instead of a fused segment group.
+      '<button type="button" class="btn' + (i < ganttZoomPresets.length - 1 ? " me-1" : "") + '" data-gantt-zoom="' + p.id + '"' +
       ' aria-pressed="false" onclick="ganttSetZoom(\'' + p.id + '\')">' + p.label + "</button>"
     )).join("") +
     "</div>"
@@ -326,7 +329,7 @@ function ganttStreamFilterHtml() {
 
   return (
     '<div class="dropdown gantt-stream-filter">' +
-      '<button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle" ' +
+      '<button type="button" class="btn btn-sm dropdown-toggle gantt-stream-toggle" ' +
         'id="ganttStreamMenuBtn" aria-expanded="false" onclick="ganttToggleStreamMenu()">' +
         "Streams (" + shown.length + "/" + ordered.length + ")" +
       "</button>" +
@@ -1845,25 +1848,39 @@ function changeShowGantt(enabled) {
     "#ganttPage .rg-gantt-bar--summary {",
     "  height: 8px;",
     "}",
-    "/* Zoom buttons: the active preset is filled, the rest stay outline-only.",
-    "   The button group follows the page chrome rather than the theme's button",
-    "   palette - `btn-outline-secondary` is NOT reliably an outline (it renders",
-    "   as a filled grey block with white text in flatly light mode). */",
+    "/* SOLID BAR COLOURS. The vendor paints both bar types with a vertical",
+    "   gradient (jobs: --rg-gantt-task -> --rg-gantt-task-strong; streams: a",
+    "   hard-coded dark top -> --rg-gantt-summary). The requirement is a flat",
+    "   fill: jobs SOLID --bs-success, streams SOLID --bs-danger. Overriding",
+    "   `background` (the shorthand) clears the gradient entirely; the bar label",
+    "   and drag handles are unaffected. */",
+    "#ganttPage .rg-gantt-bar {",
+    "  background: var(--bs-success);",
+    "}",
+    "#ganttPage .rg-gantt-bar--summary {",
+    "  background: var(--bs-danger);",
+    "}",
+    "/* Zoom buttons: the active preset is the theme PRIMARY button colour, the rest",
+    "   are SECONDARY. Button text is WHITE, matching Bootstrap's own filled",
+    "   `.btn-primary`/`.btn-secondary` (which hardcode `--bs-btn-color: #fff` in",
+    "   every theme). The buttons no longer carry `btn-outline-secondary` (that",
+    "   class sets `--bs-btn-color` to the grey secondary, which would paint the",
+    "   text grey) - the colours are fully owned here. */",
     "#ganttPage .gantt-zoom > .btn {",
-    "  background-color: var(--gantt-surface);",
-    "  color: var(--gantt-text);",
-    "  border: 1px solid var(--gantt-border);",
+    "  background-color: var(--bs-secondary);",
+    "  color: #fff;",
+    "  border: 1px solid var(--bs-secondary);",
     "}",
     "#ganttPage .gantt-zoom > .btn:hover,",
     "#ganttPage .gantt-zoom > .btn:focus {",
-    "  background-color: var(--gantt-surface-alt);",
-    "  color: var(--gantt-text);",
-    "  border-color: var(--gantt-border);",
+    "  background-color: var(--bs-secondary);",
+    "  color: #fff;",
+    "  border-color: var(--bs-secondary);",
     "}",
     "#ganttPage .gantt-zoom > .btn.active {",
-    "  background-color: var(--gantt-surface-alt);",
-    "  color: var(--gantt-text);",
-    "  border-color: var(--gantt-border);",
+    "  background-color: var(--bs-primary);",
+    "  color: #fff;",
+    "  border-color: var(--bs-primary);",
     "  font-weight: 600;",
     "}",
     "/* Streams filter dropdown. `.dropdown-menu` is absolutely positioned by",
@@ -1876,6 +1893,22 @@ function changeShowGantt(enabled) {
     "  position: relative;",
     "  margin-left: auto;",
     "}",
+    "/* The toggle matches the zoom buttons: a SOLID secondary fill with white",
+    "   text (the old `btn-outline-secondary` was a dull grey outline that",
+    "   vanished on dark themes like superhero light). `.show` state keeps the",
+    "   same fill so the button reads as pressed while the menu is open. */",
+    "#ganttPage .gantt-stream-toggle {",
+    "  background-color: var(--bs-secondary);",
+    "  color: #fff;",
+    "  border: 1px solid var(--bs-secondary);",
+    "}",
+    "#ganttPage .gantt-stream-toggle:hover,",
+    "#ganttPage .gantt-stream-toggle:focus,",
+    "#ganttPage .gantt-stream-toggle.show {",
+    "  background-color: var(--bs-secondary);",
+    "  color: #fff;",
+    "  border-color: var(--bs-secondary);",
+    "}",
     "#ganttPage .gantt-stream-menu {",
     "  position: absolute;",
     "  top: 100%;",
@@ -1884,20 +1917,22 @@ function changeShowGantt(enabled) {
     "  z-index: 1080;",
     "  min-width: 14rem;",
     "  display: none;",
-    "  background-color: var(--gantt-surface);",
-    "  color: var(--gantt-text);",
-    "  border: 1px solid var(--gantt-border);",
-    "  border-radius: 0.375rem;",
-    "  box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);",
+    "  background-color: var(--bs-dropdown-bg, var(--gantt-surface));",
+    "  color: var(--bs-dropdown-link-color, var(--gantt-text));",
+    "  border: 1px solid var(--bs-dropdown-border-color, var(--gantt-border));",
+    "  border-radius: var(--bs-dropdown-border-radius, 0.375rem);",
+    "  box-shadow: var(--bs-dropdown-box-shadow, 0 0.5rem 1rem rgba(0, 0, 0, 0.15));",
     "}",
     "#ganttPage .gantt-stream-menu.show {",
     "  display: block;",
     "}",
     "#ganttPage .gantt-stream-row {",
     "  cursor: pointer;",
+    "  color: var(--bs-dropdown-link-color, var(--gantt-text));",
     "}",
     "#ganttPage .gantt-stream-row:hover {",
-    "  background-color: var(--gantt-surface-alt);",
+    "  background-color: var(--bs-dropdown-link-hover-bg, var(--gantt-surface-alt));",
+    "  color: var(--bs-dropdown-link-hover-color, var(--gantt-text));",
     "}",
     "#ganttPage .gantt-stream-label {",
     "  min-width: 0;",
