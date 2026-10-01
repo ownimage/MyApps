@@ -1,17 +1,29 @@
 const { test, expect } = require("@playwright/test");
 
 // The Gantt page (Settings -> Display -> Show Gantt, then the Gantt menu item)
-// is a READ-ONLY projection of the stream/job tree. PlanMyDay jobs have no
-// start/end dates — only a recurrence rule, an optional `sleepUntil` not-before
-// date and a `duration` in days — so the chart derives:
+// is a READ-ONLY projection of the stream/job tree, now drawn by the vendored
+// MIT @revolist/gantt plugin on @revolist/revogrid (shared/vendor/revolist).
+// PlanMyDay jobs have no start/end dates — only a recurrence rule, an optional
+// `sleepUntil` not-before date and a `duration` in days — so the chart derives:
 //
 //   start = job.sleepUntil || today      (today ASSUMED at read time)
 //   end   = start + (job.duration || 1) days
 //
-// A stream is a collapsible group (pGroup 1). A stream WITH jobs spans them; a
-// stream with NO jobs keeps empty start/end, which the library renders as a
-// plain header line (so every stream has a row, ready for future reordering).
+// A stream is a collapsible group (type "summary"). A stream WITH jobs spans
+// them; a stream with NO jobs keeps a zero-length span on today, which the
+// vendor draws as its 6px minimum bar (so every stream still gets a row).
 // Nothing here may write back to storage.
+//
+// DOM map for the new grid (kept here because the vendor's classes are not
+// obvious):
+//   #ganttChart revo-grid            the grid element
+//   revogr-header .rgHeaderCell      one per column (Task, Start, End, timeline)
+//   revogr-data .rgCell              body cells (name/start/end per row)
+//   .rg-gantt-bar                    one bar per row
+//   .rg-gantt-bar--summary           summary bars (stream rows)
+//   .rg-gantt-bar-label              the row label rendered over the timeline
+//   .rg-gantt-header-cell            the timeline day/week cells (755 at Day zoom)
+//   aria-rowcount on revo-grid       total rows (streams + jobs)
 function seedStreams(page, streams) {
   return page.evaluate((s) => {
     localStorage.setItem("planmydays_streams", JSON.stringify(s));
@@ -23,6 +35,11 @@ async function enableGantt(page) {
     localStorage.setItem("planmydays_showGantt", "true");
   });
   await page.reload();
+}
+
+async function openChart(page) {
+  await page.evaluate(() => openGantt());
+  await page.waitForFunction(() => document.querySelectorAll(".rg-gantt-bar").length > 0, null, { timeout: 30000 });
 }
 
 const SAMPLE = [
@@ -82,58 +99,244 @@ test.describe("Gantt page", () => {
     const today = await page.evaluate(() => getTodayStr());
     const items = await page.evaluate((t) => buildGanttTasks(JSON.parse(localStorage.getItem("planmydays_streams")), t), today);
 
-    // Job rows are labelled "<title> [<frequency>]", so look them up by title
-    // rather than by the whole cell text.
+    // Rows are labelled "<title> [<frequency>]", so look them up by title
+    // rather than by the whole name.
     const byTitle = {};
-    items.forEach((i) => { byTitle[i.pName.replace(/\s*\[.*\]$/, "")] = i; });
+    items.forEach((i) => { byTitle[i.name.replace(/\s*\(.*\)$/, "")] = i; });
 
     // job with an explicit duration, no sleepUntil -> starts today, spans 3 days
-    expect(byTitle["Daily standup"].pStart).toBe(today);
-    expect(byTitle["Daily standup"].pEnd).toBe(await page.evaluate((t) => ganttAddDaysStr(t, 3), today));
+    expect(byTitle["Daily standup"].startDate).toBe(today);
+    expect(byTitle["Daily standup"].endDate).toBe(await page.evaluate((t) => ganttAddDaysStr(t, 3), today));
 
     // job with sleepUntil + duration -> starts on sleepUntil, spans 2 days
-    expect(byTitle["Planned review"].pStart).toBe("2026-10-05");
-    expect(byTitle["Planned review"].pEnd).toBe("2026-10-07");
+    expect(byTitle["Planned review"].startDate).toBe("2026-10-05");
+    expect(byTitle["Planned review"].endDate).toBe("2026-10-07");
 
     // legacy job with no duration -> 1 day
-    expect(byTitle["Legacy job"].pEnd).toBe(await page.evaluate((t) => ganttAddDaysStr(t, 1), today));
+    expect(byTitle["Legacy job"].endDate).toBe(await page.evaluate((t) => ganttAddDaysStr(t, 1), today));
   });
 
-  test("renders one row per stream and job, including an empty header for a job-less stream", async ({ page }) => {
+  test("renders one row per stream and job, including a minimum bar for a job-less stream", async ({ page }) => {
     await page.goto("/PlanMyDay/");
     await seedStreams(page, SAMPLE);
     await enableGantt(page);
-
-    await page.evaluate(() => openGantt());
-    await page.waitForTimeout(800);
+    await openChart(page);
 
     // page is open
     await expect(page.locator("#ganttPage")).toHaveAttribute("open", "");
 
+    // 2 streams + 3 jobs = 5 rows, 5 bars, of which 2 are summary bars. The
+    // empty "Home" stream still gets its own row + minimum bar.
     const chart = await page.evaluate(() => {
-      const host = document.getElementById("ganttPage").querySelector("#ganttChart");
-      const rows = Array.from(host.querySelectorAll("table tr")).map((tr) => tr.textContent.replace(/\s+/g, " ").trim());
+      const grid = document.querySelector("#ganttChart revo-grid");
       return {
-        drawn: !!host.querySelector(".gchartcontainer"),
-        rowTexts: rows,
-        // group rows are the stream rows
-        groupCount: items => items.filter((i) => i.pGroup === 1).length
+        rows: Number(grid.getAttribute("aria-rowcount")),
+        cols: Number(grid.getAttribute("aria-colcount")),
+        bars: document.querySelectorAll(".rg-gantt-bar").length,
+        summaryBars: document.querySelectorAll(".rg-gantt-bar--summary").length,
+        labels: Array.from(document.querySelectorAll(".rg-gantt-bar-label")).map((l) => l.textContent.trim()),
+        headerCells: document.querySelectorAll("revogr-header .rgHeaderCell").length,
+        bodyCells: document.querySelectorAll("revogr-data .rgCell").length,
+        themeAttr: grid.getAttribute("theme"),
+        readonly: grid.readonly,
+        rowSize: Number(grid.rowSize)
       };
     });
 
-    expect(chart.drawn).toBe(true);
-    // the task table lists: header rows, then Work + its 3 jobs, then Home.
-    const text = chart.rowTexts.join(" | ");
-    expect(text).toContain("Work");
-    expect(text).toContain("Daily standup");
-    expect(text).toContain("Planned review");
-    expect(text).toContain("Legacy job");
-    expect(text).toContain("Home");
-    // A stream with no jobs still gets a header row (the empty header line).
-    const homeRow = chart.rowTexts.find((r) => /Home/.test(r));
-    expect(homeRow).toBeTruthy();
-    // It is a header with no dates (0 duration / no start).
-    expect(homeRow).not.toMatch(/\d{2}\/\d{2}\/\d{4}/);
+    expect(chart.rows).toBe(5);
+    expect(chart.bars).toBe(5);
+    expect(chart.summaryBars).toBe(2);
+    expect(chart.headerCells).toBe(4); // Task, Start, End, timeline
+    expect(chart.bodyCells).toBe(20);  // 5 rows x (name, start, end) + 5 timeline labels
+    expect(chart.themeAttr).toBe("default");
+    expect(chart.readonly).toBe(true);
+    expect(chart.rowSize).toBe(30);
+
+    // every stream and job is labelled; the summary stream rows carry no
+    // frequency bracket, the empty stream still appears
+    expect(chart.labels).toContain("Work");
+    expect(chart.labels).toContain("Home");
+    expect(chart.labels).toContain("Daily standup");
+    expect(chart.labels).toContain("Planned review (Weekdays)");
+    expect(chart.labels).toContain("Legacy job");
+  });
+
+  test("a stream can be collapsed so its job rows hide, and the state persists", async ({ page }) => {
+    await page.goto("/PlanMyDay/");
+    await seedStreams(page, SAMPLE);
+    await enableGantt(page);
+    await openChart(page);
+
+    const state = () => page.evaluate(() => {
+      const grid = document.querySelector("#ganttChart revo-grid");
+      return {
+        rows: Number(grid.getAttribute("aria-rowcount")),
+        bars: document.querySelectorAll(".rg-gantt-bar").length,
+        summaryBars: document.querySelectorAll(".rg-gantt-bar--summary").length,
+        taskBars: document.querySelectorAll(".rg-gantt-bar--task").length,
+        toggleGlyphs: Array.from(document.querySelectorAll(".pmd-gantt-collapse-toggle")).map((b) => b.textContent),
+        ariaExpanded: Array.from(document.querySelectorAll(".pmd-gantt-collapse-toggle")).map((b) => b.getAttribute("aria-expanded")),
+        persisted: JSON.parse(localStorage.getItem("planmydays_ganttCollapsedStreams") || "[]")
+      };
+    });
+
+    // both streams expanded by default: 2 summary + 3 job rows
+    let s = await state();
+    expect(s.rows).toBe(5);
+    expect(s.taskBars).toBe(3);
+    expect(s.summaryBars).toBe(2);
+    expect(s.toggleGlyphs).toEqual(["▾", "▾"]);
+    expect(s.persisted).toEqual([]);
+
+    // collapse the first stream (Work)
+    await page.evaluate(() => document.querySelector(".pmd-gantt-collapse-toggle").click());
+    await page.waitForTimeout(400);
+
+    s = await state();
+    // job rows gone, summary rows remain
+    expect(s.rows).toBe(2);
+    expect(s.taskBars).toBe(0);
+    expect(s.summaryBars).toBe(2);
+    expect(s.toggleGlyphs).toEqual(["▸", "▾"]);
+    expect(s.ariaExpanded).toEqual(["false", "true"]);
+    expect(s.persisted).toEqual(["Work"]);
+
+    // persists across a reload
+    await page.reload();
+    await openChart(page);
+    s = await state();
+    expect(s.rows).toBe(2);
+    expect(s.taskBars).toBe(0);
+    expect(s.toggleGlyphs).toEqual(["▸", "▾"]);
+
+    // and can be expanded again
+    await page.evaluate(() => document.querySelector(".pmd-gantt-collapse-toggle").click());
+    await page.waitForTimeout(400);
+    s = await state();
+    expect(s.rows).toBe(5);
+    expect(s.taskBars).toBe(3);
+    expect(s.persisted).toEqual([]);
+  });
+
+  test("collapsing a stream ABOVE the viewport keeps the visible rows anchored (no scroll jump)", async ({ page }) => {
+    test.setTimeout(60000);
+    // 30 streams x 6 jobs = 210 rows: far more than the ~24 rows that fit on
+    // screen. Collapsing/expanding a stream above the current scroll position
+    // must NOT move the rows under the cursor - the scroll stays anchored to
+    // the same row even though the total row count changed.
+    const streams = [];
+    for (let i = 1; i <= 30; i++) {
+      streams.push({
+        title: "S" + i,
+        sequence: i,
+        jobs: Array.from({ length: 6 }, (_, j) => ({
+          id: "s" + i + "_j" + (j + 1),
+          title: "S" + i + "J" + (j + 1),
+          sequence: j + 1,
+          active: true,
+          schedule: { type: "daily" },
+          duration: 1
+        }))
+      });
+    }
+    await page.goto("/PlanMyDay/");
+    await seedStreams(page, streams);
+    await enableGantt(page);
+    await openChart(page);
+
+    const topRow = (page) => page.evaluate(() => {
+      const scroller = document.querySelector("#ganttChart revo-grid .vertical-inner");
+      // the first rendered row whose top is at/just below the viewport top
+      let best = null;
+      document.querySelectorAll("#ganttChart .rgRow").forEach((el) => {
+        const r = el.getBoundingClientRect();
+        if (r.top >= 95 && (!best || r.top < best.top)) {
+          best = { top: r.top, title: (el.querySelector(".pmd-gantt-stream-title") || el.querySelector(".pmd-gantt-job-name") || {}).textContent };
+        }
+      });
+      return { scrollTop: scroller.scrollTop, row: best };
+    });
+
+    // Scroll so S5's header is at the top of the viewport.
+    await page.evaluate(() => {
+      const scroller = document.querySelector("#ganttChart revo-grid .vertical-inner");
+      scroller.scrollTop = 28 * 30; // S5 header is source index 28 (4 streams * 7 rows)
+    });
+    await page.waitForTimeout(400);
+    const before = await topRow(page);
+    expect(before.row && before.row.title).toBe("S5");
+    expect(before.scrollTop).toBe(840);
+
+    // Collapse S2 (ABOVE the viewport). S5 must remain the top visible row.
+    await page.evaluate(() => ganttToggleStreamCollapsed("S2"));
+    await page.waitForTimeout(600);
+    const afterCollapse = await topRow(page);
+    expect(afterCollapse.row && afterCollapse.row.title).toBe("S5");
+
+    // Re-expand S2; still anchored on S5.
+    await page.evaluate(() => ganttToggleStreamCollapsed("S2"));
+    await page.waitForTimeout(600);
+    const afterExpand = await topRow(page);
+    expect(afterExpand.row && afterExpand.row.title).toBe("S5");
+  });
+
+  test("job names are indented under their stream so rows read as a hierarchy", async ({ page }) => {
+    await page.goto("/PlanMyDay/");
+    await seedStreams(page, SAMPLE);
+    await enableGantt(page);
+    await openChart(page);
+
+    const state = await page.evaluate(() => {
+      const pad = (text) => {
+        // stream cells are "▾ + <title span>", so match on the title span
+        const streamCell = Array.from(document.querySelectorAll("#ganttChart .pmd-gantt-stream-title"))
+          .find((s) => s.textContent.trim() === text);
+        const jobCell = Array.from(document.querySelectorAll("#ganttChart .pmd-gantt-job-name"))
+          .find((s) => s.textContent.trim() === text);
+        const cell = streamCell ? streamCell.closest(".pmd-gantt-stream-name") : jobCell;
+        return cell ? parseFloat(getComputedStyle(cell).paddingLeft) : null;
+      };
+      return {
+        jobCount: document.querySelectorAll("#ganttChart .pmd-gantt-job-name").length,
+        streamCount: document.querySelectorAll("#ganttChart .pmd-gantt-stream-name").length,
+        jobPad: pad("Daily standup"),
+        streamPad: pad("Work")
+      };
+    });
+
+    // 3 jobs + 2 streams, every row is stamped with the right class
+    expect(state.jobCount).toBe(3);
+    expect(state.streamCount).toBe(2);
+    // jobs are indented a clear step; streams stay flush
+    expect(state.jobPad).toBeGreaterThan(0);
+    expect(state.jobPad).toBeGreaterThan(state.streamPad);
+  });
+
+  test("the chart fills the page between the header and the Close footer", async ({ page }) => {
+    await page.goto("/PlanMyDay/");
+    await seedStreams(page, SAMPLE);
+    await enableGantt(page);
+    await openChart(page);
+
+    const boxes = await page.evaluate(() => {
+      const body = document.querySelector("#ganttPage .smd-page-body");
+      const chart = document.querySelector("#ganttChart");
+      const grid = document.querySelector("#ganttChart revo-grid");
+      return {
+        body: Math.round(body.getBoundingClientRect().height),
+        chart: Math.round(chart.getBoundingClientRect().height),
+        grid: Math.round(grid.getBoundingClientRect().height),
+        bodyFlex: getComputedStyle(body).display,
+        chartMinHeight: getComputedStyle(chart).minHeight
+      };
+    });
+
+    // the chart (and the grid inside it) reach the bottom of the page body
+    expect(boxes.chart).toBeGreaterThanOrEqual(boxes.body - 2);
+    expect(boxes.grid).toBeGreaterThanOrEqual(boxes.body - 2);
+    // the body is a column flex container so the host can flex-grow into it
+    expect(boxes.bodyFlex).toBe("flex");
+    expect(boxes.chartMinHeight).toBe("0px");
   });
 
   test("opening the Gantt does not mutate the stored streams (read-only projection)", async ({ page }) => {
@@ -142,8 +345,8 @@ test.describe("Gantt page", () => {
     await enableGantt(page);
     const before = await page.evaluate(() => localStorage.getItem("planmydays_streams"));
 
-    await page.evaluate(() => openGantt());
-    await page.waitForTimeout(600);
+    await openChart(page);
+    await page.waitForTimeout(300);
     const after = await page.evaluate(() => localStorage.getItem("planmydays_streams"));
 
     // Byte-for-byte identical: the chart must not backfill `sleepUntil`/`duration`.
@@ -170,30 +373,31 @@ test.describe("Gantt page", () => {
       ]}
     ], getTodayStr()));
 
-    const name = (t) => items.find((i) => i.pName.includes(t));
+    const name = (t) => items.find((i) => i.name.includes(t));
     // A plain daily job is the DEFAULT schedule, so it gets no bracket at all.
-    expect(name("Standup").pName).toBe("Standup");
+    expect(name("Standup").name).toBe("Standup");
     // A job with no schedule at all is the same default -> also no bracket.
-    expect(name("Untitled-less").pName).toBe("Untitled-less");
+    expect(name("Untitled-less").name).toBe("Untitled-less");
     // Everything that is NOT the default does get the frequency.
     // The parenthetical detail is trimmed: the name column ellipsises, so
     // "Weekdays (Mon-Fri)" would be cut to "Weekda..." and lose the meaning.
-    expect(name("Review").pName).toBe("Review [Weekdays]");
-    expect(name("Payday").pName).toBe("Payday [15th of every month]");
+    expect(name("Review").name).toBe("Review (Weekdays)");
+    expect(name("Payday").name).toBe("Payday (15th of every month)");
     // "day(s)" is part of the word, not parenthetical detail - must not be mangled.
-    expect(name("Fortnightly").pName).toBe("Fortnightly [Every 14 day(s)]");
-    expect(name("Pick days").pName).toBe("Pick days [Mon, Wed]");
+    expect(name("Fortnightly").name).toBe("Fortnightly (Every 14 day(s))");
+    expect(name("Pick days").name).toBe("Pick days (Mon, Wed)");
 
     // Stream group rows are NOT labelled with a frequency - they are not jobs.
-    const streamRow = items.find((i) => i.pName === "Work");
+    const streamRow = items.find((i) => i.name === "Work");
     expect(streamRow).toBeTruthy();
-    expect(streamRow.pName).not.toContain("[");
+    expect(streamRow.type).toBe("summary");
   });
 
   test("task text meets WCAG AA contrast in BOTH light and dark mode", async ({ page }) => {
-    // Regression guard for the washed-out chart: jsGantt hard-codes white row
-    // fills but never sets a text colour, so under a dark theme the text
-    // inherited a LIGHT colour and landed on a WHITE row (effectively invisible).
+    // Regression guard for the washed-out chart: RevoGrid's cells fall back to
+    // transparent/black if the `theme` attribute names a bundled palette that
+    // has no matching CSS, which makes the text vanish. The grid surface must
+    // follow the page surface in both modes, and its text must keep contrast.
     test.setTimeout(60000);
     await page.goto("/PlanMyDay/");
     await seedStreams(page, SAMPLE);
@@ -211,19 +415,17 @@ test.describe("Gantt page", () => {
       const [hi, lo] = a > b ? [a, b] : [b, a];
       return (hi + 0.05) / (lo + 0.05);
     };
-    const parse = (s) => s.match(/[\d.]+/g).slice(0, 3).map(Number);
+    const parse = (s) => String(s).match(/[\d.]+/g).slice(0, 3).map(Number);
 
     for (const [mode, theme] of [["dark", "superhero"], ["light", "flatly"]]) {
       await page.evaluate(([t, m]) => applyTheme(t, m), [theme, mode]);
       await page.waitForFunction((m) => document.documentElement.getAttribute("data-bs-theme") === m, mode);
       // let the per-mode override stylesheet <theme>.<mode>.css land
       await page.waitForTimeout(700);
-      await page.evaluate(() => openGantt());
-      await page.waitForTimeout(900);
+      await openChart(page);
 
       const samples = await page.evaluate(() => {
-        const read = (sel) => {
-          const el = document.querySelector(sel);
+        const read = (el) => {
           if (!el) return null;
           let bg = "rgba(0, 0, 0, 0)", node = el;
           while (node && bg === "rgba(0, 0, 0, 0)") {
@@ -233,346 +435,1192 @@ test.describe("Gantt page", () => {
           }
           return { color: getComputedStyle(el).color, bg };
         };
+        // The bar label is positioned to the RIGHT of its bar (offset by
+        // `left: calc(100% + 12px)` in the vendor CSS) but is DOM-nested inside
+        // the bar element, so walking up its ancestors stops at the solid bar
+        // background even though the label is painted on the timeline cell
+        // behind it. Resolve the ACTUAL painted background under the label via
+        // elementFromPoint instead, so the contrast check reflects what is on
+        // screen (the timeline cell, which follows the page surface).
+        const readLabel = (el) => {
+          if (!el) return null;
+          const r = el.getBoundingClientRect();
+          const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+          return { color: getComputedStyle(el).color, bg: hit ? read(hit).bg : null };
+        };
+        const cell = document.querySelector("revogr-data .rgCell");
+        const label = document.querySelector(".rg-gantt-bar-label");
+        const timeline = document.querySelector(".rg-gantt-cell");
         return {
-          groupName: read("tr.ggroupitem .gtaskname div"),
-          childName: read("tr.glineitem .gtaskname div"),
-          dur: read("tr.glineitem .gdur div"),
-          startDate: read("tr.glineitem .gstartdate div"),
-          weekHeader: read("#ganttChart .gcharttableh .gminorheading"),
-          dayHeader: read("#ganttChart .gcharttableh .gminorheadingwkend"),
-          // The WEEK-RANGE dates ("21/09/2026 - 27/09/2026"). The vendor pairs
-          // .gmajorheading with .gminorheading on one `#ffffff` rule, so theming
-          // only the minor heading left these labels white-on-white in dark mode.
-          majorHeader: read("#ganttChart .gcharttableh .gmajorheading"),
-          // The chart SURFACE must follow the page surface too. A pure
-          // text-contrast check is not enough: with the `gantt` class present
-          // the vendor's own `div.gantt { color: #656565 }` keeps text readable
-          // on its hard-coded WHITE rows, so a regression to a white panel in
-          // dark mode would still pass a contrast-only assertion. Comparing the
-          // row fill to <body>'s fill is what actually pins the theming.
-          rowFill: read("tr.glineitem .gdur div").bg,
+          nameCell: read(cell),
+          timelineLabel: readLabel(label || timeline),
           bodyFill: getComputedStyle(document.body).backgroundColor
         };
       });
 
       for (const [what, v] of Object.entries(samples)) {
-        if (what === "rowFill" || what === "bodyFill") continue;
-        expect(v, `${mode}: ${what} cell not found`).not.toBeNull();
-        // Composite any alpha in the text colour onto the resolved background.
-        const fgRaw = v.color.match(/[\d.]+/g).map(Number);
-        const bg = parse(v.bg);
-        const a = fgRaw.length > 3 ? fgRaw[3] : 1;
-        const fg = [0, 1, 2].map((i) => fgRaw[i] * a + bg[i] * (1 - a));
-        expect(ratio(fg, bg), `${mode}: ${what} contrast`).toBeGreaterThan(4.5);
+        if (what === "bodyFill") continue; // not a color pair; asserted separately below
+        const r = ratio(parse(v.color), parse(v.bg));
+        expect(r, `${theme}/${mode} ${what} contrast ${r.toFixed(2)} (color ${v.color} on ${v.bg})`).toBeGreaterThanOrEqual(4.5);
       }
-
-      // Chart surface must match the page surface (no white panel in dark mode).
-      const row = parse(samples.rowFill).slice(0, 3);
-      const body = parse(samples.bodyFill).slice(0, 3);
-      const drift = Math.max(...row.map((v, i) => Math.abs(v - body[i])));
-      expect(drift, `${mode}: chart row fill ${samples.rowFill} should track body ${samples.bodyFill}`).toBeLessThan(12);
+      // the grid surface must actually track the page: text would otherwise stay
+      // readable on a hard-coded white panel while the chart broke visually
+      expect(samples.nameCell.bg).toBe(samples.bodyFill);
       await page.evaluate(() => closeGantt());
     }
   });
 
-  test("left data columns scale predictably and stay aligned with the bars", async ({ page }) => {
-    // Regression guard for "the data columns scale at the wrong rate". Two
-    // vendor defects combine here: `.gmainleft` declares `flex: 0 0 20%` and
-    // then overrides it with `flex: 1 0 auto` (the 20% basis is dead), and
-    // `.gtaskname` is pinned to a fixed 220px, so the task table is a constant
-    // ~472px that ignores the pane and overflows it on a narrow window.
-    test.setTimeout(90000);
-    const jobs = [
-      { id: "s", title: "A very long job title that would previously have stretched the entire left pane wide", sequence: 1, active: true, schedule: { type: "daily" }, duration: 12 },
-      { id: "a", title: "sadsad", sequence: 2, active: true, schedule: { type: "daily" }, duration: 1 },
-      { id: "b", title: "Weekly review", sequence: 3, active: true, schedule: { type: "weekdays" }, duration: 5 }
-    ];
+  test("Gantt uses theme primary/secondary for the zoom buttons, solid success/danger bars, and a standard header background in light and dark", async ({ page }) => {
+    // (1) zoom buttons: the SELECTED preset is the theme PRIMARY button colour,
+    //     the unselected ones are SECONDARY;
+    // (2) task bars are SOLID --bs-success, stream bars SOLID --bs-danger (the
+    //     vendor ships a gradient for both);
+    // (3) the timeline header background is the standard theme background for
+    //     the mode (no dark-navy gradient showing through on themes like
+    //     superhero whose light mode still has a dark --bs-body-bg).
+    test.setTimeout(120000);
     await page.goto("/PlanMyDay/");
-    await page.evaluate((j) => {
-      localStorage.setItem("planmydays_streams", JSON.stringify([{ title: "Ad Hoc", sequence: 1, jobs: j }]));
-      localStorage.setItem("planmydays_showGantt", "true");
-    }, jobs);
+    await seedStreams(page, SAMPLE);
+    await enableGantt(page);
 
-    const widths = [];
-    for (const vp of [800, 1200, 1600]) {
-      await page.setViewportSize({ width: vp, height: 700 });
-      await page.reload();
-      await page.evaluate(() => openGantt());
-      await page.waitForTimeout(700);
-      widths.push(await page.evaluate(() => {
-        const left = document.querySelector("#ganttChart .gmainleft");
-        const table = document.querySelector("#ganttChart .gtasktable");
-        const endCell = document.querySelector("#ganttChart .gtasktable .genddate");
-        const rows = Array.from(document.querySelectorAll("#ganttChart .gtasktable tr"));
-        const bars = Array.from(document.querySelectorAll("#ganttChart .gtaskcellbar"));
-        let drift = 0;
-        rows.forEach((r, i) => {
-          if (r.textContent.trim() && bars[i]) {
-            drift = Math.max(drift, Math.abs(r.getBoundingClientRect().top - bars[i].getBoundingClientRect().top));
-          }
-        });
-        const lw = left.getBoundingClientRect().width;
-        const chart = document.querySelector("#ganttChart").getBoundingClientRect().width;
-        const lcs = getComputedStyle(left);
-        return {
-          leftW: Math.round(lw),
-          // The pane must never dominate the timeline. Before the fix it took
-          // 64% of the chart at 800px and ~52% at 1600px; that non-proportional
-          // share is the actual "wrong rate" symptom, and it is the assertion
-          // that fails without the fix (the width/clamping checks all pass
-          // either way, because the vendor pins the columns either way).
-          leftShare: +(lw / chart).toFixed(3),
-          // The vendor ships `.gmain { resize: horizontal }` - the
-          // double-headed-arrow grip that resizes a pane by writing an inline
-          // `width`. A flex-basis would override that width and silently kill
-          // the drag, so the basis MUST stay `auto`.
-          flexBasis: lcs.flexBasis,
-          resize: lcs.resize,
-          tableW: Math.round(table.getBoundingClientRect().width),
-          // End Date must not be clipped by .gmainleft's overflow:hidden
-          endVisible: endCell.getBoundingClientRect().right <= left.getBoundingClientRect().right + 1,
-          // rows must line up with their bars at every width
-          drift: Math.round(drift),
-          // date columns stay a constant width, like the timeline day columns
-          dateCols: Array.from(rows[1].children).slice(2).map((td) => Math.round(td.getBoundingClientRect().width))
-        };
-      }));
-      await page.evaluate(() => closeGantt());
-    }
+    const parse = (s) => String(s).match(/[\d.]+/g).slice(0, 3).map(Number);
+    const rgb = (v) => {
+      // Accept either "rgb(r, g, b)" (as the browser reports computed colors) or
+      // a hex "#rrggbb" / "#rgb" (as the --bs-* custom props are declared).
+      const s = String(v).trim();
+      if (s.charAt(0) === "#") {
+        let h = s.slice(1);
+        if (h.length === 3) h = h.split("").map((c) => c + c).join("");
+        return "rgb(" + [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16)).join(", ") + ")";
+      }
+      return "rgb(" + parse(s).join(", ") + ")";
+    };
 
-    for (const w of widths) {
-      // the table must fill its pane rather than overflow it
-      expect(w.tableW, `table should fill the pane @${JSON.stringify(w)}`).toBeLessThanOrEqual(w.leftW + 1);
-      expect(w.endVisible, "End Date column must not be clipped").toBe(true);
-      expect(w.drift, "task rows must stay aligned with the bars").toBeLessThanOrEqual(1);
-      // the task list must never take over the timeline
-      expect(w.leftShare, `left pane took ${Math.round(w.leftShare * 50) * 2}% of the chart`).toBeLessThan(0.5);
-      // The proportional width must come from `width`, and the flex-basis must
-      // stay `auto` or the vendor's native resize grip is dead.
-      expect(w.flexBasis, "flex-basis must stay auto or the resize grip breaks").toBe("auto");
-      expect(w.resize, "the native horizontal resize grip must remain available").toBe("horizontal");
-    }
-    // The pane grows with the window (it is clamped, but never fixed at one value).
-    expect(widths[2].leftW).toBeGreaterThan(widths[0].leftW);
-    // Date columns are constant width across every viewport - that is what makes
-    // the scaling "the right rate". Only the name column absorbs slack.
-    const [c0, c1, c2] = widths.map((w) => w.dateCols.join("/"));
-    expect(c1).toBe(c0);
-    expect(c2).toBe(c0);
-    // Simulate exactly what the native `resize: horizontal` grip does: it writes
-    // an inline `width` on the pane. That must actually resize the pane. When we
-    // expressed the width as a flex-basis instead, the grip still showed its
-    // double-headed arrow but this write was silently overridden.
-    await page.reload();
-    await page.evaluate(() => { localStorage.setItem("planmydays_showGantt", "true"); });
-    await page.reload();
-    await page.evaluate(() => openGantt());
-    // The page is display:none until smd-page shows it, so wait for a real
-    // layout before measuring anything.
-    await page.waitForFunction(() => {
-      const el = document.querySelector("#ganttChart .gmainleft");
-      return el && el.getBoundingClientRect().width > 0;
-    });
-    const grip = await page.evaluate(() => {
-      const left = document.querySelector("#ganttChart .gmainleft");
-      const before = Math.round(left.getBoundingClientRect().width);
-      left.style.width = "620px";
-      const after = Math.round(left.getBoundingClientRect().width);
-      const tableAfter = Math.round(document.querySelector("#ganttChart .gtasktable").getBoundingClientRect().width);
-      left.style.width = "";
-      return { before, after, tableAfter };
-    });
-    expect(grip.after, `grip drag did not resize the pane (${grip.before} -> ${grip.after})`).toBeGreaterThan(grip.before + 50);
-    // ...and the task table tracks the new pane width rather than overflowing.
-    expect(grip.tableAfter).toBeLessThanOrEqual(grip.after + 1);
-  });
-
-  test("today/weekend tints and scrollbars are themed in both modes", async ({ page }) => {
-    // Regression guards for three "colours not quite right" defects:
-    //  1. the "today" column lost its highlight and weekends lost their shading
-    //     because the surface rule contains `#ganttPage tr.glineitem td` = (1,1,2),
-    //     which outranks any `td.gtaskcellcurrent` variant -> needs !important;
-    //  2. the chart's scrollbars were browser-default light grey, reading as a
-    //     foreign light panel inside a dark chart (and a light `///` corner grip);
-    //  3. the today tint must not use --bs-primary-bg-subtle, which renders as a
-    //     muddy smear on a saturated theme (superhero's primary is orange).
-    test.setTimeout(90000);
-    const jobs = [
-      { id: "a", title: "Job one", sequence: 1, active: true, schedule: { type: "daily" }, duration: 3 },
-      { id: "b", title: "Job two", sequence: 2, active: true, schedule: { type: "weekdays" }, duration: 2 }
-    ];
-    await page.goto("/PlanMyDay/");
-    await page.evaluate((j) => {
-      localStorage.setItem("planmydays_streams", JSON.stringify([{ title: "Work", sequence: 1, jobs: j }]));
-      localStorage.setItem("planmydays_showGantt", "true");
-    }, jobs);
-
-    for (const [mode, theme] of [["dark", "superhero"], ["light", "flatly"]]) {
+    for (const [theme, mode] of [["superhero", "light"], ["superhero", "dark"], ["bootstrap", "light"], ["bootstrap", "dark"]]) {
       await page.evaluate(([t, m]) => applyTheme(t, m), [theme, mode]);
       await page.waitForFunction((m) => document.documentElement.getAttribute("data-bs-theme") === m, mode);
-      await page.evaluate(() => openGantt());
-      await page.waitForFunction(() => {
-        const el = document.querySelector("#ganttChart .gmainleft");
-        return el && el.getBoundingClientRect().width > 0;
-      });
-      await page.waitForTimeout(400);
+      await page.waitForTimeout(700); // let the per-mode override stylesheet land
+      await openChart(page);
 
-      const probe = await page.evaluate(() => {
-        const first = (sel) => {
-          const el = document.querySelector(sel);
-          return el ? getComputedStyle(el).backgroundColor : null;
-        };
-        const grid = document.querySelector("#ganttChart .gchartgrid");
-        const gcs = grid ? getComputedStyle(grid) : null;
-        return {
-          today: first("#ganttChart td.gtaskcellcurrent"),
-          weekend: first("#ganttChart td.gtaskcellwkend"),
-          plain: first("#ganttChart td.gtaskcellbar"),
-          surface: first("#ganttChart td.gtaskcellbar"),
-          scrollbarWidth: gcs ? gcs.scrollbarWidth : null,
-          scrollbarColor: gcs ? gcs.scrollbarColor : null,
-          bodyBg: getComputedStyle(document.body).backgroundColor
-        };
-      });
-
-      // the "today" column and weekends must be distinguishable from a normal cell
-      expect(probe.today, `${mode}: no today cell`).not.toBeNull();
-      expect(probe.today, `${mode}: today cell lost its tint`).not.toBe(probe.plain);
-      expect(probe.weekend, `${mode}: weekend cell lost its shading`).not.toBe(probe.plain);
-
-      // scrollbars must be themed, not the browser default
-      expect(probe.scrollbarWidth, `${mode}: scrollbar-width not set`).toBe("thin");
-      expect(probe.scrollbarColor, `${mode}: scrollbar-color not set`).not.toBe("auto");
-      await page.evaluate(() => closeGantt());
-    }
-  });
-
-  test("bars and the format selector use the theme palette (danger/success), and only the selected format is highlighted", async ({ page }) => {
-    // The vendor hard-codes a black stream summary bar, a blue gradient job bar
-    // and a light-blue selected-format fill. There is no dark-mode override any
-    // more: everything follows --bs-danger / --bs-success so any Bootswatch
-    // theme AND light/dark mode works with no extra rules.
-    test.setTimeout(90000);
-    const jobs = [
-      { id: "a", title: "Job one", sequence: 1, active: true, schedule: { type: "daily" }, duration: 3 }
-    ];
-    await page.goto("/PlanMyDay/");
-    await page.evaluate((j) => {
-      localStorage.setItem("planmydays_streams", JSON.stringify([{ title: "Work", sequence: 1, jobs: j }]));
-      localStorage.setItem("planmydays_showGantt", "true");
-    }, jobs);
-
-    for (const [mode, theme] of [["light", "superhero"], ["dark", "superhero"]]) {
-      await page.evaluate(([t, m]) => applyTheme(t, m), [theme, mode]);
-      await page.waitForFunction((m) => document.documentElement.getAttribute("data-bs-theme") === m, mode);
-      await page.evaluate(() => openGantt());
-      await page.waitForFunction(() => {
-        const el = document.querySelector("#ganttChart .gmainleft");
-        return el && el.getBoundingClientRect().width > 0;
-      });
-      await page.waitForTimeout(300);
-
-      const probe = await page.evaluate(() => {
+      const expected = await page.evaluate(() => {
         const root = getComputedStyle(document.documentElement);
-        const bg = (sel) => {
-          const el = document.querySelector(sel);
-          return el ? getComputedStyle(el).backgroundColor : null;
-        };
-        const labels = Array.from(document.querySelectorAll("#ganttChart .gformlabel")).map((l) => ({
-          text: l.textContent,
-          selected: l.classList.contains("gselected"),
-          color: getComputedStyle(l).color
-        }));
         return {
-          bsDanger: root.getPropertyValue("--bs-danger").trim(),
-          bsSuccess: root.getPropertyValue("--bs-success").trim(),
-          groupBar: bg("#ganttChart .ggroupblack"),
-          taskBar: bg("#ganttChart .gtaskblue"),
-          endpoint: document.querySelector("#ganttChart .ggroupblackendpointleft")
-            ? getComputedStyle(document.querySelector("#ganttChart .ggroupblackendpointleft")).borderTopColor : null,
-          labels
+          primary: root.getPropertyValue("--bs-primary").trim(),
+          secondary: root.getPropertyValue("--bs-secondary").trim(),
+          success: root.getPropertyValue("--bs-success").trim(),
+          danger: root.getPropertyValue("--bs-danger").trim(),
+          secondaryBg: root.getPropertyValue("--bs-secondary-bg").trim(),
+          bodyBg: root.getPropertyValue("--bs-body-bg").trim()
         };
       });
+      const primary = rgb(expected.primary), secondary = rgb(expected.secondary);
+      const success = rgb(expected.success), danger = rgb(expected.danger);
 
-      // Helper: normalise #rrggbb to rgb() so it can be compared to computed values.
-      const toRgb = (hex) => {
-        const h = hex.replace("#", "");
-        return `rgb(${parseInt(h.slice(0, 2), 16)}, ${parseInt(h.slice(2, 4), 16)}, ${parseInt(h.slice(4, 6), 16)})`;
-      };
-
-      // Stream bar == --bs-danger, job bar == --bs-success.
-      expect(probe.groupBar, `${mode}: stream bar not danger`).toBe(toRgb(probe.bsDanger));
-      expect(probe.taskBar, `${mode}: job bar not success`).toBe(toRgb(probe.bsSuccess));
-      // The summary bar's angled end-caps must match, or they stay black.
-      expect(probe.endpoint, `${mode}: stream end-cap not danger`).toBe(toRgb(probe.bsDanger));
-
-      // Exactly ONE format option is highlighted, and it is the selected one.
-      const selected = probe.labels.filter((l) => l.selected);
-      expect(selected.length, `${mode}: not exactly one selected format`).toBe(1);
-      expect(selected[0].text).toBe("Day");
-      expect(selected[0].color, `${mode}: selected format not danger`).toBe(toRgb(probe.bsDanger));
-      // The unselected options are NOT danger - they read as plain text.
-      probe.labels.filter((l) => !l.selected).forEach((l) => {
-        expect(l.color, `${mode}: unselected "${l.text}" is highlighted`).not.toBe(toRgb(probe.bsDanger));
+      // (1) zoom buttons
+      const zoom = await page.evaluate(() => {
+        const active = document.querySelector('#ganttPage .gantt-zoom > .btn.active');
+        const inactive = document.querySelector('#ganttPage .gantt-zoom > .btn:not(.active)');
+        return {
+          activeBg: active ? getComputedStyle(active).backgroundColor : null,
+          inactiveBg: inactive ? getComputedStyle(inactive).backgroundColor : null,
+          activeColor: active ? getComputedStyle(active).color : null,
+          inactiveColor: inactive ? getComputedStyle(inactive).color : null
+        };
       });
+      expect(zoom.activeBg, `${theme}/${mode} active zoom is primary`).toBe(primary);
+      expect(zoom.inactiveBg, `${theme}/${mode} inactive zoom is secondary`).toBe(secondary);
+      // Button text is WHITE on both the filled primary (selected) and secondary
+      // (unselected) surfaces, exactly like Bootstrap's own `.btn-primary`/
+      // `.btn-secondary` (`--bs-btn-color: #fff`). A `--bs-body-color` fallback
+      // would render black in light mode.
+      expect(zoom.activeColor, `${theme}/${mode} active zoom text is white`).toBe("rgb(255, 255, 255)");
+      expect(zoom.inactiveColor, `${theme}/${mode} inactive zoom text is white`).toBe("rgb(255, 255, 255)");
+
+      // (2) bars: solid, matching the theme success/danger exactly
+      const bars = await page.evaluate(() => {
+        const job = document.querySelector('#ganttPage .rg-gantt-bar:not(.rg-gantt-bar--summary)');
+        const stream = document.querySelector('#ganttPage .rg-gantt-bar--summary');
+        return {
+          jobBg: job ? getComputedStyle(job).backgroundColor : null,
+          jobImage: job ? getComputedStyle(job).backgroundImage : null,
+          streamBg: stream ? getComputedStyle(stream).backgroundColor : null,
+          streamImage: stream ? getComputedStyle(stream).backgroundImage : null
+        };
+      });
+      expect(bars.jobBg, `${theme}/${mode} job bar is solid success`).toBe(success);
+      expect(bars.jobImage, `${theme}/${mode} job bar has no gradient`).toBe("none");
+      expect(bars.streamBg, `${theme}/${mode} stream bar is solid danger`).toBe(danger);
+      expect(bars.streamImage, `${theme}/${mode} stream bar has no gradient`).toBe("none");
+
+      // (3) the timeline header background = the gantt BODY surface (--bs-body-bg)
+      //     for this theme/mode, matching the cells - NOT --bs-secondary-bg
+      //     (which is light-grey in superhero light and would render the
+      //     near-white header text white-on-white) and NOT the vendor's dark
+      //     gradient.
+      const header = await page.evaluate(() => {
+        const h = document.querySelector('#ganttPage .rg-gantt-header');
+        const revo = document.querySelector('#ganttChart revo-grid revogr-header');
+        const cell = document.querySelector('#ganttChart .rg-gantt-cell');
+        return {
+          hBg: h ? getComputedStyle(h).backgroundColor : null,
+          hImage: h ? getComputedStyle(h).backgroundImage : null,
+          hColor: h ? getComputedStyle(h).color : null,
+          revoBg: revo ? getComputedStyle(revo).backgroundColor : null,
+          cellBg: cell ? getComputedStyle(cell).backgroundColor : null
+        };
+      });
+      expect(header.hBg, `${theme}/${mode} timeline header uses --bs-body-bg`).toBe(rgb(expected.bodyBg));
+      expect(header.hImage, `${theme}/${mode} timeline header has no gradient`).toBe("none");
+      expect(header.revoBg, `${theme}/${mode} revogr-header uses --bs-body-bg`).toBe(rgb(expected.bodyBg));
+      // header text must contrast on the body surface (readable, not white-on-white)
+      expect(header.hColor, `${theme}/${mode} header text readable on body bg`).not.toBe(rgb(expected.bodyBg));
 
       await page.evaluate(() => closeGantt());
     }
   });
 
-  test("light mode renders the Gantt page black-on-white, not white-on-black", async ({ page }) => {
-    // Regression guard: the shared rule paints EVERY smd-page header/footer with
-    // `var(--bs-primary)`, and flatly's light primary is the dark navy #2c3e50,
-    // so the Gantt rendered white-on-black in light mode. The user asked for
-    // this page only, so the override must stay scoped to #ganttPage.
+  test("the Streams filter dropdown uses the themed dropdown surface, a solid secondary toggle, and readable hover in light and dark", async ({ page }) => {
+    // The dropdown must NOT look "dull"/broken on themes whose light mode is
+    // still dark (superhero): the menu follows Bootstrap's own --bs-dropdown-*
+    // tokens (themed surface + hover), and the toggle is a solid secondary
+    // button with white text like the zoom buttons.
+    test.setTimeout(120000);
+    await page.goto("/PlanMyDay/");
+    await seedStreams(page, SAMPLE);
+    await enableGantt(page);
+
+    const parse = (s) => String(s).match(/[\d.]+/g).slice(0, 3).map(Number);
+    const rgb = (v) => {
+      const s = String(v).trim();
+      if (s.charAt(0) === "#") {
+        let h = s.slice(1);
+        if (h.length === 3) h = h.split("").map((c) => c + c).join("");
+        return "rgb(" + [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16)).join(", ") + ")";
+      }
+      return "rgb(" + parse(s).join(", ") + ")";
+    };
+
+    for (const [theme, mode] of [["superhero", "light"], ["superhero", "dark"], ["bootstrap", "light"], ["bootstrap", "dark"]]) {
+      await page.evaluate(([t, m]) => applyTheme(t, m), [theme, mode]);
+      await page.waitForFunction((m) => document.documentElement.getAttribute("data-bs-theme") === m, mode);
+      await page.waitForTimeout(700); // let the per-mode override stylesheet land
+      await openChart(page);
+
+      await page.evaluate(() => ganttToggleStreamMenu());
+      await page.waitForTimeout(200);
+
+      const expected = await page.evaluate(() => {
+        const root = getComputedStyle(document.documentElement);
+        // Resolve --bs-dropdown-bg through a real element (it may be a var()).
+        const probeMenu = document.createElement("div");
+        probeMenu.className = "dropdown-menu";
+        probeMenu.style.cssText = "position:absolute;left:-9999px;display:block";
+        document.body.appendChild(probeMenu);
+        const menuCs = getComputedStyle(probeMenu);
+        const out = { secondary: root.getPropertyValue("--bs-secondary").trim(), dropdownBg: menuCs.backgroundColor };
+        probeMenu.remove();
+        return out;
+      });
+      const secondary = rgb(expected.secondary);
+
+      const dropdown = await page.evaluate(() => {
+        const menu = document.querySelector("#ganttStreamMenu");
+        const btn = document.querySelector("#ganttStreamMenuBtn");
+        const row = document.querySelector(".gantt-stream-row");
+        const hoverBg = Array.from(document.styleSheets)
+          .flatMap((s) => { try { return Array.from(s.cssRules); } catch (e) { return []; } })
+          .filter((r) => r.selectorText && r.selectorText.includes(".gantt-stream-row:hover"))
+          .map((r) => r.style.getPropertyValue("background-color"))
+          .filter(Boolean)
+          .pop();
+        return {
+          menuBg: menu ? getComputedStyle(menu).backgroundColor : null,
+          menuColor: menu ? getComputedStyle(menu).color : null,
+          btnBg: btn ? getComputedStyle(btn).backgroundColor : null,
+          btnColor: btn ? getComputedStyle(btn).color : null,
+          rowColor: row ? getComputedStyle(row).color : null,
+          hoverBgRule: hoverBg || null
+        };
+      });
+
+      // (1) the toggle is a SOLID secondary button with white text
+      expect(dropdown.btnBg, `${theme}/${mode} toggle is solid secondary`).toBe(secondary);
+      expect(dropdown.btnColor, `${theme}/${mode} toggle text is white`).toBe("rgb(255, 255, 255)");
+
+      // (2) the menu surface comes from Bootstrap's theme-aware dropdown token,
+      //     so it is NOT the dull dark-navy body background of superhero light
+      expect(dropdown.menuBg, `${theme}/${mode} menu uses --bs-dropdown-bg`).toBe(rgb(expected.dropdownBg));
+
+      // (3) the menu + row text is readable on the menu surface (contrast, not
+      //     white-on-white)
+      const contrast = (c1, c2) => {
+        const lum = (v) => {
+          const f = (x) => (x / 255 <= 0.03928 ? x / 255 / 12.92 : Math.pow((x / 255 + 0.055) / 1.055, 2.4));
+          const [r, g, b] = v.map(Number);
+          return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
+        };
+        const a = lum(parse(c1)), b = lum(parse(c2));
+        const [hi, lo] = a > b ? [a, b] : [b, a];
+        return (hi + 0.05) / (lo + 0.05);
+      };
+      expect(contrast(dropdown.menuColor, dropdown.menuBg), `${theme}/${mode} menu text contrasts on menu bg`).toBeGreaterThanOrEqual(3);
+      expect(contrast(dropdown.rowColor, dropdown.menuBg), `${theme}/${mode} row text contrasts on menu bg`).toBeGreaterThanOrEqual(3);
+
+      // (4) the row :hover has a rule (themed translucent overlay, not a solid
+      //     light-grey that would render white-on-white in superhero light)
+      expect(dropdown.hoverBgRule, `${theme}/${mode} row hover has a background rule`).toBeTruthy();
+
+      await page.evaluate(() => closeGantt());
+    }
+  });
+
+  test("cells and hierarchy are read-only, but job bars are draggable", async ({ page }) => {
     test.setTimeout(60000);
     await page.goto("/PlanMyDay/");
     await seedStreams(page, SAMPLE);
     await enableGantt(page);
-    await page.evaluate(() => applyTheme("flatly", "light"));
-    await page.waitForFunction(() => document.documentElement.getAttribute("data-bs-theme") === "light");
-    await page.waitForTimeout(600);
-    await page.evaluate(() => openGantt());
-    await page.waitForFunction(() => {
-      const el = document.querySelector("#ganttChart .gmainleft");
-      return el && el.getBoundingClientRect().width > 0;
-    });
+    await openChart(page);
 
-    const probe = await page.evaluate(() => {
-      const p = document.getElementById("ganttPage");
-      const read = (sel) => {
-        const el = p.querySelector(sel);
-        return el ? { bg: getComputedStyle(el).backgroundColor, color: getComputedStyle(el).color } : null;
-      };
+    const state = await page.evaluate(() => {
+      const grid = document.querySelector("#ganttChart revo-grid");
+      const bar = document.querySelector(".rg-gantt-bar--task");
+      const summary = document.querySelector(".rg-gantt-bar--summary");
+      // scope the end handle to the measured bar: the FIRST handle in the whole
+      // document belongs to a summary bar (Work comes before its jobs), where it
+      // is display:none and its rect is all zeros
+      const endHandle = bar ? bar.querySelector(".rg-gantt-bar-handle--end") : null;
+      // the plugin appends its own __ganttTimeline column (no sortable prop);
+      // the three APP columns must all be explicitly non-sortable
+      const appCols = (grid.columns || []).filter((c) => c.prop !== "__ganttTimeline");
+      const barRect = bar ? bar.getBoundingClientRect() : null;
+      const handleRect = endHandle ? endHandle.getBoundingClientRect() : null;
       return {
-        header: read(".smd-page-header"),
-        footer: read(".smd-page-footer"),
-        h1: read(".smd-page-header h1"),
-        body: getComputedStyle(document.body).backgroundColor
+        readonly: grid.readonly,
+        sortable: appCols.length === 3 && appCols.every((c) => c.sortable === false),
+        headerSortArrows: document.querySelectorAll("revogr-header .rgHeaderCell[aria-sort]").length,
+        taskBarPointerEvents: bar ? getComputedStyle(bar).pointerEvents : null,
+        taskBarCursor: bar ? getComputedStyle(bar).cursor : null,
+        taskBarInteraction: bar ? bar.getAttribute("data-gantt-interaction") : null,
+        summaryPointerEvents: summary ? getComputedStyle(summary).pointerEvents : null,
+        summaryCursor: summary ? getComputedStyle(summary).cursor : null,
+        summaryHasEndHandle: !!document.querySelector(".rg-gantt-bar--summary .rg-gantt-bar-handle--end"),
+        // summary bar must be a MOVE-only zone (no resize handle on it)
+        summaryEndHandleDisplay: document.querySelector(".rg-gantt-bar--summary .rg-gantt-bar-handle--end")
+          ? getComputedStyle(document.querySelector(".rg-gantt-bar--summary .rg-gantt-bar-handle--end")).display
+          : null,
+        // the resize zone must cover the RIGHT half of the bar
+        handleCoversRightHalf: barRect && handleRect
+          ? handleRect.left >= barRect.left + barRect.width / 2 - 1
+            && handleRect.right >= barRect.right - 1
+          : false,
+        endHandleCursor: endHandle ? getComputedStyle(endHandle).cursor : null
       };
     });
 
-    const rgb = (s) => s.match(/[\d.]+/g).slice(0, 3).map(Number);
-    const lum = (c) => {
-      const f = (v) => (v / 255 <= 0.03928 ? v / 255 / 12.92 : Math.pow((v / 255 + 0.055) / 1.055, 2.4));
-      return 0.2126 * f(c[0]) + 0.7152 * f(c[1]) + 0.0722 * f(c[2]);
-    };
-    const ratio = (a, b) => {
-      const [hi, lo] = lum(a) > lum(b) ? [lum(a), lum(b)] : [lum(b), lum(a)];
-      return (hi + 0.05) / (lo + 0.05);
-    };
+    // cells still cannot be edited, and sorting is still off
+    expect(state.readonly).toBe(true);
+    expect(state.sortable).toBe(true);
+    expect(state.headerSortArrows).toBe(0);
+    // JOB bars are draggable again: left half = move (grab), right half = resize
+    expect(state.taskBarPointerEvents).toBe("auto");
+    expect(state.taskBarCursor).toBe("grab");
+    expect(state.taskBarInteraction).toBe("move");
+    // the resize zone is the end handle stretched over the right half
+    expect(state.handleCoversRightHalf).toBe(true);
+    expect(state.endHandleCursor).toBe("ew-resize");
+    // summary (stream) bars are draggable as a whole (move only, no resize)
+    expect(state.summaryPointerEvents).not.toBe("none");
+    expect(state.summaryCursor).toBe("grab");
+    expect(state.summaryEndHandleDisplay).toBe("none");
+  });
 
-    // The header must no longer be the dark navy primary: it should now track
-    // the page surface, i.e. sit at the same luminance as <body>.
-    const bodyLum = lum(rgb(probe.body));
-    expect(
-      Math.abs(lum(rgb(probe.header.bg)) - bodyLum),
-      `header ${probe.header.bg} should track body ${probe.body}`
-    ).toBeLessThan(0.05);
-    expect(ratio(rgb(probe.h1.color), rgb(probe.header.bg)), "header title contrast")
-      .toBeGreaterThan(4.5);
-    expect(ratio(rgb(probe.footer.color), rgb(probe.footer.bg)), "footer text contrast")
-      .toBeGreaterThan(4.5);
+  test("dragging the LEFT half of a job bar moves it and persists sleepUntil", async ({ page }) => {
+    test.setTimeout(60000);
+    await page.goto("/PlanMyDay/");
+    await seedStreams(page, SAMPLE);
+    await enableGantt(page);
+    await openChart(page);
+
+    // pick a task bar; grab it at 25% width (left half = move zone)
+    const bar = page.locator(".rg-gantt-bar--task").first();
+    const box = await bar.boundingBox();
+    expect(box).toBeTruthy();
+    const start = { x: box.x + box.width * 0.25, y: box.y + box.height / 2 };
+    const before = await page.evaluate(() =>
+      JSON.parse(localStorage.getItem("planmydays_streams"))
+        .flatMap((s) => s.jobs).find((j) => j.id === "job_daily"));
+
+    await page.mouse.move(start.x, start.y);
+    await page.mouse.down();
+    await page.mouse.move(start.x + 120, start.y, { steps: 8 });
+    await page.mouse.up();
+    // let the plugin re-render and the persist listener run
+    await page.waitForTimeout(500);
+
+    const after = await page.evaluate(() =>
+      JSON.parse(localStorage.getItem("planmydays_streams"))
+        .flatMap((s) => s.jobs).find((j) => j.id === "job_daily"));
+    // moving right must have pushed sleepUntil later (job_daily had none)
+    expect(after.sleepUntil).toBeTruthy();
+    expect(after.sleepUntil > (before.sleepUntil || "")).toBe(true);
+  });
+
+  test("dragging the RIGHT half of a job bar resizes it and persists duration", async ({ page }) => {
+    test.setTimeout(60000);
+    await page.goto("/PlanMyDay/");
+    await seedStreams(page, SAMPLE);
+    await enableGantt(page);
+    await openChart(page);
+
+    // grab at 75% width (right half = resize zone)
+    const bar = page.locator(".rg-gantt-bar--task").first();
+    const box = await bar.boundingBox();
+    expect(box).toBeTruthy();
+    const start = { x: box.x + box.width * 0.75, y: box.y + box.height / 2 };
+    const before = await page.evaluate(() =>
+      JSON.parse(localStorage.getItem("planmydays_streams"))
+        .flatMap((s) => s.jobs).find((j) => j.id === "job_daily"));
+
+    await page.mouse.move(start.x, start.y);
+    await page.mouse.down();
+    await page.mouse.move(start.x + 120, start.y, { steps: 8 });
+    await page.mouse.up();
+    await page.waitForTimeout(500);
+
+    const after = await page.evaluate(() =>
+      JSON.parse(localStorage.getItem("planmydays_streams"))
+        .flatMap((s) => s.jobs).find((j) => j.id === "job_daily"));
+    // widening to the right must have grown the duration (job_daily had 3)
+    expect(Number(after.duration)).toBeGreaterThan(Number(before.duration));
+  });
+
+  test("dragging a job bar shows a ghost panel with start, end and duration that follows the cursor", async ({ page }) => {
+    test.setTimeout(60000);
+    await page.goto("/PlanMyDay/");
+    await seedStreams(page, SAMPLE);
+    await enableGantt(page);
+    await openChart(page);
+
+    // pick a task bar and grab its LEFT half (move zone)
+    const bar = page.locator(".rg-gantt-bar--task").first();
+    const box = await bar.boundingBox();
+    expect(box).toBeTruthy();
+    const start = { x: box.x + box.width * 0.25, y: box.y + box.height / 2 };
+
+    await page.mouse.move(start.x, start.y);
+    await page.mouse.down();
+    await page.mouse.move(start.x + 120, start.y, { steps: 6 });
+    await page.waitForTimeout(100);
+
+    const ghost = await page.evaluate(() => {
+      const el = document.querySelector(".pmd-gantt-bar-ghost");
+      if (!el) return null;
+      const rect = el.getBoundingClientRect();
+      const text = el.textContent || "";
+      const cs = getComputedStyle(el);
+      const root = getComputedStyle(document.documentElement);
+      const date = el.querySelector(".pmd-gantt-bar-ghost-date");
+      const dateCs = date ? getComputedStyle(date) : null;
+      return {
+        text: text.replace(/\s+/g, " ").trim(),
+        hasStart: /Start\s*:/i.test(text),
+        hasEnd: /End\s*:/i.test(text),
+        hasDuration: /Duration\s*:/i.test(text),
+        x: Math.round(rect.x),
+        y: Math.round(rect.y),
+        bg: cs.backgroundColor,
+        borderWidth: cs.borderTopWidth,
+        expectedBg: root.getPropertyValue("--bs-body-bg").trim(),
+        dateColor: dateCs ? dateCs.color : null,
+        dateWeight: dateCs ? dateCs.fontWeight : null,
+        labelColor: cs.color
+      };
+    });
+
+    // the ghost must exist and show all three fields
+    expect(ghost).toBeTruthy();
+    expect(ghost.hasStart).toBe(true);
+    expect(ghost.hasEnd).toBe(true);
+    expect(ghost.hasDuration).toBe(true);
+
+    // it must have a SOLID background (the gantt/body surface) and a real
+    // border, so the text does not float over the gridlines. The ghost lives on
+    // <body> (outside #ganttPage), so it must use the global --bs-* tokens.
+    const parse = (s) => String(s).match(/[\d.]+/g).slice(0, 3).map(Number);
+    const rgb = (v) => {
+      const s = String(v).trim();
+      if (s.charAt(0) === "#") {
+        let h = s.slice(1);
+        if (h.length === 3) h = h.split("").map((c) => c + c).join("");
+        return "rgb(" + [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16)).join(", ") + ")";
+      }
+      return "rgb(" + parse(s).join(", ") + ")";
+    };
+    expect(ghost.bg, "ghost background is the solid body surface").toBe(rgb(ghost.expectedBg));
+    expect(parseFloat(ghost.borderWidth), "ghost has a real border").toBeGreaterThan(0);
+
+    // the date values take the LABEL colour (not the bar's success green) and
+    // are BOLD, so they read as values on the same surface as the labels
+    expect(ghost.dateColor, "date values match the label colour").toBe(ghost.labelColor);
+    expect(Number(ghost.dateWeight) >= 600, "date values are bold").toBe(true);
+
+    // it must be near the cursor (not at the bar's original position)
+    const cursor = await page.evaluate(() => ({ x: Math.round(window.__lastMouseX), y: Math.round(window.__lastMouseY) }));
+    expect(Math.abs(ghost.x - start.x)).toBeLessThan(150);
+
+    // release -> ghost is gone
+    await page.mouse.up();
+    await page.waitForTimeout(200);
+    const after = await page.evaluate(() => !!document.querySelector(".pmd-gantt-bar-ghost"));
+    expect(after).toBe(false);
+  });
+
+  test("dragging a STREAM bar also shows the ghost panel with the stream's span", async ({ page }) => {
+    test.setTimeout(60000);
+    await page.goto("/PlanMyDay/");
+    await seedStreams(page, SAMPLE);
+    await enableGantt(page);
+    await openChart(page);
+
+    const bar = page.locator(".rg-gantt-bar--summary").first();
+    const box = await bar.boundingBox();
+    expect(box).toBeTruthy();
+    const start = { x: box.x + box.width * 0.25, y: box.y + box.height / 2 };
+
+    await page.mouse.move(start.x, start.y);
+    await page.mouse.down();
+    await page.mouse.move(start.x + 60, start.y, { steps: 5 });
+    await page.waitForTimeout(100);
+
+    const ghost = await page.evaluate(() => {
+      const el = document.querySelector(".pmd-gantt-bar-ghost");
+      if (!el) return null;
+      const text = el.textContent || "";
+      return {
+        hasStart: /Start\s*:/i.test(text),
+        hasEnd: /End\s*:/i.test(text),
+        hasDuration: /Duration\s*:/i.test(text)
+      };
+    });
+    expect(ghost).toBeTruthy();
+    expect(ghost.hasStart).toBe(true);
+    expect(ghost.hasEnd).toBe(true);
+    expect(ghost.hasDuration).toBe(true);
+
+    await page.mouse.up();
+  });
+
+  test("dragging a JOB row within its stream reorders it and renumbers sequence", async ({ page }) => {
+    test.setTimeout(60000);
+    const streams = [
+      { title: "Work", sequence: 1, jobs: [
+        { id: "job_a", title: "Alpha", sequence: 1, active: true, schedule: { type: "daily" }, duration: 2 },
+        { id: "job_b", title: "Beta", sequence: 2, active: true, schedule: { type: "daily" }, duration: 3 },
+        { id: "job_c", title: "Gamma", sequence: 3, active: true, schedule: { type: "daily" }, duration: 1 }
+      ]},
+      { title: "Home", sequence: 2, jobs: [
+        { id: "job_x", title: "Delta", sequence: 1, active: true, schedule: { type: "daily" }, duration: 2 }
+      ]}
+    ];
+    await page.goto("/PlanMyDay/");
+    await seedStreams(page, streams);
+    await enableGantt(page);
+    await openChart(page);
+
+    const nameRect = (text) => page.evaluate((t) => {
+      const el = Array.from(document.querySelectorAll(".pmd-gantt-job-name")).find((s) => s.textContent.trim() === t);
+      const r = el.getBoundingClientRect();
+      return { x: r.x, y: r.y, w: r.width, h: r.height };
+    }, text);
+    const rowRect = (text) => page.evaluate((t) => {
+      const name = Array.from(document.querySelectorAll(".pmd-gantt-job-name")).find((s) => s.textContent.trim() === t);
+      const row = name && name.closest(".rgRow");
+      if (!row) return null;
+      const r = row.getBoundingClientRect();
+      return { x: r.x, y: r.y, w: r.width, h: r.height };
+    }, text);
+
+    // reported regression: drag item 3 (Gamma) above item 1 (Alpha) — it must
+    // land as item 1, not item 2. The drop line is the pointer's Y, so place the
+    // pointer on Alpha's row (upper quarter) to move Gamma above it.
+    const gammaName = await nameRect("Gamma");
+    const alphaRow = await rowRect("Alpha");
+    expect(gammaName).toBeTruthy();
+    expect(alphaRow).toBeTruthy();
+    const lineY = alphaRow.y + alphaRow.h * 0.25; // upper quarter of Alpha's row
+    await page.mouse.move(gammaName.x + gammaName.w / 2, gammaName.y + gammaName.h / 2);
+    await page.mouse.down();
+    await page.mouse.move(alphaRow.x + alphaRow.w / 2, lineY, { steps: 6 });
+    await page.mouse.up();
+    await page.waitForTimeout(600);
+
+    const order = await page.evaluate(() =>
+      JSON.parse(localStorage.getItem("planmydays_streams"))[0].jobs
+        .map((j) => ({ id: j.id, sequence: j.sequence })));
+    expect(order.map((j) => j.id)).toEqual(["job_c", "job_a", "job_b"]);
+    expect(order.map((j) => j.sequence)).toEqual([1, 2, 3]);
+
+    // the drop-target highlight must be gone after the drag ends
+    const highlight = await page.evaluate(() =>
+      document.querySelectorAll("#ganttChart .rgRow.pmd-gantt-drop-target").length);
+    expect(highlight).toBe(0);
+  });
+
+  test("dropping a job below another requires the cursor only at the target's midpoint (not past it)", async ({ page }) => {
+    test.setTimeout(60000);
+    // A1, A2, A3 in one stream. The drop line is the POINTER's Y, so placing A1
+    // below A2 only needs the cursor at A2's midpoint — not a further half-row
+    // past it (the sluggish-feeling regression).
+    const streams = [
+      { title: "Work", sequence: 1, jobs: [
+        { id: "job_a1", title: "A1", sequence: 1, active: true, schedule: { type: "daily" }, duration: 1 },
+        { id: "job_a2", title: "A2", sequence: 2, active: true, schedule: { type: "daily" }, duration: 1 },
+        { id: "job_a3", title: "A3", sequence: 3, active: true, schedule: { type: "daily" }, duration: 1 }
+      ]},
+      { title: "Home", sequence: 2, jobs: [] }
+    ];
+    await page.goto("/PlanMyDay/");
+    await seedStreams(page, streams);
+    await enableGantt(page);
+    await openChart(page);
+
+    const nameRect = (text) => page.evaluate((t) => {
+      const el = Array.from(document.querySelectorAll(".pmd-gantt-job-name")).find((s) => s.textContent.trim() === t);
+      if (!el) return null;
+      const r = el.getBoundingClientRect();
+      return { x: r.x, y: r.y, w: r.width, h: r.height };
+    }, text);
+    const rowRect = (text) => page.evaluate((t) => {
+      const name = Array.from(document.querySelectorAll(".pmd-gantt-job-name")).find((s) => s.textContent.trim() === t);
+      const row = name && name.closest(".rgRow");
+      if (!row) return null;
+      const r = row.getBoundingClientRect();
+      return { x: r.x, y: r.y, w: r.width, h: r.height };
+    }, text);
+    const order = (page) => page.evaluate(() =>
+      JSON.parse(localStorage.getItem("planmydays_streams"))[0].jobs.map((j) => j.id));
+    const hasTarget = (page) => page.evaluate(() => {
+      const el = document.querySelector(".pmd-gantt-drop-target, .pmd-gantt-drop-target--after");
+      if (!el) return null;
+      return {
+        cls: el.classList.contains("pmd-gantt-drop-target--after") ? "after" : "before",
+        idx: el.getAttribute("data-rgrow"),
+        top: Math.round(el.getBoundingClientRect().top)
+      };
+    });
+
+    // Drag A1. The boundary right below A1 (A2's TOP) is where A1 already sits,
+    // so it is a NO-OP and must show NO drop target.
+    const a1 = await nameRect("A1");
+    const a2 = await rowRect("A2");
+    const a3 = await rowRect("A3");
+    expect(a1).toBeTruthy();
+    expect(a2).toBeTruthy();
+    expect(a3).toBeTruthy();
+    await page.mouse.move(a1.x + a1.w / 2, a1.y + a1.h / 2);
+    await page.mouse.down();
+    await page.mouse.move(a1.x + a1.w / 2, a2.y + a2.h * 0.25, { steps: 2 });
+    expect(await hasTarget(page)).toBe(null); // no-op boundary suppressed
+
+    // A2's MIDPOINT is the first valid "below A2" position; the drop line is the
+    // pointer's Y, so the cursor only needs to reach it (not past A3). The
+    // highlight normalizes "after A2" to a top border on the row below (A3).
+    await page.mouse.move(a1.x + a1.w / 2, a2.y + a2.h / 2, { steps: 2 });
+    const midTarget = await hasTarget(page);
+    expect(midTarget).toBeTruthy();
+    expect(midTarget.idx).toBe("3"); // normalized to a top border on A3
+    await page.mouse.up();
+    await page.waitForTimeout(600);
+    expect(await order(page)).toEqual(["job_a2", "job_a1", "job_a3"]);
+
+    // Control: release on the no-op boundary (A2's top) leaves A1 in place.
+    await page.evaluate((s) => localStorage.setItem("planmydays_streams", JSON.stringify(s)), streams);
+    await page.reload({ waitUntil: "load" });
+    await page.evaluate(() => openGantt());
+    await page.waitForFunction(() => document.querySelectorAll(".rg-gantt-bar").length > 0, null, { timeout: 30000 });
+    await page.waitForTimeout(400);
+    const a1b = await nameRect("A1");
+    const a2b = await rowRect("A2");
+    await page.mouse.move(a1b.x + a1b.w / 2, a1b.y + a1b.h / 2);
+    await page.mouse.down();
+    await page.mouse.move(a1b.x + a1b.w / 2, a2b.y + a2b.h * 0.25, { steps: 5 });
+    expect(await hasTarget(page)).toBe(null); // no target while over the no-op
+    await page.mouse.up();
+    await page.waitForTimeout(600);
+    expect(await order(page)).toEqual(["job_a1", "job_a2", "job_a3"]);
+  });
+
+  test("a JOB row can be grabbed from anywhere in its title cell (not just the text)", async ({ page }) => {
+    test.setTimeout(60000);
+    const streams = [
+      { title: "Work", sequence: 1, jobs: [
+        { id: "job_a1", title: "A1", sequence: 1, active: true, schedule: { type: "daily" }, duration: 1 },
+        { id: "job_a2", title: "A2", sequence: 2, active: true, schedule: { type: "daily" }, duration: 1 },
+        { id: "job_a3", title: "A3", sequence: 3, active: true, schedule: { type: "daily" }, duration: 1 }
+      ]},
+      { title: "Home", sequence: 2, jobs: [] }
+    ];
+    await page.goto("/PlanMyDay/");
+    await seedStreams(page, streams);
+    await enableGantt(page);
+    await openChart(page);
+
+    const cellRect = (text) => page.evaluate((t) => {
+      const name = Array.from(document.querySelectorAll(".pmd-gantt-job-name")).find((s) => s.textContent.trim() === t);
+      const cell = name && name.closest(".rgCell");
+      if (!cell) return null;
+      const r = cell.getBoundingClientRect();
+      return { x: r.x, y: r.y, w: r.width, h: r.height };
+    }, text);
+    const rowRect = (text) => page.evaluate((t) => {
+      const name = Array.from(document.querySelectorAll(".pmd-gantt-job-name")).find((s) => s.textContent.trim() === t);
+      const row = name && name.closest(".rgRow");
+      if (!row) return null;
+      const r = row.getBoundingClientRect();
+      return { x: r.x, y: r.y, w: r.width, h: r.height };
+    }, text);
+    const order = (page) => page.evaluate(() =>
+      JSON.parse(localStorage.getItem("planmydays_streams"))[0].jobs.map((j) => j.id));
+
+    // Grab A1 from the FAR RIGHT of its title cell (empty cell padding, well
+    // away from the name text) - the drag must still start.
+    const a1Cell = await cellRect("A1");
+    const a2 = await rowRect("A2");
+    expect(a1Cell).toBeTruthy();
+    expect(a2).toBeTruthy();
+    const grabX = a1Cell.x + a1Cell.w - 20;
+    const grabY = a1Cell.y + a1Cell.h / 2;
+    await page.mouse.move(grabX, grabY);
+    await page.mouse.down();
+    // moving to A2's midpoint and releasing must reorder A1 below A2
+    await page.mouse.move(grabX, a2.y + a2.h / 2, { steps: 5 });
+    await page.mouse.up();
+    await page.waitForTimeout(600);
+    expect(await order(page)).toEqual(["job_a2", "job_a1", "job_a3"]);
+  });
+
+  test("dragging a JOB shows a ghost title following the cursor and highlights the source row", async ({ page }) => {
+    test.setTimeout(60000);
+    const streams = [
+      { title: "Work", sequence: 1, jobs: [
+        { id: "job_a1", title: "A1", sequence: 1, active: true, schedule: { type: "daily" }, duration: 1 },
+        { id: "job_a2", title: "A2", sequence: 2, active: true, schedule: { type: "daily" }, duration: 1 },
+        { id: "job_a3", title: "A3", sequence: 3, active: true, schedule: { type: "daily" }, duration: 1 }
+      ]},
+      { title: "Home", sequence: 2, jobs: [] }
+    ];
+    await page.goto("/PlanMyDay/");
+    await seedStreams(page, streams);
+    await enableGantt(page);
+    await openChart(page);
+
+    const nameRect = (text) => page.evaluate((t) => {
+      const el = Array.from(document.querySelectorAll(".pmd-gantt-job-name")).find((s) => s.textContent.trim() === t);
+      if (!el) return null;
+      const r = el.getBoundingClientRect();
+      return { x: r.x, y: r.y, w: r.width, h: r.height };
+    }, text);
+    const rowRect = (text) => page.evaluate((t) => {
+      const name = Array.from(document.querySelectorAll(".pmd-gantt-job-name")).find((s) => s.textContent.trim() === t);
+      const row = name && name.closest(".rgRow");
+      if (!row) return null;
+      const r = row.getBoundingClientRect();
+      return { x: r.x, y: r.y, w: r.width, h: r.height };
+    }, text);
+
+    const a1 = await nameRect("A1");
+    const a2 = await rowRect("A2");
+    expect(a1).toBeTruthy();
+    expect(a2).toBeTruthy();
+    await page.mouse.move(a1.x + a1.w / 2, a1.y + a1.h / 2);
+    await page.mouse.down();
+    await page.mouse.move(a1.x + a1.w / 2, a2.y + a2.h / 2, { steps: 5 });
+
+    // A ghost of the job's title follows the cursor
+    const during = await page.evaluate(() => {
+      const ghost = document.querySelector(".pmd-gantt-drag-ghost");
+      const dragging = document.querySelector(".pmd-gantt-dragging");
+      return {
+        ghostExists: !!ghost,
+        ghostText: ghost ? ghost.textContent.trim() : null,
+        ghostPointerEvents: ghost ? getComputedStyle(ghost).pointerEvents : null,
+        ghostY: ghost ? Math.round(ghost.getBoundingClientRect().y) : null,
+        draggingExists: !!dragging,
+        draggingIdx: dragging ? dragging.getAttribute("data-rgrow") : null
+      };
+    });
+    expect(during.ghostExists).toBe(true);
+    expect(during.ghostText).toBe("A1");
+    expect(during.ghostPointerEvents).toBe("none");
+    expect(during.draggingExists).toBe(true);
+    expect(during.draggingIdx).toBe("1"); // A1's row
+
+    // ghost moves when the pointer does
+    const y1 = during.ghostY;
+    await page.mouse.move(a1.x + a1.w / 2, a2.y + a2.h * 0.75, { steps: 3 });
+    const y2 = await page.evaluate(() => {
+      const ghost = document.querySelector(".pmd-gantt-drag-ghost");
+      return ghost ? Math.round(ghost.getBoundingClientRect().y) : null;
+    });
+    expect(y2).not.toBe(y1);
+
+    // releasing removes the ghost and the row highlight
+    await page.mouse.up();
+    await page.waitForTimeout(500);
+    const after = await page.evaluate(() => ({
+      ghostExists: !!document.querySelector(".pmd-gantt-drag-ghost"),
+      draggingRows: document.querySelectorAll(".pmd-gantt-dragging").length
+    }));
+    expect(after.ghostExists).toBe(false);
+    expect(after.draggingRows).toBe(0);
+  });
+
+  test("dragging auto-scrolls the grid when the cursor nears the bottom edge", async ({ page }) => {
+    test.setTimeout(60000);
+    // Many rows so the grid's vertical viewport overflows and can scroll.
+    const streams = Array.from({ length: 6 }, (_, si) => ({
+      title: "S" + (si + 1),
+      sequence: si + 1,
+      jobs: Array.from({ length: 6 }, (_, ji) => ({
+        id: "s" + si + "_j" + ji,
+        title: "S" + (si + 1) + "J" + (ji + 1),
+        sequence: ji + 1,
+        active: true,
+        schedule: { type: "daily" },
+        duration: 1
+      }))
+    }));
+    await page.goto("/PlanMyDay/");
+    await seedStreams(page, streams);
+    await enableGantt(page);
+    await openChart(page);
+
+    const nameRect = (text) => page.evaluate((t) => {
+      const el = Array.from(document.querySelectorAll(".pmd-gantt-job-name")).find((s) => s.textContent.trim() === t);
+      if (!el) return null;
+      const r = el.getBoundingClientRect();
+      return { x: r.x, y: r.y, w: r.width, h: r.height };
+    }, text);
+    const scrollerState = (page) => page.evaluate(() => {
+      const s = document.querySelector("#ganttChart revo-grid .vertical-inner");
+      return s ? { scrollTop: s.scrollTop, clientH: s.clientHeight, scrollH: s.scrollHeight } : null;
+    });
+
+    const st = await scrollerState(page);
+    expect(st).toBeTruthy();
+    expect(st.scrollH).toBeGreaterThan(st.clientH); // confirm it can scroll
+
+    const s1j1 = await nameRect("S1J1");
+    expect(s1j1).toBeTruthy();
+    const bottom = await page.evaluate(() => {
+      const s = document.querySelector("#ganttChart revo-grid .vertical-inner");
+      const r = s.getBoundingClientRect();
+      return r.bottom;
+    });
+    const before = await scrollerState(page);
+
+    // drag S1J1 and hold the cursor near the bottom edge -> auto-scroll begins
+    await page.mouse.move(s1j1.x + s1j1.w / 2, s1j1.y + s1j1.h / 2);
+    await page.mouse.down();
+    await page.mouse.move(s1j1.x + s1j1.w / 2, bottom - 10, { steps: 8 });
+    await page.waitForTimeout(400); // let the interval-driven scroll run
+    const during = await scrollerState(page);
+    expect(during.scrollTop).toBeGreaterThan(before.scrollTop);
+
+    // releasing ends the drag and stops scrolling. The interval fires every 50ms
+    // so the mid-drag capture may have been taken a tick before the release
+    // cleared it; what matters is that it no longer advances after release.
+    await page.mouse.up();
+    await page.waitForTimeout(300);
+    const after1 = await scrollerState(page);
+    await page.waitForTimeout(200);
+    const after2 = await scrollerState(page);
+    expect(after1.scrollTop).toBe(after2.scrollTop);
+  });
+
+  test("dragging a JOB onto its OWN stream header shows no drop target (no valid drop)", async ({ page }) => {
+    test.setTimeout(60000);
+    const streams = [
+      { title: "Work", sequence: 1, jobs: [
+        { id: "job_a1", title: "A1", sequence: 1, active: true, schedule: { type: "daily" }, duration: 1 },
+        { id: "job_a2", title: "A2", sequence: 2, active: true, schedule: { type: "daily" }, duration: 1 },
+        { id: "job_a3", title: "A3", sequence: 3, active: true, schedule: { type: "daily" }, duration: 1 }
+      ]},
+      { title: "Home", sequence: 2, jobs: [] }
+    ];
+    await page.goto("/PlanMyDay/");
+    await seedStreams(page, streams);
+    await enableGantt(page);
+    await openChart(page);
+
+    const nameRect = (text) => page.evaluate((t) => {
+      const el = Array.from(document.querySelectorAll(".pmd-gantt-job-name")).find((s) => s.textContent.trim() === t);
+      if (!el) return null;
+      const r = el.getBoundingClientRect();
+      return { x: r.x, y: r.y, w: r.width, h: r.height };
+    }, text);
+    const headerRect = (title) => page.evaluate((t) => {
+      const name = Array.from(document.querySelectorAll(".pmd-gantt-stream-title")).find((s) => s.textContent.trim() === t);
+      if (!name) return null;
+      const r = name.closest(".rgRow").getBoundingClientRect();
+      return { x: r.x, y: r.y, w: r.width, h: r.height };
+    }, title);
+    const hasTarget = (page) => page.evaluate(() =>
+      !!document.querySelector(".pmd-gantt-drop-target, .pmd-gantt-drop-target--after"));
+    const order = (page) => page.evaluate(() =>
+      JSON.parse(localStorage.getItem("planmydays_streams"))[0].jobs.map((j) => j.id));
+
+    // Drag A1 onto its OWN stream header (Work). There is no valid drop: it is
+    // not part of the stream above (Work is first) and it would not move.
+    const a1 = await nameRect("A1");
+    const header = await headerRect("Work");
+    expect(a1).toBeTruthy();
+    expect(header).toBeTruthy();
+    await page.mouse.move(a1.x + a1.w / 2, a1.y + a1.h / 2);
+    await page.mouse.down();
+    // both halves of the header must show no target
+    await page.mouse.move(a1.x + a1.w / 2, header.y + header.h * 0.25, { steps: 2 });
+    expect(await hasTarget(page)).toBe(false);
+    await page.mouse.move(a1.x + a1.w / 2, header.y + header.h * 0.75, { steps: 2 });
+    expect(await hasTarget(page)).toBe(false);
+    // releasing there leaves the order unchanged
+    await page.mouse.up();
+    await page.waitForTimeout(600);
+    expect(await order(page)).toEqual(["job_a1", "job_a2", "job_a3"]);
+  });
+
+  test("dragging a JOB onto its OWN stream header is a no-op (never reparents to the stream above)", async ({ page }) => {
+    test.setTimeout(60000);
+    // A/B/C/D all open. Dragging C1 onto Stream C's header (its OWN stream) must
+    // show no drop target and must NOT move it into B (the stream above C): the
+    // boundary just below C's header is C1's own first-job slot, so it is a
+    // no-op. But dragging a job from ANOTHER stream (D1) onto C's header still
+    // goes to the stream above (B) - that is the "above the header is not part
+    // of this stream" rule.
+    const streams = [
+      { title: "A", sequence: 1, jobs: [
+        { id: "job_a1", title: "A1", sequence: 1, active: true, schedule: { type: "daily" }, duration: 1 },
+        { id: "job_a2", title: "A2", sequence: 2, active: true, schedule: { type: "daily" }, duration: 1 },
+        { id: "job_a3", title: "A3", sequence: 3, active: true, schedule: { type: "daily" }, duration: 1 }
+      ]},
+      { title: "B", sequence: 2, jobs: [
+        { id: "job_b1", title: "B1", sequence: 1, active: true, schedule: { type: "daily" }, duration: 1 },
+        { id: "job_b2", title: "B2", sequence: 2, active: true, schedule: { type: "daily" }, duration: 1 },
+        { id: "job_b3", title: "B3", sequence: 3, active: true, schedule: { type: "daily" }, duration: 1 }
+      ]},
+      { title: "C", sequence: 3, jobs: [
+        { id: "job_c1", title: "C1", sequence: 1, active: true, schedule: { type: "daily" }, duration: 1 },
+        { id: "job_c2", title: "C2", sequence: 2, active: true, schedule: { type: "daily" }, duration: 1 },
+        { id: "job_c3", title: "C3", sequence: 3, active: true, schedule: { type: "daily" }, duration: 1 }
+      ]},
+      { title: "D", sequence: 4, jobs: [
+        { id: "job_d1", title: "D1", sequence: 1, active: true, schedule: { type: "daily" }, duration: 1 }
+      ]}
+    ];
+    await page.goto("/PlanMyDay/");
+    await seedStreams(page, streams);
+    await enableGantt(page);
+    await openChart(page);
+
+    const nameRect = (text) => page.evaluate((t) => {
+      const el = Array.from(document.querySelectorAll(".pmd-gantt-job-name")).find((s) => s.textContent.trim() === t);
+      if (!el) return null;
+      const r = el.getBoundingClientRect();
+      return { x: r.x, y: r.y, w: r.width, h: r.height };
+    }, text);
+    const headerRect = (title) => page.evaluate((t) => {
+      const name = Array.from(document.querySelectorAll(".pmd-gantt-stream-title")).find((s) => s.textContent.trim() === t);
+      if (!name) return null;
+      const r = name.closest(".rgRow").getBoundingClientRect();
+      return { x: r.x, y: r.y, w: r.width, h: r.height };
+    }, title);
+    const hasTarget = (page) => page.evaluate(() =>
+      !!document.querySelector(".pmd-gantt-drop-target, .pmd-gantt-drop-target--after"));
+    const order = (page) => page.evaluate(() =>
+      JSON.parse(localStorage.getItem("planmydays_streams")).map((s) => ({
+        title: s.title, jobs: (s.jobs || []).map((j) => j.id)
+      })));
+
+    // Drag C1 onto Stream C's header -> no target, no change
+    const c1 = await nameRect("C1");
+    const cHeader = await headerRect("C");
+    expect(c1).toBeTruthy();
+    expect(cHeader).toBeTruthy();
+    await page.mouse.move(c1.x + c1.w / 2, c1.y + c1.h / 2);
+    await page.mouse.down();
+    await page.mouse.move(c1.x + c1.w / 2, cHeader.y + cHeader.h * 0.75, { steps: 2 });
+    expect(await hasTarget(page)).toBe(false);
+    await page.mouse.up();
+    await page.waitForTimeout(600);
+    let o = await order(page);
+    expect(o.find((s) => s.title === "C").jobs).toEqual(["job_c1", "job_c2", "job_c3"]);
+    expect(o.find((s) => s.title === "B").jobs).toEqual(["job_b1", "job_b2", "job_b3"]);
+
+    // Control: drag D1 (from D) onto C's header -> target shown, goes to B (above C)
+    await page.evaluate((s) => localStorage.setItem("planmydays_streams", JSON.stringify(s)), streams);
+    await page.reload({ waitUntil: "load" });
+    await page.evaluate(() => openGantt());
+    await page.waitForFunction(() => document.querySelectorAll(".rg-gantt-bar").length > 0, null, { timeout: 30000 });
+    await page.waitForTimeout(400);
+    const d1 = await nameRect("D1");
+    const cHeader2 = await headerRect("C");
+    await page.mouse.move(d1.x + d1.w / 2, d1.y + d1.h / 2);
+    await page.mouse.down();
+    await page.mouse.move(d1.x + d1.w / 2, cHeader2.y + cHeader2.h * 0.75, { steps: 2 });
+    expect(await hasTarget(page)).toBe(true);
+    await page.mouse.up();
+    await page.waitForTimeout(600);
+    o = await order(page);
+    expect(o.find((s) => s.title === "B").jobs).toEqual(["job_b1", "job_b2", "job_b3", "job_d1"]);
+    expect(o.find((s) => s.title === "C").jobs).toEqual(["job_c1", "job_c2", "job_c3"]);
+  });
+
+  test("dropping a JOB on its own original slot keeps it there (regression: it went to the end)", async ({ page }) => {
+    test.setTimeout(60000);
+    const streams = [
+      { title: "Work", sequence: 1, jobs: [
+        { id: "job_a", title: "Alpha", sequence: 1, active: true, schedule: { type: "daily" }, duration: 2 },
+        { id: "job_b", title: "Beta", sequence: 2, active: true, schedule: { type: "daily" }, duration: 3 },
+        { id: "job_c", title: "Gamma", sequence: 3, active: true, schedule: { type: "daily" }, duration: 1 }
+      ]},
+      { title: "Home", sequence: 2, jobs: [] }
+    ];
+    await page.goto("/PlanMyDay/");
+    await seedStreams(page, streams);
+    await enableGantt(page);
+    await openChart(page);
+
+    // helper that returns the ROW rect (not the name span) for a job name
+    const rowRect = (text) => page.evaluate((t) => {
+      const name = Array.from(document.querySelectorAll(".pmd-gantt-job-name")).find((s) => s.textContent.trim() === t);
+      const row = name && name.closest(".rgRow");
+      if (!row) return null;
+      const r = row.getBoundingClientRect();
+      return { x: r.x, y: r.y, w: r.width, h: r.height };
+    }, text);
+
+    const alpha = await rowRect("Alpha");
+    const beta = await rowRect("Beta");
+    expect(alpha).toBeTruthy();
+    expect(beta).toBeTruthy();
+
+    // grab item 2 (Beta) at its row's vertical middle
+    await page.mouse.move(beta.x + beta.w / 2, beta.y + beta.h / 2);
+    await page.mouse.down();
+    // drag it up above item 1 (Alpha)
+    await page.mouse.move(alpha.x + alpha.w / 2, alpha.y - 8, { steps: 4 });
+    // then drag back DOWN so the pointer sits at the boundary between Alpha's
+    // bottom and Beta's top (Beta's own original slot). This used to resolve to
+    // Beta itself as the anchor, which after removal was unfindable and sent the
+    // job to the end of the stream. The insertion line skips the dragged row, so
+    // Beta stays in place.
+    const boundaryY = beta.y; // top of Beta's row == boundary between Alpha and Beta
+    await page.mouse.move(alpha.x + alpha.w / 2, boundaryY + beta.h / 2, { steps: 4 });
+    await page.mouse.up();
+    await page.waitForTimeout(600);
+
+    const order = await page.evaluate(() =>
+      JSON.parse(localStorage.getItem("planmydays_streams"))[0].jobs.map((j) => j.id));
+    expect(order).toEqual(["job_a", "job_b", "job_c"]);
+  });
+
+  test("dropping a JOB on a stream header appends it to the stream above (bottom), never the header's own stream", async ({ page }) => {
+    test.setTimeout(60000);
+    // A open, B closed, C open, D open. Dragging D2 "between B and C" (on B's or
+    // C's header, i.e. above C's header) must add it to the BOTTOM of B, never the
+    // top of C: a drop above a stream's header is not part of that stream.
+    const streams = [
+      { title: "A", sequence: 1, jobs: [
+        { id: "job_a1", title: "A1", sequence: 1, active: true, schedule: { type: "daily" }, duration: 1 },
+        { id: "job_a2", title: "A2", sequence: 2, active: true, schedule: { type: "daily" }, duration: 1 },
+        { id: "job_a3", title: "A3", sequence: 3, active: true, schedule: { type: "daily" }, duration: 1 }
+      ]},
+      { title: "B", sequence: 2, jobs: [
+        { id: "job_b1", title: "B1", sequence: 1, active: true, schedule: { type: "daily" }, duration: 1 },
+        { id: "job_b2", title: "B2", sequence: 2, active: true, schedule: { type: "daily" }, duration: 1 },
+        { id: "job_b3", title: "B3", sequence: 3, active: true, schedule: { type: "daily" }, duration: 1 }
+      ]},
+      { title: "C", sequence: 3, jobs: [
+        { id: "job_c1", title: "C1", sequence: 1, active: true, schedule: { type: "daily" }, duration: 1 },
+        { id: "job_c2", title: "C2", sequence: 2, active: true, schedule: { type: "daily" }, duration: 1 },
+        { id: "job_c3", title: "C3", sequence: 3, active: true, schedule: { type: "daily" }, duration: 1 }
+      ]},
+      { title: "D", sequence: 4, jobs: [
+        { id: "job_d1", title: "D1", sequence: 1, active: true, schedule: { type: "daily" }, duration: 1 },
+        { id: "job_d2", title: "D2", sequence: 2, active: true, schedule: { type: "daily" }, duration: 1 },
+        { id: "job_d3", title: "D3", sequence: 3, active: true, schedule: { type: "daily" }, duration: 1 }
+      ]}
+    ];
+    await page.goto("/PlanMyDay/");
+    await seedStreams(page, streams);
+    await page.evaluate(() => localStorage.setItem("planmydays_ganttCollapsedStreams", JSON.stringify(["B"])));
+    await enableGantt(page);
+    await openChart(page);
+
+    const nameRect = (text) => page.evaluate((t) => {
+      const el = Array.from(document.querySelectorAll(".pmd-gantt-job-name")).find((s) => s.textContent.trim() === t);
+      if (!el) return null;
+      const r = el.getBoundingClientRect();
+      return { x: r.x, y: r.y, w: r.width, h: r.height };
+    }, text);
+    const rowRect = (text) => page.evaluate((t) => {
+      const name = Array.from(document.querySelectorAll(".pmd-gantt-job-name")).find((s) => s.textContent.trim() === t);
+      const row = name && name.closest(".rgRow");
+      if (!row) return null;
+      const r = row.getBoundingClientRect();
+      return { x: r.x, y: r.y, w: r.width, h: r.height };
+    }, text);
+    const headerRect = (title) => page.evaluate((t) => {
+      const name = Array.from(document.querySelectorAll(".pmd-gantt-stream-title")).find((s) => s.textContent.trim() === t);
+      if (!name) return null;
+      const r = name.closest(".rgRow").getBoundingClientRect();
+      return { x: r.x, y: r.y, w: r.width, h: r.height };
+    }, title);
+    const order = (page) => page.evaluate(() =>
+      JSON.parse(localStorage.getItem("planmydays_streams")).map((s) => ({
+        title: s.title, jobs: (s.jobs || []).map((j) => j.id)
+      })));
+
+    async function reset() {
+      await page.evaluate((s) => localStorage.setItem("planmydays_streams", JSON.stringify(s)), streams);
+      await page.evaluate(() => localStorage.setItem("planmydays_ganttCollapsedStreams", JSON.stringify(["B"])));
+      await page.reload({ waitUntil: "load" });
+      await page.evaluate(() => openGantt());
+      await page.waitForFunction(() => document.querySelectorAll(".rg-gantt-bar").length > 0, null, { timeout: 30000 });
+      await page.waitForTimeout(400);
+    }
+
+    // Drop D2 (from D) "between B and C". First on B's (collapsed) header.
+    await reset();
+    const bHeader = await headerRect("B");
+    expect(bHeader).toBeTruthy();
+    const d2 = await nameRect("D2");
+    const lineY = bHeader.y + bHeader.h / 2;
+    await page.mouse.move(d2.x + d2.w / 2, d2.y + d2.h / 2);
+    await page.mouse.down();
+    await page.mouse.move(d2.x + d2.w / 2, lineY, { steps: 5 });
+    await page.mouse.up();
+    await page.waitForTimeout(600);
+
+    let o = await order(page);
+    expect(o.find((s) => s.title === "B").jobs).toEqual(["job_b1", "job_b2", "job_b3", "job_d2"]);
+    expect(o.find((s) => s.title === "D").jobs).toEqual(["job_d1", "job_d3"]);
+
+    // Now drop D2 on C's (expanded) header — still "above C's header", so it must
+    // go to B's bottom, NOT to the top of C.
+    await reset();
+    const cHeader = await headerRect("C");
+    expect(cHeader).toBeTruthy();
+    const d2b = await nameRect("D2");
+    const lineYb = cHeader.y + cHeader.h / 2;
+    await page.mouse.move(d2b.x + d2b.w / 2, d2b.y + d2b.h / 2);
+    await page.mouse.down();
+    await page.mouse.move(d2b.x + d2b.w / 2, lineYb, { steps: 5 });
+    await page.mouse.up();
+    await page.waitForTimeout(600);
+
+    o = await order(page);
+    expect(o.find((s) => s.title === "B").jobs).toEqual(["job_b1", "job_b2", "job_b3", "job_d2"]);
+    expect(o.find((s) => s.title === "C").jobs).toEqual(["job_c1", "job_c2", "job_c3"]);
+    expect(o.find((s) => s.title === "D").jobs).toEqual(["job_d1", "job_d3"]);
+  });
+
+  test("dragging a JOB row onto another stream reparents it and renumbers both", async ({ page }) => {
+    test.setTimeout(60000);
+    const streams = [
+      { title: "Work", sequence: 1, jobs: [
+        { id: "job_a", title: "Alpha", sequence: 1, active: true, schedule: { type: "daily" }, duration: 2 },
+        { id: "job_c", title: "Gamma", sequence: 2, active: true, schedule: { type: "daily" }, duration: 1 }
+      ]},
+      { title: "Home", sequence: 2, jobs: [
+        { id: "job_x", title: "Delta", sequence: 1, active: true, schedule: { type: "daily" }, duration: 2 }
+      ]}
+    ];
+    await page.goto("/PlanMyDay/");
+    await seedStreams(page, streams);
+    await enableGantt(page);
+    await openChart(page);
+
+    const nameRect = (text) => page.evaluate((t) => {
+      const el = Array.from(document.querySelectorAll(".pmd-gantt-job-name")).find((s) => s.textContent.trim() === t);
+      const r = el.getBoundingClientRect();
+      return { x: r.x, y: r.y, w: r.width, h: r.height };
+    }, text);
+
+    // drag Gamma (in Work) onto Delta's row (a Home job) -> reparents into Home
+    const gamma = await nameRect("Gamma");
+    const gammaRow = await page.evaluate(() => {
+      const name = Array.from(document.querySelectorAll(".pmd-gantt-job-name")).find((s) => s.textContent.trim() === "Gamma");
+      const row = name && name.closest(".rgRow");
+      if (!row) return null;
+      const r = row.getBoundingClientRect();
+      return { x: r.x, y: r.y, w: r.width, h: r.height };
+    });
+    const deltaRow = await page.evaluate(() => {
+      const name = Array.from(document.querySelectorAll(".pmd-gantt-job-name")).find((s) => s.textContent.trim() === "Delta");
+      const row = name && name.closest(".rgRow");
+      if (!row) return null;
+      const r = row.getBoundingClientRect();
+      return { x: r.x, y: r.y, w: r.width, h: r.height };
+    });
+    expect(gammaRow).toBeTruthy();
+    expect(deltaRow).toBeTruthy();
+    // drop the line in Delta's UPPER half -> before Delta; the drop line is the
+    // pointer's Y, so the pointer goes straight to Delta's row
+    const lineY = deltaRow.y + deltaRow.h * 0.25;
+    await page.mouse.move(gamma.x + gamma.w / 2, gamma.y + gamma.h / 2);
+    await page.mouse.down();
+    await page.mouse.move(deltaRow.x + deltaRow.w / 2, lineY, { steps: 6 });
+    await page.mouse.up();
+    await page.waitForTimeout(600);
+
+    const streamsAfter = await page.evaluate(() =>
+      JSON.parse(localStorage.getItem("planmydays_streams")).map((s) => ({
+        title: s.title,
+        jobs: (s.jobs || []).map((j) => ({ id: j.id, sequence: j.sequence }))
+      })));
+    const work = streamsAfter.find((s) => s.title === "Work");
+    const home = streamsAfter.find((s) => s.title === "Home");
+    expect(work.jobs.map((j) => j.id)).toEqual(["job_a"]);
+    expect(work.jobs.map((j) => j.sequence)).toEqual([1]);
+    expect(home.jobs.map((j) => j.id)).toEqual(["job_c", "job_x"]);
+    expect(home.jobs.map((j) => j.sequence)).toEqual([1, 2]);
+  });
+
+  test("dragging a STREAM bar shifts every child job's start by the same days", async ({ page }) => {
+    test.setTimeout(60000);
+    await page.goto("/PlanMyDay/");
+    await seedStreams(page, SAMPLE);
+    await enableGantt(page);
+    await openChart(page);
+
+    // grab the first SUMMARY bar (the Work stream)
+    const bar = page.locator(".rg-gantt-bar--summary").first();
+    const box = await bar.boundingBox();
+    expect(box).toBeTruthy();
+    const start = { x: box.x + box.width * 0.5, y: box.y + box.height / 2 };
+    const before = await page.evaluate(() =>
+      JSON.parse(localStorage.getItem("planmydays_streams"))[0].jobs
+        .map((j) => ({ id: j.id, sleepUntil: j.sleepUntil || null })));
+
+    await page.mouse.move(start.x, start.y);
+    await page.mouse.down();
+    await page.mouse.move(start.x + 120, start.y, { steps: 8 });
+    await page.mouse.up();
+    await page.waitForTimeout(500);
+
+    const after = await page.evaluate(() =>
+      JSON.parse(localStorage.getItem("planmydays_streams"))[0].jobs
+        .map((j) => ({ id: j.id, sleepUntil: j.sleepUntil || null })));
+
+    // every child job in the stream gained a later sleepUntil
+    expect(after.length).toBeGreaterThan(0);
+    for (const a of after) {
+      const b = before.find((x) => x.id === a.id);
+      expect(a.sleepUntil).toBeTruthy();
+      expect(a.sleepUntil).not.toBe(b.sleepUntil);
+      expect(a.sleepUntil > (b.sleepUntil || "")).toBe(true);
+    }
   });
 
   test("Streams dropdown filters the chart and persists", async ({ page }) => {
@@ -592,11 +1640,12 @@ test.describe("Gantt page", () => {
       localStorage.setItem("planmydays_showGantt", "true");
     }, streams);
     await page.reload();
-    await page.evaluate(() => openGantt());
-    await page.waitForFunction(() => {
-      const el = document.querySelector("#ganttChart .gmainleft");
-      return el && el.getBoundingClientRect().width > 0;
-    });
+    await openChart(page);
+
+    const chartNames = () => page.evaluate(() =>
+      Array.from(document.querySelectorAll(".rg-gantt-bar-label")).map((l) => l.textContent.trim()).filter(Boolean));
+    const chartRows = () => page.evaluate(() =>
+      Number(document.querySelector("#ganttChart revo-grid").getAttribute("aria-rowcount")));
 
     // The dropdown button shows how many streams are included, and starts at all.
     const btn = page.locator("#ganttStreamMenuBtn");
@@ -607,12 +1656,6 @@ test.describe("Gantt page", () => {
     // one checkbox per stream, plus the All master
     await expect(page.locator("#ganttPage smd-checkbox[data-stream]")).toHaveCount(3);
     await expect(page.locator("#ganttStreamAll")).toBeChecked();
-
-    // Group rows carry the library's collapse tick, so strip the leading
-    // tick/whitespace or "- Work" never matches "Work".
-    const chartNames = () => page.evaluate(() => Array.from(
-      document.querySelectorAll("#ganttChart .gtasktable .gtaskname")
-    ).map((c) => c.textContent.replace(/^[\s\-–+• ]+/, "").trim()).filter(Boolean));
 
     // unticking a stream removes its group row AND its jobs
     await page.locator('#ganttPage smd-checkbox[data-stream="Home"]').click();
@@ -635,7 +1678,7 @@ test.describe("Gantt page", () => {
     await page.locator("#ganttStreamAll").click();
     await page.waitForTimeout(400);
     await expect(btn).toHaveText("Streams (0/3)");
-    expect((await chartNames()).length).toBe(0);
+    expect(await chartNames()).toEqual([]);
 
     // put everything back before the persistence check
     await page.locator("#ganttStreamAll").click();
@@ -646,14 +1689,590 @@ test.describe("Gantt page", () => {
     await page.locator('#ganttPage smd-checkbox[data-stream="Work"]').click();
     await page.waitForTimeout(400);
     await expect(btn).toHaveText("Streams (2/3)");
+    // Work(summary) + its Alpha job are gone; Home(summary)+Beta(job)+Someday = 3 rows
+    expect(await chartRows()).toBe(3);
     await page.reload();
-    await page.evaluate(() => openGantt());
-    await page.waitForFunction(() => {
-      const el = document.querySelector("#ganttChart .gmainleft");
-      return el && el.getBoundingClientRect().width > 0;
-    });
+    await openChart(page);
     await expect(page.locator("#ganttStreamMenuBtn")).toHaveText("Streams (2/3)");
     expect(await chartNames()).not.toContain("Work");
+    expect(await chartNames()).toContain("Home");
+  });
+
+  test("zoom switch rebuilds the timeline and persists", async ({ page }) => {
+    test.setTimeout(60000);
+    await page.goto("/PlanMyDay/");
+    await seedStreams(page, SAMPLE);
+    await enableGantt(page);
+    await openChart(page);
+
+    const dayCells = await page.evaluate(() => document.querySelectorAll(".rg-gantt-header-cell").length);
+    // Day zoom renders a per-day column (hundreds for the range); Month zoom is
+    // per-month and must be far fewer.
+    expect(dayCells).toBeGreaterThan(100);
+
+    await page.locator('#ganttPage [data-gantt-zoom="month-quarter"]').click();
+    await page.waitForTimeout(900);
+    const monthCells = await page.evaluate(() => document.querySelectorAll(".rg-gantt-header-cell").length);
+    expect(monthCells).toBeLessThan(dayCells / 10);
+
+    // active button state follows the stored preset
+    await expect(page.locator('#ganttPage [data-gantt-zoom="month-quarter"]')).toHaveClass(/active/);
+    await expect(page.locator('#ganttPage [data-gantt-zoom="day-week"]')).not.toHaveClass(/active/);
+
+    // persisted across a reload
+    await page.reload();
+    await openChart(page);
+    await expect(page.locator('#ganttPage [data-gantt-zoom="month-quarter"]')).toHaveClass(/active/);
+    await expect(page.locator('#ganttPage [data-gantt-zoom="day-week"]')).not.toHaveClass(/active/);
+    expect(await page.evaluate(() => document.querySelectorAll(".rg-gantt-header-cell").length)).toBeLessThan(dayCells / 10);
+  });
+
+  test("every vendored Revolist file is served (no failed dynamic imports)", async ({ page }) => {
+    test.setTimeout(60000);
+    const failed = [];
+    const isRevolist = (s) => /revolist|revo-grid|dynamically imported/.test(s);
+    page.on("requestfailed", (r) => { if (isRevolist(r.url())) failed.push(r.url()); });
+    page.on("pageerror", (e) => { if (isRevolist(e.message)) failed.push("pageerror: " + e.message); });
+    page.on("console", (m) => { if (m.type() === "error" && isRevolist(m.text())) failed.push(m.text()); });
+
+    await page.goto("/PlanMyDay/");
+    await seedStreams(page, SAMPLE);
+    await enableGantt(page);
+    await openChart(page);
+
+    // the record of loaded modules proves the whole graph resolved
+    const loaded = await page.evaluate(() => {
+      const grid = document.querySelector("#ganttChart revo-grid");
+      if (!grid || !grid.gantt) return [];
+      return window.performance.getEntriesByType("resource")
+        .map((e) => e.name)
+        .filter((n) => /revolist/.test(n));
+    });
+    // the full ESM graph for a real render includes the runtime entry chunk and
+    // at least one component entry (the exact set is a vendor detail; the
+    // important thing is that the dynamic imports resolved and nothing failed)
+    expect(loaded.length).toBeGreaterThan(10);
+    expect(failed).toEqual([]);
+  });
+
+  test("dragging a STREAM above another stream heading moves it there, ghost and row highlight included", async ({ page }) => {
+    test.setTimeout(60000);
+    // A, B, C, D (each with jobs). Dragging C UP onto B's header must drop it
+    // ABOVE B -> A,C,B,D, with the same ghost + source-row highlight as jobs.
+    const streams = [
+      { title: "A", sequence: 1, jobs: [{ id: "a1", title: "A1", sequence: 1, active: true, schedule: { type: "daily" }, duration: 1 }] },
+      { title: "B", sequence: 2, jobs: [{ id: "b1", title: "B1", sequence: 1, active: true, schedule: { type: "daily" }, duration: 1 }] },
+      { title: "C", sequence: 3, jobs: [{ id: "c1", title: "C1", sequence: 1, active: true, schedule: { type: "daily" }, duration: 1 }, { id: "c2", title: "C2", sequence: 2, active: true, schedule: { type: "daily" }, duration: 1 }] },
+      { title: "D", sequence: 4, jobs: [{ id: "d1", title: "D1", sequence: 1, active: true, schedule: { type: "daily" }, duration: 1 }] }
+    ];
+    await page.goto("/PlanMyDay/");
+    await seedStreams(page, streams);
+    await enableGantt(page);
+    await openChart(page);
+
+    const headerRect = (title) => page.evaluate((t) => {
+      const name = Array.from(document.querySelectorAll(".pmd-gantt-stream-title")).find((s) => s.textContent.trim() === t);
+      if (!name) return null;
+      const r = name.getBoundingClientRect();
+      return { x: r.x, y: r.y, w: r.width, h: r.height };
+    }, title);
+    const streamOrder = (page) => page.evaluate(() =>
+      JSON.parse(localStorage.getItem("planmydays_streams"))
+        .slice().sort((a, b) => a.sequence - b.sequence)
+        .map((s) => s.title));
+    const targetOn = (page) => page.evaluate(() => {
+      const el = document.querySelector(".pmd-gantt-drop-target");
+      if (!el) return null;
+      const name = el.querySelector(".pmd-gantt-stream-title");
+      return name ? name.textContent.trim() : null;
+    });
+
+    const c = await headerRect("C");
+    const b = await headerRect("B");
+    expect(c).toBeTruthy();
+    expect(b).toBeTruthy();
+
+    await page.mouse.move(c.x + c.w / 2, c.y + c.h / 2);
+    await page.mouse.down();
+    await page.mouse.move(c.x + c.w / 2, b.y + b.h / 2, { steps: 6 });
+
+    // ghost shows the dragged STREAM title; the source row is highlighted
+    const during = await page.evaluate(() => ({
+      ghost: (document.querySelector(".pmd-gantt-drag-ghost") || {}).textContent || null,
+      dragging: (() => {
+        const el = document.querySelector(".pmd-gantt-dragging");
+        if (!el) return null;
+        const t = el.querySelector(".pmd-gantt-stream-title");
+        return t ? t.textContent.trim() : null;
+      })()
+    }));
+    expect(during.ghost).toBe("C");
+    expect(during.dragging).toBe("C");
+
+    // the drop target is a top border on B's header row (insert before B)
+    expect(await targetOn(page)).toBe("B");
+    await page.mouse.up();
+    await page.waitForTimeout(600);
+    expect(await streamOrder(page)).toEqual(["A", "C", "B", "D"]);
+    // the highlight is gone after the drop
+    expect(await page.evaluate(() => document.querySelectorAll(".pmd-gantt-drop-target, .pmd-gantt-drop-target--after").length)).toBe(0);
+  });
+
+  test("dragging a STREAM onto a JOB of another stream resolves to that stream (C onto A's jobs -> start)", async ({ page }) => {
+    test.setTimeout(60000);
+    const streams = [
+      { title: "A", sequence: 1, jobs: [
+        { id: "a1", title: "A1", sequence: 1, active: true, schedule: { type: "daily" }, duration: 1 },
+        { id: "a2", title: "A2", sequence: 2, active: true, schedule: { type: "daily" }, duration: 1 },
+        { id: "a3", title: "A3", sequence: 3, active: true, schedule: { type: "daily" }, duration: 1 }
+      ]},
+      { title: "B", sequence: 2, jobs: [{ id: "b1", title: "B1", sequence: 1, active: true, schedule: { type: "daily" }, duration: 1 }] },
+      { title: "C", sequence: 3, jobs: [{ id: "c1", title: "C1", sequence: 1, active: true, schedule: { type: "daily" }, duration: 1 }] },
+      { title: "D", sequence: 4, jobs: [{ id: "d1", title: "D1", sequence: 1, active: true, schedule: { type: "daily" }, duration: 1 }] }
+    ];
+    await page.goto("/PlanMyDay/");
+    await seedStreams(page, streams);
+    await enableGantt(page);
+    await openChart(page);
+
+    const nameRect = (text) => page.evaluate((t) => {
+      const el = Array.from(document.querySelectorAll(".pmd-gantt-job-name")).find((s) => s.textContent.trim() === t);
+      if (!el) return null;
+      const r = el.getBoundingClientRect();
+      return { x: r.x, y: r.y, w: r.width, h: r.height };
+    }, text);
+    const headerRect = (title) => page.evaluate((t) => {
+      const name = Array.from(document.querySelectorAll(".pmd-gantt-stream-title")).find((s) => s.textContent.trim() === t);
+      if (!name) return null;
+      const r = name.getBoundingClientRect();
+      return { x: r.x, y: r.y, w: r.width, h: r.height };
+    }, title);
+    const streamOrder = (page) => page.evaluate(() =>
+      JSON.parse(localStorage.getItem("planmydays_streams"))
+        .slice().sort((a, b) => a.sequence - b.sequence)
+        .map((s) => s.title));
+
+    const c = await headerRect("C");
+    const a3 = await nameRect("A3");
+    expect(c).toBeTruthy();
+    expect(a3).toBeTruthy();
+    await page.mouse.move(c.x + c.w / 2, c.y + c.h / 2);
+    await page.mouse.down();
+    await page.mouse.move(c.x + c.w / 2, a3.y + a3.h / 2, { steps: 6 });
+    await page.mouse.up();
+    await page.waitForTimeout(600);
+    expect(await streamOrder(page)).toEqual(["C", "A", "B", "D"]);
+  });
+
+  test("dragging a STREAM onto a JOB of the LAST stream moves it to the END (C onto D1 -> A,B,D,C)", async ({ page }) => {
+    test.setTimeout(60000);
+    const streams = [
+      { title: "A", sequence: 1, jobs: [{ id: "a1", title: "A1", sequence: 1, active: true, schedule: { type: "daily" }, duration: 1 }] },
+      { title: "B", sequence: 2, jobs: [{ id: "b1", title: "B1", sequence: 1, active: true, schedule: { type: "daily" }, duration: 1 }] },
+      { title: "C", sequence: 3, jobs: [{ id: "c1", title: "C1", sequence: 1, active: true, schedule: { type: "daily" }, duration: 1 }] },
+      { title: "D", sequence: 4, jobs: [
+        { id: "d1", title: "D1", sequence: 1, active: true, schedule: { type: "daily" }, duration: 1 },
+        { id: "d2", title: "D2", sequence: 2, active: true, schedule: { type: "daily" }, duration: 1 },
+        { id: "d3", title: "D3", sequence: 3, active: true, schedule: { type: "daily" }, duration: 1 }
+      ]}
+    ];
+    await page.goto("/PlanMyDay/");
+    await seedStreams(page, streams);
+    await enableGantt(page);
+    await openChart(page);
+
+    const nameRect = (text) => page.evaluate((t) => {
+      const el = Array.from(document.querySelectorAll(".pmd-gantt-job-name")).find((s) => s.textContent.trim() === t);
+      if (!el) return null;
+      const r = el.getBoundingClientRect();
+      return { x: r.x, y: r.y, w: r.width, h: r.height };
+    }, text);
+    const headerRect = (title) => page.evaluate((t) => {
+      const name = Array.from(document.querySelectorAll(".pmd-gantt-stream-title")).find((s) => s.textContent.trim() === t);
+      if (!name) return null;
+      const r = name.getBoundingClientRect();
+      return { x: r.x, y: r.y, w: r.width, h: r.height };
+    }, title);
+    const streamOrder = (page) => page.evaluate(() =>
+      JSON.parse(localStorage.getItem("planmydays_streams"))
+        .slice().sort((a, b) => a.sequence - b.sequence)
+        .map((s) => s.title));
+
+    const c = await headerRect("C");
+    const d1 = await nameRect("D1");
+    expect(c).toBeTruthy();
+    expect(d1).toBeTruthy();
+    await page.mouse.move(c.x + c.w / 2, c.y + c.h / 2);
+    await page.mouse.down();
+    await page.mouse.move(c.x + c.w / 2, d1.y + d1.h / 2, { steps: 6 });
+    await page.mouse.up();
+    await page.waitForTimeout(600);
+    expect(await streamOrder(page)).toEqual(["A", "B", "D", "C"]);
+  });
+
+  test("dragging a STREAM onto a stream BELOW it shows the drop target on the last element (B onto D)", async ({ page }) => {
+    test.setTimeout(60000);
+    // The user's ABCD scenario: dragging B and dropping on C (the stream
+    // immediately after B) shows a target; dropping on D (the stream below C)
+    // moved the stream correctly but showed NO drop target. Both must render.
+    const streams = [
+      { title: "A", sequence: 1, jobs: [{ id: "a1", title: "A1", sequence: 1, active: true, schedule: { type: "daily" }, duration: 1 }] },
+      { title: "B", sequence: 2, jobs: [{ id: "b1", title: "B1", sequence: 1, active: true, schedule: { type: "daily" }, duration: 1 }] },
+      { title: "C", sequence: 3, jobs: [{ id: "c1", title: "C1", sequence: 1, active: true, schedule: { type: "daily" }, duration: 1 }] },
+      { title: "D", sequence: 4, jobs: [
+        { id: "d1", title: "D1", sequence: 1, active: true, schedule: { type: "daily" }, duration: 1 },
+        { id: "d2", title: "D2", sequence: 2, active: true, schedule: { type: "daily" }, duration: 1 },
+        { id: "d3", title: "D3", sequence: 3, active: true, schedule: { type: "daily" }, duration: 1 }
+      ]}
+    ];
+    await page.goto("/PlanMyDay/");
+    await seedStreams(page, streams);
+    await enableGantt(page);
+    await openChart(page);
+
+    const nameRect = (text) => page.evaluate((t) => {
+      const el = Array.from(document.querySelectorAll(".pmd-gantt-job-name")).find((s) => s.textContent.trim() === t);
+      if (!el) return null;
+      const r = el.getBoundingClientRect();
+      return { x: r.x, y: r.y, w: r.width, h: r.height };
+    }, text);
+    const headerRect = (title) => page.evaluate((t) => {
+      const name = Array.from(document.querySelectorAll(".pmd-gantt-stream-title")).find((s) => s.textContent.trim() === t);
+      if (!name) return null;
+      const r = name.getBoundingClientRect();
+      return { x: r.x, y: r.y, w: r.width, h: r.height };
+    }, title);
+    const streamOrder = (page) => page.evaluate(() =>
+      JSON.parse(localStorage.getItem("planmydays_streams"))
+        .slice().sort((a, b) => a.sequence - b.sequence)
+        .map((s) => s.title));
+    const target = (page) => page.evaluate(() => {
+      const el = document.querySelector(".pmd-gantt-drop-target, .pmd-gantt-drop-target--after");
+      if (!el) return null;
+      const name = el.querySelector(".pmd-gantt-job-name, .pmd-gantt-stream-title");
+      return {
+        after: el.classList.contains("pmd-gantt-drop-target--after"),
+        label: name ? name.textContent.trim() : null
+      };
+    });
+
+    // Control: dragging B onto C shows a target (the "immediately after" stream).
+    const b = await headerRect("B");
+    const c1 = await nameRect("C1");
+    expect(b).toBeTruthy();
+    expect(c1).toBeTruthy();
+    await page.mouse.move(b.x + b.w / 2, b.y + b.h / 2);
+    await page.mouse.down();
+    await page.mouse.move(b.x + b.w / 2, c1.y + c1.h / 2, { steps: 6 });
+    const onC = await target(page);
+    expect(onC).toBeTruthy();
+    await page.mouse.up();
+    await page.waitForTimeout(600);
+    expect(await streamOrder(page)).toEqual(["A", "C", "B", "D"]);
+
+    // Now drag B onto D3 (a job of D, the stream BELOW C) -> the drop lands at
+    // the END of D, so a bottom-border target must be shown on D's last element.
+    await page.evaluate((s) => localStorage.setItem("planmydays_streams", JSON.stringify(s)), streams);
+    await page.reload({ waitUntil: "load" });
+    await page.evaluate(() => openGantt());
+    await page.waitForFunction(() => document.querySelectorAll(".rg-gantt-bar").length > 0, null, { timeout: 30000 });
+    await page.waitForTimeout(400);
+    const b2 = await headerRect("B");
+    const d3 = await nameRect("D3");
+    expect(b2).toBeTruthy();
+    expect(d3).toBeTruthy();
+    await page.mouse.move(b2.x + b2.w / 2, b2.y + b2.h / 2);
+    await page.mouse.down();
+    await page.mouse.move(b2.x + b2.w / 2, d3.y + d3.h / 2, { steps: 6 });
+    const onD = await target(page);
+    expect(onD).toBeTruthy(); // BUG: currently null
+    expect(onD.after).toBe(true);
+    expect(onD.label).toBe("D3");
+    await page.mouse.up();
+    await page.waitForTimeout(600);
+    expect(await streamOrder(page)).toEqual(["A", "C", "D", "B"]);
+  });
+
+  test("dragging a STREAM onto the LAST VISIBLE stream shows the end drop target even when later streams are filtered out", async ({ page }) => {
+    test.setTimeout(60000);
+    // Regression: with the Streams dropdown filter hiding E+F, D is the last
+    // VISIBLE stream. Dragging B onto D must still show the "very end" drop
+    // target (bottom border on D's last element) - previously the target
+    // resolved to the hidden next stream's header (not rendered) and no
+    // highlight appeared, even though the drop itself worked.
+    const streams = [
+      { title: "A", sequence: 1, jobs: [{ id: "a1", title: "A1", sequence: 1, active: true, schedule: { type: "daily" }, duration: 1 }] },
+      { title: "B", sequence: 2, jobs: [{ id: "b1", title: "B1", sequence: 1, active: true, schedule: { type: "daily" }, duration: 1 }] },
+      { title: "C", sequence: 3, jobs: [{ id: "c1", title: "C1", sequence: 1, active: true, schedule: { type: "daily" }, duration: 1 }] },
+      { title: "D", sequence: 4, jobs: [
+        { id: "d1", title: "D1", sequence: 1, active: true, schedule: { type: "daily" }, duration: 1 },
+        { id: "d2", title: "D2", sequence: 2, active: true, schedule: { type: "daily" }, duration: 1 },
+        { id: "d3", title: "D3", sequence: 3, active: true, schedule: { type: "daily" }, duration: 1 }
+      ]},
+      { title: "E", sequence: 5, jobs: [{ id: "e1", title: "E1", sequence: 1, active: true, schedule: { type: "daily" }, duration: 1 }] },
+      { title: "F", sequence: 6, jobs: [{ id: "f1", title: "F1", sequence: 1, active: true, schedule: { type: "daily" }, duration: 1 }] }
+    ];
+    await page.goto("/PlanMyDay/");
+    await seedStreams(page, streams);
+    await page.evaluate(() => localStorage.setItem("planmydays_ganttHiddenStreams", JSON.stringify(["E", "F"])));
+    await enableGantt(page);
+    await openChart(page);
+
+    const nameRect = (text) => page.evaluate((t) => {
+      const el = Array.from(document.querySelectorAll(".pmd-gantt-job-name")).find((s) => s.textContent.trim() === t);
+      if (!el) return null;
+      const r = el.getBoundingClientRect();
+      return { x: r.x, y: r.y, w: r.width, h: r.height };
+    }, text);
+    const headerRect = (title) => page.evaluate((t) => {
+      const name = Array.from(document.querySelectorAll(".pmd-gantt-stream-title")).find((s) => s.textContent.trim() === t);
+      if (!name) return null;
+      const r = name.getBoundingClientRect();
+      return { x: r.x, y: r.y, w: r.width, h: r.height };
+    }, title);
+    const streamOrder = (page) => page.evaluate(() =>
+      JSON.parse(localStorage.getItem("planmydays_streams"))
+        .slice().sort((a, b) => a.sequence - b.sequence)
+        .map((s) => s.title));
+    const target = (page) => page.evaluate(() => {
+      const el = document.querySelector(".pmd-gantt-drop-target, .pmd-gantt-drop-target--after");
+      if (!el) return null;
+      const name = el.querySelector(".pmd-gantt-job-name, .pmd-gantt-stream-title");
+      return {
+        after: el.classList.contains("pmd-gantt-drop-target--after"),
+        label: name ? name.textContent.trim() : null
+      };
+    });
+
+    // E and F are hidden - only A,B,C,D render.
+    const rendered = await page.evaluate(() =>
+      Array.from(document.querySelectorAll(".pmd-gantt-stream-title")).map((s) => s.textContent.trim()));
+    expect(rendered).toEqual(["A", "B", "C", "D"]);
+
+    // Drag B onto D1 (a job of D). D is the last VISIBLE stream, so the drop
+    // lands at the very end -> bottom-border target on D's last element (D3).
+    const b = await headerRect("B");
+    const d1 = await nameRect("D1");
+    expect(b).toBeTruthy();
+    expect(d1).toBeTruthy();
+    await page.mouse.move(b.x + b.w / 2, b.y + b.h / 2);
+    await page.mouse.down();
+    await page.mouse.move(b.x + b.w / 2, d1.y + d1.h / 2, { steps: 8 });
+    const onD = await target(page);
+    expect(onD).toBeTruthy(); // BUG: null because target resolved to hidden E
+    expect(onD.after).toBe(true);
+    expect(onD.label).toBe("D3");
+    await page.mouse.up();
+    await page.waitForTimeout(600);
+    // E and F are hidden but still stored; they keep their sequence slots after D.
+    expect(await streamOrder(page)).toEqual(["A", "C", "D", "B", "E", "F"]);
+  });
+
+  test("dragging a STREAM onto ITSELF or one of its jobs shows no drop target and does not move", async ({ page }) => {
+    test.setTimeout(60000);
+    const streams = [
+      { title: "A", sequence: 1, jobs: [{ id: "a1", title: "A1", sequence: 1, active: true, schedule: { type: "daily" }, duration: 1 }] },
+      { title: "B", sequence: 2, jobs: [{ id: "b1", title: "B1", sequence: 1, active: true, schedule: { type: "daily" }, duration: 1 }] },
+      { title: "C", sequence: 3, jobs: [
+        { id: "c1", title: "C1", sequence: 1, active: true, schedule: { type: "daily" }, duration: 1 },
+        { id: "c2", title: "C2", sequence: 2, active: true, schedule: { type: "daily" }, duration: 1 }
+      ]},
+      { title: "D", sequence: 4, jobs: [{ id: "d1", title: "D1", sequence: 1, active: true, schedule: { type: "daily" }, duration: 1 }] }
+    ];
+    await page.goto("/PlanMyDay/");
+    await seedStreams(page, streams);
+    await enableGantt(page);
+    await openChart(page);
+
+    const headerRect = (title) => page.evaluate((t) => {
+      const name = Array.from(document.querySelectorAll(".pmd-gantt-stream-title")).find((s) => s.textContent.trim() === t);
+      if (!name) return null;
+      const r = name.getBoundingClientRect();
+      return { x: r.x, y: r.y, w: r.width, h: r.height };
+    }, title);
+    const nameRect = (text) => page.evaluate((t) => {
+      const el = Array.from(document.querySelectorAll(".pmd-gantt-job-name")).find((s) => s.textContent.trim() === t);
+      if (!el) return null;
+      const r = el.getBoundingClientRect();
+      return { x: r.x, y: r.y, w: r.width, h: r.height };
+    }, text);
+    const streamOrder = (page) => page.evaluate(() =>
+      JSON.parse(localStorage.getItem("planmydays_streams"))
+        .slice().sort((a, b) => a.sequence - b.sequence)
+        .map((s) => s.title));
+    const hasTarget = (page) => page.evaluate(() =>
+      !!document.querySelector(".pmd-gantt-drop-target, .pmd-gantt-drop-target--after"));
+
+    const c = await headerRect("C");
+    const c2 = await nameRect("C2");
+    expect(c).toBeTruthy();
+    expect(c2).toBeTruthy();
+    await page.mouse.move(c.x + c.w / 2, c.y + c.h / 2);
+    await page.mouse.down();
+    // on its own header
+    await page.mouse.move(c.x + c.w / 2, c.y + c.h / 2 + c.h * 0.5, { steps: 3 });
+    expect(await hasTarget(page)).toBe(false);
+    // on its own job
+    await page.mouse.move(c.x + c.w / 2, c2.y + c2.h / 2, { steps: 3 });
+    expect(await hasTarget(page)).toBe(false);
+    await page.mouse.up();
+    await page.waitForTimeout(600);
+    expect(await streamOrder(page)).toEqual(["A", "B", "C", "D"]);
+  });
+
+  test("dragging a STREAM below the LAST element moves it to the end (C below D3)", async ({ page }) => {
+    test.setTimeout(60000);
+    const streams = [
+      { title: "A", sequence: 1, jobs: [{ id: "a1", title: "A1", sequence: 1, active: true, schedule: { type: "daily" }, duration: 1 }] },
+      { title: "B", sequence: 2, jobs: [{ id: "b1", title: "B1", sequence: 1, active: true, schedule: { type: "daily" }, duration: 1 }] },
+      { title: "C", sequence: 3, jobs: [{ id: "c1", title: "C1", sequence: 1, active: true, schedule: { type: "daily" }, duration: 1 }] },
+      { title: "D", sequence: 4, jobs: [
+        { id: "d1", title: "D1", sequence: 1, active: true, schedule: { type: "daily" }, duration: 1 },
+        { id: "d2", title: "D2", sequence: 2, active: true, schedule: { type: "daily" }, duration: 1 },
+        { id: "d3", title: "D3", sequence: 3, active: true, schedule: { type: "daily" }, duration: 1 }
+      ]}
+    ];
+    await page.goto("/PlanMyDay/");
+    await seedStreams(page, streams);
+    await enableGantt(page);
+    await openChart(page);
+
+    const headerRect = (title) => page.evaluate((t) => {
+      const name = Array.from(document.querySelectorAll(".pmd-gantt-stream-title")).find((s) => s.textContent.trim() === t);
+      if (!name) return null;
+      const r = name.getBoundingClientRect();
+      return { x: r.x, y: r.y, w: r.width, h: r.height };
+    }, title);
+    const nameRect = (text) => page.evaluate((t) => {
+      const el = Array.from(document.querySelectorAll(".pmd-gantt-job-name")).find((s) => s.textContent.trim() === t);
+      if (!el) return null;
+      const r = el.getBoundingClientRect();
+      return { x: r.x, y: r.y, w: r.width, h: r.height };
+    }, text);
+    const streamOrder = (page) => page.evaluate(() =>
+      JSON.parse(localStorage.getItem("planmydays_streams"))
+        .slice().sort((a, b) => a.sequence - b.sequence)
+        .map((s) => s.title));
+
+    const c = await headerRect("C");
+    const d3 = await nameRect("D3");
+    expect(c).toBeTruthy();
+    expect(d3).toBeTruthy();
+    await page.mouse.move(c.x + c.w / 2, c.y + c.h / 2);
+    await page.mouse.down();
+    // the drop line is the POINTER's Y; below D3's midpoint is past the last job
+    await page.mouse.move(c.x + c.w / 2, d3.y + d3.h * 0.75, { steps: 8 });
+    await page.mouse.up();
+    await page.waitForTimeout(600);
+    expect(await streamOrder(page)).toEqual(["A", "B", "D", "C"]);
+  });
+
+  test("dragging a STREAM above the TOP stream moves it to the start (C above A)", async ({ page }) => {
+    test.setTimeout(60000);
+    const streams = [
+      { title: "A", sequence: 1, jobs: [{ id: "a1", title: "A1", sequence: 1, active: true, schedule: { type: "daily" }, duration: 1 }] },
+      { title: "B", sequence: 2, jobs: [{ id: "b1", title: "B1", sequence: 1, active: true, schedule: { type: "daily" }, duration: 1 }] },
+      { title: "C", sequence: 3, jobs: [{ id: "c1", title: "C1", sequence: 1, active: true, schedule: { type: "daily" }, duration: 1 }] },
+      { title: "D", sequence: 4, jobs: [{ id: "d1", title: "D1", sequence: 1, active: true, schedule: { type: "daily" }, duration: 1 }] }
+    ];
+    await page.goto("/PlanMyDay/");
+    await seedStreams(page, streams);
+    await enableGantt(page);
+    await openChart(page);
+
+    const headerRect = (title) => page.evaluate((t) => {
+      const name = Array.from(document.querySelectorAll(".pmd-gantt-stream-title")).find((s) => s.textContent.trim() === t);
+      if (!name) return null;
+      const r = name.getBoundingClientRect();
+      return { x: r.x, y: r.y, w: r.width, h: r.height };
+    }, title);
+    const streamOrder = (page) => page.evaluate(() =>
+      JSON.parse(localStorage.getItem("planmydays_streams"))
+        .slice().sort((a, b) => a.sequence - b.sequence)
+        .map((s) => s.title));
+
+    const c = await headerRect("C");
+    const a = await headerRect("A");
+    expect(c).toBeTruthy();
+    expect(a).toBeTruthy();
+    await page.mouse.move(c.x + c.w / 2, c.y + c.h / 2);
+    await page.mouse.down();
+    await page.mouse.move(c.x + c.w / 2, a.y - 20, { steps: 8 });
+    await page.mouse.up();
+    await page.waitForTimeout(600);
+    expect(await streamOrder(page)).toEqual(["C", "A", "B", "D"]);
+  });
+
+  test("moving a STREAM takes all of its jobs with it and keeps their internal order", async ({ page }) => {
+    test.setTimeout(60000);
+    const streams = [
+      { title: "A", sequence: 1, jobs: [{ id: "a1", title: "A1", sequence: 1, active: true, schedule: { type: "daily" }, duration: 1 }] },
+      { title: "B", sequence: 2, jobs: [{ id: "b1", title: "B1", sequence: 1, active: true, schedule: { type: "daily" }, duration: 1 }] },
+      { title: "C", sequence: 3, jobs: [
+        { id: "c1", title: "C1", sequence: 1, active: true, schedule: { type: "daily" }, duration: 1 },
+        { id: "c2", title: "C2", sequence: 2, active: true, schedule: { type: "daily" }, duration: 1 },
+        { id: "c3", title: "C3", sequence: 3, active: true, schedule: { type: "daily" }, duration: 1 }
+      ]},
+      { title: "D", sequence: 4, jobs: [{ id: "d1", title: "D1", sequence: 1, active: true, schedule: { type: "daily" }, duration: 1 }] }
+    ];
+    await page.goto("/PlanMyDay/");
+    await seedStreams(page, streams);
+    await enableGantt(page);
+    await openChart(page);
+
+    const headerRect = (title) => page.evaluate((t) => {
+      const name = Array.from(document.querySelectorAll(".pmd-gantt-stream-title")).find((s) => s.textContent.trim() === t);
+      if (!name) return null;
+      const r = name.getBoundingClientRect();
+      return { x: r.x, y: r.y, w: r.width, h: r.height };
+    }, title);
+    const streamOrder = (page) => page.evaluate(() =>
+      JSON.parse(localStorage.getItem("planmydays_streams"))
+        .slice().sort((a, b) => a.sequence - b.sequence)
+        .map((s) => s.title));
+    const jobIdsIn = (page, title) => page.evaluate((t) => {
+      const s = JSON.parse(localStorage.getItem("planmydays_streams")).find((x) => x.title === t);
+      return (s.jobs || []).map((j) => j.id);
+    }, title);
+
+    const c = await headerRect("C");
+    const a = await headerRect("A");
+    expect(c).toBeTruthy();
+    expect(a).toBeTruthy();
+    await page.mouse.move(c.x + c.w / 2, c.y + c.h / 2);
+    await page.mouse.down();
+    await page.mouse.move(c.x + c.w / 2, a.y - 20, { steps: 8 });
+    await page.mouse.up();
+    await page.waitForTimeout(600);
+    expect(await streamOrder(page)).toEqual(["C", "A", "B", "D"]);
+    // C still owns all three jobs, in their original sequence order
+    expect(await jobIdsIn(page, "C")).toEqual(["c1", "c2", "c3"]);
+  });
+
+  test("the collapse toggle still works while stream headers are draggable", async ({ page }) => {
+    test.setTimeout(60000);
+    const streams = [
+      { title: "A", sequence: 1, jobs: [
+        { id: "a1", title: "A1", sequence: 1, active: true, schedule: { type: "daily" }, duration: 1 },
+        { id: "a2", title: "A2", sequence: 2, active: true, schedule: { type: "daily" }, duration: 1 }
+      ]},
+      { title: "B", sequence: 2, jobs: [{ id: "b1", title: "B1", sequence: 1, active: true, schedule: { type: "daily" }, duration: 1 }] }
+    ];
+    await page.goto("/PlanMyDay/");
+    await seedStreams(page, streams);
+    await enableGantt(page);
+    await openChart(page);
+
+    // clicking the toggle collapses A (its job rows vanish), it does not drag
+    const before = await page.evaluate(() => document.querySelectorAll("#ganttChart .rg-gantt-bar").length);
+    await page.locator("#ganttPage .pmd-gantt-stream-name")
+      .filter({ hasText: "A" })
+      .locator(".pmd-gantt-collapse-toggle")
+      .click();
+    await page.waitForTimeout(500);
+    const after = await page.evaluate(() => document.querySelectorAll("#ganttChart .rg-gantt-bar").length);
+    expect(after).toBeLessThan(before);
+    expect(await page.evaluate(() => JSON.parse(localStorage.getItem("planmydays_ganttCollapsedStreams") || "[]"))).toContain("A");
   });
 
   test("Close returns to the main view", async ({ page }) => {
@@ -661,433 +2280,271 @@ test.describe("Gantt page", () => {
     await seedStreams(page, SAMPLE);
     await enableGantt(page);
 
-    await page.evaluate(() => openGantt());
-    await page.waitForTimeout(500);
+    await openChart(page);
     await page.locator("#ganttPage .smd-page-footer").getByText("Close").click();
     await expect(page.locator("#ganttPage")).not.toHaveAttribute("open", "");
     await expect(page.locator("#countdownContainer")).toBeVisible();
   });
-});
 
-// ---------------------------------------------------------------------------
-// Drag and drop (js/gantt-drag.js).
-//
-// The chart is drawn by the vendored library, so the drag layer stamps its own
-// `data-gantt-*` identity attributes and installs the handlers from the chart's
-// `afterDraw` hook. These tests drive the real pointer/Sortable interactions
-// rather than calling the helpers directly, except where the interesting logic
-// is the filter-safety of the storage rebuild.
-// ---------------------------------------------------------------------------
+  test("Undo/Redo buttons sit in the header before the Streams filter and are disabled when empty", async ({ page }) => {
+    await page.goto("/PlanMyDay/");
+    await seedStreams(page, SAMPLE);
+    await enableGantt(page);
+    await openChart(page);
 
-async function openGanttReady(page) {
-  await page.evaluate(() => openGantt());
-  await page.waitForFunction(() => {
-    const el = document.querySelector("#ganttChart .gmainleft");
-    return el && el.getBoundingClientRect().width > 0;
-  });
-}
-
-async function seedAndOpen(page, streams) {
-  await page.goto("/PlanMyDay/");
-  await page.evaluate((s) => {
-    localStorage.setItem("planmydays_streams", JSON.stringify(s));
-    localStorage.setItem("planmydays_showGantt", "true");
-  }, streams);
-  await page.reload();
-  await openGanttReady(page);
-}
-
-// Geometry of a job's bar, addressed by job id via the stamped row attribute
-// (the library's own pID is renumbered by the Streams filter, so it is never a
-// stable handle).
-async function jobBar(page, jobId) {
-  return page.evaluate((id) => {
-    const row = document.querySelector('tr[data-gantt-job-id="' + id + '"]');
-    if (!row) return null;
-    const pid = row.id.replace(/^ganttChartchild_/, "");
-    const bar = document.getElementById("ganttChartbardiv_" + pid);
-    if (!bar) return null;
-    const r = bar.getBoundingClientRect();
-    const probe = _ganttChart.chartRowDateToX.bind(_ganttChart);
-    const n = new Date();
-    const d0 = new Date(n.getFullYear(), n.getMonth(), n.getDate());
-    const d1 = new Date(d0.getFullYear(), d0.getMonth(), d0.getDate() + 1);
-    return { x: r.left, y: r.top, w: r.width, h: r.height, pxPerDay: probe(d1) - probe(d0) };
-  }, jobId);
-}
-
-// Grabs the bar at `fraction` across its width and drags by `days` days
-// (negative = left). 0.1 is the left edge zone, 0.9 the right edge, 0.5 middle.
-async function dragBar(page, jobId, fraction, days) {
-  const b = await jobBar(page, jobId);
-  expect(b).not.toBeNull();
-  const y = b.y + b.h / 2;
-  const startX = b.x + b.w * fraction;
-  await page.mouse.move(startX, y);
-  await page.mouse.down();
-  await page.mouse.move(startX + b.pxPerDay * days, y, { steps: 10 });
-  await page.mouse.up();
-  await page.waitForTimeout(400);
-}
-
-function storedJob(page, jobId) {
-  return page.evaluate((id) => {
-    const streams = JSON.parse(localStorage.getItem("planmydays_streams"));
-    for (const s of streams) {
-      const j = (s.jobs || []).find((x) => x.id === id);
-      if (j) return j;
-    }
-    return null;
-  }, jobId);
-}
-
-const DRAG_SAMPLE = [
-  {
-    title: "Work",
-    sequence: 1,
-    jobs: [
-      { id: "job_move", title: "Movable", sequence: 1, active: true, schedule: { type: "daily" }, sleepUntil: "2026-10-05", duration: 5 },
-      { id: "job_resize", title: "Resizable", sequence: 2, active: true, schedule: { type: "daily" }, sleepUntil: "2026-10-05", duration: 2 }
-    ]
-  },
-  { title: "Home", sequence: 2, jobs: [] }
-];
-
-test.describe("Gantt drag and drop", () => {
-  test("dragging the left edge of a bar moves the start and keeps the end", async ({ page }) => {
-    test.setTimeout(60000);
-    await seedAndOpen(page, DRAG_SAMPLE);
-
-    // Left edge 1 day earlier: 2026-10-05 -> 2026-10-04, end fixed at +2 days,
-    // so the duration grows from 2 to 3.
-    await dragBar(page, "job_resize", 0.1, -1);
-
-    const job = await storedJob(page, "job_resize");
-    expect(job.sleepUntil).toBe("2026-10-04");
-    expect(job.duration).toBe(3);
-  });
-
-  test("dragging the right edge of a bar changes the duration and keeps the start", async ({ page }) => {
-    test.setTimeout(60000);
-    await seedAndOpen(page, DRAG_SAMPLE);
-
-    await dragBar(page, "job_resize", 0.9, 1);
-
-    const job = await storedJob(page, "job_resize");
-    expect(job.sleepUntil).toBe("2026-10-05");
-    expect(job.duration).toBe(3);
-  });
-
-  test("dragging the middle of a bar moves it and keeps the duration", async ({ page }) => {
-    test.setTimeout(60000);
-    await seedAndOpen(page, DRAG_SAMPLE);
-
-    await dragBar(page, "job_move", 0.5, 2);
-
-    const job = await storedJob(page, "job_move");
-    expect(job.sleepUntil).toBe("2026-10-07");
-    expect(job.duration).toBe(5);
-  });
-
-  test("a bar cannot be dragged before today (start clamps, nothing is written)", async ({ page }) => {
-    test.setTimeout(60000);
-    await seedAndOpen(page, [
-      { title: "Work", sequence: 1, jobs: [
-        { id: "job_today", title: "Starts today", sequence: 1, active: true, schedule: { type: "daily" }, duration: 2 }
-      ]}
-    ]);
-
-    const before = await page.evaluate(() => localStorage.getItem("planmydays_streams"));
-    await dragBar(page, "job_today", 0.1, -3);
-
-    // Dragged left, but clamped to today -> the stored value is unchanged.
-    const after = await page.evaluate(() => localStorage.getItem("planmydays_streams"));
-    expect(after).toBe(before);
-    const job = await storedJob(page, "job_today");
-    expect(job.sleepUntil || "").toBe("");
-    expect(job.duration).toBe(2);
-  });
-
-  test("a bar drag persists across a reload", async ({ page }) => {
-    test.setTimeout(60000);
-    await seedAndOpen(page, DRAG_SAMPLE);
-    await dragBar(page, "job_move", 0.5, 2);
-
-    await page.reload();
-    await openGanttReady(page);
-    const job = await storedJob(page, "job_move");
-    expect(job.sleepUntil).toBe("2026-10-07");
-    expect(job.duration).toBe(5);
-  });
-
-  test("switching Day -> Week re-binds the drag layer and snaps to week boundaries", async ({ page }) => {
-    test.setTimeout(60000);
-    await seedAndOpen(page, [
-      { title: "Work", sequence: 1, jobs: [
-        // 2026-10-07 is a Wednesday, deliberately NOT on the week grid.
-        { id: "job_wk", title: "Weekly", sequence: 1, active: true, schedule: { type: "daily" }, sleepUntil: "2026-10-07", duration: 2 }
-      ]}
-    ]);
-
-    // The vendor's format selector calls Draw() directly, bypassing renderGantt,
-    // so this also proves the afterDraw hook re-binds the grips.
-    await page.locator("#ganttPage .gformlabel", { hasText: "Week" }).first().click();
-    await page.waitForTimeout(400);
-    expect(await page.locator("#ganttChart .gantt-grip-left").count()).toBeGreaterThan(0);
-
-    await dragBar(page, "job_wk", 0.1, 7);
-
-    const job = await storedJob(page, "job_wk");
-    // Snapped to a week boundary, which the library's grid starts on a Monday.
-    const day = new Date(job.sleepUntil + "T00:00:00Z").getUTCDay();
-    expect(day).toBe(1);
-  });
-
-  test("dragging a stream row reorders the streams", async ({ page }) => {
-    test.setTimeout(60000);
-    await seedAndOpen(page, DRAG_SAMPLE);
-
-    const handle = await page.locator('tr[data-gantt-stream-title="Home"] smd-draghandle.gantt-drag-handle').first().boundingBox();
-    const work = await page.locator('tr[data-gantt-stream-title="Work"]').first().boundingBox();
-    await page.mouse.move(handle.x + handle.width / 2, handle.y + handle.height / 2);
-    await page.mouse.down();
-    await page.mouse.move(handle.x + 4, handle.y + 4, { steps: 3 });
-    await page.mouse.move(handle.x + handle.width / 2, work.y + 4, { steps: 14 });
-    await page.mouse.up();
-    await page.waitForTimeout(400);
-
-    const order = await page.evaluate(() =>
-      JSON.parse(localStorage.getItem("planmydays_streams"))
-        .slice().sort((a, b) => a.sequence - b.sequence).map((s) => s.title));
-    expect(order[0]).toBe("Home");
-    expect(order[1]).toBe("Work");
-  });
-
-  test("the Name column is indented clear of the drag handle, and stream rows keep their collapse toggle", async ({ page }) => {
-    test.setTimeout(60000);
-    await seedAndOpen(page, DRAG_SAMPLE);
-
-    const geom = await page.evaluate(() => {
-      const r = (e) => { const b = e.getBoundingClientRect(); return { left: b.left, right: b.right, width: b.width }; };
-      const groupRow = document.querySelector('tr[data-gantt-stream-title="Work"]');
-      const jobRow = document.querySelector('tr[data-gantt-job-id="job_move"]');
-      const groupHandle = groupRow.querySelector("smd-draghandle.gantt-drag-handle");
-      const folder = groupRow.querySelector("span.gfoldercollapse");
-      // Where the visible text starts: measure the div's first text range.
-      const nameDiv = jobRow.querySelector("td.gtaskname div");
-      const range = document.createRange();
-      range.selectNodeContents(nameDiv);
-      const textRect = range.getBoundingClientRect();
+    // Undo/Redo buttons exist, right before the Streams filter
+    const undoBtn = page.locator("#ganttPage .gantt-undo-btn");
+    const redoBtn = page.locator("#ganttPage .gantt-redo-btn");
+    await expect(undoBtn).toBeVisible();
+    await expect(redoBtn).toBeVisible();
+    // header order: zoom, undo, redo, then streams filter (measured by position
+    // since the filter wrapper's own class list begins with Bootstrap's `dropdown`)
+    const order = await page.evaluate(() => {
+      const header = document.querySelector("#ganttPage .smd-page-header");
+      const zoom = header.querySelector(".gantt-zoom");
+      const history = header.querySelector(".gantt-undo-redo");
+      const filter = header.querySelector(".gantt-stream-filter");
       return {
-        handle: r(groupHandle),
-        folder: folder ? r(folder) : null,
-        folderText: folder ? folder.textContent : null,
-        textLeft: textRect.left,
-        // the handle must not paint over the title text
-        nameText: nameDiv.textContent.trim()
+        zoomBeforeHistory: zoom.getBoundingClientRect().left < history.getBoundingClientRect().left,
+        historyBeforeFilter: history.getBoundingClientRect().left < filter.getBoundingClientRect().left
       };
     });
-
-    // The handle is present and the title text starts to its right.
-    expect(geom.handle.width).toBeGreaterThan(0);
-    expect(geom.textLeft).toBeGreaterThan(geom.handle.right - 4);
-    // The stream row still has its expand/collapse toggle, now with room to show.
-    expect(geom.folder).not.toBeNull();
-    expect(geom.folderText).toBe("-");
-    expect(geom.folder.width).toBeGreaterThan(0);
-    // ...and it sits clear of the drag handle.
-    expect(geom.folder.left).toBeGreaterThan(geom.handle.left);
+    expect(order.zoomBeforeHistory).toBe(true);
+    expect(order.historyBeforeFilter).toBe(true);
+    // both disabled with empty history
+    await expect(undoBtn).toBeDisabled();
+    await expect(redoBtn).toBeDisabled();
   });
 
-  test("clicking a stream's collapse toggle hides and restores its jobs", async ({ page }) => {
+  test("Undo and redo a JOB bar MOVE (sleepUntil) via Ctrl+Z / Ctrl+Y and the buttons", async ({ page }) => {
     test.setTimeout(60000);
-    await seedAndOpen(page, DRAG_SAMPLE);
+    await page.goto("/PlanMyDay/");
+    await seedStreams(page, SAMPLE);
+    await enableGantt(page);
+    await openChart(page);
 
-    const jobVisible = () => page.evaluate(() => {
-      const row = document.querySelector('tr[data-gantt-job-id="job_move"]');
-      if (!row) return null;
-      return row.getBoundingClientRect().height > 0;
-    });
-
-    expect(await jobVisible()).toBe(true);
-    await page.locator('tr[data-gantt-stream-title="Work"] span.gfoldercollapse').first().click();
-    await page.waitForTimeout(200);
-    expect(await jobVisible()).toBe(false);
-    // The toggle flipped to "+" and the stream row is still there.
-    expect(await page.locator('tr[data-gantt-stream-title="Work"] span.gfoldercollapse').first().textContent()).toBe("+");
-
-    await page.locator('tr[data-gantt-stream-title="Work"] span.gfoldercollapse').first().click();
-    await page.waitForTimeout(200);
-    expect(await jobVisible()).toBe(true);
-  });
-
-  test("a stream drag carries its jobs with it and never reassigns them", async ({ page }) => {
-    test.setTimeout(60000);
-    await seedAndOpen(page, DRAG_SAMPLE);
-
-    // Drag the WORK stream (which has jobs) down past Home.
-    const handle = await page.locator('tr[data-gantt-stream-title="Work"] smd-draghandle.gantt-drag-handle').first().boundingBox();
-    const home = await page.locator('tr[data-gantt-stream-title="Home"]').first().boundingBox();
-    await page.mouse.move(handle.x + handle.width / 2, handle.y + handle.height / 2);
-    await page.mouse.down();
-    await page.mouse.move(handle.x + 4, handle.y + 4, { steps: 3 });
-    await page.mouse.move(handle.x + handle.width / 2, home.y + home.height - 2, { steps: 14 });
-
-    // Mid-drag: the dragged stream's job rows are de-emphasised so the list
-    // reads as a list of streams, while the ghost carries the jobs.
-    const mid = await page.evaluate(() => ({
-      marked: document.querySelectorAll("#ganttChart tr.gantt-jobs-dragging").length,
-      workJobs: document.querySelectorAll('tr[data-gantt-kind="job"][data-gantt-stream-idx="0"]').length
-    }));
-    expect(mid.workJobs).toBeGreaterThan(0);
-    expect(mid.marked).toBe(mid.workJobs);
-
-    await page.mouse.up();
-    await page.waitForTimeout(400);
-    expect(await page.evaluate(() => document.querySelectorAll("#ganttChart tr.gantt-jobs-dragging").length)).toBe(0);
-
-    // The whole point: the stream moved but its jobs came with it. While the
-    // dragged stream row is out of the table flow its job rows sit under the
-    // PREVIOUS stream, so a positional rebuild would hand them to the wrong
-    // stream and lose them.
-    const stored = await page.evaluate(() => {
-      const byTitle = {};
+    const readJob = (id) => page.evaluate((jid) =>
       JSON.parse(localStorage.getItem("planmydays_streams"))
-        .forEach((s) => { byTitle[s.title] = (s.jobs || []).map((j) => j.id).sort(); });
-      return byTitle;
-    });
-    expect(stored.Work).toEqual(["job_move", "job_resize"]);
-    expect(stored.Home).toEqual([]);
+        .flatMap((s) => s.jobs).find((j) => j.id === jid), id);
 
-    const order = await page.evaluate(() =>
+    const bar = page.locator(".rg-gantt-bar--task").first();
+    const box = await bar.boundingBox();
+    expect(box).toBeTruthy();
+    const start = { x: box.x + box.width * 0.25, y: box.y + box.height / 2 };
+    const before = await readJob("job_daily");
+
+    // drag the bar right (move) -> sleepUntil becomes set
+    await page.mouse.move(start.x, start.y);
+    await page.mouse.down();
+    await page.mouse.move(start.x + 120, start.y, { steps: 6 });
+    await page.mouse.up();
+    await page.waitForTimeout(500);
+    const moved = await readJob("job_daily");
+    expect(moved.sleepUntil).toBeTruthy();
+    expect(moved.sleepUntil > (before.sleepUntil || "")).toBe(true);
+
+    // Undo button enabled now
+    await expect(page.locator("#ganttPage .gantt-undo-btn")).toBeEnabled();
+
+    // Ctrl+Z undoes the move -> back to original sleepUntil (absent = undefined)
+    await page.keyboard.press("Control+z");
+    await page.waitForTimeout(600);
+    const undone = await readJob("job_daily");
+    expect(undone.sleepUntil || null).toBe(before.sleepUntil || null);
+    // redo button enabled after undo
+    await expect(page.locator("#ganttPage .gantt-redo-btn")).toBeEnabled();
+
+    // Ctrl+Y redoes -> sleepUntil restored
+    await page.keyboard.press("Control+y");
+    await page.waitForTimeout(600);
+    const redone = await readJob("job_daily");
+    expect(redone.sleepUntil).toBe(moved.sleepUntil);
+  });
+
+  test("Undo and redo a JOB bar RESIZE (duration) via the buttons", async ({ page }) => {
+    test.setTimeout(60000);
+    await page.goto("/PlanMyDay/");
+    await seedStreams(page, SAMPLE);
+    await enableGantt(page);
+    await openChart(page);
+
+    const readJob = (id) => page.evaluate((jid) =>
       JSON.parse(localStorage.getItem("planmydays_streams"))
-        .slice().sort((a, b) => a.sequence - b.sequence).map((s) => s.title));
-    expect(order[0]).toBe("Home");
-    expect(order[1]).toBe("Work");
-  });
+        .flatMap((s) => s.jobs).find((j) => j.id === jid), id);
 
-  test("dragging a job within a stream reorders it", async ({ page }) => {
-    test.setTimeout(60000);
-    await seedAndOpen(page, DRAG_SAMPLE);
+    const bar = page.locator(".rg-gantt-bar--task").first();
+    const box = await bar.boundingBox();
+    expect(box).toBeTruthy();
+    const start = { x: box.x + box.width * 0.8, y: box.y + box.height / 2 };
+    const before = await readJob("job_daily");
 
-    const handle = await page.locator('tr[data-gantt-job-id="job_resize"] smd-draghandle.gantt-drag-handle').first().boundingBox();
-    const target = await page.locator('tr[data-gantt-job-id="job_move"]').first().boundingBox();
-    await page.mouse.move(handle.x + handle.width / 2, handle.y + handle.height / 2);
+    // drag the right half outward -> duration grows
+    await page.mouse.move(start.x, start.y);
     await page.mouse.down();
-    await page.mouse.move(handle.x + 4, handle.y + 4, { steps: 3 });
-    await page.mouse.move(handle.x + handle.width / 2, target.y + 2, { steps: 14 });
+    await page.mouse.move(start.x + 120, start.y, { steps: 6 });
     await page.mouse.up();
-    await page.waitForTimeout(400);
+    await page.waitForTimeout(500);
+    const resized = await readJob("job_daily");
+    expect(Number(resized.duration)).toBeGreaterThan(Number(before.duration));
 
-    const titles = await page.evaluate(() => {
-      const s = JSON.parse(localStorage.getItem("planmydays_streams")).find((x) => x.title === "Work");
-      return s.jobs.slice().sort((a, b) => a.sequence - b.sequence).map((j) => j.title);
-    });
-    expect(titles[0]).toBe("Resizable");
-    expect(titles[1]).toBe("Movable");
+    // click Undo button -> duration back to original
+    await page.locator("#ganttPage .gantt-undo-btn").click();
+    await page.waitForTimeout(600);
+    const undone = await readJob("job_daily");
+    expect(Number(undone.duration)).toBe(Number(before.duration));
+
+    // click Redo button -> duration restored
+    await page.locator("#ganttPage .gantt-redo-btn").click();
+    await page.waitForTimeout(600);
+    const redone = await readJob("job_daily");
+    expect(Number(redone.duration)).toBe(Number(resized.duration));
   });
 
-  test("dragging a job onto another stream moves it there", async ({ page }) => {
+  test("Undo and redo a JOB row drag-and-drop (reparent) via Ctrl+Z / Ctrl+Y", async ({ page }) => {
     test.setTimeout(60000);
-    await seedAndOpen(page, DRAG_SAMPLE);
+    const streams = [
+      { title: "Work", sequence: 1, jobs: [
+        { id: "job_a", title: "Alpha", sequence: 1, active: true, schedule: { type: "daily" }, duration: 2 }
+      ]},
+      { title: "Home", sequence: 2, jobs: [
+        { id: "job_x", title: "Delta", sequence: 1, active: true, schedule: { type: "daily" }, duration: 2 }
+      ]}
+    ];
+    await page.goto("/PlanMyDay/");
+    await seedStreams(page, streams);
+    await enableGantt(page);
+    await openChart(page);
 
-    const handle = await page.locator('tr[data-gantt-job-id="job_resize"] smd-draghandle.gantt-drag-handle').first().boundingBox();
-    const home = await page.locator('tr[data-gantt-stream-title="Home"]').first().boundingBox();
-    await page.mouse.move(handle.x + handle.width / 2, handle.y + handle.height / 2);
+    const streamOf = (jobId) => page.evaluate((jid) => {
+      const s = JSON.parse(localStorage.getItem("planmydays_streams"));
+      const i = s.findIndex((st) => (st.jobs || []).some((j) => j.id === jid));
+      return i >= 0 ? s[i].title : null;
+    }, jobId);
+
+    const nameRect = (text) => page.evaluate((t) => {
+      const el = Array.from(document.querySelectorAll(".pmd-gantt-job-name")).find((s) => s.textContent.trim() === t);
+      const r = el.getBoundingClientRect();
+      return { x: r.x, y: r.y, w: r.width, h: r.height };
+    }, text);
+
+    // drag Alpha (in Work) onto Delta's row -> reparent into Home
+    const alpha = await nameRect("Alpha");
+    const delta = await nameRect("Delta");
+    expect(alpha).toBeTruthy();
+    expect(delta).toBeTruthy();
+    await page.mouse.move(alpha.x + alpha.w / 2, alpha.y + alpha.h / 2);
     await page.mouse.down();
-    await page.mouse.move(handle.x + 4, handle.y + 4, { steps: 3 });
-    // Drop just below the Home header so it lands as Home's first job (a job
-    // dropped above the header would still belong to the preceding stream).
-    await page.mouse.move(handle.x + handle.width / 2, home.y + home.height - 3, { steps: 14 });
+    await page.mouse.move(alpha.x + alpha.w / 2, delta.y + delta.h / 2, { steps: 5 });
     await page.mouse.up();
-    await page.waitForTimeout(400);
+    await page.waitForTimeout(600);
+    expect(await streamOf("job_a")).toBe("Home");
 
-    const result = await page.evaluate(() => {
-      const streams = JSON.parse(localStorage.getItem("planmydays_streams"));
-      const find = (t) => streams.find((s) => s.title === t);
-      return {
-        inWork: (find("Work").jobs || []).some((j) => j.id === "job_resize"),
-        inHome: (find("Home").jobs || []).some((j) => j.id === "job_resize"),
-        homeSeq: find("Home").jobs.map((j) => j.sequence)
-      };
-    });
-    expect(result.inWork).toBe(false);
-    expect(result.inHome).toBe(true);
-    expect(result.homeSeq).toEqual([1]);
+    // Ctrl+Z -> back into Work
+    await page.keyboard.press("Control+z");
+    await page.waitForTimeout(600);
+    expect(await streamOf("job_a")).toBe("Work");
+
+    // Ctrl+Y -> back into Home
+    await page.keyboard.press("Control+y");
+    await page.waitForTimeout(600);
+    expect(await streamOf("job_a")).toBe("Home");
   });
 
-  test("dragging a stream between two OTHERS keeps every stream's own jobs", async ({ page }) => {
-    // Regression: with three or more streams, Sortable removes the dragged row
-    // from the table flow, which shifts the OTHER streams' group/job rows apart
-    // too. Deriving ownership from DOM adjacency at drop time then rotated each
-    // stream's jobs onto its neighbour (Beta's jobs landed in Alpha, Gamma's in
-    // Beta). Ownership must come from a snapshot taken BEFORE the drag.
+  test("Undo and redo a STREAM drag-and-drop (reorder) via Ctrl+Z / Ctrl+Y", async ({ page }) => {
     test.setTimeout(60000);
-    await seedAndOpen(page, [
-      { title: "Alpha", sequence: 1, jobs: [
-        { id: "a1", title: "A1", sequence: 1, active: true, schedule: { type: "daily" }, duration: 2 },
-        { id: "a2", title: "A2", sequence: 2, active: true, schedule: { type: "daily" }, duration: 2 }
-      ] },
-      { title: "Beta", sequence: 2, jobs: [
-        { id: "b1", title: "B1", sequence: 1, active: true, schedule: { type: "daily" }, duration: 2 },
-        { id: "b2", title: "B2", sequence: 2, active: true, schedule: { type: "daily" }, duration: 2 }
-      ] },
-      { title: "Gamma", sequence: 3, jobs: [
-        { id: "g1", title: "G1", sequence: 1, active: true, schedule: { type: "daily" }, duration: 2 }
-      ] }
-    ]);
+    const streams = [
+      { title: "A", sequence: 1, jobs: [{ id: "a1", title: "A1", sequence: 1, active: true, schedule: { type: "daily" }, duration: 1 }] },
+      { title: "B", sequence: 2, jobs: [{ id: "b1", title: "B1", sequence: 1, active: true, schedule: { type: "daily" }, duration: 1 }] },
+      { title: "C", sequence: 3, jobs: [{ id: "c1", title: "C1", sequence: 1, active: true, schedule: { type: "daily" }, duration: 1 }] }
+    ];
+    await page.goto("/PlanMyDay/");
+    await seedStreams(page, streams);
+    await enableGantt(page);
+    await openChart(page);
 
-    // Drag Beta DOWN past Gamma.
-    const handle = await page.locator('tr[data-gantt-stream-title="Beta"] smd-draghandle.gantt-drag-handle').first().boundingBox();
-    const gamma = await page.locator('tr[data-gantt-stream-title="Gamma"]').first().boundingBox();
-    await page.mouse.move(handle.x + handle.width / 2, handle.y + handle.height / 2);
+    const streamOrder = (page) => page.evaluate(() =>
+      JSON.parse(localStorage.getItem("planmydays_streams"))
+        .slice().sort((a, b) => a.sequence - b.sequence)
+        .map((s) => s.title));
+    const headerRect = (title) => page.evaluate((t) => {
+      const name = Array.from(document.querySelectorAll(".pmd-gantt-stream-title")).find((s) => s.textContent.trim() === t);
+      const r = name.getBoundingClientRect();
+      return { x: r.x, y: r.y, w: r.width, h: r.height };
+    }, title);
+
+    // drag C above A -> C,A,B
+    const c = await headerRect("C");
+    const a = await headerRect("A");
+    await page.mouse.move(c.x + c.w / 2, c.y + c.h / 2);
     await page.mouse.down();
-    await page.mouse.move(handle.x + 4, handle.y + 4, { steps: 3 });
-    await page.mouse.move(handle.x + handle.width / 2, gamma.y + gamma.height - 2, { steps: 14 });
+    await page.mouse.move(c.x + c.w / 2, a.y + a.h / 2, { steps: 5 });
     await page.mouse.up();
-    await page.waitForTimeout(400);
+    await page.waitForTimeout(600);
+    expect(await streamOrder(page)).toEqual(["C", "A", "B"]);
 
-    const owned = await page.evaluate(() => {
-      const out = {};
-      JSON.parse(localStorage.getItem("planmydays_streams")).forEach((s) => {
-        out[s.title] = { seq: s.sequence, jobs: (s.jobs || []).map((j) => j.id).sort() };
-      });
-      return out;
-    });
+    // Ctrl+Z -> back to A,B,C
+    await page.keyboard.press("Control+z");
+    await page.waitForTimeout(600);
+    expect(await streamOrder(page)).toEqual(["A", "B", "C"]);
 
-    // Every stream kept exactly the jobs it started with...
-    expect(owned.Alpha.jobs).toEqual(["a1", "a2"]);
-    expect(owned.Beta.jobs).toEqual(["b1", "b2"]);
-    expect(owned.Gamma.jobs).toEqual(["g1"]);
-    // ...and only the order moved.
-    expect(owned.Alpha.seq).toBe(1);
-    expect(owned.Gamma.seq).toBe(2);
-    expect(owned.Beta.seq).toBe(3);
+    // Ctrl+Y -> C,A,B again
+    await page.keyboard.press("Control+y");
+    await page.waitForTimeout(600);
+    expect(await streamOrder(page)).toEqual(["C", "A", "B"]);
   });
 
-  test("reordering visible streams never drops or resequences a stream hidden by the filter", async ({ page }) => {    await page.goto("/PlanMyDay/");
-    const result = await page.evaluate(() => {
-      localStorage.setItem("planmydays_streams", JSON.stringify([
-        { title: "A", sequence: 1, jobs: [{ id: "a1", title: "A1", sequence: 1 }] },
-        { title: "B", sequence: 2, jobs: [{ id: "b1", title: "B1", sequence: 1 }] },
-        { title: "Hidden", sequence: 3, jobs: [{ id: "h1", title: "H1", sequence: 1 }] }
-      ]));
-      // The filter hid "Hidden", so its rows are absent. The user swapped A/B.
-      ganttDragPersistRows([
-        { kind: "group", streamIdx: 1 }, { kind: "job", streamIdx: 1, jobId: "b1" },
-        { kind: "group", streamIdx: 0 }, { kind: "job", streamIdx: 0, jobId: "a1" }
-      ]);
-      return JSON.parse(localStorage.getItem("planmydays_streams"));
-    });
+  test("Undo stack accumulates MULTIPLE changes and redo is cleared by a new change", async ({ page }) => {
+    test.setTimeout(60000);
+    await page.goto("/PlanMyDay/");
+    await seedStreams(page, SAMPLE);
+    await enableGantt(page);
+    await openChart(page);
 
-    const byTitle = {};
-    result.forEach((s) => { byTitle[s.title] = s; });
-    // The hidden stream survives, keeps its job, and is still last.
-    expect(byTitle.Hidden).toBeTruthy();
-    expect(byTitle.Hidden.jobs.map((j) => j.id)).toEqual(["h1"]);
-    // The visible pair swapped and was renumbered without collisions.
-    expect(byTitle.B.sequence).toBe(1);
-    expect(byTitle.A.sequence).toBe(2);
-    expect(byTitle.Hidden.sequence).toBe(3);
+    const readJob = (id) => page.evaluate((jid) =>
+      JSON.parse(localStorage.getItem("planmydays_streams"))
+        .flatMap((s) => s.jobs).find((j) => j.id === jid), id);
+
+    const bar = page.locator(".rg-gantt-bar--task").first();
+    const box = await bar.boundingBox();
+    expect(box).toBeTruthy();
+
+    // change 1: move the bar right
+    const s1 = { x: box.x + box.width * 0.25, y: box.y + box.height / 2 };
+    await page.mouse.move(s1.x, s1.y);
+    await page.mouse.down();
+    await page.mouse.move(s1.x + 100, s1.y, { steps: 5 });
+    await page.mouse.up();
+    await page.waitForTimeout(500);
+    const afterMove = await readJob("job_daily");
+
+    // change 2: move again (further right)
+    const box2 = await bar.boundingBox();
+    const s2 = { x: box2.x + box2.width * 0.25, y: box2.y + box2.height / 2 };
+    await page.mouse.move(s2.x, s2.y);
+    await page.mouse.down();
+    await page.mouse.move(s2.x + 100, s2.y, { steps: 5 });
+    await page.mouse.up();
+    await page.waitForTimeout(500);
+    const afterMove2 = await readJob("job_daily");
+    expect(afterMove2.sleepUntil).not.toBe(afterMove.sleepUntil);
+
+    // one Ctrl+Z -> back to state after change 1
+    await page.keyboard.press("Control+z");
+    await page.waitForTimeout(600);
+    expect(await readJob("job_daily")).toEqual(afterMove);
+    // second Ctrl+Z -> back to original
+    await page.keyboard.press("Control+z");
+    await page.waitForTimeout(600);
+    expect((await readJob("job_daily")).sleepUntil || null).toBeFalsy();
+
+    // a fresh change clears the redo stack
+    const box3 = await bar.boundingBox();
+    const s3 = { x: box3.x + box3.width * 0.25, y: box3.y + box3.height / 2 };
+    await page.mouse.move(s3.x, s3.y);
+    await page.mouse.down();
+    await page.mouse.move(s3.x + 80, s3.y, { steps: 4 });
+    await page.mouse.up();
+    await page.waitForTimeout(500);
+    await expect(page.locator("#ganttPage .gantt-redo-btn")).toBeDisabled();
   });
 });

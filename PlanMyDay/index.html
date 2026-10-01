@@ -12,7 +12,7 @@
   <title>Plan My Day</title>
 
   <link rel="stylesheet" href="../shared/vendor/flatpickr.min.css">
-  <link rel="stylesheet" href="../shared/vendor/jsgantt.css">
+  <link id="revolist-gantt-css" rel="stylesheet" href="../shared/vendor/revolist/gantt/gantt.css">
   <link rel="stylesheet" href="../shared/vendor/bootstrap-icons.css">
   <link rel="stylesheet" href="../shared/vendor/fontawesome/css/fontawesome.min.css">
   <link rel="stylesheet" href="../shared/vendor/fontawesome/css/solid.min.css">
@@ -23,6 +23,33 @@
   <link id="theme-override-mode" rel="stylesheet" href="../shared/css/themes/light.css">
   <link id="theme-override-specific" rel="stylesheet" href="../shared/css/themes/superhero/superhero.light.css">
   <script src="../shared/js/build-number.js"></script>
+  <!--
+    GANTT IMPORT MAP
+
+    The Gantt is the one part of the app that is loaded as native ES modules:
+    the vendored MIT @revolist/revogrid (the grid) and @revolist/gantt (the
+    plugin that adds the timeline column and draws the bars) are Stencil
+    components published as ESM, not as a single classic global bundle. There is
+    no bundler in this repo, so the two bare specifiers are mapped here instead.
+
+    The paths are RELATIVE to this document, not absolute, because the app is
+    served both at the domain root and under a sub-path (/PlanMyDay/). An
+    absolute "/shared/vendor/..." would 404 on the sub-path deployment. The
+    `?v=` build stamp is deliberately absent: the RevoGrid chunk filenames
+    already contain a content hash, and an import map cannot be cache-busted per
+    BUILD_NUMBER anyway. The two unhashed files (revolist-gantt.js, gantt.css)
+    are covered by the service worker precache, and gantt.css is additionally
+    stamped by the link cache-buster below.
+  -->
+  <script type="importmap">
+  {
+    "imports": {
+      "@revolist/revogrid": "../shared/vendor/revolist/revogrid/esm/index.js",
+      "@revolist/revogrid/loader": "../shared/vendor/revolist/revogrid/esm/loader.js",
+      "@revolist/gantt": "../shared/vendor/revolist/gantt/revolist-gantt.js"
+    }
+  }
+  </script>
   <script>
     // Cache-bust every same-origin link (stylesheet/manifest/icon) with the
     // build number so a new build always fetches fresh assets.
@@ -401,7 +428,6 @@
 
   <!-- SORTABLEJS -->
   <script>document.write('<script src="../shared/vendor/sortable.min.js?v=' + BUILD_NUMBER + '"><\/script>');</script>
-  <script>document.write('<script src="../shared/vendor/jsgantt.js?v=' + BUILD_NUMBER + '"><\/script>');</script>
 
   <script>
   document.write('<script src="../shared/js/components/smd-button.js?v=' + BUILD_NUMBER + '"><\/script>');
@@ -439,7 +465,11 @@ document.write('<script src="../shared/js/components/smd-checkbox.js?v=' + BUILD
   document.write('<script src="js/streams-editor.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="js/job-search.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="js/gantt.js?v=' + BUILD_NUMBER + '"><\/script>');
-  document.write('<script src="js/gantt-drag.js?v=' + BUILD_NUMBER + '"><\/script>');
+  // The Gantt library itself is an ES module (see the import map in <head>), so
+  // it cannot be written in as a classic document.write script. `type="module"`
+  // is deferred until after parsing, which is exactly why js/gantt.js waits on
+  // an event rather than reading window.PMD_GANTT_LIB directly.
+  document.write('<script type="module" src="js/gantt-lib.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="js/main-view.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="js/app-settings.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="js/display.js?v=' + BUILD_NUMBER + '"><\/script>');

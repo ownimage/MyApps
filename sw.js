@@ -174,8 +174,50 @@ const SHARED_ASSETS = [
   "shared/vendor/lz-string.min.js",
   "shared/vendor/jsQR.js",
   "shared/vendor/sortable.min.js",
-  "shared/vendor/jsgantt.js",
-  "shared/vendor/jsgantt.css",
+  // Gantt: vendored MIT @revolist/gantt on @revolist/revogrid, loaded as native
+  // ES modules (see the import map in PlanMyDay/index.html).
+  //
+  // This is the COMPLETE `dist/esm` directory, not a hand-picked subset, and it
+  // must stay that way. RevoGrid is a Stencil app: its runtime resolves each
+  // component's code with a DYNAMIC `import(`${dir}/${tag}.entry.js`)`, built
+  // from a template literal at runtime. A static scan of import specifiers
+  // therefore cannot see those requests at all — that is exactly how
+  // revo-grid.entry.js came to be missing and the chart failed to render with
+  // "Constructor for revo-grid#undefined was not found". The five `*.entry.js`
+  // files plus events/throttle/viewport.helpers are only ever reached that way.
+  //
+  // The file set was confirmed by recording every network request a real render
+  // makes (25 of the 26 are fetched; revo-grid.js is the package `module` entry
+  // and is unused when going through the import map, but is kept so this stays a
+  // verbatim copy of the published build). An import map entry is only a URL
+  // prefix, so a chunk missing from this list surfaces as a failed dynamic
+  // import and an empty chart rather than a visible 404 on a page asset.
+  "shared/vendor/revolist/gantt/gantt.css",
+  "shared/vendor/revolist/gantt/revolist-gantt.js",
+  "shared/vendor/revolist/revogrid/esm/index.js",
+  "shared/vendor/revolist/revogrid/esm/loader.js",
+  "shared/vendor/revolist/revogrid/esm/revo-grid.js",
+  "shared/vendor/revolist/revogrid/esm/revo-grid.entry.js",
+  "shared/vendor/revolist/revogrid/esm/revogr-attribution_7.entry.js",
+  "shared/vendor/revolist/revogrid/esm/revogr-clipboard_3.entry.js",
+  "shared/vendor/revolist/revogrid/esm/revogr-data_4.entry.js",
+  "shared/vendor/revolist/revogrid/esm/revogr-filter-panel.entry.js",
+  "shared/vendor/revolist/revogrid/esm/app-globals-CA4dvSNd.js",
+  "shared/vendor/revolist/revogrid/esm/index-CtimkLsB.js",
+  "shared/vendor/revolist/revogrid/esm/index-BvMNbQyq.js",
+  "shared/vendor/revolist/revogrid/esm/row-resize.plugin-Dzn9bTOr.js",
+  "shared/vendor/revolist/revogrid/esm/column.service-pu_fdQ0S.js",
+  "shared/vendor/revolist/revogrid/esm/dimension.helpers-Cln9sALu.js",
+  "shared/vendor/revolist/revogrid/esm/viewport.store-DWMKRDSH.js",
+  "shared/vendor/revolist/revogrid/esm/viewport.helpers-CoCAvmZs.js",
+  "shared/vendor/revolist/revogrid/esm/header-cell-renderer-YCiVIQ2E.js",
+  "shared/vendor/revolist/revogrid/esm/cell-renderer-D9ze8OJw.js",
+  "shared/vendor/revolist/revogrid/esm/text-editor-BVb0idxe.js",
+  "shared/vendor/revolist/revogrid/esm/edit.utils-3ZbhQCv_.js",
+  "shared/vendor/revolist/revogrid/esm/filter.button-CEPUxLUo.js",
+  "shared/vendor/revolist/revogrid/esm/events-BvSmBueA.js",
+  "shared/vendor/revolist/revogrid/esm/throttle-3rhqdcLy.js",
+  "shared/vendor/revolist/revogrid/esm/debounce-PCRWZliA.js",
   "shared/vendor/bmc-default-yellow.png",
   "shared/vendor/bootstrap-icons.css",
   "shared/vendor/fonts/bootstrap-icons.woff",
@@ -365,7 +407,11 @@ const APPS = {
     "PlanMyDay/js/streams-editor.js",
     "PlanMyDay/js/job-search.js",
     "PlanMyDay/js/gantt.js",
-    "PlanMyDay/js/gantt-drag.js",
+    // gantt-lib.js is the ES module that imports the vendored graph above. It is
+    // stamped with ?v=BUILD_NUMBER like the classic scripts, but the modules it
+    // pulls in are NOT (the import map cannot be), so the hashed RevoGrid chunk
+    // names above are what make those cache entries safe to keep.
+    "PlanMyDay/js/gantt-lib.js",
     "PlanMyDay/js/main-view.js",
     "PlanMyDay/js/app-settings.js",
     "PlanMyDay/js/display.js",
