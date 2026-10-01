@@ -794,6 +794,122 @@ test.describe("Gantt page", () => {
     expect(Number(after.duration)).toBeGreaterThan(Number(before.duration));
   });
 
+  test("dragging a job bar shows a ghost panel with start, end and duration that follows the cursor", async ({ page }) => {
+    test.setTimeout(60000);
+    await page.goto("/PlanMyDay/");
+    await seedStreams(page, SAMPLE);
+    await enableGantt(page);
+    await openChart(page);
+
+    // pick a task bar and grab its LEFT half (move zone)
+    const bar = page.locator(".rg-gantt-bar--task").first();
+    const box = await bar.boundingBox();
+    expect(box).toBeTruthy();
+    const start = { x: box.x + box.width * 0.25, y: box.y + box.height / 2 };
+
+    await page.mouse.move(start.x, start.y);
+    await page.mouse.down();
+    await page.mouse.move(start.x + 120, start.y, { steps: 6 });
+    await page.waitForTimeout(100);
+
+    const ghost = await page.evaluate(() => {
+      const el = document.querySelector(".pmd-gantt-bar-ghost");
+      if (!el) return null;
+      const rect = el.getBoundingClientRect();
+      const text = el.textContent || "";
+      const cs = getComputedStyle(el);
+      const root = getComputedStyle(document.documentElement);
+      const date = el.querySelector(".pmd-gantt-bar-ghost-date");
+      const dateCs = date ? getComputedStyle(date) : null;
+      return {
+        text: text.replace(/\s+/g, " ").trim(),
+        hasStart: /Start\s*:/i.test(text),
+        hasEnd: /End\s*:/i.test(text),
+        hasDuration: /Duration\s*:/i.test(text),
+        x: Math.round(rect.x),
+        y: Math.round(rect.y),
+        bg: cs.backgroundColor,
+        borderWidth: cs.borderTopWidth,
+        expectedBg: root.getPropertyValue("--bs-body-bg").trim(),
+        dateColor: dateCs ? dateCs.color : null,
+        dateWeight: dateCs ? dateCs.fontWeight : null,
+        labelColor: cs.color
+      };
+    });
+
+    // the ghost must exist and show all three fields
+    expect(ghost).toBeTruthy();
+    expect(ghost.hasStart).toBe(true);
+    expect(ghost.hasEnd).toBe(true);
+    expect(ghost.hasDuration).toBe(true);
+
+    // it must have a SOLID background (the gantt/body surface) and a real
+    // border, so the text does not float over the gridlines. The ghost lives on
+    // <body> (outside #ganttPage), so it must use the global --bs-* tokens.
+    const parse = (s) => String(s).match(/[\d.]+/g).slice(0, 3).map(Number);
+    const rgb = (v) => {
+      const s = String(v).trim();
+      if (s.charAt(0) === "#") {
+        let h = s.slice(1);
+        if (h.length === 3) h = h.split("").map((c) => c + c).join("");
+        return "rgb(" + [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16)).join(", ") + ")";
+      }
+      return "rgb(" + parse(s).join(", ") + ")";
+    };
+    expect(ghost.bg, "ghost background is the solid body surface").toBe(rgb(ghost.expectedBg));
+    expect(parseFloat(ghost.borderWidth), "ghost has a real border").toBeGreaterThan(0);
+
+    // the date values take the LABEL colour (not the bar's success green) and
+    // are BOLD, so they read as values on the same surface as the labels
+    expect(ghost.dateColor, "date values match the label colour").toBe(ghost.labelColor);
+    expect(Number(ghost.dateWeight) >= 600, "date values are bold").toBe(true);
+
+    // it must be near the cursor (not at the bar's original position)
+    const cursor = await page.evaluate(() => ({ x: Math.round(window.__lastMouseX), y: Math.round(window.__lastMouseY) }));
+    expect(Math.abs(ghost.x - start.x)).toBeLessThan(150);
+
+    // release -> ghost is gone
+    await page.mouse.up();
+    await page.waitForTimeout(200);
+    const after = await page.evaluate(() => !!document.querySelector(".pmd-gantt-bar-ghost"));
+    expect(after).toBe(false);
+  });
+
+  test("dragging a STREAM bar also shows the ghost panel with the stream's span", async ({ page }) => {
+    test.setTimeout(60000);
+    await page.goto("/PlanMyDay/");
+    await seedStreams(page, SAMPLE);
+    await enableGantt(page);
+    await openChart(page);
+
+    const bar = page.locator(".rg-gantt-bar--summary").first();
+    const box = await bar.boundingBox();
+    expect(box).toBeTruthy();
+    const start = { x: box.x + box.width * 0.25, y: box.y + box.height / 2 };
+
+    await page.mouse.move(start.x, start.y);
+    await page.mouse.down();
+    await page.mouse.move(start.x + 60, start.y, { steps: 5 });
+    await page.waitForTimeout(100);
+
+    const ghost = await page.evaluate(() => {
+      const el = document.querySelector(".pmd-gantt-bar-ghost");
+      if (!el) return null;
+      const text = el.textContent || "";
+      return {
+        hasStart: /Start\s*:/i.test(text),
+        hasEnd: /End\s*:/i.test(text),
+        hasDuration: /Duration\s*:/i.test(text)
+      };
+    });
+    expect(ghost).toBeTruthy();
+    expect(ghost.hasStart).toBe(true);
+    expect(ghost.hasEnd).toBe(true);
+    expect(ghost.hasDuration).toBe(true);
+
+    await page.mouse.up();
+  });
+
   test("dragging a JOB row within its stream reorders it and renumbers sequence", async ({ page }) => {
     test.setTimeout(60000);
     const streams = [

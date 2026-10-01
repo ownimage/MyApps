@@ -65,6 +65,8 @@ var _ganttModeObserver = null;
 var _ganttDragRecord = null;
 var _ganttDragGrid = null;
 var _ganttDragBound = false;
+// Floating ghost panel shown while a bar is dragged (see ganttBarGhostUpdate).
+var _ganttBarGhost = null;
 // Row-drag state (reordering jobs within/across streams). See ganttBindRowDrag.
 var _ganttRowDrag = null;
 // Timer used to defer the drop-target re-resolve after an auto-scroll, giving
@@ -705,13 +707,50 @@ function ganttBindBarDrag(grid) {
   // installed once.
   if (!_ganttDragBound) {
     _ganttDragBound = true;
+    document.addEventListener("pointermove", function (e) {
+      if (!_ganttDragRecord || !_ganttDragGrid || !_ganttDragGrid.isConnected) return;
+      ganttBarGhostUpdate(_ganttDragGrid, e.clientX, e.clientY);
+    });
     document.addEventListener("pointerup", function () {
       if (!_ganttDragRecord || !_ganttDragGrid || !_ganttDragGrid.isConnected) return;
       var rec = _ganttDragRecord;
       _ganttDragRecord = null;
+      ganttBarGhostRemove();
       ganttPersistBarDrag(rec);
     });
   }
+}
+
+// The floating ghost panel shown while a bar is being dragged. Reads the task's
+// LIVE start/end from grid.source (the plugin rewrites them on every move) and
+// paints a small panel near the cursor with the start date, end date and span in
+// days. Reused for both job and stream bars. The panel is fixed so it can escape
+// the grid's scroll containers and pointer-events:none so it never blocks the
+// pointer. It is created lazily on the first move and removed on pointerup.
+function ganttBarGhostUpdate(grid, x, y) {
+  var rec = _ganttBarGhost;
+  var row = (grid.source || []).find(function (r) { return r.id === _ganttDragRecord.taskId; });
+  if (!row) { ganttBarGhostRemove(); return; }
+  if (!rec) {
+    rec = document.createElement("div");
+    rec.className = "pmd-gantt-bar-ghost";
+    document.body.appendChild(rec);
+    _ganttBarGhost = rec;
+  }
+  var start = row.startDate || "";
+  var end = row.endDate || "";
+  var days = ganttDaysBetween(start, end);
+  rec.innerHTML =
+    '<div class="pmd-gantt-bar-ghost-label">Start: <span class="pmd-gantt-bar-ghost-date">' + ganttEscapeHtml(start) + "</span></div>" +
+    '<div class="pmd-gantt-bar-ghost-label">End: <span class="pmd-gantt-bar-ghost-date">' + ganttEscapeHtml(end) + "</span></div>" +
+    '<div class="pmd-gantt-bar-ghost-label">Duration: <span class="pmd-gantt-bar-ghost-date">' + days + " day" + (days === 1 ? "" : "s") + "</span></div>";
+  rec.style.left = x + "px";
+  rec.style.top = y + "px";
+}
+
+function ganttBarGhostRemove() {
+  if (_ganttBarGhost && _ganttBarGhost.parentNode) _ganttBarGhost.parentNode.removeChild(_ganttBarGhost);
+  _ganttBarGhost = null;
 }
 
 // Walks the event's composed path for the first element that names a gantt bar
@@ -1738,7 +1777,9 @@ function changeShowGantt(enabled) {
     "/* The floating ghost of the dragged job's title. Fixed so it escapes the",
     "   grid's scroll containers; pointer-events:none so it never blocks the",
     "   pointer; a small offset from the cursor so the title is readable next to",
-    "   it. Follows the theme surface/text like the chart. */",
+    "   it. The ghost is appended to <body> (outside #ganttPage), so it uses the",
+    "   global --bs-* tokens for a SOLID body-surface background and a real",
+    "   border, not the --gantt-* tokens (which are scoped to #ganttPage). */",
     ".pmd-gantt-drag-ghost {",
     "  position: fixed;",
     "  left: 0;",
@@ -1748,13 +1789,52 @@ function changeShowGantt(enabled) {
     "  z-index: 2000;",
     "  padding: 0.15rem 0.5rem;",
     "  border-radius: 0.25rem;",
-    "  border: 1px solid var(--gantt-border);",
-    "  background-color: var(--gantt-surface);",
-    "  color: var(--gantt-text);",
+    "  border: 1px solid var(--bs-border-color);",
+    "  background-color: var(--bs-body-bg);",
+    "  color: var(--bs-body-color);",
     "  font: 500 0.875rem/1.2 var(--bs-body-font-family, system-ui, sans-serif);",
     "  white-space: nowrap;",
     "  box-shadow: 0 0.25rem 0.5rem rgba(0, 0, 0, 0.2);",
     "  opacity: 0.95;",
+    "}",
+    "/* The bar-drag ghost panel (ganttBarGhostUpdate): a small card near the",
+    "   cursor showing the dragged bar's Start / End / Duration, reading the LIVE",
+    "   dates as the drag progresses. Same fixed + pointer-events:none treatment",
+    "   as the row-drag ghost; the label rows are laid out in a column. The ghost",
+    "   is appended to <body> (outside #ganttPage), so it CANNOT use the --gantt-*",
+    "   tokens defined on #ganttPage - it must use the global --bs-* variables for",
+    "   a SOLID body-surface background and a real border, otherwise the text",
+    "   floats over the gridlines with no backing panel. */",
+    ".pmd-gantt-bar-ghost {",
+    "  position: fixed;",
+    "  left: 0;",
+    "  top: 0;",
+    "  transform: translate(12px, 12px);",
+    "  pointer-events: none;",
+    "  z-index: 2000;",
+    "  display: flex;",
+    "  flex-direction: column;",
+    "  gap: 0.125rem;",
+    "  padding: 0.375rem 0.625rem;",
+    "  border-radius: 0.375rem;",
+    "  border: 1px solid var(--bs-border-color);",
+    "  background-color: var(--bs-body-bg);",
+    "  color: var(--bs-body-color);",
+    "  font: 500 0.8125rem/1.3 var(--bs-body-font-family, system-ui, sans-serif);",
+    "  white-space: nowrap;",
+    "  box-shadow: 0 0.25rem 0.625rem rgba(0, 0, 0, 0.25);",
+    "  opacity: 0.97;",
+    "}",
+    ".pmd-gantt-bar-ghost-label {",
+    "  display: flex;",
+    "  gap: 0.375rem;",
+    "}",
+    ".pmd-gantt-bar-ghost-label::after {",
+    "  content: '';",
+    "}",
+    ".pmd-gantt-bar-ghost-date {",
+    "  font-weight: 600;",
+    "  color: inherit;",
     "}",
     "/* 2. The timeline's own tokens. */",
     "#ganttPage {",
