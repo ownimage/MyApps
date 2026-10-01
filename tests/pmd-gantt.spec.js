@@ -218,6 +218,68 @@ test.describe("Gantt page", () => {
     expect(s.persisted).toEqual([]);
   });
 
+  test("collapsing a stream ABOVE the viewport keeps the visible rows anchored (no scroll jump)", async ({ page }) => {
+    test.setTimeout(60000);
+    // 30 streams x 6 jobs = 210 rows: far more than the ~24 rows that fit on
+    // screen. Collapsing/expanding a stream above the current scroll position
+    // must NOT move the rows under the cursor - the scroll stays anchored to
+    // the same row even though the total row count changed.
+    const streams = [];
+    for (let i = 1; i <= 30; i++) {
+      streams.push({
+        title: "S" + i,
+        sequence: i,
+        jobs: Array.from({ length: 6 }, (_, j) => ({
+          id: "s" + i + "_j" + (j + 1),
+          title: "S" + i + "J" + (j + 1),
+          sequence: j + 1,
+          active: true,
+          schedule: { type: "daily" },
+          duration: 1
+        }))
+      });
+    }
+    await page.goto("/PlanMyDay/");
+    await seedStreams(page, streams);
+    await enableGantt(page);
+    await openChart(page);
+
+    const topRow = (page) => page.evaluate(() => {
+      const scroller = document.querySelector("#ganttChart revo-grid .vertical-inner");
+      // the first rendered row whose top is at/just below the viewport top
+      let best = null;
+      document.querySelectorAll("#ganttChart .rgRow").forEach((el) => {
+        const r = el.getBoundingClientRect();
+        if (r.top >= 95 && (!best || r.top < best.top)) {
+          best = { top: r.top, title: (el.querySelector(".pmd-gantt-stream-title") || el.querySelector(".pmd-gantt-job-name") || {}).textContent };
+        }
+      });
+      return { scrollTop: scroller.scrollTop, row: best };
+    });
+
+    // Scroll so S5's header is at the top of the viewport.
+    await page.evaluate(() => {
+      const scroller = document.querySelector("#ganttChart revo-grid .vertical-inner");
+      scroller.scrollTop = 28 * 30; // S5 header is source index 28 (4 streams * 7 rows)
+    });
+    await page.waitForTimeout(400);
+    const before = await topRow(page);
+    expect(before.row && before.row.title).toBe("S5");
+    expect(before.scrollTop).toBe(840);
+
+    // Collapse S2 (ABOVE the viewport). S5 must remain the top visible row.
+    await page.evaluate(() => ganttToggleStreamCollapsed("S2"));
+    await page.waitForTimeout(600);
+    const afterCollapse = await topRow(page);
+    expect(afterCollapse.row && afterCollapse.row.title).toBe("S5");
+
+    // Re-expand S2; still anchored on S5.
+    await page.evaluate(() => ganttToggleStreamCollapsed("S2"));
+    await page.waitForTimeout(600);
+    const afterExpand = await topRow(page);
+    expect(afterExpand.row && afterExpand.row.title).toBe("S5");
+  });
+
   test("job names are indented under their stream so rows read as a hierarchy", async ({ page }) => {
     await page.goto("/PlanMyDay/");
     await seedStreams(page, SAMPLE);
@@ -832,11 +894,15 @@ test.describe("Gantt page", () => {
     const during = await scrollerState(page);
     expect(during.scrollTop).toBeGreaterThan(before.scrollTop);
 
-    // releasing ends the drag and stops scrolling
+    // releasing ends the drag and stops scrolling. The interval fires every 50ms
+    // so the mid-drag capture may have been taken a tick before the release
+    // cleared it; what matters is that it no longer advances after release.
     await page.mouse.up();
     await page.waitForTimeout(300);
-    const after = await scrollerState(page);
-    expect(after.scrollTop).toBe(during.scrollTop);
+    const after1 = await scrollerState(page);
+    await page.waitForTimeout(200);
+    const after2 = await scrollerState(page);
+    expect(after1.scrollTop).toBe(after2.scrollTop);
   });
 
   test("dragging a JOB onto its OWN stream header shows no drop target (no valid drop)", async ({ page }) => {

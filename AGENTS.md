@@ -14,24 +14,30 @@
 13: CENTRALIZED WCAG CONTRAST GENERATOR (2026-09-22): low contrast on themed surfaces was systemic (white-on-info ≈1.8–2.1 on quartz/slate/yeti/superhero/lumen, white-on-success ≈1.5–2.9 on vapor/minty/slate/darkly, white-on-warning ≈1.3–2.5). The fix is ONE shared module `shared/js/smd-contrast.js` (`window.SmdContrast` + global `applySmdContrastVars()`), loaded right AFTER `smd-settings.js` in every app's `index.html` (all 5 apps + root Launch index + storybook) and in `sw.js` SHARED_ASSETS. It reads the loaded theme's `--bs-*` surfaces off `:root` and publishes `--smd-on-{primary,secondary,success,danger,warning,info,body}`, `--smd-tab-active-text`, `--smd-muted-header-text`, `--smd-rgb-*` (debug) and the existing consumer aliases `--smd-{variant}-text`. HYBRID RULE: a theme keeps its OWN text when its choice already meets WCAG AA ≥4.5 (read from the `--smd-*-text` values `applySmdVars()` set just before), otherwise the generator substitutes pure `#000`/`#fff` (`bestText`, max contrast) — so thumb-tested themes (cerulean dark-grey secondary etc.) are untouched and only genuinely failing themes change. `applySmdVars()` in smd-settings.js calls `applySmdContrastVars()` (guarded by `typeof`) at its end, so the theme-selector flow triggers it; the module also self-heals on load if the palette already went live. PROBE GUARD `smd-probe`: shared/css/styles.css overrides `--bs-btn-color`/badge text with the generated vars matched `:not(.smd-probe)` — the hidden probe `smdBootstrapStyle()` in smd-settings.js and the pmd-regression `bootswatchColor()`/`bootswatchBadge()` helpers all add the `smd-probe` class so they keep reading the RAW Bootswatch colour (no circular read). Surfaces that now consume the palette: active tabs `var(--smd-tab-active-text)` (was hardcoded #fff), `.nav-tabs-info .nav-link.active` `var(--smd-on-info)`, page/modal header h1/h3 `var(--smd-muted-header-text)`, `.badge.text-bg-*`/`smd-badge.text-bg-*` colour, and `button/a/.btn-{primary,secondary,success,danger,warning,info}` `--bs-btn-*-color` overrides (hybrid keeps the theme look where it already passes). pmd-regression "badges use the centralized contrast palette and meet WCAG AA" asserts the badge text equals the palette value AND that its contrast ratio ≥4.5 (helper `ratioOf` recomputes WCAG ratio in-page). When wiring a NEW themed surface: consume `var(--smd-on-<variant>)`/`var(--smd-tab-active-text)`/`var(--smd-muted-header-text)` instead of hardcoding `#fff`/`color-mix(..., white)`.
 14: STORYBOOK `_bound` GUARD FOR LIGHT-DOM COMPONENTS (2026-09-22): the pmd-* light-DOM cards/headers (`pmd-stream-header`, `pmd-stream-job-card`, `pmd-job-today-card`, `pmd-job-search-card`) each clone their template in `connectedCallback` under a `this._bound` flag, but their `attributeChangedCallback` used to gate `_render` on only `this.isConnected`. When the storybook's demo code does `host.innerHTML = '<pmd-stream-header ...>'` on an ALREADY-CONNECTED host, the HTML parser fires `attributeChangedCallback` for each attribute BEFORE `connectedCallback` clones the template, so `_render` hit missing nodes (`Cannot set properties of null (setting 'textContent')`, 45 page errors). Chromium's incremental parser inserts the element into the live tree (isConnected=true) before the upgrade finishes, so `isConnected` alone is NOT a sufficient guard. FIX (applied to all four): `attributeChangedCallback() { if (this._bound && this.isConnected) this._render(); }`. Rule: any light-DOM component that builds in `connectedCallback` must gate attribute-triggered renders on the built flag too, NEVER `isConnected` alone. Verify with `tests/storybook-regression.spec.js` (Storybook - Regression: boots with no console/page errors/no failed requests, component demos render their host elements, theme swap re-renders sections without page errors) — run it whenever storybook or the pmd-* components change.
 15: Do not write non UTF-8 characters to AGENTS.md
-16: REGRESSION TEST EVERY FIX (2026-09-30, learned the hard way): whenever you fix
-    a bug or oddity in the app (drag-drop, theming, layout, edge cases, etc.), you
-    MUST add (or update) a regression test that would FAIL on the old behaviour
-    and PASS on the fixed one — do not just verify manually. "It works when I
-    probe it" is not enough: without a test, the exact same bug can silently come
-    back in a later edit. Concretely:
+16: TDD IS THE APPROACH FOR FIXING ISSUES (2026-10-01): whenever you fix a bug or
+    oddity in the app (drag-drop, theming, layout, edge cases, etc.), use
+    TEST-DRIVEN DEVELOPMENT: FIRST write the regression test that reproduces the
+    reported scenario, run it and confirm it FAILS on the old behaviour (red),
+    THEN change the code, and confirm the same test PASSES (green) — do not just
+    verify manually. "It works when I probe it" is not enough: without a test the
+    exact same bug can silently come back in a later edit. Concretely:
     (a) write the test that reproduces the reported scenario (drag A1 to X,
-    assert order/classes/render), run it against the fix, and keep it in the
-    suite;
+    assert order/classes/render/scroll position), run it to see it fail on the
+    current code, then fix, then re-run to see it pass;
     (b) if an existing test asserts the OLD behaviour, UPDATE it to the new
     behaviour in the same change (e.g. when the drop-target highlight was
     normalized, the "bottom half vs top half" assertions had to change);
     (c) after the fix + test, run the whole targeted spec (`--grep` the affected
     area, then the full spec) with `--retries=0` so flakes don't hide failures;
-    (d) assert the RENDERED RESULT (final order, classes, computed styles),
-    not just that no error was thrown. This repo's `tests/pmd-gantt.spec.js`
-    grew the drag-drop regression set exactly this way; keep that pattern for
-    every future fix.
+    (d) assert the RENDERED RESULT (final order, classes, computed styles,
+    scrollTop), not just that no error was thrown. This repo's
+    `tests/pmd-gantt.spec.js` grew the drag-drop and scroll-anchor regression
+    sets exactly this way; keep that pattern for every future fix.
+    (e) if a long-standing test fails only in a FULL run (not alone), it is
+    usually a TIMING FLAKE in the test itself (e.g. an interval firing between a
+    mid-action capture and the release that clears it) — fix the test to assert
+    the invariant (e.g. "scroll stopped", two post-release samples equal) rather
+    than masking it; re-run the full suite twice to confirm stability.
 
 ## Self-improving playbook
 At the START of every session, read this file fully and apply all rules.

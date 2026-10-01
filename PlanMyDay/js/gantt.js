@@ -49,6 +49,13 @@ var _ganttCloseTimer = null;
 // if a newer render has since begun, so a slow earlier pass cannot paint into a
 // container that has since been replaced.
 var _ganttRenderToken = 0;
+// Scroll anchor preserved across a re-render. RevoGrid keeps the vertical scroll
+// in PIXELS when `source` is replaced, so a stream collapsing/expanding ABOVE the
+// current viewport (or being filtered out) makes the visible rows jump away from
+// the cursor. We remember the row at the top of the viewport by its stable task
+// id plus its pixel offset within the 30px row, then restore the same position
+// once the grid has repainted. See ganttCaptureScrollAnchor()/restore.
+var _ganttScrollAnchor = null;
 // Live light/dark watcher. See ganttApplyMode().
 var _ganttModeObserver = null;
 // Bar-drag persistence state. The vendored plugin handles the pointer
@@ -548,6 +555,18 @@ function drawGantt(host, lib) {
     grid = document.createElement("revo-grid");
     grid.style.height = "100%";
     host.appendChild(grid);
+  } else {
+    // The grid preserves its vertical scroll by PIXELS across a source swap, so
+    // collapsing/expanding a stream ABOVE the current viewport (or filtering one
+    // out) makes the visible rows jump away from the cursor even though the drop
+    // the user is looking at has not moved. Anchor the scroll to the row at the
+    // top of the viewport (by its stable task id) and restore it after the grid
+    // has re-rendered, so the same content stays under the pointer.
+    ganttCaptureScrollAnchor(grid, items);
+    grid.addEventListener("aftergridrender", function onRender() {
+      grid.removeEventListener("aftergridrender", onRender);
+      ganttRestoreScrollAnchor(grid, items);
+    });
   }
 
   if (isNew) {
@@ -1032,6 +1051,54 @@ function ganttRowDragAutoScroll(grid, clientY) {
   };
   step();
   ganttRowDragAutoScrollTimer = setInterval(step, 50);
+}
+
+// Remembers the row at the top of the grid's vertical viewport so the scroll
+// position can be restored after a re-render that changes the row COUNT above
+// it (collapse/expand/filter). The anchor is the source task id of the first
+// visible row plus how many pixels of that 30px row are scrolled off the top.
+function ganttCaptureScrollAnchor(grid, newItems) {
+  _ganttScrollAnchor = null;
+  if (!grid || grid.__ganttScrollAnchorDisabled) return;
+  var scroller = ganttRowScrollerEl(grid);
+  if (!scroller) return;
+  var oldSource = grid.source || [];
+  if (!oldSource.length) return;
+  var rowSize = 30;
+  var topPx = scroller.scrollTop;
+  var rowIdx = Math.max(0, Math.floor(topPx / rowSize));
+  var row = oldSource[rowIdx];
+  if (!row || !row.id) return;
+  // If the anchored row will not exist in the new source (its stream collapsed
+  // and the top row was a job of it), fall back to that stream's summary row,
+  // which always survives a collapse.
+  var id = row.id;
+  var found = (newItems || []).some(function (t) { return t.id === id; });
+  if (!found && id.charAt(0) === "j") {
+    var sidx = ganttStoredStreamIndexForTask(id);
+    if (sidx >= 0) id = "s" + sidx;
+  }
+  _ganttScrollAnchor = { id: id, offset: topPx - rowIdx * rowSize };
+}
+
+// Applies a captured scroll anchor after the grid has re-rendered: finds the
+// anchored row's new index in the rebuilt source and scrolls so that same row is
+// at the same viewport offset, keeping the content under the cursor stable.
+function ganttRestoreScrollAnchor(grid, newItems) {
+  var anchor = _ganttScrollAnchor;
+  _ganttScrollAnchor = null;
+  if (!anchor) return;
+  var scroller = ganttRowScrollerEl(grid);
+  if (!scroller) return;
+  var rowIdx = -1;
+  for (var i = 0; i < (newItems || []).length; i++) {
+    if (newItems[i].id === anchor.id) { rowIdx = i; break; }
+  }
+  if (rowIdx < 0) return;
+  var rowSize = 30;
+  var target = rowIdx * rowSize + anchor.offset;
+  var max = Math.max(0, scroller.scrollHeight - scroller.clientHeight);
+  scroller.scrollTop = Math.max(0, Math.min(target, max));
 }
 
 // The element RevoGrid scrolls vertically. The `.vertical-inner` inside the
