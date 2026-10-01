@@ -2285,4 +2285,266 @@ test.describe("Gantt page", () => {
     await expect(page.locator("#ganttPage")).not.toHaveAttribute("open", "");
     await expect(page.locator("#countdownContainer")).toBeVisible();
   });
+
+  test("Undo/Redo buttons sit in the header before the Streams filter and are disabled when empty", async ({ page }) => {
+    await page.goto("/PlanMyDay/");
+    await seedStreams(page, SAMPLE);
+    await enableGantt(page);
+    await openChart(page);
+
+    // Undo/Redo buttons exist, right before the Streams filter
+    const undoBtn = page.locator("#ganttPage .gantt-undo-btn");
+    const redoBtn = page.locator("#ganttPage .gantt-redo-btn");
+    await expect(undoBtn).toBeVisible();
+    await expect(redoBtn).toBeVisible();
+    // header order: zoom, undo, redo, then streams filter (measured by position
+    // since the filter wrapper's own class list begins with Bootstrap's `dropdown`)
+    const order = await page.evaluate(() => {
+      const header = document.querySelector("#ganttPage .smd-page-header");
+      const zoom = header.querySelector(".gantt-zoom");
+      const history = header.querySelector(".gantt-undo-redo");
+      const filter = header.querySelector(".gantt-stream-filter");
+      return {
+        zoomBeforeHistory: zoom.getBoundingClientRect().left < history.getBoundingClientRect().left,
+        historyBeforeFilter: history.getBoundingClientRect().left < filter.getBoundingClientRect().left
+      };
+    });
+    expect(order.zoomBeforeHistory).toBe(true);
+    expect(order.historyBeforeFilter).toBe(true);
+    // both disabled with empty history
+    await expect(undoBtn).toBeDisabled();
+    await expect(redoBtn).toBeDisabled();
+  });
+
+  test("Undo and redo a JOB bar MOVE (sleepUntil) via Ctrl+Z / Ctrl+Y and the buttons", async ({ page }) => {
+    test.setTimeout(60000);
+    await page.goto("/PlanMyDay/");
+    await seedStreams(page, SAMPLE);
+    await enableGantt(page);
+    await openChart(page);
+
+    const readJob = (id) => page.evaluate((jid) =>
+      JSON.parse(localStorage.getItem("planmydays_streams"))
+        .flatMap((s) => s.jobs).find((j) => j.id === jid), id);
+
+    const bar = page.locator(".rg-gantt-bar--task").first();
+    const box = await bar.boundingBox();
+    expect(box).toBeTruthy();
+    const start = { x: box.x + box.width * 0.25, y: box.y + box.height / 2 };
+    const before = await readJob("job_daily");
+
+    // drag the bar right (move) -> sleepUntil becomes set
+    await page.mouse.move(start.x, start.y);
+    await page.mouse.down();
+    await page.mouse.move(start.x + 120, start.y, { steps: 6 });
+    await page.mouse.up();
+    await page.waitForTimeout(500);
+    const moved = await readJob("job_daily");
+    expect(moved.sleepUntil).toBeTruthy();
+    expect(moved.sleepUntil > (before.sleepUntil || "")).toBe(true);
+
+    // Undo button enabled now
+    await expect(page.locator("#ganttPage .gantt-undo-btn")).toBeEnabled();
+
+    // Ctrl+Z undoes the move -> back to original sleepUntil (absent = undefined)
+    await page.keyboard.press("Control+z");
+    await page.waitForTimeout(600);
+    const undone = await readJob("job_daily");
+    expect(undone.sleepUntil || null).toBe(before.sleepUntil || null);
+    // redo button enabled after undo
+    await expect(page.locator("#ganttPage .gantt-redo-btn")).toBeEnabled();
+
+    // Ctrl+Y redoes -> sleepUntil restored
+    await page.keyboard.press("Control+y");
+    await page.waitForTimeout(600);
+    const redone = await readJob("job_daily");
+    expect(redone.sleepUntil).toBe(moved.sleepUntil);
+  });
+
+  test("Undo and redo a JOB bar RESIZE (duration) via the buttons", async ({ page }) => {
+    test.setTimeout(60000);
+    await page.goto("/PlanMyDay/");
+    await seedStreams(page, SAMPLE);
+    await enableGantt(page);
+    await openChart(page);
+
+    const readJob = (id) => page.evaluate((jid) =>
+      JSON.parse(localStorage.getItem("planmydays_streams"))
+        .flatMap((s) => s.jobs).find((j) => j.id === jid), id);
+
+    const bar = page.locator(".rg-gantt-bar--task").first();
+    const box = await bar.boundingBox();
+    expect(box).toBeTruthy();
+    const start = { x: box.x + box.width * 0.8, y: box.y + box.height / 2 };
+    const before = await readJob("job_daily");
+
+    // drag the right half outward -> duration grows
+    await page.mouse.move(start.x, start.y);
+    await page.mouse.down();
+    await page.mouse.move(start.x + 120, start.y, { steps: 6 });
+    await page.mouse.up();
+    await page.waitForTimeout(500);
+    const resized = await readJob("job_daily");
+    expect(Number(resized.duration)).toBeGreaterThan(Number(before.duration));
+
+    // click Undo button -> duration back to original
+    await page.locator("#ganttPage .gantt-undo-btn").click();
+    await page.waitForTimeout(600);
+    const undone = await readJob("job_daily");
+    expect(Number(undone.duration)).toBe(Number(before.duration));
+
+    // click Redo button -> duration restored
+    await page.locator("#ganttPage .gantt-redo-btn").click();
+    await page.waitForTimeout(600);
+    const redone = await readJob("job_daily");
+    expect(Number(redone.duration)).toBe(Number(resized.duration));
+  });
+
+  test("Undo and redo a JOB row drag-and-drop (reparent) via Ctrl+Z / Ctrl+Y", async ({ page }) => {
+    test.setTimeout(60000);
+    const streams = [
+      { title: "Work", sequence: 1, jobs: [
+        { id: "job_a", title: "Alpha", sequence: 1, active: true, schedule: { type: "daily" }, duration: 2 }
+      ]},
+      { title: "Home", sequence: 2, jobs: [
+        { id: "job_x", title: "Delta", sequence: 1, active: true, schedule: { type: "daily" }, duration: 2 }
+      ]}
+    ];
+    await page.goto("/PlanMyDay/");
+    await seedStreams(page, streams);
+    await enableGantt(page);
+    await openChart(page);
+
+    const streamOf = (jobId) => page.evaluate((jid) => {
+      const s = JSON.parse(localStorage.getItem("planmydays_streams"));
+      const i = s.findIndex((st) => (st.jobs || []).some((j) => j.id === jid));
+      return i >= 0 ? s[i].title : null;
+    }, jobId);
+
+    const nameRect = (text) => page.evaluate((t) => {
+      const el = Array.from(document.querySelectorAll(".pmd-gantt-job-name")).find((s) => s.textContent.trim() === t);
+      const r = el.getBoundingClientRect();
+      return { x: r.x, y: r.y, w: r.width, h: r.height };
+    }, text);
+
+    // drag Alpha (in Work) onto Delta's row -> reparent into Home
+    const alpha = await nameRect("Alpha");
+    const delta = await nameRect("Delta");
+    expect(alpha).toBeTruthy();
+    expect(delta).toBeTruthy();
+    await page.mouse.move(alpha.x + alpha.w / 2, alpha.y + alpha.h / 2);
+    await page.mouse.down();
+    await page.mouse.move(alpha.x + alpha.w / 2, delta.y + delta.h / 2, { steps: 5 });
+    await page.mouse.up();
+    await page.waitForTimeout(600);
+    expect(await streamOf("job_a")).toBe("Home");
+
+    // Ctrl+Z -> back into Work
+    await page.keyboard.press("Control+z");
+    await page.waitForTimeout(600);
+    expect(await streamOf("job_a")).toBe("Work");
+
+    // Ctrl+Y -> back into Home
+    await page.keyboard.press("Control+y");
+    await page.waitForTimeout(600);
+    expect(await streamOf("job_a")).toBe("Home");
+  });
+
+  test("Undo and redo a STREAM drag-and-drop (reorder) via Ctrl+Z / Ctrl+Y", async ({ page }) => {
+    test.setTimeout(60000);
+    const streams = [
+      { title: "A", sequence: 1, jobs: [{ id: "a1", title: "A1", sequence: 1, active: true, schedule: { type: "daily" }, duration: 1 }] },
+      { title: "B", sequence: 2, jobs: [{ id: "b1", title: "B1", sequence: 1, active: true, schedule: { type: "daily" }, duration: 1 }] },
+      { title: "C", sequence: 3, jobs: [{ id: "c1", title: "C1", sequence: 1, active: true, schedule: { type: "daily" }, duration: 1 }] }
+    ];
+    await page.goto("/PlanMyDay/");
+    await seedStreams(page, streams);
+    await enableGantt(page);
+    await openChart(page);
+
+    const streamOrder = (page) => page.evaluate(() =>
+      JSON.parse(localStorage.getItem("planmydays_streams"))
+        .slice().sort((a, b) => a.sequence - b.sequence)
+        .map((s) => s.title));
+    const headerRect = (title) => page.evaluate((t) => {
+      const name = Array.from(document.querySelectorAll(".pmd-gantt-stream-title")).find((s) => s.textContent.trim() === t);
+      const r = name.getBoundingClientRect();
+      return { x: r.x, y: r.y, w: r.width, h: r.height };
+    }, title);
+
+    // drag C above A -> C,A,B
+    const c = await headerRect("C");
+    const a = await headerRect("A");
+    await page.mouse.move(c.x + c.w / 2, c.y + c.h / 2);
+    await page.mouse.down();
+    await page.mouse.move(c.x + c.w / 2, a.y + a.h / 2, { steps: 5 });
+    await page.mouse.up();
+    await page.waitForTimeout(600);
+    expect(await streamOrder(page)).toEqual(["C", "A", "B"]);
+
+    // Ctrl+Z -> back to A,B,C
+    await page.keyboard.press("Control+z");
+    await page.waitForTimeout(600);
+    expect(await streamOrder(page)).toEqual(["A", "B", "C"]);
+
+    // Ctrl+Y -> C,A,B again
+    await page.keyboard.press("Control+y");
+    await page.waitForTimeout(600);
+    expect(await streamOrder(page)).toEqual(["C", "A", "B"]);
+  });
+
+  test("Undo stack accumulates MULTIPLE changes and redo is cleared by a new change", async ({ page }) => {
+    test.setTimeout(60000);
+    await page.goto("/PlanMyDay/");
+    await seedStreams(page, SAMPLE);
+    await enableGantt(page);
+    await openChart(page);
+
+    const readJob = (id) => page.evaluate((jid) =>
+      JSON.parse(localStorage.getItem("planmydays_streams"))
+        .flatMap((s) => s.jobs).find((j) => j.id === jid), id);
+
+    const bar = page.locator(".rg-gantt-bar--task").first();
+    const box = await bar.boundingBox();
+    expect(box).toBeTruthy();
+
+    // change 1: move the bar right
+    const s1 = { x: box.x + box.width * 0.25, y: box.y + box.height / 2 };
+    await page.mouse.move(s1.x, s1.y);
+    await page.mouse.down();
+    await page.mouse.move(s1.x + 100, s1.y, { steps: 5 });
+    await page.mouse.up();
+    await page.waitForTimeout(500);
+    const afterMove = await readJob("job_daily");
+
+    // change 2: move again (further right)
+    const box2 = await bar.boundingBox();
+    const s2 = { x: box2.x + box2.width * 0.25, y: box2.y + box2.height / 2 };
+    await page.mouse.move(s2.x, s2.y);
+    await page.mouse.down();
+    await page.mouse.move(s2.x + 100, s2.y, { steps: 5 });
+    await page.mouse.up();
+    await page.waitForTimeout(500);
+    const afterMove2 = await readJob("job_daily");
+    expect(afterMove2.sleepUntil).not.toBe(afterMove.sleepUntil);
+
+    // one Ctrl+Z -> back to state after change 1
+    await page.keyboard.press("Control+z");
+    await page.waitForTimeout(600);
+    expect(await readJob("job_daily")).toEqual(afterMove);
+    // second Ctrl+Z -> back to original
+    await page.keyboard.press("Control+z");
+    await page.waitForTimeout(600);
+    expect((await readJob("job_daily")).sleepUntil || null).toBeFalsy();
+
+    // a fresh change clears the redo stack
+    const box3 = await bar.boundingBox();
+    const s3 = { x: box3.x + box3.width * 0.25, y: box3.y + box3.height / 2 };
+    await page.mouse.move(s3.x, s3.y);
+    await page.mouse.down();
+    await page.mouse.move(s3.x + 80, s3.y, { steps: 4 });
+    await page.mouse.up();
+    await page.waitForTimeout(500);
+    await expect(page.locator("#ganttPage .gantt-redo-btn")).toBeDisabled();
+  });
 });

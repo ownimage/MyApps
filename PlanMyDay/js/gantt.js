@@ -72,6 +72,12 @@ var _ganttRowDrag = null;
 // Timer used to defer the drop-target re-resolve after an auto-scroll, giving
 // the virtualiser a frame to move rows before we hit-test against them.
 var ganttRowDragAutoScrollTimer = null;
+// UNDO / REDO. A stack of deep snapshots of the stored streams, captured just
+// BEFORE each gantt mutation (bar move/resize, stream shift, job drag-and-drop,
+// stream drag-and-drop) is committed. The undo stack is the history of "before"
+// states; redo holds the "after" states cleared whenever a new change lands.
+var _ganttUndoStack = [];
+var _ganttRedoStack = [];
 
 // Resolves once the ESM library in js/gantt-lib.js has finished booting.
 //
@@ -115,6 +121,7 @@ function openGantt() {
     // on every open, so listeners attached to the individual checkboxes would
     // not survive. One listener on the page does.
     page.addEventListener("change", ganttStreamFilterChanged);
+    ganttBindUndoShortcuts();
   }
   page.show();
   // The page's content is in place; the chart is drawn on the next frame so the
@@ -225,10 +232,23 @@ function ganttZoomHtml() {
 }
 
 function ganttHeaderHtml() {
-  // Zoom first, then the Streams dropdown. The dropdown carries `margin-left:auto`
-  // (see injectGanttTheme), so it stays hard right and the zoom group sits beside
-  // the page title.
-  return ganttZoomHtml() + ganttStreamFilterHtml();
+  // Zoom first, then Undo/Redo, then the Streams dropdown. The dropdown carries
+  // `margin-left:auto` (see injectGanttTheme), so it stays hard right and the
+  // zoom + history controls sit beside the page title.
+  return ganttZoomHtml() + ganttUndoRedoHtml() + ganttStreamFilterHtml();
+}
+
+// Undo / Redo buttons in the header, just before the Streams filter. Disabled
+// state is re-asserted by ganttPaintUndoButtons() on every render.
+function ganttUndoRedoHtml() {
+  return (
+    '<div class="gantt-undo-redo btn-group btn-group-sm ms-2" role="group" aria-label="Undo and redo">' +
+      '<button type="button" class="btn gantt-undo-btn" title="Undo (Ctrl+Z)" aria-label="Undo" disabled ' +
+        'onclick="ganttUndo()">&#8630;</button>' +
+      '<button type="button" class="btn gantt-redo-btn" title="Redo (Ctrl+Y)" aria-label="Redo" disabled ' +
+        'onclick="ganttRedo()">&#8631;</button>' +
+    "</div>"
+  );
 }
 
 // STREAM FILTER
@@ -531,6 +551,7 @@ function renderGantt() {
   const host = page && page.querySelector("#ganttChart");
   if (!host) return;
   ganttPaintZoomButtons();
+  ganttPaintUndoButtons();
   ganttLibReady().then(function (lib) {
     // Bail if a newer render started, or if the page was closed/rebuilt while we
     // were waiting — the element we captured may no longer be the one on screen.
@@ -826,8 +847,88 @@ function ganttPersistStreamShift(streams, rec, row) {
 // Persists the streams and re-projects from them so the summary bars and any
 // other derived rows follow the new spans immediately.
 function ganttSaveShiftedStreams(streams) {
+  ganttCommitStreams(streams);
+}
+
+// ===== UNDO / REDO =====
+//
+// Every gantt mutation (job/stream bar move or resize, job drag-and-drop,
+// stream drag-and-drop) funnels its final save through ganttCommitStreams(),
+// which captures the PRE-mutation snapshot on the undo stack, clears the redo
+// stack, persists, re-renders and repaints the header buttons. Undo/redo then
+// just swap a stored snapshot with the current state and re-render. The
+// snapshots are deep copies (loadStreams parses from storage each call), so an
+// undo fully restores sleepUntil / duration / stream + job order.
+
+// Deep snapshot of the current stored streams (parsed fresh so nothing aliases
+// an in-flight editor buffer).
+function ganttSnapshotStreams() {
+  return JSON.parse(JSON.stringify(loadStreams()));
+}
+
+// Capture the current state as a new undo level and drop any redo history.
+function ganttPushUndo() {
+  _ganttUndoStack.push(ganttSnapshotStreams());
+  if (_ganttUndoStack.length > 100) _ganttUndoStack.shift();
+  _ganttRedoStack = [];
+  ganttPaintUndoButtons();
+}
+
+// The single commit path for all gantt mutations: record undo, persist, render.
+function ganttCommitStreams(streams) {
+  ganttPushUndo();
   saveStreams(streams);
   renderGantt();
+}
+
+function ganttUndo() {
+  var before = _ganttUndoStack.pop();
+  if (before === undefined) return;
+  _ganttRedoStack.push(ganttSnapshotStreams());
+  saveStreams(before);
+  renderGantt();
+  ganttPaintUndoButtons();
+}
+
+function ganttRedo() {
+  var after = _ganttRedoStack.pop();
+  if (after === undefined) return;
+  _ganttUndoStack.push(ganttSnapshotStreams());
+  saveStreams(after);
+  renderGantt();
+  ganttPaintUndoButtons();
+}
+
+// Reflects the stack depths on the header buttons (disabled when empty). Called
+// on every render (renderGantt) so a re-render never leaves a stale state.
+function ganttPaintUndoButtons() {
+  var undo = document.querySelector("#ganttPage .gantt-undo-btn");
+  var redo = document.querySelector("#ganttPage .gantt-redo-btn");
+  if (undo) undo.disabled = _ganttUndoStack.length === 0;
+  if (redo) redo.disabled = _ganttRedoStack.length === 0;
+}
+
+// Ctrl+Z / Ctrl+Y while the Gantt page is open. Only when the focus is NOT in a
+// text field (the user may be typing in the streams/job editors behind the
+// page, or an <input> inside the page).
+function ganttBindUndoShortcuts() {
+  document.addEventListener("keydown", function (e) {
+    if (!(e.ctrlKey || e.metaKey)) return;
+    var key = (e.key || "").toLowerCase();
+    var isField = e.target && (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA" ||
+      e.target.tagName === "SELECT" || (e.target.isContentEditable));
+    if (isField) return;
+    var page = document.getElementById("ganttPage");
+    if (!page || page.classList.contains("d-none")) return;
+    if (key === "z") {
+      e.preventDefault();
+      if (e.shiftKey) ganttRedo();
+      else ganttUndo();
+    } else if (key === "y") {
+      e.preventDefault();
+      ganttRedo();
+    }
+  });
 }
 
 // ROW DRAG (reorder jobs within a stream, or reparent to another stream)
@@ -1370,8 +1471,7 @@ function ganttPersistRowDrag(drag, clientX, clientY) {
     (fromStream.jobs || []).forEach(function (j, i) { j.sequence = i + 1; });
     toStream.jobs.forEach(function (j, i) { j.sequence = i + 1; });
   }
-  saveStreams(streams);
-  renderGantt();
+  ganttCommitStreams(streams);
 }
 
 // Resolves a drop point into { streamIdx, anchorJobId, after }. The anchor comes
@@ -1565,8 +1665,7 @@ function ganttPersistStreamDrag(drag, clientX, clientY) {
   reorderedIdx.splice(insertAt, 0, drag.streamIdx);
   var reordered = reorderedIdx.map(function (i) { return streams[i]; });
   reordered.forEach(function (s, i) { s.sequence = i + 1; });
-  saveStreams(reordered);
-  renderGantt();
+  ganttCommitStreams(reordered);
 }
 
 // Whole days between two YYYY-MM-DD strings (end - start), UTC arithmetic like
@@ -1962,6 +2061,24 @@ function changeShowGantt(enabled) {
     "  color: #fff;",
     "  border-color: var(--bs-primary);",
     "  font-weight: 600;",
+    "}",
+    "/* Undo/Redo buttons: the same solid secondary fill + white text as the zoom",
+    "   buttons. Disabled buttons get a muted, non-interactive treatment so an",
+    "   empty history reads as inactive rather than looking clickable. */",
+    "#ganttPage .gantt-undo-redo > .btn {",
+    "  background-color: var(--bs-secondary);",
+    "  color: #fff;",
+    "  border: 1px solid var(--bs-secondary);",
+    "}",
+    "#ganttPage .gantt-undo-redo > .btn:hover:not(:disabled),",
+    "#ganttPage .gantt-undo-redo > .btn:focus:not(:disabled) {",
+    "  background-color: var(--bs-secondary);",
+    "  color: #fff;",
+    "  border-color: var(--bs-secondary);",
+    "}",
+    "#ganttPage .gantt-undo-redo > .btn:disabled {",
+    "  opacity: 0.4;",
+    "  cursor: default;",
     "}",
     "/* Streams filter dropdown. `.dropdown-menu` is absolutely positioned by",
     "   Bootstrap, but the smd-page header is a flex row with no positioning",
