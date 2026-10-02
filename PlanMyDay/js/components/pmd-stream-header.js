@@ -44,7 +44,7 @@ class PmdStreamHeader extends HTMLElement {
         // shared sheet as size/colour. Selectors are kept verbatim so both the
         // scope and the specificity the theme sheets compete with are unchanged.
         injectSmdComponentStyle('pmd-stream-header-layout', `
-          #smd-app #streamsEditor pmd-stream-header .chevron { position: relative; flex: 0 0 auto; margin-right: 0.5rem; border: 0; cursor: pointer; opacity: 1; visibility: visible; }
+          #smd-app #streamsEditor pmd-stream-header .chevron { position: relative; flex: 0 0 auto; margin-right: 0.5rem; border: 0; cursor: pointer; opacity: 1; visibility: inherit; }
           #smd-app #streamsEditor pmd-stream-header .chevron::after { content: ""; position: absolute; top: 50%; left: 50%; width: 0.7rem; height: 0.7rem; margin-top: -0.45rem; margin-left: -0.35rem; border-right: 2.5px solid currentColor; border-bottom: 2.5px solid currentColor; transform: rotate(45deg); transition: transform 0.2s ease; }
           #smd-app #streamsEditor pmd-stream-header[expanded] .chevron::after { transform: rotate(225deg); }
         `);
@@ -135,8 +135,10 @@ class PmdStreamHeader extends HTMLElement {
     }
 
     const tabBadge = root.querySelector('.tab-badge');
-    tabBadge.textContent = tab;
-    tabBadge.setAttribute('variant', tab === 'progress' ? 'success' : 'info');
+    // The tab is shown as a Font Awesome icon: fast-forward for "progress",
+    // play for "maintenance". Both badges use the primary variant.
+    tabBadge.innerHTML = '<i class="fa-solid ' + (tab === 'maintenance' ? 'fa-play' : 'fa-forward') + '" aria-hidden="true"></i>';
+    tabBadge.setAttribute('variant', 'primary');
 
     const countBadge = root.querySelector('.count-badge');
     if (jobcounts) {

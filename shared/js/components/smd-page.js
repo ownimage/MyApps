@@ -71,7 +71,25 @@ class SmdPage extends HTMLElement {
     hide() {
         this._showToken = (this._showToken || 0) + 1;
         const wasSuspended = this.classList.contains(SMD_PAGE_SUSPENDED);
-        this.removeAttribute('open');
+        // Trigger the slide-OUT transition instead of instantly hiding: the
+        // host's `visibility` only becomes hidden once [open] is removed, so
+        // removing it here would make the whole close-instant regardless of the
+        // configured slide speed. Adding .smd-page-closing keeps the page
+        // visible while its inner panel slides back to translateX(-100%), and
+        // [open] is dropped after the transition finishes (the app also adds
+        // d-none at slideDuration + 50ms, so a missed timer cannot leak a
+        // visible ghost). The slide duration is re-read here so the close
+        // honours the Settings -> Display -> Slide speed at the moment of close.
+        const token = this._showToken;
+        const duration = this.slideDuration || 0;
+        if (duration > 0) {
+            this.classList.add('smd-page-closing');
+        }
+        window.setTimeout(() => {
+            if (token !== this._showToken) return;
+            this.classList.remove('smd-page-closing');
+            this.removeAttribute('open');
+        }, duration + 50);
         if (wasSuspended) {
             removeSmdPageFromBackgrounds(this);
         } else {
@@ -124,10 +142,11 @@ class SmdPage extends HTMLElement {
     if (typeof injectSmdComponentStyle === "function") {
       injectSmdComponentStyle("smd-page-layout", `
         smd-page { display: block; position: fixed; inset: 0; z-index: 1040; pointer-events: none; overflow: hidden; visibility: hidden; }
-        smd-page[open] { visibility: visible; }
+        smd-page[open], smd-page.smd-page-closing { visibility: visible; }
         smd-page.d-none, smd-page.smd-page-suspended { display: none !important; }
         smd-page .smd-page { position: absolute; inset: 0; display: flex; flex-direction: column; transform: translateX(-100%); transition: transform var(--smd-slide-duration, 0s) ease; pointer-events: auto; }
         smd-page[open] .smd-page { transform: translateX(0); }
+        smd-page.smd-page-closing .smd-page { transform: translateX(-100%); }
         smd-page .smd-page-header { display: flex; align-items: center; flex-wrap: wrap; flex-shrink: 0; padding: 0.75rem 1.25rem; }
         smd-page .smd-page-body { flex: 1; overflow-y: auto; }
         smd-page .smd-page-footer { display: flex; gap: 0.5rem; flex-shrink: 0; }
