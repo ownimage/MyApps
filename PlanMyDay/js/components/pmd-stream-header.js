@@ -1,26 +1,30 @@
 const pmdStreamHeaderTemplate = document.createElement('template');
 pmdStreamHeaderTemplate.innerHTML = `
-  <div class="stream-accordion-header bg-body-secondary text-body d-flex align-items-center w-100 p-1 ps-2">
+<div class="stream-accordion-header bg-body-secondary text-body d-flex align-items-center w-100 p-1 ps-2">
     <smd-draghandle class="drag-handle"></smd-draghandle>
-    <div class="thumb d-flex align-items-center justify-content-center flex-shrink-0 mx-2"><smd-image key-prefix="shared-"></smd-image></div>
+    <div class="thumb d-flex align-items-center justify-content-center flex-shrink-0 mx-2">
+        <smd-image key-prefix="shared-"></smd-image>
+    </div>
     <div class="body d-flex flex-column flex-grow-1 gap-1 overflow-hidden me-2">
-      <div class="row1 d-flex align-items-center gap-1 flex-nowrap">
-        <button type="button" class="stream-header-main btn btn-link flex-grow-1 text-start text-reset text-decoration-none p-0 border-0" aria-expanded="false">
-          <span class="editor-title d-block fw-bold text-truncate"></span>
-        </button>
-        <div class="header-actions d-flex align-items-center flex-shrink-0 gap-1 px-1">
-          <button type="button" class="btn btn-sm btn-secondary" data-action="add-job">Add Job</button>
-          <button type="button" class="btn btn-sm btn-primary" data-action="edit">Edit</button>
-          <button type="button" class="btn btn-sm btn-danger" data-action="delete" hidden>Delete</button>
+        <div class="row1 d-flex align-items-center gap-1 flex-nowrap">
+            <button type="button"
+                    class="stream-header-main btn btn-link flex-grow-1 text-start text-reset text-decoration-none p-0 border-0"
+                    aria-expanded="false">
+                <span class="editor-title d-block fw-bold text-truncate"></span>
+            </button>
         </div>
-      </div>
-      <div class="row2 d-flex gap-1 flex-nowrap">
-        <smd-badge class="tab-badge" variant="success" pill></smd-badge>
-        <smd-badge class="count-badge" variant="secondary" pill hidden></smd-badge>
-      </div>
+        <div class="row2 d-flex gap-1 flex-nowrap">
+            <smd-badge class="tab-badge" variant="success" pill></smd-badge>
+            <smd-badge class="count-badge" variant="secondary" pill hidden></smd-badge>
+        </div>
+    </div>
+    <div class="header-actions d-flex align-items-center flex-shrink-0 gap-1 px-1">
+        <button type="button" class="btn btn-sm btn-secondary" data-action="add-job">Add Job</button>
+        <button type="button" class="btn btn-sm btn-primary" data-action="edit">Edit</button>
+        <button type="button" class="btn btn-sm btn-danger" data-action="delete" hidden>Delete</button>
     </div>
     <button type="button" class="chevron btn btn-link p-0 border-0 text-reset me-2" aria-label="Expand"></button>
-  </div>
+</div>
 `;
 
 class PmdStreamHeader extends HTMLElement {

@@ -7,8 +7,5 @@
     background: var(--bs-body-bg);
 }
 
-#smd-app #streamsEditor pmd-stream-header[expanded] .stream-accordion-header {
-      background-color: var(--bs-info) !important;
-      border: 2px solid var(--bs-primary);
-}
+
 

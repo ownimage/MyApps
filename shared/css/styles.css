@@ -312,13 +312,13 @@ smd-draghandle[size="large"] {
 
 /* COMPONENT: pmd-stream-header theme surface (layout is in pmd-stream-header.js) */
 #smd-app #streamsEditor pmd-stream-header .stream-accordion-header {
-  background-color: var(--bs-info) !important;
-  color: var(--bs-info-contrast, #fff) !important;
+  background-color: var(--bs-success) !important;
+  color: var(--bs-success-contrast, #fff) !important;
 }
 
 #smd-app #streamsEditor pmd-stream-header[expanded] .stream-accordion-header {
-  background-color: var(--bs-primary) !important;
-  color: var(--bs-primary-contrast, #fff) !important;
+  background-color: var(--bs-danger) !important;
+  color: var(--bs-danger-contrast, #fff) !important;
 }
 
 #smd-app #streamsEditor pmd-stream-header .stream-header-main,
