@@ -330,7 +330,9 @@ function getJobGeneralTabHTML(data, readOnly) {
       <div class="col-6 d-flex flex-column">
         <label class="form-label mb-0">Stream</label>
         <div class="mt-1 flex-grow-1">
-          <smd-image-dropdown id="jobStreamDropdown" key-prefix="${escAttr(smdImagePrefix())}" ${readOnly ? "disabled" : ""}></smd-image-dropdown>
+          <div class="job-stream-picker">
+            <smd-image-dropdown id="jobStreamDropdown" key-prefix="${escAttr(smdImagePrefix())}" ${readOnly ? "disabled" : ""}></smd-image-dropdown>
+          </div>
         </div>
       </div>
       <div class="col-6 d-flex flex-column">

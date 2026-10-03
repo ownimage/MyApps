@@ -184,6 +184,7 @@ test.describe("Storybook - Regression", () => {
       "Job Today Card",
       "Job Summary Card (stream)",
       "Job Summary Card (search)",
+      "Edit Stream Header (collapsed + expanded)",
       "Countdown Card",
       "Date Card",
       "Category Card",

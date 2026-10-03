@@ -121,6 +121,17 @@
           scripts: [sharedScripts.app, sharedScripts.build, sharedScripts.settings, sharedScripts.image, sharedScripts.h2, sharedScripts.checkbox, sharedScripts.badge, sharedScripts.button, "PlanMyDay/js/components/pmd-job-summary-card.js"],
           markup: `<pmd-job-summary-card class="d-block mb-2" variant="search" stream-idx="0" job-idx="0" title="Weekly report" stream-title="Work" tab="progress" suffix="(12)" schedule="Every day" time="09:00" extra="Wait: the meeting" active="true" stream-image="Blue" image="Green" key-prefix="${imagePrefix}"></pmd-job-summary-card>`
         },
+        "pmd-stream-header-both": {
+          label: "Edit Stream Header (collapsed + expanded)",
+          group: "PlanMyDay",
+          scripts: [sharedScripts.app, sharedScripts.build, sharedScripts.settings, sharedScripts.image, sharedScripts.badge, sharedScripts.button, sharedScripts.drag, "PlanMyDay/js/components/pmd-stream-header.js"],
+          markup: `<div id="streamsEditor" class="p-2">
+  <div class="small fw-semibold text-body-secondary mb-1">Collapsed</div>
+  <pmd-stream-header class="d-block mb-3" stream-idx="0" title="Work" image="Blue" tab="progress" jobcounts="3/12" can-delete key-prefix="${imagePrefix}"></pmd-stream-header>
+  <div class="small fw-semibold text-body-secondary mb-1">Expanded</div>
+  <pmd-stream-header class="d-block" stream-idx="1" title="Work" image="Blue" tab="progress" jobcounts="3/12" expanded can-delete key-prefix="${imagePrefix}"></pmd-stream-header>
+</div>`
+        },
         "cmd-countdown-card": {
           label: "Countdown Card",
           group: "CountMyDays",
