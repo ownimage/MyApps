@@ -328,8 +328,12 @@ class PmdJobTodayCard extends HTMLElement {
 
     const tab = this.getAttribute('tab') || 'progress';
     const tabBadge = root.querySelector('.tab-badge');
-    tabBadge.textContent = tab;
-    tabBadge.setAttribute('variant', tab === 'progress' ? 'success' : 'info');
+    // The tab is shown as a Font Awesome icon: fast-forward for "progress",
+    // play for "maintenance". Both badges use the primary variant.
+    tabBadge.innerHTML = '<i class="fa-solid ' + (tab === 'maintenance' ? 'fa-play' : 'fa-forward') + '" aria-hidden="true"></i>';
+    tabBadge.setAttribute('variant', 'primary');
+    // Make badge slightly smaller to match View button size
+    tabBadge.classList.add('fs-6');
 
     const descEl = root.querySelector('.description');
     const description = this.getAttribute('description') || '';
