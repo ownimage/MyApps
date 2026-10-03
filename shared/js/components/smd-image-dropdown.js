@@ -166,7 +166,7 @@ class SmdImageDropdown extends HTMLElement {
         this.dispatchEvent(new CustomEvent('smd-image-dropdown-change', {
           bubbles: true,
           composed: true,
-          detail: { name: name }
+          detail: { name: name, value: o.value != null ? o.value : name }
         }));
       });
       li.appendChild(a);
