@@ -698,7 +698,9 @@ test.describe("PlanMyDay - Regression", () => {
         await setTheme(page, theme);
         const colors = await badgeColors();
         expect(colors.header).toEqual(await bootswatchBadge(page, "info"));
-        expect(colors.tab).toEqual(await bootswatchBadge(page, "info"));
+        // The tab badge is now the PRIMARY variant (with a Font Awesome icon) -
+        // the stream card's tab no longer uses the info colour.
+        expect(colors.tab).toEqual(await bootswatchBadge(page, "primary"));
       }
     });
   });
@@ -941,7 +943,9 @@ test.describe("PlanMyDay - Regression", () => {
       await page.reload();
       await page.locator("#btnMainMenu").click();
       await page.locator("a.dropdown-item").filter({ hasText: "Streams" }).click();
-      await page.locator("#streamEditorList .stream-accordion-header .btn-danger").filter({ hasText: "Delete", visible: true }).click();
+      // the stream delete control is a trash-can icon button (no text) shown on
+      // streams that can be deleted
+      await page.locator("#streamEditorList .stream-accordion-header .btn-danger").filter({ visible: true }).first().click();
       await expect(page.locator("#smdConfirmModal")).toBeVisible();
       await page.waitForTimeout(100);
       await page.locator("#smdConfirmModal").locator("button").filter({ hasText: "Delete" }).click();
@@ -950,7 +954,7 @@ test.describe("PlanMyDay - Regression", () => {
     });
 
     test("delete button hidden when stream has jobs", async ({ page }) => {
-      var delBtns = page.locator("#streamEditorList .stream-accordion-header .btn-danger").filter({ hasText: "Delete", visible: true });
+      var delBtns = page.locator("#streamEditorList .stream-accordion-header .btn-danger").filter({ visible: true });
       await expect(delBtns).toHaveCount(0);
     });
 
@@ -963,7 +967,7 @@ test.describe("PlanMyDay - Regression", () => {
       await page.reload();
       await page.locator("#btnMainMenu").click();
       await page.locator("a.dropdown-item").filter({ hasText: "Streams" }).click();
-      var delBtn = page.locator("#streamEditorList .stream-accordion-header .btn-danger").filter({ hasText: "Delete", visible: true });
+      var delBtn = page.locator("#streamEditorList .stream-accordion-header .btn-danger").filter({ visible: true });
       await expect(delBtn).toHaveCount(1);
     });
 
@@ -972,8 +976,10 @@ test.describe("PlanMyDay - Regression", () => {
     });
 
     test("maintenance tab badge uses info colour on stream cards", async ({ page }) => {
-      await expect(page.locator("#streamEditorList smd-badge[variant=success]").filter({ hasText: "progress" }).first()).toBeVisible();
-      await expect(page.locator("#streamEditorList smd-badge[variant=info]").filter({ hasText: "maintenance" }).first()).toBeVisible();
+      // The tab badge is now PRIMARY with a Font Awesome icon: fast-forward for
+      // "progress", play for "maintenance".
+      await expect(page.locator("#streamEditorList smd-badge[variant=primary]").filter({ has: page.locator(".fa-forward") }).first()).toBeVisible();
+      await expect(page.locator("#streamEditorList smd-badge[variant=primary]").filter({ has: page.locator(".fa-play") }).first()).toBeVisible();
     });
 
     test("job count badge shows today/active/total counts", async ({ page }) => {
@@ -2332,7 +2338,7 @@ test.describe("PlanMyDay - Regression", () => {
       await page.locator("#btnMainMenu").click();
       await page.locator("a.dropdown-item").filter({ hasText: "Streams" }).click();
       await page.locator("#streamEditorList").waitFor({ state: "visible" });
-      await page.locator("#streamEditorList .stream-accordion-header .btn-danger").filter({ hasText: "Delete", visible: true }).click();
+      await page.locator("#streamEditorList .stream-accordion-header .btn-danger").filter({ visible: true }).first().click();
       await page.locator("#smdConfirmModal").waitFor({ state: "visible" });
       await page.locator("#smdConfirmModal").locator("button").filter({ hasText: "Cancel" }).click();
       await page.locator("#smdConfirmModal").waitFor({ state: "hidden", timeout: 10000 });
@@ -2718,9 +2724,11 @@ test.describe("PlanMyDay - Regression", () => {
       await seedTodayList(page);
       await page.reload();
       await expect(page.locator("h2").filter({ hasText: "Report" })).toBeVisible();
-      const progressBadge = page.locator("smd-badge[variant=success]").filter({ hasText: "progress" });
+      // The tab badge is PRIMARY with a Font Awesome icon: fast-forward for
+      // "progress", play for "maintenance".
+      const progressBadge = page.locator("smd-badge[variant=primary]").filter({ has: page.locator(".fa-forward") });
       await expect(progressBadge.first()).toBeVisible();
-      const maintenanceBadge = page.locator("smd-badge[variant=info]").filter({ hasText: "maintenance" });
+      const maintenanceBadge = page.locator("smd-badge[variant=primary]").filter({ has: page.locator(".fa-play") });
       await expect(maintenanceBadge.first()).toBeVisible();
     });
   });
