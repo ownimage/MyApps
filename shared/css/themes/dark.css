@@ -1,4 +1,4 @@
-/* shared/css/themes/dark.css - MODE-BASED (Dark) shared colour overrides.
+/* shared/css/themes/dark.css - MODE-BASED (Dark) shared palette + overrides.
  *
  * One file for EVERY dark theme, swapped by the Theme Mode setting (not by the
  * theme select). It is the shared mode layer: it sits AFTER
@@ -12,4 +12,67 @@
  * Colour (and size) only - no layout mechanics; those belong to the component
  * that creates the DOM.
  *
- * Intentionally empty for now. */
+ * This sheet owns the shared --smd-* palette for DARK mode. The mode-neutral
+ * entries mirror light.css (they resolve through --bs-* which already flips by
+ * data-bs-theme); the surface/foreground entries that used to be hardcoded
+ * light values are re-pointed at the theme's dark tokens so promoting the form
+ * repaint into styles.css does not paint white fields on a dark page. */
+
+:root {
+  --smd-page-header-background: var(--bs-primary);
+  --smd-page-header-color: var(--bs-white);
+
+  --smd-tab-active-background: var(--bs-primary);
+  --smd-tab-background: var(--bs-info);
+  --smd-tab-color: var(--bs-white);
+  --smd-image-theme: dark;
+
+  /* Form-field palette - follow the theme's own dark surfaces. */
+  --smd-form-background: var(--bs-body-bg);
+  --smd-form-foreground: var(--bs-body-color);
+  --smd-form-border-color: var(--bs-border-color);
+
+  --smd-form-focus-border-color: color-mix(in srgb, var(--bs-primary) 50%, var(--bs-body-bg));
+  --smd-form-accent: var(--bs-primary);
+  --smd-form-accent-foreground: var(--bs-white);
+  --smd-form-muted-foreground: var(--bs-secondary-color);
+  --smd-form-hover-background: var(--bs-tertiary-bg);
+  --smd-form-disabled-background: var(--bs-secondary-bg);
+  --smd-form-disabled-foreground: var(--bs-secondary-color);
+
+  /* Palette for <smd-image-dropdown> (the shared image+name selector). */
+  --smd-dropdown-background: var(--bs-tertiary-bg);
+  --smd-dropdown-foreground: var(--bs-secondary);
+  --smd-dropdown-border-color: var(--bs-secondary);
+  --smd-dropdown-hover-background: var(--bs-secondary);
+  --smd-dropdown-hover-foreground: var(--bs-white);
+  --smd-dropdown-disabled-background: var(--smd-form-disabled-background);
+  --smd-dropdown-disabled-foreground: var(--smd-form-disabled-foreground);
+  --smd-dropdown-menu-background: var(--bs-body-bg);
+  --smd-dropdown-menu-foreground: var(--bs-body-color);
+  --smd-dropdown-menu-border-color: var(--bs-border-color);
+  --smd-dropdown-item-hover-background: var(--bs-tertiary-bg);
+  --smd-dropdown-item-hover-foreground: var(--bs-emphasis-color);
+  --smd-dropdown-item-active-background: var(--bs-primary);
+  --smd-dropdown-item-active-foreground: var(--bs-white);
+
+  /* Palette for <pmd-tasks> (the PlanMyDay job-edit Tasks rows). */
+  --pmd-tasks-row-background: var(--bs-tertiary-bg);
+  --pmd-tasks-row-foreground: var(--bs-body-color);
+
+  /* Accent colour of the shared <smd-checkbox> tick. */
+  --smd-checkbox-accent: auto;
+
+  /* Palette for the flatpickr date-picker popup (appended to <body>). The
+     repaint rules live in shared/css/vendor-overrides.css. */
+  --smd-date-picker-background: var(--bs-body-bg);
+  --smd-date-picker-foreground: var(--bs-body-color);
+  --smd-date-picker-muted-foreground: var(--bs-secondary-color);
+  --smd-date-picker-hover-background: var(--bs-secondary-bg);
+  --smd-date-picker-accent: var(--bs-primary);
+  --smd-date-picker-accent-foreground: var(--bs-white);
+  --smd-date-picker-border-color: var(--bs-border-color);
+
+  /* <smd-modal> header surface (consumed by smd-modal rules in styles.css). */
+  --smd-modal-header-background: color-mix(in srgb, var(--bs-body-bg) 85%, white);
+}

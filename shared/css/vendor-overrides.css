@@ -1,0 +1,133 @@
+/* shared/css/vendor-overrides.css - vendor-sheet repaints, kept out of
+ * shared/css/styles.css so that styles.css stays the generic theme sheet.
+ *
+ * Currently only the flatpickr date-picker popup: it is appended to <body> and
+ * ships a light skin, so it must be repainted from the --smd-date-picker-*
+ * palette. That palette is declared in the mode layer
+ * (shared/css/themes/light.css / dark.css) and may be overridden per theme in
+ * shared/css/themes/<theme>/<theme>.<mode>.css. These rules are shared by every
+ * theme and the theme override files only set variables. They live in their own
+ * file because flatpickr injects its own <style> on the popup, which no
+ * component owns; the <smd-date-picker> host/field layout lives in
+ * smd-date-picker.js.
+ *
+ * Loaded right after shared/vendor/flatpickr.min.css so it wins the tie on the
+ * vendor selectors. Custom-property lookups resolve at computed-value time, so
+ * its position relative to the palette sheets does not matter. */
+
+.flatpickr-calendar {
+  background: var(--smd-date-picker-background);
+  border-color: var(--smd-date-picker-border-color);
+}
+
+/* The day grid carries no background of its own in the flatpickr skin and the
+   week wrapper's filler days are `background: transparent`, so without this it
+   would paint the raw container behind it instead of the palette surface. */
+.flatpickr-calendar .flatpickr-days {
+  background: var(--smd-date-picker-background);
+}
+
+.flatpickr-calendar .flatpickr-months .flatpickr-month,
+.flatpickr-calendar .flatpickr-current-month .flatpickr-monthDropdown-months {
+  background: var(--smd-date-picker-background);
+  color: var(--smd-date-picker-foreground);
+}
+
+.flatpickr-calendar .flatpickr-current-month .flatpickr-monthDropdown-months option {
+  background: var(--smd-date-picker-background);
+  color: var(--smd-date-picker-foreground);
+}
+
+.flatpickr-calendar .flatpickr-current-month input.cur-year {
+  color: var(--smd-date-picker-foreground);
+}
+
+/* The year-input spinner arrows are hardcoded `rgba(0,0,0,0.9)` by the vendor
+   skin (specificity 0,4,1), so on a dark calendar they vanish. Override at
+   0,5,0 with the palette foreground. */
+.flatpickr-calendar .flatpickr-current-month .numInputWrapper .arrowUp:after {
+  border-bottom-color: var(--smd-date-picker-foreground);
+}
+
+.flatpickr-calendar .flatpickr-current-month .numInputWrapper .arrowDown:after {
+  border-top-color: var(--smd-date-picker-foreground);
+}
+
+.flatpickr-calendar .flatpickr-weekday {
+  background: var(--smd-date-picker-background);
+  color: var(--smd-date-picker-muted-foreground);
+}
+
+.flatpickr-calendar .flatpickr-day {
+  color: var(--smd-date-picker-foreground);
+}
+
+.flatpickr-calendar .flatpickr-day.today {
+  border-color: var(--smd-date-picker-accent);
+}
+
+.flatpickr-calendar .flatpickr-day:hover {
+  background: var(--smd-date-picker-hover-background);
+  color: var(--smd-date-picker-foreground);
+}
+
+/* The vendor skin hardcodes the "today" hover/focus fill `#959ea9` with white
+   text at 0,3,0. The .flatpickr-day:hover rule above already ties and wins on
+   document order, but pin the today state explicitly at 0,4,0 so it cannot be
+   broken by load order or a future vendor bump. */
+.flatpickr-calendar .flatpickr-day.today:hover,
+.flatpickr-calendar .flatpickr-day.today:focus {
+  background: var(--smd-date-picker-hover-background);
+  border-color: var(--smd-date-picker-accent);
+  color: var(--smd-date-picker-foreground);
+}
+
+.flatpickr-calendar .flatpickr-day.selected,
+.flatpickr-calendar .flatpickr-day.selected:hover,
+.flatpickr-calendar .flatpickr-day.startRange,
+.flatpickr-calendar .flatpickr-day.endRange,
+.flatpickr-calendar .flatpickr-day.selected.inRange {
+  background: var(--smd-date-picker-accent);
+  border-color: var(--smd-date-picker-accent);
+  color: var(--smd-date-picker-accent-foreground);
+}
+
+.flatpickr-calendar .flatpickr-day.inRange,
+.flatpickr-calendar .flatpickr-day.prevMonthDay.inRange,
+.flatpickr-calendar .flatpickr-day.nextMonthDay.inRange {
+  background: var(--smd-date-picker-hover-background);
+}
+
+.flatpickr-calendar .flatpickr-day.flatpickr-disabled,
+.flatpickr-calendar .flatpickr-day.flatpickr-disabled:hover,
+.flatpickr-calendar .flatpickr-day.prevMonthDay,
+.flatpickr-calendar .flatpickr-day.nextMonthDay {
+  color: var(--smd-date-picker-muted-foreground);
+}
+
+.flatpickr-calendar .flatpickr-time {
+  background: var(--smd-date-picker-background);
+  border-color: var(--smd-date-picker-border-color);
+}
+
+.flatpickr-calendar .flatpickr-time input,
+.flatpickr-calendar .flatpickr-time .flatpickr-time-separator,
+.flatpickr-calendar .flatpickr-time .flatpickr-am-pm {
+  color: var(--smd-date-picker-foreground);
+}
+
+.flatpickr-calendar.arrowTop:before {
+  border-bottom-color: var(--smd-date-picker-border-color);
+}
+
+.flatpickr-calendar.arrowTop:after {
+  border-bottom-color: var(--smd-date-picker-background);
+}
+
+.flatpickr-calendar.arrowBottom:before {
+  border-top-color: var(--smd-date-picker-border-color);
+}
+
+.flatpickr-calendar.arrowBottom:after {
+  border-top-color: var(--smd-date-picker-background);
+}

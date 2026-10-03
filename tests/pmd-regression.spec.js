@@ -2036,15 +2036,20 @@ test.describe("PlanMyDay - Regression", () => {
       await page.evaluate(() => applyTheme("flatly"));
 
       for (const [theme, wantFill] of [["dark", "#ffffff"], ["light", "#000000"]]) {
+        // The shared --smd-image-theme palette now lives in the mode layer
+        // (themes/<mode>.css), so flipping data-bs-theme alone no longer
+        // switches it: the mode sheet has to be re-pointed too. applyThemeMode()
+        // is the API that does both, so use it rather than setting the attribute.
         await page.evaluate((t) => {
-          document.documentElement.setAttribute("data-bs-theme", t);
+          applyThemeMode("flatly", t);
         }, theme);
-        // applyTheme() swaps the theme override <link> asynchronously, and the
-        // default superhero.css pins --smd-image-theme to dark. Until flatly's
-        // override replaces it, BOTH <smd-image> and getThemedImageDataUrl()
-        // resolve dark, so the light iteration would render/compare #ffffff and
-        // the #000000 assertion fails under load. Wait for the app's own
-        // resolver to report the requested variant before rendering the element.
+        // applyThemeMode() swaps the theme override <link> asynchronously, and
+        // the default superhero.css pins --smd-image-theme to dark. Until
+        // flatly's override replaces it, BOTH <smd-image> and
+        // getThemedImageDataUrl() resolve dark, so the light iteration would
+        // render/compare #ffffff and the #000000 assertion fails under load.
+        // Wait for the app's own resolver to report the requested variant
+        // before rendering the element.
         await page.waitForFunction((want) => getThemeKey() === want, theme, { timeout: 15000 });
         await page.evaluate(() => {
           const el = document.createElement("smd-image");
