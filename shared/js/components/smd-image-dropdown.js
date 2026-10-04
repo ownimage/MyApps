@@ -23,7 +23,9 @@ const smdImageDropdownTemplate = document.createElement('template');
 smdImageDropdownTemplate.innerHTML = `
   <button type="button" class="btn gap-2" id="smdImageDropdownBtn" aria-haspopup="listbox">
     <span class="thumb" id="smdImageBtnIcon" hidden><smd-image key-prefix="shared-"></smd-image></span>
-    <span class="title" id="smdImageBtnText"></span>
+    <span class="labels">
+      <span class="title" id="smdImageBtnText"></span>
+    </span>
     <span class="caret">&#9662;</span>
   </button>
   <ul class="menu list-unstyled rounded shadow-sm mb-0" id="smdImageDropdownMenu" hidden></ul>
@@ -55,7 +57,9 @@ class SmdImageDropdown extends HTMLElement {
       injectSmdComponentStyle("smd-image-dropdown-layout", `
         smd-image-dropdown .btn { display: flex; align-items: center; width: 100%; }
         smd-image-dropdown .thumb { flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; overflow: hidden; }
-        smd-image-dropdown .title { flex: 1 1 auto; min-width: 0; }
+        smd-image-dropdown .labels { flex: 1 1 auto; min-width: 0; display: grid; }
+        smd-image-dropdown .labels > * { grid-area: 1 / 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; }
+        smd-image-dropdown .labels .sizer { visibility: hidden; }
         smd-image-dropdown .menu { position: absolute; left: 0; right: 0; top: 100%; z-index: 20; max-height: 16rem; overflow-y: auto; }
         smd-image-dropdown .item { display: flex; align-items: center; }
       `);
@@ -132,6 +136,22 @@ class SmdImageDropdown extends HTMLElement {
     }
 
     root.querySelector('#smdImageBtnText').textContent = current.name || '';
+
+    // Size the closed button to the WIDEST option so its width does not change
+    // as the selection changes. Every label is stacked in one grid cell (the
+    // hidden .sizer spans); the visible title shares that cell, so the button
+    // hugs the widest label and the title ellipsises when the column is narrow.
+    const labels = root.querySelector('.labels');
+    if (labels) {
+      labels.querySelectorAll('.sizer').forEach((n) => n.remove());
+      this._options.forEach((o) => {
+        const sizer = document.createElement('span');
+        sizer.className = 'sizer';
+        sizer.setAttribute('aria-hidden', 'true');
+        sizer.textContent = String(o.name || '');
+        labels.appendChild(sizer);
+      });
+    }
 
     const menu = root.querySelector('#smdImageDropdownMenu');
     menu.innerHTML = '';

@@ -3323,6 +3323,109 @@ test.describe("PlanMyDay - Regression", () => {
     });
   });
 
+  // ── Stream Dropdown Layout (Edit Job) ───────────────────────
+
+  test.describe("Stream dropdown layout", () => {
+    const svg = "data:image/svg+xml," + encodeURIComponent('<svg stroke="#000000" fill="#ffffff" stroke-width="2" xmlns="http://www.w3.org/2000/svg"><rect width="100" height="100"/></svg>');
+    const STREAMS = [
+      {
+        id: "stream_1", title: "Maintenance", tab: "maintenance", image: "TestImg", sequence: 1,
+        jobs: [{ id: "job_1", title: "Report", description: "", active: true, frequency: "daily", sequence: 1, suffix: false, dayType: "dayOfYear", mod: "", tasks: [], image: "TestImg" }]
+      },
+      {
+        id: "stream_2", title: "Work", tab: "progress", image: "TestImg", sequence: 2,
+        jobs: [{ id: "job_2", title: "Other", description: "", active: true, frequency: "daily", sequence: 1, suffix: false, dayType: "dayOfYear", mod: "", tasks: [], image: "" }]
+      }
+    ];
+
+    test.beforeEach(async ({ page }) => {
+      await startCoverage(page);
+      await page.goto("/PlanMyDay/");
+      await page.evaluate(({ data, svgData }) => {
+        localStorage.clear();
+        localStorage.setItem("shared-images", JSON.stringify([{ name: "TestImg", data: svgData }]));
+        localStorage.setItem("planmydays_streams", JSON.stringify(data));
+        document.querySelectorAll("smd-page").forEach((p) => { p.slideDuration = 0; });
+      }, { data: STREAMS, svgData: svg });
+      await page.reload();
+    });
+
+    test.afterEach(async ({ page }) => {
+      await stopCoverage(page);
+    });
+
+    async function openJob(page, streamIdx, jobIdx) {
+      await page.evaluate(({ streamIdx, jobIdx }) => {
+        document.querySelectorAll("smd-page").forEach((p) => { p.slideDuration = 0; });
+        jobsStreamIndex = streamIdx;
+        editJob(jobIdx);
+        document.querySelectorAll("smd-page").forEach((p) => { p.slideDuration = 0; });
+      }, { streamIdx, jobIdx });
+      await page.locator("#jobEditPage").waitFor({ state: "visible" });
+      await page.locator("#jobStreamDropdown #smdImageBtnIcon smd-image").first().waitFor({ state: "visible" });
+    }
+
+    test("closed dropdown label is left-aligned right next to the image", async ({ page }) => {
+      await openJob(page, 0, 0);
+      const info = await page.evaluate(() => {
+        const thumb = document.querySelector("#smdImageBtnIcon");
+        const title = document.querySelector("#smdImageBtnText");
+        const range = document.createRange();
+        range.selectNodeContents(title);
+        return {
+          align: getComputedStyle(title).textAlign,
+          gap: range.getBoundingClientRect().left - thumb.getBoundingClientRect().right
+        };
+      });
+      expect(info.align).toBe("left");
+      expect(info.gap).toBeGreaterThanOrEqual(6);
+      expect(info.gap).toBeLessThan(12);
+    });
+
+    test("dropdown hugs the widest stream title and keeps one stable width", async ({ page }) => {
+      await openJob(page, 1, 0);
+      const workWidth = await page.locator("#smdImageDropdownBtn").evaluate((el) => el.getBoundingClientRect().width);
+      await page.locator("#smdImageDropdownBtn").click();
+      await page.locator("#smdImageDropdownMenu .dropdown-item").filter({ hasText: "Maintenance" }).click();
+      const maintWidth = await page.locator("#smdImageDropdownBtn").evaluate((el) => el.getBoundingClientRect().width);
+      expect(Math.abs(workWidth - maintWidth)).toBeLessThanOrEqual(1);
+    });
+
+    test("dropdown never overlaps the image selector, even on a narrow column", async ({ page }) => {
+      await openJob(page, 0, 0);
+      for (const width of [900, 768, 600, 500]) {
+        await page.setViewportSize({ width, height: 900 });
+        await page.waitForTimeout(120);
+        const geo = await page.evaluate(() => {
+          const btn = document.querySelector("#smdImageDropdownBtn");
+          const selCol = document.querySelector("#jobImageSelect").closest(".col-6");
+          return { btnRight: btn.getBoundingClientRect().right, selLeft: selCol.getBoundingClientRect().left };
+        });
+        expect(geo.btnRight, "width " + width).toBeLessThanOrEqual(geo.selLeft + 1);
+      }
+    });
+
+    test("closed dropdown image lines up with the image selector image (job has image)", async ({ page }) => {
+      await openJob(page, 0, 0);
+      const delta = await page.evaluate(() => {
+        const a = document.querySelector("#smdImageBtnIcon").getBoundingClientRect();
+        const b = document.querySelector("#jobImageSelect .thumb").getBoundingClientRect();
+        return Math.abs(a.top - b.top);
+      });
+      expect(delta).toBeLessThanOrEqual(1);
+    });
+
+    test("closed dropdown image lines up with the image selector image (job has no image)", async ({ page }) => {
+      await openJob(page, 1, 0);
+      const delta = await page.evaluate(() => {
+        const a = document.querySelector("#smdImageBtnIcon").getBoundingClientRect();
+        const b = document.querySelector("#jobImageSelect .thumb").getBoundingClientRect();
+        return Math.abs(a.top - b.top);
+      });
+      expect(delta).toBeLessThanOrEqual(1);
+    });
+  });
+
   // ── Image Editing UI ────────────────────────────────────────
 
   test.describe("Image Editing UI", () => {

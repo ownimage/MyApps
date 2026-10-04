@@ -67,6 +67,20 @@ Architecture:
 - THEME TEXT COLOURS (2026-09-12): shadow-DOM buttons/tabs cannot use Bootswatch's `.btn-*` rules (document CSS doesn't cross the boundary, and `--bs-btn-*` is set on the `.btn-*` element, not `:root`). `applySmdVars()` reads a hidden light-DOM `<button class="btn btn-<variant>">` probe (`smdBootstrapColor()`) and publishes `--smd-primary/secondary/success/danger/info/warning-text` + `--smd-tab-text` on `<html>`; every shadow `.btn-*`/variant uses those vars. `applyTheme()` re-runs `applySmdVars` on the theme `<link>`'s `load`. Never hardcode white text for a theme-coloured surface; if Bootswatch's own `.btn-*` rule disagrees with its `--bs-btn-color` var (e.g. cerulean's later `.btn-secondary { color: ... }`), the probe wins — always match the probe.
 - BADGES (2026-09-12): use the shared `<smd-badge variant="primary|secondary|success|danger|warning|info|light|dark" pill?>` component everywhere — never a `<span class="badge bg-*">` (Bootstrap's badge vars live on the `.badge` element and can't reach shadow roots). `applySmdVars()` probes a hidden light-DOM `.badge.text-bg-<variant>` (`smdBootstrapStyle()`) and publishes `--smd-badge-<variant>-{bg,text}`; the component's own sheet consumes them, so text colour follows Bootswatch exactly (white on cerulean's navy info, black on its light secondary, etc.). `btnBadgeSheet` now only carries `.btn*` rules despite its name; `smd-page`'s badge/bg rules were removed.
 - IMAGE DROPDOWN (2026-09-18): the shared `<smd-image-dropdown>` (`shared/js/components/smd-image-dropdown.js`) is the generic image+name picker — the old PlanMyDay `pmd-stream-select` was folded into it and deleted. It is DATA-driven, not DOM: host sets `options = [{name, image}]` (image OPTIONAL → text-only rows, e.g. CountMyDays' no-image "All") and `selected` = the chosen option's NAME string; picks dispatch `smd-image-dropdown-change` ({ name }). Listener wiring: CountMyDays `#dateCategoryFilter` (`smd-image-dropdown-change` → `setDateCategoryFilter`, "" for All) in `dates-editor.js`; PlanMyDay `#jobStreamDropdown` (name mapped back via `streamIndexByName` in `editor-common.js`). Stable shadow ids for test locators: `smdImageDropdownBtn`, `smdImageBtnIcon`, `smdImageBtnText`, `smdImageDropdownMenu`. Its colours come from the `--smd-dropdown-*` palette at the top of `shared/css/styles.css` (override per theme in `shared/css/themes/<theme>/<theme>.<mode>.css`; superhero does) — see the 2026-09-26 (c) session note.
+- SMD-IMAGE-DROPDOWN CLOSED-STATE LAYOUT (2026-10-04): the closed button
+  LEFT-ALIGNS its label right next to the image and sizes itself to the WIDEST
+  option. Every option label is stacked in ONE hidden `.sizer` grid cell inside
+  the `.labels` grid (`text-align:left`, `gap-2` = 8px), so the button does not
+  resize as the selection changes and the title ellipsises on a narrow column.
+  `.labels` children (incl. `.sizer`) need `min-width:0; overflow:hidden` or the
+  grid's min-content is the widest label and it refuses to shrink. On the Edit
+  Job page the button is `width:fit-content; max-width:100%` (the old
+  `min-width:14em` is gone); CountMyDays' inline `min-width:180/220px` and the
+  stream tab picker's `13.5em` still win, so those usages are unchanged.
+  `smd-image-select` now top-aligns its thumb (`align-items:flex-start` +
+  `.thumb { margin-top: calc(0.375rem + 1px) }`, matching the dropdown button's
+  padding+border) so its image lines up with the dropdown image with OR without
+  a job image; the Edit Job Image wrapper is deliberately NOT `align-items-center`.
 - PMD TASKS (2026-09-26): the PlanMyDay job-edit Tasks list is the `PlanMyDay/js/components/pmd-tasks.js` component `<pmd-tasks>` (light DOM, host id `#jobTasksList`). DATA-driven: host sets `tasks = [{description, done, note, noteOpen}]` + the `read-only` attribute; it renders `.task-row`/`.task-note-row` keeping every id/class the suite targets (`.task-drag-card`, `.drag-handle`, `.task-done-cb`, `.task-desc-input`, `.task-note-btn`, `#taskNoteRow<i>`), and dispatches `pmd-task-change` ({index, field, value}, field done|description|note), `pmd-task-note-toggle` ({index, open}) and `pmd-task-delete` ({index}). `job-editor.js` `getJobTasksTabHTML` emits `<pmd-tasks id="jobTasksList" [read-only]>`; `renderJobTasks()` just sets `el.tasks = jobsBuffer.tasks`, toggles the top Add button and re-inits Sortable; `buildJobEditPage` calls `renderJobTasks()` for BOTH modes. The 3 events are wired on `#jobEditPage` in `app.js` -> `jobTaskField`/noteOpen/`jobDeleteTask`. `jobTaskToggleNote`/`taskNoteOpen` were deleted; `setTaskNoteBtnClass` stays (jobTaskField). Registered in `PlanMyDay/index.html`, `sw.js` APPS and the storybook (+section, nav count 31->32). Row colours come from the `--pmd-tasks-row-{background,foreground}` palette at the top of `shared/css/styles.css` (superhero overrides background to `--bs-dark`); see the 2026-09-26 (d) note.
 - Quartz's "glassmorphism" overrides live in `shared/css/styles.css` (`.modal-content`, `.dropdown-menu`).
 - REPO/PWA LAYOUT (2026-09-10): the repo hosts **multiple PWAs off one origin**
@@ -2953,3 +2967,35 @@ Techniques / gotchas:
 - PMD STREAM HEADER LAYOUT (same day): `pmd-stream-header` now lays out as a TITLE ROW (`.stream-header-main`, full width) plus a META ROW (`.stream-header-meta`) that puts the badges AND `.header-actions` on one line, instead of a title/badge column with the actions as a separate right-hand column that squeezed the title. The title button now spans the whole content column; the actions moved inside the meta row (`ms-auto`, `flex-wrap` so they wrap on narrow/phone widths rather than clipping), and the delete button rides with them. Every selector the suite uses is unchanged (`.stream-header-main`, `.editor-title`, `.tab-badge`, `.count-badge`, `.chevron`, `.drag-handle`, `[data-action=...]`); only the internal `.body`/`.row1`/`.row2` wrappers were replaced. Verified: pmd-regression + pmd-touch + storybook-regression 452/452 (external server).
 
 - TOOLING GOTCHAS (2026-09-30): (1) WATCH THE BROWSER CONSOLE after wiring a new library: a page can render "successfully" (every `page.evaluate` returns, no test throws) while the feature is silently dead, because the failure happened in a worker, a dynamic import, or an unawaited promise. Attach `page.on("console")` + `page.on("pageerror")` + `page.on("requestfailed")` and FAIL the run on any hit; assert RENDERED OUTPUT (row/bar/cell counts, visible text), never just that the container element exists. The RevoGrid 404 above was only caught by a human reading the console, because every property set on the broken `<revo-grid>` read back fine while it rendered ZERO rows. (2) The test servers (`node tests/serve-tests.mjs`) are sirv in PRODUCTION mode: they snapshot the file tree at STARTUP and serve from an in-memory map. After ADDING new files (e.g. vendoring RevoGrid) the server must be RESTARTED or the new file 404s exactly like a broken import — and `reuseExistingServer` means Playwright happily reuses the stale one. Restart after any file add/edit.
+
+### 2026-10-04 - smd-image-dropdown closed-state layout + smd-image-select image alignment
+- THREE reported issues on the PlanMyDay Edit Job General tab:
+  1. The closed dropdown label was CENTERED (Bootstrap `.btn { text-align:center }`
+     inherited by the title span), so the name floated mid-button instead of
+     sitting next to the image. FIX (shared component): the title now lives in a
+     `.labels` grid with `text-align:left`; image + label are 8px apart (`gap-2`).
+  2. The Stream button was pinned by `min-width:14em` (~364px at the default
+     font, 448px Jumbo) and overlapped the Image column below ~600px. FIX: the
+     component sizes the button to the WIDEST option (all labels stacked in one
+     hidden `.sizer` grid cell), so it hugs the widest title and the visible
+     title ellipsises on a narrow column; the job page CSS is now
+     `width:fit-content; max-width:100%` (14em removed). Measured: 263.8px (was
+     364), stable across selections, shrinks to 230px at a 500px viewport so it
+     never crosses into the Image column. CountMyDays inline `min-width:180/220px`
+     and the stream tab picker `13.5em` still win, so those usages are unchanged.
+  3. The dropdown image sat ~10px ABOVE the Image-selector image when the job
+     HAD an image (the `smd-image-select` name+Edit meta grows to ~84px and
+     vertically centered its 50px thumb). FIX: `smd-image-select` host is now
+     `align-items:flex-start` and its `.thumb` has
+     `margin-top: calc(0.375rem + 1px)` (the dropdown button's padding+border
+     offset); the job-edit Image wrapper dropped `d-flex align-items-center`.
+     Both images now line up (delta 0) WITH and WITHOUT a job image.
+- TDD: 5 new tests in `tests/pmd-regression.spec.js` ("Stream dropdown layout"
+  describe) written RED first, then GREEN.
+- Verified: pmd `[Ss]tream` 58/58, cmd `[Cc]ategor` 10/10, storybook 8/8,
+  pmd-screenshots "job edit modal - general tab" (`SCREENSHOT_THEME=superhero`)
+  1/1 (visually confirmed).
+- Files: `shared/js/components/smd-image-dropdown.js`,
+  `shared/js/components/smd-image-select.js`, `PlanMyDay/js/editor-styles.js`,
+  `PlanMyDay/js/job-editor.js`, `tests/pmd-regression.spec.js`.
+- `BUILD_NUMBER` NOT bumped (user runs the full regression, then ships).

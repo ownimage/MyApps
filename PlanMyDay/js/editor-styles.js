@@ -36,19 +36,22 @@ var JOBS_EDITOR_STYLES = `
     min-width: 100%;
   }
   /* The Edit Job "Stream" picker gets the same treatment: the dropdown button
-     otherwise stretches to its column width, and would also resize between
-     options. A fixed em min-width keeps it stable for typical stream titles
-     while still growing for unusually long ones. */
+     otherwise stretches to its column width. The component sizes the button to
+     the WIDEST stream title (stable across selections); here we let it hug that
+     width but never exceed the column, so it cannot overlap the Image selector
+     on a narrow screen (the title ellipsises instead). */
   #jobEditPage .job-stream-picker {
     width: fit-content;
+    max-width: 100%;
   }
   #jobEditPage .job-stream-picker smd-image-dropdown {
     display: inline-block;
     width: auto;
+    max-width: 100%;
   }
   #jobEditPage .job-stream-picker smd-image-dropdown .btn {
-    width: auto;
-    min-width: 14em;
+    width: fit-content;
+    max-width: 100%;
   }
   #jobEditPage .job-stream-picker smd-image-dropdown .menu {
     min-width: 100%;
