@@ -74,7 +74,6 @@
     _render() {
       const name = this.getAttribute("image") || "";
       const label = this.getAttribute("label") || name;
-      const idAttr = (id) => id ? ` id="${id}"` : "";
 
       const sImg = this.querySelector(".thumb smd-image");
       sImg.setAttribute("key-prefix", this.keyPrefix);
@@ -86,7 +85,6 @@
         sImg.removeAttribute("image");
       }
 
-      const thumb = this.querySelector(".thumb");
       const ph = this.querySelector(".placeholder");
       ph.hidden = !!name;
 

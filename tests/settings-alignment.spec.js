@@ -1,4 +1,9 @@
 const { test, expect } = require("@playwright/test");
+const { startCoverage, stopCoverage } = require("./coverage");
+
+// Coverage hooks (top-level so every test in this spec is captured).
+test.beforeEach(async ({ page }) => { await startCoverage(page); });
+test.afterEach(async ({ page }) => { await stopCoverage(page); });
 
 // The settings pages put the grid column on the <smd-theme> HOST (`col-md-8`)
 // and the rows inside it, while the app's own settings rows are `row.col-md-8`

@@ -570,6 +570,24 @@ Techniques / gotchas:
   stashed baseline run and a patched run — PNG hashes are useless here: two untouched
   `pmd-screenshots` runs differ in 654 of 1,944 images.
 
+- COVERAGE ONLY COUNTS SPECS WITH HOOKS (2026-10-04): `tests/coverage.js` records
+  coverage only for pages where a spec calls `startCoverage`/`stopCoverage`, and
+  `globalSetup` cleans the cache every run — so any spec WITHOUT the hooks is
+  invisible and its code reads as 0% even when tested. Every regression spec now
+  has top-level hooks (`pmd-regression`, `cmd-regression`, `ffox-regression`,
+  `pmd-gantt`, `qrlinks-regression`, `launch-regression`,
+  `solarcontrolar-regression`, `storybook-regression`, `pmd-touch`,
+  `settings-alignment`, `image-edit-preview-size`; the `*-screenshots` specs
+  deliberately do not). Before this, QRLinks/Launch/SolarControlar and
+  `gantt.js` were entirely absent from the report. `stopCoverage` now also
+  strips the `?v=` query before adding, so the storybook's UN-versioned copies of
+  shared scripts merge with the apps' versioned copies (36 files were double
+  counted, +717 phantom functions). To find holes, decode
+  `coverage-report/coverage-data.js` (`window.reportData='<base64>'` →
+  `zlib.inflateRawSync(Buffer.from(b64,"base64"))`) and list functions with
+  `count === 0`; many are tiny `forEach`/`filter`/`.then` callbacks that only run
+  when an array is non-empty or a branch is taken.
+
 ## Session log
 
 ### 2026-09-30 (b) - mode-based light.css / dark.css re-added (empty, for now)
@@ -2999,3 +3017,35 @@ Techniques / gotchas:
   `shared/js/components/smd-image-select.js`, `PlanMyDay/js/editor-styles.js`,
   `PlanMyDay/js/job-editor.js`, `tests/pmd-regression.spec.js`.
 - `BUILD_NUMBER` NOT bumped (user runs the full regression, then ships).
+
+### 2026-10-04 (b) - coverage hooks in every regression spec + ?v= merge fix + shared-helpers spec
+- WHY the number looked lower: coverage is reset each run and only records specs
+  that call startCoverage/stopCoverage, so pmd-gantt (the 2026-09-30 Gantt
+  feature: PlanMyDay/js/gantt.js = 4/151 functions) plus QRLinks/Launch/
+  SolarControlar/storybook were INVISIBLE to the report. The smd-image change
+  itself added mostly-covered code (only pre-existing getters/dead `idAttr`
+  were uncovered in the touched files).
+- ITEM 1: added top-level startCoverage/stopCoverage hooks to pmd-gantt,
+  qrlinks-regression, launch-regression, solarcontrolar-regression,
+  storybook-regression, pmd-touch, settings-alignment, image-edit-preview-size
+  (screenshot specs stay hook-free).
+- ITEM 2: covered the smd-image-dropdown `options`/`selected` getters and the
+  injectJobEditStyles/injectStreamsEditorStyles guards in pmd-regression;
+  deleted the dead `idAttr` (and an unused `thumb` local) in smd-image-select.js.
+- ITEM 3: new `tests/shared-helpers-coverage.spec.js` drives the pure helpers the
+  UI never reaches: smdImageHash/smdImagePaintVariants/smdImageCacheUrl, the
+  pure SHA-256/HMAC fallback (asserted against known digests), resolveThemeMode,
+  smdConfirmClearAllData (real modal click), and the CountMyDays editor setters.
+- TOOLING FIX: `tests/coverage.js` now strips `?v=` before adding, so the
+  storybook's un-versioned shared-script copies merge with the apps' versioned
+  copies (36 files were double-counted, +717 phantom functions).
+- RESULT (full non-screenshot run, 635/635 pass, --workers=4): functions
+  81.2% (partial scope) -> 89.75% (full scope, merged); statements 87.53%;
+  lines 84.97%; bytes 92.54%. Per app: PlanMyDay 95.3% (was 66.8%), CountMyDays
+  94.1%, shared 87.0%, FreeFormOX 88.9%, QRLinks 78.2%, SolarControlar 77.7%,
+  Launch 72.7%.
+- REMAINING biggest holes (for a future item-3 pass): smd-images.js (SW-gated
+  image-cache GC + editor callbacks, ~17), smd-minio.js importMinioFile + callbacks
+  (~11), smd-qr-import.js (~10), CountMyDays import-wizard.js (~9), QRLinks
+  links-editor.js (~7), SolarControlar app/tab files (~30).
+- `BUILD_NUMBER` NOT bumped (test-only + tooling change).

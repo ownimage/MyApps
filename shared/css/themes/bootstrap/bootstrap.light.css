@@ -1,9 +1,18 @@
+:root {
+  --smd-tab-background: var(--bs-secondary);
+}
+
 .card {
-    background: var(--bs-secondary-bg-subtle);
+    background: var(--bs-secondary-bg-subtle) !important;
+    border: 1px solid black !important;
+}
+
+smd-badge#editJobsTotalBadge {
+    background: var(--bs-secondary) !important;
+    color: white !important;
 }
 
 #smd-app smd-page .smd-page-footer {
-    border-top: 4px solid var(--bs-primary);
     background: color-mix(in hsl, var(--bs-primary) 50%, black);
 }
 

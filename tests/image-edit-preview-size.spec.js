@@ -1,4 +1,9 @@
 const { test, expect } = require("@playwright/test");
+const { startCoverage, stopCoverage } = require("./coverage");
+
+// Coverage hooks (top-level so every test in this spec is captured).
+test.beforeEach(async ({ page }) => { await startCoverage(page); });
+test.afterEach(async ({ page }) => { await stopCoverage(page); });
 
 // The image edit dialog's previews (the main image plus the Light and Dark theme
 // previews) must render at the Settings "Icon size", clamped to 40-100px. The

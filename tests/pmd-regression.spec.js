@@ -3424,6 +3424,33 @@ test.describe("PlanMyDay - Regression", () => {
       });
       expect(delta).toBeLessThanOrEqual(1);
     });
+
+    test("dropdown options and selected getters expose the current data", async ({ page }) => {
+      await openJob(page, 1, 0);
+      const data = await page.evaluate(() => {
+        const dd = document.querySelector("#jobStreamDropdown");
+        return { selected: dd.selected, options: dd.options.map((o) => o.name) };
+      });
+      expect(data.selected).toBe("Work");
+      expect(data.options).toEqual(["Maintenance", "Work"]);
+    });
+
+    test("editor style injectors no-op when their page is missing", async ({ page }) => {
+      const ok = await page.evaluate(() => {
+        const jp = document.getElementById("jobEditPage");
+        const se = document.getElementById("streamsEditor");
+        const jpParent = jp && jp.parentNode;
+        const seParent = se && se.parentNode;
+        if (jp) jp.remove();
+        if (se) se.remove();
+        let threw = false;
+        try { injectJobEditStyles(); injectStreamsEditorStyles(); } catch (e) { threw = true; }
+        if (jp) jpParent.appendChild(jp);
+        if (se) seParent.appendChild(se);
+        return !threw;
+      });
+      expect(ok).toBe(true);
+    });
   });
 
   // ── Image Editing UI ────────────────────────────────────────

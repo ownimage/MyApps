@@ -1,4 +1,9 @@
 const { test, expect } = require("@playwright/test");
+const { startCoverage, stopCoverage } = require("./coverage");
+
+// Coverage hooks (top-level so every test in this spec is captured).
+test.beforeEach(async ({ page }) => { await startCoverage(page); });
+test.afterEach(async ({ page }) => { await stopCoverage(page); });
 
 // The Gantt page (Settings -> Display -> Show Gantt, then the Gantt menu item)
 // is a READ-ONLY projection of the stream/job tree, now drawn by the vendored

@@ -1,4 +1,9 @@
 const { test, expect } = require("@playwright/test");
+const { startCoverage, stopCoverage } = require("./coverage");
+
+// Coverage hooks (top-level so every test in this spec is captured).
+test.beforeEach(async ({ page }) => { await startCoverage(page); });
+test.afterEach(async ({ page }) => { await stopCoverage(page); });
 
 // Mock the Flask API so the app works without a live server. The Flask URL
 // defaults to "/solar", so route same-origin /solar/api/* paths.
