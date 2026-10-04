@@ -4,8 +4,18 @@
 
 #smd-app smd-page .smd-page-footer {
     border-top: 4px solid var(--bs-primary);
-    background: var(--bs-body-bg);
+    background: color-mix(in hsl, var(--bs-primary) 50%, black);
 }
 
 
+#smd-app smd-page .smd-page-header {
+    background: color-mix(in hsl, var(--bs-primary) 50%, black);
+}
 
+#smd-app #streamsEditor pmd-stream-header .stream-accordion-header {
+    background: color-mix(in hsl, var(--bs-primary) 50%, black) !important;
+}
+
+#smd-app #streamsEditor pmd-stream-header[expanded] .stream-accordion-header {
+    background-color: color-mix(in hsl, var(--bs-danger) 50%, black) !important;
+}

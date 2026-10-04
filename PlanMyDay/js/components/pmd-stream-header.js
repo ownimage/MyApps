@@ -5,23 +5,21 @@ pmdStreamHeaderTemplate.innerHTML = `
     <div class="thumb d-flex align-items-center justify-content-center flex-shrink-0 mx-2">
         <smd-image key-prefix="shared-"></smd-image>
     </div>
-    <button type="button"
-            class="stream-header-main btn btn-link flex-grow-1 text-start text-reset text-decoration-none p-0 border-0 d-flex flex-column gap-1 overflow-hidden me-2"
-            aria-expanded="false">
-        <div class="body d-flex flex-column flex-grow-1 gap-1 overflow-hidden me-2">
-            <div class="row1 d-flex align-items-center gap-1 flex-nowrap">
-                <span class="editor-title d-block fw-bold text-truncate"></span>
-            </div>
-            <div class="row2 d-flex gap-1 flex-nowrap">
-                <smd-badge class="tab-badge" variant="success" pill></smd-badge>
-                <smd-badge class="count-badge" variant="secondary" pill hidden></smd-badge>
+    <div class="stream-header-body d-flex flex-column gap-1 flex-grow-1 overflow-hidden me-2">
+        <button type="button"
+                class="stream-header-main btn btn-link w-100 text-start text-reset text-decoration-none p-0 border-0 overflow-hidden"
+                aria-expanded="false">
+            <span class="editor-title d-block fw-bold text-truncate"></span>
+        </button>
+        <div class="stream-header-meta d-flex align-items-center gap-1 flex-wrap">
+            <smd-badge class="tab-badge" variant="success" pill></smd-badge>
+            <smd-badge class="count-badge" variant="secondary" pill hidden></smd-badge>
+            <div class="header-actions d-flex align-items-center flex-shrink-0 gap-1 ms-auto px-1">
+                <button type="button" class="btn btn-sm btn-secondary" data-action="add-job">Add Job</button>
+                <button type="button" class="btn btn-sm btn-primary" data-action="edit">Edit</button>
+                <button type="button" class="btn btn-sm btn-danger m-2" data-action="delete" hidden>Delete</button>
             </div>
         </div>
-    </button>
-    <div class="header-actions d-flex align-items-center flex-shrink-0 gap-1 px-1">
-        <button type="button" class="btn btn-sm btn-secondary" data-action="add-job">Add Job</button>
-        <button type="button" class="btn btn-sm btn-primary" data-action="edit">Edit</button>
-        <button type="button" class="btn btn-sm btn-danger m-2" data-action="delete" hidden>Delete</button>
     </div>
     <button type="button" class="chevron btn btn-link p-0 border-0 text-reset me-2" aria-label="Expand"></button>
 </div>
