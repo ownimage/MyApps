@@ -318,6 +318,46 @@ test.describe("Gantt page", () => {
     }
   });
 
+  test("the header Start/End toggle hides the date columns, sits before Streams, and persists", async ({ page }) => {
+    await page.goto("/PlanMyDay/");
+    await seedStreams(page, SAMPLE);
+    await enableGantt(page);
+    await openChart(page);
+
+    const headerCells = () =>
+      page.evaluate(() => document.querySelectorAll("#ganttChart revogr-header .rgHeaderCell").length);
+
+    // default: Task, Start, End + the timeline column = 4 header cells
+    expect(await headerCells()).toBe(4);
+
+    // the toggle is just BEFORE the Streams filter in the header
+    const beforeStreams = await page.evaluate(() => {
+      const dates = document.querySelector("#ganttPage .gantt-dates-toggle");
+      const streams = document.querySelector("#ganttPage .gantt-stream-filter");
+      return !!dates && !!streams && (dates.compareDocumentPosition(streams) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
+    });
+    expect(beforeStreams).toBe(true);
+
+    // hide the Start/End columns -> only Task + timeline remain
+    await page.locator("#ganttPage .gantt-dates-toggle").click();
+    await page.waitForTimeout(600);
+    expect(await headerCells()).toBe(2);
+    await expect(page.locator("#ganttPage .gantt-dates-toggle")).not.toHaveClass(/active/);
+    await expect(page.locator("#ganttPage .gantt-dates-toggle")).toHaveAttribute("aria-pressed", "false");
+
+    // the choice persists across a close/reopen
+    await page.evaluate(() => closeGantt());
+    await openChart(page);
+    expect(await headerCells()).toBe(2);
+    await expect(page.locator("#ganttPage .gantt-dates-toggle")).toHaveAttribute("aria-pressed", "false");
+
+    // show them again
+    await page.locator("#ganttPage .gantt-dates-toggle").click();
+    await page.waitForTimeout(600);
+    expect(await headerCells()).toBe(4);
+    await expect(page.locator("#ganttPage .gantt-dates-toggle")).toHaveAttribute("aria-pressed", "true");
+  });
+
   test("renders one row per stream and job, including a minimum bar for a job-less stream", async ({ page }) => {
     await page.goto("/PlanMyDay/");
     await seedStreams(page, SAMPLE);

@@ -3003,6 +3003,22 @@ Techniques / gotchas:
   so `#ganttPage revogr-data .rgCell:has(.rg-gantt-cell) { padding-left/right: 0 }`
   puts the bars/gridlines and the header on ONE x origin. Test: "day view shows
   the date numbers under the month, aligned to the columns".
+- GANTT START/END COLUMN TOGGLE (2026-10-04): a "Start/End" button in the Gantt
+  header shows/hides the Start and End date columns. It is the LAST control
+  before the Streams filter and floats right WITH it: the toggle carries
+  `margin-left: auto` (`.gantt-stream-filter` no longer does) so the two sit
+  together on the right while zoom/undo stay left. `ganttShowDates()` reads
+  `smdKey("ganttShowDates")` (default SHOWN); `drawGantt` filters
+  `lib.DEFAULT_TASK_COLUMNS` to drop `startDate`/`endDate`, and the grid is
+  recreated when the zoom OR the show-dates flag changes (`grid.__ganttKey`).
+  `ganttPaintDatesToggle()` re-asserts the active state on every render.
+  `openGantt` now also clears a pending `_ganttCloseTimer` (fast close -> reopen
+  used to add `d-none` after the open and render into a zero-height box).
+  ALL header buttons carry `btn-sm`: without it the shared
+  `button, .btn { font-size: var(--smd-type-h2) }` rule made the zoom + undo/redo
+  buttons the h2 size (49px at the default font) while the Start/End + Streams
+  `.btn-sm` buttons were 41px; `btn-sm` pins them to the p token so every header
+  control is the same height.
 - GANTT WEEKEND COLUMN HIGHLIGHT (2026-10-04): the Day view shades the Sat+Sun
   columns via a `repeating-linear-gradient` on `.rg-gantt-cell` (chart) and
   `.rg-gantt-header` (band), scoped to `data-gantt-zoom-preset="day-week"`. The

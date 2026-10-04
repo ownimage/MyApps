@@ -113,6 +113,10 @@ function openGantt() {
   document.getElementById("jobSearchEditor").classList.add("d-none");
   const page = document.getElementById("ganttPage");
   if (!page) return;
+  // Cancel a pending close timer from a fast close -> reopen: otherwise it adds
+  // `d-none` AFTER this open and the chart renders into a zero-height box.
+  clearTimeout(_ganttCloseTimer);
+  _ganttCloseTimer = null;
   page.classList.remove("d-none");
   buildGanttContent();
   if (!page.__ganttActionsBound) {
@@ -225,18 +229,57 @@ function ganttZoomHtml() {
       // Every preset except the LAST carries `me-1` (margin-end), so the Day and
       // Week buttons get right-margin and the presets read as evenly-spaced
       // controls instead of a fused segment group.
-      '<button type="button" class="btn' + (i < ganttZoomPresets.length - 1 ? " me-1" : "") + '" data-gantt-zoom="' + p.id + '"' +
+      '<button type="button" class="btn btn-sm' + (i < ganttZoomPresets.length - 1 ? " me-1" : "") + '" data-gantt-zoom="' + p.id + '"' +
       ' aria-pressed="false" onclick="ganttSetZoom(\'' + p.id + '\')">' + p.label + "</button>"
     )).join("") +
     "</div>"
   );
 }
 
+// SHOW/HIDE THE START + END COLUMNS
+//
+// A header toggle (just before the Streams filter) that shows or hides the
+// Start and End date columns. Persisted like the zoom (a view preference), so
+// it survives reopening the page. Default: SHOWN (matches the previous layout).
+function ganttShowDates() {
+  try {
+    return localStorage.getItem(smdKey("ganttShowDates")) !== "false";
+  } catch (e) {
+    return true;
+  }
+}
+
+function ganttToggleShowDates() {
+  const on = !ganttShowDates();
+  try {
+    localStorage.setItem(smdKey("ganttShowDates"), on ? "true" : "false");
+  } catch (e) {
+    /* storage unavailable; the toggle stays session-only */
+  }
+  renderGantt();
+}
+
+// Re-assert the toggle's active state (the header is rebuilt on every open).
+function ganttPaintDatesToggle() {
+  const btn = document.querySelector("#ganttPage .gantt-dates-toggle");
+  if (!btn) return;
+  const on = ganttShowDates();
+  btn.classList.toggle("active", on);
+  btn.setAttribute("aria-pressed", on ? "true" : "false");
+}
+
+function ganttDatesToggleHtml() {
+  return (
+    '<button type="button" class="btn btn-sm gantt-dates-toggle" aria-pressed="true" ' +
+    'title="Show or hide the Start and End date columns" onclick="ganttToggleShowDates()">Start/End</button>'
+  );
+}
+
 function ganttHeaderHtml() {
-  // Zoom first, then Undo/Redo, then the Streams dropdown. The dropdown carries
-  // `margin-left:auto` (see injectGanttTheme), so it stays hard right and the
-  // zoom + history controls sit beside the page title.
-  return ganttZoomHtml() + ganttUndoRedoHtml() + ganttStreamFilterHtml();
+  // Zoom, Undo/Redo, the Start/End toggle, then the Streams dropdown. The
+  // Start/End toggle carries `margin-left:auto` (see injectGanttTheme), so it and
+  // the Streams filter float together on the right while zoom/history stay left.
+  return ganttZoomHtml() + ganttUndoRedoHtml() + ganttDatesToggleHtml() + ganttStreamFilterHtml();
 }
 
 // Undo / Redo buttons in the header, just before the Streams filter. Disabled
@@ -244,9 +287,9 @@ function ganttHeaderHtml() {
 function ganttUndoRedoHtml() {
   return (
     '<div class="gantt-undo-redo btn-group btn-group-sm ms-2" role="group" aria-label="Undo and redo">' +
-      '<button type="button" class="btn gantt-undo-btn" title="Undo (Ctrl+Z)" aria-label="Undo" disabled ' +
+      '<button type="button" class="btn btn-sm gantt-undo-btn" title="Undo (Ctrl+Z)" aria-label="Undo" disabled ' +
         'onclick="ganttUndo()">&#8630;</button>' +
-      '<button type="button" class="btn gantt-redo-btn" title="Redo (Ctrl+Y)" aria-label="Redo" disabled ' +
+      '<button type="button" class="btn btn-sm gantt-redo-btn" title="Redo (Ctrl+Y)" aria-label="Redo" disabled ' +
         'onclick="ganttRedo()">&#8631;</button>' +
     "</div>"
   );
@@ -573,6 +616,7 @@ function renderGantt() {
   if (!host) return;
   ganttPaintZoomButtons();
   ganttPaintUndoButtons();
+  ganttPaintDatesToggle();
   ganttLibReady().then(function (lib) {
     // Bail if a newer render started, or if the page was closed/rebuilt while we
     // were waiting — the element we captured may no longer be the one on screen.
@@ -593,6 +637,7 @@ function drawGantt(host, lib) {
   const todayStr = getTodayStr();
   const items = buildGanttTasks(loadStreams(), todayStr);
   const zoom = ganttZoom();
+  const showDates = ganttShowDates();
   // Expose the active zoom on the host so the injected CSS can restyle the
   // timeline header per preset (the Day view shows the day-number row, the
   // coarser views keep the single month row). Named `-preset` to avoid clashing
@@ -606,10 +651,12 @@ function drawGantt(host, lib) {
   // horizontal scroll position, so the element is built once per container and
   // afterwards only `source` (and `gantt`, for zoom) is touched.
   let grid = host.querySelector("revo-grid");
-  // A ZOOM change DOES recreate the grid: the grid reads the header height
-  // (--rg-theme-header-height, 56px only in the Day view) once on mount, so a
-  // CSS-only toggle would leave a stale header height behind.
-  if (grid && grid.__ganttZoom !== zoom) {
+  // A ZOOM or SHOW-DATES change DOES recreate the grid: the grid reads the
+  // header height (--rg-theme-header-height, 56px only in the Day view) and its
+  // COLUMN SET once on mount, so a CSS/prop-only change would leave a stale
+  // header/layout behind.
+  const gridKey = zoom + "|" + (showDates ? "1" : "0");
+  if (grid && grid.__ganttKey !== gridKey) {
     grid.remove();
     grid = null;
   }
@@ -636,8 +683,11 @@ function drawGantt(host, lib) {
     // The plugin's own column set (Task / Start / End) with sorting switched
     // off. normalizeTaskColumns() keeps an explicit `sortable: false` — it only
     // falls back to true when the property is absent — and pins the task
-    // columns to the start edge so the timeline scrolls under them.
-    grid.columns = lib.DEFAULT_TASK_COLUMNS.map(function (col) {
+    // columns to the start edge so the timeline scrolls under them. The
+    // Start/End toggle drops the two date columns (Task + timeline stay).
+    grid.columns = lib.DEFAULT_TASK_COLUMNS.filter(function (col) {
+      return showDates || (col.prop !== "startDate" && col.prop !== "endDate");
+    }).map(function (col) {
       var copy = Object.assign({}, col, { sortable: false });
       // Indent the Task column for JOB rows so a job is visually nested under
       // its stream. The rows carry no DOM marker for task vs summary, so this
@@ -708,9 +758,9 @@ function drawGantt(host, lib) {
     };
   }
 
-  // Remember the zoom this grid was mounted with, so a later zoom change
-  // recreates it (see above).
-  grid.__ganttZoom = zoom;
+  // Remember the zoom + show-dates this grid was mounted with, so a later
+  // change to either recreates it (see above).
+  grid.__ganttKey = gridKey;
   grid.source = items;
   ganttWatchMode(grid);
   ganttBindBarDrag(grid);
@@ -2164,6 +2214,30 @@ function changeShowGantt(enabled) {
     "  border-color: var(--bs-primary);",
     "  font-weight: 600;",
     "}",
+    "/* Start/End columns toggle: same solid secondary/primary treatment as the",
+    "   zoom buttons (active = columns shown). */",
+    "#ganttPage .gantt-dates-toggle {",
+    "  /* Float right, just before the Streams filter (which no longer auto-pushes).",
+    "     `margin-left: auto` takes the free space so this button + Streams sit",
+    "     together on the right; the right margin is the gap between them. */",
+    "  margin-left: auto;",
+    "  margin-right: 0.5rem;",
+    "  background-color: var(--bs-secondary);",
+    "  color: #fff;",
+    "  border: 1px solid var(--bs-secondary);",
+    "}",
+    "#ganttPage .gantt-dates-toggle:hover,",
+    "#ganttPage .gantt-dates-toggle:focus {",
+    "  background-color: var(--bs-secondary);",
+    "  color: #fff;",
+    "  border-color: var(--bs-secondary);",
+    "}",
+    "#ganttPage .gantt-dates-toggle.active {",
+    "  background-color: var(--bs-primary);",
+    "  color: #fff;",
+    "  border-color: var(--bs-primary);",
+    "  font-weight: 600;",
+    "}",
     "/* Undo/Redo buttons: the same solid secondary fill + white text as the zoom",
     "   buttons. Disabled buttons get a muted, non-interactive treatment so an",
     "   empty history reads as inactive rather than looking clickable. */",
@@ -2190,7 +2264,6 @@ function changeShowGantt(enabled) {
     "   data-bs-toggle, so no Bootstrap dropdown instance is required. */",
     "#ganttPage .gantt-stream-filter {",
     "  position: relative;",
-    "  margin-left: auto;",
     "}",
     "/* The toggle matches the zoom buttons: a SOLID secondary fill with white",
     "   text (the old `btn-outline-secondary` was a dull grey outline that",
@@ -2236,20 +2309,11 @@ function changeShowGantt(enabled) {
     "#ganttPage .gantt-stream-label {",
     "  min-width: 0;",
     "}",
-    "/* Page chrome. The shared rule paints EVERY smd-page header/footer with",
-    "   `var(--bs-primary)`, and in flatly LIGHT mode that primary is the dark",
-    "   navy #2c3e50 - so the Gantt rendered white-on-black in the light theme.",
-    "   The user asked for THIS PAGE ONLY, so the override is scoped to",
-    "   #ganttPage and the header follows body colours like the chart does.",
-    "   `#smd-app #ganttPage` is needed to outrank the shared (1,1,2) rule; the",
-    "   h1 has no colour rule of its own and inherits from the header. Note the",
-    "   shared FOOTER rule sets a background but no foreground, so in light mode",
-    "   the footer inherited dark text onto a dark fill - this fixes that too. */",
-    "#smd-app #ganttPage .smd-page-header,",
-    "#smd-app #ganttPage .smd-page-footer {",
-    "  background-color: var(--gantt-surface);",
-    "  color: var(--gantt-text);",
-    "}",
+    "/* Page chrome: NONE. The Gantt page uses the normal shared smd-page",
+    "   header/footer rules (background + foreground from",
+    "   --smd-page-header-background / -color). There must be no #ganttPage",
+    "   page-chrome override - a separate value made the header follow the body",
+    "   bg (invisible, white-on-white in bootstrap light). */",
     "/* LAYOUT: the chart fills the page. The smd-page body is `flex: 1",
     "   overflow-y: auto`, which would wrap the grid in a scroll pane and cap it",
     "   at the body's own scroll height - the grid needs the body's flex space",
