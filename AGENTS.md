@@ -3003,6 +3003,20 @@ Techniques / gotchas:
   so `#ganttPage revogr-data .rgCell:has(.rg-gantt-cell) { padding-left/right: 0 }`
   puts the bars/gridlines and the header on ONE x origin. Test: "day view shows
   the date numbers under the month, aligned to the columns".
+- GANTT WEEKEND COLUMN HIGHLIGHT (2026-10-04): the Day view shades the Sat+Sun
+  columns via a `repeating-linear-gradient` on `.rg-gantt-cell` (chart) and
+  `.rg-gantt-header` (band), scoped to `data-gantt-zoom-preset="day-week"`. The
+  COLOUR is `--gantt-weekend-bg` (default
+  `color-mix(in srgb, var(--bs-body-color) 7%, transparent)`) - change that ONE
+  variable to restyle it. The phase is `--gantt-weekend-offset` = the first
+  Saturday's x, set by `ganttWeekendOffsetPx(items)` (the vendor's range starts
+  2 days before the earliest date; Day columns are 44px). GOTCHA: the weekend
+  layer MUST tile at `background-size: 308px 100%` (its own period), NOT `100%`.
+  A `100%` tile makes the period the element width (32120px) and, because
+  `32120 % 308 = 88`, the `background-position` shift lands the pattern wrongly
+  at the left edge - an extra day (e.g. the Friday) gets highlighted on the first
+  weekend. Test: "weekend highlight lands on exactly Saturday and Sunday for
+  every start weekday" (samples the RENDERED pixels for all 7 start weekdays).
 - GANTT endDate IS INCLUSIVE (2026-10-04): the vendored plugin's
   `createGanttBarLayout` (revolist-gantt.js:105) draws a bar from `startDate` to
   `endDate + 1 day`, so `endDate` is the LAST day the bar covers.
@@ -3156,4 +3170,30 @@ Techniques / gotchas:
 - Updated the scroll-anchor test's hard-coded `r.top >= 95` to derive from the
   header bottom (the taller Day header shifted the data area 26px).
 - Verified: full `tests/pmd-gantt.spec.js` 51/51.
+- `BUILD_NUMBER` NOT bumped - bump before shipping (`npm run bump:build`).
+
+### 2026-10-04 (f) - Gantt weekend highlight + off-by-one at the start
+- FEATURE (user): subtly highlight the Saturday/Sunday columns in the Day view,
+  changeable from CSS. Implemented as a `repeating-linear-gradient` on
+  `.rg-gantt-cell` + `.rg-gantt-header`, colour `--gantt-weekend-bg`, phase
+  `--gantt-weekend-offset` (first Saturday's x).
+- BUG (user): the timeline started Fri 2 Oct but Fri+Sat+Sun were all
+  highlighted; later weekends were correct. Cause: the weekend layer tiled at
+  `background-size: 100% 100%`, so its period was the ELEMENT width (32120px)
+  and `32120 % 308 = 88` made the `background-position` shift land the pattern
+  wrongly at the left edge. FIX: tile at the pattern's own `308px 100%`.
+- TDD: added "weekend highlight lands on exactly Saturday and Sunday for every
+  start weekday" - it samples the RENDERED pixels (screenshot + sharp) for all 7
+  start weekdays and asserts the bright columns are exactly Sat/Sun. It FAILED on
+  the buggy CSS (e.g. start 2026-10-06 got "8 Thu, 9 Fri, 10 Sat, 11 Sun" instead
+  of "4 Sun, 10 Sat, 11 Sun") and passes after the fix.
+- Also: "day view highlights the weekend columns via a CSS variable" and
+  "week and month views do not highlight weekend columns".
+- HEADER CONFLICT: `PlanMyDay/css/gantt.css` deliberately sets
+  `.rg-gantt-header { background: var(--bs-body-bg); background-image: none }`
+  (clears the vendor's vertical gradient). The weekend rule must add ONLY
+  `background-image` (keeping the flat body-bg colour) - do NOT re-add the
+  vendor's `linear-gradient(...)` layer or the dark-navy band returns on
+  superhero light. The theming test now strips `repeating-linear-gradient(` and
+  asserts no NON-repeating gradient remains.
 - `BUILD_NUMBER` NOT bumped - bump before shipping (`npm run bump:build`).

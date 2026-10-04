@@ -515,6 +515,23 @@ function buildGanttTasks(streams, todayStr) {
   return items;
 }
 
+// x-offset (px) of the FIRST Saturday column in the Day-view timeline, used by
+// the --gantt-weekend-offset variable that shifts the weekend highlight onto the
+// right columns. The vendor's timeline starts 2 days before the earliest date
+// (getRange in revolist-gantt.js: `v(min, -2)`) and Day columns are 44px, so the
+// first Saturday sits `(6 - weekday + 7) % 7` columns in. Returns "0px" when the
+// chart is empty (nothing to align to).
+function ganttWeekendOffsetPx(items) {
+  var min = null;
+  (items || []).forEach(function (it) {
+    if (it.startDate && (!min || it.startDate < min)) min = it.startDate;
+  });
+  if (!min) return "0px";
+  var rangeStart = ganttAddDaysStr(min, -2);
+  var weekday = new Date(rangeStart + "T00:00:00Z").getUTCDay(); // 0 = Sunday
+  return (((6 - weekday + 7) % 7) * 44) + "px";
+}
+
 // "YYYY-MM-DD" + n days, without pulling in a date library. Uses UTC so the
 // arithmetic is immune to the local timezone / DST.
 function ganttAddDaysStr(dateStr, days) {
@@ -581,6 +598,9 @@ function drawGantt(host, lib) {
   // coarser views keep the single month row). Named `-preset` to avoid clashing
   // with the zoom BUTTONS' own `data-gantt-zoom` attribute.
   host.setAttribute("data-gantt-zoom-preset", zoom);
+  // x of the first Saturday column, for the weekend highlight (Day view). See
+  // ganttWeekendOffsetPx().
+  host.style.setProperty("--gantt-weekend-offset", ganttWeekendOffsetPx(items));
   // Reuse the grid if this container already has one. Re-creating it on every
   // stream-filter change would re-register the plugin and throw away the
   // horizontal scroll position, so the element is built once per container and
@@ -1788,6 +1808,9 @@ function changeShowGantt(enabled) {
     "  --gantt-text: var(--bs-body-color);",
     "  --gantt-muted: var(--bs-secondary-color);",
     "  --gantt-border: var(--bs-border-color);",
+    "  /* Weekend column highlight (Day view). Change THIS to restyle it, or",
+    "     override --gantt-weekend-bg from any stylesheet. */",
+    "  --gantt-weekend-bg: color-mix(in srgb, var(--bs-body-color) 7%, transparent);",
     "}",
     "/* 1. RevoGrid grid tokens. Explicit values only: anything left unset falls",
     "   back to the vendors' light defaults and shows through as a white panel.",
@@ -1849,6 +1872,37 @@ function changeShowGantt(enabled) {
     "#ganttPage revogr-data .rgCell:has(.rg-gantt-cell) {",
     "  padding-left: 0;",
     "  padding-right: 0;",
+    "}",
+    "/* WEEKEND COLUMN HIGHLIGHT (Day view only - the coarser views are not single",
+    "   days). --gantt-weekend-bg is the colour; --gantt-weekend-offset (set by",
+    "   drawGantt) is the px x of the first Saturday. The pattern is one week wide",
+    "   (7 x 44px) with Sat+Sun (88px) filled and tiled across the timeline; it is",
+    "   laid over the gridline layer on the chart cells, and over the FLAT",
+    "   --bs-body-bg header band (PlanMyDay/css/gantt.css clears the vendor",
+    "   gradient) - so the header stays one surface with the chart. */",
+    "#ganttChart[data-gantt-zoom-preset=\"day-week\"] .rg-gantt-cell {",
+    "  background-image:",
+    "    linear-gradient(to right, var(--rg-gantt-gridline) 1px, transparent 1px),",
+    "    repeating-linear-gradient(to right,",
+    "      var(--gantt-weekend-bg) 0,",
+    "      var(--gantt-weekend-bg) 88px,",
+    "      transparent 88px,",
+    "      transparent 308px);",
+    "  /* The weekend layer MUST tile at the pattern's own 308px period, not 100%:",
+    "     a 100% tile makes the period the element width (32120px) and, because",
+    "     32120 % 308 !== 0, the background-position shift lands the pattern wrongly",
+    "     at the left edge (an extra day highlighted on the first weekend). */",
+    "  background-size: 44px 100%, 308px 100%;",
+    "  background-position: 0 0, var(--gantt-weekend-offset, 0px) 0;",
+    "}",
+    "#ganttChart[data-gantt-zoom-preset=\"day-week\"] .rg-gantt-header {",
+    "  background-image: repeating-linear-gradient(to right,",
+    "    var(--gantt-weekend-bg) 0,",
+    "    var(--gantt-weekend-bg) 88px,",
+    "    transparent 88px,",
+    "    transparent 308px);",
+    "  background-size: 308px 100%;",
+    "  background-position: var(--gantt-weekend-offset, 0px) 0;",
     "}",
     "/* No focus/selection chrome. The chart is read-only: clicking a cell must",
     "   not draw the vendor's focus ring (revogr-focus.focused-cell paints a",

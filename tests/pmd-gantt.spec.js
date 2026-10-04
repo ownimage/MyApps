@@ -209,6 +209,115 @@ test.describe("Gantt page", () => {
     expect(m.borderRight).toBe("0px");
   });
 
+  test("day view highlights the weekend columns via a CSS variable", async ({ page }) => {
+    await page.goto("/PlanMyDay/");
+    await seedStreams(page, SAMPLE);
+    await enableGantt(page);
+    await openChart(page);
+
+    const m = await page.evaluate(() => {
+      const host = document.getElementById("ganttChart");
+      const cell = document.querySelector("#ganttChart revogr-data .rg-gantt-cell");
+      const header = document.querySelector("#ganttChart .rg-gantt-header");
+      return {
+        offset: host.style.getPropertyValue("--gantt-weekend-offset").trim(),
+        weekendBg: getComputedStyle(host).getPropertyValue("--gantt-weekend-bg").trim(),
+        cellBg: getComputedStyle(cell).backgroundImage,
+        headerBg: getComputedStyle(header).backgroundImage
+      };
+    });
+
+    // The offset is the first Saturday's x: a whole number of 44px day columns
+    // within one 7-day period, so the highlight lands on the right columns.
+    expect(m.offset).toMatch(/^\d+px$/);
+    const off = parseInt(m.offset, 10);
+    expect(off % 44).toBe(0);
+    expect(off).toBeGreaterThanOrEqual(0);
+    expect(off).toBeLessThan(308);
+    // The colour is a CSS variable (change it to restyle the highlight).
+    expect(m.weekendBg.length).toBeGreaterThan(0);
+    // Both the chart columns and the header band carry the weekend layer.
+    expect(m.cellBg).toContain("repeating-linear-gradient");
+    expect(m.headerBg).toContain("repeating-linear-gradient");
+  });
+
+  test("week and month views do not highlight weekend columns", async ({ page }) => {
+    await page.goto("/PlanMyDay/");
+    await seedStreams(page, SAMPLE);
+    await enableGantt(page);
+    await openChart(page);
+    await page.evaluate(() => ganttSetZoom("week-month"));
+    await page.waitForTimeout(500);
+    const bg = await page.evaluate(() =>
+      getComputedStyle(document.querySelector("#ganttChart revogr-data .rg-gantt-cell")).backgroundImage);
+    expect(bg).not.toContain("repeating-linear-gradient");
+  });
+
+  test("weekend highlight lands on exactly Saturday and Sunday for every start weekday", async ({ page }) => {
+    test.setTimeout(180000);
+    const sharp = require("sharp");
+
+    // Sample the rendered background colour at the centre of the first 14 day
+    // columns, in a row strip ABOVE the bars (the bar is centred in the 30px
+    // row, so y = rowTop+1 is clean background). Returns each column's weekday
+    // (parsed from its own header label) and its luminance.
+    async function sampleRow() {
+      const geo = await page.evaluate(() => {
+        const ticks = Array.from(document.querySelectorAll("#ganttChart .rg-gantt-header-cell"))
+          .filter((c) => getComputedStyle(c).getPropertyValue("--rg-gantt-header-row").trim() === "1")
+          .slice(0, 14)
+          .map((c) => {
+            const r = c.getBoundingClientRect();
+            return { text: c.textContent.trim(), cx: r.left + r.width / 2 };
+          });
+        const cell = document.querySelector("#ganttChart revogr-data .rg-gantt-cell");
+        const row = document.querySelector("#ganttChart revogr-data .rgRow");
+        return { ticks, cellLeft: cell.getBoundingClientRect().left, rowTop: row.getBoundingClientRect().top };
+      });
+      const x0 = Math.round(geo.cellLeft);
+      const width = 14 * 44;
+      const buf = await page.screenshot({ clip: { x: x0, y: Math.round(geo.rowTop) + 1, width, height: 3 } });
+      const { data, info } = await sharp(buf).raw().toBuffer({ resolveWithObject: true });
+      const y = Math.floor(info.height / 2);
+      return geo.ticks.map((t) => {
+        const px = Math.round(t.cx - x0);
+        const i = (y * info.width + px) * info.channels;
+        return {
+          text: t.text,
+          weekend: /^(Sat|Sun)$/.test((t.text.split(" ").pop() || "")),
+          lum: 0.2126 * data[i] + 0.7152 * data[i + 1] + 0.0722 * data[i + 2]
+        };
+      });
+    }
+
+    // Monday base, 7 seeds -> the timeline (earliest date - 2 days) starts on
+    // every weekday in turn, so every possible phase of the 7-day pattern is hit.
+    const base = "2026-10-05";
+    for (let d = 0; d < 7; d++) {
+      await page.goto("/PlanMyDay/");
+      const startDate = await page.evaluate(({ b, n }) => ganttAddDaysStr(b, n), { b: base, n: d });
+      await seedStreams(page, [
+        {
+          title: "Work",
+          sequence: 1,
+          jobs: [{ id: "j", title: "Job", sequence: 1, active: true, schedule: { type: "daily" }, sleepUntil: startDate, duration: 1 }]
+        }
+      ]);
+      await page.evaluate(() => localStorage.setItem("planmydays_ganttZoom", "day-week"));
+      await enableGantt(page);
+      await openChart(page);
+
+      const samples = await sampleRow();
+      // The highlighted columns are the brighter ones (dark default theme); split
+      // on the median luminance and require the split to match Sat/Sun exactly.
+      const sorted = samples.map((s) => s.lum).sort((a, b) => a - b);
+      const mid = (sorted[Math.floor((sorted.length - 1) / 2)] + sorted[Math.ceil((sorted.length - 1) / 2)]) / 2;
+      const got = samples.filter((s) => s.lum > mid).map((s) => s.text).join(", ");
+      const want = samples.filter((s) => s.weekend).map((s) => s.text).join(", ");
+      expect(got, `start=${startDate}`).toBe(want);
+    }
+  });
+
   test("renders one row per stream and job, including a minimum bar for a job-less stream", async ({ page }) => {
     await page.goto("/PlanMyDay/");
     await seedStreams(page, SAMPLE);
@@ -668,7 +777,12 @@ test.describe("Gantt page", () => {
         };
       });
       expect(header.hBg, `${theme}/${mode} timeline header uses --bs-body-bg`).toBe(rgb(expected.bodyBg));
-      expect(header.hImage, `${theme}/${mode} timeline header has no gradient`).toBe("none");
+      // The header is a flat --bs-body-bg surface (PlanMyDay/css/gantt.css clears
+      // the vendor's vertical gradient). In the Day view it also carries the
+      // weekend highlight, which is a REPEATING gradient, so strip those and
+      // assert no NON-repeating (vendor) gradient is left.
+      const vendorGradient = String(header.hImage).replace(/repeating-linear-gradient\(/g, "").includes("linear-gradient(");
+      expect(vendorGradient, `${theme}/${mode} timeline header has no vendor gradient`).toBe(false);
       expect(header.revoBg, `${theme}/${mode} revogr-header uses --bs-body-bg`).toBe(rgb(expected.bodyBg));
       // header text must contrast on the body surface (readable, not white-on-white)
       expect(header.hColor, `${theme}/${mode} header text readable on body bg`).not.toBe(rgb(expected.bodyBg));
