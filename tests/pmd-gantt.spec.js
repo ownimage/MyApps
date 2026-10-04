@@ -158,6 +158,57 @@ test.describe("Gantt page", () => {
     expect(Math.abs(m.b.width - dayWidth)).toBeLessThanOrEqual(1.5);
   });
 
+  test("day view shows the date numbers under the month, aligned to the columns", async ({ page }) => {
+    await page.goto("/PlanMyDay/");
+    await seedStreams(page, SAMPLE);
+    await enableGantt(page); // default zoom is day-week
+    await openChart(page);
+
+    const m = await page.evaluate(() => {
+      const cells = Array.from(document.querySelectorAll(".rg-gantt-header-cell"));
+      const rowOf = (c) => getComputedStyle(c).getPropertyValue("--rg-gantt-header-row").trim();
+      const tick = cells.find((c) => rowOf(c) === "1");   // day cells ("2 Fri")
+      const month = cells.find((c) => rowOf(c) === "0");  // month cells ("October 2026")
+      const header = document.querySelector(".rg-gantt-header");
+      const hb = header.getBoundingClientRect();
+      const tr = tick.getBoundingClientRect();
+      const mr = month.getBoundingClientRect();
+      const range = document.createRange();
+      range.selectNodeContents(tick);
+      const rr = range.getBoundingClientRect();
+      const bar = document.querySelector(".rg-gantt-bar--task");
+      const tcs = getComputedStyle(tick);
+      return {
+        tickText: tick.textContent.trim(),
+        tickLeft: tr.left,
+        tickWidth: tr.width,
+        tickTop: tr.top,
+        monthTop: mr.top,
+        headerTop: hb.top,
+        headerBottom: hb.bottom,
+        textTop: rr.top,
+        textBottom: rr.bottom,
+        barLeft: bar ? bar.getBoundingClientRect().left : null,
+        borderLeft: tcs.borderLeftWidth,
+        borderRight: tcs.borderRightWidth
+      };
+    });
+
+    expect(m.tickText).toMatch(/\d/);              // the row carries a date number
+    expect(m.tickTop).toBeGreaterThan(m.monthTop); // day numbers sit UNDER the month row
+    // both rows sit fully inside the (now taller) header - the day row is not clipped
+    expect(m.textTop).toBeGreaterThanOrEqual(m.headerTop - 1);
+    expect(m.textBottom).toBeLessThanOrEqual(m.headerBottom + 1);
+    // the date cells line up with the chart columns: a bar starts on a day-cell
+    // boundary, i.e. (barLeft - firstDayCellLeft) is a whole number of day widths
+    const offset = ((m.barLeft - m.tickLeft) % m.tickWidth + m.tickWidth) % m.tickWidth;
+    expect(Math.min(offset, m.tickWidth - offset)).toBeLessThanOrEqual(1);
+    // the divider is a LEFT border so it shares the gridline's x (a right border
+    // sat 1px left of the gridline and made the day numbers look off the column)
+    expect(m.borderLeft).toBe("1px");
+    expect(m.borderRight).toBe("0px");
+  });
+
   test("renders one row per stream and job, including a minimum bar for a job-less stream", async ({ page }) => {
     await page.goto("/PlanMyDay/");
     await seedStreams(page, SAMPLE);
@@ -288,11 +339,16 @@ test.describe("Gantt page", () => {
 
     const topRow = (page) => page.evaluate(() => {
       const scroller = document.querySelector("#ganttChart revo-grid .vertical-inner");
-      // the first rendered row whose top is at/just below the viewport top
+      // The scrollable data area starts at the timeline header's bottom; rows
+      // above that are clipped behind the header. Derive the threshold from the
+      // header (not a hard-coded pixel) so the Day view's taller header cannot
+      // silently break this test.
+      const dataTop = document.querySelector("#ganttChart .rg-gantt-header").getBoundingClientRect().bottom;
+      // the first rendered row whose top is at/just below the data-area top
       let best = null;
       document.querySelectorAll("#ganttChart .rgRow").forEach((el) => {
         const r = el.getBoundingClientRect();
-        if (r.top >= 95 && (!best || r.top < best.top)) {
+        if (r.top >= dataTop - 10 && (!best || r.top < best.top)) {
           best = { top: r.top, title: (el.querySelector(".pmd-gantt-stream-title") || el.querySelector(".pmd-gantt-job-name") || {}).textContent };
         }
       });

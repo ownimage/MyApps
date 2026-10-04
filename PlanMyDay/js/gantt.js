@@ -575,11 +575,24 @@ function renderGantt() {
 function drawGantt(host, lib) {
   const todayStr = getTodayStr();
   const items = buildGanttTasks(loadStreams(), todayStr);
+  const zoom = ganttZoom();
+  // Expose the active zoom on the host so the injected CSS can restyle the
+  // timeline header per preset (the Day view shows the day-number row, the
+  // coarser views keep the single month row). Named `-preset` to avoid clashing
+  // with the zoom BUTTONS' own `data-gantt-zoom` attribute.
+  host.setAttribute("data-gantt-zoom-preset", zoom);
   // Reuse the grid if this container already has one. Re-creating it on every
   // stream-filter change would re-register the plugin and throw away the
   // horizontal scroll position, so the element is built once per container and
   // afterwards only `source` (and `gantt`, for zoom) is touched.
   let grid = host.querySelector("revo-grid");
+  // A ZOOM change DOES recreate the grid: the grid reads the header height
+  // (--rg-theme-header-height, 56px only in the Day view) once on mount, so a
+  // CSS-only toggle would leave a stale header height behind.
+  if (grid && grid.__ganttZoom !== zoom) {
+    grid.remove();
+    grid = null;
+  }
   const isNew = !grid;
   if (isNew) {
     grid = document.createElement("revo-grid");
@@ -670,16 +683,14 @@ function drawGantt(host, lib) {
       version: "1",
       timeZone: "UTC",
       updatedAt: new Date().toISOString(),
-      zoomPreset: ganttZoom(),
+      zoomPreset: zoom,
       visuals: { showDependencies: false, showTaskLabels: true }
     };
-  } else if (grid.gantt && grid.gantt.zoomPreset !== ganttZoom()) {
-    // Reassigning the whole object is how the plugin is reconfigured: the
-    // accessor is reactive, so a new object re-reads the zoom preset and
-    // re-lays-out the timeline in place.
-    grid.gantt = Object.assign({}, grid.gantt, { zoomPreset: ganttZoom() });
   }
 
+  // Remember the zoom this grid was mounted with, so a later zoom change
+  // recreates it (see above).
+  grid.__ganttZoom = zoom;
   grid.source = items;
   ganttWatchMode(grid);
   ganttBindBarDrag(grid);
@@ -1807,6 +1818,37 @@ function changeShowGantt(enabled) {
     "  /* gantt.css reads --revo-grid-focused-bg (not --rg-theme-*) for the",
     "     header cell background, so it needs the documented name too. */",
     "  --revo-grid-focused-bg: var(--bs-tertiary-bg);",
+    "}",
+    "/* 1b. DAY-VIEW TIMELINE HEADER. The grid header row is only 30px (compact",
+    "   rows), which clips the vendor's two-row timeline header (56px) down to the",
+    "   month row. In the Day view the second row carries the useful day numbers, so",
+    "   the header is grown back to 56px and the vendor's natural order is kept: the",
+    "   month row on TOP, the day numbers directly UNDERNEATH. Coarser views keep",
+    "   the 30px single-row header (their second row would just repeat the month).",
+    "   The host carries data-gantt-zoom-preset from drawGantt(). */",
+    "#ganttChart[data-gantt-zoom-preset=\"day-week\"] revo-grid {",
+    "  --rg-theme-header-height: 56px;",
+    "  --revo-grid-header-height: 56px;",
+    "}",
+    "#ganttChart[data-gantt-zoom-preset=\"day-week\"] .header-rgRow {",
+    "  height: 56px;",
+    "}",
+    "/* Align the header column dividers with the chart gridlines. The vendor draws",
+    "   the divider as each header cell's RIGHT border (inside the cell, at its last",
+    "   pixel), while the data gridline is the FIRST pixel of the column - a 1px",
+    "   offset that makes the day numbers look off the columns. Draw the divider as",
+    "   a LEFT border instead so it shares the gridline's x exactly. */",
+    "#ganttPage .rg-gantt-header-cell {",
+    "  border-right: 0;",
+    "  border-left: 1px solid var(--rg-gantt-border);",
+    "}",
+    "/* The timeline DATA cell carries RevoGrid's 4px left/right .rgCell padding,",
+    "   but the timeline HEADER cell does not - so the day-number cells sat 4px to",
+    "   the LEFT of the chart columns. Drop the padding on the timeline cell only,",
+    "   so the header cells and the bars/gridlines share one x origin. */",
+    "#ganttPage revogr-data .rgCell:has(.rg-gantt-cell) {",
+    "  padding-left: 0;",
+    "  padding-right: 0;",
     "}",
     "/* No focus/selection chrome. The chart is read-only: clicking a cell must",
     "   not draw the vendor's focus ring (revogr-focus.focused-cell paints a",
