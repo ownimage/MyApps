@@ -1653,7 +1653,7 @@ test.describe("PlanMyDay - Regression", () => {
       await page.reload();
       await page.locator("#btnMainMenu").click();
       await page.locator("a.dropdown-item").filter({ hasText: "Images" }).click();
-      const thumb = page.locator("#imagesEditor smd-image-card").first().locator("smd-image");
+      const thumb = page.locator("#imagesEditor smd-image-card").first().locator(".thumb smd-image");
       await expect(thumb).toHaveAttribute("key-prefix", "shared-");
       await expect(thumb).toHaveAttribute("image", "pmdThumb");
       await expect.poll(async () => thumb.locator("img").getAttribute("src")).toBeTruthy();

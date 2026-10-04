@@ -419,6 +419,20 @@ Architecture:
   so this sheet deliberately has no `.data-img` rule. The
   storybook has a section (its demo needs the `smd-images.js` script, which the
   storybook now loads).
+- SMD-IMAGE-CARD TILE SWATCHES (2026-10-04): the Edit Images tile
+  (`<smd-image-card>`) renders THREE `<smd-image>` on one row — the main thumb
+  (`.thumb`, theme auto) plus a light and a dark theme swatch
+  (`.theme-swatch`, each `bg-body` + `data-bs-theme="light|dark"` + `p-1 border
+  rounded`). The three buttons sit in a `d-flex flex-grow-1
+  justify-content-between` container so they spread across the remaining space;
+  the name stays once below the row (swatches carry no name). The swatches each
+  set their own `theme` attribute so they paint that theme's colour overrides;
+  the "app light/dark surface" comes from `bg-body` under the element's own
+  `data-bs-theme` (for superhero the LIGHT surface is the dark navy #0f2537, so
+  do not assume light is lighter). Because a card now holds 3 `smd-image`,
+  selectors that meant the main thumb must use `.thumb smd-image`
+  (cmd/pmd/qrlinks specs updated). Test: cmd-regression "image tile shows the
+  main image plus light and dark theme swatches on one row".
 - `hideNav()` (shared smd-settings.js) now hides when NO
   `smd-page:not(.d-none)` is open — generic for any app's page set (was a
   hardcoded PlanMyDay id list).
@@ -3049,3 +3063,25 @@ Techniques / gotchas:
   (~11), smd-qr-import.js (~10), CountMyDays import-wizard.js (~9), QRLinks
   links-editor.js (~7), SolarControlar app/tab files (~30).
 - `BUILD_NUMBER` NOT bumped (test-only + tooling change).
+
+### 2026-10-04 (c) - Edit Images tile: light/dark theme swatches
+- `<smd-image-card>` (the `#imagesEditor` tile) now shows, on ONE row: the main
+  image (normal background), a light-theme square with the image, a dark-theme
+  square with the image, then the three buttons spread across the remaining
+  space (`d-flex flex-grow-1 justify-content-between`). The squares use the app
+  light/dark body surfaces (`bg-body` + `data-bs-theme`), have `p-1` space round
+  the image, and carry NO name (the single name stays below the row). Gap
+  between the images is `gap-2` (0.5rem = the requested m-2).
+- TDD: added the cmd-regression test RED first, then the component change.
+- GOTCHA: `data-bs-theme="light"` on the swatch resolves `--bs-body-bg` from the
+  LOADED theme's light mode, which for superhero is the dark navy #0f2537 - so
+  the "light" swatch is not lighter than the dark one. The test compares each
+  swatch's computed background to a probe element with the same `data-bs-theme`
+  rather than assuming light > dark luminance.
+- SELECTOR FALLOUT: a card now holds 3 `<smd-image>`, so `card.locator("smd-image")`
+  is ambiguous - updated cmd/pmd/qrlinks to `.thumb smd-image`.
+- Verified: cmd "Images editor" 5/5, pmd `[Ii]mage` 107/107, qrlinks 9/9,
+  storybook 8/8, image-edit-preview-size green, pmd-screenshots "images editor"
+  (SCREENSHOT_THEME=superhero) 1/1 (visually confirmed).
+- `BUILD_NUMBER` NOT bumped - it MUST be bumped before shipping (shared
+  component changed): `npm run bump:build`.

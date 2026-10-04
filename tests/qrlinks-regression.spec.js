@@ -152,7 +152,7 @@ test.describe("QRLinks - Regression", () => {
 
     // The thumbnail must read the SHARED library (key-prefix shared-) and
     // actually render an image, not just the card title.
-    const thumb = card.locator("smd-image");
+    const thumb = card.locator(".thumb smd-image");
     await expect(thumb).toHaveAttribute("key-prefix", "shared-");
     await expect(thumb).toHaveAttribute("image", "sharedimg");
     await expect.poll(async () => thumb.locator("img").getAttribute("src")).toBeTruthy();
