@@ -327,8 +327,8 @@ test.describe("Gantt page", () => {
     const headerCells = () =>
       page.evaluate(() => document.querySelectorAll("#ganttChart revogr-header .rgHeaderCell").length);
 
-    // default: Task, Start, End + the timeline column = 4 header cells
-    expect(await headerCells()).toBe(4);
+    // default: Task, Edit, Start, End + the timeline column = 5 header cells
+    expect(await headerCells()).toBe(5);
 
     // the toggle is just BEFORE the Streams filter in the header
     const beforeStreams = await page.evaluate(() => {
@@ -338,23 +338,25 @@ test.describe("Gantt page", () => {
     });
     expect(beforeStreams).toBe(true);
 
-    // hide the Start/End columns -> only Task + timeline remain
+    // hide the Start/End columns -> only Task, Edit + timeline remain (the
+    // Edit column is always shown, even with the dates hidden)
     await page.locator("#ganttPage .gantt-dates-toggle").click();
     await page.waitForTimeout(600);
-    expect(await headerCells()).toBe(2);
+    expect(await headerCells()).toBe(3);
+    await expect(page.locator("#ganttChart .pmd-gantt-edit-btn")).toHaveCount(5);
     await expect(page.locator("#ganttPage .gantt-dates-toggle")).not.toHaveClass(/active/);
     await expect(page.locator("#ganttPage .gantt-dates-toggle")).toHaveAttribute("aria-pressed", "false");
 
     // the choice persists across a close/reopen
     await page.evaluate(() => closeGantt());
     await openChart(page);
-    expect(await headerCells()).toBe(2);
+    expect(await headerCells()).toBe(3);
     await expect(page.locator("#ganttPage .gantt-dates-toggle")).toHaveAttribute("aria-pressed", "false");
 
     // show them again
     await page.locator("#ganttPage .gantt-dates-toggle").click();
     await page.waitForTimeout(600);
-    expect(await headerCells()).toBe(4);
+    expect(await headerCells()).toBe(5);
     await expect(page.locator("#ganttPage .gantt-dates-toggle")).toHaveAttribute("aria-pressed", "true");
   });
 
@@ -388,8 +390,8 @@ test.describe("Gantt page", () => {
     expect(chart.rows).toBe(5);
     expect(chart.bars).toBe(5);
     expect(chart.summaryBars).toBe(2);
-    expect(chart.headerCells).toBe(4); // Task, Start, End, timeline
-    expect(chart.bodyCells).toBe(20);  // 5 rows x (name, start, end) + 5 timeline labels
+    expect(chart.headerCells).toBe(5); // Task, Edit, Start, End, timeline
+    expect(chart.bodyCells).toBe(25);  // 5 rows x (name, edit, start, end) + 5 timeline labels
     expect(chart.themeAttr).toBe("default");
     expect(chart.readonly).toBe(true);
     expect(chart.rowSize).toBe(30);
@@ -401,6 +403,70 @@ test.describe("Gantt page", () => {
     expect(chart.labels).toContain("Daily standup");
     expect(chart.labels).toContain("Planned review (Weekdays)");
     expect(chart.labels).toContain("Legacy job");
+  });
+
+  test("every row has a primary Edit button in a column between the name and Start, opening the matching editor", async ({ page }) => {
+    test.setTimeout(60000);
+    await page.goto("/PlanMyDay/");
+    await seedStreams(page, SAMPLE);
+    await enableGantt(page);
+    await openChart(page);
+
+    // One Edit button per row: 2 streams + 3 jobs.
+    const buttons = page.locator("#ganttChart .pmd-gantt-edit-btn");
+    await expect(buttons).toHaveCount(5);
+
+    // Every button is a Bootstrap primary (btn-primary) and small.
+    const classes = await buttons.evaluateAll((els) => els.map((e) => e.className));
+    expect(classes.every((c) => /(^|\s)btn-primary(\s|$)/.test(c))).toBe(true);
+
+    // The column sits BETWEEN the name column and the Start column, and the
+    // Start/End dates are still after it.
+    const order = await page.evaluate(() => {
+      const grid = document.querySelector("#ganttChart revo-grid");
+      return (grid.columns || []).map((c) => c.prop);
+    });
+    expect(order.indexOf("__ganttEdit")).toBe(order.indexOf("name") + 1);
+    expect(order.indexOf("startDate")).toBeGreaterThan(order.indexOf("__ganttEdit"));
+
+    // The button is rendered between the row's name and its Start cell.
+    const geom = await page.evaluate(() => {
+      const row = document.querySelector("#ganttChart revogr-data .rgRow");
+      const name = row.querySelector(".pmd-gantt-job-name, .pmd-gantt-stream-name");
+      const edit = row.querySelector(".pmd-gantt-edit-btn");
+      const cells = Array.from(row.querySelectorAll(".rgCell"));
+      const editCell = edit && edit.closest(".rgCell");
+      const startCell = cells.find((c) => c !== editCell && c.getBoundingClientRect().left > editCell.getBoundingClientRect().left);
+      return {
+        nameLeft: name.getBoundingClientRect().left,
+        editLeft: editCell.getBoundingClientRect().left,
+        startLeft: startCell ? startCell.getBoundingClientRect().left : null
+      };
+    });
+    expect(geom.editLeft).toBeGreaterThan(geom.nameLeft);
+    expect(geom.startLeft).not.toBeNull();
+    expect(geom.startLeft).toBeGreaterThan(geom.editLeft);
+
+    // Clicking a JOB's Edit opens the job editor for THAT job, stacked over the
+    // still-open Gantt.
+    await buttons.nth(1).click(); // Work summary, then "Daily standup"
+    await expect(page.locator("#jobEditPage")).toHaveAttribute("open", "");
+    await expect(page.locator("#jobTitleInput")).toHaveValue("Daily standup");
+    await page.locator("#jobEditCancelBtn").click();
+    await expect(page.locator("#jobEditPage")).not.toHaveAttribute("open", "");
+    // back on the Gantt, which is no longer suspended, with its rows intact
+    await expect(page.locator("#ganttPage")).toHaveAttribute("open", "");
+    await expect(page.locator("#ganttPage")).not.toHaveClass(/smd-page-suspended/);
+    await expect(page.locator("#ganttChart .pmd-gantt-edit-btn")).toHaveCount(5);
+
+    // Clicking a STREAM's Edit opens the stream editor for that stream.
+    await buttons.nth(0).click(); // "Work"
+    await expect(page.locator("#streamEditPage")).toHaveAttribute("open", "");
+    await expect(page.locator("#streamTitleInput")).toHaveValue("Work");
+    await page.locator("#btnStreamEditCancel").click();
+    await expect(page.locator("#streamEditPage")).not.toHaveAttribute("open", "");
+    await expect(page.locator("#ganttPage")).toHaveAttribute("open", "");
+    await expect(page.locator("#ganttChart .pmd-gantt-edit-btn")).toHaveCount(5);
   });
 
   test("a stream can be collapsed so its job rows hide, and the state persists", async ({ page }) => {
@@ -942,13 +1008,14 @@ test.describe("Gantt page", () => {
       // is display:none and its rect is all zeros
       const endHandle = bar ? bar.querySelector(".rg-gantt-bar-handle--end") : null;
       // the plugin appends its own __ganttTimeline column (no sortable prop);
-      // the three APP columns must all be explicitly non-sortable
+      // the four APP columns (Task, Edit, Start, End) must all be explicitly
+      // non-sortable
       const appCols = (grid.columns || []).filter((c) => c.prop !== "__ganttTimeline");
       const barRect = bar ? bar.getBoundingClientRect() : null;
       const handleRect = endHandle ? endHandle.getBoundingClientRect() : null;
       return {
         readonly: grid.readonly,
-        sortable: appCols.length === 3 && appCols.every((c) => c.sortable === false),
+        sortable: appCols.length === 4 && appCols.every((c) => c.sortable === false),
         headerSortArrows: document.querySelectorAll("revogr-header .rgHeaderCell[aria-sort]").length,
         taskBarPointerEvents: bar ? getComputedStyle(bar).pointerEvents : null,
         taskBarCursor: bar ? getComputedStyle(bar).cursor : null,

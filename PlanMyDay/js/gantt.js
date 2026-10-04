@@ -25,8 +25,12 @@
 // nothing scheduled yet. Jobs are `type: "task"` rows whose parentId is the
 // stream's id.
 //
-// EDITS: cells are read-only and the stream → job order is fixed, but JOB bars
-// are horizontally draggable (this replaces the old js/gantt-drag.js behaviour):
+// EDITS: cells are read-only and the stream → job order is fixed. An Edit
+// column (between the Task name and the Start date) carries one primary button
+// per row that opens that row's own editor (stream editor for a stream, job
+// editor for a job), stacked OVER the Gantt page — see ganttEditColumn() /
+// ganttEditRow(). JOB bars are horizontally draggable (this replaces the old
+// js/gantt-drag.js behaviour):
 //   * the grid gets `readonly = true`, so no cell can be edited
 //   * the task columns get `sortable: false`, because sorting would scramble
 //     the stream → job hierarchy (this replaces jsgantt's `vUseSort: 0`)
@@ -604,6 +608,58 @@ function ganttJobLabel(job) {
   return title + " (" + freq + ")";
 }
 
+// EDIT COLUMN
+//
+// A pinned column between the Task name and the Start date with one "Edit"
+// button per row. The button opens the row's own editor (stream editor for a
+// summary row, job editor for a task row), stacked OVER the Gantt page so the
+// chart is restored when the editor closes.
+function ganttEditColumn() {
+  return {
+    prop: "__ganttEdit",
+    name: "",
+    size: 72,
+    sortable: false,
+    pin: "colPinStart",
+    cellTemplate: function (h, schemaModel) {
+      var model = schemaModel && schemaModel.model;
+      if (!model || !model.id) return h("span", {}, "");
+      return h("button", {
+        type: "button",
+        class: "btn btn-primary btn-sm pmd-gantt-edit-btn",
+        title: "Edit",
+        onClick: function (e) {
+          if (e && e.stopPropagation) e.stopPropagation();
+          ganttEditRow(model);
+        }
+      }, "Edit");
+    }
+  };
+}
+
+// Opens the editor for a clicked row. Task ids are "j" + the job's stored id;
+// summary ids are "s" + the stream's stored array index (see buildGanttTasks).
+// The stored indices are resolved at click time so they survive a re-projection.
+function ganttEditRow(model) {
+  if (!model || !model.id) return;
+  if (model.type === "summary") {
+    var idx = ganttStoredStreamIndexForId(model.id);
+    if (idx >= 0 && typeof editStream === "function") editStream(idx);
+    return;
+  }
+  if (model.type !== "task") return;
+  var streamIdx = ganttStoredStreamIndexForTask(model.id);
+  if (streamIdx < 0) return;
+  var jobId = model.id.slice(1);
+  var jobs = (loadStreams()[streamIdx] || {}).jobs || [];
+  for (var i = 0; i < jobs.length; i++) {
+    if (jobs[i].id === jobId) {
+      if (typeof editJobInAccordion === "function") editJobInAccordion(streamIdx, i);
+      return;
+    }
+  }
+}
+
 // RENDER
 //
 // Draws the chart. The whole function is read-only: it sets properties on the
@@ -685,7 +741,7 @@ function drawGantt(host, lib) {
     // falls back to true when the property is absent — and pins the task
     // columns to the start edge so the timeline scrolls under them. The
     // Start/End toggle drops the two date columns (Task + timeline stay).
-    grid.columns = lib.DEFAULT_TASK_COLUMNS.filter(function (col) {
+    var taskColumns = lib.DEFAULT_TASK_COLUMNS.filter(function (col) {
       return showDates || (col.prop !== "startDate" && col.prop !== "endDate");
     }).map(function (col) {
       var copy = Object.assign({}, col, { sortable: false });
@@ -725,6 +781,13 @@ function drawGantt(host, lib) {
       }
       return copy;
     });
+    // An Edit column between the Task name and the Start date. It survives the
+    // Start/End toggle (it is not a date column) and carries one primary button
+    // per row: streams open the stream editor, jobs the job editor. See
+    // ganttEditRow().
+    var nameAt = taskColumns.findIndex(function (col) { return col.prop === "name"; });
+    taskColumns.splice(nameAt + 1, 0, ganttEditColumn());
+    grid.columns = taskColumns;
     // The plugin MUST be registered before `gantt` is set: its constructor
     // installs the `gantt` accessor that the config is written through, and it
     // projects the current grid source on construction.
@@ -2115,6 +2178,15 @@ function changeShowGantt(enabled) {
     "   text colour. */",
     "#ganttPage revo-grid .pmd-gantt-stream-name {",
     "  font-weight: 600;",
+    "}",
+    "/* The per-row Edit button (__ganttEdit column). Filled primary so it reads",
+    "   as an action, and trimmed to fit inside the compact 30px row. It is NOT a",
+    "   drag handle: the row-drag press handler only grabs the Task name cell",
+    "   (data-rgcol='0'), so pressing this button is a plain click. */",
+    "#ganttPage revo-grid .pmd-gantt-edit-btn {",
+    "  padding: 0.05rem 0.5rem;",
+    "  line-height: 1.2;",
+    "  white-space: nowrap;",
     "}",
     "#ganttPage revo-grid .pmd-gantt-collapse-toggle {",
     "  border: 0;",
