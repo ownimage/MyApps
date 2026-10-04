@@ -109,16 +109,53 @@ test.describe("Gantt page", () => {
     const byTitle = {};
     items.forEach((i) => { byTitle[i.name.replace(/\s*\(.*\)$/, "")] = i; });
 
-    // job with an explicit duration, no sleepUntil -> starts today, spans 3 days
+    // job with an explicit duration, no sleepUntil -> starts today, spans 3 days.
+    // endDate is INCLUSIVE (the vendor draws to endDate + 1), so a 3-day job
+    // ends TWO days after it starts.
     expect(byTitle["Daily standup"].startDate).toBe(today);
-    expect(byTitle["Daily standup"].endDate).toBe(await page.evaluate((t) => ganttAddDaysStr(t, 3), today));
+    expect(byTitle["Daily standup"].endDate).toBe(await page.evaluate((t) => ganttAddDaysStr(t, 2), today));
 
     // job with sleepUntil + duration -> starts on sleepUntil, spans 2 days
     expect(byTitle["Planned review"].startDate).toBe("2026-10-05");
-    expect(byTitle["Planned review"].endDate).toBe("2026-10-07");
+    expect(byTitle["Planned review"].endDate).toBe("2026-10-06");
 
-    // legacy job with no duration -> 1 day
-    expect(byTitle["Legacy job"].endDate).toBe(await page.evaluate((t) => ganttAddDaysStr(t, 1), today));
+    // legacy job with no duration -> 1 day: start and end are the SAME day
+    expect(byTitle["Legacy job"].startDate).toBe(today);
+    expect(byTitle["Legacy job"].endDate).toBe(today);
+  });
+
+  test("a one-day job's bar spans exactly one day column", async ({ page }) => {
+    await page.goto("/PlanMyDay/");
+    const today = await page.evaluate(() => getTodayStr());
+    const tomorrow = await page.evaluate((t) => ganttAddDaysStr(t, 1), today);
+    // Two ONE-day jobs starting on consecutive days: the distance between their
+    // bars is exactly one day column, so each 1-day bar must be that same width
+    // (not double it).
+    await seedStreams(page, [
+      {
+        title: "Work",
+        sequence: 1,
+        jobs: [
+          { id: "one", title: "One day", sequence: 1, active: true, schedule: { type: "daily" }, duration: 1 },
+          { id: "next", title: "Next day", sequence: 2, active: true, schedule: { type: "daily" }, sleepUntil: tomorrow, duration: 1 }
+        ]
+      }
+    ]);
+    await enableGantt(page);
+    await openChart(page);
+
+    const m = await page.evaluate(() => {
+      const bars = Array.from(document.querySelectorAll(".rg-gantt-bar--task")).map((b) => {
+        const r = b.getBoundingClientRect();
+        return { left: r.left, width: r.width };
+      });
+      return { a: bars[0], b: bars[1] };
+    });
+
+    const dayWidth = m.b.left - m.a.left; // the two starts are one day apart
+    expect(dayWidth).toBeGreaterThan(0);
+    expect(Math.abs(m.a.width - dayWidth)).toBeLessThanOrEqual(1.5);
+    expect(Math.abs(m.b.width - dayWidth)).toBeLessThanOrEqual(1.5);
   });
 
   test("renders one row per stream and job, including a minimum bar for a job-less stream", async ({ page }) => {

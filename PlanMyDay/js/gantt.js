@@ -11,11 +11,12 @@
 // time:
 //
 //   start = job.sleepUntil || today   (today is ASSUMED here, never written back)
-//   end   = start + (job.duration || 1) days
+//   end   = start + (job.duration || 1) - 1 days
 //
 // `end` is INCLUSIVE, which is what the vendor expects: createGanttBarLayout()
-// draws a bar from startDate to endDate + 1 day. That is the same convention
-// the previous jsgantt page used, so the bar widths are unchanged.
+// draws a bar from startDate to endDate + 1 day. So a 1-day job has
+// startDate === endDate and its bar covers exactly ONE column; a 3-day job ends
+// two days after it starts.
 //
 // A Stream becomes a `type: "summary"` row whose parentId is null. A stream WITH
 // jobs spans them (min start → max end) and acts as a summary bar; a stream with
@@ -470,7 +471,10 @@ function buildGanttTasks(streams, todayStr) {
     const spans = jobs.map((job) => {
       const start = job.sleepUntil || todayStr;
       const days = Math.max(1, parseInt(job.duration, 10) || 1);
-      const end = ganttAddDaysStr(start, days);
+      // endDate is INCLUSIVE (the vendor draws to endDate + 1), so a duration of
+      // N days spans start .. start + (N - 1). A 1-day job starts and ends on the
+      // same day, which is what makes its bar look one day long.
+      const end = ganttAddDaysStr(start, days - 1);
       return { job, start, end };
     });
     // A stream WITH jobs spans them. One WITHOUT jobs gets a zero-length span on
@@ -695,8 +699,8 @@ function drawGantt(host, lib) {
 // `grid.source` and persist them to the app's stored streams. Both halves map
 // back to the job model used by buildGanttTasks():
 //
-//   start = job.sleepUntil || today      (a MOVE shifts start, so sleepUntil)
-//   end   = start + (job.duration || 1)  (a resize-end changes end => duration)
+//   start = job.sleepUntil || today               (a MOVE shifts start, so sleepUntil)
+//   end   = start + (job.duration || 1) - 1        (INCLUSIVE; resize-end => duration)
 //
 // A move keeps the duration (both ends shift together) so only sleepUntil is
 // written; a resize-end changes endDate only, so the duration is recomputed from
@@ -760,7 +764,8 @@ function ganttBarGhostUpdate(grid, x, y) {
   }
   var start = row.startDate || "";
   var end = row.endDate || "";
-  var days = ganttDaysBetween(start, end);
+  // endDate is inclusive, so the covered span is one more than the date delta.
+  var days = ganttDaysBetween(start, end) + 1;
   rec.innerHTML =
     '<div class="pmd-gantt-bar-ghost-label">Start: <span class="pmd-gantt-bar-ghost-date">' + ganttEscapeHtml(start) + "</span></div>" +
     '<div class="pmd-gantt-bar-ghost-label">End: <span class="pmd-gantt-bar-ghost-date">' + ganttEscapeHtml(end) + "</span></div>" +
@@ -819,7 +824,8 @@ function ganttPersistBarDrag(rec) {
   if (rec.mode === "move") {
     job.sleepUntil = row.startDate;
   } else if (rec.mode === "resize-end") {
-    var days = ganttDaysBetween(row.startDate, row.endDate);
+    // endDate is inclusive: a bar covering 3 columns has a 2-day date delta.
+    var days = ganttDaysBetween(row.startDate, row.endDate) + 1;
     job.duration = Math.max(1, days);
   }
   ganttSaveShiftedStreams(streams);
@@ -1669,8 +1675,8 @@ function ganttPersistStreamDrag(drag, clientX, clientY) {
 }
 
 // Whole days between two YYYY-MM-DD strings (end - start), UTC arithmetic like
-// ganttAddDaysStr(). The app's duration is exactly this span: end = start +
-// duration days.
+// ganttAddDaysStr(). Because the gantt endDate is INCLUSIVE, the number of days a
+// bar COVERS is ganttDaysBetween(start, end) + 1 (a 1-day job has start === end).
 function ganttDaysBetween(startStr, endStr) {
   var ps = String(startStr).split("-");
   var pe = String(endStr).split("-");
