@@ -60,3 +60,11 @@
   --smd-page-header-background: var(--bs-black);
   --pmd-tasks-row-background: var(--bs-card-bg);
 }
+
+.card {
+    background: var(--bs-card-bg) !important;
+}
+
+#smd-app #streamsEditor pmd-stream-header[expanded] .stream-accordion-header {
+    background-color: color-mix(in hsl, var(--bs-success) 50%, black) !important;
+}

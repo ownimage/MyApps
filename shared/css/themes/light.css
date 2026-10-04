@@ -16,11 +16,11 @@
  * shared/css/themes/<theme>/<theme>.<light|dark>.css sheet. */
 
 :root {
-  --smd-page-header-background: var(--bs-primary);
+  --smd-page-header-background: color-mix(in hsl, var(--bs-primary) 50%, black);;
   --smd-page-header-color: var(--bs-white);
 
   --smd-tab-active-background: var(--bs-primary);
-  --smd-tab-background: var(--bs-info);
+  --smd-tab-background: var(--bs-secondary);
   --smd-tab-color: var(--bs-white);
   --smd-image-theme: light;
 
@@ -77,4 +77,22 @@
 
   /* <smd-modal> header surface (consumed by smd-modal rules in styles.css). */
   --smd-modal-header-background: color-mix(in srgb, var(--bs-body-bg) 85%, white);
+}
+
+.card {
+    background: var(--bs-secondary-bg-subtle) !important;
+    border: 1px solid black !important;
+}
+
+smd-badge#editJobsTotalBadge {
+    background: var(--bs-secondary) !important;
+    color: white !important;
+}
+
+#smd-app #streamsEditor pmd-stream-header .stream-accordion-header {
+    background: color-mix(in hsl, var(--bs-primary) 50%, black) !important;
+}
+
+#smd-app #streamsEditor pmd-stream-header[expanded] .stream-accordion-header {
+    background-color: color-mix(in hsl, var(--bs-danger) 50%, black) !important;
 }

@@ -82,7 +82,7 @@ pmdJobTodayCardTemplate.innerHTML = `
 
             <!-- 2️⃣ Checkbox + Repeat -->
             <div class="d-flex flex-column align-items-center justify-content-center flex-shrink-0">
-                <smd-checkbox class="job-checkbox"></smd-checkbox>
+                <smd-checkbox class="job-checkbox me-1"></smd-checkbox>
                 <smd-image class="daily-repeat-icon" key-prefix="shared-" size="16" title="Every day" hidden></smd-image>
             </div>
 
