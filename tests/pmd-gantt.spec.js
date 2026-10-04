@@ -469,6 +469,112 @@ test.describe("Gantt page", () => {
     await expect(page.locator("#ganttChart .pmd-gantt-edit-btn")).toHaveCount(5);
   });
 
+  test("the grid columns have no RevoGrid filter buttons", async ({ page }) => {
+    await page.goto("/PlanMyDay/");
+    await seedStreams(page, SAMPLE);
+    await enableGantt(page);
+    await openChart(page);
+
+    // No funnel/filter control on any column header (Task/Edit/Start/End).
+    await expect(page.locator("#ganttChart .rv-filter")).toHaveCount(0);
+    await expect(page.locator("#ganttChart .filter-button-wrapper")).toHaveCount(0);
+    const filterProp = await page.evaluate(() => document.querySelector("#ganttChart revo-grid").filter);
+    expect(filterProp).toBe(false);
+  });
+
+  test("the Active only header filter hides inactive jobs, defaults to off, and persists", async ({ page }) => {
+    await page.goto("/PlanMyDay/");
+    await seedStreams(page, [
+      { title: "Work", sequence: 1, jobs: [
+        { id: "job_on", title: "Active job", sequence: 1, active: true, schedule: { type: "daily" }, duration: 2 },
+        { id: "job_off", title: "Inactive job", sequence: 2, active: false, schedule: { type: "daily" }, duration: 2 }
+      ] },
+      { title: "Home", sequence: 2, jobs: [] }
+    ]);
+    await enableGantt(page);
+    await openChart(page);
+
+    const labels = () => page.evaluate(() =>
+      Array.from(document.querySelectorAll(".rg-gantt-bar-label")).map((l) => l.textContent.trim()));
+    const toggle = page.locator("#ganttPage .gantt-active-toggle");
+
+    // The control sits in the header, after Start/End and before Streams.
+    const beforeStreams = await page.evaluate(() => {
+      const active = document.querySelector("#ganttPage .gantt-active-toggle");
+      const streams = document.querySelector("#ganttPage .gantt-stream-filter");
+      return !!active && !!streams && (active.compareDocumentPosition(streams) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
+    });
+    expect(beforeStreams).toBe(true);
+
+    // default: inactive jobs are SHOWN, toggle off (the "active" STATE class is
+    // distinct from the "gantt-active-toggle" name class)
+    await expect(toggle).toHaveAttribute("aria-pressed", "false");
+    expect(await page.evaluate(() => document.querySelector("#ganttPage .gantt-active-toggle").classList.contains("active"))).toBe(false);
+    expect(await labels()).toContain("Inactive job");
+    expect(await page.locator(".rg-gantt-bar--task").count()).toBe(2);
+
+    // switch it on -> inactive job disappears, toggle active, choice persists
+    await toggle.click();
+    await page.waitForTimeout(600);
+    await expect(toggle).toHaveAttribute("aria-pressed", "true");
+    expect(await page.evaluate(() => document.querySelector("#ganttPage .gantt-active-toggle").classList.contains("active"))).toBe(true);
+    expect(await labels()).not.toContain("Inactive job");
+    expect(await labels()).toContain("Active job");
+    expect(await page.locator(".rg-gantt-bar--task").count()).toBe(1);
+    expect(await page.evaluate(() => localStorage.getItem("planmydays_ganttActiveOnly"))).toBe("true");
+
+    // survives a close/reopen
+    await page.evaluate(() => closeGantt());
+    await openChart(page);
+    expect(await page.locator(".rg-gantt-bar--task").count()).toBe(1);
+    await expect(page.locator("#ganttPage .gantt-active-toggle")).toHaveAttribute("aria-pressed", "true");
+
+    // switch it off -> inactive job returns
+    await page.locator("#ganttPage .gantt-active-toggle").click();
+    await page.waitForTimeout(600);
+    expect(await page.locator(".rg-gantt-bar--task").count()).toBe(2);
+    expect(await labels()).toContain("Inactive job");
+    await expect(page.locator("#ganttPage .gantt-active-toggle")).toHaveAttribute("aria-pressed", "false");
+  });
+
+  test("deactivating a job from the Gantt's Edit button hides it when Active only is on", async ({ page }) => {
+    test.setTimeout(60000);
+    await page.goto("/PlanMyDay/");
+    await seedStreams(page, [
+      { title: "Work", sequence: 1, jobs: [
+        { id: "job_a", title: "Active job", sequence: 1, active: true, schedule: { type: "daily" }, duration: 2 },
+        { id: "job_b", title: "Second job", sequence: 2, active: true, schedule: { type: "daily" }, duration: 2 }
+      ] }
+    ]);
+    await enableGantt(page);
+    await openChart(page);
+
+    // Turn on Active only (both jobs still shown).
+    await page.locator("#ganttPage .gantt-active-toggle").click();
+    await page.waitForTimeout(600);
+    await expect(page.locator(".rg-gantt-bar--task")).toHaveCount(2);
+
+    // Edit the FIRST job from its Gantt Edit button and switch it inactive, then
+    // OK, then return to the Gantt.
+    await page.locator("#ganttChart .pmd-gantt-edit-btn").nth(1).click(); // stream "Work", then "Active job"
+    await expect(page.locator("#jobEditPage")).toHaveAttribute("open", "");
+    await expect(page.locator("#jobTitleInput")).toHaveValue("Active job");
+    await page.locator("#jobActiveCb").uncheck();
+    await page.locator("#jobEditOkBtn").click();
+    await page.waitForTimeout(800);
+
+    // The job was persisted as inactive...
+    const stored = await page.evaluate(() => JSON.parse(localStorage.getItem("planmydays_streams"))[0].jobs.find((j) => j.id === "job_a").active);
+    expect(stored).toBe(false);
+
+    // ...and the Gantt (still open) must now hide it.
+    await expect(page.locator("#ganttPage")).toHaveAttribute("open", "");
+    await expect(page.locator(".rg-gantt-bar--task")).toHaveCount(1);
+    const labels = await page.evaluate(() => Array.from(document.querySelectorAll(".rg-gantt-bar-label")).map((l) => l.textContent.trim()));
+    expect(labels).not.toContain("Active job");
+    expect(labels).toContain("Second job");
+  });
+
   test("a stream can be collapsed so its job rows hide, and the state persists", async ({ page }) => {
     await page.goto("/PlanMyDay/");
     await seedStreams(page, SAMPLE);

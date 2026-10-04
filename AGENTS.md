@@ -3213,3 +3213,56 @@ Techniques / gotchas:
   superhero light. The theming test now strips `repeating-linear-gradient(` and
   asserts no NON-repeating gradient remains.
 - `BUILD_NUMBER` NOT bumped - bump before shipping (`npm run bump:build`).
+
+### 2026-10-04 (g) - Gantt: per-row Edit button column
+- FEATURE (user): an Edit button for every job/stream in a column between the
+  Task name and the Start date.
+- IMPLEMENTATION: a new pinned app column `__ganttEdit` (size 72) is spliced
+  into the column list in `drawGantt()` right after the `name` column, so
+  `grid.columns` is now `["name","__ganttEdit","startDate","endDate",
+  "__ganttTimeline"]`. It survives the Start/End toggle (it is not a date
+  column). Its `cellTemplate` renders `<button class="btn btn-primary btn-sm
+  pmd-gantt-edit-btn">Edit</button>` via the same `h(...)` vnode the name column
+  uses; `ganttEditRow(model)` maps the row id back to storage at click time
+  (`s<idx>` summary -> `editStream(idx)`; `j<id>` task -> find its stream + job
+  index -> `editJobInAccordion`) and opens the editor STACKED over the Gantt
+  (smd-page suspends the Gantt, then restores it on close). The row-drag press
+  handler only grabs `data-rgcol='0'`, so pressing the button is a plain click.
+- CSS: trimmed padding/line-height on `.pmd-gantt-edit-btn` so the ~18px button
+  sits inside the 30px row. Probe confirmed zero console/page errors and zero
+  failed requests; a screenshot confirmed placement.
+- TESTS: new test "every row has a primary Edit button ... opening the matching
+  editor" (button count = rows, all `btn-primary`, column order, geometry
+  between name and Start, job + stream editor open/cancel with the Gantt still
+  open). Updated the old column-count assertions (`pmd-gantt`: header cells
+  4->5, hidden 2->3, body cells 20->25, `appCols.length` 3->4).
+- Verified: full `tests/pmd-gantt.spec.js` 56/56 (`--workers=2 --retries=0`).
+- `BUILD_NUMBER` bumped `202610040831` -> `202610042128` via `npm run bump:build`.
+
+### 2026-10-04 (h) - Gantt: removed grid column filters, added "Active only" header filter
+- TWO changes requested together.
+- (1) The RevoGrid built-in column filter (the funnel button on every header cell,
+  class `.rv-filter` / `.filter-button-wrapper`) is switched OFF with
+  `grid.filter = false` in `drawGantt()` (the grid `filter` property defaults to
+  true, so it reappears on every new grid unless set). Our own header controls are
+  unaffected.
+- (2) New "Active only" header toggle (`#ganttPage .gantt-active-toggle`, between
+  the Start/End toggle and the Streams dropdown) that hides INACTIVE jobs
+  (`job.active === false`, the app's standard flag) from the chart. Persisted at
+  `smdKey("ganttActiveOnly")` (`planmydays_ganttActiveOnly`), default OFF (show
+  everything = previous behaviour). `ganttActiveOnly()`/`ganttToggleActiveOnly()`/
+  `ganttPaintActiveToggle()` mirror the Start/End toggle; `buildGanttTasks()`
+  filters `streamJobs` when on, so a stream's summary span shrinks to its active
+  jobs and a stream left with none keeps its minimum tick. Button style copied
+  from `.gantt-dates-toggle` (solid secondary, primary when active).
+- TEST GOTCHA: `toHaveClass(/active/)` FALSE-MATCHES the class NAME
+  `gantt-active-toggle` (it contains "active"), so a state assertion must use
+  `classList.contains("active")`, not a regex on the whole class string.
+- TESTS: new "the grid columns have no RevoGrid filter buttons" (`.rv-filter`
+  count 0 + `grid.filter === false`) and "the Active only header filter hides
+  inactive jobs, defaults to off, and persists" (order, default, hide/show, bar
+  count, persisted key, close/reopen). Full `tests/pmd-gantt.spec.js` 58/58
+  (`--workers=2 --retries=0`). Probe confirmed zero console/page errors and
+  screenshots confirmed the funnels are gone and the toggle hides the inactive
+  row.
+- `BUILD_NUMBER` bumped `202610042128` -> `202610042138` via `npm run bump:build`.

@@ -153,6 +153,24 @@ function closeGantt() {
   if (typeof renderMain === "function") renderMain();
 }
 
+// True while the Gantt page is the (possibly suspended) page on screen. The
+// page keeps `open` while an editor is stacked over it (smd-page only adds the
+// `smd-page-suspended` class), so this covers "the Gantt is the background page
+// the user will return to".
+function ganttPageVisible() {
+  const page = document.getElementById("ganttPage");
+  return !!page && page.hasAttribute("open") && !page.classList.contains("d-none");
+}
+
+// Called by the job/stream editors from their refresh path so returning to the
+// Gantt re-projects the chart from the (now edited) stored streams. Without this
+// an edit that hides a job (e.g. switching "Active" off while the "Active only"
+// filter is on) left the stale bar on screen, because refreshActiveView() only
+// re-renders the main/search/streams views behind the Gantt.
+function refreshGanttIfOpen() {
+  if (ganttPageVisible()) renderGantt();
+}
+
 // smd-page re-renders its whole innerHTML on every property setter, so the
 // grid's container is (re)created here on each open and populated afterwards by
 // renderGantt(). ORDER: set every page property, then draw — see the ordering
@@ -279,11 +297,53 @@ function ganttDatesToggleHtml() {
   );
 }
 
+// SHOW ACTIVE JOBS ONLY
+//
+// A header toggle that hides inactive jobs (job.active === false) from the
+// chart. Persisted like the zoom/Start-End view preferences and OFF by default
+// (show everything, matching the app's previous behaviour). "Inactive" is the
+// same flag the rest of the app uses (main view and streams editor only list
+// `job.active !== false`).
+function ganttActiveOnly() {
+  try {
+    return localStorage.getItem(smdKey("ganttActiveOnly")) === "true";
+  } catch (e) {
+    return false;
+  }
+}
+
+function ganttToggleActiveOnly() {
+  const on = !ganttActiveOnly();
+  try {
+    localStorage.setItem(smdKey("ganttActiveOnly"), on ? "true" : "false");
+  } catch (e) {
+    /* storage unavailable; the filter stays session-only */
+  }
+  renderGantt();
+}
+
+// Re-assert the toggle's active state (the header is rebuilt on every open).
+function ganttPaintActiveToggle() {
+  const btn = document.querySelector("#ganttPage .gantt-active-toggle");
+  if (!btn) return;
+  const on = ganttActiveOnly();
+  btn.classList.toggle("active", on);
+  btn.setAttribute("aria-pressed", on ? "true" : "false");
+}
+
+function ganttActiveToggleHtml() {
+  return (
+    '<button type="button" class="btn btn-sm gantt-active-toggle" aria-pressed="false" ' +
+    'title="Show only active jobs (hide inactive jobs)" onclick="ganttToggleActiveOnly()">Active only</button>'
+  );
+}
+
 function ganttHeaderHtml() {
-  // Zoom, Undo/Redo, the Start/End toggle, then the Streams dropdown. The
-  // Start/End toggle carries `margin-left:auto` (see injectGanttTheme), so it and
-  // the Streams filter float together on the right while zoom/history stay left.
-  return ganttZoomHtml() + ganttUndoRedoHtml() + ganttDatesToggleHtml() + ganttStreamFilterHtml();
+  // Zoom, Undo/Redo, the Start/End toggle, the Active-only filter, then the
+  // Streams dropdown. The Start/End toggle carries `margin-left:auto` (see
+  // injectGanttTheme), so it and the controls after it float together on the
+  // right while zoom/history stay left.
+  return ganttZoomHtml() + ganttUndoRedoHtml() + ganttDatesToggleHtml() + ganttActiveToggleHtml() + ganttStreamFilterHtml();
 }
 
 // Undo / Redo buttons in the header, just before the Streams filter. Disabled
@@ -494,6 +554,11 @@ function buildGanttTasks(streams, todayStr) {
   const items = [];
   const hidden = ganttHiddenStreamSet();
   const collapsed = ganttCollapsedStreamSet();
+  // When the "Active only" header filter is on, inactive jobs are dropped from
+  // the projection entirely (rows AND bars), so a stream's summary bar spans only
+  // its active jobs. A stream left with no active jobs behaves like an empty one
+  // and keeps its minimum tick.
+  const activeOnly = ganttActiveOnly();
   // Keep each stream's index in the STORED array alongside it so the sort below
   // has something stable to move. This index is only valid for THIS render pass
   // (adding/removing a stream renumbers it); a job's durable identity is always
@@ -511,7 +576,9 @@ function buildGanttTasks(streams, todayStr) {
     // grouping needs. Job ids come from the stored `id` so they survive a
     // re-projection.
     const groupId = "s" + x.idx;
-    const jobs = (stream.jobs || []).slice().sort((a, b) => (a.sequence || 0) - (b.sequence || 0));
+    let streamJobs = stream.jobs || [];
+    if (activeOnly) streamJobs = streamJobs.filter((j) => j.active !== false);
+    const jobs = streamJobs.slice().sort((a, b) => (a.sequence || 0) - (b.sequence || 0));
     // Derive each job's start/end once. ALL jobs are measured so a collapsed
     // stream's summary bar still spans its full min..max range; only the ROWS
     // that are emitted below change when collapsed.
@@ -673,6 +740,7 @@ function renderGantt() {
   ganttPaintZoomButtons();
   ganttPaintUndoButtons();
   ganttPaintDatesToggle();
+  ganttPaintActiveToggle();
   ganttLibReady().then(function (lib) {
     // Bail if a newer render started, or if the page was closed/rebuilt while we
     // were waiting — the element we captured may no longer be the one on screen.
@@ -796,6 +864,11 @@ function drawGantt(host, lib) {
     // stop the bars being dragged — that is a separate pointer handler inside
     // the plugin and is disabled in CSS. Both are needed.
     grid.readonly = true;
+    // RevoGrid's built-in column filter (the funnel button on every header) is
+    // meaningless on this read-only projection - the only job filter lives in
+    // the page header ("Active only"). The grid `filter` property defaults to
+    // true, so it must be switched off explicitly or every column gets a funnel.
+    grid.filter = false;
     // No cell focus. RevoGrid otherwise adds `.focused-rgRow` / a focus ring on
     // click (the row gets `background-color: var(--rg-theme-focused-bg)` and a
     // `revogr-focus` box-shadow border), which reads as a red/theme-coloured
@@ -2305,6 +2378,27 @@ function changeShowGantt(enabled) {
     "  border-color: var(--bs-secondary);",
     "}",
     "#ganttPage .gantt-dates-toggle.active {",
+    "  background-color: var(--bs-primary);",
+    "  color: #fff;",
+    "  border-color: var(--bs-primary);",
+    "  font-weight: 600;",
+    "}",
+    "/* Active-only toggle: same solid secondary/primary treatment as the Start/End",
+    "   toggle (active = only active jobs shown). It sits just after Start/End and",
+    "   before the Streams filter. */",
+    "#ganttPage .gantt-active-toggle {",
+    "  margin-right: 0.5rem;",
+    "  background-color: var(--bs-secondary);",
+    "  color: #fff;",
+    "  border: 1px solid var(--bs-secondary);",
+    "}",
+    "#ganttPage .gantt-active-toggle:hover,",
+    "#ganttPage .gantt-active-toggle:focus {",
+    "  background-color: var(--bs-secondary);",
+    "  color: #fff;",
+    "  border-color: var(--bs-secondary);",
+    "}",
+    "#ganttPage .gantt-active-toggle.active {",
     "  background-color: var(--bs-primary);",
     "  color: #fff;",
     "  border-color: var(--bs-primary);",
