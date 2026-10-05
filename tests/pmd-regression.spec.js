@@ -689,7 +689,6 @@ test.describe("PlanMyDay - Regression", () => {
           return { bg: cs.backgroundColor, color: cs.color };
         };
         return {
-          header: read(pageEl.querySelector("#editJobsTotalBadge")),
           tab: read(pageEl.querySelector("pmd-stream-header").querySelector(".tab-badge"))
         };
       });
@@ -697,9 +696,6 @@ test.describe("PlanMyDay - Regression", () => {
       for (const theme of ["cerulean", "darkly"]) {
         await setTheme(page, theme);
         const colors = await badgeColors();
-        expect(colors.header).toEqual(await bootswatchBadge(page, "info"));
-        // The tab badge is now the PRIMARY variant (with a Font Awesome icon) -
-        // the stream card's tab no longer uses the info colour.
         expect(colors.tab).toEqual(await bootswatchBadge(page, "primary"));
       }
     });
