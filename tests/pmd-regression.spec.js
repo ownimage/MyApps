@@ -5336,7 +5336,7 @@ test.describe("PlanMyDay - Regression", () => {
       });
     });
 
-    test("uploadStandardImages adds sample images", async ({ page }) => {
+    test("uploadStandardImages asks Cancel/Replace/Merge/Add then merges sample images", async ({ page }) => {
       test.setTimeout(60000);
       await page.locator("#btnMainMenu").click();
       await page.locator("a.dropdown-item").filter({ hasText: "Settings" }).click();
@@ -5344,12 +5344,84 @@ test.describe("PlanMyDay - Regression", () => {
       await page.locator("#showDanger").check();
       await page.locator("#uploadStandardImagesRow").waitFor({ state: "visible" });
       await page.locator("#btnUploadImages").click();
+      // The confirmation modal offers Cancel / Replace / Merge / Add, in that
+      // order and with secondary / danger / primary / success styling.
+      const footer = page.locator("#smdConfirmModal .smd-footer button");
+      await expect(footer).toHaveCount(4);
+      expect(await footer.allInnerTexts()).toEqual(["Cancel", "Replace", "Merge", "Add"]);
+      expect(await footer.nth(0).getAttribute("class")).toContain("btn-secondary");
+      expect(await footer.nth(1).getAttribute("class")).toContain("btn-danger");
+      expect(await footer.nth(2).getAttribute("class")).toContain("btn-primary");
+      expect(await footer.nth(3).getAttribute("class")).toContain("btn-success");
+      await page.locator("#smdConfirmModal").getByRole("button", { name: "Merge" }).click();
       await page.waitForFunction(() => {
         const imgs = JSON.parse(localStorage.getItem("shared-images") || "[]");
         return imgs.length > 0;
       }, null, { timeout: 45000 });
       const count = await page.evaluate(() => JSON.parse(localStorage.getItem("shared-images") || "[]").length);
       expect(count).toBeGreaterThan(0);
+    });
+
+    test("uploadStandardImages Add only adds missing images and leaves existing ones untouched", async ({ page }) => {
+      test.setTimeout(60000);
+      await page.evaluate(async () => {
+        const res = await fetch("../shared/sampleImages.json");
+        const data = await res.json();
+        localStorage.setItem("shared-images", JSON.stringify([
+          { name: "My Custom One", data: "data:image/svg+xml,<svg/>" },
+          data.images[0]
+        ]));
+      });
+      const total = await page.evaluate(async () => (await (await fetch("../shared/sampleImages.json")).json()).images.length);
+      await page.evaluate(() => uploadStandardImages());
+      await page.locator("#smdConfirmModal").getByRole("button", { name: "Add" }).click();
+      await page.waitForFunction((t) => {
+        const imgs = JSON.parse(localStorage.getItem("shared-images") || "[]");
+        return imgs.length === t + 1;
+      }, total, { timeout: 45000 });
+      const names = await page.evaluate(() => JSON.parse(localStorage.getItem("shared-images")).map(i => i.name));
+      // The custom image and the one colliding standard name are untouched;
+      // every other standard image is appended.
+      expect(names).toContain("My Custom One");
+      expect(names.length).toBe(total + 1);
+      expect(new Set(names).size).toBe(names.length);
+      await expect(page.locator("#smdConfirmModal")).toContainText(`${total - 1} added`);
+      await expect(page.locator("#smdConfirmModal")).toContainText("1 already exist");
+    });
+
+    test("uploadStandardImages replace clears existing images and loads the standard set", async ({ page }) => {
+      test.setTimeout(60000);
+      await page.evaluate(async () => {
+        const res = await fetch("../shared/sampleImages.json");
+        const data = await res.json();
+        localStorage.setItem("shared-images", JSON.stringify([
+          { name: "My Custom One", data: "data:image/svg+xml,<svg/>" },
+          { name: data.images[0].name, data: "data:image/svg+xml,<svg/>" }
+        ]));
+      });
+      const total = await page.evaluate(async () => (await (await fetch("../shared/sampleImages.json")).json()).images.length);
+      await page.evaluate(() => uploadStandardImages());
+      await page.locator("#smdConfirmModal").getByRole("button", { name: "Replace" }).click();
+      await page.waitForFunction((t) => {
+        const imgs = JSON.parse(localStorage.getItem("shared-images") || "[]");
+        return imgs.length === t;
+      }, total, { timeout: 45000 });
+      const names = await page.evaluate(() => JSON.parse(localStorage.getItem("shared-images")).map(i => i.name));
+      expect(names).not.toContain("My Custom One");
+      expect(names.length).toBe(total);
+      await expect(page.locator("#smdConfirmModal")).toContainText("All previous images were replaced");
+    });
+
+    test("uploadStandardImages Cancel leaves existing images untouched", async ({ page }) => {
+      test.setTimeout(30000);
+      await page.evaluate(() => {
+        localStorage.setItem("shared-images", JSON.stringify([{ name: "My Custom One", data: "data:image/svg+xml,<svg/>" }]));
+      });
+      await page.evaluate(() => uploadStandardImages());
+      await page.locator("#smdConfirmModal").getByRole("button", { name: "Cancel" }).click();
+      await page.waitForTimeout(500);
+      const names = await page.evaluate(() => JSON.parse(localStorage.getItem("shared-images")).map(i => i.name));
+      expect(names).toEqual(["My Custom One"]);
     });
 
     test("exportData triggers download", async ({ page }) => {
@@ -5873,6 +5945,7 @@ test.describe("PlanMyDay - Regression", () => {
         }
       });
       await page.evaluate(() => uploadStandardImages());
+      await page.locator("#smdConfirmModal").getByRole("button", { name: "Merge" }).click();
       await page.waitForFunction(() => {
         const imgs = JSON.parse(localStorage.getItem("shared-images") || "[]");
         return imgs.length > 1;
@@ -5891,12 +5964,37 @@ test.describe("PlanMyDay - Regression", () => {
         }
       });
       await page.evaluate(() => uploadStandardImages());
-      await page.locator("#smdConfirmModal").waitFor({ state: "visible", timeout: 15000 });
+      await page.locator("#smdConfirmModal").getByRole("button", { name: "Merge" }).click();
       const total = await page.evaluate(async () => (await (await fetch("../shared/sampleImages.json")).json()).images.length);
-      await expect(page.locator("#smdConfirmModal")).toContainText(`${total} images uploaded`);
+      await expect(page.locator("#smdConfirmModal")).toContainText(`${total} images uploaded`, { timeout: 15000 });
       await expect(page.locator("#smdConfirmModal")).toContainText(`${total - 1} added`);
-      await expect(page.locator("#smdConfirmModal")).toContainText("1 duplicate ignored");
-      await expect(page.locator("#smdConfirmModal .smd-body br")).toHaveCount(2);
+      await expect(page.locator("#smdConfirmModal")).toContainText("0 replaced");
+      // The seeded copy is byte-identical to the standard image, so it is
+      // reported as unchanged rather than replaced.
+      await expect(page.locator("#smdConfirmModal")).toContainText("1 unchanged (identical contents)");
+      await expect(page.locator("#smdConfirmModal")).toContainText("0 existing kept");
+      await expect(page.locator("#smdConfirmModal .smd-body br")).toHaveCount(4);
+      // The summary's OK button is the success variant.
+      expect(await page.locator("#smdConfirmModal .smd-footer button").nth(0).getAttribute("class")).toContain("btn-success");
+    });
+
+    test("uploadStandardImages merge reports identical images separately from replaced ones", async ({ page }) => {
+      test.setTimeout(60000);
+      await page.evaluate(async () => {
+        const res = await fetch("../shared/sampleImages.json");
+        const data = await res.json();
+        localStorage.setItem("shared-images", JSON.stringify([
+          data.images[0],
+          { name: data.images[1].name, data: "data:image/svg+xml,DIFFERENT" }
+        ]));
+      });
+      await page.evaluate(() => uploadStandardImages());
+      await page.locator("#smdConfirmModal").getByRole("button", { name: "Merge" }).click();
+      const total = await page.evaluate(async () => (await (await fetch("../shared/sampleImages.json")).json()).images.length);
+      await expect(page.locator("#smdConfirmModal")).toContainText(`${total} images uploaded`, { timeout: 15000 });
+      await expect(page.locator("#smdConfirmModal")).toContainText(`${total - 2} added`);
+      await expect(page.locator("#smdConfirmModal")).toContainText("1 replaced");
+      await expect(page.locator("#smdConfirmModal")).toContainText("1 unchanged (identical contents)");
     });
 
     test("settings auto-hide branch guards", async ({ page }) => {

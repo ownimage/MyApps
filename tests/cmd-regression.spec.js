@@ -236,6 +236,32 @@ test.describe("CountMyDays - Regression", () => {
       await expect(page.locator("#settingsPage").getByRole("button", { name: "Load sample data" })).toBeVisible();
       await expect(page.locator("#settingsPage").getByRole("button", { name: "Clear cache" })).toBeVisible();
     });
+
+    test("danger tab uploads standard images and Replace clears existing images", async ({ page }) => {
+      test.setTimeout(60000);
+      await seed(page);
+      await page.evaluate(() => {
+        localStorage.setItem("shared-images", JSON.stringify([{ name: "My Custom One", data: "data:image/svg+xml,<svg/>" }]));
+      });
+      await page.evaluate(() => openSettings());
+      await page.locator("#danger-tab").click();
+      await expect(page.locator("#uploadStandardImagesRow")).toBeHidden();
+      await page.locator("#showDanger").check();
+      await expect(page.locator("#uploadStandardImagesRow")).toBeVisible();
+      await expect(page.locator("#settingsPage").getByRole("button", { name: "Upload Standard Images" })).toBeVisible();
+      const total = await page.evaluate(async () => (await (await fetch("../shared/sampleImages.json")).json()).images.length);
+      await page.locator("#settingsPage").getByRole("button", { name: "Upload Standard Images" }).click();
+      // The shared confirmation modal offers Cancel / Replace / Merge / Add.
+      expect(await page.locator("#smdConfirmModal .smd-footer button").allInnerTexts()).toEqual(["Cancel", "Replace", "Merge", "Add"]);
+      await page.locator("#smdConfirmModal").getByRole("button", { name: "Replace" }).click();
+      await page.waitForFunction((t) => {
+        const imgs = JSON.parse(localStorage.getItem("shared-images") || "[]");
+        return imgs.length === t;
+      }, total, { timeout: 45000 });
+      const names = await page.evaluate(() => JSON.parse(localStorage.getItem("shared-images")).map(i => i.name));
+      expect(names).not.toContain("My Custom One");
+      expect(names.length).toBe(total);
+    });
   });
 
   test.describe("Dates editor", () => {

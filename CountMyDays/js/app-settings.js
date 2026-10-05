@@ -3,7 +3,7 @@
 // size, icon size, density, auto-hide) live in shared/js/smd-settings.js.
 
 // Danger-tab rows toggled by the shared "Show danger" switch.
-const CMD_DANGER_IDS = ["gcalDangerRow", "clearAllDataRow", "refreshAppRow"];
+const CMD_DANGER_IDS = ["gcalDangerRow", "uploadStandardImagesRow", "clearAllDataRow", "refreshAppRow"];
 
 function changeFormat(value) {
   localStorage.setItem(smdKey("countdownFormat"), value);

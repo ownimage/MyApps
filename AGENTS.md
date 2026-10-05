@@ -3266,3 +3266,54 @@ Techniques / gotchas:
   screenshots confirmed the funnels are gone and the toggle hides the inactive
   row.
 - `BUILD_NUMBER` bumped `202610042128` -> `202610042138` via `npm run bump:build`.
+
+### 2026-10-05 - Upload Standard Images: choose Replace or Merge (shared)
+- FEATURE (user): Settings -> Danger -> Upload Standard Images now opens an
+  application `smd-modal` (via `showSmdModal`) asking whether to replace the
+  existing images. Footer order + colours: `Cancel` (secondary), `Replace`
+  (danger), `Merge` (primary), `Add` (success, far right). The body (with blank
+  lines between each clause) is: "You already have N image(s). / Replace them
+  all with the standard images, / or / Merge the standard images into your
+  existing set, / or / Add missing images, don't change anything else."
+- SEMANTICS (shared `uploadStandardImages()` in `shared/js/smd-images.js`):
+  - Replace: clear all existing images, then write the standard set.
+  - Merge: keep existing images; a same-named image is overwritten ONLY when
+    its serialized contents differ (`imagesContentEqual`, a `JSON.stringify`
+    compare), otherwise it is left as-is and counted as "unchanged (identical
+    contents)"; standard names not present are appended; existing names not in
+    the standard set are kept.
+  - Add: append ONLY standard images whose name is not present locally; every
+    existing image is left untouched (no overwrite, no identical/replaced
+    counting). Same-named standards are counted as "already exist".
+  - The choice modal calls the new `applyStandardImages(mode)` ("replace" /
+    "merge" / "add"); the summary `showInfoConfirm` reports:
+    - replace: `${total} images uploaded.` + `All previous images were replaced.`
+    - merge: `${added} added`, `${replaced} replaced`,
+      `${identical} unchanged (identical contents)`, `${kept} existing kept.`
+    - add: `${added} added`, `${skipped} already exist.`
+  - The summary's single OK button is the SUCCESS variant (`showInfoConfirm`
+    in `shared/js/smd-app.js`; it is now only used by this upload summary).
+- SCOPE: the shared function drives PlanMyDay ("Upload Standard Images") and
+  QRLinks ("Load Sample Images") unchanged; CountMyDays gained the row
+  (`#uploadStandardImagesRow` -> `#btnUploadImages`) in its Danger tab and
+  `uploadStandardImagesRow` was added to `CMD_DANGER_IDS`, so it is hidden until
+  "Show danger" (same as every other danger row).
+- TESTS (TDD, red first): `pmd-regression` — the 4-button modal order/colours +
+  Merge, Add only appends missing names and leaves existing untouched (reports
+  `${total-1} added` / `1 already exist`), Replace clears custom images and
+  loads the full standard set, Cancel leaves storage untouched, merge de-dupes
+  names, the summary counts, and a synthetic case proving `1 replaced` vs
+  `1 unchanged (identical contents)` (standard image seeded twice, one
+  byte-identical / one modified).
+  `cmd-regression` — CountMyDays danger row hidden until Show danger then
+  Replace clears existing images. `pmd-screenshots` — "images editor" now clicks
+  Merge then the summary OK; "sample images upload confirmation" now captures
+  the choice modal. All pass (screenshot specs run with `SCREENSHOT_THEME=superhero`).
+- GOTCHA hit again (2026-09-30 note): a fresh `tests/serve-tests.mjs` served a
+  TRUNCATED `smd-images.js` (38714 of 40295 bytes) so the page had the new
+  `uploadStandardImages` but `applyStandardImages` was `undefined` — the tell was
+  `typeof applyStandardImages === "undefined"` plus a modal that still rendered.
+  Fix: kill the 8080/8081 listener and restart the server; verify the served
+  bytes match disk (`Invoke-WebRequest -UseBasicParsing`) before rerunning.
+- `BUILD_NUMBER` bumped `202610042145` -> `202610050338` -> `202610050342` via
+  `npm run bump:build` (shared assets changed).
