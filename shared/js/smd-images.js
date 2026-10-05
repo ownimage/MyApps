@@ -951,29 +951,102 @@ function hideUploadDialog() {
 }
 
 function uploadStandardImages() {
+  const existingCount = loadImages().length;
+  const message = existingCount > 0
+    ? `You already have ${existingCount} image${existingCount === 1 ? "" : "s"}.\n\nReplace them all with the standard images,\n\nor\n\nMerge the standard images into your existing set,\n\nor\n\nAdd missing images, don't change anything else.`
+    : "You have no images yet. Upload the standard image set?";
+  showSmdModal({
+    title: "Upload Standard Images",
+    content: escapeHtml(message).replace(/\n/g, "<br>"),
+    buttons: [
+      { text: "Cancel", variant: "secondary", action: "cancel" },
+      { text: "Replace", variant: "danger", action: "replace" },
+      { text: "Merge", variant: "primary", action: "merge" },
+      { text: "Add", variant: "success", action: "add" }
+    ],
+    onAction: function(detail) {
+      if (detail.action === "replace") applyStandardImages("replace");
+      else if (detail.action === "merge") applyStandardImages("merge");
+      else if (detail.action === "add") applyStandardImages("add");
+    }
+  });
+}
+
+// Two stored image entries are "identical" when their serialized contents
+// match, i.e. the existing copy needs no replacement.
+function imagesContentEqual(a, b) {
+  if (!a || !b) return false;
+  return JSON.stringify(a) === JSON.stringify(b);
+}
+
+// mode "replace": delete every existing image, then write the standard set.
+// mode "merge": keep existing images; same-named images are overwritten with
+// the standard version only when their contents differ, and the rest are
+// appended.
+// mode "add": only append standard images whose name is not present locally;
+// every existing image is left untouched.
+function applyStandardImages(mode) {
   showUploadDialog();
   const root = typeof smdAppRoot === "function" ? smdAppRoot() : "";
   fetch(root + "sampleImages.json?v=" + (typeof BUILD_NUMBER !== "undefined" ? BUILD_NUMBER : Date.now()))
     .then(res => res.json())
     .then(data => {
       if (!data || !data.images) return;
-      const existing = loadImages();
-      const existingNames = new Set(existing.map(img => img.name));
+      const standard = data.images;
+      const total = standard.length;
       let added = 0;
-      data.images.forEach(img => {
-        if (!existingNames.has(img.name)) {
-          existing.push(img);
-          existingNames.add(img.name);
-          added++;
-        }
-      });
-      if (added > 0) {
+      let replaced = 0;
+      let identical = 0;
+      let skipped = 0;
+      let kept = 0;
+      if (mode === "replace") {
+        saveImages(standard.slice());
+        added = total;
+      } else if (mode === "add") {
+        const existing = loadImages();
+        const existingNames = {};
+        existing.forEach(img => { existingNames[img.name] = true; });
+        standard.forEach(img => {
+          if (existingNames[img.name]) {
+            skipped++;
+          } else {
+            existingNames[img.name] = true;
+            existing.push(img);
+            added++;
+          }
+        });
         saveImages(existing);
-        renderImagesEditor();
+      } else {
+        const existing = loadImages();
+        const indexByName = {};
+        existing.forEach((img, i) => { indexByName[img.name] = i; });
+        standard.forEach(img => {
+          if (Object.prototype.hasOwnProperty.call(indexByName, img.name)) {
+            if (imagesContentEqual(existing[indexByName[img.name]], img)) {
+              identical++;
+            } else {
+              existing[indexByName[img.name]] = img;
+              replaced++;
+            }
+          } else {
+            indexByName[img.name] = existing.length;
+            existing.push(img);
+            added++;
+          }
+        });
+        kept = existing.length - added - replaced - identical;
+        saveImages(existing);
       }
-      const total = data.images.length;
-      const ignored = total - added;
-      showInfoConfirm(`${total} image${total === 1 ? "" : "s"} uploaded.\n${added} added\n${ignored} duplicate${ignored === 1 ? "" : "s"} ignored.`);
+      renderImagesEditor();
+      let summary = `${total} image${total === 1 ? "" : "s"} uploaded.`;
+      if (mode === "replace") {
+        summary += "\nAll previous images were replaced.";
+      } else if (mode === "add") {
+        summary += `\n${added} added\n${skipped} already exist.`;
+      } else {
+        summary += `\n${added} added\n${replaced} replaced\n${identical} unchanged (identical contents)\n${kept} existing kept.`;
+      }
+      showInfoConfirm(summary);
     })
     .catch(() => {})
     .finally(() => hideUploadDialog());

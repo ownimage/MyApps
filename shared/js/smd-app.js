@@ -99,7 +99,7 @@ function showInfoConfirm(message) {
     title: "Sample images loaded",
     content: escapeHtml(message).replace(/\n/g, "<br>"),
     buttons: [
-      { text: "OK", variant: "primary", action: "ok" }
+      { text: "OK", variant: "success", action: "ok" }
     ]
   });
 }
