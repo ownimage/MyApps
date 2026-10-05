@@ -67,6 +67,20 @@ Architecture:
 - THEME TEXT COLOURS (2026-09-12): shadow-DOM buttons/tabs cannot use Bootswatch's `.btn-*` rules (document CSS doesn't cross the boundary, and `--bs-btn-*` is set on the `.btn-*` element, not `:root`). `applySmdVars()` reads a hidden light-DOM `<button class="btn btn-<variant>">` probe (`smdBootstrapColor()`) and publishes `--smd-primary/secondary/success/danger/info/warning-text` + `--smd-tab-text` on `<html>`; every shadow `.btn-*`/variant uses those vars. `applyTheme()` re-runs `applySmdVars` on the theme `<link>`'s `load`. Never hardcode white text for a theme-coloured surface; if Bootswatch's own `.btn-*` rule disagrees with its `--bs-btn-color` var (e.g. cerulean's later `.btn-secondary { color: ... }`), the probe wins — always match the probe.
 - BADGES (2026-09-12): use the shared `<smd-badge variant="primary|secondary|success|danger|warning|info|light|dark" pill?>` component everywhere — never a `<span class="badge bg-*">` (Bootstrap's badge vars live on the `.badge` element and can't reach shadow roots). `applySmdVars()` probes a hidden light-DOM `.badge.text-bg-<variant>` (`smdBootstrapStyle()`) and publishes `--smd-badge-<variant>-{bg,text}`; the component's own sheet consumes them, so text colour follows Bootswatch exactly (white on cerulean's navy info, black on its light secondary, etc.). `btnBadgeSheet` now only carries `.btn*` rules despite its name; `smd-page`'s badge/bg rules were removed.
 - IMAGE DROPDOWN (2026-09-18): the shared `<smd-image-dropdown>` (`shared/js/components/smd-image-dropdown.js`) is the generic image+name picker — the old PlanMyDay `pmd-stream-select` was folded into it and deleted. It is DATA-driven, not DOM: host sets `options = [{name, image}]` (image OPTIONAL → text-only rows, e.g. CountMyDays' no-image "All") and `selected` = the chosen option's NAME string; picks dispatch `smd-image-dropdown-change` ({ name }). Listener wiring: CountMyDays `#dateCategoryFilter` (`smd-image-dropdown-change` → `setDateCategoryFilter`, "" for All) in `dates-editor.js`; PlanMyDay `#jobStreamDropdown` (name mapped back via `streamIndexByName` in `editor-common.js`). Stable shadow ids for test locators: `smdImageDropdownBtn`, `smdImageBtnIcon`, `smdImageBtnText`, `smdImageDropdownMenu`. Its colours come from the `--smd-dropdown-*` palette at the top of `shared/css/styles.css` (override per theme in `shared/css/themes/<theme>/<theme>.<mode>.css`; superhero does) — see the 2026-09-26 (c) session note.
+- SMD-IMAGE-DROPDOWN CLOSED-STATE LAYOUT (2026-10-04): the closed button
+  LEFT-ALIGNS its label right next to the image and sizes itself to the WIDEST
+  option. Every option label is stacked in ONE hidden `.sizer` grid cell inside
+  the `.labels` grid (`text-align:left`, `gap-2` = 8px), so the button does not
+  resize as the selection changes and the title ellipsises on a narrow column.
+  `.labels` children (incl. `.sizer`) need `min-width:0; overflow:hidden` or the
+  grid's min-content is the widest label and it refuses to shrink. On the Edit
+  Job page the button is `width:fit-content; max-width:100%` (the old
+  `min-width:14em` is gone); CountMyDays' inline `min-width:180/220px` and the
+  stream tab picker's `13.5em` still win, so those usages are unchanged.
+  `smd-image-select` now top-aligns its thumb (`align-items:flex-start` +
+  `.thumb { margin-top: calc(0.375rem + 1px) }`, matching the dropdown button's
+  padding+border) so its image lines up with the dropdown image with OR without
+  a job image; the Edit Job Image wrapper is deliberately NOT `align-items-center`.
 - PMD TASKS (2026-09-26): the PlanMyDay job-edit Tasks list is the `PlanMyDay/js/components/pmd-tasks.js` component `<pmd-tasks>` (light DOM, host id `#jobTasksList`). DATA-driven: host sets `tasks = [{description, done, note, noteOpen}]` + the `read-only` attribute; it renders `.task-row`/`.task-note-row` keeping every id/class the suite targets (`.task-drag-card`, `.drag-handle`, `.task-done-cb`, `.task-desc-input`, `.task-note-btn`, `#taskNoteRow<i>`), and dispatches `pmd-task-change` ({index, field, value}, field done|description|note), `pmd-task-note-toggle` ({index, open}) and `pmd-task-delete` ({index}). `job-editor.js` `getJobTasksTabHTML` emits `<pmd-tasks id="jobTasksList" [read-only]>`; `renderJobTasks()` just sets `el.tasks = jobsBuffer.tasks`, toggles the top Add button and re-inits Sortable; `buildJobEditPage` calls `renderJobTasks()` for BOTH modes. The 3 events are wired on `#jobEditPage` in `app.js` -> `jobTaskField`/noteOpen/`jobDeleteTask`. `jobTaskToggleNote`/`taskNoteOpen` were deleted; `setTaskNoteBtnClass` stays (jobTaskField). Registered in `PlanMyDay/index.html`, `sw.js` APPS and the storybook (+section, nav count 31->32). Row colours come from the `--pmd-tasks-row-{background,foreground}` palette at the top of `shared/css/styles.css` (superhero overrides background to `--bs-dark`); see the 2026-09-26 (d) note.
 - Quartz's "glassmorphism" overrides live in `shared/css/styles.css` (`.modal-content`, `.dropdown-menu`).
 - REPO/PWA LAYOUT (2026-09-10): the repo hosts **multiple PWAs off one origin**
@@ -405,6 +419,20 @@ Architecture:
   so this sheet deliberately has no `.data-img` rule. The
   storybook has a section (its demo needs the `smd-images.js` script, which the
   storybook now loads).
+- SMD-IMAGE-CARD TILE SWATCHES (2026-10-04): the Edit Images tile
+  (`<smd-image-card>`) renders THREE `<smd-image>` on one row — the main thumb
+  (`.thumb`, theme auto) plus a light and a dark theme swatch
+  (`.theme-swatch`, each `bg-body` + `data-bs-theme="light|dark"` + `p-1 border
+  rounded`). The three buttons sit in a `d-flex flex-grow-1
+  justify-content-between` container so they spread across the remaining space;
+  the name stays once below the row (swatches carry no name). The swatches each
+  set their own `theme` attribute so they paint that theme's colour overrides;
+  the "app light/dark surface" comes from `bg-body` under the element's own
+  `data-bs-theme` (for superhero the LIGHT surface is the dark navy #0f2537, so
+  do not assume light is lighter). Because a card now holds 3 `smd-image`,
+  selectors that meant the main thumb must use `.thumb smd-image`
+  (cmd/pmd/qrlinks specs updated). Test: cmd-regression "image tile shows the
+  main image plus light and dark theme swatches on one row".
 - `hideNav()` (shared smd-settings.js) now hides when NO
   `smd-page:not(.d-none)` is open — generic for any app's page set (was a
   hardcoded PlanMyDay id list).
@@ -555,6 +583,24 @@ Techniques / gotchas:
   like this, diff computed styles + `getBoundingClientRect` of the affected elements between a
   stashed baseline run and a patched run — PNG hashes are useless here: two untouched
   `pmd-screenshots` runs differ in 654 of 1,944 images.
+
+- COVERAGE ONLY COUNTS SPECS WITH HOOKS (2026-10-04): `tests/coverage.js` records
+  coverage only for pages where a spec calls `startCoverage`/`stopCoverage`, and
+  `globalSetup` cleans the cache every run — so any spec WITHOUT the hooks is
+  invisible and its code reads as 0% even when tested. Every regression spec now
+  has top-level hooks (`pmd-regression`, `cmd-regression`, `ffox-regression`,
+  `pmd-gantt`, `qrlinks-regression`, `launch-regression`,
+  `solarcontrolar-regression`, `storybook-regression`, `pmd-touch`,
+  `settings-alignment`, `image-edit-preview-size`; the `*-screenshots` specs
+  deliberately do not). Before this, QRLinks/Launch/SolarControlar and
+  `gantt.js` were entirely absent from the report. `stopCoverage` now also
+  strips the `?v=` query before adding, so the storybook's UN-versioned copies of
+  shared scripts merge with the apps' versioned copies (36 files were double
+  counted, +717 phantom functions). To find holes, decode
+  `coverage-report/coverage-data.js` (`window.reportData='<base64>'` →
+  `zlib.inflateRawSync(Buffer.from(b64,"base64"))`) and list functions with
+  `count === 0`; many are tiny `forEach`/`filter`/`.then` callbacks that only run
+  when an array is non-empty or a branch is taken.
 
 ## Session log
 
@@ -2904,7 +2950,7 @@ Techniques / gotchas:
 
 ### Authoritative CSS cascade and page-stack contract (2026-09-25)
 
-- Required stylesheet order for every app shell: vendor product styles first, then `shared/css/themes/<theme>/bootstrap.min.css`, then `shared/css/styles.css`, then the shared mode layer `shared/css/themes/<mode>.css`, and finally the per-theme+mode override `shared/css/themes/<theme>/<theme>.<mode>.css`. This note is the authoritative cascade order and supersedes older notes that described the mode/specific sheets before shared CSS.
+- Required stylesheet order for every app shell: vendor product styles first (including `shared/css/vendor-overrides.css` immediately after the vendor sheet it repaints, e.g. flatpickr), then `shared/css/themes/<theme>/bootstrap.min.css`, then `shared/css/styles.css`, then the shared mode layer `shared/css/themes/<mode>.css`, then the per-theme+mode override `shared/css/themes/<theme>/<theme>.<mode>.css`, and finally any app-owned sheet (e.g. `PlanMyDay/css/gantt.css`). This note is the authoritative cascade order and supersedes older notes that described the mode/specific sheets before shared CSS. See the 2026-10-03 session note.
 - The two overrides are the final layers. Keep the four theme link ids (`bootstrap-theme-css`, `smd-shared-css`, `theme-override-mode`, `theme-override-specific`) and preserve this order when changing index pages or dynamic theme loading. The `theme-override-mode` link and `light.css`/`dark.css` were removed 2026-09-26 and re-added 2026-09-30.
 - GOTCHA (fixed 2026-09-25, do not reintroduce): `applyTheme()` re-points the override sheet at runtime, and the old `orderThemeOverrideLinks()` anchored it on `#bootstrap-theme-css`. Because the shared sheet sits AFTER the base link in the correct order, that anchored it BEFORE it and pushed `shared/css/styles.css` to the end of `<head>` — so the theme was no longer the last cascade layer. The overrides are now anchored on the shared sheet: `themeOverrideAnchor()` returns `#smd-shared-css` (falling back to an href match for `shared/css/styles.css`, then the base link), and `setOverrideLink()`/`orderThemeOverrideLinks()` insert `theme-override-mode` then `theme-override-specific` immediately after it, in that order. Every shell carries `id="smd-shared-css"` on its shared stylesheet link.
 - This order is ENFORCED in every static shell (`index.html`, `PlanMyDay/index.html`, `CountMyDays/index.html`, `QRLinks/index.html`, `SolarControlar/index.html`, `FreeFormOX/index.html`, `storybook/index.html`, `storybook/cardViewer.html` including its iframe `frameDocument()`), and locked in by the "app shells load stylesheets in the documented cascade order" test in `tests/launch-regression.spec.js`, the frame check in `tests/storybook-regression.spec.js`, and the runtime order assertions in the Storybook theme-swap test. Keep new shells and the card viewer generator in the same order.
@@ -2940,5 +2986,283 @@ Techniques / gotchas:
 - GANTT DAY-CELL TINTS + SCROLLBARS (2026-09-26): three colour defects, all caused by my own overrides. (1) The "today" column had lost its highlight and weekends had lost their shading because the surface rule contains `#ganttPage tr.glineitem td` - specificity (1,1,2), ONE ELEMENT TYPE higher than any `td.gtaskcellcurrent` variant - so a normally-written tint rule silently lost the cascade. `!important` is required here (the repo already uses it for vendor overrides); do not "clean it up". (2) The today tint is `color-mix(in srgb, var(--bs-primary) 12%, var(--gantt-surface))`, NOT `--bs-primary-bg-subtle`: on a saturated theme (superhero's primary is orange) the subtle variant rendered as a muddy dark-orange smear. `color-mix` is already used elsewhere in the shared CSS. (3) The chart's scrollbars were the browser default (`scrollbarColor: auto` = light grey), which read as a foreign light panel inside a dark chart and made the corner grip a light `///` block. Now themed via `scrollbar-width`/`scrollbar-color` (Firefox) AND `::-webkit-scrollbar{,-track,-thumb,-corner}` (Chrome/Edge/Safari) - both families are needed, they are not alternatives. WARNING when debugging this area: my "surface everywhere" rule is a long selector list ending in `#ganttPage .gcontainercol`, and it matches far more than intended - check what a cell actually matches before assuming a selector is scoped to one thing.
 - GANTT RESIZE-GRIP BREAKAGE (2026-09-26): the vendor ships `.gmain { resize: horizontal }` (the double-headed-arrow grip in the bottom-right corner of each pane - that is the "thumbtick", NOT a drag handle and NOT a scrollbar; there is no `mousedown`/`mousemove` code anywhere in `jsgantt.js`). A native CSS resize grip works by writing an INLINE `width`, and `flex-basis` takes precedence over `width` for a flex item - so when the left-pane scaling fix expressed the proportional width as `flex: 0 0 clamp(360px, 32%, 460px)` it silently killed the drag: the arrow cursor still appeared (so it looked alive) but the pane never moved. Express it as `flex: 0 0 auto; width: clamp(360px, 32%, 460px)` instead - the basis stays `auto`, the clamp still drives the initial width and still re-evaluates on window resize, AND the grip works. Measured: writing an inline `width: 620px` moves the pane 404 -> 620 and the task table follows; with the flex-basis version the same write leaves it at 404. Do NOT "tidy" this back into a `flex-basis` shorthand. `tests/pmd-gantt.spec.js` guards it three ways: the computed `flex-basis` must be exactly `auto`, `resize` must still be `horizontal`, and a behavioural check writes an inline `width` (exactly what the grip does) and asserts the pane actually grows.
 - GANTT LEFT-PANE SCALING FIX (2026-09-26): "the data columns scale at the wrong rate on window resize" was THREE vendor defects stacking. (a) `.gmainleft` declares `flex: 0 0 20%` and then overrides it on the very next line with `flex: 1 0 auto` - the 20% basis is dead code and the pane is sized purely by leftover flex space, so it took 64% of the chart at 800px and ~52% at 1600px (non-proportional). (b) The task cells are `white-space: nowrap`, so the pane also stretched to fit the LONGEST job title. (c) `.gtaskname` is pinned to a FIXED `220px`, making the whole task table a constant ~472px that ignored the pane entirely and overflowed it on a narrow window, clipping the End Date column behind `.gmainleft { overflow: hidden }`. Meanwhile the timeline is a fixed pixel grid (`vTaskLeftPx = vNumCols * (vColWidth + 3)`), so on resize the data columns absorbed every pixel of slack while the day columns did not. Fix: `injectGanttLayout()` (a second id-guarded `<style>`, id `pmd-gantt-layout-style`) gives the pane a real proportional width, sets `table-layout: fixed` + `width: 100%` on `.gtasktable`, makes the NAME column the flexible one (`width: auto` + ellipsis, overriding the vendor's 220px) and keeps the three date columns at a constant 88px - which is what the timeline day columns do too, so the two halves scale consistently. Measured: pane 340/379/460px at 800/1200/1600 viewports, table always == pane, End Date never clipped, row-to-bar drift 0px, date columns identical at every width. Do NOT narrow the date columns below 88px (that is the vendor's own value; at 72px adjacent columns run together as "28/09/202630/09/2026"). The header table `.gtasktableh` CANNOT be `table-layout: fixed`: its first row is a single `.gspanning` cell with `colspan=11` (the "Format:" row), so fixed layout derives a 12-column grid from it and every label collapses to ~36px ("Dura... | Start... | End ...") - it is left on auto layout with the same explicit widths instead. Residual cosmetic: header and body are separate tables with different column structures (12 vs 5) so their vertical grid lines differ by a few px; a pixel-perfect fix would mean moving the "Format: Day/Week/Month" selector out of the header table, which is not worth it. TEST TRAP: the table-fits-pane, End-Date-not-clipped and date-columns-constant assertions ALL pass with or without this fix, so they do not guard it - the test additionally asserts the pane never takes >=50% of the chart, and that is the one that fails without the override (verified: "left pane took 65% of the chart").
-- GANTT MIGRATED TO REVOLIST (2026-09-30): `shared/vendor/jsgantt.js` / `jsgantt.css` were REPLACED by the MIT `@revolist/gantt` on `@revolist/revogrid` (vendored whole under `shared/vendor/revolist/`; see the sw.js comment + the notes at the top of `tests/pmd-gantt.spec.js`). The chart is STILL a read-only projection with the same Stream->Job data model and the same "Streams" header filter + zoom + frequency row labels (`ganttJobLabel`), but the DOM, hooks and CSS variables are completely different — the old jsgantt notes above (`vUseSort`, `pStart`/`pEnd`, `.gmainleft`/`.gtasktable`/`.glineitem`, resize grip, `afterDraw`, `data-gantt-*` drag) NO LONGER APPLY. Read-only is enforced TWO ways for the CELLS (both asserted in `tests/pmd-gantt.spec.js`): `grid.readonly = true` (stops cell edits) and `sortable: false` on each of the three app columns (`DEFAULT_TASK_COLUMNS.map(c => ({...c, sortable:false}))` - the plugin appends its own `__ganttTimeline` column which has no sortable prop, so filter it out when asserting). JOB BARS ARE DRAGGABLE via the plugin's OWN pointer handling: the vendored plugin draws `data-gantt-interaction="move"` on each bar and `resize-end` on its end handle, then rewrites startDate/endDate in its internal source and re-renders the grid live. The app only (a) splits the bar in CSS - LEFT half stays the bar's own `move` zone (grab cursor, drag moves the whole bar -> persists as `sleepUntil`), RIGHT half is the end handle stretched to 50% width (`ew-resize`, drag resizes -> persists as `duration`). SUMMARY (stream) bars are draggable too, as a WHOLE bar only (their end handle is hidden, so no resize): dragging a stream bar shifts EVERY child job's start by the same day delta (persisted as each job's `sleepUntil`, `ganttPersistStreamShift` reads the stream's stored index from the `"s"+idx` task id). The start/progress handles stay disabled - and (b) persists the result: `ganttBindBarDrag()` captures `{taskId, mode}` on pointerdown, and on document pointerup `ganttPersistBarDrag()` reads the updated dates out of `grid.source` and writes `sleepUntil` (move) or `duration` (resize-end, `Math.max(1, daysBetween)`) into the stored streams via `saveStreams()`, then `renderGantt()` re-projects. Task ids are `"j" + job.id`; the `j` prefix is stripped to find the job. `PlanMyDay/js/gantt-drag.js` was DELETED. Config order matters: `grid.columns` -> `grid.plugins=[GanttPlugin]` -> `grid.gantt` -> `grid.source` (the plugin installs the `gantt` accessor). `TaskEntity` needs `id`/`parentId`/`name`/`type`/`startDate`/`endDate`/`progressPercent`. Rows are COMPACT 30px (`grid.rowSize = 30`; the injected theme drops the vendor timeline cell's 40px min-height and shrinks bars to 18px / summary 8px so the full-page chart shows many rows instead of a few chunky ones), empty streams keep a zero-length span on today which the vendor draws as its 6px minimum bar, and zoom presets are `day-week`/`week-month`/`month-quarter` (persisted in `smdKey("ganttZoom")`; Day renders ~755 timeline header cells, Month ~50). LAYOUT: the chart fills the whole page — `#ganttPage .smd-page-body` is turned into a `flex-column` with `overflow: hidden` and `padding: 0 !important` (the `p-2` utility is `!important`, so this has to be too), and `#ganttChart` is `flex: 1 1 auto; min-height: 0` so RevoGrid's own virtualiser owns the scrollbar. INDENTATION: job names are indented under their stream by a `cellTemplate` on the `name` column that stamps `.pmd-gantt-job-name` (24px padding-left) on `type === "task"` rows — the rows carry no task/summary DOM marker, so this is the reliable hook. COLLAPSE: streams collapse via a toggle in the summary name cell (`.pmd-gantt-collapse-toggle`, glyph ▸/▾, aria-expanded). The set of collapsed stream TITLES is persisted in `smdKey("ganttCollapsedStreams")` (mirrors the hidden-stream filter). `buildGanttTasks` measures ALL jobs for the summary span but only EMITS job rows for non-collapsed streams, so a collapsed stream keeps its summary bar at full min..max range while its job bars vanish; `ganttToggleStreamCollapsed(title)` flips the set + re-renders.  ROW DRAG (2026-09-30, jobs reorder within/across streams): `ganttBindRowDrag()` is a custom pointer drag on the job name cells (`.pmd-gantt-job-name`, grab cursor) - RevoGrid native row drag was avoided because the plugin re-projects `grid.source` from stored streams every render, so a native reorder would be thrown away. On pointerdown it records the stored job + `grabOffsetY` (name-center minus row-top, ~15px); the drop resolves by the dragged row's TOP edge (`clientY - grabOffsetY`), not the pointer. The insertion line resolves to a JOB via `ganttRowAnchor(grid, dropY, jobId)` and the job is inserted before/after it (recomputed AFTER removal so indices can't shift); sequence is renumbered in both affected streams via `saveStreams()` + `renderGantt()`. DROP-TARGET RULES (final, resolved with the user): a line on a JOB row anchors that job (before/after by midpoint). A line on a SUMMARY row NEVER targets the header's own stream - it always joins the stream ABOVE the line: a COLLAPSED header is the visible target for its hidden stream (append to its bottom), and an EXPANDED header joins the stream above it too (append to that stream's bottom), because a drop above a stream's header is not part of that stream (e.g. A open/B closed/C open: dropping between B and C appends to the BOTTOM of B, never the top of C). The very first header with nothing above it is rejected. You can always drop before or after a job. Tests: `pmd-gantt.spec.js` "dragging a JOB row within its stream", "dropping a JOB on its own original slot", "dragging a JOB row onto another stream", "dropping a JOB on a stream header appends it to the stream above (bottom), never the header's own stream".Theming is CSS-custom-property only, in `injectGanttTheme()` (style id `pmd-gantt-theme-style`): `--rg-theme-*` for the grid, `--rg-gantt-*` for the timeline, all pointing at Bootstrap variables so every Bootswatch theme + light/dark follow for free. NAME TRAP: RevoGrid documents its tokens as `--revo-grid-*`, but the SHIPPED stylesheet reads `--rg-theme-*` — overriding the documented names does nothing. The `theme` ATTRIBUTE may only be `default`/`dark` (light/dark mode); the five bundled named palettes (ocean/midnight/aurora/highContrast/highContrastDark) have NO matching CSS and leave the grid unstyled (text vanishes). VENDORING TRAP: RevoGrid is a Stencil app whose component code loads via a RUNTIME template-literal `import()` (`dir + '/' + tag + '.entry.js'`), so a static scan of import specifiers CANNOT enumerate the real file set. The exact symptom: `revo-grid.entry.js` 404 -> `TypeError: Failed to fetch dynamically imported module` + `Error: Constructor for "revo-grid#undefined" was not found` while the page otherwise looked fine and every grid property read back correctly. The fix is to vendor the ENTIRE `revogrid/dist/esm/` directory (24 files, ~878KB; 26 with the two Gantt files, ~956KB) and to confirm the graph by RECORDING the browser's real network requests (see `C:\Users\Keith\AppData\Local\Temp\opencode\revolist-probe\record.cjs`). `sw.js` precaches all 26. `PlanMyDay/index.html` loads it via a RELATIVE import map (`shared/vendor/revolist/revogrid/esm/`) + `PlanMyDay/js/gantt-lib.js` (the ESM entry exposing `window.PMD_GANTT_LIB.GanttPlugin` + `DEFAULT_TASK_COLUMNS`, dispatching `pmd-gantt-lib-ready` / `pmd-gantt-lib-failed`), and `gantt.js` awaits `ganttLibReady()`. New selectors for tests: `#ganttChart revo-grid` (`aria-rowcount` = total rows), `revogr-header .rgHeaderCell` (4: Task/Start/End/timeline), `revogr-data .rgCell` (20 for 5 rows: 15 cells + 5 timeline labels), `.rg-gantt-bar`, `.rg-gantt-bar--summary`, `.rg-gantt-bar-label`, `.rg-gantt-header-cell`. KNOWN REGRESSION vs jsgantt: there is no tooltip equivalent in `GanttVisualConfig`, so old tooltip-only details are dropped (recurrence still shows in the row label); revisit if wanted. `tests/pmd-gantt.spec.js` was rewritten for this grid (12 tests: settings/menu, date derivation, render + empty-stream bar, read-only projection, frequency labels, WCAG AA contrast in both modes, read-only chart = no edit/sort/drag, Streams filter + persistence, zoom + persistence, full asset graph with no failed requests, Close).
+- GANTT DAY-VIEW HEADER (2026-10-04): the grid header row is 30px (compact
+  rows), which CLIPS the vendor's two-row timeline header (`.rg-gantt-header`
+  is 56px) down to just the month row. In the Day view the header is grown back
+  to 56px (`--rg-theme-header-height` + `.header-rgRow { height }`, scoped by
+  `#ganttChart[data-gantt-zoom-preset="day-week"]`) so the day-number row
+  ("2 Fri", "3 Sat", ...) shows UNDER the month (the vendor's natural order).
+  Week/Month keep the 30px single-row header. RevoGrid reads the header height
+  ONCE on mount, so a zoom change RECREATES the grid (`grid.__ganttZoom`);
+  `drawGantt` sets `data-gantt-zoom-preset` on `#ganttChart` (the `-preset`
+  suffix avoids clashing with the zoom BUTTONS' own `data-gantt-zoom`). TWO
+  alignment fixes so the dates line up with the columns: (a) the header divider
+  is a LEFT border, not the vendor's RIGHT border - the right border sat 1px
+  left of the data gridline (which is the column's first pixel); (b) the
+  timeline DATA `.rgCell` has 4px left/right padding that the header cell lacks,
+  so `#ganttPage revogr-data .rgCell:has(.rg-gantt-cell) { padding-left/right: 0 }`
+  puts the bars/gridlines and the header on ONE x origin. Test: "day view shows
+  the date numbers under the month, aligned to the columns".
+- GANTT START/END COLUMN TOGGLE (2026-10-04): a "Start/End" button in the Gantt
+  header shows/hides the Start and End date columns. It is the LAST control
+  before the Streams filter and floats right WITH it: the toggle carries
+  `margin-left: auto` (`.gantt-stream-filter` no longer does) so the two sit
+  together on the right while zoom/undo stay left. `ganttShowDates()` reads
+  `smdKey("ganttShowDates")` (default SHOWN); `drawGantt` filters
+  `lib.DEFAULT_TASK_COLUMNS` to drop `startDate`/`endDate`, and the grid is
+  recreated when the zoom OR the show-dates flag changes (`grid.__ganttKey`).
+  `ganttPaintDatesToggle()` re-asserts the active state on every render.
+  `openGantt` now also clears a pending `_ganttCloseTimer` (fast close -> reopen
+  used to add `d-none` after the open and render into a zero-height box).
+  ALL header buttons carry `btn-sm`: without it the shared
+  `button, .btn { font-size: var(--smd-type-h2) }` rule made the zoom + undo/redo
+  buttons the h2 size (49px at the default font) while the Start/End + Streams
+  `.btn-sm` buttons were 41px; `btn-sm` pins them to the p token so every header
+  control is the same height.
+- GANTT WEEKEND COLUMN HIGHLIGHT (2026-10-04): the Day view shades the Sat+Sun
+  columns via a `repeating-linear-gradient` on `.rg-gantt-cell` (chart) and
+  `.rg-gantt-header` (band), scoped to `data-gantt-zoom-preset="day-week"`. The
+  COLOUR is `--gantt-weekend-bg` (default
+  `color-mix(in srgb, var(--bs-body-color) 7%, transparent)`) - change that ONE
+  variable to restyle it. The phase is `--gantt-weekend-offset` = the first
+  Saturday's x, set by `ganttWeekendOffsetPx(items)` (the vendor's range starts
+  2 days before the earliest date; Day columns are 44px). GOTCHA: the weekend
+  layer MUST tile at `background-size: 308px 100%` (its own period), NOT `100%`.
+  A `100%` tile makes the period the element width (32120px) and, because
+  `32120 % 308 = 88`, the `background-position` shift lands the pattern wrongly
+  at the left edge - an extra day (e.g. the Friday) gets highlighted on the first
+  weekend. Test: "weekend highlight lands on exactly Saturday and Sunday for
+  every start weekday" (samples the RENDERED pixels for all 7 start weekdays).
+- GANTT endDate IS INCLUSIVE (2026-10-04): the vendored plugin's
+  `createGanttBarLayout` (revolist-gantt.js:105) draws a bar from `startDate` to
+  `endDate + 1 day`, so `endDate` is the LAST day the bar covers.
+  `buildGanttTasks` therefore sets `end = ganttAddDaysStr(start, duration - 1)`:
+  a 1-day job has `startDate === endDate` and its bar covers exactly ONE column
+  (44px at the Day preset), and a 3-day job ends two days after it starts. Keep
+  the consumers in sync: the drag ghost shows `ganttDaysBetween(start, end) + 1`
+  days, and `ganttPersistBarDrag`'s resize-end persists
+  `duration = ganttDaysBetween(start, end) + 1`. `ganttDaysBetween` stays the raw
+  date delta. A stream summary spans `min(start)..max(end)` inclusive. Tests:
+  "derives bar dates..." (endDate expectations) + "a one-day job's bar spans
+  exactly one day column" (compares two 1-day bars one day apart, so the
+  reference day width is self-derived, not hardcoded).
+- GANTT MIGRATED TO REVOLIST (2026-09-30): `shared/vendor/jsgantt.js` / `jsgantt.css` were REPLACED by the MIT `@revolist/gantt` on `@revolist/revogrid` (vendored whole under `shared/vendor/revolist/`; see the sw.js comment + the notes at the top of `tests/pmd-gantt.spec.js`). The chart is STILL a read-only projection with the same Stream->Job data model and the same "Streams" header filter + zoom + frequency row labels (`ganttJobLabel`), but the DOM, hooks and CSS variables are completely different — the old jsgantt notes above (`vUseSort`, `pStart`/`pEnd`, `.gmainleft`/`.gtasktable`/`.glineitem`, resize grip, `afterDraw`, `data-gantt-*` drag) NO LONGER APPLY. Read-only is enforced TWO ways for the CELLS (both asserted in `tests/pmd-gantt.spec.js`): `grid.readonly = true` (stops cell edits) and `sortable: false` on each of the three app columns (`DEFAULT_TASK_COLUMNS.map(c => ({...c, sortable:false}))` - the plugin appends its own `__ganttTimeline` column which has no sortable prop, so filter it out when asserting). JOB BARS ARE DRAGGABLE via the plugin's OWN pointer handling: the vendored plugin draws `data-gantt-interaction="move"` on each bar and `resize-end` on its end handle, then rewrites startDate/endDate in its internal source and re-renders the grid live. The app only (a) splits the bar in CSS - LEFT half stays the bar's own `move` zone (grab cursor, drag moves the whole bar -> persists as `sleepUntil`), RIGHT half is the end handle stretched to 50% width (`ew-resize`, drag resizes -> persists as `duration`). SUMMARY (stream) bars are draggable too, as a WHOLE bar only (their end handle is hidden, so no resize): dragging a stream bar shifts EVERY child job's start by the same day delta (persisted as each job's `sleepUntil`, `ganttPersistStreamShift` reads the stream's stored index from the `"s"+idx` task id). The start/progress handles stay disabled - and (b) persists the result: `ganttBindBarDrag()` captures `{taskId, mode}` on pointerdown, and on document pointerup `ganttPersistBarDrag()` reads the updated dates out of `grid.source` and writes `sleepUntil` (move) or `duration` (resize-end, `Math.max(1, daysBetween + 1)` - endDate is inclusive)   into the stored streams via `saveStreams()`, then `renderGantt()` re-projects. Task ids are `"j" + job.id`; the `j` prefix is stripped to find the job. `PlanMyDay/js/gantt-drag.js` was DELETED. Config order matters: `grid.columns` -> `grid.plugins=[GanttPlugin]` -> `grid.gantt` -> `grid.source` (the plugin installs the `gantt` accessor). `TaskEntity` needs `id`/`parentId`/`name`/`type`/`startDate`/`endDate`/`progressPercent`. Rows are COMPACT 30px (`grid.rowSize = 30`; the injected theme drops the vendor timeline cell's 40px min-height and shrinks bars to 18px / summary 8px so the full-page chart shows many rows instead of a few chunky ones), empty streams keep a zero-length span on today which the vendor draws as its 6px minimum bar, and zoom presets are `day-week`/`week-month`/`month-quarter` (persisted in `smdKey("ganttZoom")`; Day renders ~755 timeline header cells, Month ~50). LAYOUT: the chart fills the whole page — `#ganttPage .smd-page-body` is turned into a `flex-column` with `overflow: hidden` and `padding: 0 !important` (the `p-2` utility is `!important`, so this has to be too), and `#ganttChart` is `flex: 1 1 auto; min-height: 0` so RevoGrid's own virtualiser owns the scrollbar. INDENTATION: job names are indented under their stream by a `cellTemplate` on the `name` column that stamps `.pmd-gantt-job-name` (24px padding-left) on `type === "task"` rows — the rows carry no task/summary DOM marker, so this is the reliable hook. COLLAPSE: streams collapse via a toggle in the summary name cell (`.pmd-gantt-collapse-toggle`, glyph ▸/▾, aria-expanded). The set of collapsed stream TITLES is persisted in `smdKey("ganttCollapsedStreams")` (mirrors the hidden-stream filter). `buildGanttTasks` measures ALL jobs for the summary span but only EMITS job rows for non-collapsed streams, so a collapsed stream keeps its summary bar at full min..max range while its job bars vanish; `ganttToggleStreamCollapsed(title)` flips the set + re-renders.  ROW DRAG (2026-09-30, jobs reorder within/across streams): `ganttBindRowDrag()` is a custom pointer drag on the job name cells (`.pmd-gantt-job-name`, grab cursor) - RevoGrid native row drag was avoided because the plugin re-projects `grid.source` from stored streams every render, so a native reorder would be thrown away. On pointerdown it records the stored job + `grabOffsetY` (name-center minus row-top, ~15px); the drop resolves by the dragged row's TOP edge (`clientY - grabOffsetY`), not the pointer. The insertion line resolves to a JOB via `ganttRowAnchor(grid, dropY, jobId)` and the job is inserted before/after it (recomputed AFTER removal so indices can't shift); sequence is renumbered in both affected streams via `saveStreams()` + `renderGantt()`. DROP-TARGET RULES (final, resolved with the user): a line on a JOB row anchors that job (before/after by midpoint). A line on a SUMMARY row NEVER targets the header's own stream - it always joins the stream ABOVE the line: a COLLAPSED header is the visible target for its hidden stream (append to its bottom), and an EXPANDED header joins the stream above it too (append to that stream's bottom), because a drop above a stream's header is not part of that stream (e.g. A open/B closed/C open: dropping between B and C appends to the BOTTOM of B, never the top of C). The very first header with nothing above it is rejected. You can always drop before or after a job. Tests: `pmd-gantt.spec.js` "dragging a JOB row within its stream", "dropping a JOB on its own original slot", "dragging a JOB row onto another stream", "dropping a JOB on a stream header appends it to the stream above (bottom), never the header's own stream".Theming is CSS-custom-property only, in `injectGanttTheme()` (style id `pmd-gantt-theme-style`): `--rg-theme-*` for the grid, `--rg-gantt-*` for the timeline, all pointing at Bootstrap variables so every Bootswatch theme + light/dark follow for free. NAME TRAP: RevoGrid documents its tokens as `--revo-grid-*`, but the SHIPPED stylesheet reads `--rg-theme-*` — overriding the documented names does nothing. The `theme` ATTRIBUTE may only be `default`/`dark` (light/dark mode); the five bundled named palettes (ocean/midnight/aurora/highContrast/highContrastDark) have NO matching CSS and leave the grid unstyled (text vanishes). VENDORING TRAP: RevoGrid is a Stencil app whose component code loads via a RUNTIME template-literal `import()` (`dir + '/' + tag + '.entry.js'`), so a static scan of import specifiers CANNOT enumerate the real file set. The exact symptom: `revo-grid.entry.js` 404 -> `TypeError: Failed to fetch dynamically imported module` + `Error: Constructor for "revo-grid#undefined" was not found` while the page otherwise looked fine and every grid property read back correctly. The fix is to vendor the ENTIRE `revogrid/dist/esm/` directory (24 files, ~878KB; 26 with the two Gantt files, ~956KB) and to confirm the graph by RECORDING the browser's real network requests (see `C:\Users\Keith\AppData\Local\Temp\opencode\revolist-probe\record.cjs`). `sw.js` precaches all 26. `PlanMyDay/index.html` loads it via a RELATIVE import map (`shared/vendor/revolist/revogrid/esm/`) + `PlanMyDay/js/gantt-lib.js` (the ESM entry exposing `window.PMD_GANTT_LIB.GanttPlugin` + `DEFAULT_TASK_COLUMNS`, dispatching `pmd-gantt-lib-ready` / `pmd-gantt-lib-failed`), and `gantt.js` awaits `ganttLibReady()`. New selectors for tests: `#ganttChart revo-grid` (`aria-rowcount` = total rows), `revogr-header .rgHeaderCell` (4: Task/Start/End/timeline), `revogr-data .rgCell` (20 for 5 rows: 15 cells + 5 timeline labels), `.rg-gantt-bar`, `.rg-gantt-bar--summary`, `.rg-gantt-bar-label`, `.rg-gantt-header-cell`. KNOWN REGRESSION vs jsgantt: there is no tooltip equivalent in `GanttVisualConfig`, so old tooltip-only details are dropped (recurrence still shows in the row label); revisit if wanted. `tests/pmd-gantt.spec.js` was rewritten for this grid (12 tests: settings/menu, date derivation, render + empty-stream bar, read-only projection, frequency labels, WCAG AA contrast in both modes, read-only chart = no edit/sort/drag, Streams filter + persistence, zoom + persistence, full asset graph with no failed requests, Close).
+### 2026-10-03 - Shared palette moved to the mode layer; vendor/app CSS extracted
+
+- GOAL: `shared/css/styles.css` is now RULES ONLY (no colour defaults, no `[data-bs-theme]` selector). The shared `--smd-*` palette lives in the mode layer: `shared/css/themes/light.css` + `dark.css` (previously empty stubs), loaded after `styles.css` and before the per-theme sheet. The old `html[data-bs-theme="dark"] { ... }` block was deleted from `styles.css`.
+- CONSEQUENCE: `--smd-image-theme` and every palette token now flip with the MODE SHEET, not the `data-bs-theme` attribute. A test that set `data-bs-theme` directly to flip image tinting must call `applyThemeMode(theme, mode)` instead (updated `pmd-regression.spec.js` "applies light and dark svg theme overrides to nested elements like the editor preview"). `isDarkTheme()`'s attribute fallback is now inert because the var is always defined by the loaded mode sheet.
+- FORM REPAINT PROMOTED: the `.form-control/.form-select/.flatpickr-input` repaint (was duplicated in `superhero.light.css`, commented out in `superhero.dark.css`) now lives once in `styles.css`; `dark.css` supplies the dark `--smd-form-*` palette so the promoted rule does not paint white fields on a dark page. Superhero keeps only its palette overrides.
+- DATE-PICKER: `light.css` derives the date-picker surface/text from `--smd-form-*` (not raw `--bs-white`/`--bs-body-color`), so a visually-dark theme forced to Light (darkly/cyborg/slate) no longer gets a white-on-white calendar. `dark.css` points it at the theme's dark tokens.
+- NEW FILES: `shared/css/vendor-overrides.css` (flatpickr repaint) and `PlanMyDay/css/gantt.css` (the one PlanMyDay-specific rule, `#ganttPage`). vendor-overrides loads right after `flatpickr.min.css` in PlanMyDay/CountMyDays/storybook; gantt.css loads LAST in PlanMyDay (after the per-theme override). Both registered in `sw.js` SHARED_ASSETS/APPS and the shell heads; `BUILD_NUMBER` bumped via `npm run bump:build`.
+- TEST: `tests/launch-regression.spec.js` `cascadeRank` learned the new layers (vendor-overrides = 0, app css = 5, unknown = 6; the `rank < 5` guard is `< 6`). The `#streamsEditor pmd-stream-header` rules STAYED in `styles.css` on purpose: simplex's per-theme sheet overrides them, and an app-css file loading after the theme would beat it.
+- VERIFIED: launch-regression 7/7; pmd-regression + cmd-regression 494/494; the other non-screenshot specs 168/168; pmd-screenshots (superhero) 33/33.
+- PMD STREAM HEADER LAYOUT (same day): `pmd-stream-header` now lays out as a TITLE ROW (`.stream-header-main`, full width) plus a META ROW (`.stream-header-meta`) that puts the badges AND `.header-actions` on one line, instead of a title/badge column with the actions as a separate right-hand column that squeezed the title. The title button now spans the whole content column; the actions moved inside the meta row (`ms-auto`, `flex-wrap` so they wrap on narrow/phone widths rather than clipping), and the delete button rides with them. Every selector the suite uses is unchanged (`.stream-header-main`, `.editor-title`, `.tab-badge`, `.count-badge`, `.chevron`, `.drag-handle`, `[data-action=...]`); only the internal `.body`/`.row1`/`.row2` wrappers were replaced. Verified: pmd-regression + pmd-touch + storybook-regression 452/452 (external server).
+
 - TOOLING GOTCHAS (2026-09-30): (1) WATCH THE BROWSER CONSOLE after wiring a new library: a page can render "successfully" (every `page.evaluate` returns, no test throws) while the feature is silently dead, because the failure happened in a worker, a dynamic import, or an unawaited promise. Attach `page.on("console")` + `page.on("pageerror")` + `page.on("requestfailed")` and FAIL the run on any hit; assert RENDERED OUTPUT (row/bar/cell counts, visible text), never just that the container element exists. The RevoGrid 404 above was only caught by a human reading the console, because every property set on the broken `<revo-grid>` read back fine while it rendered ZERO rows. (2) The test servers (`node tests/serve-tests.mjs`) are sirv in PRODUCTION mode: they snapshot the file tree at STARTUP and serve from an in-memory map. After ADDING new files (e.g. vendoring RevoGrid) the server must be RESTARTED or the new file 404s exactly like a broken import — and `reuseExistingServer` means Playwright happily reuses the stale one. Restart after any file add/edit.
+
+### 2026-10-04 - smd-image-dropdown closed-state layout + smd-image-select image alignment
+- THREE reported issues on the PlanMyDay Edit Job General tab:
+  1. The closed dropdown label was CENTERED (Bootstrap `.btn { text-align:center }`
+     inherited by the title span), so the name floated mid-button instead of
+     sitting next to the image. FIX (shared component): the title now lives in a
+     `.labels` grid with `text-align:left`; image + label are 8px apart (`gap-2`).
+  2. The Stream button was pinned by `min-width:14em` (~364px at the default
+     font, 448px Jumbo) and overlapped the Image column below ~600px. FIX: the
+     component sizes the button to the WIDEST option (all labels stacked in one
+     hidden `.sizer` grid cell), so it hugs the widest title and the visible
+     title ellipsises on a narrow column; the job page CSS is now
+     `width:fit-content; max-width:100%` (14em removed). Measured: 263.8px (was
+     364), stable across selections, shrinks to 230px at a 500px viewport so it
+     never crosses into the Image column. CountMyDays inline `min-width:180/220px`
+     and the stream tab picker `13.5em` still win, so those usages are unchanged.
+  3. The dropdown image sat ~10px ABOVE the Image-selector image when the job
+     HAD an image (the `smd-image-select` name+Edit meta grows to ~84px and
+     vertically centered its 50px thumb). FIX: `smd-image-select` host is now
+     `align-items:flex-start` and its `.thumb` has
+     `margin-top: calc(0.375rem + 1px)` (the dropdown button's padding+border
+     offset); the job-edit Image wrapper dropped `d-flex align-items-center`.
+     Both images now line up (delta 0) WITH and WITHOUT a job image.
+- TDD: 5 new tests in `tests/pmd-regression.spec.js` ("Stream dropdown layout"
+  describe) written RED first, then GREEN.
+- Verified: pmd `[Ss]tream` 58/58, cmd `[Cc]ategor` 10/10, storybook 8/8,
+  pmd-screenshots "job edit modal - general tab" (`SCREENSHOT_THEME=superhero`)
+  1/1 (visually confirmed).
+- Files: `shared/js/components/smd-image-dropdown.js`,
+  `shared/js/components/smd-image-select.js`, `PlanMyDay/js/editor-styles.js`,
+  `PlanMyDay/js/job-editor.js`, `tests/pmd-regression.spec.js`.
+- `BUILD_NUMBER` NOT bumped (user runs the full regression, then ships).
+
+### 2026-10-04 (b) - coverage hooks in every regression spec + ?v= merge fix + shared-helpers spec
+- WHY the number looked lower: coverage is reset each run and only records specs
+  that call startCoverage/stopCoverage, so pmd-gantt (the 2026-09-30 Gantt
+  feature: PlanMyDay/js/gantt.js = 4/151 functions) plus QRLinks/Launch/
+  SolarControlar/storybook were INVISIBLE to the report. The smd-image change
+  itself added mostly-covered code (only pre-existing getters/dead `idAttr`
+  were uncovered in the touched files).
+- ITEM 1: added top-level startCoverage/stopCoverage hooks to pmd-gantt,
+  qrlinks-regression, launch-regression, solarcontrolar-regression,
+  storybook-regression, pmd-touch, settings-alignment, image-edit-preview-size
+  (screenshot specs stay hook-free).
+- ITEM 2: covered the smd-image-dropdown `options`/`selected` getters and the
+  injectJobEditStyles/injectStreamsEditorStyles guards in pmd-regression;
+  deleted the dead `idAttr` (and an unused `thumb` local) in smd-image-select.js.
+- ITEM 3: new `tests/shared-helpers-coverage.spec.js` drives the pure helpers the
+  UI never reaches: smdImageHash/smdImagePaintVariants/smdImageCacheUrl, the
+  pure SHA-256/HMAC fallback (asserted against known digests), resolveThemeMode,
+  smdConfirmClearAllData (real modal click), and the CountMyDays editor setters.
+- TOOLING FIX: `tests/coverage.js` now strips `?v=` before adding, so the
+  storybook's un-versioned shared-script copies merge with the apps' versioned
+  copies (36 files were double-counted, +717 phantom functions).
+- RESULT (full non-screenshot run, 635/635 pass, --workers=4): functions
+  81.2% (partial scope) -> 89.75% (full scope, merged); statements 87.53%;
+  lines 84.97%; bytes 92.54%. Per app: PlanMyDay 95.3% (was 66.8%), CountMyDays
+  94.1%, shared 87.0%, FreeFormOX 88.9%, QRLinks 78.2%, SolarControlar 77.7%,
+  Launch 72.7%.
+- REMAINING biggest holes (for a future item-3 pass): smd-images.js (SW-gated
+  image-cache GC + editor callbacks, ~17), smd-minio.js importMinioFile + callbacks
+  (~11), smd-qr-import.js (~10), CountMyDays import-wizard.js (~9), QRLinks
+  links-editor.js (~7), SolarControlar app/tab files (~30).
+- `BUILD_NUMBER` NOT bumped (test-only + tooling change).
+
+### 2026-10-04 (c) - Edit Images tile: light/dark theme swatches
+- `<smd-image-card>` (the `#imagesEditor` tile) now shows, on ONE row: the main
+  image (normal background), a light-theme square with the image, a dark-theme
+  square with the image, then the three buttons spread across the remaining
+  space (`d-flex flex-grow-1 justify-content-between`). The squares use the app
+  light/dark body surfaces (`bg-body` + `data-bs-theme`), have `p-1` space round
+  the image, and carry NO name (the single name stays below the row). Gap
+  between the images is `gap-2` (0.5rem = the requested m-2).
+- TDD: added the cmd-regression test RED first, then the component change.
+- GOTCHA: `data-bs-theme="light"` on the swatch resolves `--bs-body-bg` from the
+  LOADED theme's light mode, which for superhero is the dark navy #0f2537 - so
+  the "light" swatch is not lighter than the dark one. The test compares each
+  swatch's computed background to a probe element with the same `data-bs-theme`
+  rather than assuming light > dark luminance.
+- SELECTOR FALLOUT: a card now holds 3 `<smd-image>`, so `card.locator("smd-image")`
+  is ambiguous - updated cmd/pmd/qrlinks to `.thumb smd-image`.
+- Verified: cmd "Images editor" 5/5, pmd `[Ii]mage` 107/107, qrlinks 9/9,
+  storybook 8/8, image-edit-preview-size green, pmd-screenshots "images editor"
+  (SCREENSHOT_THEME=superhero) 1/1 (visually confirmed).
+- `BUILD_NUMBER` NOT bumped - it MUST be bumped before shipping (shared
+  component changed): `npm run bump:build`.
+
+### 2026-10-04 (d) - Gantt: 1-day job spanned 2 days (endDate off-by-one)
+- BUG (user): a job with duration 1 starting 4 Oct drew a bar over 4 AND 5 Oct,
+  looking 2 days long.
+- CAUSE: the vendored plugin treats `endDate` as INCLUSIVE (`createGanttBarLayout`
+  draws to `endDate + 1 day`), but `buildGanttTasks` set `end = start + duration`,
+  so every bar was one column too long.
+- FIX: `end = ganttAddDaysStr(start, duration - 1)`. Also fixed the two
+  consumers that assumed the old convention: the drag ghost now shows
+  `ganttDaysBetween(start, end) + 1` days, and resize-end persists
+  `duration = ganttDaysBetween(start, end) + 1`.
+- TDD: updated "derives bar dates..." to the inclusive expectations and added
+  "a one-day job's bar spans exactly one day column" (two 1-day jobs one day
+  apart; the reference day width is their left delta, so nothing is hardcoded).
+  Both RED first, then GREEN.
+- Verified: full `tests/pmd-gantt.spec.js` 50/50.
+- `BUILD_NUMBER` NOT bumped - bump before shipping (`npm run bump:build`).
+
+### 2026-10-04 (e) - Gantt Day view: date numbers under the month, aligned
+- User: in the Day view show the day-of-month numbers; then "underneath the
+  Month" and they must "exactly line up with the columns".
+- ROOT CAUSE of "no numbers": the grid header row is 30px (compact rows) and
+  CLIPS the vendor's 56px two-row timeline header down to the month row.
+- FIX: in the Day view grow the header to 56px (`--rg-theme-header-height` +
+  `.header-rgRow` height, scoped by `data-gantt-zoom-preset`), keeping the
+  vendor order (month top, day numbers below). Week/Month keep 30px. RevoGrid
+  reads the header height once on mount, so a zoom change RECREATES the grid
+  (`grid.__ganttZoom`); the host attribute is `data-gantt-zoom-preset` to avoid
+  the zoom buttons' `data-gantt-zoom`.
+- ALIGNMENT (the 1-2px the user saw): (a) the header divider was the vendor's
+  RIGHT border, 1px left of the data gridline -> switched to a LEFT border;
+  (b) the timeline DATA `.rgCell` has 4px left/right padding the header cell
+  lacks -> `#ganttPage revogr-data .rgCell:has(.rg-gantt-cell) { padding-left/right: 0 }`.
+  After both, the header dividers, the gridlines and the bars share one x
+  origin (measured: day-cell left 569 == bar left 569 == gridline).
+- TDD: "day view shows the date numbers under the month, aligned to the columns"
+  (asserts tick below month, bar on a day-cell boundary, and border-left: 1px /
+  border-right: 0).
+- Updated the scroll-anchor test's hard-coded `r.top >= 95` to derive from the
+  header bottom (the taller Day header shifted the data area 26px).
+- Verified: full `tests/pmd-gantt.spec.js` 51/51.
+- `BUILD_NUMBER` NOT bumped - bump before shipping (`npm run bump:build`).
+
+### 2026-10-04 (f) - Gantt weekend highlight + off-by-one at the start
+- FEATURE (user): subtly highlight the Saturday/Sunday columns in the Day view,
+  changeable from CSS. Implemented as a `repeating-linear-gradient` on
+  `.rg-gantt-cell` + `.rg-gantt-header`, colour `--gantt-weekend-bg`, phase
+  `--gantt-weekend-offset` (first Saturday's x).
+- BUG (user): the timeline started Fri 2 Oct but Fri+Sat+Sun were all
+  highlighted; later weekends were correct. Cause: the weekend layer tiled at
+  `background-size: 100% 100%`, so its period was the ELEMENT width (32120px)
+  and `32120 % 308 = 88` made the `background-position` shift land the pattern
+  wrongly at the left edge. FIX: tile at the pattern's own `308px 100%`.
+- TDD: added "weekend highlight lands on exactly Saturday and Sunday for every
+  start weekday" - it samples the RENDERED pixels (screenshot + sharp) for all 7
+  start weekdays and asserts the bright columns are exactly Sat/Sun. It FAILED on
+  the buggy CSS (e.g. start 2026-10-06 got "8 Thu, 9 Fri, 10 Sat, 11 Sun" instead
+  of "4 Sun, 10 Sat, 11 Sun") and passes after the fix.
+- Also: "day view highlights the weekend columns via a CSS variable" and
+  "week and month views do not highlight weekend columns".
+- HEADER CONFLICT: `PlanMyDay/css/gantt.css` deliberately sets
+  `.rg-gantt-header { background: var(--bs-body-bg); background-image: none }`
+  (clears the vendor's vertical gradient). The weekend rule must add ONLY
+  `background-image` (keeping the flat body-bg colour) - do NOT re-add the
+  vendor's `linear-gradient(...)` layer or the dark-navy band returns on
+  superhero light. The theming test now strips `repeating-linear-gradient(` and
+  asserts no NON-repeating gradient remains.
+- `BUILD_NUMBER` NOT bumped - bump before shipping (`npm run bump:build`).
+
+### 2026-10-04 (g) - Gantt: per-row Edit button column
+- FEATURE (user): an Edit button for every job/stream in a column between the
+  Task name and the Start date.
+- IMPLEMENTATION: a new pinned app column `__ganttEdit` (size 72) is spliced
+  into the column list in `drawGantt()` right after the `name` column, so
+  `grid.columns` is now `["name","__ganttEdit","startDate","endDate",
+  "__ganttTimeline"]`. It survives the Start/End toggle (it is not a date
+  column). Its `cellTemplate` renders `<button class="btn btn-primary btn-sm
+  pmd-gantt-edit-btn">Edit</button>` via the same `h(...)` vnode the name column
+  uses; `ganttEditRow(model)` maps the row id back to storage at click time
+  (`s<idx>` summary -> `editStream(idx)`; `j<id>` task -> find its stream + job
+  index -> `editJobInAccordion`) and opens the editor STACKED over the Gantt
+  (smd-page suspends the Gantt, then restores it on close). The row-drag press
+  handler only grabs `data-rgcol='0'`, so pressing the button is a plain click.
+- CSS: trimmed padding/line-height on `.pmd-gantt-edit-btn` so the ~18px button
+  sits inside the 30px row. Probe confirmed zero console/page errors and zero
+  failed requests; a screenshot confirmed placement.
+- TESTS: new test "every row has a primary Edit button ... opening the matching
+  editor" (button count = rows, all `btn-primary`, column order, geometry
+  between name and Start, job + stream editor open/cancel with the Gantt still
+  open). Updated the old column-count assertions (`pmd-gantt`: header cells
+  4->5, hidden 2->3, body cells 20->25, `appCols.length` 3->4).
+- Verified: full `tests/pmd-gantt.spec.js` 56/56 (`--workers=2 --retries=0`).
+- `BUILD_NUMBER` bumped `202610040831` -> `202610042128` via `npm run bump:build`.
+
+### 2026-10-04 (h) - Gantt: removed grid column filters, added "Active only" header filter
+- TWO changes requested together.
+- (1) The RevoGrid built-in column filter (the funnel button on every header cell,
+  class `.rv-filter` / `.filter-button-wrapper`) is switched OFF with
+  `grid.filter = false` in `drawGantt()` (the grid `filter` property defaults to
+  true, so it reappears on every new grid unless set). Our own header controls are
+  unaffected.
+- (2) New "Active only" header toggle (`#ganttPage .gantt-active-toggle`, between
+  the Start/End toggle and the Streams dropdown) that hides INACTIVE jobs
+  (`job.active === false`, the app's standard flag) from the chart. Persisted at
+  `smdKey("ganttActiveOnly")` (`planmydays_ganttActiveOnly`), default OFF (show
+  everything = previous behaviour). `ganttActiveOnly()`/`ganttToggleActiveOnly()`/
+  `ganttPaintActiveToggle()` mirror the Start/End toggle; `buildGanttTasks()`
+  filters `streamJobs` when on, so a stream's summary span shrinks to its active
+  jobs and a stream left with none keeps its minimum tick. Button style copied
+  from `.gantt-dates-toggle` (solid secondary, primary when active).
+- TEST GOTCHA: `toHaveClass(/active/)` FALSE-MATCHES the class NAME
+  `gantt-active-toggle` (it contains "active"), so a state assertion must use
+  `classList.contains("active")`, not a regex on the whole class string.
+- TESTS: new "the grid columns have no RevoGrid filter buttons" (`.rv-filter`
+  count 0 + `grid.filter === false`) and "the Active only header filter hides
+  inactive jobs, defaults to off, and persists" (order, default, hide/show, bar
+  count, persisted key, close/reopen). Full `tests/pmd-gantt.spec.js` 58/58
+  (`--workers=2 --retries=0`). Probe confirmed zero console/page errors and
+  screenshots confirmed the funnels are gone and the toggle hides the inactive
+  row.
+- `BUILD_NUMBER` bumped `202610042128` -> `202610042138` via `npm run bump:build`.

@@ -11,11 +11,12 @@
 // time:
 //
 //   start = job.sleepUntil || today   (today is ASSUMED here, never written back)
-//   end   = start + (job.duration || 1) days
+//   end   = start + (job.duration || 1) - 1 days
 //
 // `end` is INCLUSIVE, which is what the vendor expects: createGanttBarLayout()
-// draws a bar from startDate to endDate + 1 day. That is the same convention
-// the previous jsgantt page used, so the bar widths are unchanged.
+// draws a bar from startDate to endDate + 1 day. So a 1-day job has
+// startDate === endDate and its bar covers exactly ONE column; a 3-day job ends
+// two days after it starts.
 //
 // A Stream becomes a `type: "summary"` row whose parentId is null. A stream WITH
 // jobs spans them (min start → max end) and acts as a summary bar; a stream with
@@ -24,8 +25,12 @@
 // nothing scheduled yet. Jobs are `type: "task"` rows whose parentId is the
 // stream's id.
 //
-// EDITS: cells are read-only and the stream → job order is fixed, but JOB bars
-// are horizontally draggable (this replaces the old js/gantt-drag.js behaviour):
+// EDITS: cells are read-only and the stream → job order is fixed. An Edit
+// column (between the Task name and the Start date) carries one primary button
+// per row that opens that row's own editor (stream editor for a stream, job
+// editor for a job), stacked OVER the Gantt page — see ganttEditColumn() /
+// ganttEditRow(). JOB bars are horizontally draggable (this replaces the old
+// js/gantt-drag.js behaviour):
 //   * the grid gets `readonly = true`, so no cell can be edited
 //   * the task columns get `sortable: false`, because sorting would scramble
 //     the stream → job hierarchy (this replaces jsgantt's `vUseSort: 0`)
@@ -112,6 +117,10 @@ function openGantt() {
   document.getElementById("jobSearchEditor").classList.add("d-none");
   const page = document.getElementById("ganttPage");
   if (!page) return;
+  // Cancel a pending close timer from a fast close -> reopen: otherwise it adds
+  // `d-none` AFTER this open and the chart renders into a zero-height box.
+  clearTimeout(_ganttCloseTimer);
+  _ganttCloseTimer = null;
   page.classList.remove("d-none");
   buildGanttContent();
   if (!page.__ganttActionsBound) {
@@ -142,6 +151,24 @@ function closeGantt() {
   }
   document.getElementById("countdownContainer").classList.remove("d-none");
   if (typeof renderMain === "function") renderMain();
+}
+
+// True while the Gantt page is the (possibly suspended) page on screen. The
+// page keeps `open` while an editor is stacked over it (smd-page only adds the
+// `smd-page-suspended` class), so this covers "the Gantt is the background page
+// the user will return to".
+function ganttPageVisible() {
+  const page = document.getElementById("ganttPage");
+  return !!page && page.hasAttribute("open") && !page.classList.contains("d-none");
+}
+
+// Called by the job/stream editors from their refresh path so returning to the
+// Gantt re-projects the chart from the (now edited) stored streams. Without this
+// an edit that hides a job (e.g. switching "Active" off while the "Active only"
+// filter is on) left the stale bar on screen, because refreshActiveView() only
+// re-renders the main/search/streams views behind the Gantt.
+function refreshGanttIfOpen() {
+  if (ganttPageVisible()) renderGantt();
 }
 
 // smd-page re-renders its whole innerHTML on every property setter, so the
@@ -224,18 +251,99 @@ function ganttZoomHtml() {
       // Every preset except the LAST carries `me-1` (margin-end), so the Day and
       // Week buttons get right-margin and the presets read as evenly-spaced
       // controls instead of a fused segment group.
-      '<button type="button" class="btn' + (i < ganttZoomPresets.length - 1 ? " me-1" : "") + '" data-gantt-zoom="' + p.id + '"' +
+      '<button type="button" class="btn btn-sm' + (i < ganttZoomPresets.length - 1 ? " me-1" : "") + '" data-gantt-zoom="' + p.id + '"' +
       ' aria-pressed="false" onclick="ganttSetZoom(\'' + p.id + '\')">' + p.label + "</button>"
     )).join("") +
     "</div>"
   );
 }
 
+// SHOW/HIDE THE START + END COLUMNS
+//
+// A header toggle (just before the Streams filter) that shows or hides the
+// Start and End date columns. Persisted like the zoom (a view preference), so
+// it survives reopening the page. Default: SHOWN (matches the previous layout).
+function ganttShowDates() {
+  try {
+    return localStorage.getItem(smdKey("ganttShowDates")) !== "false";
+  } catch (e) {
+    return true;
+  }
+}
+
+function ganttToggleShowDates() {
+  const on = !ganttShowDates();
+  try {
+    localStorage.setItem(smdKey("ganttShowDates"), on ? "true" : "false");
+  } catch (e) {
+    /* storage unavailable; the toggle stays session-only */
+  }
+  renderGantt();
+}
+
+// Re-assert the toggle's active state (the header is rebuilt on every open).
+function ganttPaintDatesToggle() {
+  const btn = document.querySelector("#ganttPage .gantt-dates-toggle");
+  if (!btn) return;
+  const on = ganttShowDates();
+  btn.classList.toggle("active", on);
+  btn.setAttribute("aria-pressed", on ? "true" : "false");
+}
+
+function ganttDatesToggleHtml() {
+  return (
+    '<button type="button" class="btn btn-sm gantt-dates-toggle" aria-pressed="true" ' +
+    'title="Show or hide the Start and End date columns" onclick="ganttToggleShowDates()">Start/End</button>'
+  );
+}
+
+// SHOW ACTIVE JOBS ONLY
+//
+// A header toggle that hides inactive jobs (job.active === false) from the
+// chart. Persisted like the zoom/Start-End view preferences and OFF by default
+// (show everything, matching the app's previous behaviour). "Inactive" is the
+// same flag the rest of the app uses (main view and streams editor only list
+// `job.active !== false`).
+function ganttActiveOnly() {
+  try {
+    return localStorage.getItem(smdKey("ganttActiveOnly")) === "true";
+  } catch (e) {
+    return false;
+  }
+}
+
+function ganttToggleActiveOnly() {
+  const on = !ganttActiveOnly();
+  try {
+    localStorage.setItem(smdKey("ganttActiveOnly"), on ? "true" : "false");
+  } catch (e) {
+    /* storage unavailable; the filter stays session-only */
+  }
+  renderGantt();
+}
+
+// Re-assert the toggle's active state (the header is rebuilt on every open).
+function ganttPaintActiveToggle() {
+  const btn = document.querySelector("#ganttPage .gantt-active-toggle");
+  if (!btn) return;
+  const on = ganttActiveOnly();
+  btn.classList.toggle("active", on);
+  btn.setAttribute("aria-pressed", on ? "true" : "false");
+}
+
+function ganttActiveToggleHtml() {
+  return (
+    '<button type="button" class="btn btn-sm gantt-active-toggle" aria-pressed="false" ' +
+    'title="Show only active jobs (hide inactive jobs)" onclick="ganttToggleActiveOnly()">Active only</button>'
+  );
+}
+
 function ganttHeaderHtml() {
-  // Zoom first, then Undo/Redo, then the Streams dropdown. The dropdown carries
-  // `margin-left:auto` (see injectGanttTheme), so it stays hard right and the
-  // zoom + history controls sit beside the page title.
-  return ganttZoomHtml() + ganttUndoRedoHtml() + ganttStreamFilterHtml();
+  // Zoom, Undo/Redo, the Start/End toggle, the Active-only filter, then the
+  // Streams dropdown. The Start/End toggle carries `margin-left:auto` (see
+  // injectGanttTheme), so it and the controls after it float together on the
+  // right while zoom/history stay left.
+  return ganttZoomHtml() + ganttUndoRedoHtml() + ganttDatesToggleHtml() + ganttActiveToggleHtml() + ganttStreamFilterHtml();
 }
 
 // Undo / Redo buttons in the header, just before the Streams filter. Disabled
@@ -243,9 +351,9 @@ function ganttHeaderHtml() {
 function ganttUndoRedoHtml() {
   return (
     '<div class="gantt-undo-redo btn-group btn-group-sm ms-2" role="group" aria-label="Undo and redo">' +
-      '<button type="button" class="btn gantt-undo-btn" title="Undo (Ctrl+Z)" aria-label="Undo" disabled ' +
+      '<button type="button" class="btn btn-sm gantt-undo-btn" title="Undo (Ctrl+Z)" aria-label="Undo" disabled ' +
         'onclick="ganttUndo()">&#8630;</button>' +
-      '<button type="button" class="btn gantt-redo-btn" title="Redo (Ctrl+Y)" aria-label="Redo" disabled ' +
+      '<button type="button" class="btn btn-sm gantt-redo-btn" title="Redo (Ctrl+Y)" aria-label="Redo" disabled ' +
         'onclick="ganttRedo()">&#8631;</button>' +
     "</div>"
   );
@@ -446,6 +554,11 @@ function buildGanttTasks(streams, todayStr) {
   const items = [];
   const hidden = ganttHiddenStreamSet();
   const collapsed = ganttCollapsedStreamSet();
+  // When the "Active only" header filter is on, inactive jobs are dropped from
+  // the projection entirely (rows AND bars), so a stream's summary bar spans only
+  // its active jobs. A stream left with no active jobs behaves like an empty one
+  // and keeps its minimum tick.
+  const activeOnly = ganttActiveOnly();
   // Keep each stream's index in the STORED array alongside it so the sort below
   // has something stable to move. This index is only valid for THIS render pass
   // (adding/removing a stream renumbers it); a job's durable identity is always
@@ -463,14 +576,19 @@ function buildGanttTasks(streams, todayStr) {
     // grouping needs. Job ids come from the stored `id` so they survive a
     // re-projection.
     const groupId = "s" + x.idx;
-    const jobs = (stream.jobs || []).slice().sort((a, b) => (a.sequence || 0) - (b.sequence || 0));
+    let streamJobs = stream.jobs || [];
+    if (activeOnly) streamJobs = streamJobs.filter((j) => j.active !== false);
+    const jobs = streamJobs.slice().sort((a, b) => (a.sequence || 0) - (b.sequence || 0));
     // Derive each job's start/end once. ALL jobs are measured so a collapsed
     // stream's summary bar still spans its full min..max range; only the ROWS
     // that are emitted below change when collapsed.
     const spans = jobs.map((job) => {
       const start = job.sleepUntil || todayStr;
       const days = Math.max(1, parseInt(job.duration, 10) || 1);
-      const end = ganttAddDaysStr(start, days);
+      // endDate is INCLUSIVE (the vendor draws to endDate + 1), so a duration of
+      // N days spans start .. start + (N - 1). A 1-day job starts and ends on the
+      // same day, which is what makes its bar look one day long.
+      const end = ganttAddDaysStr(start, days - 1);
       return { job, start, end };
     });
     // A stream WITH jobs spans them. One WITHOUT jobs gets a zero-length span on
@@ -511,6 +629,23 @@ function buildGanttTasks(streams, todayStr) {
   return items;
 }
 
+// x-offset (px) of the FIRST Saturday column in the Day-view timeline, used by
+// the --gantt-weekend-offset variable that shifts the weekend highlight onto the
+// right columns. The vendor's timeline starts 2 days before the earliest date
+// (getRange in revolist-gantt.js: `v(min, -2)`) and Day columns are 44px, so the
+// first Saturday sits `(6 - weekday + 7) % 7` columns in. Returns "0px" when the
+// chart is empty (nothing to align to).
+function ganttWeekendOffsetPx(items) {
+  var min = null;
+  (items || []).forEach(function (it) {
+    if (it.startDate && (!min || it.startDate < min)) min = it.startDate;
+  });
+  if (!min) return "0px";
+  var rangeStart = ganttAddDaysStr(min, -2);
+  var weekday = new Date(rangeStart + "T00:00:00Z").getUTCDay(); // 0 = Sunday
+  return (((6 - weekday + 7) % 7) * 44) + "px";
+}
+
 // "YYYY-MM-DD" + n days, without pulling in a date library. Uses UTC so the
 // arithmetic is immune to the local timezone / DST.
 function ganttAddDaysStr(dateStr, days) {
@@ -540,6 +675,58 @@ function ganttJobLabel(job) {
   return title + " (" + freq + ")";
 }
 
+// EDIT COLUMN
+//
+// A pinned column between the Task name and the Start date with one "Edit"
+// button per row. The button opens the row's own editor (stream editor for a
+// summary row, job editor for a task row), stacked OVER the Gantt page so the
+// chart is restored when the editor closes.
+function ganttEditColumn() {
+  return {
+    prop: "__ganttEdit",
+    name: "",
+    size: 72,
+    sortable: false,
+    pin: "colPinStart",
+    cellTemplate: function (h, schemaModel) {
+      var model = schemaModel && schemaModel.model;
+      if (!model || !model.id) return h("span", {}, "");
+      return h("button", {
+        type: "button",
+        class: "btn btn-primary btn-sm pmd-gantt-edit-btn",
+        title: "Edit",
+        onClick: function (e) {
+          if (e && e.stopPropagation) e.stopPropagation();
+          ganttEditRow(model);
+        }
+      }, "Edit");
+    }
+  };
+}
+
+// Opens the editor for a clicked row. Task ids are "j" + the job's stored id;
+// summary ids are "s" + the stream's stored array index (see buildGanttTasks).
+// The stored indices are resolved at click time so they survive a re-projection.
+function ganttEditRow(model) {
+  if (!model || !model.id) return;
+  if (model.type === "summary") {
+    var idx = ganttStoredStreamIndexForId(model.id);
+    if (idx >= 0 && typeof editStream === "function") editStream(idx);
+    return;
+  }
+  if (model.type !== "task") return;
+  var streamIdx = ganttStoredStreamIndexForTask(model.id);
+  if (streamIdx < 0) return;
+  var jobId = model.id.slice(1);
+  var jobs = (loadStreams()[streamIdx] || {}).jobs || [];
+  for (var i = 0; i < jobs.length; i++) {
+    if (jobs[i].id === jobId) {
+      if (typeof editJobInAccordion === "function") editJobInAccordion(streamIdx, i);
+      return;
+    }
+  }
+}
+
 // RENDER
 //
 // Draws the chart. The whole function is read-only: it sets properties on the
@@ -552,6 +739,8 @@ function renderGantt() {
   if (!host) return;
   ganttPaintZoomButtons();
   ganttPaintUndoButtons();
+  ganttPaintDatesToggle();
+  ganttPaintActiveToggle();
   ganttLibReady().then(function (lib) {
     // Bail if a newer render started, or if the page was closed/rebuilt while we
     // were waiting — the element we captured may no longer be the one on screen.
@@ -571,11 +760,30 @@ function renderGantt() {
 function drawGantt(host, lib) {
   const todayStr = getTodayStr();
   const items = buildGanttTasks(loadStreams(), todayStr);
+  const zoom = ganttZoom();
+  const showDates = ganttShowDates();
+  // Expose the active zoom on the host so the injected CSS can restyle the
+  // timeline header per preset (the Day view shows the day-number row, the
+  // coarser views keep the single month row). Named `-preset` to avoid clashing
+  // with the zoom BUTTONS' own `data-gantt-zoom` attribute.
+  host.setAttribute("data-gantt-zoom-preset", zoom);
+  // x of the first Saturday column, for the weekend highlight (Day view). See
+  // ganttWeekendOffsetPx().
+  host.style.setProperty("--gantt-weekend-offset", ganttWeekendOffsetPx(items));
   // Reuse the grid if this container already has one. Re-creating it on every
   // stream-filter change would re-register the plugin and throw away the
   // horizontal scroll position, so the element is built once per container and
   // afterwards only `source` (and `gantt`, for zoom) is touched.
   let grid = host.querySelector("revo-grid");
+  // A ZOOM or SHOW-DATES change DOES recreate the grid: the grid reads the
+  // header height (--rg-theme-header-height, 56px only in the Day view) and its
+  // COLUMN SET once on mount, so a CSS/prop-only change would leave a stale
+  // header/layout behind.
+  const gridKey = zoom + "|" + (showDates ? "1" : "0");
+  if (grid && grid.__ganttKey !== gridKey) {
+    grid.remove();
+    grid = null;
+  }
   const isNew = !grid;
   if (isNew) {
     grid = document.createElement("revo-grid");
@@ -599,8 +807,11 @@ function drawGantt(host, lib) {
     // The plugin's own column set (Task / Start / End) with sorting switched
     // off. normalizeTaskColumns() keeps an explicit `sortable: false` — it only
     // falls back to true when the property is absent — and pins the task
-    // columns to the start edge so the timeline scrolls under them.
-    grid.columns = lib.DEFAULT_TASK_COLUMNS.map(function (col) {
+    // columns to the start edge so the timeline scrolls under them. The
+    // Start/End toggle drops the two date columns (Task + timeline stay).
+    var taskColumns = lib.DEFAULT_TASK_COLUMNS.filter(function (col) {
+      return showDates || (col.prop !== "startDate" && col.prop !== "endDate");
+    }).map(function (col) {
       var copy = Object.assign({}, col, { sortable: false });
       // Indent the Task column for JOB rows so a job is visually nested under
       // its stream. The rows carry no DOM marker for task vs summary, so this
@@ -638,6 +849,13 @@ function drawGantt(host, lib) {
       }
       return copy;
     });
+    // An Edit column between the Task name and the Start date. It survives the
+    // Start/End toggle (it is not a date column) and carries one primary button
+    // per row: streams open the stream editor, jobs the job editor. See
+    // ganttEditRow().
+    var nameAt = taskColumns.findIndex(function (col) { return col.prop === "name"; });
+    taskColumns.splice(nameAt + 1, 0, ganttEditColumn());
+    grid.columns = taskColumns;
     // The plugin MUST be registered before `gantt` is set: its constructor
     // installs the `gantt` accessor that the config is written through, and it
     // projects the current grid source on construction.
@@ -646,6 +864,11 @@ function drawGantt(host, lib) {
     // stop the bars being dragged — that is a separate pointer handler inside
     // the plugin and is disabled in CSS. Both are needed.
     grid.readonly = true;
+    // RevoGrid's built-in column filter (the funnel button on every header) is
+    // meaningless on this read-only projection - the only job filter lives in
+    // the page header ("Active only"). The grid `filter` property defaults to
+    // true, so it must be switched off explicitly or every column gets a funnel.
+    grid.filter = false;
     // No cell focus. RevoGrid otherwise adds `.focused-rgRow` / a focus ring on
     // click (the row gets `background-color: var(--rg-theme-focused-bg)` and a
     // `revogr-focus` box-shadow border), which reads as a red/theme-coloured
@@ -666,16 +889,14 @@ function drawGantt(host, lib) {
       version: "1",
       timeZone: "UTC",
       updatedAt: new Date().toISOString(),
-      zoomPreset: ganttZoom(),
+      zoomPreset: zoom,
       visuals: { showDependencies: false, showTaskLabels: true }
     };
-  } else if (grid.gantt && grid.gantt.zoomPreset !== ganttZoom()) {
-    // Reassigning the whole object is how the plugin is reconfigured: the
-    // accessor is reactive, so a new object re-reads the zoom preset and
-    // re-lays-out the timeline in place.
-    grid.gantt = Object.assign({}, grid.gantt, { zoomPreset: ganttZoom() });
   }
 
+  // Remember the zoom + show-dates this grid was mounted with, so a later
+  // change to either recreates it (see above).
+  grid.__ganttKey = gridKey;
   grid.source = items;
   ganttWatchMode(grid);
   ganttBindBarDrag(grid);
@@ -695,8 +916,8 @@ function drawGantt(host, lib) {
 // `grid.source` and persist them to the app's stored streams. Both halves map
 // back to the job model used by buildGanttTasks():
 //
-//   start = job.sleepUntil || today      (a MOVE shifts start, so sleepUntil)
-//   end   = start + (job.duration || 1)  (a resize-end changes end => duration)
+//   start = job.sleepUntil || today               (a MOVE shifts start, so sleepUntil)
+//   end   = start + (job.duration || 1) - 1        (INCLUSIVE; resize-end => duration)
 //
 // A move keeps the duration (both ends shift together) so only sleepUntil is
 // written; a resize-end changes endDate only, so the duration is recomputed from
@@ -760,7 +981,8 @@ function ganttBarGhostUpdate(grid, x, y) {
   }
   var start = row.startDate || "";
   var end = row.endDate || "";
-  var days = ganttDaysBetween(start, end);
+  // endDate is inclusive, so the covered span is one more than the date delta.
+  var days = ganttDaysBetween(start, end) + 1;
   rec.innerHTML =
     '<div class="pmd-gantt-bar-ghost-label">Start: <span class="pmd-gantt-bar-ghost-date">' + ganttEscapeHtml(start) + "</span></div>" +
     '<div class="pmd-gantt-bar-ghost-label">End: <span class="pmd-gantt-bar-ghost-date">' + ganttEscapeHtml(end) + "</span></div>" +
@@ -819,7 +1041,8 @@ function ganttPersistBarDrag(rec) {
   if (rec.mode === "move") {
     job.sleepUntil = row.startDate;
   } else if (rec.mode === "resize-end") {
-    var days = ganttDaysBetween(row.startDate, row.endDate);
+    // endDate is inclusive: a bar covering 3 columns has a 2-day date delta.
+    var days = ganttDaysBetween(row.startDate, row.endDate) + 1;
     job.duration = Math.max(1, days);
   }
   ganttSaveShiftedStreams(streams);
@@ -1669,8 +1892,8 @@ function ganttPersistStreamDrag(drag, clientX, clientY) {
 }
 
 // Whole days between two YYYY-MM-DD strings (end - start), UTC arithmetic like
-// ganttAddDaysStr(). The app's duration is exactly this span: end = start +
-// duration days.
+// ganttAddDaysStr(). Because the gantt endDate is INCLUSIVE, the number of days a
+// bar COVERS is ganttDaysBetween(start, end) + 1 (a 1-day job has start === end).
 function ganttDaysBetween(startStr, endStr) {
   var ps = String(startStr).split("-");
   var pe = String(endStr).split("-");
@@ -1771,6 +1994,9 @@ function changeShowGantt(enabled) {
     "  --gantt-text: var(--bs-body-color);",
     "  --gantt-muted: var(--bs-secondary-color);",
     "  --gantt-border: var(--bs-border-color);",
+    "  /* Weekend column highlight (Day view). Change THIS to restyle it, or",
+    "     override --gantt-weekend-bg from any stylesheet. */",
+    "  --gantt-weekend-bg: color-mix(in srgb, var(--bs-body-color) 7%, transparent);",
     "}",
     "/* 1. RevoGrid grid tokens. Explicit values only: anything left unset falls",
     "   back to the vendors' light defaults and shows through as a white panel.",
@@ -1801,6 +2027,68 @@ function changeShowGantt(enabled) {
     "  /* gantt.css reads --revo-grid-focused-bg (not --rg-theme-*) for the",
     "     header cell background, so it needs the documented name too. */",
     "  --revo-grid-focused-bg: var(--bs-tertiary-bg);",
+    "}",
+    "/* 1b. DAY-VIEW TIMELINE HEADER. The grid header row is only 30px (compact",
+    "   rows), which clips the vendor's two-row timeline header (56px) down to the",
+    "   month row. In the Day view the second row carries the useful day numbers, so",
+    "   the header is grown back to 56px and the vendor's natural order is kept: the",
+    "   month row on TOP, the day numbers directly UNDERNEATH. Coarser views keep",
+    "   the 30px single-row header (their second row would just repeat the month).",
+    "   The host carries data-gantt-zoom-preset from drawGantt(). */",
+    "#ganttChart[data-gantt-zoom-preset=\"day-week\"] revo-grid {",
+    "  --rg-theme-header-height: 56px;",
+    "  --revo-grid-header-height: 56px;",
+    "}",
+    "#ganttChart[data-gantt-zoom-preset=\"day-week\"] .header-rgRow {",
+    "  height: 56px;",
+    "}",
+    "/* Align the header column dividers with the chart gridlines. The vendor draws",
+    "   the divider as each header cell's RIGHT border (inside the cell, at its last",
+    "   pixel), while the data gridline is the FIRST pixel of the column - a 1px",
+    "   offset that makes the day numbers look off the columns. Draw the divider as",
+    "   a LEFT border instead so it shares the gridline's x exactly. */",
+    "#ganttPage .rg-gantt-header-cell {",
+    "  border-right: 0;",
+    "  border-left: 1px solid var(--rg-gantt-border);",
+    "}",
+    "/* The timeline DATA cell carries RevoGrid's 4px left/right .rgCell padding,",
+    "   but the timeline HEADER cell does not - so the day-number cells sat 4px to",
+    "   the LEFT of the chart columns. Drop the padding on the timeline cell only,",
+    "   so the header cells and the bars/gridlines share one x origin. */",
+    "#ganttPage revogr-data .rgCell:has(.rg-gantt-cell) {",
+    "  padding-left: 0;",
+    "  padding-right: 0;",
+    "}",
+    "/* WEEKEND COLUMN HIGHLIGHT (Day view only - the coarser views are not single",
+    "   days). --gantt-weekend-bg is the colour; --gantt-weekend-offset (set by",
+    "   drawGantt) is the px x of the first Saturday. The pattern is one week wide",
+    "   (7 x 44px) with Sat+Sun (88px) filled and tiled across the timeline; it is",
+    "   laid over the gridline layer on the chart cells, and over the FLAT",
+    "   --bs-body-bg header band (PlanMyDay/css/gantt.css clears the vendor",
+    "   gradient) - so the header stays one surface with the chart. */",
+    "#ganttChart[data-gantt-zoom-preset=\"day-week\"] .rg-gantt-cell {",
+    "  background-image:",
+    "    linear-gradient(to right, var(--rg-gantt-gridline) 1px, transparent 1px),",
+    "    repeating-linear-gradient(to right,",
+    "      var(--gantt-weekend-bg) 0,",
+    "      var(--gantt-weekend-bg) 88px,",
+    "      transparent 88px,",
+    "      transparent 308px);",
+    "  /* The weekend layer MUST tile at the pattern's own 308px period, not 100%:",
+    "     a 100% tile makes the period the element width (32120px) and, because",
+    "     32120 % 308 !== 0, the background-position shift lands the pattern wrongly",
+    "     at the left edge (an extra day highlighted on the first weekend). */",
+    "  background-size: 44px 100%, 308px 100%;",
+    "  background-position: 0 0, var(--gantt-weekend-offset, 0px) 0;",
+    "}",
+    "#ganttChart[data-gantt-zoom-preset=\"day-week\"] .rg-gantt-header {",
+    "  background-image: repeating-linear-gradient(to right,",
+    "    var(--gantt-weekend-bg) 0,",
+    "    var(--gantt-weekend-bg) 88px,",
+    "    transparent 88px,",
+    "    transparent 308px);",
+    "  background-size: 308px 100%;",
+    "  background-position: var(--gantt-weekend-offset, 0px) 0;",
     "}",
     "/* No focus/selection chrome. The chart is read-only: clicking a cell must",
     "   not draw the vendor's focus ring (revogr-focus.focused-cell paints a",
@@ -1964,6 +2252,15 @@ function changeShowGantt(enabled) {
     "#ganttPage revo-grid .pmd-gantt-stream-name {",
     "  font-weight: 600;",
     "}",
+    "/* The per-row Edit button (__ganttEdit column). Filled primary so it reads",
+    "   as an action, and trimmed to fit inside the compact 30px row. It is NOT a",
+    "   drag handle: the row-drag press handler only grabs the Task name cell",
+    "   (data-rgcol='0'), so pressing this button is a plain click. */",
+    "#ganttPage revo-grid .pmd-gantt-edit-btn {",
+    "  padding: 0.05rem 0.5rem;",
+    "  line-height: 1.2;",
+    "  white-space: nowrap;",
+    "}",
     "#ganttPage revo-grid .pmd-gantt-collapse-toggle {",
     "  border: 0;",
     "  background: transparent;",
@@ -2062,6 +2359,51 @@ function changeShowGantt(enabled) {
     "  border-color: var(--bs-primary);",
     "  font-weight: 600;",
     "}",
+    "/* Start/End columns toggle: same solid secondary/primary treatment as the",
+    "   zoom buttons (active = columns shown). */",
+    "#ganttPage .gantt-dates-toggle {",
+    "  /* Float right, just before the Streams filter (which no longer auto-pushes).",
+    "     `margin-left: auto` takes the free space so this button + Streams sit",
+    "     together on the right; the right margin is the gap between them. */",
+    "  margin-left: auto;",
+    "  margin-right: 0.5rem;",
+    "  background-color: var(--bs-secondary);",
+    "  color: #fff;",
+    "  border: 1px solid var(--bs-secondary);",
+    "}",
+    "#ganttPage .gantt-dates-toggle:hover,",
+    "#ganttPage .gantt-dates-toggle:focus {",
+    "  background-color: var(--bs-secondary);",
+    "  color: #fff;",
+    "  border-color: var(--bs-secondary);",
+    "}",
+    "#ganttPage .gantt-dates-toggle.active {",
+    "  background-color: var(--bs-primary);",
+    "  color: #fff;",
+    "  border-color: var(--bs-primary);",
+    "  font-weight: 600;",
+    "}",
+    "/* Active-only toggle: same solid secondary/primary treatment as the Start/End",
+    "   toggle (active = only active jobs shown). It sits just after Start/End and",
+    "   before the Streams filter. */",
+    "#ganttPage .gantt-active-toggle {",
+    "  margin-right: 0.5rem;",
+    "  background-color: var(--bs-secondary);",
+    "  color: #fff;",
+    "  border: 1px solid var(--bs-secondary);",
+    "}",
+    "#ganttPage .gantt-active-toggle:hover,",
+    "#ganttPage .gantt-active-toggle:focus {",
+    "  background-color: var(--bs-secondary);",
+    "  color: #fff;",
+    "  border-color: var(--bs-secondary);",
+    "}",
+    "#ganttPage .gantt-active-toggle.active {",
+    "  background-color: var(--bs-primary);",
+    "  color: #fff;",
+    "  border-color: var(--bs-primary);",
+    "  font-weight: 600;",
+    "}",
     "/* Undo/Redo buttons: the same solid secondary fill + white text as the zoom",
     "   buttons. Disabled buttons get a muted, non-interactive treatment so an",
     "   empty history reads as inactive rather than looking clickable. */",
@@ -2088,7 +2430,6 @@ function changeShowGantt(enabled) {
     "   data-bs-toggle, so no Bootstrap dropdown instance is required. */",
     "#ganttPage .gantt-stream-filter {",
     "  position: relative;",
-    "  margin-left: auto;",
     "}",
     "/* The toggle matches the zoom buttons: a SOLID secondary fill with white",
     "   text (the old `btn-outline-secondary` was a dull grey outline that",
@@ -2134,20 +2475,11 @@ function changeShowGantt(enabled) {
     "#ganttPage .gantt-stream-label {",
     "  min-width: 0;",
     "}",
-    "/* Page chrome. The shared rule paints EVERY smd-page header/footer with",
-    "   `var(--bs-primary)`, and in flatly LIGHT mode that primary is the dark",
-    "   navy #2c3e50 - so the Gantt rendered white-on-black in the light theme.",
-    "   The user asked for THIS PAGE ONLY, so the override is scoped to",
-    "   #ganttPage and the header follows body colours like the chart does.",
-    "   `#smd-app #ganttPage` is needed to outrank the shared (1,1,2) rule; the",
-    "   h1 has no colour rule of its own and inherits from the header. Note the",
-    "   shared FOOTER rule sets a background but no foreground, so in light mode",
-    "   the footer inherited dark text onto a dark fill - this fixes that too. */",
-    "#smd-app #ganttPage .smd-page-header,",
-    "#smd-app #ganttPage .smd-page-footer {",
-    "  background-color: var(--gantt-surface);",
-    "  color: var(--gantt-text);",
-    "}",
+    "/* Page chrome: NONE. The Gantt page uses the normal shared smd-page",
+    "   header/footer rules (background + foreground from",
+    "   --smd-page-header-background / -color). There must be no #ganttPage",
+    "   page-chrome override - a separate value made the header follow the body",
+    "   bg (invisible, white-on-white in bootstrap light). */",
     "/* LAYOUT: the chart fills the page. The smd-page body is `flex: 1",
     "   overflow-y: auto`, which would wrap the grid in a scroll pane and cap it",
     "   at the body's own scroll height - the grid needs the body's flex space",

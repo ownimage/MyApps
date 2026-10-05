@@ -20,7 +20,7 @@
 // comparison. If the two ever DO drift, the page notices at runtime
 // (GET_BUILD) and re-registers, so the drift self-heals instead of pinning
 // users to a build the worker will never replace.
-const BUILD_NUMBER = "202609300620";
+const BUILD_NUMBER = "202610042145";
 
 const CACHE = "myapps-" + BUILD_NUMBER;
 
@@ -84,6 +84,7 @@ const TRANSPARENT_GIF_RESPONSE = new Response(TRANSPARENT_GIF, {
 const SHARED_ASSETS = [
   "shared/sampleImages.json",
   "shared/css/styles.css",
+  "shared/css/vendor-overrides.css",
   "shared/css/themes/bootstrap/bootstrap.min.css",
   "shared/css/themes/brite/bootstrap.min.css",
   "shared/css/themes/cerulean/bootstrap.min.css",
@@ -395,6 +396,7 @@ const APPS = {
     "PlanMyDay/",
     "PlanMyDay/index.html",
     "PlanMyDay/manifest.json",
+    "PlanMyDay/css/gantt.css",
     "PlanMyDay/icon.svg",
     "PlanMyDay/icon-192.png",
     "PlanMyDay/icon-512.png",

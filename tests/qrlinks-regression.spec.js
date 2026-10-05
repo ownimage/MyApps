@@ -1,4 +1,9 @@
 const { test, expect } = require("@playwright/test");
+const { startCoverage, stopCoverage } = require("./coverage");
+
+// Coverage hooks (top-level so every test in this spec is captured).
+test.beforeEach(async ({ page }) => { await startCoverage(page); });
+test.afterEach(async ({ page }) => { await stopCoverage(page); });
 
 const SEED_LINKS = [
   { title: "Example Site", url: "https://example.com", description: "A description", image: "", sequence: 1 },
@@ -147,7 +152,7 @@ test.describe("QRLinks - Regression", () => {
 
     // The thumbnail must read the SHARED library (key-prefix shared-) and
     // actually render an image, not just the card title.
-    const thumb = card.locator("smd-image");
+    const thumb = card.locator(".thumb smd-image");
     await expect(thumb).toHaveAttribute("key-prefix", "shared-");
     await expect(thumb).toHaveAttribute("image", "sharedimg");
     await expect.poll(async () => thumb.locator("img").getAttribute("src")).toBeTruthy();

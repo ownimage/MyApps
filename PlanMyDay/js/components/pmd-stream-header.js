@@ -1,26 +1,28 @@
 const pmdStreamHeaderTemplate = document.createElement('template');
 pmdStreamHeaderTemplate.innerHTML = `
-  <div class="stream-accordion-header bg-body-secondary text-body d-flex align-items-center w-100 p-1 ps-2">
+<div class="stream-accordion-header bg-body-secondary text-body d-flex align-items-center w-100 p-1 ps-2">
     <smd-draghandle class="drag-handle"></smd-draghandle>
-    <div class="thumb d-flex align-items-center justify-content-center flex-shrink-0 mx-2"><smd-image key-prefix="shared-"></smd-image></div>
-    <div class="body d-flex flex-column flex-grow-1 gap-1 overflow-hidden me-2">
-      <div class="row1 d-flex align-items-center gap-1 flex-nowrap">
-        <button type="button" class="stream-header-main btn btn-link flex-grow-1 text-start text-reset text-decoration-none p-0 border-0" aria-expanded="false">
-          <span class="editor-title d-block fw-bold text-truncate"></span>
+    <div class="thumb d-flex align-items-center justify-content-center flex-shrink-0 mx-2">
+        <smd-image key-prefix="shared-"></smd-image>
+    </div>
+    <div class="stream-header-body d-flex flex-column gap-1 flex-grow-1 overflow-hidden me-2">
+        <button type="button"
+                class="stream-header-main btn btn-link w-100 text-start text-reset text-decoration-none p-0 border-0 overflow-hidden"
+                aria-expanded="false">
+            <span class="editor-title d-block fw-bold text-truncate"></span>
         </button>
-        <div class="header-actions d-flex align-items-center flex-shrink-0 gap-1 px-1">
-          <button type="button" class="btn btn-sm btn-secondary" data-action="add-job">Add Job</button>
-          <button type="button" class="btn btn-sm btn-primary" data-action="edit">Edit</button>
-          <button type="button" class="btn btn-sm btn-danger" data-action="delete" hidden>Delete</button>
+        <div class="stream-header-meta d-flex align-items-center gap-1 flex-wrap">
+            <smd-badge class="tab-badge" variant="success" pill></smd-badge>
+            <smd-badge class="count-badge" variant="secondary" pill hidden></smd-badge>
+            <div class="header-actions d-flex align-items-center flex-shrink-0 gap-1 ms-auto px-1">
+                <button type="button" class="btn btn-sm btn-secondary" data-action="add-job">Add Job</button>
+                <button type="button" class="btn btn-sm btn-primary" data-action="edit">Edit</button>
+                <button type="button" class="btn btn-sm btn-danger m-2" data-action="delete" hidden>Delete</button>
+            </div>
         </div>
-      </div>
-      <div class="row2 d-flex gap-1 flex-nowrap">
-        <smd-badge class="tab-badge" variant="success" pill></smd-badge>
-        <smd-badge class="count-badge" variant="secondary" pill hidden></smd-badge>
-      </div>
     </div>
     <button type="button" class="chevron btn btn-link p-0 border-0 text-reset me-2" aria-label="Expand"></button>
-  </div>
+</div>
 `;
 
 class PmdStreamHeader extends HTMLElement {
@@ -44,7 +46,7 @@ class PmdStreamHeader extends HTMLElement {
         // shared sheet as size/colour. Selectors are kept verbatim so both the
         // scope and the specificity the theme sheets compete with are unchanged.
         injectSmdComponentStyle('pmd-stream-header-layout', `
-          #smd-app #streamsEditor pmd-stream-header .chevron { position: relative; flex: 0 0 auto; margin-right: 0.5rem; border: 0; cursor: pointer; opacity: 1; visibility: visible; }
+          #smd-app #streamsEditor pmd-stream-header .chevron { position: relative; flex: 0 0 auto; margin-right: 0.5rem; border: 0; cursor: pointer; opacity: 1; visibility: inherit; }
           #smd-app #streamsEditor pmd-stream-header .chevron::after { content: ""; position: absolute; top: 50%; left: 50%; width: 0.7rem; height: 0.7rem; margin-top: -0.45rem; margin-left: -0.35rem; border-right: 2.5px solid currentColor; border-bottom: 2.5px solid currentColor; transform: rotate(45deg); transition: transform 0.2s ease; }
           #smd-app #streamsEditor pmd-stream-header[expanded] .chevron::after { transform: rotate(225deg); }
         `);
@@ -135,8 +137,10 @@ class PmdStreamHeader extends HTMLElement {
     }
 
     const tabBadge = root.querySelector('.tab-badge');
-    tabBadge.textContent = tab;
-    tabBadge.setAttribute('variant', tab === 'progress' ? 'success' : 'info');
+    // The tab is shown as a Font Awesome icon: fast-forward for "progress",
+    // play for "maintenance". Both badges use the primary variant.
+    tabBadge.innerHTML = '<i class="fa-solid ' + (tab === 'maintenance' ? 'fa-play' : 'fa-forward') + '" aria-hidden="true"></i>';
+    tabBadge.setAttribute('variant', 'primary');
 
     const countBadge = root.querySelector('.count-badge');
     if (jobcounts) {
@@ -146,7 +150,37 @@ class PmdStreamHeader extends HTMLElement {
       countBadge.hidden = true;
     }
 
-    root.querySelector('[data-action="delete"]').hidden = !canDelete;
+    // Hide chevron if there are no jobs
+    const chevron = root.querySelector('.chevron');
+    if (jobcounts === '' || jobcounts === '0') {
+      chevron.hidden = true;
+    } else {
+      chevron.hidden = false;
+    }
+
+    // Update delete button to use Font Awesome trash-can icon and maintain spacing
+    const deleteBtn = root.querySelector('[data-action="delete"]');
+    deleteBtn.hidden = !canDelete;
+    if (canDelete) {
+      deleteBtn.innerHTML = '<i class="fa-solid fa-trash-can"></i>';
+    }
+
+    // Ensure all buttons within header-actions have consistent spacing
+    const headerActions = root.querySelector('.header-actions');
+    if (headerActions) {
+      // Add margin to buttons except the chevron
+      const buttons = headerActions.querySelectorAll('button');
+      buttons.forEach((button, index) => {
+        if (!button.classList.contains('chevron')) {
+          // Add margin to all buttons except the last one, ensuring consistent spacing
+          if (index < buttons.length - 1) { 
+            button.classList.add('me-2');
+          } else {
+            button.classList.remove('me-2'); // Ensure last button has no trailing margin
+          }
+        }
+      });
+    }
   }
 }
 

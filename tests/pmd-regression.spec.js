@@ -689,7 +689,6 @@ test.describe("PlanMyDay - Regression", () => {
           return { bg: cs.backgroundColor, color: cs.color };
         };
         return {
-          header: read(pageEl.querySelector("#editJobsTotalBadge")),
           tab: read(pageEl.querySelector("pmd-stream-header").querySelector(".tab-badge"))
         };
       });
@@ -697,8 +696,7 @@ test.describe("PlanMyDay - Regression", () => {
       for (const theme of ["cerulean", "darkly"]) {
         await setTheme(page, theme);
         const colors = await badgeColors();
-        expect(colors.header).toEqual(await bootswatchBadge(page, "info"));
-        expect(colors.tab).toEqual(await bootswatchBadge(page, "info"));
+        expect(colors.tab).toEqual(await bootswatchBadge(page, "primary"));
       }
     });
   });
@@ -941,7 +939,9 @@ test.describe("PlanMyDay - Regression", () => {
       await page.reload();
       await page.locator("#btnMainMenu").click();
       await page.locator("a.dropdown-item").filter({ hasText: "Streams" }).click();
-      await page.locator("#streamEditorList .stream-accordion-header .btn-danger").filter({ hasText: "Delete", visible: true }).click();
+      // the stream delete control is a trash-can icon button (no text) shown on
+      // streams that can be deleted
+      await page.locator("#streamEditorList .stream-accordion-header .btn-danger").filter({ visible: true }).first().click();
       await expect(page.locator("#smdConfirmModal")).toBeVisible();
       await page.waitForTimeout(100);
       await page.locator("#smdConfirmModal").locator("button").filter({ hasText: "Delete" }).click();
@@ -950,7 +950,7 @@ test.describe("PlanMyDay - Regression", () => {
     });
 
     test("delete button hidden when stream has jobs", async ({ page }) => {
-      var delBtns = page.locator("#streamEditorList .stream-accordion-header .btn-danger").filter({ hasText: "Delete", visible: true });
+      var delBtns = page.locator("#streamEditorList .stream-accordion-header .btn-danger").filter({ visible: true });
       await expect(delBtns).toHaveCount(0);
     });
 
@@ -963,7 +963,7 @@ test.describe("PlanMyDay - Regression", () => {
       await page.reload();
       await page.locator("#btnMainMenu").click();
       await page.locator("a.dropdown-item").filter({ hasText: "Streams" }).click();
-      var delBtn = page.locator("#streamEditorList .stream-accordion-header .btn-danger").filter({ hasText: "Delete", visible: true });
+      var delBtn = page.locator("#streamEditorList .stream-accordion-header .btn-danger").filter({ visible: true });
       await expect(delBtn).toHaveCount(1);
     });
 
@@ -972,8 +972,10 @@ test.describe("PlanMyDay - Regression", () => {
     });
 
     test("maintenance tab badge uses info colour on stream cards", async ({ page }) => {
-      await expect(page.locator("#streamEditorList smd-badge[variant=success]").filter({ hasText: "progress" }).first()).toBeVisible();
-      await expect(page.locator("#streamEditorList smd-badge[variant=info]").filter({ hasText: "maintenance" }).first()).toBeVisible();
+      // The tab badge is now PRIMARY with a Font Awesome icon: fast-forward for
+      // "progress", play for "maintenance".
+      await expect(page.locator("#streamEditorList smd-badge[variant=primary]").filter({ has: page.locator(".fa-forward") }).first()).toBeVisible();
+      await expect(page.locator("#streamEditorList smd-badge[variant=primary]").filter({ has: page.locator(".fa-play") }).first()).toBeVisible();
     });
 
     test("job count badge shows today/active/total counts", async ({ page }) => {
@@ -1647,7 +1649,7 @@ test.describe("PlanMyDay - Regression", () => {
       await page.reload();
       await page.locator("#btnMainMenu").click();
       await page.locator("a.dropdown-item").filter({ hasText: "Images" }).click();
-      const thumb = page.locator("#imagesEditor smd-image-card").first().locator("smd-image");
+      const thumb = page.locator("#imagesEditor smd-image-card").first().locator(".thumb smd-image");
       await expect(thumb).toHaveAttribute("key-prefix", "shared-");
       await expect(thumb).toHaveAttribute("image", "pmdThumb");
       await expect.poll(async () => thumb.locator("img").getAttribute("src")).toBeTruthy();
@@ -2030,15 +2032,20 @@ test.describe("PlanMyDay - Regression", () => {
       await page.evaluate(() => applyTheme("flatly"));
 
       for (const [theme, wantFill] of [["dark", "#ffffff"], ["light", "#000000"]]) {
+        // The shared --smd-image-theme palette now lives in the mode layer
+        // (themes/<mode>.css), so flipping data-bs-theme alone no longer
+        // switches it: the mode sheet has to be re-pointed too. applyThemeMode()
+        // is the API that does both, so use it rather than setting the attribute.
         await page.evaluate((t) => {
-          document.documentElement.setAttribute("data-bs-theme", t);
+          applyThemeMode("flatly", t);
         }, theme);
-        // applyTheme() swaps the theme override <link> asynchronously, and the
-        // default superhero.css pins --smd-image-theme to dark. Until flatly's
-        // override replaces it, BOTH <smd-image> and getThemedImageDataUrl()
-        // resolve dark, so the light iteration would render/compare #ffffff and
-        // the #000000 assertion fails under load. Wait for the app's own
-        // resolver to report the requested variant before rendering the element.
+        // applyThemeMode() swaps the theme override <link> asynchronously, and
+        // the default superhero.css pins --smd-image-theme to dark. Until
+        // flatly's override replaces it, BOTH <smd-image> and
+        // getThemedImageDataUrl() resolve dark, so the light iteration would
+        // render/compare #ffffff and the #000000 assertion fails under load.
+        // Wait for the app's own resolver to report the requested variant
+        // before rendering the element.
         await page.waitForFunction((want) => getThemeKey() === want, theme, { timeout: 15000 });
         await page.evaluate(() => {
           const el = document.createElement("smd-image");
@@ -2332,7 +2339,7 @@ test.describe("PlanMyDay - Regression", () => {
       await page.locator("#btnMainMenu").click();
       await page.locator("a.dropdown-item").filter({ hasText: "Streams" }).click();
       await page.locator("#streamEditorList").waitFor({ state: "visible" });
-      await page.locator("#streamEditorList .stream-accordion-header .btn-danger").filter({ hasText: "Delete", visible: true }).click();
+      await page.locator("#streamEditorList .stream-accordion-header .btn-danger").filter({ visible: true }).first().click();
       await page.locator("#smdConfirmModal").waitFor({ state: "visible" });
       await page.locator("#smdConfirmModal").locator("button").filter({ hasText: "Cancel" }).click();
       await page.locator("#smdConfirmModal").waitFor({ state: "hidden", timeout: 10000 });
@@ -2718,9 +2725,11 @@ test.describe("PlanMyDay - Regression", () => {
       await seedTodayList(page);
       await page.reload();
       await expect(page.locator("h2").filter({ hasText: "Report" })).toBeVisible();
-      const progressBadge = page.locator("smd-badge[variant=success]").filter({ hasText: "progress" });
+      // The tab badge is PRIMARY with a Font Awesome icon: fast-forward for
+      // "progress", play for "maintenance".
+      const progressBadge = page.locator("smd-badge[variant=primary]").filter({ has: page.locator(".fa-forward") });
       await expect(progressBadge.first()).toBeVisible();
-      const maintenanceBadge = page.locator("smd-badge[variant=info]").filter({ hasText: "maintenance" });
+      const maintenanceBadge = page.locator("smd-badge[variant=primary]").filter({ has: page.locator(".fa-play") });
       await expect(maintenanceBadge.first()).toBeVisible();
     });
   });
@@ -3307,6 +3316,136 @@ test.describe("PlanMyDay - Regression", () => {
       await page.locator("#imagePickerPage smd-image-picker .item").first().click();
       await page.locator("#imagePickerPage").waitFor({ state: "hidden", timeout: 10000 });
       await expect(page.locator("#jobImageName")).toHaveText("TestImg");
+    });
+  });
+
+  // ── Stream Dropdown Layout (Edit Job) ───────────────────────
+
+  test.describe("Stream dropdown layout", () => {
+    const svg = "data:image/svg+xml," + encodeURIComponent('<svg stroke="#000000" fill="#ffffff" stroke-width="2" xmlns="http://www.w3.org/2000/svg"><rect width="100" height="100"/></svg>');
+    const STREAMS = [
+      {
+        id: "stream_1", title: "Maintenance", tab: "maintenance", image: "TestImg", sequence: 1,
+        jobs: [{ id: "job_1", title: "Report", description: "", active: true, frequency: "daily", sequence: 1, suffix: false, dayType: "dayOfYear", mod: "", tasks: [], image: "TestImg" }]
+      },
+      {
+        id: "stream_2", title: "Work", tab: "progress", image: "TestImg", sequence: 2,
+        jobs: [{ id: "job_2", title: "Other", description: "", active: true, frequency: "daily", sequence: 1, suffix: false, dayType: "dayOfYear", mod: "", tasks: [], image: "" }]
+      }
+    ];
+
+    test.beforeEach(async ({ page }) => {
+      await startCoverage(page);
+      await page.goto("/PlanMyDay/");
+      await page.evaluate(({ data, svgData }) => {
+        localStorage.clear();
+        localStorage.setItem("shared-images", JSON.stringify([{ name: "TestImg", data: svgData }]));
+        localStorage.setItem("planmydays_streams", JSON.stringify(data));
+        document.querySelectorAll("smd-page").forEach((p) => { p.slideDuration = 0; });
+      }, { data: STREAMS, svgData: svg });
+      await page.reload();
+    });
+
+    test.afterEach(async ({ page }) => {
+      await stopCoverage(page);
+    });
+
+    async function openJob(page, streamIdx, jobIdx) {
+      await page.evaluate(({ streamIdx, jobIdx }) => {
+        document.querySelectorAll("smd-page").forEach((p) => { p.slideDuration = 0; });
+        jobsStreamIndex = streamIdx;
+        editJob(jobIdx);
+        document.querySelectorAll("smd-page").forEach((p) => { p.slideDuration = 0; });
+      }, { streamIdx, jobIdx });
+      await page.locator("#jobEditPage").waitFor({ state: "visible" });
+      await page.locator("#jobStreamDropdown #smdImageBtnIcon smd-image").first().waitFor({ state: "visible" });
+    }
+
+    test("closed dropdown label is left-aligned right next to the image", async ({ page }) => {
+      await openJob(page, 0, 0);
+      const info = await page.evaluate(() => {
+        const thumb = document.querySelector("#smdImageBtnIcon");
+        const title = document.querySelector("#smdImageBtnText");
+        const range = document.createRange();
+        range.selectNodeContents(title);
+        return {
+          align: getComputedStyle(title).textAlign,
+          gap: range.getBoundingClientRect().left - thumb.getBoundingClientRect().right
+        };
+      });
+      expect(info.align).toBe("left");
+      expect(info.gap).toBeGreaterThanOrEqual(6);
+      expect(info.gap).toBeLessThan(12);
+    });
+
+    test("dropdown hugs the widest stream title and keeps one stable width", async ({ page }) => {
+      await openJob(page, 1, 0);
+      const workWidth = await page.locator("#smdImageDropdownBtn").evaluate((el) => el.getBoundingClientRect().width);
+      await page.locator("#smdImageDropdownBtn").click();
+      await page.locator("#smdImageDropdownMenu .dropdown-item").filter({ hasText: "Maintenance" }).click();
+      const maintWidth = await page.locator("#smdImageDropdownBtn").evaluate((el) => el.getBoundingClientRect().width);
+      expect(Math.abs(workWidth - maintWidth)).toBeLessThanOrEqual(1);
+    });
+
+    test("dropdown never overlaps the image selector, even on a narrow column", async ({ page }) => {
+      await openJob(page, 0, 0);
+      for (const width of [900, 768, 600, 500]) {
+        await page.setViewportSize({ width, height: 900 });
+        await page.waitForTimeout(120);
+        const geo = await page.evaluate(() => {
+          const btn = document.querySelector("#smdImageDropdownBtn");
+          const selCol = document.querySelector("#jobImageSelect").closest(".col-6");
+          return { btnRight: btn.getBoundingClientRect().right, selLeft: selCol.getBoundingClientRect().left };
+        });
+        expect(geo.btnRight, "width " + width).toBeLessThanOrEqual(geo.selLeft + 1);
+      }
+    });
+
+    test("closed dropdown image lines up with the image selector image (job has image)", async ({ page }) => {
+      await openJob(page, 0, 0);
+      const delta = await page.evaluate(() => {
+        const a = document.querySelector("#smdImageBtnIcon").getBoundingClientRect();
+        const b = document.querySelector("#jobImageSelect .thumb").getBoundingClientRect();
+        return Math.abs(a.top - b.top);
+      });
+      expect(delta).toBeLessThanOrEqual(1);
+    });
+
+    test("closed dropdown image lines up with the image selector image (job has no image)", async ({ page }) => {
+      await openJob(page, 1, 0);
+      const delta = await page.evaluate(() => {
+        const a = document.querySelector("#smdImageBtnIcon").getBoundingClientRect();
+        const b = document.querySelector("#jobImageSelect .thumb").getBoundingClientRect();
+        return Math.abs(a.top - b.top);
+      });
+      expect(delta).toBeLessThanOrEqual(1);
+    });
+
+    test("dropdown options and selected getters expose the current data", async ({ page }) => {
+      await openJob(page, 1, 0);
+      const data = await page.evaluate(() => {
+        const dd = document.querySelector("#jobStreamDropdown");
+        return { selected: dd.selected, options: dd.options.map((o) => o.name) };
+      });
+      expect(data.selected).toBe("Work");
+      expect(data.options).toEqual(["Maintenance", "Work"]);
+    });
+
+    test("editor style injectors no-op when their page is missing", async ({ page }) => {
+      const ok = await page.evaluate(() => {
+        const jp = document.getElementById("jobEditPage");
+        const se = document.getElementById("streamsEditor");
+        const jpParent = jp && jp.parentNode;
+        const seParent = se && se.parentNode;
+        if (jp) jp.remove();
+        if (se) se.remove();
+        let threw = false;
+        try { injectJobEditStyles(); injectStreamsEditorStyles(); } catch (e) { threw = true; }
+        if (jp) jpParent.appendChild(jp);
+        if (se) seParent.appendChild(se);
+        return !threw;
+      });
+      expect(ok).toBe(true);
     });
   });
 

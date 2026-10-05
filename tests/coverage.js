@@ -40,6 +40,16 @@ async function stopCoverage(page) {
     } catch {
       return false;
     }
+  }).map((entry) => {
+    // Normalise away the cache-busting query (`?v=BUILD_NUMBER`) so the SAME
+    // file loaded both versioned (app shells) and un-versioned (the storybook)
+    // merges into ONE coverage entry instead of double-counting every function.
+    try {
+      const url = new URL(entry.url);
+      url.search = "";
+      entry.url = url.href;
+    } catch { /* keep the original url */ }
+    return entry;
   });
   if (data.length > 0) {
     const coverageReport = createReport();

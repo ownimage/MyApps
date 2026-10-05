@@ -1,14 +1,1 @@
-.card {
-    background: var(--bs-secondary-bg-subtle);
-}
-
-#smd-app smd-page .smd-page-footer {
-    border-top: 4px solid var(--bs-primary);
-    background: var(--bs-body-bg);
-}
-
-#smd-app #streamsEditor pmd-stream-header[expanded] .stream-accordion-header {
-      background-color: var(--bs-info) !important;
-      border: 2px solid var(--bs-primary);
-}
 

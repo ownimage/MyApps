@@ -1,82 +1,13 @@
-:root {
-  --smd-page-header-background: var(--bs-primary);
-  --smd-page-header-color: var(--bs-white);
-
-  --smd-tab-active-background: var(--bs-primary);
-  --smd-tab-background: var(--bs-info);
-  --smd-tab-color: var(--bs-white);
-  --smd-image-theme: light;
-
-  /* Form-field palette for inputs, selects and the date picker, drawn from the
-     theme's Bootstrap colour variables. A theme reskins its fields by
-     overriding these in its own stylesheet
-     (shared/css/themes/<theme>/<theme>.css). */
-  --smd-form-background: var(--bs-white);
-  --smd-form-foreground: var(--bs-gray-900);
-  --smd-form-border-color: var(--bs-gray-500);
-
-  --smd-form-focus-border-color: color-mix(in srgb, var(--bs-primary) 50%, var(--bs-white));
-  --smd-form-accent: var(--bs-primary);
-  --smd-form-accent-foreground: var(--bs-white);
-  --smd-form-muted-foreground: var(--bs-gray-600);
-  --smd-form-hover-background: var(--bs-gray-700);
-  --smd-form-disabled-background: var(--bs-gray-100);
-  --smd-form-disabled-foreground: var(--bs-gray-600);
-
-  /* Palette for <smd-image-dropdown> (the shared image+name selector: the
-     PlanMyDay job Stream picker and the CountMyDays category filter). Like the
-     form palette above it is drawn from the theme's Bootstrap variables so a
-     theme can reskin the dropdown by overriding these in its own stylesheet
-     (shared/css/themes/<theme>/<theme>.css) without touching the component. */
-  --smd-dropdown-background: var(--bs-tertiary-bg);
-  --smd-dropdown-foreground: var(--bs-secondary);
-  --smd-dropdown-border-color: var(--bs-secondary);
-  --smd-dropdown-hover-background: var(--bs-secondary);
-  --smd-dropdown-hover-foreground: var(--bs-white);
-  --smd-dropdown-disabled-background: var(--smd-form-disabled-background);
-  --smd-dropdown-disabled-foreground: var(--smd-form-disabled-foreground);
-  --smd-dropdown-menu-background: var(--bs-body-bg);
-  --smd-dropdown-menu-foreground: var(--bs-body-color);
-  --smd-dropdown-menu-border-color: var(--bs-border-color);
-  --smd-dropdown-item-hover-background: var(--bs-tertiary-bg);
-  --smd-dropdown-item-hover-foreground: var(--bs-emphasis-color);
-  --smd-dropdown-item-active-background: var(--bs-primary);
-  --smd-dropdown-item-active-foreground: var(--bs-white);
-
-  /* Palette for <pmd-tasks> (the PlanMyDay job-edit Tasks rows). A theme
-     reskins the rows by overriding these in its own stylesheet
-     (shared/css/themes/<theme>/<theme>.css); superhero does. */
-  --pmd-tasks-row-background: var(--bs-tertiary-bg);
-  --pmd-tasks-row-foreground: var(--bs-body-color);
-
-  /* Accent colour of the shared <smd-checkbox> tick. `auto` = the browser/OS
-     default (unchanged for most themes); a theme tints it to its own primary
-     by overriding this in its stylesheet (shared/css/themes/<theme>/<theme>.css). */
-  --smd-checkbox-accent: auto;
-
-  /* Palette for the flatpickr date-picker popup (it is appended to <body> and
-     ships a light skin). A theme overrides these in its own stylesheet
-     (shared/css/themes/<theme>/<theme>.css) and the dark values are set on
-     [data-bs-theme="dark"] below. */
-  --smd-date-picker-background: var(--bs-white);
-  --smd-date-picker-foreground: var(--bs-body-color);
-  --smd-date-picker-muted-foreground: var(--bs-secondary-color);
-  --smd-date-picker-hover-background: var(--bs-secondary-bg);
-  --smd-date-picker-accent: var(--bs-primary);
-  --smd-date-picker-accent-foreground: var(--bs-white);
-  --smd-date-picker-border-color: var(--bs-border-color);
-}
-
-html[data-bs-theme="dark"] {
-  --smd-image-theme: dark;
-  --smd-date-picker-background: var(--smd-form-background);
-  --smd-date-picker-foreground: var(--smd-form-foreground);
-  --smd-date-picker-muted-foreground: var(--smd-form-muted-foreground);
-  --smd-date-picker-hover-background: var(--smd-form-hover-background);
-  --smd-date-picker-accent: var(--smd-form-accent);
-  --smd-date-picker-accent-foreground: var(--smd-form-accent-foreground);
-  --smd-date-picker-border-color: var(--smd-form-border-color);
-}
+/* SHARED THEME SHEET (rules only).
+   This sheet deliberately holds NO colour defaults: the shared --smd-* palette
+   lives in the mode layer,
+     shared/css/themes/light.css  (light)
+     shared/css/themes/dark.css   (dark)
+   which loads after this sheet and before the per-theme override, so a theme
+   still reskins anything by overriding the palette in
+   shared/css/themes/<theme>/<theme>.<mode>.css.
+   The vendor flatpickr repaint lives in shared/css/vendor-overrides.css, and
+   PlanMyDay's gantt chrome rule lives in PlanMyDay/css/gantt.css. */
 
 /* TYPESCALE HARMONISATION -----------------------------------------------
    The Font Size setting only moves <body>'s font-size: smd-settings puts one
@@ -125,128 +56,36 @@ button, .btn { font-size: var(--smd-type-h2, 1.25rem); }
 button.btn-sm, .btn-sm { font-size: var(--smd-type-p, 1rem); }
 
 
-/* flatpickr date-picker popup (appended to <body>), repainted from the
-   date-picker palette. The palette carries the light values by default and the
-   dark values on [data-bs-theme="dark"] / per theme, so these rules are shared
-   by every theme and the theme override files only set variables. They stay here
-   because flatpickr injects its own <style> on the popup, which no component
-   owns; the <smd-date-picker> host/field layout lives in smd-date-picker.js. */
-.flatpickr-calendar {
-  background: var(--smd-date-picker-background);
-  border-color: var(--smd-date-picker-border-color);
+/* FORM CONTROLS ---------------------------------------------------------
+   The bundled Bootswatch themes hardcode a light .form-control / .form-select
+   in some themes, so fields ignore the active theme's body colours. Repaint
+   them from the shared --smd-form-* palette. The palette defaults to light
+   values in shared/css/themes/light.css and to the theme's own dark surfaces in
+   shared/css/themes/dark.css, so a theme whose "light" scheme is dark
+   (e.g. superhero) still matches. `:not(:focus)` keeps the theme's own focus
+   border. A theme reskins fields by overriding the palette entries in its own
+   shared/css/themes/<theme>/<theme>.<mode>.css. */
+.form-control:not(:focus),
+.form-select:not(:focus),
+.flatpickr-input {
+  background-color: var(--smd-form-background);
+  color: var(--smd-form-foreground);
+  border-color: var(--smd-form-border-color);
 }
 
-/* The day grid carries no background of its own in the flatpickr skin and the
-   week wrapper's filler days are `background: transparent`, so without this it
-   would paint the raw container behind it instead of the palette surface. */
-.flatpickr-calendar .flatpickr-days {
-  background: var(--smd-date-picker-background);
+.form-control:focus,
+.form-select:focus {
+  background-color: var(--smd-form-background);
+  color: var(--smd-form-foreground);
+  border-color: var(--smd-form-focus-border-color);
 }
 
-.flatpickr-calendar .flatpickr-months .flatpickr-month,
-.flatpickr-calendar .flatpickr-current-month .flatpickr-monthDropdown-months {
-  background: var(--smd-date-picker-background);
-  color: var(--smd-date-picker-foreground);
+.form-control:disabled,
+.form-select:disabled {
+  background-color: var(--smd-form-disabled-background);
+  color: var(--smd-form-disabled-foreground);
 }
 
-.flatpickr-calendar .flatpickr-current-month .flatpickr-monthDropdown-months option {
-  background: var(--smd-date-picker-background);
-  color: var(--smd-date-picker-foreground);
-}
-
-.flatpickr-calendar .flatpickr-current-month input.cur-year {
-  color: var(--smd-date-picker-foreground);
-}
-
-/* The year-input spinner arrows are hardcoded `rgba(0,0,0,0.9)` by the vendor
-   skin (specificity 0,4,1), so on a dark calendar they vanish. Override at
-   0,5,0 with the palette foreground. */
-.flatpickr-calendar .flatpickr-current-month .numInputWrapper .arrowUp:after {
-  border-bottom-color: var(--smd-date-picker-foreground);
-}
-
-.flatpickr-calendar .flatpickr-current-month .numInputWrapper .arrowDown:after {
-  border-top-color: var(--smd-date-picker-foreground);
-}
-
-.flatpickr-calendar .flatpickr-weekday {
-  background: var(--smd-date-picker-background);
-  color: var(--smd-date-picker-muted-foreground);
-}
-
-.flatpickr-calendar .flatpickr-day {
-  color: var(--smd-date-picker-foreground);
-}
-
-.flatpickr-calendar .flatpickr-day.today {
-  border-color: var(--smd-date-picker-accent);
-}
-
-.flatpickr-calendar .flatpickr-day:hover {
-  background: var(--smd-date-picker-hover-background);
-  color: var(--smd-date-picker-foreground);
-}
-
-/* The vendor skin hardcodes the "today" hover/focus fill `#959ea9` with white
-   text at 0,3,0. The .flatpickr-day:hover rule above already ties and wins on
-   document order, but pin the today state explicitly at 0,4,0 so it cannot be
-   broken by load order or a future vendor bump. */
-.flatpickr-calendar .flatpickr-day.today:hover,
-.flatpickr-calendar .flatpickr-day.today:focus {
-  background: var(--smd-date-picker-hover-background);
-  border-color: var(--smd-date-picker-accent);
-  color: var(--smd-date-picker-foreground);
-}
-
-.flatpickr-calendar .flatpickr-day.selected,
-.flatpickr-calendar .flatpickr-day.selected:hover,
-.flatpickr-calendar .flatpickr-day.startRange,
-.flatpickr-calendar .flatpickr-day.endRange,
-.flatpickr-calendar .flatpickr-day.selected.inRange {
-  background: var(--smd-date-picker-accent);
-  border-color: var(--smd-date-picker-accent);
-  color: var(--smd-date-picker-accent-foreground);
-}
-
-.flatpickr-calendar .flatpickr-day.inRange,
-.flatpickr-calendar .flatpickr-day.prevMonthDay.inRange,
-.flatpickr-calendar .flatpickr-day.nextMonthDay.inRange {
-  background: var(--smd-date-picker-hover-background);
-}
-
-.flatpickr-calendar .flatpickr-day.flatpickr-disabled,
-.flatpickr-calendar .flatpickr-day.flatpickr-disabled:hover,
-.flatpickr-calendar .flatpickr-day.prevMonthDay,
-.flatpickr-calendar .flatpickr-day.nextMonthDay {
-  color: var(--smd-date-picker-muted-foreground);
-}
-
-.flatpickr-calendar .flatpickr-time {
-  background: var(--smd-date-picker-background);
-  border-color: var(--smd-date-picker-border-color);
-}
-
-.flatpickr-calendar .flatpickr-time input,
-.flatpickr-calendar .flatpickr-time .flatpickr-time-separator,
-.flatpickr-calendar .flatpickr-time .flatpickr-am-pm {
-  color: var(--smd-date-picker-foreground);
-}
-
-.flatpickr-calendar.arrowTop:before {
-  border-bottom-color: var(--smd-date-picker-border-color);
-}
-
-.flatpickr-calendar.arrowTop:after {
-  border-bottom-color: var(--smd-date-picker-background);
-}
-
-.flatpickr-calendar.arrowBottom:before {
-  border-top-color: var(--smd-date-picker-border-color);
-}
-
-.flatpickr-calendar.arrowBottom:after {
-  border-top-color: var(--smd-date-picker-background);
-}
 
 /* APP SHELL / NAVIGATION
    The #mainNav auto-hide mechanics (fixed positioning, the hide/reveal transform
@@ -312,13 +151,13 @@ smd-draghandle[size="large"] {
 
 /* COMPONENT: pmd-stream-header theme surface (layout is in pmd-stream-header.js) */
 #smd-app #streamsEditor pmd-stream-header .stream-accordion-header {
-  background-color: var(--bs-info) !important;
-  color: var(--bs-info-contrast, #fff) !important;
+  background-color: var(--bs-success) !important;
+  color: var(--bs-success-contrast, #fff) !important;
 }
 
 #smd-app #streamsEditor pmd-stream-header[expanded] .stream-accordion-header {
-  background-color: var(--bs-primary) !important;
-  color: var(--bs-primary-contrast, #fff) !important;
+  background-color: var(--bs-danger) !important;
+  color: var(--bs-danger-contrast, #fff) !important;
 }
 
 #smd-app #streamsEditor pmd-stream-header .stream-header-main,
@@ -366,7 +205,7 @@ smd-modal .smd-dialog {
 
 smd-modal .smd-header {
   border-bottom: 1px solid var(--bs-border-color, #444);
-  background: color-mix(in srgb, var(--bs-body-bg, #222) 85%, white);
+  background: var(--smd-modal-header-background, var(--bs-tertiary-bg));
 }
 
 smd-modal .smd-header h3 {
@@ -486,21 +325,4 @@ smd-image-picker .empty {
    secondary colour, so it reads as part of the title block. */
 cmd-countdown-card .category-label {
   color: var(--bs-heading-color, inherit);
-}
-
-/* GANTT HEADER BACKGROUND (PlanMyDay). The vendor's timeline header
-   (.rg-gantt-header) paints a vertical gradient from --rg-gantt-background
-   (which follows --bs-body-bg) to --rg-gantt-muted. On themes whose LIGHT mode
-   still has a dark body background (e.g. superhero's navy #0f2537) that gradient
-   puts a dark band over the header, and a --bs-secondary-bg header would instead
-   go LIGHT-GREY with near-white text (white-on-white). The header is a chrome
-   strip above the chart and must sit on the SAME surface as the gantt body
-   (--bs-body-bg) so it stays continuous with the cells in both light and dark
-   mode. This rule pins the revogr-header strip and the timeline header to that
-   surface and clears the vendor gradient. */
-#ganttPage .rg-gantt-header,
-#ganttPage revo-grid revogr-header,
-#ganttPage revo-grid revogr-header .rgHeaderCell {
-  background: var(--bs-body-bg);
-  background-image: none;
 }

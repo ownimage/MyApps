@@ -44,14 +44,14 @@
     }
 
     connectedCallback() {
-      this.classList.add("d-flex", "align-items-center", "gap-2");
-      if (typeof injectSmdComponentStyle === "function") {
-        injectSmdComponentStyle("smd-image-select-layout", `
-          smd-image-select .thumb { position: relative; flex-shrink: 0; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+    this.classList.add("d-flex", "align-items-start", "gap-2");
+    if (typeof injectSmdComponentStyle === "function") {
+      injectSmdComponentStyle("smd-image-select-layout", `
+          smd-image-select .thumb { position: relative; flex-shrink: 0; display: flex; align-items: center; justify-content: center; overflow: hidden; margin-top: calc(0.375rem + 1px); }
           smd-image-select .thumb .placeholder { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; opacity: 1; animation: none; cursor: default; }
           smd-image-select .meta { display: flex; flex-direction: column; min-width: 0; }
         `);
-      }
+    }
       this._build();
       if (!this._bound) {
         this._bound = true;
@@ -74,7 +74,6 @@
     _render() {
       const name = this.getAttribute("image") || "";
       const label = this.getAttribute("label") || name;
-      const idAttr = (id) => id ? ` id="${id}"` : "";
 
       const sImg = this.querySelector(".thumb smd-image");
       sImg.setAttribute("key-prefix", this.keyPrefix);
@@ -86,7 +85,6 @@
         sImg.removeAttribute("image");
       }
 
-      const thumb = this.querySelector(".thumb");
       const ph = this.querySelector(".placeholder");
       ph.hidden = !!name;
 

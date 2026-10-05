@@ -1,0 +1,23 @@
+/* PlanMyDay-app-owned stylesheet.
+ *
+ * The one shared-library rule that is PlanMyDay-specific was moved out of
+ * shared/css/styles.css into here so the shared sheet stays app-agnostic. This
+ * file is linked LAST in PlanMyDay/index.html (after the per-theme override),
+ * so it can outrank both the shared sheet and the RevoGrid vendor CSS. */
+
+/* GANTT HEADER BACKGROUND. The vendor's timeline header (.rg-gantt-header)
+   paints a vertical gradient from --rg-gantt-background (which follows
+   --bs-body-bg) to --rg-gantt-muted. On themes whose LIGHT mode still has a
+   dark body background (e.g. superhero's navy #0f2537) that gradient puts a
+   dark band over the header, and a --bs-secondary-bg header would instead go
+   LIGHT-GREY with near-white text (white-on-white). The header is a chrome
+   strip above the chart and must sit on the SAME surface as the gantt body
+   (--bs-body-bg) so it stays continuous with the cells in both light and dark
+   mode. This rule pins the revogr-header strip and the timeline header to that
+   surface and clears the vendor gradient. */
+#ganttPage .rg-gantt-header,
+#ganttPage revo-grid revogr-header,
+#ganttPage revo-grid revogr-header .rgHeaderCell {
+  background: var(--bs-body-bg);
+  background-image: none;
+}

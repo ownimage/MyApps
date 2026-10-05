@@ -53,6 +53,7 @@ function openStreamEditPage() {
     { text: "OK", variant: "success", action: "done", id: "btnStreamEditOk" }
   ];
   page.show();
+  initStreamTabDropdown(data);
   updateStreamEditOkBtn();
   if (isNew) {
     requestAnimationFrame(function() {
@@ -79,6 +80,27 @@ function updateStreamEditOkBtn() {
   if (okBtn) okBtn.disabled = !title || !title.value.trim();
 }
 
+// The Tab field uses the shared <smd-image-dropdown> with the SAME Font Awesome
+// icons the stream header shows (fast-forward for progress, play for
+// maintenance), so the picker matches the header badge. `name` is the display
+// label; `value` is the stored tab string, delivered in the change event.
+function initStreamTabDropdown(data) {
+  const sel = $id("streamTabDropdown");
+  if (!sel) return;
+  const options = [
+    { name: "Progress", value: "progress", image: "fa:forward" },
+    { name: "Maintenance", value: "maintenance", image: "fa:play" }
+  ];
+  sel.options = options;
+  const current = (data.tab || "progress");
+  const match = options.find(function (o) { return o.value === current; });
+  sel.selected = match ? match.name : options[0].name;
+  sel.addEventListener("smd-image-dropdown-change", function (e) {
+    var value = e.detail && e.detail.value;
+    if (value) editField("tab", value);
+  });
+}
+
 function streamEditSubmit() {
   const okBtn = $id("btnStreamEditOk");
   if (okBtn && !okBtn.disabled) doneEdit();
@@ -92,10 +114,9 @@ function getStreamEditFormHTML(data) {
     </div>
     <div class="mb-2">
       <label class="form-label">Tab</label>
-      <select class="form-select" onchange="editField('tab', this.value)">
-        <option value="progress" ${(data.tab || "progress") === "progress" ? "selected" : ""}>Progress</option>
-        <option value="maintenance" ${data.tab === "maintenance" ? "selected" : ""}>Maintenance</option>
-      </select>
+      <div class="stream-tab-picker">
+        <smd-image-dropdown id="streamTabDropdown" key-prefix="${escAttr(smdImagePrefix())}"></smd-image-dropdown>
+      </div>
     </div>
     <div class="mb-2">
       <label class="form-label">Description</label>

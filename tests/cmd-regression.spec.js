@@ -462,9 +462,55 @@ test.describe("CountMyDays - Regression", () => {
 
       // The thumbnails must read the SHARED image library (key-prefix shared-)
       // and actually render an image, not just the card title.
-      const firstThumb = page.locator("#imagesEditor smd-image-card").first().locator("smd-image");
+      const firstThumb = page.locator("#imagesEditor smd-image-card").first().locator(".thumb smd-image");
       await expect(firstThumb).toHaveAttribute("key-prefix", "shared-");
       await expect.poll(async () => firstThumb.locator("img").getAttribute("src")).toBeTruthy();
+    });
+
+    test("image tile shows the main image plus light and dark theme swatches on one row", async ({ page }) => {
+      await seed(page);
+      await page.evaluate(() => openImagesEditor());
+      const card = page.locator("#imagesEditor smd-image-card").first();
+      // main image + light swatch + dark swatch
+      await expect(card.locator("smd-image")).toHaveCount(3);
+      await expect(card.locator('smd-image[theme="light"]')).toHaveCount(1);
+      await expect(card.locator('smd-image[theme="dark"]')).toHaveCount(1);
+
+      const info = await card.evaluate((el) => {
+        const main = el.querySelector(".thumb smd-image");
+        const light = el.querySelector('[data-bs-theme="light"]');
+        const dark = el.querySelector('[data-bs-theme="dark"]');
+        const editBtn = el.querySelector('[data-action="edit"]');
+        const yc = (e) => { const b = e.getBoundingClientRect(); return b.top + b.height / 2; };
+        // What `bg-body` SHOULD resolve to for each app mode.
+        const probe = document.createElement("div");
+        probe.style.backgroundColor = "var(--bs-body-bg)";
+        probe.setAttribute("data-bs-theme", "light");
+        document.body.appendChild(probe);
+        const lightExpected = getComputedStyle(probe).backgroundColor;
+        probe.setAttribute("data-bs-theme", "dark");
+        const darkExpected = getComputedStyle(probe).backgroundColor;
+        probe.remove();
+        return {
+          mainY: yc(main), lightY: yc(light), darkY: yc(dark), editY: yc(editBtn),
+          lightBg: getComputedStyle(light).backgroundColor,
+          darkBg: getComputedStyle(dark).backgroundColor,
+          lightExpected, darkExpected,
+          lightPad: light.getBoundingClientRect().width - light.querySelector("smd-image").getBoundingClientRect().width,
+          lightName: light.textContent.trim()
+        };
+      });
+      // main image, both swatches and the buttons share one row
+      for (const y of [info.lightY, info.darkY, info.editY]) {
+        expect(Math.abs(y - info.mainY)).toBeLessThan(4);
+      }
+      // the swatches use the app's light / dark body surfaces
+      expect(info.lightBg).toBe(info.lightExpected);
+      expect(info.darkBg).toBe(info.darkExpected);
+      expect(info.lightBg).not.toBe(info.darkBg);
+      // a bit of space round the image, and no name on the swatches
+      expect(info.lightPad).toBeGreaterThan(0);
+      expect(info.lightName).toBe("");
     });
 
     test("renaming an image updates category and date references", async ({ page }) => {

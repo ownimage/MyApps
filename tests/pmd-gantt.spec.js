@@ -1,4 +1,9 @@
 const { test, expect } = require("@playwright/test");
+const { startCoverage, stopCoverage } = require("./coverage");
+
+// Coverage hooks (top-level so every test in this spec is captured).
+test.beforeEach(async ({ page }) => { await startCoverage(page); });
+test.afterEach(async ({ page }) => { await stopCoverage(page); });
 
 // The Gantt page (Settings -> Display -> Show Gantt, then the Gantt menu item)
 // is a READ-ONLY projection of the stream/job tree, now drawn by the vendored
@@ -104,16 +109,255 @@ test.describe("Gantt page", () => {
     const byTitle = {};
     items.forEach((i) => { byTitle[i.name.replace(/\s*\(.*\)$/, "")] = i; });
 
-    // job with an explicit duration, no sleepUntil -> starts today, spans 3 days
+    // job with an explicit duration, no sleepUntil -> starts today, spans 3 days.
+    // endDate is INCLUSIVE (the vendor draws to endDate + 1), so a 3-day job
+    // ends TWO days after it starts.
     expect(byTitle["Daily standup"].startDate).toBe(today);
-    expect(byTitle["Daily standup"].endDate).toBe(await page.evaluate((t) => ganttAddDaysStr(t, 3), today));
+    expect(byTitle["Daily standup"].endDate).toBe(await page.evaluate((t) => ganttAddDaysStr(t, 2), today));
 
     // job with sleepUntil + duration -> starts on sleepUntil, spans 2 days
     expect(byTitle["Planned review"].startDate).toBe("2026-10-05");
-    expect(byTitle["Planned review"].endDate).toBe("2026-10-07");
+    expect(byTitle["Planned review"].endDate).toBe("2026-10-06");
 
-    // legacy job with no duration -> 1 day
-    expect(byTitle["Legacy job"].endDate).toBe(await page.evaluate((t) => ganttAddDaysStr(t, 1), today));
+    // legacy job with no duration -> 1 day: start and end are the SAME day
+    expect(byTitle["Legacy job"].startDate).toBe(today);
+    expect(byTitle["Legacy job"].endDate).toBe(today);
+  });
+
+  test("a one-day job's bar spans exactly one day column", async ({ page }) => {
+    await page.goto("/PlanMyDay/");
+    const today = await page.evaluate(() => getTodayStr());
+    const tomorrow = await page.evaluate((t) => ganttAddDaysStr(t, 1), today);
+    // Two ONE-day jobs starting on consecutive days: the distance between their
+    // bars is exactly one day column, so each 1-day bar must be that same width
+    // (not double it).
+    await seedStreams(page, [
+      {
+        title: "Work",
+        sequence: 1,
+        jobs: [
+          { id: "one", title: "One day", sequence: 1, active: true, schedule: { type: "daily" }, duration: 1 },
+          { id: "next", title: "Next day", sequence: 2, active: true, schedule: { type: "daily" }, sleepUntil: tomorrow, duration: 1 }
+        ]
+      }
+    ]);
+    await enableGantt(page);
+    await openChart(page);
+
+    const m = await page.evaluate(() => {
+      const bars = Array.from(document.querySelectorAll(".rg-gantt-bar--task")).map((b) => {
+        const r = b.getBoundingClientRect();
+        return { left: r.left, width: r.width };
+      });
+      return { a: bars[0], b: bars[1] };
+    });
+
+    const dayWidth = m.b.left - m.a.left; // the two starts are one day apart
+    expect(dayWidth).toBeGreaterThan(0);
+    expect(Math.abs(m.a.width - dayWidth)).toBeLessThanOrEqual(1.5);
+    expect(Math.abs(m.b.width - dayWidth)).toBeLessThanOrEqual(1.5);
+  });
+
+  test("day view shows the date numbers under the month, aligned to the columns", async ({ page }) => {
+    await page.goto("/PlanMyDay/");
+    await seedStreams(page, SAMPLE);
+    await enableGantt(page); // default zoom is day-week
+    await openChart(page);
+
+    const m = await page.evaluate(() => {
+      const cells = Array.from(document.querySelectorAll(".rg-gantt-header-cell"));
+      const rowOf = (c) => getComputedStyle(c).getPropertyValue("--rg-gantt-header-row").trim();
+      const tick = cells.find((c) => rowOf(c) === "1");   // day cells ("2 Fri")
+      const month = cells.find((c) => rowOf(c) === "0");  // month cells ("October 2026")
+      const header = document.querySelector(".rg-gantt-header");
+      const hb = header.getBoundingClientRect();
+      const tr = tick.getBoundingClientRect();
+      const mr = month.getBoundingClientRect();
+      const range = document.createRange();
+      range.selectNodeContents(tick);
+      const rr = range.getBoundingClientRect();
+      const bar = document.querySelector(".rg-gantt-bar--task");
+      const tcs = getComputedStyle(tick);
+      return {
+        tickText: tick.textContent.trim(),
+        tickLeft: tr.left,
+        tickWidth: tr.width,
+        tickTop: tr.top,
+        monthTop: mr.top,
+        headerTop: hb.top,
+        headerBottom: hb.bottom,
+        textTop: rr.top,
+        textBottom: rr.bottom,
+        barLeft: bar ? bar.getBoundingClientRect().left : null,
+        borderLeft: tcs.borderLeftWidth,
+        borderRight: tcs.borderRightWidth
+      };
+    });
+
+    expect(m.tickText).toMatch(/\d/);              // the row carries a date number
+    expect(m.tickTop).toBeGreaterThan(m.monthTop); // day numbers sit UNDER the month row
+    // both rows sit fully inside the (now taller) header - the day row is not clipped
+    expect(m.textTop).toBeGreaterThanOrEqual(m.headerTop - 1);
+    expect(m.textBottom).toBeLessThanOrEqual(m.headerBottom + 1);
+    // the date cells line up with the chart columns: a bar starts on a day-cell
+    // boundary, i.e. (barLeft - firstDayCellLeft) is a whole number of day widths
+    const offset = ((m.barLeft - m.tickLeft) % m.tickWidth + m.tickWidth) % m.tickWidth;
+    expect(Math.min(offset, m.tickWidth - offset)).toBeLessThanOrEqual(1);
+    // the divider is a LEFT border so it shares the gridline's x (a right border
+    // sat 1px left of the gridline and made the day numbers look off the column)
+    expect(m.borderLeft).toBe("1px");
+    expect(m.borderRight).toBe("0px");
+  });
+
+  test("day view highlights the weekend columns via a CSS variable", async ({ page }) => {
+    await page.goto("/PlanMyDay/");
+    await seedStreams(page, SAMPLE);
+    await enableGantt(page);
+    await openChart(page);
+
+    const m = await page.evaluate(() => {
+      const host = document.getElementById("ganttChart");
+      const cell = document.querySelector("#ganttChart revogr-data .rg-gantt-cell");
+      const header = document.querySelector("#ganttChart .rg-gantt-header");
+      return {
+        offset: host.style.getPropertyValue("--gantt-weekend-offset").trim(),
+        weekendBg: getComputedStyle(host).getPropertyValue("--gantt-weekend-bg").trim(),
+        cellBg: getComputedStyle(cell).backgroundImage,
+        headerBg: getComputedStyle(header).backgroundImage
+      };
+    });
+
+    // The offset is the first Saturday's x: a whole number of 44px day columns
+    // within one 7-day period, so the highlight lands on the right columns.
+    expect(m.offset).toMatch(/^\d+px$/);
+    const off = parseInt(m.offset, 10);
+    expect(off % 44).toBe(0);
+    expect(off).toBeGreaterThanOrEqual(0);
+    expect(off).toBeLessThan(308);
+    // The colour is a CSS variable (change it to restyle the highlight).
+    expect(m.weekendBg.length).toBeGreaterThan(0);
+    // Both the chart columns and the header band carry the weekend layer.
+    expect(m.cellBg).toContain("repeating-linear-gradient");
+    expect(m.headerBg).toContain("repeating-linear-gradient");
+  });
+
+  test("week and month views do not highlight weekend columns", async ({ page }) => {
+    await page.goto("/PlanMyDay/");
+    await seedStreams(page, SAMPLE);
+    await enableGantt(page);
+    await openChart(page);
+    await page.evaluate(() => ganttSetZoom("week-month"));
+    await page.waitForTimeout(500);
+    const bg = await page.evaluate(() =>
+      getComputedStyle(document.querySelector("#ganttChart revogr-data .rg-gantt-cell")).backgroundImage);
+    expect(bg).not.toContain("repeating-linear-gradient");
+  });
+
+  test("weekend highlight lands on exactly Saturday and Sunday for every start weekday", async ({ page }) => {
+    test.setTimeout(180000);
+    const sharp = require("sharp");
+
+    // Sample the rendered background colour at the centre of the first 14 day
+    // columns, in a row strip ABOVE the bars (the bar is centred in the 30px
+    // row, so y = rowTop+1 is clean background). Returns each column's weekday
+    // (parsed from its own header label) and its luminance.
+    async function sampleRow() {
+      const geo = await page.evaluate(() => {
+        const ticks = Array.from(document.querySelectorAll("#ganttChart .rg-gantt-header-cell"))
+          .filter((c) => getComputedStyle(c).getPropertyValue("--rg-gantt-header-row").trim() === "1")
+          .slice(0, 14)
+          .map((c) => {
+            const r = c.getBoundingClientRect();
+            return { text: c.textContent.trim(), cx: r.left + r.width / 2 };
+          });
+        const cell = document.querySelector("#ganttChart revogr-data .rg-gantt-cell");
+        const row = document.querySelector("#ganttChart revogr-data .rgRow");
+        return { ticks, cellLeft: cell.getBoundingClientRect().left, rowTop: row.getBoundingClientRect().top };
+      });
+      const x0 = Math.round(geo.cellLeft);
+      const width = 14 * 44;
+      const buf = await page.screenshot({ clip: { x: x0, y: Math.round(geo.rowTop) + 1, width, height: 3 } });
+      const { data, info } = await sharp(buf).raw().toBuffer({ resolveWithObject: true });
+      const y = Math.floor(info.height / 2);
+      return geo.ticks.map((t) => {
+        const px = Math.round(t.cx - x0);
+        const i = (y * info.width + px) * info.channels;
+        return {
+          text: t.text,
+          weekend: /^(Sat|Sun)$/.test((t.text.split(" ").pop() || "")),
+          lum: 0.2126 * data[i] + 0.7152 * data[i + 1] + 0.0722 * data[i + 2]
+        };
+      });
+    }
+
+    // Monday base, 7 seeds -> the timeline (earliest date - 2 days) starts on
+    // every weekday in turn, so every possible phase of the 7-day pattern is hit.
+    const base = "2026-10-05";
+    for (let d = 0; d < 7; d++) {
+      await page.goto("/PlanMyDay/");
+      const startDate = await page.evaluate(({ b, n }) => ganttAddDaysStr(b, n), { b: base, n: d });
+      await seedStreams(page, [
+        {
+          title: "Work",
+          sequence: 1,
+          jobs: [{ id: "j", title: "Job", sequence: 1, active: true, schedule: { type: "daily" }, sleepUntil: startDate, duration: 1 }]
+        }
+      ]);
+      await page.evaluate(() => localStorage.setItem("planmydays_ganttZoom", "day-week"));
+      await enableGantt(page);
+      await openChart(page);
+
+      const samples = await sampleRow();
+      // The highlighted columns are the brighter ones (dark default theme); split
+      // on the median luminance and require the split to match Sat/Sun exactly.
+      const sorted = samples.map((s) => s.lum).sort((a, b) => a - b);
+      const mid = (sorted[Math.floor((sorted.length - 1) / 2)] + sorted[Math.ceil((sorted.length - 1) / 2)]) / 2;
+      const got = samples.filter((s) => s.lum > mid).map((s) => s.text).join(", ");
+      const want = samples.filter((s) => s.weekend).map((s) => s.text).join(", ");
+      expect(got, `start=${startDate}`).toBe(want);
+    }
+  });
+
+  test("the header Start/End toggle hides the date columns, sits before Streams, and persists", async ({ page }) => {
+    await page.goto("/PlanMyDay/");
+    await seedStreams(page, SAMPLE);
+    await enableGantt(page);
+    await openChart(page);
+
+    const headerCells = () =>
+      page.evaluate(() => document.querySelectorAll("#ganttChart revogr-header .rgHeaderCell").length);
+
+    // default: Task, Edit, Start, End + the timeline column = 5 header cells
+    expect(await headerCells()).toBe(5);
+
+    // the toggle is just BEFORE the Streams filter in the header
+    const beforeStreams = await page.evaluate(() => {
+      const dates = document.querySelector("#ganttPage .gantt-dates-toggle");
+      const streams = document.querySelector("#ganttPage .gantt-stream-filter");
+      return !!dates && !!streams && (dates.compareDocumentPosition(streams) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
+    });
+    expect(beforeStreams).toBe(true);
+
+    // hide the Start/End columns -> only Task, Edit + timeline remain (the
+    // Edit column is always shown, even with the dates hidden)
+    await page.locator("#ganttPage .gantt-dates-toggle").click();
+    await page.waitForTimeout(600);
+    expect(await headerCells()).toBe(3);
+    await expect(page.locator("#ganttChart .pmd-gantt-edit-btn")).toHaveCount(5);
+    await expect(page.locator("#ganttPage .gantt-dates-toggle")).not.toHaveClass(/active/);
+    await expect(page.locator("#ganttPage .gantt-dates-toggle")).toHaveAttribute("aria-pressed", "false");
+
+    // the choice persists across a close/reopen
+    await page.evaluate(() => closeGantt());
+    await openChart(page);
+    expect(await headerCells()).toBe(3);
+    await expect(page.locator("#ganttPage .gantt-dates-toggle")).toHaveAttribute("aria-pressed", "false");
+
+    // show them again
+    await page.locator("#ganttPage .gantt-dates-toggle").click();
+    await page.waitForTimeout(600);
+    expect(await headerCells()).toBe(5);
+    await expect(page.locator("#ganttPage .gantt-dates-toggle")).toHaveAttribute("aria-pressed", "true");
   });
 
   test("renders one row per stream and job, including a minimum bar for a job-less stream", async ({ page }) => {
@@ -146,8 +390,8 @@ test.describe("Gantt page", () => {
     expect(chart.rows).toBe(5);
     expect(chart.bars).toBe(5);
     expect(chart.summaryBars).toBe(2);
-    expect(chart.headerCells).toBe(4); // Task, Start, End, timeline
-    expect(chart.bodyCells).toBe(20);  // 5 rows x (name, start, end) + 5 timeline labels
+    expect(chart.headerCells).toBe(5); // Task, Edit, Start, End, timeline
+    expect(chart.bodyCells).toBe(25);  // 5 rows x (name, edit, start, end) + 5 timeline labels
     expect(chart.themeAttr).toBe("default");
     expect(chart.readonly).toBe(true);
     expect(chart.rowSize).toBe(30);
@@ -159,6 +403,176 @@ test.describe("Gantt page", () => {
     expect(chart.labels).toContain("Daily standup");
     expect(chart.labels).toContain("Planned review (Weekdays)");
     expect(chart.labels).toContain("Legacy job");
+  });
+
+  test("every row has a primary Edit button in a column between the name and Start, opening the matching editor", async ({ page }) => {
+    test.setTimeout(60000);
+    await page.goto("/PlanMyDay/");
+    await seedStreams(page, SAMPLE);
+    await enableGantt(page);
+    await openChart(page);
+
+    // One Edit button per row: 2 streams + 3 jobs.
+    const buttons = page.locator("#ganttChart .pmd-gantt-edit-btn");
+    await expect(buttons).toHaveCount(5);
+
+    // Every button is a Bootstrap primary (btn-primary) and small.
+    const classes = await buttons.evaluateAll((els) => els.map((e) => e.className));
+    expect(classes.every((c) => /(^|\s)btn-primary(\s|$)/.test(c))).toBe(true);
+
+    // The column sits BETWEEN the name column and the Start column, and the
+    // Start/End dates are still after it.
+    const order = await page.evaluate(() => {
+      const grid = document.querySelector("#ganttChart revo-grid");
+      return (grid.columns || []).map((c) => c.prop);
+    });
+    expect(order.indexOf("__ganttEdit")).toBe(order.indexOf("name") + 1);
+    expect(order.indexOf("startDate")).toBeGreaterThan(order.indexOf("__ganttEdit"));
+
+    // The button is rendered between the row's name and its Start cell.
+    const geom = await page.evaluate(() => {
+      const row = document.querySelector("#ganttChart revogr-data .rgRow");
+      const name = row.querySelector(".pmd-gantt-job-name, .pmd-gantt-stream-name");
+      const edit = row.querySelector(".pmd-gantt-edit-btn");
+      const cells = Array.from(row.querySelectorAll(".rgCell"));
+      const editCell = edit && edit.closest(".rgCell");
+      const startCell = cells.find((c) => c !== editCell && c.getBoundingClientRect().left > editCell.getBoundingClientRect().left);
+      return {
+        nameLeft: name.getBoundingClientRect().left,
+        editLeft: editCell.getBoundingClientRect().left,
+        startLeft: startCell ? startCell.getBoundingClientRect().left : null
+      };
+    });
+    expect(geom.editLeft).toBeGreaterThan(geom.nameLeft);
+    expect(geom.startLeft).not.toBeNull();
+    expect(geom.startLeft).toBeGreaterThan(geom.editLeft);
+
+    // Clicking a JOB's Edit opens the job editor for THAT job, stacked over the
+    // still-open Gantt.
+    await buttons.nth(1).click(); // Work summary, then "Daily standup"
+    await expect(page.locator("#jobEditPage")).toHaveAttribute("open", "");
+    await expect(page.locator("#jobTitleInput")).toHaveValue("Daily standup");
+    await page.locator("#jobEditCancelBtn").click();
+    await expect(page.locator("#jobEditPage")).not.toHaveAttribute("open", "");
+    // back on the Gantt, which is no longer suspended, with its rows intact
+    await expect(page.locator("#ganttPage")).toHaveAttribute("open", "");
+    await expect(page.locator("#ganttPage")).not.toHaveClass(/smd-page-suspended/);
+    await expect(page.locator("#ganttChart .pmd-gantt-edit-btn")).toHaveCount(5);
+
+    // Clicking a STREAM's Edit opens the stream editor for that stream.
+    await buttons.nth(0).click(); // "Work"
+    await expect(page.locator("#streamEditPage")).toHaveAttribute("open", "");
+    await expect(page.locator("#streamTitleInput")).toHaveValue("Work");
+    await page.locator("#btnStreamEditCancel").click();
+    await expect(page.locator("#streamEditPage")).not.toHaveAttribute("open", "");
+    await expect(page.locator("#ganttPage")).toHaveAttribute("open", "");
+    await expect(page.locator("#ganttChart .pmd-gantt-edit-btn")).toHaveCount(5);
+  });
+
+  test("the grid columns have no RevoGrid filter buttons", async ({ page }) => {
+    await page.goto("/PlanMyDay/");
+    await seedStreams(page, SAMPLE);
+    await enableGantt(page);
+    await openChart(page);
+
+    // No funnel/filter control on any column header (Task/Edit/Start/End).
+    await expect(page.locator("#ganttChart .rv-filter")).toHaveCount(0);
+    await expect(page.locator("#ganttChart .filter-button-wrapper")).toHaveCount(0);
+    const filterProp = await page.evaluate(() => document.querySelector("#ganttChart revo-grid").filter);
+    expect(filterProp).toBe(false);
+  });
+
+  test("the Active only header filter hides inactive jobs, defaults to off, and persists", async ({ page }) => {
+    await page.goto("/PlanMyDay/");
+    await seedStreams(page, [
+      { title: "Work", sequence: 1, jobs: [
+        { id: "job_on", title: "Active job", sequence: 1, active: true, schedule: { type: "daily" }, duration: 2 },
+        { id: "job_off", title: "Inactive job", sequence: 2, active: false, schedule: { type: "daily" }, duration: 2 }
+      ] },
+      { title: "Home", sequence: 2, jobs: [] }
+    ]);
+    await enableGantt(page);
+    await openChart(page);
+
+    const labels = () => page.evaluate(() =>
+      Array.from(document.querySelectorAll(".rg-gantt-bar-label")).map((l) => l.textContent.trim()));
+    const toggle = page.locator("#ganttPage .gantt-active-toggle");
+
+    // The control sits in the header, after Start/End and before Streams.
+    const beforeStreams = await page.evaluate(() => {
+      const active = document.querySelector("#ganttPage .gantt-active-toggle");
+      const streams = document.querySelector("#ganttPage .gantt-stream-filter");
+      return !!active && !!streams && (active.compareDocumentPosition(streams) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
+    });
+    expect(beforeStreams).toBe(true);
+
+    // default: inactive jobs are SHOWN, toggle off (the "active" STATE class is
+    // distinct from the "gantt-active-toggle" name class)
+    await expect(toggle).toHaveAttribute("aria-pressed", "false");
+    expect(await page.evaluate(() => document.querySelector("#ganttPage .gantt-active-toggle").classList.contains("active"))).toBe(false);
+    expect(await labels()).toContain("Inactive job");
+    expect(await page.locator(".rg-gantt-bar--task").count()).toBe(2);
+
+    // switch it on -> inactive job disappears, toggle active, choice persists
+    await toggle.click();
+    await page.waitForTimeout(600);
+    await expect(toggle).toHaveAttribute("aria-pressed", "true");
+    expect(await page.evaluate(() => document.querySelector("#ganttPage .gantt-active-toggle").classList.contains("active"))).toBe(true);
+    expect(await labels()).not.toContain("Inactive job");
+    expect(await labels()).toContain("Active job");
+    expect(await page.locator(".rg-gantt-bar--task").count()).toBe(1);
+    expect(await page.evaluate(() => localStorage.getItem("planmydays_ganttActiveOnly"))).toBe("true");
+
+    // survives a close/reopen
+    await page.evaluate(() => closeGantt());
+    await openChart(page);
+    expect(await page.locator(".rg-gantt-bar--task").count()).toBe(1);
+    await expect(page.locator("#ganttPage .gantt-active-toggle")).toHaveAttribute("aria-pressed", "true");
+
+    // switch it off -> inactive job returns
+    await page.locator("#ganttPage .gantt-active-toggle").click();
+    await page.waitForTimeout(600);
+    expect(await page.locator(".rg-gantt-bar--task").count()).toBe(2);
+    expect(await labels()).toContain("Inactive job");
+    await expect(page.locator("#ganttPage .gantt-active-toggle")).toHaveAttribute("aria-pressed", "false");
+  });
+
+  test("deactivating a job from the Gantt's Edit button hides it when Active only is on", async ({ page }) => {
+    test.setTimeout(60000);
+    await page.goto("/PlanMyDay/");
+    await seedStreams(page, [
+      { title: "Work", sequence: 1, jobs: [
+        { id: "job_a", title: "Active job", sequence: 1, active: true, schedule: { type: "daily" }, duration: 2 },
+        { id: "job_b", title: "Second job", sequence: 2, active: true, schedule: { type: "daily" }, duration: 2 }
+      ] }
+    ]);
+    await enableGantt(page);
+    await openChart(page);
+
+    // Turn on Active only (both jobs still shown).
+    await page.locator("#ganttPage .gantt-active-toggle").click();
+    await page.waitForTimeout(600);
+    await expect(page.locator(".rg-gantt-bar--task")).toHaveCount(2);
+
+    // Edit the FIRST job from its Gantt Edit button and switch it inactive, then
+    // OK, then return to the Gantt.
+    await page.locator("#ganttChart .pmd-gantt-edit-btn").nth(1).click(); // stream "Work", then "Active job"
+    await expect(page.locator("#jobEditPage")).toHaveAttribute("open", "");
+    await expect(page.locator("#jobTitleInput")).toHaveValue("Active job");
+    await page.locator("#jobActiveCb").uncheck();
+    await page.locator("#jobEditOkBtn").click();
+    await page.waitForTimeout(800);
+
+    // The job was persisted as inactive...
+    const stored = await page.evaluate(() => JSON.parse(localStorage.getItem("planmydays_streams"))[0].jobs.find((j) => j.id === "job_a").active);
+    expect(stored).toBe(false);
+
+    // ...and the Gantt (still open) must now hide it.
+    await expect(page.locator("#ganttPage")).toHaveAttribute("open", "");
+    await expect(page.locator(".rg-gantt-bar--task")).toHaveCount(1);
+    const labels = await page.evaluate(() => Array.from(document.querySelectorAll(".rg-gantt-bar-label")).map((l) => l.textContent.trim()));
+    expect(labels).not.toContain("Active job");
+    expect(labels).toContain("Second job");
   });
 
   test("a stream can be collapsed so its job rows hide, and the state persists", async ({ page }) => {
@@ -246,11 +660,16 @@ test.describe("Gantt page", () => {
 
     const topRow = (page) => page.evaluate(() => {
       const scroller = document.querySelector("#ganttChart revo-grid .vertical-inner");
-      // the first rendered row whose top is at/just below the viewport top
+      // The scrollable data area starts at the timeline header's bottom; rows
+      // above that are clipped behind the header. Derive the threshold from the
+      // header (not a hard-coded pixel) so the Day view's taller header cannot
+      // silently break this test.
+      const dataTop = document.querySelector("#ganttChart .rg-gantt-header").getBoundingClientRect().bottom;
+      // the first rendered row whose top is at/just below the data-area top
       let best = null;
       document.querySelectorAll("#ganttChart .rgRow").forEach((el) => {
         const r = el.getBoundingClientRect();
-        if (r.top >= 95 && (!best || r.top < best.top)) {
+        if (r.top >= dataTop - 10 && (!best || r.top < best.top)) {
           best = { top: r.top, title: (el.querySelector(".pmd-gantt-stream-title") || el.querySelector(".pmd-gantt-job-name") || {}).textContent };
         }
       });
@@ -570,7 +989,12 @@ test.describe("Gantt page", () => {
         };
       });
       expect(header.hBg, `${theme}/${mode} timeline header uses --bs-body-bg`).toBe(rgb(expected.bodyBg));
-      expect(header.hImage, `${theme}/${mode} timeline header has no gradient`).toBe("none");
+      // The header is a flat --bs-body-bg surface (PlanMyDay/css/gantt.css clears
+      // the vendor's vertical gradient). In the Day view it also carries the
+      // weekend highlight, which is a REPEATING gradient, so strip those and
+      // assert no NON-repeating (vendor) gradient is left.
+      const vendorGradient = String(header.hImage).replace(/repeating-linear-gradient\(/g, "").includes("linear-gradient(");
+      expect(vendorGradient, `${theme}/${mode} timeline header has no vendor gradient`).toBe(false);
       expect(header.revoBg, `${theme}/${mode} revogr-header uses --bs-body-bg`).toBe(rgb(expected.bodyBg));
       // header text must contrast on the body surface (readable, not white-on-white)
       expect(header.hColor, `${theme}/${mode} header text readable on body bg`).not.toBe(rgb(expected.bodyBg));
@@ -690,13 +1114,14 @@ test.describe("Gantt page", () => {
       // is display:none and its rect is all zeros
       const endHandle = bar ? bar.querySelector(".rg-gantt-bar-handle--end") : null;
       // the plugin appends its own __ganttTimeline column (no sortable prop);
-      // the three APP columns must all be explicitly non-sortable
+      // the four APP columns (Task, Edit, Start, End) must all be explicitly
+      // non-sortable
       const appCols = (grid.columns || []).filter((c) => c.prop !== "__ganttTimeline");
       const barRect = bar ? bar.getBoundingClientRect() : null;
       const handleRect = endHandle ? endHandle.getBoundingClientRect() : null;
       return {
         readonly: grid.readonly,
-        sortable: appCols.length === 3 && appCols.every((c) => c.sortable === false),
+        sortable: appCols.length === 4 && appCols.every((c) => c.sortable === false),
         headerSortArrows: document.querySelectorAll("revogr-header .rgHeaderCell[aria-sort]").length,
         taskBarPointerEvents: bar ? getComputedStyle(bar).pointerEvents : null,
         taskBarCursor: bar ? getComputedStyle(bar).cursor : null,

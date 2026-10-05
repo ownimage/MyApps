@@ -102,4 +102,9 @@ function refreshActiveView() {
   if (view === "search") renderSearchJobs();
   else if (view === "main") renderMain();
   else renderStreamsEditor();
+  // The Gantt is opened OVER whichever view is active, so an editor opened from
+  // the Gantt returns here (the Gantt is still `open`, merely suspended). Its
+  // chart must re-project from the edited streams or a change that hides a job
+  // leaves the old bar on screen. See refreshGanttIfOpen().
+  if (typeof refreshGanttIfOpen === "function") refreshGanttIfOpen();
 }

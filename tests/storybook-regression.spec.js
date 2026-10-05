@@ -1,4 +1,9 @@
 const { test, expect } = require("@playwright/test");
+const { startCoverage, stopCoverage } = require("./coverage");
+
+// Coverage hooks (top-level so every test in this spec is captured).
+test.beforeEach(async ({ page }) => { await startCoverage(page); });
+test.afterEach(async ({ page }) => { await stopCoverage(page); });
 
 test.describe("Storybook - Regression", () => {
 
@@ -184,6 +189,7 @@ test.describe("Storybook - Regression", () => {
       "Job Today Card",
       "Job Summary Card (stream)",
       "Job Summary Card (search)",
+      "Edit Stream Header (collapsed + expanded)",
       "Countdown Card",
       "Date Card",
       "Category Card",
