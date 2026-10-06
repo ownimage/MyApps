@@ -646,6 +646,44 @@ test.describe("PlanMyDay - Regression", () => {
       expect(dark.color).not.toBe(dark.bg);
     });
 
+    test("inactive tabs use the Bootstrap text-bg-secondary contrast (no white-on-white)", async ({ page }) => {
+      // brite's secondary is #fff and cerulean's is #e9ecef, so hardcoded white
+      // tab text vanished. Tabs must use Bootstrap's own text-bg-* contrast.
+      for (const theme of ["brite", "cerulean"]) {
+        await setTheme(page, theme);
+        await page.evaluate(() => openSettings());
+        await expect(page.locator("#settingsPage smd-tabs .smd-tab-btn.active")).toBeVisible();
+        const cmp = await page.evaluate(() => {
+          function probe(cls) {
+            const el = document.createElement("span");
+            el.className = cls;
+            el.style.cssText = "position:absolute;left:-9999px;visibility:hidden";
+            document.body.appendChild(el);
+            const cs = getComputedStyle(el);
+            const out = { color: cs.color, bg: cs.backgroundColor };
+            el.remove();
+            return out;
+          }
+          const inactive = document.querySelector("#settingsPage smd-tabs .smd-tab-btn:not(.active)");
+          const active = document.querySelector("#settingsPage smd-tabs .smd-tab-btn.active");
+          const ics = getComputedStyle(inactive);
+          const acs = getComputedStyle(active);
+          return {
+            inactive: { color: ics.color, bg: ics.backgroundColor },
+            active: { color: acs.color, bg: acs.backgroundColor },
+            sec: probe("text-bg-secondary"),
+            pri: probe("text-bg-primary")
+          };
+        });
+        expect(cmp.inactive.color, theme).toBe(cmp.sec.color);
+        expect(cmp.inactive.bg, theme).toBe(cmp.sec.bg);
+        expect(cmp.inactive.color, theme).not.toBe(cmp.inactive.bg);
+        expect(cmp.active.color, theme).toBe(cmp.pri.color);
+        expect(cmp.active.bg, theme).toBe(cmp.pri.bg);
+        await page.evaluate(() => closeSettings());
+      }
+    });
+
     test("modal secondary buttons match the Bootswatch button colours", async ({ page }) => {
       await setTheme(page, "cerulean");
       await page.evaluate(() => { openStreamsEditor(); confirmDeleteStream(0); });

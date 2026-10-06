@@ -14,6 +14,7 @@
 13: CENTRALIZED WCAG CONTRAST GENERATOR (2026-09-22): low contrast on themed surfaces was systemic (white-on-info ≈1.8–2.1 on quartz/slate/yeti/superhero/lumen, white-on-success ≈1.5–2.9 on vapor/minty/slate/darkly, white-on-warning ≈1.3–2.5). The fix is ONE shared module `shared/js/smd-contrast.js` (`window.SmdContrast` + global `applySmdContrastVars()`), loaded right AFTER `smd-settings.js` in every app's `index.html` (all 5 apps + root Launch index + storybook) and in `sw.js` SHARED_ASSETS. It reads the loaded theme's `--bs-*` surfaces off `:root` and publishes `--smd-on-{primary,secondary,success,danger,warning,info,body}`, `--smd-tab-active-text`, `--smd-muted-header-text`, `--smd-rgb-*` (debug) and the existing consumer aliases `--smd-{variant}-text`. HYBRID RULE: a theme keeps its OWN text when its choice already meets WCAG AA ≥4.5 (read from the `--smd-*-text` values `applySmdVars()` set just before), otherwise the generator substitutes pure `#000`/`#fff` (`bestText`, max contrast) — so thumb-tested themes (cerulean dark-grey secondary etc.) are untouched and only genuinely failing themes change. `applySmdVars()` in smd-settings.js calls `applySmdContrastVars()` (guarded by `typeof`) at its end, so the theme-selector flow triggers it; the module also self-heals on load if the palette already went live. PROBE GUARD `smd-probe`: shared/css/styles.css overrides `--bs-btn-color`/badge text with the generated vars matched `:not(.smd-probe)` — the hidden probe `smdBootstrapStyle()` in smd-settings.js and the pmd-regression `bootswatchColor()`/`bootswatchBadge()` helpers all add the `smd-probe` class so they keep reading the RAW Bootswatch colour (no circular read). Surfaces that now consume the palette: active tabs `var(--smd-tab-active-text)` (was hardcoded #fff), `.nav-tabs-info .nav-link.active` `var(--smd-on-info)`, page/modal header h1/h3 `var(--smd-muted-header-text)`, `.badge.text-bg-*`/`smd-badge.text-bg-*` colour, and `button/a/.btn-{primary,secondary,success,danger,warning,info}` `--bs-btn-*-color` overrides (hybrid keeps the theme look where it already passes). pmd-regression "badges use the centralized contrast palette and meet WCAG AA" asserts the badge text equals the palette value AND that its contrast ratio ≥4.5 (helper `ratioOf` recomputes WCAG ratio in-page). When wiring a NEW themed surface: consume `var(--smd-on-<variant>)`/`var(--smd-tab-active-text)`/`var(--smd-muted-header-text)` instead of hardcoding `#fff`/`color-mix(..., white)`.
 14: STORYBOOK `_bound` GUARD FOR LIGHT-DOM COMPONENTS (2026-09-22): the pmd-* light-DOM cards/headers (`pmd-stream-header`, `pmd-stream-job-card`, `pmd-job-today-card`, `pmd-job-search-card`) each clone their template in `connectedCallback` under a `this._bound` flag, but their `attributeChangedCallback` used to gate `_render` on only `this.isConnected`. When the storybook's demo code does `host.innerHTML = '<pmd-stream-header ...>'` on an ALREADY-CONNECTED host, the HTML parser fires `attributeChangedCallback` for each attribute BEFORE `connectedCallback` clones the template, so `_render` hit missing nodes (`Cannot set properties of null (setting 'textContent')`, 45 page errors). Chromium's incremental parser inserts the element into the live tree (isConnected=true) before the upgrade finishes, so `isConnected` alone is NOT a sufficient guard. FIX (applied to all four): `attributeChangedCallback() { if (this._bound && this.isConnected) this._render(); }`. Rule: any light-DOM component that builds in `connectedCallback` must gate attribute-triggered renders on the built flag too, NEVER `isConnected` alone. Verify with `tests/storybook-regression.spec.js` (Storybook - Regression: boots with no console/page errors/no failed requests, component demos render their host elements, theme swap re-renders sections without page errors) — run it whenever storybook or the pmd-* components change.
 15: Do not write non UTF-8 characters to AGENTS.md
+17: ACCESS (2026-10-05): at the START of every session, ALWAYS ask for access to the WHOLE of `p:\git\MyApps` (the entire repo tree, not a subfolder) before reading, editing or running anything. Never assume the working directory or a partial scope is enough; confirm full-repo access first.
 16: TDD IS THE APPROACH FOR FIXING ISSUES (2026-10-01): whenever you fix a bug or
     oddity in the app (drag-drop, theming, layout, edge cases, etc.), use
     TEST-DRIVEN DEVELOPMENT: FIRST write the regression test that reproduces the
@@ -3315,5 +3316,72 @@ Techniques / gotchas:
   `typeof applyStandardImages === "undefined"` plus a modal that still rendered.
   Fix: kill the 8080/8081 listener and restart the server; verify the served
   bytes match disk (`Invoke-WebRequest -UseBasicParsing`) before rerunning.
-- `BUILD_NUMBER` bumped `202610042145` -> `202610050338` -> `202610050342` via
-  `npm run bump:build` (shared assets changed).
+- `BUILD_NUMBER` bumped `202610042145` -> `202610050338` -> `202610050342` ->
+  `202610050816` via `npm run bump:build` (shared assets changed).
+
+### 2026-10-05 (b) - tab contrast via Bootstrap .text-bg-*; stream header + dropdown fixes
+- BUG (user): brite/cerulean LIGHT inactive tabs were white-on-white. `smd-tabs`
+  was painted from `--smd-tab-background: var(--bs-secondary)` with
+  `--smd-tab-color: var(--bs-white)`; brite's secondary is `#fff` and cerulean's
+  is `#e9ecef`, so the hardcoded white text vanished. Root cause: no per-variant
+  contrast variable exists at `:root` in Bootstrap 5.3/Bootswatch (there is NO
+  `--bs-{variant}-contrast`), so a shared `color: var(--bs-white)` cannot adapt.
+- FIX (user chose the Bootstrap `.text-bg-*` approach): `smd-tabs.js`
+  `_updateActive()` now toggles `text-bg-primary` on the active tab and
+  `text-bg-secondary` on inactive tabs. `.text-bg-*` is a Bootstrap helper that
+  supplies BOTH the variant surface and its designed contrast text (colour +
+  background, `!important`), so it adapts per theme/mode with zero runtime code.
+  `styles.css` dropped the `.smd-tab-btn` background/colour rules and the
+  `--smd-tab-*` var usage; only `.smd-tab-line` stays (`var(--bs-primary)`).
+  The `--smd-tab-*` palette entries were removed from `light.css` / `dark.css`
+  and the per-theme files that set them (simplex/cyborg/darkly/superhero); the
+  `smd-badge#editJobsTotalBadge` override was also removed from light.css.
+- REVERTED (user request, same session): the first cut made the Edit Streams
+  `pmd-stream-header` use `.text-bg-success`/`.text-bg-danger`. That was undone —
+  the component is back to `bg-body-tertiary` (collapsed) / `bg-info-subtle`
+  (expanded) plus the original `styles.css` `var(--bs-success)`/`var(--bs-danger)`
+  !important rules, and the per-theme `color-mix(...)` overrides. `light.css`
+  keeps the stream-header rules with `--bs-primary` (collapsed) / `--bs-danger`
+  (expanded). So ONLY tabs moved to Bootstrap classes; the stream header keeps its
+  previous colours.
+- DROPDOWN (user): the closed `<smd-image-dropdown>` label was unreadable on
+  light themes because `--smd-dropdown-foreground: var(--bs-secondary)` is white
+  on brite. Changed to `var(--bs-body-color)` in BOTH `light.css` and `dark.css`
+  (probe: brite `#212529` on `#f8f9fa`, cerulean `#495057`, superhero `#ebebeb`
+  on `#0f2537`). Per-theme dropdown palettes (superhero/cyborg) override it with
+  their own form foreground, so they were left alone.
+- TESTS: `pmd-regression` "Theme colours" gained "inactive tabs use the Bootstrap
+  text-bg-secondary contrast (no white-on-white)" (brite + cerulean: inactive tab
+  computed colour/bg must equal a hidden `text-bg-secondary` probe, active equals
+  `text-bg-primary`, and text != bg). Verified: Theme colours 5/5, PMD `[Ss]tream`
+  60/60, PMD `[Dd]ropdown` 10/10, cross-app `[Ss]ettings` 53/53, one-theme
+  (superhero) settings/stream screenshots 7/7.
+- `BUILD_NUMBER` -> `202610050816`.
+- SHELL/TEST GOTCHA: `--grep "a|b"` strands when passed through PowerShell's
+  `Start-Job` ScriptBlock to `playwright.cmd` — cmd.exe parses the `|` as a pipe
+  and errors `'b' is not recognized`. Run each grep separately, or avoid `|` in
+  the pattern.
+- AGENTS rule 17 added: at the start of every session ask for access to the WHOLE
+  of `p:\git\MyApps`.
+
+### 2026-10-05 (c) - date-independent Google sample test (fixed a time-bomb)
+- `cmd-regression` "loads sample Google data and unifies Google entries in the
+  dates editor" failed on 2026-10-06: it asserted a `cmd-countdown-card` for
+  "Dentist Appointment" was visible, but `CountMyDays/js/googleCalendarSample.json`
+  has FIXED dates (`sample_1` = 2026-10-05; the two "Weekly Team Meeting" rows =
+  2026-09-21/28), and `CountMyDays/js/main-view.js` renders only `days === 0`
+  (today) and `days > 0` (future) - so those events had fallen into the past and
+  were dropped. NOT related to the tab/CSS work.
+- FIX (test-only, date-independent, no BUILD bump): after `loadGCalSampleData()`
+  caches the 7 events, the test now rewrites `sample_1`'s cached `start`/`end` to
+  `today + 7` in `googleCalCacheKey()` and calls `renderMain()` before the
+  main-view assertion. The `7 events cached` and all dates-editor counts
+  (10 total / 6 Google / 4 Local / 2 Repeat / 1 Hidden) are unchanged.
+- The dates editor is date-independent (it lists ALL events, past included), so
+  only the main-view assertion needed the fix. Verified: cmd Google Calendar
+  13/13.
+- RULE (2026-10-05): ANY test involving a date must use the `today + N` (or
+  `today - N`) pattern computed at run time - NEVER a hardcoded/fixed date or a
+  bundled sample's fixed dates. Seed or rewrite the event to a date relative to
+  `new Date()` before asserting, so the test can never go stale. This applies to
+  every app and every spec, not just CountMyDays main-view cards.
