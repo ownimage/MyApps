@@ -356,6 +356,7 @@ const SHARED_ASSETS = [
   "shared/css/fonts/XRXV3I6Li01BKofIOOaBXso.woff2",
   "shared/css/fonts/XRXV3I6Li01BKofIOuaBXso.woff2",
   "shared/js/build-number.js",
+  "shared/js/library.js",
   "shared/js/components/smd-button.js",
   "shared/js/components/smd-h1.js",
   "shared/js/components/smd-h2.js",

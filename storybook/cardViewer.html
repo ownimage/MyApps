@@ -72,6 +72,7 @@
     <div class="d-flex flex-column gap-4" id="cardMatrix" aria-live="polite"></div>
   </main>
 
+  <script src="../shared/js/library.js"></script>
   <script src="../shared/js/build-number.js"></script>
   <script src="../shared/js/smd-app.js"></script>
   <script src="../shared/js/smd-settings.js"></script>
@@ -91,6 +92,7 @@
 
       const script = (path) => `<script src="${assetUrl(path)}"><\/script>`;
       const sharedScripts = {
+        library: "shared/js/library.js",
         app: "shared/js/smd-app.js",
         build: "shared/js/build-number.js",
         settings: "shared/js/smd-settings.js",
@@ -195,7 +197,7 @@
         const sharedCss = assetUrl("shared/css/styles.css");
         const iconsCss = assetUrl("shared/vendor/bootstrap-icons.css");
         const fontAwesomeRoot = "shared/vendor/fontawesome/css/";
-        const scripts = recipe.scripts.map(script).join("\n");
+        const scripts = [sharedScripts.library, ...recipe.scripts].map(script).join("\n");
         return `<!doctype html>
 <html lang="en" data-theme="${theme}" data-bs-theme="${mode}" data-app="cardviewer">
 <head>

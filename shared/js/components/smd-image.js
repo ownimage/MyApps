@@ -17,90 +17,6 @@
 (function (global) {
   "use strict";
 
-  function escapeHtml(str) {
-    return String(str)
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;");
-  }
-
-  function applySvgAttr(dataUrl, attr, value) {
-    const svgPart = dataUrl.substring("data:image/svg+xml,".length);
-    const decoded = decodeURIComponent(svgPart);
-    const encoded = value && value.startsWith("#") ? value : value || "none";
-    const rx = new RegExp(`\\b${attr}\\s*=\\s*["'][^"']*["']`);
-    if (rx.test(decoded)) {
-      return "data:image/svg+xml," + encodeURIComponent(decoded.replace(new RegExp(rx.source, "g"), function (m) {
-        const quote = m.indexOf('"') !== -1 ? '"' : "'";
-        return attr + "=" + quote + encoded + quote;
-      }));
-    }
-    const updated = decoded.replace(/<svg([\s>])/i, `<svg ${attr}="${encoded}"$1`);
-    return "data:image/svg+xml," + encodeURIComponent(updated);
-  }
-
-  function themedSrc(data, theme, overrides) {
-    if (!data || data.indexOf("data:image/svg+xml,") !== 0 || !overrides) return data;
-    let out = data;
-    if (overrides.line != null && overrides.line !== "") out = applySvgAttr(out, "stroke", overrides.line);
-    if (overrides.fill != null && overrides.fill !== "") out = applySvgAttr(out, "fill", overrides.fill);
-    if (overrides.width != null && overrides.width !== "") out = applySvgAttr(out, "stroke-width", overrides.width);
-    return out;
-  }
-
-  // Parse a computed background-color into opaque sRGB channels (0..255), or
-  // null when it is transparent / unparseable. Handles the `rgb()/rgba()` form
-  // and the `color(srgb ...)` form Chromium returns for color-mix() results
-  // (e.g. the stream editor header). `color(srgb ...)` channels are 0..1.
-  function parseBackgroundColor(bg) {
-    if (!bg) return null;
-    let m = bg.match(/rgba?\(([^)]+)\)/);
-    if (m) {
-      const parts = m[1].split(/[,\s/]+/).filter(Boolean).map(Number);
-      const alpha = parts.length > 3 ? parts[3] : 1;
-      return alpha > 0 ? [parts[0], parts[1], parts[2]] : null;
-    }
-    m = bg.match(/color\(\s*srgb\s+([^)]+)\)/);
-    if (m) {
-      const parts = m[1].split(/[\s/]+/).filter(Boolean).map(Number);
-      const alpha = parts.length > 3 ? parts[3] : 1;
-      return alpha > 0 ? [parts[0] * 255, parts[1] * 255, parts[2] * 255] : null;
-    }
-    return null;
-  }
-
-  // Effective background detection for `theme="auto"`. The host is styled
-  // `background-color: inherit`, so an <smd-image> sitting directly on a surface
-  // resolves in one step; the ancestor walk then covers transparent wrappers
-  // (e.g. pmd-stream-header's `.thumb`). Returns the first painted background's
-  // sRGB channels, or null when every ancestor is transparent.
-  function effectiveBackgroundColor(el) {
-    let node = el;
-    while (node && node.nodeType === 1) {
-      const c = parseBackgroundColor(getComputedStyle(node).backgroundColor);
-      if (c) return c;
-      node = node.parentElement;
-    }
-    return null;
-  }
-
-  // WCAG relative luminance (0..1). Backgrounds below the 0.179 black/white
-  // contrast crossover are treated as dark and get the light image variant.
-  function relativeLuminance(r, g, b) {
-    const f = (c) => {
-      c = c / 255;
-      return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
-    };
-    return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
-  }
-
-  function isDarkBackground(el) {
-    const bg = effectiveBackgroundColor(el);
-    if (!bg) return null;
-    return relativeLuminance(bg[0], bg[1], bg[2]) < 0.179;
-  }
-
   const ICON_SETS = {
     bi: { css: "vendor/bootstrap-icons.css", family: "bootstrap-icons", mode: "codepoint" },
     fa: { json: "vendor/fontawesome-icons.json", slot: "fa", family: "Font Awesome 6 Free", mode: "codepoint" },
@@ -223,7 +139,7 @@
       // background, so an image on a dark surface inside an otherwise light
       // theme (e.g. pmd-stream-header) still gets the light variant. Falls back
       // to the document theme mode when no ancestor paints a background.
-      const dark = isDarkBackground(this);
+      const dark = SmdLib.isDarkBackground(this);
       if (dark === true) return "dark";
       if (dark === false) return "light";
       return (document.documentElement.getAttribute("data-bs-theme") || "dark") === "dark" ? "dark" : "light";
@@ -314,8 +230,8 @@
       }
       const theme = this.theme;
       const overrides = (stored.themes && stored.themes[theme]) || {};
-      const painted = themedSrc(src, theme, overrides);
-      img.alt = alt || escapeHtml(this.getAttribute("image") || "");
+      const painted = SmdLib.themedSvgSrc(src, overrides);
+      img.alt = alt || SmdLib.escapeHtml(this.getAttribute("image") || "");
 
       const paint = (url) => {
         if (seq !== this._renderSeq || !img.isConnected) return;
@@ -389,7 +305,4 @@
     global.customElements.define("smd-image", SmdImage);
   }
   global.SmdImage = SmdImage;
-  // Shared by smd-images.js (the editor's "current theme" preview / thumbnails)
-  // so both resolve the light/dark variant from the same background luminance.
-  global.smdIsDarkBackground = isDarkBackground;
 })(window);

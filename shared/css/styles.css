@@ -100,12 +100,13 @@ button.btn-sm, .btn-sm { font-size: var(--smd-type-p, 1rem); }
   background-color: var(--bs-body-bg);
 }
 
-/* The hamburger dropdown (and any Bootstrap .dropdown-menu in an app shell) is
-   painted with the body colour so it is fully opaque and matches the page.
-   Bootswatch also re-sets .dropdown-menu to a rem-based font-size (a fixed 14px
-   on superhero), so it ignored the Font Size setting; pin it to the shared p
-   token so it tracks <body> like the rest of the UI. */
-#smd-app .dropdown-menu {
+/* The HAMBURGER dropdown is painted with the body colour so it is fully opaque
+   and matches the page. Scoped to #mainNav on purpose: other .dropdown-menus
+   (e.g. the Gantt Streams filter) own a themed surface via --bs-dropdown-bg and
+   must keep it. Bootswatch also re-sets .dropdown-menu to a rem-based font-size
+   (a fixed 14px on superhero), so it ignored the Font Size setting; pin the nav
+   menu to the shared p token so it tracks <body> like the rest of the UI. */
+#mainNav .dropdown-menu {
   background-color: var(--bs-body-bg);
   font-size: var(--smd-type-p);
 }

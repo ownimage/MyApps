@@ -43,33 +43,19 @@ function injectSmdComponentStyle(id, css) {
 }
 
 // ---- Generic helpers (globals used by every app and shared service) ----
+// The implementations live in shared/js/library.js (window.SmdLib); these thin
+// global facades keep inline onclick handlers, app code and tests working.
 
 function $id(id, root) {
-  root = root || document;
-  if (typeof root.getElementById === "function") {
-    const el = root.getElementById(id);
-    if (el) return el;
-  }
-  const base = root === document ? (root.body || root) : root;
-  if (!base) return null;
-  const walker = document.createTreeWalker(base, NodeFilter.SHOW_ELEMENT);
-  let node;
-  while ((node = walker.nextNode())) {
-    if (node.shadowRoot) {
-      const found = $id(id, node.shadowRoot);
-      if (found) return found;
-    }
-  }
-  return null;
+  return SmdLib.$id(id, root);
 }
 
 function escapeHtml(str) {
-  if (!str && str !== 0) return "";
-  return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  return SmdLib.escapeHtml(str);
 }
 
 function escAttr(str) {
-  return escapeHtml(str).replace(/"/g, "&quot;");
+  return SmdLib.escAttr(str);
 }
 
 // Single shared <smd-modal> host, driven by set option objects; resolves via

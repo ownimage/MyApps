@@ -3391,18 +3391,23 @@ Techniques / gotchas:
   `#mainNav` was transparent (`getComputedStyle` = `rgba(0,0,0,0)`), so with the
   auto-hide menu (`position: fixed`) the toolbar let page content show through and
   scroll under it. It now has `background-color: var(--bs-body-bg)`.
-- `#smd-app .dropdown-menu` is also painted `var(--bs-body-bg)` (opaque, matches
-  the page; some themes ship a translucent `--bs-dropdown-bg`, e.g. morph's
-  `rgba(240,245,250,0.8)`; superhero's is opaque `#4e5d6c`, NOT the body colour).
+- `#mainNav .dropdown-menu` (the hamburger menu ONLY) is painted
+  `var(--bs-body-bg)` (opaque, matches the page; some themes ship a translucent
+  `--bs-dropdown-bg`, e.g. morph's `rgba(240,245,250,0.8)`; superhero's is opaque
+  `#4e5d6c`, NOT the body colour). SCOPED TO `#mainNav` ON PURPOSE: an
+  `#smd-app .dropdown-menu` selector also repaints the Gantt Streams filter menu
+  AND the hidden `.dropdown-menu` probe `pmd-gantt` uses to read the theme's
+  dropdown token, which broke "the Streams filter dropdown uses the themed
+  dropdown surface..." (the probe expected `--bs-dropdown-bg` #4e5d6c but read
+  the navy body colour). Other `.dropdown-menu`s own a themed surface via
+  `--bs-dropdown-bg` and must keep it.
 - The menu font did NOT track Settings -> Font Size: Bootswatch re-declares
   `.dropdown-menu { font-size: .875rem }` (a fixed 14px on superhero) AFTER the
   Bootstrap `--bs-dropdown-font-size: 1rem`, so a later shared rule is needed.
-  `#smd-app .dropdown-menu { font-size: var(--smd-type-p) }` makes it follow the
+  `#mainNav .dropdown-menu { font-size: var(--smd-type-p) }` makes it follow the
   body token. Probe (superhero, auto-hide on, menu open): before menuFont was a
   fixed 14px; after it is 20.8px (xlarge body) -> 25.6px (jumbo), i.e. 1:1 with
-  `<body>`. The Gantt Streams filter menu (`#ganttPage .gantt-stream-menu`) and
-  the shared `<smd-image-dropdown>` `.menu` are unaffected (equal/later
-  specificity and not `.dropdown-menu` respectively).
+  `<body>`.
 
 ### 2026-10-07 (b) - smd-image auto theme now reads the element's ACTUAL background
 - BUG (user): with the stock `bootstrap` theme in Light mode, a black image on
@@ -3437,4 +3442,30 @@ Techniques / gotchas:
   dark variant #000000; the streams-editor header thumb renders the light variant
   #ffffff). Verified: pmd smd-image rendering 7/7, storybook 8/8 (card viewer,
   all themes x both modes), image-edit-preview-size 10/10.
+- `BUILD_NUMBER` NOT bumped - bump before shipping (`npm run bump:build`).
+
+### 2026-10-07 (c) - new shared/js/library.js (window.SmdLib); generic helpers de-duplicated
+- NEW `shared/js/library.js` (`window.SmdLib`), loaded FIRST (before the
+  components and smd-app.js) in all 6 app shells + root Launch index + storybook
+  + cardViewer (both the outer page AND its iframe generator, which now prepends
+  `sharedScripts.library` to every recipe). Registered in `sw.js SHARED_ASSETS`.
+- Moved IN: `escapeHtml`/`escAttr`/`$id` (were in smd-app.js), the colour/
+  background helpers (`parseColor`, `relativeLuminance`,
+  `effectiveBackgroundColor`, `isDarkBackground`) and the SVG data-URL
+  recolouring (`isSvgDataUrl`, `updateSvgColor`, `applySvgAttr`, `themedSvgSrc`)
+  that were duplicated byte-for-byte between smd-image.js and smd-images.js.
+- `smd-app.js` keeps thin GLOBAL facades (`$id`/`escapeHtml`/`escAttr`) that
+  delegate to SmdLib, because inline `onclick` handlers, app code and tests call
+  the globals; smd-images.js keeps an `updateSvgColor` facade (tests call it).
+  `smd-image.js` and `smd-images.js` call `SmdLib.*` directly everywhere else.
+  `themedSvgSrc(data, overrides)` dropped the old unused `theme` argument.
+- GOTCHA: every page that loads smd-app.js/smd-settings.js must load library.js
+  first or the facades throw `ReferenceError: SmdLib is not defined` at boot.
+  The cardViewer OUTER page (not just its iframes) was the one that bit.
+- STILL CANDIDATES (not moved): `getImageColors`/`decodeVal` (SVG colour parse),
+  `smdImageHash` (FNV-1a, image-cache-specific), the private `escapeHtml` copies
+  in `smd-image-picker.js`/`smd-theme.js`, and `smdDownloadJson`/`smdReadJsonFile`.
+- Verified: storybook 8/8, solar 12/12, ffox 11/11, launch 7/7, qrlinks 9/9,
+  cmd Images editor 5/5, pmd smd-image rendering 7/7, image-edit-preview-size
+  10/10, pmd updateSvgColor 1/1.
 - `BUILD_NUMBER` NOT bumped - bump before shipping (`npm run bump:build`).
