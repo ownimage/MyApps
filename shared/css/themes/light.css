@@ -16,7 +16,7 @@
  * shared/css/themes/<theme>/<theme>.<light|dark>.css sheet. */
 
 :root {
-  --smd-page-header-background: color-mix(in hsl, var(--bs-primary) 50%, black);;
+  --smd-page-header-background: color-mix(in hsl, var(--bs-primary) 40%, black);
   --smd-page-header-color: var(--bs-white);
 
   /* Form-field palette for inputs, selects and the date picker. A theme
@@ -79,10 +79,12 @@
     border: 1px solid black !important;
 }
 
+/* The non-expanded stream header uses the SAME surface as the page
+   header/footer (`--smd-page-header-background`), so the two never drift. */
 #smd-app #streamsEditor pmd-stream-header .stream-accordion-header {
-    background: color-mix(in hsl, var(--bs-primary) 50%, black) !important;
+    background: var(--smd-page-header-background) !important;
 }
 
 #smd-app #streamsEditor pmd-stream-header[expanded] .stream-accordion-header {
-    background-color: color-mix(in hsl, var(--bs-danger) 50%, black) !important;
+    background-color: color-mix(in hsl, var(--bs-danger) 40%, black) !important;
 }

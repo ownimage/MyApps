@@ -3413,7 +3413,7 @@ Techniques / gotchas:
 - BUG (user): with the stock `bootstrap` theme in Light mode, a black image on
   the light `pmd-job-today-card` was fine, but the SAME image inside
   `pmd-stream-header` (whose `.stream-accordion-header` paints a DARK
-  `color-mix(in hsl, var(--bs-primary) 50%, black)` even in Light mode) had no
+  `color-mix(in hsl, var(--bs-primary) 40%, black)` even in Light mode) had no
   contrast. `theme="auto"` used `--smd-image-theme` (a global mode variable), so
   it could not react to a dark surface inside a light theme.
 - FIX (`shared/js/components/smd-image.js` `_autoTheme`): resolve the variant
@@ -3497,4 +3497,36 @@ Techniques / gotchas:
 - TDD: new `pmd-regression` "Drag ghosts > the fallback ghost is a single copy of
   the card (no doubled content)" (stream header, job card, today card).
 - Verified: pmd reorder 6/6, pmd `[Dd]rag` 11/11, pmd-touch 5/5, storybook 8/8.
+- `BUILD_NUMBER` NOT bumped - bump before shipping (`npm run bump:build`).
+
+### 2026-10-07 (e) - dark-mode page/stream header surfaces aligned with light (hsl mixes)
+- BUG (user): in dark mode the `smd-page` header/footer and the
+  `pmd-stream-header` (expanded + non-expanded) did not match light mode.
+- `shared/css/themes/dark.css` now mirrors `light.css`:
+  `--smd-page-header-background: color-mix(in hsl, var(--bs-primary) 40%, black)`
+  (was raw `--bs-primary`) and it carries the stream-header rules. The
+  non-expanded stream header uses `var(--smd-page-header-background)` (NOT a
+  second copy of the mix), so the page header/footer and the collapsed stream
+  header can never drift. `in hsl` (not srgb) keeps the HUE constant - black is
+  achromatic, so the powerless-hue rule leaves the theme hue untouched (verified:
+  bootstrap #0d6efd hue 217 deg -> mix hue 216 deg).
+- MIX LEVEL (user, 2026-10-07): every header-surface mix is **40% colour / 60%
+  black** (`color-mix(in hsl, var(--bs-<variant>) 40%, black)`) - grep
+  `%, black` across `shared/css/themes/` to change it in one place per rule.
+- Per-theme alignment (each theme's dark now matches its light):
+  superhero/cyborg/darkly `.light.css` dropped
+  `--smd-page-header-background: var(--bs-black)` (they now use the shared
+  primary mix) and their `.dark.css` gained the same expanded success-mix as
+  light; `superhero.dark.css` dropped
+  `--smd-page-header-background: var(--bs-dark)`. `simplex.light.css` /
+  `simplex.dark.css` dropped their
+  `#smd-app smd-page .smd-page-header { background-color: var(--bs-primary) }`
+  rule and the dark footer `background: var(--bs-body-bg)`; simplex.light's
+  collapsed stream header now uses `var(--smd-page-header-background)`.
+- Probe across bootstrap/superhero/cyborg/darkly/simplex/flatly/quartz/morph x
+  light/dark: pageHeader == pageFooter == collapsedStream, and light == dark, for
+  every theme.
+- TDD: new pmd-regression "Header surfaces > page header/footer and the
+  non-expanded stream header are one surface mix, identical in light and dark".
+- Verified: pmd-gantt 59/59, pmd Theme colours 5/5, storybook 8/8.
 - `BUILD_NUMBER` NOT bumped - bump before shipping (`npm run bump:build`).

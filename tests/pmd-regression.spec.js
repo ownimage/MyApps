@@ -739,6 +739,45 @@ test.describe("PlanMyDay - Regression", () => {
     });
   });
 
+  // ── Header surfaces ───────────────────────────────────────
+
+  test.describe("Header surfaces", () => {
+
+    test("page header/footer and the non-expanded stream header are one surface mix, identical in light and dark", async ({ page }) => {
+      test.setTimeout(90000);
+      const read = () => page.evaluate(() => {
+        const cs = (el) => (el ? getComputedStyle(el).backgroundColor : null);
+        return {
+          header: cs(document.querySelector("#streamsEditor .smd-page-header")),
+          footer: cs(document.querySelector("#streamsEditor .smd-page-footer")),
+          collapsed: cs(document.querySelector("#streamEditorList pmd-stream-header .stream-accordion-header"))
+        };
+      });
+      const byMode = {};
+      for (const theme of ["bootstrap", "superhero", "simplex"]) {
+        for (const mode of ["light", "dark"]) {
+          await page.goto("/PlanMyDay/");
+          await page.evaluate(({ theme, mode }) => {
+            localStorage.clear();
+            localStorage.setItem("planmydays_theme", theme);
+            localStorage.setItem("planmydays_themeMode", mode);
+            localStorage.setItem("planmydays_streams", JSON.stringify([
+              { id: "s1", title: "Work", tab: "progress", image: "", sequence: 1, jobs: [] }
+            ]));
+          }, { theme, mode });
+          await page.reload();
+          await page.evaluate(() => openStreamsEditor());
+          await page.waitForSelector("#streamEditorList .stream-accordion-item");
+          const r = await read();
+          expect(r.header, `${theme}/${mode} page header == page footer`).toBe(r.footer);
+          expect(r.header, `${theme}/${mode} page header == collapsed stream header`).toBe(r.collapsed);
+          byMode[theme + "/" + mode] = r.header;
+        }
+        expect(byMode[theme + "/light"], `${theme} light == dark`).toBe(byMode[theme + "/dark"]);
+      }
+    });
+  });
+
   // ── Settings ───────────────────────────────────────────────
 
   test.describe("Settings", () => {

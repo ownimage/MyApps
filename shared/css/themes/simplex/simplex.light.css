@@ -9,18 +9,13 @@
   --bs-success: var(--bs-black);
 }
 
-#smd-app smd-page .smd-page-header {
-    background-color: var(--bs-primary);
-    color: var(--smd-page-header-color);
-}
-
 .btn-success, .btn-success:hover, .btn-success:focus {
   background: black;
   border: transparent;
 }
 
 #smd-app #streamsEditor pmd-stream-header .stream-accordion-header {
-    background-color: var(--bs-black) !important;
+    background-color: var(--smd-page-header-background) !important;
     color: var(--bs-white) !important;
 }
 

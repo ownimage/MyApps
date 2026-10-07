@@ -6,3 +6,9 @@
 html[data-theme="cyborg"] .smd-card {
   color: white;
 }
+
+/* Match cyborg.light.css: expanded stream header uses the success mix (the
+   non-expanded header + page header/footer use --smd-page-header-background). */
+#smd-app #streamsEditor pmd-stream-header[expanded] .stream-accordion-header {
+    background-color: color-mix(in hsl, var(--bs-success) 40%, black) !important;
+}
