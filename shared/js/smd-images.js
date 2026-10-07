@@ -169,13 +169,7 @@ function smdImagePaintVariants(img) {
     if (!src) return;
     ["light", "dark"].forEach(function (theme) {
       const t = (img.themes && img.themes[theme]) || {};
-      let painted = src;
-      if (isSvgDataUrl(src)) {
-        if (t.line != null && t.line !== "") painted = applySvgAttr(painted, "stroke", t.line);
-        if (t.fill != null && t.fill !== "") painted = applySvgAttr(painted, "fill", t.fill);
-        if (t.width != null && t.width !== "") painted = applySvgAttr(painted, "stroke-width", t.width);
-      }
-      out.push(painted);
+      out.push(SmdLib.themedSvgSrc(src, t));
     });
   });
   return out;
@@ -257,30 +251,19 @@ function getImageColors(dataUrl) {
   };
 }
 
+// updateSvgColor is still called directly by tests; the implementation lives in
+// shared/js/library.js (window.SmdLib).
 function updateSvgColor(dataUrl, attr, newColor) {
-  if (!dataUrl || !dataUrl.startsWith("data:image/svg+xml,")) return dataUrl;
-  const svgPart = dataUrl.substring("data:image/svg+xml,".length);
-  const decoded = decodeURIComponent(svgPart);
-  const regex = new RegExp(`\\b${attr}\\s*=\\s*["'][^"']*["']`, 'g');
-  const encoded = newColor && newColor.startsWith("#")
-    ? newColor
-    : newColor || "none";
-  const updated = decoded.replace(regex, (m) => {
-    const quote = m.includes('"') ? '"' : "'";
-    return `${attr}=${quote}${encoded}${quote}`;
-  });
-  return "data:image/svg+xml," + encodeURIComponent(updated);
-}
-
-function isSvgDataUrl(dataUrl) {
-  return !!dataUrl && dataUrl.indexOf("data:image/svg+xml,") === 0;
+  return SmdLib.updateSvgColor(dataUrl, attr, newColor);
 }
 
 function isDarkTheme() {
-  // --smd-image-theme drives image colour rendering (default: mirrors
-  // html[data-bs-theme] via styles.css). Falls back to the attribute.
-  const v = getComputedStyle(document.documentElement).getPropertyValue("--smd-image-theme").trim().toLowerCase();
-  if (v === "dark" || v === "light") return v === "dark";
+  // The light/dark image variant follows the ACTUAL page background (the
+  // library's SmdLib.isDarkBackground), not a theme variable. Falls back to the
+  // theme mode attribute when the body paints no background.
+  const dark = SmdLib.isDarkBackground(document.body);
+  if (dark === true) return true;
+  if (dark === false) return false;
   return (document.documentElement.getAttribute("data-bs-theme") || "dark") === "dark";
 }
 
@@ -307,26 +290,10 @@ function getThemedImageDataUrl(img, themeKey) {
   if (!img) return null;
   const data = img.data || img.data100 || img.data80 || img.data64;
   if (!data) return null;
-  if (!isSvgDataUrl(data)) return data;
+  if (!SmdLib.isSvgDataUrl(data)) return data;
   const key = themeKey || getThemeKey();
   const t = (img.themes && img.themes[key]) || {};
-  let out = data;
-  if (t.line != null && t.line !== "") out = applySvgAttr(out, "stroke", t.line);
-  if (t.fill != null && t.fill !== "") out = applySvgAttr(out, "fill", t.fill);
-  if (t.width != null && t.width !== "") out = applySvgAttr(out, "stroke-width", t.width);
-  return out;
-}
-
-function applySvgAttr(dataUrl, attr, value) {
-  const svgPart = dataUrl.substring("data:image/svg+xml,".length);
-  const decoded = decodeURIComponent(svgPart);
-  const rx = new RegExp(`\\b${attr}\\s*=\\s*["'][^"']*["']`);
-  if (rx.test(decoded)) {
-    return updateSvgColor(dataUrl, attr, value);
-  }
-  const encoded = value && value.startsWith("#") ? value : value || "none";
-  const updated = decoded.replace(/<svg([\s>])/i, `<svg ${attr}="${encoded}"$1`);
-  return "data:image/svg+xml," + encodeURIComponent(updated);
+  return SmdLib.themedSvgSrc(data, t);
 }
 
 function updateEditPreview(img, themeIdx) {
@@ -354,7 +321,7 @@ function buildThemeSection(themeIdx, label, imageOverride) {
   const panelTheme = isLight ? "light" : "dark";
   const previewId = isLight ? "themePreviewLight" : "themePreviewDark";
   const previewSrc = getThemedImageDataUrl(img, key);
-  const showControls = isSvgDataUrl(img.data);
+  const showControls = SmdLib.isSvgDataUrl(img.data);
   const controlsHtml = showControls ? `
           <div class="d-flex gap-2 align-items-center">
             <label class="form-label mb-0" style="min-width:45px">Line:</label>

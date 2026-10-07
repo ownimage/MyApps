@@ -5,7 +5,6 @@
 
 :root {
   --smd-tab-background: var(--bs-secondary);
-  --smd-image-theme: dark;
   --smd-form-background: var(--bs-body-bg);
   --smd-form-foreground: var(--bs-body-color);
   --smd-form-border-color: var(--bs-border-color);
@@ -56,6 +55,9 @@
   --smd-date-picker-border-color: var(--bs-border-color);
 }
 
-:root {
-  --smd-page-header-background: var(--bs-dark);
+/* Match superhero.light.css: the expanded stream header uses the success mix
+   (the non-expanded header and the page header/footer both use the shared
+   `--smd-page-header-background` primary mix). */
+#smd-app #streamsEditor pmd-stream-header[expanded] .stream-accordion-header {
+    background-color: color-mix(in hsl, var(--bs-success) 40%, black) !important;
 }

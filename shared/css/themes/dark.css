@@ -19,13 +19,10 @@
  * repaint into styles.css does not paint white fields on a dark page. */
 
 :root {
-  --smd-page-header-background: var(--bs-primary);
+  /* Same "half the theme colour, half black" surface mix as light.css, so the
+     page header/footer is the same dark shade in both modes. */
+  --smd-page-header-background: color-mix(in hsl, var(--bs-primary) 40%, black);
   --smd-page-header-color: var(--bs-white);
-
-  --smd-tab-active-background: var(--bs-primary);
-  --smd-tab-background: var(--bs-info);
-  --smd-tab-color: var(--bs-white);
-  --smd-image-theme: dark;
 
   /* Form-field palette - follow the theme's own dark surfaces. */
   --smd-form-background: var(--bs-body-bg);
@@ -42,7 +39,7 @@
 
   /* Palette for <smd-image-dropdown> (the shared image+name selector). */
   --smd-dropdown-background: var(--bs-tertiary-bg);
-  --smd-dropdown-foreground: var(--bs-secondary);
+  --smd-dropdown-foreground: var(--bs-body-color);
   --smd-dropdown-border-color: var(--bs-secondary);
   --smd-dropdown-hover-background: var(--bs-secondary);
   --smd-dropdown-hover-foreground: var(--bs-white);
@@ -75,4 +72,15 @@
 
   /* <smd-modal> header surface (consumed by smd-modal rules in styles.css). */
   --smd-modal-header-background: color-mix(in srgb, var(--bs-body-bg) 85%, white);
+}
+
+/* Stream editor headers: the same dark mixes as light.css (collapsed = the
+   theme primary, expanded = danger), overriding the base --bs-success /
+   --bs-danger rules in styles.css so both modes read identically. */
+#smd-app #streamsEditor pmd-stream-header .stream-accordion-header {
+    background: var(--smd-page-header-background) !important;
+}
+
+#smd-app #streamsEditor pmd-stream-header[expanded] .stream-accordion-header {
+    background-color: color-mix(in hsl, var(--bs-danger) 40%, black) !important;
 }

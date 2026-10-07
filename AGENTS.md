@@ -14,6 +14,7 @@
 13: CENTRALIZED WCAG CONTRAST GENERATOR (2026-09-22): low contrast on themed surfaces was systemic (white-on-info ≈1.8–2.1 on quartz/slate/yeti/superhero/lumen, white-on-success ≈1.5–2.9 on vapor/minty/slate/darkly, white-on-warning ≈1.3–2.5). The fix is ONE shared module `shared/js/smd-contrast.js` (`window.SmdContrast` + global `applySmdContrastVars()`), loaded right AFTER `smd-settings.js` in every app's `index.html` (all 5 apps + root Launch index + storybook) and in `sw.js` SHARED_ASSETS. It reads the loaded theme's `--bs-*` surfaces off `:root` and publishes `--smd-on-{primary,secondary,success,danger,warning,info,body}`, `--smd-tab-active-text`, `--smd-muted-header-text`, `--smd-rgb-*` (debug) and the existing consumer aliases `--smd-{variant}-text`. HYBRID RULE: a theme keeps its OWN text when its choice already meets WCAG AA ≥4.5 (read from the `--smd-*-text` values `applySmdVars()` set just before), otherwise the generator substitutes pure `#000`/`#fff` (`bestText`, max contrast) — so thumb-tested themes (cerulean dark-grey secondary etc.) are untouched and only genuinely failing themes change. `applySmdVars()` in smd-settings.js calls `applySmdContrastVars()` (guarded by `typeof`) at its end, so the theme-selector flow triggers it; the module also self-heals on load if the palette already went live. PROBE GUARD `smd-probe`: shared/css/styles.css overrides `--bs-btn-color`/badge text with the generated vars matched `:not(.smd-probe)` — the hidden probe `smdBootstrapStyle()` in smd-settings.js and the pmd-regression `bootswatchColor()`/`bootswatchBadge()` helpers all add the `smd-probe` class so they keep reading the RAW Bootswatch colour (no circular read). Surfaces that now consume the palette: active tabs `var(--smd-tab-active-text)` (was hardcoded #fff), `.nav-tabs-info .nav-link.active` `var(--smd-on-info)`, page/modal header h1/h3 `var(--smd-muted-header-text)`, `.badge.text-bg-*`/`smd-badge.text-bg-*` colour, and `button/a/.btn-{primary,secondary,success,danger,warning,info}` `--bs-btn-*-color` overrides (hybrid keeps the theme look where it already passes). pmd-regression "badges use the centralized contrast palette and meet WCAG AA" asserts the badge text equals the palette value AND that its contrast ratio ≥4.5 (helper `ratioOf` recomputes WCAG ratio in-page). When wiring a NEW themed surface: consume `var(--smd-on-<variant>)`/`var(--smd-tab-active-text)`/`var(--smd-muted-header-text)` instead of hardcoding `#fff`/`color-mix(..., white)`.
 14: STORYBOOK `_bound` GUARD FOR LIGHT-DOM COMPONENTS (2026-09-22): the pmd-* light-DOM cards/headers (`pmd-stream-header`, `pmd-stream-job-card`, `pmd-job-today-card`, `pmd-job-search-card`) each clone their template in `connectedCallback` under a `this._bound` flag, but their `attributeChangedCallback` used to gate `_render` on only `this.isConnected`. When the storybook's demo code does `host.innerHTML = '<pmd-stream-header ...>'` on an ALREADY-CONNECTED host, the HTML parser fires `attributeChangedCallback` for each attribute BEFORE `connectedCallback` clones the template, so `_render` hit missing nodes (`Cannot set properties of null (setting 'textContent')`, 45 page errors). Chromium's incremental parser inserts the element into the live tree (isConnected=true) before the upgrade finishes, so `isConnected` alone is NOT a sufficient guard. FIX (applied to all four): `attributeChangedCallback() { if (this._bound && this.isConnected) this._render(); }`. Rule: any light-DOM component that builds in `connectedCallback` must gate attribute-triggered renders on the built flag too, NEVER `isConnected` alone. Verify with `tests/storybook-regression.spec.js` (Storybook - Regression: boots with no console/page errors/no failed requests, component demos render their host elements, theme swap re-renders sections without page errors) — run it whenever storybook or the pmd-* components change.
 15: Do not write non UTF-8 characters to AGENTS.md
+17: ACCESS (2026-10-05): at the START of every session, ALWAYS ask for access to the WHOLE of `p:\git\MyApps` (the entire repo tree, not a subfolder) before reading, editing or running anything. Never assume the working directory or a partial scope is enough; confirm full-repo access first.
 16: TDD IS THE APPROACH FOR FIXING ISSUES (2026-10-01): whenever you fix a bug or
     oddity in the app (drag-drop, theming, layout, edge cases, etc.), use
     TEST-DRIVEN DEVELOPMENT: FIRST write the regression test that reproduces the
@@ -3315,5 +3316,217 @@ Techniques / gotchas:
   `typeof applyStandardImages === "undefined"` plus a modal that still rendered.
   Fix: kill the 8080/8081 listener and restart the server; verify the served
   bytes match disk (`Invoke-WebRequest -UseBasicParsing`) before rerunning.
-- `BUILD_NUMBER` bumped `202610042145` -> `202610050338` -> `202610050342` via
-  `npm run bump:build` (shared assets changed).
+- `BUILD_NUMBER` bumped `202610042145` -> `202610050338` -> `202610050342` ->
+  `202610050816` via `npm run bump:build` (shared assets changed).
+
+### 2026-10-05 (b) - tab contrast via Bootstrap .text-bg-*; stream header + dropdown fixes
+- BUG (user): brite/cerulean LIGHT inactive tabs were white-on-white. `smd-tabs`
+  was painted from `--smd-tab-background: var(--bs-secondary)` with
+  `--smd-tab-color: var(--bs-white)`; brite's secondary is `#fff` and cerulean's
+  is `#e9ecef`, so the hardcoded white text vanished. Root cause: no per-variant
+  contrast variable exists at `:root` in Bootstrap 5.3/Bootswatch (there is NO
+  `--bs-{variant}-contrast`), so a shared `color: var(--bs-white)` cannot adapt.
+- FIX (user chose the Bootstrap `.text-bg-*` approach): `smd-tabs.js`
+  `_updateActive()` now toggles `text-bg-primary` on the active tab and
+  `text-bg-secondary` on inactive tabs. `.text-bg-*` is a Bootstrap helper that
+  supplies BOTH the variant surface and its designed contrast text (colour +
+  background, `!important`), so it adapts per theme/mode with zero runtime code.
+  `styles.css` dropped the `.smd-tab-btn` background/colour rules and the
+  `--smd-tab-*` var usage; only `.smd-tab-line` stays (`var(--bs-primary)`).
+  The `--smd-tab-*` palette entries were removed from `light.css` / `dark.css`
+  and the per-theme files that set them (simplex/cyborg/darkly/superhero); the
+  `smd-badge#editJobsTotalBadge` override was also removed from light.css.
+- REVERTED (user request, same session): the first cut made the Edit Streams
+  `pmd-stream-header` use `.text-bg-success`/`.text-bg-danger`. That was undone —
+  the component is back to `bg-body-tertiary` (collapsed) / `bg-info-subtle`
+  (expanded) plus the original `styles.css` `var(--bs-success)`/`var(--bs-danger)`
+  !important rules, and the per-theme `color-mix(...)` overrides. `light.css`
+  keeps the stream-header rules with `--bs-primary` (collapsed) / `--bs-danger`
+  (expanded). So ONLY tabs moved to Bootstrap classes; the stream header keeps its
+  previous colours.
+- DROPDOWN (user): the closed `<smd-image-dropdown>` label was unreadable on
+  light themes because `--smd-dropdown-foreground: var(--bs-secondary)` is white
+  on brite. Changed to `var(--bs-body-color)` in BOTH `light.css` and `dark.css`
+  (probe: brite `#212529` on `#f8f9fa`, cerulean `#495057`, superhero `#ebebeb`
+  on `#0f2537`). Per-theme dropdown palettes (superhero/cyborg) override it with
+  their own form foreground, so they were left alone.
+- TESTS: `pmd-regression` "Theme colours" gained "inactive tabs use the Bootstrap
+  text-bg-secondary contrast (no white-on-white)" (brite + cerulean: inactive tab
+  computed colour/bg must equal a hidden `text-bg-secondary` probe, active equals
+  `text-bg-primary`, and text != bg). Verified: Theme colours 5/5, PMD `[Ss]tream`
+  60/60, PMD `[Dd]ropdown` 10/10, cross-app `[Ss]ettings` 53/53, one-theme
+  (superhero) settings/stream screenshots 7/7.
+- `BUILD_NUMBER` -> `202610050816`.
+- SHELL/TEST GOTCHA: `--grep "a|b"` strands when passed through PowerShell's
+  `Start-Job` ScriptBlock to `playwright.cmd` — cmd.exe parses the `|` as a pipe
+  and errors `'b' is not recognized`. Run each grep separately, or avoid `|` in
+  the pattern.
+- AGENTS rule 17 added: at the start of every session ask for access to the WHOLE
+  of `p:\git\MyApps`.
+
+### 2026-10-05 (c) - date-independent Google sample test (fixed a time-bomb)
+- `cmd-regression` "loads sample Google data and unifies Google entries in the
+  dates editor" failed on 2026-10-06: it asserted a `cmd-countdown-card` for
+  "Dentist Appointment" was visible, but `CountMyDays/js/googleCalendarSample.json`
+  has FIXED dates (`sample_1` = 2026-10-05; the two "Weekly Team Meeting" rows =
+  2026-09-21/28), and `CountMyDays/js/main-view.js` renders only `days === 0`
+  (today) and `days > 0` (future) - so those events had fallen into the past and
+  were dropped. NOT related to the tab/CSS work.
+- FIX (test-only, date-independent, no BUILD bump): after `loadGCalSampleData()`
+  caches the 7 events, the test now rewrites `sample_1`'s cached `start`/`end` to
+  `today + 7` in `googleCalCacheKey()` and calls `renderMain()` before the
+  main-view assertion. The `7 events cached` and all dates-editor counts
+  (10 total / 6 Google / 4 Local / 2 Repeat / 1 Hidden) are unchanged.
+- The dates editor is date-independent (it lists ALL events, past included), so
+  only the main-view assertion needed the fix. Verified: cmd Google Calendar
+  13/13.
+- RULE (2026-10-05): ANY test involving a date must use the `today + N` (or
+  `today - N`) pattern computed at run time - NEVER a hardcoded/fixed date or a
+  bundled sample's fixed dates. Seed or rewrite the event to a date relative to
+  `new Date()` before asserting, so the test can never go stale. This applies to
+  every app and every spec, not just CountMyDays main-view cards.
+
+### 2026-10-07 - app-shell hamburger menu: solid body-coloured background + font follows Font Size
+- Two shared-shell fixes in `shared/css/styles.css` (all 6 apps inherit them):
+  `#mainNav` was transparent (`getComputedStyle` = `rgba(0,0,0,0)`), so with the
+  auto-hide menu (`position: fixed`) the toolbar let page content show through and
+  scroll under it. It now has `background-color: var(--bs-body-bg)`.
+- `#mainNav .dropdown-menu` (the hamburger menu ONLY) is painted
+  `var(--bs-body-bg)` (opaque, matches the page; some themes ship a translucent
+  `--bs-dropdown-bg`, e.g. morph's `rgba(240,245,250,0.8)`; superhero's is opaque
+  `#4e5d6c`, NOT the body colour). SCOPED TO `#mainNav` ON PURPOSE: an
+  `#smd-app .dropdown-menu` selector also repaints the Gantt Streams filter menu
+  AND the hidden `.dropdown-menu` probe `pmd-gantt` uses to read the theme's
+  dropdown token, which broke "the Streams filter dropdown uses the themed
+  dropdown surface..." (the probe expected `--bs-dropdown-bg` #4e5d6c but read
+  the navy body colour). Other `.dropdown-menu`s own a themed surface via
+  `--bs-dropdown-bg` and must keep it.
+- The menu font did NOT track Settings -> Font Size: Bootswatch re-declares
+  `.dropdown-menu { font-size: .875rem }` (a fixed 14px on superhero) AFTER the
+  Bootstrap `--bs-dropdown-font-size: 1rem`, so a later shared rule is needed.
+  `#mainNav .dropdown-menu { font-size: var(--smd-type-p) }` makes it follow the
+  body token. Probe (superhero, auto-hide on, menu open): before menuFont was a
+  fixed 14px; after it is 20.8px (xlarge body) -> 25.6px (jumbo), i.e. 1:1 with
+  `<body>`.
+
+### 2026-10-07 (b) - smd-image auto theme now reads the element's ACTUAL background
+- BUG (user): with the stock `bootstrap` theme in Light mode, a black image on
+  the light `pmd-job-today-card` was fine, but the SAME image inside
+  `pmd-stream-header` (whose `.stream-accordion-header` paints a DARK
+  `color-mix(in hsl, var(--bs-primary) 40%, black)` even in Light mode) had no
+  contrast. `theme="auto"` used `--smd-image-theme` (a global mode variable), so
+  it could not react to a dark surface inside a light theme.
+- FIX (`shared/js/components/smd-image.js` `_autoTheme`): resolve the variant
+  from the element's real background. New module helpers
+  (`effectiveBackgroundColor` / `parseBackgroundColor` / `relativeLuminance` /
+  `isDarkBackground`) walk up from the host to the first ancestor that paints a
+  background (skipping `transparent`), then pick dark when the WCAG relative
+  luminance is < 0.179 (the black/white contrast crossover). The host is now
+  styled `background-color: inherit` (added to the injected `smd-image-layout`
+  sheet) so an image sitting directly on a surface resolves in one step; the walk
+  covers transparent wrappers such as pmd-stream-header's `.thumb`. Fallback when
+  nothing paints: `data-bs-theme`. `window.smdIsDarkBackground` is exported and
+  `smd-images.js`'s `isDarkTheme()` / `getThemeKey()` now use it (the editor's
+  "current theme" preview and `getThemedImageDataUrl` default).
+- PARSING GOTCHA: Chromium serialises a `color-mix()` background-color as
+  `color(srgb r g b)` (channels 0..1), NOT `rgb(...)`. The first cut only matched
+  `rgba?()` and so walked past the dark header to the white body and chose the
+  wrong variant. `parseBackgroundColor` now handles both `rgb()/rgba()` and
+  `color(srgb ...)`.
+- `--smd-image-theme` is REMOVED everywhere: `shared/css/themes/light.css`,
+  `dark.css`, `superhero.light.css` / `superhero.dark.css`, `cyborg.light.css`,
+  `darkly.light.css`, and the `pmd-stream-header`-scoped value in
+  `simplex.light.css`.
+- TDD: new `tests/pmd-regression.spec.js` "auto theme follows the element's
+  background, not the theme mode" (bootstrap Light: today-card thumb renders the
+  dark variant #000000; the streams-editor header thumb renders the light variant
+  #ffffff). Verified: pmd smd-image rendering 7/7, storybook 8/8 (card viewer,
+  all themes x both modes), image-edit-preview-size 10/10.
+- `BUILD_NUMBER` NOT bumped - bump before shipping (`npm run bump:build`).
+
+### 2026-10-07 (c) - new shared/js/library.js (window.SmdLib); generic helpers de-duplicated
+- NEW `shared/js/library.js` (`window.SmdLib`), loaded FIRST (before the
+  components and smd-app.js) in all 6 app shells + root Launch index + storybook
+  + cardViewer (both the outer page AND its iframe generator, which now prepends
+  `sharedScripts.library` to every recipe). Registered in `sw.js SHARED_ASSETS`.
+- Moved IN: `escapeHtml`/`escAttr`/`$id` (were in smd-app.js), the colour/
+  background helpers (`parseColor`, `relativeLuminance`,
+  `effectiveBackgroundColor`, `isDarkBackground`) and the SVG data-URL
+  recolouring (`isSvgDataUrl`, `updateSvgColor`, `applySvgAttr`, `themedSvgSrc`)
+  that were duplicated byte-for-byte between smd-image.js and smd-images.js.
+- `smd-app.js` keeps thin GLOBAL facades (`$id`/`escapeHtml`/`escAttr`) that
+  delegate to SmdLib, because inline `onclick` handlers, app code and tests call
+  the globals; smd-images.js keeps an `updateSvgColor` facade (tests call it).
+  `smd-image.js` and `smd-images.js` call `SmdLib.*` directly everywhere else.
+  `themedSvgSrc(data, overrides)` dropped the old unused `theme` argument.
+- GOTCHA: every page that loads smd-app.js/smd-settings.js must load library.js
+  first or the facades throw `ReferenceError: SmdLib is not defined` at boot.
+  The cardViewer OUTER page (not just its iframes) was the one that bit.
+- STILL CANDIDATES (not moved): `getImageColors`/`decodeVal` (SVG colour parse),
+  `smdImageHash` (FNV-1a, image-cache-specific), the private `escapeHtml` copies
+  in `smd-image-picker.js`/`smd-theme.js`, and `smdDownloadJson`/`smdReadJsonFile`.
+- Verified: storybook 8/8, solar 12/12, ffox 11/11, launch 7/7, qrlinks 9/9,
+  cmd Images editor 5/5, pmd smd-image rendering 7/7, image-edit-preview-size
+  10/10, pmd updateSvgColor 1/1.
+- `BUILD_NUMBER` NOT bumped - bump before shipping (`npm run bump:build`).
+
+### 2026-10-07 (d) - Sortable fallback ghosts showed DOUBLED content
+- BUG (user, long-standing): the drag preview for PMD's reorderable cards
+  (`pmd-job-today-card`, `pmd-job-summary-card`, `pmd-stream-header`) "did not
+  look right".
+- ROOT CAUSE: Sortable's `forceFallback` ghost is a `cloneNode(true)` of the host.
+  `cloneNode` copies attributes but NOT JS own-properties, so the clone re-ran
+  `connectedCallback` with `_bound` undefined and appended the template a SECOND
+  time -> every ghost showed two copies of its card/header ("Add Job Edit Delete"
+  twice, two `.smd-card`, two `.stream-accordion-header`). Native (non-fallback)
+  drag was unaffected because the browser snapshots the element instead of
+  cloning it.
+- FIX: the three PMD components guard the build with a CLONE-SAFE marker:
+  `if (!this._bound && !this.hasAttribute("data-smd-built")) { this._bound = true;
+  this.setAttribute("data-smd-built", ""); ...build... } this._bound = true;`.
+  Attributes survive `cloneNode`, so a ghost skips the rebuild (and its event
+  listeners / swipe binding) while still running `_render()` to stay in sync.
+  `smd-button` is already clone-safe because it clears `innerHTML` and rebuilds
+  from a stored label; badge/checkbox/draghandle/image are idempotent.
+- Also gave `pmd-job-today-card` the SAME fallback ghost as the other two
+  (`forceFallback`, `fallbackOnBody`, `fallbackTolerance: 0`, and the
+  fallback/ghost/chosen/drag classes in `PlanMyDay/js/main-view.js`) - it
+  previously used the native HTML5 drag image, which cannot be styled. Added
+  shared `.sortable-ghost { opacity: 0.4 }` + `.sortable-fallback { box-shadow }`
+  in `shared/css/styles.css`.
+- TDD: new `pmd-regression` "Drag ghosts > the fallback ghost is a single copy of
+  the card (no doubled content)" (stream header, job card, today card).
+- Verified: pmd reorder 6/6, pmd `[Dd]rag` 11/11, pmd-touch 5/5, storybook 8/8.
+- `BUILD_NUMBER` NOT bumped - bump before shipping (`npm run bump:build`).
+
+### 2026-10-07 (e) - dark-mode page/stream header surfaces aligned with light (hsl mixes)
+- BUG (user): in dark mode the `smd-page` header/footer and the
+  `pmd-stream-header` (expanded + non-expanded) did not match light mode.
+- `shared/css/themes/dark.css` now mirrors `light.css`:
+  `--smd-page-header-background: color-mix(in hsl, var(--bs-primary) 40%, black)`
+  (was raw `--bs-primary`) and it carries the stream-header rules. The
+  non-expanded stream header uses `var(--smd-page-header-background)` (NOT a
+  second copy of the mix), so the page header/footer and the collapsed stream
+  header can never drift. `in hsl` (not srgb) keeps the HUE constant - black is
+  achromatic, so the powerless-hue rule leaves the theme hue untouched (verified:
+  bootstrap #0d6efd hue 217 deg -> mix hue 216 deg).
+- MIX LEVEL (user, 2026-10-07): every header-surface mix is **40% colour / 60%
+  black** (`color-mix(in hsl, var(--bs-<variant>) 40%, black)`) - grep
+  `%, black` across `shared/css/themes/` to change it in one place per rule.
+- Per-theme alignment (each theme's dark now matches its light):
+  superhero/cyborg/darkly `.light.css` dropped
+  `--smd-page-header-background: var(--bs-black)` (they now use the shared
+  primary mix) and their `.dark.css` gained the same expanded success-mix as
+  light; `superhero.dark.css` dropped
+  `--smd-page-header-background: var(--bs-dark)`. `simplex.light.css` /
+  `simplex.dark.css` dropped their
+  `#smd-app smd-page .smd-page-header { background-color: var(--bs-primary) }`
+  rule and the dark footer `background: var(--bs-body-bg)`; simplex.light's
+  collapsed stream header now uses `var(--smd-page-header-background)`.
+- Probe across bootstrap/superhero/cyborg/darkly/simplex/flatly/quartz/morph x
+  light/dark: pageHeader == pageFooter == collapsedStream, and light == dark, for
+  every theme.
+- TDD: new pmd-regression "Header surfaces > page header/footer and the
+  non-expanded stream header are one surface mix, identical in light and dark".
+- Verified: pmd-gantt 59/59, pmd Theme colours 5/5, storybook 8/8.
+- `BUILD_NUMBER` NOT bumped - bump before shipping (`npm run bump:build`).

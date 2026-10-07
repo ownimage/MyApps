@@ -94,6 +94,36 @@ button.btn-sm, .btn-sm { font-size: var(--smd-type-p, 1rem); }
    shared/js/smd-settings.js — the module that owns the body.auto-hide-menu and
    .nav-hidden classes. */
 
+/* The toolbar is opaque and painted with the page surface so content never
+   shows through it while it is fixed (auto-hide menu) or scrolled behind it. */
+#mainNav {
+  background-color: var(--bs-body-bg);
+}
+
+/* The HAMBURGER dropdown is painted with the body colour so it is fully opaque
+   and matches the page. Scoped to #mainNav on purpose: other .dropdown-menus
+   (e.g. the Gantt Streams filter) own a themed surface via --bs-dropdown-bg and
+   must keep it. Bootswatch also re-sets .dropdown-menu to a rem-based font-size
+   (a fixed 14px on superhero), so it ignored the Font Size setting; pin the nav
+   menu to the shared p token so it tracks <body> like the rest of the UI. */
+#mainNav .dropdown-menu {
+  background-color: var(--bs-body-bg);
+  font-size: var(--smd-type-p);
+}
+
+/* SORTABLE DRAG-REORDER HOOKS
+   Sortable adds these classes to the app's reorderable cards (PMD today /
+   streams / jobs lists). The in-list placeholder (`.sortable-ghost`) is dimmed;
+   the floating cloned preview (`.sortable-fallback`) gets a lifted shadow.
+   Sortable still writes its own inline position/size/opacity on the clone. */
+.sortable-ghost {
+  opacity: 0.4;
+}
+
+.sortable-fallback {
+  box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.3);
+}
+
 /* SHARED INTERACTION UTILITIES */
 .editor-btn,
 .btn-wide {
@@ -133,20 +163,14 @@ smd-draghandle[size="large"] {
 }
 
 /* COMPONENT: smd-tabs (theme/cascade rules; layout is in smd-tabs.js) */
-#smd-app smd-tabs .smd-tab-btn {
-  background-color: var(--smd-tab-background);
-  color: var(--smd-tab-color);
-}
-
+/* Tab surface + text colours come from Bootstrap's own .text-bg-primary
+   (active) / .text-bg-secondary (inactive) helpers, applied by smd-tabs.js, so
+   the contrast always matches the loaded Bootswatch theme. Only the shared
+   underline is coloured here. */
 #smd-app smd-tabs .smd-tab-line {
   width: 100%;
   height: 2px;
-  background-color: var(--smd-tab-active-background);
-}
-
-#smd-app smd-tabs .smd-tab-btn.active,
-#smd-app smd-tabs .smd-tab-btn[active] {
-  background-color: var(--smd-tab-active-background);
+  background-color: var(--bs-primary);
 }
 
 /* COMPONENT: pmd-stream-header theme surface (layout is in pmd-stream-header.js) */

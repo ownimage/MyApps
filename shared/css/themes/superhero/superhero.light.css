@@ -5,7 +5,6 @@
 
 :root {
   --smd-tab-background: var(--bs-secondary);
-  --smd-image-theme: dark;
   --smd-form-background: var(--bs-body-bg);
   --smd-form-foreground: var(--bs-body-color);
   --smd-form-border-color: var(--bs-border-color);
@@ -57,7 +56,6 @@
 }
 
 :root {
-  --smd-page-header-background: var(--bs-black);
   --pmd-tasks-row-background: var(--bs-card-bg);
 }
 
@@ -66,5 +64,5 @@
 }
 
 #smd-app #streamsEditor pmd-stream-header[expanded] .stream-accordion-header {
-    background-color: color-mix(in hsl, var(--bs-success) 50%, black) !important;
+    background-color: color-mix(in hsl, var(--bs-success) 40%, black) !important;
 }

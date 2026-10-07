@@ -4,7 +4,8 @@
 // Shared/reusable: the storage key prefix is supplied via the key-prefix
 // attribute (e.g. "planmydays_"), the image to show via `image` (its name),
 // and the theme via `theme` (auto | light | dark; default auto resolves from
-// the document's data-bs-theme). The list key is keyPrefix + "images".
+// the element's ACTUAL background colour, falling back to data-bs-theme). The
+// list key is keyPrefix + "images".
 //
 // Each stored image is { name, data, themes: { light: {line,fill,width}, dark: {...} } }.
 // data is a data: URL; SVG data URLs are recoloured from the matching theme
@@ -15,38 +16,6 @@
 // thumbnail tier matches (see _renderStored).
 (function (global) {
   "use strict";
-
-  function escapeHtml(str) {
-    return String(str)
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;");
-  }
-
-  function applySvgAttr(dataUrl, attr, value) {
-    const svgPart = dataUrl.substring("data:image/svg+xml,".length);
-    const decoded = decodeURIComponent(svgPart);
-    const encoded = value && value.startsWith("#") ? value : value || "none";
-    const rx = new RegExp(`\\b${attr}\\s*=\\s*["'][^"']*["']`);
-    if (rx.test(decoded)) {
-      return "data:image/svg+xml," + encodeURIComponent(decoded.replace(new RegExp(rx.source, "g"), function (m) {
-        const quote = m.indexOf('"') !== -1 ? '"' : "'";
-        return attr + "=" + quote + encoded + quote;
-      }));
-    }
-    const updated = decoded.replace(/<svg([\s>])/i, `<svg ${attr}="${encoded}"$1`);
-    return "data:image/svg+xml," + encodeURIComponent(updated);
-  }
-
-  function themedSrc(data, theme, overrides) {
-    if (!data || data.indexOf("data:image/svg+xml,") !== 0 || !overrides) return data;
-    let out = data;
-    if (overrides.line != null && overrides.line !== "") out = applySvgAttr(out, "stroke", overrides.line);
-    if (overrides.fill != null && overrides.fill !== "") out = applySvgAttr(out, "fill", overrides.fill);
-    if (overrides.width != null && overrides.width !== "") out = applySvgAttr(out, "stroke-width", overrides.width);
-    return out;
-  }
 
   const ICON_SETS = {
     bi: { css: "vendor/bootstrap-icons.css", family: "bootstrap-icons", mode: "codepoint" },
@@ -131,7 +100,7 @@
     connectedCallback() {
       if (typeof injectSmdComponentStyle === "function") {
         injectSmdComponentStyle("smd-image-layout", `
-          smd-image { display: inline-flex; align-items: center; justify-content: center; overflow: hidden; }
+          smd-image { display: inline-flex; align-items: center; justify-content: center; overflow: hidden; background-color: inherit; }
           smd-image img { display: block; max-width: 100%; max-height: 100%; }
           smd-image .smd-bi { display: inline-flex; align-items: center; justify-content: center; width: 100%; height: 100%; }
         `);
@@ -166,10 +135,13 @@
     }
 
     _autoTheme() {
-      // --smd-image-theme drives image colour rendering (default: mirrors
-      // html[data-bs-theme] via styles.css). Falls back to the attribute.
-      const v = getComputedStyle(this).getPropertyValue("--smd-image-theme").trim().toLowerCase();
-      if (v === "dark" || v === "light") return v;
+      // Pick the light or dark image variant from the element's ACTUAL
+      // background, so an image on a dark surface inside an otherwise light
+      // theme (e.g. pmd-stream-header) still gets the light variant. Falls back
+      // to the document theme mode when no ancestor paints a background.
+      const dark = SmdLib.isDarkBackground(this);
+      if (dark === true) return "dark";
+      if (dark === false) return "light";
       return (document.documentElement.getAttribute("data-bs-theme") || "dark") === "dark" ? "dark" : "light";
     }
 
@@ -258,8 +230,8 @@
       }
       const theme = this.theme;
       const overrides = (stored.themes && stored.themes[theme]) || {};
-      const painted = themedSrc(src, theme, overrides);
-      img.alt = alt || escapeHtml(this.getAttribute("image") || "");
+      const painted = SmdLib.themedSvgSrc(src, overrides);
+      img.alt = alt || SmdLib.escapeHtml(this.getAttribute("image") || "");
 
       const paint = (url) => {
         if (seq !== this._renderSeq || !img.isConnected) return;

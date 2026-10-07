@@ -165,6 +165,13 @@ class SmdTabs extends HTMLElement {
         this.querySelectorAll('.smd-tab-btn').forEach((btn, i) => {
             const active = i === this._activeIndex;
             btn.classList.toggle('active', active);
+            // Bootstrap owns the tab colours: the active tab is a filled
+            // primary surface and inactive tabs are a secondary surface, and
+            // the .text-bg-* helpers supply the matching contrast text (so a
+            // light theme whose secondary is near-white no longer gets white
+            // text on a white tab).
+            btn.classList.toggle('text-bg-primary', active);
+            btn.classList.toggle('text-bg-secondary', !active);
             btn.toggleAttribute('active', active);
             btn.setAttribute('aria-selected', String(active));
             btn.setAttribute('tabindex', active ? '0' : '-1');

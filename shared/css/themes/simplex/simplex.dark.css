@@ -13,13 +13,9 @@ html[data-bs-theme="dark"] {
   --smd-date-picker-border-color: var(--bs-border-color);
 }
 
-#smd-app smd-page .smd-page-header {
-    background-color: var(--bs-primary);
-}
-
 #smd-app smd-page .smd-page-footer {
     border-top: 2px solid var(--bs-primary);
-    background: var(--bs-body-bg);
+    background: var(--smd-page-header-background);
 }
 
 .navbar {

@@ -924,6 +924,21 @@ test.describe("CountMyDays - Regression", () => {
       await expect(page.locator("#smdConfirmModal")).toContainText("7 events cached");
       await page.locator("#smdConfirmModal").getByRole("button", { name: "OK" }).click();
 
+      // The bundled sample uses FIXED dates, so some events eventually fall into
+      // the past and the main view (today/future only) drops them. Move one
+      // cached Google event to today+7 so this assertion never goes stale.
+      await page.evaluate(() => {
+        const feed = JSON.parse(localStorage.getItem(googleCalCacheKey()));
+        const ev = feed.items.find((i) => i.id === "sample_1");
+        const t = new Date();
+        t.setDate(t.getDate() + 7);
+        const iso = t.getFullYear() + "-" + String(t.getMonth() + 1).padStart(2, "0") + "-" + String(t.getDate()).padStart(2, "0");
+        ev.start = { date: iso };
+        ev.end = { date: iso };
+        localStorage.setItem(googleCalCacheKey(), JSON.stringify(feed));
+        renderMain();
+      });
+
       // Visible Google events appear on the main view alongside local dates.
       const dentistCard = page.locator("cmd-countdown-card").filter({ hasText: "Dentist Appointment" });
       await expect(dentistCard).toBeVisible();

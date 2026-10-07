@@ -138,8 +138,13 @@ class PmdJobTodayCard extends HTMLElement {
   }
 
   connectedCallback() {
-    if (!this._bound) {
+    // A Sortable fallback ghost is a cloneNode(true) of this host: cloneNode
+    // copies attributes (including the `data-smd-built` marker) but NOT the
+    // `_bound` JS property, so without the marker a re-connected clone would
+    // append the template a SECOND time and show doubled content.
+    if (!this._bound && !this.hasAttribute("data-smd-built")) {
       this._bound = true;
+      this.setAttribute("data-smd-built", "");
       this.classList.add("d-block");
       this.appendChild(pmdJobTodayCardTemplate.content.cloneNode(true));
       this._adoptSlottedHandle();
@@ -164,6 +169,7 @@ class PmdJobTodayCard extends HTMLElement {
       });
       this._setupSwipe();
     }
+    this._bound = true;
     this._render();
   }
 

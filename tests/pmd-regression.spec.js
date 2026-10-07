@@ -646,6 +646,44 @@ test.describe("PlanMyDay - Regression", () => {
       expect(dark.color).not.toBe(dark.bg);
     });
 
+    test("inactive tabs use the Bootstrap text-bg-secondary contrast (no white-on-white)", async ({ page }) => {
+      // brite's secondary is #fff and cerulean's is #e9ecef, so hardcoded white
+      // tab text vanished. Tabs must use Bootstrap's own text-bg-* contrast.
+      for (const theme of ["brite", "cerulean"]) {
+        await setTheme(page, theme);
+        await page.evaluate(() => openSettings());
+        await expect(page.locator("#settingsPage smd-tabs .smd-tab-btn.active")).toBeVisible();
+        const cmp = await page.evaluate(() => {
+          function probe(cls) {
+            const el = document.createElement("span");
+            el.className = cls;
+            el.style.cssText = "position:absolute;left:-9999px;visibility:hidden";
+            document.body.appendChild(el);
+            const cs = getComputedStyle(el);
+            const out = { color: cs.color, bg: cs.backgroundColor };
+            el.remove();
+            return out;
+          }
+          const inactive = document.querySelector("#settingsPage smd-tabs .smd-tab-btn:not(.active)");
+          const active = document.querySelector("#settingsPage smd-tabs .smd-tab-btn.active");
+          const ics = getComputedStyle(inactive);
+          const acs = getComputedStyle(active);
+          return {
+            inactive: { color: ics.color, bg: ics.backgroundColor },
+            active: { color: acs.color, bg: acs.backgroundColor },
+            sec: probe("text-bg-secondary"),
+            pri: probe("text-bg-primary")
+          };
+        });
+        expect(cmp.inactive.color, theme).toBe(cmp.sec.color);
+        expect(cmp.inactive.bg, theme).toBe(cmp.sec.bg);
+        expect(cmp.inactive.color, theme).not.toBe(cmp.inactive.bg);
+        expect(cmp.active.color, theme).toBe(cmp.pri.color);
+        expect(cmp.active.bg, theme).toBe(cmp.pri.bg);
+        await page.evaluate(() => closeSettings());
+      }
+    });
+
     test("modal secondary buttons match the Bootswatch button colours", async ({ page }) => {
       await setTheme(page, "cerulean");
       await page.evaluate(() => { openStreamsEditor(); confirmDeleteStream(0); });
@@ -697,6 +735,45 @@ test.describe("PlanMyDay - Regression", () => {
         await setTheme(page, theme);
         const colors = await badgeColors();
         expect(colors.tab).toEqual(await bootswatchBadge(page, "primary"));
+      }
+    });
+  });
+
+  // ── Header surfaces ───────────────────────────────────────
+
+  test.describe("Header surfaces", () => {
+
+    test("page header/footer and the non-expanded stream header are one surface mix, identical in light and dark", async ({ page }) => {
+      test.setTimeout(90000);
+      const read = () => page.evaluate(() => {
+        const cs = (el) => (el ? getComputedStyle(el).backgroundColor : null);
+        return {
+          header: cs(document.querySelector("#streamsEditor .smd-page-header")),
+          footer: cs(document.querySelector("#streamsEditor .smd-page-footer")),
+          collapsed: cs(document.querySelector("#streamEditorList pmd-stream-header .stream-accordion-header"))
+        };
+      });
+      const byMode = {};
+      for (const theme of ["bootstrap", "superhero", "simplex"]) {
+        for (const mode of ["light", "dark"]) {
+          await page.goto("/PlanMyDay/");
+          await page.evaluate(({ theme, mode }) => {
+            localStorage.clear();
+            localStorage.setItem("planmydays_theme", theme);
+            localStorage.setItem("planmydays_themeMode", mode);
+            localStorage.setItem("planmydays_streams", JSON.stringify([
+              { id: "s1", title: "Work", tab: "progress", image: "", sequence: 1, jobs: [] }
+            ]));
+          }, { theme, mode });
+          await page.reload();
+          await page.evaluate(() => openStreamsEditor());
+          await page.waitForSelector("#streamEditorList .stream-accordion-item");
+          const r = await read();
+          expect(r.header, `${theme}/${mode} page header == page footer`).toBe(r.footer);
+          expect(r.header, `${theme}/${mode} page header == collapsed stream header`).toBe(r.collapsed);
+          byMode[theme + "/" + mode] = r.header;
+        }
+        expect(byMode[theme + "/light"], `${theme} light == dark`).toBe(byMode[theme + "/dark"]);
       }
     });
   });
@@ -2026,26 +2103,19 @@ test.describe("PlanMyDay - Regression", () => {
       }, nestedSvg);
       await page.reload();
 
-      // Superhero deliberately pins --smd-image-theme: dark for BOTH modes, so it
-      // cannot exercise the per-mode overrides. Use a theme that does not pin it,
-      // so the stored light/dark variants are selected by data-bs-theme.
+      // The light/dark variant now follows the element's ACTUAL background, so
+      // use a theme whose body surface flips with the mode (flatly: light body
+      // in Light, dark body in Dark) to exercise both stored overrides.
       await page.evaluate(() => applyTheme("flatly"));
 
       for (const [theme, wantFill] of [["dark", "#ffffff"], ["light", "#000000"]]) {
-        // The shared --smd-image-theme palette now lives in the mode layer
-        // (themes/<mode>.css), so flipping data-bs-theme alone no longer
-        // switches it: the mode sheet has to be re-pointed too. applyThemeMode()
-        // is the API that does both, so use it rather than setting the attribute.
+        // applyThemeMode() re-points the mode override sheet and sets
+        // data-bs-theme, which is what flips the body surface (and therefore the
+        // resolved variant). Wait for the app's own resolver to report the
+        // requested variant before rendering the element.
         await page.evaluate((t) => {
           applyThemeMode("flatly", t);
         }, theme);
-        // applyThemeMode() swaps the theme override <link> asynchronously, and
-        // the default superhero.css pins --smd-image-theme to dark. Until
-        // flatly's override replaces it, BOTH <smd-image> and
-        // getThemedImageDataUrl() resolve dark, so the light iteration would
-        // render/compare #ffffff and the #000000 assertion fails under load.
-        // Wait for the app's own resolver to report the requested variant
-        // before rendering the element.
         await page.waitForFunction((want) => getThemeKey() === want, theme, { timeout: 15000 });
         await page.evaluate(() => {
           const el = document.createElement("smd-image");
@@ -2082,6 +2152,54 @@ test.describe("PlanMyDay - Regression", () => {
         expect(compare.text).toContain(`<path fill="${wantFill}"`);
         await page.evaluate(() => { document.querySelector("smd-image[image='NestedIcon']").remove(); });
       }
+    });
+
+    test("auto theme follows the element's background, not the theme mode", async ({ page }) => {
+      test.setTimeout(30000);
+      await page.goto("/PlanMyDay/");
+      const svg = "data:image/svg+xml," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg"><rect width="10" height="10"/></svg>');
+      await page.evaluate(({ svg }) => {
+        localStorage.clear();
+        localStorage.setItem("planmydays_theme", "bootstrap");
+        localStorage.setItem("planmydays_themeMode", "light");
+        localStorage.setItem("planmydays_streams", JSON.stringify([
+          { id: "s1", title: "Work", tab: "progress", image: "BgTest", sequence: 1,
+            jobs: [{ id: "job_1", title: "Report", description: "", active: true, frequency: "daily", sequence: 1, suffix: false, tasks: [], image: "BgTest" }] },
+          { id: "s2", title: "Chores", tab: "maintenance", image: "", sequence: 2, jobs: [] }
+        ]));
+        localStorage.setItem("planmydays_today_order", JSON.stringify(["job_1"]));
+        localStorage.setItem("shared-images", JSON.stringify([
+          { name: "BgTest", data: svg, themes: { light: { line: "none", fill: "#000000", width: null }, dark: { line: "none", fill: "#ffffff", width: null } } }
+        ]));
+      }, { svg });
+      await page.reload();
+      await page.waitForSelector("#todayCardList .today-drag-card");
+
+      const paintedFill = (sel) => page.evaluate(async (s) => {
+        const el = document.querySelector(s);
+        const img = el && el.querySelector("img");
+        if (!img || !img.getAttribute("src")) return null;
+        const txt = await (await fetch(img.getAttribute("src"))).text();
+        const m = txt.match(/fill="([^"]+)"/);
+        return m ? m[1] : null;
+      }, sel);
+
+      // bootstrap Light: the TODAY card surface is light -> the dark variant.
+      await page.waitForFunction(() => {
+        const img = document.querySelector("#todayCardList .stream-thumb smd-image img");
+        return img && img.getAttribute("src") && img.naturalWidth > 0;
+      }, null, { timeout: 10000 });
+      expect(await paintedFill("#todayCardList .stream-thumb smd-image")).toBe("#000000");
+
+      // The streams-editor header paints a DARK surface (color-mix primary/black)
+      // even in Light mode, so the SAME image must switch to the light variant.
+      await page.evaluate(() => openStreamsEditor());
+      await page.waitForSelector("#streamsEditor pmd-stream-header");
+      await page.waitForFunction(() => {
+        const img = document.querySelector("#streamsEditor pmd-stream-header .thumb smd-image img");
+        return img && img.getAttribute("src") && img.naturalWidth > 0;
+      }, null, { timeout: 10000 });
+      expect(await paintedFill("#streamsEditor pmd-stream-header .thumb smd-image")).toBe("#ffffff");
     });
 
     test("renders a bi: prefixed name as a bootstrap icon glyph", async ({ page }) => {
@@ -2459,6 +2577,77 @@ test.describe("PlanMyDay - Regression", () => {
       await dragFirstCardToBottom(page);
       await page.reload();
       await expect(page.locator("#todayCardList .today-drag-card").first()).toHaveAttribute("data-job-id", "job_3");
+    });
+  });
+
+  // ── Drag Ghosts ───────────────────────────────────────────
+
+  test.describe("Drag ghosts", () => {
+
+    async function startDrag(page, locator) {
+      const b = await locator.boundingBox();
+      await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2);
+      await page.mouse.down();
+      // A small warm-up move is needed for Sortable's forceFallback to engage.
+      await page.mouse.move(b.x + b.width / 2 + 6, b.y + b.height / 2 + 3);
+      await page.waitForTimeout(150);
+    }
+
+    test("the fallback ghost is a single copy of the card (no doubled content)", async ({ page }) => {
+      // A Sortable fallback ghost is a cloneNode(true) of the host. cloneNode
+      // copies attributes but NOT the `_bound` JS property, so without the
+      // clone-safe `data-smd-built` marker the light-DOM cards/headers rebuilt
+      // their template a second time and the ghost showed doubled content.
+      await page.evaluate(() => {
+        const d = new Date();
+        const ds = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+        localStorage.setItem("planmydays_streams", JSON.stringify([
+          { id: "s1", title: "Work", tab: "progress", image: "", sequence: 1, jobs: [
+            { id: "j1", title: "Report", active: true, frequency: "daily", sequence: 1, suffix: false, tasks: [] },
+            { id: "j2", title: "Meeting", active: true, frequency: "weekly", sequence: 2, suffix: false, tasks: [] }
+          ] },
+          { id: "s2", title: "Chores", tab: "maintenance", image: "", sequence: 2, jobs: [] }
+        ]));
+        localStorage.setItem("planmydays_today_order", JSON.stringify(["j1", "j2"]));
+        localStorage.setItem("planmydays_last_gen", ds);
+        localStorage.setItem("planmydays_completed", "[]");
+      });
+      await page.reload();
+
+      // streams editor: drag a stream header
+      await page.evaluate(() => openStreamsEditor());
+      await page.waitForSelector("#streamEditorList .stream-accordion-item");
+      await startDrag(page, page.locator("#streamEditorList .stream-accordion-item").first().locator(".stream-accordion-header .drag-handle"));
+      const headerGhost = page.locator(".sortable-fallback");
+      await expect(headerGhost).toHaveCount(1);
+      await expect(headerGhost.locator("pmd-stream-header")).toHaveCount(1);
+      await expect(headerGhost.locator(".stream-accordion-header")).toHaveCount(1);
+      await page.mouse.up();
+      await page.waitForTimeout(300);
+
+      // streams editor: drag a job card in the expanded stream. A fresh load
+      // keeps the stream collapsed so the expand click below is deterministic.
+      await page.reload();
+      await page.evaluate(() => openStreamsEditor());
+      await page.waitForSelector("#streamEditorList .stream-accordion-item");
+      await page.locator("#streamEditorList .stream-header-main").first().click();
+      await page.waitForSelector("#streamEditorList .accordion-collapse.show .job-drag-card");
+      await startDrag(page, page.locator("#streamEditorList .accordion-collapse.show .job-drag-card").first().locator(".drag-handle"));
+      const jobGhost = page.locator(".sortable-fallback");
+      await expect(jobGhost.locator("pmd-job-summary-card")).toHaveCount(1);
+      await expect(jobGhost.locator(".smd-card")).toHaveCount(1);
+      await expect(jobGhost.locator(".job-edit-btn")).toHaveCount(1);
+      await page.mouse.up();
+
+      // main view: drag a today card
+      await page.reload();
+      await page.waitForSelector("#todayCardList .today-drag-card");
+      await startDrag(page, page.locator("#todayCardList .today-drag-card").first().locator(".drag-handle").first());
+      const todayGhost = page.locator(".sortable-fallback");
+      await expect(todayGhost).toHaveCount(1);
+      await expect(todayGhost.locator(".smd-card")).toHaveCount(1);
+      await expect(todayGhost.locator(".job-title")).toHaveCount(1);
+      await page.mouse.up();
     });
   });
 
