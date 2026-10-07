@@ -1,8 +1,9 @@
 // <pmd-job-today-card> — a single job row on the Today list (light DOM).
 //
-// Owns its own layout (drag handle, completion checkbox + daily-repeat icon,
-// stream/job thumbnails, title + suffix, stream title, View button, tab badge,
-// description). The host carries the light-DOM class the app/Sortable relies on
+// Owns its own layout: a full-width title + suffix row, then a control row
+// (drag handle, done checkbox, stream/job thumbnails, daily-repeat icon, stream
+// name, description in the gap, progress/maintenance tab badge, View button).
+// The host carries the light-DOM class the app/Sortable relies on
 // (`today-drag-card`; the app sets it on the element), so the document theme
 // styles the card chrome while the content lives in the light DOM with it. All
 // layout is Bootstrap utilities in the template; the card's own minimal
@@ -25,7 +26,7 @@
 //   checked       — checkbox state ("true"/"false")
 //   stream-image  — stream image name (rendered via smd-image)
 //   job-image     — job image name (rendered via smd-image)
-//   stream-title  — stream title shown under the stream thumbnail, on the badge row
+//   stream-title  — stream title shown on the control row, after the repeat icon
 //   tab           — "progress" (success badge) | "maintenance" (info badge)
 //   description   — optional description line
 //   key-prefix    — smd-image storage prefix (default: SmdConfig.imagePrefix)
@@ -61,10 +62,7 @@
     "  font-size: var(--pmd-today-title-size, var(--smd-type-h2, 1.25em));" +
     "}" +
     "pmd-job-today-card .description {" +
-    "  display: -webkit-box;" +
-    "  -webkit-box-orient: vertical;" +
-    "  -webkit-line-clamp: 2;" +
-    "  overflow: hidden;" +
+    "  min-width: 0;" +
     "}";
   global.document.head.appendChild(s);
 })(window);
@@ -73,53 +71,46 @@ const pmdJobTodayCardTemplate = document.createElement('template');
 pmdJobTodayCardTemplate.innerHTML = `
     <div class="card smd-card border-0 w-100">
 
-        <div class="d-flex py-2 border rounded-3">
+        <div class="d-flex flex-column py-2 border rounded-3">
 
-            <!-- 1️⃣ Drag Handle -->
-            <div class="d-flex align-items-center handle-col flex-shrink-0 ms-2">
-                <smd-draghandle class="drag-handle"></smd-draghandle>
+            <!-- ROW 1: full-width title + optional suffix badge -->
+            <div class="d-flex align-items-center px-2">
+                <smd-h2 class="job-title text-truncate fw-bold mb-0"></smd-h2>
+                <smd-badge class="suffix ms-2" variant="secondary" hidden></smd-badge>
             </div>
 
-            <!-- 2️⃣ Checkbox + Repeat -->
-            <div class="d-flex flex-column align-items-center justify-content-center flex-shrink-0">
-                <smd-checkbox class="job-checkbox me-1"></smd-checkbox>
-                <smd-image class="daily-repeat-icon" key-prefix="shared-" size="16" title="Every day" hidden></smd-image>
-            </div>
+            <!-- ROW 2: controls on the left, description in the gap, progress/maintenance badge + View on the right -->
+            <div class="d-flex align-items-center">
 
-            <!-- 3️⃣ Stream / Job / Stream Name -->
-            <div class="d-flex flex-column flex-shrink-0 images-col align-self-start">
-                <div class="d-flex gap-1">
+                <!-- Drag Handle -->
+                <div class="d-flex align-items-center handle-col flex-shrink-0 ms-2">
+                    <smd-draghandle class="drag-handle"></smd-draghandle>
+                </div>
+
+                <!-- Done checkbox -->
+                <smd-checkbox class="job-checkbox me-1 flex-shrink-0"></smd-checkbox>
+
+                <!-- Stream + job thumbnails -->
+                <div class="d-flex gap-1 align-items-center flex-shrink-0">
                     <div class="thumb stream-thumb d-flex align-items-center justify-content-center flex-shrink-0"><smd-image key-prefix="shared-"></smd-image></div>
                     <div class="thumb job-thumb d-flex align-items-center justify-content-center flex-shrink-0"><smd-image key-prefix="shared-"></smd-image></div>
                 </div>
-                <span class="stream-title text-truncate d-block mb-0 small fw-semibold"></span>
-            </div>
 
-            <div class="d-flex flex-column flex-grow-1 overflow-hidden ms-2">
+                <!-- Repeat icon -->
+                <smd-image class="daily-repeat-icon ms-1 flex-shrink-0" key-prefix="shared-" size="16" title="Every day" hidden></smd-image>
 
-                <!-- FULL-WIDTH TITLE, suffix badge straight after the text with a fixed gap -->
-                <div class="d-flex align-items-center">
-                    <smd-h2 class="job-title text-truncate fw-bold mb-0"></smd-h2>
-                    <smd-badge class="suffix ms-2" variant="secondary" hidden></smd-badge>
+                <!-- Stream name -->
+                <span class="stream-title text-truncate mb-0 small fw-semibold flex-shrink-0 ms-1"></span>
+
+                <!-- Description fills the gap between stream name and the badge, and truncates -->
+                <div class="description small text-body text-truncate flex-grow-1 mx-2" hidden></div>
+
+                <!-- Progress/maintenance badge + View -->
+                <div class="d-flex align-items-center gap-2 ms-auto me-2 flex-shrink-0">
+                    <smd-badge class="tab-badge flex-shrink-0" pill></smd-badge>
+                    <smd-button class="job-view-btn flex-shrink-0" variant="primary" size="small" title="View job">View</smd-button>
                 </div>
 
-                <!-- TWO-COLUMN ROW UNDER TITLE -->
-                <div class="d-flex flex-grow-1">
-
-                    <!-- LEFT COLUMN: Description hogs space -->
-                    <div class="flex-grow-1 d-flex flex-column">
-                        <div class="flex-grow-1 description small text-body" hidden></div>
-                    </div>
-
-                    <!-- RIGHT COLUMN: Badges + View aligned bottom -->
-                    <div class="d-flex flex-column justify-content-end text-end flex-shrink-0">
-                        <div class="d-flex align-items-center gap-2 me-2">
-                            <smd-badge class="tab-badge flex-shrink-0" pill></smd-badge>
-                            <smd-button class="job-view-btn flex-shrink-0" variant="primary" size="small" title="View job">View</smd-button>
-                        </div>
-                    </div>
-
-                </div>
             </div>
         </div>
 
