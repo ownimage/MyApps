@@ -2541,6 +2541,77 @@ test.describe("PlanMyDay - Regression", () => {
     });
   });
 
+  // ── Drag Ghosts ───────────────────────────────────────────
+
+  test.describe("Drag ghosts", () => {
+
+    async function startDrag(page, locator) {
+      const b = await locator.boundingBox();
+      await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2);
+      await page.mouse.down();
+      // A small warm-up move is needed for Sortable's forceFallback to engage.
+      await page.mouse.move(b.x + b.width / 2 + 6, b.y + b.height / 2 + 3);
+      await page.waitForTimeout(150);
+    }
+
+    test("the fallback ghost is a single copy of the card (no doubled content)", async ({ page }) => {
+      // A Sortable fallback ghost is a cloneNode(true) of the host. cloneNode
+      // copies attributes but NOT the `_bound` JS property, so without the
+      // clone-safe `data-smd-built` marker the light-DOM cards/headers rebuilt
+      // their template a second time and the ghost showed doubled content.
+      await page.evaluate(() => {
+        const d = new Date();
+        const ds = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+        localStorage.setItem("planmydays_streams", JSON.stringify([
+          { id: "s1", title: "Work", tab: "progress", image: "", sequence: 1, jobs: [
+            { id: "j1", title: "Report", active: true, frequency: "daily", sequence: 1, suffix: false, tasks: [] },
+            { id: "j2", title: "Meeting", active: true, frequency: "weekly", sequence: 2, suffix: false, tasks: [] }
+          ] },
+          { id: "s2", title: "Chores", tab: "maintenance", image: "", sequence: 2, jobs: [] }
+        ]));
+        localStorage.setItem("planmydays_today_order", JSON.stringify(["j1", "j2"]));
+        localStorage.setItem("planmydays_last_gen", ds);
+        localStorage.setItem("planmydays_completed", "[]");
+      });
+      await page.reload();
+
+      // streams editor: drag a stream header
+      await page.evaluate(() => openStreamsEditor());
+      await page.waitForSelector("#streamEditorList .stream-accordion-item");
+      await startDrag(page, page.locator("#streamEditorList .stream-accordion-item").first().locator(".stream-accordion-header .drag-handle"));
+      const headerGhost = page.locator(".sortable-fallback");
+      await expect(headerGhost).toHaveCount(1);
+      await expect(headerGhost.locator("pmd-stream-header")).toHaveCount(1);
+      await expect(headerGhost.locator(".stream-accordion-header")).toHaveCount(1);
+      await page.mouse.up();
+      await page.waitForTimeout(300);
+
+      // streams editor: drag a job card in the expanded stream. A fresh load
+      // keeps the stream collapsed so the expand click below is deterministic.
+      await page.reload();
+      await page.evaluate(() => openStreamsEditor());
+      await page.waitForSelector("#streamEditorList .stream-accordion-item");
+      await page.locator("#streamEditorList .stream-header-main").first().click();
+      await page.waitForSelector("#streamEditorList .accordion-collapse.show .job-drag-card");
+      await startDrag(page, page.locator("#streamEditorList .accordion-collapse.show .job-drag-card").first().locator(".drag-handle"));
+      const jobGhost = page.locator(".sortable-fallback");
+      await expect(jobGhost.locator("pmd-job-summary-card")).toHaveCount(1);
+      await expect(jobGhost.locator(".smd-card")).toHaveCount(1);
+      await expect(jobGhost.locator(".job-edit-btn")).toHaveCount(1);
+      await page.mouse.up();
+
+      // main view: drag a today card
+      await page.reload();
+      await page.waitForSelector("#todayCardList .today-drag-card");
+      await startDrag(page, page.locator("#todayCardList .today-drag-card").first().locator(".drag-handle").first());
+      const todayGhost = page.locator(".sortable-fallback");
+      await expect(todayGhost).toHaveCount(1);
+      await expect(todayGhost.locator(".smd-card")).toHaveCount(1);
+      await expect(todayGhost.locator(".job-title")).toHaveCount(1);
+      await page.mouse.up();
+    });
+  });
+
   // ── Today Card Swipe ──────────────────────────────────────
 
   test.describe("Today Card Swipe", () => {

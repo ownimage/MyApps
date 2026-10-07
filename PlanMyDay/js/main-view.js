@@ -340,6 +340,15 @@ function initTodayCardsSortable() {
     handle: ".drag-handle",
     draggable: ".today-drag-card",
     animation: 150,
+    // Use the SAME fallback ghost as the streams editor lists so the drag preview
+    // is a real cloned card (the native HTML5 drag image cannot be styled).
+    forceFallback: true,
+    fallbackOnBody: true,
+    fallbackTolerance: 0,
+    fallbackClass: "sortable-fallback",
+    ghostClass: "sortable-ghost",
+    chosenClass: "sortable-chosen",
+    dragClass: "sortable-drag",
     onEnd: function() {
       var order = [];
       el.querySelectorAll(".today-drag-card").forEach(function(card) {

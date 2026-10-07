@@ -111,6 +111,19 @@ button.btn-sm, .btn-sm { font-size: var(--smd-type-p, 1rem); }
   font-size: var(--smd-type-p);
 }
 
+/* SORTABLE DRAG-REORDER HOOKS
+   Sortable adds these classes to the app's reorderable cards (PMD today /
+   streams / jobs lists). The in-list placeholder (`.sortable-ghost`) is dimmed;
+   the floating cloned preview (`.sortable-fallback`) gets a lifted shadow.
+   Sortable still writes its own inline position/size/opacity on the clone. */
+.sortable-ghost {
+  opacity: 0.4;
+}
+
+.sortable-fallback {
+  box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.3);
+}
+
 /* SHARED INTERACTION UTILITIES */
 .editor-btn,
 .btn-wide {

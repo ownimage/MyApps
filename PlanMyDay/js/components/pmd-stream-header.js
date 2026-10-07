@@ -36,8 +36,12 @@ class PmdStreamHeader extends HTMLElement {
   }
 
   connectedCallback() {
-    if (!this._bound) {
+    // Clone-safe: a Sortable fallback ghost is cloneNode(true) of this host, so
+    // the `data-smd-built` attribute (copied by cloneNode, unlike the `_bound` JS
+    // property) stops the template being appended a second time in the ghost.
+    if (!this._bound && !this.hasAttribute("data-smd-built")) {
       this._bound = true;
+      this.setAttribute("data-smd-built", "");
       if (typeof injectSmdComponentStyle === 'function') {
         // Chevron mechanics that used to live in shared/css/styles.css. The ::after
         // glyph moves whole (its border uses currentColor, so it cannot be split
@@ -60,6 +64,7 @@ class PmdStreamHeader extends HTMLElement {
       this.querySelector('[data-action="edit"]').addEventListener('click', () => this._emit('pmd-edit'));
       this.querySelector('[data-action="delete"]').addEventListener('click', () => this._emit('pmd-delete'));
     }
+    this._bound = true;
     this._render();
   }
 

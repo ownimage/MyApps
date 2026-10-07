@@ -101,8 +101,12 @@ class PmdJobSummaryCard extends HTMLElement {
   }
 
   connectedCallback() {
-    if (!this._bound) {
+    // Clone-safe: a Sortable fallback ghost is cloneNode(true) of this host, so
+    // the `data-smd-built` attribute (copied by cloneNode, unlike the `_bound` JS
+    // property) stops the template being appended a second time in the ghost.
+    if (!this._bound && !this.hasAttribute("data-smd-built")) {
       this._bound = true;
+      this.setAttribute("data-smd-built", "");
       this.classList.add('d-block');
       this.appendChild(pmdJobSummaryCardTemplate.content.cloneNode(true));
       this._applyVariant();
@@ -121,6 +125,7 @@ class PmdJobSummaryCard extends HTMLElement {
         }));
       });
     }
+    this._bound = true;
     this._render();
   }
 

@@ -3469,3 +3469,32 @@ Techniques / gotchas:
   cmd Images editor 5/5, pmd smd-image rendering 7/7, image-edit-preview-size
   10/10, pmd updateSvgColor 1/1.
 - `BUILD_NUMBER` NOT bumped - bump before shipping (`npm run bump:build`).
+
+### 2026-10-07 (d) - Sortable fallback ghosts showed DOUBLED content
+- BUG (user, long-standing): the drag preview for PMD's reorderable cards
+  (`pmd-job-today-card`, `pmd-job-summary-card`, `pmd-stream-header`) "did not
+  look right".
+- ROOT CAUSE: Sortable's `forceFallback` ghost is a `cloneNode(true)` of the host.
+  `cloneNode` copies attributes but NOT JS own-properties, so the clone re-ran
+  `connectedCallback` with `_bound` undefined and appended the template a SECOND
+  time -> every ghost showed two copies of its card/header ("Add Job Edit Delete"
+  twice, two `.smd-card`, two `.stream-accordion-header`). Native (non-fallback)
+  drag was unaffected because the browser snapshots the element instead of
+  cloning it.
+- FIX: the three PMD components guard the build with a CLONE-SAFE marker:
+  `if (!this._bound && !this.hasAttribute("data-smd-built")) { this._bound = true;
+  this.setAttribute("data-smd-built", ""); ...build... } this._bound = true;`.
+  Attributes survive `cloneNode`, so a ghost skips the rebuild (and its event
+  listeners / swipe binding) while still running `_render()` to stay in sync.
+  `smd-button` is already clone-safe because it clears `innerHTML` and rebuilds
+  from a stored label; badge/checkbox/draghandle/image are idempotent.
+- Also gave `pmd-job-today-card` the SAME fallback ghost as the other two
+  (`forceFallback`, `fallbackOnBody`, `fallbackTolerance: 0`, and the
+  fallback/ghost/chosen/drag classes in `PlanMyDay/js/main-view.js`) - it
+  previously used the native HTML5 drag image, which cannot be styled. Added
+  shared `.sortable-ghost { opacity: 0.4 }` + `.sortable-fallback { box-shadow }`
+  in `shared/css/styles.css`.
+- TDD: new `pmd-regression` "Drag ghosts > the fallback ghost is a single copy of
+  the card (no doubled content)" (stream header, job card, today card).
+- Verified: pmd reorder 6/6, pmd `[Dd]rag` 11/11, pmd-touch 5/5, storybook 8/8.
+- `BUILD_NUMBER` NOT bumped - bump before shipping (`npm run bump:build`).
