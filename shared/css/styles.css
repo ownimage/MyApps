@@ -94,6 +94,22 @@ button.btn-sm, .btn-sm { font-size: var(--smd-type-p, 1rem); }
    shared/js/smd-settings.js — the module that owns the body.auto-hide-menu and
    .nav-hidden classes. */
 
+/* The toolbar is opaque and painted with the page surface so content never
+   shows through it while it is fixed (auto-hide menu) or scrolled behind it. */
+#mainNav {
+  background-color: var(--bs-body-bg);
+}
+
+/* The hamburger dropdown (and any Bootstrap .dropdown-menu in an app shell) is
+   painted with the body colour so it is fully opaque and matches the page.
+   Bootswatch also re-sets .dropdown-menu to a rem-based font-size (a fixed 14px
+   on superhero), so it ignored the Font Size setting; pin it to the shared p
+   token so it tracks <body> like the rest of the UI. */
+#smd-app .dropdown-menu {
+  background-color: var(--bs-body-bg);
+  font-size: var(--smd-type-p);
+}
+
 /* SHARED INTERACTION UTILITIES */
 .editor-btn,
 .btn-wide {

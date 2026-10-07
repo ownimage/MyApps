@@ -3385,3 +3385,21 @@ Techniques / gotchas:
   bundled sample's fixed dates. Seed or rewrite the event to a date relative to
   `new Date()` before asserting, so the test can never go stale. This applies to
   every app and every spec, not just CountMyDays main-view cards.
+
+### 2026-10-07 - app-shell hamburger menu: solid body-coloured background + font follows Font Size
+- Two shared-shell fixes in `shared/css/styles.css` (all 6 apps inherit them):
+  `#mainNav` was transparent (`getComputedStyle` = `rgba(0,0,0,0)`), so with the
+  auto-hide menu (`position: fixed`) the toolbar let page content show through and
+  scroll under it. It now has `background-color: var(--bs-body-bg)`.
+- `#smd-app .dropdown-menu` is also painted `var(--bs-body-bg)` (opaque, matches
+  the page; some themes ship a translucent `--bs-dropdown-bg`, e.g. morph's
+  `rgba(240,245,250,0.8)`; superhero's is opaque `#4e5d6c`, NOT the body colour).
+- The menu font did NOT track Settings -> Font Size: Bootswatch re-declares
+  `.dropdown-menu { font-size: .875rem }` (a fixed 14px on superhero) AFTER the
+  Bootstrap `--bs-dropdown-font-size: 1rem`, so a later shared rule is needed.
+  `#smd-app .dropdown-menu { font-size: var(--smd-type-p) }` makes it follow the
+  body token. Probe (superhero, auto-hide on, menu open): before menuFont was a
+  fixed 14px; after it is 20.8px (xlarge body) -> 25.6px (jumbo), i.e. 1:1 with
+  `<body>`. The Gantt Streams filter menu (`#ganttPage .gantt-stream-menu`) and
+  the shared `<smd-image-dropdown>` `.menu` are unaffected (equal/later
+  specificity and not `.dropdown-menu` respectively).
