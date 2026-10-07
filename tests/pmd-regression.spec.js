@@ -257,7 +257,7 @@ test.describe("PlanMyDay - Regression", () => {
       }
     });
 
-    test("title is full-width on top; controls, stream name, badge and View share one row", async ({ page }) => {
+    test("stream name sits under the thumbnails; badge and View align on the right", async ({ page }) => {
       const svg = "data:image/svg+xml," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg"><rect width="10" height="10"/></svg>');
       await page.evaluate(({ data, ds, svg }) => {
         const streams = JSON.parse(JSON.stringify(data));
@@ -277,18 +277,15 @@ test.describe("PlanMyDay - Regression", () => {
       const view = await card.locator(".job-view-btn").boundingBox();
       const badge = await card.locator(".tab-badge").boundingBox();
       const streamThumb = await card.locator(".stream-thumb").boundingBox();
-      const jobThumb = await card.locator(".job-thumb").boundingBox();
       const centerY = (b) => b.y + b.height / 2;
-      // the title is full-width on its own top row, starting at the left edge
-      expect(title.y + title.height).toBeLessThanOrEqual(streamThumb.y + 1);
-      expect(title.x).toBeLessThan(streamThumb.x);
-      // the stream name is on the control row, to the RIGHT of the job thumbnail
-      expect(name.x).toBeGreaterThanOrEqual(jobThumb.x + jobThumb.width);
-      expect(Math.abs(centerY(name) - centerY(streamThumb))).toBeLessThan(8);
-      // badge and View share the right end of that row, right of the stream name
+      // name sits under the thumbnails (left column), not under the title
+      expect(name.y).toBeGreaterThan(streamThumb.y + streamThumb.height / 2);
+      expect(name.x).toBeCloseTo(streamThumb.x, 0);
+      // the title column starts right of the thumbnail/name column
+      expect(title.x).toBeGreaterThan(name.x);
+      // badge and View share the right column line, View to the right of the badge
       expect(Math.abs(centerY(view) - centerY(badge))).toBeLessThan(4);
       expect(view.x).toBeGreaterThanOrEqual(badge.x + badge.width);
-      expect(badge.x).toBeGreaterThan(name.x + name.width);
     });
 
     test("job thumbnail keeps its slot when the stream has no image", async ({ page }) => {
