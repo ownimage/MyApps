@@ -2064,26 +2064,19 @@ test.describe("PlanMyDay - Regression", () => {
       }, nestedSvg);
       await page.reload();
 
-      // Superhero deliberately pins --smd-image-theme: dark for BOTH modes, so it
-      // cannot exercise the per-mode overrides. Use a theme that does not pin it,
-      // so the stored light/dark variants are selected by data-bs-theme.
+      // The light/dark variant now follows the element's ACTUAL background, so
+      // use a theme whose body surface flips with the mode (flatly: light body
+      // in Light, dark body in Dark) to exercise both stored overrides.
       await page.evaluate(() => applyTheme("flatly"));
 
       for (const [theme, wantFill] of [["dark", "#ffffff"], ["light", "#000000"]]) {
-        // The shared --smd-image-theme palette now lives in the mode layer
-        // (themes/<mode>.css), so flipping data-bs-theme alone no longer
-        // switches it: the mode sheet has to be re-pointed too. applyThemeMode()
-        // is the API that does both, so use it rather than setting the attribute.
+        // applyThemeMode() re-points the mode override sheet and sets
+        // data-bs-theme, which is what flips the body surface (and therefore the
+        // resolved variant). Wait for the app's own resolver to report the
+        // requested variant before rendering the element.
         await page.evaluate((t) => {
           applyThemeMode("flatly", t);
         }, theme);
-        // applyThemeMode() swaps the theme override <link> asynchronously, and
-        // the default superhero.css pins --smd-image-theme to dark. Until
-        // flatly's override replaces it, BOTH <smd-image> and
-        // getThemedImageDataUrl() resolve dark, so the light iteration would
-        // render/compare #ffffff and the #000000 assertion fails under load.
-        // Wait for the app's own resolver to report the requested variant
-        // before rendering the element.
         await page.waitForFunction((want) => getThemeKey() === want, theme, { timeout: 15000 });
         await page.evaluate(() => {
           const el = document.createElement("smd-image");
@@ -2120,6 +2113,54 @@ test.describe("PlanMyDay - Regression", () => {
         expect(compare.text).toContain(`<path fill="${wantFill}"`);
         await page.evaluate(() => { document.querySelector("smd-image[image='NestedIcon']").remove(); });
       }
+    });
+
+    test("auto theme follows the element's background, not the theme mode", async ({ page }) => {
+      test.setTimeout(30000);
+      await page.goto("/PlanMyDay/");
+      const svg = "data:image/svg+xml," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg"><rect width="10" height="10"/></svg>');
+      await page.evaluate(({ svg }) => {
+        localStorage.clear();
+        localStorage.setItem("planmydays_theme", "bootstrap");
+        localStorage.setItem("planmydays_themeMode", "light");
+        localStorage.setItem("planmydays_streams", JSON.stringify([
+          { id: "s1", title: "Work", tab: "progress", image: "BgTest", sequence: 1,
+            jobs: [{ id: "job_1", title: "Report", description: "", active: true, frequency: "daily", sequence: 1, suffix: false, tasks: [], image: "BgTest" }] },
+          { id: "s2", title: "Chores", tab: "maintenance", image: "", sequence: 2, jobs: [] }
+        ]));
+        localStorage.setItem("planmydays_today_order", JSON.stringify(["job_1"]));
+        localStorage.setItem("shared-images", JSON.stringify([
+          { name: "BgTest", data: svg, themes: { light: { line: "none", fill: "#000000", width: null }, dark: { line: "none", fill: "#ffffff", width: null } } }
+        ]));
+      }, { svg });
+      await page.reload();
+      await page.waitForSelector("#todayCardList .today-drag-card");
+
+      const paintedFill = (sel) => page.evaluate(async (s) => {
+        const el = document.querySelector(s);
+        const img = el && el.querySelector("img");
+        if (!img || !img.getAttribute("src")) return null;
+        const txt = await (await fetch(img.getAttribute("src"))).text();
+        const m = txt.match(/fill="([^"]+)"/);
+        return m ? m[1] : null;
+      }, sel);
+
+      // bootstrap Light: the TODAY card surface is light -> the dark variant.
+      await page.waitForFunction(() => {
+        const img = document.querySelector("#todayCardList .stream-thumb smd-image img");
+        return img && img.getAttribute("src") && img.naturalWidth > 0;
+      }, null, { timeout: 10000 });
+      expect(await paintedFill("#todayCardList .stream-thumb smd-image")).toBe("#000000");
+
+      // The streams-editor header paints a DARK surface (color-mix primary/black)
+      // even in Light mode, so the SAME image must switch to the light variant.
+      await page.evaluate(() => openStreamsEditor());
+      await page.waitForSelector("#streamsEditor pmd-stream-header");
+      await page.waitForFunction(() => {
+        const img = document.querySelector("#streamsEditor pmd-stream-header .thumb smd-image img");
+        return img && img.getAttribute("src") && img.naturalWidth > 0;
+      }, null, { timeout: 10000 });
+      expect(await paintedFill("#streamsEditor pmd-stream-header .thumb smd-image")).toBe("#ffffff");
     });
 
     test("renders a bi: prefixed name as a bootstrap icon glyph", async ({ page }) => {

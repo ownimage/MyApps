@@ -22,7 +22,6 @@
 #smd-app #streamsEditor pmd-stream-header .stream-accordion-header {
     background-color: var(--bs-black) !important;
     color: var(--bs-white) !important;
-    --smd-image-theme: dark;
 }
 
 #smd-app #streamsEditor smd-badge.text-bg-info {

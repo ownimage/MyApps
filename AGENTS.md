@@ -3403,3 +3403,38 @@ Techniques / gotchas:
   `<body>`. The Gantt Streams filter menu (`#ganttPage .gantt-stream-menu`) and
   the shared `<smd-image-dropdown>` `.menu` are unaffected (equal/later
   specificity and not `.dropdown-menu` respectively).
+
+### 2026-10-07 (b) - smd-image auto theme now reads the element's ACTUAL background
+- BUG (user): with the stock `bootstrap` theme in Light mode, a black image on
+  the light `pmd-job-today-card` was fine, but the SAME image inside
+  `pmd-stream-header` (whose `.stream-accordion-header` paints a DARK
+  `color-mix(in hsl, var(--bs-primary) 50%, black)` even in Light mode) had no
+  contrast. `theme="auto"` used `--smd-image-theme` (a global mode variable), so
+  it could not react to a dark surface inside a light theme.
+- FIX (`shared/js/components/smd-image.js` `_autoTheme`): resolve the variant
+  from the element's real background. New module helpers
+  (`effectiveBackgroundColor` / `parseBackgroundColor` / `relativeLuminance` /
+  `isDarkBackground`) walk up from the host to the first ancestor that paints a
+  background (skipping `transparent`), then pick dark when the WCAG relative
+  luminance is < 0.179 (the black/white contrast crossover). The host is now
+  styled `background-color: inherit` (added to the injected `smd-image-layout`
+  sheet) so an image sitting directly on a surface resolves in one step; the walk
+  covers transparent wrappers such as pmd-stream-header's `.thumb`. Fallback when
+  nothing paints: `data-bs-theme`. `window.smdIsDarkBackground` is exported and
+  `smd-images.js`'s `isDarkTheme()` / `getThemeKey()` now use it (the editor's
+  "current theme" preview and `getThemedImageDataUrl` default).
+- PARSING GOTCHA: Chromium serialises a `color-mix()` background-color as
+  `color(srgb r g b)` (channels 0..1), NOT `rgb(...)`. The first cut only matched
+  `rgba?()` and so walked past the dark header to the white body and chose the
+  wrong variant. `parseBackgroundColor` now handles both `rgb()/rgba()` and
+  `color(srgb ...)`.
+- `--smd-image-theme` is REMOVED everywhere: `shared/css/themes/light.css`,
+  `dark.css`, `superhero.light.css` / `superhero.dark.css`, `cyborg.light.css`,
+  `darkly.light.css`, and the `pmd-stream-header`-scoped value in
+  `simplex.light.css`.
+- TDD: new `tests/pmd-regression.spec.js` "auto theme follows the element's
+  background, not the theme mode" (bootstrap Light: today-card thumb renders the
+  dark variant #000000; the streams-editor header thumb renders the light variant
+  #ffffff). Verified: pmd smd-image rendering 7/7, storybook 8/8 (card viewer,
+  all themes x both modes), image-edit-preview-size 10/10.
+- `BUILD_NUMBER` NOT bumped - bump before shipping (`npm run bump:build`).

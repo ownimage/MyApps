@@ -19,8 +19,6 @@
   --smd-page-header-background: color-mix(in hsl, var(--bs-primary) 50%, black);;
   --smd-page-header-color: var(--bs-white);
 
-  --smd-image-theme: light;
-
   /* Form-field palette for inputs, selects and the date picker. A theme
      reskins its fields by overriding these in its own stylesheet. */
   --smd-form-background: var(--bs-white);

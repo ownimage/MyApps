@@ -22,8 +22,6 @@
   --smd-page-header-background: var(--bs-primary);
   --smd-page-header-color: var(--bs-white);
 
-  --smd-image-theme: dark;
-
   /* Form-field palette - follow the theme's own dark surfaces. */
   --smd-form-background: var(--bs-body-bg);
   --smd-form-foreground: var(--bs-body-color);

@@ -277,10 +277,14 @@ function isSvgDataUrl(dataUrl) {
 }
 
 function isDarkTheme() {
-  // --smd-image-theme drives image colour rendering (default: mirrors
-  // html[data-bs-theme] via styles.css). Falls back to the attribute.
-  const v = getComputedStyle(document.documentElement).getPropertyValue("--smd-image-theme").trim().toLowerCase();
-  if (v === "dark" || v === "light") return v === "dark";
+  // The light/dark image variant follows the ACTUAL page background (the shared
+  // helper from smd-image.js), not a theme variable. Falls back to the theme
+  // mode attribute when the body paints no background.
+  const dark = typeof window.smdIsDarkBackground === "function"
+    ? window.smdIsDarkBackground(document.body)
+    : null;
+  if (dark === true) return true;
+  if (dark === false) return false;
   return (document.documentElement.getAttribute("data-bs-theme") || "dark") === "dark";
 }
 

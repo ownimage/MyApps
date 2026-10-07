@@ -4,7 +4,8 @@
 // Shared/reusable: the storage key prefix is supplied via the key-prefix
 // attribute (e.g. "planmydays_"), the image to show via `image` (its name),
 // and the theme via `theme` (auto | light | dark; default auto resolves from
-// the document's data-bs-theme). The list key is keyPrefix + "images".
+// the element's ACTUAL background colour, falling back to data-bs-theme). The
+// list key is keyPrefix + "images".
 //
 // Each stored image is { name, data, themes: { light: {line,fill,width}, dark: {...} } }.
 // data is a data: URL; SVG data URLs are recoloured from the matching theme
@@ -46,6 +47,58 @@
     if (overrides.fill != null && overrides.fill !== "") out = applySvgAttr(out, "fill", overrides.fill);
     if (overrides.width != null && overrides.width !== "") out = applySvgAttr(out, "stroke-width", overrides.width);
     return out;
+  }
+
+  // Parse a computed background-color into opaque sRGB channels (0..255), or
+  // null when it is transparent / unparseable. Handles the `rgb()/rgba()` form
+  // and the `color(srgb ...)` form Chromium returns for color-mix() results
+  // (e.g. the stream editor header). `color(srgb ...)` channels are 0..1.
+  function parseBackgroundColor(bg) {
+    if (!bg) return null;
+    let m = bg.match(/rgba?\(([^)]+)\)/);
+    if (m) {
+      const parts = m[1].split(/[,\s/]+/).filter(Boolean).map(Number);
+      const alpha = parts.length > 3 ? parts[3] : 1;
+      return alpha > 0 ? [parts[0], parts[1], parts[2]] : null;
+    }
+    m = bg.match(/color\(\s*srgb\s+([^)]+)\)/);
+    if (m) {
+      const parts = m[1].split(/[\s/]+/).filter(Boolean).map(Number);
+      const alpha = parts.length > 3 ? parts[3] : 1;
+      return alpha > 0 ? [parts[0] * 255, parts[1] * 255, parts[2] * 255] : null;
+    }
+    return null;
+  }
+
+  // Effective background detection for `theme="auto"`. The host is styled
+  // `background-color: inherit`, so an <smd-image> sitting directly on a surface
+  // resolves in one step; the ancestor walk then covers transparent wrappers
+  // (e.g. pmd-stream-header's `.thumb`). Returns the first painted background's
+  // sRGB channels, or null when every ancestor is transparent.
+  function effectiveBackgroundColor(el) {
+    let node = el;
+    while (node && node.nodeType === 1) {
+      const c = parseBackgroundColor(getComputedStyle(node).backgroundColor);
+      if (c) return c;
+      node = node.parentElement;
+    }
+    return null;
+  }
+
+  // WCAG relative luminance (0..1). Backgrounds below the 0.179 black/white
+  // contrast crossover are treated as dark and get the light image variant.
+  function relativeLuminance(r, g, b) {
+    const f = (c) => {
+      c = c / 255;
+      return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+    };
+    return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
+  }
+
+  function isDarkBackground(el) {
+    const bg = effectiveBackgroundColor(el);
+    if (!bg) return null;
+    return relativeLuminance(bg[0], bg[1], bg[2]) < 0.179;
   }
 
   const ICON_SETS = {
@@ -131,7 +184,7 @@
     connectedCallback() {
       if (typeof injectSmdComponentStyle === "function") {
         injectSmdComponentStyle("smd-image-layout", `
-          smd-image { display: inline-flex; align-items: center; justify-content: center; overflow: hidden; }
+          smd-image { display: inline-flex; align-items: center; justify-content: center; overflow: hidden; background-color: inherit; }
           smd-image img { display: block; max-width: 100%; max-height: 100%; }
           smd-image .smd-bi { display: inline-flex; align-items: center; justify-content: center; width: 100%; height: 100%; }
         `);
@@ -166,10 +219,13 @@
     }
 
     _autoTheme() {
-      // --smd-image-theme drives image colour rendering (default: mirrors
-      // html[data-bs-theme] via styles.css). Falls back to the attribute.
-      const v = getComputedStyle(this).getPropertyValue("--smd-image-theme").trim().toLowerCase();
-      if (v === "dark" || v === "light") return v;
+      // Pick the light or dark image variant from the element's ACTUAL
+      // background, so an image on a dark surface inside an otherwise light
+      // theme (e.g. pmd-stream-header) still gets the light variant. Falls back
+      // to the document theme mode when no ancestor paints a background.
+      const dark = isDarkBackground(this);
+      if (dark === true) return "dark";
+      if (dark === false) return "light";
       return (document.documentElement.getAttribute("data-bs-theme") || "dark") === "dark" ? "dark" : "light";
     }
 
@@ -333,4 +389,7 @@
     global.customElements.define("smd-image", SmdImage);
   }
   global.SmdImage = SmdImage;
+  // Shared by smd-images.js (the editor's "current theme" preview / thumbnails)
+  // so both resolve the light/dark variant from the same background luminance.
+  global.smdIsDarkBackground = isDarkBackground;
 })(window);
