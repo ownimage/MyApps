@@ -13,6 +13,7 @@ This repo is set up to host **multiple PWAs off one origin** (GitHub Pages
 - `QRLinks/` — link/QR app, served at `/<project>/QRLinks/` (same structure; own `manifest.json` + icons).
 - `SolarControlar/` — solar energy monitoring dashboard (front-end for the Flask server), served at `/<project>/SolarControlar/` (same structure; own `manifest.json` + icons).
 - `FreeFormOX/` — free-form noughts & crosses app, served at `/<project>/FreeFormOX/` (same structure; own `manifest.json` + icons).
+- `PhoneButtons/` — remote key-control prototype (front-end for the PhoneButtons Flask server), served at `/<project>/PhoneButtons/` (same structure; own `manifest.json` + icons).
 - `Launch/` + the repo-root `index.html` — the launcher (grid of the available apps), served at `/<project>/`. Its support files live in `Launch/`; the entry is the root `index.html`.
 - `sw.js` — a **single site-wide service worker at the repo root**. It must live at
   the root because a service worker can only intercept requests inside its scope,
@@ -57,6 +58,7 @@ npx playwright test tests/cmd-regression.spec.js
 npx playwright test tests/qrlinks-regression.spec.js
 npx playwright test tests/ffox-regression.spec.js
 npx playwright test tests/launch-regression.spec.js
+npx playwright test tests/phonebuttons-regression.spec.js
 ```
 
 ### Run a single test

@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#0d6efd">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <title>Phone Buttons</title>
+
+  <link rel="stylesheet" href="../shared/vendor/bootstrap-icons.css">
+  <link rel="stylesheet" href="../shared/vendor/fontawesome/css/fontawesome.min.css">
+  <link rel="stylesheet" href="../shared/vendor/fontawesome/css/solid.min.css">
+  <link rel="stylesheet" href="../shared/vendor/fontawesome/css/regular.min.css">
+  <link rel="stylesheet" href="../shared/vendor/fontawesome/css/brands.min.css">
+  <link id="bootstrap-theme-css" href="../shared/css/themes/superhero/bootstrap.min.css" rel="stylesheet">
+  <link id="smd-shared-css" rel="stylesheet" href="../shared/css/styles.css">
+  <link id="theme-override-mode" rel="stylesheet" href="../shared/css/themes/light.css">
+  <link id="theme-override-specific" rel="stylesheet" href="../shared/css/themes/superhero/superhero.light.css">
+  <script src="../shared/js/build-number.js"></script>
+  <script>
+    // Cache-bust every same-origin link (stylesheet/manifest/icon) with the
+    // build number so a new build always fetches fresh assets.
+    (function () {
+      if (typeof BUILD_NUMBER === "undefined") return;
+      var stamp = function (u) { return u + (u.indexOf("?") >= 0 ? "&" : "?") + "v=" + BUILD_NUMBER; };
+      var isLocal = function (u) { return u && u.indexOf("://") === -1 && u.charAt(0) !== "//"; };
+      document.querySelectorAll("link[href]").forEach(function (l) {
+        var h = l.getAttribute("href") || "";
+        if (isLocal(h) && h.indexOf("v=") === -1) l.setAttribute("href", stamp(h));
+      });
+    })();
+  </script>
+</head>
+
+<body id="smd-app">
+
+  <!-- FIXED TOOLBAR -->
+  <nav id="mainNav" class="navbar navbar-expand px-3 py-2 gap-1 flex-wrap">
+
+    <div class="dropdown">
+      <button id="btnMainMenu" class="btn p-1" data-bs-toggle="dropdown" title="Menu" aria-label="Menu">
+        <i class="fa-solid fa-bars fs-4" aria-hidden="true"></i>
+      </button>
+      <ul class="dropdown-menu">
+        <li><a class="dropdown-item" onclick="openSettings()">Settings</a></li>
+        <li><hr class="dropdown-divider"></li>
+        <li><a class="dropdown-item" href="../">Launch</a></li>
+        <li><hr class="dropdown-divider"></li>
+        <li><a class="dropdown-item" onclick="connectServer()">Connect</a></li>
+        <li><a class="dropdown-item" onclick="disconnectServer()">Disconnect</a></li>
+      </ul>
+    </div>
+
+  </nav>
+
+  <!-- MAIN CONTENT -->
+  <div id="mainContent" class="container-fluid px-3">
+
+    <h1 class="h4 mt-2 mb-0">Phone Buttons</h1>
+    <p class="text-body-secondary small">Remote key control for your PC (comms prototype)</p>
+
+    <!-- CONNECTION STATUS -->
+    <div class="card mb-3">
+      <div class="card-body">
+        <div class="d-flex align-items-center gap-2 mb-3">
+          <smd-badge id="connBadge" variant="secondary">Disconnected</smd-badge>
+          <span id="connDetail" class="small text-body-secondary"></span>
+        </div>
+
+        <div class="d-flex align-items-center gap-2 mb-3">
+          <img id="serverAppIcon" class="d-none rounded" alt="" width="32" height="32">
+          <div>
+            <div class="small text-body-secondary">Foreground app (from server)</div>
+            <div id="serverAppName" class="fw-semibold">&mdash;</div>
+          </div>
+        </div>
+
+        <div class="d-flex flex-wrap gap-2">
+          <button id="btnConnect" class="btn btn-success" onclick="connectServer()">Connect</button>
+          <button id="btnDisconnect" class="btn btn-outline-secondary" onclick="disconnectServer()" disabled>Disconnect</button>
+          <button id="btnPing" class="btn btn-primary" onclick="pingServer()" disabled>Ping</button>
+          <button id="btnTestKey" class="btn btn-warning" onclick="sendTestKey()" disabled>Send test key</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- CONNECTION LOG (the comms test harness) -->
+    <div class="mb-3">
+      <div class="d-flex align-items-center mb-1">
+        <span class="fw-semibold">Connection log</span>
+        <button class="btn btn-sm btn-outline-secondary ms-auto" onclick="clearCommLog()">Clear</button>
+      </div>
+      <div id="commLog" class="border rounded p-2 small" style="min-height:120px;max-height:44vh;overflow:auto;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace"></div>
+    </div>
+
+    <!-- SETTINGS PAGE (smd-page overlay) -->
+    <smd-page id="settingsPage" class="d-none"></smd-page>
+
+    <template id="settingsTemplate">
+      <div class="smd-settings">
+
+        <!-- Display -->
+        <section class="smd-settings-tab" data-tab="Display" data-tab-id="display-tab">
+          <smd-theme id="themeSelector" class="col-md-8 mt-3"></smd-theme>
+
+          <div class="row mb-4 align-items-center col-md-8">
+            <div class="col-4 text-end"><label class="form-label mb-0">Font size</label></div>
+            <div class="col-8">
+              <select id="fontSizeSelector" class="form-select" onchange="changeFontSize(this.value)">
+                <option value="xsmall">Extra small</option>
+                <option value="small">Small</option>
+                <option value="normal">Normal</option>
+                <option value="large">Large</option>
+                <option value="xlarge">Extra large</option>
+                <option value="jumbo">Jumbo</option>
+              </select>
+            </div>
+          </div>
+        </section>
+
+        <!-- Server -->
+        <section class="smd-settings-tab" data-tab="Server" data-tab-id="server-tab">
+          <div class="row mb-4 align-items-center col-md-8 mt-3">
+            <div class="col-4 text-end"><label class="form-label mb-0">Server URL</label></div>
+            <div class="col-8">
+              <input type="text" id="serverUrlInput" class="form-control" placeholder="http://192.168.1.50:5000" oninput="updateServerUrl(this.value)">
+              <div class="form-text">Base URL of the PhoneButtons server. Leave blank to use this page's own origin.</div>
+            </div>
+          </div>
+
+          <div class="row mb-4 align-items-center col-md-8">
+            <div class="col-4 text-end"><label class="form-label mb-0">Auth token</label></div>
+            <div class="col-8">
+              <input type="text" id="serverTokenInput" class="form-control" autocomplete="off" placeholder="Optional pairing token" oninput="updateServerToken(this.value)">
+              <div class="form-text">Sent to the server as a socket auth token and an Authorization header.</div>
+            </div>
+          </div>
+
+          <div class="row mb-4 align-items-center col-md-8">
+            <div class="col-4 text-end"><label class="form-label mb-0">Auto-connect</label></div>
+            <div class="col-8">
+              <smd-checkbox id="autoConnect" switch onchange="changeAutoConnect(this.checked)"></smd-checkbox>
+              <div class="form-text">Connect as soon as the app opens</div>
+            </div>
+          </div>
+
+          <div class="row mb-4 align-items-center col-md-8">
+            <div class="col-4 text-end"></div>
+            <div class="col-8">
+              <button class="btn btn-primary" onclick="testServerConnection()">Test connection</button>
+              <div id="serverTestResult" class="form-text"></div>
+            </div>
+          </div>
+        </section>
+
+        <div id="settingsFooter" class="mt-3">
+          <div class="row align-items-center col-md-8 mb-3">
+            <div class="col-4 text-end"></div>
+            <div class="col-8">
+              <a href="https://buymeacoffee.com/ownimage" target="_blank" rel="noopener">
+                <img src="../shared/vendor/bmc-default-yellow.png" alt="Buy Me A Coffee" height="50">
+              </a>
+            </div>
+          </div>
+
+          <div class="row mb-4 align-items-center col-md-8">
+            <div class="col-4 text-end"><label class="form-label mb-0">Share app</label></div>
+            <div class="col-8">
+              <smd-qrcode id="shareQrCode" value="https://ownimage.github.io/PhoneButtons" size="120"></smd-qrcode>
+            </div>
+          </div>
+
+          <div class="mt-5 small build-number">Build <span id="buildNumber"></span></div>
+
+          <smd-fontawesome-credit class="mt-2 d-block"></smd-fontawesome-credit>
+        </div>
+      </div>
+    </template>
+
+  </div>
+
+  <!-- BOOTSTRAP JS -->
+  <script>document.write('<script src="../shared/vendor/bootstrap.bundle.min.js?v=' + BUILD_NUMBER + '"><\/script>');</script>
+
+  <script>
+  document.write('<script src="../shared/js/library.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../shared/js/components/smd-button.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../shared/js/components/smd-modal.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../shared/js/components/smd-page.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../shared/js/components/smd-tabs.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../shared/js/components/smd-theme.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../shared/js/components/smd-checkbox.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../shared/js/components/smd-badge.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../shared/js/components/smd-qrcode.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../shared/js/components/smd-fontawesome-credit.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../shared/js/smd-app.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../shared/js/smd-settings.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="js/storage.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="js/api.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="js/socket.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="js/main-view.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="js/settings-tab.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="js/app.js?v=' + BUILD_NUMBER + '"><\/script>');
+  </script>
+
+<script>
+  if ("serviceWorker" in navigator) {
+    var __updatePrompted = false;
+    var __applyingUpdate = false;
+    var __dismissedUpdate = "";
+    var __dismissedBuild = "";
+    try {
+      __dismissedBuild = localStorage.getItem("swUpdateDismissedBuild") || "";
+      // The SW registers at a STABLE URL, so scriptURL alone can't tell one
+      // build from another. Only suppress the prompt when the previously
+      // dismissed update belongs to the CURRENT build; once a newer build
+      // loads, forget the dismissal so it can prompt again.
+      if (String(BUILD_NUMBER) === __dismissedBuild) {
+        __dismissedUpdate = localStorage.getItem("swUpdateDismissedUrl") || "";
+      } else {
+        localStorage.removeItem("swUpdateDismissedUrl");
+        localStorage.removeItem("swUpdateDismissedBuild");
+      }
+    } catch (e) { __dismissedUpdate = ""; }
+    function showUpdatePrompt(reg) {
+      var w = reg && reg.waiting;
+      if (w && w.scriptURL === __dismissedUpdate) return; // user already dismissed THIS pending SW
+      if (__updatePrompted) return;
+      __updatePrompted = true;
+      if (typeof showSmdModal === "function") {
+        showSmdModal({
+          title: "Update available",
+          content: "A new version of Phone Buttons is ready. Update now to get the latest changes?",
+          buttons: [
+            { text: "Later", variant: "secondary", action: "later" },
+            { text: "Update now", variant: "primary", action: "update" }
+          ],
+          onAction: function(detail) {
+            var pending = reg && reg.waiting;
+            if (!pending) return;
+            if (detail.action === "update") {
+              try { localStorage.removeItem("swUpdateDismissedUrl"); localStorage.removeItem("swUpdateDismissedBuild"); } catch (e) {}
+              __applyingUpdate = true;
+              pending.postMessage({ type: "SKIP_WAITING" });
+            } else if (detail.action === "later") {
+              try {
+                localStorage.setItem("swUpdateDismissedUrl", pending.scriptURL);
+                localStorage.setItem("swUpdateDismissedBuild", String(BUILD_NUMBER));
+              } catch (e) {}
+            }
+          }
+        });
+      }
+    }
+    window.__phoneButtonsSwUpdater = { showUpdatePrompt: showUpdatePrompt };
+
+    // STABLE worker url on purpose: versioning it would make the browser install
+    // a second worker for the same bump ("updates twice"). The update signal is
+    // the byte change in sw.js, whose inline BUILD_NUMBER is bumped with
+    // shared/js/build-number.js; smdRegisterServiceWorker also verifies at
+    // runtime that the worker and the page agree and repairs a drift.
+    var __registerSw = typeof smdRegisterServiceWorker === "function"
+      ? smdRegisterServiceWorker
+      : function(p) { return navigator.serviceWorker.register(p, { updateViaCache: "none" }); };
+    __registerSw("../sw.js").then(function(reg) {
+      if (navigator.serviceWorker.controller) {
+        if (reg.waiting) showUpdatePrompt(reg);
+        reg.addEventListener("updatefound", function() {
+          var inst = reg.installing;
+          if (!inst) return;
+          inst.addEventListener("statechange", function() {
+            if (inst.state === "installed" && navigator.serviceWorker.controller) showUpdatePrompt(reg);
+          });
+        });
+      }
+      // Force an immediate check on every visit: browsers throttle their own
+      // update checks (roughly once a day), so a freshly deployed build could
+      // otherwise take hours to surface the "Update available" prompt.
+      if (reg.update) reg.update();
+      window.addEventListener("focus", function() { if (reg.update) reg.update(); });
+    });
+
+    navigator.serviceWorker.addEventListener("controllerchange", function() {
+      if (!__applyingUpdate) return;
+      window.location.reload();
+    });
+  }
+</script>
+
+</body>
+</html>
