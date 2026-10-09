@@ -1,13 +1,16 @@
-// PhoneButtons — "Edit Layout" wizard (main menu).
+// PhoneButtons — "Manage Layout" page (main menu).
 //
-// Page 1 picks a layout from the shared <smd-image-dropdown>, fed by
-// GET /api/layouts. Page 2 edits the layout's icon (chosen from the server's
-// app-icon cache) and orientation, saved back via POST /api/save-layout.
-// `layoutDropdownOptions()` is reused by the Edit App wizard's layout picker.
+// ONE smd-page: pick a layout from the <pb-image-dropdown> (which also offers
+// "Add Layout…"), edit its display name / icon / orientation / buttons, and
+// Finish to save via POST /api/save-layout. Choosing "Add Layout…" reveals a
+// unique Key field used as the layout id. `layoutDropdownOptions()` is reused by
+// the Edit App wizard's layout picker.
 
-var _selectedLayoutKey = "";   // layout key chosen on page 1
 var _layoutsByKey = {};        // key -> layout object (from GET /api/layouts)
-var _selectedIconName = "";    // icon filename chosen in the layout editor
+var _selectedLayoutKey = "";   // currently selected layout key ("" while adding)
+var _selectedIconName = "";    // icon filename chosen for the layout
+var _addingLayout = false;     // true while the "Add Layout…" option is active
+var _appIcons = null;          // cached GET /api/app-icons list
 
 // Map the server's layouts catalog to <pb-image-dropdown> options: the visible
 // label is the displayName, `value` carries the layout KEY, and `imageUrl`
@@ -17,75 +20,44 @@ function layoutDropdownOptions(layouts) {
     return {
       name: layout.displayName || layout.key,
       value: layout.key,
-      imageUrl: layout.image ? "/app-icon-cache/" + encodeURIComponent(layout.image) : ""
+      imageUrl: layout.image ? iconCacheUrl(layout.image) : ""
     };
   });
 }
 
-function buildLayoutSelectPage() {
-  var page = document.getElementById("layoutSelectPage");
-  if (!page) return null;
-  page.title = "Select Layout";
+function iconCacheUrl(name) {
+  return "/app-icon-cache/" + encodeURIComponent(name);
+}
+
+// Slug a display name into a layout key, kept unique against the loaded set.
+function slugify(name) {
+  return String(name || "").toLowerCase().trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function uniqueKey(base) {
+  var key = base || "layout";
+  if (!_layoutsByKey[key]) return key;
+  var i = 2;
+  while (_layoutsByKey[key + "-" + i]) i++;
+  return key + "-" + i;
+}
+
+// ---- Manage Layout page ----
+
+function buildManageLayoutContent(page) {
+  page.title = "Manage Layout";
   page.content =
     '<div class="mb-3">' +
-      '<label class="form-label" for="layoutDropdown">Layout</label>' +
-      '<pb-image-dropdown id="layoutDropdown"></pb-image-dropdown>' +
-      '<div id="layoutSelectHint" class="form-text"></div>' +
-    '</div>';
-  page.buttons = [
-    { text: "Cancel", variant: "secondary", action: "cancel" },
-    { text: "Next", variant: "primary", action: "next" }
-  ];
-  return page;
-}
-
-function loadLayoutsIntoDropdown() {
-  var dropdown = document.getElementById("layoutDropdown");
-  if (!dropdown) return;
-  var hint = document.getElementById("layoutSelectHint");
-  if (hint) hint.textContent = "Loading layouts\u2026";
-  pbApi.getLayouts().then(function (layouts) {
-    _layoutsByKey = {};
-    layouts.forEach(function (layout) { _layoutsByKey[layout.key] = layout; });
-    dropdown.options = layoutDropdownOptions(layouts);
-    dropdown.selected = layouts.length ? (layouts[0].displayName || layouts[0].key) : "";
-    _selectedLayoutKey = layouts.length ? layouts[0].key : "";
-    var h = document.getElementById("layoutSelectHint");
-    if (h) h.textContent = layouts.length ? "" : "No layouts found on the server.";
-  }).catch(function (err) {
-    var h = document.getElementById("layoutSelectHint");
-    if (h) h.textContent = "Could not load layouts: " + err.message;
-    _commLine("Edit Layout: load layouts failed: " + err.message, "error");
-  });
-}
-
-function openEditLayoutWizard() {
-  var page = buildLayoutSelectPage();
-  if (!page) return;
-  if (!page.__pbWizardBound) {
-    page.__pbWizardBound = true;
-    page.addEventListener("pb-image-dropdown-change", function (e) {
-      var detail = e.detail || {};
-      _selectedLayoutKey = detail.value || detail.name || "";
-    });
-    page.addEventListener("smd-page-action", function (e) {
-      var action = e.detail && e.detail.action;
-      if (action === "next") openEditLayoutPage();
-    });
-  }
-  _openWizardPage(page);
-  loadLayoutsIntoDropdown();
-}
-
-// ---- Page 2: the layout editor (icon + orientation) ----
-
-function buildLayoutEditPage(layout) {
-  var page = document.getElementById("layoutEditPage");
-  if (!page) return null;
-  page.title = "Layout";
-  page.content =
-    '<p class="text-body-secondary small mb-3">Editing <strong>' +
-      escapeHtml(layout.displayName || layout.key) + '</strong></p>' +
+      '<label class="form-label" for="manageLayoutDropdown">Layout</label>' +
+      '<pb-image-dropdown id="manageLayoutDropdown"></pb-image-dropdown>' +
+      '<div id="manageLayoutHint" class="form-text"></div>' +
+    '</div>' +
+    '<div class="mb-3">' +
+      '<label class="form-label" for="manageLayoutNameInput">Display name</label>' +
+      '<input type="text" id="manageLayoutNameInput" class="form-control" placeholder="Layout name">' +
+    '</div>' +
     '<div class="row mb-3 align-items-center">' +
       '<div class="col-4 text-end"><label class="form-label mb-0" for="layoutIconDropdown">Icon</label></div>' +
       '<div class="col-8">' +
@@ -105,15 +77,137 @@ function buildLayoutEditPage(layout) {
         '</select>' +
       '</div>' +
     '</div>' +
-    '<div class="d-grid gap-2 mb-3">' +
-      layoutButtonHtml(layout, 0) +
-      layoutButtonHtml(layout, 1) +
-    '</div>';
+    '<div id="manageLayoutButtons" class="d-grid gap-2 mb-3"></div>';
   page.buttons = [
     { text: "Cancel", variant: "secondary", action: "cancel" },
-    { text: "Finish", variant: "success", action: "finish" }
+    { text: "Finish", variant: "success", action: "finish", close: false }
   ];
-  return page;
+}
+
+function setManageHint(msg) {
+  var hint = document.getElementById("manageLayoutHint");
+  if (hint) hint.textContent = msg || "";
+}
+
+function openManageLayout() {
+  var page = document.getElementById("manageLayoutPage");
+  if (!page) return;
+  if (!page.__pbWizardBound) {
+    page.__pbWizardBound = true;
+    page.addEventListener("pb-image-dropdown-change", function (e) {
+      var id = e.target && e.target.id;
+      var value = (e.detail && e.detail.value) || "";
+      if (id === "manageLayoutDropdown") {
+        if (value === "__add__") applyAddLayout();
+        else if (_layoutsByKey[value]) applySelectedLayout(_layoutsByKey[value]);
+      } else if (id === "layoutIconDropdown") {
+        _selectedIconName = value;
+        changeLayoutIcon(_selectedIconName);
+      }
+    });
+    page.addEventListener("smd-page-action", function (e) {
+      var action = e.detail && e.detail.action;
+      if (action === "finish") finishManageLayout();
+    });
+  }
+  buildManageLayoutContent(page);
+  _openWizardPage(page);
+  loadManageLayout();
+}
+
+function loadManageLayout() {
+  var dropdown = document.getElementById("manageLayoutDropdown");
+  setManageHint("Loading layouts\u2026");
+  pbApi.getLayouts().then(function (layouts) {
+    _layoutsByKey = {};
+    layouts.forEach(function (layout) { _layoutsByKey[layout.key] = layout; });
+    // "Add Layout…" is the TOP option, then the existing layouts.
+    var options = [{ name: "Add Layout\u2026", value: "__add__", imageUrl: "" }]
+      .concat(layoutDropdownOptions(layouts));
+    if (dropdown) dropdown.options = options;
+    setManageHint("");
+    if (layouts.length) {
+      var first = layouts[0];
+      if (dropdown) dropdown.selected = first.displayName || first.key;
+      applySelectedLayout(first);
+    } else {
+      if (dropdown) dropdown.selected = "Add Layout\u2026";
+      applyAddLayout();
+    }
+  }).catch(function (err) {
+    setManageHint("Could not load layouts: " + err.message);
+    _commLine("Manage Layout: load layouts failed: " + err.message, "error");
+  });
+}
+
+// Populate the fields from an existing layout.
+function applySelectedLayout(layout) {
+  _addingLayout = false;
+  _selectedLayoutKey = layout.key;
+  var nameInput = document.getElementById("manageLayoutNameInput");
+  if (nameInput) nameInput.value = layout.displayName || layout.key;
+  applyLayoutIconAndOrientation(layout);
+  renderManageButtons(layout);
+}
+
+// Blank the fields for a brand-new layout (its key is auto-generated on save).
+function applyAddLayout() {
+  _addingLayout = true;
+  _selectedLayoutKey = "";
+  var nameInput = document.getElementById("manageLayoutNameInput");
+  if (nameInput) nameInput.value = "";
+  setManageHint("");
+  applyLayoutIconAndOrientation({ image: "", orientation: "landscape" });
+  renderManageButtons({ buttons: [] });
+}
+
+function applyLayoutIconAndOrientation(layout) {
+  var orientation = document.getElementById("layoutOrientationSelect");
+  if (orientation) orientation.value = layout.orientation === "portrait" ? "portrait" : "landscape";
+  _selectedIconName = layout.image || "";
+  loadLayoutIconOptions(layout);
+}
+
+function finishManageLayout() {
+  var nameInput = document.getElementById("manageLayoutNameInput");
+  var orientation = document.getElementById("layoutOrientationSelect");
+  var displayName = nameInput ? nameInput.value.trim() : "";
+  var orient = orientation ? orientation.value : "landscape";
+  var key = _selectedLayoutKey;
+  if (_addingLayout) {
+    if (!displayName) { setManageHint("Enter a display name."); return; }
+    // The key is auto-generated (and made unique) from the display name.
+    key = uniqueKey(slugify(displayName));
+  }
+  if (!key) { setManageHint("Select or add a layout."); return; }
+  var existing = _layoutsByKey[key] || {};
+  setManageHint("");
+  var payload = {
+    key: key,
+    displayName: displayName || key,
+    image: _selectedIconName || "",
+    orientation: orient,
+    // Persist the buttons as part of the layout.
+    buttons: existing.buttons || []
+  };
+  pbApi.saveLayout(payload).then(function () {
+    _layoutsByKey[key] = payload;
+    _commLine("Manage Layout: saved '" + key + "'", "ok");
+    closeManageLayout();
+  }).catch(function (err) {
+    setManageHint("Save failed: " + err.message);
+  });
+}
+
+function closeManageLayout() {
+  _hideWizardPage(document.getElementById("manageLayoutPage"));
+}
+
+// ---- Layout buttons (image + name) ----
+
+function renderManageButtons(layout) {
+  var container = document.getElementById("manageLayoutButtons");
+  if (container) container.innerHTML = layoutButtonHtml(layout, 0) + layoutButtonHtml(layout, 1);
 }
 
 // A layout button shows its shared image (if set) with the name beside it.
@@ -128,7 +222,7 @@ function layoutButtonHtml(layout, index) {
     '</button>';
 }
 
-// Reflect a saved button back onto the (possibly suspended) layout page.
+// Reflect a saved button back onto the (possibly suspended) manage page.
 function refreshLayoutButton(index) {
   var layout = _layoutsByKey[_selectedLayoutKey] || {};
   var btn = (layout.buttons && layout.buttons[index]) || {};
@@ -140,6 +234,8 @@ function refreshLayoutButton(index) {
     else img.removeAttribute("image");
   }
 }
+
+// ---- Layout icon picker (server app-icon cache) ----
 
 // Show the chosen cached icon (or hide the preview for "None"). A missing file
 // (the cache entry was deleted) is reported instead of leaving a broken image.
@@ -160,11 +256,39 @@ function changeLayoutIcon(name) {
     img.hidden = true;
     if (hint) hint.textContent = "Icon '" + name + "' is no longer in the server cache.";
   };
-  img.src = "/app-icon-cache/" + encodeURIComponent(name);
+  img.src = iconCacheUrl(name);
 }
 
-function iconCacheUrl(name) {
-  return "/app-icon-cache/" + encodeURIComponent(name);
+function loadLayoutIconOptions(layout) {
+  var dropdown = document.getElementById("layoutIconDropdown");
+  var hint = document.getElementById("layoutIconHint");
+  if (!dropdown) return;
+  var apply = function (icons) {
+    var options = [{ name: "None", value: "", imageUrl: "" }];
+    icons.forEach(function (name) {
+      options.push({ name: name, value: name, imageUrl: iconCacheUrl(name) });
+    });
+    var stored = layout.image || "";
+    var missing = !!stored && icons.indexOf(stored) === -1;
+    if (missing) {
+      // An explicit option for an icon that is no longer in the cache, so the
+      // user can see what was set and replace it.
+      options.push({ name: stored + " (missing)", value: stored, imageUrl: iconCacheUrl(stored) });
+    }
+    dropdown.options = options;
+    dropdown.selected = missing ? (stored + " (missing)") : (stored || "None");
+    _selectedIconName = stored;
+    if (hint) hint.textContent = missing ? "Saved icon '" + stored + "' is no longer in the server cache." : "";
+    changeLayoutIcon(stored);
+  };
+  if (_appIcons) { apply(_appIcons); return; }
+  pbApi.getAppIcons().then(function (icons) {
+    _appIcons = icons;
+    apply(icons);
+  }).catch(function (err) {
+    if (hint) hint.textContent = "Could not load icons: " + err.message;
+    _commLine("Manage Layout: load icons failed: " + err.message, "error");
+  });
 }
 
 // ---- Button editor (smd-page) ----
@@ -304,6 +428,10 @@ function readButtonKey() {
 }
 
 function openButtonEditor(index) {
+  if (_addingLayout || !_selectedLayoutKey) {
+    _commLine("Manage Layout: save the layout before editing its buttons.", "info");
+    return;
+  }
   _editingButtonIndex = index;
   var page = buildButtonEditPage();
   if (!page) return;
@@ -340,83 +468,9 @@ function saveButtonEditor() {
       layout.buttons[index] = { name: name, image: image, key: key };
     }
     refreshLayoutButton(index);
-    _commLine("Edit Layout: saved button " + (index + 1) + " (" + (name || "unnamed") + ", image " +
+    _commLine("Manage Layout: saved button " + (index + 1) + " (" + (name || "unnamed") + ", image " +
       (image || "none") + ", key " + (key || "none") + ")", "ok");
   }).catch(function (err) {
-    _commLine("Edit Layout: save button failed: " + err.message, "error");
+    _commLine("Manage Layout: save button failed: " + err.message, "error");
   });
-}
-
-// Populate the icon <pb-image-dropdown> from the server's app-icon cache (small
-// thumbs in the menu) while the chosen icon shows large in the preview.
-function loadLayoutIconOptions(layout) {
-  var dropdown = document.getElementById("layoutIconDropdown");
-  var hint = document.getElementById("layoutIconHint");
-  if (!dropdown) return;
-  pbApi.getAppIcons().then(function (icons) {
-    var options = [{ name: "None", value: "", imageUrl: "" }];
-    icons.forEach(function (name) {
-      options.push({ name: name, value: name, imageUrl: iconCacheUrl(name) });
-    });
-    var stored = layout.image || "";
-    var missing = !!stored && icons.indexOf(stored) === -1;
-    if (missing) {
-      // An explicit option for an icon that is no longer in the cache, so the
-      // user can see what was set and replace it.
-      options.push({ name: stored + " (missing)", value: stored, imageUrl: iconCacheUrl(stored) });
-    }
-    dropdown.options = options;
-    dropdown.selected = missing ? (stored + " (missing)") : (stored || "None");
-    _selectedIconName = stored;
-    if (missing && hint) hint.textContent = "Saved icon '" + stored + "' is no longer in the server cache.";
-    changeLayoutIcon(stored);
-  }).catch(function (err) {
-    if (hint) hint.textContent = "Could not load icons: " + err.message;
-    _commLine("Edit Layout: load icons failed: " + err.message, "error");
-  });
-}
-
-function saveLayout() {
-  var orientation = document.getElementById("layoutOrientationSelect");
-  var existing = _layoutsByKey[_selectedLayoutKey] || {};
-  var payload = {
-    key: _selectedLayoutKey,
-    displayName: existing.displayName || _selectedLayoutKey,
-    image: _selectedIconName || "",
-    orientation: orientation ? orientation.value : "landscape",
-    // Persist the buttons as part of the layout.
-    buttons: existing.buttons || []
-  };
-  pbApi.saveLayout(payload).then(function () {
-    _layoutsByKey[_selectedLayoutKey] = payload;
-    _commLine("Edit Layout: saved '" + payload.key + "' (icon " + (payload.image || "none") +
-      ", " + payload.orientation + ")", "ok");
-  }).catch(function (err) {
-    _commLine("Edit Layout: save failed: " + err.message, "error");
-  });
-}
-
-function openEditLayoutPage() {
-  var layout = _layoutsByKey[_selectedLayoutKey] ||
-    { key: _selectedLayoutKey, displayName: _selectedLayoutKey, image: "", orientation: "landscape" };
-  var page = buildLayoutEditPage(layout);
-  if (!page) return;
-  if (!page.__pbWizardBound) {
-    page.__pbWizardBound = true;
-    page.addEventListener("pb-image-dropdown-change", function (e) {
-      if (e.target && e.target.id === "layoutIconDropdown") {
-        _selectedIconName = (e.detail && e.detail.value) || "";
-        changeLayoutIcon(_selectedIconName);
-      }
-    });
-    page.addEventListener("smd-page-action", function (e) {
-      var action = e.detail && e.detail.action;
-      if (action === "finish") saveLayout();
-    });
-  }
-  _openWizardPage(page);
-
-  var orientation = document.getElementById("layoutOrientationSelect");
-  if (orientation) orientation.value = layout.orientation === "portrait" ? "portrait" : "landscape";
-  loadLayoutIconOptions(layout);
 }

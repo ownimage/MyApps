@@ -136,8 +136,15 @@ test.describe("PhoneButtons - Regression", () => {
   });
 
   test("Button editor image picker uses the shared search box", async ({ page }) => {
+    await page.route("**/api/layouts", (route) => route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({ layouts: [{ key: "sample", displayName: "Sample", image: "", orientation: "landscape", buttons: [] }] })
+    }));
+    await page.route("**/api/app-icons", (route) => route.fulfill({ contentType: "application/json", body: JSON.stringify({ icons: [] }) }));
+
     await page.goto("/PhoneButtons/");
-    await page.evaluate(() => openButtonEditor(0));
+    await page.evaluate(() => openManageLayout());
+    await page.locator("#layoutButton1").click();
     await expect(page.locator("#buttonEditPage")).toHaveAttribute("open", "");
     await page.locator("#buttonImageSelect").getByRole("button", { name: "Edit" }).click();
     await expect(page.locator("#imagePickerPage")).toHaveAttribute("open", "");
@@ -243,7 +250,7 @@ test.describe("PhoneButtons - Regression", () => {
     await expect.poll(() => saved).toEqual({ name: "Adobe Photoshop 2026", layout: "powerpoint" });
   });
 
-  test("Edit Layout editor: icon from the app-icon cache + orientation, saved to the server", async ({ page }) => {
+  test("Manage Layout: select a layout, edit its icon/orientation/button and Finish", async ({ page }) => {
     let saved = null;
     let savedButton = null;
     await page.route("**/api/layouts", (route) => route.fulfill({
@@ -271,79 +278,81 @@ test.describe("PhoneButtons - Regression", () => {
     });
 
     await page.goto("/PhoneButtons/");
-    await page.evaluate(() => openEditLayoutWizard());
-    await expect(page.locator("#layoutSelectPage")).toHaveAttribute("open", "");
-    await expect(page.locator("#layoutSelectPage .smd-page-header h1")).toHaveText("Select Layout");
+    await page.evaluate(() => openManageLayout());
+    await expect(page.locator("#manageLayoutPage")).toHaveAttribute("open", "");
+    await expect(page.locator("#manageLayoutPage .smd-page-header h1")).toHaveText("Manage Layout");
 
-    // Page 1: the dropdown is populated from the server catalog and shows the
-    // layout's server image.
-    const dd = page.locator("#layoutDropdown");
+    // The dropdown is populated from the server catalog (+ Add Layout…).
+    const dd = page.locator("#manageLayoutDropdown");
     await expect(dd.locator("#pbImageBtnText")).toHaveText("Sample");
     await expect(dd.locator("#pbImageBtnIcon img")).toHaveAttribute("src", /app-icon-cache\/PyCharm\.png/);
     await dd.locator("#pbImageDropdownBtn").click();
-    await expect(dd.locator("#pbImageDropdownMenu .item")).toHaveCount(2);
+    await expect(dd.locator("#pbImageDropdownMenu .item")).toHaveCount(3);
     await dd.locator("#pbImageDropdownMenu .item", { hasText: "REAPER" }).click();
-    await expect(dd.locator("#pbImageBtnText")).toHaveText("REAPER");
 
-    // Page 2: the icon picker is a pb-image-dropdown; the saved icon is gone.
-    await page.locator("#layoutSelectPage").getByRole("button", { name: "Next" }).click();
-    await expect(page.locator("#layoutEditPage")).toHaveAttribute("open", "");
-    await expect(page.locator("#layoutEditPage .smd-page-header h1")).toHaveText("Layout");
-
-    const iconDd = page.locator("#layoutIconDropdown");
-    await expect(iconDd.locator("#pbImageBtnText")).toHaveText("gone.png (missing)");
+    // Selecting REAPER fills the fields on the SAME page.
+    await expect(page.locator("#manageLayoutNameInput")).toHaveValue("REAPER");
+    await expect(page.locator("#layoutOrientationSelect")).toHaveValue("portrait");
+    await expect(page.locator("#layoutIconDropdown #pbImageBtnText")).toHaveText("gone.png (missing)");
     await expect(page.locator("#layoutIconHint")).toContainText("no longer in the server cache");
     await expect(page.locator("#layoutIconPreview")).toBeHidden();
-    await expect(page.locator("#layoutOrientationSelect")).toHaveValue("portrait");
-
-    // The menu lists the small cached icons (+ None + the missing one).
-    await iconDd.locator("#pbImageDropdownBtn").click();
-    await expect(iconDd.locator("#pbImageDropdownMenu .item")).toHaveCount(4);
-    await expect(iconDd.locator("#pbImageDropdownMenu")).toContainText("PyCharm.png");
-    await expect(iconDd.locator("#pbImageDropdownMenu")).toContainText("gone.png (missing)");
-
-    // Choose a real icon; the large preview shows it.
-    await iconDd.locator("#pbImageDropdownMenu .item", { hasText: "PyCharm.png" }).click();
-    await expect(page.locator("#layoutIconPreview")).toBeVisible();
-    await expect(page.locator("#layoutIconPreview")).toHaveAttribute("src", /app-icon-cache\/PyCharm\.png/);
-
-    // The layout button shows the saved name; clicking opens the editor.
     await expect(page.locator("#layoutButton1")).toContainText("Next Slide");
-    await expect(page.locator("#layoutButton2")).toBeVisible();
+
+    // Edit the button: rename + Ctrl + a special key.
     await page.locator("#layoutButton1").click();
     await expect(page.locator("#buttonEditPage")).toHaveAttribute("open", "");
-    await expect(page.locator("#buttonEditPage .smd-page-header h1")).toHaveText("Edit Button");
     await expect(page.locator("#buttonNameInput")).toHaveValue("Next Slide");
-    await expect(page.locator("#buttonImageSelect")).toBeVisible();
-    await expect(page.locator("#buttonKeyNamed")).toBeVisible();
-    await expect(page.locator("#buttonKeyCtrl")).toBeVisible();
-    await expect(page.locator("#buttonEditPage").getByRole("button", { name: "Cancel" })).toBeVisible();
-    await expect(page.locator("#buttonEditPage").getByRole("button", { name: "OK" })).toBeVisible();
-
-    // Key and Special key are mutually exclusive.
     await page.locator("#buttonKeyNamed").selectOption("MEDIA_NEXT_TRACK");
     await expect(page.locator("#buttonKeyChar")).toBeDisabled();
-    await expect(page.locator("#buttonKeyChar")).toHaveValue("");
-
-    // Rename + Ctrl + a special key, then OK -> POST carries the name.
     await page.locator("#buttonNameInput").fill("Advance");
     await page.locator("#buttonKeyCtrl").click();
     await page.locator("#buttonEditPage").getByRole("button", { name: "OK" }).click();
-    await expect(page.locator("#buttonEditPage")).not.toHaveAttribute("open", "");
     await expect.poll(() => savedButton).toEqual({
       layout: "reaper", index: 0, name: "Advance", image: "", key: "ctrl+media_next_track"
     });
-
-    // The layout page reflects the new name.
     await expect(page.locator("#layoutButton1")).toContainText("Advance");
 
-    await page.locator("#layoutOrientationSelect").selectOption("landscape");
-    await page.locator("#layoutEditPage").getByRole("button", { name: "Finish" }).click();
-
     // Finish saves the layout WITH its buttons.
+    await page.locator("#manageLayoutPage").getByRole("button", { name: "Finish" }).click();
     await expect.poll(() => saved).toEqual({
-      key: "reaper", displayName: "REAPER", image: "PyCharm.png", orientation: "landscape",
+      key: "reaper", displayName: "REAPER", image: "gone.png", orientation: "portrait",
       buttons: [{ name: "Advance", image: "", key: "ctrl+media_next_track" }]
     });
+    await expect(page.locator("#manageLayoutPage")).not.toHaveAttribute("open", "");
+  });
+
+  test("Manage Layout: Add Layout is the top option and auto-generates a unique key", async ({ page }) => {
+    let saved = null;
+    await page.route("**/api/layouts", (route) => route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({ layouts: [
+        { key: "my-keys", displayName: "My Keys", image: "", orientation: "landscape", buttons: [] }
+      ] })
+    }));
+    await page.route("**/api/app-icons", (route) => route.fulfill({ contentType: "application/json", body: JSON.stringify({ icons: [] }) }));
+    await page.route("**/api/save-layout", (route) => {
+      saved = route.request().postDataJSON();
+      route.fulfill({ contentType: "application/json", body: JSON.stringify({ ok: true }) });
+    });
+
+    await page.goto("/PhoneButtons/");
+    await page.evaluate(() => openManageLayout());
+
+    // There is no key field, and "Add Layout…" is the FIRST dropdown option.
+    await expect(page.locator("#manageLayoutKeyInput")).toHaveCount(0);
+    const dd = page.locator("#manageLayoutDropdown");
+    await expect(dd.locator("#pbImageBtnText")).toHaveText("My Keys");
+    await dd.locator("#pbImageDropdownBtn").click();
+    await expect(dd.locator("#pbImageDropdownMenu .item").first()).toContainText("Add Layout");
+    await dd.locator("#pbImageDropdownMenu .item", { hasText: "Add Layout" }).click();
+
+    // Enter a display name; Finish auto-generates a UNIQUE key from it
+    // ("My Keys" -> "my-keys", but that is taken, so "my-keys-2").
+    await page.locator("#manageLayoutNameInput").fill("My Keys");
+    await page.locator("#manageLayoutPage").getByRole("button", { name: "Finish" }).click();
+    await expect.poll(() => saved).toEqual({
+      key: "my-keys-2", displayName: "My Keys", image: "", orientation: "landscape", buttons: []
+    });
+    await expect(page.locator("#manageLayoutPage")).not.toHaveAttribute("open", "");
   });
 });

@@ -18,9 +18,9 @@
       "orientation": "landscape",
       "buttons": [
         {
-          "image": "Baby",
-          "key": "a",
-          "name": "Big button 1"
+          "name": "Big button 1",
+          "image": "",
+          "key": "a"
         },
         {
           "image": "Baby Girl",
@@ -57,6 +57,12 @@
           "key": "shift+w"
         }
       ]
+    },
+    "bob": {
+      "displayName": "Bob",
+      "image": "",
+      "orientation": "landscape",
+      "buttons": []
     }
   },
   "app-layouts": {
