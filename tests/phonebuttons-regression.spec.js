@@ -143,4 +143,33 @@ test.describe("PhoneButtons - Regression", () => {
     await page.locator("#settingsPage").getByRole("button", { name: "OK" }).click();
     await expect(page.locator("#settingsPage")).not.toHaveAttribute("open", "");
   });
+
+  test("Edit App wizard: Select App -> Layout, Cancel/Next then Cancel/Finish", async ({ page }) => {
+    await page.goto("/PhoneButtons/");
+    await page.waitForFunction(() => typeof window.__serverConnect === "function");
+    await page.evaluate(() => window.__serverConnect());
+    await page.evaluate(() => window.__serverEmit("app_change", {
+      name: "Adobe Photoshop 2026",
+      icon: "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"
+    }));
+
+    // Page 1: Select App.
+    await page.evaluate(() => openEditApp());
+    await expect(page.locator("#editAppPage")).toHaveAttribute("open", "");
+    await expect(page.locator("#editAppPage .smd-page-header h1")).toHaveText("Select App");
+    await expect(page.locator("#editAppPage .smd-page-body")).toContainText("Adobe Photoshop 2026");
+    await expect(page.locator("#editAppPage .smd-page-body img")).toBeVisible();
+    await expect(page.locator("#editAppPage").getByRole("button", { name: "Cancel" })).toBeVisible();
+
+    // Next -> page 2: Layout.
+    await page.locator("#editAppPage").getByRole("button", { name: "Next" }).click();
+    await expect(page.locator("#editLayoutPage")).toHaveAttribute("open", "");
+    await expect(page.locator("#editLayoutPage .smd-page-header h1")).toHaveText("Layout");
+    await expect(page.locator("#editLayoutPage").getByRole("button", { name: "Cancel" })).toBeVisible();
+    await expect(page.locator("#editLayoutPage").getByRole("button", { name: "Finish" })).toBeVisible();
+
+    // Finish closes.
+    await page.locator("#editLayoutPage").getByRole("button", { name: "Finish" }).click();
+    await expect(page.locator("#editLayoutPage")).not.toHaveAttribute("open", "");
+  });
 });

@@ -108,6 +108,11 @@ button.btn-sm, .btn-sm { font-size: var(--smd-type-p, 1rem); }
    menu to the shared p token so it tracks <body> like the rest of the UI. */
 #mainNav .dropdown-menu {
   background-color: var(--bs-body-bg);
+  /* Bootstrap's default divider is a translucent BLACK (Bootswatch keeps it
+     opaque-black per theme), which vanishes against the dark menu surface in
+     themes like superhero (both modes). Use the theme's solid border colour,
+     which is chosen to contrast with --bs-body-bg. */
+  --bs-dropdown-divider-bg: var(--bs-border-color);
   font-size: var(--smd-type-p);
 }
 

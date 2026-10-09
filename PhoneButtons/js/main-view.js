@@ -11,6 +11,10 @@
 var _pbCommLogLines = [];
 var _pbCommLogMax = 200;
 
+// Last foreground app pushed by the server ({ name, icon }); the Edit App
+// wizard shows it.
+var _pbCurrentApp = null;
+
 function _commLine(text, kind) {
   var ts = new Date().toTimeString().slice(0, 8);
   _pbCommLogLines.push({ text: "[" + ts + "] " + text, kind: kind || "" });
@@ -93,6 +97,7 @@ function bindSocketUi() {
 
   pbSocket.on("app_change", function (data) {
     data = data || {};
+    _pbCurrentApp = { name: data.name || "Unknown", icon: data.icon || "" };
     var nameEl = document.getElementById("serverAppName");
     if (nameEl) nameEl.textContent = data.name || "Unknown";
     var iconEl = document.getElementById("serverAppIcon");
