@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#0d6efd">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <title>Phone Buttons</title>
+
+  <link rel="stylesheet" href="../shared/vendor/bootstrap-icons.css">
+  <link rel="stylesheet" href="../shared/vendor/fontawesome/css/fontawesome.min.css">
+  <link rel="stylesheet" href="../shared/vendor/fontawesome/css/solid.min.css">
+  <link rel="stylesheet" href="../shared/vendor/fontawesome/css/regular.min.css">
+  <link rel="stylesheet" href="../shared/vendor/fontawesome/css/brands.min.css">
+  <link id="bootstrap-theme-css" href="../shared/css/themes/superhero/bootstrap.min.css" rel="stylesheet">
+  <link id="smd-shared-css" rel="stylesheet" href="../shared/css/styles.css">
+  <link id="theme-override-mode" rel="stylesheet" href="../shared/css/themes/light.css">
+  <link id="theme-override-specific" rel="stylesheet" href="../shared/css/themes/superhero/superhero.light.css">
+  <script src="../shared/js/build-number.js"></script>
+  <script>
+    // Cache-bust every same-origin link (stylesheet/manifest/icon) with the
+    // build number so a new build always fetches fresh assets.
+    (function () {
+      if (typeof BUILD_NUMBER === "undefined") return;
+      var stamp = function (u) { return u + (u.indexOf("?") >= 0 ? "&" : "?") + "v=" + BUILD_NUMBER; };
+      var isLocal = function (u) { return u && u.indexOf("://") === -1 && u.charAt(0) !== "//"; };
+      document.querySelectorAll("link[href]").forEach(function (l) {
+        var h = l.getAttribute("href") || "";
+        if (isLocal(h) && h.indexOf("v=") === -1) l.setAttribute("href", stamp(h));
+      });
+    })();
+  </script>
+  <style>
+    /* Layout grid cells (main view + Manage Layout). Fixed square cells whose
+       content (one or two images + a name) is centred and clipped, so every cell
+       is the same size. A custom class (not .btn) avoids a Bootstrap .btn's
+       sticky :hover/:focus fill after a touch tap. */
+    .pb-layout-grid { display: grid; gap: 6px; justify-content: center; }
+    #layoutButtons { justify-content: center; }
+    .pb-grid-cell {
+      display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
+      gap: 2px; overflow: hidden; padding: 2px; box-sizing: border-box;
+      /* Page surface, NOT --bs-tertiary-bg (which is light in superhero in BOTH
+         modes, so the themed text/images vanished against it). */
+      background-color: var(--bs-body-bg);
+      color: var(--bs-body-color);
+      border: 1px solid var(--bs-border-color);
+      border-radius: 0.5rem;
+      touch-action: none;
+      -webkit-tap-highlight-color: transparent;
+      transition: transform 0.05s ease, opacity 0.05s ease;
+    }
+    .pb-grid-cell:active, .pb-grid-cell.pressed { transform: scale(0.96); opacity: 0.85; }
+    .pb-grid-cell:focus, .pb-grid-cell:focus-visible { outline: none; box-shadow: none; }
+    /* Thumbs fill the space ABOVE the name, so the name sits at a fixed distance
+       from the bottom whether the button shows one image or two. */
+    .pb-grid-cell .pb-cell-thumbs { flex: 1 1 auto; min-height: 0; display: flex; gap: 2px; align-items: center; justify-content: center; overflow: hidden; }
+    .pb-grid-cell .pb-cell-name { flex: 0 0 auto; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 1.1; }
+    .pb-grid-cell.empty { border-style: dashed; opacity: 0.55; }
+    .pb-grid-cell.pb-grid-spacer { visibility: hidden; }
+    .pb-grid-cell smd-image { pointer-events: none; }
+
+    /* Manage Layout grid: drag one cell onto another to swap them. The dragged
+       cell dims and gets a DANGER border (it is leaving its slot); the drop
+       target gets a SUCCESS border. Both use the same ring thickness. */
+    .pb-layout-grid .pb-grid-cell { cursor: grab; touch-action: none; }
+    .pb-layout-grid .pb-grid-cell.dragging { cursor: grabbing; opacity: 0.6; border-color: var(--bs-danger); box-shadow: 0 0 0 2px var(--bs-danger); }
+    .pb-layout-grid .pb-grid-cell.drag-over { border-color: var(--bs-success); box-shadow: 0 0 0 2px var(--bs-success); }
+  </style>
+</head>
+
+<body id="smd-app">
+
+  <!-- FIXED TOOLBAR -->
+  <nav id="mainNav" class="navbar navbar-expand px-3 py-2 gap-2 flex-wrap">
+
+    <div class="dropdown">
+      <button id="btnMainMenu" class="btn p-1" data-bs-toggle="dropdown" title="Menu" aria-label="Menu">
+        <i class="fa-solid fa-bars fs-4" aria-hidden="true"></i>
+      </button>
+      <ul class="dropdown-menu">
+        <li><a class="dropdown-item" onclick="openSettings()">Settings</a></li>
+        <li><hr class="dropdown-divider"></li>
+        <li><a class="dropdown-item" onclick="openManageApp()">Manage App</a></li>
+        <li><a class="dropdown-item" onclick="openManageLayout()">Manage Layout</a></li>
+        <li><hr class="dropdown-divider"></li>
+        <li><a class="dropdown-item" onclick="connectServer()">Connect</a></li>
+        <li><a class="dropdown-item" onclick="disconnectServer()">Disconnect</a></li>
+      </ul>
+    </div>
+
+    <!-- The currently running app (pushed on app_change) -->
+    <img id="serverAppIcon" class="d-none rounded" alt="" width="32" height="32">
+    <span id="serverAppName" class="fw-semibold">&mdash;</span>
+
+  </nav>
+
+  <!-- MAIN CONTENT — only the current application's layout buttons -->
+  <div id="mainContent" class="container-fluid px-3 pt-3">
+
+    <!-- LAYOUT BUTTONS for the current application (pushed on app_change) -->
+    <div id="layoutButtons" class="d-grid gap-2 mb-3 d-none"></div>
+
+    <!-- SETTINGS PAGE (smd-page overlay) -->
+    <smd-page id="settingsPage" class="d-none"></smd-page>
+
+    <!-- MANAGE APP (smd-page) -->
+    <smd-page id="manageAppPage" class="d-none"></smd-page>
+
+    <!-- MANAGE LAYOUT (smd-page) -->
+    <smd-page id="manageLayoutPage" class="d-none"></smd-page>
+
+    <!-- BUTTON EDIT + IMAGE PICKER (smd-page) -->
+    <smd-page id="buttonEditPage" class="d-none"></smd-page>
+    <smd-page id="imagePickerPage" class="d-none"></smd-page>
+
+    <template id="settingsTemplate">
+      <div class="smd-settings">
+
+        <!-- Display -->
+        <section class="smd-settings-tab" data-tab="Display" data-tab-id="display-tab">
+          <smd-theme id="themeSelector" class="col-md-8 mt-3"></smd-theme>
+
+          <div class="row mb-4 align-items-center col-md-8">
+            <div class="col-4 text-end"><label class="form-label mb-0">Font size</label></div>
+            <div class="col-8">
+              <select id="fontSizeSelector" class="form-select" onchange="changeFontSize(this.value)">
+                <option value="xsmall">Extra small</option>
+                <option value="small">Small</option>
+                <option value="normal">Normal</option>
+                <option value="large">Large</option>
+                <option value="xlarge">Extra large</option>
+                <option value="jumbo">Jumbo</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="row mb-4 align-items-center col-md-8">
+            <div class="col-4 text-end"><label class="form-label mb-0">Image size</label></div>
+            <div class="col-8">
+              <select id="iconSizeSelector" class="form-select" onchange="changeIconSize(this.value)">
+                <option value="xsmall">Extra small (32x32)</option>
+                <option value="small">Small (40x40)</option>
+                <option value="medium">Medium (50x50)</option>
+                <option value="large">Large (64x64)</option>
+                <option value="xlarge">Extra large (80x80)</option>
+                <option value="jumbo">Jumbo (100x100)</option>
+              </select>
+              <div class="form-text">Sizes the buttons in the Layout Manager grid.</div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Server -->
+        <section class="smd-settings-tab" data-tab="Server" data-tab-id="server-tab">
+          <div class="d-flex align-items-center gap-2 mt-3 mb-3">
+            <smd-badge id="connBadge" variant="secondary">Disconnected</smd-badge>
+            <span id="connDetail" class="small text-body-secondary"></span>
+          </div>
+          <div id="serverButtonGrid" class="mb-3" style="display:grid;grid-template-columns:repeat(2,1fr);gap:.5rem">
+            <button id="btnConnect" class="btn btn-success" onclick="connectServer()">Connect</button>
+            <button id="btnDisconnect" class="btn btn-danger" onclick="disconnectServer()" disabled>Disconnect</button>
+            <button id="btnPing" class="btn btn-primary" onclick="pingServer()" disabled>Ping</button>
+            <button id="btnTestKey" class="btn btn-warning" onclick="sendTestKey()" disabled>Send test key</button>
+          </div>
+
+          <div class="d-flex align-items-center mb-1">
+            <span class="fw-semibold">Connection log</span>
+            <button class="btn btn-sm btn-danger ms-auto" onclick="clearCommLog()">Clear</button>
+          </div>
+          <div id="commLog" class="border rounded p-2 small" style="min-height:120px;max-height:44vh;overflow:auto;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace"></div>
+
+          <div class="row mb-3 align-items-center col-md-8 mt-3">
+            <div class="col-4 text-end"><label class="form-label mb-0">Show background apps</label></div>
+            <div class="col-8">
+              <smd-checkbox id="showBackgroundApps" switch onchange="changeShowBackgroundApps(this.checked)"></smd-checkbox>
+              <div class="form-text">Include windowless processes in the Manage App list.</div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Danger -->
+        <section class="smd-settings-tab" data-tab="Danger" data-tab-id="danger-tab">
+          <div class="row mb-3 align-items-center col-md-8 mt-3">
+            <div class="col-4 text-end"><label class="form-label mb-0">Show danger</label></div>
+            <div class="col-8">
+              <smd-checkbox id="showDanger" switch onchange="changeShowDanger(this.checked)"></smd-checkbox>
+            </div>
+          </div>
+
+          <div id="refreshAppRow" class="row mb-3 align-items-center col-md-8 d-none">
+            <div class="col-4 text-end"></div>
+            <div class="col-8">
+              <button id="btnRefreshApp" class="btn btn-warning w-100" onclick="location.reload()">Refresh App</button>
+            </div>
+          </div>
+
+          <div id="clearStorageRow" class="row mb-3 align-items-center col-md-8 d-none">
+            <div class="col-4 text-end"></div>
+            <div class="col-8">
+              <button id="btnClearStorage" class="btn btn-danger w-100" onclick="clearLocalStorage()">Clear Local Storage</button>
+            </div>
+          </div>
+        </section>
+
+        <div id="settingsFooter" class="mt-3">
+          <div class="row align-items-center col-md-8 mb-3">
+            <div class="col-4 text-end"></div>
+            <div class="col-8">
+              <a href="https://buymeacoffee.com/ownimage" target="_blank" rel="noopener">
+                <img src="../shared/vendor/bmc-default-yellow.png" alt="Buy Me A Coffee" height="50">
+              </a>
+            </div>
+          </div>
+
+          <div class="row mb-4 align-items-center col-md-8">
+            <div class="col-4 text-end"><label class="form-label mb-0">Share app</label></div>
+            <div class="col-8">
+              <smd-qrcode id="shareQrCode" value="https://ownimage.github.io/PhoneButtons" size="120"></smd-qrcode>
+            </div>
+          </div>
+
+          <div class="mt-5 small build-number">Build <span id="buildNumber"></span></div>
+
+          <smd-fontawesome-credit class="mt-2 d-block"></smd-fontawesome-credit>
+        </div>
+      </div>
+    </template>
+
+  </div>
+
+  <!-- BOOTSTRAP JS -->
+  <script>document.write('<script src="../shared/vendor/bootstrap.bundle.min.js?v=' + BUILD_NUMBER + '"><\/script>');</script>
+
+  <script>
+  document.write('<script src="../shared/js/library.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../shared/js/components/smd-button.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../shared/js/components/smd-modal.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../shared/js/components/smd-page.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../shared/js/components/smd-tabs.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../shared/js/components/smd-theme.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../shared/js/components/smd-checkbox.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../shared/js/components/smd-badge.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../shared/js/components/smd-image.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../shared/js/components/smd-image-select.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../shared/js/components/smd-search.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../shared/js/components/smd-image-picker.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../shared/js/components/smd-qrcode.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../shared/js/components/smd-fontawesome-credit.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../shared/js/smd-app.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../shared/js/smd-settings.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../shared/js/smd-images.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="js/socket.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="js/main-view.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="js/api.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="js/settings-tab.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="js/components/pb-image-dropdown.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="js/edit-app.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="js/edit-layout.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="js/app.js?v=' + BUILD_NUMBER + '"><\/script>');
+  </script>
+
+</body>
+</html>
