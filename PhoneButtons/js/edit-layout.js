@@ -89,7 +89,7 @@ function setManageHint(msg) {
   if (hint) hint.textContent = msg || "";
 }
 
-function openManageLayout() {
+function openManageLayout(preselect) {
   var page = document.getElementById("manageLayoutPage");
   if (!page) return;
   if (!page.__pbWizardBound) {
@@ -112,10 +112,10 @@ function openManageLayout() {
   }
   buildManageLayoutContent(page);
   _openWizardPage(page);
-  loadManageLayout();
+  loadManageLayout(preselect);
 }
 
-function loadManageLayout() {
+function loadManageLayout(preselect) {
   var dropdown = document.getElementById("manageLayoutDropdown");
   setManageHint("Loading layouts\u2026");
   pbApi.getLayouts().then(function (layouts) {
@@ -126,7 +126,14 @@ function loadManageLayout() {
       .concat(layoutDropdownOptions(layouts));
     if (dropdown) dropdown.options = options;
     setManageHint("");
-    if (layouts.length) {
+    if (preselect === "__add__") {
+      if (dropdown) dropdown.selected = "Add Layout\u2026";
+      applyAddLayout();
+    } else if (preselect && _layoutsByKey[preselect]) {
+      var wanted = _layoutsByKey[preselect];
+      if (dropdown) dropdown.selected = wanted.displayName || wanted.key;
+      applySelectedLayout(wanted);
+    } else if (layouts.length) {
       var first = layouts[0];
       if (dropdown) dropdown.selected = first.displayName || first.key;
       applySelectedLayout(first);

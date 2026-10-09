@@ -118,6 +118,66 @@ def _get_app_layout(name):
         "buttons": layout.get("buttons", []),
     }
 
+
+def _list_running_apps():
+    """Running applications as {name, icon, background, layout}.
+    `background` is True for processes with no visible window; `layout` is the
+    layout key assigned to the app (or "")."""
+    try:
+        with open(CONFIG_PATH, "r") as f:
+            app_layouts = json.load(f).get("app-layouts", {})
+    except (FileNotFoundError, json.JSONDecodeError):
+        app_layouts = {}
+
+    visible = {}  # name -> (exe, hwnd)
+
+    def _collect(hwnd, _lparam):
+        try:
+            if not win32gui.IsWindowVisible(hwnd):
+                return True
+            if not win32gui.GetWindowText(hwnd):
+                return True
+            _, pid = win32process.GetWindowThreadProcessId(hwnd)
+            exe = psutil.Process(pid).exe()
+        except Exception:
+            return True
+        name = _get_friendly_name(exe)
+        if name and name not in visible:
+            visible[name] = (exe, hwnd)
+        return True
+
+    try:
+        win32gui.EnumWindows(_collect, 0)
+    except Exception as e:
+        _debug(f"EnumWindows error: {e}")
+
+    apps = {}
+    for name, (exe, hwnd) in visible.items():
+        apps[name] = {
+            "name": name,
+            "icon": _cache_icon(exe, hwnd, name),
+            "background": False,
+            "layout": app_layouts.get(name, ""),
+        }
+    # Background apps: processes without a visible window.
+    for proc in psutil.process_iter(["exe"]):
+        try:
+            exe = proc.info.get("exe")
+            if not exe:
+                continue
+            name = _get_friendly_name(exe)
+        except Exception:
+            continue
+        if not name or name in apps:
+            continue
+        apps[name] = {
+            "name": name,
+            "icon": _cache_icon(exe, None, name),
+            "background": True,
+            "layout": app_layouts.get(name, ""),
+        }
+    return sorted(apps.values(), key=lambda a: a["name"].lower())
+
 def _on_foreground_change(hWinEventHook, event, hwnd, idObject, idChild, dwEventThread, dwmsEventTime):
     global _current_app
     try:
@@ -216,7 +276,19 @@ def _set_app_icon_pref(name, source):
         pass
 
 
+_friendly_name_cache = {}
+
+
 def _get_friendly_name(exe_path):
+    name = _friendly_name_cache.get(exe_path)
+    if name is not None:
+        return name
+    name = _friendly_name_uncached(exe_path)
+    _friendly_name_cache[exe_path] = name
+    return name
+
+
+def _friendly_name_uncached(exe_path):
     try:
         size = _VersionDll.GetFileVersionInfoSizeW(exe_path, None)
         if not size:
@@ -702,10 +774,16 @@ def api_layouts():
     return jsonify({"layouts": result})
 
 
+@app.route("/api/apps")
+def api_apps():
+    """The running applications (for the Manage App page's app dropdown)."""
+    return jsonify({"apps": _list_running_apps()})
+
+
 @app.route("/api/app-icons")
 def api_app_icons():
     """The cached application icons (PNGs extracted from foreground windows).
-    The Edit Layout icon picker is populated from this list."""
+    The Manage Layout icon picker is populated from this list."""
     icons = []
     try:
         for fname in sorted(os.listdir(ICON_DIR)):

@@ -18,14 +18,14 @@
       "orientation": "landscape",
       "buttons": [
         {
-          "name": "Big button 1",
-          "image": "",
-          "key": "a"
+          "name": "Next slide",
+          "image": "bi:skip-forward-fill",
+          "key": "right"
         },
         {
-          "image": "Baby Girl",
-          "key": "x",
-          "name": "Pink Baby"
+          "name": "Prev Slide",
+          "image": "bi:skip-backward-fill",
+          "key": "left"
         }
       ]
     },

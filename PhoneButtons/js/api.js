@@ -21,10 +21,17 @@ var pbApi = {
     });
   },
 
-  // The cached application icons (used by the Edit Layout icon picker).
+  // The cached application icons (used by the Manage Layout icon picker).
   getAppIcons: function () {
     return this._fetch("/api/app-icons").then(function (data) {
       return data.icons || [];
+    });
+  },
+
+  // The running applications (used by the Manage App page's app dropdown).
+  getApps: function () {
+    return this._fetch("/api/apps").then(function (data) {
+      return data.apps || [];
     });
   },
 

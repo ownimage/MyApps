@@ -188,8 +188,16 @@ test.describe("PhoneButtons - Regression", () => {
     await expect(page.locator("#settingsPage")).not.toHaveAttribute("open", "");
   });
 
-  test("Edit App wizard: Select App -> Layout (server layouts), Cancel/Next then Cancel/Finish", async ({ page }) => {
+  test("Manage App: background toggle + layout follows the selected app", async ({ page }) => {
     let saved = null;
+    await page.route("**/api/apps", (route) => route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({ apps: [
+        { name: "Microsoft PowerPoint", icon: "", background: false, layout: "powerpoint" },
+        { name: "Adobe Photoshop 2026", icon: "", background: false, layout: "" },
+        { name: "ApCent", icon: "", background: true, layout: "" }
+      ] })
+    }));
     await page.route("**/api/layouts", (route) => route.fulfill({
       contentType: "application/json",
       body: JSON.stringify({ layouts: [
@@ -205,49 +213,41 @@ test.describe("PhoneButtons - Regression", () => {
     await page.goto("/PhoneButtons/");
     await page.waitForFunction(() => typeof window.__serverConnect === "function");
     await page.evaluate(() => window.__serverConnect());
-    await page.evaluate(() => window.__serverEmit("app_change", {
-      name: "Adobe Photoshop 2026",
-      icon: "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"
-    }));
+    await page.evaluate(() => window.__serverEmit("app_change", { name: "Microsoft PowerPoint", icon: "", layout: null }));
 
-    // Page 1: Select App.
-    await page.evaluate(() => openEditApp());
-    await expect(page.locator("#editAppPage")).toHaveAttribute("open", "");
-    await expect(page.locator("#editAppPage .smd-page-header h1")).toHaveText("Select App");
-    await expect(page.locator("#editAppPage .smd-page-body")).toContainText("Select the App on the PC");
-    await expect(page.locator("#editAppPage .smd-page-body")).toContainText("Adobe Photoshop 2026");
-    await expect(page.locator("#editAppPage .smd-page-body img")).toBeVisible();
-    await expect(page.locator("#editAppPage").getByRole("button", { name: "Cancel" })).toBeVisible();
+    await page.evaluate(() => openManageApp());
+    await expect(page.locator("#manageAppPage .smd-page-header h1")).toHaveText("Manage App");
 
-    // The app icon + name block is centered horizontally in the page body.
-    const dx = await page.evaluate(() => {
-      const body = document.querySelector("#editAppPage .smd-page-body");
-      const center = document.getElementById("editAppCenter");
-      const b = body.getBoundingClientRect();
-      const c = center.getBoundingClientRect();
-      return Math.abs((c.left + c.right) / 2 - (b.left + b.right) / 2);
-    });
-    expect(dx).toBeLessThan(2);
-
-    // Next -> page 2: Layout, populated from GET /api/layouts into the dropdown.
-    await page.locator("#editAppPage").getByRole("button", { name: "Next" }).click();
-    await expect(page.locator("#editLayoutPage")).toHaveAttribute("open", "");
-    await expect(page.locator("#editLayoutPage .smd-page-header h1")).toHaveText("Layout");
-    await expect(page.locator("#editLayoutPage").getByRole("button", { name: "Cancel" })).toBeVisible();
-    await expect(page.locator("#editLayoutPage").getByRole("button", { name: "Finish" })).toBeVisible();
-
-    // The smd-image-dropdown lists the server layouts.
-    const layoutDd = page.locator("#editLayoutDropdown");
-    await expect(layoutDd.locator("#pbImageBtnText")).toHaveText("Sample");
-    await layoutDd.locator("#pbImageDropdownBtn").click();
-    await expect(layoutDd.locator("#pbImageDropdownMenu .item")).toHaveCount(2);
-    await layoutDd.locator("#pbImageDropdownMenu .item", { hasText: "PowerPoint" }).click();
+    // App defaults to the foreground app; its assigned layout is reflected.
+    const appDd = page.locator("#manageAppDropdown");
+    const layoutDd = page.locator("#manageAppLayoutDropdown");
+    await expect(appDd.locator("#pbImageBtnText")).toHaveText("Microsoft PowerPoint");
     await expect(layoutDd.locator("#pbImageBtnText")).toHaveText("PowerPoint");
 
-    // Finish POSTs the app's chosen layout.
-    await page.locator("#editLayoutPage").getByRole("button", { name: "Finish" }).click();
-    await expect(page.locator("#editLayoutPage")).not.toHaveAttribute("open", "");
-    await expect.poll(() => saved).toEqual({ name: "Adobe Photoshop 2026", layout: "powerpoint" });
+    // Background apps are hidden by default.
+    await appDd.locator("#pbImageDropdownBtn").click();
+    await expect(appDd.locator("#pbImageDropdownMenu .item")).toHaveCount(2);
+    await expect(appDd.locator("#pbImageDropdownMenu")).not.toContainText("ApCent");
+    await appDd.locator("#pbImageDropdownMenu .item", { hasText: "Microsoft PowerPoint" }).click();
+
+    // Turning on "Show background apps" reveals them.
+    await page.locator("#manageAppShowBackground").click();
+    await appDd.locator("#pbImageDropdownBtn").click();
+    await expect(appDd.locator("#pbImageDropdownMenu .item")).toHaveCount(3);
+    await expect(appDd.locator("#pbImageDropdownMenu")).toContainText("ApCent");
+
+    // Changing the application changes the layout (Photoshop has none -> Add).
+    await appDd.locator("#pbImageDropdownMenu .item", { hasText: "Adobe Photoshop 2026" }).click();
+    await expect(appDd.locator("#pbImageBtnText")).toHaveText("Adobe Photoshop 2026");
+    await expect(layoutDd.locator("#pbImageBtnText")).toContainText("Add Layout");
+
+    // Pick a layout, then Finish saves the assignment.
+    await layoutDd.locator("#pbImageDropdownBtn").click();
+    await layoutDd.locator("#pbImageDropdownMenu .item", { hasText: "Sample" }).click();
+    await expect(layoutDd.locator("#pbImageBtnText")).toHaveText("Sample");
+    await page.locator("#manageAppPage").getByRole("button", { name: "Finish" }).click();
+    await expect.poll(() => saved).toEqual({ name: "Adobe Photoshop 2026", layout: "sample" });
+    await expect(page.locator("#manageAppPage")).not.toHaveAttribute("open", "");
   });
 
   test("Manage Layout: select a layout, edit its icon/orientation/button and Finish", async ({ page }) => {

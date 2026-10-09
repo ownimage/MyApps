@@ -38,8 +38,11 @@ on the phone.
 
 - `GET /api/layouts` — the layout catalog (`config.json` -> `layouts`), used by
   both wizards' "Select Layout" dropdowns.
+- `GET /api/apps` — the running applications (each with its icon, a `background`
+  flag for windowless processes, and its assigned `layout`), for the Manage App
+  page's app dropdown.
 - `GET /api/app-icons` — the cached application icons (PNGs in
-  `app-icon-cache/`), used by the Edit Layout icon picker.
+  `app-icon-cache/`), used by the Manage Layout icon picker.
 - `POST /api/save-app-layout` — persist which layout an app uses
   (`{name, layout}`) into `config.json` -> `app-layouts`.
 - `POST /api/save-layout` — persist a layout definition
