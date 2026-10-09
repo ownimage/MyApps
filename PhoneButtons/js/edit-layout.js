@@ -338,13 +338,15 @@ function buildButtonEditPage() {
       '<label class="form-label" for="buttonNameInput">Name</label>' +
       '<input type="text" id="buttonNameInput" class="form-control" placeholder="Button name">' +
     '</div>' +
-    '<div class="mb-3">' +
-      '<label class="form-label">Image 1</label>' +
-      '<smd-image-select id="buttonImage1Select" key-prefix="shared-"></smd-image-select>' +
-    '</div>' +
-    '<div class="mb-3">' +
-      '<label class="form-label">Image 2</label>' +
-      '<smd-image-select id="buttonImage2Select" key-prefix="shared-"></smd-image-select>' +
+    '<div class="row mb-3">' +
+      '<div class="col-6">' +
+        '<label class="form-label">Image 1</label>' +
+        '<smd-image-select id="buttonImage1Select" key-prefix="shared-"></smd-image-select>' +
+      '</div>' +
+      '<div class="col-6">' +
+        '<label class="form-label">Image 2</label>' +
+        '<smd-image-select id="buttonImage2Select" key-prefix="shared-"></smd-image-select>' +
+      '</div>' +
     '</div>' +
     '<div class="mb-3">' +
       '<label class="form-label">Key</label>' +
