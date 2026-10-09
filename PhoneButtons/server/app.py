@@ -846,7 +846,8 @@ def api_save_layout_button():
         buttons.append({})
     buttons[index] = {
         "name": data.get("name", ""),
-        "image": data.get("image", ""),
+        "image1": data.get("image1", ""),
+        "image2": data.get("image2", ""),
         "key": data.get("key", ""),
     }
     with open(CONFIG_PATH, "w", newline="\n") as f:

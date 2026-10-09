@@ -25,9 +25,34 @@ function changeShowBackgroundApps(enabled) {
   setShowBackgroundApps(enabled);
 }
 
-// Danger tab: the "Show danger" switch reveals the danger rows (Refresh App).
+// Danger tab: the "Show danger" switch reveals the danger rows.
 function changeShowDanger(enabled) {
-  smdChangeShowDanger(enabled, ["refreshAppRow"]);
+  smdChangeShowDanger(enabled, ["refreshAppRow", "clearStorageRow"]);
+}
+
+// Clear localStorage EXCEPT the shared image library, theme, theme mode and
+// font size.
+function clearLocalStorageExcept() {
+  var keep = ["shared-images", smdKey("theme"), smdKey("themeMode"), smdKey("fontSize")];
+  Object.keys(localStorage).forEach(function (key) {
+    if (keep.indexOf(key) === -1) localStorage.removeItem(key);
+  });
+}
+
+function clearLocalStorage() {
+  showSmdModal({
+    title: "Clear local storage?",
+    content: "Clears all PhoneButtons settings. Keeps the shared image library, theme, theme mode and font size.",
+    buttons: [
+      { text: "Cancel", variant: "secondary", action: "cancel" },
+      { text: "Clear", variant: "danger", action: "clear" }
+    ],
+    onAction: function (detail) {
+      if (detail.action !== "clear") return;
+      clearLocalStorageExcept();
+      location.reload();
+    }
+  });
 }
 
 // Runs after the Settings page is (re)built: refresh the Server tab's button
@@ -44,7 +69,7 @@ function restoreServerTab() {
 }
 
 function openSettings() {
-  smdSetupSettingsPage({ restore: restoreServerTab, dangerIds: ["refreshAppRow"] });
+  smdSetupSettingsPage({ restore: restoreServerTab, dangerIds: ["refreshAppRow", "clearStorageRow"] });
 }
 
 function closeSettings() {

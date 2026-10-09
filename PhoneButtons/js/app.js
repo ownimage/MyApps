@@ -20,7 +20,10 @@ document.addEventListener("DOMContentLoaded", function () {
   // Shared image library + picker, used by the Button editor's image field.
   if (typeof seedSampleImages === "function") seedSampleImages();
   smdBindImagePicker();
-  smdBindImageSelectActions({ buttonImageSelect: buttonImageSelectHandler });
+  smdBindImageSelectActions({
+    buttonImage1Select: buttonImage1SelectHandler,
+    buttonImage2Select: buttonImage2SelectHandler
+  });
 
   _commLine("Phone Buttons ready.", "info");
 

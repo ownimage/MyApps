@@ -34,6 +34,26 @@
       });
     })();
   </script>
+  <style>
+    /* Layout buttons (main view + Manage Layout). A Bootstrap .btn leaves a
+       sticky :hover/:focus fill after a touch tap, so these use a custom class
+       whose only feedback is the transient :active press. */
+    .pb-layout-btn {
+      display: flex; align-items: center; gap: 0.5rem; text-align: left;
+      width: 100%; box-sizing: border-box; padding: 0.5rem 0.75rem;
+      background-color: var(--bs-tertiary-bg);
+      color: var(--bs-body-color);
+      border: 1px solid var(--bs-border-color);
+      border-radius: 0.5rem;
+      font-size: var(--smd-type-h2, 1.25em);
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+      transition: transform 0.05s ease, opacity 0.05s ease;
+    }
+    .pb-layout-btn:active { transform: scale(0.97); opacity: 0.8; }
+    .pb-layout-btn:focus, .pb-layout-btn:focus-visible { outline: none; box-shadow: none; }
+    .pb-layout-btn smd-image { pointer-events: none; flex-shrink: 0; }
+  </style>
 </head>
 
 <body id="smd-app">
@@ -144,6 +164,13 @@
             <div class="col-4 text-end"></div>
             <div class="col-8">
               <button id="btnRefreshApp" class="btn btn-warning w-100" onclick="location.reload()">Refresh App</button>
+            </div>
+          </div>
+
+          <div id="clearStorageRow" class="row mb-3 align-items-center col-md-8 d-none">
+            <div class="col-4 text-end"></div>
+            <div class="col-8">
+              <button id="btnClearStorage" class="btn btn-danger w-100" onclick="clearLocalStorage()">Clear Local Storage</button>
             </div>
           </div>
         </section>

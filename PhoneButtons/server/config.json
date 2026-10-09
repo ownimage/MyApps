@@ -4,7 +4,13 @@
       "displayName": "Sample",
       "image": "",
       "orientation": "landscape",
-      "buttons": []
+      "buttons": [
+        {
+          "name": "",
+          "image": "fa:paint-brush",
+          "key": ""
+        }
+      ]
     },
     "test": {
       "displayName": "Test",
@@ -18,9 +24,10 @@
       "orientation": "landscape",
       "buttons": [
         {
-          "image": "bi:skip-forward-fill",
-          "key": "right",
-          "name": "Next slide"
+          "name": "Next slide",
+          "image1": "bi:skip-forward-fill",
+          "image2": "",
+          "key": "right"
         },
         {
           "image": "bi:skip-backward-fill",
@@ -47,9 +54,9 @@
       "orientation": "landscape",
       "buttons": [
         {
-          "name": "q",
-          "image": "Beach 2",
-          "key": "shift+q"
+          "name": "N",
+          "image": "",
+          "key": ""
         },
         {
           "name": "W",

@@ -145,7 +145,9 @@ test.describe("PhoneButtons - Regression", () => {
     await page.evaluate(() => openManageLayout());
     await page.locator("#layoutButton1").click();
     await expect(page.locator("#buttonEditPage")).toHaveAttribute("open", "");
-    await page.locator("#buttonImageSelect").getByRole("button", { name: "Edit" }).click();
+    await expect(page.locator("#buttonImage1Select")).toBeVisible();
+    await expect(page.locator("#buttonImage2Select")).toBeVisible();
+    await page.locator("#buttonImage1Select").getByRole("button", { name: "Edit" }).click();
     await expect(page.locator("#imagePickerPage")).toHaveAttribute("open", "");
     await expect(page.locator("#pickerSearchInput")).toBeVisible();
   });
@@ -194,6 +196,24 @@ test.describe("PhoneButtons - Regression", () => {
     await expect(page.locator("#refreshAppRow")).not.toHaveClass(/d-none/);
     await expect(page.locator("#btnRefreshApp")).toBeVisible();
     await expect.poll(() => page.evaluate(() => localStorage.getItem("pb_showDanger"))).toBe("true");
+
+    // The Clear Local Storage danger button keeps shared images/theme/font size.
+    await expect(page.locator("#btnClearStorage")).toBeVisible();
+    const kept = await page.evaluate(() => {
+      localStorage.setItem("pb_noCache", "true");
+      localStorage.setItem("shared-images", "[1]");
+      clearLocalStorageExcept();
+      return {
+        noCache: localStorage.getItem("pb_noCache"),
+        theme: localStorage.getItem("pb_theme"),
+        fontSize: localStorage.getItem("pb_fontSize"),
+        images: localStorage.getItem("shared-images")
+      };
+    });
+    expect(kept.noCache).toBeNull();
+    expect(kept.theme).toBe("brite");
+    expect(kept.fontSize).toBe("large");
+    expect(kept.images).toBe("[1]");
 
     // The share QR encodes this server's own URL.
     await expect(page.locator("#shareQrCode")).toHaveAttribute("value", "http://localhost:8080/PhoneButtons/");
@@ -329,7 +349,7 @@ test.describe("PhoneButtons - Regression", () => {
     await page.locator("#buttonKeyCtrl").click();
     await page.locator("#buttonEditPage").getByRole("button", { name: "OK" }).click();
     await expect.poll(() => savedButton).toEqual({
-      layout: "reaper", index: 0, name: "Advance", image: "", key: "ctrl+media_next_track"
+      layout: "reaper", index: 0, name: "Advance", image1: "", image2: "", key: "ctrl+media_next_track"
     });
     await expect(page.locator("#layoutButton1")).toContainText("Advance");
 
@@ -337,7 +357,7 @@ test.describe("PhoneButtons - Regression", () => {
     await page.locator("#manageLayoutPage").getByRole("button", { name: "Finish" }).click();
     await expect.poll(() => saved).toEqual({
       key: "reaper", displayName: "REAPER", image: "gone.png", orientation: "portrait",
-      buttons: [{ name: "Advance", image: "", key: "ctrl+media_next_track" }]
+      buttons: [{ name: "Advance", image1: "", image2: "", key: "ctrl+media_next_track" }]
     });
     await expect(page.locator("#manageLayoutPage")).not.toHaveAttribute("open", "");
   });

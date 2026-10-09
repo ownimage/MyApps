@@ -90,7 +90,7 @@ function renderLayoutButtons(layout) {
   var container = document.getElementById("layoutButtons");
   if (!container) return;
   var buttons = (layout && layout.buttons) || [];
-  var real = buttons.filter(function (b) { return b && (b.name || b.image || b.key); });
+  var real = buttons.filter(function (b) { return b && (b.name || b.image1 || b.image2 || b.image || b.key); });
   container.innerHTML = "";
   if (!real.length) {
     container.classList.add("d-none");
@@ -101,11 +101,14 @@ function renderLayoutButtons(layout) {
   real.forEach(function (btn, i) {
     var el = document.createElement("button");
     el.type = "button";
-    el.className = "btn btn-outline-primary d-flex align-items-center gap-2";
-    el.innerHTML =
-      '<smd-image key-prefix="shared-"' + (btn.image ? ' image="' + escAttr(btn.image) + '"' : '') + '></smd-image>' +
-      '<span>' + escapeHtml(btn.name || ("Button " + (i + 1))) + '</span>';
+    el.className = "pb-layout-btn";
+    var thumbs = "";
+    [btn.image1 || btn.image || "", btn.image2 || ""].forEach(function (img) {
+      if (img) thumbs += '<smd-image key-prefix="shared-" image="' + escAttr(img) + '"></smd-image>';
+    });
+    el.innerHTML = thumbs + '<span>' + escapeHtml(btn.name || ("Button " + (i + 1))) + '</span>';
     el.addEventListener("click", function () {
+      el.blur();
       if (!btn.key) return;
       pbSocket.emit("button_press", { key: btn.key });
       _commLine("sent button_press {key: " + btn.key + "}", "info");

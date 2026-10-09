@@ -217,29 +217,25 @@ function renderManageButtons(layout) {
   if (container) container.innerHTML = layoutButtonHtml(layout, 0) + layoutButtonHtml(layout, 1);
 }
 
-// A layout button shows its shared image (if set) with the name beside it.
+// The two shared-image thumbs for a button (image1, falling back to the old
+// single `image`, plus image2).
+function buttonThumbsHtml(btn) {
+  var html = "";
+  [btn.image1 || btn.image || "", btn.image2 || ""].forEach(function (img) {
+    if (img) html += '<smd-image key-prefix="shared-" image="' + escAttr(img) + '"></smd-image>';
+  });
+  return html;
+}
+
+// A layout button shows its image(s) with the name beside it.
 function layoutButtonHtml(layout, index) {
   var btn = (layout.buttons && layout.buttons[index]) || {};
   var name = btn.name || ("Button " + (index + 1));
-  var image = btn.image || "";
   return '<button type="button" id="layoutButton' + (index + 1) +
-    '" class="btn btn-outline-primary d-flex align-items-center gap-2 text-start" onclick="openButtonEditor(' + index + ')">' +
-    '<smd-image key-prefix="shared-"' + (image ? ' image="' + escAttr(image) + '"' : '') + '></smd-image>' +
+    '" class="pb-layout-btn" onclick="openButtonEditor(' + index + ')">' +
+    buttonThumbsHtml(btn) +
     '<span id="layoutButtonName' + (index + 1) + '">' + escapeHtml(name) + '</span>' +
     '</button>';
-}
-
-// Reflect a saved button back onto the (possibly suspended) manage page.
-function refreshLayoutButton(index) {
-  var layout = _layoutsByKey[_selectedLayoutKey] || {};
-  var btn = (layout.buttons && layout.buttons[index]) || {};
-  var nameEl = document.getElementById("layoutButtonName" + (index + 1));
-  if (nameEl) nameEl.textContent = btn.name || ("Button " + (index + 1));
-  var img = document.querySelector("#layoutButton" + (index + 1) + " smd-image");
-  if (img) {
-    if (btn.image) img.setAttribute("image", btn.image);
-    else img.removeAttribute("image");
-  }
 }
 
 // ---- Layout icon picker (server app-icon cache) ----
@@ -305,7 +301,8 @@ function loadLayoutIconOptions(layout) {
 // named/media key). Saved per layout through POST /api/save-layout-button.
 
 var _editingButtonIndex = 0;
-var _buttonImage = "";
+var _buttonImage1 = "";
+var _buttonImage2 = "";
 
 // Named keys the server's _KEY_MAP understands (plus media keys).
 var BUTTON_NAMED_KEYS = [
@@ -316,11 +313,17 @@ var BUTTON_NAMED_KEYS = [
   "MEDIA_NEXT_TRACK", "MEDIA_PREV_TRACK", "MEDIA_STOP", "MEDIA_PLAY_PAUSE"
 ];
 
-// Shared image picker route for the Button editor's <smd-image-select>.
-function buttonImageSelectHandler(name) {
-  _buttonImage = name || "";
-  var sel = document.getElementById("buttonImageSelect");
-  if (sel) sel.setAttribute("image", _buttonImage);
+// Shared image picker routes for the Button editor's two <smd-image-select>s.
+function buttonImage1SelectHandler(name) {
+  _buttonImage1 = name || "";
+  var sel = document.getElementById("buttonImage1Select");
+  if (sel) sel.setAttribute("image", _buttonImage1);
+}
+
+function buttonImage2SelectHandler(name) {
+  _buttonImage2 = name || "";
+  var sel = document.getElementById("buttonImage2Select");
+  if (sel) sel.setAttribute("image", _buttonImage2);
 }
 
 function buildButtonEditPage() {
@@ -336,8 +339,12 @@ function buildButtonEditPage() {
       '<input type="text" id="buttonNameInput" class="form-control" placeholder="Button name">' +
     '</div>' +
     '<div class="mb-3">' +
-      '<label class="form-label">Image</label>' +
-      '<smd-image-select id="buttonImageSelect" key-prefix="shared-"></smd-image-select>' +
+      '<label class="form-label">Image 1</label>' +
+      '<smd-image-select id="buttonImage1Select" key-prefix="shared-"></smd-image-select>' +
+    '</div>' +
+    '<div class="mb-3">' +
+      '<label class="form-label">Image 2</label>' +
+      '<smd-image-select id="buttonImage2Select" key-prefix="shared-"></smd-image-select>' +
     '</div>' +
     '<div class="mb-3">' +
       '<label class="form-label">Key</label>' +
@@ -452,9 +459,12 @@ function openButtonEditor(index) {
   _openWizardPage(page);
   var layout = _layoutsByKey[_selectedLayoutKey] || {};
   var button = (layout.buttons && layout.buttons[index]) || {};
-  _buttonImage = button.image || "";
-  var sel = document.getElementById("buttonImageSelect");
-  if (sel) sel.setAttribute("image", _buttonImage);
+  _buttonImage1 = button.image1 || button.image || "";
+  _buttonImage2 = button.image2 || "";
+  var sel1 = document.getElementById("buttonImage1Select");
+  if (sel1) sel1.setAttribute("image", _buttonImage1);
+  var sel2 = document.getElementById("buttonImage2Select");
+  if (sel2) sel2.setAttribute("image", _buttonImage2);
   var nameInput = document.getElementById("buttonNameInput");
   if (nameInput) nameInput.value = button.name || "";
   setButtonKeyControls(button.key || "");
@@ -462,21 +472,26 @@ function openButtonEditor(index) {
 
 function saveButtonEditor() {
   var nameInput = document.getElementById("buttonNameInput");
-  var sel = document.getElementById("buttonImageSelect");
+  var sel1 = document.getElementById("buttonImage1Select");
+  var sel2 = document.getElementById("buttonImage2Select");
   var name = nameInput ? nameInput.value.trim() : "";
-  var image = sel ? (sel.getAttribute("image") || "") : "";
+  var image1 = sel1 ? (sel1.getAttribute("image") || "") : "";
+  var image2 = sel2 ? (sel2.getAttribute("image") || "") : "";
   var key = readButtonKey();
   var index = _editingButtonIndex;
-  pbApi.saveLayoutButton({ layout: _selectedLayoutKey, index: index, name: name, image: image, key: key }).then(function () {
+  pbApi.saveLayoutButton({
+    layout: _selectedLayoutKey, index: index, name: name,
+    image1: image1, image2: image2, key: key
+  }).then(function () {
     var layout = _layoutsByKey[_selectedLayoutKey];
     if (layout) {
       layout.buttons = layout.buttons || [];
       while (layout.buttons.length <= index) layout.buttons.push({});
-      layout.buttons[index] = { name: name, image: image, key: key };
+      layout.buttons[index] = { name: name, image1: image1, image2: image2, key: key };
+      renderManageButtons(layout);
     }
-    refreshLayoutButton(index);
-    _commLine("Manage Layout: saved button " + (index + 1) + " (" + (name || "unnamed") + ", image " +
-      (image || "none") + ", key " + (key || "none") + ")", "ok");
+    _commLine("Manage Layout: saved button " + (index + 1) + " (" + (name || "unnamed") +
+      ", key " + (key || "none") + ")", "ok");
   }).catch(function (err) {
     _commLine("Manage Layout: save button failed: " + err.message, "error");
   });
