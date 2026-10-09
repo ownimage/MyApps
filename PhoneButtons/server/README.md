@@ -30,17 +30,18 @@ on the phone.
 
 - `app.py` — the server. Serves the repo root (`MyApps/`) as static files, so
   `../shared/...` in the app resolves to the shared `smd-*` library.
-- `config.json` — the app -> template map + cached app-icon preferences.
+- `config.json` — the `layouts` catalog plus per-app layout assignments
+  (`app-layouts`).
 - `app-icon-cache/` — PNGs extracted from the foreground window's process.
 
 ## Endpoints
 
-- `GET /api/health` — cheap "Test connection" probe.
-- `GET /all-applications`, `GET /api/templates`, `POST /api/save-app`,
-  `POST /api/save-template` — templates admin.
-- `POST /api/foreground`, `GET /debug-icons` — foreground detection helpers.
-- Socket.IO: server emits `app_change` on connect and on foreground change;
-  client sends `button_press { key }`; `ping` -> `pong` for diagnostics.
+- `GET /api/layouts` — the layout catalog (`config.json` -> `layouts`), used to
+  populate the Edit App wizard's "Select Layout" dropdown.
+- `POST /api/save-app-layout` — persist the wizard's result (`{name, layout}`)
+  into `config.json` -> `app-layouts`.
+- Socket.IO: the server emits `app_change` on connect and on foreground change;
+  the client sends `button_press { key }`; `ping` -> `pong` for diagnostics.
 
 ## Notes
 

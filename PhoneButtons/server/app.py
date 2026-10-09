@@ -636,38 +636,6 @@ def _cache_icon(exe_path, hwnd, name):
 
 
 
-@app.route("/api/foreground", methods=["POST"])
-def api_foreground():
-    data = request.get_json()
-    name = data.get("name", "Unknown")
-    exe = data.get("exe", "")
-    hwnd = data.get("hwnd")
-    _debug(f"Foreground update via API: {name} ({exe})")
-    icon_url = _cache_icon(exe, hwnd, name)
-    global _current_app
-    template = _get_app_template(name)
-    _current_app = {"name": name, "icon": icon_url, "template": template}
-    socketio.emit("app_change", _current_app)
-    return jsonify({"ok": True})
-
-
-@app.route("/api/health", methods=["GET", "OPTIONS"])
-def api_health():
-    """Cheap reachability probe for the MyApps front end's "Test connection"."""
-    try:
-        with open(CONFIG_PATH, "r") as f:
-            config = json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError):
-        config = {}
-    return jsonify({
-        "ok": True,
-        "service": "phonebuttons",
-        "applications": len(config.get("applications", {})),
-        "templates": len(config.get("templates", {})),
-        "foreground": _current_app.get("name"),
-    })
-
-
 @app.route("/")
 def index():
     # The remote UI is the MyApps front end in PhoneButtons/, served from the
@@ -693,139 +661,43 @@ def repo_static(filename):
     return send_from_directory(REPO_ROOT, filename)
 
 
-@app.route("/all-applications")
-def all_applications():
-    import base64
+@app.route("/api/layouts")
+def api_layouts():
+    """The layout catalog for the Edit App wizard's "Select Layout" dropdown."""
     try:
         with open(CONFIG_PATH, "r") as f:
             config = json.load(f)
     except (FileNotFoundError, json.JSONDecodeError):
         config = {}
-    app_templates = config.get("applications", {})
-    all_templates = config.get("templates", {})
-    apps = []
-    cached_names = set()
-    for fname in sorted(os.listdir(ICON_DIR)):
-        if fname.lower().endswith(".png"):
-            path = os.path.join(ICON_DIR, fname)
-            with open(path, "rb") as f:
-                b64 = base64.b64encode(f.read()).decode()
-            name = fname[:-4]
-            cached_names.add(name)
-            tmpl_key = app_templates.get(name, "")
-            tmpl_val = all_templates.get(tmpl_key, "")
-            apps.append({"name": name, "icon": f"data:image/png;base64,{b64}", "template_key": tmpl_key, "template_value": tmpl_val})
-    for app_name, tmpl_key in app_templates.items():
-        if app_name not in cached_names:
-            tmpl_val = all_templates.get(tmpl_key, "")
-            apps.append({"name": app_name, "icon": "", "template_key": tmpl_key, "template_value": tmpl_val})
-    return jsonify({"apps": apps})
+    layouts = config.get("layouts", {})
+    result = [{"key": key, "displayName": value.get("displayName", key)}
+              for key, value in layouts.items()]
+    return jsonify({"layouts": result})
 
 
-@app.route("/api/templates")
-def api_templates():
-    try:
-        with open(CONFIG_PATH, "r") as f:
-            config = json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError):
-        config = {}
-    templates = config.get("templates", {})
-    result = [{"key": k, "value": v} for k, v in templates.items()]
-    return jsonify({"templates": result})
-
-
-@app.route("/api/save-app", methods=["POST"])
-def api_save_app():
-    data = request.get_json()
-    app_name = data.get("name")
-    template_key = data.get("template_key", "")
-    if not app_name:
+@app.route("/api/save-app-layout", methods=["POST"])
+def api_save_app_layout():
+    """Persist the Edit App wizard's result: which layout an app uses."""
+    data = request.get_json() or {}
+    name = data.get("name")
+    layout = data.get("layout", "")
+    if not name:
         return jsonify({"error": "Missing name"}), 400
     try:
         with open(CONFIG_PATH, "r") as f:
             config = json.load(f)
     except (FileNotFoundError, json.JSONDecodeError):
-        config = {"app-icon": {}, "applications": {}, "templates": {}}
-    if "applications" not in config:
-        config["applications"] = {}
-    if "templates" not in config:
-        config["templates"] = {}
-    if template_key:
-        config["applications"][app_name] = template_key
-        if template_key not in config["templates"]:
-            config["templates"][template_key] = ""
+        config = {}
+    if "app-layouts" not in config:
+        config["app-layouts"] = {}
+    if layout:
+        config["app-layouts"][name] = layout
     else:
-        config["applications"].pop(app_name, None)
+        config["app-layouts"].pop(name, None)
     with open(CONFIG_PATH, "w") as f:
         json.dump(config, f, indent=2)
-    _debug(f"Saved app config: {app_name} -> template {template_key}")
+    _debug(f"Saved app layout: {name} -> {layout}")
     return jsonify({"ok": True})
-
-
-@app.route("/api/save-template", methods=["POST"])
-def api_save_template():
-    data = request.get_json()
-    key = data.get("key", "").strip()
-    if not key:
-        return jsonify({"error": "Missing key"}), 400
-    try:
-        with open(CONFIG_PATH, "r") as f:
-            config = json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError):
-        config = {"app-icon": {}, "applications": {}, "templates": {}}
-    if "templates" not in config:
-        config["templates"] = {}
-    config["templates"][key] = {
-        "cols": data.get("cols", 4),
-        "rows": data.get("rows", 4),
-        "buttons": data.get("buttons", [])
-    }
-    with open(CONFIG_PATH, "w") as f:
-        json.dump(config, f, indent=2)
-    _debug(f"Saved template: {key}")
-    return jsonify({"ok": True})
-
-
-@app.route("/api/icons-list")
-def api_icons_list():
-    import os
-    icons_dir = os.path.join(app.root_path, "static", "icons")
-    icons = []
-    try:
-        for fn in sorted(os.listdir(icons_dir)):
-            if fn.lower().endswith(".svg"):
-                icons.append(fn)
-    except FileNotFoundError:
-        pass
-    return jsonify({"icons": icons})
-
-
-@app.route("/api/overlays-list")
-def api_overlays_list():
-    import os
-    overlays_dir = os.path.join(app.root_path, "static", "overlay")
-    overlays = []
-    try:
-        for fn in sorted(os.listdir(overlays_dir)):
-            if fn.lower().endswith(".svg"):
-                overlays.append(fn)
-    except FileNotFoundError:
-        pass
-    return jsonify({"overlays": overlays})
-
-
-@app.route("/debug-icons")
-def debug_icons():
-    info = _get_foreground_info()
-    if not info:
-        return jsonify({"error": "No foreground window"})
-    all_icons = _collect_icons(info["hwnd"], info["exe"])
-    import base64
-    icons_b64 = []
-    for label, png_bytes in all_icons:
-        b64 = base64.b64encode(png_bytes).decode()
-        icons_b64.append({"label": label, "data": f"data:image/png;base64,{b64}"})
-    return jsonify({"name": info["name"], "exe": info["exe"], "icons": icons_b64})
 
 
 @socketio.on("connect")

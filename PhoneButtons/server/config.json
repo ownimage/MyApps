@@ -1,2 +1,23 @@
 {
+  "layouts": {
+    "sample": {
+      "displayName": "Sample"
+    },
+    "test": {
+      "displayName": "Test"
+    },
+    "powerpoint": {
+      "displayName": "PowerPoint"
+    },
+    "photoshop": {
+      "displayName": "Photoshop"
+    },
+    "lightroom": {
+      "displayName": "Lightroom"
+    },
+    "reaper": {
+      "displayName": "REAPER"
+    }
+  },
+  "app-layouts": {}
 }

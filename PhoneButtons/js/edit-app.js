@@ -66,7 +66,7 @@ function openEditApp() {
   _openWizardPage(page);
 }
 
-// ---- Page 2: Layout (boilerplate) ----
+// ---- Page 2: Layout ----
 
 function buildEditLayoutPage() {
   var page = document.getElementById("editLayoutPage");
@@ -77,13 +77,10 @@ function buildEditLayoutPage() {
       '<label class="form-label" for="editLayoutSelect">Choose a layout</label>' +
       '<select id="editLayoutSelect" class="form-select">' +
         '<option value="">&mdash; Select a layout &mdash;</option>' +
-        '<option value="default">Default (4 &times; 4)</option>' +
-        '<option value="media">Media controls</option>' +
-        '<option value="presenter">Presenter</option>' +
       '</select>' +
+      '<div id="editLayoutHint" class="form-text"></div>' +
     '</div>' +
-    '<button type="button" class="btn btn-outline-primary" onclick="createEditLayout()">Create new layout&hellip;</button>' +
-    '<p class="form-text mt-3">Layout editing is not wired up yet.</p>';
+    '<button type="button" class="btn btn-outline-primary" onclick="createEditLayout()">Create new layout&hellip;</button>';
   page.buttons = [
     { text: "Cancel", variant: "secondary", action: "cancel" },
     { text: "Finish", variant: "success", action: "finish" }
@@ -91,8 +88,33 @@ function buildEditLayoutPage() {
   return page;
 }
 
+// Fill the "Select Layout" dropdown from the server's layouts catalog.
+function fillLayoutOptions(layouts) {
+  var select = document.getElementById("editLayoutSelect");
+  if (!select) return;
+  select.innerHTML = '<option value="">&mdash; Select a layout &mdash;</option>';
+  (layouts || []).forEach(function (layout) {
+    var opt = document.createElement("option");
+    opt.value = layout.key;
+    opt.textContent = layout.displayName || layout.key;
+    select.appendChild(opt);
+  });
+}
+
 function createEditLayout() {
   _commLine("Edit App: layout editor not implemented yet", "info");
+}
+
+// Persist the wizard's result (which layout the app uses) to the server.
+function saveEditAppLayout() {
+  var select = document.getElementById("editLayoutSelect");
+  var layout = select ? select.value : "";
+  var app = (_pbCurrentApp && _pbCurrentApp.name) || "";
+  pbApi.saveAppLayout(app, layout).then(function () {
+    _commLine("Edit App: saved layout '" + (layout || "none") + "' for " + (app || "?"), "ok");
+  }).catch(function (err) {
+    _commLine("Edit App: save layout failed: " + err.message, "error");
+  });
 }
 
 function openEditLayout() {
@@ -102,9 +124,21 @@ function openEditLayout() {
     page.__pbWizardBound = true;
     page.addEventListener("smd-page-action", function (e) {
       var action = e.detail && e.detail.action;
-      if (action === "finish") _commLine("Edit App: finished (layout storage TBD)", "info");
+      if (action === "finish") saveEditAppLayout();
       // "Cancel"/"Finish" just close (the page already hid itself).
     });
   }
   _openWizardPage(page);
+
+  var hint = document.getElementById("editLayoutHint");
+  if (hint) hint.textContent = "Loading layouts\u2026";
+  pbApi.getLayouts().then(function (layouts) {
+    fillLayoutOptions(layouts);
+    var h = document.getElementById("editLayoutHint");
+    if (h) h.textContent = layouts.length ? "" : "No layouts found on the server.";
+  }).catch(function (err) {
+    var h = document.getElementById("editLayoutHint");
+    if (h) h.textContent = "Could not load layouts: " + err.message;
+    _commLine("Edit App: load layouts failed: " + err.message, "error");
+  });
 }

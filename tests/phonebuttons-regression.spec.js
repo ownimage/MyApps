@@ -144,7 +144,20 @@ test.describe("PhoneButtons - Regression", () => {
     await expect(page.locator("#settingsPage")).not.toHaveAttribute("open", "");
   });
 
-  test("Edit App wizard: Select App -> Layout, Cancel/Next then Cancel/Finish", async ({ page }) => {
+  test("Edit App wizard: Select App -> Layout (server layouts), Cancel/Next then Cancel/Finish", async ({ page }) => {
+    let saved = null;
+    await page.route("**/api/layouts", (route) => route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({ layouts: [
+        { key: "sample", displayName: "Sample" },
+        { key: "powerpoint", displayName: "PowerPoint" }
+      ] })
+    }));
+    await page.route("**/api/save-app-layout", (route) => {
+      saved = route.request().postDataJSON();
+      route.fulfill({ contentType: "application/json", body: JSON.stringify({ ok: true }) });
+    });
+
     await page.goto("/PhoneButtons/");
     await page.waitForFunction(() => typeof window.__serverConnect === "function");
     await page.evaluate(() => window.__serverConnect());
@@ -172,15 +185,21 @@ test.describe("PhoneButtons - Regression", () => {
     });
     expect(dx).toBeLessThan(2);
 
-    // Next -> page 2: Layout.
+    // Next -> page 2: Layout, populated from GET /api/layouts.
     await page.locator("#editAppPage").getByRole("button", { name: "Next" }).click();
     await expect(page.locator("#editLayoutPage")).toHaveAttribute("open", "");
     await expect(page.locator("#editLayoutPage .smd-page-header h1")).toHaveText("Layout");
     await expect(page.locator("#editLayoutPage").getByRole("button", { name: "Cancel" })).toBeVisible();
     await expect(page.locator("#editLayoutPage").getByRole("button", { name: "Finish" })).toBeVisible();
 
-    // Finish closes.
+    // The dropdown lists the server layouts (placeholder + 2).
+    await expect(page.locator("#editLayoutSelect option")).toHaveCount(3);
+    await expect(page.locator("#editLayoutSelect")).toContainText("PowerPoint");
+
+    // Finish POSTs the app's chosen layout.
+    await page.locator("#editLayoutSelect").selectOption("powerpoint");
     await page.locator("#editLayoutPage").getByRole("button", { name: "Finish" }).click();
     await expect(page.locator("#editLayoutPage")).not.toHaveAttribute("open", "");
+    await expect.poll(() => saved).toEqual({ name: "Adobe Photoshop 2026", layout: "powerpoint" });
   });
 });
