@@ -77,7 +77,17 @@ function buildManageLayoutContent(page) {
         '</select>' +
       '</div>' +
     '</div>' +
-    '<div id="manageLayoutButtons" class="d-grid gap-2 mb-3"></div>';
+    '<div class="row mb-3 g-2">' +
+      '<div class="col-6">' +
+        '<label class="form-label" for="manageLayoutCols">Columns</label>' +
+        '<input type="number" id="manageLayoutCols" class="form-control" min="1" max="10" value="3" oninput="renderManageGrid()">' +
+      '</div>' +
+      '<div class="col-6">' +
+        '<label class="form-label" for="manageLayoutRows">Rows</label>' +
+        '<input type="number" id="manageLayoutRows" class="form-control" min="1" max="10" value="2" oninput="renderManageGrid()">' +
+      '</div>' +
+    '</div>' +
+    '<div id="manageLayoutGrid" class="pb-layout-grid mb-3"></div>';
   page.buttons = [
     { text: "Cancel", variant: "secondary", action: "cancel" },
     { text: "Finish", variant: "success", action: "finish", close: false }
@@ -153,8 +163,9 @@ function applySelectedLayout(layout) {
   _selectedLayoutKey = layout.key;
   var nameInput = document.getElementById("manageLayoutNameInput");
   if (nameInput) nameInput.value = layout.displayName || layout.key;
+  setManageGridDims(layout.rows, layout.cols);
   applyLayoutIconAndOrientation(layout);
-  renderManageButtons(layout);
+  renderManageGrid();
 }
 
 // Blank the fields for a brand-new layout (its key is auto-generated on save).
@@ -164,8 +175,9 @@ function applyAddLayout() {
   var nameInput = document.getElementById("manageLayoutNameInput");
   if (nameInput) nameInput.value = "";
   setManageHint("");
+  setManageGridDims(2, 3);
   applyLayoutIconAndOrientation({ image: "", orientation: "landscape" });
-  renderManageButtons({ buttons: [] });
+  renderManageGrid();
 }
 
 function applyLayoutIconAndOrientation(layout) {
@@ -187,15 +199,21 @@ function finishManageLayout() {
     key = uniqueKey(slugify(displayName));
   }
   if (!key) { setManageHint("Select or add a layout."); return; }
+  var cols = clampInt((document.getElementById("manageLayoutCols") || {}).value, 1, 10, 3);
+  var rows = clampInt((document.getElementById("manageLayoutRows") || {}).value, 1, 10, 2);
   var existing = _layoutsByKey[key] || {};
+  var buttons = (existing.buttons || []).slice(0, rows * cols);
+  while (buttons.length < rows * cols) buttons.push({});
   setManageHint("");
   var payload = {
     key: key,
     displayName: displayName || key,
     image: _selectedIconName || "",
     orientation: orient,
+    rows: rows,
+    cols: cols,
     // Persist the buttons as part of the layout.
-    buttons: existing.buttons || []
+    buttons: buttons
   };
   pbApi.saveLayout(payload).then(function () {
     _layoutsByKey[key] = payload;
@@ -210,32 +228,42 @@ function closeManageLayout() {
   _hideWizardPage(document.getElementById("manageLayoutPage"));
 }
 
-// ---- Layout buttons (image + name) ----
+// ---- Layout grid (editable) ----
 
-function renderManageButtons(layout) {
-  var container = document.getElementById("manageLayoutButtons");
-  if (container) container.innerHTML = layoutButtonHtml(layout, 0) + layoutButtonHtml(layout, 1);
+function setManageGridDims(rows, cols) {
+  var colsInput = document.getElementById("manageLayoutCols");
+  if (colsInput) colsInput.value = clampInt(cols, 1, 10, 3);
+  var rowsInput = document.getElementById("manageLayoutRows");
+  if (rowsInput) rowsInput.value = clampInt(rows, 1, 10, 2);
 }
 
-// The two shared-image thumbs for a button (image1, falling back to the old
-// single `image`, plus image2).
-function buttonThumbsHtml(btn) {
+// Render the layout's rows x cols grid of equal cells (sized from the Image-size
+// display setting). Clicking a cell edits that button.
+function renderManageGrid() {
+  var grid = document.getElementById("manageLayoutGrid");
+  if (!grid) return;
+  var cols = clampInt((document.getElementById("manageLayoutCols") || {}).value, 1, 10, 3);
+  var rows = clampInt((document.getElementById("manageLayoutRows") || {}).value, 1, 10, 2);
+  var px = getIconSizePx();
+  grid.style.gridTemplateColumns = "repeat(" + cols + ", " + px + "px)";
+  var layout = _layoutsByKey[_selectedLayoutKey] || {};
+  var buttons = layout.buttons || [];
   var html = "";
-  [btn.image1 || btn.image || "", btn.image2 || ""].forEach(function (img) {
-    if (img) html += '<smd-image key-prefix="shared-" image="' + escAttr(img) + '"></smd-image>';
+  for (var i = 0; i < rows * cols; i++) {
+    var b = buttons[i];
+    var real = pbButtonHasContent(b);
+    html += '<button type="button" id="layoutButton' + (i + 1) + '" data-index="' + i +
+      '" class="pb-grid-cell' + (real ? "" : " empty") + '" ' +
+      'style="width:' + px + "px;height:" + px + "px;font-size:" + pbCellFontPx(px) + 'px">' +
+      (real ? pbButtonThumbsHtml(b, px) + (b.name ? '<span class="pb-cell-name">' + escapeHtml(b.name) + '</span>' : "") : "") +
+      '</button>';
+  }
+  grid.innerHTML = html;
+  grid.querySelectorAll(".pb-grid-cell").forEach(function (el) {
+    el.addEventListener("click", function () {
+      openButtonEditor(parseInt(el.getAttribute("data-index"), 10));
+    });
   });
-  return html;
-}
-
-// A layout button shows its image(s) with the name beside it.
-function layoutButtonHtml(layout, index) {
-  var btn = (layout.buttons && layout.buttons[index]) || {};
-  var name = btn.name || ("Button " + (index + 1));
-  return '<button type="button" id="layoutButton' + (index + 1) +
-    '" class="pb-layout-btn" onclick="openButtonEditor(' + index + ')">' +
-    buttonThumbsHtml(btn) +
-    '<span id="layoutButtonName' + (index + 1) + '">' + escapeHtml(name) + '</span>' +
-    '</button>';
 }
 
 // ---- Layout icon picker (server app-icon cache) ----
@@ -482,7 +510,7 @@ function saveButtonEditor() {
       layout.buttons = layout.buttons || [];
       while (layout.buttons.length <= index) layout.buttons.push({});
       layout.buttons[index] = { name: name, image1: image1, image2: image2, key: key };
-      renderManageButtons(layout);
+      renderManageGrid();
     }
     _commLine("Manage Layout: saved button " + (index + 1) + " (" + (name || "unnamed") +
       ", key " + (key || "none") + ")", "ok");

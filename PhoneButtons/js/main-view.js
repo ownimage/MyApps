@@ -83,38 +83,89 @@ function renderMain() {
   renderLayoutButtons(_pbCurrentApp && _pbCurrentApp.layout);
 }
 
-// Render the current application's layout buttons. They arrive PUSHED in the
-// server's `app_change` message (the client never queries for them). Pressing
-// one sends its key combination over the socket.
+// ---- Shared grid helpers (also used by the Manage Layout grid) ----
+
+// The Image-size display setting, in px (xsmall..jumbo).
+function getIconSizePx() {
+  var value = localStorage.getItem(smdKey("iconSize")) || "medium";
+  return { xsmall: 32, small: 40, medium: 50, large: 64, xlarge: 80, jumbo: 100 }[value] || 50;
+}
+
+function clampInt(value, min, max, fallback) {
+  var n = parseInt(value, 10);
+  if (isNaN(n)) return fallback;
+  return Math.min(max, Math.max(min, n));
+}
+
+// The thumb(s) for a button, sized to fit a cell (smaller when there are two).
+function pbButtonThumbsHtml(btn, cellPx) {
+  var imgs = [btn.image1 || btn.image || "", btn.image2 || ""].filter(Boolean);
+  if (!imgs.length) return "";
+  var imgPx = Math.max(12, Math.round(cellPx * (imgs.length > 1 ? 0.42 : 0.6)));
+  return '<span class="pb-cell-thumbs">' + imgs.map(function (img) {
+    return '<smd-image size="' + imgPx + '" key-prefix="shared-" image="' + escAttr(img) + '"></smd-image>';
+  }).join("") + '</span>';
+}
+
+function pbCellFontPx(cellPx) {
+  return Math.max(9, Math.round(cellPx * 0.16));
+}
+
+function pbButtonHasContent(b) {
+  return !!(b && (b.name || b.image1 || b.image2 || b.image || b.key));
+}
+
+// ---- Main-page layout grid ----
+
+// Render the current application's layout as a rows x cols grid of equal cells,
+// sized as large as possible to fit the viewport. Buttons arrive PUSHED in the
+// server's `app_change` message. Pressing a cell sends its key.
 function renderLayoutButtons(layout) {
   var container = document.getElementById("layoutButtons");
   if (!container) return;
   var buttons = (layout && layout.buttons) || [];
-  var real = buttons.filter(function (b) { return b && (b.name || b.image1 || b.image2 || b.image || b.key); });
-  container.innerHTML = "";
-  if (!real.length) {
+  var rows = clampInt(layout && layout.rows, 1, 10, 2);
+  var cols = clampInt(layout && layout.cols, 1, 10, 3);
+  if (!buttons.some(pbButtonHasContent)) {
+    container.innerHTML = "";
     container.classList.add("d-none");
     return;
   }
   container.classList.remove("d-none");
-  container.style.gridTemplateColumns = "repeat(" + (layout.orientation === "portrait" ? 2 : 3) + ", 1fr)";
-  real.forEach(function (btn, i) {
-    var el = document.createElement("button");
-    el.type = "button";
-    el.className = "pb-layout-btn";
-    var thumbs = "";
-    [btn.image1 || btn.image || "", btn.image2 || ""].forEach(function (img) {
-      if (img) thumbs += '<smd-image key-prefix="shared-" image="' + escAttr(img) + '"></smd-image>';
-    });
-    el.innerHTML = thumbs + '<span>' + escapeHtml(btn.name || ("Button " + (i + 1))) + '</span>';
-    el.addEventListener("click", function () {
-      el.blur();
-      if (!btn.key) return;
-      pbSocket.emit("button_press", { key: btn.key });
-      _commLine("sent button_press {key: " + btn.key + "}", "info");
-    });
-    container.appendChild(el);
+
+  var gap = 8;
+  var nav = document.getElementById("mainNav");
+  var navH = nav ? nav.offsetHeight : 0;
+  var availW = container.clientWidth || window.innerWidth;
+  var availH = window.innerHeight - navH - 24;
+  var cellW = (availW - (cols - 1) * gap) / cols;
+  var cellH = (availH - (rows - 1) * gap) / rows;
+  var px = Math.max(40, Math.floor(Math.min(cellW, cellH)));
+
+  container.style.gridTemplateColumns = "repeat(" + cols + ", " + px + "px)";
+  var html = "";
+  for (var i = 0; i < rows * cols; i++) {
+    var b = buttons[i];
+    var real = pbButtonHasContent(b);
+    html += '<button type="button" data-index="' + i + '" class="pb-grid-cell' + (real ? "" : " pb-grid-spacer") + '" ' +
+      'style="width:' + px + "px;height:" + px + "px;font-size:" + pbCellFontPx(px) + 'px">' +
+      (real ? pbButtonThumbsHtml(b, px) + (b.name ? '<span class="pb-cell-name">' + escapeHtml(b.name) + '</span>' : "") : "") +
+      '</button>';
+  }
+  container.innerHTML = html;
+  container.querySelectorAll(".pb-grid-cell:not(.pb-grid-spacer)").forEach(function (el) {
+    el.addEventListener("click", function () { pbMainCellClick(el); });
   });
+}
+
+function pbMainCellClick(el) {
+  el.blur();
+  var i = parseInt(el.getAttribute("data-index"), 10);
+  var layout = _pbCurrentApp && _pbCurrentApp.layout;
+  var btn = layout && layout.buttons && layout.buttons[i];
+  if (!btn || !btn.key) return;
+  pbSocket.emit("button_press", { key: btn.key });
+  _commLine("sent button_press {key: " + btn.key + "}", "info");
 }
 
 // Wire the socket callbacks into the UI exactly once.
@@ -150,6 +201,11 @@ function bindSocketUi() {
 
   pbSocket.on("pong", function (data) {
     _commLine("server pong " + JSON.stringify(data || {}), "ok");
+  });
+
+  // Re-fit the main-page grid when the viewport changes.
+  window.addEventListener("resize", function () {
+    renderLayoutButtons(_pbCurrentApp && _pbCurrentApp.layout);
   });
 }
 

@@ -35,28 +35,34 @@
     })();
   </script>
   <style>
-    /* Layout buttons (main view + Manage Layout). A Bootstrap .btn leaves a
-       sticky :hover/:focus fill after a touch tap, so these use a custom class
-       whose only feedback is the transient :active press. */
-    .pb-layout-btn {
-      display: flex; align-items: center; gap: 0.5rem; text-align: left;
-      width: 100%; box-sizing: border-box; padding: 0.5rem 0.75rem;
-      /* Use the page surface, NOT --bs-tertiary-bg: in themes like superhero
-         that is LIGHT in both modes while the themed text/images are light, so
-         the content vanished. Body-bg guarantees the body text colour and the
-         <smd-image> auto theme both contrast. */
+    /* Layout grid cells (main view + Manage Layout). Fixed square cells whose
+       content (one or two images + a name) is centred and clipped, so every cell
+       is the same size. A custom class (not .btn) avoids a Bootstrap .btn's
+       sticky :hover/:focus fill after a touch tap. */
+    .pb-layout-grid { display: grid; gap: 6px; justify-content: center; }
+    #layoutButtons { justify-content: center; }
+    .pb-grid-cell {
+      display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
+      gap: 2px; overflow: hidden; padding: 2px; box-sizing: border-box;
+      /* Page surface, NOT --bs-tertiary-bg (which is light in superhero in BOTH
+         modes, so the themed text/images vanished against it). */
       background-color: var(--bs-body-bg);
       color: var(--bs-body-color);
       border: 1px solid var(--bs-border-color);
       border-radius: 0.5rem;
-      font-size: var(--smd-type-h2, 1.25em);
       touch-action: manipulation;
       -webkit-tap-highlight-color: transparent;
       transition: transform 0.05s ease, opacity 0.05s ease;
     }
-    .pb-layout-btn:active { transform: scale(0.97); opacity: 0.8; }
-    .pb-layout-btn:focus, .pb-layout-btn:focus-visible { outline: none; box-shadow: none; }
-    .pb-layout-btn smd-image { pointer-events: none; flex-shrink: 0; }
+    .pb-grid-cell:active { transform: scale(0.96); opacity: 0.85; }
+    .pb-grid-cell:focus, .pb-grid-cell:focus-visible { outline: none; box-shadow: none; }
+    /* Thumbs fill the space ABOVE the name, so the name sits at a fixed distance
+       from the bottom whether the button shows one image or two. */
+    .pb-grid-cell .pb-cell-thumbs { flex: 1 1 auto; min-height: 0; display: flex; gap: 2px; align-items: center; justify-content: center; overflow: hidden; }
+    .pb-grid-cell .pb-cell-name { flex: 0 0 auto; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 1.1; }
+    .pb-grid-cell.empty { border-style: dashed; opacity: 0.55; }
+    .pb-grid-cell.pb-grid-spacer { visibility: hidden; }
+    .pb-grid-cell smd-image { pointer-events: none; }
   </style>
 </head>
 
@@ -123,6 +129,21 @@
                 <option value="xlarge">Extra large</option>
                 <option value="jumbo">Jumbo</option>
               </select>
+            </div>
+          </div>
+
+          <div class="row mb-4 align-items-center col-md-8">
+            <div class="col-4 text-end"><label class="form-label mb-0">Image size</label></div>
+            <div class="col-8">
+              <select id="iconSizeSelector" class="form-select" onchange="changeIconSize(this.value)">
+                <option value="xsmall">Extra small (32x32)</option>
+                <option value="small">Small (40x40)</option>
+                <option value="medium">Medium (50x50)</option>
+                <option value="large">Large (64x64)</option>
+                <option value="xlarge">Extra large (80x80)</option>
+                <option value="jumbo">Jumbo (100x100)</option>
+              </select>
+              <div class="form-text">Sizes the buttons in the Layout Manager grid.</div>
             </div>
           </div>
         </section>

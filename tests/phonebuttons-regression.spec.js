@@ -116,16 +116,18 @@ test.describe("PhoneButtons - Regression", () => {
     await page.evaluate(() => window.__serverEmit("app_change", {
       name: "Microsoft PowerPoint",
       icon: "",
-      layout: { key: "powerpoint", orientation: "landscape", buttons: [
-        { name: "Next Slide", image: "", key: "right" },
-        { name: "Previous", image: "", key: "left" }
+      layout: { key: "powerpoint", orientation: "landscape", rows: 2, cols: 3, buttons: [
+        { name: "Next Slide", image1: "", image2: "", key: "right" },
+        { name: "Previous", image1: "", image2: "", key: "left" }
       ] }
     }));
 
+    // A 2 x 3 grid of equal cells: 2 filled + 4 spacers.
     await expect(page.locator("#layoutButtons")).toBeVisible();
-    await expect(page.locator("#layoutButtons button")).toHaveCount(2);
+    await expect(page.locator("#layoutButtons .pb-grid-cell")).toHaveCount(6);
+    await expect(page.locator("#layoutButtons .pb-grid-cell:not(.pb-grid-spacer)")).toHaveCount(2);
     await expect(page.locator("#layoutButtons")).toContainText("Next Slide");
-    await page.locator("#layoutButtons button", { hasText: "Next Slide" }).click();
+    await page.locator("#layoutButtons .pb-grid-cell", { hasText: "Next Slide" }).click();
     const emitted = await page.evaluate(() => window.__ioState.emitted);
     expect(emitted).toContainEqual({ event: "button_press", data: { key: "right" } });
 
@@ -357,11 +359,15 @@ test.describe("PhoneButtons - Regression", () => {
     });
     await expect(page.locator("#layoutButton1")).toContainText("Advance");
 
-    // Finish saves the layout WITH its buttons.
+    // Finish saves the layout WITH its grid dims and buttons.
     await page.locator("#manageLayoutPage").getByRole("button", { name: "Finish" }).click();
     await expect.poll(() => saved).toEqual({
       key: "reaper", displayName: "REAPER", image: "gone.png", orientation: "portrait",
-      buttons: [{ name: "Advance", image1: "", image2: "", key: "ctrl+media_next_track" }]
+      rows: 2, cols: 3,
+      buttons: [
+        { name: "Advance", image1: "", image2: "", key: "ctrl+media_next_track" },
+        {}, {}, {}, {}, {}
+      ]
     });
     await expect(page.locator("#manageLayoutPage")).not.toHaveAttribute("open", "");
   });
@@ -396,7 +402,8 @@ test.describe("PhoneButtons - Regression", () => {
     await page.locator("#manageLayoutNameInput").fill("My Keys");
     await page.locator("#manageLayoutPage").getByRole("button", { name: "Finish" }).click();
     await expect.poll(() => saved).toEqual({
-      key: "my-keys-2", displayName: "My Keys", image: "", orientation: "landscape", buttons: []
+      key: "my-keys-2", displayName: "My Keys", image: "", orientation: "landscape",
+      rows: 2, cols: 3, buttons: [{}, {}, {}, {}, {}, {}]
     });
     await expect(page.locator("#manageLayoutPage")).not.toHaveAttribute("open", "");
   });

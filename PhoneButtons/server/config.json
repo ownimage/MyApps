@@ -6,12 +6,19 @@
       "orientation": "landscape",
       "buttons": [
         {
-          "name": "",
           "image1": "fa:paint-brush",
           "image2": "Baby Boy",
-          "key": "a"
-        }
-      ]
+          "key": "a",
+          "name": ""
+        },
+        {},
+        {},
+        {},
+        {},
+        {}
+      ],
+      "rows": 2,
+      "cols": 3
     },
     "test": {
       "displayName": "Test",
@@ -25,17 +32,43 @@
       "orientation": "landscape",
       "buttons": [
         {
-          "name": "Next slide",
           "image1": "bi:skip-forward-fill",
           "image2": "Beach 3",
-          "key": "right"
+          "key": "right",
+          "name": "Next slide"
         },
         {
           "image": "bi:skip-backward-fill",
           "key": "left",
           "name": "Prev Slide"
+        },
+        {
+          "name": "This is a very long name for a button",
+          "image1": "Beach 3",
+          "image2": "",
+          "key": ""
+        },
+        {
+          "image1": "Christmas Tree 3",
+          "image2": "",
+          "key": "",
+          "name": ""
+        },
+        {
+          "image1": "Beer 1",
+          "image2": "",
+          "key": "",
+          "name": ""
+        },
+        {
+          "image1": "Beer 4",
+          "image2": "",
+          "key": "",
+          "name": ""
         }
-      ]
+      ],
+      "rows": 2,
+      "cols": 3
     },
     "photoshop": {
       "displayName": "Photoshop",

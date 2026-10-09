@@ -770,6 +770,8 @@ def api_layouts():
         "displayName": value.get("displayName", key),
         "image": value.get("image", ""),
         "orientation": value.get("orientation", "landscape"),
+        "rows": value.get("rows", 2),
+        "cols": value.get("cols", 3),
         "buttons": value.get("buttons", []),
     } for key, value in layouts.items()]
     return jsonify({"layouts": result})
@@ -815,6 +817,8 @@ def api_save_layout():
     layout["displayName"] = data.get("displayName") or key
     layout["image"] = data.get("image", "")
     layout["orientation"] = data.get("orientation", "landscape")
+    layout["rows"] = int(data.get("rows") or layout.get("rows") or 2)
+    layout["cols"] = int(data.get("cols") or layout.get("cols") or 3)
     if isinstance(data.get("buttons"), list):
         layout["buttons"] = data["buttons"]
     else:
