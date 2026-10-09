@@ -670,9 +670,52 @@ def api_layouts():
     except (FileNotFoundError, json.JSONDecodeError):
         config = {}
     layouts = config.get("layouts", {})
-    result = [{"key": key, "displayName": value.get("displayName", key)}
-              for key, value in layouts.items()]
+    result = [{
+        "key": key,
+        "displayName": value.get("displayName", key),
+        "image": value.get("image", ""),
+        "orientation": value.get("orientation", "landscape"),
+    } for key, value in layouts.items()]
     return jsonify({"layouts": result})
+
+
+@app.route("/api/app-icons")
+def api_app_icons():
+    """The cached application icons (PNGs extracted from foreground windows).
+    The Edit Layout icon picker is populated from this list."""
+    icons = []
+    try:
+        for fname in sorted(os.listdir(ICON_DIR)):
+            if fname.lower().endswith(".png"):
+                icons.append(fname)
+    except FileNotFoundError:
+        pass
+    return jsonify({"icons": icons})
+
+
+@app.route("/api/save-layout", methods=["POST"])
+def api_save_layout():
+    """Save a layout definition (display name + icon + orientation)."""
+    data = request.get_json() or {}
+    key = (data.get("key") or "").strip()
+    if not key:
+        return jsonify({"error": "Missing key"}), 400
+    try:
+        with open(CONFIG_PATH, "r") as f:
+            config = json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        config = {}
+    if "layouts" not in config:
+        config["layouts"] = {}
+    config["layouts"][key] = {
+        "displayName": data.get("displayName") or key,
+        "image": data.get("image", ""),
+        "orientation": data.get("orientation", "landscape"),
+    }
+    with open(CONFIG_PATH, "w", newline="\n") as f:
+        json.dump(config, f, indent=2)
+    _debug(f"Saved layout: {key}")
+    return jsonify({"ok": True})
 
 
 @app.route("/api/save-app-layout", methods=["POST"])

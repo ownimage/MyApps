@@ -68,16 +68,18 @@ function openEditApp() {
 
 // ---- Page 2: Layout ----
 
+// The layout key chosen in the <smd-image-dropdown> (its change event carries
+// the key as `value`).
+var _editAppLayoutKey = "";
+
 function buildEditLayoutPage() {
   var page = document.getElementById("editLayoutPage");
   if (!page) return null;
   page.title = "Layout";
   page.content =
     '<div class="mb-3">' +
-      '<label class="form-label" for="editLayoutSelect">Choose a layout</label>' +
-      '<select id="editLayoutSelect" class="form-select">' +
-        '<option value="">&mdash; Select a layout &mdash;</option>' +
-      '</select>' +
+      '<label class="form-label" for="editLayoutDropdown">Choose a layout</label>' +
+      '<pb-image-dropdown id="editLayoutDropdown"></pb-image-dropdown>' +
       '<div id="editLayoutHint" class="form-text"></div>' +
     '</div>' +
     '<button type="button" class="btn btn-outline-primary" onclick="createEditLayout()">Create new layout&hellip;</button>';
@@ -88,30 +90,15 @@ function buildEditLayoutPage() {
   return page;
 }
 
-// Fill the "Select Layout" dropdown from the server's layouts catalog.
-function fillLayoutOptions(layouts) {
-  var select = document.getElementById("editLayoutSelect");
-  if (!select) return;
-  select.innerHTML = '<option value="">&mdash; Select a layout &mdash;</option>';
-  (layouts || []).forEach(function (layout) {
-    var opt = document.createElement("option");
-    opt.value = layout.key;
-    opt.textContent = layout.displayName || layout.key;
-    select.appendChild(opt);
-  });
-}
-
 function createEditLayout() {
   _commLine("Edit App: layout editor not implemented yet", "info");
 }
 
 // Persist the wizard's result (which layout the app uses) to the server.
 function saveEditAppLayout() {
-  var select = document.getElementById("editLayoutSelect");
-  var layout = select ? select.value : "";
   var app = (_pbCurrentApp && _pbCurrentApp.name) || "";
-  pbApi.saveAppLayout(app, layout).then(function () {
-    _commLine("Edit App: saved layout '" + (layout || "none") + "' for " + (app || "?"), "ok");
+  pbApi.saveAppLayout(app, _editAppLayoutKey).then(function () {
+    _commLine("Edit App: saved layout '" + (_editAppLayoutKey || "none") + "' for " + (app || "?"), "ok");
   }).catch(function (err) {
     _commLine("Edit App: save layout failed: " + err.message, "error");
   });
@@ -122,6 +109,10 @@ function openEditLayout() {
   if (!page) return;
   if (!page.__pbWizardBound) {
     page.__pbWizardBound = true;
+    page.addEventListener("pb-image-dropdown-change", function (e) {
+      var detail = e.detail || {};
+      _editAppLayoutKey = detail.value || detail.name || "";
+    });
     page.addEventListener("smd-page-action", function (e) {
       var action = e.detail && e.detail.action;
       if (action === "finish") saveEditAppLayout();
@@ -133,7 +124,12 @@ function openEditLayout() {
   var hint = document.getElementById("editLayoutHint");
   if (hint) hint.textContent = "Loading layouts\u2026";
   pbApi.getLayouts().then(function (layouts) {
-    fillLayoutOptions(layouts);
+    var dd = document.getElementById("editLayoutDropdown");
+    if (dd) {
+      dd.options = layoutDropdownOptions(layouts);
+      dd.selected = layouts.length ? (layouts[0].displayName || layouts[0].key) : "";
+    }
+    _editAppLayoutKey = layouts.length ? layouts[0].key : "";
     var h = document.getElementById("editLayoutHint");
     if (h) h.textContent = layouts.length ? "" : "No layouts found on the server.";
   }).catch(function (err) {

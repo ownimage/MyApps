@@ -1,10 +1,37 @@
 {
   "layouts": {
-    "sample": { "displayName": "Sample" },
-    "test": { "displayName": "Test" },
-    "powerpoint": { "displayName": "PowerPoint" },
-    "photoshop": { "displayName": "Photoshop" },
-    "lightroom": { "displayName": "Lightroom" },
-    "reaper": { "displayName": "REAPER" }
+    "sample": {
+      "displayName": "Sample",
+      "image": "",
+      "orientation": "landscape"
+    },
+    "test": {
+      "displayName": "Test",
+      "image": "",
+      "orientation": "portrait"
+    },
+    "powerpoint": {
+      "displayName": "PowerPoint",
+      "image": "Microsoft PowerPoint.png",
+      "orientation": "portrait"
+    },
+    "photoshop": {
+      "displayName": "Photoshop",
+      "image": "PyCharm.png",
+      "orientation": "landscape"
+    },
+    "lightroom": {
+      "displayName": "Lightroom",
+      "image": "",
+      "orientation": "landscape"
+    },
+    "reaper": {
+      "displayName": "REAPER",
+      "image": "",
+      "orientation": "landscape"
+    }
+  },
+  "app-layouts": {
+    "Google Chrome": "photoshop"
   }
 }

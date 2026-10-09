@@ -21,12 +21,28 @@ var pbApi = {
     });
   },
 
-  // Persist which layout the given app uses (the wizard's Finish).
+  // The cached application icons (used by the Edit Layout icon picker).
+  getAppIcons: function () {
+    return this._fetch("/api/app-icons").then(function (data) {
+      return data.icons || [];
+    });
+  },
+
+  // Persist which layout the given app uses (the Edit App wizard's Finish).
   saveAppLayout: function (name, layout) {
     return this._fetch("/api/save-app-layout", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name: name, layout: layout || "" })
+    });
+  },
+
+  // Persist a layout definition (display name + icon + orientation).
+  saveLayout: function (layout) {
+    return this._fetch("/api/save-layout", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(layout)
     });
   }
 };

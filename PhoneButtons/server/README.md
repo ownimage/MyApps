@@ -36,10 +36,14 @@ on the phone.
 
 ## Endpoints
 
-- `GET /api/layouts` — the layout catalog (`config.json` -> `layouts`), used to
-  populate the Edit App wizard's "Select Layout" dropdown.
-- `POST /api/save-app-layout` — persist the wizard's result (`{name, layout}`)
-  into `config.json` -> `app-layouts`.
+- `GET /api/layouts` — the layout catalog (`config.json` -> `layouts`), used by
+  both wizards' "Select Layout" dropdowns.
+- `GET /api/app-icons` — the cached application icons (PNGs in
+  `app-icon-cache/`), used by the Edit Layout icon picker.
+- `POST /api/save-app-layout` — persist which layout an app uses
+  (`{name, layout}`) into `config.json` -> `app-layouts`.
+- `POST /api/save-layout` — persist a layout definition
+  (`{key, displayName, image, orientation}`) into `config.json` -> `layouts`.
 - Socket.IO: the server emits `app_change` on connect and on foreground change;
   the client sends `button_press { key }`; `ping` -> `pong` for diagnostics.
 
