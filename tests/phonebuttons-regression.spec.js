@@ -60,7 +60,7 @@ test.describe("PhoneButtons - Regression", () => {
       prefix: SmdConfig.storagePrefix,
       imagePrefix: SmdConfig.imagePrefix
     }));
-    expect(cfg.prefix).toBe("pb");
+    expect(cfg.prefix).toBe("pb_");
     expect(cfg.imagePrefix).toBe("shared-");
 
     // The app connects to its own origin on boot.
@@ -135,6 +135,15 @@ test.describe("PhoneButtons - Regression", () => {
     await expect(page.locator("#layoutButtons")).toBeHidden();
   });
 
+  test("Button editor image picker uses the shared search box", async ({ page }) => {
+    await page.goto("/PhoneButtons/");
+    await page.evaluate(() => openButtonEditor(0));
+    await expect(page.locator("#buttonEditPage")).toHaveAttribute("open", "");
+    await page.locator("#buttonImageSelect").getByRole("button", { name: "Edit" }).click();
+    await expect(page.locator("#imagePickerPage")).toHaveAttribute("open", "");
+    await expect(page.locator("#pickerSearchInput")).toBeVisible();
+  });
+
   test("settings page has Display + Server tabs and persists to pb_ keys", async ({ page }) => {
     await page.goto("/PhoneButtons/");
     await page.evaluate(() => openSettings());
@@ -146,11 +155,11 @@ test.describe("PhoneButtons - Regression", () => {
     await expect(page.locator("#fontSizeSelector")).toBeVisible();
     await page.locator("#themeSelector .smd-theme-select").selectOption("brite");
     await page.locator("#themeSelector .smd-theme-mode-select").selectOption("dark");
-    await expect.poll(() => page.evaluate(() => localStorage.getItem("pbtheme"))).toBe("brite");
-    await expect.poll(() => page.evaluate(() => localStorage.getItem("pbthemeMode"))).toBe("dark");
+    await expect.poll(() => page.evaluate(() => localStorage.getItem("pb_theme"))).toBe("brite");
+    await expect.poll(() => page.evaluate(() => localStorage.getItem("pb_themeMode"))).toBe("dark");
     await expect(page.locator("html")).toHaveAttribute("data-bs-theme", "dark");
     await page.locator("#fontSizeSelector").selectOption("large");
-    await expect.poll(() => page.evaluate(() => localStorage.getItem("pbfontSize"))).toBe("large");
+    await expect.poll(() => page.evaluate(() => localStorage.getItem("pb_fontSize"))).toBe("large");
 
     // Server tab.
     await page.locator("#settingsTabs .smd-tab-btn").filter({ hasText: "Server" }).click();

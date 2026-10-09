@@ -7,7 +7,7 @@
 
 // One storage namespace for every PhoneButtons key (shared services read
 // through smdKey()).
-SmdConfig.storagePrefix = "pb";
+SmdConfig.storagePrefix = "pb_";
 SmdConfig.imagePrefix = "shared-";
 
 document.addEventListener("DOMContentLoaded", function () {
