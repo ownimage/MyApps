@@ -63,11 +63,9 @@ test.describe("PhoneButtons - Regression", () => {
     expect(cfg.prefix).toBe("pb_");
     expect(cfg.imagePrefix).toBe("shared-");
 
-    // The app connects to its own origin on boot.
-    await expect(page.locator("#connBadge")).toContainText("Connecting");
-
-    // The connection tools + log live on the Settings -> Server tab, NOT the
-    // main view (the template's content is inert until Settings is built).
+    // The main view is just the layout buttons; the connection status/tools/log
+    // live on the Settings -> Server tab (inert until Settings is built).
+    await expect(page.locator("#connBadge")).toHaveCount(0);
     await expect(page.locator("#commLog")).toHaveCount(0);
     await expect(page.locator("#btnConnect")).toHaveCount(0);
     await expect(page.locator("#layoutButtons")).toBeHidden();
@@ -81,15 +79,15 @@ test.describe("PhoneButtons - Regression", () => {
     // Boot auto-connect created the socket; flip it connected.
     await page.waitForFunction(() => typeof window.__serverConnect === "function");
     await page.evaluate(() => window.__serverConnect());
-    await expect(page.locator("#connBadge")).toHaveText("Connected");
 
-    // Server-pushed foreground app shows on the main view.
+    // Server-pushed app shows in the nav bar (to the right of the hamburger).
     await page.evaluate(() => window.__serverEmit("app_change", { name: "Microsoft PowerPoint", icon: "" }));
-    await expect(page.locator("#serverAppName")).toHaveText("Microsoft PowerPoint");
+    await expect(page.locator("#mainNav #serverAppName")).toHaveText("Microsoft PowerPoint");
 
-    // Open the Server tab, which holds the controls + log.
+    // The Server tab holds the connection status + controls + log.
     await page.evaluate(() => openSettings());
     await page.locator("#settingsTabs .smd-tab-btn").filter({ hasText: "Server" }).click();
+    await expect(page.locator("#connBadge")).toHaveText("Connected");
     await expect(page.locator("#commLog")).toBeVisible();
     await expect(page.locator("#commLog")).toContainText("app_change");
     await expect(page.locator("#btnPing")).toBeEnabled();
@@ -103,9 +101,10 @@ test.describe("PhoneButtons - Regression", () => {
     const emitted = await page.evaluate(() => window.__ioState.emitted);
     expect(emitted).toContainEqual({ event: "button_press", data: { key: "X" } });
 
-    // Disconnect flips the main-view status back.
+    // Disconnect shows the danger status.
     await page.locator("#btnDisconnect").click();
     await expect(page.locator("#connBadge")).toHaveText("Disconnected");
+    await expect(page.locator("#connBadge")).toHaveAttribute("variant", "danger");
   });
 
   test("main page renders the app's layout buttons from the app_change push", async ({ page }) => {
@@ -170,6 +169,7 @@ test.describe("PhoneButtons - Regression", () => {
 
     // Server tab.
     await page.locator("#settingsTabs .smd-tab-btn").filter({ hasText: "Server" }).click();
+    await expect(page.locator("#connBadge")).toBeVisible();
     await expect(page.locator("#btnConnect")).toBeVisible();
     await expect(page.locator("#btnDisconnect")).toBeVisible();
     await expect(page.locator("#btnPing")).toBeVisible();

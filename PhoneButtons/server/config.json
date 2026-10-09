@@ -18,14 +18,14 @@
       "orientation": "landscape",
       "buttons": [
         {
-          "name": "Next slide",
           "image": "bi:skip-forward-fill",
-          "key": "right"
+          "key": "right",
+          "name": "Next slide"
         },
         {
-          "name": "Prev Slide",
           "image": "bi:skip-backward-fill",
-          "key": "left"
+          "key": "left",
+          "name": "Prev Slide"
         }
       ]
     },

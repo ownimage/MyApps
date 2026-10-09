@@ -57,7 +57,7 @@ function _renderConnStatus(status, detail) {
   var badge = document.getElementById("connBadge");
   var detailEl = document.getElementById("connDetail");
   var states = {
-    disconnected: ["secondary", "Disconnected"],
+    disconnected: ["danger", "Disconnected"],
     connecting: ["warning", "Connecting\u2026"],
     connected: ["success", "Connected"],
     error: ["danger", "Error"]
