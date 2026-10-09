@@ -343,8 +343,12 @@ test.describe("PhoneButtons - Regression", () => {
     await page.locator("#layoutButton1").click();
     await expect(page.locator("#buttonEditPage")).toHaveAttribute("open", "");
     await expect(page.locator("#buttonNameInput")).toHaveValue("Next Slide");
+    // Key and Special key clear each other (both stay enterable).
+    await page.locator("#buttonKeyChar").fill("k");
+    await expect(page.locator("#buttonKeyNamed")).toHaveValue("");
     await page.locator("#buttonKeyNamed").selectOption("MEDIA_NEXT_TRACK");
-    await expect(page.locator("#buttonKeyChar")).toBeDisabled();
+    await expect(page.locator("#buttonKeyChar")).toHaveValue("");
+    await expect(page.locator("#buttonKeyChar")).toBeEnabled();
     await page.locator("#buttonNameInput").fill("Advance");
     await page.locator("#buttonKeyCtrl").click();
     await page.locator("#buttonEditPage").getByRole("button", { name: "OK" }).click();

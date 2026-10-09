@@ -356,7 +356,7 @@ function buildButtonEditPage() {
           '<option value="">&mdash; Special key &mdash;</option>' + namedOptions +
         '</select>' +
       '</div>' +
-      '<div class="form-text">Enter a single Key <em>or</em> choose a Special key (not both).</div>' +
+      '<div class="form-text">Choose a Key <em>or</em> a Special key — picking one clears the other.</div>' +
     '</div>' +
     '<div class="mb-3">' +
       '<label class="form-label d-block">Modifiers</label>' +
@@ -391,42 +391,34 @@ function setButtonKeyControls(value) {
   var named = document.getElementById("buttonKeyNamed");
   var char = document.getElementById("buttonKeyChar");
   if (!named || !char) return;
+  named.disabled = false;
+  char.disabled = false;
   var upper = parsed.key.toUpperCase();
   if (BUTTON_NAMED_KEYS.indexOf(upper) !== -1) {
     named.value = upper;
     char.value = "";
-    char.disabled = true;
-    named.disabled = false;
   } else if (parsed.key) {
     named.value = "";
     char.value = parsed.key;
-    named.disabled = true;
-    char.disabled = false;
   } else {
     named.value = "";
     char.value = "";
-    named.disabled = false;
-    char.disabled = false;
   }
 }
 
-// Only one of Key / Special key is enterable.
+// Key and Special key clear each other (both stay enterable).
 function onButtonKeyChar() {
   var char = document.getElementById("buttonKeyChar");
   var named = document.getElementById("buttonKeyNamed");
   if (!char || !named) return;
-  var has = !!char.value;
-  named.disabled = has;
-  if (has) named.value = "";
+  if (char.value) named.value = "";
 }
 
 function onButtonKeyNamed() {
   var char = document.getElementById("buttonKeyChar");
   var named = document.getElementById("buttonKeyNamed");
   if (!char || !named) return;
-  var has = !!named.value;
-  char.disabled = has;
-  if (has) char.value = "";
+  if (named.value) char.value = "";
 }
 
 function readButtonKey() {

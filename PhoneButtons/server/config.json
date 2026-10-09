@@ -6,9 +6,10 @@
       "orientation": "landscape",
       "buttons": [
         {
-          "image": "fa:paint-brush",
-          "key": "",
-          "name": ""
+          "name": "",
+          "image1": "fa:paint-brush",
+          "image2": "Baby Boy",
+          "key": "a"
         }
       ]
     },
