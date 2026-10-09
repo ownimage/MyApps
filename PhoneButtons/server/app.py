@@ -177,7 +177,7 @@ def _save_config():
     if "app-icon" not in config:
         config["app-icon"] = {}
     config["app-icon"].update(_app_icon_prefs)
-    with open(CONFIG_PATH, "w") as f:
+    with open(CONFIG_PATH, "w", newline="\n") as f:
         json.dump(config, f, indent=2)
     _debug("Config saved")
 
@@ -694,7 +694,7 @@ def api_save_app_layout():
         config["app-layouts"][name] = layout
     else:
         config["app-layouts"].pop(name, None)
-    with open(CONFIG_PATH, "w") as f:
+    with open(CONFIG_PATH, "w", newline="\n") as f:
         json.dump(config, f, indent=2)
     _debug(f"Saved app layout: {name} -> {layout}")
     return jsonify({"ok": True})

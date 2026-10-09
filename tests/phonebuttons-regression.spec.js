@@ -202,4 +202,37 @@ test.describe("PhoneButtons - Regression", () => {
     await expect(page.locator("#editLayoutPage")).not.toHaveAttribute("open", "");
     await expect.poll(() => saved).toEqual({ name: "Adobe Photoshop 2026", layout: "powerpoint" });
   });
+
+  test("Edit Layout wizard: Select Layout dropdown from /api/layouts, Next opens the editor", async ({ page }) => {
+    const errors = [];
+    page.on("console", (m) => { if (m.type() === "error") errors.push(m.text()); });
+    await page.route("**/api/layouts", (route) => route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({ layouts: [
+        { key: "sample", displayName: "Sample" },
+        { key: "reaper", displayName: "REAPER" }
+      ] })
+    }));
+
+    await page.goto("/PhoneButtons/");
+    await page.evaluate(() => openEditLayoutWizard());
+    await expect(page.locator("#layoutSelectPage")).toHaveAttribute("open", "");
+    await expect(page.locator("#layoutSelectPage .smd-page-header h1")).toHaveText("Select Layout");
+
+    // The dropdown is populated from the server catalog (first option shown).
+    const dd = page.locator("#layoutDropdown");
+    await expect(dd.locator("#smdImageBtnText")).toHaveText("Sample");
+    await dd.locator("#smdImageDropdownBtn").click();
+    await expect(dd.locator("#smdImageDropdownMenu .item")).toHaveCount(2);
+    await expect(dd.locator("#smdImageDropdownMenu")).toContainText("REAPER");
+    await dd.locator("#smdImageDropdownMenu .item", { hasText: "REAPER" }).click();
+    await expect(dd.locator("#smdImageBtnText")).toHaveText("REAPER");
+
+    // Next opens the (stub) editor page.
+    await page.locator("#layoutSelectPage").getByRole("button", { name: "Next" }).click();
+    await expect(page.locator("#layoutEditPage")).toHaveAttribute("open", "");
+    await expect(page.locator("#layoutEditPage .smd-page-header h1")).toHaveText("Layout");
+
+    expect(errors).toEqual([]);
+  });
 });
