@@ -407,4 +407,43 @@ test.describe("PhoneButtons - Regression", () => {
     });
     await expect(page.locator("#manageLayoutPage")).not.toHaveAttribute("open", "");
   });
+
+  test("Manage Layout: drag a cell onto another to swap the buttons", async ({ page }) => {
+    const buttonCalls = [];
+    await page.route("**/api/layouts", (route) => route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({ layouts: [
+        { key: "reaper", displayName: "REAPER", image: "", orientation: "landscape", rows: 2, cols: 3,
+          buttons: [{ name: "Next", image1: "", image2: "", key: "right" }] }
+      ] })
+    }));
+    await page.route("**/api/app-icons", (route) => route.fulfill({ contentType: "application/json", body: JSON.stringify({ icons: [] }) }));
+    await page.route("**/api/save-layout-button", (route) => {
+      buttonCalls.push(route.request().postDataJSON());
+      route.fulfill({ contentType: "application/json", body: JSON.stringify({ ok: true }) });
+    });
+
+    await page.goto("/PhoneButtons/");
+    await page.evaluate(() => openManageLayout());
+    await expect(page.locator("#layoutButton1")).toContainText("Next");
+
+    // Drag cell 1 onto cell 2.
+    const b0 = await page.locator("#layoutButton1").boundingBox();
+    const b1 = await page.locator("#layoutButton2").boundingBox();
+    await page.mouse.move(b0.x + b0.width / 2, b0.y + b0.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(b1.x + b1.width / 2, b1.y + b1.height / 2, { steps: 8 });
+    await page.mouse.up();
+
+    // The cells swapped.
+    await expect(page.locator("#layoutButton2")).toContainText("Next");
+    await expect(page.locator("#layoutButton1")).not.toContainText("Next");
+
+    // Both cells were persisted with the swapped data.
+    await expect.poll(() => buttonCalls.length).toBeGreaterThanOrEqual(2);
+    const byIndex = {};
+    buttonCalls.forEach((c) => { byIndex[c.index] = c; });
+    expect(byIndex[0]).toEqual({ layout: "reaper", index: 0, name: "", image1: "", image2: "", key: "" });
+    expect(byIndex[1]).toEqual({ layout: "reaper", index: 1, name: "Next", image1: "", image2: "", key: "right" });
+  });
 });

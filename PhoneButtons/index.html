@@ -63,6 +63,13 @@
     .pb-grid-cell.empty { border-style: dashed; opacity: 0.55; }
     .pb-grid-cell.pb-grid-spacer { visibility: hidden; }
     .pb-grid-cell smd-image { pointer-events: none; }
+
+    /* Manage Layout grid: drag one cell onto another to swap them. The dragged
+       cell dims and gets a DANGER border (it is leaving its slot); the drop
+       target gets a SUCCESS border. Both use the same ring thickness. */
+    .pb-layout-grid .pb-grid-cell { cursor: grab; touch-action: none; }
+    .pb-layout-grid .pb-grid-cell.dragging { cursor: grabbing; opacity: 0.6; border-color: var(--bs-danger); box-shadow: 0 0 0 2px var(--bs-danger); }
+    .pb-layout-grid .pb-grid-cell.drag-over { border-color: var(--bs-success); box-shadow: 0 0 0 2px var(--bs-success); }
   </style>
 </head>
 

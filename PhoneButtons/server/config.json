@@ -1,91 +1,34 @@
 {
   "layouts": {
-    "sample": {
-      "displayName": "Sample",
-      "image": "",
-      "orientation": "landscape",
-      "buttons": [
-        {
-          "image1": "fa:paint-brush",
-          "image2": "Baby Boy",
-          "key": "a",
-          "name": ""
-        },
-        {},
-        {},
-        {},
-        {},
-        {}
-      ],
-      "rows": 2,
-      "cols": 3
-    },
-    "test": {
-      "displayName": "Test",
-      "image": "",
-      "orientation": "portrait",
-      "buttons": []
-    },
     "powerpoint": {
       "displayName": "PowerPoint",
       "image": "Microsoft PowerPoint.png",
       "orientation": "landscape",
+      "rows": 4,
+      "cols": 2,
       "buttons": [
+        {},
+        {},
+        {},
+        {},
+        {},
+        {},
+        {
+          "name": "Prev slide",
+          "image1": "bi:skip-backward-fill",
+          "image2": "",
+          "key": "left"
+        },
         {
           "image1": "bi:skip-forward-fill",
-          "image2": "Beach 3",
+          "image2": "",
           "key": "right",
           "name": "Next slide"
-        },
-        {
-          "image": "bi:skip-backward-fill",
-          "key": "left",
-          "name": "Prev Slide"
-        },
-        {}
-      ],
-      "rows": 1,
-      "cols": 3
-    },
-    "photoshop": {
-      "displayName": "Photoshop",
-      "image": "",
-      "orientation": "landscape",
-      "buttons": []
-    },
-    "lightroom": {
-      "displayName": "Lightroom",
-      "image": "",
-      "orientation": "landscape",
-      "buttons": []
-    },
-    "reaper": {
-      "displayName": "REAPER",
-      "image": "Notepad++.png",
-      "orientation": "landscape",
-      "buttons": [
-        {
-          "name": "N",
-          "image": "",
-          "key": ""
-        },
-        {
-          "name": "W",
-          "image": "Bike",
-          "key": "shift+w"
         }
       ]
-    },
-    "bob": {
-      "displayName": "Bob",
-      "image": "",
-      "orientation": "landscape",
-      "buttons": []
     }
   },
   "app-layouts": {
-    "Google Chrome": "sample",
-    "Microsoft PowerPoint": "powerpoint",
-    "Notepad++": "reaper"
+    "Microsoft PowerPoint": "powerpoint"
   }
 }

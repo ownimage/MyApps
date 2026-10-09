@@ -260,11 +260,86 @@ function renderManageGrid() {
   }
   grid.innerHTML = html;
   grid.querySelectorAll(".pb-grid-cell").forEach(function (el) {
-    el.addEventListener("click", function () {
-      openButtonEditor(parseInt(el.getAttribute("data-index"), 10));
+    el.addEventListener("pointerdown", function (e) {
+      startGridDrag(e, parseInt(el.getAttribute("data-index"), 10));
     });
   });
 }
+
+// ---- Drag one cell onto another to swap them (pointer events → touch + mouse) ----
+
+var _gridDrag = null;
+
+function startGridDrag(e, index) {
+  if (_addingLayout || !_selectedLayoutKey) return;   // no layout to edit yet
+  if (e.pointerType === "mouse" && e.button !== 0) return;
+  _gridDrag = { startIndex: index, x: e.clientX, y: e.clientY, dragging: false, overIndex: -1 };
+}
+
+function moveGridDrag(e) {
+  if (!_gridDrag) return;
+  if (!_gridDrag.dragging) {
+    if (Math.abs(e.clientX - _gridDrag.x) < 8 && Math.abs(e.clientY - _gridDrag.y) < 8) return;
+    _gridDrag.dragging = true;
+    var startEl = document.getElementById("layoutButton" + (_gridDrag.startIndex + 1));
+    if (startEl) startEl.classList.add("dragging");
+  }
+  var el = document.elementFromPoint(e.clientX, e.clientY);
+  var cell = el && el.closest ? el.closest(".pb-grid-cell") : null;
+  var over = cell ? parseInt(cell.getAttribute("data-index"), 10) : -1;
+  if (over !== _gridDrag.overIndex) {
+    document.querySelectorAll("#manageLayoutGrid .drag-over").forEach(function (c) { c.classList.remove("drag-over"); });
+    _gridDrag.overIndex = over;
+    if (cell) cell.classList.add("drag-over");
+  }
+}
+
+function endGridDrag() {
+  if (!_gridDrag) return;
+  var drag = _gridDrag;
+  _gridDrag = null;
+  document.querySelectorAll("#manageLayoutGrid .dragging, #manageLayoutGrid .drag-over").forEach(function (c) {
+    c.classList.remove("dragging");
+    c.classList.remove("drag-over");
+  });
+  if (!drag.dragging) {
+    openButtonEditor(drag.startIndex);   // a tap edits the button
+    return;
+  }
+  if (drag.overIndex >= 0 && drag.overIndex !== drag.startIndex) {
+    swapLayoutButtons(drag.startIndex, drag.overIndex);
+  }
+}
+
+// Swap the button data of two cells and persist both.
+function swapLayoutButtons(a, b) {
+  var layout = _layoutsByKey[_selectedLayoutKey];
+  if (!layout) return;
+  layout.buttons = layout.buttons || [];
+  while (layout.buttons.length <= Math.max(a, b)) layout.buttons.push({});
+  var tmp = layout.buttons[a];
+  layout.buttons[a] = layout.buttons[b];
+  layout.buttons[b] = tmp;
+  renderManageGrid();
+  saveLayoutButtonAt(a);
+  saveLayoutButtonAt(b);
+  _commLine("Manage Layout: swapped buttons " + (a + 1) + " and " + (b + 1), "info");
+}
+
+function saveLayoutButtonAt(index) {
+  var layout = _layoutsByKey[_selectedLayoutKey] || {};
+  var b = (layout.buttons && layout.buttons[index]) || {};
+  pbApi.saveLayoutButton({
+    layout: _selectedLayoutKey, index: index,
+    name: b.name || "", image1: b.image1 || "", image2: b.image2 || "", key: b.key || ""
+  }).catch(function (err) {
+    _commLine("Manage Layout: swap save failed: " + err.message, "error");
+  });
+}
+
+document.addEventListener("pointermove", moveGridDrag, { passive: false });
+document.addEventListener("pointerup", endGridDrag);
+document.addEventListener("pointercancel", endGridDrag);
 
 // ---- Layout icon picker (server app-icon cache) ----
 
@@ -396,7 +471,7 @@ function buildButtonEditPage() {
     '</div>';
   page.buttons = [
     { text: "Cancel", variant: "secondary", action: "cancel" },
-    { text: "OK", variant: "primary", action: "ok" }
+    { text: "OK", variant: "success", action: "ok" }
   ];
   return page;
 }
