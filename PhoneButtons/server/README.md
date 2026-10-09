@@ -22,7 +22,11 @@ LAN, `http://<PC-LAN-IP>:5000/PhoneButtons/`).
 On startup the server also **opens a browser** at
 `http://<PC-LAN-IP>:5000/PhoneButtons/?showQr=1`, which lands on the Settings
 page with the "Share app" QR visible — scan it with your phone to open the app
-on the phone.
+on the phone. Pass **`--no-qr`** to suppress that browser launch:
+
+```powershell
+py -3.13 MyApps\PhoneButtons\server\app.py --no-qr
+```
 
 `/` redirects to `/PhoneButtons/`.
 

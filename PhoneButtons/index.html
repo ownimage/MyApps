@@ -120,7 +120,7 @@
 
         <!-- Server -->
         <section class="smd-settings-tab" data-tab="Server" data-tab-id="server-tab">
-          <div class="mt-3 mb-3" style="display:grid;grid-template-columns:repeat(4,1fr);gap:.5rem">
+          <div id="serverButtonGrid" class="mt-3 mb-3" style="display:grid;grid-template-columns:repeat(2,1fr);gap:.5rem">
             <button id="btnConnect" class="btn btn-success" onclick="connectServer()">Connect</button>
             <button id="btnDisconnect" class="btn btn-danger" onclick="disconnectServer()" disabled>Disconnect</button>
             <button id="btnPing" class="btn btn-primary" onclick="pingServer()" disabled>Ping</button>
@@ -129,9 +129,17 @@
 
           <div class="d-flex align-items-center mb-1">
             <span class="fw-semibold">Connection log</span>
-            <button class="btn btn-sm btn-outline-secondary ms-auto" onclick="clearCommLog()">Clear</button>
+            <button class="btn btn-sm btn-danger ms-auto" onclick="clearCommLog()">Clear</button>
           </div>
           <div id="commLog" class="border rounded p-2 small" style="min-height:120px;max-height:44vh;overflow:auto;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace"></div>
+
+          <div class="row mb-3 align-items-center col-md-8 mt-3">
+            <div class="col-4 text-end"><label class="form-label mb-0">Show background apps</label></div>
+            <div class="col-8">
+              <smd-checkbox id="showBackgroundApps" switch onchange="changeShowBackgroundApps(this.checked)"></smd-checkbox>
+              <div class="form-text">Include windowless processes in the Manage App list.</div>
+            </div>
+          </div>
         </section>
 
         <div id="settingsFooter" class="mt-3">

@@ -176,6 +176,16 @@ test.describe("PhoneButtons - Regression", () => {
     await expect(page.locator("#btnTestKey")).toBeVisible();
     await expect(page.locator("#commLog")).toBeVisible();
 
+    // The four buttons are a 2 x 2 grid.
+    const cols = await page.evaluate(() =>
+      getComputedStyle(document.getElementById("serverButtonGrid")).gridTemplateColumns.split(" ").length);
+    expect(cols).toBe(2);
+
+    // The "Show background apps" switch lives on this tab and persists.
+    await expect(page.locator("#showBackgroundApps")).toBeVisible();
+    await page.locator("#showBackgroundApps").click();
+    await expect.poll(() => page.evaluate(() => localStorage.getItem("pb_showBackgroundApps"))).toBe("true");
+
     // The share QR encodes this server's own URL.
     await expect(page.locator("#shareQrCode")).toHaveAttribute("value", "http://localhost:8080/PhoneButtons/");
   });
@@ -188,7 +198,7 @@ test.describe("PhoneButtons - Regression", () => {
     await expect(page.locator("#settingsPage")).not.toHaveAttribute("open", "");
   });
 
-  test("Manage App: background toggle + layout follows the selected app", async ({ page }) => {
+  test("Manage App: layout follows the selected app; background setting respected", async ({ page }) => {
     let saved = null;
     await page.route("**/api/apps", (route) => route.fulfill({
       contentType: "application/json",
@@ -224,14 +234,16 @@ test.describe("PhoneButtons - Regression", () => {
     await expect(appDd.locator("#pbImageBtnText")).toHaveText("Microsoft PowerPoint");
     await expect(layoutDd.locator("#pbImageBtnText")).toHaveText("PowerPoint");
 
-    // Background apps are hidden by default.
+    // Background apps are hidden by default (the switch is on the Settings
+    // Server tab).
     await appDd.locator("#pbImageDropdownBtn").click();
     await expect(appDd.locator("#pbImageDropdownMenu .item")).toHaveCount(2);
     await expect(appDd.locator("#pbImageDropdownMenu")).not.toContainText("ApCent");
     await appDd.locator("#pbImageDropdownMenu .item", { hasText: "Microsoft PowerPoint" }).click();
 
-    // Turning on "Show background apps" reveals them.
-    await page.locator("#manageAppShowBackground").click();
+    // Turning the setting on and reopening reveals them.
+    await page.evaluate(() => setShowBackgroundApps(true));
+    await page.evaluate(() => openManageApp());
     await appDd.locator("#pbImageDropdownBtn").click();
     await expect(appDd.locator("#pbImageDropdownMenu .item")).toHaveCount(3);
     await expect(appDd.locator("#pbImageDropdownMenu")).toContainText("ApCent");

@@ -29,16 +29,12 @@ function _hideWizardPage(page) {
 
 var _manageAppName = "";      // selected running app name
 var _manageAppLayoutKey = ""; // selected layout key
-var _manageAppShowBackground = false; // "Show background apps" checkbox
 var _manageAppsByName = {};           // app name -> app object (from /api/apps)
 var _manageAppLayoutsByKey = {};      // layout key -> layout object
 
 function buildManageAppPage(page) {
   page.title = "Manage App";
   page.content =
-    '<div class="mb-3">' +
-      '<smd-checkbox id="manageAppShowBackground" onchange="changeManageAppBackground(this.checked)">Show background apps</smd-checkbox>' +
-    '</div>' +
     '<div class="mb-3">' +
       '<label class="form-label" for="manageAppDropdown">Application</label>' +
       '<pb-image-dropdown id="manageAppDropdown"></pb-image-dropdown>' +
@@ -83,7 +79,6 @@ function openManageApp() {
       else if (action === "edit-layout") openManageLayout(_manageAppLayoutKey);
     });
   }
-  _manageAppShowBackground = false;
   buildManageAppPage(page);
   _openWizardPage(page);
   loadManageApp();
@@ -118,7 +113,7 @@ function renderManageAppOptions() {
   var appDd = document.getElementById("manageAppDropdown");
   if (!appDd) return;
   var apps = Object.keys(_manageAppsByName).map(function (k) { return _manageAppsByName[k]; })
-    .filter(function (a) { return _manageAppShowBackground || !a.background; })
+    .filter(function (a) { return getShowBackgroundApps() || !a.background; })
     .sort(function (a, b) { return a.name.toLowerCase().localeCompare(b.name.toLowerCase()); });
   appDd.options = apps.map(function (a) {
     return { name: a.name, value: a.name, imageUrl: a.icon || "" };
@@ -150,11 +145,6 @@ function applyAppLayout(app) {
     layoutDd.selected = "";
     _manageAppLayoutKey = "";
   }
-}
-
-function changeManageAppBackground(showBackground) {
-  _manageAppShowBackground = !!showBackground;
-  renderManageAppOptions();
 }
 
 function finishManageApp() {

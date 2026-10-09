@@ -3,6 +3,7 @@ import io
 import json
 import sys
 import socket
+import argparse
 import datetime
 import threading
 import webbrowser
@@ -1018,9 +1019,18 @@ def _open_browser():
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="PhoneButtons server")
+    parser.add_argument(
+        "--no-qr",
+        action="store_true",
+        help="Do not open the Share-QR browser page on startup",
+    )
+    args = parser.parse_args()
+
     t = threading.Thread(target=_run_focus_hook, daemon=True)
     t.start()
     # Open a browser once the server is listening, showing the Share QR so it can
-    # be scanned with a phone straight away.
-    threading.Timer(1.5, _open_browser).start()
+    # be scanned with a phone straight away (skip with --no-qr).
+    if not args.no_qr:
+        threading.Timer(1.5, _open_browser).start()
     socketio.run(app, host="0.0.0.0", port=5000, allow_unsafe_werkzeug=True)
