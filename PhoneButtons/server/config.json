@@ -3,32 +3,49 @@
     "sample": {
       "displayName": "Sample",
       "image": "",
-      "orientation": "landscape"
+      "orientation": "landscape",
+      "buttons": []
     },
     "test": {
       "displayName": "Test",
       "image": "",
-      "orientation": "portrait"
+      "orientation": "portrait",
+      "buttons": []
     },
     "powerpoint": {
       "displayName": "PowerPoint",
       "image": "Microsoft PowerPoint.png",
-      "orientation": "portrait"
+      "orientation": "landscape",
+      "buttons": [
+        {
+          "image": "Baby",
+          "key": "x",
+          "name": "Gray baby"
+        },
+        {
+          "name": "Pink Baby",
+          "image": "Baby Girl",
+          "key": "b"
+        }
+      ]
     },
     "photoshop": {
       "displayName": "Photoshop",
-      "image": "PyCharm.png",
-      "orientation": "landscape"
+      "image": "",
+      "orientation": "landscape",
+      "buttons": []
     },
     "lightroom": {
       "displayName": "Lightroom",
       "image": "",
-      "orientation": "landscape"
+      "orientation": "landscape",
+      "buttons": []
     },
     "reaper": {
       "displayName": "REAPER",
       "image": "",
-      "orientation": "landscape"
+      "orientation": "landscape",
+      "buttons": []
     }
   },
   "app-layouts": {

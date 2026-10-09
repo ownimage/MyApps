@@ -44,5 +44,14 @@ var pbApi = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(layout)
     });
+  },
+
+  // Persist one button (image + key combination) of a layout.
+  saveLayoutButton: function (button) {
+    return this._fetch("/api/save-layout-button", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(button)
+    });
   }
 };

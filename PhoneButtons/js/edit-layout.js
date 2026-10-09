@@ -104,12 +104,41 @@ function buildLayoutEditPage(layout) {
           '<option value="portrait">Portrait</option>' +
         '</select>' +
       '</div>' +
+    '</div>' +
+    '<div class="d-grid gap-2 mb-3">' +
+      layoutButtonHtml(layout, 0) +
+      layoutButtonHtml(layout, 1) +
     '</div>';
   page.buttons = [
     { text: "Cancel", variant: "secondary", action: "cancel" },
     { text: "Finish", variant: "success", action: "finish" }
   ];
   return page;
+}
+
+// A layout button shows its shared image (if set) with the name beside it.
+function layoutButtonHtml(layout, index) {
+  var btn = (layout.buttons && layout.buttons[index]) || {};
+  var name = btn.name || ("Button " + (index + 1));
+  var image = btn.image || "";
+  return '<button type="button" id="layoutButton' + (index + 1) +
+    '" class="btn btn-outline-primary d-flex align-items-center gap-2 text-start" onclick="openButtonEditor(' + index + ')">' +
+    '<smd-image key-prefix="shared-"' + (image ? ' image="' + escAttr(image) + '"' : '') + '></smd-image>' +
+    '<span id="layoutButtonName' + (index + 1) + '">' + escapeHtml(name) + '</span>' +
+    '</button>';
+}
+
+// Reflect a saved button back onto the (possibly suspended) layout page.
+function refreshLayoutButton(index) {
+  var layout = _layoutsByKey[_selectedLayoutKey] || {};
+  var btn = (layout.buttons && layout.buttons[index]) || {};
+  var nameEl = document.getElementById("layoutButtonName" + (index + 1));
+  if (nameEl) nameEl.textContent = btn.name || ("Button " + (index + 1));
+  var img = document.querySelector("#layoutButton" + (index + 1) + " smd-image");
+  if (img) {
+    if (btn.image) img.setAttribute("image", btn.image);
+    else img.removeAttribute("image");
+  }
 }
 
 // Show the chosen cached icon (or hide the preview for "None"). A missing file
@@ -136,6 +165,186 @@ function changeLayoutIcon(name) {
 
 function iconCacheUrl(name) {
   return "/app-icon-cache/" + encodeURIComponent(name);
+}
+
+// ---- Button editor (smd-page) ----
+//
+// Edits one layout button: a shared-library image (via <smd-image-select> + the
+// shared image picker) and a key combination (Ctrl/Alt/Shift + a character or a
+// named/media key). Saved per layout through POST /api/save-layout-button.
+
+var _editingButtonIndex = 0;
+var _buttonImage = "";
+
+// Named keys the server's _KEY_MAP understands (plus media keys).
+var BUTTON_NAMED_KEYS = [
+  "BACKSPACE", "TAB", "ENTER", "ESCAPE", "SPACE", "DELETE",
+  "F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "F10", "F11", "F12",
+  "LEFT", "RIGHT", "UP", "DOWN",
+  "VOLUME_MUTE", "VOLUME_DOWN", "VOLUME_UP",
+  "MEDIA_NEXT_TRACK", "MEDIA_PREV_TRACK", "MEDIA_STOP", "MEDIA_PLAY_PAUSE"
+];
+
+// Shared image picker route for the Button editor's <smd-image-select>.
+function buttonImageSelectHandler(name) {
+  _buttonImage = name || "";
+  var sel = document.getElementById("buttonImageSelect");
+  if (sel) sel.setAttribute("image", _buttonImage);
+}
+
+function buildButtonEditPage() {
+  var page = document.getElementById("buttonEditPage");
+  if (!page) return null;
+  var namedOptions = BUTTON_NAMED_KEYS.map(function (k) {
+    return '<option value="' + k + '">' + k.replace(/_/g, " ") + '</option>';
+  }).join("");
+  page.title = "Edit Button";
+  page.content =
+    '<div class="mb-3">' +
+      '<label class="form-label" for="buttonNameInput">Name</label>' +
+      '<input type="text" id="buttonNameInput" class="form-control" placeholder="Button name">' +
+    '</div>' +
+    '<div class="mb-3">' +
+      '<label class="form-label">Image</label>' +
+      '<smd-image-select id="buttonImageSelect" key-prefix="shared-"></smd-image-select>' +
+    '</div>' +
+    '<div class="mb-3">' +
+      '<label class="form-label">Key</label>' +
+      '<div class="d-flex gap-2">' +
+        '<input type="text" id="buttonKeyChar" class="form-control" maxlength="1" placeholder="Key" style="max-width:5rem" oninput="onButtonKeyChar()">' +
+        '<select id="buttonKeyNamed" class="form-select" aria-label="Special key" onchange="onButtonKeyNamed()">' +
+          '<option value="">&mdash; Special key &mdash;</option>' + namedOptions +
+        '</select>' +
+      '</div>' +
+      '<div class="form-text">Enter a single Key <em>or</em> choose a Special key (not both).</div>' +
+    '</div>' +
+    '<div class="mb-3">' +
+      '<label class="form-label d-block">Modifiers</label>' +
+      '<div class="d-flex gap-3">' +
+        '<smd-checkbox id="buttonKeyCtrl">Ctrl</smd-checkbox>' +
+        '<smd-checkbox id="buttonKeyAlt">Alt</smd-checkbox>' +
+        '<smd-checkbox id="buttonKeyShift">Shift</smd-checkbox>' +
+      '</div>' +
+    '</div>';
+  page.buttons = [
+    { text: "Cancel", variant: "secondary", action: "cancel" },
+    { text: "OK", variant: "primary", action: "ok" }
+  ];
+  return page;
+}
+
+// "ctrl+shift+X" -> { mods: { ctrl, alt, shift }, key: "X" }
+function parseButtonKey(value) {
+  var parts = String(value || "").split("+");
+  var mods = { ctrl: false, alt: false, shift: false };
+  while (parts.length && Object.prototype.hasOwnProperty.call(mods, parts[0].toLowerCase())) {
+    mods[parts.shift().toLowerCase()] = true;
+  }
+  return { mods: mods, key: parts.join("+") };
+}
+
+function setButtonKeyControls(value) {
+  var parsed = parseButtonKey(value);
+  var ctrl = document.getElementById("buttonKeyCtrl"); if (ctrl) ctrl.checked = parsed.mods.ctrl;
+  var alt = document.getElementById("buttonKeyAlt"); if (alt) alt.checked = parsed.mods.alt;
+  var shift = document.getElementById("buttonKeyShift"); if (shift) shift.checked = parsed.mods.shift;
+  var named = document.getElementById("buttonKeyNamed");
+  var char = document.getElementById("buttonKeyChar");
+  if (!named || !char) return;
+  var upper = parsed.key.toUpperCase();
+  if (BUTTON_NAMED_KEYS.indexOf(upper) !== -1) {
+    named.value = upper;
+    char.value = "";
+    char.disabled = true;
+    named.disabled = false;
+  } else if (parsed.key) {
+    named.value = "";
+    char.value = parsed.key;
+    named.disabled = true;
+    char.disabled = false;
+  } else {
+    named.value = "";
+    char.value = "";
+    named.disabled = false;
+    char.disabled = false;
+  }
+}
+
+// Only one of Key / Special key is enterable.
+function onButtonKeyChar() {
+  var char = document.getElementById("buttonKeyChar");
+  var named = document.getElementById("buttonKeyNamed");
+  if (!char || !named) return;
+  var has = !!char.value;
+  named.disabled = has;
+  if (has) named.value = "";
+}
+
+function onButtonKeyNamed() {
+  var char = document.getElementById("buttonKeyChar");
+  var named = document.getElementById("buttonKeyNamed");
+  if (!char || !named) return;
+  var has = !!named.value;
+  char.disabled = has;
+  if (has) char.value = "";
+}
+
+function readButtonKey() {
+  var char = document.getElementById("buttonKeyChar");
+  var named = document.getElementById("buttonKeyNamed");
+  var raw = ((named && named.value) || (char && char.value) || "").toLowerCase().trim();
+  var mods = [];
+  var ctrl = document.getElementById("buttonKeyCtrl");
+  var alt = document.getElementById("buttonKeyAlt");
+  var shift = document.getElementById("buttonKeyShift");
+  if (ctrl && ctrl.checked) mods.push("ctrl");
+  if (alt && alt.checked) mods.push("alt");
+  if (shift && shift.checked) mods.push("shift");
+  return mods.length ? mods.join("+") + "+" + raw : raw;
+}
+
+function openButtonEditor(index) {
+  _editingButtonIndex = index;
+  var page = buildButtonEditPage();
+  if (!page) return;
+  if (!page.__pbBound) {
+    page.__pbBound = true;
+    page.addEventListener("smd-page-action", function (e) {
+      var action = e.detail && e.detail.action;
+      if (action === "ok") saveButtonEditor();
+    });
+  }
+  _openWizardPage(page);
+  var layout = _layoutsByKey[_selectedLayoutKey] || {};
+  var button = (layout.buttons && layout.buttons[index]) || {};
+  _buttonImage = button.image || "";
+  var sel = document.getElementById("buttonImageSelect");
+  if (sel) sel.setAttribute("image", _buttonImage);
+  var nameInput = document.getElementById("buttonNameInput");
+  if (nameInput) nameInput.value = button.name || "";
+  setButtonKeyControls(button.key || "");
+}
+
+function saveButtonEditor() {
+  var nameInput = document.getElementById("buttonNameInput");
+  var sel = document.getElementById("buttonImageSelect");
+  var name = nameInput ? nameInput.value.trim() : "";
+  var image = sel ? (sel.getAttribute("image") || "") : "";
+  var key = readButtonKey();
+  var index = _editingButtonIndex;
+  pbApi.saveLayoutButton({ layout: _selectedLayoutKey, index: index, name: name, image: image, key: key }).then(function () {
+    var layout = _layoutsByKey[_selectedLayoutKey];
+    if (layout) {
+      layout.buttons = layout.buttons || [];
+      while (layout.buttons.length <= index) layout.buttons.push({});
+      layout.buttons[index] = { name: name, image: image, key: key };
+    }
+    refreshLayoutButton(index);
+    _commLine("Edit Layout: saved button " + (index + 1) + " (" + (name || "unnamed") + ", image " +
+      (image || "none") + ", key " + (key || "none") + ")", "ok");
+  }).catch(function (err) {
+    _commLine("Edit Layout: save button failed: " + err.message, "error");
+  });
 }
 
 // Populate the icon <pb-image-dropdown> from the server's app-icon cache (small
@@ -174,7 +383,9 @@ function saveLayout() {
     key: _selectedLayoutKey,
     displayName: existing.displayName || _selectedLayoutKey,
     image: _selectedIconName || "",
-    orientation: orientation ? orientation.value : "landscape"
+    orientation: orientation ? orientation.value : "landscape",
+    // Persist the buttons as part of the layout.
+    buttons: existing.buttons || []
   };
   pbApi.saveLayout(payload).then(function () {
     _layoutsByKey[_selectedLayoutKey] = payload;

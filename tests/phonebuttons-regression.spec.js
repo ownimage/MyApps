@@ -208,11 +208,12 @@ test.describe("PhoneButtons - Regression", () => {
 
   test("Edit Layout editor: icon from the app-icon cache + orientation, saved to the server", async ({ page }) => {
     let saved = null;
+    let savedButton = null;
     await page.route("**/api/layouts", (route) => route.fulfill({
       contentType: "application/json",
       body: JSON.stringify({ layouts: [
-        { key: "sample", displayName: "Sample", image: "PyCharm.png", orientation: "landscape" },
-        { key: "reaper", displayName: "REAPER", image: "gone.png", orientation: "portrait" }
+        { key: "sample", displayName: "Sample", image: "PyCharm.png", orientation: "landscape", buttons: [] },
+        { key: "reaper", displayName: "REAPER", image: "gone.png", orientation: "portrait", buttons: [{ name: "Next Slide", image: "" }] }
       ] })
     }));
     await page.route("**/api/app-icons", (route) => route.fulfill({
@@ -225,6 +226,10 @@ test.describe("PhoneButtons - Regression", () => {
     }));
     await page.route("**/api/save-layout", (route) => {
       saved = route.request().postDataJSON();
+      route.fulfill({ contentType: "application/json", body: JSON.stringify({ ok: true }) });
+    });
+    await page.route("**/api/save-layout-button", (route) => {
+      savedButton = route.request().postDataJSON();
       route.fulfill({ contentType: "application/json", body: JSON.stringify({ ok: true }) });
     });
 
@@ -265,11 +270,43 @@ test.describe("PhoneButtons - Regression", () => {
     await expect(page.locator("#layoutIconPreview")).toBeVisible();
     await expect(page.locator("#layoutIconPreview")).toHaveAttribute("src", /app-icon-cache\/PyCharm\.png/);
 
+    // The layout button shows the saved name; clicking opens the editor.
+    await expect(page.locator("#layoutButton1")).toContainText("Next Slide");
+    await expect(page.locator("#layoutButton2")).toBeVisible();
+    await page.locator("#layoutButton1").click();
+    await expect(page.locator("#buttonEditPage")).toHaveAttribute("open", "");
+    await expect(page.locator("#buttonEditPage .smd-page-header h1")).toHaveText("Edit Button");
+    await expect(page.locator("#buttonNameInput")).toHaveValue("Next Slide");
+    await expect(page.locator("#buttonImageSelect")).toBeVisible();
+    await expect(page.locator("#buttonKeyNamed")).toBeVisible();
+    await expect(page.locator("#buttonKeyCtrl")).toBeVisible();
+    await expect(page.locator("#buttonEditPage").getByRole("button", { name: "Cancel" })).toBeVisible();
+    await expect(page.locator("#buttonEditPage").getByRole("button", { name: "OK" })).toBeVisible();
+
+    // Key and Special key are mutually exclusive.
+    await page.locator("#buttonKeyNamed").selectOption("MEDIA_NEXT_TRACK");
+    await expect(page.locator("#buttonKeyChar")).toBeDisabled();
+    await expect(page.locator("#buttonKeyChar")).toHaveValue("");
+
+    // Rename + Ctrl + a special key, then OK -> POST carries the name.
+    await page.locator("#buttonNameInput").fill("Advance");
+    await page.locator("#buttonKeyCtrl").click();
+    await page.locator("#buttonEditPage").getByRole("button", { name: "OK" }).click();
+    await expect(page.locator("#buttonEditPage")).not.toHaveAttribute("open", "");
+    await expect.poll(() => savedButton).toEqual({
+      layout: "reaper", index: 0, name: "Advance", image: "", key: "ctrl+media_next_track"
+    });
+
+    // The layout page reflects the new name.
+    await expect(page.locator("#layoutButton1")).toContainText("Advance");
+
     await page.locator("#layoutOrientationSelect").selectOption("landscape");
     await page.locator("#layoutEditPage").getByRole("button", { name: "Finish" }).click();
 
+    // Finish saves the layout WITH its buttons.
     await expect.poll(() => saved).toEqual({
-      key: "reaper", displayName: "REAPER", image: "PyCharm.png", orientation: "landscape"
+      key: "reaper", displayName: "REAPER", image: "PyCharm.png", orientation: "landscape",
+      buttons: [{ name: "Advance", image: "", key: "ctrl+media_next_track" }]
     });
   });
 });

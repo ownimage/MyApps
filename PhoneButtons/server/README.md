@@ -44,6 +44,8 @@ on the phone.
   (`{name, layout}`) into `config.json` -> `app-layouts`.
 - `POST /api/save-layout` — persist a layout definition
   (`{key, displayName, image, orientation}`) into `config.json` -> `layouts`.
+- `POST /api/save-layout-button` — persist one layout button
+  (`{layout, index, image, key}`) into `config.json` -> `layouts[key].buttons[index]`.
 - Socket.IO: the server emits `app_change` on connect and on foreground change;
   the client sends `button_press { key }`; `ping` -> `pong` for diagnostics.
 

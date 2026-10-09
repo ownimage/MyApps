@@ -16,6 +16,12 @@ document.addEventListener("DOMContentLoaded", function () {
 
   renderMain();
   bindSocketUi();
+
+  // Shared image library + picker, used by the Button editor's image field.
+  if (typeof seedSampleImages === "function") seedSampleImages();
+  smdBindImagePicker();
+  smdBindImageSelectActions({ buttonImageSelect: buttonImageSelectHandler });
+
   _commLine("Phone Buttons ready.", "info");
 
   // The app is served by the server it controls, so connect automatically.

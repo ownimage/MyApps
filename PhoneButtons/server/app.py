@@ -675,6 +675,7 @@ def api_layouts():
         "displayName": value.get("displayName", key),
         "image": value.get("image", ""),
         "orientation": value.get("orientation", "landscape"),
+        "buttons": value.get("buttons", []),
     } for key, value in layouts.items()]
     return jsonify({"layouts": result})
 
@@ -707,14 +708,49 @@ def api_save_layout():
         config = {}
     if "layouts" not in config:
         config["layouts"] = {}
-    config["layouts"][key] = {
-        "displayName": data.get("displayName") or key,
-        "image": data.get("image", ""),
-        "orientation": data.get("orientation", "landscape"),
-    }
+    # Buttons are edited separately; MERGE here so saving the icon/orientation
+    # never drops them, and honour an explicit `buttons` list if one is sent.
+    layout = config["layouts"].setdefault(key, {})
+    layout["displayName"] = data.get("displayName") or key
+    layout["image"] = data.get("image", "")
+    layout["orientation"] = data.get("orientation", "landscape")
+    if isinstance(data.get("buttons"), list):
+        layout["buttons"] = data["buttons"]
+    else:
+        layout.setdefault("buttons", [])
     with open(CONFIG_PATH, "w", newline="\n") as f:
         json.dump(config, f, indent=2)
     _debug(f"Saved layout: {key}")
+    return jsonify({"ok": True})
+
+
+@app.route("/api/save-layout-button", methods=["POST"])
+def api_save_layout_button():
+    """Save one button (shared image name + key combination) of a layout."""
+    data = request.get_json() or {}
+    key = (data.get("layout") or "").strip()
+    index = data.get("index")
+    if not key or not isinstance(index, int) or index < 0:
+        return jsonify({"error": "Missing layout or index"}), 400
+    try:
+        with open(CONFIG_PATH, "r") as f:
+            config = json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        config = {}
+    layouts = config.get("layouts", {})
+    if key not in layouts:
+        return jsonify({"error": "Unknown layout"}), 404
+    buttons = layouts[key].setdefault("buttons", [])
+    while len(buttons) <= index:
+        buttons.append({})
+    buttons[index] = {
+        "name": data.get("name", ""),
+        "image": data.get("image", ""),
+        "key": data.get("key", ""),
+    }
+    with open(CONFIG_PATH, "w", newline="\n") as f:
+        json.dump(config, f, indent=2)
+    _debug(f"Saved layout button: {key}[{index}]")
     return jsonify({"ok": True})
 
 

@@ -91,6 +91,10 @@
     <smd-page id="layoutSelectPage" class="d-none"></smd-page>
     <smd-page id="layoutEditPage" class="d-none"></smd-page>
 
+    <!-- BUTTON EDIT + IMAGE PICKER (smd-page) -->
+    <smd-page id="buttonEditPage" class="d-none"></smd-page>
+    <smd-page id="imagePickerPage" class="d-none"></smd-page>
+
     <template id="settingsTemplate">
       <div class="smd-settings">
 
@@ -167,10 +171,14 @@
   document.write('<script src="../shared/js/components/smd-theme.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="../shared/js/components/smd-checkbox.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="../shared/js/components/smd-badge.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../shared/js/components/smd-image.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../shared/js/components/smd-image-select.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../shared/js/components/smd-image-picker.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="../shared/js/components/smd-qrcode.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="../shared/js/components/smd-fontawesome-credit.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="../shared/js/smd-app.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="../shared/js/smd-settings.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../shared/js/smd-images.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="js/socket.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="js/main-view.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="js/api.js?v=' + BUILD_NUMBER + '"><\/script>');
