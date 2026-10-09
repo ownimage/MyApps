@@ -25,6 +25,11 @@ function changeShowBackgroundApps(enabled) {
   setShowBackgroundApps(enabled);
 }
 
+// Danger tab: the "Show danger" switch reveals the danger rows (Refresh App).
+function changeShowDanger(enabled) {
+  smdChangeShowDanger(enabled, ["refreshAppRow"]);
+}
+
 // Runs after the Settings page is (re)built: refresh the Server tab's button
 // states + log from live state, restore the background-apps switch, and point
 // the share QR at this server.
@@ -39,7 +44,7 @@ function restoreServerTab() {
 }
 
 function openSettings() {
-  smdSetupSettingsPage({ restore: restoreServerTab });
+  smdSetupSettingsPage({ restore: restoreServerTab, dangerIds: ["refreshAppRow"] });
 }
 
 function closeSettings() {

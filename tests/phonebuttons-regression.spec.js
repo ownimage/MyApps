@@ -186,6 +186,15 @@ test.describe("PhoneButtons - Regression", () => {
     await page.locator("#showBackgroundApps").click();
     await expect.poll(() => page.evaluate(() => localStorage.getItem("pb_showBackgroundApps"))).toBe("true");
 
+    // Danger tab: the switch reveals the Refresh App row.
+    await page.locator("#settingsTabs .smd-tab-btn").filter({ hasText: "Danger" }).click();
+    await expect(page.locator("#showDanger")).toBeVisible();
+    await expect(page.locator("#refreshAppRow")).toHaveClass(/d-none/);
+    await page.locator("#showDanger").click();
+    await expect(page.locator("#refreshAppRow")).not.toHaveClass(/d-none/);
+    await expect(page.locator("#btnRefreshApp")).toBeVisible();
+    await expect.poll(() => page.evaluate(() => localStorage.getItem("pb_showDanger"))).toBe("true");
+
     // The share QR encodes this server's own URL.
     await expect(page.locator("#shareQrCode")).toHaveAttribute("value", "http://localhost:8080/PhoneButtons/");
   });
