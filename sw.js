@@ -20,7 +20,7 @@
 // comparison. If the two ever DO drift, the page notices at runtime
 // (GET_BUILD) and re-registers, so the drift self-heals instead of pinning
 // users to a build the worker will never replace.
-const BUILD_NUMBER = "202610081513";
+const BUILD_NUMBER = "202610081626";
 
 const CACHE = "myapps-" + BUILD_NUMBER;
 
@@ -387,7 +387,6 @@ const SHARED_ASSETS = [
   "shared/js/smd-images.js",
   "shared/vendor/chart.umd.min.js",
   "shared/vendor/chartjs-adapter-date-fns.bundle.min.js",
-  "shared/vendor/socket.io.min.js",
   "shared/sampleImages/Noughts_&_Crosses.svg"
 ];
 
@@ -487,20 +486,6 @@ const APPS = {
     "SolarControlar/js/forecast-tab.js",
     "SolarControlar/js/graph-tab.js",
     "SolarControlar/js/components/solar-top-tiles.js"
-  ],
-  "PhoneButtons/": [
-    "PhoneButtons/",
-    "PhoneButtons/index.html",
-    "PhoneButtons/manifest.json",
-    "PhoneButtons/icon.svg",
-    "PhoneButtons/icon-192.png",
-    "PhoneButtons/icon-512.png",
-    "PhoneButtons/js/app.js",
-    "PhoneButtons/js/storage.js",
-    "PhoneButtons/js/api.js",
-    "PhoneButtons/js/socket.js",
-    "PhoneButtons/js/main-view.js",
-    "PhoneButtons/js/settings-tab.js"
   ],
   // The Launch app entry lives at the repo root (index.html); its other files
   // live in Launch/ (manifest, icons, css, js).

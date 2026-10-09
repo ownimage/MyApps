@@ -43,12 +43,6 @@ var LAUNCH_APPS = [
     description: "A tactical 5x5 Tic-Tac-Toe game",
     path: "FreeFormOX/",
     icon: "Noughts & Crosses"
-  },
-  {
-    name: "Phone Buttons",
-    description: "Remote key control for your PC",
-    path: "PhoneButtons/",
-    icon: "Home Server"
   }
 ];
 

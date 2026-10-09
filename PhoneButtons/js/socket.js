@@ -76,22 +76,18 @@ var pbSocket = (function () {
       return cb;
     },
 
-    // Connect to the configured server. Resolves with the socket (already
-    // wired); rejects if the library fails to load.
+    // Connect to the origin this page was served from — the Flask server and
+    // the app are the same origin, so no URL/token is needed.
     connect: function () {
       if (socket) return Promise.resolve(socket);
       setStatus("connecting", "");
       return ensureIo().then(function (io) {
-        var base = serverBase();
-        var token = getServerToken();
-        var opts = {
+        socket = io({
           reconnection: true,
           reconnectionDelay: 500,
           reconnectionDelayMax: 5000,
-          timeout: 8000,
-          auth: token ? { token: token } : {}
-        };
-        socket = base ? io(base, opts) : io(opts);
+          timeout: 8000
+        });
         wire(socket);
         return socket;
       }).catch(function (err) {

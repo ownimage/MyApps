@@ -1,0 +1,811 @@
+{
+  "app-icon": {
+    "WhatsApp.Root": "WM_GETICON BIG",
+    "OpenCode": "ExtractIconEx(0)"
+  },
+  "applications": {
+    "myapp": "",
+    "Application Frame Host": "",
+    "Adobe Photoshop 2026": "photoshop",
+    "Adobe Photoshop 2025": "photoshop",
+    "Adobe Lightroom Classic": "lightroom",
+    "REAPER": "reaper",
+    "reaper": "reaper",
+    "WhatsApp.Root": "calculator",
+    "PyCharm": "calculator",
+    "Notepad++": "calculator",
+    "Microsoft PowerPoint": "PowerPoint"
+  },
+  "templates": {
+    "calculator": {
+      "cols": 4,
+      "rows": 5,
+      "buttons": [
+        {
+          "col": 2,
+          "icon": "",
+          "label": "6",
+          "row": 1,
+          "value": "6"
+        },
+        {
+          "col": 3,
+          "icon": "multiply.svg",
+          "label": "",
+          "row": 1,
+          "value": "*"
+        },
+        {
+          "col": 0,
+          "icon": "",
+          "label": "1",
+          "row": 2,
+          "value": "1"
+        },
+        {
+          "col": 1,
+          "icon": "",
+          "label": "2",
+          "row": 2,
+          "value": "2"
+        },
+        {
+          "col": 2,
+          "icon": "",
+          "label": "3",
+          "row": 2,
+          "value": "3"
+        },
+        {
+          "col": 3,
+          "icon": "minus.svg",
+          "label": "",
+          "row": 2,
+          "value": "-"
+        },
+        {
+          "col": 0,
+          "icon": "",
+          "label": "0",
+          "row": 3,
+          "value": "0"
+        },
+        {
+          "col": 1,
+          "icon": "",
+          "label": ".",
+          "row": 3,
+          "value": "."
+        },
+        {
+          "col": 2,
+          "icon": "equals.svg",
+          "label": "",
+          "row": 3,
+          "value": "eq"
+        },
+        {
+          "col": 3,
+          "icon": "plus.svg",
+          "label": "",
+          "row": 3,
+          "value": "+"
+        },
+        {
+          "col": 0,
+          "icon": "backspace.svg",
+          "label": "",
+          "row": 4,
+          "value": "BACKSPACE"
+        },
+        {
+          "col": 1,
+          "icon": "clear.svg",
+          "label": "",
+          "row": 4,
+          "value": "ESCAPE"
+        },
+        {
+          "col": 2,
+          "icon": "angle-left.svg",
+          "label": "(",
+          "row": 4,
+          "value": "("
+        },
+        {
+          "col": 3,
+          "icon": "angle-right.svg",
+          "label": ")",
+          "row": 4,
+          "value": ")"
+        },
+        {
+          "col": 1,
+          "icon": "angle-right.svg",
+          "label": "Redo",
+          "row": 0,
+          "value": "ctrl+Y"
+        },
+        {
+          "col": 2,
+          "icon": "",
+          "label": "a",
+          "row": 0,
+          "value": "a"
+        },
+        {
+          "col": 3,
+          "icon": "",
+          "label": "A",
+          "row": 0,
+          "value": "A"
+        },
+        {
+          "col": 0,
+          "icon": "",
+          "label": "sh A",
+          "row": 1,
+          "value": "shift+A"
+        },
+        {
+          "col": 1,
+          "icon": "",
+          "label": "sh a",
+          "row": 1,
+          "value": "shift+a"
+        },
+        {
+          "row": 0,
+          "col": 0,
+          "label": "Undo",
+          "value": "ctrl+z",
+          "icon": "angle-left.svg",
+          "overlay": "minus.svg"
+        }
+      ]
+    },
+    "media": {
+      "cols": 3,
+      "rows": 2,
+      "buttons": [
+        {
+          "row": 0,
+          "col": 0,
+          "label": "",
+          "value": "MEDIA_PREV_TRACK",
+          "icon": "prev.svg"
+        },
+        {
+          "row": 0,
+          "col": 1,
+          "label": "",
+          "value": "MEDIA_PLAY_PAUSE",
+          "icon": "play-pause.svg"
+        },
+        {
+          "row": 0,
+          "col": 2,
+          "label": "",
+          "value": "MEDIA_NEXT_TRACK",
+          "icon": "next.svg"
+        },
+        {
+          "row": 1,
+          "col": 0,
+          "label": "",
+          "value": "VOLUME_MUTE",
+          "icon": "mute.svg"
+        },
+        {
+          "row": 1,
+          "col": 1,
+          "label": "",
+          "value": "VOLUME_DOWN",
+          "icon": "volume-down.svg"
+        },
+        {
+          "row": 1,
+          "col": 2,
+          "label": "",
+          "value": "VOLUME_UP",
+          "icon": "volume-up.svg"
+        }
+      ]
+    },
+    "reaper": {
+      "cols": 4,
+      "rows": 6,
+      "buttons": [
+        {
+          "row": 0,
+          "col": 0,
+          "label": "Save",
+          "value": "ctrl+s",
+          "icon": "save.svg"
+        },
+        {
+          "row": 0,
+          "col": 1,
+          "label": "Undo",
+          "value": "ctrl+z",
+          "icon": "undo.svg"
+        },
+        {
+          "row": 0,
+          "col": 2,
+          "label": "Redo",
+          "value": "ctrl+y",
+          "icon": "redo.svg"
+        },
+        {
+          "row": 0,
+          "col": 3,
+          "label": "Snap",
+          "value": "alt+s",
+          "icon": "snap.svg"
+        },
+        {
+          "row": 1,
+          "col": 0,
+          "label": "Record",
+          "value": "ctrl+r",
+          "icon": "record.svg"
+        },
+        {
+          "row": 1,
+          "col": 1,
+          "label": "Stop",
+          "value": "SPACE",
+          "icon": "stop.svg"
+        },
+        {
+          "row": 1,
+          "col": 2,
+          "label": "Play",
+          "value": "MEDIA_PLAY_PAUSE",
+          "icon": "play.svg"
+        },
+        {
+          "row": 1,
+          "col": 3,
+          "label": "Metro",
+          "value": "ctrl+t",
+          "icon": "metronome.svg"
+        },
+        {
+          "row": 2,
+          "col": 0,
+          "label": "Rewind",
+          "value": "ctrl+left",
+          "icon": "rewind.svg"
+        },
+        {
+          "row": 2,
+          "col": 1,
+          "label": "FFwd",
+          "value": "ctrl+right",
+          "icon": "fast-forward.svg"
+        },
+        {
+          "row": 2,
+          "col": 2,
+          "label": "Marker",
+          "value": "M",
+          "icon": "marker.svg"
+        },
+        {
+          "row": 2,
+          "col": 3,
+          "label": "Split",
+          "value": "S",
+          "icon": "split.svg"
+        },
+        {
+          "row": 3,
+          "col": 0,
+          "label": "Solo",
+          "value": "shift+s",
+          "icon": "solo.svg"
+        },
+        {
+          "row": 3,
+          "col": 1,
+          "label": "Mute",
+          "value": "shift+m",
+          "icon": "mute-track.svg"
+        },
+        {
+          "row": 3,
+          "col": 2,
+          "label": "Arm",
+          "value": "shift+r",
+          "icon": "arm.svg"
+        },
+        {
+          "row": 3,
+          "col": 3,
+          "label": "FX",
+          "value": "F",
+          "icon": "fx.svg"
+        },
+        {
+          "row": 4,
+          "col": 0,
+          "label": "Grid",
+          "value": "alt+g",
+          "icon": "grid.svg"
+        },
+        {
+          "row": 4,
+          "col": 1,
+          "label": "Zoom+",
+          "value": "=",
+          "icon": "zoom-in.svg"
+        },
+        {
+          "row": 4,
+          "col": 2,
+          "label": "Zoom-",
+          "value": "-",
+          "icon": "zoom-out.svg"
+        },
+        {
+          "row": 4,
+          "col": 3,
+          "label": "Track",
+          "value": "T",
+          "icon": "track.svg"
+        },
+        {
+          "row": 5,
+          "col": 0,
+          "label": "Render",
+          "value": "ctrl+alt+r",
+          "icon": "render.svg"
+        },
+        {
+          "row": 5,
+          "col": 1,
+          "label": "Bounce",
+          "value": "ctrl+alt+b",
+          "icon": "bounce.svg"
+        },
+        {
+          "row": 5,
+          "col": 2,
+          "label": "Fade",
+          "value": "ctrl+f",
+          "icon": "crossfade.svg"
+        },
+        {
+          "row": 5,
+          "col": 3,
+          "label": "Trim",
+          "value": "shift+t",
+          "icon": "trim.svg"
+        },
+        {
+          "row": -1,
+          "col": -1,
+          "name": "Ripple",
+          "label": "Ripple",
+          "value": "R",
+          "icon": "ripple.svg"
+        },
+        {
+          "row": -1,
+          "col": -1,
+          "name": "Item",
+          "label": "Item",
+          "value": "I",
+          "icon": "item.svg"
+        },
+        {
+          "row": -1,
+          "col": -1,
+          "name": "Envelope",
+          "label": "Env",
+          "value": "E",
+          "icon": "envelope.svg"
+        },
+        {
+          "row": -1,
+          "col": -1,
+          "name": "Pan",
+          "label": "Pan",
+          "value": "alt+p",
+          "icon": "pan.svg"
+        },
+        {
+          "row": -1,
+          "col": -1,
+          "name": "Automation",
+          "label": "Auto",
+          "value": "shift+a",
+          "icon": "automation.svg"
+        }
+      ]
+    },
+    "photoshop": {
+      "cols": 4,
+      "rows": 6,
+      "buttons": [
+        {
+          "row": 0,
+          "col": 0,
+          "label": "Save",
+          "value": "ctrl+s",
+          "icon": "save.svg"
+        },
+        {
+          "row": 0,
+          "col": 1,
+          "label": "Undo",
+          "value": "ctrl+z",
+          "icon": "undo.svg"
+        },
+        {
+          "row": 0,
+          "col": 2,
+          "label": "Redo",
+          "value": "ctrl+shift+z",
+          "icon": "redo.svg"
+        },
+        {
+          "row": 0,
+          "col": 3,
+          "label": "History",
+          "value": "ctrl+alt+z",
+          "icon": "history.svg"
+        },
+        {
+          "row": 1,
+          "col": 0,
+          "label": "Move",
+          "value": "V",
+          "icon": "move.svg"
+        },
+        {
+          "row": 1,
+          "col": 1,
+          "label": "Brush",
+          "value": "B",
+          "icon": "brush.svg"
+        },
+        {
+          "row": 1,
+          "col": 2,
+          "label": "Eraser",
+          "value": "E",
+          "icon": "eraser.svg"
+        },
+        {
+          "row": 1,
+          "col": 3,
+          "label": "Crop",
+          "value": "C",
+          "icon": "crop.svg"
+        },
+        {
+          "row": 2,
+          "col": 0,
+          "label": "Lasso",
+          "value": "L",
+          "icon": "lasso.svg"
+        },
+        {
+          "row": 2,
+          "col": 1,
+          "label": "Marquee",
+          "value": "M",
+          "icon": "marquee.svg"
+        },
+        {
+          "row": 2,
+          "col": 2,
+          "label": "Heal",
+          "value": "J",
+          "icon": "spot-healing.svg"
+        },
+        {
+          "row": 2,
+          "col": 3,
+          "label": "Clone",
+          "value": "S",
+          "icon": "clone-stamp.svg"
+        },
+        {
+          "row": 3,
+          "col": 0,
+          "label": "Text",
+          "value": "T",
+          "icon": "text.svg"
+        },
+        {
+          "row": 3,
+          "col": 1,
+          "label": "Shape",
+          "value": "U",
+          "icon": "shape.svg"
+        },
+        {
+          "row": 3,
+          "col": 2,
+          "label": "Hand",
+          "value": "H",
+          "icon": "hand.svg"
+        },
+        {
+          "row": 3,
+          "col": 3,
+          "label": "Zoom",
+          "value": "Z",
+          "icon": "zoom-photo.svg"
+        },
+        {
+          "row": 4,
+          "col": 0,
+          "label": "Layer",
+          "value": "ctrl+shift+n",
+          "icon": "layer-new.svg"
+        },
+        {
+          "row": 4,
+          "col": 1,
+          "label": "Group",
+          "value": "ctrl+g",
+          "icon": "layer-group.svg"
+        },
+        {
+          "row": 4,
+          "col": 2,
+          "label": "Deselect",
+          "value": "ctrl+d",
+          "icon": "clear.svg"
+        },
+        {
+          "row": 4,
+          "col": 3,
+          "label": "Inverse",
+          "value": "ctrl+shift+i",
+          "icon": "transform.svg"
+        },
+        {
+          "row": 5,
+          "col": 0,
+          "label": "Transform",
+          "value": "ctrl+t",
+          "icon": "free-transform.svg"
+        },
+        {
+          "row": 5,
+          "col": 1,
+          "label": "Fill",
+          "value": "shift+F5",
+          "icon": "fill.svg"
+        },
+        {
+          "row": 5,
+          "col": 2,
+          "label": "Levels",
+          "value": "ctrl+l",
+          "icon": "gradient.svg"
+        },
+        {
+          "row": 5,
+          "col": 3,
+          "label": "Curves",
+          "value": "ctrl+m",
+          "icon": "adjustment-layer.svg"
+        },
+        {
+          "row": -1,
+          "col": -1,
+          "name": "ScreenMode",
+          "label": "Screen",
+          "value": "F",
+          "icon": "quick-mask.svg"
+        },
+        {
+          "row": -1,
+          "col": -1,
+          "name": "Rulers",
+          "label": "Rulers",
+          "value": "ctrl+r",
+          "icon": "grid.svg"
+        },
+        {
+          "row": -1,
+          "col": -1,
+          "name": "Duplicate",
+          "label": "Duplicate",
+          "value": "ctrl+j",
+          "icon": "layer-duplicate.svg"
+        },
+        {
+          "row": -1,
+          "col": -1,
+          "name": "MergeDown",
+          "label": "Merge",
+          "value": "ctrl+e",
+          "icon": "layer-group.svg"
+        }
+      ]
+    },
+    "lightroom": {
+      "cols": 4,
+      "rows": 4,
+      "buttons": [
+        {
+          "row": 0,
+          "col": 0,
+          "label": "Grid",
+          "value": "G",
+          "icon": "grid-view.svg"
+        },
+        {
+          "row": 0,
+          "col": 1,
+          "label": "Loupe",
+          "value": "E",
+          "icon": "loupe.svg"
+        },
+        {
+          "row": 0,
+          "col": 2,
+          "label": "Develop",
+          "value": "D",
+          "icon": "develop.svg"
+        },
+        {
+          "row": 0,
+          "col": 3,
+          "label": "Crop",
+          "value": "R",
+          "icon": "crop-lr.svg"
+        },
+        {
+          "row": 1,
+          "col": 0,
+          "label": "Spot",
+          "value": "Q",
+          "icon": "spot-removal.svg"
+        },
+        {
+          "row": 1,
+          "col": 1,
+          "label": "Grad",
+          "value": "M",
+          "icon": "graduated-filter.svg"
+        },
+        {
+          "row": 1,
+          "col": 2,
+          "label": "Radial",
+          "value": "shift+m",
+          "icon": "radial-filter.svg"
+        },
+        {
+          "row": 1,
+          "col": 3,
+          "label": "Brush",
+          "value": "K",
+          "icon": "adjustment-brush.svg"
+        },
+        {
+          "row": 2,
+          "col": 0,
+          "label": "Comp",
+          "value": "Y",
+          "icon": "before-after.svg"
+        },
+        {
+          "row": 2,
+          "col": 1,
+          "label": "WB",
+          "value": "W",
+          "icon": "white-balance.svg"
+        },
+        {
+          "row": 2,
+          "col": 2,
+          "label": "Auto",
+          "value": "ctrl+u",
+          "icon": "auto-tone.svg"
+        },
+        {
+          "row": 2,
+          "col": 3,
+          "label": "Flag",
+          "value": "P",
+          "icon": "flag.svg"
+        },
+        {
+          "row": 3,
+          "col": 0,
+          "label": "Reject",
+          "value": "X",
+          "icon": "reject.svg"
+        },
+        {
+          "row": 3,
+          "col": 1,
+          "label": "Star",
+          "value": "1",
+          "icon": "star-filled.svg"
+        },
+        {
+          "row": 3,
+          "col": 2,
+          "label": "Star",
+          "value": "2",
+          "icon": "star-filled.svg"
+        },
+        {
+          "row": 3,
+          "col": 3,
+          "label": "Star",
+          "value": "3",
+          "icon": "star-filled.svg"
+        },
+        {
+          "row": -1,
+          "col": -1,
+          "name": "Library",
+          "label": "Library",
+          "value": "ctrl+alt+1",
+          "icon": "library.svg"
+        },
+        {
+          "row": -1,
+          "col": -1,
+          "name": "Export",
+          "label": "Export",
+          "value": "ctrl+shift+e",
+          "icon": "export.svg"
+        },
+        {
+          "row": -1,
+          "col": -1,
+          "name": "Save",
+          "label": "Save",
+          "value": "ctrl+s",
+          "icon": "save.svg"
+        },
+        {
+          "row": -1,
+          "col": -1,
+          "name": "Undo",
+          "label": "Undo",
+          "value": "ctrl+z",
+          "icon": "undo.svg"
+        },
+        {
+          "row": -1,
+          "col": -1,
+          "name": "Redo",
+          "label": "Redo",
+          "value": "ctrl+shift+z",
+          "icon": "redo.svg"
+        },
+        {
+          "row": -1,
+          "col": -1,
+          "name": "Exposure+",
+          "label": "Exp+",
+          "value": "ctrl+alt+right",
+          "icon": "exposure.svg"
+        },
+        {
+          "row": -1,
+          "col": -1,
+          "name": "Exposure-",
+          "label": "Exp-",
+          "value": "ctrl+alt+left",
+          "icon": "exposure.svg"
+        }
+      ]
+    },
+    "PowerPoint": ""
+  }
+}
