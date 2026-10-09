@@ -243,17 +243,28 @@ test.describe("PhoneButtons - Regression", () => {
     await dd.locator("#pbImageDropdownMenu .item", { hasText: "REAPER" }).click();
     await expect(dd.locator("#pbImageBtnText")).toHaveText("REAPER");
 
-    // Page 2: icon list comes from the app-icon cache; the saved icon is gone.
+    // Page 2: the icon picker is a pb-image-dropdown; the saved icon is gone.
     await page.locator("#layoutSelectPage").getByRole("button", { name: "Next" }).click();
     await expect(page.locator("#layoutEditPage")).toHaveAttribute("open", "");
     await expect(page.locator("#layoutEditPage .smd-page-header h1")).toHaveText("Layout");
-    await expect(page.locator("#layoutIconSelect option")).toHaveCount(4); // None + 2 icons + (missing)
-    await expect(page.locator("#layoutIconSelect")).toContainText("gone.png (missing)");
+
+    const iconDd = page.locator("#layoutIconDropdown");
+    await expect(iconDd.locator("#pbImageBtnText")).toHaveText("gone.png (missing)");
     await expect(page.locator("#layoutIconHint")).toContainText("no longer in the server cache");
+    await expect(page.locator("#layoutIconPreview")).toBeHidden();
     await expect(page.locator("#layoutOrientationSelect")).toHaveValue("portrait");
 
-    // Replace the missing icon, switch orientation, Finish.
-    await page.locator("#layoutIconSelect").selectOption("PyCharm.png");
+    // The menu lists the small cached icons (+ None + the missing one).
+    await iconDd.locator("#pbImageDropdownBtn").click();
+    await expect(iconDd.locator("#pbImageDropdownMenu .item")).toHaveCount(4);
+    await expect(iconDd.locator("#pbImageDropdownMenu")).toContainText("PyCharm.png");
+    await expect(iconDd.locator("#pbImageDropdownMenu")).toContainText("gone.png (missing)");
+
+    // Choose a real icon; the large preview shows it.
+    await iconDd.locator("#pbImageDropdownMenu .item", { hasText: "PyCharm.png" }).click();
+    await expect(page.locator("#layoutIconPreview")).toBeVisible();
+    await expect(page.locator("#layoutIconPreview")).toHaveAttribute("src", /app-icon-cache\/PyCharm\.png/);
+
     await page.locator("#layoutOrientationSelect").selectOption("landscape");
     await page.locator("#layoutEditPage").getByRole("button", { name: "Finish" }).click();
 

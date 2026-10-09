@@ -7,6 +7,7 @@
 
 var _selectedLayoutKey = "";   // layout key chosen on page 1
 var _layoutsByKey = {};        // key -> layout object (from GET /api/layouts)
+var _selectedIconName = "";    // icon filename chosen in the layout editor
 
 // Map the server's layouts catalog to <pb-image-dropdown> options: the visible
 // label is the displayName, `value` carries the layout KEY, and `imageUrl`
@@ -86,13 +87,11 @@ function buildLayoutEditPage(layout) {
     '<p class="text-body-secondary small mb-3">Editing <strong>' +
       escapeHtml(layout.displayName || layout.key) + '</strong></p>' +
     '<div class="row mb-3 align-items-center">' +
-      '<div class="col-4 text-end"><label class="form-label mb-0" for="layoutIconSelect">Icon</label></div>' +
+      '<div class="col-4 text-end"><label class="form-label mb-0" for="layoutIconDropdown">Icon</label></div>' +
       '<div class="col-8">' +
         '<div class="d-flex align-items-center gap-2">' +
           '<img id="layoutIconPreview" class="rounded border" width="48" height="48" alt="" hidden>' +
-          '<select id="layoutIconSelect" class="form-select" onchange="changeLayoutIcon(this.value)">' +
-            '<option value="">&mdash; None &mdash;</option>' +
-          '</select>' +
+          '<div class="flex-grow-1 min-w-0"><pb-image-dropdown id="layoutIconDropdown"></pb-image-dropdown></div>' +
         '</div>' +
         '<div id="layoutIconHint" class="form-text"></div>' +
       '</div>' +
@@ -135,29 +134,32 @@ function changeLayoutIcon(name) {
   img.src = "/app-icon-cache/" + encodeURIComponent(name);
 }
 
+function iconCacheUrl(name) {
+  return "/app-icon-cache/" + encodeURIComponent(name);
+}
+
+// Populate the icon <pb-image-dropdown> from the server's app-icon cache (small
+// thumbs in the menu) while the chosen icon shows large in the preview.
 function loadLayoutIconOptions(layout) {
-  var select = document.getElementById("layoutIconSelect");
+  var dropdown = document.getElementById("layoutIconDropdown");
   var hint = document.getElementById("layoutIconHint");
-  if (!select) return;
+  if (!dropdown) return;
   pbApi.getAppIcons().then(function (icons) {
-    select.innerHTML = '<option value="">&mdash; None &mdash;</option>';
+    var options = [{ name: "None", value: "", imageUrl: "" }];
     icons.forEach(function (name) {
-      var opt = document.createElement("option");
-      opt.value = name;
-      opt.textContent = name;
-      select.appendChild(opt);
+      options.push({ name: name, value: name, imageUrl: iconCacheUrl(name) });
     });
     var stored = layout.image || "";
-    // A saved icon that is no longer in the cache keeps an explicit "(missing)"
-    // option so the user can see what was set and replace it.
-    if (stored && icons.indexOf(stored) === -1) {
-      var opt = document.createElement("option");
-      opt.value = stored;
-      opt.textContent = stored + " (missing)";
-      select.appendChild(opt);
-      if (hint) hint.textContent = "Saved icon '" + stored + "' is no longer in the server cache.";
+    var missing = !!stored && icons.indexOf(stored) === -1;
+    if (missing) {
+      // An explicit option for an icon that is no longer in the cache, so the
+      // user can see what was set and replace it.
+      options.push({ name: stored + " (missing)", value: stored, imageUrl: iconCacheUrl(stored) });
     }
-    select.value = stored;
+    dropdown.options = options;
+    dropdown.selected = missing ? (stored + " (missing)") : (stored || "None");
+    _selectedIconName = stored;
+    if (missing && hint) hint.textContent = "Saved icon '" + stored + "' is no longer in the server cache.";
     changeLayoutIcon(stored);
   }).catch(function (err) {
     if (hint) hint.textContent = "Could not load icons: " + err.message;
@@ -166,13 +168,12 @@ function loadLayoutIconOptions(layout) {
 }
 
 function saveLayout() {
-  var select = document.getElementById("layoutIconSelect");
   var orientation = document.getElementById("layoutOrientationSelect");
   var existing = _layoutsByKey[_selectedLayoutKey] || {};
   var payload = {
     key: _selectedLayoutKey,
     displayName: existing.displayName || _selectedLayoutKey,
-    image: select ? select.value : "",
+    image: _selectedIconName || "",
     orientation: orientation ? orientation.value : "landscape"
   };
   pbApi.saveLayout(payload).then(function () {
@@ -191,6 +192,12 @@ function openEditLayoutPage() {
   if (!page) return;
   if (!page.__pbWizardBound) {
     page.__pbWizardBound = true;
+    page.addEventListener("pb-image-dropdown-change", function (e) {
+      if (e.target && e.target.id === "layoutIconDropdown") {
+        _selectedIconName = (e.detail && e.detail.value) || "";
+        changeLayoutIcon(_selectedIconName);
+      }
+    });
     page.addEventListener("smd-page-action", function (e) {
       var action = e.detail && e.detail.action;
       if (action === "finish") saveLayout();
