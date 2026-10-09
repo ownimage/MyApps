@@ -157,9 +157,20 @@ test.describe("PhoneButtons - Regression", () => {
     await page.evaluate(() => openEditApp());
     await expect(page.locator("#editAppPage")).toHaveAttribute("open", "");
     await expect(page.locator("#editAppPage .smd-page-header h1")).toHaveText("Select App");
+    await expect(page.locator("#editAppPage .smd-page-body")).toContainText("Select the App on the PC");
     await expect(page.locator("#editAppPage .smd-page-body")).toContainText("Adobe Photoshop 2026");
     await expect(page.locator("#editAppPage .smd-page-body img")).toBeVisible();
     await expect(page.locator("#editAppPage").getByRole("button", { name: "Cancel" })).toBeVisible();
+
+    // The app icon + name block is centered horizontally in the page body.
+    const dx = await page.evaluate(() => {
+      const body = document.querySelector("#editAppPage .smd-page-body");
+      const center = document.getElementById("editAppCenter");
+      const b = body.getBoundingClientRect();
+      const c = center.getBoundingClientRect();
+      return Math.abs((c.left + c.right) / 2 - (b.left + b.right) / 2);
+    });
+    expect(dx).toBeLessThan(2);
 
     // Next -> page 2: Layout.
     await page.locator("#editAppPage").getByRole("button", { name: "Next" }).click();

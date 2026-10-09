@@ -100,14 +100,30 @@ button.btn-sm, .btn-sm { font-size: var(--smd-type-p, 1rem); }
   background-color: var(--bs-body-bg);
 }
 
+/* The HAMBURGER button must not draw a border/ring while focused or while its
+   dropdown is open: Bootstrap's `.btn.show` (active) styling paints a border.
+   The icon is the only affordance; the state is shown by the popup itself. */
+#btnMainMenu,
+#btnMainMenu.show,
+#btnMainMenu:active,
+#btnMainMenu:focus,
+#btnMainMenu:focus-visible {
+  border-color: transparent;
+  outline: none;
+  box-shadow: none;
+}
+
 /* The HAMBURGER dropdown is painted with the body colour so it is fully opaque
    and matches the page. Scoped to #mainNav on purpose: other .dropdown-menus
    (e.g. the Gantt Streams filter) own a themed surface via --bs-dropdown-bg and
    must keep it. Bootswatch also re-sets .dropdown-menu to a rem-based font-size
    (a fixed 14px on superhero), so it ignored the Font Size setting; pin the nav
-   menu to the shared p token so it tracks <body> like the rest of the UI. */
+   menu to the shared p token so it tracks <body> like the rest of the UI. A
+   visible border (the theme's solid border colour) separates the popup from the
+   page, which shares the same background. */
 #mainNav .dropdown-menu {
   background-color: var(--bs-body-bg);
+  border: 1px solid var(--bs-border-color);
   /* Bootstrap's default divider is a translucent BLACK (Bootswatch keeps it
      opaque-black per theme), which vanishes against the dark menu surface in
      themes like superhero (both modes). Use the theme's solid border colour,

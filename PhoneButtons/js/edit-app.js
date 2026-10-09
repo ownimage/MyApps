@@ -38,9 +38,10 @@ function buildEditAppPage() {
     : '';
   page.title = "Select App";
   page.content =
-    '<div class="d-flex align-items-center gap-3">' + iconHtml +
-      '<div>' +
-        '<div class="small text-body-secondary">Application</div>' +
+    '<div class="d-flex flex-column" style="height:100%">' +
+      '<p class="text-body-secondary small mb-2">Select the App on the PC, wait for it to be shown on this page, then press Next.</p>' +
+      '<div id="editAppCenter" class="d-flex align-items-center justify-content-center gap-3 flex-fill">' +
+        iconHtml +
         '<div class="fw-semibold">' + escapeHtml(name) + '</div>' +
       '</div>' +
     '</div>';
