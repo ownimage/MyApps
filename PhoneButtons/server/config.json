@@ -6,9 +6,9 @@
       "orientation": "landscape",
       "buttons": [
         {
-          "name": "",
           "image": "fa:paint-brush",
-          "key": ""
+          "key": "",
+          "name": ""
         }
       ]
     },
@@ -26,7 +26,7 @@
         {
           "name": "Next slide",
           "image1": "bi:skip-forward-fill",
-          "image2": "",
+          "image2": "Beach 3",
           "key": "right"
         },
         {
