@@ -44,7 +44,7 @@ var pbApi = {
     });
   },
 
-  // Persist a layout definition (display name + icon + orientation).
+  // Persist a layout definition (display name + icon + grid dims).
   saveLayout: function (layout) {
     return this._fetch("/api/save-layout", {
       method: "POST",

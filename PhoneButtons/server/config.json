@@ -3,7 +3,6 @@
     "powerpoint": {
       "displayName": "PowerPoint",
       "image": "Microsoft PowerPoint.png",
-      "orientation": "landscape",
       "rows": 4,
       "cols": 2,
       "buttons": [

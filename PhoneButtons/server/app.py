@@ -100,7 +100,7 @@ def _get_app_template(name):
 
 
 def _get_app_layout(name):
-    """The layout ({key, orientation, buttons}) assigned to an application, or
+    """The layout ({key, rows, cols, buttons}) assigned to an application, or
     None when the app has no layout (assigned via the Edit App wizard)."""
     try:
         with open(CONFIG_PATH, "r") as f:
@@ -115,7 +115,6 @@ def _get_app_layout(name):
         return None
     return {
         "key": layout_key,
-        "orientation": layout.get("orientation", "landscape"),
         "rows": layout.get("rows", 2),
         "cols": layout.get("cols", 3),
         "buttons": layout.get("buttons", []),
@@ -771,7 +770,6 @@ def api_layouts():
         "key": key,
         "displayName": value.get("displayName", key),
         "image": value.get("image", ""),
-        "orientation": value.get("orientation", "landscape"),
         "rows": value.get("rows", 2),
         "cols": value.get("cols", 3),
         "buttons": value.get("buttons", []),
@@ -801,7 +799,7 @@ def api_app_icons():
 
 @app.route("/api/save-layout", methods=["POST"])
 def api_save_layout():
-    """Save a layout definition (display name + icon + orientation)."""
+    """Save a layout definition (display name + icon + grid dims)."""
     data = request.get_json() or {}
     key = (data.get("key") or "").strip()
     if not key:
@@ -813,14 +811,14 @@ def api_save_layout():
         config = {}
     if "layouts" not in config:
         config["layouts"] = {}
-    # Buttons are edited separately; MERGE here so saving the icon/orientation
+    # Buttons are edited separately; MERGE here so saving the icon/grid
     # never drops them, and honour an explicit `buttons` list if one is sent.
     layout = config["layouts"].setdefault(key, {})
     layout["displayName"] = data.get("displayName") or key
     layout["image"] = data.get("image", "")
-    layout["orientation"] = data.get("orientation", "landscape")
-    layout["rows"] = int(data.get("rows") or layout.get("rows") or 2)
-    layout["cols"] = int(data.get("cols") or layout.get("cols") or 3)
+    layout.pop("orientation", None)   # orientation is no longer used
+    layout["rows"] = min(12, max(1, int(data.get("rows") or layout.get("rows") or 2)))
+    layout["cols"] = min(12, max(1, int(data.get("cols") or layout.get("cols") or 3)))
     if isinstance(data.get("buttons"), list):
         layout["buttons"] = data["buttons"]
     else:
@@ -887,10 +885,9 @@ def api_save_app_layout():
         config = {}
     if "app-layouts" not in config:
         config["app-layouts"] = {}
+    # Only SET; never remove, so an unselected layout can't drop an assignment.
     if layout:
         config["app-layouts"][name] = layout
-    else:
-        config["app-layouts"].pop(name, None)
     with open(CONFIG_PATH, "w", newline="\n") as f:
         json.dump(config, f, indent=2)
     _debug(f"Saved app layout: {name} -> {layout}")

@@ -124,8 +124,8 @@ function renderLayoutButtons(layout) {
   var container = document.getElementById("layoutButtons");
   if (!container) return;
   var buttons = (layout && layout.buttons) || [];
-  var rows = clampInt(layout && layout.rows, 1, 10, 2);
-  var cols = clampInt(layout && layout.cols, 1, 10, 3);
+  var rows = clampInt(layout && layout.rows, 1, 12, 2);
+  var cols = clampInt(layout && layout.cols, 1, 12, 3);
   if (!buttons.some(pbButtonHasContent)) {
     container.innerHTML = "";
     container.classList.add("d-none");

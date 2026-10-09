@@ -1,9 +1,10 @@
 // PhoneButtons — "Manage Layout" page (main menu).
 //
 // ONE smd-page: pick a layout from the <pb-image-dropdown> (which also offers
-// "Add Layout…"), edit its display name / icon / orientation / buttons, and
-// Finish to save via POST /api/save-layout. Choosing "Add Layout…" reveals a
-// unique Key field used as the layout id. `layoutDropdownOptions()` is reused by
+// "Add Layout…"), edit its display name / icon / grid (rows x cols) / buttons,
+// and Finish to save via POST /api/save-layout. Choosing "Add Layout…"
+// auto-generates a unique key from the display name. `layoutDropdownOptions()`
+// is reused by the Edit App wizard's layout picker.
 // the Edit App wizard's layout picker.
 
 var _layoutsByKey = {};        // key -> layout object (from GET /api/layouts)
@@ -68,23 +69,14 @@ function buildManageLayoutContent(page) {
         '<div id="layoutIconHint" class="form-text"></div>' +
       '</div>' +
     '</div>' +
-    '<div class="row mb-3 align-items-center">' +
-      '<div class="col-4 text-end"><label class="form-label mb-0" for="layoutOrientationSelect">Orientation</label></div>' +
-      '<div class="col-8">' +
-        '<select id="layoutOrientationSelect" class="form-select">' +
-          '<option value="landscape">Landscape</option>' +
-          '<option value="portrait">Portrait</option>' +
-        '</select>' +
-      '</div>' +
-    '</div>' +
     '<div class="row mb-3 g-2">' +
       '<div class="col-6">' +
         '<label class="form-label" for="manageLayoutCols">Columns</label>' +
-        '<input type="number" id="manageLayoutCols" class="form-control" min="1" max="10" value="3" oninput="renderManageGrid()">' +
+        '<input type="number" id="manageLayoutCols" class="form-control" min="1" max="12" value="3" oninput="onManageGridInput()">' +
       '</div>' +
       '<div class="col-6">' +
         '<label class="form-label" for="manageLayoutRows">Rows</label>' +
-        '<input type="number" id="manageLayoutRows" class="form-control" min="1" max="10" value="2" oninput="renderManageGrid()">' +
+        '<input type="number" id="manageLayoutRows" class="form-control" min="1" max="12" value="2" oninput="onManageGridInput()">' +
       '</div>' +
     '</div>' +
     '<div id="manageLayoutGrid" class="pb-layout-grid mb-3"></div>';
@@ -164,7 +156,7 @@ function applySelectedLayout(layout) {
   var nameInput = document.getElementById("manageLayoutNameInput");
   if (nameInput) nameInput.value = layout.displayName || layout.key;
   setManageGridDims(layout.rows, layout.cols);
-  applyLayoutIconAndOrientation(layout);
+  applyLayoutIcon(layout);
   renderManageGrid();
 }
 
@@ -176,22 +168,18 @@ function applyAddLayout() {
   if (nameInput) nameInput.value = "";
   setManageHint("");
   setManageGridDims(2, 3);
-  applyLayoutIconAndOrientation({ image: "", orientation: "landscape" });
+  applyLayoutIcon({ image: "" });
   renderManageGrid();
 }
 
-function applyLayoutIconAndOrientation(layout) {
-  var orientation = document.getElementById("layoutOrientationSelect");
-  if (orientation) orientation.value = layout.orientation === "portrait" ? "portrait" : "landscape";
+function applyLayoutIcon(layout) {
   _selectedIconName = layout.image || "";
   loadLayoutIconOptions(layout);
 }
 
 function finishManageLayout() {
   var nameInput = document.getElementById("manageLayoutNameInput");
-  var orientation = document.getElementById("layoutOrientationSelect");
   var displayName = nameInput ? nameInput.value.trim() : "";
-  var orient = orientation ? orientation.value : "landscape";
   var key = _selectedLayoutKey;
   if (_addingLayout) {
     if (!displayName) { setManageHint("Enter a display name."); return; }
@@ -199,8 +187,8 @@ function finishManageLayout() {
     key = uniqueKey(slugify(displayName));
   }
   if (!key) { setManageHint("Select or add a layout."); return; }
-  var cols = clampInt((document.getElementById("manageLayoutCols") || {}).value, 1, 10, 3);
-  var rows = clampInt((document.getElementById("manageLayoutRows") || {}).value, 1, 10, 2);
+  var cols = clampInt((document.getElementById("manageLayoutCols") || {}).value, 1, 12, 3);
+  var rows = clampInt((document.getElementById("manageLayoutRows") || {}).value, 1, 12, 2);
   var existing = _layoutsByKey[key] || {};
   var buttons = (existing.buttons || []).slice(0, rows * cols);
   while (buttons.length < rows * cols) buttons.push({});
@@ -209,7 +197,6 @@ function finishManageLayout() {
     key: key,
     displayName: displayName || key,
     image: _selectedIconName || "",
-    orientation: orient,
     rows: rows,
     cols: cols,
     // Persist the buttons as part of the layout.
@@ -232,9 +219,23 @@ function closeManageLayout() {
 
 function setManageGridDims(rows, cols) {
   var colsInput = document.getElementById("manageLayoutCols");
-  if (colsInput) colsInput.value = clampInt(cols, 1, 10, 3);
+  if (colsInput) colsInput.value = clampInt(cols, 1, 12, 3);
   var rowsInput = document.getElementById("manageLayoutRows");
-  if (rowsInput) rowsInput.value = clampInt(rows, 1, 10, 2);
+  if (rowsInput) rowsInput.value = clampInt(rows, 1, 12, 2);
+}
+
+// Clamp the Rows/Columns inputs to 1..12 as they are typed, then re-render.
+function onManageGridInput() {
+  ["manageLayoutCols", "manageLayoutRows"].forEach(function (id) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    var n = parseInt(el.value, 10);
+    if (!isNaN(n)) {
+      var clamped = Math.min(12, Math.max(1, n));
+      if (String(clamped) !== el.value) el.value = clamped;
+    }
+  });
+  renderManageGrid();
 }
 
 // Render the layout's rows x cols grid of equal cells (sized from the Image-size
@@ -242,8 +243,8 @@ function setManageGridDims(rows, cols) {
 function renderManageGrid() {
   var grid = document.getElementById("manageLayoutGrid");
   if (!grid) return;
-  var cols = clampInt((document.getElementById("manageLayoutCols") || {}).value, 1, 10, 3);
-  var rows = clampInt((document.getElementById("manageLayoutRows") || {}).value, 1, 10, 2);
+  var cols = clampInt((document.getElementById("manageLayoutCols") || {}).value, 1, 12, 3);
+  var rows = clampInt((document.getElementById("manageLayoutRows") || {}).value, 1, 12, 2);
   var px = getIconSizePx();
   grid.style.gridTemplateColumns = "repeat(" + cols + ", " + px + "px)";
   var layout = _layoutsByKey[_selectedLayoutKey] || {};

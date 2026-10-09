@@ -116,7 +116,7 @@ test.describe("PhoneButtons - Regression", () => {
     await page.evaluate(() => window.__serverEmit("app_change", {
       name: "Microsoft PowerPoint",
       icon: "",
-      layout: { key: "powerpoint", orientation: "landscape", rows: 2, cols: 3, buttons: [
+      layout: { key: "powerpoint", rows: 2, cols: 3, buttons: [
         { name: "Next Slide", image1: "", image2: "", key: "right" },
         { name: "Previous", image1: "", image2: "", key: "left" }
       ] }
@@ -139,7 +139,7 @@ test.describe("PhoneButtons - Regression", () => {
   test("Button editor image picker uses the shared search box", async ({ page }) => {
     await page.route("**/api/layouts", (route) => route.fulfill({
       contentType: "application/json",
-      body: JSON.stringify({ layouts: [{ key: "sample", displayName: "Sample", image: "", orientation: "landscape", buttons: [] }] })
+      body: JSON.stringify({ layouts: [{ key: "sample", displayName: "Sample", image: "", buttons: [] }] })
     }));
     await page.route("**/api/app-icons", (route) => route.fulfill({ contentType: "application/json", body: JSON.stringify({ icons: [] }) }));
 
@@ -293,14 +293,14 @@ test.describe("PhoneButtons - Regression", () => {
     await expect(page.locator("#manageAppPage")).not.toHaveAttribute("open", "");
   });
 
-  test("Manage Layout: select a layout, edit its icon/orientation/button and Finish", async ({ page }) => {
+  test("Manage Layout: select a layout, edit its icon/button and Finish", async ({ page }) => {
     let saved = null;
     let savedButton = null;
     await page.route("**/api/layouts", (route) => route.fulfill({
       contentType: "application/json",
       body: JSON.stringify({ layouts: [
-        { key: "sample", displayName: "Sample", image: "PyCharm.png", orientation: "landscape", buttons: [] },
-        { key: "reaper", displayName: "REAPER", image: "gone.png", orientation: "portrait", buttons: [{ name: "Next Slide", image: "" }] }
+        { key: "sample", displayName: "Sample", image: "PyCharm.png", buttons: [] },
+        { key: "reaper", displayName: "REAPER", image: "gone.png", buttons: [{ name: "Next Slide", image: "" }] }
       ] })
     }));
     await page.route("**/api/app-icons", (route) => route.fulfill({
@@ -335,7 +335,6 @@ test.describe("PhoneButtons - Regression", () => {
 
     // Selecting REAPER fills the fields on the SAME page.
     await expect(page.locator("#manageLayoutNameInput")).toHaveValue("REAPER");
-    await expect(page.locator("#layoutOrientationSelect")).toHaveValue("portrait");
     await expect(page.locator("#layoutIconDropdown #pbImageBtnText")).toHaveText("gone.png (missing)");
     await expect(page.locator("#layoutIconHint")).toContainText("no longer in the server cache");
     await expect(page.locator("#layoutIconPreview")).toBeHidden();
@@ -362,7 +361,7 @@ test.describe("PhoneButtons - Regression", () => {
     // Finish saves the layout WITH its grid dims and buttons.
     await page.locator("#manageLayoutPage").getByRole("button", { name: "Finish" }).click();
     await expect.poll(() => saved).toEqual({
-      key: "reaper", displayName: "REAPER", image: "gone.png", orientation: "portrait",
+      key: "reaper", displayName: "REAPER", image: "gone.png",
       rows: 2, cols: 3,
       buttons: [
         { name: "Advance", image1: "", image2: "", key: "ctrl+media_next_track" },
@@ -377,7 +376,7 @@ test.describe("PhoneButtons - Regression", () => {
     await page.route("**/api/layouts", (route) => route.fulfill({
       contentType: "application/json",
       body: JSON.stringify({ layouts: [
-        { key: "my-keys", displayName: "My Keys", image: "", orientation: "landscape", buttons: [] }
+        { key: "my-keys", displayName: "My Keys", image: "", buttons: [] }
       ] })
     }));
     await page.route("**/api/app-icons", (route) => route.fulfill({ contentType: "application/json", body: JSON.stringify({ icons: [] }) }));
@@ -402,10 +401,25 @@ test.describe("PhoneButtons - Regression", () => {
     await page.locator("#manageLayoutNameInput").fill("My Keys");
     await page.locator("#manageLayoutPage").getByRole("button", { name: "Finish" }).click();
     await expect.poll(() => saved).toEqual({
-      key: "my-keys-2", displayName: "My Keys", image: "", orientation: "landscape",
+      key: "my-keys-2", displayName: "My Keys", image: "",
       rows: 2, cols: 3, buttons: [{}, {}, {}, {}, {}, {}]
     });
     await expect(page.locator("#manageLayoutPage")).not.toHaveAttribute("open", "");
+  });
+
+  test("Manage Layout: row/column inputs are clamped to 1..12", async ({ page }) => {
+    await page.route("**/api/layouts", (route) => route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({ layouts: [{ key: "sample", displayName: "Sample", image: "", buttons: [] }] })
+    }));
+    await page.route("**/api/app-icons", (route) => route.fulfill({ contentType: "application/json", body: JSON.stringify({ icons: [] }) }));
+
+    await page.goto("/PhoneButtons/");
+    await page.evaluate(() => openManageLayout());
+    await page.locator("#manageLayoutCols").fill("20");
+    await expect(page.locator("#manageLayoutCols")).toHaveValue("12");
+    await page.locator("#manageLayoutRows").fill("0");
+    await expect(page.locator("#manageLayoutRows")).toHaveValue("1");
   });
 
   test("Manage Layout: drag a cell onto another to swap the buttons", async ({ page }) => {
@@ -413,7 +427,7 @@ test.describe("PhoneButtons - Regression", () => {
     await page.route("**/api/layouts", (route) => route.fulfill({
       contentType: "application/json",
       body: JSON.stringify({ layouts: [
-        { key: "reaper", displayName: "REAPER", image: "", orientation: "landscape", rows: 2, cols: 3,
+        { key: "reaper", displayName: "REAPER", image: "", rows: 2, cols: 3,
           buttons: [{ name: "Next", image1: "", image2: "", key: "right" }] }
       ] })
     }));
