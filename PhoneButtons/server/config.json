@@ -42,32 +42,9 @@
           "key": "left",
           "name": "Prev Slide"
         },
-        {
-          "name": "This is a very long name for a button",
-          "image1": "Beach 3",
-          "image2": "",
-          "key": ""
-        },
-        {
-          "image1": "Christmas Tree 3",
-          "image2": "",
-          "key": "",
-          "name": ""
-        },
-        {
-          "image1": "Beer 1",
-          "image2": "",
-          "key": "",
-          "name": ""
-        },
-        {
-          "image1": "Beer 4",
-          "image2": "",
-          "key": "",
-          "name": ""
-        }
+        {}
       ],
-      "rows": 2,
+      "rows": 1,
       "cols": 3
     },
     "photoshop": {

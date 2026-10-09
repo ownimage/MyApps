@@ -116,6 +116,8 @@ def _get_app_layout(name):
     return {
         "key": layout_key,
         "orientation": layout.get("orientation", "landscape"),
+        "rows": layout.get("rows", 2),
+        "cols": layout.get("cols", 3),
         "buttons": layout.get("buttons", []),
     }
 
@@ -826,6 +828,11 @@ def api_save_layout():
     with open(CONFIG_PATH, "w", newline="\n") as f:
         json.dump(config, f, indent=2)
     _debug(f"Saved layout: {key}")
+    # If the foreground app uses this layout, push the updated grid/buttons.
+    global _current_app
+    if (_current_app.get("layout") or {}).get("key") == key:
+        _current_app = dict(_current_app, layout=_get_app_layout(_current_app.get("name")))
+        socketio.emit("app_change", _current_app)
     return jsonify({"ok": True})
 
 
