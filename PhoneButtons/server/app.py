@@ -97,6 +97,27 @@ def _get_app_template(name):
         return None
     return config.get("templates", {}).get(tmpl_key)
 
+
+def _get_app_layout(name):
+    """The layout ({key, orientation, buttons}) assigned to an application, or
+    None when the app has no layout (assigned via the Edit App wizard)."""
+    try:
+        with open(CONFIG_PATH, "r") as f:
+            config = json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return None
+    layout_key = config.get("app-layouts", {}).get(name)
+    if not layout_key:
+        return None
+    layout = config.get("layouts", {}).get(layout_key)
+    if not layout:
+        return None
+    return {
+        "key": layout_key,
+        "orientation": layout.get("orientation", "landscape"),
+        "buttons": layout.get("buttons", []),
+    }
+
 def _on_foreground_change(hWinEventHook, event, hwnd, idObject, idChild, dwEventThread, dwmsEventTime):
     global _current_app
     try:
@@ -111,7 +132,8 @@ def _on_foreground_change(hWinEventHook, event, hwnd, idObject, idChild, dwEvent
             _debug(f"Foreground changed (hook): {_current_app.get('name')} -> {name}")
             icon_url = _cache_icon(exe, hwnd, name)
             template = _get_app_template(name)
-            _current_app = {"name": name, "icon": icon_url, "template": template}
+            _current_app = {"name": name, "icon": icon_url, "template": template,
+                            "layout": _get_app_layout(name)}
             socketio.emit("app_change", _current_app)
     except Exception as e:
         _debug(f"Focus hook callback error: {e}")
@@ -144,7 +166,7 @@ os.makedirs(ICON_DIR, exist_ok=True)
 
 CONFIG_PATH = os.path.join(SERVER_DIR, "config.json")
 
-_current_app = {"name": "Unknown", "icon": ""}
+_current_app = {"name": "Unknown", "icon": "", "layout": None}
 
 _app_icon_prefs = {}
 
@@ -751,6 +773,11 @@ def api_save_layout_button():
     with open(CONFIG_PATH, "w", newline="\n") as f:
         json.dump(config, f, indent=2)
     _debug(f"Saved layout button: {key}[{index}]")
+    # If the foreground app uses this layout, push the updated buttons.
+    global _current_app
+    if (_current_app.get("layout") or {}).get("key") == key:
+        _current_app = dict(_current_app, layout=_get_app_layout(_current_app.get("name")))
+        socketio.emit("app_change", _current_app)
     return jsonify({"ok": True})
 
 
@@ -776,6 +803,11 @@ def api_save_app_layout():
     with open(CONFIG_PATH, "w", newline="\n") as f:
         json.dump(config, f, indent=2)
     _debug(f"Saved app layout: {name} -> {layout}")
+    # If the affected app is the foreground one, push its new layout.
+    global _current_app
+    if _current_app.get("name") == name:
+        _current_app = dict(_current_app, layout=_get_app_layout(name))
+        socketio.emit("app_change", _current_app)
     return jsonify({"ok": True})
 
 

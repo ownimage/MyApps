@@ -19,13 +19,13 @@
       "buttons": [
         {
           "image": "Baby",
-          "key": "x",
-          "name": "Gray baby"
+          "key": "a",
+          "name": "Big button 1"
         },
         {
-          "name": "Pink Baby",
           "image": "Baby Girl",
-          "key": "b"
+          "key": "x",
+          "name": "Pink Baby"
         }
       ]
     },
@@ -43,12 +43,25 @@
     },
     "reaper": {
       "displayName": "REAPER",
-      "image": "",
+      "image": "Notepad++.png",
       "orientation": "landscape",
-      "buttons": []
+      "buttons": [
+        {
+          "name": "q",
+          "image": "Beach 2",
+          "key": "shift+q"
+        },
+        {
+          "name": "W",
+          "image": "Bike",
+          "key": "shift+w"
+        }
+      ]
     }
   },
   "app-layouts": {
-    "Google Chrome": "powerpoint"
+    "Google Chrome": "powerpoint",
+    "Microsoft PowerPoint": "powerpoint",
+    "Notepad++": "reaper"
   }
 }

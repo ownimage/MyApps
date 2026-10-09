@@ -11,8 +11,8 @@
 var _pbCommLogLines = [];
 var _pbCommLogMax = 200;
 
-// Last foreground app pushed by the server ({ name, icon }); the Edit App
-// wizard shows it.
+// Last foreground app pushed by the server (`{ name, icon, layout }`); the Edit
+// App wizard shows it and the main view renders its layout buttons.
 var _pbCurrentApp = null;
 
 function _commLine(text, kind) {
@@ -80,6 +80,38 @@ function _renderConnStatus(status, detail) {
 function renderMain() {
   var state = pbSocket.getStatus();
   _renderConnStatus(state.status, state.detail);
+  renderLayoutButtons(_pbCurrentApp && _pbCurrentApp.layout);
+}
+
+// Render the current application's layout buttons. They arrive PUSHED in the
+// server's `app_change` message (the client never queries for them). Pressing
+// one sends its key combination over the socket.
+function renderLayoutButtons(layout) {
+  var container = document.getElementById("layoutButtons");
+  if (!container) return;
+  var buttons = (layout && layout.buttons) || [];
+  var real = buttons.filter(function (b) { return b && (b.name || b.image || b.key); });
+  container.innerHTML = "";
+  if (!real.length) {
+    container.classList.add("d-none");
+    return;
+  }
+  container.classList.remove("d-none");
+  container.style.gridTemplateColumns = "repeat(" + (layout.orientation === "portrait" ? 2 : 3) + ", 1fr)";
+  real.forEach(function (btn, i) {
+    var el = document.createElement("button");
+    el.type = "button";
+    el.className = "btn btn-outline-primary d-flex align-items-center gap-2";
+    el.innerHTML =
+      '<smd-image key-prefix="shared-"' + (btn.image ? ' image="' + escAttr(btn.image) + '"' : '') + '></smd-image>' +
+      '<span>' + escapeHtml(btn.name || ("Button " + (i + 1))) + '</span>';
+    el.addEventListener("click", function () {
+      if (!btn.key) return;
+      pbSocket.emit("button_press", { key: btn.key });
+      _commLine("sent button_press {key: " + btn.key + "}", "info");
+    });
+    container.appendChild(el);
+  });
 }
 
 // Wire the socket callbacks into the UI exactly once.
@@ -97,7 +129,7 @@ function bindSocketUi() {
 
   pbSocket.on("app_change", function (data) {
     data = data || {};
-    _pbCurrentApp = { name: data.name || "Unknown", icon: data.icon || "" };
+    _pbCurrentApp = data;
     var nameEl = document.getElementById("serverAppName");
     if (nameEl) nameEl.textContent = data.name || "Unknown";
     var iconEl = document.getElementById("serverAppIcon");
@@ -109,7 +141,8 @@ function bindSocketUi() {
         iconEl.classList.add("d-none");
       }
     }
-    _commLine("app_change \u2192 " + (data.name || "?") + (data.template ? " (template set)" : ""), "info");
+    renderLayoutButtons(data.layout);
+    _commLine("app_change \u2192 " + (data.name || "?") + (data.layout ? " (layout: " + data.layout.key + ")" : ""), "info");
   });
 
   pbSocket.on("pong", function (data) {

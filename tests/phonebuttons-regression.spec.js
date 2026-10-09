@@ -70,6 +70,7 @@ test.describe("PhoneButtons - Regression", () => {
     // main view (the template's content is inert until Settings is built).
     await expect(page.locator("#commLog")).toHaveCount(0);
     await expect(page.locator("#btnConnect")).toHaveCount(0);
+    await expect(page.locator("#layoutButtons")).toBeHidden();
 
     expect(errors).toEqual([]);
   });
@@ -105,6 +106,33 @@ test.describe("PhoneButtons - Regression", () => {
     // Disconnect flips the main-view status back.
     await page.locator("#btnDisconnect").click();
     await expect(page.locator("#connBadge")).toHaveText("Disconnected");
+  });
+
+  test("main page renders the app's layout buttons from the app_change push", async ({ page }) => {
+    await page.goto("/PhoneButtons/");
+    await page.waitForFunction(() => typeof window.__serverConnect === "function");
+    await page.evaluate(() => window.__serverConnect());
+
+    await expect(page.locator("#layoutButtons")).toBeHidden();
+    await page.evaluate(() => window.__serverEmit("app_change", {
+      name: "Microsoft PowerPoint",
+      icon: "",
+      layout: { key: "powerpoint", orientation: "landscape", buttons: [
+        { name: "Next Slide", image: "", key: "right" },
+        { name: "Previous", image: "", key: "left" }
+      ] }
+    }));
+
+    await expect(page.locator("#layoutButtons")).toBeVisible();
+    await expect(page.locator("#layoutButtons button")).toHaveCount(2);
+    await expect(page.locator("#layoutButtons")).toContainText("Next Slide");
+    await page.locator("#layoutButtons button", { hasText: "Next Slide" }).click();
+    const emitted = await page.evaluate(() => window.__ioState.emitted);
+    expect(emitted).toContainEqual({ event: "button_press", data: { key: "right" } });
+
+    // A later app_change with no layout hides the buttons again.
+    await page.evaluate(() => window.__serverEmit("app_change", { name: "Notepad", icon: "", layout: null }));
+    await expect(page.locator("#layoutButtons")).toBeHidden();
   });
 
   test("settings page has Display + Server tabs and persists to pb_ keys", async ({ page }) => {
