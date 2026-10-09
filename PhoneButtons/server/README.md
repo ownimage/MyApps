@@ -54,7 +54,9 @@ py -3.13 MyApps\PhoneButtons\server\app.py --no-qr
 - `POST /api/save-layout-button` — persist one layout button
   (`{layout, index, image, key}`) into `config.json` -> `layouts[key].buttons[index]`.
 - Socket.IO: the server emits `app_change` on connect and on foreground change;
-  the client sends `button_press { key }`; `ping` -> `pong` for diagnostics.
+  the client sends `button_press { key }` (a full press), `key_down { key }` /
+  `key_up { key }` (press-and-hold — a modifiers-only key such as `"ctrl+shift"`
+  holds the modifiers with no main key); `ping` -> `pong` for diagnostics.
 
 ## Notes
 

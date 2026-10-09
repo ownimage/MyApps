@@ -332,7 +332,8 @@ function saveLayoutButtonAt(index) {
   var b = (layout.buttons && layout.buttons[index]) || {};
   pbApi.saveLayoutButton({
     layout: _selectedLayoutKey, index: index,
-    name: b.name || "", image1: b.image1 || "", image2: b.image2 || "", key: b.key || ""
+    name: b.name || "", image1: b.image1 || "", image2: b.image2 || "",
+    key: b.key || "", press: b.press || "regular"
   }).catch(function (err) {
     _commLine("Manage Layout: swap save failed: " + err.message, "error");
   });
@@ -461,6 +462,7 @@ function buildButtonEditPage() {
         '</select>' +
       '</div>' +
       '<div class="form-text">Choose a Key <em>or</em> a Special key — picking one clears the other.</div>' +
+      '<smd-checkbox id="buttonKeyNone" onchange="onButtonKeyNone()">No key (modifiers only)</smd-checkbox>' +
     '</div>' +
     '<div class="mb-3">' +
       '<label class="form-label d-block">Modifiers</label>' +
@@ -469,6 +471,14 @@ function buildButtonEditPage() {
         '<smd-checkbox id="buttonKeyAlt">Alt</smd-checkbox>' +
         '<smd-checkbox id="buttonKeyShift">Shift</smd-checkbox>' +
       '</div>' +
+    '</div>' +
+    '<div class="mb-3">' +
+      '<label class="form-label" for="buttonPressSelect">Press</label>' +
+      '<select id="buttonPressSelect" class="form-select">' +
+        '<option value="regular">Regular (single press)</option>' +
+        '<option value="extended">Extended (press &amp; hold)</option>' +
+      '</select>' +
+      '<div class="form-text">Extended sends separate key-down / key-up so the key(s) can be held.</div>' +
     '</div>';
   page.buttons = [
     { text: "Cancel", variant: "secondary", action: "cancel" },
@@ -497,6 +507,8 @@ function setButtonKeyControls(value) {
   if (!named || !char) return;
   named.disabled = false;
   char.disabled = false;
+  var none = document.getElementById("buttonKeyNone");
+  if (none) none.checked = !parsed.key;
   var upper = parsed.key.toUpperCase();
   if (BUTTON_NAMED_KEYS.indexOf(upper) !== -1) {
     named.value = upper;
@@ -510,25 +522,45 @@ function setButtonKeyControls(value) {
   }
 }
 
-// Key and Special key clear each other (both stay enterable).
+// Key / Special key / "No key" are mutually exclusive.
 function onButtonKeyChar() {
   var char = document.getElementById("buttonKeyChar");
   var named = document.getElementById("buttonKeyNamed");
   if (!char || !named) return;
-  if (char.value) named.value = "";
+  if (char.value) {
+    named.value = "";
+    var none = document.getElementById("buttonKeyNone");
+    if (none) none.checked = false;
+  }
 }
 
 function onButtonKeyNamed() {
   var char = document.getElementById("buttonKeyChar");
   var named = document.getElementById("buttonKeyNamed");
   if (!char || !named) return;
-  if (named.value) char.value = "";
+  if (named.value) {
+    char.value = "";
+    var none = document.getElementById("buttonKeyNone");
+    if (none) none.checked = false;
+  }
+}
+
+// "No key" = modifiers only (e.g. hold Ctrl+Shift with no main key).
+function onButtonKeyNone() {
+  var none = document.getElementById("buttonKeyNone");
+  if (!none || !none.checked) return;
+  var char = document.getElementById("buttonKeyChar"); if (char) char.value = "";
+  var named = document.getElementById("buttonKeyNamed"); if (named) named.value = "";
 }
 
 function readButtonKey() {
+  var none = document.getElementById("buttonKeyNone");
   var char = document.getElementById("buttonKeyChar");
   var named = document.getElementById("buttonKeyNamed");
-  var raw = ((named && named.value) || (char && char.value) || "").toLowerCase().trim();
+  var raw = "";
+  if (!(none && none.checked)) {
+    raw = ((named && named.value) || (char && char.value) || "").toLowerCase().trim();
+  }
   var mods = [];
   var ctrl = document.getElementById("buttonKeyCtrl");
   var alt = document.getElementById("buttonKeyAlt");
@@ -536,7 +568,8 @@ function readButtonKey() {
   if (ctrl && ctrl.checked) mods.push("ctrl");
   if (alt && alt.checked) mods.push("alt");
   if (shift && shift.checked) mods.push("shift");
-  return mods.length ? mods.join("+") + "+" + raw : raw;
+  if (!mods.length) return raw;
+  return raw ? mods.join("+") + "+" + raw : mods.join("+");
 }
 
 function openButtonEditor(index) {
@@ -565,6 +598,8 @@ function openButtonEditor(index) {
   if (sel2) sel2.setAttribute("image", _buttonImage2);
   var nameInput = document.getElementById("buttonNameInput");
   if (nameInput) nameInput.value = button.name || "";
+  var pressSel = document.getElementById("buttonPressSelect");
+  if (pressSel) pressSel.value = button.press === "extended" ? "extended" : "regular";
   setButtonKeyControls(button.key || "");
 }
 
@@ -576,16 +611,18 @@ function saveButtonEditor() {
   var image1 = sel1 ? (sel1.getAttribute("image") || "") : "";
   var image2 = sel2 ? (sel2.getAttribute("image") || "") : "";
   var key = readButtonKey();
+  var pressSel = document.getElementById("buttonPressSelect");
+  var press = (pressSel && pressSel.value === "extended") ? "extended" : "regular";
   var index = _editingButtonIndex;
   pbApi.saveLayoutButton({
     layout: _selectedLayoutKey, index: index, name: name,
-    image1: image1, image2: image2, key: key
+    image1: image1, image2: image2, key: key, press: press
   }).then(function () {
     var layout = _layoutsByKey[_selectedLayoutKey];
     if (layout) {
       layout.buttons = layout.buttons || [];
       while (layout.buttons.length <= index) layout.buttons.push({});
-      layout.buttons[index] = { name: name, image1: image1, image2: image2, key: key };
+      layout.buttons[index] = { name: name, image1: image1, image2: image2, key: key, press: press };
       renderManageGrid();
     }
     _commLine("Manage Layout: saved button " + (index + 1) + " (" + (name || "unnamed") +

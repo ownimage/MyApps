@@ -858,6 +858,7 @@ def api_save_layout_button():
         "image1": data.get("image1", ""),
         "image2": data.get("image2", ""),
         "key": data.get("key", ""),
+        "press": data.get("press", "regular"),
     }
     with open(CONFIG_PATH, "w", newline="\n") as f:
         json.dump(config, f, indent=2)
@@ -965,6 +966,18 @@ def _resolve_key(value):
         return ord(value.upper())
     return _KEY_MAP.get(value.upper(), 0)
 
+
+def _parse_key_string(key_value):
+    """Split "ctrl+shift+X" -> (list of modifier VKs in order, main VK or 0).
+    A modifiers-only string (e.g. "ctrl+shift") yields main VK 0."""
+    parts = str(key_value or "").split("+")
+    mods = []
+    while parts and parts[0].lower() in _MOD_KEY_MAP:
+        mods.append(_MOD_KEY_MAP[parts.pop(0).lower()])
+    final = "+".join(parts)
+    vk = _resolve_key(final) if final else 0
+    return mods, vk
+
 def _send_key_down(vk):
     win32api.keybd_event(vk, 0, 0, 0)
 
@@ -1001,6 +1014,31 @@ def handle_button_press(data):
             _send_key_up(m)
     else:
         _debug(f"Unknown key: {key_value}")
+
+
+# Press-and-hold: the phone sends key_down while a button is held and key_up on
+# release, so modifiers (and/or a main key) stay down while the user uses the
+# PC's mouse. A modifiers-only string (e.g. "ctrl+shift") has no main key.
+@socketio.on("key_down")
+def handle_key_down(data):
+    key_value = data.get("key", "") if isinstance(data, dict) else ""
+    mods, vk = _parse_key_string(key_value)
+    _debug(f"key_down: '{key_value}' (vk=0x{vk:02X}, mods={[hex(m) for m in mods]})")
+    for m in mods:
+        _send_key_down(m)
+    if vk:
+        _send_key_down(vk)
+
+
+@socketio.on("key_up")
+def handle_key_up(data):
+    key_value = data.get("key", "") if isinstance(data, dict) else ""
+    mods, vk = _parse_key_string(key_value)
+    _debug(f"key_up: '{key_value}' (vk=0x{vk:02X}, mods={[hex(m) for m in mods]})")
+    if vk:
+        _send_key_up(vk)
+    for m in reversed(mods):
+        _send_key_up(m)
 
 
 def _lan_ip():

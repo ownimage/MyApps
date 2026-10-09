@@ -147,25 +147,53 @@ function renderLayoutButtons(layout) {
   for (var i = 0; i < rows * cols; i++) {
     var b = buttons[i];
     var real = pbButtonHasContent(b);
-    html += '<button type="button" data-index="' + i + '" class="pb-grid-cell' + (real ? "" : " pb-grid-spacer") + '" ' +
+    html += '<button type="button" data-index="' + i + '" data-key="' + escAttr((b && b.key) || "") + '" data-press="' + escAttr((b && b.press) || "regular") + '" class="pb-grid-cell' + (real ? "" : " pb-grid-spacer") + '" ' +
       'style="width:' + px + "px;height:" + px + "px;font-size:" + pbCellFontPx(px) + 'px">' +
       (real ? pbButtonThumbsHtml(b, px) + (b.name ? '<span class="pb-cell-name">' + escapeHtml(b.name) + '</span>' : "") : "") +
       '</button>';
   }
   container.innerHTML = html;
   container.querySelectorAll(".pb-grid-cell:not(.pb-grid-spacer)").forEach(function (el) {
-    el.addEventListener("click", function () { pbMainCellClick(el); });
+    if (el.getAttribute("data-press") === "extended") {
+      // Press-and-hold: key_down while held, key_up on release.
+      el.addEventListener("pointerdown", function (e) {
+        e.preventDefault();
+        try { el.setPointerCapture(e.pointerId); } catch (err) { /* synthetic pointer */ }
+        pressMainCell(el);
+      });
+      el.addEventListener("pointerup", function () { releaseMainCell(el); });
+      el.addEventListener("pointercancel", function () { releaseMainCell(el); });
+    } else {
+      // Regular: one press (the server sends down + up).
+      el.addEventListener("click", function () { pressMainCellOnce(el); });
+    }
   });
 }
 
-function pbMainCellClick(el) {
-  el.blur();
-  var i = parseInt(el.getAttribute("data-index"), 10);
-  var layout = _pbCurrentApp && _pbCurrentApp.layout;
-  var btn = layout && layout.buttons && layout.buttons[i];
-  if (!btn || !btn.key) return;
-  pbSocket.emit("button_press", { key: btn.key });
-  _commLine("sent button_press {key: " + btn.key + "}", "info");
+// Regular press: the server presses and releases the key.
+function pressMainCellOnce(el) {
+  var key = el.getAttribute("data-key");
+  if (!key) return;
+  pbSocket.emit("button_press", { key: key });
+  _commLine("button_press {key: " + key + "}", "info");
+}
+
+// Press-and-hold: key_down while the button is held, key_up on release, so
+// modifiers (or a key) can be held down while using the PC's mouse.
+function pressMainCell(el) {
+  var key = el.getAttribute("data-key");
+  if (!key) return;
+  el.classList.add("pressed");
+  pbSocket.emit("key_down", { key: key });
+  _commLine("key_down {key: " + key + "}", "info");
+}
+
+function releaseMainCell(el) {
+  el.classList.remove("pressed");
+  var key = el.getAttribute("data-key");
+  if (!key) return;
+  pbSocket.emit("key_up", { key: key });
+  _commLine("key_up {key: " + key + "}", "info");
 }
 
 // Wire the socket callbacks into the UI exactly once.

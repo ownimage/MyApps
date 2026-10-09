@@ -19,15 +19,48 @@
           "key": "left"
         },
         {
+          "name": "Next slide",
           "image1": "bi:skip-forward-fill",
           "image2": "",
-          "key": "right",
-          "name": "Next slide"
+          "key": "right"
         }
+      ]
+    },
+    "photoshop": {
+      "displayName": "Photoshop",
+      "image": "Adobe Photoshop 2026.png",
+      "rows": 2,
+      "cols": 3,
+      "buttons": [
+        {
+          "name": "",
+          "image1": "bi:brush-fill",
+          "image2": "",
+          "key": "b",
+          "press": "regular"
+        },
+        {
+          "name": "",
+          "image1": "bi:app",
+          "image2": "",
+          "key": "m",
+          "press": "regular"
+        },
+        {
+          "name": "Alt",
+          "image1": "",
+          "image2": "",
+          "key": "alt",
+          "press": "extended"
+        },
+        {},
+        {},
+        {}
       ]
     }
   },
   "app-layouts": {
-    "Microsoft PowerPoint": "powerpoint"
+    "Microsoft PowerPoint": "powerpoint",
+    "Adobe Photoshop 2026": "photoshop"
   }
 }

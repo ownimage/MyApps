@@ -354,7 +354,7 @@ test.describe("PhoneButtons - Regression", () => {
     await page.locator("#buttonKeyCtrl").click();
     await page.locator("#buttonEditPage").getByRole("button", { name: "OK" }).click();
     await expect.poll(() => savedButton).toEqual({
-      layout: "reaper", index: 0, name: "Advance", image1: "", image2: "", key: "ctrl+media_next_track"
+      layout: "reaper", index: 0, name: "Advance", image1: "", image2: "", key: "ctrl+media_next_track", press: "regular"
     });
     await expect(page.locator("#layoutButton1")).toContainText("Advance");
 
@@ -364,7 +364,7 @@ test.describe("PhoneButtons - Regression", () => {
       key: "reaper", displayName: "REAPER", image: "gone.png",
       rows: 2, cols: 3,
       buttons: [
-        { name: "Advance", image1: "", image2: "", key: "ctrl+media_next_track" },
+        { name: "Advance", image1: "", image2: "", key: "ctrl+media_next_track", press: "regular" },
         {}, {}, {}, {}, {}
       ]
     });
@@ -405,6 +405,52 @@ test.describe("PhoneButtons - Regression", () => {
       rows: 2, cols: 3, buttons: [{}, {}, {}, {}, {}, {}]
     });
     await expect(page.locator("#manageLayoutPage")).not.toHaveAttribute("open", "");
+  });
+
+  test("main page buttons hold a key down and release it (press-and-hold)", async ({ page }) => {
+    await page.goto("/PhoneButtons/");
+    await page.waitForFunction(() => typeof window.__serverConnect === "function");
+    await page.evaluate(() => window.__serverConnect());
+    await page.evaluate(() => window.__serverEmit("app_change", {
+      name: "App", icon: "",
+      layout: { key: "l", rows: 1, cols: 1, buttons: [{ name: "Ctrl", image1: "", image2: "", key: "ctrl", press: "extended" }] }
+    }));
+
+    const cell = page.locator("#layoutButtons .pb-grid-cell").first();
+    const box = await cell.boundingBox();
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.down();
+    let emitted = await page.evaluate(() => window.__ioState.emitted);
+    expect(emitted).toContainEqual({ event: "key_down", data: { key: "ctrl" } });
+    expect(emitted.some((e) => e.event === "key_up")).toBe(false);
+
+    await page.mouse.up();
+    emitted = await page.evaluate(() => window.__ioState.emitted);
+    expect(emitted).toContainEqual({ event: "key_up", data: { key: "ctrl" } });
+  });
+
+  test("Edit Button: No key (modifiers only) saves just the modifiers", async ({ page }) => {
+    let savedButton = null;
+    await page.route("**/api/layouts", (route) => route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({ layouts: [{ key: "reaper", displayName: "REAPER", image: "", rows: 1, cols: 1, buttons: [{}] }] })
+    }));
+    await page.route("**/api/app-icons", (route) => route.fulfill({ contentType: "application/json", body: JSON.stringify({ icons: [] }) }));
+    await page.route("**/api/save-layout-button", (route) => {
+      savedButton = route.request().postDataJSON();
+      route.fulfill({ contentType: "application/json", body: JSON.stringify({ ok: true }) });
+    });
+
+    await page.goto("/PhoneButtons/");
+    await page.evaluate(() => openManageLayout());
+    await page.locator("#layoutButton1").click();
+    await expect(page.locator("#buttonEditPage")).toHaveAttribute("open", "");
+    await page.locator("#buttonKeyCtrl").click();
+    await page.locator("#buttonKeyNone").click();
+    await page.locator("#buttonEditPage").getByRole("button", { name: "OK" }).click();
+    await expect.poll(() => savedButton).toEqual({
+      layout: "reaper", index: 0, name: "", image1: "", image2: "", key: "ctrl", press: "regular"
+    });
   });
 
   test("Manage Layout: row/column inputs are clamped to 1..12", async ({ page }) => {
@@ -457,7 +503,7 @@ test.describe("PhoneButtons - Regression", () => {
     await expect.poll(() => buttonCalls.length).toBeGreaterThanOrEqual(2);
     const byIndex = {};
     buttonCalls.forEach((c) => { byIndex[c.index] = c; });
-    expect(byIndex[0]).toEqual({ layout: "reaper", index: 0, name: "", image1: "", image2: "", key: "" });
-    expect(byIndex[1]).toEqual({ layout: "reaper", index: 1, name: "Next", image1: "", image2: "", key: "right" });
+    expect(byIndex[0]).toEqual({ layout: "reaper", index: 0, name: "", image1: "", image2: "", key: "", press: "regular" });
+    expect(byIndex[1]).toEqual({ layout: "reaper", index: 1, name: "Next", image1: "", image2: "", key: "right", press: "regular" });
   });
 });
