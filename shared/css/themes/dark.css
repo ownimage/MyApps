@@ -74,6 +74,16 @@
   --smd-modal-header-background: color-mix(in srgb, var(--bs-body-bg) 85%, white);
 }
 
+/* Fix for dropdown menu text visibility in all themes in dark mode */
+.dropdown-item {
+  color: var(--bs-body-color) !important;
+}
+
+.dropdown-item:hover,
+.dropdown-item:focus {
+  color: var(--bs-white) !important;
+  background-color: var(--bs-primary) !important;
+}
 /* Stream editor headers: the same dark mixes as light.css (collapsed = the
    theme primary, expanded = danger), overriding the base --bs-success /
    --bs-danger rules in styles.css so both modes read identically. */

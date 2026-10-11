@@ -236,7 +236,15 @@ test.describe("PlanMyDay - Screenshots", () => {
     await page.locator("#btnMainMenu").click();
     await page.waitForSelector(".dropdown-menu.show");
     await page.waitForTimeout(200);
-    await screenshotAllThemes(page, "main-menu-dropdown.png");
+    // Re-hover per theme/mode: each theme re-lays-out the menu (different
+    // Bootstrap padding), so a single hover before the loop is lost for themes
+    // whose item rect moves away from the fixed pointer.
+    const hoverLaunch = async (p) => {
+      await p.locator("a.dropdown-item").filter({ hasText: "Launch" }).hover();
+      await p.waitForTimeout(100);
+    };
+    await hoverLaunch(page);
+    await screenshotAllThemes(page, "main-menu-dropdown.png", { beforeCapture: hoverLaunch });
   });
 
   test("add card modal", async ({ page }) => {
