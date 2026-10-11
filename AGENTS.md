@@ -3530,3 +3530,48 @@ Techniques / gotchas:
   non-expanded stream header are one surface mix, identical in light and dark".
 - Verified: pmd-gantt 59/59, pmd Theme colours 5/5, storybook 8/8.
 - `BUILD_NUMBER` NOT bumped - bump before shipping (`npm run bump:build`).
+
+### 2026-10-11 - hamburger dropdown item contrast in dark mode + screenshot hover hook
+- BUG (user): the Pulse theme in DARK mode had very low contrast on the hamburger
+  dropdown (`.dropdown-item`) text. Root cause: `pulse.dark.css` (and most other
+  themes' `<theme>.dark.css`) are comment-only stubs, so a theme whose own
+  `--bs-dropdown-link-color` / `--bs-dropdown-link-hover-bg` reads poorly on its
+  dark menu surface had no override. `#mainNav .dropdown-menu` (shared/css/styles.css)
+  paints the popup with `--bs-body-bg` and only re-points `--bs-dropdown-divider-bg`.
+- FIX (centralised): `shared/css/themes/dark.css` (the shared DARK mode layer,
+  loaded for EVERY theme before the per-theme file) now owns the rule:
+  `.dropdown-item { color: var(--bs-body-color) !important }` plus
+  `.dropdown-item:hover,:focus { color: var(--bs-white) !important;
+  background-color: var(--bs-primary) !important }`. That gives every dark theme a
+  legible item colour and a primary hover. Per-theme files still win by document
+  order, so a theme can override in its own `<theme>.dark.css`. This is the
+  correct layer for a fix that applies to all dark themes - do NOT copy it into
+  each `<theme>.dark.css`.
+- LIGHT MODE (user, same session): `shared/css/themes/light.css` now carries the
+  IDENTICAL `.dropdown-item` / `.dropdown-item:hover,:focus` block, so every light
+  theme also gets the primary highlight on hover. The two mode layers are kept
+  symmetric - change one, change the other.
+- SELECTOR AUDIT: NO theme override file (`shared/css/themes/*/*.{light,dark}.css`)
+  defines `.dropdown-item`, `--bs-dropdown-link*` or `--bs-dropdown-bg`, so
+  nothing was redundant to remove. The only "dropdown" hits are the
+  `--smd-dropdown-*` vars for the `<smd-image-dropdown>` custom element, which are
+  a DIFFERENT thing (the image+name selector) and must stay.
+- SCREENSHOT HOVER GOTCHA (important, cost real time): a `:hover` screenshot
+  taken by `screenshotAllThemes` is LOST for themes whose menu item rect moves
+  away from the fixed pointer. The mouse is placed ONCE (before the theme loop),
+  then the helper re-applies 27 themes x 2 modes; different themes ship different
+  Bootstrap versions/padding (brite is 5.3.8, the rest 5.3.3), so the item's
+  y/height differs (observed y 97..164, h 29..47) and the fixed pointer no longer
+  sits over it -> no `:hover` -> the screenshot silently shows no hover, even
+  though the live app (pointer stays on the item) always shows it. This is NOT a
+  Playwright limitation; the probe showed `item.matches(":hover")` going false for
+  litera/lux/sandstone (pointer below item) and quartz (pointer above item).
+- FIX: `tests/screenshot-helpers.js` `createScreenshotAllThemes().screenshotAllThemes(page, scene, { beforeCapture })`
+  gained an optional per-call `beforeCapture(page, {theme, mode})` Node hook that
+  runs AFTER the theme/mode settles and BEFORE the image-wait + screenshot. The
+  pmd "main menu dropdown" test now passes `beforeCapture` that re-hovers the
+  "Launch" item each iteration. Verified brite/dark + litera/dark screenshots now
+  show the primary hover. Use `beforeCapture` for ANY pointer-dependent scene.
+- TEST ADDED: pmd-screenshots "main menu dropdown" now hovers "Launch" and is the
+  visual reference for the dark-mode dropdown contrast fix.
+- `BUILD_NUMBER` NOT bumped - bump before shipping (`npm run bump:build`).

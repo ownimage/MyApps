@@ -6,7 +6,14 @@ const STYLESHEET_IDS = ["bootstrap-theme-css", "theme-override-mode", "theme-ove
 const IMAGE_RE = /\.(png|jpg|jpeg|gif|webp|svg|bmp)$/i;
 
 function createScreenshotAllThemes(appId, afterTheme) {
-  return async function screenshotAllThemes(page, scene) {
+  return async function screenshotAllThemes(page, scene, callOptions) {
+    // beforeCapture(page, { theme, mode }) runs in Node AFTER the theme/mode has
+    // been applied and settled, immediately BEFORE the image-wait + screenshot.
+    // Needed for scenes that depend on POINTER state (e.g. :hover): the mouse is
+    // placed once before the theme loop, so as each theme re-lays-out the page
+    // the pointer no longer sits over the target and the hover is silently lost
+    // (different themes ship different Bootstrap padding, so item rects differ).
+    const beforeCapture = callOptions && callOptions.beforeCapture;
     // SCREENSHOT_THEME=<theme> runs one theme only (all apps); leave unset for all 27.
     const requestedTheme = process.env.SCREENSHOT_THEME;
     const allThemes = await page.evaluate(() => Object.keys(themeConfig));
@@ -76,6 +83,9 @@ function createScreenshotAllThemes(appId, afterTheme) {
 
         if (afterTheme) {
           await page.evaluate(afterTheme, { theme, mode });
+        }
+        if (beforeCapture) {
+          await beforeCapture(page, { theme, mode });
         }
         await page.evaluate(async () => {
           await document.fonts.ready;
