@@ -3556,6 +3556,16 @@ Techniques / gotchas:
   nothing was redundant to remove. The only "dropdown" hits are the
   `--smd-dropdown-*` vars for the `<smd-image-dropdown>` custom element, which are
   a DIFFERENT thing (the image+name selector) and must stay.
+- BRITE EXCEPTION: brite's primary is a bright green (`#a2e436`) whose own buttons
+  use BLACK text - `bootstrap.min.css` sets `.btn-primary{--bs-btn-color:#000}`
+  GLOBALLY, with NO `[data-bs-theme=dark]` override, so the button text is black
+  in BOTH modes. White-on-primary (the shared rule) is therefore unreadable for
+  brite in both modes. `brite.light.css` AND `brite.dark.css` each override
+  `.dropdown-item:hover,:focus { color: var(--bs-black) !important }` to match the
+  theme's button. Verified both brite screenshots. GENERAL RULE: the shared white
+  foreground assumes a primary that carries light text; a theme whose primary is
+  light (needs dark text) overrides the foreground in its own
+  `<theme>.<mode>.css`. Check `--bs-btn-color` on that theme's `.btn-primary`.
 - SCREENSHOT HOVER GOTCHA (important, cost real time): a `:hover` screenshot
   taken by `screenshotAllThemes` is LOST for themes whose menu item rect moves
   away from the fixed pointer. The mouse is placed ONCE (before the theme loop),
