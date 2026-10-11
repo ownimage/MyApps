@@ -79,6 +79,21 @@
     border: 1px solid black !important;
 }
 
+/* Dropdown menu items: legible body-coloured text with a PRIMARY hover, for
+   every light theme (mirrors the matching rule in dark.css). Scoped to the
+   hamburger popup is NOT needed: this is the shared item look. A theme that
+   wants a different item colour/hover overrides it in its own
+   shared/css/themes/<theme>/<theme>.light.css sheet. */
+.dropdown-item {
+  color: var(--bs-body-color) !important;
+}
+
+.dropdown-item:hover,
+.dropdown-item:focus {
+  color: var(--bs-white) !important;
+  background-color: var(--bs-primary) !important;
+}
+
 /* The non-expanded stream header uses the SAME surface as the page
    header/footer (`--smd-page-header-background`), so the two never drift. */
 #smd-app #streamsEditor pmd-stream-header .stream-accordion-header {
