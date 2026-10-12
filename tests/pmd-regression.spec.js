@@ -665,16 +665,16 @@ test.describe("PlanMyDay - Regression", () => {
       expect(flag.keys).toEqual(["l|Anniversary"]);
     });
 
-    test("shows a downloaded Google event that is visible in CountMyDays, and hides a hidden one", async ({ page }) => {
+    test("shows downloaded Google events even when marked hidden in CountMyDays", async ({ page }) => {
       await seedCmd(page, { google: [
         { id: "g_visible", summary: "Google Visible", start: { date: todayStr }, _cmd: { show: true } },
         { id: "g_hidden", summary: "Google Hidden", start: { date: todayStr }, _cmd: { show: false } }
       ] });
       const cards = page.locator("#cmdTodayList cmd-countdown-card");
-      await expect(cards).toHaveCount(1);
-      await expect(cards).toContainText("Google Visible");
-      await expect(cards).toContainText("Google");
-      await expect(page.locator("#cmdTodayList")).not.toContainText("Google Hidden");
+      await expect(cards).toHaveCount(2);
+      await expect(page.locator("#cmdTodayList")).toContainText("Google Visible");
+      await expect(page.locator("#cmdTodayList")).toContainText("Google Hidden");
+      await expect(cards.first()).toContainText("Google");
     });
 
     test("Regenerate Today's Tiles clears today's CountMyDays dismissals", async ({ page }) => {

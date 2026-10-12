@@ -10,8 +10,9 @@
 //   countmydays_google_cal  — the CACHED Google feed (never fetched from here)
 //   countmydays_gcal_name   — the name the feed payload is keyed by
 //   countmydays_categories  — for the category thumbnail
-// Google events are included only when they have been downloaded already AND
-// CountMyDays would show them (SmdGcal.visibleGoogleEntries drops hidden ones).
+// Google events are included when they have been downloaded already, and are
+// shown even when marked hidden in CountMyDays (SmdGcal.gcalEntries keeps every
+// entry; CountMyDays' own main view still filters hidden ones out).
 
 const CMD_EVENTS_PREFIX = "countmydays_";
 
@@ -74,12 +75,13 @@ function cmdLocalTodayEvents() {
     .map(function (d) { return Object.assign({}, d, { gcal: false }); });
 }
 
-// Downloaded Google events that CountMyDays would show and that fall today.
+// Downloaded Google events that fall today. Unlike CountMyDays' own main view,
+// PlanMyDay shows them even when they are marked hidden in CountMyDays.
 function cmdGoogleTodayEvents() {
   if (typeof SmdGcal === "undefined") return [];
   const feed = cmdReadJson(CMD_EVENTS_PREFIX + "google_cal", null);
   const userName = localStorage.getItem(CMD_EVENTS_PREFIX + "gcal_name") || "";
-  return SmdGcal.visibleGoogleEntries(feed, userName).filter(cmdIsToday);
+  return SmdGcal.gcalEntries(feed, userName).filter(cmdIsToday);
 }
 
 function cmdTodayEvents() {

@@ -151,12 +151,19 @@
     };
   }
 
-  // The feed's visible entries (hidden ones are editor-only in CountMyDays).
-  function visibleGoogleEntries(feed, userName) {
+  // Every mapped entry from the feed (including ones marked hidden in
+  // CountMyDays). Callers that want CountMyDays' visibility filter use
+  // visibleGoogleEntries instead.
+  function gcalEntries(feed, userName) {
     if (!feed || !Array.isArray(feed.items)) return [];
     return feed.items
       .map(function (evt) { return gcalEventToDate(evt, userName); })
-      .filter(function (d) { return d && d.show !== false; });
+      .filter(Boolean);
+  }
+
+  // The feed's visible entries (hidden ones are editor-only in CountMyDays).
+  function visibleGoogleEntries(feed, userName) {
+    return gcalEntries(feed, userName).filter(function (d) { return d.show !== false; });
   }
 
   global.SmdGcal = {
@@ -164,6 +171,7 @@
     parseCmdUsersObject: parseCmdUsersObject,
     parseCmdPayloadFromDescription: parseCmdPayloadFromDescription,
     gcalEventToDate: gcalEventToDate,
+    gcalEntries: gcalEntries,
     visibleGoogleEntries: visibleGoogleEntries
   };
 })(window);

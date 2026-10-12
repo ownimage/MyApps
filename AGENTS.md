@@ -3601,9 +3601,10 @@ Techniques / gotchas:
   Each card swipes LEFT or RIGHT (mouse or touch) to hide it for the rest of
   today - no confirmation, and CountMyDays' own data is never modified.
 - SCOPE: both LOCAL dates (`countmydays_dates`) and DOWNLOADED Google events
-  (`countmydays_google_cal`), but only Google entries CountMyDays would show
-  (i.e. `show !== false`, including the `{count_my_days{...}}` description
-  payload for the configured name `countmydays_gcal_name`). Nothing is fetched.
+  (`countmydays_google_cal`), INCLUDING events marked hidden in CountMyDays (see
+  the follow-up below): `cmdGoogleTodayEvents()` maps EVERY feed item via
+  `SmdGcal.gcalEntries()`, while CountMyDays' own main view keeps using
+  `visibleGoogleEntries()` (`show !== false`). Nothing is fetched.
 - NEW `shared/js/smd-gcal.js` (`window.SmdGcal`): the PURE Google-feed helpers
   (`extractCmdPayloadBlock`, `parseCmdUsersObject`, `parseCmdPayloadFromDescription`,
   `gcalEventToDate`, `visibleGoogleEntries`) extracted from
@@ -3640,8 +3641,8 @@ Techniques / gotchas:
   event; two today events; non-today hidden; renders between the heading and the
   tabs via DOM order + y; swipe LEFT removes only that card and persists one key;
   swipe RIGHT removes; the date-scoped flag resets on a stale record and writes
-  exactly one key, not five; a downloaded Google event is shown while a hidden
-  one is not) + 1 touch swipe in `tests/pmd-touch.spec.js`. All green; cmd full
+  exactly one key, not five; downloaded Google events are shown even when marked
+  hidden in CountMyDays) + 1 touch swipe in `tests/pmd-touch.spec.js`. All green; cmd full
   65/65 (Google refactor), pmd full run green after the precache fix.
 - LESSON (the one that cost time): the first `sw.js` cut ALSO listed
   `CountMyDays/js/components/cmd-countdown-card.js` under APPS["PlanMyDay/"],
@@ -3661,4 +3662,10 @@ Techniques / gotchas:
   "0 days" countdown on a "today" tile is noise. `PlanMyDay/js/cmd-today.js` sets
   it on every cmd-today card; CountMyDays passes nothing and is unchanged.
   Asserted in the "shows a single CountMyDays event" test (`.counts` hidden).
+- FOLLOW-UP (same day, user): PlanMyDay shows downloaded Google events EVEN IF
+  they are marked hidden in CountMyDays. Added `SmdGcal.gcalEntries(feed, name)`
+  (maps every feed item; `visibleGoogleEntries()` is now `gcalEntries().filter(d
+  => d.show !== false)`) and `cmdGoogleTodayEvents()` uses `gcalEntries()`.
+  CountMyDays behaviour is unchanged. The Google test now seeds a `show:true` and
+  a `show:false` event and expects BOTH.
 - `BUILD_NUMBER` -> `202610120847` via `npm run bump:build`.
