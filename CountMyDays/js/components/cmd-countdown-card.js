@@ -10,6 +10,8 @@
 //   category-image  — category image name (rendered via smd-image)
 //   image           — date image name (rendered via smd-image)
 //   key-prefix      — smd-image storage prefix (default: SmdConfig.imagePrefix)
+//   hide-count      — presence suppresses the countdown column entirely (used
+//                     for "today" tiles where a "0 days" countdown is noise)
 //
 // The card is a swipe-to-dismiss target only when the consumer adds the
 // `dismissable` attribute (PlanMyDay's main page does; CountMyDays does not).
@@ -56,7 +58,7 @@ cmdCountdownCardTemplate.innerHTML = `
 class CmdCountdownCard extends HTMLElement {
   static get observedAttributes() {
     return ["title", "date-text", "source", "count1", "count2", "category",
-      "category-image", "image", "key-prefix", "dismissable"];
+      "category-image", "image", "key-prefix", "dismissable", "hide-count"];
   }
 
   constructor() {
@@ -96,6 +98,10 @@ class CmdCountdownCard extends HTMLElement {
     const count2El = root.querySelector(".count-2");
     count2El.textContent = count2;
     count2El.hidden = !count2;
+
+    // `hide-count` suppresses the whole countdown column (e.g. for "today"
+    // tiles, where "0 days" is noise).
+    root.querySelector(".counts").hidden = this.hasAttribute("hide-count");
 
     root.querySelector(".category-label").textContent = this.getAttribute("category") || "";
 

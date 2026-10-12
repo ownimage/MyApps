@@ -135,6 +135,7 @@ function renderCmdTodayCards(container) {
     const card = document.createElement("cmd-countdown-card");
     card.className = "d-block mb-1";
     card.setAttribute("dismissable", "");
+    card.setAttribute("hide-count", "");
     card.setAttribute("event-key", key);
     card.setAttribute("key-prefix", smdImagePrefix());
     card.setAttribute("title", d.name || "");

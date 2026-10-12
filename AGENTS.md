@@ -3649,4 +3649,16 @@ Techniques / gotchas:
   never installed and 5 SW/offline tests failed with a misleading "Not found".
   Confirmed by A/B: clean tree installs (`reg.active === true`), change fails,
   and removing the duplicate fixes it. Always check for duplicate precache URLs.
-- `BUILD_NUMBER` -> `202610120839` via `npm run bump:build`.
+- FOLLOW-UP (same day, user): `regenerateTiles()` (Settings -> Danger ->
+  Regenerate Today's Tiles, and `importData()` which calls it) now also removes
+  `planmydays_cmdDismissed`, so regenerating brings back any swiped-away
+  CountMyDays tiles. New test "Regenerate Today's Tiles clears today's
+  CountMyDays dismissals" (dismiss one, run the Settings/Danger flow, assert the
+  key is gone AND both cards are back).
+- FOLLOW-UP (same day, user): `<cmd-countdown-card>` gained a boolean `hide-count`
+  attribute that suppresses the whole `.counts` column
+  (`root.querySelector(".counts").hidden = hasAttribute("hide-count")`) - a
+  "0 days" countdown on a "today" tile is noise. `PlanMyDay/js/cmd-today.js` sets
+  it on every cmd-today card; CountMyDays passes nothing and is unchanged.
+  Asserted in the "shows a single CountMyDays event" test (`.counts` hidden).
+- `BUILD_NUMBER` -> `202610120847` via `npm run bump:build`.

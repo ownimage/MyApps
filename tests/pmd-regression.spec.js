@@ -542,6 +542,8 @@ test.describe("PlanMyDay - Regression", () => {
       await expect(cards).toHaveCount(1);
       await expect(cards).toContainText("Birthday");
       await expect(cards).toContainText("Local");
+      // the countdown column is suppressed for "today" tiles (hide-count)
+      await expect(cards.locator(".counts")).toBeHidden();
     });
 
     test("shows one card per CountMyDays event that falls today", async ({ page }) => {
@@ -673,6 +675,30 @@ test.describe("PlanMyDay - Regression", () => {
       await expect(cards).toContainText("Google Visible");
       await expect(cards).toContainText("Google");
       await expect(page.locator("#cmdTodayList")).not.toContainText("Google Hidden");
+    });
+
+    test("Regenerate Today's Tiles clears today's CountMyDays dismissals", async ({ page }) => {
+      const t = cmdToday();
+      await seedCmd(page, { dates: [
+        { name: "Birthday", type: "annual", month: t.month, day: t.day },
+        { name: "Anniversary", type: "annual", month: t.month, day: t.day }
+      ] });
+      const cards = page.locator("#cmdTodayList cmd-countdown-card");
+      await expect(cards).toHaveCount(2);
+      await swipeCmdCard(page, "Birthday", "left");
+      await expect(cards).toHaveCount(1);
+      expect(await page.evaluate(() => localStorage.getItem("planmydays_cmdDismissed"))).not.toBeNull();
+
+      // Settings -> Danger -> Regenerate Today's Tiles
+      await page.locator("#btnMainMenu").click();
+      await page.locator("a.dropdown-item").filter({ hasText: "Settings" }).click();
+      await page.locator("#danger-tab").click();
+      await page.locator("#showDanger").check();
+      await page.locator("#regenerateTilesRow").waitFor({ state: "visible" });
+      await page.getByRole("button", { name: "Regenerate Today's Tiles" }).click();
+
+      expect(await page.evaluate(() => localStorage.getItem("planmydays_cmdDismissed"))).toBeNull();
+      await expect(cards).toHaveCount(2);
     });
   });
 
