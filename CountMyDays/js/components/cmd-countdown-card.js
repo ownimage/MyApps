@@ -10,6 +10,23 @@
 //   category-image  — category image name (rendered via smd-image)
 //   image           — date image name (rendered via smd-image)
 //   key-prefix      — smd-image storage prefix (default: SmdConfig.imagePrefix)
+//   hide-count      — presence suppresses the countdown column entirely (used
+//                     for "today" tiles where a "0 days" countdown is noise)
+//
+// The card is a swipe-to-dismiss target only when the consumer adds the
+// `dismissable` attribute (PlanMyDay's main page does; CountMyDays does not).
+// `touch-action: pan-y` keeps vertical scrolling working while a horizontal
+// drag reaches the component. Layout stays Bootstrap utilities in the template.
+(function (global) {
+  if (global.document.getElementById("cmd-countdown-card-style")) return;
+  const s = global.document.createElement("style");
+  s.id = "cmd-countdown-card-style";
+  s.textContent =
+    "cmd-countdown-card { display: block; }" +
+    "cmd-countdown-card[dismissable] { touch-action: pan-y; }";
+  global.document.head.appendChild(s);
+})(window);
+
 const cmdCountdownCardTemplate = document.createElement("template");
 cmdCountdownCardTemplate.innerHTML = `
   <div class="card border-0 w-100">
@@ -41,7 +58,7 @@ cmdCountdownCardTemplate.innerHTML = `
 class CmdCountdownCard extends HTMLElement {
   static get observedAttributes() {
     return ["title", "date-text", "source", "count1", "count2", "category",
-      "category-image", "image", "key-prefix"];
+      "category-image", "image", "key-prefix", "dismissable", "hide-count"];
   }
 
   constructor() {
@@ -82,6 +99,10 @@ class CmdCountdownCard extends HTMLElement {
     count2El.textContent = count2;
     count2El.hidden = !count2;
 
+    // `hide-count` suppresses the whole countdown column (e.g. for "today"
+    // tiles, where "0 days" is noise).
+    root.querySelector(".counts").hidden = this.hasAttribute("hide-count");
+
     root.querySelector(".category-label").textContent = this.getAttribute("category") || "";
 
     const setThumb = (selector, name) => {
@@ -92,6 +113,79 @@ class CmdCountdownCard extends HTMLElement {
     };
     setThumb(".category-thumb", this.getAttribute("category-image") || "");
     setThumb(".date-thumb", this.getAttribute("image") || "");
+
+    if (this.hasAttribute("dismissable")) this._setupSwipe();
+  }
+
+  // Swipe left OR right past the threshold animates the card off, then emits
+  // `cmd-countdown-dismiss` ({ key }) so the consumer can persist the dismissal
+  // and remove the node. No confirmation, no snap-back.
+  _setupSwipe() {
+    if (this._swipeBound) return;
+    this._swipeBound = true;
+    const root = this;
+    let s = null;
+
+    const thresholdFor = () => {
+      const w = root.offsetWidth || 320;
+      return Math.min(120, Math.max(60, w * 0.25));
+    };
+
+    root.addEventListener("pointerdown", (e) => {
+      if (e.button !== 0) return;
+      s = { id: e.pointerId, startX: e.clientX, startY: e.clientY, active: false };
+    });
+
+    root.addEventListener("pointermove", (e) => {
+      if (!s || e.pointerId !== s.id) return;
+      const dx = e.clientX - s.startX;
+      const dy = e.clientY - s.startY;
+      if (!s.active) {
+        if (Math.abs(dx) < 12 || Math.abs(dx) <= Math.abs(dy)) return;
+        s.active = true;
+        try { root.setPointerCapture(e.pointerId); } catch (err) { /* synthetic pointer in tests */ }
+      }
+      s.dx = dx;
+      const th = thresholdFor();
+      root.style.transition = "none";
+      root.style.transform = "translateX(" + dx + "px)";
+      root.style.opacity = String(1 - 0.75 * Math.max(0, Math.min(1, Math.abs(dx) / th)));
+    });
+
+    root.addEventListener("pointerup", (e) => {
+      if (!s || e.pointerId !== s.id) return;
+      const dx = s.dx || 0;
+      const th = thresholdFor();
+      const dir = dx <= -th ? "left" : dx >= th ? "right" : null;
+      root.style.transition = "transform 0.2s ease-out, opacity 0.2s ease-out";
+      if (dir) {
+        const w = root.offsetWidth || 320;
+        root.style.transform = "translateX(" + (dir === "left" ? -(w + 40) : (w + 40)) + "px)";
+        root.style.opacity = "0";
+        this._pendingSwipe = dir;
+        setTimeout(() => {
+          if (this._pendingSwipe !== dir) return;
+          this._pendingSwipe = null;
+          this.dispatchEvent(new CustomEvent("cmd-countdown-dismiss", {
+            bubbles: true,
+            composed: true,
+            detail: { key: this.getAttribute("event-key") || "" }
+          }));
+        }, 200);
+      } else {
+        root.style.transform = "translateX(0)";
+        root.style.opacity = "1";
+      }
+      s = null;
+    });
+
+    root.addEventListener("pointercancel", () => {
+      if (!s) return;
+      s = null;
+      root.style.transition = "transform 0.2s ease-out, opacity 0.2s ease-out";
+      root.style.transform = "translateX(0)";
+      root.style.opacity = "1";
+    });
   }
 }
 

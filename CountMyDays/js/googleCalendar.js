@@ -13,11 +13,13 @@ const GSI_SCRIPT_URL = "https://accounts.google.com/gsi/client";
 const GOOGLE_CAL_SCOPE = "https://www.googleapis.com/auth/calendar.events";
 
 // Prefix-aware key helpers (evaluated at call time, after SmdConfig is set).
+// They live in shared/js/smd-gcal.js so PlanMyDay can reuse this module against
+// the SAME (CountMyDays) namespace via SmdGcal.setGcalPrefix("countmydays_").
 function gcalKey(name) {
-  return smdKey("gcal_" + name);
+  return SmdGcal.gcalKey(name);
 }
 function googleCalCacheKey() {
-  return smdKey("google_cal");
+  return SmdGcal.googleCalCacheKey();
 }
 
 function getGCalClientId() {
@@ -167,133 +169,23 @@ function refreshMainDisplay() {
 // Feed -> CountMyDays date tiles
 // -------------------------------
 
+// The pure feed mapping lives in shared/js/smd-gcal.js (SmdGcal) so PlanMyDay
+// can keep exactly the events CountMyDays shows; these globals stay for the
+// app's own callers with the CountMyDays-configured name bound in.
 function gcalEventToDate(evt) {
-  const start = evt.start || {};
-  let y, m, d;
-  if (start.date) {
-    const parts = String(start.date).split("-");
-    y = parseInt(parts[0], 10);
-    m = parseInt(parts[1], 10);
-    d = parseInt(parts[2], 10);
-  } else if (start.dateTime) {
-    const dt = new Date(start.dateTime);
-    y = dt.getFullYear();
-    m = dt.getMonth() + 1;
-    d = dt.getDate();
-  } else {
-    return null;
-  }
-  if (!y || !m || !d) return null;
-
-  let category = "";
-  let image = "";
-  let show = true;
-  if (evt._cmd) {
-    category = evt._cmd.category || "";
-    image = evt._cmd.image || "";
-    show = evt._cmd.show !== false;
-  } else if (typeof parseCmdPayloadFromDescription === "function") {
-    const cmd = parseCmdPayloadFromDescription(evt.description);
-    if (cmd) {
-      category = cmd.category || "";
-      image = cmd.image || "";
-      show = cmd.show !== false;
-    }
-  }
-
-  return {
-    name: evt.summary || "(Untitled event)",
-    category: category,
-    image: image,
-    show: show,
-    recurring: !!(evt.recurringEventId || (evt.recurrence && evt.recurrence.length)),
-    gcal: true,
-    type: "once",
-    year: y,
-    month: m,
-    day: d
-  };
+  return SmdGcal.gcalEventToDate(evt, getGCalUserName());
 }
 
 function loadGoogleCalendarEntries() {
-  const feed = loadGoogleCalFeed();
-  if (!feed || !Array.isArray(feed.items)) return [];
-  return feed.items.map(gcalEventToDate).filter(d => d && d.show !== false);
+  return SmdGcal.visibleGoogleEntries(SmdGcal.loadFeed(), getGCalUserName());
 }
 
-// Extract {count_my_days{...}} block (brace-balanced), keeping text before and after.
-// Shape: {count_my_days{'name': {category: "...", image: "...", show: true}, ...}}
 function extractCmdPayloadBlock(description) {
-  const text = String(description || "");
-  const marker = "{count_my_days";
-  const idx = text.lastIndexOf(marker);
-  if (idx === -1) return { base: text, suffix: "", block: null, users: {} };
-
-  // Brace-balance from the opening '{' of the marker
-  let depth = 0;
-  let endIdx = -1;
-  for (let i = idx; i < text.length; i++) {
-    if (text[i] === "{") depth++;
-    else if (text[i] === "}") {
-      depth--;
-      if (depth === 0) {
-        endIdx = i + 1;
-        break;
-      }
-    }
-  }
-  if (endIdx === -1) endIdx = text.length;
-
-  const block = text.slice(idx, endIdx);
-  // Inner users object starts at first '{' after marker text
-  const afterMarker = idx + marker.length;
-  let usersOpen = afterMarker;
-  while (usersOpen < endIdx && text[usersOpen] !== "{") usersOpen++;
-  let usersInner = "";
-  if (text[usersOpen] === "{") {
-    let d = 0;
-    let start = -1;
-    for (let i = usersOpen; i < endIdx; i++) {
-      if (text[i] === "{") {
-        d++;
-        if (d === 1) start = i + 1;
-      } else if (text[i] === "}") {
-        d--;
-        if (d === 0 && start !== -1) {
-          usersInner = text.slice(start, i);
-          break;
-        }
-      }
-    }
-  }
-
-  return {
-    base: text.slice(0, idx),
-    suffix: text.slice(endIdx),
-    block: block,
-    users: parseCmdUsersObject(usersInner)
-  };
+  return SmdGcal.extractCmdPayloadBlock(description);
 }
 
 function parseCmdUsersObject(body) {
-  const users = {};
-  const unescape = s => String(s || "").replace(/\\"/g, '"').replace(/\\\\/g, "\\");
-  // Match 'name': { ... } or "name": { ... }
-  const entryRe = /['"]([^'"]+)['"]\s*:\s*\{([^}]*)\}/g;
-  let m;
-  while ((m = entryRe.exec(body)) !== null) {
-    const name = m[1];
-    const inner = m[2];
-    const catMatch = inner.match(/category\s*:\s*"((?:\\.|[^"\\])*)"/);
-    const imgMatch = inner.match(/image\s*:\s*"((?:\\.|[^"\\])*)"/);
-    const showMatch = inner.match(/show\s*:\s*(true|false)/i);
-    users[name] = {
-      category: catMatch ? unescape(catMatch[1]) : "",
-      image: imgMatch ? unescape(imgMatch[1]) : "",
-      show: showMatch ? showMatch[1].toLowerCase() === "true" : true
-    };
-  }
-  return users;
+  return SmdGcal.parseCmdUsersObject(body);
 }
 
 function serializeCmdUsersObject(users) {
@@ -339,16 +231,7 @@ function buildDescriptionWithCmdPayload(existingDescription, category, image, sh
 
 // Returns category/image/show for the configured Name only.
 function parseCmdPayloadFromDescription(description) {
-  const userName = getGCalUserName();
-  if (!userName) return null;
-  const extracted = extractCmdPayloadBlock(description);
-  if (!extracted.users || !extracted.users[userName]) return null;
-  const u = extracted.users[userName];
-  return {
-    category: u.category || "",
-    image: u.image || "",
-    show: u.show !== false
-  };
+  return SmdGcal.parseCmdPayloadFromDescription(description, getGCalUserName());
 }
 
 // PATCH event description on Google Calendar (single event or series master id).
@@ -389,18 +272,23 @@ function showAppInfoModal(title, message) {
 // Menu handler: Google -> Refresh. Fetch, store, report
 // -------------------------------
 
+// The spinner is optional: CountMyDays defines showSpinner/hideSpinner
+// (import-wizard.js), but PlanMyDay reuses this module without them.
+function gcalShowSpinner() { if (typeof showSpinner === "function") showSpinner(); }
+function gcalHideSpinner() { if (typeof hideSpinner === "function") hideSpinner(); }
+
 function refreshGoogleCalendar() {
-  showSpinner();
-  fetchEvents()
+  gcalShowSpinner();
+  return fetchEvents()
     .then(json => {
-      storeGoogleCalFeed(json);
-      hideSpinner();
+      SmdGcal.storeFeed(json);
+      gcalHideSpinner();
       refreshMainDisplay();
       const count = (json.items && json.items.length) || 0;
       showAppInfoModal("Google Calendar", "Refreshed: " + count + " events cached.");
     })
     .catch(err => {
-      hideSpinner();
+      gcalHideSpinner();
       showAppInfoModal("Google Calendar", "Failed to refresh: " + err.message);
     });
 }
@@ -418,24 +306,24 @@ function clearGoogleCalCache() {
 function loadGCalSampleData() {
   const cacheBuster = typeof BUILD_NUMBER !== "undefined" ? BUILD_NUMBER : Date.now();
 
-  showSpinner();
-  fetch("js/googleCalendarSample.json?v=" + cacheBuster)
+  gcalShowSpinner();
+  return fetch("js/googleCalendarSample.json?v=" + cacheBuster)
     .then(res => {
       if (!res.ok) throw new Error("HTTP " + res.status);
       return res.json();
     })
     .then(json => {
-      hideSpinner();
+      gcalHideSpinner();
       if (!json.items) {
         showAppInfoModal("Sample Data", "Sample Google Calendar data is invalid.");
         return;
       }
-      storeGoogleCalFeed(json);
+      SmdGcal.storeFeed(json);
       refreshMainDisplay();
       showAppInfoModal("Sample Data", json.items.length + " events cached.");
     })
     .catch(err => {
-      hideSpinner();
+      gcalHideSpinner();
       showAppInfoModal("Sample Data", "Failed to load: " + err.message);
     });
 }

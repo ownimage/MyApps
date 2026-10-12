@@ -187,4 +187,32 @@ test.describe("PlanMyDay - iPhone 12 Pro touch", () => {
     ).toBe(tomorrow);
     await expect(page.locator(".flatpickr-calendar.open")).toBeVisible();
   });
+
+  test("swipe dismisses a CountMyDays today card on the main page", async ({ page }) => {
+    await page.evaluate(() => {
+      const d = new Date();
+      localStorage.setItem("countmydays_dates", JSON.stringify([
+        { name: "Birthday", type: "annual", month: d.getMonth() + 1, day: d.getDate() },
+        { name: "Anniversary", type: "annual", month: d.getMonth() + 1, day: d.getDate() }
+      ]));
+    });
+    await page.reload();
+    const cards = page.locator("#cmdTodayList cmd-countdown-card");
+    await expect(cards).toHaveCount(2);
+    const card = cards.filter({ hasText: "Birthday" }).first();
+    const box = await card.boundingBox();
+    const cx = box.x + box.width / 2;
+    const cy = box.y + box.height / 2;
+    const dist = Math.max(150, Math.round(box.width * 0.45));
+    const steps = 8;
+    await card.dispatchEvent("pointerdown", { pointerId: 1, pointerType: "touch", isPrimary: true, clientX: cx, clientY: cy, button: 0, buttons: 1, bubbles: true, cancelable: true });
+    for (let i = 1; i <= steps; i++) {
+      const r = i / steps;
+      await card.dispatchEvent("pointermove", { pointerId: 1, pointerType: "touch", clientX: cx - dist * r, clientY: cy, button: 0, buttons: 1, bubbles: true, cancelable: true });
+    }
+    await card.dispatchEvent("pointerup", { pointerId: 1, pointerType: "touch", clientX: cx - dist, clientY: cy, button: 0, buttons: 0, bubbles: true, cancelable: true });
+    await expect(cards).toHaveCount(1);
+    await expect(cards).toContainText("Anniversary");
+    expect(await page.evaluate(() => JSON.parse(localStorage.getItem("planmydays_cmdDismissed")).keys)).toEqual(["l|Birthday"]);
+  });
 });

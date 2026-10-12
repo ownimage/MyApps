@@ -20,7 +20,7 @@
 // comparison. If the two ever DO drift, the page notices at runtime
 // (GET_BUILD) and re-registers, so the drift self-heals instead of pinning
 // users to a build the worker will never replace.
-const BUILD_NUMBER = "202610091635";
+const BUILD_NUMBER = "202610120948";
 
 const CACHE = "myapps-" + BUILD_NUMBER;
 
@@ -382,6 +382,7 @@ const SHARED_ASSETS = [
     "shared/js/components/smd-qr-export.js",
   "shared/js/components/smd-qr-import.js",
   "shared/js/smd-app.js",
+  "shared/js/smd-gcal.js",
   "shared/js/smd-minio.js",
   "shared/js/smd-settings.js",
   "shared/js/smd-images.js",
@@ -416,6 +417,7 @@ const APPS = {
     // names above are what make those cache entries safe to keep.
     "PlanMyDay/js/gantt-lib.js",
     "PlanMyDay/js/main-view.js",
+    "PlanMyDay/js/cmd-today.js",
     "PlanMyDay/js/app-settings.js",
     "PlanMyDay/js/display.js",
      "PlanMyDay/js/image-picker.js",

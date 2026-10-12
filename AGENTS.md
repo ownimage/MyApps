@@ -567,6 +567,15 @@ Techniques / gotchas:
   find the listener (`Get-NetTCPConnection -LocalPort 8080 -State Listen`) and
   `Stop-Process` it so Playwright starts a fresh server. Do not debug the app
   code first.
+- SW PRECACHE REJECTS ON A DUPLICATE URL (2026-10-12, cost a debugging round): `cache.addAll(PRECACHE_URLS)`
+  in `sw.js` REJECTS if the list contains the SAME URL twice, so the worker never installs.
+  Symptom is NOT a 404: the page logs `Failed to update a ServiceWorker for scope ('…') with script
+  ('Unknown'): Not found`, `navigator.serviceWorker.ready` never resolves and every SW/offline/No-Cache
+  test fails together — while a per-URL `cache.add(u)` probe of the SAME list reports zero failures
+  (addAll rejects, individual adds do not). The SW cache is ORIGIN-WIDE, so a file shared by two apps
+  must be precached in exactly ONE `APPS` entry (it is served to every app from the one cache) — do NOT
+  re-list it under a second app. After ANY `sw.js` precache edit, check for duplicates before running the
+  suite (compare `PRECACHE_URLS.length` with `new Set(PRECACHE_URLS).size`).
 - CROSS-ORIGIN SAVE 302 GOTCHA (2026-09-17): SolarControlar's Flask POST endpoints (`POST /solar/`, `POST /solar/api/config`) are PRG — they answer `302 Location: /solar/`. A PWA `fetch()` that lets the browser follow that cross-origin redirect can lose its `Authorization` header on the follow-up GET (browser-dependent), so Traefik returns a 401 WITHOUT `Access-Control-Allow-Origin` → the fetch blocks as a CORS error / "Failed to fetch". Fix in the APP: `redirect: "manual"` on the POST and treat `resp.type === "opaqueredirect"` as success (server saved; the caller then re-fetches the GET page which carries auth again). `redirect: "manual"` returns an opaque-redirect response (status 0) for a 302 — you cannot read it, only detect it by `type`. Rule for SolarControlar saves: never follow the Flask redirect; `_post` returns the response TEXT (or `""`), so consumers must not chain `.text()`.
 - SHARED CSS IS COLOUR + SIZE ONLY (2026-09-30): `shared/css/styles.css` no longer holds any
   layout MECHANIC. When you move a rule out, copy the SELECTOR TEXT VERBATIM — including
@@ -3585,3 +3594,97 @@ Techniques / gotchas:
 - TEST ADDED: pmd-screenshots "main menu dropdown" now hovers "Launch" and is the
   visual reference for the dark-mode dropdown contrast fix.
 - `BUILD_NUMBER` NOT bumped - bump before shipping (`npm run bump:build`).
+
+### 2026-10-12 - CountMyDays "today" events on the PlanMyDay main page (swipe to dismiss)
+- FEATURE (user): on the PlanMyDay main page, between the date heading and the
+  tabs, show any CountMyDays event that falls TODAY as a `<cmd-countdown-card>`.
+  Each card swipes LEFT or RIGHT (mouse or touch) to hide it for the rest of
+  today - no confirmation, and CountMyDays' own data is never modified.
+- SCOPE: both LOCAL dates (`countmydays_dates`) and DOWNLOADED Google events
+  (`countmydays_google_cal`), INCLUDING events marked hidden in CountMyDays (see
+  the follow-up below): `cmdGoogleTodayEvents()` maps EVERY feed item via
+  `SmdGcal.gcalEntries()`, while CountMyDays' own main view keeps using
+  `visibleGoogleEntries()` (`show !== false`). Nothing is fetched.
+- NEW `shared/js/smd-gcal.js` (`window.SmdGcal`): the PURE Google-feed helpers
+  (`extractCmdPayloadBlock`, `parseCmdUsersObject`, `parseCmdPayloadFromDescription`,
+  `gcalEventToDate`, `visibleGoogleEntries`) extracted from
+  `CountMyDays/js/googleCalendar.js` and parameterised by user name, so PlanMyDay
+  keeps EXACTLY the events CountMyDays shows without duplicating the payload
+  parser. CountMyDays keeps thin globals (`gcalEventToDate`, `loadGoogleCalendarEntries`,
+  `extractCmdPayloadBlock`, `parseCmdUsersObject`, `parseCmdPayloadFromDescription`)
+  that delegate with `getGCalUserName()` bound in - behaviour unchanged.
+- NEW `PlanMyDay/js/cmd-today.js`: `renderCmdTodayCards(container)` reads the
+  CountMyDays keys raw (its own app namespace is `planmydays_`), keeps today's
+  events (`cmdTargetDate`/`cmdIsToday` mirror `CountMyDays/js/utils.js`
+  `targetDate`, using PlanMyDay's `getTodayDate()` so the Dev Today override
+  applies), builds `<cmd-countdown-card dismissable event-key=…>` and persists
+  dismissals. `main-view.js` `renderMain()` appends `#cmdTodayList` right after
+  the heading row (before the split-list tabs) and calls it.
+- SWIPE: opt-in `dismissable` attribute on the shared
+  `CountMyDays/js/components/cmd-countdown-card.js` (CountMyDays passes nothing,
+  so it is unchanged). Pointer events on the host, `touch-action: pan-y`, either
+  direction past threshold animates off then emits `cmd-countdown-dismiss`
+  ({ key }); the app removes the node AND persists. Modelled on
+  `pmd-job-today-card._setupSwipe`.
+- DISMISSAL FLAG (must not build up over time): `planmydays_cmdDismissed` =
+  `{ date: "YYYY-MM-DD", keys: [...] }`, keys `"l|<name>"` / `"g|<name>"`.
+  `cmdDismissedKeys()` DELETES the record when its `date` is not today, so it can
+  hold at most the current day's dismissals and can never grow across days.
+- WIRING: `PlanMyDay/index.html` loads `../shared/js/smd-gcal.js`, then
+  `../CountMyDays/js/components/cmd-countdown-card.js`, then `js/cmd-today.js`
+  (before main-view.js); `CountMyDays/index.html` loads `../shared/js/smd-gcal.js`
+  before googleCalendar.js; `sw.js` SHARED_ASSETS += `shared/js/smd-gcal.js`,
+  APPS["PlanMyDay/"] += `PlanMyDay/js/cmd-today.js` (the cmd card is already
+  precached once under CountMyDays - the SW cache is origin-wide, see the
+  duplicate-URL gotcha above).
+- TESTS: 8 in `tests/pmd-regression.spec.js` "CountMyDays Events" (single today
+  event; two today events; non-today hidden; renders between the heading and the
+  tabs via DOM order + y; swipe LEFT removes only that card and persists one key;
+  swipe RIGHT removes; the date-scoped flag resets on a stale record and writes
+  exactly one key, not five; downloaded Google events are shown even when marked
+  hidden in CountMyDays) + 1 touch swipe in `tests/pmd-touch.spec.js`. All green; cmd full
+  65/65 (Google refactor), pmd full run green after the precache fix.
+- LESSON (the one that cost time): the first `sw.js` cut ALSO listed
+  `CountMyDays/js/components/cmd-countdown-card.js` under APPS["PlanMyDay/"],
+  creating a DUPLICATE in `PRECACHE_URLS`; `cache.addAll` rejected, the worker
+  never installed and 5 SW/offline tests failed with a misleading "Not found".
+  Confirmed by A/B: clean tree installs (`reg.active === true`), change fails,
+  and removing the duplicate fixes it. Always check for duplicate precache URLs.
+- FOLLOW-UP (same day, user): `regenerateTiles()` (Settings -> Danger ->
+  Regenerate Today's Tiles, and `importData()` which calls it) now also removes
+  `planmydays_cmdDismissed`, so regenerating brings back any swiped-away
+  CountMyDays tiles. New test "Regenerate Today's Tiles clears today's
+  CountMyDays dismissals" (dismiss one, run the Settings/Danger flow, assert the
+  key is gone AND both cards are back).
+- FOLLOW-UP (same day, user): `<cmd-countdown-card>` gained a boolean `hide-count`
+  attribute that suppresses the whole `.counts` column
+  (`root.querySelector(".counts").hidden = hasAttribute("hide-count")`) - a
+  "0 days" countdown on a "today" tile is noise. `PlanMyDay/js/cmd-today.js` sets
+  it on every cmd-today card; CountMyDays passes nothing and is unchanged.
+  Asserted in the "shows a single CountMyDays event" test (`.counts` hidden).
+- FOLLOW-UP (same day, user): PlanMyDay shows downloaded Google events EVEN IF
+  they are marked hidden in CountMyDays. Added `SmdGcal.gcalEntries(feed, name)`
+  (maps every feed item; `visibleGoogleEntries()` is now `gcalEntries().filter(d
+  => d.show !== false)`) and `cmdGoogleTodayEvents()` uses `gcalEntries()`.
+  CountMyDays behaviour is unchanged. The Google test now seeds a `show:true` and
+  a `show:false` event and expects BOTH.
+- FOLLOW-UP (same day, user): a "Refresh Google Calendar" menu entry in PlanMyDay,
+  LAST in the hamburger menu after a divider, shown only when CountMyDays' Google
+  Calendar is enabled. It calls the EXISTING CountMyDays refresh code: PlanMyDay
+  now loads `CountMyDays/js/googleCalendar.js`, and `js/cmd-today.js` points its
+  storage at CountMyDays via the new `SmdGcal.setGcalPrefix("countmydays_")`.
+  Supporting changes: `SmdGcal` gained `gcalKey`/`googleCalCacheKey`/`loadFeed`/
+  `storeFeed` (+ the settable prefix) and CountMyDays' `gcalKey`/
+  `googleCalCacheKey` delegate to it; `googleCalendar.js` now calls
+  `SmdGcal.loadFeed`/`storeFeed`, guards the optional spinner
+  (`gcalShowSpinner`/`gcalHideSpinner`), and returns the refresh/sample promises
+  so PlanMyDay can chain `renderMain()`. The menu is `li.gcal-menu-item` (divider
+  + item) toggled by `updateGcalMenu()` (called at boot in app.js);
+  `refreshPlanMyDayGoogleCalendar()` is the click handler. NOTE:
+  `CountMyDays/js/googleCalendar.js` is already precached once under CountMyDays,
+  so it must NOT be re-listed under APPS["PlanMyDay/"] (the duplicate-URL
+  `addAll` gotcha). New tests: item hidden by default, then visible and LAST after
+  a divider when `countmydays_gcal_enabled`; clicking it stubs `fetchEvents`,
+  caches `countmydays_google_cal`, and re-renders today's cards. cmd-regression
+  full 57/57.
+- `BUILD_NUMBER` -> `202610120948` via `npm run bump:build`.

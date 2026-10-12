@@ -72,6 +72,14 @@ function renderMain() {
   headingRow.appendChild(addBtn);
   container.appendChild(headingRow);
 
+  // Any CountMyDays event that falls today is shown right here, between the
+  // date heading and the (optional) tabs. See js/cmd-today.js.
+  const cmdTodayList = document.createElement("div");
+  cmdTodayList.id = "cmdTodayList";
+  cmdTodayList.className = "d-block";
+  container.appendChild(cmdTodayList);
+  renderCmdTodayCards(cmdTodayList);
+
   ensureTodayList();
 
   const streams = loadStreams();

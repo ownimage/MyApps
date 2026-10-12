@@ -189,6 +189,9 @@ function regenerateTiles() {
   const merged = addScheduleJobsToOrder([]);
   saveTodayOrder(merged);
   saveCompletedJobs([]);
+  // Regenerating today's tiles also resets today's CountMyDays dismissals, so
+  // any swiped-away event tiles come back (see js/cmd-today.js).
+  localStorage.removeItem(smdKey("cmdDismissed"));
   localStorage.setItem(smdKey("last_gen"), getTodayStr());
   closeSettings();
   renderMain();
