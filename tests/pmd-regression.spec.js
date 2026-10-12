@@ -491,6 +491,191 @@ test.describe("PlanMyDay - Regression", () => {
     
   });
 
+  // ── CountMyDays events shown on the PlanMyDay main page ─────
+
+  test.describe("CountMyDays Events", () => {
+
+    function cmdToday() {
+      const d = new Date();
+      return { year: d.getFullYear(), month: d.getMonth() + 1, day: d.getDate() };
+    }
+
+    function cmdTomorrow() {
+      const d = new Date();
+      d.setDate(d.getDate() + 1);
+      return { year: d.getFullYear(), month: d.getMonth() + 1, day: d.getDate() };
+    }
+
+    // Seed CountMyDays' namespaced keys, then reload so PlanMyDay picks them up.
+    async function seedCmd(page, { dates, google } = {}) {
+      await page.evaluate(({ dates, google }) => {
+        if (dates) localStorage.setItem("countmydays_dates", JSON.stringify(dates));
+        else localStorage.removeItem("countmydays_dates");
+        if (google) localStorage.setItem("countmydays_google_cal", JSON.stringify({ items: google }));
+        else localStorage.removeItem("countmydays_google_cal");
+      }, { dates: dates || null, google: google || null });
+      await page.reload();
+    }
+
+    async function swipeCmdCard(page, title, direction) {
+      const card = page.locator("#cmdTodayList cmd-countdown-card").filter({ hasText: title }).first();
+      await expect(card).toBeVisible();
+      const box = await card.boundingBox();
+      const startX = box.x + box.width / 2;
+      const startY = box.y + box.height / 2;
+      const dist = Math.max(180, Math.round(box.width * 0.4));
+      const endX = startX + (direction === "left" ? -dist : dist);
+      const steps = 12;
+      await page.mouse.move(startX, startY);
+      await page.mouse.down();
+      for (let i = 1; i <= steps; i++) {
+        const r = i / steps;
+        await page.mouse.move(startX + (endX - startX) * r, startY, { steps: 1 });
+      }
+      await page.mouse.up();
+    }
+
+    test("shows a single CountMyDays event that falls today", async ({ page }) => {
+      const t = cmdToday();
+      await seedCmd(page, { dates: [{ name: "Birthday", type: "annual", month: t.month, day: t.day }] });
+      const cards = page.locator("#cmdTodayList cmd-countdown-card");
+      await expect(cards).toHaveCount(1);
+      await expect(cards).toContainText("Birthday");
+      await expect(cards).toContainText("Local");
+    });
+
+    test("shows one card per CountMyDays event that falls today", async ({ page }) => {
+      const t = cmdToday();
+      await seedCmd(page, { dates: [
+        { name: "Birthday", type: "annual", month: t.month, day: t.day },
+        { name: "Anniversary", type: "annual", month: t.month, day: t.day }
+      ] });
+      const cards = page.locator("#cmdTodayList cmd-countdown-card");
+      await expect(cards).toHaveCount(2);
+      await expect(cards.first()).toContainText("Birthday");
+      await expect(cards.last()).toContainText("Anniversary");
+    });
+
+    test("does not show CountMyDays events that are not today", async ({ page }) => {
+      const t = cmdToday();
+      const tm = cmdTomorrow();
+      await seedCmd(page, { dates: [
+        { name: "Today Event", type: "annual", month: t.month, day: t.day },
+        { name: "Tomorrow Event", type: "annual", month: tm.month, day: tm.day }
+      ] });
+      const cards = page.locator("#cmdTodayList cmd-countdown-card");
+      await expect(cards).toHaveCount(1);
+      await expect(cards).toContainText("Today Event");
+      await expect(page.locator("#cmdTodayList")).not.toContainText("Tomorrow Event");
+    });
+
+    test("renders between the date heading and the tabs", async ({ page }) => {
+      const t = cmdToday();
+      await page.evaluate(() => localStorage.setItem("planmydays_splitList", "true"));
+      await seedCmd(page, { dates: [{ name: "Birthday", type: "annual", month: t.month, day: t.day }] });
+      await expect(page.locator("#todayTabs")).toBeVisible();
+      const order = await page.evaluate(() => {
+        const heading = document.querySelector("#countdownContainer smd-h1");
+        const list = document.getElementById("cmdTodayList");
+        const tabs = document.getElementById("todayTabs");
+        const before = (a, b) => !!(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
+        return {
+          headingBeforeList: before(heading, list),
+          listBeforeTabs: before(list, tabs),
+          headingY: heading.getBoundingClientRect().top,
+          listY: list.getBoundingClientRect().top,
+          tabsY: tabs.getBoundingClientRect().top
+        };
+      });
+      expect(order.headingBeforeList).toBe(true);
+      expect(order.listBeforeTabs).toBe(true);
+      expect(order.headingY).toBeLessThan(order.listY);
+      expect(order.listY).toBeLessThan(order.tabsY);
+    });
+
+    test("swiping one card left removes only that card", async ({ page }) => {
+      const t = cmdToday();
+      await seedCmd(page, { dates: [
+        { name: "Birthday", type: "annual", month: t.month, day: t.day },
+        { name: "Anniversary", type: "annual", month: t.month, day: t.day }
+      ] });
+      const cards = page.locator("#cmdTodayList cmd-countdown-card");
+      await expect(cards).toHaveCount(2);
+      await swipeCmdCard(page, "Birthday", "left");
+      await expect(cards).toHaveCount(1);
+      await expect(cards).toContainText("Anniversary");
+      await expect(page.locator("#cmdTodayList")).not.toContainText("Birthday");
+      // the dismissal is persisted for today only
+      const flag = await page.evaluate(() => JSON.parse(localStorage.getItem("planmydays_cmdDismissed")));
+      expect(flag.date).toBe(todayStr);
+      expect(flag.keys).toEqual(["l|Birthday"]);
+      // a re-render keeps it hidden
+      await page.evaluate(() => renderMain());
+      await expect(cards).toHaveCount(1);
+      await expect(cards).toContainText("Anniversary");
+    });
+
+    test("swiping a card right also removes it", async ({ page }) => {
+      const t = cmdToday();
+      await seedCmd(page, { dates: [
+        { name: "Birthday", type: "annual", month: t.month, day: t.day },
+        { name: "Anniversary", type: "annual", month: t.month, day: t.day }
+      ] });
+      const cards = page.locator("#cmdTodayList cmd-countdown-card");
+      await expect(cards).toHaveCount(2);
+      await swipeCmdCard(page, "Birthday", "right");
+      await expect(cards).toHaveCount(1);
+      await expect(cards).toContainText("Anniversary");
+    });
+
+    test("the dismissal flag is date-scoped and cannot build up over time", async ({ page }) => {
+      const t = cmdToday();
+      await seedCmd(page, { dates: [
+        { name: "Birthday", type: "annual", month: t.month, day: t.day },
+        { name: "Anniversary", type: "annual", month: t.month, day: t.day }
+      ] });
+      const cards = page.locator("#cmdTodayList cmd-countdown-card");
+      await expect(cards).toHaveCount(2);
+
+      // dismiss one today -> exactly one key, dated today
+      await swipeCmdCard(page, "Birthday", "left");
+      await expect(cards).toHaveCount(1);
+      let flag = await page.evaluate(() => JSON.parse(localStorage.getItem("planmydays_cmdDismissed")));
+      expect(flag.keys).toEqual(["l|Birthday"]);
+
+      // simulate "the next day / a later day": the stored record names an old
+      // date and carries stale keys a naive implementation would keep growing.
+      await page.evaluate(() => {
+        localStorage.setItem("planmydays_cmdDismissed", JSON.stringify({
+          date: "2000-01-01",
+          keys: ["l|Birthday", "l|Old One", "l|Old Two", "l|Old Three"]
+        }));
+      });
+      await page.reload();
+      // both events are visible again, and the stale record was dropped outright
+      await expect(cards).toHaveCount(2);
+      expect(await page.evaluate(() => localStorage.getItem("planmydays_cmdDismissed"))).toBeNull();
+      // dismissing again writes ONE key for today, not five
+      await swipeCmdCard(page, "Anniversary", "left");
+      await expect(cards).toHaveCount(1);
+      flag = await page.evaluate(() => JSON.parse(localStorage.getItem("planmydays_cmdDismissed")));
+      expect(flag.date).toBe(todayStr);
+      expect(flag.keys).toEqual(["l|Anniversary"]);
+    });
+
+    test("shows a downloaded Google event that is visible in CountMyDays, and hides a hidden one", async ({ page }) => {
+      await seedCmd(page, { google: [
+        { id: "g_visible", summary: "Google Visible", start: { date: todayStr }, _cmd: { show: true } },
+        { id: "g_hidden", summary: "Google Hidden", start: { date: todayStr }, _cmd: { show: false } }
+      ] });
+      const cards = page.locator("#cmdTodayList cmd-countdown-card");
+      await expect(cards).toHaveCount(1);
+      await expect(cards).toContainText("Google Visible");
+      await expect(cards).toContainText("Google");
+      await expect(page.locator("#cmdTodayList")).not.toContainText("Google Hidden");
+    });
+  });
+
   // ── Navigation ─────────────────────────────────────────────
 
   test.describe("Navigation", () => {
