@@ -156,4 +156,6 @@ document.addEventListener("DOMContentLoaded", () => {
   if (typeof updateMinioMenu === "function") updateMinioMenu();
   // The Gantt menu item is opt-in via Settings -> Display -> Show Gantt.
   if (typeof updateGanttMenu === "function") updateGanttMenu();
+  // The Refresh Google Calendar item shows only when CountMyDays GCal is enabled.
+  if (typeof updateGcalMenu === "function") updateGcalMenu();
 });

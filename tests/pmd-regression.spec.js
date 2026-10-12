@@ -700,6 +700,52 @@ test.describe("PlanMyDay - Regression", () => {
       expect(await page.evaluate(() => localStorage.getItem("planmydays_cmdDismissed"))).toBeNull();
       await expect(cards).toHaveCount(2);
     });
+
+    test("the Refresh Google Calendar menu item appears last (after a divider) only when CountMyDays Google is enabled", async ({ page }) => {
+      // Disabled by default: the item (and its divider) are hidden.
+      await page.locator("#btnMainMenu").click();
+      await expect(page.locator("a.dropdown-item").filter({ hasText: "Refresh Google Calendar" })).toBeHidden();
+      await page.keyboard.press("Escape");
+
+      // Enabled in CountMyDays: the item is the LAST menu entry, after a divider.
+      await page.evaluate(() => localStorage.setItem("countmydays_gcal_enabled", "true"));
+      await page.reload();
+      await page.locator("#btnMainMenu").click();
+      const item = page.locator("a.dropdown-item").filter({ hasText: "Refresh Google Calendar" });
+      await expect(item).toBeVisible();
+      const info = await page.evaluate(() => {
+        const visible = Array.from(document.querySelectorAll("#mainNav .dropdown-menu .dropdown-item"))
+          .filter((el) => el.offsetParent !== null);
+        const last = visible[visible.length - 1];
+        const li = last && last.closest("li");
+        const prev = li && li.previousElementSibling;
+        return {
+          lastText: last ? last.textContent.trim() : "",
+          prevIsDivider: !!(prev && prev.querySelector(".dropdown-divider"))
+        };
+      });
+      expect(info.lastText).toBe("Refresh Google Calendar");
+      expect(info.prevIsDivider).toBe(true);
+    });
+
+    test("the Refresh Google Calendar menu item refreshes the CountMyDays feed and re-renders today's cards", async ({ page }) => {
+      await page.evaluate(() => localStorage.setItem("countmydays_gcal_enabled", "true"));
+      await page.reload();
+      // Stub the fetch (no OAuth/network) so the reused refresh flow caches a feed.
+      await page.evaluate((iso) => {
+        window.fetchEvents = () => Promise.resolve({ items: [
+          { id: "g_refresh", summary: "G Refreshed", start: { date: iso } }
+        ] });
+      }, todayStr);
+
+      await page.locator("#btnMainMenu").click();
+      await page.locator("a.dropdown-item").filter({ hasText: "Refresh Google Calendar" }).click();
+
+      await expect.poll(() => page.evaluate(() =>
+        (JSON.parse(localStorage.getItem("countmydays_google_cal") || "null") || {}).items?.[0]?.id
+      )).toBe("g_refresh");
+      await expect(page.locator("#cmdTodayList")).toContainText("G Refreshed");
+    });
   });
 
   // ── Navigation ─────────────────────────────────────────────

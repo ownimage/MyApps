@@ -91,6 +91,8 @@
         <li><hr class="dropdown-divider minio-menu-item" style="display:none"></li>
         <li><a class="dropdown-item minio-menu-item" style="display:none" onclick="exportToMinio()">Export to Minio</a></li>
         <li><a class="dropdown-item minio-menu-item" style="display:none" onclick="importFromMinio()">Import from Minio</a></li>
+        <li class="gcal-menu-item" style="display:none"><hr class="dropdown-divider"></li>
+        <li class="gcal-menu-item" style="display:none"><a class="dropdown-item" onclick="refreshPlanMyDayGoogleCalendar()">Refresh Google Calendar</a></li>
       </ul>
     </div>
 
@@ -459,6 +461,9 @@ document.write('<script src="../shared/js/components/smd-checkbox.js?v=' + BUILD
   document.write('<script src="js/components/pmd-tasks.js?v=' + BUILD_NUMBER + '"><\/script>');
   // Reused CountMyDays card for today's CountMyDays events (see js/cmd-today.js).
   document.write('<script src="../CountMyDays/js/components/cmd-countdown-card.js?v=' + BUILD_NUMBER + '"><\/script>');
+  // Reused CountMyDays Google Calendar service, so PlanMyDay's menu can refresh
+  // the same feed (see js/cmd-today.js).
+  document.write('<script src="../CountMyDays/js/googleCalendar.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="../shared/js/smd-app.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="../shared/js/smd-minio.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="../shared/js/smd-settings.js?v=' + BUILD_NUMBER + '"><\/script>');

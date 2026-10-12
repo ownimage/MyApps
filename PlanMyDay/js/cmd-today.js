@@ -16,6 +16,13 @@
 
 const CMD_EVENTS_PREFIX = "countmydays_";
 
+// PlanMyDay reuses CountMyDays' Google Calendar service
+// (CountMyDays/js/googleCalendar.js). By default it keys off the running app's
+// prefix, so point it at CountMyDays' namespace: the "Refresh Google Calendar"
+// menu item and the today-cards then read/write the SAME settings and feed
+// CountMyDays uses.
+if (typeof SmdGcal !== "undefined") SmdGcal.setGcalPrefix(CMD_EVENTS_PREFIX);
+
 function cmdReadJson(key, fallback) {
   try {
     const raw = localStorage.getItem(key);
@@ -154,4 +161,22 @@ function renderCmdTodayCards(container) {
     if (d.image) card.setAttribute("image", d.image);
     container.appendChild(card);
   });
+}
+
+// Show the "Refresh Google Calendar" menu item (and its divider) only when the
+// CountMyDays Google Calendar feature is enabled. The GCal settings live in the
+// CountMyDays namespace, which SmdGcal.setGcalPrefix points this module at.
+function updateGcalMenu() {
+  const enabled = typeof isGCalEnabled === "function" && isGCalEnabled();
+  document.querySelectorAll(".gcal-menu-item").forEach(function (el) {
+    el.style.display = enabled ? "" : "none";
+  });
+}
+
+// Reuse CountMyDays' existing refresh flow (OAuth + fetch + cache + info modal)
+// and re-render the main page afterwards so today's tiles reflect the new feed.
+function refreshPlanMyDayGoogleCalendar() {
+  if (typeof refreshGoogleCalendar !== "function") return;
+  const result = refreshGoogleCalendar();
+  if (result && typeof result.then === "function") result.then(function () { renderMain(); });
 }

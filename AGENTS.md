@@ -3668,4 +3668,23 @@ Techniques / gotchas:
   => d.show !== false)`) and `cmdGoogleTodayEvents()` uses `gcalEntries()`.
   CountMyDays behaviour is unchanged. The Google test now seeds a `show:true` and
   a `show:false` event and expects BOTH.
-- `BUILD_NUMBER` -> `202610120847` via `npm run bump:build`.
+- FOLLOW-UP (same day, user): a "Refresh Google Calendar" menu entry in PlanMyDay,
+  LAST in the hamburger menu after a divider, shown only when CountMyDays' Google
+  Calendar is enabled. It calls the EXISTING CountMyDays refresh code: PlanMyDay
+  now loads `CountMyDays/js/googleCalendar.js`, and `js/cmd-today.js` points its
+  storage at CountMyDays via the new `SmdGcal.setGcalPrefix("countmydays_")`.
+  Supporting changes: `SmdGcal` gained `gcalKey`/`googleCalCacheKey`/`loadFeed`/
+  `storeFeed` (+ the settable prefix) and CountMyDays' `gcalKey`/
+  `googleCalCacheKey` delegate to it; `googleCalendar.js` now calls
+  `SmdGcal.loadFeed`/`storeFeed`, guards the optional spinner
+  (`gcalShowSpinner`/`gcalHideSpinner`), and returns the refresh/sample promises
+  so PlanMyDay can chain `renderMain()`. The menu is `li.gcal-menu-item` (divider
+  + item) toggled by `updateGcalMenu()` (called at boot in app.js);
+  `refreshPlanMyDayGoogleCalendar()` is the click handler. NOTE:
+  `CountMyDays/js/googleCalendar.js` is already precached once under CountMyDays,
+  so it must NOT be re-listed under APPS["PlanMyDay/"] (the duplicate-URL
+  `addAll` gotcha). New tests: item hidden by default, then visible and LAST after
+  a divider when `countmydays_gcal_enabled`; clicking it stubs `fetchEvents`,
+  caches `countmydays_google_cal`, and re-renders today's cards. cmd-regression
+  full 57/57.
+- `BUILD_NUMBER` -> `202610120948` via `npm run bump:build`.

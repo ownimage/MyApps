@@ -13,11 +13,13 @@ const GSI_SCRIPT_URL = "https://accounts.google.com/gsi/client";
 const GOOGLE_CAL_SCOPE = "https://www.googleapis.com/auth/calendar.events";
 
 // Prefix-aware key helpers (evaluated at call time, after SmdConfig is set).
+// They live in shared/js/smd-gcal.js so PlanMyDay can reuse this module against
+// the SAME (CountMyDays) namespace via SmdGcal.setGcalPrefix("countmydays_").
 function gcalKey(name) {
-  return smdKey("gcal_" + name);
+  return SmdGcal.gcalKey(name);
 }
 function googleCalCacheKey() {
-  return smdKey("google_cal");
+  return SmdGcal.googleCalCacheKey();
 }
 
 function getGCalClientId() {
@@ -175,7 +177,7 @@ function gcalEventToDate(evt) {
 }
 
 function loadGoogleCalendarEntries() {
-  return SmdGcal.visibleGoogleEntries(loadGoogleCalFeed(), getGCalUserName());
+  return SmdGcal.visibleGoogleEntries(SmdGcal.loadFeed(), getGCalUserName());
 }
 
 function extractCmdPayloadBlock(description) {
@@ -270,18 +272,23 @@ function showAppInfoModal(title, message) {
 // Menu handler: Google -> Refresh. Fetch, store, report
 // -------------------------------
 
+// The spinner is optional: CountMyDays defines showSpinner/hideSpinner
+// (import-wizard.js), but PlanMyDay reuses this module without them.
+function gcalShowSpinner() { if (typeof showSpinner === "function") showSpinner(); }
+function gcalHideSpinner() { if (typeof hideSpinner === "function") hideSpinner(); }
+
 function refreshGoogleCalendar() {
-  showSpinner();
-  fetchEvents()
+  gcalShowSpinner();
+  return fetchEvents()
     .then(json => {
-      storeGoogleCalFeed(json);
-      hideSpinner();
+      SmdGcal.storeFeed(json);
+      gcalHideSpinner();
       refreshMainDisplay();
       const count = (json.items && json.items.length) || 0;
       showAppInfoModal("Google Calendar", "Refreshed: " + count + " events cached.");
     })
     .catch(err => {
-      hideSpinner();
+      gcalHideSpinner();
       showAppInfoModal("Google Calendar", "Failed to refresh: " + err.message);
     });
 }
@@ -299,24 +306,24 @@ function clearGoogleCalCache() {
 function loadGCalSampleData() {
   const cacheBuster = typeof BUILD_NUMBER !== "undefined" ? BUILD_NUMBER : Date.now();
 
-  showSpinner();
-  fetch("js/googleCalendarSample.json?v=" + cacheBuster)
+  gcalShowSpinner();
+  return fetch("js/googleCalendarSample.json?v=" + cacheBuster)
     .then(res => {
       if (!res.ok) throw new Error("HTTP " + res.status);
       return res.json();
     })
     .then(json => {
-      hideSpinner();
+      gcalHideSpinner();
       if (!json.items) {
         showAppInfoModal("Sample Data", "Sample Google Calendar data is invalid.");
         return;
       }
-      storeGoogleCalFeed(json);
+      SmdGcal.storeFeed(json);
       refreshMainDisplay();
       showAppInfoModal("Sample Data", json.items.length + " events cached.");
     })
     .catch(err => {
-      hideSpinner();
+      gcalHideSpinner();
       showAppInfoModal("Sample Data", "Failed to load: " + err.message);
     });
 }

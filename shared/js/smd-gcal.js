@@ -166,12 +166,36 @@
     return gcalEntries(feed, userName).filter(function (d) { return d.show !== false; });
   }
 
+  // ---- Storage (the CountMyDays Google Calendar namespace) ----
+  // Google Calendar belongs to CountMyDays, but PlanMyDay reuses this module to
+  // refresh the SAME feed, so the storage prefix is settable via
+  // SmdGcal.setGcalPrefix("countmydays_") instead of always being the running
+  // app's SmdConfig.storagePrefix.
+  var prefixOverride = "";
+  function effectivePrefix() {
+    if (prefixOverride) return prefixOverride;
+    return (typeof SmdConfig !== "undefined" && SmdConfig.storagePrefix) || "";
+  }
+  function setGcalPrefix(p) { prefixOverride = p || ""; }
+  function gcalKey(name) { return effectivePrefix() + "gcal_" + (name || ""); }
+  function googleCalCacheKey() { return effectivePrefix() + "google_cal"; }
+  function loadFeed() {
+    try { return JSON.parse(localStorage.getItem(googleCalCacheKey()) || "null"); }
+    catch (e) { return null; }
+  }
+  function storeFeed(feed) { localStorage.setItem(googleCalCacheKey(), JSON.stringify(feed)); }
+
   global.SmdGcal = {
     extractCmdPayloadBlock: extractCmdPayloadBlock,
     parseCmdUsersObject: parseCmdUsersObject,
     parseCmdPayloadFromDescription: parseCmdPayloadFromDescription,
     gcalEventToDate: gcalEventToDate,
     gcalEntries: gcalEntries,
-    visibleGoogleEntries: visibleGoogleEntries
+    visibleGoogleEntries: visibleGoogleEntries,
+    setGcalPrefix: setGcalPrefix,
+    gcalKey: gcalKey,
+    googleCalCacheKey: googleCalCacheKey,
+    loadFeed: loadFeed,
+    storeFeed: storeFeed
   };
 })(window);
