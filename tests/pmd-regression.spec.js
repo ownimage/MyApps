@@ -1,5 +1,6 @@
 const { test, expect } = require("@playwright/test");
 const { startCoverage, stopCoverage } = require("./coverage");
+const { pickOption } = require("./theme-controls");
 
 const TEST_STREAMS = [
   {
@@ -1298,7 +1299,7 @@ test.describe("PlanMyDay - Regression", () => {
       await page.locator("#btnMainMenu").click();
       await page.locator("a.dropdown-item").filter({ hasText: "Settings" }).click();
       await page.locator("#appearance-tab").click();
-      await page.locator("#fontSizeSelector").selectOption("small");
+      await pickOption(page, "#fontSizeSelector", "small");
       const hasClass = await page.evaluate(() => document.body.classList.contains("font-size-small"));
       expect(hasClass).toBe(true);
       await expect(page.locator("html")).toHaveAttribute("data-smd-font-size", "small");
@@ -1308,7 +1309,7 @@ test.describe("PlanMyDay - Regression", () => {
       await page.locator("#btnMainMenu").click();
       await page.locator("a.dropdown-item").filter({ hasText: "Settings" }).click();
       await page.locator("#appearance-tab").click();
-      await page.locator("#iconSizeSelector").selectOption("small");
+      await pickOption(page, "#iconSizeSelector", "small");
       const hasClass = await page.evaluate(() => document.body.classList.contains("icon-size-small"));
       expect(hasClass).toBe(true);
       await expect(page.locator("html")).toHaveAttribute("data-smd-icon-size", "small");
@@ -1318,7 +1319,7 @@ test.describe("PlanMyDay - Regression", () => {
       await page.locator("#btnMainMenu").click();
       await page.locator("a.dropdown-item").filter({ hasText: "Settings" }).click();
       await page.locator("#appearance-tab").click();
-      await page.locator("#densitySelector").selectOption("compact");
+      await pickOption(page, "#densitySelector", "compact");
       const hasClass = await page.evaluate(() => document.body.classList.contains("compact"));
       expect(hasClass).toBe(true);
       await expect(page.locator("html")).toHaveAttribute("data-smd-tile-density", "compact");
@@ -1328,13 +1329,13 @@ test.describe("PlanMyDay - Regression", () => {
       await page.locator("#btnMainMenu").click();
       await page.locator("a.dropdown-item").filter({ hasText: "Settings" }).click();
       await page.locator("#appearance-tab").click();
-      await page.locator("#touchSizeSelector").selectOption("normal");
+      await pickOption(page, "#touchSizeSelector", "normal");
       const normal = await page.evaluate(() => ({ drag: SmdDragHandle.defaultSize, check: SmdCheckbox.defaultSize }));
       expect(normal).toEqual({ drag: "normal", check: "normal" });
       const stored = await page.evaluate(() => localStorage.getItem("planmydays_touchSize"));
       expect(stored).toBe("normal");
       await expect(page.locator("html")).toHaveAttribute("data-smd-touch-size", "normal");
-      await page.locator("#touchSizeSelector").selectOption("large");
+      await pickOption(page, "#touchSizeSelector", "large");
       const large = await page.evaluate(() => ({ drag: SmdDragHandle.defaultSize, check: SmdCheckbox.defaultSize }));
       expect(large).toEqual({ drag: "large", check: "large" });
       await expect(page.locator("html")).toHaveAttribute("data-smd-touch-size", "large");
@@ -3396,7 +3397,7 @@ test.describe("PlanMyDay - Regression", () => {
       await page.locator("#btnMainMenu").click();
       await page.locator("a.dropdown-item").filter({ hasText: "Settings" }).click();
       await page.locator("#schedule-tab").click();
-      await page.locator("#suffixStartSelector").selectOption("1");
+      await pickOption(page, "#suffixStartSelector", "1");
       const val = await page.evaluate(() => localStorage.getItem("planmydays_suffixStart"));
       expect(val).toBe("1");
     });
@@ -3462,7 +3463,7 @@ test.describe("PlanMyDay - Regression", () => {
       const modeSelect = page.locator("#themeSelector .smd-theme-mode-select");
       await expect(themeSelect).toBeVisible();
       await expect(modeSelect).toBeVisible();
-      expect(await modeSelect.locator("option").allTextContents()).toEqual(["Light", "Dark"]);
+      expect(await modeSelect.locator(".smd-select-item").allTextContents()).toEqual(["Light", "Dark"]);
       expect(await page.evaluate(() => ({
         hasDefaultMode: Object.prototype.hasOwnProperty.call(themeConfig.superhero, "defaultMode"),
         order: Array.from(document.head.children).map(el => el.id).filter(id => ["bootstrap-theme-css", "theme-override-mode", "theme-override-specific"].includes(id))
@@ -3484,8 +3485,8 @@ test.describe("PlanMyDay - Regression", () => {
         });
       });
 
-      await modeSelect.selectOption("dark");
-      await expect(modeSelect).toHaveValue("dark");
+      await pickOption(page, "#themeSelector .smd-theme-mode-select", "dark");
+      await expect(modeSelect).toHaveAttribute("value", "dark");
       await expect(page.locator("html")).toHaveAttribute("data-bs-theme", "dark");
       expect(await page.evaluate(() => ({
         mode: localStorage.getItem("planmydays_themeMode"),
@@ -3497,7 +3498,7 @@ test.describe("PlanMyDay - Regression", () => {
         event: { theme: "superhero", mode: "dark", source: "mode" }
       });
 
-      await themeSelect.selectOption("brite");
+      await pickOption(page, "#themeSelector .smd-theme-select", "brite");
       await expect(page.locator("html")).toHaveAttribute("data-theme", "brite");
       await expect(page.locator("html")).toHaveAttribute("data-bs-theme", "dark");
       expect(await page.evaluate(() => window.__themeEvents[window.__themeEvents.length - 1])).toEqual({
@@ -3507,9 +3508,9 @@ test.describe("PlanMyDay - Regression", () => {
       });
 
       // Changing the theme keeps the explicit global mode; only the mode select changes it.
-      await themeSelect.selectOption("solar");
+      await pickOption(page, "#themeSelector .smd-theme-select", "solar");
       await expect(page.locator("html")).toHaveAttribute("data-bs-theme", "dark");
-      await modeSelect.selectOption("light");
+      await pickOption(page, "#themeSelector .smd-theme-mode-select", "light");
       await expect(page.locator("html")).toHaveAttribute("data-bs-theme", "light");
       expect(await page.evaluate(() => ({
         theme: localStorage.getItem("planmydays_theme"),
@@ -3566,26 +3567,26 @@ test.describe("PlanMyDay - Regression", () => {
 
     test("font size normal removes size class", async ({ page }) => {
       await page.locator("#appearance-tab").click();
-      await page.locator("#fontSizeSelector").selectOption("small");
-      await page.locator("#fontSizeSelector").selectOption("normal");
+      await pickOption(page, "#fontSizeSelector", "small");
+      await pickOption(page, "#fontSizeSelector", "normal");
       const hasSmall = await page.evaluate(() => document.body.classList.contains("font-size-small"));
       expect(hasSmall).toBe(false);
     });
 
     test("icon size medium and large change body class", async ({ page }) => {
       await page.locator("#appearance-tab").click();
-      await page.locator("#iconSizeSelector").selectOption("medium");
+      await pickOption(page, "#iconSizeSelector", "medium");
       let hasClass = await page.evaluate(() => document.body.classList.contains("icon-size-medium"));
       expect(hasClass).toBe(true);
-      await page.locator("#iconSizeSelector").selectOption("large");
+      await pickOption(page, "#iconSizeSelector", "large");
       hasClass = await page.evaluate(() => document.body.classList.contains("icon-size-large"));
       expect(hasClass).toBe(true);
     });
 
     test("density normal removes compact class", async ({ page }) => {
       await page.locator("#appearance-tab").click();
-      await page.locator("#densitySelector").selectOption("compact");
-      await page.locator("#densitySelector").selectOption("normal");
+      await pickOption(page, "#densitySelector", "compact");
+      await pickOption(page, "#densitySelector", "normal");
       const hasCompact = await page.evaluate(() => document.body.classList.contains("compact"));
       expect(hasCompact).toBe(false);
       await expect(page.locator("html")).toHaveAttribute("data-smd-tile-density", "normal");
@@ -3593,12 +3594,12 @@ test.describe("PlanMyDay - Regression", () => {
 
     test("touch size selector switches between normal and large", async ({ page }) => {
       await page.locator("#appearance-tab").click();
-      await page.locator("#touchSizeSelector").selectOption("normal");
-      await expect(page.locator("#touchSizeSelector")).toHaveValue("normal");
+      await pickOption(page, "#touchSizeSelector", "normal");
+      await expect(page.locator("#touchSizeSelector")).toHaveAttribute("value", "normal");
       await expect(page.locator("html")).toHaveAttribute("data-smd-touch-size", "normal");
       expect(await page.evaluate(() => SmdDragHandle.defaultSize === "normal" && SmdCheckbox.defaultSize === "normal")).toBe(true);
-      await page.locator("#touchSizeSelector").selectOption("large");
-      await expect(page.locator("#touchSizeSelector")).toHaveValue("large");
+      await pickOption(page, "#touchSizeSelector", "large");
+      await expect(page.locator("#touchSizeSelector")).toHaveAttribute("value", "large");
       await expect(page.locator("html")).toHaveAttribute("data-smd-touch-size", "large");
       expect(await page.evaluate(() => SmdDragHandle.defaultSize === "large" && SmdCheckbox.defaultSize === "large")).toBe(true);
     });
@@ -3639,21 +3640,21 @@ test.describe("PlanMyDay - Regression", () => {
 
     test("jan1 selector persists value", async ({ page }) => {
       await page.locator("#schedule-tab").click();
-      await page.locator("#jan1Selector").selectOption("1");
+      await pickOption(page, "#jan1Selector", "1");
       const val = await page.evaluate(() => localStorage.getItem("planmydays_jan1"));
       expect(val).toBe("1");
     });
 
     test("monday selector persists value", async ({ page }) => {
       await page.locator("#schedule-tab").click();
-      await page.locator("#mondaySelector").selectOption("0");
+      await pickOption(page, "#mondaySelector", "0");
       const val = await page.evaluate(() => localStorage.getItem("planmydays_monday"));
       expect(val).toBe("0");
     });
 
     test("start week selector persists value", async ({ page }) => {
       await page.locator("#schedule-tab").click();
-      await page.locator("#startWeekSelector").selectOption("2");
+      await pickOption(page, "#startWeekSelector", "2");
       const val = await page.evaluate(() => localStorage.getItem("planmydays_startWeek"));
       expect(val).toBe("2");
     });
@@ -8049,7 +8050,7 @@ test.describe("PlanMyDay - Regression", () => {
       await page.locator("a.dropdown-item").filter({ hasText: "Settings" }).click();
       await expect(page.locator("#settingsPage:not(.d-none)")).toBeVisible();
       await page.locator("#appearance-tab").click();
-      await page.locator("#slideDurationSelector").selectOption("150");
+      await pickOption(page, "#slideDurationSelector", "150");
       await expect.poll(() => page.evaluate(() => localStorage.getItem("planmydays_slideDuration"))).toBe("150");
       const result = await page.evaluate(() => {
         return Array.from(document.querySelectorAll("smd-page")).map((p) => ({

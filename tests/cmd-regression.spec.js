@@ -1,5 +1,6 @@
 const { test, expect } = require("@playwright/test");
 const { startCoverage, stopCoverage } = require("./coverage");
+const { pickOption } = require("./theme-controls");
 
 const now = new Date();
 const TODAY_MONTH = now.getMonth() + 1;
@@ -174,8 +175,8 @@ test.describe("CountMyDays - Regression", () => {
       await expect(page.locator("#themeSelector .smd-theme-select")).toBeVisible();
       await expect(page.locator("#themeSelector .smd-theme-mode-select")).toBeVisible();
       // 27 shared themes (26 + bootstrap)
-      expect(await page.locator("#themeSelector .smd-theme-select option").count()).toBe(27);
-      expect(await page.locator("#themeSelector .smd-theme-mode-select option").allTextContents()).toEqual(["Light", "Dark"]);
+      expect(await page.locator("#themeSelector .smd-theme-select .smd-select-item").count()).toBe(27);
+      expect(await page.locator("#themeSelector .smd-theme-mode-select .smd-select-item").allTextContents()).toEqual(["Light", "Dark"]);
       await expect(page.locator("#formatSelector")).toBeVisible();
       await expect(page.locator("#fontSizeSelector")).toBeVisible();
       await expect(page.locator("#iconSizeSelector")).toBeVisible();
@@ -189,8 +190,8 @@ test.describe("CountMyDays - Regression", () => {
     test("theme and mode changes persist in the shared settings keys", async ({ page }) => {
       await seed(page);
       await page.evaluate(() => openSettings());
-      await page.locator("#themeSelector .smd-theme-select").selectOption("brite");
-      await page.locator("#themeSelector .smd-theme-mode-select").selectOption("dark");
+      await pickOption(page, "#themeSelector .smd-theme-select", "brite");
+      await pickOption(page, "#themeSelector .smd-theme-mode-select", "dark");
       await expect.poll(async () => page.evaluate(() => localStorage.getItem("countmydays_theme"))).toBe("brite");
       await expect.poll(async () => page.evaluate(() => localStorage.getItem("countmydays_themeMode"))).toBe("dark");
       const href = await page.locator("#bootstrap-theme-css").getAttribute("href");
@@ -204,8 +205,8 @@ test.describe("CountMyDays - Regression", () => {
     test("font size and density apply body classes", async ({ page }) => {
       await seed(page);
       await page.evaluate(() => openSettings());
-      await page.locator("#fontSizeSelector").selectOption("small");
-      await page.locator("#densitySelector").selectOption("compact");
+      await pickOption(page, "#fontSizeSelector", "small");
+      await pickOption(page, "#densitySelector", "compact");
       expect(await page.evaluate(() => document.body.classList.contains("font-size-small"))).toBe(true);
       expect(await page.evaluate(() => document.body.classList.contains("compact"))).toBe(true);
       await expect.poll(async () => page.evaluate(() => localStorage.getItem("countmydays_density"))).toBe("compact");
@@ -214,7 +215,7 @@ test.describe("CountMyDays - Regression", () => {
     test("icon size drives the smd-image render size", async ({ page }) => {
       await seed(page);
       await page.evaluate(() => openSettings());
-      await page.locator("#iconSizeSelector").selectOption("small");
+      await pickOption(page, "#iconSizeSelector", "small");
       const width = await page.evaluate(() => {
         const card = document.querySelector("cmd-countdown-card");
         return getComputedStyle(card.querySelector("smd-image")).width;

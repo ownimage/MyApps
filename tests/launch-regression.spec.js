@@ -1,5 +1,6 @@
 const { test, expect } = require("@playwright/test");
 const { startCoverage, stopCoverage } = require("./coverage");
+const { pickOption } = require("./theme-controls");
 
 // Coverage hooks (top-level so every test in this spec is captured).
 test.beforeEach(async ({ page }) => { await startCoverage(page); });
@@ -117,20 +118,20 @@ test.describe("Launch - Regression", () => {
 
     await expect(page.locator("#themeSelector .smd-theme-select")).toBeVisible();
     await expect(page.locator("#themeSelector .smd-theme-mode-select")).toBeVisible();
-    expect(await page.locator("#themeSelector .smd-theme-select option").count()).toBe(27);
-    expect(await page.locator("#themeSelector .smd-theme-mode-select option").allTextContents()).toEqual(["Light", "Dark"]);
+    expect(await page.locator("#themeSelector .smd-theme-select .smd-select-item").count()).toBe(27);
+    expect(await page.locator("#themeSelector .smd-theme-mode-select .smd-select-item").allTextContents()).toEqual(["Light", "Dark"]);
     await expect(page.locator("#iconSizeSelector")).toBeVisible();
     await expect(page.locator("#shareQrCode img").first()).toBeVisible({ timeout: 30000 });
     await expect(page.locator("#settingsPage smd-fontawesome-credit")).toBeVisible();
 
     // Theme + image size persist in the launch_ namespace.
-    await page.locator("#themeSelector .smd-theme-select").selectOption("brite");
-    await page.locator("#themeSelector .smd-theme-mode-select").selectOption("dark");
+    await pickOption(page, "#themeSelector .smd-theme-select", "brite");
+    await pickOption(page, "#themeSelector .smd-theme-mode-select", "dark");
     await expect.poll(async () => page.evaluate(() => localStorage.getItem("launch_theme"))).toBe("brite");
     await expect.poll(async () => page.evaluate(() => localStorage.getItem("launch_themeMode"))).toBe("dark");
     await expect(page.locator("html")).toHaveAttribute("data-bs-theme", "dark");
     await expect(page.locator("#themeSelector")).toHaveAttribute("mode", "dark");
-    await page.locator("#iconSizeSelector").selectOption("small");
+    await pickOption(page, "#iconSizeSelector", "small");
     await expect.poll(async () => page.evaluate(() => localStorage.getItem("launch_iconSize"))).toBe("small");
   });
 

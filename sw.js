@@ -366,6 +366,7 @@ const SHARED_ASSETS = [
   "shared/js/components/smd-image-select.js",
   "shared/js/components/smd-image-editor.js",
   "shared/js/components/smd-image-picker.js",
+  "shared/js/components/smd-select.js",
   "shared/js/components/smd-theme.js",
     "shared/js/components/smd-checkbox.js",
   "shared/js/components/smd-draghandle.js",

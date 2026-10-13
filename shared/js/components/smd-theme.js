@@ -1,10 +1,6 @@
 (function (global) {
   "use strict";
 
-  function escapeHtml(str) {
-    return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-  }
-
   class SmdTheme extends HTMLElement {
     static get observedAttributes() {
       return ["theme", "mode"];
@@ -41,15 +37,15 @@
       const modeSelect = this.querySelector(".smd-theme-mode-select");
       if (themeSelect && !themeSelect.__smdThemeBound) {
         themeSelect.__smdThemeBound = true;
-        themeSelect.addEventListener("change", () => {
-          this.setAttribute("theme", themeSelect.value);
+        themeSelect.addEventListener("smd-select-change", (e) => {
+          this.setAttribute("theme", e.detail.value);
           this._dispatchChange("theme");
         });
       }
       if (modeSelect && !modeSelect.__smdThemeModeBound) {
         modeSelect.__smdThemeModeBound = true;
-        modeSelect.addEventListener("change", () => {
-          this.setAttribute("mode", modeSelect.value);
+        modeSelect.addEventListener("smd-select-change", (e) => {
+          this.setAttribute("mode", e.detail.value);
           this._dispatchChange("mode");
         });
       }
@@ -101,11 +97,11 @@
         this.innerHTML =
           '<div class="smd-theme-field row align-items-center">' +
             '<label class="col-4 text-end form-label mb-0">Theme</label>' +
-            '<div class="col-8"><select class="form-select smd-theme-select"></select></div>' +
+            '<div class="col-8"><smd-select class="smd-theme-select"></smd-select></div>' +
           '</div>' +
           '<div class="smd-theme-field row align-items-center">' +
             '<label class="col-4 text-end form-label mb-0">Theme Mode</label>' +
-            '<div class="col-8"><select class="form-select smd-theme-mode-select"></select></div>' +
+            '<div class="col-8"><smd-select class="smd-theme-mode-select"></smd-select></div>' +
           '</div>';
       }
       const config = typeof themeConfig !== "undefined" ? themeConfig : {};
@@ -114,8 +110,10 @@
       if (!themeSelect || !modeSelect) return;
       if (!modeSelect.__smdThemeModeSig) {
         modeSelect.__smdThemeModeSig = true;
-        modeSelect.innerHTML = '<option value="light">Light</option>' +
-          '<option value="dark">Dark</option>';
+        modeSelect.options = [
+          { value: "light", label: "Light" },
+          { value: "dark", label: "Dark" }
+        ];
       }
       modeSelect.value = this.mode;
 
@@ -126,10 +124,10 @@
       if (!themeSelect.__smdThemeSig || themeSelect.__smdThemeSig !== sig || (current && !hasCurrent)) {
         if (!names.length) return;
         themeSelect.__smdThemeSig = sig;
-        themeSelect.innerHTML = names.map((name) => {
-          const label = name.charAt(0).toUpperCase() + name.slice(1);
-          return '<option value="' + escapeHtml(name) + '">' + escapeHtml(label) + "</option>";
-        }).join("");
+        themeSelect.options = names.map((name) => ({
+          value: name,
+          label: name.charAt(0).toUpperCase() + name.slice(1)
+        }));
       }
       if (hasCurrent) themeSelect.value = current;
     }

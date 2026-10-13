@@ -1,5 +1,6 @@
 const { test, expect } = require("@playwright/test");
 const { startCoverage, stopCoverage } = require("./coverage");
+const { pickOption } = require("./theme-controls");
 
 async function gotoGame(page) {
   await page.goto("/FreeFormOX/");
@@ -115,8 +116,8 @@ test.describe("FreeFormOX - Regression", () => {
       await expect(page.locator("#settingsPage")).toHaveAttribute("open", "");
       await expect(page.locator("#themeSelector .smd-theme-select")).toBeVisible();
       await expect(page.locator("#themeSelector .smd-theme-mode-select")).toBeVisible();
-      expect(await page.locator("#themeSelector .smd-theme-select option").count()).toBe(27);
-      expect(await page.locator("#themeSelector .smd-theme-mode-select option").allTextContents()).toEqual(["Light", "Dark"]);
+      expect(await page.locator("#themeSelector .smd-theme-select .smd-select-item").count()).toBe(27);
+      expect(await page.locator("#themeSelector .smd-theme-mode-select .smd-select-item").allTextContents()).toEqual(["Light", "Dark"]);
       await expect(page.locator("#xName")).toBeVisible();
       await expect(page.locator("#xPieceStyle")).toBeVisible();
       await expect(page.locator("#oName")).toBeVisible();
@@ -129,8 +130,8 @@ test.describe("FreeFormOX - Regression", () => {
     test("theme and mode changes persist in the ffox_ namespace", async ({ page }) => {
       await gotoGame(page);
       await page.evaluate(() => openSettings());
-      await page.locator("#themeSelector .smd-theme-select").selectOption("brite");
-      await page.locator("#themeSelector .smd-theme-mode-select").selectOption("light");
+      await pickOption(page, "#themeSelector .smd-theme-select", "brite");
+      await pickOption(page, "#themeSelector .smd-theme-mode-select", "light");
       await expect.poll(async () => page.evaluate(() => localStorage.getItem("ffox_theme"))).toBe("brite");
       await expect.poll(async () => page.evaluate(() => localStorage.getItem("ffox_themeMode"))).toBe("light");
       const href = await page.locator("#bootstrap-theme-css").getAttribute("href");
@@ -145,7 +146,7 @@ test.describe("FreeFormOX - Regression", () => {
       await page.evaluate(() => openSettings());
       await page.locator("#xName").fill("Alpha");
       await page.locator("#xName").press("Tab");
-      await page.locator("#xPieceStyle").selectOption("dino");
+      await pickOption(page, "#xPieceStyle", "dino");
       await expect.poll(async () => page.evaluate(() => localStorage.getItem("ffox_xName"))).toBe("Alpha");
       await expect.poll(async () => page.evaluate(() => localStorage.getItem("ffox_xPieceStyle"))).toBe("dino");
     });

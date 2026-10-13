@@ -25,9 +25,9 @@ function renderGraphTab() {
   container.innerHTML =
     '<div class="graph-controls d-flex flex-wrap align-items-center gap-3 mb-3">' +
       '<label class="form-label mb-0" for="graph-date">Day:</label>' +
-      '<select id="graph-date" class="form-select w-auto log-select" onchange="loadGraphData()">' +
+      '<smd-select id="graph-date" class="form-select w-auto log-select" onchange="loadGraphData()">' +
         '<option value="">Select a day</option>' +
-      '</select>' +
+      '</smd-select>' +
       '<div class="graph-checkboxes d-flex flex-wrap align-items-center gap-3">' +
         '<label class="form-check-label d-inline-flex align-items-center gap-1"><input type="checkbox" class="form-check-input graph-series" value="solar" checked onchange="loadGraphData()"> Solar</label>' +
         '<label class="form-check-label d-inline-flex align-items-center gap-1"><input type="checkbox" class="form-check-input graph-series" value="grid" checked onchange="loadGraphData()"> Grid</label>' +
@@ -52,22 +52,16 @@ function loadGraphDates() {
   solarApi.getPowerDates()
     .then(function (data) {
       var dates = data.dates || [];
-      select.innerHTML = "";
       if (!dates.length) {
-        select.innerHTML = '<option value="">No data available</option>';
+        select.options = [{ value: "", label: "No data available" }];
         return;
       }
-      dates.forEach(function (d) {
-        var opt = document.createElement("option");
-        opt.value = d;
-        opt.textContent = d;
-        select.appendChild(opt);
-      });
+      select.options = dates.map(function (d) { return { value: d, label: d }; });
       select.value = dates[0];
       loadGraphData();
     })
     .catch(function () {
-      select.innerHTML = '<option value="">Error loading dates</option>';
+      select.options = [{ value: "", label: "Error loading dates" }];
     });
 }
 

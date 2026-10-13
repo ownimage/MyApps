@@ -1,5 +1,6 @@
 const { test, expect } = require("@playwright/test");
 const { startCoverage, stopCoverage } = require("./coverage");
+const { pickOption } = require("./theme-controls");
 
 // Coverage hooks (top-level so every test in this spec is captured).
 test.beforeEach(async ({ page }) => { await startCoverage(page); });
@@ -111,8 +112,8 @@ test.describe("QRLinks - Regression", () => {
     await page.evaluate(() => openSettings());
     await expect(page.locator("#settingsPage")).toHaveAttribute("open", "");
     await expect(page.locator("#settingsPage smd-tabs .smd-tab-btn")).toHaveText(["General", "Danger"]);
-    expect(await page.locator("#themeSelector .smd-theme-select option").count()).toBe(27);
-    expect(await page.locator("#themeSelector .smd-theme-mode-select option").allTextContents()).toEqual(["Light", "Dark"]);
+    expect(await page.locator("#themeSelector .smd-theme-select .smd-select-item").count()).toBe(27);
+    expect(await page.locator("#themeSelector .smd-theme-mode-select .smd-select-item").allTextContents()).toEqual(["Light", "Dark"]);
     await expect(page.locator("#shareQrCode img").first()).toBeVisible({ timeout: 30000 });
 
     // Danger rows are hidden until Show danger; the sample actions live there.
@@ -134,8 +135,8 @@ test.describe("QRLinks - Regression", () => {
   test("theme mode persists in the qrlinks_ namespace", async ({ page }) => {
     await seed(page);
     await page.evaluate(() => openSettings());
-    await page.locator("#themeSelector .smd-theme-select").selectOption("brite");
-    await page.locator("#themeSelector .smd-theme-mode-select").selectOption("dark");
+    await pickOption(page, "#themeSelector .smd-theme-select", "brite");
+    await pickOption(page, "#themeSelector .smd-theme-mode-select", "dark");
     await expect.poll(async () => page.evaluate(() => localStorage.getItem("qrlinks_themeMode"))).toBe("dark");
     await expect(page.locator("html")).toHaveAttribute("data-theme", "brite");
     await expect(page.locator("html")).toHaveAttribute("data-bs-theme", "dark");

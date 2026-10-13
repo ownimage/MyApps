@@ -340,6 +340,37 @@ smd-image-dropdown .item .thumb {
   height: 1.5rem;
 }
 
+/* COMPONENT: smd-select (text-only custom dropdown; layout is in smd-select.js).
+   The button reuses Bootstrap's `.form-select` (and the shared --smd-form-*
+   repaint), so only the MENU needs colours. A native <select> popup is
+   OS-rendered and cannot be themed; here the hovered/selected row uses the theme
+   primary, matching the <smd-image-dropdown> active item. */
+smd-select .smd-select-menu {
+  background-color: var(--smd-dropdown-menu-background);
+  color: var(--smd-dropdown-menu-foreground);
+  border: 1px solid var(--smd-dropdown-menu-border-color);
+}
+
+smd-select .smd-select-item {
+  color: var(--smd-dropdown-menu-foreground);
+  /* The rows are <a> elements, so kill the default link underline. */
+  text-decoration: none;
+}
+
+/* Hover/focus highlight is CSS-driven so it ALWAYS shows (the JS still toggles
+   `.text-bg-primary` for the theme-correct contrast text, which wins by
+   !important). The selected row gets `.text-bg-primary` from the component. */
+smd-select .smd-select-item:hover,
+smd-select .smd-select-item:focus-visible {
+  background-color: var(--bs-primary);
+  color: var(--bs-white);
+}
+
+/* The hovered AND selected row use the theme PRIMARY BUTTON variant: the
+   component toggles Bootstrap's `.text-bg-primary`, which supplies the surface
+   AND its designed contrast text (so a light-primary theme such as brite keeps
+   BLACK text; a plain `--bs-primary` + white would be unreadable there). */
+
 /* COMPONENT: pmd-tasks (theme surface; layout is in pmd-tasks.js). The rows keep
    Bootstrap layout utilities; the surface colour comes from the --pmd-tasks-*
    palette at the top of this file. */

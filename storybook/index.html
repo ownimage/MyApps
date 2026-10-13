@@ -51,6 +51,10 @@
       margin-bottom: 0.5rem;
     }
     .sb-label { letter-spacing: 0.04em; }
+    /* The header and the sections nav are BOTH `sticky-top` (z-index 1020); the
+       nav is later in the DOM so it paints over the header, which covered the
+       header's <smd-select> menus. Lift the header so its menus stay clickable. */
+    .sb-header { z-index: 1021; }
     /* The header must stay on ONE line. The component sets `smd-theme
        { display: block }` and the bottom gap on the fields itself (plain CSS, not
        a !important utility), so this override needs no !important of its own. */
@@ -67,12 +71,12 @@
        intrinsic "longest option" width, the control can never give space back,
        and the title is ellipsized down to a few characters on a narrow window. */
     .sb-theme-control smd-theme .smd-theme-field > div { width: auto; flex: 1 1 auto; min-width: 0; }
-    .sb-theme-control smd-theme select { width: 100%; min-width: 7rem; max-width: 9rem; }
+    .sb-theme-control smd-theme smd-select { width: 100%; min-width: 7rem; max-width: 9rem; }
     .sb-theme-control smd-theme .smd-theme-select { min-width: 8.5rem; max-width: 11rem; }
     /* Narrower select floors below the lg breakpoint. */
     @media (max-width: 991.98px) {
       .sb-theme-control smd-theme { gap: 0.5rem; }
-      .sb-theme-control smd-theme select { min-width: 5.5rem; }
+      .sb-theme-control smd-theme smd-select { min-width: 5.5rem; }
       .sb-theme-control smd-theme .smd-theme-select { min-width: 6.5rem; }
     }
     /* Below md the header is allowed to wrap; stack the two Theme fields and let
@@ -122,6 +126,7 @@
   <script src="../shared/js/components/smd-image-card.js"></script>
   <script src="../shared/js/components/smd-image-select.js"></script>
   <script src="../shared/js/components/smd-image-editor.js"></script>
+  <script src="../shared/js/components/smd-select.js"></script>
   <script src="../shared/js/components/smd-theme.js"></script>
   <script src="../shared/js/components/smd-checkbox.js"></script>
   <script src="../shared/js/components/smd-draghandle.js"></script>

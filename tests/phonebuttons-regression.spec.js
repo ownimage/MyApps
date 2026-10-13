@@ -1,5 +1,6 @@
 const { test, expect } = require("@playwright/test");
 const { startCoverage, stopCoverage } = require("./coverage");
+const { pickOption } = require("./theme-controls");
 
 // Install a fake Socket.IO client before any page script runs. socket.js only
 // looks for `window.io` when connect() is called, so this replaces the vendored
@@ -163,12 +164,12 @@ test.describe("PhoneButtons - Regression", () => {
     await expect(page.locator("#themeSelector .smd-theme-select")).toBeVisible();
     await expect(page.locator("#themeSelector .smd-theme-mode-select")).toBeVisible();
     await expect(page.locator("#fontSizeSelector")).toBeVisible();
-    await page.locator("#themeSelector .smd-theme-select").selectOption("brite");
-    await page.locator("#themeSelector .smd-theme-mode-select").selectOption("dark");
+    await pickOption(page, "#themeSelector .smd-theme-select", "brite");
+    await pickOption(page, "#themeSelector .smd-theme-mode-select", "dark");
     await expect.poll(() => page.evaluate(() => localStorage.getItem("pb_theme"))).toBe("brite");
     await expect.poll(() => page.evaluate(() => localStorage.getItem("pb_themeMode"))).toBe("dark");
     await expect(page.locator("html")).toHaveAttribute("data-bs-theme", "dark");
-    await page.locator("#fontSizeSelector").selectOption("large");
+    await pickOption(page, "#fontSizeSelector", "large");
     await expect.poll(() => page.evaluate(() => localStorage.getItem("pb_fontSize"))).toBe("large");
 
     // Server tab.
@@ -346,8 +347,8 @@ test.describe("PhoneButtons - Regression", () => {
     await expect(page.locator("#buttonNameInput")).toHaveValue("Next Slide");
     // Key and Special key clear each other (both stay enterable).
     await page.locator("#buttonKeyChar").fill("k");
-    await expect(page.locator("#buttonKeyNamed")).toHaveValue("");
-    await page.locator("#buttonKeyNamed").selectOption("MEDIA_NEXT_TRACK");
+    await expect(page.locator("#buttonKeyNamed")).toHaveAttribute("value", "");
+    await pickOption(page, "#buttonKeyNamed", "MEDIA_NEXT_TRACK");
     await expect(page.locator("#buttonKeyChar")).toHaveValue("");
     await expect(page.locator("#buttonKeyChar")).toBeEnabled();
     await page.locator("#buttonNameInput").fill("Advance");

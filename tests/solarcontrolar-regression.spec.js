@@ -1,5 +1,6 @@
 const { test, expect } = require("@playwright/test");
 const { startCoverage, stopCoverage } = require("./coverage");
+const { pickOption } = require("./theme-controls");
 
 // Coverage hooks (top-level so every test in this spec is captured).
 test.beforeEach(async ({ page }) => { await startCoverage(page); });
@@ -139,9 +140,9 @@ test.describe("SolarControlar - Regression", () => {
     await expect(page.locator("#mainTabs #files-panel")).toHaveAttribute("active", "");
 
     await expect(page.locator("#log-file")).toBeVisible({ timeout: 5000 });
-    await expect(page.locator("#log-file option")).toHaveCount(8);
-    await page.locator("#log-file").selectOption("minute_poller");
-    await page.locator(".log-controls button").click();
+    await expect(page.locator("#log-file .smd-select-item")).toHaveCount(8);
+    await pickOption(page, "#log-file", "minute_poller");
+    await page.locator(".log-controls .btn-primary").click();
     await expect(page.locator("#log-output")).toContainText("mock log line 1");
   });
 
@@ -167,8 +168,8 @@ test.describe("SolarControlar - Regression", () => {
     await page.locator("#mainTabs .smd-tab-btn").filter({ hasText: "Graph" }).click();
     await expect(page.locator("#mainTabs #graph-panel")).toHaveAttribute("active", "");
     await expect(page.locator("#graph-date")).toBeVisible({ timeout: 5000 });
-    await expect(page.locator("#graph-date option")).toHaveCount(2);
-    await expect(page.locator("#graph-date")).toHaveValue("2026-09-15");
+    await expect(page.locator("#graph-date .smd-select-item")).toHaveCount(2);
+    await expect(page.locator("#graph-date")).toHaveAttribute("value", "2026-09-15");
     await page.waitForTimeout(500);
   });
 
@@ -191,8 +192,8 @@ test.describe("SolarControlar - Regression", () => {
     await expect(page.locator("#settingsPage smd-fontawesome-credit")).toBeVisible();
 
     // Theme persists in the solarcontrolar_ namespace.
-    await page.locator("#themeSelector .smd-theme-select").selectOption("brite");
-    await page.locator("#themeSelector .smd-theme-mode-select").selectOption("dark");
+    await pickOption(page, "#themeSelector .smd-theme-select", "brite");
+    await pickOption(page, "#themeSelector .smd-theme-mode-select", "dark");
     await expect.poll(async () => page.evaluate(() => localStorage.getItem("solarcontrolar_theme"))).toBe("brite");
     await expect.poll(async () => page.evaluate(() => localStorage.getItem("solarcontrolar_themeMode"))).toBe("dark");
     await expect(page.locator("html")).toHaveAttribute("data-bs-theme", "dark");
