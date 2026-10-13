@@ -18,8 +18,8 @@
     <div class="d-flex flex-column gap-2 px-4 py-2 border rounded-3">
       <div class="d-flex flex-row align-items-center gap-2">
         <div class="thumb flex-shrink-0"><smd-image></smd-image></div>
-        <div class="theme-swatch bg-body border rounded flex-shrink-0 d-inline-flex align-items-center justify-content-center p-1" data-bs-theme="light"><smd-image theme="light"></smd-image></div>
-        <div class="theme-swatch bg-body border rounded flex-shrink-0 d-inline-flex align-items-center justify-content-center p-1" data-bs-theme="dark"><smd-image theme="dark"></smd-image></div>
+        <div class="theme-swatch rounded flex-shrink-0 d-inline-flex align-items-center justify-content-center p-1" data-bs-theme="light" style="background-color:var(--smd-preview-light-background);border:1px solid var(--smd-preview-light-border)"><smd-image theme="light"></smd-image></div>
+        <div class="theme-swatch rounded flex-shrink-0 d-inline-flex align-items-center justify-content-center p-1" data-bs-theme="dark" style="background-color:var(--smd-preview-dark-background);border:1px solid var(--smd-preview-dark-border)"><smd-image theme="dark"></smd-image></div>
         <div class="d-flex flex-grow-1 justify-content-between">
           <button type="button" class="btn btn-danger btn-sm d-inline-flex align-items-center justify-content-center" title="Delete" data-action="delete"><i class="bi bi-trash" aria-hidden="true"></i></button>
           <button type="button" class="btn btn-info btn-sm d-inline-flex align-items-center justify-content-center" title="Duplicate" data-action="duplicate"><i class="bi bi-files" aria-hidden="true"></i></button>

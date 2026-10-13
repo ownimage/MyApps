@@ -28,7 +28,7 @@ var JOBS_EDITOR_STYLES = `
     display: inline-block;
     width: auto;
   }
-  #streamEditPage .stream-tab-picker smd-image-dropdown .btn {
+  #streamEditPage .stream-tab-picker smd-image-dropdown .form-select {
     width: auto;
     min-width: 13.5em;
   }
@@ -49,7 +49,7 @@ var JOBS_EDITOR_STYLES = `
     width: auto;
     max-width: 100%;
   }
-  #jobEditPage .job-stream-picker smd-image-dropdown .btn {
+  #jobEditPage .job-stream-picker smd-image-dropdown .form-select {
     width: fit-content;
     max-width: 100%;
   }

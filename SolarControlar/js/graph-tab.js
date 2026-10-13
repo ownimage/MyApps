@@ -4,18 +4,42 @@
 var _graphInitialized = false;
 var _powerChart = null;
 
+// Series palette: the THEME variables (resolved at draw time by
+// resolveSeriesColor - Chart.js needs a concrete colour, not a var()).
 var SOLAR_SERIES = {
-  solar:         { label: "Solar",         color: "#ecc94b", axis: "power" },
-  grid:          { label: "Grid",          color: "#3182ce", axis: "power" },
-  home:          { label: "Home",          color: "#38a169", axis: "power" },
-  battery:       { label: "Battery",       color: "#805ad5", axis: "power" },
-  battery_level: { label: "Battery Level", color: "#e53e3e", axis: "soc" }
+  solar:         { label: "Solar",         color: "--bs-warning", axis: "power" },
+  grid:          { label: "Grid",          color: "--bs-info",    axis: "power" },
+  home:          { label: "Home",          color: "--bs-success", axis: "power" },
+  battery:       { label: "Battery",       color: "--bs-purple",  axis: "power" },
+  battery_level: { label: "Battery Level", color: "--bs-danger",  axis: "soc" }
 };
+
+function resolveSeriesColor(name) {
+  if (typeof name !== "string" || name.charAt(0) !== "-") return name;
+  var v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  return v || name;
+}
+
+// Re-read the theme palette for the drawn chart (the base theme sheet loads
+// asynchronously, so this is also bound to its `load`).
+function refreshGraphColors() {
+  if (!_powerChart) return;
+  var keys = Object.keys(SOLAR_SERIES);
+  _powerChart.data.datasets.forEach(function (ds, i) {
+    var c = resolveSeriesColor(SOLAR_SERIES[keys[i]].color);
+    ds.borderColor = c;
+    ds.backgroundColor = c;
+  });
+  _powerChart.update();
+}
 
 function initGraphTab() {
   if (_graphInitialized) return;
   _graphInitialized = true;
   renderGraphTab();
+  var base = document.getElementById("bootstrap-theme-css");
+  if (base) base.addEventListener("load", refreshGraphColors);
+  document.addEventListener("smd-theme-change", refreshGraphColors);
 }
 
 function renderGraphTab() {
@@ -126,8 +150,8 @@ function renderGraph(timestamps, seriesData, visible, date) {
     datasets.push({
       label: SOLAR_SERIES[key].label,
       data: seriesData[key],
-      borderColor: SOLAR_SERIES[key].color,
-      backgroundColor: SOLAR_SERIES[key].color,
+      borderColor: resolveSeriesColor(SOLAR_SERIES[key].color),
+      backgroundColor: resolveSeriesColor(SOLAR_SERIES[key].color),
       borderWidth: 2,
       pointRadius: showPts ? 2 : 0,
       pointHoverRadius: showPts ? 2 : 0,

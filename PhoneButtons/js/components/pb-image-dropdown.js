@@ -18,7 +18,7 @@
 
   const pbImageDropdownTemplate = document.createElement("template");
   pbImageDropdownTemplate.innerHTML = `
-    <button type="button" class="btn gap-2" id="pbImageDropdownBtn" aria-haspopup="listbox">
+    <button type="button" class="form-select gap-2" id="pbImageDropdownBtn" aria-haspopup="listbox">
       <span class="thumb" id="pbImageBtnIcon" hidden><img alt=""></span>
       <span class="labels"><span class="title" id="pbImageBtnText"></span></span>
       <span class="caret">&#9662;</span>
@@ -52,9 +52,7 @@
         // Layout + theme colours (same --smd-dropdown-* palette the shared
         // dropdown consumes) owned by THIS component.
         injectSmdComponentStyle("pb-image-dropdown-layout", `
-          pb-image-dropdown .btn { display: flex; align-items: center; width: 100%; background-color: var(--smd-dropdown-background); color: var(--smd-dropdown-foreground); border-color: var(--smd-dropdown-border-color); }
-          pb-image-dropdown .btn:hover, pb-image-dropdown .btn:focus-visible { background-color: var(--smd-dropdown-hover-background); color: var(--smd-dropdown-hover-foreground); border-color: var(--smd-dropdown-hover-background); }
-          pb-image-dropdown .btn:disabled, pb-image-dropdown .btn.disabled { background-color: var(--smd-dropdown-disabled-background); color: var(--smd-dropdown-disabled-foreground); border-color: var(--smd-dropdown-disabled-foreground); }
+          pb-image-dropdown .form-select { display: flex; align-items: center; width: 100%; padding: 0.375rem 0.75rem; background-image: none; }
           pb-image-dropdown .thumb { flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; overflow: hidden; width: 1.5rem; height: 1.5rem; }
           pb-image-dropdown .thumb img { width: 100%; height: 100%; object-fit: contain; }
           pb-image-dropdown .labels { flex: 1 1 auto; min-width: 0; display: grid; }

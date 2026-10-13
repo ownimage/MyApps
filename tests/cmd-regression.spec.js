@@ -536,20 +536,10 @@ test.describe("CountMyDays - Regression", () => {
         const dark = el.querySelector('[data-bs-theme="dark"]');
         const editBtn = el.querySelector('[data-action="edit"]');
         const yc = (e) => { const b = e.getBoundingClientRect(); return b.top + b.height / 2; };
-        // What `bg-body` SHOULD resolve to for each app mode.
-        const probe = document.createElement("div");
-        probe.style.backgroundColor = "var(--bs-body-bg)";
-        probe.setAttribute("data-bs-theme", "light");
-        document.body.appendChild(probe);
-        const lightExpected = getComputedStyle(probe).backgroundColor;
-        probe.setAttribute("data-bs-theme", "dark");
-        const darkExpected = getComputedStyle(probe).backgroundColor;
-        probe.remove();
         return {
           mainY: yc(main), lightY: yc(light), darkY: yc(dark), editY: yc(editBtn),
           lightBg: getComputedStyle(light).backgroundColor,
           darkBg: getComputedStyle(dark).backgroundColor,
-          lightExpected, darkExpected,
           lightPad: light.getBoundingClientRect().width - light.querySelector("smd-image").getBoundingClientRect().width,
           lightName: light.textContent.trim()
         };
@@ -558,10 +548,11 @@ test.describe("CountMyDays - Regression", () => {
       for (const y of [info.lightY, info.darkY, info.editY]) {
         expect(Math.abs(y - info.mainY)).toBeLessThan(4);
       }
-      // the swatches use the app's light / dark body surfaces
-      expect(info.lightBg).toBe(info.lightExpected);
-      expect(info.darkBg).toBe(info.darkExpected);
-      expect(info.lightBg).not.toBe(info.darkBg);
+      // The swatches are the FIXED white / black preview surfaces, deliberately
+      // theme-INDEPENDENT - NOT the app's own light/dark body surfaces (a theme's
+      // "light" surface is not always lighter: superhero's light is dark navy).
+      expect(info.lightBg).toBe("rgb(255, 255, 255)");
+      expect(info.darkBg).toBe("rgb(0, 0, 0)");
       // a bit of space round the image, and no name on the swatches
       expect(info.lightPad).toBeGreaterThan(0);
       expect(info.lightName).toBe("");

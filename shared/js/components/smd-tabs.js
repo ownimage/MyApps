@@ -92,6 +92,11 @@ class SmdTabs extends HTMLElement {
               smd-tabs { display: block; width: 100%; box-sizing: border-box; }
               smd-tabs .smd-tab-list { display: flex; flex-wrap: nowrap; }
               smd-tabs[wrap] .smd-tab-list { flex-wrap: wrap; }
+              /* The underline sits between the tab row and the panel content. A
+                 small gap below it keeps the content off the line - 0.25rem
+                 (Bootstrap's mb-1) so it matches the gap between the main view's
+                 job tiles. */
+              smd-tabs .smd-tab-list + .smd-tab-line { margin-bottom: 0.25rem; }
               smd-tabs[narrow] .smd-tab-btn { padding-left: 0.25rem; padding-right: 0.25rem; }
               smd-tabs .smd-tab-panel { display: none; }
               smd-tabs .smd-tab-panel.active,

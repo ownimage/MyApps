@@ -21,7 +21,7 @@
 // smdImageDropdownMenu) are stable so tests can target them with plain selectors.
 const smdImageDropdownTemplate = document.createElement('template');
 smdImageDropdownTemplate.innerHTML = `
-  <button type="button" class="btn gap-2" id="smdImageDropdownBtn" aria-haspopup="listbox">
+  <button type="button" class="form-select gap-2" id="smdImageDropdownBtn" aria-haspopup="listbox">
     <span class="thumb" id="smdImageBtnIcon" hidden><smd-image key-prefix="shared-"></smd-image></span>
     <span class="labels">
       <span class="title" id="smdImageBtnText"></span>
@@ -55,7 +55,11 @@ class SmdImageDropdown extends HTMLElement {
     this.classList.add("d-block", "position-relative");
     if (typeof injectSmdComponentStyle === "function") {
       injectSmdComponentStyle("smd-image-dropdown-layout", `
-        smd-image-dropdown .btn { display: flex; align-items: center; width: 100%; }
+        /* The button is a Bootswatch .form-select (so its SURFACE is the theme's
+           own field background, matching the other form fields); keep the shared
+           flex layout + the component's own caret, and drop the form-select caret
+           image and its wide right padding so the geometry is unchanged. */
+        smd-image-dropdown .form-select { display: flex; align-items: center; width: 100%; padding: 0.375rem 0.75rem; background-image: none; }
         smd-image-dropdown .thumb { flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; overflow: hidden; }
         smd-image-dropdown .labels { flex: 1 1 auto; min-width: 0; display: grid; }
         smd-image-dropdown .labels > * { grid-area: 1 / 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; }
