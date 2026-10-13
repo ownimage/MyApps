@@ -240,13 +240,18 @@ function renderDateList() {
 function addNewDate() {
   const dates = loadDates();
   const categories = loadCategories();
+  const today = new Date();
   const newDate = {
-    name: "New Event",
+    name: "",
     category: categories.length > 0 ? categories[0].name : "",
     image: "",
     type: "annual",
-    month: 1,
-    day: 1
+    // Default the date to TODAY for both the Annual and Once options: annual
+    // uses month/day, once uses day/month/year (the year is dropped on save for
+    // an annual date, and set to the current year when switching to Once).
+    month: today.getMonth() + 1,
+    day: today.getDate(),
+    year: today.getFullYear()
   };
   dates.push(newDate);
   saveDates(dates);
@@ -337,7 +342,7 @@ function renderDateEditContent() {
   page.content =
     '<div class="mb-3">' +
       '<label class="form-label mb-1">Title</label>' +
-      `<input class="form-control" id="dateNameInput" value="${escAttr(d.name || "")}" oninput="dateField('name', this.value)">` +
+      `<input class="form-control" id="dateNameInput" placeholder="Title" value="${escAttr(d.name || "")}" oninput="dateField('name', this.value)">` +
     '</div>' +
     '<div class="d-flex gap-3 align-items-start flex-wrap mb-3">' +
       '<div>' +

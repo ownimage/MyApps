@@ -3730,3 +3730,21 @@ Techniques / gotchas:
   the menu is not visible). Probe also confirmed the REAL 4s timer path (menu
   `display:none`, `aria-expanded=false` after the timeout with no interaction).
 - `BUILD_NUMBER` -> `202610131100` via `npm run bump:build`.
+
+### 2026-10-13 (c) - CountMyDays Add Date: empty Title placeholder + today's date
+- REQUEST (user, "CountMyDays Add Job" = the Add/Edit Date page): the Title must
+  have NO default text (only a `placeholder="Title"`), and the date must default
+  to TODAY for both the Annual and Once options.
+- FIX (`CountMyDays/js/dates-editor.js`): `addNewDate()` no longer seeds
+  `name: "New Event"` (now `name: ""`) and no longer seeds `month: 1, day: 1` -
+  it seeds `month/day/year` from `new Date()`. `renderDateEditContent()` adds
+  `placeholder="Title"` to `#dateNameInput`. Annual reads month/day, Once reads
+  day/month/year (via `onceDateValue`), so both now open on today; switching type
+  keeps the day/month. NOTE: `doneDateEdit()` still falls back to `"Untitled"`
+  when the name is left empty - unchanged.
+- TDD: new cmd-regression "Dates editor" test "Add Date has an empty Title
+  placeholder and defaults the date to today" (empty value + `placeholder=Title`;
+  annual `#dateDaySelect`/`#dateMonthSelect` = today; `#smdDatePickerAlt` = today's
+  `d/m/Y` after picking Once; switching back to Annual still today). Dates editor
+  suite 11/11 (user runs the full regression later).
+- `BUILD_NUMBER` -> `202610131105` via `npm run bump:build`.
