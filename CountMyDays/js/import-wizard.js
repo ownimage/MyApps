@@ -325,10 +325,10 @@ function renderImageStage(page) {
           <input class="form-check-input" type="radio" name="imgConflictChoice" id="imgUseExisting" value="useExisting" onchange="toggleImageRenameInput();toggleImageUseExisting()">
           <label class="form-check-label" for="imgUseExisting">
             <span class="d-inline-block" style="min-width:240px">Use Existing - map import to another image:</span>
-            <select class="form-select w-auto d-inline-block" id="imgExistingSelect" style="min-width:180px" disabled>
+            <smd-select class="form-select w-auto d-inline-block" id="imgExistingSelect" style="min-width:180px" disabled>
               <option value="">Select image</option>
               ${existingImages.filter(e => e.name !== importImg.name).sort((a, b) => a.name.localeCompare(b.name)).map(e => `<option value="${escAttr(e.name)}">${escapeHtml(e.name)}</option>`).join("")}
-            </select>
+            </smd-select>
           </label>
         </div>
       </div>
@@ -576,10 +576,10 @@ function renderCategoryStage(page) {
           <input class="form-check-input" type="radio" name="catConflictChoice" id="catUseExisting" value="useExisting" onchange="toggleCategoryRenameInput();toggleCategoryUseExisting()">
           <label class="form-check-label" for="catUseExisting">
             <span class="d-inline-block" style="min-width:240px">Use Existing - map import to another category:</span>
-            <select class="form-select w-auto d-inline-block" id="catExistingSelect" style="min-width:180px" disabled>
+            <smd-select class="form-select w-auto d-inline-block" id="catExistingSelect" style="min-width:180px" disabled>
               <option value="">Select category</option>
               ${existingCategories.filter(e => e.name !== importCat.name).sort((a, b) => a.name.localeCompare(b.name)).map(e => `<option value="${escAttr(e.name)}">${escapeHtml(e.name)}</option>`).join("")}
-            </select>
+            </smd-select>
           </label>
         </div>
       </div>
@@ -835,10 +835,10 @@ function renderDateStage(page) {
           <input class="form-check-input" type="radio" name="dateConflictChoice" id="dateUseExisting" value="useExisting" onchange="toggleDateRenameInput();toggleDateUseExisting()">
           <label class="form-check-label" for="dateUseExisting">
             <span class="d-inline-block" style="min-width:240px">Use Existing - skip import, keep existing:</span>
-            <select class="form-select w-auto d-inline-block" id="dateExistingSelect" style="min-width:180px" disabled>
+            <smd-select class="form-select w-auto d-inline-block" id="dateExistingSelect" style="min-width:180px" disabled>
               <option value="">Select date</option>
               ${existingDates.slice().sort((a, b) => a.name.localeCompare(b.name)).map(e => `<option value="${escAttr(e.name)}">${escapeHtml(e.name)} — ${formatDateShort(e)}${e.category ? " — " + escapeHtml(e.category) : ""}</option>`).join("")}
-            </select>
+            </smd-select>
           </label>
         </div>
       </div>

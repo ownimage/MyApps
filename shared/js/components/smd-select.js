@@ -48,6 +48,15 @@ class SmdSelect extends HTMLElement {
     if (this._built) this._render();
   }
 
+  get disabled() {
+    return this.hasAttribute("disabled");
+  }
+
+  set disabled(v) {
+    if (v) this.setAttribute("disabled", "");
+    else this.removeAttribute("disabled");
+  }
+
   connectedCallback() {
     if (typeof injectSmdComponentStyle === "function") {
       injectSmdComponentStyle("smd-select-layout", `

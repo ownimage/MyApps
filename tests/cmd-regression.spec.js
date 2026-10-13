@@ -308,8 +308,8 @@ test.describe("CountMyDays - Regression", () => {
       await birthdayRow.click();
       await expect(page.locator("#dateCategorySelect #smdImageBtnText")).toHaveText("Birthday");
       await page.locator("#dateNameInput").fill("New Holiday");
-      await page.locator("#dateDaySelect").selectOption("9");
-      await page.locator("#dateMonthSelect").selectOption("6");
+      await pickOption(page, "#dateDaySelect", "9");
+      await pickOption(page, "#dateMonthSelect", "6");
       await page.locator("#dateEditPage").getByRole("button", { name: "OK" }).click();
       await expect(page.locator("#dateEditPage")).not.toHaveAttribute("open", "");
 
@@ -337,26 +337,26 @@ test.describe("CountMyDays - Regression", () => {
       await expect(title).toHaveAttribute("placeholder", "Title");
 
       // Annual defaults to today's day/month.
-      await expect(page.locator("#dateDaySelect")).toHaveValue(String(now.getDate()));
-      await expect(page.locator("#dateMonthSelect")).toHaveValue(String(now.getMonth() + 1));
+      await expect(page.locator("#dateDaySelect")).toHaveAttribute("value", String(now.getDate()));
+      await expect(page.locator("#dateMonthSelect")).toHaveAttribute("value", String(now.getMonth() + 1));
 
       // Once also defaults to today.
       const pad = n => String(n).padStart(2, "0");
       const todayDmy = pad(now.getDate()) + "/" + pad(now.getMonth() + 1) + "/" + now.getFullYear();
-      await page.locator("#dateTypeSelect").selectOption("once");
+      await pickOption(page, "#dateTypeSelect", "once");
       await expect(page.locator("#smdDatePickerAlt")).toHaveValue(todayDmy);
 
       // Switching back to Annual keeps today's date too.
-      await page.locator("#dateTypeSelect").selectOption("annual");
-      await expect(page.locator("#dateDaySelect")).toHaveValue(String(now.getDate()));
-      await expect(page.locator("#dateMonthSelect")).toHaveValue(String(now.getMonth() + 1));
+      await pickOption(page, "#dateTypeSelect", "annual");
+      await expect(page.locator("#dateDaySelect")).toHaveAttribute("value", String(now.getDate()));
+      await expect(page.locator("#dateMonthSelect")).toHaveAttribute("value", String(now.getMonth() + 1));
     });
 
     test("once type uses a date input and saves the year", async ({ page }) => {
       await seed(page);
       await page.evaluate(() => openDatesEditor());
       await page.locator("#datesEditor cmd-date-card").first().getByRole("button", { name: "Edit" }).click();
-      await page.locator("#dateTypeSelect").selectOption("once");
+      await pickOption(page, "#dateTypeSelect", "once");
       await expect(page.locator("#smdDatePickerAlt")).toBeVisible();
       // The field is read-only: clicking anywhere on it opens the date picker.
       await expect(page.locator("#smdDatePickerAlt")).toHaveAttribute("readonly", "readonly");
@@ -826,7 +826,7 @@ test.describe("CountMyDays - Regression", () => {
       await wiz.locator("#dateNewName").fill("Anniversary 2");
       await wiz.getByRole("button", { name: "Next" }).click();
       await wiz.locator("#dateUseExisting").check();
-      await wiz.locator("#dateExistingSelect").selectOption("Anniversary");
+      await pickOption(page, "#dateExistingSelect", "Anniversary");
       await wiz.getByRole("button", { name: "Next" }).click();
       await expect(wiz).toContainText("Date Summary");
       await wiz.getByRole("button", { name: "Apply & Continue" }).click();
@@ -1211,7 +1211,7 @@ test.describe("CountMyDays - Regression", () => {
 
       await listPage.locator("cmd-date-card").first().getByRole("button", { name: "Edit" }).click();
       await expect(page.locator("#googleEventEditPage")).toHaveAttribute("open", "");
-      await page.locator("#gcalCategorySelect").selectOption("Birthday");
+      await pickOption(page, "#gcalCategorySelect", "Birthday");
       await page.locator("#gcalShowCheck").uncheck();
       await page.locator("#googleEventEditPage").getByRole("button", { name: "Cancel" }).click();
       await expect(page.locator("#googleEventEditPage")).not.toHaveAttribute("open", "");

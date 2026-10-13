@@ -223,7 +223,7 @@ function renderGcalEditContent() {
     '<div class="d-flex gap-3 align-items-start flex-wrap">' +
       '<div class="flex-shrink-0 text-center">' +
         `<smd-image id="gcalCategoryPreview" key-prefix="${escAttr(smdImagePrefix())}"></smd-image>` +
-        `<select class="form-select mt-2" id="gcalCategorySelect" onchange="gcalEditBufferField('category', this.value)">${catOptions}</select>` +
+        `<smd-select class="form-select mt-2" id="gcalCategorySelect" onchange="gcalEditBufferField('category', this.value)">${catOptions}</smd-select>` +
       '</div>' +
       '<div class="flex-grow-1" style="min-width:220px">' +
         '<div class="mb-2">' +

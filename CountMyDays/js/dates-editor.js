@@ -331,12 +331,12 @@ function renderDateEditContent() {
     dateHtml = '<smd-date-picker no-clear value="' + onceDateValue(d) + '" format="d/m/Y" alt-format="d/m/Y" style="min-width:130px"></smd-date-picker>';
   } else {
     dateHtml =
-      '<select class="form-select w-auto" id="dateDaySelect" onchange="dateField(\'day\', parseInt(this.value, 10))">' +
+      '<smd-select class="form-select w-auto" id="dateDaySelect" onchange="dateField(\'day\', parseInt(this.value, 10))">' +
         Array.from({ length: 31 }, (_, i) => `<option value="${i + 1}" ${i + 1 === day ? "selected" : ""}>${i + 1}</option>`).join("") +
-      '</select>' +
-      '<select class="form-select w-auto" id="dateMonthSelect" onchange="dateField(\'month\', parseInt(this.value, 10))">' +
+      '</smd-select>' +
+      '<smd-select class="form-select w-auto" id="dateMonthSelect" onchange="dateField(\'month\', parseInt(this.value, 10))">' +
         CMD_MONTHS.map((m, i) => `<option value="${i + 1}" ${i + 1 === month ? "selected" : ""}>${m}</option>`).join("") +
-      '</select>';
+      '</smd-select>';
   }
 
   page.content =
@@ -356,10 +356,10 @@ function renderDateEditContent() {
     '</div>' +
     '<div class="d-flex gap-2 align-items-center flex-wrap">' +
       dateHtml +
-      '<select class="form-select w-auto" id="dateTypeSelect" onchange="dateField(\'type\', this.value)">' +
+      '<smd-select class="form-select w-auto" id="dateTypeSelect" onchange="dateField(\'type\', this.value)">' +
         `<option value="once" ${d.type === "once" ? "selected" : ""}>Once</option>` +
         `<option value="annual" ${d.type !== "once" ? "selected" : ""}>Annual</option>` +
-      '</select>' +
+      '</smd-select>' +
     '</div>';
 
   updateDateImagePreview();
