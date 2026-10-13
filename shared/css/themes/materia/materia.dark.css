@@ -2,3 +2,16 @@
    whenever this theme is selected in Dark mode. Add theme-specific overrides
    here. This sheet is only ever loaded in this mode, so selectors do not need a
    `[data-bs-theme="dark"]` qualifier. */
+
+/* <smd-image-dropdown>: materia's stock `.btn` sets
+   `background-image: var(--bs-gradient)` (a white 15% sheen) on top of its
+   background-color, so over the near-black dark button it read as a grey box
+   while the form fields are a flat surface (e.g. the Add Stream "Tab" picker).
+   The dropdown surface/label now comes from the shared mode layer
+   (`--smd-dropdown-*` -> `--smd-form-*`, see shared/css/themes/dark.css), so
+   only the sheen needs clearing here. The `#smd-app` scope is required because
+   materia re-applies the gradient on `.btn:focus-visible` (0,2,0), which would
+   otherwise outrank a bare `smd-image-dropdown .btn` (0,1,1). */
+#smd-app smd-image-dropdown .btn {
+  background-image: none;
+}

@@ -834,6 +834,15 @@ test.describe("PlanMyDay - Regression", () => {
 
   test.describe("Theme colours", () => {
 
+    // WCAG contrast ratio between two computed colour strings ("rgb(...)" or
+    // the "color(srgb r g b)" form Chromium returns for color-mix results).
+    function smdContrast(a, b) {
+      const parse = (s) => { const n = s.match(/-?[\d.]+/g).map(Number).slice(0, 3); return /^color\(/.test(s) ? n.map((v) => Math.round(v * 255)) : n; };
+      const lum = (c) => { const [r, g, b] = c.map((v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
+      const l1 = Math.max(lum(parse(a)), lum(parse(b))), l2 = Math.min(lum(parse(a)), lum(parse(b)));
+      return (l1 + 0.05) / (l2 + 0.05);
+    }
+
     // changeTheme + wait for the new Bootswatch stylesheet to load.
     async function setTheme(page, theme) {
       await page.evaluate((t) => {
@@ -962,6 +971,188 @@ test.describe("PlanMyDay - Regression", () => {
         // fails here after the timeout.
         await expect.poll(() => gradient("#settingsPage smd-tabs .smd-tab-btn.active"), { timeout: 15000, message: mode }).toBe(ACTIVE);
         await expect.poll(() => gradient("#settingsPage smd-tabs .smd-tab-btn:not(.active)"), { timeout: 15000 }).toBe(INACTIVE);
+        await page.evaluate(() => closeSettings());
+      }
+    });
+
+    test("materia dark image dropdown matches the form field surface (no Bootstrap gradient)", async ({ page }) => {
+      // materia's stock `.btn` carries Bootstrap's `--bs-gradient` sheen
+      // (linear-gradient white 15% -> transparent) on top of its
+      // background-color, so over the near-black dark button it read as a grey
+      // box while the form fields stay a flat body-bg surface. materia.dark.css
+      // clears the sheen and matches the form-field palette.
+      await page.evaluate(() => applyTheme("materia", "dark"));
+      await page.evaluate(() => addNewStream());
+      await expect(page.locator("#streamTabDropdown .btn")).toBeVisible();
+      const read = () => page.evaluate(() => {
+        const btn = document.querySelector("#streamTabDropdown .btn");
+        const input = document.querySelector("#streamTitleInput");
+        const b = getComputedStyle(btn);
+        const i = getComputedStyle(input);
+        return { inputBg: i.backgroundColor, btnBg: b.backgroundColor, btnImage: b.backgroundImage };
+      });
+      // Poll the APPLIED style: applyTheme() re-points the theme + override
+      // <link>s asynchronously, so a one-shot read can catch the previous theme
+      // before materia.dark.css has loaded. Requiring materia's own #212121 form
+      // surface proves the theme really loaded, so a pass cannot come from the
+      // previous (gradient-free) theme.
+      await expect.poll(async () => {
+        const r = await read();
+        return { materia: r.inputBg === "rgb(33, 33, 33)", btnImage: r.btnImage, matches: r.btnBg === r.inputBg };
+      }, { timeout: 15000 }).toEqual({ materia: true, btnImage: "none", matches: true });
+      await page.evaluate(() => cancelEdit());
+    });
+
+    test("image dropdown surface and label match the form fields across themes", async ({ page }) => {
+      // The dropdown palette used to derive from --bs-tertiary-bg /
+      // --bs-body-color, which diverge from the fixed --smd-form-* field palette:
+      // on dark themes the button was a lighter grey than the fields, and on
+      // light themes whose body text is light even in Light mode (quartz, vapor,
+      // slate) the label went near-invisible on the near-white button. The shared
+      // mode layer now points the dropdown surface/label at the form palette.
+      const cases = [
+        ["minty", "light"], ["minty", "dark"], ["pulse", "dark"], ["quartz", "light"],
+        ["simplex", "dark"], ["slate", "dark"], ["vapor", "light"]
+      ];
+      await page.evaluate(() => addNewStream());
+      await expect(page.locator("#streamTabDropdown .btn")).toBeVisible();
+      // Bootstrap's .btn transitions background-color (150ms), so a read during a
+      // theme swap catches the OLD colour while the (non-transitioning) form
+      // control already shows the new one. Disable transitions so each read is
+      // the settled value.
+      await page.addStyleTag({ content: "#smd-app * { transition: none !important; animation: none !important; }" });
+      const read = () => page.evaluate(() => {
+        // Chromium serialises color-mix()/some computed colours as
+        // `color(srgb r g b)` with 0..1 channels; rgb()/rgba() are 0..255.
+        const parse = (s) => { const n = s.match(/-?[\d.]+/g).map(Number).slice(0, 3); return /^color\(/.test(s) ? n.map((v) => Math.round(v * 255)) : n; };
+        const lum = (c) => { const [r, g, b] = c.map((v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
+        const cr = (a, b) => { const l1 = Math.max(lum(a), lum(b)), l2 = Math.min(lum(a), lum(b)); return (l1 + 0.05) / (l2 + 0.05); };
+        const btn = document.querySelector("#streamTabDropdown .btn");
+        const input = document.querySelector("#streamTitleInput");
+        const b = getComputedStyle(btn);
+        const i = getComputedStyle(input);
+        return { btnBg: b.backgroundColor, btnColor: b.color, inputBg: i.backgroundColor, inputColor: i.color, contrast: cr(parse(b.color), parse(b.backgroundColor)) };
+      });
+      for (const [theme, mode] of cases) {
+        await page.evaluate(({ t, m }) => applyTheme(t, m), { t: theme, m: mode });
+        const label = theme + "/" + mode;
+        // Poll BOTH the match and the contrast: while applyTheme() swaps the
+        // base/mode sheets the palette is momentarily absent, so button and
+        // input are both transparent with default black text and a match-only
+        // predicate would pass on that transient (seen on simplex/dark).
+        await expect.poll(async () => {
+          const r = await read();
+          return r.btnBg === r.inputBg && r.btnColor === r.inputColor && r.contrast >= 4.5;
+        }, { timeout: 15000, message: label }).toBe(true);
+        const r = await read();
+        expect(r.btnBg, label).toBe(r.inputBg);
+        expect(r.contrast, label + " (" + r.btnColor + " on " + r.btnBg + ")").toBeGreaterThanOrEqual(4.5);
+      }
+      await page.evaluate(() => cancelEdit());
+    });
+
+    test("focused form fields use the theme primary border", async ({ page }) => {
+      // The shared focus border used a 50% primary/body-bg mix, which read muted
+      // rather than primary (reported on vapour dark). It is the pure primary now.
+      await page.addStyleTag({ content: "#smd-app * { transition: none !important; }" });
+      for (const [theme, mode] of [["vapor", "dark"], ["flatly", "light"], ["superhero", "light"]]) {
+        await page.evaluate(({ t, m }) => applyTheme(t, m), { t: theme, m: mode });
+        const label = theme + "/" + mode;
+        await expect.poll(async () => {
+          const r = await page.evaluate(() => {
+            const resolve = (v) => { const d = document.createElement("div"); d.style.backgroundColor = v; d.style.position = "absolute"; d.style.left = "-9999px"; document.body.appendChild(d); const c = getComputedStyle(d).backgroundColor; d.remove(); return c; };
+            const el = document.createElement("input");
+            el.className = "form-control";
+            el.style.position = "absolute";
+            el.style.left = "-9999px";
+            document.body.appendChild(el);
+            el.focus();
+            const border = getComputedStyle(el).borderTopColor;
+            el.remove();
+            return { border, primary: resolve("var(--bs-primary)") };
+          });
+          return r.border === r.primary;
+        }, { timeout: 15000, message: label }).toBe(true);
+      }
+    });
+
+    test("checked checkboxes use the theme primary accent across themes", async ({ page }) => {
+      // The browser default accent is an unrelated mid blue; the shared checkbox
+      // tick must follow the theme primary.
+      for (const [theme, mode] of [["vapor", "dark"], ["minty", "light"], ["superhero", "light"], ["brite", "light"]]) {
+        await page.evaluate(({ t, m }) => applyTheme(t, m), { t: theme, m: mode });
+        const label = theme + "/" + mode;
+        await expect.poll(async () => {
+          const r = await page.evaluate(() => {
+            const resolve = (v) => { const d = document.createElement("div"); d.style.backgroundColor = v; d.style.position = "absolute"; d.style.left = "-9999px"; document.body.appendChild(d); const c = getComputedStyle(d).backgroundColor; d.remove(); return c; };
+            const el = document.createElement("smd-checkbox");
+            document.body.appendChild(el);
+            const input = el.querySelector("input");
+            const accent = input ? getComputedStyle(input).accentColor : "";
+            el.remove();
+            return { accent, primary: resolve("var(--bs-primary)") };
+          });
+          return r.accent === r.primary;
+        }, { timeout: 15000, message: label }).toBe(true);
+      }
+    });
+
+    test("the hamburger icon is legible on the nav surface across themes", async ({ page }) => {
+      // Bootswatch minty ships `.btn,.btn:hover{color:#fff}`; the background-less
+      // hamburger must not inherit that (it sits on --bs-body-bg).
+      const cases = [["minty", "light"], ["minty", "dark"], ["superhero", "light"], ["flatly", "light"], ["quartz", "dark"]];
+      for (const [theme, mode] of cases) {
+        await page.evaluate(({ t, m }) => applyTheme(t, m), { t: theme, m: mode });
+        const label = theme + "/" + mode;
+        await expect.poll(async () => {
+          const r = await page.evaluate(() => {
+            const btn = document.querySelector("#btnMainMenu");
+            const nav = document.querySelector("#mainNav");
+            return { btn: getComputedStyle(btn).color, nav: getComputedStyle(nav).backgroundColor };
+          });
+          return r.btn !== r.nav && smdContrast(r.btn, r.nav) >= 3;
+        }, { timeout: 15000, message: label }).toBe(true);
+      }
+    });
+
+    test("page header headings use the header foreground across themes", async ({ page }) => {
+      // Bootstrap's `h1 { color: var(--bs-heading-color) }` wins over the header's
+      // inherited colour, so a theme that sets --bs-heading-color (minty #5a5a5a)
+      // painted a dark h1 on the dark header band.
+      const cases = [["minty", "light"], ["flatly", "light"], ["quartz", "dark"], ["superhero", "light"]];
+      for (const [theme, mode] of cases) {
+        await page.evaluate(({ t, m }) => applyTheme(t, m), { t: theme, m: mode });
+        await page.evaluate(() => openSettings());
+        await expect(page.locator("#settingsPage .smd-page-header h1")).toBeVisible();
+        const label = theme + "/" + mode;
+        await expect.poll(async () => {
+          const r = await page.evaluate(() => {
+            const header = document.querySelector("#settingsPage .smd-page-header");
+            const h1 = header.querySelector("h1");
+            return { header: getComputedStyle(header).color, h1: getComputedStyle(h1).color, bg: getComputedStyle(header).backgroundColor };
+          });
+          return r.h1 === r.header && smdContrast(r.h1, r.bg) >= 4.5;
+        }, { timeout: 15000, message: label }).toBe(true);
+        await page.evaluate(() => closeSettings());
+      }
+    });
+
+    test("quartz tab buttons are not white-on-white in either mode", async ({ page }) => {
+      // quartz paints `.nav-link.active` with a near-white gradient sheen over the
+      // text-bg-primary surface.
+      for (const mode of ["light", "dark"]) {
+        await page.evaluate((mo) => applyTheme("quartz", mo), mode);
+        await page.evaluate(() => openSettings());
+        await expect(page.locator("#settingsPage smd-tabs .smd-tab-btn.active")).toBeVisible();
+        const label = "quartz/" + mode;
+        await expect.poll(async () => {
+          const r = await page.evaluate(() => {
+            const a = document.querySelector("#settingsPage smd-tabs .smd-tab-btn.active");
+            const s = getComputedStyle(a);
+            return { color: s.color, bg: s.backgroundColor, img: s.backgroundImage };
+          });
+          return r.img === "none" && r.color !== r.bg && smdContrast(r.color, r.bg) >= 3;
+        }, { timeout: 15000, message: label }).toBe(true);
         await page.evaluate(() => closeSettings());
       }
     });

@@ -67,7 +67,7 @@ Architecture:
 - TYPESCALE TOKENS (2026-09-18): one shared ramp in `shared/css/styles.css` — `body { --smd-type-base: 1rem }` plus `body.font-size-xsmall/small/large/xlarge/jumbo` overrides (0.8/0.925/1/1.125/1.3/1.6rem) — drives exactly four tokens `--smd-type-badge` (base×0.75), `--smd-type-p` (base), `--smd-type-h2` (base×1.25), `--smd-type-h1` (base×2), all declared on `body` (NOT `:root`: the ramp must recompute per font-size body class, and body custom props pierce shadow DOM while `:host-context()` doesn't). Tag map: h1→h1; h2/h3/h4→h2; h5/h6→p; text/inputs/tables→p; badges→badge. BUTTONS ARE h2 (one step above text): `<button>`, `.btn`, `.smd-tab-btn` all use `var(--smd-type-h2)`; `.btn-sm` stays at `var(--smd-type-p)`. Light-DOM home is `shared/css/styles.css` (`button, .btn` / `.btn-sm`); the shared `btnBadgeSheet` covers shadow buttons. Scaffold the h2/p rules inline wherever a shadow root does NOT adopt btnBadgeSheet: the 4 apps' `editor-styles.js`, `smd-settings.js`, `smd-minio.js`, `smd-modal.js`, `smd-image-picker.js`, `smd-image-dropdown.js`. Don't re-add per-component `.btn` font-size rules. Every component + app style now uses `var(--smd-type-*, original-value)` (original as fallback so behaviour is unchanged wherever the token is missing). Media-fit sizes are token CALCs (e.g. CM/QR title `calc(var(--smd-type-h1,1.5rem)*0.7667)`, CM count `*0.8333`, CM container h1 `*0.625`, Solar 480px block). Compact density = `--…-title-size: var(--smd-type-p)` overrides. Deliberate non-token exceptions: the 22px hamburger icon in `smd-app.js`, `smd-checkbox` 1em/1.4em + `smd-draghandle` 1.2rem/1.6rem touch sizes, vendor CSS, storybook chrome. Tests assert heading ELEMENT tags (now `h1` for main-view date/"Today!"/"From …" headings) and pmd-touch.spec.js:119 asserts the NEW pixel values (xlarge 41.6, jumbo 51.2, compact-jumbo 25.6) — update those literals together with any ramp change.
 - THEME TEXT COLOURS (2026-09-12): shadow-DOM buttons/tabs cannot use Bootswatch's `.btn-*` rules (document CSS doesn't cross the boundary, and `--bs-btn-*` is set on the `.btn-*` element, not `:root`). `applySmdVars()` reads a hidden light-DOM `<button class="btn btn-<variant>">` probe (`smdBootstrapColor()`) and publishes `--smd-primary/secondary/success/danger/info/warning-text` + `--smd-tab-text` on `<html>`; every shadow `.btn-*`/variant uses those vars. `applyTheme()` re-runs `applySmdVars` on the theme `<link>`'s `load`. Never hardcode white text for a theme-coloured surface; if Bootswatch's own `.btn-*` rule disagrees with its `--bs-btn-color` var (e.g. cerulean's later `.btn-secondary { color: ... }`), the probe wins — always match the probe.
 - BADGES (2026-09-12): use the shared `<smd-badge variant="primary|secondary|success|danger|warning|info|light|dark" pill?>` component everywhere — never a `<span class="badge bg-*">` (Bootstrap's badge vars live on the `.badge` element and can't reach shadow roots). `applySmdVars()` probes a hidden light-DOM `.badge.text-bg-<variant>` (`smdBootstrapStyle()`) and publishes `--smd-badge-<variant>-{bg,text}`; the component's own sheet consumes them, so text colour follows Bootswatch exactly (white on cerulean's navy info, black on its light secondary, etc.). `btnBadgeSheet` now only carries `.btn*` rules despite its name; `smd-page`'s badge/bg rules were removed.
-- IMAGE DROPDOWN (2026-09-18): the shared `<smd-image-dropdown>` (`shared/js/components/smd-image-dropdown.js`) is the generic image+name picker — the old PlanMyDay `pmd-stream-select` was folded into it and deleted. It is DATA-driven, not DOM: host sets `options = [{name, image}]` (image OPTIONAL → text-only rows, e.g. CountMyDays' no-image "All") and `selected` = the chosen option's NAME string; picks dispatch `smd-image-dropdown-change` ({ name }). Listener wiring: CountMyDays `#dateCategoryFilter` (`smd-image-dropdown-change` → `setDateCategoryFilter`, "" for All) in `dates-editor.js`; PlanMyDay `#jobStreamDropdown` (name mapped back via `streamIndexByName` in `editor-common.js`). Stable shadow ids for test locators: `smdImageDropdownBtn`, `smdImageBtnIcon`, `smdImageBtnText`, `smdImageDropdownMenu`. Its colours come from the `--smd-dropdown-*` palette at the top of `shared/css/styles.css` (override per theme in `shared/css/themes/<theme>/<theme>.<mode>.css`; superhero does) — see the 2026-09-26 (c) session note.
+- IMAGE DROPDOWN (2026-09-18): the shared `<smd-image-dropdown>` (`shared/js/components/smd-image-dropdown.js`) is the generic image+name picker — the old PlanMyDay `pmd-stream-select` was folded into it and deleted. It is DATA-driven, not DOM: host sets `options = [{name, image}]` (image OPTIONAL → text-only rows, e.g. CountMyDays' no-image "All") and `selected` = the chosen option's NAME string; picks dispatch `smd-image-dropdown-change` ({ name }). Listener wiring: CountMyDays `#dateCategoryFilter` (`smd-image-dropdown-change` → `setDateCategoryFilter`, "" for All) in `dates-editor.js`; PlanMyDay `#jobStreamDropdown` (name mapped back via `streamIndexByName` in `editor-common.js`). Stable shadow ids for test locators: `smdImageDropdownBtn`, `smdImageBtnIcon`, `smdImageBtnText`, `smdImageDropdownMenu`. Its colours come from the `--smd-dropdown-*` palette in the shared MODE layer (`shared/css/themes/light.css` + `dark.css`), which since 2026-10-13 mirrors the form-field palette (`--smd-form-*`) for surface/label/border and does NOT change colour on hover (the closed control is field-like); a theme overrides in `shared/css/themes/<theme>/<theme>.<mode>.css` (superhero, cyborg, darkly do) — see the 2026-09-26 (c) and 2026-10-13 (e) session notes. GOTCHA (2026-10-13): the palette only sets `background-color`, so a theme whose stock `.btn` ALSO sets `background-image: var(--bs-gradient)` shows a white sheen over a dark button; materia is the only such theme and clears it with `#smd-app smd-image-dropdown .btn { background-image: none }` (the `#smd-app` scope is needed to beat the theme's `.btn:focus-visible` re-apply).
 - SMD-IMAGE-DROPDOWN CLOSED-STATE LAYOUT (2026-10-04): the closed button
   LEFT-ALIGNS its label right next to the image and sizes itself to the WIDEST
   option. Every option label is stacked in ONE hidden `.sizer` grid cell inside
@@ -3774,3 +3774,92 @@ Techniques / gotchas:
   CONNECTION_CLOSED|NETWORK_CHANGED|EMPTY_RESPONSE)`; every other console error
   still fails. (Encodes the documented "treat ERR_CONNECTION_REFUSED as infra".)
 - TEST-ONLY: no app or BUILD change (`BUILD_NUMBER` unchanged).
+
+### 2026-10-13 (e) - smd-image-dropdown now mirrors the form-field palette (all themes) + materia sheen
+- BUG (user, PlanMyDay > Add Stream page): the shared `<smd-image-dropdown>`
+  (`#streamTabDropdown`) looked odd/low-contrast next to the other form fields —
+  reported on materia dark, then minty dark+light, pulse dark, quartz light,
+  simplex dark, slate dark and vapor light.
+- CAUSE (probed across all 27 themes x both modes, not guessed): the shared
+  `--smd-dropdown-*` palette derived from `--bs-tertiary-bg`/`--bs-body-color`,
+  which diverge per theme, while the form fields use the fixed `--smd-form-*`
+  surface (`--bs-white`/`--bs-gray-900` in light, `--bs-body-bg`/`--bs-body-color`
+  in dark). So on dark themes the button was a lighter grey than the fields, and
+  on "light" themes whose body text is light (quartz `#fff`, vapor `#32fbe2`,
+  slate `#aaa`) the LABEL went white/near-white on the `#f8f9fa` button (contrast
+  1.05/1.24). SEPARATE cause on materia ONLY: its stock `.btn` sets
+  `background-image: var(--bs-gradient)` (a white 15% sheen) on top of the
+  background-color — a 27-theme sweep showed materia is the only theme whose
+  dropdown `.btn` computes a background-image.
+- FIX (user chose the central fix): `shared/css/themes/light.css` AND `dark.css`
+  (the shared MODE layer) now point `--smd-dropdown-background/foreground/
+  border-color` at `--smd-form-*`. `shared/css/themes/materia/materia.dark.css`
+  clears the sheen with `#smd-app smd-image-dropdown .btn { background-image:
+  none }` (the `#smd-app` scope is required: materia re-applies the gradient on
+  `.btn:focus-visible` (0,2,0), which beats a bare `smd-image-dropdown .btn`
+  (0,1,1)).
+- NO HOVER COLOUR (user, same session): the closed control is field-like (it
+  replaced <select>s) and a plain `.btn` toggle does not change background on
+  hover, so the `smd-image-dropdown .btn:hover,:focus-visible` rule now just
+  RE-ASSERTS the base colours (no change) and the `--smd-dropdown-hover-*` vars
+  were dropped from light.css/dark.css; a short-lived brite hover override was
+  reverted. The menu ITEM hover (real dropdown behaviour) is untouched.
+- TDD (3 new pmd-regression "Theme colours" tests, RED first, GREEN after):
+  "materia dark image dropdown matches the form field surface (no Bootstrap
+  gradient)"; "image dropdown surface and label match the form fields across
+  themes" (the 7 reported theme/modes, asserts button bg/label == the live
+  `.form-control` AND contrast >= 4.5). GOTCHA encoded: `applyTheme()` swaps the
+  base/mode sheets async and the palette is momentarily absent (button AND input
+  transparent + default black), so the poll REQUIRES the contrast, not just a
+  match (seen on simplex/dark).
+- Verified: Theme colours + pmd `dropdown` 13/13 (incl. the 7 Stream-dropdown
+  layout tests), cmd-regression 58/58, storybook-regression 8/8. Full regression
+  left to the user.
+- `BUILD_NUMBER` NOT bumped — bump before shipping (`npm run bump:build`); all
+  edited sheets are precached SHARED_ASSETs, so the bump is what installs the worker.
+
+### 2026-10-13 (f) - theme contrast sweep: minty hamburger, page-header headings, quartz tabs, form focus
+- Several PRE-EXISTING theme-contrast bugs reported while testing (e) (none caused
+  by it):
+  1. MINTY hamburger white-on-white: Bootswatch minty ships
+     `.btn,.btn:hover{color:#fff}` (every button white text) and the
+     background-less `#btnMainMenu` is a plain `.btn` -> invisible on the white
+     nav. FIX (`shared/css/styles.css`): `#btnMainMenu { color:
+     var(--bs-body-color) }` — the ID scope (1,0,0) beats `.btn` (0,1,0) and
+     `.btn:hover` (0,2,0).
+  2. PAGE-HEADER h1 dark-on-dark (minty light): Bootstrap's
+     `h1 { color: var(--bs-heading-color) }` wins over the header's inherited
+     colour, so a theme that sets `--bs-heading-color` (minty #5a5a5a) painted a
+     dark h1 on the dark header band. FIX (`styles.css`): the `.smd-page-header`
+     rule also sets `--bs-heading-color: var(--smd-page-header-color)`.
+  3. QUARTZ tabs white-on-white (BOTH modes): quartz paints
+     `.nav-tabs .nav-link.active` with
+     `linear-gradient(125deg,#fff,rgba(255,255,255,.9) 70%)`, a near-white sheen
+     over the `text-bg-primary` (pink) active tab. FIX (`quartz.light.css` +
+     `quartz.dark.css`): `#smd-app smd-tabs .smd-tab-btn { background-image: none }`.
+     (Slate KEEPS its gradient — the 2026-10-13 swap is intentional — so this is a
+     per-theme fix, NOT a blanket clear in smd-tabs.)
+  4. FORM FOCUS not primary (vapour dark): `--smd-form-focus-border-color` was a
+     50% primary/body-bg mix (reads muted). FIX (`light.css` + `dark.css`): now
+     `var(--bs-primary)`.
+  5. CHECKBOX tick mid-blue (vapour dark, all themes): `--smd-checkbox-accent` was
+     `auto` (the browser's default accent). FIX (`light.css` + `dark.css`): it is
+     now `var(--bs-primary)` for every theme, so the checked box matches the UI.
+- TDD: 4 pmd-regression "Theme colours" tests: "the hamburger icon is legible on
+  the nav surface across themes", "page header headings use the header foreground
+  across themes", "quartz tab buttons are not white-on-white in either mode",
+  "focused form fields use the theme primary border" (added a shared `smdContrast`
+  helper that parses rgb()/color(srgb)).
+- REVERTED (user): the smd-image "auto theme re-tints on hover" change from the
+  earlier attempt was backed out COMPLETELY — `shared/js/components/smd-image.js` is
+  byte-identical to HEAD again (it was only needed for the now-removed dropdown
+  hover). The dropdown `:hover` also no longer changes colour (see (e)).
+- NOT FIXED, BY DESIGN (user): a native `<select>` open option list and its hovered
+  row are rendered by the browser/OS (Windows Chrome = the OS accent blue) and
+  cannot be styled from page CSS. Matching the primary there would need replacing
+  native selects with a custom dropdown; the user chose to leave native selects
+  as-is.
+- Verified: Theme colours 12/12, smd-image rendering 7/7, pmd `dropdown` 13/13,
+  cmd-regression 58/58, storybook-regression 8/8. Full regression left to the user.
+- `BUILD_NUMBER` NOT bumped — bump before shipping (`npm run bump:build`); all
+  edited sheets are precached SHARED_ASSETs.

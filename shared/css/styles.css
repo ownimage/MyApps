@@ -113,6 +113,14 @@ button.btn-sm, .btn-sm { font-size: var(--smd-type-p, 1rem); }
   box-shadow: none;
 }
 
+/* Some Bootswatch themes force EVERY `.btn` to white text (minty ships
+   `.btn,.btn:hover{color:#fff}`), which makes this background-less hamburger
+   invisible on a light nav. It sits on --bs-body-bg, so pin it to the body
+   colour; the ID scope (1,0,0) also beats the theme's `.btn:hover` (0,2,0). */
+#btnMainMenu {
+  color: var(--bs-body-color);
+}
+
 /* The HAMBURGER dropdown is painted with the body colour so it is fully opaque
    and matches the page. Scoped to #mainNav on purpose: other .dropdown-menus
    (e.g. the Gantt Streams filter) own a themed surface via --bs-dropdown-bg and
@@ -226,6 +234,10 @@ smd-draghandle[size="large"] {
 #smd-app smd-page .smd-page-header {
   background-color: var(--smd-page-header-background);
   color: var(--smd-page-header-color);
+  /* Headings take `color: var(--bs-heading-color)` from Bootstrap, which wins
+     over the parent's colour; a theme that sets --bs-heading-color (minty
+     #5a5a5a) would otherwise paint a dark h1 on the dark header band. */
+  --bs-heading-color: var(--smd-page-header-color);
 }
 
 #smd-app smd-page .smd-page-footer {
@@ -281,11 +293,16 @@ smd-image-dropdown .btn {
   border-color: var(--smd-dropdown-border-color);
 }
 
+/* No hover colour change: the closed control is field-like (it replaced
+   <select>s) and a plain .btn toggle does not change background on hover. This
+   re-asserts the base colours over the theme's own `.btn:hover` so a theme
+   cannot repaint it (e.g. minty ships `.btn,.btn:hover{color:#fff}`). The
+   focus-visible ring (box-shadow) is untouched. */
 smd-image-dropdown .btn:hover,
 smd-image-dropdown .btn:focus-visible {
-  background-color: var(--smd-dropdown-hover-background);
-  color: var(--smd-dropdown-hover-foreground);
-  border-color: var(--smd-dropdown-hover-background);
+  background-color: var(--smd-dropdown-background);
+  color: var(--smd-dropdown-foreground);
+  border-color: var(--smd-dropdown-border-color);
 }
 
 smd-image-dropdown .btn:disabled,
