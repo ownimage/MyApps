@@ -941,6 +941,31 @@ test.describe("PlanMyDay - Regression", () => {
       }
     });
 
+    test("slate swaps the active/inactive tab gradients in both modes", async ({ page }) => {
+      // slate/bootstrap.min.css paints the non-active tab with
+      // #313539/#34393d/#373b40 and the active tab with #44494d/#3a3f44/#2e3236,
+      // which reads backwards. slate.<mode>.css swaps them.
+      const ACTIVE = "linear-gradient(rgb(49, 53, 57), rgb(52, 57, 61) 40%, rgb(55, 59, 64))";
+      const INACTIVE = "linear-gradient(rgb(68, 73, 77), rgb(58, 63, 68) 20%, rgb(46, 50, 54))";
+      const gradient = (selector) => page.evaluate((sel) => {
+        const el = document.querySelector(sel);
+        return el ? getComputedStyle(el).backgroundImage : "";
+      }, selector);
+      for (const mode of ["light", "dark"]) {
+        await page.evaluate(({ theme, mode }) => applyTheme(theme, mode), { theme: "slate", mode });
+        await page.evaluate(() => openSettings());
+        await expect(page.locator("#settingsPage smd-tabs .smd-tab-btn.active")).toBeVisible();
+        // Poll the APPLIED style, not the <link>: applyTheme() updates the href
+        // synchronously while link.sheet still points at the PREVIOUS sheet, so a
+        // wait on href/sheet can pass a tick before the new CSS is applied (the
+        // flake seen in a full run). A genuinely wrong or missing override still
+        // fails here after the timeout.
+        await expect.poll(() => gradient("#settingsPage smd-tabs .smd-tab-btn.active"), { timeout: 15000, message: mode }).toBe(ACTIVE);
+        await expect.poll(() => gradient("#settingsPage smd-tabs .smd-tab-btn:not(.active)"), { timeout: 15000 }).toBe(INACTIVE);
+        await page.evaluate(() => closeSettings());
+      }
+    });
+
     test("modal secondary buttons match the Bootswatch button colours", async ({ page }) => {
       await setTheme(page, "cerulean");
       await page.evaluate(() => { openStreamsEditor(); confirmDeleteStream(0); });
@@ -5198,6 +5223,16 @@ test.describe("PlanMyDay - Regression", () => {
         return nav ? nav.classList.contains("nav-hidden") : false;
       });
       expect(navHidden3).toBe(false);
+    });
+
+    test("nav auto-hide also closes an open hamburger dropdown", async ({ page }) => {
+      await page.evaluate(() => localStorage.setItem("planmydays_autoHideMenu", "true"));
+      await page.reload();
+      await page.locator("#btnMainMenu").click();
+      await expect(page.locator("#mainNav .dropdown-menu")).toBeVisible();
+      await page.evaluate(() => hideNav());
+      expect(await page.evaluate(() => document.getElementById("mainNav").classList.contains("nav-hidden"))).toBe(true);
+      await expect(page.locator("#mainNav .dropdown-menu")).not.toBeVisible();
     });
   });
 

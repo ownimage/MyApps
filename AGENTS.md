@@ -3688,3 +3688,89 @@ Techniques / gotchas:
   caches `countmydays_google_cal`, and re-renders today's cards. cmd-regression
   full 57/57.
 - `BUILD_NUMBER` -> `202610120948` via `npm run bump:build`.
+
+### 2026-10-13 - slate theme: swapped the active/inactive smd-tabs gradients
+- BUG (user): on the `slate` theme the smd-tabs active/non-active styling read
+  backwards. `shared/css/themes/slate/bootstrap.min.css` (Bootswatch, NEVER
+  edited) paints the non-active tab `.nav-tabs .nav-link` with
+  `linear-gradient(#313539,#34393d 40%,#373b40)` and the active/hover state
+  (`.nav-tabs .nav-link:not([disabled]):not(.disabled).active|:active|:focus|:hover`)
+  with `linear-gradient(#44494d,#3a3f44 20%,#2e3236)`.
+- FIX (user request): swap them in `shared/css/themes/slate/slate.light.css` and
+  `slate.dark.css` (the same swap in both modes - Slate ships ONE gradient set):
+  `#smd-app smd-tabs .smd-tab-btn { background-image: <the old active gradient> }`
+  and `#smd-app smd-tabs .smd-tab-btn.active { background-image: <the old
+  non-active gradient> }`. The `#smd-app` scope gives the rules an ID, so they
+  outrank the theme's `(0,5,0)` active/hover selector and the swap HOLDS through
+  hover/focus (no extra hover rules needed). This is a per-theme override file
+  carrying COMPONENT SELECTORS (like `simplex`/`cyborg`), which the 2026-09-26
+  "variables only" guidance discouraged - the user asked for it here.
+- TDD: new `pmd-regression` "Theme colours" test "slate swaps the active/inactive
+  tab gradients in both modes" (applyTheme slate light/dark, wait for
+  `#theme-override-specific` sheet, then assert the computed `background-image`
+  of the active and inactive `.smd-tab-btn` equals the swapped literals). Probe
+  confirmed both modes.
+- `BUILD_NUMBER` -> `202610131043` via `npm run bump:build`.
+
+### 2026-10-13 (b) - auto-hide nav now closes an open hamburger dropdown
+- BUG (user): with auto-hide menu on, tapping the hamburger opened the dropdown,
+  but when the nav timed out and slid away the dropdown remained over the page.
+  ROOT CAUSE: the dropdown is a CHILD of `#mainNav`, but it is much TALLER (a
+  ~340px menu vs a ~65px nav). `hideNav()` adds `.nav-hidden` (translateY(-100%)),
+  which moves a 65px nav fully off screen but only shifts the tall menu part-way,
+  so the button vanished while the menu lingered (probe: menu y went 59 -> -6,
+  still on screen).
+- FIX (`shared/js/smd-settings.js`): new `closeMainNavDropdown()` (uses
+  `bootstrap.Dropdown.getInstance(#btnMainMenu).hide()`, with a manual
+  `remove("show")` + `aria-expanded=false` fallback) and `hideNav()` calls it
+  before adding `.nav-hidden`. Only the hamburger menu is affected; other
+  `.dropdown-menu`s are untouched.
+- TDD: new pmd-regression test "Auto-Hide Nav Behavior > nav auto-hide also closes
+  an open hamburger dropdown" (open the menu, `hideNav()`, assert `nav-hidden` AND
+  the menu is not visible). Probe also confirmed the REAL 4s timer path (menu
+  `display:none`, `aria-expanded=false` after the timeout with no interaction).
+- `BUILD_NUMBER` -> `202610131100` via `npm run bump:build`.
+
+### 2026-10-13 (c) - CountMyDays Add Date: empty Title placeholder + today's date
+- REQUEST (user, "CountMyDays Add Job" = the Add/Edit Date page): the Title must
+  have NO default text (only a `placeholder="Title"`), and the date must default
+  to TODAY for both the Annual and Once options.
+- FIX (`CountMyDays/js/dates-editor.js`): `addNewDate()` no longer seeds
+  `name: "New Event"` (now `name: ""`) and no longer seeds `month: 1, day: 1` -
+  it seeds `month/day/year` from `new Date()`. `renderDateEditContent()` adds
+  `placeholder="Title"` to `#dateNameInput`. Annual reads month/day, Once reads
+  day/month/year (via `onceDateValue`), so both now open on today; switching type
+  keeps the day/month. NOTE: `doneDateEdit()` still falls back to `"Untitled"`
+  when the name is left empty - unchanged.
+- TDD: new cmd-regression "Dates editor" test "Add Date has an empty Title
+  placeholder and defaults the date to today" (empty value + `placeholder=Title`;
+  annual `#dateDaySelect`/`#dateMonthSelect` = today; `#smdDatePickerAlt` = today's
+  `d/m/Y` after picking Once; switching back to Annual still today). Dates editor
+  suite 11/11 (user runs the full regression later).
+- `BUILD_NUMBER` -> `202610131105` via `npm run bump:build`.
+
+### 2026-10-13 (d) - two flaky tests diagnosed + hardened (test-only)
+- The full run had two tests fail once then pass on retry:
+  `cmd-regression` "Sub-path deployment > no console errors ... SW precache" and
+  `pmd-regression` "Theme colours > slate swaps the active/inactive tab gradients".
+- SLATE (test race, NOT the CSS): `applyTheme()` sets the override `<link>`'s
+  href synchronously, but the browser keeps the PREVIOUS CSSStyleSheet in
+  `link.sheet` for a tick (probe: `href` reads slate.dark.css while `link.sheet`
+  is still the old sheet with `cssRules.length > 0`). So the old wait
+  ("href matches AND link.sheet.cssRules > 0") passed BEFORE the new sheet was
+  applied and the read caught the theme's UNSWAPPED gradient. FIX: the test now
+  `expect.poll`s the COMPUTED `background-image` of `.smd-tab-btn.active` /
+  `:not(.active)` until it equals the expected swapped literal (15s) - a wrong or
+  missing override still fails with a clear diff. Verified non-vacuous by
+  mutating `slate.dark.css` (test failed, then reverted). GENERAL LESSON: after a
+  theme/mode swap, assert the APPLIED computed style, never the link/`sheet` (a
+  stale sheet makes a link-based wait pass early).
+- SUB-PATH SW (infra): the only console error was
+  "Failed to load resource: net::ERR_CONNECTION_REFUSED" - the single
+  `tests/serve-tests.mjs` Vite server refusing a connection under parallel shard
+  load (the test's own install-retry poll recovers). FIX: the console handler now
+  ignores transient network-level
+  `Failed to load resource: net::ERR_(CONNECTION_REFUSED|CONNECTION_RESET|
+  CONNECTION_CLOSED|NETWORK_CHANGED|EMPTY_RESPONSE)`; every other console error
+  still fails. (Encodes the documented "treat ERR_CONNECTION_REFUSED as infra".)
+- TEST-ONLY: no app or BUILD change (`BUILD_NUMBER` unchanged).

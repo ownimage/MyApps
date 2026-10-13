@@ -2,3 +2,22 @@
    whenever this theme is selected in Light mode. Add theme-specific overrides
    here. This sheet is only ever loaded in this mode, so selectors do not need a
    `[data-bs-theme="light"]` qualifier. */
+
+/* Slate paints the smd-tabs gradient per state in slate/bootstrap.min.css:
+   the non-active tab uses `linear-gradient(#313539,#34393d 40%,#373b40)` and
+   the active (and hover/focus) state uses
+   `linear-gradient(#44494d,#3a3f44 20%,#2e3236)`. That reads backwards, so the
+   two gradients are SWAPPED here: the non-active tab gets the gradient the
+   active state used to have, and the active tab gets the non-active one. The
+   `#smd-app` scope gives these rules an ID, so they outrank the theme's
+   `(0,5,0)` active/hover selector and the swap holds through hover/focus. */
+#smd-app smd-tabs .smd-tab-btn {
+  background-image: linear-gradient(#44494d, #3a3f44 20%, #2e3236);
+}
+#smd-app smd-tabs .smd-tab-btn.active {
+  background-image: linear-gradient(#313539, #34393d 40%, #373b40);
+}
+
+.card {
+    background: var(--bs-primary) !important;
+}

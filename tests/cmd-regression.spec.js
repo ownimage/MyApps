@@ -324,6 +324,33 @@ test.describe("CountMyDays - Regression", () => {
       expect(await page.locator("#datesEditor cmd-date-card").count()).toBe(5);
     });
 
+    test("Add Date has an empty Title placeholder and defaults the date to today", async ({ page }) => {
+      await seed(page);
+      await page.evaluate(() => openDatesEditor());
+      await page.locator("#datesEditor").getByRole("button", { name: "Add Date" }).click();
+      await expect(page.locator("#dateEditPage")).toHaveAttribute("open", "");
+
+      // Title: no default text, just a placeholder.
+      const title = page.locator("#dateNameInput");
+      await expect(title).toHaveValue("");
+      await expect(title).toHaveAttribute("placeholder", "Title");
+
+      // Annual defaults to today's day/month.
+      await expect(page.locator("#dateDaySelect")).toHaveValue(String(now.getDate()));
+      await expect(page.locator("#dateMonthSelect")).toHaveValue(String(now.getMonth() + 1));
+
+      // Once also defaults to today.
+      const pad = n => String(n).padStart(2, "0");
+      const todayDmy = pad(now.getDate()) + "/" + pad(now.getMonth() + 1) + "/" + now.getFullYear();
+      await page.locator("#dateTypeSelect").selectOption("once");
+      await expect(page.locator("#smdDatePickerAlt")).toHaveValue(todayDmy);
+
+      // Switching back to Annual keeps today's date too.
+      await page.locator("#dateTypeSelect").selectOption("annual");
+      await expect(page.locator("#dateDaySelect")).toHaveValue(String(now.getDate()));
+      await expect(page.locator("#dateMonthSelect")).toHaveValue(String(now.getMonth() + 1));
+    });
+
     test("once type uses a date input and saves the year", async ({ page }) => {
       await seed(page);
       await page.evaluate(() => openDatesEditor());
@@ -1272,7 +1299,17 @@ test.describe("CountMyDays - Regression", () => {
       const consoleErrors = [];
       const pageErrors = [];
       const badResponses = [];
-      page.on("console", (msg) => { if (msg.type() === "error") consoleErrors.push(msg.text()); });
+      page.on("console", (msg) => {
+        if (msg.type() !== "error") return;
+        const text = msg.text();
+        // Under the parallel shard load the single test server can transiently
+        // refuse a connection ("Failed to load resource: net::ERR_CONNECTION_REFUSED").
+        // That is infra saturation, not an app error - the install-retry poll
+        // below recovers from it. Keep every other console error.
+        if (/Failed to load resource/.test(text) &&
+            /net::ERR_(CONNECTION_REFUSED|CONNECTION_RESET|CONNECTION_CLOSED|NETWORK_CHANGED|EMPTY_RESPONSE)/.test(text)) return;
+        consoleErrors.push(text);
+      });
       // The poll below deliberately unregisters + re-registers the worker on a
       // failed install; Chromium surfaces that as an unhandled "Failed to update
       // a ServiceWorker" rejection. It is test-harness churn, not an app error.
