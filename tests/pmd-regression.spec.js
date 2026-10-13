@@ -3889,8 +3889,8 @@ test.describe("PlanMyDay - Regression", () => {
       await page.locator("#jobEditPage").waitFor({ state: "visible" });
       await page.locator("#jobSchedule-tab").click();
       await page.locator("#jobTimeHour").waitFor({ state: "visible" });
-      await page.locator("#jobTimeHour").selectOption("14");
-      await page.locator("#jobTimeMin").selectOption("30");
+      await pickOption(page, "#jobTimeHour", "14");
+      await pickOption(page, "#jobTimeMin", "30");
       await page.locator("#jobEditOkBtn").click();
       
       await page.locator("#jobEditPage").waitFor({ state: "hidden", timeout: 10000 });
@@ -4635,7 +4635,7 @@ test.describe("PlanMyDay - Regression", () => {
       await page.locator("#btnScheduleChange").click();
       await page.locator("#smdConfirmModal").waitFor({ state: "visible" });
       await page.locator("#schedMonthly").check();
-      await page.locator("#schedMonthlyDay").selectOption("15");
+      await pickOption(page, "#schedMonthlyDay", "15");
       await page.locator("#smdConfirmModal .smd-footer button[data-index='1']").click();
       await expect(page.locator("#jobScheduleText")).toContainText("15th");
     });
@@ -4659,8 +4659,8 @@ test.describe("PlanMyDay - Regression", () => {
       await page.locator("#btnScheduleChange").click();
       await page.locator("#smdConfirmModal").waitFor({ state: "visible" });
       await page.locator("#schedNDays").check();
-      await page.locator("#schedNInterval").selectOption("3");
-      await page.locator("#schedNOffset").selectOption("1");
+      await pickOption(page, "#schedNInterval", "3");
+      await pickOption(page, "#schedNOffset", "1");
       await page.locator("#smdConfirmModal .smd-footer button[data-index='1']").click();
       await page.locator("#smdConfirmModal").waitFor({ state: "hidden" });
       await expect(page.locator("#jobScheduleText")).toContainText("Every 3 day(s)");

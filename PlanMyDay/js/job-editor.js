@@ -158,10 +158,10 @@ function getScheduleFormHTML() {
       <div id="schedNDaysOptions" class="d-none ms-4 mb-2">
         <div class="d-flex align-items-center gap-2 mb-1 flex-wrap">
           <label class="form-label mb-0">Every</label>
-          <select class="form-select w-auto" id="schedNInterval" onchange="onScheduleNDaysChange()"></select>
+          <smd-select class="form-select w-auto" id="schedNInterval" onchange="onScheduleNDaysChange()"></smd-select>
           <label class="form-label mb-0">day(s)</label>
           <label class="form-label mb-0 ms-2">Offset</label>
-          <select class="form-select w-auto" id="schedNOffset" onchange="onScheduleNDaysChange()"></select>
+          <smd-select class="form-select w-auto" id="schedNOffset" onchange="onScheduleNDaysChange()"></smd-select>
         </div>
         <div id="schedNextDue" class="text-muted small"></div>
       </div>
@@ -191,7 +191,7 @@ function getScheduleFormHTML() {
         <label class="form-check-label" for="schedMonthly">Day of month</label>
       </div>
       <div id="schedMonthlyOptions" class="d-none ms-4 mb-2">
-        <select class="form-select w-auto" id="schedMonthlyDay"></select>
+        <smd-select class="form-select w-auto" id="schedMonthlyDay"></smd-select>
       </div>
     </div>
   `;
@@ -218,33 +218,17 @@ function openScheduleModal() {
     scheduleEl("schedDay" + i).checked = (s.days || []).includes(i);
   }
   const mSel = scheduleEl("schedMonthlyDay");
-  mSel.innerHTML = "";
-  for (let i = 1; i <= 31; i++) {
-    const opt = document.createElement("option");
-    opt.value = i;
-    opt.textContent = i;
-    if (i === (s.date || 1)) opt.selected = true;
-    mSel.appendChild(opt);
-  }
+  mSel.options = Array.from({ length: 31 }, (_, i) => ({ value: String(i + 1), label: String(i + 1) }));
+  mSel.value = String(s.date || 1);
+
   const intervalSel = scheduleEl("schedNInterval");
-  intervalSel.innerHTML = "";
-  for (let i = 2; i <= 7; i++) {
-    const opt = document.createElement("option");
-    opt.value = i;
-    opt.textContent = i;
-    if (i === (s.interval || 2)) opt.selected = true;
-    intervalSel.appendChild(opt);
-  }
+  intervalSel.options = Array.from({ length: 6 }, (_, i) => ({ value: String(i + 2), label: String(i + 2) }));
+  intervalSel.value = String(s.interval || 2);
+
   const curInterval = s.interval || 2;
   const offsetSel = scheduleEl("schedNOffset");
-  offsetSel.innerHTML = "";
-  for (let i = 0; i < curInterval; i++) {
-    const opt = document.createElement("option");
-    opt.value = i;
-    opt.textContent = i;
-    if (i === (s.offset ?? 0)) opt.selected = true;
-    offsetSel.appendChild(opt);
-  }
+  offsetSel.options = Array.from({ length: curInterval }, (_, i) => ({ value: String(i), label: String(i) }));
+  offsetSel.value = String(s.offset != null ? s.offset : 0);
   if (s.type === "ndays") onScheduleNDaysChange();
 }
 
@@ -262,14 +246,8 @@ function onScheduleNDaysChange() {
   const interval = parseInt(scheduleEl("schedNInterval").value, 10) || 2;
   const offsetSel = scheduleEl("schedNOffset");
   const currentOffset = parseInt(offsetSel.value, 10) || 0;
-  offsetSel.innerHTML = "";
-  for (let i = 0; i < interval; i++) {
-    const opt = document.createElement("option");
-    opt.value = i;
-    opt.textContent = i;
-    if (i === Math.min(currentOffset, interval - 1)) opt.selected = true;
-    offsetSel.appendChild(opt);
-  }
+  offsetSel.options = Array.from({ length: interval }, (_, i) => ({ value: String(i), label: String(i) }));
+  offsetSel.value = String(Math.min(currentOffset, interval - 1));
   const offset = parseInt(offsetSel.value, 10) || 0;
   scheduleEl("schedNextDue").textContent = getNextDueText(interval, offset);
 }
@@ -351,14 +329,14 @@ function getJobGeneralTabHTML(data, readOnly) {
         <smd-checkbox id="jobSuffixCb" ${data.suffix ? "checked" : ""} ${disabled} onchange="jobField('suffix', this.checked)">Suffix</smd-checkbox>
       </div>
       <div class="col">
-        <select class="form-select" ${disabled} onchange="jobField('dayType', this.value)">
+        <smd-select class="form-select" ${disabled} onchange="jobField('dayType', this.value)">
           <option value="dayOfYear" ${(data.dayType || "dayOfYear") === "dayOfYear" ? "selected" : ""}>Day of Year</option>
           <option value="dayOfMonth" ${data.dayType === "dayOfMonth" ? "selected" : ""}>Day of Month</option>
           <option value="dayOfWeek" ${data.dayType === "dayOfWeek" ? "selected" : ""}>Day of Week</option>
-        </select>
+        </smd-select>
       </div>
       <div class="col">
-        <select class="form-select" ${disabled} onchange="jobField('mod', this.value)">
+        <smd-select class="form-select" ${disabled} onchange="jobField('mod', this.value)">
           <option value="" ${!data.mod ? "selected" : ""}>None</option>
           <option value="2" ${data.mod === "2" ? "selected" : ""}>2</option>
           <option value="3" ${data.mod === "3" ? "selected" : ""}>3</option>
@@ -366,7 +344,7 @@ function getJobGeneralTabHTML(data, readOnly) {
           <option value="5" ${data.mod === "5" ? "selected" : ""}>5</option>
           <option value="6" ${data.mod === "6" ? "selected" : ""}>6</option>
           <option value="7" ${data.mod === "7" ? "selected" : ""}>7</option>
-        </select>
+        </smd-select>
       </div>
     </div>
   `;
@@ -406,22 +384,22 @@ function getJobScheduleTabHTML(data, readOnly) {
       <div class="col">
         <label class="form-label">Schedule Time</label>
         <div class="d-flex gap-2">
-          <select class="form-select w-auto" id="jobTimeHour" ${disabled} onchange="jobTimeChanged()">
+          <smd-select class="form-select w-auto" id="jobTimeHour" ${disabled} onchange="jobTimeChanged()">
             <option value="" ${!data.time ? "selected" : ""}>-</option>
             ${Array.from({length: 24}, (_, i) => {
               const h = String(i).padStart(2, "0");
               const cur = data.time ? data.time.split(":")[0] : "";
               return `<option value="${h}" ${cur === h ? "selected" : ""}>${h}</option>`;
             }).join("")}
-          </select>
+          </smd-select>
           <span class="align-self-center">:</span>
-          <select class="form-select w-auto" id="jobTimeMin" ${disabled} onchange="jobTimeChanged()">
+          <smd-select class="form-select w-auto" id="jobTimeMin" ${disabled} onchange="jobTimeChanged()">
             <option value="" ${!data.time ? "selected" : ""}>-</option>
             <option value="00" ${data.time && data.time.split(":")[1] === "00" ? "selected" : ""}>00</option>
             <option value="15" ${data.time && data.time.split(":")[1] === "15" ? "selected" : ""}>15</option>
             <option value="30" ${data.time && data.time.split(":")[1] === "30" ? "selected" : ""}>30</option>
             <option value="45" ${data.time && data.time.split(":")[1] === "45" ? "selected" : ""}>45</option>
-          </select>
+          </smd-select>
         </div>
       </div>
     </div>
