@@ -3711,3 +3711,22 @@ Techniques / gotchas:
   of the active and inactive `.smd-tab-btn` equals the swapped literals). Probe
   confirmed both modes.
 - `BUILD_NUMBER` -> `202610131043` via `npm run bump:build`.
+
+### 2026-10-13 (b) - auto-hide nav now closes an open hamburger dropdown
+- BUG (user): with auto-hide menu on, tapping the hamburger opened the dropdown,
+  but when the nav timed out and slid away the dropdown remained over the page.
+  ROOT CAUSE: the dropdown is a CHILD of `#mainNav`, but it is much TALLER (a
+  ~340px menu vs a ~65px nav). `hideNav()` adds `.nav-hidden` (translateY(-100%)),
+  which moves a 65px nav fully off screen but only shifts the tall menu part-way,
+  so the button vanished while the menu lingered (probe: menu y went 59 -> -6,
+  still on screen).
+- FIX (`shared/js/smd-settings.js`): new `closeMainNavDropdown()` (uses
+  `bootstrap.Dropdown.getInstance(#btnMainMenu).hide()`, with a manual
+  `remove("show")` + `aria-expanded=false` fallback) and `hideNav()` calls it
+  before adding `.nav-hidden`. Only the hamburger menu is affected; other
+  `.dropdown-menu`s are untouched.
+- TDD: new pmd-regression test "Auto-Hide Nav Behavior > nav auto-hide also closes
+  an open hamburger dropdown" (open the menu, `hideNav()`, assert `nav-hidden` AND
+  the menu is not visible). Probe also confirmed the REAL 4s timer path (menu
+  `display:none`, `aria-expanded=false` after the timeout with no interaction).
+- `BUILD_NUMBER` -> `202610131100` via `npm run bump:build`.

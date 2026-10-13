@@ -5229,6 +5229,16 @@ test.describe("PlanMyDay - Regression", () => {
       });
       expect(navHidden3).toBe(false);
     });
+
+    test("nav auto-hide also closes an open hamburger dropdown", async ({ page }) => {
+      await page.evaluate(() => localStorage.setItem("planmydays_autoHideMenu", "true"));
+      await page.reload();
+      await page.locator("#btnMainMenu").click();
+      await expect(page.locator("#mainNav .dropdown-menu")).toBeVisible();
+      await page.evaluate(() => hideNav());
+      expect(await page.evaluate(() => document.getElementById("mainNav").classList.contains("nav-hidden"))).toBe(true);
+      await expect(page.locator("#mainNav .dropdown-menu")).not.toBeVisible();
+    });
   });
 
   // ── Dev Mode: Dev Today Override ───────────────────────────

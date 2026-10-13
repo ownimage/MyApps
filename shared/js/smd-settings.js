@@ -294,12 +294,36 @@ function showNav() {
   if (nav) nav.classList.remove("nav-hidden");
 }
 
+// Close the hamburger dropdown if it is open. The dropdown is a child of
+// #mainNav but is TALLER than the nav (the menu is ~340px, the nav ~65px), so
+// translating the nav up with .nav-hidden only shifts the menu part-way off
+// screen - the button vanishes while the menu lingers over the page. So when the
+// nav auto-hides, close the dropdown explicitly.
+function closeMainNavDropdown() {
+  const btn = document.getElementById("btnMainMenu");
+  if (!btn) return;
+  const menu = btn.parentElement ? btn.parentElement.querySelector(".dropdown-menu") : null;
+  if (!menu || !menu.classList.contains("show")) return;
+  const Dropdown = window.bootstrap && window.bootstrap.Dropdown;
+  const instance = Dropdown && Dropdown.getInstance ? Dropdown.getInstance(btn) : null;
+  if (instance) {
+    instance.hide();
+    return;
+  }
+  // Fallback when the Bootstrap Dropdown API is unavailable.
+  menu.classList.remove("show");
+  btn.setAttribute("aria-expanded", "false");
+  const wrap = btn.closest(".dropdown");
+  if (wrap) wrap.classList.remove("show");
+}
+
 function hideNav() {
   const nav = document.getElementById("mainNav");
   if (!nav) return;
   // Any open <smd-page> means the user is inside an editor/wizard: keep the nav.
   const anyPageOpen = typeof document.querySelector === "function" && document.querySelector("smd-page:not(.d-none)");
   if (!anyPageOpen) {
+    closeMainNavDropdown();
     nav.classList.add("nav-hidden");
     autoHideCooldown = true;
     setTimeout(() => { autoHideCooldown = false; }, 600);
