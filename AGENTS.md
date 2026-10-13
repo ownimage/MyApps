@@ -3748,3 +3748,29 @@ Techniques / gotchas:
   `d/m/Y` after picking Once; switching back to Annual still today). Dates editor
   suite 11/11 (user runs the full regression later).
 - `BUILD_NUMBER` -> `202610131105` via `npm run bump:build`.
+
+### 2026-10-13 (d) - two flaky tests diagnosed + hardened (test-only)
+- The full run had two tests fail once then pass on retry:
+  `cmd-regression` "Sub-path deployment > no console errors ... SW precache" and
+  `pmd-regression` "Theme colours > slate swaps the active/inactive tab gradients".
+- SLATE (test race, NOT the CSS): `applyTheme()` sets the override `<link>`'s
+  href synchronously, but the browser keeps the PREVIOUS CSSStyleSheet in
+  `link.sheet` for a tick (probe: `href` reads slate.dark.css while `link.sheet`
+  is still the old sheet with `cssRules.length > 0`). So the old wait
+  ("href matches AND link.sheet.cssRules > 0") passed BEFORE the new sheet was
+  applied and the read caught the theme's UNSWAPPED gradient. FIX: the test now
+  `expect.poll`s the COMPUTED `background-image` of `.smd-tab-btn.active` /
+  `:not(.active)` until it equals the expected swapped literal (15s) - a wrong or
+  missing override still fails with a clear diff. Verified non-vacuous by
+  mutating `slate.dark.css` (test failed, then reverted). GENERAL LESSON: after a
+  theme/mode swap, assert the APPLIED computed style, never the link/`sheet` (a
+  stale sheet makes a link-based wait pass early).
+- SUB-PATH SW (infra): the only console error was
+  "Failed to load resource: net::ERR_CONNECTION_REFUSED" - the single
+  `tests/serve-tests.mjs` Vite server refusing a connection under parallel shard
+  load (the test's own install-retry poll recovers). FIX: the console handler now
+  ignores transient network-level
+  `Failed to load resource: net::ERR_(CONNECTION_REFUSED|CONNECTION_RESET|
+  CONNECTION_CLOSED|NETWORK_CHANGED|EMPTY_RESPONSE)`; every other console error
+  still fails. (Encodes the documented "treat ERR_CONNECTION_REFUSED as infra".)
+- TEST-ONLY: no app or BUILD change (`BUILD_NUMBER` unchanged).
