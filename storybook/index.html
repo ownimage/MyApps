@@ -372,11 +372,11 @@
           <smd-button variant="primary">Open modal</smd-button>
         </div>
         <div class="sb-controls d-flex flex-wrap align-items-center gap-3 mt-3 small">
-          <label>Buttons: <select class="form-select form-select-sm w-auto" id="ctrl-modal-buttons">
+          <label>Buttons: <smd-select class="form-select form-select-sm w-auto" id="ctrl-modal-buttons">
             <option value="ok">OK</option>
             <option value="okcancel" selected>OK / Cancel</option>
             <option value="3">OK / Cancel / Danger</option>
-          </select></label>
+          </smd-select></label>
         </div>
         <div class="sb-log mt-3 small font-monospace text-success border rounded bg-body px-2 py-1" id="log-smd-modal">events: none yet</div>
       `,
@@ -494,20 +494,20 @@
         <div class="sb-controls d-flex flex-wrap align-items-center gap-3 mt-3 small">
           <label>Name: <input class="form-control form-control-sm w-auto" type="text" id="ctrl-image-name" value="Star"></label>
           <label>Theme:
-            <select class="form-select form-select-sm w-auto" id="ctrl-image-theme">
+            <smd-select class="form-select form-select-sm w-auto" id="ctrl-image-theme">
               <option value="auto">auto</option>
               <option value="light">light</option>
               <option value="dark">dark</option>
-            </select>
+            </smd-select>
           </label>
           <label>Size:
-            <select class="form-select form-select-sm w-auto" id="ctrl-image-size">
+            <smd-select class="form-select form-select-sm w-auto" id="ctrl-image-size">
               <option value="32">32</option>
               <option value="64">64</option>
               <option value="80" selected>80</option>
               <option value="100">100</option>
               <option value="0">auto</option>
-            </select>
+            </smd-select>
           </label>
           <button type="button" class="btn btn-primary btn-sm" id="btn-image-apply">Apply</button>
         </div>

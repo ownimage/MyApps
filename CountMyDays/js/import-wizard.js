@@ -1,9 +1,8 @@
 // CountMyDays — import wizard (JSON file / sample data / QR) rendered on
 // #importWizardPage, plus the QR camera import page. The wizard steps mirror
-// the original modal flow, with native <select>s instead of Bootstrap
-// dropdowns (Bootstrap JS does not work inside shadow roots).
+// the original modal flow, now using the shared <smd-select> control.
 
-// <import-wizard-page> content is light DOM (native <select>s work in the
+// <import-wizard-page> content is light DOM (shared components work in the
 // document, no shadow-root workaround needed).
 let importWizardState = null;
 

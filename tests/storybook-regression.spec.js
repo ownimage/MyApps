@@ -69,10 +69,14 @@ test.describe("Storybook - Regression", () => {
     const storyStyle = await page.locator("head > style").first().textContent();
     expect(storyStyle).not.toMatch(/box-sizing|header\.sb-header|nav\.sb-nav|section\.sb-section|\.sb-controls (?:input|button)/);
 
-    const controls = page.locator(".sb-controls input, .sb-controls select, .sb-controls button");
+    const controls = page.locator(".sb-controls input, .sb-controls select, .sb-controls smd-select, .sb-controls button:not(.smd-select-btn)");
     expect(await controls.evaluateAll((nodes) => nodes.every((node) => {
       if (node.matches("input[type='checkbox'], input[type='radio']")) return node.classList.contains("form-check-input");
       if (node.matches("input[type='text']")) return node.classList.contains("form-control") && node.classList.contains("form-control-sm");
+      if (node.matches("smd-select")) {
+        const b = node.querySelector(".smd-select-btn");
+        return !!b && b.classList.contains("form-select") && b.classList.contains("form-select-sm");
+      }
       if (node.matches("select")) return node.classList.contains("form-select") && node.classList.contains("form-select-sm");
       return node.classList.contains("btn") && node.classList.contains("btn-primary") && node.classList.contains("btn-sm");
     }))).toBe(true);
@@ -186,7 +190,7 @@ test.describe("Storybook - Regression", () => {
 
     await page.goto("/storybook/cardViewer.html");
     await expect(page.locator("body")).toHaveAttribute("data-card-viewer-ready", "true");
-    await expect(page.locator("#cardSelect option")).toHaveText([
+    await expect(page.locator("#cardSelect .smd-select-item")).toHaveText([
       "Job Today Card",
       "Job Summary Card (stream)",
       "Job Summary Card (search)",
@@ -197,11 +201,11 @@ test.describe("Storybook - Regression", () => {
       "QR Link Card",
       "Image Card"
     ]);
-    await expect(page.locator("#themeSelect")).toHaveValue("all");
-    await expect(page.locator("#themeSelect option")).toHaveCount(28);
-    await expect(page.locator("#themeSelect option").first()).toHaveText("All themes");
+    await expect(page.locator("#themeSelect")).toHaveAttribute("value", "all");
+    await expect(page.locator("#themeSelect .smd-select-item")).toHaveCount(28);
+    await expect(page.locator("#themeSelect .smd-select-item").first()).toHaveText("All themes");
 
-    await page.locator("#themeSelect").selectOption("morph");
+    await pickOption(page, "#themeSelect", "morph");
     await expect(page.locator(".theme-row")).toHaveCount(1);
     await expect(page.locator("iframe.preview-frame")).toHaveCount(2);
     expect(await page.locator("iframe.preview-frame").evaluateAll((frames) => frames.every((frame) => (
@@ -210,9 +214,9 @@ test.describe("Storybook - Regression", () => {
     await expect(page.locator("#viewerStatus")).toContainText("Morph");
     await page.reload();
     await expect(page.locator("body")).toHaveAttribute("data-card-viewer-ready", "true");
-    await expect(page.locator("#themeSelect")).toHaveValue("morph");
+    await expect(page.locator("#themeSelect")).toHaveAttribute("value", "morph");
     await expect(page.locator(".theme-row")).toHaveCount(1);
-    await page.locator("#themeSelect").selectOption("all");
+    await pickOption(page, "#themeSelect", "all");
 
     await expect(page.locator(".theme-row")).toHaveCount(27);
     await expect(page.locator("iframe.preview-frame")).toHaveCount(54);
@@ -260,7 +264,7 @@ test.describe("Storybook - Regression", () => {
       ["smd-image-card", "smd-image-card > .card"]
     ];
     for (const [cardId, selector] of recipes) {
-      await page.locator("#cardSelect").selectOption(cardId);
+      await pickOption(page, "#cardSelect", cardId);
       const firstFrame = page.frameLocator('iframe[data-theme="brite"][data-mode="light"]');
       await expect(firstFrame.locator(selector)).toBeVisible();
     }

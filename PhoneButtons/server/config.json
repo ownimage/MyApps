@@ -13,16 +13,16 @@
         {},
         {},
         {
-          "name": "Prev slide",
           "image1": "bi:skip-backward-fill",
           "image2": "",
-          "key": "left"
+          "key": "left",
+          "name": "Prev slide"
         },
         {
-          "name": "Next slide",
           "image1": "bi:skip-forward-fill",
           "image2": "",
-          "key": "right"
+          "key": "right",
+          "name": "Next slide"
         }
       ]
     },

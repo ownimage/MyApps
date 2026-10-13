@@ -69,7 +69,9 @@ class SmdSelect extends HTMLElement {
     }
     // The control SHAPE comes from `.form-select` on the inner button, so drop a
     // `form-select`/`form-select-sm` left on the host by a <select> -> <smd-select>
-    // tag swap (otherwise the host double-styles). `.w-auto` is kept.
+    // tag swap (otherwise the host double-styles). `.w-auto` is kept; a small
+    // control (`.form-select-sm` or size="small") moves to the button.
+    this._small = this.classList.contains("form-select-sm") || this.getAttribute("size") === "small";
     this.classList.remove("form-select", "form-select-sm");
     this._readOptionChildren();
     this._build();
@@ -191,6 +193,7 @@ class SmdSelect extends HTMLElement {
     if (!btn || !label || !menu) return;
 
     btn.disabled = this.hasAttribute('disabled');
+    btn.classList.toggle("form-select-sm", !!this._small);
 
     if (!this._value && this._options.length) this._value = String(this._options[0].value);
     const current = this._options.find((o) => String(o.value) === String(this._value)) || this._options[0] || null;

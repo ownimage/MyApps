@@ -54,11 +54,11 @@
       </div>
       <div class="viewer-control">
         <label class="form-label small fw-semibold" for="cardSelect">Card</label>
-        <select class="form-select" id="cardSelect"></select>
+        <smd-select class="form-select" id="cardSelect"></smd-select>
       </div>
       <div class="viewer-control">
         <label class="form-label small fw-semibold" for="themeSelect">Theme</label>
-        <select class="form-select" id="themeSelect"></select>
+        <smd-select class="form-select" id="themeSelect"></smd-select>
       </div>
       <a class="btn btn-outline-secondary" href="index.html">Back to Storybook</a>
     </div>
@@ -76,6 +76,7 @@
   <script src="../shared/js/build-number.js"></script>
   <script src="../shared/js/smd-app.js"></script>
   <script src="../shared/js/smd-settings.js"></script>
+  <script src="../shared/js/components/smd-select.js"></script>
   <script>
     (() => {
       "use strict";
@@ -273,37 +274,15 @@ ${scripts}
       }
 
       function populateCards() {
-        const groups = new Map();
-        Object.entries(cardRecipes).forEach(([id, recipe]) => {
-          if (!groups.has(recipe.group)) groups.set(recipe.group, []);
-          groups.get(recipe.group).push({ id, label: recipe.label });
-        });
-        groups.forEach((cards, label) => {
-          const group = document.createElement("optgroup");
-          group.label = label;
-          cards.forEach((card) => {
-            const option = document.createElement("option");
-            option.value = card.id;
-            option.textContent = card.label;
-            group.appendChild(option);
-          });
-          cardSelect.appendChild(group);
-        });
+        // <smd-select> is data-driven (no optgroup support), so flatten the groups.
+        cardSelect.options = Object.entries(cardRecipes).map(([id, recipe]) => ({ value: id, label: recipe.label }));
         const saved = localStorage.getItem("cardViewerCard");
         cardSelect.value = Object.prototype.hasOwnProperty.call(cardRecipes, saved) ? saved : defaultCard;
       }
 
       function populateThemes() {
-        const allOption = document.createElement("option");
-        allOption.value = allThemes;
-        allOption.textContent = "All themes";
-        themeSelect.appendChild(allOption);
-        Object.keys(themeConfig).forEach((theme) => {
-          const option = document.createElement("option");
-          option.value = theme;
-          option.textContent = displayName(theme);
-          themeSelect.appendChild(option);
-        });
+        themeSelect.options = [{ value: allThemes, label: "All themes" }]
+          .concat(Object.keys(themeConfig).map((theme) => ({ value: theme, label: displayName(theme) })));
         const saved = localStorage.getItem("cardViewerTheme");
         themeSelect.value = saved === allThemes || Object.prototype.hasOwnProperty.call(themeConfig, saved) ? saved : allThemes;
       }
