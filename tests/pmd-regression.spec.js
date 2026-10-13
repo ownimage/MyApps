@@ -941,6 +941,36 @@ test.describe("PlanMyDay - Regression", () => {
       }
     });
 
+    test("slate swaps the active/inactive tab gradients in both modes", async ({ page }) => {
+      // slate/bootstrap.min.css paints the non-active tab with
+      // #313539/#34393d/#373b40 and the active tab with #44494d/#3a3f44/#2e3236,
+      // which reads backwards. slate.<mode>.css swaps them.
+      const ACTIVE = "linear-gradient(rgb(49, 53, 57), rgb(52, 57, 61) 40%, rgb(55, 59, 64))";
+      const INACTIVE = "linear-gradient(rgb(68, 73, 77), rgb(58, 63, 68) 20%, rgb(46, 50, 54))";
+      for (const mode of ["light", "dark"]) {
+        await page.evaluate(({ theme, mode }) => applyTheme(theme, mode), { theme: "slate", mode });
+        await page.waitForFunction(({ theme, mode }) => {
+          const link = document.getElementById("theme-override-specific");
+          if (!link) return false;
+          const href = link.getAttribute("href") || "";
+          return href.indexOf(theme + "." + mode + ".css") !== -1 && !!link.sheet && link.sheet.cssRules.length > 0;
+        }, { theme: "slate", mode }, { timeout: 10000 });
+        await page.evaluate(() => openSettings());
+        await expect(page.locator("#settingsPage smd-tabs .smd-tab-btn.active")).toBeVisible();
+        const gradients = await page.evaluate(() => {
+          const active = document.querySelector("#settingsPage smd-tabs .smd-tab-btn.active");
+          const inactive = document.querySelector("#settingsPage smd-tabs .smd-tab-btn:not(.active)");
+          return {
+            active: getComputedStyle(active).backgroundImage,
+            inactive: getComputedStyle(inactive).backgroundImage
+          };
+        });
+        expect(gradients.active, mode).toBe(ACTIVE);
+        expect(gradients.inactive, mode).toBe(INACTIVE);
+        await page.evaluate(() => closeSettings());
+      }
+    });
+
     test("modal secondary buttons match the Bootswatch button colours", async ({ page }) => {
       await setTheme(page, "cerulean");
       await page.evaluate(() => { openStreamsEditor(); confirmDeleteStream(0); });

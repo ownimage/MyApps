@@ -3688,3 +3688,26 @@ Techniques / gotchas:
   caches `countmydays_google_cal`, and re-renders today's cards. cmd-regression
   full 57/57.
 - `BUILD_NUMBER` -> `202610120948` via `npm run bump:build`.
+
+### 2026-10-13 - slate theme: swapped the active/inactive smd-tabs gradients
+- BUG (user): on the `slate` theme the smd-tabs active/non-active styling read
+  backwards. `shared/css/themes/slate/bootstrap.min.css` (Bootswatch, NEVER
+  edited) paints the non-active tab `.nav-tabs .nav-link` with
+  `linear-gradient(#313539,#34393d 40%,#373b40)` and the active/hover state
+  (`.nav-tabs .nav-link:not([disabled]):not(.disabled).active|:active|:focus|:hover`)
+  with `linear-gradient(#44494d,#3a3f44 20%,#2e3236)`.
+- FIX (user request): swap them in `shared/css/themes/slate/slate.light.css` and
+  `slate.dark.css` (the same swap in both modes - Slate ships ONE gradient set):
+  `#smd-app smd-tabs .smd-tab-btn { background-image: <the old active gradient> }`
+  and `#smd-app smd-tabs .smd-tab-btn.active { background-image: <the old
+  non-active gradient> }`. The `#smd-app` scope gives the rules an ID, so they
+  outrank the theme's `(0,5,0)` active/hover selector and the swap HOLDS through
+  hover/focus (no extra hover rules needed). This is a per-theme override file
+  carrying COMPONENT SELECTORS (like `simplex`/`cyborg`), which the 2026-09-26
+  "variables only" guidance discouraged - the user asked for it here.
+- TDD: new `pmd-regression` "Theme colours" test "slate swaps the active/inactive
+  tab gradients in both modes" (applyTheme slate light/dark, wait for
+  `#theme-override-specific` sheet, then assert the computed `background-image`
+  of the active and inactive `.smd-tab-btn` equals the swapped literals). Probe
+  confirmed both modes.
+- `BUILD_NUMBER` -> `202610131043` via `npm run bump:build`.
