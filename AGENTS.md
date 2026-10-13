@@ -437,6 +437,15 @@ Architecture:
 - `hideNav()` (shared smd-settings.js) now hides when NO
   `smd-page:not(.d-none)` is open — generic for any app's page set (was a
   hardcoded PlanMyDay id list).
+- PMD TODAY TABS OWN THEIR CONTENT (2026-10-13): the PlanMyDay main-view split-list
+  tabs (`#todayTabs`) used to set `hide-panels` and render the job list as a SIBLING
+  below the tab bar. They now render `#countdownScrollBody` > `#todayCardList`
+  INSIDE the ACTIVE `.tab-content > .smd-tab-panel` (no `hide-panels`).
+  `PlanMyDay/js/main-view.js` injects `injectTodayTabsLayout()` making
+  `#todayTabsWrap` / `#todayTabs` / `.tab-content` / `.smd-tab-panel.active` a flex
+  column with `min-height:0`, so the tab bar stays put and the active panel's body
+  scrolls (the component's own sheet only sets `display:block`). The `hide-panels`
+  attribute stays supported in smd-tabs but is no longer used by any app.
 - `smd-page` GOTCHA: a footer button auto-hides its page BEFORE dispatching
   `smd-page-action` unless the button config sets `close: false`. Any button
   whose handler validates or decides (Add/OK/etc.) MUST use `close: false` and
@@ -3863,3 +3872,25 @@ Techniques / gotchas:
   cmd-regression 58/58, storybook-regression 8/8. Full regression left to the user.
 - `BUILD_NUMBER` NOT bumped — bump before shipping (`npm run bump:build`); all
   edited sheets are precached SHARED_ASSETs.
+
+### 2026-10-13 (g) - PlanMyDay main view: job list now renders inside the active tab panel
+- BUG (user): on the PlanMyDay main screen with Split List on, the job list was
+  rendered BELOW the `smd-tabs` `.tab-content` (the panels were empty; the app set
+  `hide-panels` and appended `#countdownScrollBody` as a sibling). The user wants
+  the content INSIDE the tab panel.
+- FIX (`PlanMyDay/js/main-view.js`): drop `hide-panels`; after the tabs render,
+  append `#countdownScrollBody` into `#todayTabs > .tab-content >
+  .smd-tab-panel.active`. New `injectTodayTabsLayout()` injects a flex chain
+  (`#todayTabsWrap` / `#todayTabs` / `.tab-content` / `.smd-tab-panel.active` = flex
+  column with `min-height:0`) so the tab bar stays put and the ACTIVE panel scrolls
+  its body — the smd-tabs sheet only sets `display:block`, so this app-specific
+  layering lives in the app. Non-split mode still appends the scroll body to
+  `#countdownContainer`.
+- TDD: new pmd-regression `Split List` test "the job list renders inside the active
+  tab panel, not below it" (RED first: scrollInPanel false; GREEN after). Asserts
+  `#countdownScrollBody`/`#todayCardList` are inside the active panel and
+  `hide-panels` is gone.
+- Verified: Split List 7/7, Main View + Coverage 163/163, pmd-touch 6/6, Theme
+  colours 13/13. Full regression left to the user.
+- `BUILD_NUMBER` NOT bumped — bump before shipping (`npm run bump:build`);
+  `PlanMyDay/js/main-view.js` is a precached `APPS["PlanMyDay/"]` asset.

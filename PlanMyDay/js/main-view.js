@@ -48,6 +48,21 @@ function ensureTodayList() {
   localStorage.setItem(smdKey("last_gen"), today);
 }
 
+// PlanMyDay today "tab" layout: with the split list the tabs fill the container
+// and the ACTIVE panel scrolls its own body, so the tab bar stays put and the job
+// list lives inside .tab-content (not as a sibling below it). The component's own
+// sheet only sets `display:block`, so this app-specific flex chain is injected.
+function injectTodayTabsLayout() {
+  if (typeof injectSmdComponentStyle !== "function") return;
+  injectSmdComponentStyle("pmd-today-tabs-layout", `
+    #todayTabsWrap { display: flex; flex-direction: column; flex-grow: 1; min-height: 0; }
+    #todayTabs { display: flex; flex-direction: column; flex-grow: 1; min-height: 0; }
+    #todayTabs .tab-content { display: flex; flex-direction: column; flex-grow: 1; min-height: 0; }
+    #todayTabs .tab-content > .smd-tab-panel { flex-grow: 1; min-height: 0; }
+    #todayTabs .tab-content > .smd-tab-panel.active { display: flex; flex-direction: column; }
+  `);
+}
+
 function renderMain() {
   const container = document.getElementById("countdownContainer");
   if (!container) return;
@@ -119,17 +134,15 @@ function renderMain() {
 
   if (splitList) {
     const tabWrapper = document.createElement("div");
-    tabWrapper.className = "mb-1 flex-shrink-0";
+    tabWrapper.id = "todayTabsWrap";
+    tabWrapper.className = "mb-1";
     const tabsEl = document.createElement("smd-tabs");
     tabsEl.id = "todayTabs";
     tabsEl.tabs = [
-      { title: "Progress", content: "" },
-      { title: "Maintenance", content: "" }
+      { title: "Progress" },
+      { title: "Maintenance" }
     ];
     tabsEl.activeIndex = tab === "maintenance" ? 1 : 0;
-    // smd-tabs is light DOM; hiding its panels is an attribute, not an injected
-    // style (shared/css/styles.css: smd-tabs[hide-panels] .smd-tab-panel).
-    tabsEl.setAttribute("hide-panels", "");
     tabsEl.addEventListener("smd-tabs-change", function(e) {
       const tabTitle = e.detail && e.detail.tab ? (e.detail.tab.title || "") : "";
       container.dataset.todayTab = tabTitle.toLowerCase() === "maintenance" ? "maintenance" : "progress";
@@ -137,6 +150,7 @@ function renderMain() {
     });
     tabWrapper.appendChild(tabsEl);
     container.appendChild(tabWrapper);
+    injectTodayTabsLayout();
 
     matchingStreams = new Set();
     allJobs.forEach(({ streamIdx }) => {
@@ -145,10 +159,16 @@ function renderMain() {
     });
   }
 
+  // The split-list job list is rendered INSIDE the active tab panel (the panel
+  // owns its content, so it lives in .tab-content rather than as a sibling below
+  // the tab bar); without tabs it is the container's own scrolling body.
+  const todayTabs = splitList ? document.getElementById("todayTabs") : null;
+  const scrollHost = (todayTabs && todayTabs.querySelector(".tab-content > .smd-tab-panel.active")) || container;
+
   const scrollBody = document.createElement("div");
   scrollBody.id = "countdownScrollBody";
   scrollBody.className = "flex-grow-1 overflow-auto";
-  container.appendChild(scrollBody);
+  scrollHost.appendChild(scrollBody);
 
   const cardContainer = document.createElement("div");
   cardContainer.id = "todayCardList";

@@ -2865,6 +2865,29 @@ test.describe("PlanMyDay - Regression", () => {
       await expect(reportCard).toBeHidden();
     });
 
+    test("the job list renders inside the active tab panel, not below it", async ({ page }) => {
+      await seedTodayList(page);
+      await page.evaluate(() => localStorage.setItem("planmydays_splitList", "true"));
+      await page.reload();
+      await page.waitForSelector("#todayCardList .today-drag-card");
+      const nesting = await page.evaluate(() => {
+        const tabs = document.getElementById("todayTabs");
+        const panel = tabs && tabs.querySelector(".tab-content > .smd-tab-panel.active");
+        const list = document.getElementById("todayCardList");
+        const scrollBody = document.getElementById("countdownScrollBody");
+        return {
+          hidePanels: tabs ? tabs.hasAttribute("hide-panels") : null,
+          panelExists: !!panel,
+          scrollInPanel: !!(panel && scrollBody && panel.contains(scrollBody)),
+          listInPanel: !!(panel && list && panel.contains(list))
+        };
+      });
+      expect(nesting.panelExists).toBe(true);
+      expect(nesting.scrollInPanel).toBe(true);
+      expect(nesting.listInPanel).toBe(true);
+      expect(nesting.hidePanels).toBe(false);
+    });
+
     test("tab bar is visible above the job list when many jobs overflow", async ({ page }) => {
       // Seed a stream with 20 jobs and split list enabled
       const jobs = Array.from({ length: 20 }, (_, i) => ({
