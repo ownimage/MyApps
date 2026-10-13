@@ -2,3 +2,13 @@
    whenever this theme is selected in Dark mode. Add theme-specific overrides
    here. This sheet is only ever loaded in this mode, so selectors do not need a
    `[data-bs-theme="dark"]` qualifier. */
+
+/* Lux keeps the field SURFACE light (#f7f7f9) in dark mode. Bootswatch only
+   re-colours `.form-control` for dark (`[data-bs-theme=dark] .form-control` ->
+   #55595c); `.form-select` keeps `color: var(--bs-body-color)` (#eceeef), i.e.
+   white on the near-white field. The shared <smd-select> and
+   <smd-image-dropdown> buttons are `.form-select`, so force the text lux uses
+   for its own dark `.form-control` (`--bs-gray-700` is lux's #55595c). */
+#smd-app .form-select {
+  color: var(--bs-gray-700);
+}

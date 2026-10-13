@@ -16,6 +16,11 @@
 const smdSelectTemplate = document.createElement('template');
 smdSelectTemplate.innerHTML = '<button type="button" class="form-select smd-select-btn" aria-haspopup="listbox" aria-expanded="false"><span class="smd-select-label"></span></button><ul class="smd-select-menu list-unstyled rounded shadow-sm mb-0" role="listbox" hidden></ul>';
 
+// Only ONE <smd-select> menu may be open at a time (like a native <select>
+// popup): the most recently opened instance is tracked here, so opening a
+// second one closes the first.
+let _openSelect = null;
+
 class SmdSelect extends HTMLElement {
   static get observedAttributes() {
     return ['disabled', 'value'];
@@ -163,11 +168,14 @@ class SmdSelect extends HTMLElement {
     const menu = this.querySelector('.smd-select-menu');
     const btn = this.querySelector('.smd-select-btn');
     if (!menu) return;
-    menu.hidden = !menu.hidden;
-    if (btn) btn.setAttribute('aria-expanded', String(!menu.hidden));
+    const willOpen = menu.hidden;
+    if (willOpen && _openSelect && _openSelect !== this) _openSelect._closeMenu();
+    if (willOpen) _openSelect = this;
+    menu.hidden = !willOpen;
+    if (btn) btn.setAttribute('aria-expanded', String(willOpen));
     // When the menu opens UNDER the pointer, the item under it gets no
     // `mouseenter`; highlight whichever row the pointer is already over.
-    if (!menu.hidden) requestAnimationFrame(() => this._syncHoverFromPointer());
+    if (willOpen) requestAnimationFrame(() => this._syncHoverFromPointer());
   }
 
   _syncHoverFromPointer() {
@@ -179,6 +187,7 @@ class SmdSelect extends HTMLElement {
   }
 
   _closeMenu() {
+    if (_openSelect === this) _openSelect = null;
     const menu = this.querySelector('.smd-select-menu');
     if (!menu || menu.hidden) return;
     menu.hidden = true;

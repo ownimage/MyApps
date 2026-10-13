@@ -2,3 +2,11 @@
    whenever this theme is selected in Dark mode. Add theme-specific overrides
    here. This sheet is only ever loaded in this mode, so selectors do not need a
    `[data-bs-theme="dark"]` qualifier. */
+
+/* Morph keeps the field SURFACE light (#f0f5fa) in dark mode while
+   `--bs-body-color` flips to #dee2e6, so fields would be light-on-light. Use the
+   same field text as morph light (`--bs-gray-700` is morph's #7b8ab8). */
+#smd-app .form-control,
+#smd-app .form-select {
+  color: var(--bs-gray-700);
+}

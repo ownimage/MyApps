@@ -954,13 +954,18 @@ test.describe("PlanMyDay - Regression", () => {
     test("slate swaps the active/inactive tab gradients in both modes", async ({ page }) => {
       // slate/bootstrap.min.css paints the non-active tab with
       // #313539/#34393d/#373b40 and the active tab with #44494d/#3a3f44/#2e3236,
-      // which reads backwards. slate.<mode>.css swaps them.
+      // which reads backwards. slate.<mode>.css swaps them (every stop is derived
+      // from slate's --bs-gray-800 via color-mix, so there is no hardcoded hex).
       const ACTIVE = "linear-gradient(rgb(49, 53, 57), rgb(52, 57, 61) 40%, rgb(55, 59, 64))";
       const INACTIVE = "linear-gradient(rgb(68, 73, 77), rgb(58, 63, 68) 20%, rgb(46, 50, 54))";
       const gradient = (selector) => page.evaluate((sel) => {
         const el = document.querySelector(sel);
         return el ? getComputedStyle(el).backgroundImage : "";
       }, selector);
+      // Chromium serialises a color-mix() stop as `color(srgb r g b)` (0..1
+      // channels); normalise to rgb(0..255) so the assertion is serialisation-proof.
+      const norm = (g) => g.replace(/color\(srgb\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)\)/g,
+        (_, r, gg, b) => "rgb(" + [r, gg, b].map((v) => Math.round(parseFloat(v) * 255)).join(", ") + ")");
       for (const mode of ["light", "dark"]) {
         await page.evaluate(({ theme, mode }) => applyTheme(theme, mode), { theme: "slate", mode });
         await page.evaluate(() => openSettings());
@@ -970,86 +975,122 @@ test.describe("PlanMyDay - Regression", () => {
         // wait on href/sheet can pass a tick before the new CSS is applied (the
         // flake seen in a full run). A genuinely wrong or missing override still
         // fails here after the timeout.
-        await expect.poll(() => gradient("#settingsPage smd-tabs .smd-tab-btn.active"), { timeout: 15000, message: mode }).toBe(ACTIVE);
-        await expect.poll(() => gradient("#settingsPage smd-tabs .smd-tab-btn:not(.active)"), { timeout: 15000 }).toBe(INACTIVE);
+        await expect.poll(async () => norm(await gradient("#settingsPage smd-tabs .smd-tab-btn.active")), { timeout: 15000, message: mode }).toBe(ACTIVE);
+        await expect.poll(async () => norm(await gradient("#settingsPage smd-tabs .smd-tab-btn:not(.active)")), { timeout: 15000 }).toBe(INACTIVE);
         await page.evaluate(() => closeSettings());
       }
     });
 
-    test("materia dark image dropdown matches the form field surface (no Bootstrap gradient)", async ({ page }) => {
-      // materia's stock `.btn` carries Bootstrap's `--bs-gradient` sheen
-      // (linear-gradient white 15% -> transparent) on top of its
-      // background-color, so over the near-black dark button it read as a grey
-      // box while the form fields stay a flat body-bg surface. materia.dark.css
-      // clears the sheen and matches the form-field palette.
+    test("materia dark image dropdown matches the form field surface", async ({ page }) => {
+      // materia's fields are TRANSPARENT (with an underline). The dropdown button
+      // is a Bootswatch .form-select, so its surface matches the field and it
+      // carries none of the `.btn` gradient sheen.
       await page.evaluate(() => applyTheme("materia", "dark"));
       await page.evaluate(() => addNewStream());
-      await expect(page.locator("#streamTabDropdown .btn")).toBeVisible();
+      await expect(page.locator("#streamTabDropdown .form-select")).toBeVisible();
       const read = () => page.evaluate(() => {
-        const btn = document.querySelector("#streamTabDropdown .btn");
+        const btn = document.querySelector("#streamTabDropdown .form-select");
         const input = document.querySelector("#streamTitleInput");
         const b = getComputedStyle(btn);
         const i = getComputedStyle(input);
-        return { inputBg: i.backgroundColor, btnBg: b.backgroundColor, btnImage: b.backgroundImage };
+        const themeLoaded = getComputedStyle(document.documentElement).getPropertyValue("--bs-body-bg").trim() !== "";
+        return { themeLoaded, inputBg: i.backgroundColor, btnBg: b.backgroundColor, btnImage: b.backgroundImage };
       });
-      // Poll the APPLIED style: applyTheme() re-points the theme + override
-      // <link>s asynchronously, so a one-shot read can catch the previous theme
-      // before materia.dark.css has loaded. Requiring materia's own #212121 form
-      // surface proves the theme really loaded, so a pass cannot come from the
-      // previous (gradient-free) theme.
       await expect.poll(async () => {
         const r = await read();
-        return { materia: r.inputBg === "rgb(33, 33, 33)", btnImage: r.btnImage, matches: r.btnBg === r.inputBg };
-      }, { timeout: 15000 }).toEqual({ materia: true, btnImage: "none", matches: true });
+        return { loaded: r.themeLoaded, transparent: r.btnBg === "rgba(0, 0, 0, 0)", btnImage: r.btnImage, matches: r.btnBg === r.inputBg };
+      }, { timeout: 15000 }).toEqual({ loaded: true, transparent: true, btnImage: "none", matches: true });
       await page.evaluate(() => cancelEdit());
     });
 
     test("image dropdown surface and label match the form fields across themes", async ({ page }) => {
-      // The dropdown palette used to derive from --bs-tertiary-bg /
-      // --bs-body-color, which diverge from the fixed --smd-form-* field palette:
-      // on dark themes the button was a lighter grey than the fields, and on
-      // light themes whose body text is light even in Light mode (quartz, vapor,
-      // slate) the label went near-invisible on the near-white button. The shared
-      // mode layer now points the dropdown surface/label at the form palette.
+      // The dropdown button is a Bootswatch `.form-select`, so its surface AND
+      // text track the theme's own form fields (they are no longer forced onto a
+      // shared palette).
       const cases = [
         ["minty", "light"], ["minty", "dark"], ["pulse", "dark"], ["quartz", "light"],
         ["simplex", "dark"], ["slate", "dark"], ["vapor", "light"]
       ];
       await page.evaluate(() => addNewStream());
-      await expect(page.locator("#streamTabDropdown .btn")).toBeVisible();
+      await expect(page.locator("#streamTabDropdown .form-select")).toBeVisible();
       // Bootstrap's .btn transitions background-color (150ms), so a read during a
       // theme swap catches the OLD colour while the (non-transitioning) form
       // control already shows the new one. Disable transitions so each read is
       // the settled value.
       await page.addStyleTag({ content: "#smd-app * { transition: none !important; animation: none !important; }" });
       const read = () => page.evaluate(() => {
-        // Chromium serialises color-mix()/some computed colours as
-        // `color(srgb r g b)` with 0..1 channels; rgb()/rgba() are 0..255.
-        const parse = (s) => { const n = s.match(/-?[\d.]+/g).map(Number).slice(0, 3); return /^color\(/.test(s) ? n.map((v) => Math.round(v * 255)) : n; };
-        const lum = (c) => { const [r, g, b] = c.map((v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
-        const cr = (a, b) => { const l1 = Math.max(lum(a), lum(b)), l2 = Math.min(lum(a), lum(b)); return (l1 + 0.05) / (l2 + 0.05); };
-        const btn = document.querySelector("#streamTabDropdown .btn");
+        const btn = document.querySelector("#streamTabDropdown .form-select");
         const input = document.querySelector("#streamTitleInput");
         const b = getComputedStyle(btn);
         const i = getComputedStyle(input);
-        return { btnBg: b.backgroundColor, btnColor: b.color, inputBg: i.backgroundColor, inputColor: i.color, contrast: cr(parse(b.color), parse(b.backgroundColor)) };
+        // A theme whose fields are transparent (quartz/materia) has no opaque
+        // surface of its own, so require the BASE theme sheet to have loaded
+        // (otherwise a mid-swap transient would let the predicate pass early).
+        const themeLoaded = getComputedStyle(document.documentElement).getPropertyValue("--bs-body-bg").trim() !== "";
+        return { themeLoaded, btnBg: b.backgroundColor, btnColor: b.color, inputBg: i.backgroundColor, inputColor: i.color };
       });
       for (const [theme, mode] of cases) {
         await page.evaluate(({ t, m }) => applyTheme(t, m), { t: theme, m: mode });
         const label = theme + "/" + mode;
-        // Poll BOTH the match and the contrast: while applyTheme() swaps the
-        // base/mode sheets the palette is momentarily absent, so button and
-        // input are both transparent with default black text and a match-only
-        // predicate would pass on that transient (seen on simplex/dark).
         await expect.poll(async () => {
           const r = await read();
-          return r.btnBg === r.inputBg && r.btnColor === r.inputColor && r.contrast >= 4.5;
+          return r.themeLoaded && r.btnBg === r.inputBg && r.btnColor === r.inputColor;
         }, { timeout: 15000, message: label }).toBe(true);
-        const r = await read();
-        expect(r.btnBg, label).toBe(r.inputBg);
-        expect(r.contrast, label + " (" + r.btnColor + " on " + r.btnBg + ")").toBeGreaterThanOrEqual(4.5);
       }
       await page.evaluate(() => cancelEdit());
+    });
+
+    test("form fields keep the Bootswatch surface across themes and modes", async ({ page }) => {
+      // Bootswatch gives some themes a field surface DISTINCT from the page
+      // (lux #f0f1f2 on #fff, solar #adb5bd, vapor #30115e, cyborg/superhero
+      // #fff). The shared layer no longer repaints field background/colour, so
+      // each theme keeps its own - a field must not be forced to the page colour.
+      const cases = [
+        ["lux", "light", "rgb(240, 241, 242)"],
+        ["lux", "dark", "rgb(240, 241, 242)"],
+        ["solar", "light", "rgb(173, 181, 189)"],
+        ["vapor", "light", "rgb(48, 17, 94)"],
+        ["cyborg", "dark", "rgb(255, 255, 255)"],
+        ["flatly", "dark", "rgb(33, 37, 41)"]
+      ];
+      for (const [theme, mode, expected] of cases) {
+        await page.evaluate(({ t, m }) => applyTheme(t, m), { t: theme, m: mode });
+        const label = theme + "/" + mode;
+        await expect.poll(async () => page.evaluate(() => {
+          const el = document.createElement("input");
+          el.className = "form-control";
+          el.style.cssText = "position:absolute;left:-9999px";
+          document.body.appendChild(el);
+          const c = getComputedStyle(el).backgroundColor;
+          el.remove();
+          return c;
+        }), { timeout: 15000, message: label }).toBe(expected);
+      }
+    });
+
+    test("form field text stays legible on the field surface across themes", async ({ page }) => {
+      // Bootswatch ships a few themes whose `.form-select` (or `.form-control`)
+      // keeps a dark-mode `--bs-body-color` on a light field (lux/morph) or a
+      // fixed dark field text on a dark surface (materia). The shared layer no
+      // longer repaints the field background OR text, so those themes carry a
+      // per-theme override; assert the text still contrasts its OWN surface.
+      const cases = [
+        ["lux", "light"], ["lux", "dark"], ["morph", "light"], ["morph", "dark"],
+        ["materia", "light"], ["materia", "dark"], ["cyborg", "dark"], ["vapor", "light"]
+      ];
+      const read = () => page.evaluate(() => {
+        const parse = (s) => { const n = (s.match(/-?[\d.]+/g) || []).map(Number); return { rgb: n.slice(0, 3), a: n.length > 3 ? n[3] : 1 }; };
+        const lum = (c) => { const [r, g, b] = c.map((v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
+        const eff = (el) => { let n = el; while (n && n.nodeType === 1) { const p = parse(getComputedStyle(n).backgroundColor); if (p.a > 0) return p.rgb; n = n.parentElement; } return [255, 255, 255]; };
+        const cr = (a, b) => { const l1 = Math.max(lum(a), lum(b)), l2 = Math.min(lum(a), lum(b)); return (l1 + 0.05) / (l2 + 0.05); };
+        const probe = (tag, cls) => { const el = document.createElement(tag); el.className = cls; el.style.cssText = "position:absolute;left:-9999px;top:0"; if (tag === "select") el.innerHTML = "<option>x</option>"; document.body.appendChild(el); const bg = eff(el); const fg = parse(getComputedStyle(el).color).rgb; const val = +cr(fg, bg).toFixed(2); el.remove(); return val; };
+        return { control: probe("input", "form-control"), select: probe("select", "form-select") };
+      });
+      for (const [theme, mode] of cases) {
+        await page.evaluate(({ t, m }) => applyTheme(t, m), { t: theme, m: mode });
+        const label = theme + "/" + mode;
+        await expect.poll(async () => { const r = await read(); return Math.min(r.control, r.select) >= 3; }, { timeout: 15000, message: label }).toBe(true);
+      }
     });
 
     test("focused form fields use the theme primary border", async ({ page }) => {
@@ -4356,13 +4397,15 @@ test.describe("PlanMyDay - Regression", () => {
       await expect(page.locator("#imageEditModalBody .fw-bold").filter({ hasText: "Dark theme" })).toBeVisible();
     });
 
-    test("theme panels use fixed light and dark backgrounds", async ({ page }) => {
+    test("theme panels use fixed white and black backgrounds", async ({ page }) => {
       await page.locator(".card:has-text('EditTest') .btn-primary").first().click();
       await page.locator("#imageEditModal").waitFor({ state: "visible" });
+      // The swatches are deliberately theme-INDEPENDENT: pure white + pure black,
+      // never the theme's own light/dark surfaces.
       const lightPanel = page.locator("#imageEditModalBody [data-bs-theme='light']").first();
       const darkPanel = page.locator("#imageEditModalBody [data-bs-theme='dark']").first();
-      await expect(lightPanel).toHaveCSS("background-color", "rgb(248, 249, 250)");
-      await expect(darkPanel).toHaveCSS("background-color", "rgb(33, 37, 41)");
+      await expect(lightPanel).toHaveCSS("background-color", "rgb(255, 255, 255)");
+      await expect(darkPanel).toHaveCSS("background-color", "rgb(0, 0, 0)");
     });
 
     test("changing fill color stores dark theme override", async ({ page }) => {

@@ -424,14 +424,16 @@ Architecture:
 - SMD-IMAGE-CARD TILE SWATCHES (2026-10-04): the Edit Images tile
   (`<smd-image-card>`) renders THREE `<smd-image>` on one row — the main thumb
   (`.thumb`, theme auto) plus a light and a dark theme swatch
-  (`.theme-swatch`, each `bg-body` + `data-bs-theme="light|dark"` + `p-1 border
-  rounded`). The three buttons sit in a `d-flex flex-grow-1
+  (`.theme-swatch`, each `data-bs-theme="light|dark"` + `p-1 border rounded`
+  plus an inline fixed background/border). The three buttons sit in a `d-flex flex-grow-1
   justify-content-between` container so they spread across the remaining space;
   the name stays once below the row (swatches carry no name). The swatches each
-  set their own `theme` attribute so they paint that theme's colour overrides;
-  the "app light/dark surface" comes from `bg-body` under the element's own
-  `data-bs-theme` (for superhero the LIGHT surface is the dark navy #0f2537, so
-  do not assume light is lighter). Because a card now holds 3 `smd-image`,
+  set their own `theme` attribute so they paint that theme's colour overrides.
+  UPDATED 2026-10-13: the swatch SURFACES are the fixed white/black preview
+  constants (`--smd-preview-{light,dark}-{background,border}` in
+  light.css/dark.css), NOT `bg-body` - a theme's own "light" surface is not
+  lighter (superhero's LIGHT surface is the dark navy #0f2537, so the light
+  swatch rendered dark). The edit dialog's swatches use the same constants. Because a card now holds 3 `smd-image`,
   selectors that meant the main thumb must use `.thumb smd-image`
   (cmd/pmd/qrlinks specs updated). Test: cmd-regression "image tile shows the
   main image plus light and dark theme swatches on one row".
@@ -4022,3 +4024,137 @@ Techniques / gotchas:
   and a ctypes simulation (`[`->0xDB, `]`->0xDD, `{`->Shift+0xDB, `alt+F4`->Alt+0x73,
   `MEDIA_NEXT_TRACK`->0xB0, `ctrl+shift`->mods only).
 - No front-end/BUILD change.
+
+### 2026-10-13 (n) - form fields now keep the Bootswatch surface (reference fidelity)
+- REQUEST (user): on lux (e.g.) the form field background differed from the
+  Bootswatch reference - the shared form repaint forced the surface.
+- AUDIT (all 27 themes x both modes, parsing each theme file): Bootswatch's
+  `.form-control` background is mode-INDEPENDENT; 16 themes use
+  `var(--bs-body-bg)` (field == page, so the reference has no difference either)
+  and 11 give the field a DISTINCT surface (lux #f7f7f9, materia transparent,
+  morph #f0f5fa/#bed1e6, quartz transparent, simplex #fcfcfc, solar #adb5bd,
+  vapor #30115e, cyborg/darkly/slate/superhero #fff).
+- FIX (user chose full fidelity): `shared/css/styles.css` no longer repaints the
+  form field `background-color` OR `color`, so Bootswatch's own surface AND text
+  show for every theme/mode. It keeps ONLY the BORDER repaint
+  (`--smd-form-border-color`, plus the primary FOCUS border
+  `--smd-form-focus-border-color` the user asked for earlier); the `:disabled`
+  rule was dropped. `--smd-form-*` stay defined (the flatpickr palette consumes
+  them). NOTE the earlier per-theme `--smd-form-background: var(--bs-body-bg)`
+  overrides (superhero/cyborg/darkly) are now inert for fields.
+- KNOCK-ON: the `smd-image-dropdown` (#streamTabDropdown/#jobStreamDropdown/
+  #dateCategorySelect/...) and PhoneButtons `pb-image-dropdown` buttons were
+  `.btn` on the `--smd-dropdown-*` palette, so they no longer matched the (now
+  Bootswatch) fields. BOTH components' buttons are now `class="form-select"`
+  (Bootswatch surface + text, no `.btn` gradient), with the shared flex layout,
+  the component's OWN caret, and `background-image: none; padding: .375rem .75rem`
+  in the components' injected layout so the geometry is unchanged. The `.btn`
+  colour rules were removed from styles.css + the pb component, and
+  `PlanMyDay/js/editor-styles.js` selectors became `.form-select`. `materia.dark.css`
+  is now EMPTY (its `.btn` sheen clear is moot).
+  GOTCHA: a `//` comment containing BACKTICKS inside a component's template-literal
+  CSS terminates the literal and turns the CSS into code
+  (`ReferenceError: select is not defined`) - use `/* */` and no backticks.
+- FIELD TEXT (follow-up): dropping the shared `color` repaint exposed Bootswatch
+  bugs where the field TEXT is wrong on its own surface. A full audit (27 themes x
+  2 modes, browser ground truth) found exactly three unreadable combos: lux dark
+  (`.form-select` = `--bs-body-color` #eceeef on the light #f7f7f9 field - Bootswatch
+  only re-colours `.form-control` in dark), morph dark (1.19) and materia dark
+  (2.80). Fixed with per-theme dark overrides in `shared/css/themes/<t>/<t>.dark.css`
+  using `--bs-*` vars (NOT hex): lux + morph `.form-select`/`.form-control` ->
+  `var(--bs-gray-700)` (their own field text, mode-stable), materia ->
+  `var(--bs-body-color)`. Remaining sub-4.5 combos (minty light 3.54, morph light
+  3.10, spacelab light 4.48) are Bootswatch's own muted palette = the reference, so
+  they are left alone.
+- TESTS (pmd-regression "Theme colours"): new "form fields keep the Bootswatch
+  surface across themes and modes" AND "form field text stays legible on the field
+  surface across themes" (contrast >= 3 over the previously-broken + representative
+  combos); "materia dark image dropdown matches the form field surface";
+  "image dropdown surface and label match the form fields across themes" now asserts
+  the dropdown button (a `.form-select`) matches the field bg + text (no contrast
+  assertion; for transparent-field themes it requires the base theme sheet to have
+  loaded). "Stream dropdown layout" selectors `.btn` -> `.form-select`.
+- Verified: pmd Theme colours 15/15, pmd `dropdown` 13/13, cmd-regression 58/58,
+  phonebuttons 13/13. Full regression left to the user.
+- `BUILD_NUMBER` NOT bumped.
+
+### 2026-10-13 (o) - Bootswatch borders restored, ALL themes re-vendored to 5.3.8, no hardcoded hex in app code
+- BORDERS: dropped the last form repaint (the non-focus `border-color`), so
+  `.form-control`/`.form-select` take Bootswatch's OWN border too. Only the primary
+  FOCUS border (`--smd-form-focus-border-color`) remains. This fixed litera, darkly,
+  quartz, sketchy, slate, solar and superhero (litera dark was #495057 instead of
+  Bootswatch's `rgba(0,0,0,.1)`).
+- VERSION DRIFT (the real cause of "lux's field is a slightly different shade"):
+  the vendored themes were Bootswatch **5.3.3** while bootswatch.com is **5.3.8**
+  (only brite was 5.3.8). Re-vendored ALL 27
+  `shared/css/themes/<t>/bootstrap.min.css` from 5.3.8 (bootswatch.com/5/<t>; the
+  stock `bootstrap` theme from `bootstrap@5.3.8` on jsdelivr) plus
+  `shared/vendor/bootstrap.bundle.min.js` 5.3.3 -> 5.3.8. The transform replaces
+  the live Google Fonts `@import url(...)` with the local
+  `@import "../../fonts/fonts.css";` for the themes that already had it (the rest
+  have no @import). Verified every vendored file was an UNMODIFIED upstream 5.3.3
+  first; the rule-level drift audit now reports 0 changed rules for every theme.
+  lux's field surface therefore changed #f7f7f9 -> #f0f1f2 and gained a 1px border
+  (the reference look).
+- STILL NEEDED at 5.3.8: lux's `[data-bs-theme=dark] .form-select` still sets only
+  the caret image, not the colour, so `lux.dark.css`'s
+  `#smd-app .form-select { color: var(--bs-gray-700) }` stays; the morph/materia
+  dark overrides stay too.
+- NO HARDCODED HEX in app code - converted the last 5 spots to theme vars:
+  `PlanMyDay/js/gantt.js` 13x `color:#fff` -> `var(--smd-secondary-text,
+  var(--bs-white))` / `var(--smd-primary-text, var(--bs-white))`;
+  `SolarControlar/js/graph-tab.js` chart series -> `--bs-warning/-info/-success/
+  -purple/-danger` (resolved at draw time by `resolveSeriesColor`, re-read on
+  theme change + base-sheet load); `SolarControlar/js/components/solar-top-tiles.js`
+  flap gradient -> color-mix on `--bs-dark`, separator -> `--bs-danger`, battery
+  fills -> `--bs-{danger,warning,success}`; `shared/css/themes/slate/slate.{light,dark}.css`
+  tab gradients -> color-mix on `--bs-gray-800` (percentages picked so the stops
+  match Bootswatch's literals exactly); `shared/js/smd-images.js` preview swatches ->
+  NEW fixed constants in light.css/dark.css. Those swatches are deliberately
+  theme-INDEPENDENT: the image editor shows the icon on a plain WHITE and a plain
+  BLACK background, so the values are pure `#ffffff` / `#000000` (plus fixed
+  border/text: `--smd-preview-{light,dark}-{background,border,foreground}`).
+  NEVER drive them from `--bs-body-bg`/`--bs-body-color`: superhero's LIGHT mode is
+  itself dark, so its light body TEXT is light and the white swatch went
+  light-on-light (the reported "Edit Image page is not right"). REMAINING hex is intentional:
+  the `<input type="color">` defaults in smd-images.js must be hex, and hex inside
+  COMMENTS. The vendored `bootstrap.min.css` files legitimately contain hex (they
+  define the --bs-* vars).
+- TESTS: pmd-regression "Theme colours" lux field surface -> `rgb(240, 241, 242)`;
+  the slate gradient test normalises Chromium's `color(srgb ...)` serialisation of
+  a color-mix() stop. GOTCHA: a computed `color-mix()` serialises as
+  `color(srgb r g b)` with 0..1 channels, NOT `rgb()` - parse, don't string-compare.
+- Verified: pmd Theme colours 15/15, pmd `dropdown` 13/13, Image Editing UI 23/23,
+  pmd-gantt 130/130, cmd 58/58, phonebuttons 13/13,
+  storybook+launch+ffox+qrlinks+solar 47/47. The user's full regression found exactly
+  one failure (the image-editor preview panels) which is now fixed.
+
+### 2026-10-13 (p) - smd-select exclusivity + item padding, tab-line gap, white/black image swatches
+- SMD-SELECT EXCLUSIVITY: only ONE `<smd-select>` menu may be open at a time (a
+  native `<select>` popup is exclusive too). `smd-select.js` tracks the open
+  instance in a module-level `_openSelect`; `_toggleMenu()` closes any other open
+  menu before opening, and `_closeMenu()` clears the reference. Before this,
+  opening a second select left the first open.
+- SMD-SELECT ITEM PADDING: `smd-select .smd-select-item` had NO padding, so the
+  option text sat flush against the menu border. Now `padding: 0.25rem 0.75rem` -
+  0.75rem matches the `.form-select` button's left padding, so the option text
+  lines up with the button label.
+- TAB-LINE GAP: the `smd-tabs` underline had no gap to the panel content, so the
+  main view's job tiles touched the line. The layout injection now sets
+  `smd-tabs .smd-tab-list + .smd-tab-line { margin-bottom: 0.25rem; }` (Bootstrap
+  `mb-1`) so the space under the line matches the `mb-1` gap between the tiles.
+- IMAGE SWATCHES ARE WHITE/BLACK: `<smd-image-card>`'s two theme swatches used
+  `bg-body` under `data-bs-theme`, so a theme whose "light" surface is not lighter
+  (superhero light = dark navy #0f2537) rendered the LIGHT swatch dark. Both the
+  card swatches AND the edit dialog's swatches now use the fixed
+  `--smd-preview-{light,dark}-{background,border,foreground}` constants (white
+  #ffffff / black #000000 with fixed border + text) from light.css/dark.css. The
+  card swatch also drops Bootstrap's `.border` class (its `!important` border
+  colour beat the inline one) for an inline `border: 1px solid var(...)`.
+- TESTS: cmd-regression "image tile shows the main image plus light and dark theme
+  swatches on one row" now asserts the FIXED white/black swatch backgrounds (it
+  used to compare against `--bs-body-bg`); pmd-regression "theme panels use fixed
+  white and black backgrounds".
+- Verified: cmd 58/58, pmd (Theme colours|dropdown|tab|select) 106/106,
+  storybook/launch/ffox/qrlinks/solar 47/47 (the one cmd swatch failure in the
+  combined run was the assertion updated above).

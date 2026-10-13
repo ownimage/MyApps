@@ -54,6 +54,15 @@
   --smd-dropdown-item-active-background: var(--bs-primary);
   --smd-dropdown-item-active-foreground: var(--bs-white);
 
+  /* Fixed WHITE/BLACK preview swatches for the image editor - see light.css
+     (identical values; the swatches are theme-independent). */
+  --smd-preview-light-background: #ffffff;
+  --smd-preview-light-border: #dee2e6;
+  --smd-preview-light-foreground: #212529;
+  --smd-preview-dark-background: #000000;
+  --smd-preview-dark-border: #495057;
+  --smd-preview-dark-foreground: #ffffff;
+
   /* Palette for <pmd-tasks> (the PlanMyDay job-edit Tasks rows). */
   --pmd-tasks-row-background: var(--bs-tertiary-bg);
   --pmd-tasks-row-foreground: var(--bs-body-color);

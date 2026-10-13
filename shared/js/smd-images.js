@@ -315,9 +315,11 @@ function buildThemeSection(themeIdx, label, imageOverride) {
   const fillVal = effFill !== "none" && effFill ? effFill : "#ffffff";
   const widthVal = override.width != null ? override.width : (base.strokeWidth || "2");
   const isLight = themeIdx === 0;
+  // The swatch is deliberately theme-INDEPENDENT (fixed light/dark surface,
+  // border and text) - see light.css / dark.css --smd-preview-*-*.
   const panelStyle = isLight
-    ? "background-color:#f8f9fa;border:1px solid #dee2e6;color:#212529"
-    : "background-color:#212529;border:1px solid #495057;color:#f8f9fa";
+    ? "background-color:var(--smd-preview-light-background);border:1px solid var(--smd-preview-light-border);color:var(--smd-preview-light-foreground)"
+    : "background-color:var(--smd-preview-dark-background);border:1px solid var(--smd-preview-dark-border);color:var(--smd-preview-dark-foreground)";
   const panelTheme = isLight ? "light" : "dark";
   const previewId = isLight ? "themePreviewLight" : "themePreviewDark";
   const previewSrc = getThemedImageDataUrl(img, key);

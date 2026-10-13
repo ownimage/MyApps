@@ -32,8 +32,17 @@
       border-radius: 50%;
     }
     solar-top-tiles .flap-card {
-      background: linear-gradient(180deg, #4a5568 0%, #2d3748 48%, #1a202c 52%, #171923 100%);
-      color: #f7fafc;
+      /* Flip-clock face: a dark "hardware" gradient derived from the theme's
+         --bs-dark (light top flap -> darker lower flap) so it follows the theme
+         without hardcoded hex. */
+      background: linear-gradient(
+        180deg,
+        color-mix(in srgb, var(--bs-dark) 72%, var(--bs-white)) 0%,
+        var(--bs-dark) 48%,
+        color-mix(in srgb, var(--bs-dark) 78%, var(--bs-black)) 52%,
+        color-mix(in srgb, var(--bs-dark) 65%, var(--bs-black)) 100%
+      );
+      color: var(--bs-white);
       font-size: var(--smd-type-h1, 2em);
       font-weight: 300;
       width: 0.75em;
@@ -57,7 +66,7 @@
     solar-top-tiles .flap-sep {
       font-size: var(--smd-type-h1, 1.8em);
       font-weight: 700;
-      color: #fc8181;
+      color: var(--bs-danger);
       margin: 0 0.06rem;
       position: relative;
       top: -0.12rem;
@@ -250,9 +259,9 @@ class SolarTopTiles extends HTMLElement {
       pct.textContent = "Unknown";
     } else {
       fill.style.width = Math.max(0, level - 6) + "%";
-      if (level <= 20) fill.style.background = "#e53e3e";
-      else if (level <= 50) fill.style.background = "#dd6b20";
-      else fill.style.background = "#38a169";
+      if (level <= 20) fill.style.background = "var(--bs-danger)";
+      else if (level <= 50) fill.style.background = "var(--bs-warning)";
+      else fill.style.background = "var(--bs-success)";
       pct.textContent = Math.round(level) + "%";
     }
   }
