@@ -974,21 +974,57 @@ _MOD_KEY_MAP = {
     "ctrl": 0x11, "alt": 0x12, "shift": 0x10,
 }
 
+# Character -> virtual-key must use the ACTIVE keyboard layout (VkKeyScanW).
+# ord() is NOT the VK for punctuation: ord("[") == 0x5B == VK_LWIN and
+# ord("]") == 0x5D == VK_APPS, so brackets were sent as the Windows / context
+# menu keys (same class of bug for ; ' , . / \ ` - = ...). VkKeyScan also
+# reports whether the character needs SHIFT, which we fold into the modifiers.
+_user32 = None
+try:
+    _user32 = ctypes.windll.user32
+    _user32.VkKeyScanW.argtypes = [ctypes.c_wchar]
+    _user32.VkKeyScanW.restype = ctypes.c_short
+except Exception:
+    _user32 = None
+
+
+def _char_vk(ch):
+    """(virtual-key, needs_shift) for one character on the active layout."""
+    if not _user32:
+        return 0, False
+    try:
+        res = _user32.VkKeyScanW(ch)
+    except Exception:
+        return 0, False
+    if res == -1:
+        return 0, False
+    return res & 0xFF, bool(res & 0x100)
+
+
 def _resolve_key(value):
-    if len(value) == 1:
-        return ord(value.upper())
-    return _KEY_MAP.get(value.upper(), 0)
+    """(virtual-key, needs_shift) for a single character or a named key."""
+    if value is None:
+        return 0, False
+    v = str(value)
+    if len(v) == 1:
+        return _char_vk(v)
+    return _KEY_MAP.get(v.upper(), 0), False
 
 
 def _parse_key_string(key_value):
     """Split "ctrl+shift+X" -> (list of modifier VKs in order, main VK or 0).
-    A modifiers-only string (e.g. "ctrl+shift") yields main VK 0."""
+    A modifiers-only string (e.g. "ctrl+shift") yields main VK 0. A character
+    that needs SHIFT on the active layout (e.g. "{") adds SHIFT to the mods."""
     parts = str(key_value or "").split("+")
     mods = []
     while parts and parts[0].lower() in _MOD_KEY_MAP:
         mods.append(_MOD_KEY_MAP[parts.pop(0).lower()])
     final = "+".join(parts)
-    vk = _resolve_key(final) if final else 0
+    vk = 0
+    if final:
+        vk, needs_shift = _resolve_key(final)
+        if needs_shift and _MOD_KEY_MAP["shift"] not in mods:
+            mods.append(_MOD_KEY_MAP["shift"])
     return mods, vk
 
 def _send_key_down(vk):
@@ -1005,13 +1041,8 @@ def send_key(vk):
 @socketio.on("button_press")
 def handle_button_press(data):
     key_value = data.get("key", "")
-    # Parse modifier prefix: e.g. "ctrl+shift+Z" or "alt+F4"
-    parts = key_value.split("+")
-    mods = []
-    while parts and parts[0].lower() in _MOD_KEY_MAP:
-        mods.append(_MOD_KEY_MAP[parts.pop(0).lower()])
-    final_key = "+".join(parts)
-    vk = _resolve_key(final_key)
+    # Parse "ctrl+shift+Z" / "alt+F4" (or a bare character like "[").
+    mods, vk = _parse_key_string(key_value)
     if vk:
         _debug(f"Sending key: {key_value} (VK=0x{vk:02X}, mods={[hex(m) for m in mods]})")
         # Press modifiers in order (Ctrl, Alt, Shift)

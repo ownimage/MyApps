@@ -3999,3 +3999,26 @@ Techniques / gotchas:
   storybook (only comments mention `<select>`); the dev-only `screenshots/viewer.js`
   is untouched.
 - `BUILD_NUMBER` NOT bumped — bump before shipping.
+
+### 2026-10-13 (m) - PhoneButtons server: icon filename + bracket keys
+- Two `PhoneButtons/server/app.py` bugs (app names come from
+  `_get_friendly_name(exe)` and can contain odd characters):
+  1. `_cache_icon` used the raw app name as the icon FILENAME, so "Intel(R)
+     PROSet/Wireless Event Log Service" (a `/`) made `open()` look for a
+     non-existent subdirectory -> `FileNotFoundError` -> HTTP 500 on `/api/apps`.
+     FIX: new `_icon_filename(name)` maps Windows-illegal filename characters
+     (`< > : " / \ | ? *`, control chars) to `_`, trims trailing dots/spaces and
+     falls back to `icon.png`; spaces/dots/parens are KEPT so existing cache files
+     and their URLs are unchanged. Used in `_cache_icon` + `_set_app_icon_pref`.
+  2. `_resolve_key` used `ord(value.upper())` for a single character, but `ord` is
+     NOT the virtual-key for punctuation: `ord("[") == 0x5B == VK_LWIN` and
+     `ord("]") == 0x5D == VK_APPS`, so `[`/`]` were sent as the Windows / context
+     menu keys (same class of bug for semicolon/quote/comma/period/slash/backslash/
+     backtick/minus/equals). FIX: map the character with
+     `ctypes.windll.user32.VkKeyScanW` (the ACTIVE layout) -> `(vk, needs_shift)`,
+     and `_parse_key_string` folds the SHIFT requirement into the modifiers (so `{`
+     sends Shift+`[`). `handle_button_press` now reuses `_parse_key_string`.
+- NO Playwright coverage (the specs mock the server); verified with `py_compile`
+  and a ctypes simulation (`[`->0xDB, `]`->0xDD, `{`->Shift+0xDB, `alt+F4`->Alt+0x73,
+  `MEDIA_NEXT_TRACK`->0xB0, `ctrl+shift`->mods only).
+- No front-end/BUILD change.
