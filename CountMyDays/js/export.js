@@ -154,10 +154,10 @@ function renderExportWizard() {
       .sort((a, b) => a.target - b.target);
     page.content = `
       <div class="d-flex gap-2 align-items-center mb-3 flex-wrap">
-        <select class="form-select w-auto" style="min-width:160px" onchange="ew.dateFilterCategory=this.value;ewSaveCheckboxes();renderExportWizard()">
+        <smd-select class="form-select w-auto" style="min-width:160px" onchange="ew.dateFilterCategory=this.value;ewSaveCheckboxes();renderExportWizard()">
           <option value="">All</option>
           ${catNames.map(c => `<option value="${escAttr(c)}" ${ew.dateFilterCategory === c ? "selected" : ""}>${escapeHtml(c)}</option>`).join("")}
-        </select>
+        </smd-select>
         <input class="form-control flex-grow-1" id="ewDateFilterName" type="search" placeholder="Search date names..." style="min-width:150px" value="${escAttr(ew.dateFilterName)}" oninput="ew.dateFilterName=this.value;ewSaveCheckboxes();renderExportWizard()">
       </div>
       <div class="cmd-scroll-list">

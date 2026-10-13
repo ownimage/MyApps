@@ -168,58 +168,58 @@
           <div class="row mb-4 align-items-center col-md-8">
             <div class="col-4 text-end"><label class="form-label mb-0">Font size</label></div>
             <div class="col-8">
-              <select id="fontSizeSelector" class="form-select" onchange="changeFontSize(this.value)">
+              <smd-select id="fontSizeSelector" class="form-select" onchange="changeFontSize(this.value)">
                 <option value="xsmall">Extra small</option>
                 <option value="small">Small</option>
                 <option value="normal">Normal</option>
                 <option value="large">Large</option>
                 <option value="xlarge">Extra large</option>
                 <option value="jumbo">Jumbo</option>
-              </select>
+              </smd-select>
             </div>
           </div>
 
           <div class="row mb-4 align-items-center col-md-8">
             <div class="col-4 text-end"><label class="form-label mb-0">Icon size</label></div>
             <div class="col-8">
-              <select id="iconSizeSelector" class="form-select" onchange="changeIconSize(this.value)">
+              <smd-select id="iconSizeSelector" class="form-select" onchange="changeIconSize(this.value)">
                 <option value="xsmall">Extra small (32x32)</option>
                 <option value="small">Small (40x40)</option>
                 <option value="medium">Medium (50x50)</option>
                 <option value="large">Large (64x64)</option>
                 <option value="xlarge">Extra large (80x80)</option>
                 <option value="jumbo">Jumbo (100x100)</option>
-              </select>
+              </smd-select>
             </div>
           </div>
 
           <div class="row mb-4 align-items-center col-md-8">
             <div class="col-4 text-end"><label class="form-label mb-0">Tile density</label></div>
             <div class="col-8">
-              <select id="densitySelector" class="form-select" onchange="changeDensity(this.value)">
+              <smd-select id="densitySelector" class="form-select" onchange="changeDensity(this.value)">
                 <option value="normal">Normal</option>
                 <option value="compact">Compact</option>
-              </select>
+              </smd-select>
             </div>
           </div>
           <div class="row mb-4 align-items-center col-md-8">
             <div class="col-4 text-end"><label class="form-label mb-0">Touch size</label></div>
             <div class="col-8">
-              <select id="touchSizeSelector" class="form-select" onchange="changeTouchSize(this.value)">
+              <smd-select id="touchSizeSelector" class="form-select" onchange="changeTouchSize(this.value)">
                 <option value="normal">Normal</option>
                 <option value="large">Large</option>
-              </select>
+              </smd-select>
             </div>
           </div>
           <div class="row mb-4 align-items-center col-md-8">
             <div class="col-4 text-end"><label class="form-label mb-0">Slide speed</label></div>
             <div class="col-8">
-              <select id="slideDurationSelector" class="form-select" onchange="changeSlideDuration(this.value)">
+              <smd-select id="slideDurationSelector" class="form-select" onchange="changeSlideDuration(this.value)">
                 <option value="0">Off (instant)</option>
                 <option value="150">Fast (150 ms)</option>
                 <option value="300">Normal (300 ms)</option>
                 <option value="500">Slow (500 ms)</option>
-              </select>
+              </smd-select>
             </div>
           </div>
           <div class="row mb-4 align-items-center col-md-8">
@@ -241,37 +241,37 @@
           <div class="row mb-4 align-items-center col-md-8 mt-3">
             <div class="col-4 text-end"><label class="form-label mb-0">Suffix start</label></div>
             <div class="col-8">
-              <select id="suffixStartSelector" class="form-select" onchange="changeSuffixStart(this.value)">
+              <smd-select id="suffixStartSelector" class="form-select" onchange="changeSuffixStart(this.value)">
                 <option value="0">0</option>
                 <option value="1">1</option>
-              </select>
+              </smd-select>
             </div>
           </div>
 
           <div class="row mb-4 align-items-center col-md-8">
             <div class="col-4 text-end"><label class="form-label mb-0">1 Jan</label></div>
             <div class="col-8">
-              <select id="jan1Selector" class="form-select" onchange="changeJan1(this.value)">
+              <smd-select id="jan1Selector" class="form-select" onchange="changeJan1(this.value)">
                 <option value="1">1</option>
                 <option value="0">0</option>
-              </select>
+              </smd-select>
             </div>
           </div>
 
           <div class="row mb-4 align-items-center col-md-8">
             <div class="col-4 text-end"><label class="form-label mb-0">Monday #</label></div>
             <div class="col-8">
-              <select id="mondaySelector" class="form-select" onchange="changeMonday(this.value)">
+              <smd-select id="mondaySelector" class="form-select" onchange="changeMonday(this.value)">
                 <option value="1">1</option>
                 <option value="0">0</option>
-              </select>
+              </smd-select>
             </div>
           </div>
 
           <div class="row mb-4 align-items-center col-md-8">
             <div class="col-4 text-end"><label class="form-label mb-0">Start week</label></div>
             <div class="col-8">
-              <select id="startWeekSelector" class="form-select" onchange="changeStartWeek(this.value)">
+              <smd-select id="startWeekSelector" class="form-select" onchange="changeStartWeek(this.value)">
                 <option value="1">Mon</option>
                 <option value="2">Tue</option>
                 <option value="3">Wed</option>
@@ -279,7 +279,7 @@
                 <option value="5">Fri</option>
                 <option value="6">Sat</option>
                 <option value="0">Sun</option>
-              </select>
+              </smd-select>
             </div>
           </div>
         </section>
@@ -447,6 +447,7 @@
   document.write('<script src="../shared/js/components/smd-image-select.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="../shared/js/components/smd-image-editor.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="../shared/js/components/smd-image-picker.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../shared/js/components/smd-select.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="../shared/js/components/smd-theme.js?v=' + BUILD_NUMBER + '"><\/script>');
 document.write('<script src="../shared/js/components/smd-checkbox.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="../shared/js/components/smd-draghandle.js?v=' + BUILD_NUMBER + '"><\/script>');

@@ -1,5 +1,6 @@
 const { test, expect } = require("@playwright/test");
 const { startCoverage, stopCoverage } = require("./coverage");
+const { pickOption } = require("./theme-controls");
 
 const TEST_STREAMS = [
   {
@@ -834,6 +835,15 @@ test.describe("PlanMyDay - Regression", () => {
 
   test.describe("Theme colours", () => {
 
+    // WCAG contrast ratio between two computed colour strings ("rgb(...)" or
+    // the "color(srgb r g b)" form Chromium returns for color-mix results).
+    function smdContrast(a, b) {
+      const parse = (s) => { const n = s.match(/-?[\d.]+/g).map(Number).slice(0, 3); return /^color\(/.test(s) ? n.map((v) => Math.round(v * 255)) : n; };
+      const lum = (c) => { const [r, g, b] = c.map((v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
+      const l1 = Math.max(lum(parse(a)), lum(parse(b))), l2 = Math.min(lum(parse(a)), lum(parse(b)));
+      return (l1 + 0.05) / (l2 + 0.05);
+    }
+
     // changeTheme + wait for the new Bootswatch stylesheet to load.
     async function setTheme(page, theme) {
       await page.evaluate((t) => {
@@ -962,6 +972,188 @@ test.describe("PlanMyDay - Regression", () => {
         // fails here after the timeout.
         await expect.poll(() => gradient("#settingsPage smd-tabs .smd-tab-btn.active"), { timeout: 15000, message: mode }).toBe(ACTIVE);
         await expect.poll(() => gradient("#settingsPage smd-tabs .smd-tab-btn:not(.active)"), { timeout: 15000 }).toBe(INACTIVE);
+        await page.evaluate(() => closeSettings());
+      }
+    });
+
+    test("materia dark image dropdown matches the form field surface (no Bootstrap gradient)", async ({ page }) => {
+      // materia's stock `.btn` carries Bootstrap's `--bs-gradient` sheen
+      // (linear-gradient white 15% -> transparent) on top of its
+      // background-color, so over the near-black dark button it read as a grey
+      // box while the form fields stay a flat body-bg surface. materia.dark.css
+      // clears the sheen and matches the form-field palette.
+      await page.evaluate(() => applyTheme("materia", "dark"));
+      await page.evaluate(() => addNewStream());
+      await expect(page.locator("#streamTabDropdown .btn")).toBeVisible();
+      const read = () => page.evaluate(() => {
+        const btn = document.querySelector("#streamTabDropdown .btn");
+        const input = document.querySelector("#streamTitleInput");
+        const b = getComputedStyle(btn);
+        const i = getComputedStyle(input);
+        return { inputBg: i.backgroundColor, btnBg: b.backgroundColor, btnImage: b.backgroundImage };
+      });
+      // Poll the APPLIED style: applyTheme() re-points the theme + override
+      // <link>s asynchronously, so a one-shot read can catch the previous theme
+      // before materia.dark.css has loaded. Requiring materia's own #212121 form
+      // surface proves the theme really loaded, so a pass cannot come from the
+      // previous (gradient-free) theme.
+      await expect.poll(async () => {
+        const r = await read();
+        return { materia: r.inputBg === "rgb(33, 33, 33)", btnImage: r.btnImage, matches: r.btnBg === r.inputBg };
+      }, { timeout: 15000 }).toEqual({ materia: true, btnImage: "none", matches: true });
+      await page.evaluate(() => cancelEdit());
+    });
+
+    test("image dropdown surface and label match the form fields across themes", async ({ page }) => {
+      // The dropdown palette used to derive from --bs-tertiary-bg /
+      // --bs-body-color, which diverge from the fixed --smd-form-* field palette:
+      // on dark themes the button was a lighter grey than the fields, and on
+      // light themes whose body text is light even in Light mode (quartz, vapor,
+      // slate) the label went near-invisible on the near-white button. The shared
+      // mode layer now points the dropdown surface/label at the form palette.
+      const cases = [
+        ["minty", "light"], ["minty", "dark"], ["pulse", "dark"], ["quartz", "light"],
+        ["simplex", "dark"], ["slate", "dark"], ["vapor", "light"]
+      ];
+      await page.evaluate(() => addNewStream());
+      await expect(page.locator("#streamTabDropdown .btn")).toBeVisible();
+      // Bootstrap's .btn transitions background-color (150ms), so a read during a
+      // theme swap catches the OLD colour while the (non-transitioning) form
+      // control already shows the new one. Disable transitions so each read is
+      // the settled value.
+      await page.addStyleTag({ content: "#smd-app * { transition: none !important; animation: none !important; }" });
+      const read = () => page.evaluate(() => {
+        // Chromium serialises color-mix()/some computed colours as
+        // `color(srgb r g b)` with 0..1 channels; rgb()/rgba() are 0..255.
+        const parse = (s) => { const n = s.match(/-?[\d.]+/g).map(Number).slice(0, 3); return /^color\(/.test(s) ? n.map((v) => Math.round(v * 255)) : n; };
+        const lum = (c) => { const [r, g, b] = c.map((v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
+        const cr = (a, b) => { const l1 = Math.max(lum(a), lum(b)), l2 = Math.min(lum(a), lum(b)); return (l1 + 0.05) / (l2 + 0.05); };
+        const btn = document.querySelector("#streamTabDropdown .btn");
+        const input = document.querySelector("#streamTitleInput");
+        const b = getComputedStyle(btn);
+        const i = getComputedStyle(input);
+        return { btnBg: b.backgroundColor, btnColor: b.color, inputBg: i.backgroundColor, inputColor: i.color, contrast: cr(parse(b.color), parse(b.backgroundColor)) };
+      });
+      for (const [theme, mode] of cases) {
+        await page.evaluate(({ t, m }) => applyTheme(t, m), { t: theme, m: mode });
+        const label = theme + "/" + mode;
+        // Poll BOTH the match and the contrast: while applyTheme() swaps the
+        // base/mode sheets the palette is momentarily absent, so button and
+        // input are both transparent with default black text and a match-only
+        // predicate would pass on that transient (seen on simplex/dark).
+        await expect.poll(async () => {
+          const r = await read();
+          return r.btnBg === r.inputBg && r.btnColor === r.inputColor && r.contrast >= 4.5;
+        }, { timeout: 15000, message: label }).toBe(true);
+        const r = await read();
+        expect(r.btnBg, label).toBe(r.inputBg);
+        expect(r.contrast, label + " (" + r.btnColor + " on " + r.btnBg + ")").toBeGreaterThanOrEqual(4.5);
+      }
+      await page.evaluate(() => cancelEdit());
+    });
+
+    test("focused form fields use the theme primary border", async ({ page }) => {
+      // The shared focus border used a 50% primary/body-bg mix, which read muted
+      // rather than primary (reported on vapour dark). It is the pure primary now.
+      await page.addStyleTag({ content: "#smd-app * { transition: none !important; }" });
+      for (const [theme, mode] of [["vapor", "dark"], ["flatly", "light"], ["superhero", "light"]]) {
+        await page.evaluate(({ t, m }) => applyTheme(t, m), { t: theme, m: mode });
+        const label = theme + "/" + mode;
+        await expect.poll(async () => {
+          const r = await page.evaluate(() => {
+            const resolve = (v) => { const d = document.createElement("div"); d.style.backgroundColor = v; d.style.position = "absolute"; d.style.left = "-9999px"; document.body.appendChild(d); const c = getComputedStyle(d).backgroundColor; d.remove(); return c; };
+            const el = document.createElement("input");
+            el.className = "form-control";
+            el.style.position = "absolute";
+            el.style.left = "-9999px";
+            document.body.appendChild(el);
+            el.focus();
+            const border = getComputedStyle(el).borderTopColor;
+            el.remove();
+            return { border, primary: resolve("var(--bs-primary)") };
+          });
+          return r.border === r.primary;
+        }, { timeout: 15000, message: label }).toBe(true);
+      }
+    });
+
+    test("checked checkboxes use the theme primary accent across themes", async ({ page }) => {
+      // The browser default accent is an unrelated mid blue; the shared checkbox
+      // tick must follow the theme primary.
+      for (const [theme, mode] of [["vapor", "dark"], ["minty", "light"], ["superhero", "light"], ["brite", "light"]]) {
+        await page.evaluate(({ t, m }) => applyTheme(t, m), { t: theme, m: mode });
+        const label = theme + "/" + mode;
+        await expect.poll(async () => {
+          const r = await page.evaluate(() => {
+            const resolve = (v) => { const d = document.createElement("div"); d.style.backgroundColor = v; d.style.position = "absolute"; d.style.left = "-9999px"; document.body.appendChild(d); const c = getComputedStyle(d).backgroundColor; d.remove(); return c; };
+            const el = document.createElement("smd-checkbox");
+            document.body.appendChild(el);
+            const input = el.querySelector("input");
+            const accent = input ? getComputedStyle(input).accentColor : "";
+            el.remove();
+            return { accent, primary: resolve("var(--bs-primary)") };
+          });
+          return r.accent === r.primary;
+        }, { timeout: 15000, message: label }).toBe(true);
+      }
+    });
+
+    test("the hamburger icon is legible on the nav surface across themes", async ({ page }) => {
+      // Bootswatch minty ships `.btn,.btn:hover{color:#fff}`; the background-less
+      // hamburger must not inherit that (it sits on --bs-body-bg).
+      const cases = [["minty", "light"], ["minty", "dark"], ["superhero", "light"], ["flatly", "light"], ["quartz", "dark"]];
+      for (const [theme, mode] of cases) {
+        await page.evaluate(({ t, m }) => applyTheme(t, m), { t: theme, m: mode });
+        const label = theme + "/" + mode;
+        await expect.poll(async () => {
+          const r = await page.evaluate(() => {
+            const btn = document.querySelector("#btnMainMenu");
+            const nav = document.querySelector("#mainNav");
+            return { btn: getComputedStyle(btn).color, nav: getComputedStyle(nav).backgroundColor };
+          });
+          return r.btn !== r.nav && smdContrast(r.btn, r.nav) >= 3;
+        }, { timeout: 15000, message: label }).toBe(true);
+      }
+    });
+
+    test("page header headings use the header foreground across themes", async ({ page }) => {
+      // Bootstrap's `h1 { color: var(--bs-heading-color) }` wins over the header's
+      // inherited colour, so a theme that sets --bs-heading-color (minty #5a5a5a)
+      // painted a dark h1 on the dark header band.
+      const cases = [["minty", "light"], ["flatly", "light"], ["quartz", "dark"], ["superhero", "light"]];
+      for (const [theme, mode] of cases) {
+        await page.evaluate(({ t, m }) => applyTheme(t, m), { t: theme, m: mode });
+        await page.evaluate(() => openSettings());
+        await expect(page.locator("#settingsPage .smd-page-header h1")).toBeVisible();
+        const label = theme + "/" + mode;
+        await expect.poll(async () => {
+          const r = await page.evaluate(() => {
+            const header = document.querySelector("#settingsPage .smd-page-header");
+            const h1 = header.querySelector("h1");
+            return { header: getComputedStyle(header).color, h1: getComputedStyle(h1).color, bg: getComputedStyle(header).backgroundColor };
+          });
+          return r.h1 === r.header && smdContrast(r.h1, r.bg) >= 4.5;
+        }, { timeout: 15000, message: label }).toBe(true);
+        await page.evaluate(() => closeSettings());
+      }
+    });
+
+    test("quartz tab buttons are not white-on-white in either mode", async ({ page }) => {
+      // quartz paints `.nav-link.active` with a near-white gradient sheen over the
+      // text-bg-primary surface.
+      for (const mode of ["light", "dark"]) {
+        await page.evaluate((mo) => applyTheme("quartz", mo), mode);
+        await page.evaluate(() => openSettings());
+        await expect(page.locator("#settingsPage smd-tabs .smd-tab-btn.active")).toBeVisible();
+        const label = "quartz/" + mode;
+        await expect.poll(async () => {
+          const r = await page.evaluate(() => {
+            const a = document.querySelector("#settingsPage smd-tabs .smd-tab-btn.active");
+            const s = getComputedStyle(a);
+            return { color: s.color, bg: s.backgroundColor, img: s.backgroundImage };
+          });
+          return r.img === "none" && r.color !== r.bg && smdContrast(r.color, r.bg) >= 3;
+        }, { timeout: 15000, message: label }).toBe(true);
         await page.evaluate(() => closeSettings());
       }
     });
@@ -1107,7 +1299,7 @@ test.describe("PlanMyDay - Regression", () => {
       await page.locator("#btnMainMenu").click();
       await page.locator("a.dropdown-item").filter({ hasText: "Settings" }).click();
       await page.locator("#appearance-tab").click();
-      await page.locator("#fontSizeSelector").selectOption("small");
+      await pickOption(page, "#fontSizeSelector", "small");
       const hasClass = await page.evaluate(() => document.body.classList.contains("font-size-small"));
       expect(hasClass).toBe(true);
       await expect(page.locator("html")).toHaveAttribute("data-smd-font-size", "small");
@@ -1117,7 +1309,7 @@ test.describe("PlanMyDay - Regression", () => {
       await page.locator("#btnMainMenu").click();
       await page.locator("a.dropdown-item").filter({ hasText: "Settings" }).click();
       await page.locator("#appearance-tab").click();
-      await page.locator("#iconSizeSelector").selectOption("small");
+      await pickOption(page, "#iconSizeSelector", "small");
       const hasClass = await page.evaluate(() => document.body.classList.contains("icon-size-small"));
       expect(hasClass).toBe(true);
       await expect(page.locator("html")).toHaveAttribute("data-smd-icon-size", "small");
@@ -1127,7 +1319,7 @@ test.describe("PlanMyDay - Regression", () => {
       await page.locator("#btnMainMenu").click();
       await page.locator("a.dropdown-item").filter({ hasText: "Settings" }).click();
       await page.locator("#appearance-tab").click();
-      await page.locator("#densitySelector").selectOption("compact");
+      await pickOption(page, "#densitySelector", "compact");
       const hasClass = await page.evaluate(() => document.body.classList.contains("compact"));
       expect(hasClass).toBe(true);
       await expect(page.locator("html")).toHaveAttribute("data-smd-tile-density", "compact");
@@ -1137,13 +1329,13 @@ test.describe("PlanMyDay - Regression", () => {
       await page.locator("#btnMainMenu").click();
       await page.locator("a.dropdown-item").filter({ hasText: "Settings" }).click();
       await page.locator("#appearance-tab").click();
-      await page.locator("#touchSizeSelector").selectOption("normal");
+      await pickOption(page, "#touchSizeSelector", "normal");
       const normal = await page.evaluate(() => ({ drag: SmdDragHandle.defaultSize, check: SmdCheckbox.defaultSize }));
       expect(normal).toEqual({ drag: "normal", check: "normal" });
       const stored = await page.evaluate(() => localStorage.getItem("planmydays_touchSize"));
       expect(stored).toBe("normal");
       await expect(page.locator("html")).toHaveAttribute("data-smd-touch-size", "normal");
-      await page.locator("#touchSizeSelector").selectOption("large");
+      await pickOption(page, "#touchSizeSelector", "large");
       const large = await page.evaluate(() => ({ drag: SmdDragHandle.defaultSize, check: SmdCheckbox.defaultSize }));
       expect(large).toEqual({ drag: "large", check: "large" });
       await expect(page.locator("html")).toHaveAttribute("data-smd-touch-size", "large");
@@ -2674,6 +2866,29 @@ test.describe("PlanMyDay - Regression", () => {
       await expect(reportCard).toBeHidden();
     });
 
+    test("the job list renders inside the active tab panel, not below it", async ({ page }) => {
+      await seedTodayList(page);
+      await page.evaluate(() => localStorage.setItem("planmydays_splitList", "true"));
+      await page.reload();
+      await page.waitForSelector("#todayCardList .today-drag-card");
+      const nesting = await page.evaluate(() => {
+        const tabs = document.getElementById("todayTabs");
+        const panel = tabs && tabs.querySelector(".tab-content > .smd-tab-panel.active");
+        const list = document.getElementById("todayCardList");
+        const scrollBody = document.getElementById("countdownScrollBody");
+        return {
+          hidePanels: tabs ? tabs.hasAttribute("hide-panels") : null,
+          panelExists: !!panel,
+          scrollInPanel: !!(panel && scrollBody && panel.contains(scrollBody)),
+          listInPanel: !!(panel && list && panel.contains(list))
+        };
+      });
+      expect(nesting.panelExists).toBe(true);
+      expect(nesting.scrollInPanel).toBe(true);
+      expect(nesting.listInPanel).toBe(true);
+      expect(nesting.hidePanels).toBe(false);
+    });
+
     test("tab bar is visible above the job list when many jobs overflow", async ({ page }) => {
       // Seed a stream with 20 jobs and split list enabled
       const jobs = Array.from({ length: 20 }, (_, i) => ({
@@ -3182,7 +3397,7 @@ test.describe("PlanMyDay - Regression", () => {
       await page.locator("#btnMainMenu").click();
       await page.locator("a.dropdown-item").filter({ hasText: "Settings" }).click();
       await page.locator("#schedule-tab").click();
-      await page.locator("#suffixStartSelector").selectOption("1");
+      await pickOption(page, "#suffixStartSelector", "1");
       const val = await page.evaluate(() => localStorage.getItem("planmydays_suffixStart"));
       expect(val).toBe("1");
     });
@@ -3248,7 +3463,7 @@ test.describe("PlanMyDay - Regression", () => {
       const modeSelect = page.locator("#themeSelector .smd-theme-mode-select");
       await expect(themeSelect).toBeVisible();
       await expect(modeSelect).toBeVisible();
-      expect(await modeSelect.locator("option").allTextContents()).toEqual(["Light", "Dark"]);
+      expect(await modeSelect.locator(".smd-select-item").allTextContents()).toEqual(["Light", "Dark"]);
       expect(await page.evaluate(() => ({
         hasDefaultMode: Object.prototype.hasOwnProperty.call(themeConfig.superhero, "defaultMode"),
         order: Array.from(document.head.children).map(el => el.id).filter(id => ["bootstrap-theme-css", "theme-override-mode", "theme-override-specific"].includes(id))
@@ -3270,8 +3485,8 @@ test.describe("PlanMyDay - Regression", () => {
         });
       });
 
-      await modeSelect.selectOption("dark");
-      await expect(modeSelect).toHaveValue("dark");
+      await pickOption(page, "#themeSelector .smd-theme-mode-select", "dark");
+      await expect(modeSelect).toHaveAttribute("value", "dark");
       await expect(page.locator("html")).toHaveAttribute("data-bs-theme", "dark");
       expect(await page.evaluate(() => ({
         mode: localStorage.getItem("planmydays_themeMode"),
@@ -3283,7 +3498,7 @@ test.describe("PlanMyDay - Regression", () => {
         event: { theme: "superhero", mode: "dark", source: "mode" }
       });
 
-      await themeSelect.selectOption("brite");
+      await pickOption(page, "#themeSelector .smd-theme-select", "brite");
       await expect(page.locator("html")).toHaveAttribute("data-theme", "brite");
       await expect(page.locator("html")).toHaveAttribute("data-bs-theme", "dark");
       expect(await page.evaluate(() => window.__themeEvents[window.__themeEvents.length - 1])).toEqual({
@@ -3293,9 +3508,9 @@ test.describe("PlanMyDay - Regression", () => {
       });
 
       // Changing the theme keeps the explicit global mode; only the mode select changes it.
-      await themeSelect.selectOption("solar");
+      await pickOption(page, "#themeSelector .smd-theme-select", "solar");
       await expect(page.locator("html")).toHaveAttribute("data-bs-theme", "dark");
-      await modeSelect.selectOption("light");
+      await pickOption(page, "#themeSelector .smd-theme-mode-select", "light");
       await expect(page.locator("html")).toHaveAttribute("data-bs-theme", "light");
       expect(await page.evaluate(() => ({
         theme: localStorage.getItem("planmydays_theme"),
@@ -3352,26 +3567,26 @@ test.describe("PlanMyDay - Regression", () => {
 
     test("font size normal removes size class", async ({ page }) => {
       await page.locator("#appearance-tab").click();
-      await page.locator("#fontSizeSelector").selectOption("small");
-      await page.locator("#fontSizeSelector").selectOption("normal");
+      await pickOption(page, "#fontSizeSelector", "small");
+      await pickOption(page, "#fontSizeSelector", "normal");
       const hasSmall = await page.evaluate(() => document.body.classList.contains("font-size-small"));
       expect(hasSmall).toBe(false);
     });
 
     test("icon size medium and large change body class", async ({ page }) => {
       await page.locator("#appearance-tab").click();
-      await page.locator("#iconSizeSelector").selectOption("medium");
+      await pickOption(page, "#iconSizeSelector", "medium");
       let hasClass = await page.evaluate(() => document.body.classList.contains("icon-size-medium"));
       expect(hasClass).toBe(true);
-      await page.locator("#iconSizeSelector").selectOption("large");
+      await pickOption(page, "#iconSizeSelector", "large");
       hasClass = await page.evaluate(() => document.body.classList.contains("icon-size-large"));
       expect(hasClass).toBe(true);
     });
 
     test("density normal removes compact class", async ({ page }) => {
       await page.locator("#appearance-tab").click();
-      await page.locator("#densitySelector").selectOption("compact");
-      await page.locator("#densitySelector").selectOption("normal");
+      await pickOption(page, "#densitySelector", "compact");
+      await pickOption(page, "#densitySelector", "normal");
       const hasCompact = await page.evaluate(() => document.body.classList.contains("compact"));
       expect(hasCompact).toBe(false);
       await expect(page.locator("html")).toHaveAttribute("data-smd-tile-density", "normal");
@@ -3379,12 +3594,12 @@ test.describe("PlanMyDay - Regression", () => {
 
     test("touch size selector switches between normal and large", async ({ page }) => {
       await page.locator("#appearance-tab").click();
-      await page.locator("#touchSizeSelector").selectOption("normal");
-      await expect(page.locator("#touchSizeSelector")).toHaveValue("normal");
+      await pickOption(page, "#touchSizeSelector", "normal");
+      await expect(page.locator("#touchSizeSelector")).toHaveAttribute("value", "normal");
       await expect(page.locator("html")).toHaveAttribute("data-smd-touch-size", "normal");
       expect(await page.evaluate(() => SmdDragHandle.defaultSize === "normal" && SmdCheckbox.defaultSize === "normal")).toBe(true);
-      await page.locator("#touchSizeSelector").selectOption("large");
-      await expect(page.locator("#touchSizeSelector")).toHaveValue("large");
+      await pickOption(page, "#touchSizeSelector", "large");
+      await expect(page.locator("#touchSizeSelector")).toHaveAttribute("value", "large");
       await expect(page.locator("html")).toHaveAttribute("data-smd-touch-size", "large");
       expect(await page.evaluate(() => SmdDragHandle.defaultSize === "large" && SmdCheckbox.defaultSize === "large")).toBe(true);
     });
@@ -3425,21 +3640,21 @@ test.describe("PlanMyDay - Regression", () => {
 
     test("jan1 selector persists value", async ({ page }) => {
       await page.locator("#schedule-tab").click();
-      await page.locator("#jan1Selector").selectOption("1");
+      await pickOption(page, "#jan1Selector", "1");
       const val = await page.evaluate(() => localStorage.getItem("planmydays_jan1"));
       expect(val).toBe("1");
     });
 
     test("monday selector persists value", async ({ page }) => {
       await page.locator("#schedule-tab").click();
-      await page.locator("#mondaySelector").selectOption("0");
+      await pickOption(page, "#mondaySelector", "0");
       const val = await page.evaluate(() => localStorage.getItem("planmydays_monday"));
       expect(val).toBe("0");
     });
 
     test("start week selector persists value", async ({ page }) => {
       await page.locator("#schedule-tab").click();
-      await page.locator("#startWeekSelector").selectOption("2");
+      await pickOption(page, "#startWeekSelector", "2");
       const val = await page.evaluate(() => localStorage.getItem("planmydays_startWeek"));
       expect(val).toBe("2");
     });
@@ -3674,8 +3889,8 @@ test.describe("PlanMyDay - Regression", () => {
       await page.locator("#jobEditPage").waitFor({ state: "visible" });
       await page.locator("#jobSchedule-tab").click();
       await page.locator("#jobTimeHour").waitFor({ state: "visible" });
-      await page.locator("#jobTimeHour").selectOption("14");
-      await page.locator("#jobTimeMin").selectOption("30");
+      await pickOption(page, "#jobTimeHour", "14");
+      await pickOption(page, "#jobTimeMin", "30");
       await page.locator("#jobEditOkBtn").click();
       
       await page.locator("#jobEditPage").waitFor({ state: "hidden", timeout: 10000 });
@@ -4420,7 +4635,7 @@ test.describe("PlanMyDay - Regression", () => {
       await page.locator("#btnScheduleChange").click();
       await page.locator("#smdConfirmModal").waitFor({ state: "visible" });
       await page.locator("#schedMonthly").check();
-      await page.locator("#schedMonthlyDay").selectOption("15");
+      await pickOption(page, "#schedMonthlyDay", "15");
       await page.locator("#smdConfirmModal .smd-footer button[data-index='1']").click();
       await expect(page.locator("#jobScheduleText")).toContainText("15th");
     });
@@ -4444,8 +4659,8 @@ test.describe("PlanMyDay - Regression", () => {
       await page.locator("#btnScheduleChange").click();
       await page.locator("#smdConfirmModal").waitFor({ state: "visible" });
       await page.locator("#schedNDays").check();
-      await page.locator("#schedNInterval").selectOption("3");
-      await page.locator("#schedNOffset").selectOption("1");
+      await pickOption(page, "#schedNInterval", "3");
+      await pickOption(page, "#schedNOffset", "1");
       await page.locator("#smdConfirmModal .smd-footer button[data-index='1']").click();
       await page.locator("#smdConfirmModal").waitFor({ state: "hidden" });
       await expect(page.locator("#jobScheduleText")).toContainText("Every 3 day(s)");
@@ -7835,7 +8050,7 @@ test.describe("PlanMyDay - Regression", () => {
       await page.locator("a.dropdown-item").filter({ hasText: "Settings" }).click();
       await expect(page.locator("#settingsPage:not(.d-none)")).toBeVisible();
       await page.locator("#appearance-tab").click();
-      await page.locator("#slideDurationSelector").selectOption("150");
+      await pickOption(page, "#slideDurationSelector", "150");
       await expect.poll(() => page.evaluate(() => localStorage.getItem("planmydays_slideDuration"))).toBe("150");
       const result = await page.evaluate(() => {
         return Array.from(document.querySelectorAll("smd-page")).map((p) => ({

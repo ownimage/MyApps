@@ -67,7 +67,8 @@ Architecture:
 - TYPESCALE TOKENS (2026-09-18): one shared ramp in `shared/css/styles.css` — `body { --smd-type-base: 1rem }` plus `body.font-size-xsmall/small/large/xlarge/jumbo` overrides (0.8/0.925/1/1.125/1.3/1.6rem) — drives exactly four tokens `--smd-type-badge` (base×0.75), `--smd-type-p` (base), `--smd-type-h2` (base×1.25), `--smd-type-h1` (base×2), all declared on `body` (NOT `:root`: the ramp must recompute per font-size body class, and body custom props pierce shadow DOM while `:host-context()` doesn't). Tag map: h1→h1; h2/h3/h4→h2; h5/h6→p; text/inputs/tables→p; badges→badge. BUTTONS ARE h2 (one step above text): `<button>`, `.btn`, `.smd-tab-btn` all use `var(--smd-type-h2)`; `.btn-sm` stays at `var(--smd-type-p)`. Light-DOM home is `shared/css/styles.css` (`button, .btn` / `.btn-sm`); the shared `btnBadgeSheet` covers shadow buttons. Scaffold the h2/p rules inline wherever a shadow root does NOT adopt btnBadgeSheet: the 4 apps' `editor-styles.js`, `smd-settings.js`, `smd-minio.js`, `smd-modal.js`, `smd-image-picker.js`, `smd-image-dropdown.js`. Don't re-add per-component `.btn` font-size rules. Every component + app style now uses `var(--smd-type-*, original-value)` (original as fallback so behaviour is unchanged wherever the token is missing). Media-fit sizes are token CALCs (e.g. CM/QR title `calc(var(--smd-type-h1,1.5rem)*0.7667)`, CM count `*0.8333`, CM container h1 `*0.625`, Solar 480px block). Compact density = `--…-title-size: var(--smd-type-p)` overrides. Deliberate non-token exceptions: the 22px hamburger icon in `smd-app.js`, `smd-checkbox` 1em/1.4em + `smd-draghandle` 1.2rem/1.6rem touch sizes, vendor CSS, storybook chrome. Tests assert heading ELEMENT tags (now `h1` for main-view date/"Today!"/"From …" headings) and pmd-touch.spec.js:119 asserts the NEW pixel values (xlarge 41.6, jumbo 51.2, compact-jumbo 25.6) — update those literals together with any ramp change.
 - THEME TEXT COLOURS (2026-09-12): shadow-DOM buttons/tabs cannot use Bootswatch's `.btn-*` rules (document CSS doesn't cross the boundary, and `--bs-btn-*` is set on the `.btn-*` element, not `:root`). `applySmdVars()` reads a hidden light-DOM `<button class="btn btn-<variant>">` probe (`smdBootstrapColor()`) and publishes `--smd-primary/secondary/success/danger/info/warning-text` + `--smd-tab-text` on `<html>`; every shadow `.btn-*`/variant uses those vars. `applyTheme()` re-runs `applySmdVars` on the theme `<link>`'s `load`. Never hardcode white text for a theme-coloured surface; if Bootswatch's own `.btn-*` rule disagrees with its `--bs-btn-color` var (e.g. cerulean's later `.btn-secondary { color: ... }`), the probe wins — always match the probe.
 - BADGES (2026-09-12): use the shared `<smd-badge variant="primary|secondary|success|danger|warning|info|light|dark" pill?>` component everywhere — never a `<span class="badge bg-*">` (Bootstrap's badge vars live on the `.badge` element and can't reach shadow roots). `applySmdVars()` probes a hidden light-DOM `.badge.text-bg-<variant>` (`smdBootstrapStyle()`) and publishes `--smd-badge-<variant>-{bg,text}`; the component's own sheet consumes them, so text colour follows Bootswatch exactly (white on cerulean's navy info, black on its light secondary, etc.). `btnBadgeSheet` now only carries `.btn*` rules despite its name; `smd-page`'s badge/bg rules were removed.
-- IMAGE DROPDOWN (2026-09-18): the shared `<smd-image-dropdown>` (`shared/js/components/smd-image-dropdown.js`) is the generic image+name picker — the old PlanMyDay `pmd-stream-select` was folded into it and deleted. It is DATA-driven, not DOM: host sets `options = [{name, image}]` (image OPTIONAL → text-only rows, e.g. CountMyDays' no-image "All") and `selected` = the chosen option's NAME string; picks dispatch `smd-image-dropdown-change` ({ name }). Listener wiring: CountMyDays `#dateCategoryFilter` (`smd-image-dropdown-change` → `setDateCategoryFilter`, "" for All) in `dates-editor.js`; PlanMyDay `#jobStreamDropdown` (name mapped back via `streamIndexByName` in `editor-common.js`). Stable shadow ids for test locators: `smdImageDropdownBtn`, `smdImageBtnIcon`, `smdImageBtnText`, `smdImageDropdownMenu`. Its colours come from the `--smd-dropdown-*` palette at the top of `shared/css/styles.css` (override per theme in `shared/css/themes/<theme>/<theme>.<mode>.css`; superhero does) — see the 2026-09-26 (c) session note.
+- IMAGE DROPDOWN (2026-09-18): the shared `<smd-image-dropdown>` (`shared/js/components/smd-image-dropdown.js`) is the generic image+name picker — the old PlanMyDay `pmd-stream-select` was folded into it and deleted. It is DATA-driven, not DOM: host sets `options = [{name, image}]` (image OPTIONAL → text-only rows, e.g. CountMyDays' no-image "All") and `selected` = the chosen option's NAME string; picks dispatch `smd-image-dropdown-change` ({ name }). Listener wiring: CountMyDays `#dateCategoryFilter` (`smd-image-dropdown-change` → `setDateCategoryFilter`, "" for All) in `dates-editor.js`; PlanMyDay `#jobStreamDropdown` (name mapped back via `streamIndexByName` in `editor-common.js`). Stable shadow ids for test locators: `smdImageDropdownBtn`, `smdImageBtnIcon`, `smdImageBtnText`, `smdImageDropdownMenu`. Its colours come from the `--smd-dropdown-*` palette in the shared MODE layer (`shared/css/themes/light.css` + `dark.css`), which since 2026-10-13 mirrors the form-field palette (`--smd-form-*`) for surface/label/border and does NOT change colour on hover (the closed control is field-like); a theme overrides in `shared/css/themes/<theme>/<theme>.<mode>.css` (superhero, cyborg, darkly do) — see the 2026-09-26 (c) and 2026-10-13 (e) session notes. GOTCHA (2026-10-13): the palette only sets `background-color`, so a theme whose stock `.btn` ALSO sets `background-image: var(--bs-gradient)` shows a white sheen over a dark button; materia is the only such theme and clears it with `#smd-app smd-image-dropdown .btn { background-image: none }` (the `#smd-app` scope is needed to beat the theme's `.btn:focus-visible` re-apply).
+- SMD-SELECT (2026-10-13): new shared `shared/js/components/smd-select.js` (`<smd-select>`) — a text-only custom dropdown with a `<select>` SHAPE (its button reuses Bootstrap's `.form-select`, so it inherits the shared `--smd-form-*` repaint) but a THEMED menu, because a native `<select>`'s open list is OS-rendered and cannot be CSS-styled cross-browser. API: `options = [{value,label}]`, `value` (reflected as an attribute for tests), attributes `disabled`/`value`, event `smd-select-change` ({value,label}); stable hooks `.smd-select-btn`, `.smd-select-item[data-value]`, `.smd-select-item.active`. The HOVERED row gets its primary surface from a CSS `:hover`/`:focus-visible` rule on `.smd-select-item` (so it ALWAYS shows), and the SELECTED row gets `.text-bg-primary`; the component ALSO adds `.text-bg-primary` to the hovered row so the theme's primary BUTTON variant supplies the correct contrast text (brite keeps BLACK text; a plain `--bs-primary`+white is unreadable there). Menu `z-index: 1030` (above Bootstrap `sticky-top` 1020, below smd-page 1040 / modal 1050). Rows are `<a>` so they need `text-decoration: none`. `<smd-theme>` now uses it for the Theme / Theme Mode fields (was a native `<select>`). Registered in all 8 shells AFTER `library.js` and BEFORE `smd-theme.js`, plus `sw.js SHARED_ASSETS`; tests drive it with `tests/theme-controls.js` `pickOption(page, control, value)` which clicks `.smd-select-item[data-value="…"]`. MIGRATION ENABLERS (2026-10-13): `<smd-select>` also (a) dispatches a bubbling `change` event so an existing inline `onchange="fn(this.value)"` keeps working after the tag swap, (b) reads declarative `<option>` children into `options` (then removes them), (c) drops a leftover `form-select`/`form-select-sm` class from the HOST (the inner button carries the look), (d) supports `w-auto` (shrink-to-fit) and basic keyboard nav (Arrow/Enter/Escape). So migrating a static `<select>…</select>` is literally two edits: `<select id=` → `<smd-select id=` and `</select>` → `</smd-select>`. PHASE 2 DONE: every appearance-settings select in the 7 shell `index.html`s (font/icon/density/touch size, slide duration, CM format + max countdowns, PMD suffix-start/jan1/monday/start-week, FFox x/o piece style) is now `<smd-select>`. PHASE 3 DONE: SolarControlar `#log-file` (files-tab) + `#graph-date` (graph-tab) and PhoneButtons `#buttonKeyNamed` + `#buttonPressSelect` (edit-layout). GOTCHA: a declarative `<option>` set leaves its inter-tag WHITESPACE text nodes in the host, so `_build()` clears all children (`this.textContent = ""`) and the template string is whitespace-free (otherwise a stray line/space shows in the host). When migrating a select whose OPTIONS ARE REBUILT in place, set `.options` — never `.innerHTML`/`appendChild(<option>)`, which would wipe the component (that is why `graph-tab.js` `loadGraphDates` now assigns `.options`). PHASE 4 DONE: CountMyDays date/category editors (`#dateDaySelect`/`#dateMonthSelect`/`#dateTypeSelect`/`#gcalCategorySelect`) and the export/import wizards (`#imgExistingSelect`/`#catExistingSelect`/`#dateExistingSelect` + the export category filter); `<smd-select>` gained a `disabled` getter/setter (the wizards assign `.disabled`). PHASE 5 DONE: PMD job editor `#jobTimeHour`/`#jobTimeMin` + the dayType/mod selects (tag swap, `<option>` markup kept) and the Schedule MODAL `#schedNInterval`/`#schedNOffset`/`#schedMonthlyDay` (which are JS-POPULATED, so `openScheduleModal`/`onScheduleNDaysChange` now assign `.options`). PHASE 6 DONE: storybook `#ctrl-modal-buttons`/`#ctrl-image-theme`/`#ctrl-image-size` and cardViewer `#cardSelect`/`#themeSelect` (JS-populated → `.options`); `<smd-select>` also maps `form-select-sm` / `size="small"` onto the inner button, and `storybook/cardViewer.html` now loads `smd-select.js`. ROLLOUT COMPLETE — no native `<select>` remains in the app shells or storybook (the dev-only `screenshots/viewer.js` output tool is deliberately untouched).
 - SMD-IMAGE-DROPDOWN CLOSED-STATE LAYOUT (2026-10-04): the closed button
   LEFT-ALIGNS its label right next to the image and sizes itself to the WIDEST
   option. Every option label is stacked in ONE hidden `.sizer` grid cell inside
@@ -437,6 +438,15 @@ Architecture:
 - `hideNav()` (shared smd-settings.js) now hides when NO
   `smd-page:not(.d-none)` is open — generic for any app's page set (was a
   hardcoded PlanMyDay id list).
+- PMD TODAY TABS OWN THEIR CONTENT (2026-10-13): the PlanMyDay main-view split-list
+  tabs (`#todayTabs`) used to set `hide-panels` and render the job list as a SIBLING
+  below the tab bar. They now render `#countdownScrollBody` > `#todayCardList`
+  INSIDE the ACTIVE `.tab-content > .smd-tab-panel` (no `hide-panels`).
+  `PlanMyDay/js/main-view.js` injects `injectTodayTabsLayout()` making
+  `#todayTabsWrap` / `#todayTabs` / `.tab-content` / `.smd-tab-panel.active` a flex
+  column with `min-height:0`, so the tab bar stays put and the active panel's body
+  scrolls (the component's own sheet only sets `display:block`). The `hide-panels`
+  attribute stays supported in smd-tabs but is no longer used by any app.
 - `smd-page` GOTCHA: a footer button auto-hides its page BEFORE dispatching
   `smd-page-action` unless the button config sets `close: false`. Any button
   whose handler validates or decides (Add/OK/etc.) MUST use `close: false` and
@@ -3774,3 +3784,218 @@ Techniques / gotchas:
   CONNECTION_CLOSED|NETWORK_CHANGED|EMPTY_RESPONSE)`; every other console error
   still fails. (Encodes the documented "treat ERR_CONNECTION_REFUSED as infra".)
 - TEST-ONLY: no app or BUILD change (`BUILD_NUMBER` unchanged).
+
+### 2026-10-13 (e) - smd-image-dropdown now mirrors the form-field palette (all themes) + materia sheen
+- BUG (user, PlanMyDay > Add Stream page): the shared `<smd-image-dropdown>`
+  (`#streamTabDropdown`) looked odd/low-contrast next to the other form fields —
+  reported on materia dark, then minty dark+light, pulse dark, quartz light,
+  simplex dark, slate dark and vapor light.
+- CAUSE (probed across all 27 themes x both modes, not guessed): the shared
+  `--smd-dropdown-*` palette derived from `--bs-tertiary-bg`/`--bs-body-color`,
+  which diverge per theme, while the form fields use the fixed `--smd-form-*`
+  surface (`--bs-white`/`--bs-gray-900` in light, `--bs-body-bg`/`--bs-body-color`
+  in dark). So on dark themes the button was a lighter grey than the fields, and
+  on "light" themes whose body text is light (quartz `#fff`, vapor `#32fbe2`,
+  slate `#aaa`) the LABEL went white/near-white on the `#f8f9fa` button (contrast
+  1.05/1.24). SEPARATE cause on materia ONLY: its stock `.btn` sets
+  `background-image: var(--bs-gradient)` (a white 15% sheen) on top of the
+  background-color — a 27-theme sweep showed materia is the only theme whose
+  dropdown `.btn` computes a background-image.
+- FIX (user chose the central fix): `shared/css/themes/light.css` AND `dark.css`
+  (the shared MODE layer) now point `--smd-dropdown-background/foreground/
+  border-color` at `--smd-form-*`. `shared/css/themes/materia/materia.dark.css`
+  clears the sheen with `#smd-app smd-image-dropdown .btn { background-image:
+  none }` (the `#smd-app` scope is required: materia re-applies the gradient on
+  `.btn:focus-visible` (0,2,0), which beats a bare `smd-image-dropdown .btn`
+  (0,1,1)).
+- NO HOVER COLOUR (user, same session): the closed control is field-like (it
+  replaced <select>s) and a plain `.btn` toggle does not change background on
+  hover, so the `smd-image-dropdown .btn:hover,:focus-visible` rule now just
+  RE-ASSERTS the base colours (no change) and the `--smd-dropdown-hover-*` vars
+  were dropped from light.css/dark.css; a short-lived brite hover override was
+  reverted. The menu ITEM hover (real dropdown behaviour) is untouched.
+- TDD (3 new pmd-regression "Theme colours" tests, RED first, GREEN after):
+  "materia dark image dropdown matches the form field surface (no Bootstrap
+  gradient)"; "image dropdown surface and label match the form fields across
+  themes" (the 7 reported theme/modes, asserts button bg/label == the live
+  `.form-control` AND contrast >= 4.5). GOTCHA encoded: `applyTheme()` swaps the
+  base/mode sheets async and the palette is momentarily absent (button AND input
+  transparent + default black), so the poll REQUIRES the contrast, not just a
+  match (seen on simplex/dark).
+- Verified: Theme colours + pmd `dropdown` 13/13 (incl. the 7 Stream-dropdown
+  layout tests), cmd-regression 58/58, storybook-regression 8/8. Full regression
+  left to the user.
+- `BUILD_NUMBER` NOT bumped — bump before shipping (`npm run bump:build`); all
+  edited sheets are precached SHARED_ASSETs, so the bump is what installs the worker.
+
+### 2026-10-13 (f) - theme contrast sweep: minty hamburger, page-header headings, quartz tabs, form focus
+- Several PRE-EXISTING theme-contrast bugs reported while testing (e) (none caused
+  by it):
+  1. MINTY hamburger white-on-white: Bootswatch minty ships
+     `.btn,.btn:hover{color:#fff}` (every button white text) and the
+     background-less `#btnMainMenu` is a plain `.btn` -> invisible on the white
+     nav. FIX (`shared/css/styles.css`): `#btnMainMenu { color:
+     var(--bs-body-color) }` — the ID scope (1,0,0) beats `.btn` (0,1,0) and
+     `.btn:hover` (0,2,0).
+  2. PAGE-HEADER h1 dark-on-dark (minty light): Bootstrap's
+     `h1 { color: var(--bs-heading-color) }` wins over the header's inherited
+     colour, so a theme that sets `--bs-heading-color` (minty #5a5a5a) painted a
+     dark h1 on the dark header band. FIX (`styles.css`): the `.smd-page-header`
+     rule also sets `--bs-heading-color: var(--smd-page-header-color)`.
+  3. QUARTZ tabs white-on-white (BOTH modes): quartz paints
+     `.nav-tabs .nav-link.active` with
+     `linear-gradient(125deg,#fff,rgba(255,255,255,.9) 70%)`, a near-white sheen
+     over the `text-bg-primary` (pink) active tab. FIX (`quartz.light.css` +
+     `quartz.dark.css`): `#smd-app smd-tabs .smd-tab-btn { background-image: none }`.
+     (Slate KEEPS its gradient — the 2026-10-13 swap is intentional — so this is a
+     per-theme fix, NOT a blanket clear in smd-tabs.)
+  4. FORM FOCUS not primary (vapour dark): `--smd-form-focus-border-color` was a
+     50% primary/body-bg mix (reads muted). FIX (`light.css` + `dark.css`): now
+     `var(--bs-primary)`.
+  5. CHECKBOX tick mid-blue (vapour dark, all themes): `--smd-checkbox-accent` was
+     `auto` (the browser's default accent). FIX (`light.css` + `dark.css`): it is
+     now `var(--bs-primary)` for every theme, so the checked box matches the UI.
+- TDD: 4 pmd-regression "Theme colours" tests: "the hamburger icon is legible on
+  the nav surface across themes", "page header headings use the header foreground
+  across themes", "quartz tab buttons are not white-on-white in either mode",
+  "focused form fields use the theme primary border" (added a shared `smdContrast`
+  helper that parses rgb()/color(srgb)).
+- REVERTED (user): the smd-image "auto theme re-tints on hover" change from the
+  earlier attempt was backed out COMPLETELY — `shared/js/components/smd-image.js` is
+  byte-identical to HEAD again (it was only needed for the now-removed dropdown
+  hover). The dropdown `:hover` also no longer changes colour (see (e)).
+- NOT FIXED, BY DESIGN (user): a native `<select>` open option list and its hovered
+  row are rendered by the browser/OS (Windows Chrome = the OS accent blue) and
+  cannot be styled from page CSS. Matching the primary there would need replacing
+  native selects with a custom dropdown; the user chose to leave native selects
+  as-is.
+- Verified: Theme colours 12/12, smd-image rendering 7/7, pmd `dropdown` 13/13,
+  cmd-regression 58/58, storybook-regression 8/8. Full regression left to the user.
+- `BUILD_NUMBER` NOT bumped — bump before shipping (`npm run bump:build`); all
+  edited sheets are precached SHARED_ASSETs.
+
+### 2026-10-13 (g) - PlanMyDay main view: job list now renders inside the active tab panel
+- BUG (user): on the PlanMyDay main screen with Split List on, the job list was
+  rendered BELOW the `smd-tabs` `.tab-content` (the panels were empty; the app set
+  `hide-panels` and appended `#countdownScrollBody` as a sibling). The user wants
+  the content INSIDE the tab panel.
+- FIX (`PlanMyDay/js/main-view.js`): drop `hide-panels`; after the tabs render,
+  append `#countdownScrollBody` into `#todayTabs > .tab-content >
+  .smd-tab-panel.active`. New `injectTodayTabsLayout()` injects a flex chain
+  (`#todayTabsWrap` / `#todayTabs` / `.tab-content` / `.smd-tab-panel.active` = flex
+  column with `min-height:0`) so the tab bar stays put and the ACTIVE panel scrolls
+  its body — the smd-tabs sheet only sets `display:block`, so this app-specific
+  layering lives in the app. Non-split mode still appends the scroll body to
+  `#countdownContainer`.
+- TDD: new pmd-regression `Split List` test "the job list renders inside the active
+  tab panel, not below it" (RED first: scrollInPanel false; GREEN after). Asserts
+  `#countdownScrollBody`/`#todayCardList` are inside the active panel and
+  `hide-panels` is gone.
+- Verified: Split List 7/7, Main View + Coverage 163/163, pmd-touch 6/6, Theme
+  colours 13/13. Full regression left to the user.
+- `BUILD_NUMBER` NOT bumped — bump before shipping (`npm run bump:build`);
+  `PlanMyDay/js/main-view.js` is a precached `APPS["PlanMyDay/"]` asset.
+
+### 2026-10-13 (h) - new shared <smd-select>; theme/mode + all appearance settings migrated
+- WHY (user): a native `<select>`'s open list is OS-rendered (Windows Chrome = the
+  OS accent blue) and cannot be themed; the user wants the hovered/selected row to
+  use the primary BUTTON variant, cross-browser.
+- NEW `shared/js/components/smd-select.js` — see the durable note in "Project
+  status". Button reuses `.form-select`; rows `.smd-select-item[data-value]`; the
+  hovered row gets the primary surface from CSS `:hover`/`:focus-visible` (always
+  shows) plus `.text-bg-primary` for the theme-correct contrast text; the selected
+  row is `.active.text-bg-primary`; `text-decoration: none` (rows are `<a>`); menu
+  `z-index: 1030`.
+- WIRED: `smd-theme.js` uses it for the Theme / Theme Mode fields. Registered in
+  all 8 shells BEFORE `smd-theme.js` and in `sw.js SHARED_ASSETS`. (PhoneButtons was
+  initially missed -> its settings theme control stayed an unupgraded empty element
+  and one test failed with "hidden"; ALWAYS grep EVERY shell when adding a shared
+  component.)
+- ENABLERS (so later phases are a tag swap): bubbling `change` event; declarative
+  `<option>` children; drop a host `form-select` class; `w-auto`; keyboard nav.
+- PHASE 2: all appearance-settings selects in the 7 shells converted (font/icon/
+  density/touch size, slide duration, CM format + max countdowns, PMD suffix-start/
+  jan1/monday/start-week, FFox x/o piece style). Tests: new
+  `tests/theme-controls.js` `pickOption` (clicks `[data-value]`); `.selectOption` ->
+  `pickOption`, `option` count -> `.smd-select-item`, `toHaveValue` ->
+  `toHaveAttribute("value")` across pmd/cmd/launch/ffox/phonebuttons.
+- Verified: storybook 8/8, settings-alignment 13/13, launch 7/7, qrlinks 9/9,
+  cmd 58/58, ffox 11/11, solarcontrolar 12/12, phonebuttons 18/18, pmd `Setting`
+  48/48, pmd `theme and mode` 2/2. Full regression left to the user.
+- TOUCH: there is no hover on touch (expected); the selected row stays highlighted
+  and a tap picks.
+- `BUILD_NUMBER` NOT bumped — bump before shipping.
+
+### 2026-10-13 (i) - smd-select rollout: enablers + Phase 2 (appearance settings) + Phase 3
+- ENABLERS added to `smd-select.js` so a migration is a tag swap: bubbling `change`
+  event (inline `onchange="fn(this.value)"` keeps working), declarative `<option>`
+  children read on connect, host `form-select`/`form-select-sm` class dropped,
+  `w-auto` (shrink-to-fit), keyboard nav. `_build()` clears ALL children
+  (`this.textContent = ""`) and the template is whitespace-free, so the inter-tag
+  whitespace left by the `<option>`s cannot render as a stray line in the host
+  (reported on FFOX; it was actually a misread of the row below, but the cleanup
+  is correct).
+- PHASE 2: all appearance-settings selects in the 7 shells are `<smd-select>`
+  (font/icon/density/touch size, slide duration, CM format + max countdowns, PMD
+  suffix-start/jan1/monday/start-week, FFox x/o piece style).
+- PHASE 3: SolarControlar `#log-file`/`#graph-date` (graph-tab's `loadGraphDates`
+  now assigns `.options`, NOT `innerHTML`), PhoneButtons `#buttonKeyNamed`/
+  `#buttonPressSelect`.
+- TESTS: `tests/theme-controls.js` `pickOption` clicks `.smd-select-item[data-value]`;
+  `.selectOption` → `pickOption`, `option` count → `.smd-select-item`, `toHaveValue`
+  → `toHaveAttribute("value")`. Also fixed a strict-mode locator: solar's
+  `.log-controls button` now matches the select's inner button too → use
+  `.log-controls .btn-primary`.
+- Verified: cmd 58/58, launch 7/7, ffox 11/11, phonebuttons 13/13, solarcontrolar
+  12/12, qrlinks 9/9, storybook 8/8, settings-alignment 13/13, pmd `Setting` 48/48,
+  pmd `theme and mode` 2/2. Full regression left to the user.
+- `BUILD_NUMBER` NOT bumped — bump before shipping.
+
+### 2026-10-13 (j) - smd-select rollout: Phase 4 (CountMyDays editors + wizards)
+- `smd-select.js` gained a `disabled` getter/setter (reflecting the attribute): the
+  import wizard assigns `select.disabled = …`, and a plain own property on a custom
+  element would never have reached `attributeChangedCallback`.
+- Migrated (tag swap, `<option>` children kept): CM `#dateDaySelect`/`#dateMonthSelect`/
+  `#dateTypeSelect` (dates-editor), `#gcalCategorySelect` (googleCalendarEditor), the
+  export wizard category filter (export.js, no id) and `#imgExistingSelect`/
+  `#catExistingSelect`/`#dateExistingSelect` (import-wizard).
+- TESTS (cmd-regression): `#dateDaySelect`/`#dateMonthSelect` toHaveValue →
+  toHaveAttribute("value"); `#dateTypeSelect`/`#dateDaySelect`/`#dateMonthSelect`/
+  `#gcalCategorySelect`/`#dateExistingSelect` `.selectOption` → `pickOption`.
+- Verified: cmd-regression 58/58. Full regression left to the user.
+- `BUILD_NUMBER` NOT bumped — bump before shipping.
+
+### 2026-10-13 (k) - smd-select rollout: Phase 5 (PMD job editor + schedule modal)
+- Tag swaps in `PlanMyDay/js/job-editor.js`: `#jobTimeHour`/`#jobTimeMin` and the
+  dayType/mod selects (kept their `<option>` markup, so `selected`/`disabled` work).
+- The SCHEDULE MODAL's `#schedNInterval`/`#schedNOffset`/`#schedMonthlyDay` had NO
+  markup options (they were populated with `innerHTML=""` + `appendChild(<option>)`),
+  so `openScheduleModal` and `onScheduleNDaysChange` now assign `.options` and set
+  `.value` instead — assigning `.innerHTML`/appending `<option>` would wipe the
+  component. The modal content is LIGHT DOM inside `#smdConfirmModal`, so
+  `scheduleEl()` (`host.querySelector`) reaches the elements.
+- TESTS: `#jobTimeHour`/`#jobTimeMin`/`#schedMonthlyDay`/`#schedNInterval`/
+  `#schedNOffset` `.selectOption` → `pickOption`.
+- Verified: pmd-regression `[Ss]chedule` 39/39. Full regression left to the user.
+- `BUILD_NUMBER` NOT bumped — bump before shipping.
+
+### 2026-10-13 (l) - smd-select rollout: Phase 6 (storybook + cardViewer) — COMPLETE
+- storybook `#ctrl-modal-buttons`/`#ctrl-image-theme`/`#ctrl-image-size` tag-swapped
+  (their `form-select-sm` moved onto the inner button); `cardViewer.html`
+  `#cardSelect`/`#themeSelect` tag-swapped AND their JS builders now assign
+  `.options` (`populateCards` flattens the optgroups — `<smd-select>` is
+  data-driven; `populateThemes` builds the list). `cardViewer.html` now loads
+  `shared/js/components/smd-select.js`.
+- `<smd-select>` gained small-size support: `_small` is captured from a host
+  `.form-select-sm` class OR `size="small"` and applied to the button.
+- TESTS (storybook-regression): cardViewer `#cardSelect`/`#themeSelect` `option`
+  count/text → `.smd-select-item`, `toHaveValue` → `toHaveAttribute("value")`,
+  `selectOption` → `pickOption`; the "chrome and controls use Bootstrap utilities"
+  test now treats `.sb-controls smd-select` as a control (asserting its inner button
+  has `form-select`+`form-select-sm`) and excludes `.smd-select-btn` from the
+  generic button check.
+- Verified: storybook-regression 8/8 (incl. the card viewer across every theme x
+  both modes). REPO-WIDE: no native `<select>` element remains in the app shells or
+  storybook (only comments mention `<select>`); the dev-only `screenshots/viewer.js`
+  is untouched.
+- `BUILD_NUMBER` NOT bumped — bump before shipping.

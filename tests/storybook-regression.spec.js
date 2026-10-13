@@ -1,5 +1,6 @@
 const { test, expect } = require("@playwright/test");
 const { startCoverage, stopCoverage } = require("./coverage");
+const { pickOption } = require("./theme-controls");
 
 // Coverage hooks (top-level so every test in this spec is captured).
 test.beforeEach(async ({ page }) => { await startCoverage(page); });
@@ -43,16 +44,16 @@ test.describe("Storybook - Regression", () => {
     await expect(page.locator("#sb-pmd-tasks .task-note-row")).toHaveCount(2);
 
     // Theme selector reflects the saved theme and mode.
-    await expect(page.locator("#storybookThemeSelector .smd-theme-select option")).toHaveCount(27);
-    await expect(page.locator("#storybookThemeSelector .smd-theme-mode-select option")).toHaveText(["Light", "Dark"]);
+    await expect(page.locator("#storybookThemeSelector .smd-theme-select .smd-select-item")).toHaveCount(27);
+    await expect(page.locator("#storybookThemeSelector .smd-theme-mode-select .smd-select-item")).toHaveText(["Light", "Dark"]);
     await expect(page.locator("#sb-theme .smd-theme-select")).toHaveCount(1);
     await expect(page.locator("#sb-theme .smd-theme-mode-select")).toHaveCount(1);
     await expect(page.locator("#sb-theme .smd-theme-select")).toBeVisible();
     await expect(page.locator("#sb-theme .smd-theme-mode-select")).toBeVisible();
-    await expect(page.locator("#sb-theme .smd-theme-mode-select option")).toHaveText(["Light", "Dark"]);
-    await expect(page.locator("#sb-theme .smd-theme-select")).toHaveValue(await page.locator("#storybookThemeSelector .smd-theme-select").inputValue());
-    await expect(page.locator("#sb-theme .smd-theme-mode-select")).toHaveValue(await page.locator("#storybookThemeSelector .smd-theme-mode-select").inputValue());
-    await page.locator("#sb-theme .smd-theme-mode-select").selectOption("light");
+    await expect(page.locator("#sb-theme .smd-theme-mode-select .smd-select-item")).toHaveText(["Light", "Dark"]);
+    await expect(page.locator("#sb-theme .smd-theme-select")).toHaveAttribute("value", await page.locator("#storybookThemeSelector .smd-theme-select").getAttribute("value"));
+    await expect(page.locator("#sb-theme .smd-theme-mode-select")).toHaveAttribute("value", await page.locator("#storybookThemeSelector .smd-theme-mode-select").getAttribute("value"));
+    await pickOption(page, "#sb-theme .smd-theme-mode-select", "light");
     await expect(page.locator("#sb-theme")).toHaveAttribute("mode", "light");
     await expect(page.locator("#log-smd-theme")).toContainText("source=mode");
   });
@@ -68,10 +69,14 @@ test.describe("Storybook - Regression", () => {
     const storyStyle = await page.locator("head > style").first().textContent();
     expect(storyStyle).not.toMatch(/box-sizing|header\.sb-header|nav\.sb-nav|section\.sb-section|\.sb-controls (?:input|button)/);
 
-    const controls = page.locator(".sb-controls input, .sb-controls select, .sb-controls button");
+    const controls = page.locator(".sb-controls input, .sb-controls select, .sb-controls smd-select, .sb-controls button:not(.smd-select-btn)");
     expect(await controls.evaluateAll((nodes) => nodes.every((node) => {
       if (node.matches("input[type='checkbox'], input[type='radio']")) return node.classList.contains("form-check-input");
       if (node.matches("input[type='text']")) return node.classList.contains("form-control") && node.classList.contains("form-control-sm");
+      if (node.matches("smd-select")) {
+        const b = node.querySelector(".smd-select-btn");
+        return !!b && b.classList.contains("form-select") && b.classList.contains("form-select-sm");
+      }
       if (node.matches("select")) return node.classList.contains("form-select") && node.classList.contains("form-select-sm");
       return node.classList.contains("btn") && node.classList.contains("btn-primary") && node.classList.contains("btn-sm");
     }))).toBe(true);
@@ -107,10 +112,10 @@ test.describe("Storybook - Regression", () => {
 
   test("Superhero keeps its dark-blue body surface", async ({ page }) => {
     await page.goto("/storybook/");
-    await page.locator("#storybookThemeSelector .smd-theme-select").selectOption("flatly");
-    await page.locator("#storybookThemeSelector .smd-theme-select").selectOption("superhero");
+    await pickOption(page, "#storybookThemeSelector .smd-theme-select", "flatly");
+    await pickOption(page, "#storybookThemeSelector .smd-theme-select", "superhero");
     await expect(page.locator("body")).toHaveCSS("background-color", "rgb(15, 37, 55)");
-    await page.locator("#storybookThemeSelector .smd-theme-mode-select").selectOption("light");
+    await pickOption(page, "#storybookThemeSelector .smd-theme-mode-select", "light");
     await expect(page.locator("body")).toHaveCSS("background-color", "rgb(15, 37, 55)");
   });
 
@@ -119,10 +124,10 @@ test.describe("Storybook - Regression", () => {
     page.on("pageerror", (err) => pageErrors.push(String(err)));
 
     await page.goto("/storybook/");
-    await page.locator("#storybookThemeSelector .smd-theme-select").selectOption("cerulean");
+    await pickOption(page, "#storybookThemeSelector .smd-theme-select", "cerulean");
     await page.waitForTimeout(500);
     await expect(page.locator("#sb-stream-header .editor-title")).toHaveText("Work");
-    await page.locator("#storybookThemeSelector .smd-theme-select").selectOption("darkly");
+    await pickOption(page, "#storybookThemeSelector .smd-theme-select", "darkly");
     await page.waitForTimeout(500);
     await expect(page.locator("#sb-stream-header .editor-title")).toHaveText("Work");
 
@@ -154,15 +159,15 @@ test.describe("Storybook - Regression", () => {
     });
     await page.reload();
 
-    await expect(page.locator("#storybookThemeSelector .smd-theme-select")).toHaveValue("cerulean");
-    await expect(page.locator("#storybookThemeSelector .smd-theme-mode-select")).toHaveValue("dark");
+    await expect(page.locator("#storybookThemeSelector .smd-theme-select")).toHaveAttribute("value", "cerulean");
+    await expect(page.locator("#storybookThemeSelector .smd-theme-mode-select")).toHaveAttribute("value", "dark");
     await expect(page.locator("html")).toHaveAttribute("data-bs-theme", "dark");
     expect(await page.evaluate(() => ({
       appTheme: localStorage.getItem("planmydays_theme"),
       appMode: localStorage.getItem("planmydays_themeMode")
     }))).toEqual({ appTheme: "flatly", appMode: "light" });
 
-    await page.locator("#storybookThemeSelector .smd-theme-mode-select").selectOption("light");
+    await pickOption(page, "#storybookThemeSelector .smd-theme-mode-select", "light");
     await expect(page.locator("html")).toHaveAttribute("data-bs-theme", "light");
     await expect(page.locator("#sb-theme")).toHaveAttribute("mode", "light");
     expect(await page.evaluate(() => ({
@@ -185,7 +190,7 @@ test.describe("Storybook - Regression", () => {
 
     await page.goto("/storybook/cardViewer.html");
     await expect(page.locator("body")).toHaveAttribute("data-card-viewer-ready", "true");
-    await expect(page.locator("#cardSelect option")).toHaveText([
+    await expect(page.locator("#cardSelect .smd-select-item")).toHaveText([
       "Job Today Card",
       "Job Summary Card (stream)",
       "Job Summary Card (search)",
@@ -196,11 +201,11 @@ test.describe("Storybook - Regression", () => {
       "QR Link Card",
       "Image Card"
     ]);
-    await expect(page.locator("#themeSelect")).toHaveValue("all");
-    await expect(page.locator("#themeSelect option")).toHaveCount(28);
-    await expect(page.locator("#themeSelect option").first()).toHaveText("All themes");
+    await expect(page.locator("#themeSelect")).toHaveAttribute("value", "all");
+    await expect(page.locator("#themeSelect .smd-select-item")).toHaveCount(28);
+    await expect(page.locator("#themeSelect .smd-select-item").first()).toHaveText("All themes");
 
-    await page.locator("#themeSelect").selectOption("morph");
+    await pickOption(page, "#themeSelect", "morph");
     await expect(page.locator(".theme-row")).toHaveCount(1);
     await expect(page.locator("iframe.preview-frame")).toHaveCount(2);
     expect(await page.locator("iframe.preview-frame").evaluateAll((frames) => frames.every((frame) => (
@@ -209,9 +214,9 @@ test.describe("Storybook - Regression", () => {
     await expect(page.locator("#viewerStatus")).toContainText("Morph");
     await page.reload();
     await expect(page.locator("body")).toHaveAttribute("data-card-viewer-ready", "true");
-    await expect(page.locator("#themeSelect")).toHaveValue("morph");
+    await expect(page.locator("#themeSelect")).toHaveAttribute("value", "morph");
     await expect(page.locator(".theme-row")).toHaveCount(1);
-    await page.locator("#themeSelect").selectOption("all");
+    await pickOption(page, "#themeSelect", "all");
 
     await expect(page.locator(".theme-row")).toHaveCount(27);
     await expect(page.locator("iframe.preview-frame")).toHaveCount(54);
@@ -259,7 +264,7 @@ test.describe("Storybook - Regression", () => {
       ["smd-image-card", "smd-image-card > .card"]
     ];
     for (const [cardId, selector] of recipes) {
-      await page.locator("#cardSelect").selectOption(cardId);
+      await pickOption(page, "#cardSelect", cardId);
       const firstFrame = page.frameLocator('iframe[data-theme="brite"][data-mode="light"]');
       await expect(firstFrame.locator(selector)).toBeVisible();
     }

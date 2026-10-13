@@ -457,9 +457,9 @@ function buildButtonEditPage() {
       '<label class="form-label">Key</label>' +
       '<div class="d-flex gap-2">' +
         '<input type="text" id="buttonKeyChar" class="form-control" maxlength="1" placeholder="Key" style="max-width:5rem" oninput="onButtonKeyChar()">' +
-        '<select id="buttonKeyNamed" class="form-select" aria-label="Special key" onchange="onButtonKeyNamed()">' +
+        '<smd-select id="buttonKeyNamed" class="form-select" aria-label="Special key" onchange="onButtonKeyNamed()">' +
           '<option value="">&mdash; Special key &mdash;</option>' + namedOptions +
-        '</select>' +
+        '</smd-select>' +
       '</div>' +
       '<div class="form-text">Choose a Key <em>or</em> a Special key — picking one clears the other.</div>' +
       '<smd-checkbox id="buttonKeyNone" onchange="onButtonKeyNone()">No key (modifiers only)</smd-checkbox>' +
@@ -474,10 +474,10 @@ function buildButtonEditPage() {
     '</div>' +
     '<div class="mb-3">' +
       '<label class="form-label" for="buttonPressSelect">Press</label>' +
-      '<select id="buttonPressSelect" class="form-select">' +
+      '<smd-select id="buttonPressSelect" class="form-select">' +
         '<option value="regular">Regular (single press)</option>' +
         '<option value="extended">Extended (press &amp; hold)</option>' +
-      '</select>' +
+      '</smd-select>' +
       '<div class="form-text">Extended sends separate key-down / key-up so the key(s) can be held.</div>' +
     '</div>';
   page.buttons = [

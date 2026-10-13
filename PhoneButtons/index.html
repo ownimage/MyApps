@@ -128,28 +128,28 @@
           <div class="row mb-4 align-items-center col-md-8">
             <div class="col-4 text-end"><label class="form-label mb-0">Font size</label></div>
             <div class="col-8">
-              <select id="fontSizeSelector" class="form-select" onchange="changeFontSize(this.value)">
+              <smd-select id="fontSizeSelector" class="form-select" onchange="changeFontSize(this.value)">
                 <option value="xsmall">Extra small</option>
                 <option value="small">Small</option>
                 <option value="normal">Normal</option>
                 <option value="large">Large</option>
                 <option value="xlarge">Extra large</option>
                 <option value="jumbo">Jumbo</option>
-              </select>
+              </smd-select>
             </div>
           </div>
 
           <div class="row mb-4 align-items-center col-md-8">
             <div class="col-4 text-end"><label class="form-label mb-0">Image size</label></div>
             <div class="col-8">
-              <select id="iconSizeSelector" class="form-select" onchange="changeIconSize(this.value)">
+              <smd-select id="iconSizeSelector" class="form-select" onchange="changeIconSize(this.value)">
                 <option value="xsmall">Extra small (32x32)</option>
                 <option value="small">Small (40x40)</option>
                 <option value="medium">Medium (50x50)</option>
                 <option value="large">Large (64x64)</option>
                 <option value="xlarge">Extra large (80x80)</option>
                 <option value="jumbo">Jumbo (100x100)</option>
-              </select>
+              </smd-select>
               <div class="form-text">Sizes the buttons in the Layout Manager grid.</div>
             </div>
           </div>
@@ -242,6 +242,7 @@
   document.write('<script src="../shared/js/components/smd-modal.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="../shared/js/components/smd-page.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="../shared/js/components/smd-tabs.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../shared/js/components/smd-select.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="../shared/js/components/smd-theme.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="../shared/js/components/smd-checkbox.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="../shared/js/components/smd-badge.js?v=' + BUILD_NUMBER + '"><\/script>');

@@ -2,3 +2,13 @@
    whenever this theme is selected in Light mode. Add theme-specific overrides
    here. This sheet is only ever loaded in this mode, so selectors do not need a
    `[data-bs-theme="light"]` qualifier. */
+
+/* quartz paints `.nav-tabs .nav-link.active` with a near-WHITE gradient
+   (linear-gradient(125deg, #fff, rgba(255,255,255,.9) 70%)). smd-tabs sets the
+   active tab to `text-bg-primary` (pink) with white text, so the sheen made the
+   selected tab white-on-white (quartz ships the same gradient in both modes, so
+   the bug showed in Light AND Dark). Clear it; the tab keeps its text-bg-*
+   surface. */
+#smd-app smd-tabs .smd-tab-btn {
+  background-image: none;
+}

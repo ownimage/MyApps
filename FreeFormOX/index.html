@@ -88,14 +88,14 @@
           <div class="row mb-3 align-items-center col-md-8">
             <div class="col-4 text-end"><label class="form-label mb-0">Font size</label></div>
             <div class="col-8">
-              <select id="fontSizeSelector" class="form-select" onchange="changeFontSize(this.value)">
+              <smd-select id="fontSizeSelector" class="form-select" onchange="changeFontSize(this.value)">
                 <option value="xsmall">Extra small</option>
                 <option value="small">Small</option>
                 <option value="normal">Normal</option>
                 <option value="large">Large</option>
                 <option value="xlarge">Extra large</option>
                 <option value="jumbo">Jumbo</option>
-              </select>
+              </smd-select>
             </div>
           </div>
 
@@ -108,11 +108,11 @@
           <div class="row mb-3 align-items-center col-md-8">
             <div class="col-4 text-end"><label class="form-label mb-0">X style</label></div>
             <div class="col-8">
-              <select id="xPieceStyle" class="form-select" onchange="changePieceStyle('x', this.value)">
+              <smd-select id="xPieceStyle" class="form-select" onchange="changePieceStyle('x', this.value)">
                 <option value="classic">Classic</option>
                 <option value="dino">Dino</option>
                 <option value="unicorn">Unicorn</option>
-              </select>
+              </smd-select>
             </div>
           </div>
 
@@ -125,11 +125,11 @@
           <div class="row mb-3 align-items-center col-md-8">
             <div class="col-4 text-end"><label class="form-label mb-0">O style</label></div>
             <div class="col-8">
-              <select id="oPieceStyle" class="form-select" onchange="changePieceStyle('o', this.value)">
+              <smd-select id="oPieceStyle" class="form-select" onchange="changePieceStyle('o', this.value)">
                 <option value="classic">Classic</option>
                 <option value="dino">Dino</option>
                 <option value="unicorn">Unicorn</option>
-              </select>
+              </smd-select>
             </div>
           </div>
 
@@ -180,6 +180,7 @@
   document.write('<script src="../shared/js/components/smd-button.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="../shared/js/components/smd-page.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="../shared/js/components/smd-tabs.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../shared/js/components/smd-select.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="../shared/js/components/smd-theme.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="../shared/js/components/smd-checkbox.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="../shared/js/components/smd-buymeacoffee.js?v=' + BUILD_NUMBER + '"><\/script>');
