@@ -1,5 +1,6 @@
 import os
 import io
+import re
 import json
 import sys
 import socket
@@ -226,6 +227,18 @@ def _run_focus_hook():
 ICON_DIR = os.path.join(SERVER_DIR, "app-icon-cache")
 os.makedirs(ICON_DIR, exist_ok=True)
 
+# App names double as the cached-icon FILENAME, but they can contain path
+# characters - e.g. "Intel(R) PROSet/Wireless Event Log Service", whose "/" made
+# open() look for a subdirectory and raised FileNotFoundError (HTTP 500 on
+# /api/apps). Map the characters Windows forbids in a filename to "_", keeping
+# spaces/dots/parens so existing cache entries and their URLs are unchanged.
+_ICON_NAME_BAD = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
+
+
+def _icon_filename(name):
+    safe = _ICON_NAME_BAD.sub("_", str(name)).strip(" .")
+    return f"{safe or 'icon'}.png"
+
 CONFIG_PATH = os.path.join(SERVER_DIR, "config.json")
 
 _current_app = {"name": "Unknown", "icon": "", "layout": None}
@@ -270,10 +283,10 @@ def _set_app_icon_pref(name, source):
     _app_icon_prefs[name] = source
     _save_config()
     _debug(f"Set icon pref: {name} -> {source}")
-    icon_path = os.path.join(ICON_DIR, f"{name}.png")
+    icon_path = os.path.join(ICON_DIR, _icon_filename(name))
     try:
         os.remove(icon_path)
-        _debug(f"Removed cached icon: {name}.png")
+        _debug(f"Removed cached icon: {_icon_filename(name)}")
     except FileNotFoundError:
         pass
 
@@ -702,7 +715,7 @@ def _extract_uwp_icons(hwnd):
 
 
 def _cache_icon(exe_path, hwnd, name):
-    icon_filename = f"{name}.png"
+    icon_filename = _icon_filename(name)
     icon_path = os.path.join(ICON_DIR, icon_filename)
     if os.path.exists(icon_path):
         _debug(f"Cache hit: {icon_filename}")
