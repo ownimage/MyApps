@@ -67,7 +67,8 @@
   --smd-preview-dark-border: #495057;
   --smd-preview-dark-foreground: #ffffff;
 
-  /* Palette for <pmd-tasks> (the PlanMyDay job-edit Tasks rows). */
+  /* Palette for the list-item rows (PlanMyDay <pmd-tasks> / ListOfLists
+     <lol-list-items>; consumed by the row rule in styles.css). */
   --pmd-tasks-row-background: var(--bs-tertiary-bg);
   --pmd-tasks-row-foreground: var(--bs-body-color);
 
@@ -113,12 +114,15 @@
   background-color: var(--bs-primary) !important;
 }
 
-/* The non-expanded stream header uses the SAME surface as the page
-   header/footer (`--smd-page-header-background`), so the two never drift. */
-#smd-app #streamsEditor pmd-stream-header .stream-accordion-header {
+/* The non-expanded category header uses the SAME surface as the page
+   header/footer (`--smd-page-header-background`), so the two never drift.
+   PlanMyDay <pmd-stream-header> / ListOfLists <lol-category-header>. */
+#smd-app #streamsEditor pmd-stream-header .stream-accordion-header,
+#smd-app #categoriesEditor lol-category-header .category-accordion-header {
     background: var(--smd-page-header-background) !important;
 }
 
-#smd-app #streamsEditor pmd-stream-header[expanded] .stream-accordion-header {
+#smd-app #streamsEditor pmd-stream-header[expanded] .stream-accordion-header,
+#smd-app #categoriesEditor lol-category-header[expanded] .category-accordion-header {
     background-color: color-mix(in hsl, var(--bs-danger) 40%, black) !important;
 }

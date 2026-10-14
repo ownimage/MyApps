@@ -58,6 +58,7 @@
 /* Match superhero.light.css: the expanded stream header uses the success mix
    (the non-expanded header and the page header/footer both use the shared
    `--smd-page-header-background` primary mix). */
-#smd-app #streamsEditor pmd-stream-header[expanded] .stream-accordion-header {
+#smd-app #streamsEditor pmd-stream-header[expanded] .stream-accordion-header,
+#smd-app #categoriesEditor lol-category-header[expanded] .category-accordion-header {
     background-color: color-mix(in hsl, var(--bs-success) 40%, black) !important;
 }

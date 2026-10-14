@@ -123,7 +123,8 @@ if (document.readyState === "loading") {
 // chrome styles are appended as plain <style> tags on document.head (deduped by
 // text). The `root` argument is accepted for back-compat with callers that used
 // to pass a shadow root; it is ignored. A single string argument is the css
-// (this is how the editors call it: `injectStyleInto(JOBS_EDITOR_STYLES)`).
+// (this is how the editors call it: `injectStyleInto(JOBS_EDITOR_STYLES)` /
+// `injectStyleInto(LISTS_EDITOR_STYLES)`).
 // With no css the SETTINGS_STYLES default applies.
 function injectStyleInto(root, css) {
   if (css === undefined && typeof root === "string") {
@@ -183,7 +184,7 @@ function smdBindImagePicker(opts) {
       page.classList.add("d-none");
       pickerBackground.push({ element: page, isPage: true });
     });
-    const main = document.getElementById("countdownContainer");
+    const main = document.getElementById("mainContainer") || document.getElementById("countdownContainer");
     if (main && !main.classList.contains("d-none")) {
       main.classList.add("d-none");
       pickerBackground.push({ element: main, isPage: false });

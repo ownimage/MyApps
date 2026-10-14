@@ -834,7 +834,9 @@ function deleteImage(index) {
 
 function openImagesEditor() {
   // Page hosts differ per app; hide whatever this app has (null-safe).
-  ["countdownContainer", "streamsEditor", "settingsPage", "jobSearchEditor", "datesEditor", "categoriesEditor"].forEach(function(id) {
+  // "mainContainer"/"listSearchEditor" are ListOfLists' ids; "categoriesEditor"
+  // is shared by CountMyDays' categories page and ListOfLists' categories page.
+  ["countdownContainer", "mainContainer", "streamsEditor", "settingsPage", "jobSearchEditor", "listSearchEditor", "datesEditor", "categoriesEditor"].forEach(function(id) {
     const el = document.getElementById(id);
     if (el) el.classList.add("d-none");
   });
@@ -844,7 +846,9 @@ function openImagesEditor() {
   page.classList.remove("d-none");
   renderImagesEditor();
   if (typeof injectStyleInto === "function") {
-    injectStyleInto(typeof JOBS_EDITOR_STYLES !== "undefined" ? JOBS_EDITOR_STYLES : undefined);
+    const editorStyles = typeof LISTS_EDITOR_STYLES !== "undefined" ? LISTS_EDITOR_STYLES
+      : (typeof JOBS_EDITOR_STYLES !== "undefined" ? JOBS_EDITOR_STYLES : undefined);
+    injectStyleInto(editorStyles);
   }
   page.show();
 }
@@ -857,7 +861,7 @@ function closeImagesEditor() {
       page.classList.add("d-none");
     }, Math.max(0, (page.slideDuration || 0) + 50));
   }
-  const main = document.getElementById("countdownContainer");
+  const main = document.getElementById("mainContainer") || document.getElementById("countdownContainer");
   if (main) main.classList.remove("d-none");
   editingImageIndex = -1;
   isNewImage = false;

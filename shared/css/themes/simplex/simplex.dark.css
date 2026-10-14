@@ -43,6 +43,7 @@ smd-image-dropdown .btn:focus-visible
     background-color: black !important;
 }
 
-#streamEditorList > div.expanded pmd-stream-header button.btn-primary {
+#streamEditorList > div.expanded pmd-stream-header button.btn-primary,
+#categoryEditorList > div.expanded lol-category-header button.btn-primary {
     background: black;
 }

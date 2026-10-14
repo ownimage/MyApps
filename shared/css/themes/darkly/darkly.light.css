@@ -63,6 +63,7 @@
     background: var(--bs-card-bg) !important;
 }
 
-#smd-app #streamsEditor pmd-stream-header[expanded] .stream-accordion-header {
+#smd-app #streamsEditor pmd-stream-header[expanded] .stream-accordion-header,
+#smd-app #categoriesEditor lol-category-header[expanded] .category-accordion-header {
     background-color: color-mix(in hsl, var(--bs-success) 40%, black) !important;
 }

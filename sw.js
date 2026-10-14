@@ -20,7 +20,7 @@
 // comparison. If the two ever DO drift, the page notices at runtime
 // (GET_BUILD) and re-registers, so the drift self-heals instead of pinning
 // users to a build the worker will never replace.
-const BUILD_NUMBER = "202610140845";
+const BUILD_NUMBER = "202610141617";
 
 const CACHE = "myapps-" + BUILD_NUMBER;
 
@@ -508,6 +508,30 @@ const APPS = {
      "FreeFormOX/js/app.js",
      "FreeFormOX/js/settings.js"
    ],
+  "ListOfLists/": [
+    "ListOfLists/",
+    "ListOfLists/index.html",
+    "ListOfLists/manifest.json",
+    "ListOfLists/icon.svg",
+    "ListOfLists/icon-192.png",
+    "ListOfLists/icon-512.png",
+    "ListOfLists/js/app.js",
+    "ListOfLists/js/storage.js",
+    "ListOfLists/js/utils.js",
+    "ListOfLists/js/editor-styles.js",
+    "ListOfLists/js/editor-common.js",
+    "ListOfLists/js/list-editor.js",
+    "ListOfLists/js/categories-editor.js",
+    "ListOfLists/js/list-search.js",
+    "ListOfLists/js/main-view.js",
+    "ListOfLists/js/app-settings.js",
+    "ListOfLists/js/display.js",
+    "ListOfLists/js/image-picker.js",
+    "ListOfLists/js/components/lol-category-header.js",
+    "ListOfLists/js/components/lol-list-summary-card.js",
+    "ListOfLists/js/components/lol-list-main-card.js",
+    "ListOfLists/js/components/lol-list-items.js"
+  ]
 };
 
 const APP_ROOTS = Object.keys(APPS);

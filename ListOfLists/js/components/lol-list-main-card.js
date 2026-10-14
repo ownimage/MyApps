@@ -1,0 +1,362 @@
+// <lol-list-main-card> — a single list row on the main list (light DOM).
+//
+// Owns its own layout (drag handle, completion checkbox + daily-repeat icon,
+// category/list thumbnails, title + suffix, category title, View button, tab badge,
+// description). The host carries the light-DOM class the app/Sortable relies on
+// (`main-drag-card`; the app sets it on the element), so the document theme
+// styles the card chrome while the content lives in the light DOM with it. All
+// layout is Bootstrap utilities in the template; the card's own minimal
+// functional CSS (done state, compact title hook, swipe touch-action, card
+// margin) is injected into the document head once by this module.
+//
+// An `<smd-draghandle class="drag-handle" slot="drag-handle">` is appended by
+// the consumer (Sortable needs a light-DOM handle); when none is provided the
+// built-in fallback handle is shown. On connect the component moves a slotted
+// handle into the handle cell and drops its own fallback.
+//
+// Attributes:
+//   list-id        — list id (echoed on lol-list-main-toggle, set as data-list-id on the checkbox)
+//   category-idx    — category index (echoed on lol-list-main-view)
+//   list-idx       — list index (echoed on lol-list-main-view)
+//   title         — list title
+//   suffix        — optional suffix badge text
+//   daily         — presence shows the bootstrap `repeat-1` icon (Every day)
+//   done          — presence dims the card + strikes through the title
+//   checked       — checkbox state ("true"/"false")
+//   category-image  — category image name (rendered via smd-image)
+//   list-image     — list image name (rendered via smd-image)
+//   category-title  — category title shown under the category thumbnail, on the badge row
+//   tab           — "progress" (success badge) | "maintenance" (info badge)
+//   description   — optional description line
+//   key-prefix    — smd-image storage prefix (default: SmdConfig.imagePrefix)
+//
+// Events:
+//   lol-list-main-toggle — detail { listId, checked }
+//   lol-list-main-view   — detail { categoryIdx, listIdx }
+//   lol-list-main-delete — horizontal swipe LEFT past the threshold (detail { listId, categoryIdx, listIdx });
+//                      the card animates off before this fires — the app opens the delete confirm.
+//   lol-list-main-tomorrow — horizontal swipe RIGHT past the threshold (same detail); the card animates
+//                      off before it fires — the app opens the list editor on the Schedule tab with the
+//                      Sleep Until picker popped open on tomorrow.
+//   Methods:
+//   snapBackSwipe() — slide a swiped-out card back into place (used when a delete confirm is cancelled).
+
+(function (global) {
+  if (global.document.getElementById("lol-list-main-card-style")) return;
+  const s = global.document.createElement("style");
+  s.id = "lol-list-main-card-style";
+  s.textContent =
+    "lol-list-main-card {" +
+    "  --lol-main-title-size: var(--smd-type-h2, 1.25em);" +
+    "  display: block;" +
+    "  touch-action: pan-y;" +
+    "}" +
+    "body.compact lol-list-main-card {" +
+    "  --lol-main-title-size: var(--smd-type-p, 1em);" +
+    "}" +
+    "lol-list-main-card[done] { opacity: 0.5; }" +
+    "lol-list-main-card[done] .list-title { text-decoration: line-through; }" +
+    "lol-list-main-card .list-title {" +
+    "  min-width: 0;" +
+    "  font-size: var(--lol-main-title-size, var(--smd-type-h2, 1.25em));" +
+    "}" +
+    "lol-list-main-card .description {" +
+    "  display: -webkit-box;" +
+    "  -webkit-box-orient: vertical;" +
+    "  -webkit-line-clamp: 2;" +
+    "  overflow: hidden;" +
+    "}";
+  global.document.head.appendChild(s);
+})(window);
+
+const lolListMainCardTemplate = document.createElement('template');
+lolListMainCardTemplate.innerHTML = `
+    <div class="card smd-card border-0 w-100">
+
+        <div class="d-flex py-2 border rounded-3">
+
+            <!-- 1️⃣ Drag Handle -->
+            <div class="d-flex align-items-center handle-col flex-shrink-0 ms-2">
+                <smd-draghandle class="drag-handle"></smd-draghandle>
+            </div>
+
+            <!-- 2️⃣ Checkbox + Repeat -->
+            <div class="d-flex flex-column align-items-center justify-content-center flex-shrink-0">
+                <smd-checkbox class="list-checkbox me-1"></smd-checkbox>
+                <smd-image class="daily-repeat-icon" key-prefix="shared-" size="16" title="Every day" hidden></smd-image>
+            </div>
+
+            <!-- 3️⃣ Category / List / Category Name -->
+            <div class="d-flex flex-column flex-shrink-0 images-col align-self-start">
+                <div class="d-flex gap-1">
+                    <div class="thumb category-thumb d-flex align-items-center justify-content-center flex-shrink-0"><smd-image key-prefix="shared-"></smd-image></div>
+                    <div class="thumb list-thumb d-flex align-items-center justify-content-center flex-shrink-0"><smd-image key-prefix="shared-"></smd-image></div>
+                </div>
+                <span class="category-title text-truncate d-block mb-0 small fw-semibold"></span>
+            </div>
+
+            <div class="d-flex flex-column flex-grow-1 overflow-hidden ms-2">
+
+                <!-- FULL-WIDTH TITLE, suffix badge straight after the text with a fixed gap -->
+                <div class="d-flex align-items-center">
+                    <smd-h2 class="list-title text-truncate fw-bold mb-0"></smd-h2>
+                    <smd-badge class="suffix ms-2" variant="secondary" hidden></smd-badge>
+                </div>
+
+                <!-- TWO-COLUMN ROW UNDER TITLE -->
+                <div class="d-flex flex-grow-1">
+
+                    <!-- LEFT COLUMN: Description hogs space -->
+                    <div class="flex-grow-1 d-flex flex-column">
+                        <div class="flex-grow-1 description small text-body" hidden></div>
+                    </div>
+
+                    <!-- RIGHT COLUMN: Badges + View aligned bottom -->
+                    <div class="d-flex flex-column justify-content-end text-end flex-shrink-0">
+                        <div class="d-flex align-items-center gap-2 me-2">
+                            <smd-badge class="tab-badge flex-shrink-0" pill></smd-badge>
+                            <smd-button class="list-view-btn flex-shrink-0" variant="primary" size="small" title="View list">View</smd-button>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+
+    </div>
+`;
+
+class LolListMainCard extends HTMLElement {
+  static get observedAttributes() {
+    return ['list-id', 'title', 'suffix', 'daily', 'done', 'checked',
+      'category-image', 'list-image', 'category-title', 'tab', 'description', 'key-prefix'];
+  }
+
+  constructor() {
+    super();
+    this._bound = false;
+  }
+
+  connectedCallback() {
+    // A Sortable fallback ghost is a cloneNode(true) of this host: cloneNode
+    // copies attributes (including the `data-smd-built` marker) but NOT the
+    // `_bound` JS property, so without the marker a re-connected clone would
+    // append the template a SECOND time and show doubled content.
+    if (!this._bound && !this.hasAttribute("data-smd-built")) {
+      this._bound = true;
+      this.setAttribute("data-smd-built", "");
+      this.classList.add("d-block");
+      this.appendChild(lolListMainCardTemplate.content.cloneNode(true));
+      this._adoptSlottedHandle();
+      this.querySelector('smd-checkbox.list-checkbox').addEventListener('change', (e) => {
+        const checked = e.detail ? e.detail.checked : e.target.checked;
+        this.setAttribute('checked', checked ? 'true' : 'false');
+        this.dispatchEvent(new CustomEvent('lol-list-main-toggle', {
+          bubbles: true,
+          composed: true,
+          detail: { listId: this.getAttribute('list-id') || '', checked }
+        }));
+      });
+      this.querySelector('.list-view-btn').addEventListener('click', () => {
+        this.dispatchEvent(new CustomEvent('lol-list-main-view', {
+          bubbles: true,
+          composed: true,
+          detail: {
+            categoryIdx: parseInt(this.getAttribute('category-idx'), 10),
+            listIdx: parseInt(this.getAttribute('list-idx'), 10)
+          }
+        }));
+      });
+      this._setupSwipe();
+    }
+    this._bound = true;
+    this._render();
+  }
+
+  attributeChangedCallback() {
+    if (this._bound && this.isConnected) this._render();
+  }
+
+  // Move a consumer-provided drag handle (appended straight onto the host with
+  // slot="drag-handle") into the handle cell and drop our built-in fallback.
+  _adoptSlottedHandle() {
+    const external = this.querySelector(':scope > smd-draghandle.drag-handle');
+    if (!external) return;
+    const fallback = this.querySelector('.handle-col > smd-draghandle.drag-handle');
+    if (fallback) fallback.remove();
+    external.removeAttribute('slot');
+    const cell = this.querySelector('.handle-col');
+    if (cell) cell.insertBefore(external, cell.firstChild);
+  }
+
+  _setupSwipe() {
+    if (this._swipeBound) return;
+    this._swipeBound = true;
+    const root = this;
+    let s = null;
+
+    const thresholdFor = () => {
+      const w = root.offsetWidth || 320;
+      return Math.min(120, Math.max(60, w * 0.25));
+    };
+
+    root.addEventListener('pointerdown', (e) => {
+      if (e.button !== 0) return;
+      if (e.composedPath().some((el) => el && el.classList && el.classList.contains('drag-handle'))) return;
+      s = { id: e.pointerId, startX: e.clientX, startY: e.clientY, active: false };
+    });
+
+    root.addEventListener('pointermove', (e) => {
+      if (!s || e.pointerId !== s.id) return;
+      const dx = e.clientX - s.startX;
+      const dy = e.clientY - s.startY;
+      if (!s.active) {
+        if (Math.abs(dx) < 12 || Math.abs(dx) <= Math.abs(dy)) return;
+        s.active = true;
+        this._suppressClick = true;
+        try { root.setPointerCapture(e.pointerId); } catch (err) { /* synthetic pointer in tests */ }
+      }
+      s.dx = dx;
+      const th = thresholdFor();
+      root.style.transition = 'none';
+      root.style.transform = 'translateX(' + dx + 'px)';
+      root.style.opacity = String(1 - 0.75 * Math.max(0, Math.min(1, Math.abs(dx) / th)));
+    });
+
+    root.addEventListener('pointerup', (e) => {
+      if (!s || e.pointerId !== s.id) return;
+      const dx = s.dx || 0;
+      const th = thresholdFor();
+      const dir = dx <= -th ? 'left' : dx >= th ? 'right' : null;
+      root.style.transition = 'transform 0.2s ease-out, opacity 0.2s ease-out';
+      if (dir) {
+        const w = root.offsetWidth || 320;
+        root.style.transform = 'translateX(' + (dir === 'left' ? -(w + 40) : (w + 40)) + 'px)';
+        root.style.opacity = '0';
+        this._pendingSwipe = dir;
+        setTimeout(() => {
+          if (this._pendingSwipe !== dir) return;
+          this._pendingSwipe = null;
+          this.dispatchEvent(new CustomEvent(dir === 'left' ? 'lol-list-main-delete' : 'lol-list-main-tomorrow', {
+            bubbles: true,
+            composed: true,
+            detail: {
+              listId: this.getAttribute('list-id') || '',
+              categoryIdx: parseInt(this.getAttribute('category-idx'), 10),
+              listIdx: parseInt(this.getAttribute('list-idx'), 10)
+            }
+          }));
+        }, 200);
+      } else {
+        root.style.transform = 'translateX(0)';
+        root.style.opacity = '1';
+      }
+      s = null;
+      if (this._suppressClick) {
+        setTimeout(() => { this._suppressClick = false; }, 500);
+      }
+    });
+
+    root.addEventListener('pointercancel', () => {
+      if (s) {
+        s = null;
+        this.snapBackSwipe();
+      }
+    });
+
+    // consume the (late) click that a completed swipe would otherwise deliver to
+    // whatever was under the finger — e.g. toggling the checkbox or opening View.
+    root.addEventListener('click', (e) => {
+      if (!this._suppressClick) return;
+      e.stopPropagation();
+      e.preventDefault();
+      this._suppressClick = false;
+    }, true);
+  }
+
+  // Slide a swiped-out card back into place (cancelled delete confirm, or a
+  // pointercancel mid-swipe).
+  snapBackSwipe() {
+    this._pendingSwipe = null;
+    this.style.transition = 'transform 0.2s ease-out, opacity 0.2s ease-out';
+    this.style.transform = 'translateX(0)';
+    this.style.opacity = '1';
+  }
+
+  get checked() {
+    return this.getAttribute('checked') === 'true';
+  }
+
+  set checked(value) {
+    this.setAttribute('checked', value ? 'true' : 'false');
+  }
+
+  _render() {
+    const root = this;
+    const keyPrefix = this.getAttribute('key-prefix') || smdImagePrefix();
+
+    root.querySelector('.list-title').textContent = this.getAttribute('title') || '';
+
+    const suffixEl = root.querySelector('.suffix');
+    const suffix = (this.getAttribute('suffix') || '').trim();
+    if (suffix) {
+      suffixEl.textContent = suffix;
+      suffixEl.hidden = false;
+    } else {
+      suffixEl.hidden = true;
+    }
+
+    const repeat = root.querySelector('.daily-repeat-icon');
+    if (this.hasAttribute('daily')) {
+      repeat.setAttribute('image', 'bi:repeat-1');
+      repeat.hidden = false;
+    } else {
+      repeat.removeAttribute('image');
+      repeat.hidden = true;
+    }
+
+    const setThumb = (selector, name) => {
+      const thumb = root.querySelector(selector);
+      const sImg = thumb.querySelector('smd-image');
+      sImg.setAttribute('key-prefix', keyPrefix);
+      // The thumb wrapper always stays in place (even with no image) so the
+      // list thumbnail keeps its slot and list images line up across cards.
+      if (name) {
+        sImg.setAttribute('image', name);
+      } else {
+        sImg.removeAttribute('image');
+      }
+    };
+    setThumb('.category-thumb', this.getAttribute('category-image') || '');
+    setThumb('.list-thumb', this.getAttribute('list-image') || '');
+
+    root.querySelector('.category-title').textContent = this.getAttribute('category-title') || '';
+
+    const tab = this.getAttribute('tab') || 'progress';
+    const tabBadge = root.querySelector('.tab-badge');
+    // The tab is shown as a Font Awesome icon: fast-forward for "progress",
+    // play for "maintenance". Both badges use the primary variant.
+    tabBadge.innerHTML = '<i class="fa-solid ' + (tab === 'maintenance' ? 'fa-play' : 'fa-forward') + '" aria-hidden="true"></i>';
+    tabBadge.setAttribute('variant', 'primary');
+    // Make badge slightly smaller to match View button size
+    tabBadge.classList.add('fs-6');
+
+    const descEl = root.querySelector('.description');
+    const description = this.getAttribute('description') || '';
+    if (description) {
+      descEl.textContent = description;
+      descEl.hidden = false;
+    } else {
+      descEl.hidden = true;
+    }
+
+    const checkbox = root.querySelector('smd-checkbox.list-checkbox');
+    checkbox.dataset.listId = this.getAttribute('list-id') || '';
+    checkbox.checked = this.getAttribute('checked') === 'true';
+  }
+}
+
+if (!window.customElements.get('lol-list-main-card')) {
+  customElements.define('lol-list-main-card', LolListMainCard);
+}
+window.LolListMainCard = LolListMainCard;

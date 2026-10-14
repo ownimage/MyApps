@@ -185,23 +185,29 @@ smd-draghandle[size="large"] {
   background-color: var(--bs-primary);
 }
 
-/* COMPONENT: pmd-stream-header theme surface (layout is in pmd-stream-header.js) */
-#smd-app #streamsEditor pmd-stream-header .stream-accordion-header {
+/* COMPONENT: category header theme surface (PlanMyDay <pmd-stream-header> /
+   ListOfLists <lol-category-header>; layout is in the component). */
+#smd-app #streamsEditor pmd-stream-header .stream-accordion-header,
+#smd-app #categoriesEditor lol-category-header .category-accordion-header {
   background-color: var(--bs-success) !important;
   color: var(--bs-success-contrast, #fff) !important;
 }
 
-#smd-app #streamsEditor pmd-stream-header[expanded] .stream-accordion-header {
+#smd-app #streamsEditor pmd-stream-header[expanded] .stream-accordion-header,
+#smd-app #categoriesEditor lol-category-header[expanded] .category-accordion-header {
   background-color: var(--bs-danger) !important;
   color: var(--bs-danger-contrast, #fff) !important;
 }
 
 #smd-app #streamsEditor pmd-stream-header .stream-header-main,
-#smd-app #streamsEditor pmd-stream-header .chevron {
+#smd-app #streamsEditor pmd-stream-header .chevron,
+#smd-app #categoriesEditor lol-category-header .category-header-main,
+#smd-app #categoriesEditor lol-category-header .chevron {
   color: inherit !important;
 }
 
-#smd-app #streamsEditor pmd-stream-header .chevron {
+#smd-app #streamsEditor pmd-stream-header .chevron,
+#smd-app #categoriesEditor lol-category-header .chevron {
   width: 2.5rem;
   min-height: 3rem;
   background: transparent;
@@ -335,10 +341,11 @@ smd-select .smd-select-item:focus-visible {
    AND its designed contrast text (so a light-primary theme such as brite keeps
    BLACK text; a plain `--bs-primary` + white would be unreadable there). */
 
-/* COMPONENT: pmd-tasks (theme surface; layout is in pmd-tasks.js). The rows keep
-   Bootstrap layout utilities; the surface colour comes from the --pmd-tasks-*
-   palette at the top of this file. */
-pmd-tasks .task-row {
+/* COMPONENT: list-item rows (PlanMyDay <pmd-tasks> / ListOfLists
+   <lol-list-items>). The rows keep Bootstrap layout utilities; the surface
+   colour comes from the shared --pmd-tasks-* palette in the mode layer. */
+pmd-tasks .task-row,
+lol-list-items .item-row {
   background-color: var(--pmd-tasks-row-background);
   color: var(--pmd-tasks-row-foreground);
 }

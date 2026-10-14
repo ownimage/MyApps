@@ -225,8 +225,56 @@ Architecture:
   `QRLinks/js/storage.js` + the shared `migrateImagesToShared()` (its sources
   now include `qr_images`); a startup reminder modal shows each boot (same
   pattern as CountMyDays). `JOBS_EDITOR_STYLES` is copied into
-  `QRLinks/js/editor-styles.js` (now duplicated in 3 apps — candidate for a
+  `QRLinks/js/editor-styles.js` (now duplicated in 3 apps - candidate for a
   future shared extraction).
+- LISTOFLISTS APP (2026-10-14): a COPY of PlanMyDay with a FULL rename, served
+  at `/ListOfLists/`. `SmdConfig.storagePrefix = "lol_"` + `imagePrefix =
+  "shared-"`, set EXPLICITLY in `ListOfLists/js/app.js` (PlanMyDay relies on the
+  smd-app.js `planmydays_` default). RENAME MAP: Stream -> Category, Job -> List,
+  Task -> List Item (code token `item`). Files renamed: `job-editor.js` ->
+  `list-editor.js`, `job-search.js` -> `list-search.js`, `streams-editor.js` ->
+  `categories-editor.js`; components `pmd-stream-header` -> `lol-category-header`,
+  `pmd-job-summary-card` -> `lol-list-summary-card`, `pmd-job-today-card` ->
+  `lol-list-main-card`, `pmd-tasks` -> `lol-list-items` (all `pmd-*` events ->
+  `lol-*`, e.g. `pmd-task-change` -> `lol-list-item-change`). "today PAGE" wording
+  became "main" (`#todayCardList` -> `#mainCardList`, `today-drag-card` ->
+  `main-drag-card`, `today_order` -> `main_order`, `#todayTabs` -> `#mainTabs`,
+  `countdownScrollBody` -> `mainScrollBody`, the "Regenerate Today's Tiles"
+  button); DATE logic keeps "today" (`getTodayStr`/`getTodayDate`/
+  `shouldShowListToday`/`getTomorrowStr`). The main container id is
+  `#mainContainer`, NOT `countdownContainer`. DROPPED from the copy: the whole
+  Gantt (`js/gantt.js`, `js/gantt-lib.js`, `css/gantt.css`, the import map, the
+  Gantt menu item, the "Show Gantt" setting and the list `duration` field), the
+  CountMyDays "today events" cards (`js/cmd-today.js`, `shared/js/smd-gcal.js`,
+  the CountMyDays cmd-countdown-card + googleCalendar scripts) and the "Refresh
+  Google Calendar" menu item. KEPT: General/Display/Schedule/Minio/Danger
+  settings, MinIO import/export, JSON export/import, images editor, image picker,
+  list/category editors, list search, Ad Hoc. NO regression/screenshot specs yet
+  (user request) and NOT in the Storybook (TODO below). Registered in `Launch`
+  (a `LAUNCH_APPS` tile whose icon is the shared sample image "List of Lists",
+  added as `shared/sampleImages/List_of_Lists.svg` + `shared/sampleImages.json`)
+  and in `sw.js APPS` (no `ListOfLists/css/` entry - the app sheet is gone).
+- SHARED HOOKS FOR THE SECOND APP (2026-10-14): the rename meant the shared theme
+  CSS had to keep ONE set of declarations while matching BOTH apps, so those
+  selectors are now COMMA LISTS, e.g. `#smd-app #streamsEditor pmd-stream-header
+  .stream-accordion-header, #smd-app #categoriesEditor lol-category-header
+  .category-accordion-header { ... }` in `shared/css/styles.css`, the mode layer
+  (`light.css`/`dark.css`) and the `superhero`/`cyborg`/`darkly`/`simplex` theme
+  sheets; and `pmd-tasks .task-row, lol-list-items .item-row { ... }`. The
+  `--pmd-tasks-*` palette VARS were left as the single set (shared by both).
+  Keep the two halves in step when adding a themed surface.
+- SHARED JS accepts EITHER main-container id: `shared/js/smd-app.js` (picker
+  background) and `shared/js/smd-images.js` (editor open/close) look up
+  `mainContainer || countdownContainer`; `openImagesEditor` also hides
+  `listSearchEditor` and injects `LISTS_EDITOR_STYLES` when present (else
+  `JOBS_EDITOR_STYLES`). TODO (user asked to note it): rename
+  `countdownContainer` -> `mainContainer` in the OTHER TWO apps (PlanMyDay,
+  CountMyDays) so there is one id, then the shared fallbacks can go.
+- LISTOFLISTS STORYBOOK (TODO, user request 2026-10-14): add demo sections for
+  `lol-category-header`, `lol-list-summary-card`, `lol-list-main-card` and
+  `lol-list-items` to `storybook/index.html` (script tags + sections + the
+  nav-link count) and recipes to `storybook/cardViewer.html`, seeded with a
+  neutral image prefix. Not done yet.
 - SAMPLE IMAGES MERGE (2026-09-14): the old `QRLinks/sampleImages.json` (8
   images, legacy `{name,data}` format) was merged into the shared set — all 8
   were already present in `shared/sampleImages.json` (shared is master; e.g.
@@ -4201,3 +4249,34 @@ Techniques / gotchas:
   `data-bs-theme` (which does NOT change on a same-mode theme swap), so without
   this the bars kept the previous theme's colours across the 27-theme loop.
 - Verified for superhero + quartz (light/dark). No BUILD bump (test-only change).
+
+### 2026-10-14 (s) - New ListOfLists app (copy of PlanMyDay, full rename)
+- WHAT: created `ListOfLists/` by copying PlanMyDay and applying a FULL rename.
+  Stream -> Category, Job -> List, Task -> List Item; `pmd-*` components/events
+  -> `lol-*`; `SmdConfig.storagePrefix = "lol_"`. Dropped the Gantt and the
+  CountMyDays/Google integrations. "today page" naming -> "main" (date logic
+  kept). See the durable LISTOFLISTS note above for the exact mapping.
+- HOW: a one-shot Node script copied the tree (skipping gantt/cmd-today/css),
+  renamed the files, and applied an ORDERED literal token map (pmd->lol specific
+  first, then Stream/Job/Task case-aware, then the today-page rules). A manual
+  pass then removed the Gantt/Google leftovers (index.html head+menu+settings+
+  script tags, app.js wiring, the Schedule "Duration" field) and fixed a few
+  doubled comments ("main main", "list list").
+- SHARED: added `lol-*` selectors to the existing PlanMyDay theme rules as comma
+  lists (styles.css + light.css/dark.css + superhero/cyborg/darkly/simplex) and
+  `lol-list-items .item-row` to the row rule; made `smd-app.js`/`smd-images.js`
+  accept `mainContainer` and added `listSearchEditor` + `LISTS_EDITOR_STYLES`.
+- ASSETS: new `ListOfLists/icon.svg` (stacked list cards logo) + generated
+  icon-192/512 PNGs; the same SVG added as the shared sample image "List of
+  Lists" (appended to `shared/sampleImages.json` with a surgical text insert so
+  the 900KB file stayed byte-identical apart from the new entry); a Launch tile.
+  Registered in `sw.js APPS` (duplicate precache check: 407 URLs, 0 dups).
+- WHAT WORKED: the ordered token map + `node --check` on every file; a static
+  check that every `getElementById`/`$id` literal resolves (only the shared
+  `#smdConfirmModal` and a pre-existing dead `listImageRemoveBtn` non-hits).
+- WHAT DID NOT WORK / NOT RUN: no regression/screenshot specs were written or run
+  (user request), so the app is UNVERIFIED at runtime - a first load should be
+  smoke-checked before shipping. `BUILD_NUMBER` bumped 202610140845 ->
+  202610141617 via `npm run bump:build`.
+- TODO (noted above): rename `countdownContainer` -> `mainContainer` in
+  PlanMyDay/CountMyDays; add the ListOfLists components to the Storybook.
