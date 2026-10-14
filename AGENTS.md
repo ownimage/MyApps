@@ -4185,3 +4185,19 @@ Techniques / gotchas:
   `.stream-accordion-item`'s own surface (transparent + no image + no backdrop
   filter), so the tiles sit directly on the page background - the SAME background
   as the main page cards. pmd (Theme colours|Streams|stream|accordion) 76/76.
+
+### 2026-10-14 (r) - PMD screenshots: added a Gantt scene
+- `tests/pmd-screenshots.spec.js`: new "gantt" scene writing
+  `screenshots/pmd/<theme>/<mode>/gantt.png` for all 27 themes x light/dark.
+- The Gantt page only exists once the `planmydays_showGantt` setting is on, and the
+  chart needs seeded streams (`seedMainView`), so the test sets the flag, reloads,
+  calls `openGantt()` and waits for `.rg-gantt-bar`.
+- It lives in a NESTED describe with a WIDE viewport (1280x900, no mobile
+  emulation). At the sheet's phone viewport (390x797) the revo-grid virtualises the
+  timeline columns off-screen and NO bars render - the scene would be an empty
+  grid (verified: desktop = 5 bars, phone = 0).
+- `refreshPmdAfterTheme()` now also calls `refreshGanttIfOpen()`: the chart reads
+  the theme tokens itself and its own MutationObserver only watches
+  `data-bs-theme` (which does NOT change on a same-mode theme swap), so without
+  this the bars kept the previous theme's colours across the 27-theme loop.
+- Verified for superhero + quartz (light/dark). No BUILD bump (test-only change).
