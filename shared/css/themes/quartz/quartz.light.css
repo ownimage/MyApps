@@ -12,3 +12,42 @@
 #smd-app smd-tabs .smd-tab-btn {
   background-image: none;
 }
+
+/* smd-page must use the SAME background as the main page. quartz's <body>
+   carries the brand gradient (it is NOT dark-scoped, so it applies in both
+   modes), but the shared sheet paints `.smd-page` with the flat --bs-body-bg
+   colour only - so dialogs showed a plain purple slab instead of the main page's
+   gradient. Mirror the body gradient here. */
+#smd-app smd-page .smd-page {
+  background-color: var(--bs-body-bg);
+  background-image: linear-gradient(90deg, #33b7e2, #5e62b0, #dc307c);
+}
+
+/* Cards read like quartz's ALERTS (its glass treatment). The shared mode layer
+   (shared/css/themes/light.css) forces
+   `.card { background: var(--bs-secondary-bg-subtle) !important }` for the other
+   themes, which flattened quartz's own glass card into an opaque panel AND left
+   quartz's white card text on a near-white surface. Restore quartz's card/alert
+   look; `!important` is needed to out-rank that shared rule (this sheet loads
+   after it, so the tie goes to this one). */
+.card {
+  background-color: transparent !important;
+  background-image: linear-gradient(125deg, rgba(255, 255, 255, .3), rgba(255, 255, 255, .2) 70%) !important;
+  border: none !important;
+  box-shadow: inset 1px 1px rgba(255, 255, 255, .2), inset -1px -1px rgba(255, 255, 255, .1), 1px 3px 24px -1px rgba(0, 0, 0, .15) !important;
+  -webkit-backdrop-filter: blur(5px);
+  backdrop-filter: blur(5px);
+  color: var(--bs-white);
+}
+
+/* quartz's `.accordion-item` is glass too, so the streams editor's job tiles
+   (`<pmd-job-summary-card>` -> `.card`, inside `.stream-accordion-item`)
+   composited over a SECOND glass layer and read far lighter than the main page
+   cards. Drop the accordion item's own surface so the tiles sit directly on the
+   page background - i.e. the SAME background as the main page cards. */
+.stream-accordion-item {
+  background-color: transparent !important;
+  background-image: none !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
