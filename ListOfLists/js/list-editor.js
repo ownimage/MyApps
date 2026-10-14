@@ -355,7 +355,7 @@ function getListScheduleTabHTML(data, readOnly) {
     <div class="row mb-2">
       <div class="col">
         <label class="form-label">Sleep Until</label>
-        <smd-date-picker id="listSleepPicker" ${readOnly ? "readonly" : ""} value="${escapeHtml(data.sleepUntil || "")}" first-day-of-week="${parseInt(localStorage.getItem(smdKey("startWeek")) || "1", 10)}"></smd-date-picker>
+        <smd-date-picker id="listSleepPicker" ${readOnly ? "readonly" : ""} value="${escapeHtml(data.sleepUntil || "")}"></smd-date-picker>
       </div>
     </div>
     <div class="row mb-2">

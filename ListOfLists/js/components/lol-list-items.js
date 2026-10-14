@@ -8,9 +8,6 @@
 // regression suite targets: .item-row / .item-drag-card / .drag-handle /
 // .item-done-cb / .item-desc-input / .item-note-btn / #itemNoteRow<i>.
 //
-// Styling lives in shared/css/styles.css via the --pmd-tasks-* palette at the
-// top of that file (shared with PlanMyDay; see the lol-list-items rule there).
-//
 // Events (bubble + composed):
 //   lol-list-item-change      — detail { index, field, value }  (done|description|note)
 //   lol-list-item-note-toggle — detail { index, open }

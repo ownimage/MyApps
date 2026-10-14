@@ -100,30 +100,9 @@
         <!-- General -->
         <section class="smd-settings-tab" data-tab="General" data-tab-id="general-tab">
           <div class="row mb-4 align-items-center col-md-8 mt-3">
-            <div class="col-4 text-end"><label class="form-label mb-0">Split list</label></div>
-            <div class="col-8">
-              <smd-checkbox id="splitList" switch onchange="changeSplitList(this.checked)"></smd-checkbox>
-            </div>
-          </div>
-
-          <div class="row mb-4 align-items-center col-md-8">
             <div class="col-4 text-end"><label class="form-label mb-0">Auto-hide menu</label></div>
             <div class="col-8">
               <smd-checkbox id="autoHideMenu" switch onchange="changeAutoHideMenu(this.checked)"></smd-checkbox>
-            </div>
-          </div>
-
-          <div class="row mb-4 align-items-center col-md-8">
-            <div class="col-4 text-end"><label class="form-label mb-0">Hide done</label></div>
-            <div class="col-8">
-              <smd-checkbox id="hideDone" switch onchange="changeHideDone(this.checked)"></smd-checkbox>
-            </div>
-          </div>
-
-          <div class="row mb-4 align-items-center col-md-8">
-            <div class="col-4 text-end"><label class="form-label mb-0">Auto Ad Hoc</label></div>
-            <div class="col-8">
-              <smd-checkbox id="skipAdhocConfirm" switch onchange="changeSkipAdhocConfirm(this.checked)"></smd-checkbox>
             </div>
           </div>
         </section>
@@ -193,54 +172,6 @@
             <div class="col-4 text-end"><label class="form-label mb-0">Screen resolution</label></div>
             <div class="col-8">
               <span id="screenResolution" class="form-control-plaintext"></span>
-            </div>
-          </div>
-        </section>
-
-        <!-- Schedule -->
-        <section class="smd-settings-tab" data-tab="Schedule" data-tab-id="schedule-tab">
-          <div class="row mb-4 align-items-center col-md-8 mt-3">
-            <div class="col-4 text-end"><label class="form-label mb-0">Suffix start</label></div>
-            <div class="col-8">
-              <smd-select id="suffixStartSelector" class="form-select" onchange="changeSuffixStart(this.value)">
-                <option value="0">0</option>
-                <option value="1">1</option>
-              </smd-select>
-            </div>
-          </div>
-
-          <div class="row mb-4 align-items-center col-md-8">
-            <div class="col-4 text-end"><label class="form-label mb-0">1 Jan</label></div>
-            <div class="col-8">
-              <smd-select id="jan1Selector" class="form-select" onchange="changeJan1(this.value)">
-                <option value="1">1</option>
-                <option value="0">0</option>
-              </smd-select>
-            </div>
-          </div>
-
-          <div class="row mb-4 align-items-center col-md-8">
-            <div class="col-4 text-end"><label class="form-label mb-0">Monday #</label></div>
-            <div class="col-8">
-              <smd-select id="mondaySelector" class="form-select" onchange="changeMonday(this.value)">
-                <option value="1">1</option>
-                <option value="0">0</option>
-              </smd-select>
-            </div>
-          </div>
-
-          <div class="row mb-4 align-items-center col-md-8">
-            <div class="col-4 text-end"><label class="form-label mb-0">Start week</label></div>
-            <div class="col-8">
-              <smd-select id="startWeekSelector" class="form-select" onchange="changeStartWeek(this.value)">
-                <option value="1">Mon</option>
-                <option value="2">Tue</option>
-                <option value="3">Wed</option>
-                <option value="4">Thu</option>
-                <option value="5">Fri</option>
-                <option value="6">Sat</option>
-                <option value="0">Sun</option>
-              </smd-select>
             </div>
           </div>
         </section>

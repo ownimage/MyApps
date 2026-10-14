@@ -1,4 +1,4 @@
-// ListOfLists — the main view (date heading, split-list tabs, cards).
+// ListOfLists — the main view (date heading, cards).
 
 // MAIN PAGE RENDER
 function addScheduleListsToOrder(order) {
@@ -48,21 +48,6 @@ function ensureMainList() {
   localStorage.setItem(smdKey("last_gen"), today);
 }
 
-// Split-list tab layout: with the split list the tabs fill the container and the
-// ACTIVE panel scrolls its own body, so the tab bar stays put and the list lives
-// inside .tab-content (not as a sibling below it). The component's own sheet only
-// sets `display:block`, so this app-specific flex chain is injected.
-function injectMainTabsLayout() {
-  if (typeof injectSmdComponentStyle !== "function") return;
-  injectSmdComponentStyle("lol-main-tabs-layout", `
-    #mainTabsWrap { display: flex; flex-direction: column; flex-grow: 1; min-height: 0; }
-    #mainTabs { display: flex; flex-direction: column; flex-grow: 1; min-height: 0; }
-    #mainTabs .tab-content { display: flex; flex-direction: column; flex-grow: 1; min-height: 0; }
-    #mainTabs .tab-content > .smd-tab-panel { flex-grow: 1; min-height: 0; }
-    #mainTabs .tab-content > .smd-tab-panel.active { display: flex; flex-direction: column; }
-  `);
-}
-
 function renderMain() {
   const container = document.getElementById("mainContainer");
   if (!container) return;
@@ -107,60 +92,10 @@ function renderMain() {
   mainOrder.forEach((id, i) => { orderMap[id] = i; });
   allLists.sort((a, b) => (orderMap[a.list.id] !== undefined ? orderMap[a.list.id] : 999) - (orderMap[b.list.id] !== undefined ? orderMap[b.list.id] : 999));
 
-  if (localStorage.getItem(smdKey("hideDone")) === "true") {
-    const filtered = allLists.filter(({ list }) => !completed.includes(list.id));
-    if (filtered.length === 0 && allLists.length > 0) {
-      const msg = document.createElement("p");
-      msg.className = "text-secondary";
-      msg.textContent = "All lists completed!";
-      container.appendChild(msg);
-      updateNavState();
-      return;
-    }
-    allLists.length = 0; allLists.push(...filtered);
-  }
-
-  const splitList = localStorage.getItem(smdKey("splitList")) === "true";
-  const tab = container.dataset.mainTab || "progress";
-  let matchingCategories = null;
-
-  if (splitList) {
-    const tabWrapper = document.createElement("div");
-    tabWrapper.id = "mainTabsWrap";
-    tabWrapper.className = "mb-1";
-    const tabsEl = document.createElement("smd-tabs");
-    tabsEl.id = "mainTabs";
-    tabsEl.tabs = [
-      { title: "Progress" },
-      { title: "Maintenance" }
-    ];
-    tabsEl.activeIndex = tab === "maintenance" ? 1 : 0;
-    tabsEl.addEventListener("smd-tabs-change", function(e) {
-      const tabTitle = e.detail && e.detail.tab ? (e.detail.tab.title || "") : "";
-      container.dataset.mainTab = tabTitle.toLowerCase() === "maintenance" ? "maintenance" : "progress";
-      renderMain();
-    });
-    tabWrapper.appendChild(tabsEl);
-    container.appendChild(tabWrapper);
-    injectMainTabsLayout();
-
-    matchingCategories = new Set();
-    allLists.forEach(({ categoryIdx }) => {
-      const s = categories[categoryIdx];
-      if ((s.tab || "progress") === tab) matchingCategories.add(categoryIdx);
-    });
-  }
-
-  // The split-list list is rendered INSIDE the active tab panel (the panel
-  // owns its content, so it lives in .tab-content rather than as a sibling below
-  // the tab bar); without tabs it is the container's own scrolling body.
-  const mainTabs = splitList ? document.getElementById("mainTabs") : null;
-  const scrollHost = (mainTabs && mainTabs.querySelector(".tab-content > .smd-tab-panel.active")) || container;
-
   const scrollBody = document.createElement("div");
   scrollBody.id = "mainScrollBody";
   scrollBody.className = "flex-grow-1 overflow-auto";
-  scrollHost.appendChild(scrollBody);
+  container.appendChild(scrollBody);
 
   const cardContainer = document.createElement("div");
   cardContainer.id = "mainCardList";
@@ -169,17 +104,10 @@ function renderMain() {
   if (allLists.length === 0) {
     const msg = document.createElement("p");
     msg.className = "text-secondary";
-    msg.textContent = splitList ? "No lists in this tab." : "No active lists yet. Add categories with active lists to get started.";
+    msg.textContent = "No active lists yet. Add categories with active lists to get started.";
     scrollBody.appendChild(msg);
     updateNavState();
     return;
-  }
-
-  if (splitList && allLists.every(({ categoryIdx }) => !matchingCategories.has(categoryIdx))) {
-    const msg = document.createElement("p");
-    msg.className = "text-secondary";
-    msg.textContent = "No lists in this tab.";
-    scrollBody.appendChild(msg);
   }
 
   allLists.forEach(({ list, categoryTitle, categoryIdx, listIdx }) => {
@@ -212,7 +140,6 @@ function renderMain() {
     handle.setAttribute("slot", "drag-handle");
     handle.setAttribute("title", "drag");
     card.appendChild(handle);
-    if (matchingCategories && !matchingCategories.has(categoryIdx)) card.hidden = true;
     cardContainer.appendChild(card);
   });
 
@@ -227,24 +154,19 @@ function renderMain() {
       const categories = loadCategories();
       const category = categories[categoryIdx];
       if (category && category.title === "Ad Hoc") {
-        const skipConfirm = localStorage.getItem(smdKey("skipAdhocConfirm")) === "true";
-        if (!skipConfirm) {
-          const list = (category.lists || []).find(j => j.id === listId);
-          showSmdModal({
-            title: "Remove from Ad Hoc?",
-            content: `Remove "<strong>${escapeHtml(list?.title || listId)}</strong>" from Ad Hoc?`,
-            buttons: [
-              { text: "Cancel", variant: "secondary", action: "cancel" },
-              { text: "Remove", variant: "danger", action: "remove" }
-            ],
-            onAction: (detail) => {
-              if (detail.action === "remove") removeAdhocList(categoryIdx, listId, card);
-              else if (card) card.checked = false;
-            }
-          });
-          return;
-        }
-        removeAdhocList(categoryIdx, listId, card);
+        const list = (category.lists || []).find(j => j.id === listId);
+        showSmdModal({
+          title: "Remove from Ad Hoc?",
+          content: `Remove "<strong>${escapeHtml(list?.title || listId)}</strong>" from Ad Hoc?`,
+          buttons: [
+            { text: "Cancel", variant: "secondary", action: "cancel" },
+            { text: "Remove", variant: "danger", action: "remove" }
+          ],
+          onAction: (detail) => {
+            if (detail.action === "remove") removeAdhocList(categoryIdx, listId, card);
+            else if (card) card.checked = false;
+          }
+        });
       } else {
         markListDone(listId, card);
       }

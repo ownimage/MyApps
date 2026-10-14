@@ -8,10 +8,6 @@ function lolDangerIds() {
 }
 
 // LOL-specific settings (kept out of the shared smd-settings.js library).
-function changeSplitList(enabled) {
-  localStorage.setItem(smdKey("splitList"), enabled);
-}
-
 function changeDevToday(value) {
   localStorage.setItem("devToday", value);
   if (typeof renderMain === "function") renderMain();
@@ -19,29 +15,6 @@ function changeDevToday(value) {
 
 function changeDevLastGen(value) {
   localStorage.setItem("devLastGen", value);
-}
-
-function changeHideDone(enabled) {
-  localStorage.setItem(smdKey("hideDone"), enabled);
-}
-
-function changeSuffixStart(value) {
-  localStorage.setItem(smdKey("suffixStart"), value);
-  if (typeof renderMain === "function") renderMain();
-}
-
-function changeJan1(value) {
-  localStorage.setItem(smdKey("jan1"), value);
-  if (typeof renderMain === "function") renderMain();
-}
-
-function changeMonday(value) {
-  localStorage.setItem(smdKey("monday"), value);
-  if (typeof renderMain === "function") renderMain();
-}
-
-function changeStartWeek(value) {
-  localStorage.setItem(smdKey("startWeek"), value);
 }
 
 function changeShowDanger(enabled) {
@@ -58,10 +31,6 @@ function changeNoCache(enabled) {
     return done();
   }
   smdSetNoCache(enabled).then(done, done);
-}
-
-function changeSkipAdhocConfirm(enabled) {
-  localStorage.setItem(smdKey("skipAdhocConfirm"), enabled);
 }
 
 function getSettingsSections() {
@@ -85,37 +54,9 @@ function openSettings() {
     restore: function () {
       if (typeof bindMinioSettingsTabBehavior === "function") bindMinioSettingsTabBehavior();
 
-      const splitList = localStorage.getItem(smdKey("splitList")) === "true";
-      const splitListCb = $id("splitList");
-      if (splitListCb) splitListCb.checked = splitList;
-
-      const hideDone = localStorage.getItem(smdKey("hideDone")) === "true";
-      const hideDoneCb = $id("hideDone");
-      if (hideDoneCb) hideDoneCb.checked = hideDone;
-
-      const suffixStart = localStorage.getItem(smdKey("suffixStart")) || "0";
-      const suffixStartSel = $id("suffixStartSelector");
-      if (suffixStartSel) suffixStartSel.value = suffixStart;
-
-      const jan1 = localStorage.getItem(smdKey("jan1")) || "1";
-      const jan1Sel = $id("jan1Selector");
-      if (jan1Sel) jan1Sel.value = jan1;
-
-      const monday = localStorage.getItem(smdKey("monday")) || "1";
-      const mondaySel = $id("mondaySelector");
-      if (mondaySel) mondaySel.value = monday;
-
-      const startWeek = localStorage.getItem(smdKey("startWeek")) || "1";
-      const startWeekSel = $id("startWeekSelector");
-      if (startWeekSel) startWeekSel.value = startWeek;
-
       const noCache = localStorage.getItem(smdKey("noCache")) === "true";
       const noCacheCb = $id("noCache");
       if (noCacheCb) noCacheCb.checked = noCache;
-
-      const skipAdhoc = localStorage.getItem(smdKey("skipAdhocConfirm")) === "true";
-      const skipAdhocCb = $id("skipAdhocConfirm");
-      if (skipAdhocCb) skipAdhocCb.checked = skipAdhoc;
 
       if (typeof loadMinioSettings === "function") loadMinioSettings();
 

@@ -126,22 +126,14 @@ function getListSuffix(list) {
   let dayNum;
 
   if (dayType === "dayOfWeek") {
+    // Monday is day 1, Sunday is day 7.
     dayNum = today.getDay();
-    const mondaySetting = localStorage.getItem(smdKey("monday")) || "1";
-    if (mondaySetting === "1") {
-      dayNum = dayNum === 0 ? 7 : dayNum;
-    } else {
-      dayNum = dayNum === 0 ? 6 : dayNum - 1;
-    }
+    dayNum = dayNum === 0 ? 7 : dayNum;
   } else if (dayType === "dayOfMonth") {
     dayNum = today.getDate();
   } else {
     const startOfYear = new Date(today.getFullYear(), 0, 0);
-    dayNum = Math.floor((today - startOfYear) / 86400000);
-    const jan1Setting = localStorage.getItem(smdKey("jan1")) || "0";
-    if (jan1Setting === "0") {
-      dayNum -= 1;
-    }
+    dayNum = Math.floor((today - startOfYear) / 86400000) - 1;
   }
 
   if (list.mod && list.mod !== "") {
@@ -150,9 +142,6 @@ function getListSuffix(list) {
       dayNum = dayNum % modVal;
     }
   }
-
-  const suffixStart = localStorage.getItem(smdKey("suffixStart")) || "0";
-  if (suffixStart === "1") dayNum += 1;
 
   return ` (${dayNum})`;
 }

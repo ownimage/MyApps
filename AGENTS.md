@@ -247,9 +247,16 @@ Architecture:
   Gantt menu item, the "Show Gantt" setting and the list `duration` field), the
   CountMyDays "today events" cards (`js/cmd-today.js`, `shared/js/smd-gcal.js`,
   the CountMyDays cmd-countdown-card + googleCalendar scripts) and the "Refresh
-  Google Calendar" menu item. KEPT: General/Display/Schedule/Minio/Danger
-  settings, MinIO import/export, JSON export/import, images editor, image picker,
-  list/category editors, list search, Ad Hoc. NO regression/screenshot specs yet
+  Google Calendar" menu item. ALSO REMOVED (2026-10-14, second pass): the
+  "Split list", "Hide done" and "Auto Ad Hoc" General toggles and their features
+  (the main view no longer renders Progress/Maintenance tabs or filters completed
+  lists, and the Ad Hoc removal ALWAYS confirms) and the WHOLE Settings
+  "Schedule" tab (`suffixStart`/`jan1`/`monday`/`startWeek`; `getListSuffix` now
+  hardcodes the old defaults - Monday=1 numbering, day-of-year -1, no suffix
+  offset - and the Sleep-Until picker drops `first-day-of-week`). KEPT: General
+  (Auto-hide menu), Display, Minio and Danger settings, MinIO import/export, JSON
+  export/import, images editor, image picker, list/category editors, list search,
+  Ad Hoc. NO regression/screenshot specs yet
   (user request) and NOT in the Storybook (TODO below). Registered in `Launch`
   (a `LAUNCH_APPS` tile whose icon is the shared sample image "List of Lists",
   added as `shared/sampleImages/List_of_Lists.svg` + `shared/sampleImages.json`)
@@ -4280,3 +4287,11 @@ Techniques / gotchas:
   202610141617 via `npm run bump:build`.
 - TODO (noted above): rename `countdownContainer` -> `mainContainer` in
   PlanMyDay/CountMyDays; add the ListOfLists components to the Storybook.
+- FOLLOW-UP (same session): removed the Settings "Split list", "Hide done" and
+  "Auto Ad Hoc" toggles (and their code: the main view's Progress/Maintenance
+  tabs, the completed-list filter, the Ad Hoc skip-confirm branch) and the whole
+  Settings "Schedule" tab (`changeSuffixStart`/`changeJan1`/`changeMonday`/
+  `changeStartWeek` + their restore blocks; `getListSuffix` hardcodes the old
+  defaults; the list Sleep-Until picker drops `first-day-of-week`). Also removed
+  the stale `--pmd-tasks-*` comment from `lol-list-items.js`. `node --check`
+  clean; no residual references.
