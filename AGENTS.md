@@ -4293,5 +4293,13 @@ Techniques / gotchas:
   Settings "Schedule" tab (`changeSuffixStart`/`changeJan1`/`changeMonday`/
   `changeStartWeek` + their restore blocks; `getListSuffix` hardcodes the old
   defaults; the list Sleep-Until picker drops `first-day-of-week`). Also removed
-  the stale `--pmd-tasks-*` comment from `lol-list-items.js`. `node --check`
-  clean; no residual references.
+  the stale `--pmd-tasks-*` comment from `lol-list-items.js`. ADD/EDIT CATEGORY
+  page: removed the "Tab" label + the `#categoryTabDropdown` `smd-image-dropdown`
+  (`initCategoryTabDropdown` and the `.category-tab-picker` CSS are gone) and
+  moved the Image picker between Title and Description (form is now Title /
+  Image / Description). Also removed the WHOLE progress/maintenance concept: the
+  `tab` attribute + `.tab-badge` from `lol-list-main-card`, `lol-category-header`
+  and `lol-list-summary-card` (templates, `observedAttributes`, `_render`), the
+  `tab` header attribute in `categories-editor.js`, the `category.tab` reads in
+  `main-view.js`/`list-search.js`, and the `tab: "progress"` seed on new
+  categories. `node --check` clean; no residual references.

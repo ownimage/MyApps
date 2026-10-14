@@ -132,7 +132,6 @@ function renderMain() {
     if (categoryImageName) card.setAttribute("category-image", categoryImageName);
     if (listImageName) card.setAttribute("list-image", listImageName);
     card.setAttribute("category-title", categoryTitle || "");
-    card.setAttribute("tab", category.tab || "progress");
     if (list.description) card.setAttribute("description", list.description);
     card.setAttribute("key-prefix", smdImagePrefix());
     const handle = document.createElement("smd-draghandle");

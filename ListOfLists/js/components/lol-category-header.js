@@ -12,7 +12,6 @@ lolCategoryHeaderTemplate.innerHTML = `
             <span class="editor-title d-block fw-bold text-truncate"></span>
         </button>
         <div class="category-header-meta d-flex align-items-center gap-1 flex-wrap">
-            <smd-badge class="tab-badge" variant="success" pill></smd-badge>
             <smd-badge class="count-badge" variant="secondary" pill hidden></smd-badge>
             <div class="header-actions d-flex align-items-center flex-shrink-0 gap-1 ms-auto px-1">
                 <button type="button" class="btn btn-sm btn-secondary" data-action="add-list">Add List</button>
@@ -27,7 +26,7 @@ lolCategoryHeaderTemplate.innerHTML = `
 
 class LolCategoryHeader extends HTMLElement {
   static get observedAttributes() {
-    return ['category-idx', 'title', 'image', 'tab', 'expanded', 'can-delete', 'listcounts', 'key-prefix'];
+    return ['category-idx', 'title', 'image', 'expanded', 'can-delete', 'listcounts', 'key-prefix'];
   }
 
   constructor() {
@@ -121,7 +120,6 @@ class LolCategoryHeader extends HTMLElement {
     const expanded = this.hasAttribute('expanded');
     const title = this.getAttribute('title') || '';
     const image = this.getAttribute('image') || '';
-    const tab = this.getAttribute('tab') || 'progress';
     const canDelete = this.hasAttribute('can-delete');
     const listcounts = this.getAttribute('listcounts') || '';
     const header = root.querySelector('.category-accordion-header');
@@ -140,12 +138,6 @@ class LolCategoryHeader extends HTMLElement {
     } else {
       sImg.removeAttribute('image');
     }
-
-    const tabBadge = root.querySelector('.tab-badge');
-    // The tab is shown as a Font Awesome icon: fast-forward for "progress",
-    // play for "maintenance". Both badges use the primary variant.
-    tabBadge.innerHTML = '<i class="fa-solid ' + (tab === 'maintenance' ? 'fa-play' : 'fa-forward') + '" aria-hidden="true"></i>';
-    tabBadge.setAttribute('variant', 'primary');
 
     const countBadge = root.querySelector('.count-badge');
     if (listcounts) {

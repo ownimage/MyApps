@@ -53,7 +53,6 @@ function openCategoryEditPage() {
     { text: "OK", variant: "success", action: "done", id: "btnCategoryEditOk" }
   ];
   page.show();
-  initCategoryTabDropdown(data);
   updateCategoryEditOkBtn();
   if (isNew) {
     requestAnimationFrame(function() {
@@ -80,27 +79,6 @@ function updateCategoryEditOkBtn() {
   if (okBtn) okBtn.disabled = !title || !title.value.trim();
 }
 
-// The Tab field uses the shared <smd-image-dropdown> with the SAME Font Awesome
-// icons the category header shows (fast-forward for progress, play for
-// maintenance), so the picker matches the header badge. `name` is the display
-// label; `value` is the stored tab string, delivered in the change event.
-function initCategoryTabDropdown(data) {
-  const sel = $id("categoryTabDropdown");
-  if (!sel) return;
-  const options = [
-    { name: "Progress", value: "progress", image: "fa:forward" },
-    { name: "Maintenance", value: "maintenance", image: "fa:play" }
-  ];
-  sel.options = options;
-  const current = (data.tab || "progress");
-  const match = options.find(function (o) { return o.value === current; });
-  sel.selected = match ? match.name : options[0].name;
-  sel.addEventListener("smd-image-dropdown-change", function (e) {
-    var value = e.detail && e.detail.value;
-    if (value) editField("tab", value);
-  });
-}
-
 function categoryEditSubmit() {
   const okBtn = $id("btnCategoryEditOk");
   if (okBtn && !okBtn.disabled) doneEdit();
@@ -113,18 +91,12 @@ function getCategoryEditFormHTML(data) {
       <input class="form-control" id="categoryTitleInput" value="${escapeHtml(data.title || "")}" oninput="editField('title', this.value);updateCategoryEditOkBtn()" onkeydown="if(event.key==='Enter') categoryEditSubmit()">
     </div>
     <div class="mb-2">
-      <label class="form-label">Tab</label>
-      <div class="category-tab-picker">
-        <smd-image-dropdown id="categoryTabDropdown" key-prefix="${escAttr(smdImagePrefix())}"></smd-image-dropdown>
-      </div>
+      <label class="form-label">Image</label>
+      <smd-image-select id="categoryImageSelect" key-prefix="${escAttr(smdImagePrefix())}" image="${escapeHtml(data.image || "")}" label-id="categoryImageName" button-id="btnCategoryImageChoose"></smd-image-select>
     </div>
     <div class="mb-2">
       <label class="form-label">Description</label>
       <textarea class="form-control" rows="3" oninput="editField('description', this.value)">${escapeHtml(data.description || "")}</textarea>
-    </div>
-    <div class="mb-2">
-      <label class="form-label">Image</label>
-      <smd-image-select id="categoryImageSelect" key-prefix="${escAttr(smdImagePrefix())}" image="${escapeHtml(data.image || "")}" label-id="categoryImageName" button-id="btnCategoryImageChoose"></smd-image-select>
     </div>
   `;
 }
@@ -167,7 +139,6 @@ function renderCategoriesEditor() {
     var headerAttrs = [
       'category-idx="' + realIdx + '"',
       'title="' + escAttr(t.title || "") + '"',
-      'tab="' + escAttr(t.tab || "progress") + '"',
       'key-prefix="' + escAttr(smdImagePrefix()) + '"',
       (isExpanded ? 'expanded' : ''),
       (lists.length === 0 ? 'can-delete' : '')
@@ -453,7 +424,7 @@ function confirmDeleteCategory(index) {
 function addNewCategory() {
   var categories = loadCategories();
   var seq = categories.length + 1;
-  var newCategory = { title: "", sequence: seq, description: "", lists: [], tab: "progress" };
+  var newCategory = { title: "", sequence: seq, description: "", lists: [] };
   categories.push(newCategory);
   saveCategories(categories);
   editBuffer = JSON.parse(JSON.stringify(newCategory));

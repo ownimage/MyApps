@@ -9,8 +9,8 @@
 //                        slot="drag-handle">`; when none is supplied the built-in
 //                        fallback handle is shown and adopted on connect.
 //   "search"           — leading checkbox column, category + list thumbnails with
-//                        the category title under them, and a progress/maintenance
-//                        tab badge. No drag handle (Sortable does not run here).
+//                        the category title under them. No drag handle (Sortable
+//                        does not run here).
 //
 // Attributes:
 //   variant       — "category" (default) | "search"
@@ -20,7 +20,6 @@
 //   image         — list image name (rendered via smd-image)
 //   category-image  — category image name  (search variant)
 //   category-title  — category title under the thumbnails (search variant)
-//   tab           — "progress" (success badge) | "maintenance" (info badge) (search)
 //   suffix        — optional suffix badge text
 //   schedule      — schedule text badge
 //   time          — optional time badge
@@ -69,7 +68,6 @@ lolListSummaryCardTemplate.innerHTML = `
         <div class="d-flex flex-grow-1">
           <div class="flex-grow-1 d-flex flex-wrap gap-1 align-items-center">
             <smd-checkbox class="active-toggle active-toggle-inline fw-bold flex-shrink-0"><span>Active</span></smd-checkbox>
-            <smd-badge class="tab-badge" pill></smd-badge>
             <smd-badge class="schedule" variant="primary" pill></smd-badge>
             <smd-badge class="time" variant="secondary" pill hidden></smd-badge>
             <smd-badge class="extra" variant="info" pill hidden></smd-badge>
@@ -88,7 +86,7 @@ lolListSummaryCardTemplate.innerHTML = `
 class LolListSummaryCard extends HTMLElement {
   static get observedAttributes() {
     return ['variant', 'category-idx', 'list-idx', 'title', 'image', 'category-image', 'category-title',
-      'tab', 'suffix', 'schedule', 'time', 'extra', 'active', 'key-prefix'];
+      'suffix', 'schedule', 'time', 'extra', 'active', 'key-prefix'];
   }
 
   constructor() {
@@ -146,7 +144,6 @@ class LolListSummaryCard extends HTMLElement {
       drop('.active-toggle-inline');
     } else {
       drop('.check-col');
-      drop('.tab-badge');
       drop('.category-thumb');
       drop('.category-title');
     }
@@ -184,7 +181,6 @@ class LolListSummaryCard extends HTMLElement {
     const image = this.getAttribute('image') || '';
     const categoryImage = this.getAttribute('category-image') || '';
     const categoryTitle = this.getAttribute('category-title') || '';
-    const tab = this.getAttribute('tab') || 'progress';
     const suffix = this.getAttribute('suffix') || '';
     const schedule = this.getAttribute('schedule') || '';
     const time = this.getAttribute('time') || '';
@@ -221,11 +217,6 @@ class LolListSummaryCard extends HTMLElement {
     if (search) {
       const categoryTitleEl = root.querySelector('.category-title');
       if (categoryTitleEl) categoryTitleEl.textContent = categoryTitle;
-      const tabBadge = root.querySelector('.tab-badge');
-      if (tabBadge) {
-        tabBadge.textContent = tab;
-        tabBadge.setAttribute('variant', tab === 'progress' ? 'success' : 'info');
-      }
     }
 
     root.querySelector('.schedule').textContent = schedule;

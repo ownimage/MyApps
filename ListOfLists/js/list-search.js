@@ -110,7 +110,6 @@ function buildListSearchCard(category, categoryIdx, list, listIdx) {
   set("list-idx", listIdx);
   set("title", list.title || "");
   set("category-title", category.title || "");
-  set("tab", category.tab || "progress");
   set("schedule", getScheduleText(list.schedule));
   set("active", list.active !== false ? "true" : "false");
   set("category-image", category.image ? category.image : "");

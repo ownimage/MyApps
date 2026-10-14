@@ -26,7 +26,6 @@
 //   category-image  — category image name (rendered via smd-image)
 //   list-image     — list image name (rendered via smd-image)
 //   category-title  — category title shown under the category thumbnail, on the badge row
-//   tab           — "progress" (success badge) | "maintenance" (info badge)
 //   description   — optional description line
 //   key-prefix    — smd-image storage prefix (default: SmdConfig.imagePrefix)
 //
@@ -114,7 +113,6 @@ lolListMainCardTemplate.innerHTML = `
                     <!-- RIGHT COLUMN: Badges + View aligned bottom -->
                     <div class="d-flex flex-column justify-content-end text-end flex-shrink-0">
                         <div class="d-flex align-items-center gap-2 me-2">
-                            <smd-badge class="tab-badge flex-shrink-0" pill></smd-badge>
                             <smd-button class="list-view-btn flex-shrink-0" variant="primary" size="small" title="View list">View</smd-button>
                         </div>
                     </div>
@@ -129,7 +127,7 @@ lolListMainCardTemplate.innerHTML = `
 class LolListMainCard extends HTMLElement {
   static get observedAttributes() {
     return ['list-id', 'title', 'suffix', 'daily', 'done', 'checked',
-      'category-image', 'list-image', 'category-title', 'tab', 'description', 'key-prefix'];
+      'category-image', 'list-image', 'category-title', 'description', 'key-prefix'];
   }
 
   constructor() {
@@ -331,15 +329,6 @@ class LolListMainCard extends HTMLElement {
     setThumb('.list-thumb', this.getAttribute('list-image') || '');
 
     root.querySelector('.category-title').textContent = this.getAttribute('category-title') || '';
-
-    const tab = this.getAttribute('tab') || 'progress';
-    const tabBadge = root.querySelector('.tab-badge');
-    // The tab is shown as a Font Awesome icon: fast-forward for "progress",
-    // play for "maintenance". Both badges use the primary variant.
-    tabBadge.innerHTML = '<i class="fa-solid ' + (tab === 'maintenance' ? 'fa-play' : 'fa-forward') + '" aria-hidden="true"></i>';
-    tabBadge.setAttribute('variant', 'primary');
-    // Make badge slightly smaller to match View button size
-    tabBadge.classList.add('fs-6');
 
     const descEl = root.querySelector('.description');
     const description = this.getAttribute('description') || '';
