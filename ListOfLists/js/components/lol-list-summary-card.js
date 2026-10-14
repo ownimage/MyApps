@@ -20,10 +20,6 @@
 //   image         — list image name (rendered via smd-image)
 //   category-image  — category image name  (search variant)
 //   category-title  — category title under the thumbnails (search variant)
-//   suffix        — optional suffix badge text
-//   schedule      — schedule text badge
-//   time          — optional time badge
-//   extra         — optional extra badge (Sleep/Wait)
 //   active        — checkbox state ("true"/"false")
 //   key-prefix    — smd-image storage prefix (default: SmdConfig.imagePrefix)
 //
@@ -58,19 +54,15 @@ lolListSummaryCardTemplate.innerHTML = `
 
       <div class="d-flex flex-column flex-grow-1 overflow-hidden ms-2">
 
-        <!-- FULL-WIDTH TITLE, suffix badge straight after the text with a fixed gap -->
+        <!-- FULL-WIDTH TITLE -->
         <div class="d-flex align-items-center">
           <smd-h2 class="list-title text-truncate fw-bold mb-0"></smd-h2>
-          <smd-badge class="suffix ms-2" variant="secondary" pill hidden></smd-badge>
         </div>
 
         <!-- BADGES + EDIT ROW -->
         <div class="d-flex flex-grow-1">
           <div class="flex-grow-1 d-flex flex-wrap gap-1 align-items-center">
             <smd-checkbox class="active-toggle active-toggle-inline fw-bold flex-shrink-0"><span>Active</span></smd-checkbox>
-            <smd-badge class="schedule" variant="primary" pill></smd-badge>
-            <smd-badge class="time" variant="secondary" pill hidden></smd-badge>
-            <smd-badge class="extra" variant="info" pill hidden></smd-badge>
           </div>
           <div class="d-flex align-items-end me-2 flex-shrink-0">
             <smd-button class="list-edit-btn" variant="primary" size="small" data-action="edit">Edit</smd-button>
@@ -86,7 +78,7 @@ lolListSummaryCardTemplate.innerHTML = `
 class LolListSummaryCard extends HTMLElement {
   static get observedAttributes() {
     return ['variant', 'category-idx', 'list-idx', 'title', 'image', 'category-image', 'category-title',
-      'suffix', 'schedule', 'time', 'extra', 'active', 'key-prefix'];
+      'active', 'key-prefix'];
   }
 
   constructor() {
@@ -181,10 +173,6 @@ class LolListSummaryCard extends HTMLElement {
     const image = this.getAttribute('image') || '';
     const categoryImage = this.getAttribute('category-image') || '';
     const categoryTitle = this.getAttribute('category-title') || '';
-    const suffix = this.getAttribute('suffix') || '';
-    const schedule = this.getAttribute('schedule') || '';
-    const time = this.getAttribute('time') || '';
-    const extra = this.getAttribute('extra') || '';
     const active = this.getAttribute('active') !== 'false';
 
     root.querySelector('.list-title').textContent = title;
@@ -206,35 +194,9 @@ class LolListSummaryCard extends HTMLElement {
     setThumb('.list-thumb', image);
     if (search) setThumb('.category-thumb', categoryImage);
 
-    const suffixEl = root.querySelector('.suffix');
-    if (suffix.trim()) {
-      suffixEl.textContent = suffix.trim();
-      suffixEl.hidden = false;
-    } else {
-      suffixEl.hidden = true;
-    }
-
     if (search) {
       const categoryTitleEl = root.querySelector('.category-title');
       if (categoryTitleEl) categoryTitleEl.textContent = categoryTitle;
-    }
-
-    root.querySelector('.schedule').textContent = schedule;
-
-    const timeEl = root.querySelector('.time');
-    if (time) {
-      timeEl.textContent = time;
-      timeEl.hidden = false;
-    } else {
-      timeEl.hidden = true;
-    }
-
-    const extraEl = root.querySelector('.extra');
-    if (extra) {
-      extraEl.textContent = extra;
-      extraEl.hidden = false;
-    } else {
-      extraEl.hidden = true;
     }
 
     root.querySelector('smd-checkbox.active-toggle').checked = active;

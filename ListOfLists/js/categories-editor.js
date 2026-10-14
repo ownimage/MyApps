@@ -132,10 +132,6 @@ function renderCategoriesEditor() {
     var collapseId = "categoryCollapse_" + realIdx;
     var isExpanded = expandedCategories.indexOf(realIdx) !== -1;
 
-    var activeLists = lists.filter(function(j) { return j.active !== false; });
-    var headerListCounts = lists.length > 0
-      ? activeLists.filter(function(j) { return shouldShowListToday(j); }).length + '/' + activeLists.length + '/' + lists.length + ' list' + (lists.length !== 1 ? 's' : '')
-      : "";
     var headerAttrs = [
       'category-idx="' + realIdx + '"',
       'title="' + escAttr(t.title || "") + '"',
@@ -144,7 +140,6 @@ function renderCategoriesEditor() {
       (lists.length === 0 ? 'can-delete' : '')
     ];
     if (categoryImageName) headerAttrs.push('image="' + escAttr(categoryImageName) + '"');
-    if (headerListCounts) headerAttrs.push('listcounts="' + escAttr(headerListCounts) + '"');
     var headerHtml = '<lol-category-header class="d-block" ' + headerAttrs.filter(Boolean).join(" ") + '></lol-category-header>';
 
     var bodyHtml = '<div id="' + collapseId + '" class="accordion-collapse collapse' + (isExpanded ? " show" : "") + '">' +
@@ -156,7 +151,7 @@ function renderCategoriesEditor() {
     accordionHtml += '<div class="accordion-item category-accordion-item category-drag-card mb-2 user-select-none border rounded overflow-hidden' + (isExpanded ? " expanded" : "") + '" data-category-idx="' + realIdx + '">' + headerHtml + bodyHtml + '</div>';
   });
 
-  page.headerHtml = '<smd-badge id="editListsTotalBadge" variant="secondary" pill class="small align-middle"></smd-badge>';
+  page.headerHtml = '';
   page.content =
     '<div id="categoriesEditorHeader" class="flex-shrink-0">' +
       '<div id="addCategoryTileTop" class="mb-3"></div>' +
@@ -328,26 +323,15 @@ function initCategoryListsSortables() {
 
 function renderListsInAccordion(category, lists, categoryIdx) {
   return lists.map(function(j, realIdx) {
-    var scheduleText = getScheduleText(j.schedule);
     var listImageName = j.image || "";
-    var hasSleep = j.sleepUntil && j.sleepUntil.trim();
-    var hasWait = j.waitFor && j.waitFor.trim();
-    var suffix = (getListSuffix(j) || "").trim();
-    var extra = "";
-    if (hasSleep) extra = "Sleep: " + formatDate(j.sleepUntil);
-    else if (hasWait) extra = "Wait: " + j.waitFor.trim();
     var attrs = [
       'category-idx="' + categoryIdx + '"',
       'list-idx="' + realIdx + '"',
       'title="' + escAttr(j.title || "") + '"',
-      'schedule="' + escAttr(scheduleText) + '"',
       'active="' + (j.active !== false ? "true" : "false") + '"',
       'key-prefix="' + escAttr(smdImagePrefix()) + '"'
     ];
     if (listImageName) attrs.push('image="' + escAttr(listImageName) + '"');
-    if (j.time && j.time.trim()) attrs.push('time="' + escAttr(j.time.trim()) + '"');
-    if (suffix) attrs.push('suffix="' + escAttr(suffix) + '"');
-    if (extra) attrs.push('extra="' + escAttr(extra) + '"');
     return '<div class="list-drag-card mb-0 user-select-none" data-list-idx="' + realIdx + '">' +
       '<lol-list-summary-card class="d-block" variant="category" ' + attrs.join(" ") + '>' +
         '<smd-draghandle class="drag-handle" title="drag" slot="drag-handle"></smd-draghandle>' +

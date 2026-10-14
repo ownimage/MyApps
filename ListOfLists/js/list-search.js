@@ -110,14 +110,9 @@ function buildListSearchCard(category, categoryIdx, list, listIdx) {
   set("list-idx", listIdx);
   set("title", list.title || "");
   set("category-title", category.title || "");
-  set("schedule", getScheduleText(list.schedule));
   set("active", list.active !== false ? "true" : "false");
   set("category-image", category.image ? category.image : "");
   set("image", list.image ? list.image : "");
-  set("suffix", (getListSuffix(list) || "").trim());
-  if (list.sleepUntil && list.sleepUntil.trim()) set("extra", "Sleep: " + formatDate(list.sleepUntil));
-  else if (list.waitFor && list.waitFor.trim()) set("extra", "Wait: " + list.waitFor.trim());
-  if (list.time && list.time.trim()) set("time", list.time.trim());
   return card;
 }
 

@@ -13,28 +13,9 @@ function getListCountBadgeText(categories) {
 }
 
 function updateEditorListCountBadges() {
-  var categories = loadCategories();
-  var text = getListCountBadgeText(categories);
-  ["editListsTotalBadge", "listSearchTotalBadge"].forEach(function(id) {
-    var el = $id(id);
-    if (el) el.textContent = text;
-  });
-  var page = document.getElementById("categoriesEditor");
-  if (page) {
-    page.querySelectorAll("lol-category-header").forEach(function(header) {
-      var idx = parseInt(header.getAttribute("category-idx"), 10);
-      if (isNaN(idx) || !categories[idx]) return;
-      var lists = categories[idx].lists || [];
-      var activeLists = lists.filter(function(j) { return j.active !== false; });
-      var counts = "";
-      if (lists.length > 0) {
-        counts = activeLists.filter(function(j) { return shouldShowListToday(j); }).length + '/' +
-                 activeLists.length + '/' + lists.length + ' list' + (lists.length !== 1 ? 's' : '');
-      }
-      if (counts) header.setAttribute("listcounts", counts);
-      else header.removeAttribute("listcounts");
-    });
-  }
+  var text = getListCountBadgeText(loadCategories());
+  var el = $id("listSearchTotalBadge");
+  if (el) el.textContent = text;
   return text;
 }
 

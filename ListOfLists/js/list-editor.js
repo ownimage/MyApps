@@ -1,4 +1,4 @@
-// ListOfLists — the list edit page (general/schedule/items tabs, view + delete).
+// ListOfLists — the list edit page (general/items tabs, view + delete).
 
 // LISTS EDITOR
 var listsCategoryIndex = -1;
@@ -11,11 +11,6 @@ var listItemsSortable = null;
 function listField(field, value) {
   if (!listsBuffer) return;
   listsBuffer[field] = value;
-}
-function listTimeChanged() {
-  const h = $id("listTimeHour").value;
-  const m = $id("listTimeMin").value;
-  listField("time", h && m ? h + ":" + m : "");
 }
 function updateListEditOkBtn() {
   const okBtn = getListEditFooterBtn("done");
@@ -126,145 +121,6 @@ function initListItemsSortable() {
   });
 }
 
-function scheduleEl(id) {
-  const host = document.getElementById("smdConfirmModal");
-  return host ? host.querySelector("#" + id) : null;
-}
-function scheduleRadios() {
-  const host = document.getElementById("smdConfirmModal");
-  return host ? host.querySelectorAll('input[name="scheduleType"]') : [];
-}
-
-function getScheduleFormHTML() {
-  return `
-    <div class="mb-3">
-      <div class="form-check mb-2">
-        <input class="form-check-input" type="radio" name="scheduleType" id="schedDaily" value="daily" onchange="onScheduleTypeChange()">
-        <label class="form-check-label" for="schedDaily">Every day</label>
-      </div>
-      <div class="form-check mb-2">
-        <input class="form-check-input" type="radio" name="scheduleType" id="schedNDays" value="ndays" onchange="onScheduleTypeChange()">
-        <label class="form-check-label" for="schedNDays">Every n days</label>
-      </div>
-      <div id="schedNDaysOptions" class="d-none ms-4 mb-2">
-        <div class="d-flex align-items-center gap-2 mb-1 flex-wrap">
-          <label class="form-label mb-0">Every</label>
-          <smd-select class="form-select w-auto" id="schedNInterval" onchange="onScheduleNDaysChange()"></smd-select>
-          <label class="form-label mb-0">day(s)</label>
-          <label class="form-label mb-0 ms-2">Offset</label>
-          <smd-select class="form-select w-auto" id="schedNOffset" onchange="onScheduleNDaysChange()"></smd-select>
-        </div>
-        <div id="schedNextDue" class="text-muted small"></div>
-      </div>
-      <div class="form-check mb-2">
-        <input class="form-check-input" type="radio" name="scheduleType" id="schedWeekdays" value="weekdays" onchange="onScheduleTypeChange()">
-        <label class="form-check-label" for="schedWeekdays">Weekdays (Mon&ndash;Fri)</label>
-      </div>
-      <div class="form-check mb-2">
-        <input class="form-check-input" type="radio" name="scheduleType" id="schedWeekends" value="weekends" onchange="onScheduleTypeChange()">
-        <label class="form-check-label" for="schedWeekends">Weekends (Sat&ndash;Sun)</label>
-      </div>
-      <div class="form-check mb-2">
-        <input class="form-check-input" type="radio" name="scheduleType" id="schedDays" value="days" onchange="onScheduleTypeChange()">
-        <label class="form-check-label" for="schedDays">Specific days</label>
-      </div>
-      <div id="schedDaysOptions" class="d-none ms-4 mb-2 d-flex gap-2 flex-wrap">
-        <smd-checkbox id="schedDay0" value="0">Sun</smd-checkbox>
-        <smd-checkbox id="schedDay1" value="1">Mon</smd-checkbox>
-        <smd-checkbox id="schedDay2" value="2">Tue</smd-checkbox>
-        <smd-checkbox id="schedDay3" value="3">Wed</smd-checkbox>
-        <smd-checkbox id="schedDay4" value="4">Thu</smd-checkbox>
-        <smd-checkbox id="schedDay5" value="5">Fri</smd-checkbox>
-        <smd-checkbox id="schedDay6" value="6">Sat</smd-checkbox>
-      </div>
-      <div class="form-check mb-2">
-        <input class="form-check-input" type="radio" name="scheduleType" id="schedMonthly" value="monthly" onchange="onScheduleTypeChange()">
-        <label class="form-check-label" for="schedMonthly">Day of month</label>
-      </div>
-      <div id="schedMonthlyOptions" class="d-none ms-4 mb-2">
-        <smd-select class="form-select w-auto" id="schedMonthlyDay"></smd-select>
-      </div>
-    </div>
-  `;
-}
-
-function openScheduleModal() {
-  const s = (listsBuffer && listsBuffer.schedule) || { type: "daily" };
-  showSmdModal({
-    title: "Schedule",
-    content: getScheduleFormHTML(),
-    buttons: [
-      { text: "Cancel", variant: "secondary", action: "cancel" },
-      { text: "OK", variant: "primary", action: "ok" }
-    ],
-    onAction: function(detail) {
-      if (detail.action === "ok") saveScheduleModal();
-    }
-  });
-  scheduleRadios().forEach(r => r.checked = r.value === s.type);
-  scheduleEl("schedDaysOptions").classList.toggle("d-none", s.type !== "days");
-  scheduleEl("schedMonthlyOptions").classList.toggle("d-none", s.type !== "monthly");
-  scheduleEl("schedNDaysOptions").classList.toggle("d-none", s.type !== "ndays");
-  for (let i = 0; i < 7; i++) {
-    scheduleEl("schedDay" + i).checked = (s.days || []).includes(i);
-  }
-  const mSel = scheduleEl("schedMonthlyDay");
-  mSel.options = Array.from({ length: 31 }, (_, i) => ({ value: String(i + 1), label: String(i + 1) }));
-  mSel.value = String(s.date || 1);
-
-  const intervalSel = scheduleEl("schedNInterval");
-  intervalSel.options = Array.from({ length: 6 }, (_, i) => ({ value: String(i + 2), label: String(i + 2) }));
-  intervalSel.value = String(s.interval || 2);
-
-  const curInterval = s.interval || 2;
-  const offsetSel = scheduleEl("schedNOffset");
-  offsetSel.options = Array.from({ length: curInterval }, (_, i) => ({ value: String(i), label: String(i) }));
-  offsetSel.value = String(s.offset != null ? s.offset : 0);
-  if (s.type === "ndays") onScheduleNDaysChange();
-}
-
-function onScheduleTypeChange() {
-  let checked = null;
-  scheduleRadios().forEach(r => { if (r.checked) checked = r; });
-  const type = checked ? checked.value : "daily";
-  scheduleEl("schedDaysOptions").classList.toggle("d-none", type !== "days");
-  scheduleEl("schedMonthlyOptions").classList.toggle("d-none", type !== "monthly");
-  scheduleEl("schedNDaysOptions").classList.toggle("d-none", type !== "ndays");
-  if (type === "ndays") onScheduleNDaysChange();
-}
-
-function onScheduleNDaysChange() {
-  const interval = parseInt(scheduleEl("schedNInterval").value, 10) || 2;
-  const offsetSel = scheduleEl("schedNOffset");
-  const currentOffset = parseInt(offsetSel.value, 10) || 0;
-  offsetSel.options = Array.from({ length: interval }, (_, i) => ({ value: String(i), label: String(i) }));
-  offsetSel.value = String(Math.min(currentOffset, interval - 1));
-  const offset = parseInt(offsetSel.value, 10) || 0;
-  scheduleEl("schedNextDue").textContent = getNextDueText(interval, offset);
-}
-
-function saveScheduleModal() {
-  let checked = null;
-  scheduleRadios().forEach(r => { if (r.checked) checked = r; });
-  const type = checked ? checked.value : "daily";
-  let schedule = { type: type };
-  if (type === "days") {
-    schedule.days = [];
-    for (let i = 0; i < 7; i++) {
-      if (scheduleEl("schedDay" + i).checked) schedule.days.push(i);
-    }
-    if (schedule.days.length === 0) schedule = { type: "daily" };
-  } else if (type === "monthly") {
-    schedule.date = parseInt(scheduleEl("schedMonthlyDay").value, 10) || 1;
-  } else if (type === "ndays") {
-    schedule.interval = parseInt(scheduleEl("schedNInterval").value, 10) || 2;
-    schedule.offset = parseInt(scheduleEl("schedNOffset").value, 10) || 0;
-  }
-  listField("schedule", schedule);
-  const el = $id("listScheduleText");
-  if (el) el.textContent = getScheduleText(schedule);
-}
-
 function getListEditPageContent(data, readOnly) {
   const disabled = readOnly ? "disabled" : "";
   const ro = readOnly ? "readonly" : "";
@@ -287,13 +143,11 @@ function getListEditPageContent(data, readOnly) {
 function getListEditSections(data, readOnly) {
   return [
     { title: "General", id: "listGeneral-tab", content: getListGeneralTabHTML(data, readOnly) },
-    { title: "Schedule", id: "listSchedule-tab", content: getListScheduleTabHTML(data, readOnly) },
     { title: "List Items", id: "listItems-tab", content: getListItemsTabHTML(data, readOnly), panelClass: "no-padding" }
   ];
 }
 
 function getListGeneralTabHTML(data, readOnly) {
-  const disabled = readOnly ? "disabled" : "";
   return `
     <div class="row mb-2 mt-2">
       <div class="col-6 d-flex flex-column">
@@ -314,78 +168,6 @@ function getListGeneralTabHTML(data, readOnly) {
     <div class="mb-2">
       <label class="form-label">Description</label>
       <textarea class="form-control" rows="3" ${readOnly ? "readonly" : ""} oninput="listField('description', this.value)">${escapeHtml(data.description || "")}</textarea>
-    </div>
-    <div class="row mb-2">
-      <div class="col-auto d-flex align-items-center">
-        <smd-checkbox id="listSuffixCb" ${data.suffix ? "checked" : ""} ${disabled} onchange="listField('suffix', this.checked)">Suffix</smd-checkbox>
-      </div>
-      <div class="col">
-        <smd-select class="form-select" ${disabled} onchange="listField('dayType', this.value)">
-          <option value="dayOfYear" ${(data.dayType || "dayOfYear") === "dayOfYear" ? "selected" : ""}>Day of Year</option>
-          <option value="dayOfMonth" ${data.dayType === "dayOfMonth" ? "selected" : ""}>Day of Month</option>
-          <option value="dayOfWeek" ${data.dayType === "dayOfWeek" ? "selected" : ""}>Day of Week</option>
-        </smd-select>
-      </div>
-      <div class="col">
-        <smd-select class="form-select" ${disabled} onchange="listField('mod', this.value)">
-          <option value="" ${!data.mod ? "selected" : ""}>None</option>
-          <option value="2" ${data.mod === "2" ? "selected" : ""}>2</option>
-          <option value="3" ${data.mod === "3" ? "selected" : ""}>3</option>
-          <option value="4" ${data.mod === "4" ? "selected" : ""}>4</option>
-          <option value="5" ${data.mod === "5" ? "selected" : ""}>5</option>
-          <option value="6" ${data.mod === "6" ? "selected" : ""}>6</option>
-          <option value="7" ${data.mod === "7" ? "selected" : ""}>7</option>
-        </smd-select>
-      </div>
-    </div>
-  `;
-}
-
-function getListScheduleTabHTML(data, readOnly) {
-  const disabled = readOnly ? "disabled" : "";
-  const ro = readOnly ? "readonly" : "";
-  return `
-    <div class="mb-2 mt-2">
-      <label class="form-label">Schedule</label>
-      <div class="d-flex align-items-center gap-2">
-        <span id="listScheduleText">${escapeHtml(getScheduleText(data.schedule))}</span>
-        <button class="btn btn-primary btn-sm" id="btnScheduleChange" ${disabled} onclick="openScheduleModal()">Edit</button>
-      </div>
-    </div>
-    <div class="row mb-2">
-      <div class="col">
-        <label class="form-label">Sleep Until</label>
-        <smd-date-picker id="listSleepPicker" ${readOnly ? "readonly" : ""} value="${escapeHtml(data.sleepUntil || "")}"></smd-date-picker>
-      </div>
-    </div>
-    <div class="row mb-2">
-      <div class="col">
-        <label class="form-label">Wait for</label>
-        <input class="form-control" id="listWaitFor" value="${escapeHtml(data.waitFor || "")}" ${ro} placeholder="e.g. the delivery to arrive" oninput="listField('waitFor', this.value)">
-      </div>
-    </div>
-    <div class="row mb-2">
-      <div class="col">
-        <label class="form-label">Schedule Time</label>
-        <div class="d-flex gap-2">
-          <smd-select class="form-select w-auto" id="listTimeHour" ${disabled} onchange="listTimeChanged()">
-            <option value="" ${!data.time ? "selected" : ""}>-</option>
-            ${Array.from({length: 24}, (_, i) => {
-              const h = String(i).padStart(2, "0");
-              const cur = data.time ? data.time.split(":")[0] : "";
-              return `<option value="${h}" ${cur === h ? "selected" : ""}>${h}</option>`;
-            }).join("")}
-          </smd-select>
-          <span class="align-self-center">:</span>
-          <smd-select class="form-select w-auto" id="listTimeMin" ${disabled} onchange="listTimeChanged()">
-            <option value="" ${!data.time ? "selected" : ""}>-</option>
-            <option value="00" ${data.time && data.time.split(":")[1] === "00" ? "selected" : ""}>00</option>
-            <option value="15" ${data.time && data.time.split(":")[1] === "15" ? "selected" : ""}>15</option>
-            <option value="30" ${data.time && data.time.split(":")[1] === "30" ? "selected" : ""}>30</option>
-            <option value="45" ${data.time && data.time.split(":")[1] === "45" ? "selected" : ""}>45</option>
-          </smd-select>
-        </div>
-      </div>
     </div>
   `;
 }
@@ -547,10 +329,6 @@ function viewListReadOnly(categoryIdx, listIdx) {
   const list = lists[listIdx];
   if (!list) return;
   listsBuffer = JSON.parse(JSON.stringify(list));
-  if (listsBuffer.sleepUntil) {
-    const today = getTodayStr();
-    if (listsBuffer.sleepUntil < today) listsBuffer.sleepUntil = "";
-  }
   listsCategoryIndex = categoryIdx;
   listsEditingIdx = listIdx;
   isNewList = false;
@@ -561,60 +339,8 @@ function editList(index) {
   var categories = loadCategories();
   var lists = categories[listsCategoryIndex].lists || [];
   listsBuffer = JSON.parse(JSON.stringify(lists[index]));
-  if (listsBuffer.sleepUntil) {
-    var today = getTodayStr();
-    if (listsBuffer.sleepUntil < today) listsBuffer.sleepUntil = "";
-  }
   listsEditingIdx = index; isNewList = false;
   buildListEditPage(false);
-}
-
-// Open the (editable) list editor on the Schedule tab with the "Sleep Until"
-// picker pre-set to tomorrow and its calendar popped open. Used by the main
-// view's swipe-right gesture (previously a silent "snooze until tomorrow").
-function openListEditSchedule(categoryIdx, listIdx) {
-  var categories = loadCategories();
-  var category = categories[categoryIdx];
-  var list = category && category.lists ? category.lists[listIdx] : null;
-  if (!list) return;
-  listsCategoryIndex = categoryIdx;
-  listsBuffer = JSON.parse(JSON.stringify(list));
-  listsBuffer.sleepUntil = getTomorrowStr();
-  listsEditingIdx = listIdx;
-  isNewList = false;
-  buildListEditPage(false, 1);
-  openListSleepPickerWhenReady();
-}
-
-// smd-page.show() defers the `open` attribute to the next frame and the page
-// may then SLIDE in (slide-duration). Opening flatpickr while the page is still
-// moving positions the calendar against the input's mid-slide location, so wait
-// until the page is shown AND the picker's position is stable for two frames
-// (i.e. the slide has finished) before opening. With slide-duration 0 the rect
-// is stable immediately (opens on the second frame).
-function openListSleepPickerWhenReady() {
-  var page = document.getElementById("listEditPage");
-  var attempts = 0;
-  var lastLeft = null;
-  var lastTop = null;
-  function tryOpen() {
-    var picker = $id("listSleepPicker");
-    var raw = picker && picker.querySelector("#smdDatePickerInput");
-    var fp = raw && raw._flatpickr;
-    if (fp && page && page.hasAttribute("open") && picker) {
-      var rect = picker.getBoundingClientRect();
-      var settled = lastLeft !== null && rect.width > 0 &&
-        Math.abs(rect.left - lastLeft) < 1 && Math.abs(rect.top - lastTop) < 1;
-      lastLeft = rect.left;
-      lastTop = rect.top;
-      if (settled) {
-        fp.open();
-        return;
-      }
-    }
-    if (attempts++ < 120) requestAnimationFrame(tryOpen);
-  }
-  requestAnimationFrame(tryOpen);
 }
 
 function cancelListEdit() {
@@ -739,7 +465,7 @@ function addNewList() {
   var categories = loadCategories();
   var lists = categories[listsCategoryIndex].lists || [];
   var seq = lists.length + 1;
-  var newList = { id: "list_" + Date.now(), title: "", sequence: seq, description: "", active: true, frequency: "daily", time: "", sleepUntil: "", waitFor: "", schedule: { type: "daily" }, items: [] };
+  var newList = { id: "list_" + Date.now(), title: "", sequence: seq, description: "", active: true, items: [] };
   lists.push(newList);
   categories[listsCategoryIndex].lists = lists;
   saveCategories(categories);

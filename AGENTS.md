@@ -4322,4 +4322,19 @@ Techniques / gotchas:
   `tests/launch-regression.spec.js` "root shows the grid of available apps" now
   expects 6 tiles (added the `nth(5)` "List of Lists" / `ListOfLists/`
   assertions and widened the icon loop), and `/ListOfLists/` was added to that
-  spec's `SHELL_CASCADE`.
+  spec's `SHELL_CASCADE`. EDIT LIST page (same session): removed the Suffix /
+  Day-of-Year / mod controls from the General tab and the WHOLE Schedule tab -
+  the schedule radio modal, Sleep Until / Wait for / Schedule Time, plus
+  `openListEditSchedule` / `openListSleepPickerWhenReady` / `listTimeChanged`;
+  `lol-list-main-card`'s swipe is now LEFT=delete only (no
+  `lol-list-main-tomorrow`), and `main-view.js` no longer listens for it. General
+  + List Items tabs remain. `getListSuffix`/`getNextDueText`/`getTomorrowStr` are
+  now unused (left in place). STRIP (same session): removed those unreachable
+  helpers (`getListSuffix`, `getNextDueText`, `getTomorrowStr`) plus `getScheduleText`
+  and `formatDate`, the `.suffix` badge (main + summary cards), the summary card's
+  `.schedule`/`.time`/`.extra` badges, the main card's daily `repeat-1` icon, the
+  Edit Categories header badge (`#editListsTotalBadge`) and the accordion
+  `count-badge`/`listcounts`; dropped the `schedule`/`frequency`/`time`/`sleepUntil`/
+  `waitFor` defaults from new lists and the dead Sleep-Until date-picker listener.
+  `getListCountBadgeText`/`updateEditorListCountBadges` now only feed the Search
+  Lists header badge.

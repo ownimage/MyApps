@@ -12,7 +12,6 @@ lolCategoryHeaderTemplate.innerHTML = `
             <span class="editor-title d-block fw-bold text-truncate"></span>
         </button>
         <div class="category-header-meta d-flex align-items-center gap-1 flex-wrap">
-            <smd-badge class="count-badge" variant="secondary" pill hidden></smd-badge>
             <div class="header-actions d-flex align-items-center flex-shrink-0 gap-1 ms-auto px-1">
                 <button type="button" class="btn btn-sm btn-secondary" data-action="add-list">Add List</button>
                 <button type="button" class="btn btn-sm btn-primary" data-action="edit">Edit</button>
@@ -26,7 +25,7 @@ lolCategoryHeaderTemplate.innerHTML = `
 
 class LolCategoryHeader extends HTMLElement {
   static get observedAttributes() {
-    return ['category-idx', 'title', 'image', 'expanded', 'can-delete', 'listcounts', 'key-prefix'];
+    return ['category-idx', 'title', 'image', 'expanded', 'can-delete', 'key-prefix'];
   }
 
   constructor() {
@@ -80,11 +79,6 @@ class LolCategoryHeader extends HTMLElement {
     else this.removeAttribute('expanded');
   }
 
-  set listCounts(v) {
-    if (v && v !== '') this.setAttribute('listcounts', String(v));
-    else this.removeAttribute('listcounts');
-  }
-
   // Move a consumer-provided drag handle (appended straight onto the host with
   // slot="drag-handle") into the header and drop our built-in fallback.
   _adoptSlottedHandle() {
@@ -121,7 +115,6 @@ class LolCategoryHeader extends HTMLElement {
     const title = this.getAttribute('title') || '';
     const image = this.getAttribute('image') || '';
     const canDelete = this.hasAttribute('can-delete');
-    const listcounts = this.getAttribute('listcounts') || '';
     const header = root.querySelector('.category-accordion-header');
     header.classList.toggle('bg-body-tertiary', !expanded);
     header.classList.toggle('bg-info-subtle', expanded);
@@ -137,22 +130,6 @@ class LolCategoryHeader extends HTMLElement {
       sImg.setAttribute('image', image);
     } else {
       sImg.removeAttribute('image');
-    }
-
-    const countBadge = root.querySelector('.count-badge');
-    if (listcounts) {
-      countBadge.textContent = listcounts;
-      countBadge.hidden = false;
-    } else {
-      countBadge.hidden = true;
-    }
-
-    // Hide chevron if there are no lists
-    const chevron = root.querySelector('.chevron');
-    if (listcounts === '' || listcounts === '0') {
-      chevron.hidden = true;
-    } else {
-      chevron.hidden = false;
     }
 
     // Update delete button to use Font Awesome trash-can icon and maintain spacing

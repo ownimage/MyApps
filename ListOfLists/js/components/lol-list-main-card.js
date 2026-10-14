@@ -1,8 +1,8 @@
 // <lol-list-main-card> — a single list row on the main list (light DOM).
 //
-// Owns its own layout (drag handle, completion checkbox + daily-repeat icon,
-// category/list thumbnails, title + suffix, category title, View button, tab badge,
-// description). The host carries the light-DOM class the app/Sortable relies on
+// Owns its own layout (drag handle, completion checkbox, category/list
+// thumbnails, title, category title, View button, description). The host carries
+// the light-DOM class the app/Sortable relies on
 // (`main-drag-card`; the app sets it on the element), so the document theme
 // styles the card chrome while the content lives in the light DOM with it. All
 // layout is Bootstrap utilities in the template; the card's own minimal
@@ -19,8 +19,6 @@
 //   category-idx    — category index (echoed on lol-list-main-view)
 //   list-idx       — list index (echoed on lol-list-main-view)
 //   title         — list title
-//   suffix        — optional suffix badge text
-//   daily         — presence shows the bootstrap `repeat-1` icon (Every day)
 //   done          — presence dims the card + strikes through the title
 //   checked       — checkbox state ("true"/"false")
 //   category-image  — category image name (rendered via smd-image)
@@ -34,9 +32,6 @@
 //   lol-list-main-view   — detail { categoryIdx, listIdx }
 //   lol-list-main-delete — horizontal swipe LEFT past the threshold (detail { listId, categoryIdx, listIdx });
 //                      the card animates off before this fires — the app opens the delete confirm.
-//   lol-list-main-tomorrow — horizontal swipe RIGHT past the threshold (same detail); the card animates
-//                      off before it fires — the app opens the list editor on the Schedule tab with the
-//                      Sleep Until picker popped open on tomorrow.
 //   Methods:
 //   snapBackSwipe() — slide a swiped-out card back into place (used when a delete confirm is cancelled).
 
@@ -79,10 +74,9 @@ lolListMainCardTemplate.innerHTML = `
                 <smd-draghandle class="drag-handle"></smd-draghandle>
             </div>
 
-            <!-- 2️⃣ Checkbox + Repeat -->
+            <!-- 2️⃣ Checkbox -->
             <div class="d-flex flex-column align-items-center justify-content-center flex-shrink-0">
                 <smd-checkbox class="list-checkbox me-1"></smd-checkbox>
-                <smd-image class="daily-repeat-icon" key-prefix="shared-" size="16" title="Every day" hidden></smd-image>
             </div>
 
             <!-- 3️⃣ Category / List / Category Name -->
@@ -96,10 +90,9 @@ lolListMainCardTemplate.innerHTML = `
 
             <div class="d-flex flex-column flex-grow-1 overflow-hidden ms-2">
 
-                <!-- FULL-WIDTH TITLE, suffix badge straight after the text with a fixed gap -->
+                <!-- FULL-WIDTH TITLE -->
                 <div class="d-flex align-items-center">
                     <smd-h2 class="list-title text-truncate fw-bold mb-0"></smd-h2>
-                    <smd-badge class="suffix ms-2" variant="secondary" hidden></smd-badge>
                 </div>
 
                 <!-- TWO-COLUMN ROW UNDER TITLE -->
@@ -126,7 +119,7 @@ lolListMainCardTemplate.innerHTML = `
 
 class LolListMainCard extends HTMLElement {
   static get observedAttributes() {
-    return ['list-id', 'title', 'suffix', 'daily', 'done', 'checked',
+    return ['list-id', 'title', 'done', 'checked',
       'category-image', 'list-image', 'category-title', 'description', 'key-prefix'];
   }
 
@@ -225,7 +218,7 @@ class LolListMainCard extends HTMLElement {
       if (!s || e.pointerId !== s.id) return;
       const dx = s.dx || 0;
       const th = thresholdFor();
-      const dir = dx <= -th ? 'left' : dx >= th ? 'right' : null;
+      const dir = dx <= -th ? 'left' : null;
       root.style.transition = 'transform 0.2s ease-out, opacity 0.2s ease-out';
       if (dir) {
         const w = root.offsetWidth || 320;
@@ -235,7 +228,7 @@ class LolListMainCard extends HTMLElement {
         setTimeout(() => {
           if (this._pendingSwipe !== dir) return;
           this._pendingSwipe = null;
-          this.dispatchEvent(new CustomEvent(dir === 'left' ? 'lol-list-main-delete' : 'lol-list-main-tomorrow', {
+          this.dispatchEvent(new CustomEvent('lol-list-main-delete', {
             bubbles: true,
             composed: true,
             detail: {
@@ -294,24 +287,6 @@ class LolListMainCard extends HTMLElement {
     const keyPrefix = this.getAttribute('key-prefix') || smdImagePrefix();
 
     root.querySelector('.list-title').textContent = this.getAttribute('title') || '';
-
-    const suffixEl = root.querySelector('.suffix');
-    const suffix = (this.getAttribute('suffix') || '').trim();
-    if (suffix) {
-      suffixEl.textContent = suffix;
-      suffixEl.hidden = false;
-    } else {
-      suffixEl.hidden = true;
-    }
-
-    const repeat = root.querySelector('.daily-repeat-icon');
-    if (this.hasAttribute('daily')) {
-      repeat.setAttribute('image', 'bi:repeat-1');
-      repeat.hidden = false;
-    } else {
-      repeat.removeAttribute('image');
-      repeat.hidden = true;
-    }
 
     const setThumb = (selector, name) => {
       const thumb = root.querySelector(selector);

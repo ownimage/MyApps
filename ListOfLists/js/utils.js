@@ -1,4 +1,4 @@
-// ListOfLists — date/schedule domain helpers shared by the views and editors.
+// ListOfLists — date/order domain helpers shared by the views and editors.
 
 function getTodayDate() {
   const dev = localStorage.getItem("devToday");
@@ -6,11 +6,6 @@ function getTodayDate() {
 }
 function getTodayStr() {
   const d = getTodayDate();
-  return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
-}
-function getTomorrowStr() {
-  const d = getTodayDate();
-  d.setDate(d.getDate() + 1);
   return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
 }
 function getStoredLastGen() {
@@ -22,9 +17,9 @@ function getStoredLastGen() {
 }
 
 function sortListsByRules(lists) {
-  // rule 1: has sleepUntil → end (ordered by sleepUntil date, then time)
-  // rule 2: no sleepUntil, has time → start (ordered by time)
-  // rule 3: no sleepUntil, no time → middle (ordered by sequence)
+  // rule 1: has sleepUntil -> end (ordered by sleepUntil date, then time)
+  // rule 2: no sleepUntil, has time -> start (ordered by time)
+  // rule 3: no sleepUntil, no time -> middle (ordered by sequence)
   return [].concat(lists).sort(function(a, b) {
     var aSleep = a.sleepUntil && a.sleepUntil.trim();
     var bSleep = b.sleepUntil && b.sleepUntil.trim();
@@ -51,50 +46,8 @@ function sortListsByRules(lists) {
   });
 }
 
-function formatDate(dateStr) {
-  if (!dateStr) return "";
-  const d = new Date(dateStr + "T00:00:00");
-  if (isNaN(d.getTime())) return dateStr;
-  const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-  const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-  return dayNames[d.getDay()] + " " + d.getDate() + " " + monthNames[d.getMonth()] + " " + d.getFullYear();
-}
-
 function getDaysSinceEpoch(date) {
   return Math.floor(date.getTime() / 86400000);
-}
-
-function getNextDueText(interval, offset) {
-  const today = getTodayDate();
-  const todayEpoch = getDaysSinceEpoch(today);
-  for (let i = 0; i <= 7; i++) {
-    const checkDay = todayEpoch + i;
-    if ((checkDay - offset) % interval === 0) {
-      if (i === 0) return "next due: today";
-      if (i === 1) return "next due: tomorrow";
-      const dueDate = new Date(today);
-      dueDate.setDate(dueDate.getDate() + i);
-      const dayNames = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
-      const monthNames = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-      return "next due: " + dayNames[dueDate.getDay()] + ", " + monthNames[dueDate.getMonth()] + " " + dueDate.getDate();
-    }
-  }
-  return "";
-}
-
-function getScheduleText(schedule) {
-  if (!schedule) return "Every day";
-  const s = schedule.type || "daily";
-  if (s === "daily") return "Every day";
-  if (s === "weekdays") return "Weekdays (Mon\u2013Fri)";
-  if (s === "weekends") return "Weekends (Sat\u2013Sun)";
-  if (s === "days") {
-    const names = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
-    return (schedule.days || []).map(d => names[d]).join(", ");
-  }
-  if (s === "monthly") return (schedule.date || 1) + "th of every month";
-  if (s === "ndays") return "Every " + (schedule.interval || 2) + " day(s)";
-  return "Every day";
 }
 
 function shouldShowListToday(list) {
@@ -117,31 +70,4 @@ function shouldShowListToday(list) {
     return ((daysSinceEpoch - offset) % interval + interval) % interval === 0;
   }
   return true;
-}
-
-function getListSuffix(list) {
-  if (!list.suffix) return "";
-  const today = getTodayDate();
-  const dayType = list.dayType || "dayOfYear";
-  let dayNum;
-
-  if (dayType === "dayOfWeek") {
-    // Monday is day 1, Sunday is day 7.
-    dayNum = today.getDay();
-    dayNum = dayNum === 0 ? 7 : dayNum;
-  } else if (dayType === "dayOfMonth") {
-    dayNum = today.getDate();
-  } else {
-    const startOfYear = new Date(today.getFullYear(), 0, 0);
-    dayNum = Math.floor((today - startOfYear) / 86400000) - 1;
-  }
-
-  if (list.mod && list.mod !== "") {
-    const modVal = parseInt(list.mod, 10);
-    if (modVal > 0) {
-      dayNum = dayNum % modVal;
-    }
-  }
-
-  return ` (${dayNum})`;
 }

@@ -115,8 +115,6 @@ function renderMain() {
     const category = categories[categoryIdx] || {};
     const categoryImageName = category.image || "";
     const listImageName = list.image || "";
-    const suffixLabel = getListSuffix(list);
-    const scheduleType = list.schedule && list.schedule.type ? list.schedule.type : "daily";
     const card = document.createElement("lol-list-main-card");
     card.className = "main-drag-card d-block user-select-none mb-1";
     card.dataset.listId = list.id;
@@ -125,8 +123,6 @@ function renderMain() {
     card.setAttribute("category-idx", categoryIdx);
     card.setAttribute("list-idx", listIdx);
     card.setAttribute("title", list.title || "");
-    if (suffixLabel) card.setAttribute("suffix", suffixLabel.trim());
-    if (scheduleType === "daily") card.setAttribute("daily", "");
     if (isDone) card.setAttribute("done", "");
     card.setAttribute("checked", isDone ? "true" : "false");
     if (categoryImageName) card.setAttribute("category-image", categoryImageName);
@@ -210,17 +206,6 @@ function renderMain() {
     });
   });
 
-  // swipe RIGHT -> open the list editor on the Schedule tab with the Sleep Until
-  // picker popped open on tomorrow (swipe-to-reschedule).
-  cardContainer.addEventListener("lol-list-main-tomorrow", (e) => {
-    const card = e.target;
-    const categoryIdx = e.detail && e.detail.categoryIdx >= 0
-      ? e.detail.categoryIdx
-      : (card ? parseInt(card.dataset.categoryIdx, 10) : -1);
-    const listIdx = e.detail && e.detail.listIdx >= 0 ? e.detail.listIdx : -1;
-    openListEditSchedule(categoryIdx, listIdx);
-  });
-
 function removeAdhocList(categoryIdx, listId, card) {
   const categories = loadCategories();
   const category = categories[categoryIdx];
@@ -258,7 +243,7 @@ function addMainCardWithModal() {
   const categoryIdx = categories.indexOf(category);
   listsCategoryIndex = categoryIdx;
   const seq = lists.length + 1;
-  const newList = { id: "list_" + Date.now(), title: "", sequence: seq, description: "", active: true, frequency: "daily", time: "", sleepUntil: "", waitFor: "", schedule: { type: "daily" } };
+  const newList = { id: "list_" + Date.now(), title: "", sequence: seq, description: "", active: true };
   lists.push(newList);
   category.lists = lists;
   saveCategories(categories);

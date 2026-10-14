@@ -43,9 +43,6 @@ document.addEventListener("DOMContentLoaded", () => {
       var newIdx = categoryIndexByName(e.detail.name);
       if (newIdx >= 0) listChangeCategory(newIdx);
     });
-    listEditPage.addEventListener("smd-date-picker-change", (e) => {
-      listField("sleepUntil", (e.detail && e.detail.value) || "");
-    });
     listEditPage.addEventListener("lol-list-item-change", (e) => {
       listItemField(e.detail.index, e.detail.field, e.detail.value);
     });
