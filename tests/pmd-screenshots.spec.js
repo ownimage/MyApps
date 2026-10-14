@@ -149,6 +149,10 @@ function refreshPmdAfterTheme() {
       updateStreamImagePreview(editBuffer.image);
     }
   }
+  // The Gantt chart is a revo-grid that reads the theme tokens itself, so it has
+  // to be re-projected on a theme/mode swap (its own MutationObserver only
+  // watches `data-bs-theme`, which does not change on a same-mode theme swap).
+  if (typeof refreshGanttIfOpen === "function") refreshGanttIfOpen();
 }
 
 const screenshotAllThemes = createScreenshotAllThemes("pmd", refreshPmdAfterTheme);
@@ -230,6 +234,26 @@ test.describe("PlanMyDay - Screenshots", () => {
     await page.reload();
     await page.waitForSelector(".today-drag-card");
     await screenshotAllThemes(page, "main-view-hide-done.png");
+  });
+
+  test.describe("gantt", () => {
+    // The Gantt is a desktop-shaped view: at the phone viewport the grid
+    // virtualises the timeline columns off-screen and NO bars render (the scene
+    // would be an empty grid), so this scene uses a wide viewport instead.
+    test.use({ viewport: { width: 1280, height: 900 }, deviceScaleFactor: 1, hasTouch: false, isMobile: false });
+
+    test("gantt", async ({ page }) => {
+      // The Gantt page only exists once the "Show Gantt" setting is on, and the
+      // chart needs seeded streams to draw bars (see TEST_STREAMS).
+      test.setTimeout(600000);
+      await seedMainView(page);
+      await page.evaluate(() => localStorage.setItem("planmydays_showGantt", "true"));
+      await page.reload();
+      await page.waitForLoadState("domcontentloaded");
+      await page.evaluate(() => openGantt());
+      await page.waitForFunction(() => document.querySelectorAll(".rg-gantt-bar").length > 0, null, { timeout: 30000 });
+      await screenshotAllThemes(page, "gantt.png");
+    });
   });
 
   test("main menu dropdown", async ({ page }) => {

@@ -522,7 +522,7 @@ function loadMinioBuckets() {
 function loadMinioBucketFiles(bucket) {
   var page = document.getElementById("minioImportPage");
   if (page) {
-    page.headerHtml = '<smd-badge variant="info" style="font-size:var(--smd-type-badge,0.8em);vertical-align:middle">Bucket: ' +
+    page.headerHtml = '<smd-badge variant="secondary" style="font-size:var(--smd-type-badge,0.8em);vertical-align:middle">Bucket: ' +
       bucket.replace(/</g, "&lt;").replace(/>/g, "&gt;") + '</smd-badge>';
     // injectStyleInto is idempotent (document-head styles are deduped), so it
     // is safe to re-apply on every render.

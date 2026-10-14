@@ -4158,3 +4158,46 @@ Techniques / gotchas:
 - Verified: cmd 58/58, pmd (Theme colours|dropdown|tab|select) 106/106,
   storybook/launch/ffox/qrlinks/solar 47/47 (the one cmd swatch failure in the
   combined run was the assertion updated above).
+
+### 2026-10-14 (q) - quartz: smd-page uses the body gradient; cards use the alert glass
+- Both edits are confined to `shared/css/themes/quartz/quartz.{light,dark}.css`.
+- SMD-PAGE BACKGROUND: quartz's `<body>` carries the brand gradient
+  (`linear-gradient(90deg,#33b7e2,#5e62b0,#dc307c)`; it is NOT dark-scoped, so it
+  applies in both modes). The shared sheet paints `.smd-page` with the flat
+  `--bs-body-bg` colour only, so dialogs showed a plain purple / near-black slab.
+  The override mirrors the body gradient on `#smd-app smd-page .smd-page`.
+- CARDS LIKE ALERTS: the shared mode layer (light.css) forces
+  `.card { background: var(--bs-secondary-bg-subtle) !important }` for the other
+  themes, which flattened quartz's own glass card into an opaque panel AND left
+  quartz's white card text on a near-white surface. `quartz.<mode>.css` now
+  restores quartz's card/alert glass treatment - `!important` is needed to beat the
+  shared rule (this sheet loads after it, so the tie goes here): transparent
+  background + the `linear-gradient(125deg, rgba(255,255,255,.3), rgba(255,255,255,.2) 70%)`
+  sheen, `border:none`, the inset + drop box-shadow, `backdrop-filter: blur(5px)`
+  and white text.
+- Verified with screenshots in both modes (page shows the body gradient; tiles are
+  glass with readable white text) and pmd Theme colours + cmd Images editor greps
+  44/44. No test was added because the fix was constrained to the two quartz files.
+- JOB TILES IN THE STREAMS EDITOR: quartz's `.accordion-item` is glass too, so the
+  streams editor's job tiles (`<pmd-job-summary-card>` -> `.card`, inside
+  `.stream-accordion-item`) composited over a SECOND glass layer and read far
+  lighter than the main page cards. The same two quartz files now clear
+  `.stream-accordion-item`'s own surface (transparent + no image + no backdrop
+  filter), so the tiles sit directly on the page background - the SAME background
+  as the main page cards. pmd (Theme colours|Streams|stream|accordion) 76/76.
+
+### 2026-10-14 (r) - PMD screenshots: added a Gantt scene
+- `tests/pmd-screenshots.spec.js`: new "gantt" scene writing
+  `screenshots/pmd/<theme>/<mode>/gantt.png` for all 27 themes x light/dark.
+- The Gantt page only exists once the `planmydays_showGantt` setting is on, and the
+  chart needs seeded streams (`seedMainView`), so the test sets the flag, reloads,
+  calls `openGantt()` and waits for `.rg-gantt-bar`.
+- It lives in a NESTED describe with a WIDE viewport (1280x900, no mobile
+  emulation). At the sheet's phone viewport (390x797) the revo-grid virtualises the
+  timeline columns off-screen and NO bars render - the scene would be an empty
+  grid (verified: desktop = 5 bars, phone = 0).
+- `refreshPmdAfterTheme()` now also calls `refreshGanttIfOpen()`: the chart reads
+  the theme tokens itself and its own MutationObserver only watches
+  `data-bs-theme` (which does NOT change on a same-mode theme swap), so without
+  this the bars kept the previous theme's colours across the 27-theme loop.
+- Verified for superhero + quartz (light/dark). No BUILD bump (test-only change).
