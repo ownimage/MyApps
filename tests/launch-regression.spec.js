@@ -18,6 +18,7 @@ test.describe("Launch - Regression", () => {
     "/QRLinks/",
     "/SolarControlar/",
     "/FreeFormOX/",
+    "/ListOfLists/",
     "/storybook/",
     "/storybook/cardViewer.html"
   ];
@@ -62,7 +63,7 @@ test.describe("Launch - Regression", () => {
     page.on("console", m => { if (m.type() === "error") errors.push(m.text()); });
 
     await page.goto("/");
-    await expect(page.locator("#appGrid .app-tile")).toHaveCount(5);
+    await expect(page.locator("#appGrid .app-tile")).toHaveCount(6);
 
     const tiles = page.locator("#appGrid .app-tile");
     await expect(tiles.nth(0)).toContainText("Plan My Day");
@@ -70,16 +71,18 @@ test.describe("Launch - Regression", () => {
     await expect(tiles.nth(2)).toContainText("QR Links");
     await expect(tiles.nth(3)).toContainText("Solar Controlar");
     await expect(tiles.nth(4)).toContainText("FreeFormOX");
+    await expect(tiles.nth(5)).toContainText("List of Lists");
     await expect(tiles.nth(0)).toHaveAttribute("href", "PlanMyDay/");
     await expect(tiles.nth(1)).toHaveAttribute("href", "CountMyDays/");
     await expect(tiles.nth(2)).toHaveAttribute("href", "QRLinks/");
     await expect(tiles.nth(3)).toHaveAttribute("href", "SolarControlar/");
     await expect(tiles.nth(4)).toHaveAttribute("href", "FreeFormOX/");
+    await expect(tiles.nth(5)).toHaveAttribute("href", "ListOfLists/");
 
     // App icons load via <smd-image> from the shared sample library (the SVGs are
     // 512x512; the Solar Controlar icon is the unpacked 256px PNG, rendered at
     // the tile's data80 thumbnail when the 80px size sheet applies).
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < 6; i++) {
       await expect.poll(async () => tiles.nth(i).locator("smd-image img").evaluate(el => el.getAttribute("src") && el.naturalWidth)).toBeGreaterThan(0);
     }
     expect(await tiles.nth(3).locator("smd-image img").evaluate(async (imgEl) => {

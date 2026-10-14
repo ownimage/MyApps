@@ -73,6 +73,20 @@
       // required. Consumers can still override with another `d-*` class (e.g.
       // `d-block`), which wins by source order.
       this.classList.add("d-inline-block");
+      // A disabled button must be inert even for HOST-level click handlers: the
+      // inner <button> is truly disabled but Bootstrap gives it
+      // `pointer-events: none`, so a click "on" it targets this host instead.
+      // Block the event so an inline `onclick` (or a parent listener such as
+      // smd-page's footer action) cannot fire while the button looks disabled.
+      if (!this._clickGuardBound) {
+        this._clickGuardBound = true;
+        this.addEventListener("click", (event) => {
+          if (this.disabled) {
+            event.stopImmediatePropagation();
+            event.preventDefault();
+          }
+        }, true);
+      }
       if (this._label === undefined) {
         this._label = this.textContent.replace(/^\s+|\s+$/g, "");
       }

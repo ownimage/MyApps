@@ -194,6 +194,10 @@ Architecture:
   async seeding). There is NO explicit `size` on the tiles — they follow the
   `launch_iconSize` setting via `SmdImage.setDefaultSize` (applied by
   `applyImageSize()`).
+  ADDING A LAUNCH TILE (2026-10-14) = update `tests/launch-regression.spec.js`
+  "root shows the grid of available apps": bump `toHaveCount(<n>)`, the per-tile
+  `nth(i)` text + `href`, and the icon-check loop bound (`ListOfLists` made it 6).
+  Also add the new shell to that spec's `SHELL_CASCADE` list.
 - SHARED IMAGE LIBRARY (2026-09-13): all apps share ONE images list,
   `shared-images`. `SmdConfig.imagePrefix = "shared-"` is set in every app's
   `app.js`; `smdImagePrefix()` (shared/js/smd-app.js) returns
@@ -537,6 +541,15 @@ Techniques / gotchas:
   `setPointerCapture` works); (b) `locator.dispatchEvent("pointerdown|pointermove|pointerup", { pointerId, clientX, clientY, button, buttons })` for touch-style tests (synthetic pointer — `setPointerCapture` THROWS `NotFoundError` for a fake pointerId, so the component must try/catch it). A touch drag helper already exists in `pmd-touch.spec.js` (`touchDrag`, pointerType:"touch" via the document's element-from-point) if a real hit-test is preferred. Remember `touch-action` must be pan-y (or similar) on the swipable element so vertical scroll still works and horizontal gestures reach the JS.
 - SW PRECACHE TEST FLAKE (2026-09-13): the sub-path tests (`cmd-regression.spec.js` and `pmd-regression.spec.js`) wait for a fresh SW install that precaches ~250 URLs from the single python server. Under the 10-shard waves a single transient request failure rejects `cache.addAll`, install stays failed with NO worker, and the old 60s poll never saw `active`. Both tests now: `test.setTimeout(300000)`, poll for 240s, and when a registration exists with no `installing`/`waiting`/`active` worker they `unregister()` + `register()` again to retry the install. If a precache URL genuinely 404s the test still fails (as intended).
 - smd-button disabled/`.disabled` assertions must target the inner native button: `#id button`, not the host element.
+- A DISABLED `smd-button` IS CLICKABLE WITHOUT THIS FIX (2026-10-14): Bootstrap's
+  `.btn:disabled` applies `pointer-events: none`, so a click "on" a disabled
+  button TARGETS THE HOST `<smd-button>` (the inner `<button>` never fires). Any
+  click handler on the host - `smd-page`'s footer action, an inline `onclick` -
+  therefore still ran while the button LOOKED disabled (reported as "the OK
+  button looks disabled but is actually clickable" when a mandatory Title/name
+  was empty). FIXED in `shared/js/components/smd-page.js` (the footer click
+  listener returns early when `btn.disabled`) AND `smd-button.js` (a
+  capture-phase click guard on the host stops the event while disabled).
 - Playwright `toHaveText` on an `smd-button` HOST reports the slot fallback text too (e.g. `"Edit\n Button"`), so exact-text assertions fail. Use `toContainText("Edit")` or a `getByRole("button", { name: "Edit" })` locator instead.
 - Grep on minified vendor files breaks the tool (giant matched lines) — scope searches to `PlanMyDay/js/**`, `shared/js/**`, or `tests/**`.
 - WATCH THE BROWSER CONSOLE AFTER ANY CHANGE, ESPECIALLY A NEW/CHANGED LIBRARY (2026-09-30): a
@@ -4302,4 +4315,11 @@ Techniques / gotchas:
   and `lol-list-summary-card` (templates, `observedAttributes`, `_render`), the
   `tab` header attribute in `categories-editor.js`, the `category.tab` reads in
   `main-view.js`/`list-search.js`, and the `tab: "progress"` seed on new
-  categories. `node --check` clean; no residual references.
+  categories. `node --check` clean; no residual references. SHARED FIX (also
+  covers PlanMyDay's Add/Edit Stream and the other page OK buttons): a disabled
+  `smd-button` was clickable - see the durable gotcha note above; guarded in
+  `smd-page.js` + `smd-button.js`. TEST-ONLY follow-up (no BUILD bump):
+  `tests/launch-regression.spec.js` "root shows the grid of available apps" now
+  expects 6 tiles (added the `nth(5)` "List of Lists" / `ListOfLists/`
+  assertions and widened the icon loop), and `/ListOfLists/` was added to that
+  spec's `SHELL_CASCADE`.
