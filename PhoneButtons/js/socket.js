@@ -12,6 +12,7 @@ var pbSocket = (function () {
   "use strict";
 
   var socket = null;
+  var socketUrl = null;
   var ioPromise = null;
   var status = "disconnected";
   var statusDetail = "";
@@ -69,6 +70,7 @@ var pbSocket = (function () {
   return {
     getStatus: function () { return { status: status, detail: statusDetail }; },
     isConnected: function () { return !!(socket && socket.connected); },
+    isActive: function () { return !!socket; },
 
     onStatus: function (cb) { statusListeners.push(cb); return cb; },
     on: function (event, cb) {
@@ -79,10 +81,20 @@ var pbSocket = (function () {
     // Connect to the configured server (Settings -> Server); pbServerBase() is ""
     // when that address IS this origin, so io() connects to the page origin then.
     connect: function () {
-      if (socket) return Promise.resolve(socket);
+      var base = typeof pbServerBase === "function" ? pbServerBase() : "";
+      // Re-use the live socket ONLY when it already targets the CURRENT address.
+      // The address can change in Settings after an earlier attempt (or the boot
+      // auto-connect can have used a not-yet-configured origin), so a stale socket
+      // must be torn down and rebuilt — otherwise connect() kept hitting the
+      // ORIGINAL origin forever.
+      if (socket && socketUrl === base) return Promise.resolve(socket);
+      if (socket) {
+        try { socket.disconnect(); } catch (e) { /* already gone */ }
+        socket = null;
+      }
+      socketUrl = base;
       setStatus("connecting", "");
       return ensureIo().then(function (io) {
-        var base = typeof pbServerBase === "function" ? pbServerBase() : "";
         socket = io(base || undefined, {
           reconnection: true,
           reconnectionDelay: 500,
@@ -102,6 +114,7 @@ var pbSocket = (function () {
         try { socket.disconnect(); } catch (e) { /* already gone */ }
         socket = null;
       }
+      socketUrl = null;
       setStatus("disconnected", "closed by user");
     },
 

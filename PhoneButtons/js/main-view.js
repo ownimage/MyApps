@@ -71,8 +71,11 @@ function _renderConnStatus(status, detail) {
 
   var connected = status === "connected";
   var busy = status === "connecting";
+  // Disconnect stays available whenever a socket EXISTS (even one stuck retrying
+  // after a connect_error), so a failed target can always be torn down.
+  var active = pbSocket.isActive();
   _setDisabled("btnConnect", connected || busy);
-  _setDisabled("btnDisconnect", !(connected || busy));
+  _setDisabled("btnDisconnect", !(connected || active));
   _setDisabled("btnPing", !connected);
   _setDisabled("btnTestKey", !connected);
 }
@@ -204,9 +207,16 @@ function bindSocketUi() {
   pbSocket.onStatus(function (status, detail) {
     _renderConnStatus(status, detail);
     if (status === "connected") _commLine("connected (id=" + detail + ")", "ok");
-    else if (status === "connecting") _commLine("connecting to this server \u2026", "info");
+    else if (status === "connecting") _commLine("connecting to " + (pbServerBase() || "this server") + " \u2026", "info");
     else if (status === "disconnected") _commLine("disconnected" + (detail ? " (" + detail + ")" : ""), "info");
-    else if (status === "error") _commLine("connection error: " + detail, "error");
+    else if (status === "error") {
+      _commLine("connection error: " + detail, "error");
+      if (/poll error|xhr|websocket/i.test(detail || "")) {
+        _commLine("hint: verify the address + https switch, and that the server is actually " +
+          (pbServerHttps() ? "HTTPS" : "HTTP") + ". A SELF-SIGNED certificate is rejected by the " +
+          "browser when the app is served from another site - trust the cert, or open the app from the server itself.", "info");
+      }
+    }
   });
 
   pbSocket.on("app_change", function (data) {

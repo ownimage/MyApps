@@ -56,14 +56,16 @@ function serverAddressChanged() {
   var portEl = document.getElementById("serverPortInput");
   if (ipEl) localStorage.setItem(smdKey("serverIp"), (ipEl.value || "").trim());
   if (portEl) localStorage.setItem(smdKey("serverPort"), (portEl.value || "").trim());
-  if (pbSocket.isConnected()) pbSocket.disconnect();
+  // Tear down whatever socket exists (even a failing one) so the next Connect
+  // builds one for the NEW address.
+  if (pbSocket.isActive()) pbSocket.disconnect();
 }
 
 // The "HTTPS" switch (Settings -> Server): the server may be served over TLS.
 // An existing connection was to the old scheme, so drop it.
 function changeServerHttps(enabled) {
   localStorage.setItem(smdKey("serverHttps"), enabled ? "true" : "false");
-  if (pbSocket.isConnected()) pbSocket.disconnect();
+  if (pbSocket.isActive()) pbSocket.disconnect();
 }
 
 // Parse a scanned server address (URL, host:port or bare host) into
@@ -122,7 +124,7 @@ function openServerScanPage() {
       applyServerAddress(addr);
       _commLine("server set from QR: " + addr.ip + ":" + addr.port, "ok");
       hideServerScanPage();
-      if (pbSocket.isConnected()) pbSocket.disconnect();
+      if (pbSocket.isActive()) pbSocket.disconnect();
       connectServer();
     });
   }

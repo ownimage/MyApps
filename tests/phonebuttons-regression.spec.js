@@ -16,7 +16,9 @@ async function installFakeSocket(page) {
     window.__serverEmit = function (event, data) {
       (state.handlers[event] || []).forEach((cb) => cb(data));
     };
-    window.io = function () {
+    window.io = function (url) {
+      state.urls = state.urls || [];
+      state.urls.push(url === undefined ? null : url);
       const socket = {
         connected: false,
         id: "test-socket",
@@ -247,6 +249,8 @@ test.describe("PhoneButtons - Regression", () => {
     await expect.poll(() => page.evaluate(() => localStorage.getItem("pb_serverIp"))).toBe("192.168.1.42");
     await expect.poll(() => page.evaluate(() => localStorage.getItem("pb_serverPort"))).toBe("5000");
     expect(await page.evaluate(() => pbServerBase())).toBe("http://192.168.1.42:5000");
+    // ...and an ACTIVE socket is torn down so the next Connect re-targets.
+    expect(await page.evaluate(() => pbSocket.isActive())).toBe(false);
 
     // ...which the REST layer actually uses.
     const url = await page.evaluate(() => {
@@ -305,6 +309,40 @@ test.describe("PhoneButtons - Regression", () => {
     await expect.poll(() => page.evaluate(() => localStorage.getItem("pb_serverHttps"))).toBe("true");
     expect(await page.evaluate(() => pbServerBase())).toBe("https://192.168.1.77:5000");
     await expect(page.locator("#serverScanPage")).not.toHaveAttribute("open", "");
+  });
+
+  test("Connect re-targets the socket when the server address changes", async ({ page }) => {
+    await page.goto("/PhoneButtons/");
+    await page.waitForFunction(() => typeof window.__serverConnect === "function");
+
+    // Boot auto-connect (same origin) passed no URL.
+    let urls = await page.evaluate(() => window.__ioState.urls);
+    expect(urls).toEqual([null]);
+
+    // Configure a LAN server, then Connect: the socket is rebuilt for the new
+    // address (previously connect() returned the stale same-origin socket, so the
+    // request kept going to the page origin).
+    await page.evaluate(() => {
+      localStorage.setItem("pb_serverIp", "192.168.1.42");
+      localStorage.setItem("pb_serverPort", "5000");
+      localStorage.setItem("pb_serverHttps", "true");
+    });
+    await page.evaluate(() => connectServer());
+    await expect.poll(() => page.evaluate(() => window.__ioState.urls.length)).toBe(2);
+    urls = await page.evaluate(() => window.__ioState.urls);
+    expect(urls[1]).toBe("https://192.168.1.42:5000");
+    // The log names the target it is dialling.
+    expect(await page.evaluate(() => _pbCommLogLines.map((l) => l.text).join("\n")))
+      .toContain("connecting to https://192.168.1.42:5000");
+
+    // A socket stuck on a connect_error still offers Disconnect (it used to be
+    // disabled unless status was connected/connecting).
+    await page.evaluate(() => window.__serverEmit("connect_error", { message: "xhr poll error" }));
+    await page.evaluate(() => openSettings());
+    await page.locator("#settingsTabs .smd-tab-btn").filter({ hasText: "Server" }).click();
+    await expect(page.locator("#btnDisconnect")).toBeEnabled();
+    await page.locator("#btnDisconnect").click();
+    expect(await page.evaluate(() => pbSocket.isActive())).toBe(false);
   });
 
   test("smd-qr-import raw mode emits the decoded text as-is", async ({ page }) => {
