@@ -4361,4 +4361,14 @@ Techniques / gotchas:
   host; updated `PlanMyDay/js/main-view.js` (`#todayTabs > .smd-tab-panel` layout
   + the `.smd-tab-panel.active` query) and the `pmd-regression` split-list nesting
   assertion. Verified via probe: panels hide/show, tab clicks switch, the job list
-  renders inside the active panel. BUILD -> 202610150803.
+  renders inside the active panel. BUILD -> 202610150803. EDIT LIST SINGLE PAGE
+  (2026-10-15): removed the Edit List tabs (was General + List Items) - the page
+  is now ONE form: Title row with the Active checkbox relabelled "Show"; the title
+  input; ONE row `[category dropdown | Image select | Description checkbox]`
+  (`d-flex gap-2`); a collapsible description box (`#listDescriptionWrap`, shown
+  when the list already has a description, toggled by the `#listShowDescription`
+  checkbox's `onchange="toggleListDescription(this.checked)"`); then the list
+  items + the two Add buttons.
+  `getListEditSections`/`getListGeneralTabHTML`/`getListItemsTabHTML` deleted;
+  `buildListEditPage` lost its `activeTabIndex` arg and `editListFromView` no
+  longer passes one. BUILD -> 202610150810.

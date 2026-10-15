@@ -1,4 +1,4 @@
-// ListOfLists — the list edit page (general/items tabs, view + delete).
+// ListOfLists — the list edit page (single page, view + delete).
 
 // LISTS EDITOR
 var listsCategoryIndex = -1;
@@ -124,58 +124,30 @@ function initListItemsSortable() {
 function getListEditPageContent(data, readOnly) {
   const disabled = readOnly ? "disabled" : "";
   const ro = readOnly ? "readonly" : "";
+  const showDescription = !!(data.description && data.description.trim());
   return `
     <div class="row mb-1">
       <div class="col">
         <label class="form-label">Title</label>
       </div>
       <div class="col-auto d-flex align-items-center">
-        <smd-checkbox id="listActiveCb" ${data.active !== false ? "checked" : ""} ${disabled} onchange="listField('active', this.checked)">Active</smd-checkbox>
+        <smd-checkbox id="listActiveCb" ${data.active !== false ? "checked" : ""} ${disabled} onchange="listField('active', this.checked)">Show</smd-checkbox>
       </div>
     </div>
     <div class="mb-2">
       <input class="form-control" id="listTitleInput" value="${escapeHtml(data.title || "")}" ${ro} oninput="listField('title', this.value);updateListEditOkBtn()" ${readOnly ? "" : "onkeydown=\"if(event.key==='Enter') listEditOk()\""}>
     </div>
-    <smd-tabs id="listEditTabs"></smd-tabs>
-  `;
-}
-
-function getListEditSections(data, readOnly) {
-  return [
-    { title: "General", id: "listGeneral-tab", content: getListGeneralTabHTML(data, readOnly) },
-    { title: "List Items", id: "listItems-tab", content: getListItemsTabHTML(data, readOnly), panelClass: "no-padding" }
-  ];
-}
-
-function getListGeneralTabHTML(data, readOnly) {
-  return `
-    <div class="row mb-2 mt-2">
-      <div class="col-6 d-flex flex-column">
-        <label class="form-label mb-0">Category</label>
-        <div class="mt-1 flex-grow-1">
-          <div class="list-category-picker">
-            <smd-image-dropdown id="listCategoryDropdown" key-prefix="${escAttr(smdImagePrefix())}" ${readOnly ? "disabled" : ""}></smd-image-dropdown>
-          </div>
-        </div>
+    <div class="d-flex align-items-center flex-wrap gap-2 mb-2">
+      <div class="list-category-picker">
+        <smd-image-dropdown id="listCategoryDropdown" key-prefix="${escAttr(smdImagePrefix())}" ${readOnly ? "disabled" : ""}></smd-image-dropdown>
       </div>
-      <div class="col-6 d-flex flex-column">
-        <label class="form-label mb-0">Image</label>
-        <div class="mt-1 flex-grow-1">
-          <smd-image-select id="listImageSelect" key-prefix="${escAttr(smdImagePrefix())}" image="${escapeHtml(data.image || "")}" label-id="listImageName" button-id="btnListImageChange" ${readOnly ? "disabled" : ""}></smd-image-select>
-        </div>
-      </div>
+      <smd-image-select id="listImageSelect" key-prefix="${escAttr(smdImagePrefix())}" image="${escapeHtml(data.image || "")}" label-id="listImageName" button-id="btnListImageChange" ${readOnly ? "disabled" : ""}></smd-image-select>
+      <smd-checkbox id="listShowDescription" ${showDescription ? "checked" : ""} onchange="toggleListDescription(this.checked)">Description</smd-checkbox>
     </div>
-    <div class="mb-2">
-      <label class="form-label">Description</label>
+    <div id="listDescriptionWrap" class="mb-2${showDescription ? "" : " d-none"}">
       <textarea class="form-control" rows="3" ${readOnly ? "readonly" : ""} oninput="listField('description', this.value)">${escapeHtml(data.description || "")}</textarea>
     </div>
-  `;
-}
-
-function getListItemsTabHTML(data, readOnly) {
-  const disabled = readOnly ? "disabled" : "";
-  return `
-    <div class="mt-2">
+    <div>
       <button class="btn btn-primary mb-2" id="listAddItemBtn" ${disabled} onclick="listAddItemTop()">Add List Item</button>
       <lol-list-items id="listItemsList"${readOnly ? " read-only" : ""}></lol-list-items>
       <div class="mt-2">
@@ -183,6 +155,11 @@ function getListItemsTabHTML(data, readOnly) {
       </div>
     </div>
   `;
+}
+
+function toggleListDescription(show) {
+  const wrap = $id("listDescriptionWrap");
+  if (wrap) wrap.classList.toggle("d-none", !show);
 }
 
 var _listEditButtons = [];
@@ -224,7 +201,7 @@ function restoreListEditBackground() {
   }
 }
 
-function buildListEditPage(readOnly, activeTabIndex) {
+function buildListEditPage(readOnly) {
   if (!listsBuffer) return;
   const data = listsBuffer;
   const title = readOnly ? "View List" : (isNewList ? "Add List" : "Edit List");
@@ -255,13 +232,6 @@ function buildListEditPage(readOnly, activeTabIndex) {
   page.content = getListEditPageContent(data, readOnly);
   page.buttons = _listEditButtons;
 
-  const tabsEl = $id("listEditTabs");
-  if (tabsEl) {
-    tabsEl.tabs = getListEditSections(data, readOnly);
-    if (typeof activeTabIndex === "number" && activeTabIndex > 0 && activeTabIndex < tabsEl.tabs.length) {
-      tabsEl.activeIndex = activeTabIndex;
-    }
-  }
   injectListEditStyles();
   initListCategorySelect();
   renderListItems();
@@ -315,10 +285,7 @@ function listEditOk() {
 
 function editListFromView() {
   if (!listsBuffer) return;
-  var activeIdx = 0;
-  var tabsEl = $id("listEditTabs");
-  if (tabsEl) activeIdx = tabsEl.activeIndex;
-  buildListEditPage(false, activeIdx);
+  buildListEditPage(false);
 }
 
 function viewListReadOnly(categoryIdx, listIdx) {
