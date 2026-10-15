@@ -1,6 +1,6 @@
 ### Run full regression test 
 ```bash
-set SCREENSHOT_THEME=superhero&& .\node_modules\.bin\playwright.cmd test tests --retries=0 --workers=32
+set EXTERNAL_SERVER=1 && set SCREENSHOT_THEME=superhero&& .\node_modules\.bin\playwright.cmd test tests --retries=0 --workers=32
 ``` 
 ### Re-run last failures
 ```bash

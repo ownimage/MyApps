@@ -91,6 +91,34 @@ function seedTodayList(page) {
   }, { data: TEST_STREAMS, ds: todayStr });
 }
 
+// A long today list (Desktop Chrome is only 720px tall) so the main view really
+// scrolls — needed to assert the scroll position survives a re-render.
+function seedManyJobs(page, count) {
+  return page.evaluate(({ n, ds }) => {
+    const jobs = [];
+    for (let i = 1; i <= n; i++) {
+      jobs.push({
+        id: "job_" + i,
+        title: "Job " + i,
+        description: "",
+        active: true,
+        frequency: "daily",
+        sequence: i,
+        suffix: false,
+        dayType: "dayOfYear",
+        mod: "",
+        tasks: []
+      });
+    }
+    localStorage.setItem("planmydays_streams", JSON.stringify([
+      { id: "stream_1", title: "Work", description: "", tab: "progress", image: "", sequence: 1, jobs }
+    ]));
+    localStorage.setItem("planmydays_today_order", JSON.stringify(jobs.map(j => j.id)));
+    localStorage.setItem("planmydays_last_gen", ds);
+    localStorage.setItem("planmydays_completed", JSON.stringify([]));
+  }, { n: count, ds: todayStr });
+}
+
 test.describe("PlanMyDay - Regression", () => {
 
   test.beforeEach(async ({ page }) => {
@@ -3298,6 +3326,124 @@ test.describe("PlanMyDay - Regression", () => {
       await page.waitForTimeout(100);
       await expect(page.locator("#jobEditPage")).not.toBeVisible();
       await expect(page.locator("#todayCardList .today-drag-card")).toHaveCount(2);
+    });
+  });
+
+  // ── Main View Scroll ──────────────────────────────────────
+
+  // Editing a job so it leaves today's list redraws the whole main view. The
+  // job editor hides #countdownContainer (display:none), which clamps the
+  // document scroll to the top, so the redraw must re-apply the position the
+  // user was at. Deleting (swipe left) never hides the container, so it was
+  // always fine — these tests pin the edit/swipe-right paths too.
+  test.describe("Main View Scroll", () => {
+
+    // Scroll down, then return the centre of a card's View button plus the card
+    // centre for a card that is fully on screen (so a raw mouse click/swipe never
+    // auto-scrolls the list first).
+    async function scrollDownToViewButton(page) {
+      await page.evaluate(() => window.scrollTo(0, 600));
+      return page.evaluate(() => {
+        const cards = Array.from(document.querySelectorAll("#todayCardList .today-drag-card"));
+        for (let i = 0; i < cards.length; i++) {
+          const btn = cards[i].querySelector(".job-view-btn");
+          if (!btn) continue;
+          const br = btn.getBoundingClientRect();
+          const cr = cards[i].getBoundingClientRect();
+          if (br.top > 90 && br.bottom < window.innerHeight - 20 && cr.top > 0 && cr.bottom < window.innerHeight) {
+            return {
+              id: cards[i].getAttribute("data-job-id"),
+              x: br.x + br.width / 2,
+              y: br.y + br.height / 2,
+              cardX: cr.x + cr.width / 2,
+              cardY: cr.y + cr.height / 2
+            };
+          }
+        }
+        return null;
+      });
+    }
+
+    test("editing a job off today's list keeps the main view scrolled to the same place", async ({ page }) => {
+      await seedManyJobs(page, 30);
+      await page.reload();
+      await expect(page.locator("#todayCardList .today-drag-card")).toHaveCount(30);
+
+      const target = await scrollDownToViewButton(page);
+      expect(target).not.toBeNull();
+      const before = await page.evaluate(() => window.scrollY);
+      expect(before).toBeGreaterThan(0);
+
+      // View (raw mouse click at the button's on-screen centre: no auto-scroll)
+      await page.mouse.click(target.x, target.y);
+      await page.locator("#jobEditPage").waitFor({ state: "visible" });
+      await expect(page.locator("#jobEditPage .smd-page-header h1")).toContainText("View Job");
+      // Edit, then move the job's Sleep Until into the future so it leaves today
+      await page.locator("#btnViewJobEdit").click();
+      await page.locator("#jobSchedule-tab").click();
+      const future = futureDateStr(5);
+      await page.evaluate((ds) => { $id("smdDatePickerInput")._flatpickr.setDate(ds, true); }, future);
+      await page.locator("#jobEditOkBtn").click();
+      await page.locator("#jobEditPage").waitFor({ state: "hidden", timeout: 10000 });
+
+      await expect(page.locator("#todayCardList .today-drag-card")).toHaveCount(29);
+      await expect(page.locator('#todayCardList .today-drag-card[data-job-id="' + target.id + '"]')).toHaveCount(0);
+      const after = await page.evaluate(() => window.scrollY);
+      expect(after).toBeGreaterThan(0);
+      expect(Math.abs(after - before)).toBeLessThanOrEqual(4);
+    });
+
+    test("swipe right then OK keeps the main view scrolled to the same place", async ({ page }) => {
+      await seedManyJobs(page, 30);
+      await page.reload();
+      await expect(page.locator("#todayCardList .today-drag-card")).toHaveCount(30);
+
+      const target = await scrollDownToViewButton(page);
+      expect(target).not.toBeNull();
+      // swipe RIGHT from the card's on-screen centre (no auto-scroll)
+      const before = await page.evaluate(() => window.scrollY);
+      expect(before).toBeGreaterThan(0);
+      const startX = target.cardX;
+      const startY = target.cardY;
+      await page.mouse.move(startX, startY);
+      await page.mouse.down();
+      for (let i = 1; i <= 12; i++) await page.mouse.move(startX + (200 * i) / 12, startY, { steps: 1 });
+      await page.mouse.up();
+
+      await page.locator("#jobEditPage").waitFor({ state: "visible" });
+      await expect(page.locator("#jobSchedule-tab")).toHaveAttribute("active", "");
+      // dismiss the popped-open calendar, then accept (tomorrow already selected)
+      await page.evaluate(() => {
+        const raw = $id("smdDatePickerInput");
+        if (raw && raw._flatpickr) raw._flatpickr.close();
+      });
+      await page.locator("#jobEditOkBtn").click();
+      await page.locator("#jobEditPage").waitFor({ state: "hidden", timeout: 10000 });
+
+      await expect(page.locator("#todayCardList .today-drag-card")).toHaveCount(29);
+      const after = await page.evaluate(() => window.scrollY);
+      expect(after).toBeGreaterThan(0);
+      expect(Math.abs(after - before)).toBeLessThanOrEqual(4);
+    });
+
+    test("the background page cannot scroll while the job editor is open", async ({ page }) => {
+      await seedManyJobs(page, 30);
+      await page.reload();
+      await expect(page.locator("#todayCardList .today-drag-card")).toHaveCount(30);
+
+      const target = await scrollDownToViewButton(page);
+      expect(target).not.toBeNull();
+      await page.mouse.click(target.x, target.y);
+      await page.locator("#jobEditPage").waitFor({ state: "visible" });
+
+      // The main view stays in the layout (so the scroll position survives), so
+      // its scrollbar would still show unless the root scroll is locked while the
+      // page covers it.
+      expect(await page.evaluate(() => getComputedStyle(document.documentElement).overflowY)).toBe("hidden");
+
+      await page.locator("#jobEditOkBtn").click();
+      await page.locator("#jobEditPage").waitFor({ state: "hidden", timeout: 10000 });
+      expect(await page.evaluate(() => getComputedStyle(document.documentElement).overflowY)).not.toBe("hidden");
     });
   });
 

@@ -433,7 +433,18 @@ function hideJobEditBackground() {
   else _jobEditReturnPage = null;
 
   const main = document.getElementById("countdownContainer");
-  if (view === "main" && main) main.classList.add("d-none");
+  // Hide the main view behind the page WITHOUT display:none. A display:none
+  // subtree collapses the document, which clamps the window scroll to the top;
+  // closing the editor re-renders the list, so the view jumped back to the top.
+  // Bootstrap's `.invisible` (visibility:hidden) hides the content but keeps the
+  // layout - and the scroll position - intact. Locking the root scroll then hides
+  // the (now still-present) background scrollbar while the page covers it; the
+  // offset is preserved (overflow:hidden does not clamp it), so unlocking on close
+  // returns the list exactly where it was.
+  if (view === "main" && main) {
+    main.classList.add("invisible");
+    document.documentElement.style.overflow = "hidden";
+  }
   if (_jobEditReturnPage) {
     _jobEditReturnPage.hide();
     _jobEditReturnPage.classList.add("d-none");
@@ -454,7 +465,11 @@ function restoreJobEditBackground() {
     page.show();
   } else {
     const main = document.getElementById("countdownContainer");
-    if (main) main.classList.remove("d-none");
+    if (main) {
+      main.classList.remove("d-none");
+      main.classList.remove("invisible");
+    }
+    document.documentElement.style.overflow = "";
   }
 }
 

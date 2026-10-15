@@ -536,6 +536,33 @@ Architecture:
   hide the page itself, otherwise the page closes under the user on validation
   failure.
 
+- PMD MAIN-VIEW SCROLL WHEN THE JOB EDITOR CLOSES (2026-10-15): opening the job
+  editor hid `#countdownContainer` with `d-none` (`hideJobEditBackground()`);
+  `display:none` collapses the document, which CLAMPS the window scroll to the
+  top, so closing the editor after an edit that removes a job from today's list
+  (or swipe-right then OK) redrew the list at the top. Deleting (swipe left)
+  never hid the container, so it was always fine. FIX: hide with Bootstrap
+  `.invisible` (`visibility:hidden` keeps the layout AND the scroll position),
+  and remove both `d-none` and `invisible` on restore. Because `.invisible` keeps
+  the document TALL, the root scroll is ALSO locked while the editor is open
+  (`document.documentElement.style.overflow = "hidden"`), otherwise the background
+  page's scrollbar stays visible (reported as "I still see the scroll bar");
+  `overflow:hidden` PRESERVES the scroll offset (verified) and is cleared on
+  restore, so the list returns exactly where it was. Do NOT instead restore an
+  ABSOLUTE scroll on re-render: the auto-hide nav collapses while a page is open
+  and re-expands ~50ms after close (`smd-page.hide()` drops the `open` attribute
+  at `duration + 50ms`, and a MutationObserver toggles `#btnMainMenu.hidden`), so
+  the document grows by the nav height and the browser's scroll anchoring shifts
+  the offset to keep the same content in view - forcing an absolute value makes
+  the list jump again. Tests: `tests/pmd-regression.spec.js` "Main View Scroll"
+  (view + edit the date into the future; swipe-right then OK; the root is
+  scroll-locked while the editor is open) assert the list did not jump to the
+  top. NOTE: `ListOfLists/js/list-editor.js` still hides `#mainContainer` with
+  `d-none` and has the same pattern (no tests yet); the OTHER PlanMyDay pages
+  (Settings / Streams / Search / Images / Gantt / image picker) also still hide
+  `#countdownContainer` with `d-none`, so they can reset the main view's scroll to
+  the top on close too - not addressed here.
+
 Techniques / gotchas:
 - **`:host-context()` is NOT supported by WebKit/Safari** (so it silently does
   nothing in every iOS browser): shadow-DOM styling that keys off `body.*`
@@ -4433,3 +4460,47 @@ Techniques / gotchas:
   pmd-regression `touch size` 5/5, `drag handle` 5/5, pmd-touch 6/6. AGENTS also
   gained the TERMINOLOGY note above (user uses "Note"/"Description"
   interchangeably for a List Item's fields). BUILD -> 202610150851.
+
+### 2026-10-15 (c) - PMD main view jumped to the top when the job editor closed
+- BUG (user): with a long today list scrolled down, viewing a job and editing it
+  so it leaves today's list (or swipe-right then OK) redrew the main view at the
+  TOP. Deleting (swipe left) did not jump.
+- CAUSE: `PlanMyDay/js/job-editor.js` `hideJobEditBackground()` hid
+  `#countdownContainer` with `d-none`; `display:none` collapses the document,
+  which clamps the window scroll to 0. Delete never hides the container, so only
+  the editor paths jumped.
+- FIRST ATTEMPT (reverted): capture `window.scrollY` before hiding and re-apply
+  it at the end of `renderMain()`. It restored a position, but ~50ms later the
+  auto-hide nav re-expanded (the doc grows by the nav height) and the browser's
+  scroll anchoring shifted the offset, so the value drifted (~37-49px) and the
+  "restore" had to fight the browser. Also `overflow-anchor: none` did NOT stop
+  the drift.
+- FIX: hide with Bootstrap `.invisible` (`visibility:hidden`) instead of
+  `d-none`, and remove both classes on restore. Layout - and the scroll position
+  - stay intact, so the browser anchors naturally and the list does not jump.
+  FOLLOW-UP (user: "I still see the scroll bar"): because `.invisible` keeps the
+  document tall, the background scrollbar stayed visible, so the root scroll is
+  now ALSO locked (`document.documentElement.style.overflow = "hidden"`) while the
+  editor is open and cleared on restore - `overflow:hidden` keeps the offset
+  (probe: y stayed 551), so the position still survives. Only
+  `PlanMyDay/js/job-editor.js` changed.
+- TESTS (TDD, red -> green): `tests/pmd-regression.spec.js` "Main View Scroll"
+  with a new `seedManyJobs(page, 30)` helper - view + edit the date 5 days into
+  the future, swipe-right then OK, and (follow-up) root `overflowY === "hidden"`
+  while the editor is open and not after close. The two scroll tests scroll to
+  600, click with a RAW `page.mouse` (no auto-scroll), and assert the edited card
+  left the list and `window.scrollY` is still within 4px. RED on the old code
+  (scrollY 0), GREEN after. Verified together: 3/3.
+- TOOLING: new top-level `CleanTestServerStart.cmd` (kills anything listening on
+  8080/8081, clears `node_modules\.vite`, then runs `node tests/serve-tests.mjs`
+  in the SAME window; Ctrl+C stops it). Use it to get a clean, non-stale server
+  before a run.
+- VITE EPERM ON START (2026-10-15): starting the server can die immediately with
+  `Error: EPERM: operation not permitted, rename 'node_modules\.vite\deps_temp_*'
+  -> 'node_modules\.vite\deps'` (the ports open briefly then close, exit code 1).
+  Cause: a leftover `deps_temp_*` folder / locked dep cache from an earlier
+  Vite instance that was killed. FIX: delete `node_modules\.vite` before starting
+  (the .cmd does this) - verified a clean start after the clear.
+- NOT bumped / full regression NOT run here: the user runs it. Bump
+  `npm run bump:build` before shipping (`PlanMyDay/js/job-editor.js` is a
+  precached APPS asset, so the bump is what installs the new worker).
