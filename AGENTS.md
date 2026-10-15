@@ -4371,4 +4371,19 @@ Techniques / gotchas:
   items + the two Add buttons.
   `getListEditSections`/`getListGeneralTabHTML`/`getListItemsTabHTML` deleted;
   `buildListEditPage` lost its `activeTabIndex` arg and `editListFromView` no
-  longer passes one. BUILD -> 202610150810.
+  longer passes one. BUILD -> 202610150810. VIEW LIST (2026-10-15): opening the
+  page read-only (main card > View) now renders ONLY the read-only list items; the
+  page h1 = the list Title (`data.title || "No Title"`); the Show checkbox, title
+  input, category + image selectors, Description checkbox and box, and both Add
+  buttons are dropped. Footer keeps Edit | OK so Edit still flips the same page
+  into the full editor. BUILD -> 202610150819. VIEW-ONLY ITEMS (2026-10-15): the
+  `lol-list-items` attribute `read-only` was REPLACED by a single `view-only`
+  switch (one flag, not one per behaviour - its behaviours always co-vary):
+  `view-only` drops the drag handle AND the delete button, leaves the done
+  checkbox + the note (pencil) button/textarea LIVE, and locks ONLY the
+  description input (`readonly`). The view-mode footer's OK was changed from
+  `cancel` to `done`, so ticking items / editing notes in View List PERSISTS
+  (previously OK discarded the buffer). Verified by probe: view mode h1 = list
+  title, 2 rows, 0 handles, 0 delete buttons, checkboxes + note buttons enabled,
+  desc inputs readonly, note textareas editable, and OK saved `done:true` +
+  the edited note. BUILD -> 202610150833.

@@ -2,7 +2,9 @@
 //
 // Data-driven: the host sets
 //   items    = [{ description, done, note, noteOpen }, ...]
-//   readOnly = boolean (or the `read-only` attribute)
+//   viewOnly = boolean (or the `view-only` attribute) — view mode: no drag handle
+//              and NO delete button, the description input is READONLY, but the
+//              done checkbox and the note (pencil) button/text stay LIVE.
 // and the component renders one row per item plus its collapsible note row.
 // The host is `#listItemsList` and every row keeps the ids/classes the
 // regression suite targets: .item-row / .item-drag-card / .drag-handle /
@@ -22,7 +24,7 @@ function lolListItemsEscape(str) {
 
 class LolListItems extends HTMLElement {
   static get observedAttributes() {
-    return ['read-only'];
+    return ['view-only'];
   }
 
   constructor() {
@@ -40,13 +42,13 @@ class LolListItems extends HTMLElement {
     if (this.isConnected) this._render();
   }
 
-  get readOnly() {
-    return this.hasAttribute('read-only');
+  get viewOnly() {
+    return this.hasAttribute('view-only');
   }
 
-  set readOnly(value) {
-    if (value) this.setAttribute('read-only', '');
-    else this.removeAttribute('read-only');
+  set viewOnly(value) {
+    if (value) this.setAttribute('view-only', '');
+    else this.removeAttribute('view-only');
   }
 
   connectedCallback() {
@@ -127,24 +129,27 @@ class LolListItems extends HTMLElement {
   }
 
   _render() {
-    const readOnly = this.readOnly;
-    const disabled = readOnly ? 'disabled' : '';
-    const ro = readOnly ? 'readonly' : '';
+    const viewOnly = this.viewOnly;
+    // In view mode only the DESCRIPTION input is locked: the done checkbox and
+    // the note button/text stay live so lists can be ticked/annotated while
+    // viewing. The drag handle and the delete button are dropped entirely.
+    const ro = viewOnly ? 'readonly' : '';
     const items = this._items || [];
     let html = '';
     items.forEach((item, i) => {
       const note = item.note || '';
-      const handle = readOnly ? '' : '<smd-draghandle class="drag-handle"></smd-draghandle>';
+      const handle = viewOnly ? '' : '<smd-draghandle class="drag-handle"></smd-draghandle>';
+      const del = viewOnly ? '' : '<button type="button" class="btn btn-sm btn-danger d-flex align-items-center justify-content-center p-2 flex-shrink-0" title="Delete">' + LOL_LIST_ITEMS_DELETE_SVG + '</button>';
       html +=
         '<div class="d-flex align-items-center gap-2 mb-1 item-row item-drag-card user-select-none rounded px-2 py-1" data-item-index="' + i + '">' +
           handle +
-          '<smd-checkbox class="item-done-cb" id="itemDone' + i + '" ' + (item.done ? 'checked' : '') + ' ' + disabled + '></smd-checkbox>' +
+          '<smd-checkbox class="item-done-cb" id="itemDone' + i + '" ' + (item.done ? 'checked' : '') + '></smd-checkbox>' +
           '<input class="form-control item-desc-input flex-grow-1" value="' + lolListItemsEscape(item.description || '') + '" ' + ro + ' placeholder="Item description">' +
-          '<button type="button" class="btn btn-sm ' + (note ? 'btn-outline-info' : 'btn-info') + ' item-note-btn" ' + disabled + ' title="Note">' + LOL_LIST_ITEMS_NOTE_SVG + '</button>' +
-          '<button type="button" class="btn btn-sm btn-danger d-flex align-items-center justify-content-center p-2 flex-shrink-0" ' + disabled + ' title="Delete">' + LOL_LIST_ITEMS_DELETE_SVG + '</button>' +
+          '<button type="button" class="btn btn-sm ' + (note ? 'btn-outline-info' : 'btn-info') + ' item-note-btn" title="Note">' + LOL_LIST_ITEMS_NOTE_SVG + '</button>' +
+          del +
         '</div>' +
         '<div class="item-note-row mb-1 ms-4' + (this._noteOpen(item) ? '' : ' d-none') + '" id="itemNoteRow' + i + '" data-item-index="' + i + '">' +
-          '<textarea class="form-control" rows="2" placeholder="Note" ' + ro + '>' + lolListItemsEscape(note) + '</textarea>' +
+          '<textarea class="form-control" rows="2" placeholder="Note">' + lolListItemsEscape(note) + '</textarea>' +
         '</div>';
     });
     this.innerHTML = html;

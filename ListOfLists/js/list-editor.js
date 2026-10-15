@@ -122,6 +122,17 @@ function initListItemsSortable() {
 }
 
 function getListEditPageContent(data, readOnly) {
+  // View mode is a lean view: the page h1 is the list title (set by
+  // buildListEditPage) and the body shows ONLY the list items - the card already
+  // showed the title/description/category/image, so those controls are dropped.
+  // The items themselves are `view-only` (ticks + notes live, no delete/reorder).
+  if (readOnly) {
+    return `
+      <div>
+        <lol-list-items id="listItemsList" view-only></lol-list-items>
+      </div>
+    `;
+  }
   const disabled = readOnly ? "disabled" : "";
   const ro = readOnly ? "readonly" : "";
   const showDescription = !!(data.description && data.description.trim());
@@ -149,7 +160,7 @@ function getListEditPageContent(data, readOnly) {
     </div>
     <div>
       <button class="btn btn-primary mb-2" id="listAddItemBtn" ${disabled} onclick="listAddItemTop()">Add List Item</button>
-      <lol-list-items id="listItemsList"${readOnly ? " read-only" : ""}></lol-list-items>
+      <lol-list-items id="listItemsList"></lol-list-items>
       <div class="mt-2">
         <button class="btn btn-primary" id="listAddItemBottomBtn" ${disabled} onclick="listAddItem()">Add List Item</button>
       </div>
@@ -204,7 +215,7 @@ function restoreListEditBackground() {
 function buildListEditPage(readOnly) {
   if (!listsBuffer) return;
   const data = listsBuffer;
-  const title = readOnly ? "View List" : (isNewList ? "Add List" : "Edit List");
+  const title = readOnly ? (data.title || "No Title") : (isNewList ? "Add List" : "Edit List");
   const page = document.getElementById("listEditPage");
   if (!page) return;
 
@@ -219,7 +230,7 @@ function buildListEditPage(readOnly) {
   _listEditButtons = readOnly
     ? [
         { text: "Edit", variant: "primary", action: "edit", id: "btnViewListEdit", close: false },
-        { text: "OK", variant: "success", action: "cancel", id: "listEditOkBtn" }
+        { text: "OK", variant: "success", action: "done", id: "listEditOkBtn" }
       ]
     : [
         { text: "Cancel", variant: "secondary", action: "cancel", id: "listEditCancelBtn" },
