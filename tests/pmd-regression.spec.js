@@ -2914,7 +2914,7 @@ test.describe("PlanMyDay - Regression", () => {
       await page.waitForSelector("#todayCardList .today-drag-card");
       const nesting = await page.evaluate(() => {
         const tabs = document.getElementById("todayTabs");
-        const panel = tabs && tabs.querySelector(".tab-content > .smd-tab-panel.active");
+        const panel = tabs && tabs.querySelector(".smd-tab-panel.active");
         const list = document.getElementById("todayCardList");
         const scrollBody = document.getElementById("countdownScrollBody");
         return {

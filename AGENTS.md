@@ -511,12 +511,13 @@ Architecture:
 - `hideNav()` (shared smd-settings.js) now hides when NO
   `smd-page:not(.d-none)` is open — generic for any app's page set (was a
   hardcoded PlanMyDay id list).
-- PMD TODAY TABS OWN THEIR CONTENT (2026-10-13): the PlanMyDay main-view split-list
+- PMD TODAY TABS OWN THEIR CONTENT (2026-10-13; `.tab-content` removed 2026-10-15):
+  the PlanMyDay main-view split-list
   tabs (`#todayTabs`) used to set `hide-panels` and render the job list as a SIBLING
   below the tab bar. They now render `#countdownScrollBody` > `#todayCardList`
-  INSIDE the ACTIVE `.tab-content > .smd-tab-panel` (no `hide-panels`).
+  INSIDE the ACTIVE `.smd-tab-panel` (no `hide-panels`).
   `PlanMyDay/js/main-view.js` injects `injectTodayTabsLayout()` making
-  `#todayTabsWrap` / `#todayTabs` / `.tab-content` / `.smd-tab-panel.active` a flex
+  `#todayTabsWrap` / `#todayTabs` / `#todayTabs > .smd-tab-panel.active` a flex
   column with `min-height:0`, so the tab bar stays put and the active panel's body
   scrolls (the component's own sheet only sets `display:block`). The `hide-panels`
   attribute stays supported in smd-tabs but is no longer used by any app.
@@ -3039,7 +3040,7 @@ Techniques / gotchas:
 ### 2026-09-25 - Shared light-DOM styling and page-stack recovery
 
 - Every app and Storybook entry body now has `id="smd-app"`. Shared component selectors that must beat Bootswatch use that ID scope, for example `#smd-app smd-tabs .smd-tab-btn`; do not rely on a low-specificity `.nav-link` rule because theme CSS can win the cascade.
-- The current tab contract is Bootstrap-native: `smd-tabs` renders `.nav.nav-tabs`, `.nav-link`, `.tab-content`, and `.tab-pane`, and synchronizes `.active`, `aria-selected`, `tabindex`, and the `hidden` attribute. Use the same `.tabs = [...]`/`activeIndex` API as the Storybook demo.
+- The current tab contract is Bootstrap-native except that `smd-tabs` renders NO `.tab-content` wrapper (removed 2026-10-15 - some themes gave it unwanted padding/margins/borders): it renders `.nav.nav-tabs`, `.nav-link`, the `.smd-tab-line`, and the `.tab-pane.smd-tab-panel` panels as DIRECT children of the host, and synchronizes `.active`, `aria-selected`, `tabindex`, and the `hidden` attribute. Panel show/hide is the component's own `smd-tabs .smd-tab-panel { display:none }` / `.active { display:block }` (Bootstrap's `.tab-content > .tab-pane` no longer applies, and Bootstrap's tab JS does NOT reference `.tab-content`). Use the same `.tabs = [...]`/`activeIndex` API as the Storybook demo; query/serve panels with `.smd-tab-panel.active`, never `.tab-content > .smd-tab-panel`.
 - `smd-modal` light-DOM chrome was recovered from the deployed `https://ownimage.github.io/MyApps/shared/css/styles.css` stylesheet. The dialog uses `--bs-body-bg`/`--bs-body-color`/`--bs-border-color`, the overlay dims the page, and header/body/footer padding, borders, radius, and shadow are intentional shared styles. Keep the deployed block as the reference when the local functional CSS cleanup removes component chrome.
 - `smd-page` does not automatically hide a previously open page. App-specific code must capture and restore the underlying page: `PlanMyDay/js/job-editor.js` uses `_jobEditReturnView` plus `hideJobEditBackground()`/`restoreJobEditBackground()`; `PlanMyDay/js/image-picker.js` uses `pickerBackground` to hide every open `smd-page` and `#countdownContainer` before showing `imagePickerPage`, then restores them on every close path (cancel, No Image, and selection). Preserve the `d-none`/slide timing contract.
 - `activeEditorView()` treats the `d-none` state of `#streamsEditor` and `#jobSearchEditor` as the source of truth for the return view. Do not hide an editor page without storing its prior state, or Done/Cancel will render the wrong view.
@@ -4354,4 +4355,10 @@ Techniques / gotchas:
   the durable note above) so the editor-accordion child rows are flush and
   full-width with the header's bottom line matching the item border; updated
   `storybook-regression` cardViewer selectors + the `pmd-regression` drag-ghost
-  check. BUILD -> 202610150748.
+  check. BUILD -> 202610150748. TABS (2026-10-15): `smd-tabs` no longer renders a
+  `.tab-content` wrapper (some themes gave it unwanted padding/margins/borders on
+  the PlanMyDay main-page split-list tabs) - panels are now DIRECT children of the
+  host; updated `PlanMyDay/js/main-view.js` (`#todayTabs > .smd-tab-panel` layout
+  + the `.smd-tab-panel.active` query) and the `pmd-regression` split-list nesting
+  assertion. Verified via probe: panels hide/show, tab clicks switch, the job list
+  renders inside the active panel. BUILD -> 202610150803.
