@@ -281,6 +281,18 @@ Architecture:
   `JOBS_EDITOR_STYLES`). TODO (user asked to note it): rename
   `countdownContainer` -> `mainContainer` in the OTHER TWO apps (PlanMyDay,
   CountMyDays) so there is one id, then the shared fallbacks can go.
+- SUMMARY CARDS LOST THEIR `.card` WRAPPER (2026-10-15): `pmd-job-summary-card`
+  and `lol-list-summary-card` no longer wrap their content in
+  `<div class="card smd-card border-0 w-100">`; the component root is now the row
+  `<div class="d-flex py-2 border rounded-3">`. In the editors' accordions the
+  child rows are therefore FLUSH and full width under the header, and the line
+  under the header is the row's `--bs-border-color` border (matching the
+  accordion-item border) instead of the shared `.card` black border. The old
+  double box (black `.card` border + inset row) is gone. TESTS updated:
+  `storybook-regression` cardViewer recipes use `pmd-job-summary-card > .d-flex`;
+  `pmd-regression` drag-ghost check uses `.d-flex.py-2`. KNOCK-ON: the
+  job-search / Search Lists rows also lose the card surface (they are bordered
+  rows on the page background) - revisit if that looks wrong.
 - LISTOFLISTS STORYBOOK (TODO, user request 2026-10-14): add demo sections for
   `lol-category-header`, `lol-list-summary-card`, `lol-list-main-card` and
   `lol-list-items` to `storybook/index.html` (script tags + sections + the
@@ -4337,4 +4349,9 @@ Techniques / gotchas:
   `count-badge`/`listcounts`; dropped the `schedule`/`frequency`/`time`/`sleepUntil`/
   `waitFor` defaults from new lists and the dead Sleep-Until date-picker listener.
   `getListCountBadgeText`/`updateEditorListCountBadges` now only feed the Search
-  Lists header badge.
+  Lists header badge. LAYOUT (2026-10-15): removed the `.card smd-card border-0
+  w-100` wrapper div from `pmd-job-summary-card` and `lol-list-summary-card` (see
+  the durable note above) so the editor-accordion child rows are flush and
+  full-width with the header's bottom line matching the item border; updated
+  `storybook-regression` cardViewer selectors + the `pmd-regression` drag-ghost
+  check. BUILD -> 202610150748.

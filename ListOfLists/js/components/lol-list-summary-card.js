@@ -29,9 +29,7 @@
 
 const lolListSummaryCardTemplate = document.createElement('template');
 lolListSummaryCardTemplate.innerHTML = `
-  <div class="card smd-card border-0 w-100">
-
-    <div class="d-flex py-2 border rounded-3">
+  <div class="d-flex py-2 border rounded-3">
 
       <!-- 1️⃣ Drag handle (category variant only) -->
       <div class="handle-col d-flex align-items-center flex-shrink-0 ms-2">
@@ -71,8 +69,6 @@ lolListSummaryCardTemplate.innerHTML = `
 
       </div>
     </div>
-
-  </div>
 `;
 
 class LolListSummaryCard extends HTMLElement {

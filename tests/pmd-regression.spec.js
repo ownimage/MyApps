@@ -3173,7 +3173,7 @@ test.describe("PlanMyDay - Regression", () => {
       await startDrag(page, page.locator("#streamEditorList .accordion-collapse.show .job-drag-card").first().locator(".drag-handle"));
       const jobGhost = page.locator(".sortable-fallback");
       await expect(jobGhost.locator("pmd-job-summary-card")).toHaveCount(1);
-      await expect(jobGhost.locator(".smd-card")).toHaveCount(1);
+      await expect(jobGhost.locator(".d-flex.py-2")).toHaveCount(1);
       await expect(jobGhost.locator(".job-edit-btn")).toHaveCount(1);
       await page.mouse.up();
 
