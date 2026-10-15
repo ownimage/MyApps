@@ -45,7 +45,6 @@ function buildSearchListsContent() {
   const page = document.getElementById("listSearchEditor");
   if (!page) return;
   page.title = "Search Lists";
-  page.headerHtml = '<smd-badge id="listSearchTotalBadge" variant="info" class="small align-middle"></smd-badge>';
   page.content =
     '<div id="listSearchHeader">' +
       '<div id="listSearchFilters" class="mt-1 mb-3 mx-2">' +
@@ -74,7 +73,6 @@ function renderSearchLists() {
   const list = $id("listSearchList");
   if (!list) return;
   const categories = loadCategories();
-  updateEditorListCountBadges();
   const query = listSearchQuery.toLowerCase();
   const matches = [];
   categories.forEach(function(category, categoryIdx) {
@@ -139,5 +137,4 @@ function handleAccordionListActiveToggle(categoryIdx, listIdx, checked) {
     }
     saveMainOrder(order);
   }
-  updateEditorListCountBadges();
 }

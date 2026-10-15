@@ -1,23 +1,5 @@
-// ListOfLists — helpers shared by the editor screens: list count badges,
-// image/category selector previews, and active-view refresh.
-
-function getListCountBadgeText(categories) {
-  var totalDue = 0, totalActive = 0, totalLists = 0;
-  categories.forEach(function(s) {
-    var jbs = s.lists || [];
-    totalDue += jbs.filter(function(j) { return j.active !== false && shouldShowListToday(j); }).length;
-    totalActive += jbs.filter(function(j) { return j.active !== false; }).length;
-    totalLists += jbs.length;
-  });
-  return totalDue + "/" + totalActive + "/" + totalLists + " list" + (totalLists !== 1 ? "s" : "");
-}
-
-function updateEditorListCountBadges() {
-  var text = getListCountBadgeText(loadCategories());
-  var el = $id("listSearchTotalBadge");
-  if (el) el.textContent = text;
-  return text;
-}
+// ListOfLists — helpers shared by the editor screens: image/category selector
+// previews and active-view refresh.
 
 function updateCategoryImagePreview(name) {
   var sel = $id("categoryImageSelect");

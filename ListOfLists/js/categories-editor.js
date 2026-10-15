@@ -171,7 +171,6 @@ function renderCategoriesEditor() {
     openCategoryEditPage();
   }
 
-  updateEditorListCountBadges();
   updateNavState();
   injectCategoriesEditorStyles();
   initCategoriesEditorSortable();

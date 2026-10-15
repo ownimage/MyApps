@@ -112,19 +112,25 @@ function getStreamEditFormHTML(data) {
       <label class="form-label">Title</label>
       <input class="form-control" id="streamTitleInput" value="${escapeHtml(data.title || "")}" oninput="editField('title', this.value);updateStreamEditOkBtn()" onkeydown="if(event.key==='Enter') streamEditSubmit()">
     </div>
-    <div class="mb-2">
-      <label class="form-label">Tab</label>
-      <div class="stream-tab-picker">
-        <smd-image-dropdown id="streamTabDropdown" key-prefix="${escAttr(smdImagePrefix())}"></smd-image-dropdown>
+    <div class="row mb-2">
+      <div class="col-12 col-sm-6 d-flex flex-column">
+        <label class="form-label mb-0">Tab</label>
+        <div class="mt-1 flex-grow-1">
+          <div class="stream-tab-picker">
+            <smd-image-dropdown id="streamTabDropdown" key-prefix="${escAttr(smdImagePrefix())}"></smd-image-dropdown>
+          </div>
+        </div>
+      </div>
+      <div class="col-12 col-sm-6 d-flex flex-column">
+        <label class="form-label mb-0">Image</label>
+        <div class="mt-1 flex-grow-1">
+          <smd-image-select id="streamImageSelect" key-prefix="${escAttr(smdImagePrefix())}" image="${escapeHtml(data.image || "")}" label-id="streamImageName" button-id="btnStreamImageChoose"></smd-image-select>
+        </div>
       </div>
     </div>
     <div class="mb-2">
       <label class="form-label">Description</label>
       <textarea class="form-control" rows="3" oninput="editField('description', this.value)">${escapeHtml(data.description || "")}</textarea>
-    </div>
-    <div class="mb-2">
-      <label class="form-label">Image</label>
-      <smd-image-select id="streamImageSelect" key-prefix="${escAttr(smdImagePrefix())}" image="${escapeHtml(data.image || "")}" label-id="streamImageName" button-id="btnStreamImageChoose"></smd-image-select>
     </div>
   `;
 }

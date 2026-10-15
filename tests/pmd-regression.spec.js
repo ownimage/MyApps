@@ -1764,6 +1764,39 @@ test.describe("PlanMyDay - Regression", () => {
       await expect(page.locator("#streamEditorList .stream-accordion-item").last().locator(".accordion-collapse.show")).toBeVisible();
       await expect(page.locator("#streamEditorList .accordion-collapse.show")).toContainText("Report");
     });
+
+    test("Edit Stream: the Tab and Image fields sit on the same row", async ({ page }) => {
+      await page.locator("#streamEditorList .stream-header-main").first().click();
+      await page.locator("#streamEditorList .accordion-collapse.show").waitFor({ state: "visible", timeout: 5000 });
+      await page.locator("#streamEditorList .btn-primary").filter({ hasText: "Edit" }).first().click();
+      await page.locator("#streamEditPage").waitFor({ state: "visible" });
+      await expect(page.locator("#streamTabDropdown .form-select")).toBeVisible();
+      const geo = await page.evaluate(() => {
+        const tab = document.getElementById("streamTabDropdown").getBoundingClientRect();
+        const img = document.getElementById("streamImageSelect").getBoundingClientRect();
+        return { tabTop: tab.top, tabBottom: tab.bottom, tabRight: tab.right, imgTop: img.top, imgBottom: img.bottom, imgLeft: img.left };
+      });
+      // same row: the two controls vertically overlap and Image is to the right of Tab
+      expect(geo.imgTop).toBeLessThan(geo.tabBottom);
+      expect(geo.tabTop).toBeLessThan(geo.imgBottom);
+      expect(geo.imgLeft).toBeGreaterThanOrEqual(geo.tabRight - 1);
+    });
+
+    test("Edit Stream: the Tab and Image fields stack on a narrow viewport", async ({ page }) => {
+      await page.setViewportSize({ width: 390, height: 800 });
+      await page.locator("#streamEditorList .stream-header-main").first().click();
+      await page.locator("#streamEditorList .accordion-collapse.show").waitFor({ state: "visible", timeout: 5000 });
+      await page.locator("#streamEditorList .btn-primary").filter({ hasText: "Edit" }).first().click();
+      await page.locator("#streamEditPage").waitFor({ state: "visible" });
+      await expect(page.locator("#streamTabDropdown .form-select")).toBeVisible();
+      const geo = await page.evaluate(() => {
+        const tab = document.getElementById("streamTabDropdown").getBoundingClientRect();
+        const img = document.getElementById("streamImageSelect").getBoundingClientRect();
+        return { tabBottom: tab.bottom, imgTop: img.top };
+      });
+      // stacked: Image starts below Tab (no horizontal squeeze on phones)
+      expect(geo.imgTop).toBeGreaterThanOrEqual(geo.tabBottom - 1);
+    });
   });
 
   // ── Search Jobs ────────────────────────────────────────────
