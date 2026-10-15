@@ -163,15 +163,22 @@ smd-checkbox input {
 }
 
 /* COMPONENT: smd-draghandle (size and glyph typography; layout/touch mechanics
-   are in smd-draghandle.js) */
+   are in smd-draghandle.js). The sizes are FIXED rem values, not em: an em size
+   is relative to whatever font-size the surrounding row/card happens to use, so
+   at touch size "large" inside a font-size-xlarge row the glyph became 41.6px
+   (and with 1.5 inherited text leading + em padding the host was ~75px tall),
+   which stretched every list row to ~83px around a 38px input. line-height:1
+   keeps the glyph box equal to its font-size - a glyph must not carry text
+   leading. */
 smd-draghandle {
-  --smd-draghandle-size: 1.2em;
-  font-size: var(--smd-draghandle-size, 1.2em);
+  --smd-draghandle-size: 1.2rem;
+  font-size: var(--smd-draghandle-size, 1.2rem);
+  line-height: 1;
 }
 
 html[data-smd-touch-size="large"] smd-draghandle,
 smd-draghandle[size="large"] {
-  --smd-draghandle-size: 2em;
+  --smd-draghandle-size: 1.6rem;
 }
 
 /* COMPONENT: smd-tabs (theme/cascade rules; layout is in smd-tabs.js) */
