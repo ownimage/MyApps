@@ -8232,6 +8232,42 @@ test.describe("PlanMyDay - Regression", () => {
       await expect.poll(durationOf).toBe("0s");
     });
 
+    test("whenSlideDone runs the callback only after the slide transition finishes", async ({ page }) => {
+      await page.goto("/PlanMyDay/");
+      await page.waitForLoadState("domcontentloaded");
+      // Control the slide exactly so the test is deterministic in any environment.
+      await page.addStyleTag({ content: "#slideDoneProbe .smd-page { transform: translateX(-100%) !important; transition: transform 0.3s linear !important; } #slideDoneProbe[open] .smd-page { transform: translateX(0) !important; }" });
+      const res = await page.evaluate(() => new Promise(async (resolve) => {
+        const el = document.createElement("smd-page");
+        el.id = "slideDoneProbe";
+        el.title = "SlideDone";
+        el.content = "<p>body</p>";
+        document.body.appendChild(el);
+        // Commit the off-screen start style BEFORE opening, otherwise the browser
+        // never runs the transition.
+        await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+        const panel = el.querySelector(".smd-page");
+        const transformOf = () => getComputedStyle(panel).transform;
+        const before = transformOf();
+        if (typeof el.whenSlideDone !== "function") { resolve({ missing: true, before: before }); return; }
+        const t0 = performance.now();
+        el.show();
+        el.whenSlideDone(() => {
+          resolve({ before: before, at: Math.round(performance.now() - t0), after: transformOf() });
+        });
+        setTimeout(() => resolve({ timeout: true, before: before }), 3000);
+      }));
+      expect(res.missing).toBeFalsy();
+      expect(res.timeout).toBeFalsy();
+      // it started off-screen (translateX(-100%)) ...
+      expect(res.before).toContain("matrix");
+      expect(parseFloat(res.before.match(/matrix\(([^)]+)\)/)[1].split(",")[4])).toBeLessThan(0);
+      // ...and the callback ran at the END of the ~0.3s slide, once settled.
+      expect(res.after).toBe("matrix(1, 0, 0, 1, 0, 0)");
+      expect(res.at).toBeGreaterThanOrEqual(250);
+      expect(res.at).toBeLessThan(600);
+    });
+
     test("settings slide speed control updates all smd-pages and persists", async ({ page }) => {
       await page.evaluate(() => localStorage.clear());
       await page.reload();

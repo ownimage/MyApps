@@ -617,35 +617,28 @@ function openJobEditSchedule(streamIdx, jobIdx) {
   openJobSleepPickerWhenReady();
 }
 
-// smd-page.show() defers the `open` attribute to the next frame and the page
-// may then SLIDE in (slide-duration). Opening flatpickr while the page is still
-// moving positions the calendar against the input's mid-slide location, so wait
-// until the page is shown AND the picker's position is stable for two frames
-// (i.e. the slide has finished) before opening. With slide-duration 0 the rect
-// is stable immediately (opens on the second frame).
+// smd-page.show() defers the `open` attribute to the next frame and the page may
+// then SLIDE in (slide-duration). Opening flatpickr while the page is still moving
+// positions the calendar against the input's transient (translated) location, so
+// it can appear half off the screen - and a "rect is stable across two frames"
+// check was not enough, because the first frames can be equal BEFORE the
+// transition starts. Wait for the page to be open AND for the slide transition to
+// FINISH (page.whenSlideDone), then open the calendar.
 function openJobSleepPickerWhenReady() {
   var page = document.getElementById("jobEditPage");
-  var attempts = 0;
-  var lastLeft = null;
-  var lastTop = null;
-  function tryOpen() {
-    var picker = $id("jobSleepPicker");
-    var raw = picker && picker.querySelector("#smdDatePickerInput");
+  if (!page) return;
+  function openPicker(attempt) {
+    var raw = $id("smdDatePickerInput");
     var fp = raw && raw._flatpickr;
-    if (fp && page && page.hasAttribute("open") && picker) {
-      var rect = picker.getBoundingClientRect();
-      var settled = lastLeft !== null && rect.width > 0 &&
-        Math.abs(rect.left - lastLeft) < 1 && Math.abs(rect.top - lastTop) < 1;
-      lastLeft = rect.left;
-      lastTop = rect.top;
-      if (settled) {
-        fp.open();
-        return;
-      }
-    }
-    if (attempts++ < 120) requestAnimationFrame(tryOpen);
+    if (fp) { fp.open(); return; }
+    if ((attempt || 0) < 120) requestAnimationFrame(function () { openPicker((attempt || 0) + 1); });
   }
-  requestAnimationFrame(tryOpen);
+  function waitForOpen() {
+    if (!page.hasAttribute("open")) { requestAnimationFrame(waitForOpen); return; }
+    if (typeof page.whenSlideDone === "function") page.whenSlideDone(function () { openPicker(0); });
+    else requestAnimationFrame(function () { openPicker(0); });
+  }
+  requestAnimationFrame(waitForOpen);
 }
 
 function cancelJobEdit() {

@@ -563,6 +563,30 @@ Architecture:
   `#countdownContainer` with `d-none`, so they can reset the main view's scroll to
   the top on close too - not addressed here.
 
+- PMD SWIPE-RIGHT SLEEP PICKER TIMING (2026-10-15): swipe right
+  (`openJobEditSchedule`) opens the job editor on the Schedule tab and pops the
+  "Sleep Until" flatpickr. Opening the calendar while the page is still SLIDING in
+  positions it against the input's transient (translated) location, so it can
+  appear half off the screen - and when the old "rect is stable across two frames"
+  poll's 120-frame (~2s) cap expired mid-slide it never opened at all. The
+  stability check was not enough: the first frames can be identical BEFORE the
+  transition starts. FIX: `shared/js/components/smd-page.js` gained
+  `whenSlideDone(callback)` - runs the callback on the `.smd-page` transform
+  `transitionend`, falls back to the next frame when there is no slide, and to a
+  timeout (`transitionDuration + transitionDelay + 250ms`) if the event never
+  arrives, so it always runs exactly once. `openJobSleepPickerWhenReady()` waits
+  for the page to be `open`, then `page.whenSlideDone(...)` before `fp.open()`.
+  PROBE (the only way to reproduce it): with a controlled slow slide the calendar
+  opened at `translateX(-1280)` at t=40ms on the old code and `translateX(0)` at
+  t=1286ms after the fix. TEST: pmd-regression "smd-page: slide duration >
+  whenSlideDone runs the callback only after the slide transition finishes"
+  (RED before the helper existed). It drives a page it creates itself (and commits
+  the off-screen start style before `show()`, or the browser skips the
+  transition); a test through the real swipe gesture could NOT be made red because
+  this harness's page build often does not run the slide at all
+  (`transitionstart` never fires for `.smd-page`), so the picker open is correct
+  there either way.
+
 Techniques / gotchas:
 - **`:host-context()` is NOT supported by WebKit/Safari** (so it silently does
   nothing in every iOS browser): shadow-DOM styling that keys off `body.*`
@@ -4504,3 +4528,28 @@ Techniques / gotchas:
 - NOT bumped / full regression NOT run here: the user runs it. Bump
   `npm run bump:build` before shipping (`PlanMyDay/js/job-editor.js` is a
   precached APPS asset, so the bump is what installs the new worker).
+
+### 2026-10-15 (d) - PMD swipe-right: Sleep date picker opened mid-slide
+- BUG (user): swiping right sometimes left the Sleep date picker unopened, or
+  opening half off the screen ("might be related to the slide timer").
+- CAUSE (confirmed with a probe): `openJobSleepPickerWhenReady()` polled the
+  picker rect and opened when it was "stable across two frames". The first frames
+  can be EQUAL before the slide transition starts, so flatpickr opened against the
+  panel at `translateX(-1280)` (off-screen) and the calendar stayed there. With a
+  long slide the 120-frame cap instead expired mid-slide and it never opened.
+- FIX: `shared/js/components/smd-page.js` gained `whenSlideDone(callback)` -
+  waits for the `.smd-page` transform `transitionend` (next-frame fallback when
+  there is no slide; `transitionDuration + transitionDelay + 250ms` fallback if the
+  event never arrives). `openJobSleepPickerWhenReady()` now waits for `open` then
+  `page.whenSlideDone(...)`. PROBE: calendar open at `translateX(-1280)` (t=40ms)
+  before -> `translateX(0)` (t=1286ms) after.
+- TESTS: new pmd-regression "smd-page: slide duration > whenSlideDone runs the
+  callback only after the slide transition finishes" (RED before the helper,
+  GREEN after). It creates its own page and commits the off-screen start style
+  before `show()` (a page rendered and shown in one task never transitions). A
+  swipe-gesture test was NOT usable: this harness's page build often does not run
+  the slide at all (no `transitionstart` for `.smd-page`), so it passed on the old
+  code too; removed. Verified: pmd `Today Card Swipe|Sleep|Schedule|Job Edit|
+  smd-page` 115/115, storybook 8/8, pmd-touch 6/6.
+- `BUILD_NUMBER` not bumped - bump before shipping.
+

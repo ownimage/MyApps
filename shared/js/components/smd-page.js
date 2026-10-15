@@ -97,6 +97,29 @@ class SmdPage extends HTMLElement {
         }
     }
 
+    // Run `callback` once the page's slide-in transition has finished. Callers
+    // that must measure/position against the page (e.g. opening a flatpickr) would
+    // otherwise act on the panel's transient mid-slide location. Falls back to the
+    // next frame when there is no slide, and to a timeout if the `transitionend`
+    // event never arrives, so the callback always runs exactly once.
+    whenSlideDone(callback) {
+        let done = false;
+        const finish = () => { if (done) return; done = true; callback(); };
+        const panel = this.querySelector('.smd-page');
+        if (!panel) { requestAnimationFrame(finish); return; }
+        const cs = getComputedStyle(panel);
+        const seconds = (parseFloat(cs.transitionDuration) || 0) + (parseFloat(cs.transitionDelay) || 0);
+        if (seconds <= 0) { requestAnimationFrame(finish); return; }
+        const onEnd = (event) => {
+            if (event.target === panel && event.propertyName === 'transform') {
+                panel.removeEventListener('transitionend', onEnd);
+                finish();
+            }
+        };
+        panel.addEventListener('transitionend', onEnd);
+        setTimeout(() => { panel.removeEventListener('transitionend', onEnd); finish(); }, seconds * 1000 + 250);
+    }
+
   attributeChangedCallback(name, oldValue, newValue) {
     if (name !== 'slide-duration') return;
     const ms = parseFloat(newValue);
