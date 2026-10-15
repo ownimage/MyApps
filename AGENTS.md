@@ -348,6 +348,38 @@ Architecture:
   `lol-list-items` to `storybook/index.html` (script tags + sections + the
   nav-link count) and recipes to `storybook/cardViewer.html`, seeded with a
   neutral image prefix. Not done yet.
+- PHONEBUTTONS SERVER ADDRESS (2026-10-15): the app can run as an installed PWA
+  pointed at a LAN server, not only served by it. Settings | Server holds an
+  "IP address" + port (`pb_serverIp` / `pb_serverPort`) and a "Scan QR" button.
+  `pbServerBase()` (`PhoneButtons/js/api.js`) resolves them to `""` (same origin,
+  every path stays relative) when the address is INCOMPLETE ("192.168.1." is a
+  deliberate prefix default) or IS the page origin, else `http://host:port`.
+  `pbApi._fetch` prefixes it; `pbSocket.connect()` calls `io(base||undefined,…)`.
+  `ensureServerDefaults()` (boot) seeds the origin when it has a non-default port,
+  else `192.168.1.` + `5000` (the Flask server's port). "Scan QR" opens
+  `#serverScanPage` hosting the shared `<smd-qr-import raw autostart>`; the decoded
+  Share-app URL is parsed by `parseServerAddress()` (URL / host:port / bare host,
+  strict host+port validation) into the two fields, then persists + reconnects. The
+  Share-app QR payload itself is UNCHANGED (`window.location.origin +
+  "/PhoneButtons/"`). The shared `<smd-qr-import>` gained a `raw` attribute: skip
+  the JSON/lz-string chunk envelope and emit the decoded text straight away
+  (lz-string is not even loaded). SERVER: `PhoneButtons/server/app.py` now enables
+  CORS for `/api/*` + Socket.IO (`_CORS_ORIGINS` = `PB_CORS_ORIGINS` env, default
+  `*`) since the PWA may be a different origin - SECURITY: the server injects
+  keystrokes, so restrict `PB_CORS_ORIGINS` on an untrusted network. Browser
+  caveats: an HTTPS app pointed at the plain-HTTP LAN server is MIXED CONTENT
+  (blocked regardless of CORS), and the camera scanner needs a secure context
+  (HTTPS or localhost). HTTPS SERVER (2026-10-15): `app.py` gained `--port`,
+  `--cert/--key` (PEM pair) and `--adhoc` (on-the-fly self-signed; needs
+  `cryptography`); the auto-opened browser URL uses the effective scheme + port.
+  Settings | Server gained an "HTTPS" switch (`pb_serverHttps`) that
+  `pbServerBase()` turns into the scheme, and a scanned `https://` URL turns it on.
+  The repo-root launcher `PhoneButtonServer.cmd` now DEFAULTS to `--adhoc` (HTTPS)
+  and installs deps incl. `cryptography`; it only passes `--adhoc` when the user
+  gave no TLS choice, and forwards `--no-tls` (a real no-op flag on app.py) to opt
+  out. A SELF-SIGNED cert is still NOT a secure context, so the camera scanner
+  stays blocked over it unless the cert is trusted by the phone (mkcert / a real
+  CA).
 - SAMPLE IMAGES MERGE (2026-09-14): the old `QRLinks/sampleImages.json` (8
   images, legacy `{name,data}` format) was merged into the shared set — all 8
   were already present in `shared/sampleImages.json` (shared is master; e.g.
@@ -4664,4 +4696,53 @@ Techniques / gotchas:
      mid-settle) and IGNORE a persistently undecodable image instead of aborting
      the screenshot. Verified: Auto-Hide Nav Behavior 4/4, launch-screenshots
      "settings menu tab" + "app grid" `--repeat-each=5` 10/10.
+
+### 2026-10-15 (g) - PhoneButtons: configurable server IP/port + QR scan + server CORS
+- See the durable PHONEBUTTONS SERVER ADDRESS note above for the full shape.
+- CLIENT: Settings|Server gained "IP address" + port inputs + a "Scan QR" button;
+  `api.js` gained `pbServerIp`/`pbServerPort`/`pbServerBase`/`pbHostComplete`
+  (and `_fetch` prefixes the base); `socket.js` connects to `pbServerBase() ||
+  undefined`; `settings-tab.js` gained `defaultServerAddress`/
+  `ensureServerDefaults`/`serverAddressChanged`/`parseServerAddress`/
+  `applyServerAddress` + `openServerScanPage`/`hideServerScanPage` (the hide stops
+  the camera explicitly - a hidden smd-page keeps the component connected);
+  `app.js` seeds the defaults BEFORE the auto-connect; `index.html` gained
+  `#serverScanPage` + the `smd-qr.js`/`smd-qr-import.js` scripts.
+- SHARED: `smd-qr-import.js` gained a `raw` attribute (plain-text scan).
+- SERVER: `app.py` enables CORS (`@app.after_request` headers + `SocketIO(...,
+  cors_allowed_origins=_CORS_ORIGINS)`, `PB_CORS_ORIGINS` env, default `*`).
+- TESTS (3 new in phonebuttons-regression): defaults + base + the REST URL the
+  base produces (stubbed fetch); `parseServerAddress` for URL/host:port/bare host
+  and rejection of junk; the scan page wiring (`smd-qr-import[raw]` + a dispatched
+  complete event filling the fields); and the raw-mode emit. Verified: phonebuttons
+  16/16, cmd-regression 58/58 (QR/import/export paths), qrlinks+storybook 17/17.
+  `node --check` + `python -m py_compile` clean.
+- GOTCHA: `new URL("http://not an address")` does NOT throw in Chromium - it
+  percent-encodes the host - so `parseServerAddress` validates the hostname with
+  a label regex rather than trusting `URL`.
+- `BUILD_NUMBER` -> `202610152045` via `npm run bump:build`.
+- FOLLOW-UP (2026-10-15): HTTPS. `app.py` gained `--port`, `--cert/--key` (PEM) and
+  `--adhoc` (on-the-fly self-signed; `cryptography` added to requirements) and
+  `_open_browser()` uses the effective scheme/port. The client gained an "HTTPS"
+  switch on Settings|Server (`pb_serverHttps`); `pbServerBase()` uses it for the
+  scheme, `parseServerAddress()` returns `{ip, port, https}` and
+  `applyServerAddress()` sets the switch. Tests updated (base + scheme, https URL
+  parse, scan sets the switch). Verified: phonebuttons 16/16; `node --check` +
+  `py_compile` clean. `BUILD_NUMBER` -> `202610152051`.
+- FOLLOW-UP 2 (2026-10-15): the launcher `PhoneButtonServer.cmd` was starting
+  plain HTTP because TLS is opt-in. It now DEFAULTS to `--adhoc`, only adds it when
+  no TLS choice was given, and installs `cryptography`. `--no-tls` was added to
+  app.py as a real no-op flag (forwarded by the launcher) because stripping it in
+  batch mangled an EMPTY `%*` into `--no-tls=`. No BUILD bump (no served asset
+  changed).
+- FOLLOW-UP 3 (2026-10-15): Settings|Server re-laid out. The address row no longer
+  uses the `col-4`/`col-8` "value stage" pattern (the labels sat right-aligned in
+  col-4, so the fields started mid-line) - it is now a FLUSH-LEFT flex row with
+  each label ABOVE its control: `https` (lowercase) + checkbox, "IP address" +
+  input, "Port" + input, all on one line, then "Scan QR" on its own line. GOTCHA:
+  `<label>` is inline and `smd-checkbox` is `d-inline-flex`, so without a block
+  wrapper the checkbox rendered BESIDE its label, not under it - the checkbox is
+  wrapped in a `<div>`, and `text-center` on that wrapper CENTERS the checkbox
+  under the label. `BUILD_NUMBER` -> `202610152116` (bumped per layout iteration:
+  ...152109, ...152111, ...152114, ...152116).
 

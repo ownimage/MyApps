@@ -222,6 +222,104 @@ test.describe("PhoneButtons - Regression", () => {
     await expect(page.locator("#shareQrCode")).toHaveAttribute("value", "http://localhost:8080/PhoneButtons/");
   });
 
+  test("Server tab: IP/port fields default, persist and drive the server base", async ({ page }) => {
+    await page.goto("/PhoneButtons/");
+
+    // Fresh install: the address is seeded from the page origin when it looks
+    // like the server (a non-default port), and that origin stays same-origin.
+    const seeded = await page.evaluate(() => ({
+      ip: localStorage.getItem("pb_serverIp"),
+      port: localStorage.getItem("pb_serverPort"),
+      base: pbServerBase()
+    }));
+    expect(seeded.ip).toBe("localhost");
+    expect(seeded.port).toBe("8080");
+    expect(seeded.base).toBe("");
+
+    await page.evaluate(() => openSettings());
+    await page.locator("#settingsTabs .smd-tab-btn").filter({ hasText: "Server" }).click();
+    await expect(page.locator("#serverIpInput")).toHaveValue("localhost");
+    await expect(page.locator("#serverPortInput")).toHaveValue("8080");
+
+    // A complete LAN address persists and becomes an absolute base...
+    await page.locator("#serverIpInput").fill("192.168.1.42");
+    await page.locator("#serverPortInput").fill("5000");
+    await expect.poll(() => page.evaluate(() => localStorage.getItem("pb_serverIp"))).toBe("192.168.1.42");
+    await expect.poll(() => page.evaluate(() => localStorage.getItem("pb_serverPort"))).toBe("5000");
+    expect(await page.evaluate(() => pbServerBase())).toBe("http://192.168.1.42:5000");
+
+    // ...which the REST layer actually uses.
+    const url = await page.evaluate(() => {
+      let seen = null;
+      const orig = window.fetch;
+      window.fetch = (u) => { seen = u; return Promise.resolve({ ok: true, json: () => Promise.resolve({ layouts: [] }) }); };
+      return pbApi.getLayouts().then(() => { window.fetch = orig; return seen; });
+    });
+    expect(url).toBe("http://192.168.1.42:5000/api/layouts");
+
+    // The HTTPS switch selects the scheme.
+    await page.locator("#serverHttps").click();
+    await expect.poll(() => page.evaluate(() => localStorage.getItem("pb_serverHttps"))).toBe("true");
+    expect(await page.evaluate(() => pbServerBase())).toBe("https://192.168.1.42:5000");
+
+    // The "192.168.1." default is an incomplete PREFIX -> same origin again.
+    await page.locator("#serverIpInput").fill("192.168.1.");
+    expect(await page.evaluate(() => pbServerBase())).toBe("");
+  });
+
+  test("Scan QR parses the Share-app URL into the IP/port fields", async ({ page }) => {
+    await page.goto("/PhoneButtons/");
+
+    // The parser accepts a full URL, host:port and a bare host, and carries the
+    // scheme through.
+    const parsed = await page.evaluate(() => [
+      parseServerAddress("http://192.168.1.99:5000/PhoneButtons/"),
+      parseServerAddress("192.168.1.99:5000"),
+      parseServerAddress("192.168.1.99"),
+      parseServerAddress("https://192.168.1.50/PhoneButtons/"),
+      parseServerAddress("not an address")
+    ]);
+    expect(parsed[0]).toEqual({ ip: "192.168.1.99", port: "5000", https: false });
+    expect(parsed[1]).toEqual({ ip: "192.168.1.99", port: "5000", https: false });
+    expect(parsed[2]).toEqual({ ip: "192.168.1.99", port: "5000", https: false });
+    expect(parsed[3]).toEqual({ ip: "192.168.1.50", port: "443", https: true });
+    expect(parsed[4]).toBeNull();
+
+    // The scan page hosts the shared importer in raw mode; a decoded value feeds
+    // the fields and is persisted.
+    await page.evaluate(() => openSettings());
+    await page.locator("#settingsTabs .smd-tab-btn").filter({ hasText: "Server" }).click();
+    await page.locator("#btnScanServerQr").click();
+    await expect(page.locator("#serverScanPage")).toHaveAttribute("open", "");
+    await expect(page.locator("#serverScanPage smd-qr-import[raw]")).toHaveCount(1);
+    await page.evaluate(() => {
+      document.querySelector("#serverScanPage smd-qr-import")
+        .dispatchEvent(new CustomEvent("smd-qr-import-complete", {
+          bubbles: true, composed: true, detail: { data: "https://192.168.1.77:5000/PhoneButtons/" }
+        }));
+    });
+    await expect(page.locator("#serverIpInput")).toHaveValue("192.168.1.77");
+    await expect(page.locator("#serverPortInput")).toHaveValue("5000");
+    await expect(page.locator("#serverHttps")).toBeChecked();
+    await expect.poll(() => page.evaluate(() => localStorage.getItem("pb_serverIp"))).toBe("192.168.1.77");
+    await expect.poll(() => page.evaluate(() => localStorage.getItem("pb_serverHttps"))).toBe("true");
+    expect(await page.evaluate(() => pbServerBase())).toBe("https://192.168.1.77:5000");
+    await expect(page.locator("#serverScanPage")).not.toHaveAttribute("open", "");
+  });
+
+  test("smd-qr-import raw mode emits the decoded text as-is", async ({ page }) => {
+    await page.goto("/PhoneButtons/");
+    const decoded = await page.evaluate(() => new Promise((resolve) => {
+      const el = document.createElement("smd-qr-import");
+      el.setAttribute("raw", "");
+      el.addEventListener("smd-qr-import-complete", (e) => resolve(e.detail.data));
+      document.body.appendChild(el);
+      el._stopped = false; // simulate an active scan
+      el._handleDecoded("http://10.0.0.5:5000/PhoneButtons/");
+    }));
+    expect(decoded).toBe("http://10.0.0.5:5000/PhoneButtons/");
+  });
+
   test("settings OK closes the page", async ({ page }) => {
     await page.goto("/PhoneButtons/");
     await page.evaluate(() => openSettings());

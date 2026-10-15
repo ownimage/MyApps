@@ -4,3 +4,5 @@ python-socketio>=5.11
 pywin32>=306
 psutil>=5.9
 Pillow>=10.0
+# Only needed for --adhoc HTTPS (on-the-fly self-signed certificate).
+cryptography>=42.0
