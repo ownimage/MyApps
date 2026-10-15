@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-label="Phone Buttons">
+  <rect width="512" height="512" rx="112" fill="#212529"/>
+  <rect x="156" y="72" width="200" height="368" rx="34" fill="#0d6efd"/>
+  <rect x="176" y="108" width="160" height="120" rx="12" fill="#212529"/>
+  <rect x="196" y="132" width="120" height="12" rx="6" fill="#6ea8fe"/>
+  <rect x="196" y="158" width="84" height="10" rx="5" fill="#6ea8fe"/>
+  <rect x="196" y="182" width="108" height="10" rx="5" fill="#6ea8fe"/>
+  <g fill="#ffffff">
+    <rect x="180" y="256" width="60" height="52" rx="10"/>
+    <rect x="256" y="256" width="60" height="52" rx="10"/>
+    <rect x="180" y="324" width="60" height="52" rx="10"/>
+    <rect x="256" y="324" width="60" height="52" rx="10"/>
+  </g>
+  <circle cx="256" cy="404" r="14" fill="#212529"/>
+</svg>

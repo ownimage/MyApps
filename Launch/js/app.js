@@ -10,59 +10,26 @@
 SmdConfig.storagePrefix = "launch_";
 SmdConfig.imagePrefix = "shared-";
 
-// The apps shown on the launch grid. Add a row when an app is added. Each
-// `icon` is the NAME of a shared sample image (seeded into `shared-images`),
-// rendered by <smd-image> rather than a raw file path.
-var LAUNCH_APPS = [
-  {
-    name: "Plan My Day",
-    description: "Plan your day and track important events",
-    path: "PlanMyDay/",
-    icon: "Plan My Day"
-  },
-  {
-    name: "Count My Days",
-    description: "Track countdowns to important events",
-    path: "CountMyDays/",
-    icon: "Count My Days"
-  },
-  {
-    name: "QR Links",
-    description: "Share links as QR codes",
-    path: "QRLinks/",
-    icon: "QR Links"
-  },
-  {
-    name: "Solar Controlar",
-    description: "Solar energy monitoring dashboard",
-    path: "SolarControlar/",
-    icon: "Solar Controlar"
-  },
-  {
-    name: "FreeFormOX",
-    description: "A tactical 5x5 Tic-Tac-Toe game",
-    path: "FreeFormOX/",
-    icon: "Noughts & Crosses"
-  },
-  {
-    name: "List of Lists",
-    description: "Organise anything into categories, lists and list items",
-    path: "ListOfLists/",
-    icon: "List of Lists"
-  }
-];
+// The app registry + the Launch menu order/visibility config live in the shared
+// `shared/js/smd-apps.js` (window.SmdApps), so the grid, the settings "Menu" tab
+// and every app's "Launch" flyout submenu read ONE source. Each app's `icon` is
+// the NAME of a shared sample image (seeded into `shared-images`), rendered by
+// <smd-image> rather than a raw file path.
 
 function renderAppGrid() {
   const grid = document.getElementById("appGrid");
   if (!grid) return;
   grid.innerHTML = "";
-  LAUNCH_APPS.forEach(app => {
+  if (typeof SmdApps === "undefined") return;
+  // The grid shows every app ticked "Show on Launch", in the Menu order set on
+  // the settings Menu tab.
+  SmdApps.launchApps().forEach(app => {
     const col = document.createElement("div");
     col.className = "col";
 
     const tile = document.createElement("a");
     tile.className = "app-tile card smd-card border-0 h-100 d-flex flex-column text-decoration-none";
-    tile.href = app.path;
+    tile.href = SmdApps.href(app.path) || "./";
 
     // Same card pattern as pmd-job-today-card: a bordered rounded surface holding
     // the content, on the theme's card background.
@@ -121,11 +88,65 @@ function buildSettingsContent() {
 }
 
 function openSettings() {
-  smdSetupSettingsPage();
+  smdSetupSettingsPage({ restore: renderAppMenuTab });
 }
 
 function closeSettings() {
   smdHideSettingsPage();
+}
+
+// -------------------------------
+// SETTINGS: MENU TAB
+// -------------------------------
+
+var appMenuSortable = null;
+
+// Render the re-orderable app list (one <launch-app-menu> per app, in the stored
+// Menu order) into the settings Menu tab.
+function renderAppMenuTab() {
+  const list = $id("appMenuList");
+  if (!list || typeof SmdApps === "undefined") return;
+  list.innerHTML = "";
+  SmdApps.entries().forEach(app => {
+    const tile = document.createElement("launch-app-menu");
+    tile.setAttribute("path", app.path);
+    tile.setAttribute("name", app.name);
+    tile.setAttribute("icon", app.icon);
+    tile.setAttribute("key-prefix", smdImagePrefix());
+    if (app.onLaunch) tile.setAttribute("on-launch", "");
+    if (app.onMenu) tile.setAttribute("on-menu", "");
+    list.appendChild(tile);
+  });
+  initAppMenuSortable();
+}
+
+// Drag to reorder (Sortable; the drag handle is the only grab target). The Launch
+// grid follows the Menu order, so it re-renders on every drop.
+function initAppMenuSortable() {
+  const list = $id("appMenuList");
+  if (!list || typeof Sortable === "undefined") return;
+  if (appMenuSortable) { appMenuSortable.destroy(); appMenuSortable = null; }
+  appMenuSortable = new Sortable(list, {
+    handle: ".drag-handle",
+    animation: 150,
+    forceFallback: true,
+    fallbackOnBody: true,
+    fallbackTolerance: 0,
+    onEnd: function () {
+      const paths = Array.from(list.querySelectorAll("launch-app-menu"))
+        .map(el => el.getAttribute("path") || "");
+      SmdApps.reorder(paths);
+      renderAppGrid();
+    }
+  });
+}
+
+// A tile tick changed: persist it and keep the grid in step.
+function onAppMenuChange(e) {
+  const detail = e.detail || {};
+  if (typeof detail.path !== "string") return;
+  SmdApps.setFlag(detail.path, detail.field, detail.value);
+  if (detail.field === "onLaunch") renderAppGrid();
 }
 
 // -------------------------------
@@ -135,6 +156,12 @@ function closeSettings() {
 document.addEventListener("DOMContentLoaded", () => {
   applyImageSize();
   applyTheme(getStoredTheme());
+
+  // Delegated: the settings page rebuilds its Menu tab on every open, so bind the
+  // tile-tick handler on the persistent page element.
+  const settingsPage = document.getElementById("settingsPage");
+  if (settingsPage) settingsPage.addEventListener("launch-app-menu-change", onAppMenuChange);
+
   renderAppGrid();
   // Seed the shared sample library on first visit so the tiles' <smd-image>
   // icons resolve by name; renderAppGrid's interval re-renders once it lands.

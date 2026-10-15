@@ -20,7 +20,7 @@
 // comparison. If the two ever DO drift, the page notices at runtime
 // (GET_BUILD) and re-registers, so the drift self-heals instead of pinning
 // users to a build the worker will never replace.
-const BUILD_NUMBER = "202610151742";
+const BUILD_NUMBER = "202610151808";
 
 const CACHE = "myapps-" + BUILD_NUMBER;
 
@@ -387,6 +387,7 @@ const SHARED_ASSETS = [
   "shared/js/smd-minio.js",
   "shared/js/smd-settings.js",
   "shared/js/smd-images.js",
+  "shared/js/smd-apps.js",
   "shared/vendor/chart.umd.min.js",
   "shared/vendor/chartjs-adapter-date-fns.bundle.min.js",
   "shared/sampleImages/Noughts_&_Crosses.svg"
@@ -498,7 +499,8 @@ const APPS = {
     "Launch/icon.svg",
     "Launch/icon-192.png",
     "Launch/icon-512.png",
-    "Launch/js/app.js"
+    "Launch/js/app.js",
+    "Launch/js/components/launch-app-menu.js"
   ],
   "FreeFormOX/": [
      "FreeFormOX/",

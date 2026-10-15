@@ -264,7 +264,7 @@ test.describe("PlanMyDay - Screenshots", () => {
     // Bootstrap padding), so a single hover before the loop is lost for themes
     // whose item rect moves away from the fixed pointer.
     const hoverLaunch = async (p) => {
-      await p.locator("a.dropdown-item").filter({ hasText: "Launch" }).hover();
+      await p.locator("#mainNav .launch-submenu-toggle").hover();
       await p.waitForTimeout(100);
     };
     await hoverLaunch(page);

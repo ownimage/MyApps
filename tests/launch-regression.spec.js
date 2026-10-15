@@ -19,6 +19,7 @@ test.describe("Launch - Regression", () => {
     "/SolarControlar/",
     "/FreeFormOX/",
     "/ListOfLists/",
+    "/PhoneButtons/",
     "/storybook/",
     "/storybook/cardViewer.html"
   ];
@@ -63,26 +64,28 @@ test.describe("Launch - Regression", () => {
     page.on("console", m => { if (m.type() === "error") errors.push(m.text()); });
 
     await page.goto("/");
-    await expect(page.locator("#appGrid .app-tile")).toHaveCount(6);
+    await expect(page.locator("#appGrid .app-tile")).toHaveCount(8);
 
     const tiles = page.locator("#appGrid .app-tile");
-    await expect(tiles.nth(0)).toContainText("Plan My Day");
-    await expect(tiles.nth(1)).toContainText("Count My Days");
-    await expect(tiles.nth(2)).toContainText("QR Links");
-    await expect(tiles.nth(3)).toContainText("Solar Controlar");
-    await expect(tiles.nth(4)).toContainText("FreeFormOX");
-    await expect(tiles.nth(5)).toContainText("List of Lists");
-    await expect(tiles.nth(0)).toHaveAttribute("href", "PlanMyDay/");
-    await expect(tiles.nth(1)).toHaveAttribute("href", "CountMyDays/");
-    await expect(tiles.nth(2)).toHaveAttribute("href", "QRLinks/");
-    await expect(tiles.nth(3)).toHaveAttribute("href", "SolarControlar/");
-    await expect(tiles.nth(4)).toHaveAttribute("href", "FreeFormOX/");
-    await expect(tiles.nth(5)).toHaveAttribute("href", "ListOfLists/");
+    const EXPECTED_TILES = [
+      ["Plan My Day", "PlanMyDay/"],
+      ["Count My Days", "CountMyDays/"],
+      ["QR Links", "QRLinks/"],
+      ["Solar Controlar", "SolarControlar/"],
+      ["FreeFormOX", "FreeFormOX/"],
+      ["List of Lists", "ListOfLists/"],
+      ["Phone Buttons", "PhoneButtons/"],
+      ["Launch", "./"]
+    ];
+    for (let i = 0; i < EXPECTED_TILES.length; i++) {
+      await expect(tiles.nth(i)).toContainText(EXPECTED_TILES[i][0]);
+      await expect(tiles.nth(i)).toHaveAttribute("href", EXPECTED_TILES[i][1]);
+    }
 
     // App icons load via <smd-image> from the shared sample library (the SVGs are
     // 512x512; the Solar Controlar icon is the unpacked 256px PNG, rendered at
     // the tile's data80 thumbnail when the 80px size sheet applies).
-    for (let i = 0; i < 6; i++) {
+    for (let i = 0; i < 8; i++) {
       await expect.poll(async () => tiles.nth(i).locator("smd-image img").evaluate(el => el.getAttribute("src") && el.naturalWidth)).toBeGreaterThan(0);
     }
     expect(await tiles.nth(3).locator("smd-image img").evaluate(async (imgEl) => {
@@ -110,6 +113,7 @@ test.describe("Launch - Regression", () => {
     await page.goto("/");
     await page.evaluate(() => openSettings());
     await expect(page.locator("#settingsPage")).toHaveAttribute("open", "");
+    await expect(page.locator("#settingsTabs .smd-tab-btn")).toHaveText(["Display", "Menu"]);
 
     // The settings page is an opaque full-screen surface: the Launch grid behind
     // it must not show through (this app does not explicitly hide its main content).
@@ -138,36 +142,36 @@ test.describe("Launch - Regression", () => {
     await expect.poll(async () => page.evaluate(() => localStorage.getItem("launch_iconSize"))).toBe("small");
   });
 
-  test("every app's menu links to the Launch app", async ({ page }) => {
-    await page.goto("/PlanMyDay/");
-    await page.locator("#btnMainMenu").click();
-    const pmdLaunch = page.locator(".dropdown-menu .dropdown-item").filter({ hasText: "Launch" });
-    await expect(pmdLaunch).toBeVisible();
-    await expect(pmdLaunch).toHaveAttribute("href", "../");
-    expect(await pmdLaunch.evaluate(el => new URL(el.href).pathname)).toBe("/");
-
-    await page.goto("/CountMyDays/");
-    await page.locator("#btnMainMenu").click();
-    const cmdLaunch = page.locator(".dropdown-menu .dropdown-item").filter({ hasText: "Launch" });
-    await expect(cmdLaunch).toBeVisible();
-    await expect(cmdLaunch).toHaveAttribute("href", "../");
-
-    await page.goto("/QRLinks/");
-    await page.locator("#btnMainMenu").click();
-    const qrLaunch = page.locator(".dropdown-menu .dropdown-item").filter({ hasText: "Launch" });
-    await expect(qrLaunch).toBeVisible();
-    await expect(qrLaunch).toHaveAttribute("href", "../");
-
-    await page.goto("/FreeFormOX/");
-    await page.locator("#btnMainMenu").click();
-    const ffoxLaunch = page.locator(".dropdown-menu .dropdown-item").filter({ hasText: "Launch" });
-    await expect(ffoxLaunch).toBeVisible();
-    await expect(ffoxLaunch).toHaveAttribute("href", "../");
-    await expect(ffoxLaunch).toHaveText("Launch");
-
+  test("every app's menu shows the Launch submenu of ticked apps", async ({ page }) => {
+    const EXPECTED_MENU = [
+      ["Plan My Day", "../PlanMyDay/"],
+      ["Count My Days", "../CountMyDays/"],
+      ["QR Links", "../QRLinks/"],
+      ["Solar Controlar", "../SolarControlar/"],
+      ["FreeFormOX", "../FreeFormOX/"],
+      ["List of Lists", "../ListOfLists/"],
+      ["Phone Buttons", "../PhoneButtons/"],
+      ["Launch", "../"]
+    ];
     // SolarControlar is intentionally skipped: it needs its own power-data
     // backend (the /solar/api server), and without it the app's loading overlay
     // covers #btnMainMenu, so the menu can never be opened in this test.
+    for (const shell of ["/PlanMyDay/", "/CountMyDays/", "/QRLinks/", "/FreeFormOX/", "/ListOfLists/", "/PhoneButtons/"]) {
+      await page.goto(shell);
+      await page.locator("#btnMainMenu").click();
+      const toggle = page.locator("#mainNav .launch-submenu-toggle");
+      await expect(toggle, shell).toBeVisible();
+      await expect(toggle).toHaveText("Launch");
+      // The Launch entry is a group header now (no href) that opens the flyout.
+      await expect(toggle).not.toHaveAttribute("href", /.+/);
+      await toggle.click();
+      const items = page.locator("#mainNav .launch-submenu-menu .dropdown-item");
+      await expect(items, shell).toHaveCount(EXPECTED_MENU.length);
+      for (let i = 0; i < EXPECTED_MENU.length; i++) {
+        await expect(items.nth(i), shell).toHaveText(EXPECTED_MENU[i][0]);
+        await expect(items.nth(i), shell).toHaveAttribute("href", EXPECTED_MENU[i][1]);
+      }
+    }
   });
 
   test("every app reads the same shared image library", async ({ page }) => {
@@ -210,5 +214,110 @@ test.describe("Launch - Regression", () => {
     }));
     expect(leftovers.pmd).toBeNull();
     expect(leftovers.cmd).toBeNull();
+  });
+
+  // ── Launch Menu tab ─────────────────────────────────────────
+
+  test.describe("Launch Menu tab", () => {
+
+    const ALL_APPS = ["Plan My Day", "Count My Days", "QR Links", "Solar Controlar", "FreeFormOX", "List of Lists", "Phone Buttons", "Launch"];
+
+    async function openMenuTab(page) {
+      await page.goto("/");
+      await page.evaluate(() => {
+        localStorage.clear();
+        document.querySelectorAll("smd-page").forEach(p => { p.slideDuration = 0; });
+        openSettings();
+      });
+      await page.locator("#settingsTabs .smd-tab-btn").filter({ hasText: "Menu" }).click();
+      await expect(page.locator("#appMenuList launch-app-menu").first()).toBeVisible();
+    }
+
+    test("lists every app with a drag handle, a Launch tick and a Menu tick", async ({ page }) => {
+      await openMenuTab(page);
+      await expect(page.locator("#appMenuList launch-app-menu")).toHaveCount(ALL_APPS.length);
+      await expect(page.locator("#appMenuList .app-name")).toHaveText(ALL_APPS);
+      await expect(page.locator("#appMenuList .drag-handle")).toHaveCount(ALL_APPS.length);
+      await expect(page.locator("#appMenuList smd-checkbox.launch-toggle")).toHaveCount(ALL_APPS.length);
+      await expect(page.locator("#appMenuList smd-checkbox.menu-toggle")).toHaveCount(ALL_APPS.length);
+      // both ticks default ON
+      await expect(page.locator("#appMenuList smd-checkbox.launch-toggle[checked]")).toHaveCount(ALL_APPS.length);
+      await expect(page.locator("#appMenuList smd-checkbox.menu-toggle[checked]")).toHaveCount(ALL_APPS.length);
+    });
+
+    test("the Show on Launch tick hides an app from the grid and persists", async ({ page }) => {
+      await openMenuTab(page);
+      await page.locator('#appMenuList launch-app-menu[path="PhoneButtons/"] smd-checkbox.launch-toggle input').click();
+      await expect.poll(() => page.evaluate(() =>
+        JSON.parse(localStorage.getItem("launch_appMenu")).find(c => c.path === "PhoneButtons/").onLaunch
+      )).toBe(false);
+      await page.evaluate(() => closeSettings());
+      await expect(page.locator("#appGrid .app-tile")).toHaveCount(ALL_APPS.length - 1);
+      await expect(page.locator("#appGrid")).not.toContainText("Phone Buttons");
+    });
+
+    test("the Show in Menu tick removes an app from another app's Launch submenu", async ({ page }) => {
+      await openMenuTab(page);
+      await page.locator('#appMenuList launch-app-menu[path="ListOfLists/"] smd-checkbox.menu-toggle input').click();
+      await expect.poll(() => page.evaluate(() =>
+        JSON.parse(localStorage.getItem("launch_appMenu")).find(c => c.path === "ListOfLists/").onMenu
+      )).toBe(false);
+      await page.goto("/PlanMyDay/");
+      await page.locator("#btnMainMenu").click();
+      await page.locator("#mainNav .launch-submenu-toggle").click();
+      await expect(page.locator("#mainNav .launch-submenu-menu .dropdown-item")).toHaveCount(ALL_APPS.length - 1);
+      await expect(page.locator("#mainNav .launch-submenu-menu")).not.toContainText("List of Lists");
+    });
+
+    test("stacks the Launch and Menu ticks with labels beside the handle, image and title", async ({ page }) => {
+      await openMenuTab(page);
+      const geo = await page.evaluate(() => {
+        const tile = document.querySelector("#appMenuList launch-app-menu");
+        const l = tile.querySelector(".launch-toggle").getBoundingClientRect();
+        const m = tile.querySelector(".menu-toggle").getBoundingClientRect();
+        const name = tile.querySelector(".app-name").getBoundingClientRect();
+        const handle = tile.querySelector(".drag-handle").getBoundingClientRect();
+        const thumb = tile.querySelector(".thumb").getBoundingClientRect();
+        const label = (sel) => tile.querySelector(sel + " .checkbox-label").textContent.trim();
+        return {
+          launchLabel: label(".launch-toggle"),
+          menuLabel: label(".menu-toggle"),
+          stacked: m.top >= l.bottom - 1,
+          nameMid: name.top + name.height / 2,
+          launchMid: l.top + l.height / 2,
+          menuMid: m.top + m.height / 2,
+          handleLeftOfName: handle.right <= name.left + 1,
+          thumbLeftOfName: thumb.right <= name.left + 1
+        };
+      });
+      expect(geo.launchLabel).toBe("Launch");
+      expect(geo.menuLabel).toBe("Menu");
+      // one tick under the other
+      expect(geo.stacked).toBe(true);
+      // handle/image sit to the LEFT of the title and the title spans both tick rows
+      expect(geo.handleLeftOfName).toBe(true);
+      expect(geo.thumbLeftOfName).toBe(true);
+      expect(geo.nameMid).toBeGreaterThan(geo.launchMid - 2);
+      expect(geo.nameMid).toBeLessThan(geo.menuMid + 2);
+    });
+
+    test("reordering the Menu list reorders the Launch grid", async ({ page }) => {
+      await openMenuTab(page);
+      const tiles = page.locator("#appMenuList launch-app-menu");
+      // Drag the FIRST tile down past the second (both are always in view; the
+      // list scrolls, so the LAST tile can sit under the page footer).
+      const handle = tiles.first().locator(".drag-handle");
+      const h = await handle.boundingBox();
+      const second = await tiles.nth(1).boundingBox();
+      await page.mouse.move(h.x + h.width / 2, h.y + h.height / 2);
+      await page.mouse.down();
+      await page.mouse.move(h.x + h.width / 2, h.y + h.height / 2 + 12, { steps: 4 });
+      await page.mouse.move(second.x + second.width / 2, second.y + second.height - 3, { steps: 15 });
+      await page.mouse.up();
+      await expect(page.locator("#appMenuList launch-app-menu").first()).toHaveAttribute("path", "CountMyDays/");
+      await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem("launch_appMenu"))[0].path)).toBe("CountMyDays/");
+      await page.evaluate(() => closeSettings());
+      await expect(page.locator("#appGrid .app-tile").first()).toContainText("Count My Days");
+    });
   });
 });

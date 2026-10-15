@@ -30,6 +30,13 @@ test.describe("Launch - Screenshots", () => {
     await screenshotAllThemes(page, "settings.png");
   });
 
+  test("settings menu tab", async ({ page }) => {
+    await page.evaluate(() => openSettings());
+    await page.locator("#settingsTabs .smd-tab-btn").filter({ hasText: "Menu" }).click();
+    await page.waitForTimeout(400);
+    await screenshotAllThemes(page, "settings-menu.png");
+  });
+
   test("main menu dropdown", async ({ page }) => {
     await page.locator("#btnMainMenu").click();
     await page.locator(".dropdown-menu.show").waitFor({ state: "visible" });

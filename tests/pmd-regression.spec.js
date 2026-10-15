@@ -5666,10 +5666,12 @@ test.describe("PlanMyDay - Regression", () => {
       await page.evaluate(() => localStorage.setItem("planmydays_autoHideMenu", "true"));
       await page.reload();
       await page.locator("#btnMainMenu").click();
-      await expect(page.locator("#mainNav .dropdown-menu")).toBeVisible();
+      // The top-level menu ONLY: the Launch submenu is a nested .dropdown-menu.
+      const topMenu = page.locator("#mainNav > .dropdown > .dropdown-menu");
+      await expect(topMenu).toBeVisible();
       await page.evaluate(() => hideNav());
       expect(await page.evaluate(() => document.getElementById("mainNav").classList.contains("nav-hidden"))).toBe(true);
-      await expect(page.locator("#mainNav .dropdown-menu")).not.toBeVisible();
+      await expect(topMenu).not.toBeVisible();
     });
   });
 

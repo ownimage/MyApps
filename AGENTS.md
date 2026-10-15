@@ -177,27 +177,68 @@ Architecture:
 - LAUNCH APP (2026-09-13): the app launcher's entry is the **repo-root
   `index.html`** (served at `/MyApps/`); its support files live in `Launch/`
   (`manifest.json` with `start_url`/`scope: "../"`, `icon.svg` + generated PNGs,
-  `css/styles.css`, `js/app.js`). It shows a grid of app tiles from
-  `LAUNCH_APPS` in `Launch/js/app.js` (add a row when an app is added) and has a
-  settings page (theme, image size, BMC, share QR, FontAwesome credit) using the
-  shared theme engine + `smd-tabs`/`smd-page`. `SmdConfig.storagePrefix =
-  "launch_"`. Both other apps' hamburger menus have a **Launch** item
-  (`href="../"`). `sw.js` has an `APPS["Launch/"]` entry whose list includes the
-  root `"index.html"`; `appIndexFor()` maps the repo root (and unknown paths) to
-  `"index.html"`, and `/Launch/...` also falls back to the root index.
-  TILE ICONS (2026-09-17): `LAUNCH_APPS[].icon` is a **shared sample-image NAME**
-  ("Plan My Day"/"Count My Days"/"QR Links"/"Solar Controlar"/"Noughts &
-  Crosses"), rendered with `<smd-image key-prefix="shared-">` (NOT a raw file
-  path). The Launch page loads `shared/js/smd-images.js` and calls
+  `js/app.js`). It shows a grid of app tiles and has a settings page (theme, image
+  size, BMC, share QR, FontAwesome credit) using the shared theme engine +
+  `smd-tabs`/`smd-page`. `SmdConfig.storagePrefix = "launch_"`. `sw.js` has an
+  `APPS["Launch/"]` entry whose list includes the root `"index.html"`;
+  `appIndexFor()` maps the repo root (and unknown paths) to `"index.html"`, and
+  `/Launch/...` also falls back to the root index.
+  APP LIST + MENU CONFIG MOVED 2026-10-15: the grid is no longer driven by a local
+  `LAUNCH_APPS` array — it reads `SmdApps.launchApps()` from `shared/js/smd-apps.js`
+  (see the LAUNCH APP MENU / APP REGISTRY note below). The hamburger menus no
+  longer carry a plain Launch link: each app's Launch item becomes a flyout group
+  header built from the shared config.
+  TILE ICONS (2026-09-17): each registry entry's `icon` is a **shared sample-image
+  NAME** ("Plan My Day"/"Count My Days"/"QR Links"/"Solar Controlar"/"Noughts &
+  Crosses"/"List of Lists"/"Phone Buttons"/"Launch"), rendered with
+  `<smd-image key-prefix="shared-">` (NOT a raw file path). The Launch page loads
+  `shared/js/smd-images.js` and calls
   `seedSampleImages()` at boot; `renderAppGrid()` sets a `setInterval` that
   calls `smd-image.refresh()` once `shared-images` is populated (first-visit
   async seeding). There is NO explicit `size` on the tiles — they follow the
   `launch_iconSize` setting via `SmdImage.setDefaultSize` (applied by
   `applyImageSize()`).
-  ADDING A LAUNCH TILE (2026-10-14) = update `tests/launch-regression.spec.js`
-  "root shows the grid of available apps": bump `toHaveCount(<n>)`, the per-tile
-  `nth(i)` text + `href`, and the icon-check loop bound (`ListOfLists` made it 6).
-  Also add the new shell to that spec's `SHELL_CASCADE` list.
+  ADDING A LAUNCH TILE (2026-10-15, supersedes 2026-10-14) = add a row to
+  `shared/js/smd-apps.js` `APPS` (name, description, path, icon — `icon` is a
+  shared sample-image NAME), then update `tests/launch-regression.spec.js`
+  `EXPECTED_TILES` (text + href + `toHaveCount`), the "every app's menu shows the
+  Launch submenu" `EXPECTED_MENU`, the `ALL_APPS` list in the Launch Menu tab
+  describe, and add the new shell to `SHELL_CASCADE`. The grid AND the Launch
+  submenu are now data-driven (order + visibility come from the `launch_appMenu`
+  config), so no `app.js` edit is needed for a new app.
+- LAUNCH APP MENU / APP REGISTRY (2026-10-15): the app list and the Launch menu
+  order/visibility live in ONE shared module, `shared/js/smd-apps.js`
+  (`window.SmdApps`), loaded (before the app's own `js/app.js`) by all 8 shells
+  and in `sw.js SHARED_ASSETS`. `SmdApps.APPS` is the registry
+  (name/description/path/icon; `path` is relative to the repo root, Launch itself
+  is `""`). The config is the ORIGIN-WIDE key `launch_appMenu` = ordered
+  `[{path,onLaunch,onMenu}]` (unknown paths dropped, new apps appended with both
+  ticks ON). API: `entries()`, `launchApps()`, `menuApps()`,
+  `setFlag(path,field,value)`, `reorder(paths)`, `href(path)`. `href()` derives the
+  relative base ONCE from the module's own `document.currentScript.src` (the same
+  trick `smd-app.js` uses for SMD_SHARED_ROOT), so the SAME function serves the
+  Launch grid (repo root) and the sub-app menus (one level down) — no
+  caller-specific prefix. Launch's settings gained a second tab "Menu"
+  (`#appMenuList`) rendering one `<launch-app-menu>` per app
+  (`Launch/js/components/launch-app-menu.js`): drag handle + icon + title on the
+  LEFT, TWO STACKED labelled `smd-checkbox`es on the right ("Launch" = show on the
+  grid, "Menu" = show in the Launch submenu); `renderAppMenuTab()` + Sortable
+  persist order/ticks, and the grid (`renderAppGrid`) renders `SmdApps.launchApps()`
+  in the Menu order. Every app's static `<li><a class="dropdown-item"
+  href="../">Launch</a></li>` is REPLACED at boot by `SmdApps.buildLaunchSubmenu()`
+  with a GROUP HEADER (`a.dropdown-item.launch-submenu-toggle`, NO href — it no
+  longer navigates) plus a right flyout `.launch-submenu-menu` of `menuApps()`.
+  Flyout CSS is injected via `injectSmdComponentStyle("smd-launch-submenu", …)`
+  (hover on desktop, click/`.submenu-open` on touch; the toggle's click stops
+  propagation so the parent menu stays open). PhoneButtons gained a Launch `<li>`
+  so it gets the submenu too. Tests: launch-regression (grid = 8 tiles incl. Launch
+  `./`; "every app's menu shows the Launch submenu of ticked apps" across 6
+  shells; the "Launch Menu tab" describe), launch-screenshots "settings menu tab",
+  and `pmd-screenshots` "main menu dropdown" now hovers
+  `#mainNav .launch-submenu-toggle` (the old `hasText: "Launch"` matched 2 nodes
+  and would strict-mode-fail). Sample images "Launch" and "Phone Buttons" were
+  added (native SVG + SURGICAL JSON append — a full `regen` rewrites 22
+  pre-existing entries whose SVG files drifted from the JSON).
 - SHARED IMAGE LIBRARY (2026-09-13): all apps share ONE images list,
   `shared-images`. `SmdConfig.imagePrefix = "shared-"` is set in every app's
   `app.js`; `smdImagePrefix()` (shared/js/smd-app.js) returns
@@ -4409,8 +4450,9 @@ Techniques / gotchas:
   Edit Categories header badge (`#editListsTotalBadge`) and the accordion
   `count-badge`/`listcounts`; dropped the `schedule`/`frequency`/`time`/`sleepUntil`/
   `waitFor` defaults from new lists and the dead Sleep-Until date-picker listener.
-  `getListCountBadgeText`/`updateEditorListCountBadges` now only feed the Search
-  Lists header badge. LAYOUT (2026-10-15): removed the `.card smd-card border-0
+  `getListCountBadgeText`/`updateEditorListCountBadges` only fed the Search Lists
+  header badge; BOTH were DELETED 2026-10-15 when that badge was removed, along
+  with their three call sites (`list-search.js` x2, `categories-editor.js` x1). LAYOUT (2026-10-15): removed the `.card smd-card border-0
   w-100` wrapper div from `pmd-job-summary-card` and `lol-list-summary-card` (see
   the durable note above) so the editor-accordion child rows are flush and
   full-width with the header's bottom line matching the item border; updated
@@ -4552,4 +4594,74 @@ Techniques / gotchas:
   code too; removed. Verified: pmd `Today Card Swipe|Sleep|Schedule|Job Edit|
   smd-page` 115/115, storybook 8/8, pmd-touch 6/6.
 - `BUILD_NUMBER` not bumped - bump before shipping.
+
+### 2026-10-15 (e) - ListOfLists: removed the Search Lists header count badge
+- REQUEST (user): on the ListOfLists Search Lists page, remove the list-count
+  badge from the header. The badge was `page.headerHtml = '<smd-badge
+  id="listSearchTotalBadge" …>'` in `list-search.js buildSearchListsContent()`.
+- REMOVED the `headerHtml` line, its three feeder calls
+  (`updateEditorListCountBadges()` in `list-search.js` x2 + `categories-editor.js`
+  x1) and the now-dead `getListCountBadgeText`/`updateEditorListCountBadges`
+  helpers in `editor-common.js` (a repo-wide grep showed they existed only to feed
+  that badge). The `smd-page` header now shows just the "Search Lists" title.
+- Verified with a probe on `/ListOfLists/`: header badges 0, page title
+  "Search Lists", 2 result cards, zero console/page errors. `node --check` clean.
+  (ListOfLists has no regression spec by user request.) The user ran the full
+  regression green.
+
+### 2026-10-15 (f) - Launch app: app registry, settings "Menu" tab, Launch flyout submenu
+- FEATURE (user): a second Settings tab "Menu" on the Launch app listing EVERY app
+  (incl. Launch) as a re-orderable tile with a drag handle, a "Show on Launch" tick
+  and a "Show in Menu" tick; the Launch grid shows the ticked apps in the Menu
+  order; every app's "Launch" menu entry becomes a flyout of the Menu-ticked apps.
+  See the durable LAUNCH APP MENU / APP REGISTRY note above for the full shape.
+- NEW `shared/js/smd-apps.js` (`window.SmdApps`): the app registry + the
+  origin-wide `launch_appMenu` config + `href()` + `buildLaunchSubmenu()`. Loaded
+  by all 8 shells and in `sw.js SHARED_ASSETS`.
+- NEW `Launch/js/components/launch-app-menu.js` (`<launch-app-menu>`): light DOM,
+  clone-safe (`data-smd-built`), two stacked labelled `smd-checkbox`es. Registered
+  in `sw.js APPS["Launch/"]`.
+- Launch `index.html`: `shared/vendor/sortable.min.js`, `smd-draghandle.js`,
+  `smd-apps.js`, `launch-app-menu.js` script tags + the "Menu" `<section>` in
+  `#settingsTemplate`. Launch `js/app.js`: grid from `SmdApps.launchApps()`,
+  `renderAppMenuTab()` + Sortable + `onAppMenuChange`, and `openSettings()` passes
+  `{ restore: renderAppMenuTab }`. Every other shell: one `smd-apps.js` script tag;
+  PhoneButtons also gained the static Launch `<li>`.
+- SAMPLE IMAGES: added "Launch" + "Phone Buttons" (native SVG in
+  `shared/sampleImages/` + a SURGICAL append to `sampleImages.json` — a full
+  `regen` rewrites 22 pre-existing entries whose source SVG drifted from the JSON).
+  The append initially broke the JSON because the marker swallowed the last entry's
+  closing brace; the working marker is the array close `\n]\n}\n`.
+- TESTS: launch-regression grid test -> 8 tiles (names + hrefs incl. Launch `./`),
+  the menu test -> the submenu across 6 shells, plus a new "Launch Menu tab"
+  describe (tile controls + stacked-layout geometry, the two tick behaviours, the
+  Sortable reorder -> grid order). `SHELL_CASCADE` gained `/PhoneButtons/`.
+  launch-screenshots gained "settings menu tab"; pmd-screenshots "main menu
+  dropdown" hovers `#mainNav .launch-submenu-toggle`.
+- GOTCHA (cost a debugging round): the FIRST reorder test dragged the LAST tile,
+  but the settings list SCROLLS, so the last tile's rect sits under the page
+  FOOTER and the mousedown landed on the OK button (`elementFromPoint` proved it;
+  the container saw only `mousemove`, no `mousedown`). Drag a VISIBLE tile (the
+  first) in tests.
+- VERIFIED: launch-regression 12/12, cmd 58/58, qrlinks+ffox+phonebuttons+solar
+  45/45, pmd Navigation + gcal-last-item 10/10, launch-screenshots (superhero)
+  green, pmd-screenshots "main menu dropdown" (superhero) green. sw.js precache:
+  409 URLs, 0 duplicates. Visual check of the superhero screenshots confirms the
+  `Launch >` flyout, the 2 settings tabs and the stacked tick tiles.
+- `BUILD_NUMBER` -> `202610151808` via `npm run bump:build`.
+- FOLLOW-UP (2026-10-15, from the user's full run — 2 failures, both fixed):
+  1. `pmd-regression` "nav auto-hide also closes an open hamburger dropdown"
+     STRICT-MODE failed: the new nested `<ul class="dropdown-menu
+     launch-submenu-menu">` made `#mainNav .dropdown-menu` match TWO elements.
+     RULE: to target the app's top-level menu use `#mainNav > .dropdown >
+     .dropdown-menu`, never `#mainNav .dropdown-menu`.
+  2. `launch-screenshots` "settings menu tab" was FLAKY with
+     `EncodingError: The source image cannot be decoded` inside
+     `screenshot-helpers.js`. A themed `<smd-image>` clears + swaps its blob src
+     on every `applyTheme()`, so the helper's old `await image.decode()` could run
+     against an empty/just-swapped src. FIXED in the helper: poll up to 3s for an
+     img with a src that actually decodes (retrying, since the src can change
+     mid-settle) and IGNORE a persistently undecodable image instead of aborting
+     the screenshot. Verified: Auto-Hide Nav Behavior 4/4, launch-screenshots
+     "settings menu tab" + "app grid" `--repeat-each=5` 10/10.
 
