@@ -255,8 +255,8 @@ test.describe("Storybook - Regression", () => {
 
     const recipes = [
       ["pmd-job-today-card", "pmd-job-today-card > .card"],
-      ["pmd-job-summary-card", "pmd-job-summary-card > .card"],
-      ["pmd-job-summary-card-search", "pmd-job-summary-card > .card"],
+      ["pmd-job-summary-card", "pmd-job-summary-card > .d-flex"],
+      ["pmd-job-summary-card-search", "pmd-job-summary-card > .d-flex"],
       ["cmd-countdown-card", "cmd-countdown-card > .card"],
       ["cmd-date-card", "cmd-date-card > .card"],
       ["cmd-category-card", "cmd-category-card > .card"],

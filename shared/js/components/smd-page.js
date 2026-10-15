@@ -126,6 +126,12 @@ class SmdPage extends HTMLElement {
 
     this.querySelectorAll('.smd-page-footer smd-button').forEach((btn) => {
       btn.addEventListener('click', () => {
+        // Bootstrap's `.btn:disabled` sets `pointer-events: none`, so a click on a
+        // "disabled" button actually TARGETS THE HOST `<smd-button>` (the inner
+        // <button> is disabled and never fires). Without this guard a page whose
+        // footer button was disabled (e.g. an empty mandatory Title) still fired
+        // its action: "it looks disabled but is actually clickable".
+        if (btn.disabled || btn.hasAttribute('disabled')) return;
         const index = parseInt(btn.dataset.index);
         const config = this._buttons[index];
         if (config && config.close !== false) this.hide();

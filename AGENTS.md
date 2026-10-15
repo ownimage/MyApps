@@ -64,7 +64,7 @@ Architecture:
   - z-index stack: smd-page 1040 < smd-modal 1050. `imagePickerPage` is an smd-page and uses the page layer; no z-index hacks are needed.
 - Shared components are LIGHT DOM. `shared/css/styles.css` now holds ONLY theme colour + spatial-size declarations; every layout MECHANIC (display/flex/position/gap/margin/padding/transform/transition/border-reset/cursor/opacity) lives in the component's own `injectSmdComponentStyle()` block (or, for the app shell, `injectSettingsLayout()` in `shared/js/smd-settings.js`). Do not reintroduce constructable stylesheets or shadow-root styling for these components. `smd-modal`, `smd-page`, `smd-tabs`, and the pmd-* cards expose stable light-DOM classes for shared selectors and tests. `smd-tabs` tab definitions may include `panelClass` (for example `no-padding`) for panel-specific layout.
 - Colour/typography conventions: smd-tabs active = `--bs-primary`, inactive = `--bs-secondary`, with `#smd-app` scoping for priority; the Streams Editor header is `--bs-primary` when expanded and `--bs-info` when collapsed; modal/page headers use theme surfaces (`--bs-body-bg`, `--bs-secondary-bg`, `--bs-border-color`) rather than hardcoded colours. Bootstrap/Bootswatch remains authoritative; the runtime contrast layer is not used.
-- TYPESCALE TOKENS (2026-09-18): one shared ramp in `shared/css/styles.css` — `body { --smd-type-base: 1rem }` plus `body.font-size-xsmall/small/large/xlarge/jumbo` overrides (0.8/0.925/1/1.125/1.3/1.6rem) — drives exactly four tokens `--smd-type-badge` (base×0.75), `--smd-type-p` (base), `--smd-type-h2` (base×1.25), `--smd-type-h1` (base×2), all declared on `body` (NOT `:root`: the ramp must recompute per font-size body class, and body custom props pierce shadow DOM while `:host-context()` doesn't). Tag map: h1→h1; h2/h3/h4→h2; h5/h6→p; text/inputs/tables→p; badges→badge. BUTTONS ARE h2 (one step above text): `<button>`, `.btn`, `.smd-tab-btn` all use `var(--smd-type-h2)`; `.btn-sm` stays at `var(--smd-type-p)`. Light-DOM home is `shared/css/styles.css` (`button, .btn` / `.btn-sm`); the shared `btnBadgeSheet` covers shadow buttons. Scaffold the h2/p rules inline wherever a shadow root does NOT adopt btnBadgeSheet: the 4 apps' `editor-styles.js`, `smd-settings.js`, `smd-minio.js`, `smd-modal.js`, `smd-image-picker.js`, `smd-image-dropdown.js`. Don't re-add per-component `.btn` font-size rules. Every component + app style now uses `var(--smd-type-*, original-value)` (original as fallback so behaviour is unchanged wherever the token is missing). Media-fit sizes are token CALCs (e.g. CM/QR title `calc(var(--smd-type-h1,1.5rem)*0.7667)`, CM count `*0.8333`, CM container h1 `*0.625`, Solar 480px block). Compact density = `--…-title-size: var(--smd-type-p)` overrides. Deliberate non-token exceptions: the 22px hamburger icon in `smd-app.js`, `smd-checkbox` 1em/1.4em + `smd-draghandle` 1.2rem/1.6rem touch sizes, vendor CSS, storybook chrome. Tests assert heading ELEMENT tags (now `h1` for main-view date/"Today!"/"From …" headings) and pmd-touch.spec.js:119 asserts the NEW pixel values (xlarge 41.6, jumbo 51.2, compact-jumbo 25.6) — update those literals together with any ramp change.
+- TYPESCALE TOKENS (2026-09-18): one shared ramp in `shared/css/styles.css` — `body { --smd-type-base: 1rem }` plus `body.font-size-xsmall/small/large/xlarge/jumbo` overrides (0.8/0.925/1/1.125/1.3/1.6rem) — drives exactly four tokens `--smd-type-badge` (base×0.75), `--smd-type-p` (base), `--smd-type-h2` (base×1.25), `--smd-type-h1` (base×2), all declared on `body` (NOT `:root`: the ramp must recompute per font-size body class, and body custom props pierce shadow DOM while `:host-context()` doesn't). Tag map: h1→h1; h2/h3/h4→h2; h5/h6→p; text/inputs/tables→p; badges→badge. BUTTONS ARE h2 (one step above text): `<button>`, `.btn`, `.smd-tab-btn` all use `var(--smd-type-h2)`; `.btn-sm` stays at `var(--smd-type-p)`. Light-DOM home is `shared/css/styles.css` (`button, .btn` / `.btn-sm`); the shared `btnBadgeSheet` covers shadow buttons. Scaffold the h2/p rules inline wherever a shadow root does NOT adopt btnBadgeSheet: the 4 apps' `editor-styles.js`, `smd-settings.js`, `smd-minio.js`, `smd-modal.js`, `smd-image-picker.js`, `smd-image-dropdown.js`. Don't re-add per-component `.btn` font-size rules. Every component + app style now uses `var(--smd-type-*, original-value)` (original as fallback so behaviour is unchanged wherever the token is missing). Media-fit sizes are token CALCs (e.g. CM/QR title `calc(var(--smd-type-h1,1.5rem)*0.7667)`, CM count `*0.8333`, CM container h1 `*0.625`, Solar 480px block). Compact density = `--…-title-size: var(--smd-type-p)` overrides. Deliberate non-token exceptions: the 22px hamburger icon in `smd-app.js`, `smd-checkbox` 1.2em/2em + `smd-draghandle` FIXED 1.2rem/1.6rem touch sizes, vendor CSS, storybook chrome. Tests assert heading ELEMENT tags (now `h1` for main-view date/"Today!"/"From …" headings) and pmd-touch.spec.js:119 asserts the NEW pixel values (xlarge 41.6, jumbo 51.2, compact-jumbo 25.6) — update those literals together with any ramp change.
 - THEME TEXT COLOURS (2026-09-12): shadow-DOM buttons/tabs cannot use Bootswatch's `.btn-*` rules (document CSS doesn't cross the boundary, and `--bs-btn-*` is set on the `.btn-*` element, not `:root`). `applySmdVars()` reads a hidden light-DOM `<button class="btn btn-<variant>">` probe (`smdBootstrapColor()`) and publishes `--smd-primary/secondary/success/danger/info/warning-text` + `--smd-tab-text` on `<html>`; every shadow `.btn-*`/variant uses those vars. `applyTheme()` re-runs `applySmdVars` on the theme `<link>`'s `load`. Never hardcode white text for a theme-coloured surface; if Bootswatch's own `.btn-*` rule disagrees with its `--bs-btn-color` var (e.g. cerulean's later `.btn-secondary { color: ... }`), the probe wins — always match the probe.
 - BADGES (2026-09-12): use the shared `<smd-badge variant="primary|secondary|success|danger|warning|info|light|dark" pill?>` component everywhere — never a `<span class="badge bg-*">` (Bootstrap's badge vars live on the `.badge` element and can't reach shadow roots). `applySmdVars()` probes a hidden light-DOM `.badge.text-bg-<variant>` (`smdBootstrapStyle()`) and publishes `--smd-badge-<variant>-{bg,text}`; the component's own sheet consumes them, so text colour follows Bootswatch exactly (white on cerulean's navy info, black on its light secondary, etc.). `btnBadgeSheet` now only carries `.btn*` rules despite its name; `smd-page`'s badge/bg rules were removed.
 - IMAGE DROPDOWN (2026-09-18): the shared `<smd-image-dropdown>` (`shared/js/components/smd-image-dropdown.js`) is the generic image+name picker — the old PlanMyDay `pmd-stream-select` was folded into it and deleted. It is DATA-driven, not DOM: host sets `options = [{name, image}]` (image OPTIONAL → text-only rows, e.g. CountMyDays' no-image "All") and `selected` = the chosen option's NAME string; picks dispatch `smd-image-dropdown-change` ({ name }). Listener wiring: CountMyDays `#dateCategoryFilter` (`smd-image-dropdown-change` → `setDateCategoryFilter`, "" for All) in `dates-editor.js`; PlanMyDay `#jobStreamDropdown` (name mapped back via `streamIndexByName` in `editor-common.js`). Stable shadow ids for test locators: `smdImageDropdownBtn`, `smdImageBtnIcon`, `smdImageBtnText`, `smdImageDropdownMenu`. Its colours come from the `--smd-dropdown-*` palette in the shared MODE layer (`shared/css/themes/light.css` + `dark.css`), which since 2026-10-13 mirrors the form-field palette (`--smd-form-*`) for surface/label/border and does NOT change colour on hover (the closed control is field-like); a theme overrides in `shared/css/themes/<theme>/<theme>.<mode>.css` (superhero, cyborg, darkly do) — see the 2026-09-26 (c) and 2026-10-13 (e) session notes. GOTCHA (2026-10-13): the palette only sets `background-color`, so a theme whose stock `.btn` ALSO sets `background-image: var(--bs-gradient)` shows a white sheen over a dark button; materia is the only such theme and clears it with `#smd-app smd-image-dropdown .btn { background-image: none }` (the `#smd-app` scope is needed to beat the theme's `.btn:focus-visible` re-apply).
@@ -194,6 +194,10 @@ Architecture:
   async seeding). There is NO explicit `size` on the tiles — they follow the
   `launch_iconSize` setting via `SmdImage.setDefaultSize` (applied by
   `applyImageSize()`).
+  ADDING A LAUNCH TILE (2026-10-14) = update `tests/launch-regression.spec.js`
+  "root shows the grid of available apps": bump `toHaveCount(<n>)`, the per-tile
+  `nth(i)` text + `href`, and the icon-check loop bound (`ListOfLists` made it 6).
+  Also add the new shell to that spec's `SHELL_CASCADE` list.
 - SHARED IMAGE LIBRARY (2026-09-13): all apps share ONE images list,
   `shared-images`. `SmdConfig.imagePrefix = "shared-"` is set in every app's
   `app.js`; `smdImagePrefix()` (shared/js/smd-app.js) returns
@@ -225,8 +229,84 @@ Architecture:
   `QRLinks/js/storage.js` + the shared `migrateImagesToShared()` (its sources
   now include `qr_images`); a startup reminder modal shows each boot (same
   pattern as CountMyDays). `JOBS_EDITOR_STYLES` is copied into
-  `QRLinks/js/editor-styles.js` (now duplicated in 3 apps — candidate for a
+  `QRLinks/js/editor-styles.js` (now duplicated in 3 apps - candidate for a
   future shared extraction).
+- LISTOFLISTS APP (2026-10-14): a COPY of PlanMyDay with a FULL rename, served
+  at `/ListOfLists/`. `SmdConfig.storagePrefix = "lol_"` + `imagePrefix =
+  "shared-"`, set EXPLICITLY in `ListOfLists/js/app.js` (PlanMyDay relies on the
+  smd-app.js `planmydays_` default). RENAME MAP: Stream -> Category, Job -> List,
+  Task -> List Item (code token `item`). Files renamed: `job-editor.js` ->
+  `list-editor.js`, `job-search.js` -> `list-search.js`, `streams-editor.js` ->
+  `categories-editor.js`; components `pmd-stream-header` -> `lol-category-header`,
+  `pmd-job-summary-card` -> `lol-list-summary-card`, `pmd-job-today-card` ->
+  `lol-list-main-card`, `pmd-tasks` -> `lol-list-items` (all `pmd-*` events ->
+  `lol-*`, e.g. `pmd-task-change` -> `lol-list-item-change`). "today PAGE" wording
+  became "main" (`#todayCardList` -> `#mainCardList`, `today-drag-card` ->
+  `main-drag-card`, `today_order` -> `main_order`, `#todayTabs` -> `#mainTabs`,
+  `countdownScrollBody` -> `mainScrollBody`, the "Regenerate Today's Tiles"
+  button); DATE logic keeps "today" (`getTodayStr`/`getTodayDate`/
+  `shouldShowListToday`/`getTomorrowStr`). The main container id is
+  `#mainContainer`, NOT `countdownContainer`. TERMINOLOGY - NOTE vs DESCRIPTION
+  (user, 2026-10-15): the user uses "Note" and "Description" INTERCHANGEABLY for a
+  List Item's fields. A `<lol-list-items>` row actually has TWO separate fields:
+  the `description` (the always-visible text INPUT) and the `note` (the textarea
+  behind the pencil `.item-note-btn`, events `lol-list-item-change` field `note` /
+  `lol-list-item-note-toggle`). So when the user says "note" or "description"
+  about a list item, CONFIRM which of the two is meant (or name the field you are
+  changing in your reply) rather than guessing - and the same wording may appear
+  on the list-level `description` too (`listField('description', ...)`), which is
+  a THIRD thing again. DROPPED from the copy: the whole
+  Gantt (`js/gantt.js`, `js/gantt-lib.js`, `css/gantt.css`, the import map, the
+  Gantt menu item, the "Show Gantt" setting and the list `duration` field), the
+  CountMyDays "today events" cards (`js/cmd-today.js`, `shared/js/smd-gcal.js`,
+  the CountMyDays cmd-countdown-card + googleCalendar scripts) and the "Refresh
+  Google Calendar" menu item. ALSO REMOVED (2026-10-14, second pass): the
+  "Split list", "Hide done" and "Auto Ad Hoc" General toggles and their features
+  (the main view no longer renders Progress/Maintenance tabs or filters completed
+  lists, and the Ad Hoc removal ALWAYS confirms) and the WHOLE Settings
+  "Schedule" tab (`suffixStart`/`jan1`/`monday`/`startWeek`; `getListSuffix` now
+  hardcodes the old defaults - Monday=1 numbering, day-of-year -1, no suffix
+  offset - and the Sleep-Until picker drops `first-day-of-week`). KEPT: General
+  (Auto-hide menu), Display, Minio and Danger settings, MinIO import/export, JSON
+  export/import, images editor, image picker, list/category editors, list search,
+  Ad Hoc. NO regression/screenshot specs yet
+  (user request) and NOT in the Storybook (TODO below). Registered in `Launch`
+  (a `LAUNCH_APPS` tile whose icon is the shared sample image "List of Lists",
+  added as `shared/sampleImages/List_of_Lists.svg` + `shared/sampleImages.json`)
+  and in `sw.js APPS` (no `ListOfLists/css/` entry - the app sheet is gone).
+- SHARED HOOKS FOR THE SECOND APP (2026-10-14): the rename meant the shared theme
+  CSS had to keep ONE set of declarations while matching BOTH apps, so those
+  selectors are now COMMA LISTS, e.g. `#smd-app #streamsEditor pmd-stream-header
+  .stream-accordion-header, #smd-app #categoriesEditor lol-category-header
+  .category-accordion-header { ... }` in `shared/css/styles.css`, the mode layer
+  (`light.css`/`dark.css`) and the `superhero`/`cyborg`/`darkly`/`simplex` theme
+  sheets; and `pmd-tasks .task-row, lol-list-items .item-row { ... }`. The
+  `--pmd-tasks-*` palette VARS were left as the single set (shared by both).
+  Keep the two halves in step when adding a themed surface.
+- SHARED JS accepts EITHER main-container id: `shared/js/smd-app.js` (picker
+  background) and `shared/js/smd-images.js` (editor open/close) look up
+  `mainContainer || countdownContainer`; `openImagesEditor` also hides
+  `listSearchEditor` and injects `LISTS_EDITOR_STYLES` when present (else
+  `JOBS_EDITOR_STYLES`). TODO (user asked to note it): rename
+  `countdownContainer` -> `mainContainer` in the OTHER TWO apps (PlanMyDay,
+  CountMyDays) so there is one id, then the shared fallbacks can go.
+- SUMMARY CARDS LOST THEIR `.card` WRAPPER (2026-10-15): `pmd-job-summary-card`
+  and `lol-list-summary-card` no longer wrap their content in
+  `<div class="card smd-card border-0 w-100">`; the component root is now the row
+  `<div class="d-flex py-2 border rounded-3">`. In the editors' accordions the
+  child rows are therefore FLUSH and full width under the header, and the line
+  under the header is the row's `--bs-border-color` border (matching the
+  accordion-item border) instead of the shared `.card` black border. The old
+  double box (black `.card` border + inset row) is gone. TESTS updated:
+  `storybook-regression` cardViewer recipes use `pmd-job-summary-card > .d-flex`;
+  `pmd-regression` drag-ghost check uses `.d-flex.py-2`. KNOCK-ON: the
+  job-search / Search Lists rows also lose the card surface (they are bordered
+  rows on the page background) - revisit if that looks wrong.
+- LISTOFLISTS STORYBOOK (TODO, user request 2026-10-14): add demo sections for
+  `lol-category-header`, `lol-list-summary-card`, `lol-list-main-card` and
+  `lol-list-items` to `storybook/index.html` (script tags + sections + the
+  nav-link count) and recipes to `storybook/cardViewer.html`, seeded with a
+  neutral image prefix. Not done yet.
 - SAMPLE IMAGES MERGE (2026-09-14): the old `QRLinks/sampleImages.json` (8
   images, legacy `{name,data}` format) was merged into the shared set — all 8
   were already present in `shared/sampleImages.json` (shared is master; e.g.
@@ -440,12 +520,13 @@ Architecture:
 - `hideNav()` (shared smd-settings.js) now hides when NO
   `smd-page:not(.d-none)` is open — generic for any app's page set (was a
   hardcoded PlanMyDay id list).
-- PMD TODAY TABS OWN THEIR CONTENT (2026-10-13): the PlanMyDay main-view split-list
+- PMD TODAY TABS OWN THEIR CONTENT (2026-10-13; `.tab-content` removed 2026-10-15):
+  the PlanMyDay main-view split-list
   tabs (`#todayTabs`) used to set `hide-panels` and render the job list as a SIBLING
   below the tab bar. They now render `#countdownScrollBody` > `#todayCardList`
-  INSIDE the ACTIVE `.tab-content > .smd-tab-panel` (no `hide-panels`).
+  INSIDE the ACTIVE `.smd-tab-panel` (no `hide-panels`).
   `PlanMyDay/js/main-view.js` injects `injectTodayTabsLayout()` making
-  `#todayTabsWrap` / `#todayTabs` / `.tab-content` / `.smd-tab-panel.active` a flex
+  `#todayTabsWrap` / `#todayTabs` / `#todayTabs > .smd-tab-panel.active` a flex
   column with `min-height:0`, so the tab bar stays put and the active panel's body
   scrolls (the component's own sheet only sets `display:block`). The `hide-panels`
   attribute stays supported in smd-tabs but is no longer used by any app.
@@ -482,6 +563,15 @@ Techniques / gotchas:
   `setPointerCapture` works); (b) `locator.dispatchEvent("pointerdown|pointermove|pointerup", { pointerId, clientX, clientY, button, buttons })` for touch-style tests (synthetic pointer — `setPointerCapture` THROWS `NotFoundError` for a fake pointerId, so the component must try/catch it). A touch drag helper already exists in `pmd-touch.spec.js` (`touchDrag`, pointerType:"touch" via the document's element-from-point) if a real hit-test is preferred. Remember `touch-action` must be pan-y (or similar) on the swipable element so vertical scroll still works and horizontal gestures reach the JS.
 - SW PRECACHE TEST FLAKE (2026-09-13): the sub-path tests (`cmd-regression.spec.js` and `pmd-regression.spec.js`) wait for a fresh SW install that precaches ~250 URLs from the single python server. Under the 10-shard waves a single transient request failure rejects `cache.addAll`, install stays failed with NO worker, and the old 60s poll never saw `active`. Both tests now: `test.setTimeout(300000)`, poll for 240s, and when a registration exists with no `installing`/`waiting`/`active` worker they `unregister()` + `register()` again to retry the install. If a precache URL genuinely 404s the test still fails (as intended).
 - smd-button disabled/`.disabled` assertions must target the inner native button: `#id button`, not the host element.
+- A DISABLED `smd-button` IS CLICKABLE WITHOUT THIS FIX (2026-10-14): Bootstrap's
+  `.btn:disabled` applies `pointer-events: none`, so a click "on" a disabled
+  button TARGETS THE HOST `<smd-button>` (the inner `<button>` never fires). Any
+  click handler on the host - `smd-page`'s footer action, an inline `onclick` -
+  therefore still ran while the button LOOKED disabled (reported as "the OK
+  button looks disabled but is actually clickable" when a mandatory Title/name
+  was empty). FIXED in `shared/js/components/smd-page.js` (the footer click
+  listener returns early when `btn.disabled`) AND `smd-button.js` (a
+  capture-phase click guard on the host stops the event while disabled).
 - Playwright `toHaveText` on an `smd-button` HOST reports the slot fallback text too (e.g. `"Edit\n Button"`), so exact-text assertions fail. Use `toContainText("Edit")` or a `getByRole("button", { name: "Edit" })` locator instead.
 - Grep on minified vendor files breaks the tool (giant matched lines) — scope searches to `PlanMyDay/js/**`, `shared/js/**`, or `tests/**`.
 - WATCH THE BROWSER CONSOLE AFTER ANY CHANGE, ESPECIALLY A NEW/CHANGED LIBRARY (2026-09-30): a
@@ -2959,7 +3049,7 @@ Techniques / gotchas:
 ### 2026-09-25 - Shared light-DOM styling and page-stack recovery
 
 - Every app and Storybook entry body now has `id="smd-app"`. Shared component selectors that must beat Bootswatch use that ID scope, for example `#smd-app smd-tabs .smd-tab-btn`; do not rely on a low-specificity `.nav-link` rule because theme CSS can win the cascade.
-- The current tab contract is Bootstrap-native: `smd-tabs` renders `.nav.nav-tabs`, `.nav-link`, `.tab-content`, and `.tab-pane`, and synchronizes `.active`, `aria-selected`, `tabindex`, and the `hidden` attribute. Use the same `.tabs = [...]`/`activeIndex` API as the Storybook demo.
+- The current tab contract is Bootstrap-native except that `smd-tabs` renders NO `.tab-content` wrapper (removed 2026-10-15 - some themes gave it unwanted padding/margins/borders): it renders `.nav.nav-tabs`, `.nav-link`, the `.smd-tab-line`, and the `.tab-pane.smd-tab-panel` panels as DIRECT children of the host, and synchronizes `.active`, `aria-selected`, `tabindex`, and the `hidden` attribute. Panel show/hide is the component's own `smd-tabs .smd-tab-panel { display:none }` / `.active { display:block }` (Bootstrap's `.tab-content > .tab-pane` no longer applies, and Bootstrap's tab JS does NOT reference `.tab-content`). Use the same `.tabs = [...]`/`activeIndex` API as the Storybook demo; query/serve panels with `.smd-tab-panel.active`, never `.tab-content > .smd-tab-panel`.
 - `smd-modal` light-DOM chrome was recovered from the deployed `https://ownimage.github.io/MyApps/shared/css/styles.css` stylesheet. The dialog uses `--bs-body-bg`/`--bs-body-color`/`--bs-border-color`, the overlay dims the page, and header/body/footer padding, borders, radius, and shadow are intentional shared styles. Keep the deployed block as the reference when the local functional CSS cleanup removes component chrome.
 - `smd-page` does not automatically hide a previously open page. App-specific code must capture and restore the underlying page: `PlanMyDay/js/job-editor.js` uses `_jobEditReturnView` plus `hideJobEditBackground()`/`restoreJobEditBackground()`; `PlanMyDay/js/image-picker.js` uses `pickerBackground` to hide every open `smd-page` and `#countdownContainer` before showing `imagePickerPage`, then restores them on every close path (cancel, No Image, and selection). Preserve the `d-none`/slide timing contract.
 - `activeEditorView()` treats the `d-none` state of `#streamsEditor` and `#jobSearchEditor` as the source of truth for the return view. Do not hide an editor page without storing its prior state, or Done/Cancel will render the wrong view.
@@ -4201,3 +4291,145 @@ Techniques / gotchas:
   `data-bs-theme` (which does NOT change on a same-mode theme swap), so without
   this the bars kept the previous theme's colours across the 27-theme loop.
 - Verified for superhero + quartz (light/dark). No BUILD bump (test-only change).
+
+### 2026-10-14 (s) - New ListOfLists app (copy of PlanMyDay, full rename)
+- WHAT: created `ListOfLists/` by copying PlanMyDay and applying a FULL rename.
+  Stream -> Category, Job -> List, Task -> List Item; `pmd-*` components/events
+  -> `lol-*`; `SmdConfig.storagePrefix = "lol_"`. Dropped the Gantt and the
+  CountMyDays/Google integrations. "today page" naming -> "main" (date logic
+  kept). See the durable LISTOFLISTS note above for the exact mapping.
+- HOW: a one-shot Node script copied the tree (skipping gantt/cmd-today/css),
+  renamed the files, and applied an ORDERED literal token map (pmd->lol specific
+  first, then Stream/Job/Task case-aware, then the today-page rules). A manual
+  pass then removed the Gantt/Google leftovers (index.html head+menu+settings+
+  script tags, app.js wiring, the Schedule "Duration" field) and fixed a few
+  doubled comments ("main main", "list list").
+- SHARED: added `lol-*` selectors to the existing PlanMyDay theme rules as comma
+  lists (styles.css + light.css/dark.css + superhero/cyborg/darkly/simplex) and
+  `lol-list-items .item-row` to the row rule; made `smd-app.js`/`smd-images.js`
+  accept `mainContainer` and added `listSearchEditor` + `LISTS_EDITOR_STYLES`.
+- ASSETS: new `ListOfLists/icon.svg` (stacked list cards logo) + generated
+  icon-192/512 PNGs; the same SVG added as the shared sample image "List of
+  Lists" (appended to `shared/sampleImages.json` with a surgical text insert so
+  the 900KB file stayed byte-identical apart from the new entry); a Launch tile.
+  Registered in `sw.js APPS` (duplicate precache check: 407 URLs, 0 dups).
+- WHAT WORKED: the ordered token map + `node --check` on every file; a static
+  check that every `getElementById`/`$id` literal resolves (only the shared
+  `#smdConfirmModal` and a pre-existing dead `listImageRemoveBtn` non-hits).
+- WHAT DID NOT WORK / NOT RUN: no regression/screenshot specs were written or run
+  (user request), so the app is UNVERIFIED at runtime - a first load should be
+  smoke-checked before shipping. `BUILD_NUMBER` bumped 202610140845 ->
+  202610141617 via `npm run bump:build`.
+- TODO (noted above): rename `countdownContainer` -> `mainContainer` in
+  PlanMyDay/CountMyDays; add the ListOfLists components to the Storybook.
+- FOLLOW-UP (same session): removed the Settings "Split list", "Hide done" and
+  "Auto Ad Hoc" toggles (and their code: the main view's Progress/Maintenance
+  tabs, the completed-list filter, the Ad Hoc skip-confirm branch) and the whole
+  Settings "Schedule" tab (`changeSuffixStart`/`changeJan1`/`changeMonday`/
+  `changeStartWeek` + their restore blocks; `getListSuffix` hardcodes the old
+  defaults; the list Sleep-Until picker drops `first-day-of-week`). Also removed
+  the stale `--pmd-tasks-*` comment from `lol-list-items.js`. ADD/EDIT CATEGORY
+  page: removed the "Tab" label + the `#categoryTabDropdown` `smd-image-dropdown`
+  (`initCategoryTabDropdown` and the `.category-tab-picker` CSS are gone) and
+  moved the Image picker between Title and Description (form is now Title /
+  Image / Description). Also removed the WHOLE progress/maintenance concept: the
+  `tab` attribute + `.tab-badge` from `lol-list-main-card`, `lol-category-header`
+  and `lol-list-summary-card` (templates, `observedAttributes`, `_render`), the
+  `tab` header attribute in `categories-editor.js`, the `category.tab` reads in
+  `main-view.js`/`list-search.js`, and the `tab: "progress"` seed on new
+  categories. `node --check` clean; no residual references. SHARED FIX (also
+  covers PlanMyDay's Add/Edit Stream and the other page OK buttons): a disabled
+  `smd-button` was clickable - see the durable gotcha note above; guarded in
+  `smd-page.js` + `smd-button.js`. TEST-ONLY follow-up (no BUILD bump):
+  `tests/launch-regression.spec.js` "root shows the grid of available apps" now
+  expects 6 tiles (added the `nth(5)` "List of Lists" / `ListOfLists/`
+  assertions and widened the icon loop), and `/ListOfLists/` was added to that
+  spec's `SHELL_CASCADE`. EDIT LIST page (same session): removed the Suffix /
+  Day-of-Year / mod controls from the General tab and the WHOLE Schedule tab -
+  the schedule radio modal, Sleep Until / Wait for / Schedule Time, plus
+  `openListEditSchedule` / `openListSleepPickerWhenReady` / `listTimeChanged`;
+  `lol-list-main-card`'s swipe is now LEFT=delete only (no
+  `lol-list-main-tomorrow`), and `main-view.js` no longer listens for it. General
+  + List Items tabs remain. `getListSuffix`/`getNextDueText`/`getTomorrowStr` are
+  now unused (left in place). STRIP (same session): removed those unreachable
+  helpers (`getListSuffix`, `getNextDueText`, `getTomorrowStr`) plus `getScheduleText`
+  and `formatDate`, the `.suffix` badge (main + summary cards), the summary card's
+  `.schedule`/`.time`/`.extra` badges, the main card's daily `repeat-1` icon, the
+  Edit Categories header badge (`#editListsTotalBadge`) and the accordion
+  `count-badge`/`listcounts`; dropped the `schedule`/`frequency`/`time`/`sleepUntil`/
+  `waitFor` defaults from new lists and the dead Sleep-Until date-picker listener.
+  `getListCountBadgeText`/`updateEditorListCountBadges` now only feed the Search
+  Lists header badge. LAYOUT (2026-10-15): removed the `.card smd-card border-0
+  w-100` wrapper div from `pmd-job-summary-card` and `lol-list-summary-card` (see
+  the durable note above) so the editor-accordion child rows are flush and
+  full-width with the header's bottom line matching the item border; updated
+  `storybook-regression` cardViewer selectors + the `pmd-regression` drag-ghost
+  check. BUILD -> 202610150748. TABS (2026-10-15): `smd-tabs` no longer renders a
+  `.tab-content` wrapper (some themes gave it unwanted padding/margins/borders on
+  the PlanMyDay main-page split-list tabs) - panels are now DIRECT children of the
+  host; updated `PlanMyDay/js/main-view.js` (`#todayTabs > .smd-tab-panel` layout
+  + the `.smd-tab-panel.active` query) and the `pmd-regression` split-list nesting
+  assertion. Verified via probe: panels hide/show, tab clicks switch, the job list
+  renders inside the active panel. BUILD -> 202610150803. EDIT LIST SINGLE PAGE
+  (2026-10-15): removed the Edit List tabs (was General + List Items) - the page
+  is now ONE form: Title row with the Active checkbox relabelled "Show"; the title
+  input; ONE row `[category dropdown | Image select | Description checkbox]`
+  (`d-flex gap-2`); a collapsible description box (`#listDescriptionWrap`, shown
+  when the list already has a description, toggled by the `#listShowDescription`
+  checkbox's `onchange="toggleListDescription(this.checked)"`); then the list
+  items + the two Add buttons.
+  `getListEditSections`/`getListGeneralTabHTML`/`getListItemsTabHTML` deleted;
+  `buildListEditPage` lost its `activeTabIndex` arg and `editListFromView` no
+  longer passes one. BUILD -> 202610150810. VIEW LIST (2026-10-15): opening the
+  page read-only (main card > View) now renders ONLY the read-only list items; the
+  page h1 = the list Title (`data.title || "No Title"`); the Show checkbox, title
+  input, category + image selectors, Description checkbox and box, and both Add
+  buttons are dropped. Footer keeps Edit | OK so Edit still flips the same page
+  into the full editor. BUILD -> 202610150819. VIEW-ONLY ITEMS (2026-10-15): the
+  `lol-list-items` attribute `read-only` was REPLACED by a single `view-only`
+  switch (one flag, not one per behaviour - its behaviours always co-vary):
+  `view-only` drops the drag handle AND the delete button, leaves the done
+  checkbox + the note (pencil) button/textarea LIVE, and locks ONLY the
+  description input (`readonly`). The view-mode footer's OK was changed from
+  `cancel` to `done`, so ticking items / editing notes in View List PERSISTS
+  (previously OK discarded the buffer). Verified by probe: view mode h1 = list
+  title, 2 rows, 0 handles, 0 delete buttons, checkboxes + note buttons enabled,
+  desc inputs readonly, note textareas editable, and OK saved `done:true` +
+  the edited note. BUILD -> 202610150833. MAIN PAGE SIMPLIFIED (2026-10-15): three
+  removals on the ListOfLists main page: (1) the `#btnAddCard` "+ Add List" button
+  is GONE from the date heading row (the only remaining Add entry point is
+  `addNewListFromSearch()` on the Search Lists page, which still calls
+  `addMainCardWithModal()` - the function was KEPT); (2) the main cards
+  (`lol-list-main-card`) no longer have a drag handle: the template handle cell,
+  `_adoptSlottedHandle()`, the app's slotted `<smd-draghandle>`, the
+  `initMainCardsSortable()` Sortable wiring, the `mainCardsSortable` var and the
+  `main-drag-card`/`user-select-none` classes were all deleted - the main list is
+  NOT reorderable and its cards are selectable again. The swipe's
+  `.drag-handle` composedPath guard was dropped too (no handles left). (3) the
+  tile's DONE checkbox (`smd-checkbox.list-checkbox`) is GONE, so
+  `lol-list-main-toggle`, `markListDone()` and `removeAdhocList()` (the "Remove
+  from Ad Hoc?" confirm) were deleted with it; the `checked` attribute plumbing
+  went too. `done` / `loadCompletedLists` / `saveCompletedLists` / `ensureMainList`
+  carry-over were LEFT in place (they still honour legacy stored completed ids).
+  Only the `done` styling path is now unreachable from the UI. Verified by probe:
+  0 Add button, 0 handles, 0 checkboxes, View opens with the list title as h1, and
+  swipe-LEFT still opens the Delete confirm. BUILD -> 202610150841.
+- 2026-10-15 (b) - Edit List item rows were 83px tall (a drag-handle size regression).
+  BUG (user): "a lot of space between the items" on the ListOfLists Edit List page.
+  ROOT CAUSE was NOT the note row (collapsed = `d-none`, contributes nothing; the
+  row gap is 4px): commit `63d7c0c` ("touch sizes") converted the DOCUMENTED
+  `<smd-draghandle>` sizes (normal `1.2rem` / large `1.6rem`) into EM values
+  (`1.2em` / `2em`) + em padding. Em is relative to the surrounding font, so at
+  touch size `large` (the app default - `|| "large"` in `ListOfLists/js/display.js`)
+  inside a `body.font-size-xlarge` page (20.8px) the glyph became 41.6px, and with
+  the inherited 1.5 text leading (62.4px) + em padding the HOST was ~75px tall -
+  which stretched every `.item-row` (and PMD's `.task-row`) to 83px around a 38px
+  input. FIX (`shared/css/styles.css`): back to FIXED rem (`1.2rem`, `1.6rem` for
+  `html[data-smd-touch-size="large"]`) plus `line-height: 1` (a glyph must not
+  carry text leading). Measured: rows 83px -> 49px (the 41px `.btn-sm` note button
+  is now the tallest child), handle 75px -> 33px large / 25px normal, gaps still
+  4px. SHARED CHANGE: every app's handles got smaller, so PMD's task/job rows
+  tighten the same way (screenshots will differ - user regenerates). Verified:
+  pmd-regression `touch size` 5/5, `drag handle` 5/5, pmd-touch 6/6. AGENTS also
+  gained the TERMINOLOGY note above (user uses "Note"/"Description"
+  interchangeably for a List Item's fields). BUILD -> 202610150851.

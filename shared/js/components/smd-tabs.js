@@ -143,7 +143,7 @@ class SmdTabs extends HTMLElement {
         this.innerHTML = `
       <ul class="nav nav-tabs smd-tab-list" role="tablist">${headersHtml}</ul>
       ${topLineHtml}
-      <div class="tab-content">${panelsHtml}</div>
+      ${panelsHtml}
       ${bottomLineHtml}
     `;
 

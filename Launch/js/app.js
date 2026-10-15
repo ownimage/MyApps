@@ -43,6 +43,12 @@ var LAUNCH_APPS = [
     description: "A tactical 5x5 Tic-Tac-Toe game",
     path: "FreeFormOX/",
     icon: "Noughts & Crosses"
+  },
+  {
+    name: "List of Lists",
+    description: "Organise anything into categories, lists and list items",
+    path: "ListOfLists/",
+    icon: "List of Lists"
   }
 ];
 

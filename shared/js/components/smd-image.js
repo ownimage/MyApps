@@ -137,7 +137,7 @@
     _autoTheme() {
       // Pick the light or dark image variant from the element's ACTUAL
       // background, so an image on a dark surface inside an otherwise light
-      // theme (e.g. pmd-stream-header) still gets the light variant. Falls back
+      // theme (e.g. pmd-stream-header / lol-category-header) still gets the light variant. Falls back
       // to the document theme mode when no ancestor paints a background.
       const dark = SmdLib.isDarkBackground(this);
       if (dark === true) return "dark";

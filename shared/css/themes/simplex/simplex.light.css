@@ -14,16 +14,19 @@
   border: transparent;
 }
 
-#smd-app #streamsEditor pmd-stream-header .stream-accordion-header {
+#smd-app #streamsEditor pmd-stream-header .stream-accordion-header,
+#smd-app #categoriesEditor lol-category-header .category-accordion-header {
     background-color: var(--smd-page-header-background) !important;
     color: var(--bs-white) !important;
 }
 
-#smd-app #streamsEditor smd-badge.text-bg-info {
+#smd-app #streamsEditor smd-badge.text-bg-info,
+#smd-app #categoriesEditor smd-badge.text-bg-info {
   background-color: black !important;
 }
 
-#smd-app #streamsEditor pmd-stream-header[expanded] .btn-primary {
+#smd-app #streamsEditor pmd-stream-header[expanded] .btn-primary,
+#smd-app #categoriesEditor lol-category-header[expanded] .btn-primary {
   background-color: black !important;
   background-image: none;
 }
