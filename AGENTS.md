@@ -4386,4 +4386,22 @@ Techniques / gotchas:
   (previously OK discarded the buffer). Verified by probe: view mode h1 = list
   title, 2 rows, 0 handles, 0 delete buttons, checkboxes + note buttons enabled,
   desc inputs readonly, note textareas editable, and OK saved `done:true` +
-  the edited note. BUILD -> 202610150833.
+  the edited note. BUILD -> 202610150833. MAIN PAGE SIMPLIFIED (2026-10-15): three
+  removals on the ListOfLists main page: (1) the `#btnAddCard` "+ Add List" button
+  is GONE from the date heading row (the only remaining Add entry point is
+  `addNewListFromSearch()` on the Search Lists page, which still calls
+  `addMainCardWithModal()` - the function was KEPT); (2) the main cards
+  (`lol-list-main-card`) no longer have a drag handle: the template handle cell,
+  `_adoptSlottedHandle()`, the app's slotted `<smd-draghandle>`, the
+  `initMainCardsSortable()` Sortable wiring, the `mainCardsSortable` var and the
+  `main-drag-card`/`user-select-none` classes were all deleted - the main list is
+  NOT reorderable and its cards are selectable again. The swipe's
+  `.drag-handle` composedPath guard was dropped too (no handles left). (3) the
+  tile's DONE checkbox (`smd-checkbox.list-checkbox`) is GONE, so
+  `lol-list-main-toggle`, `markListDone()` and `removeAdhocList()` (the "Remove
+  from Ad Hoc?" confirm) were deleted with it; the `checked` attribute plumbing
+  went too. `done` / `loadCompletedLists` / `saveCompletedLists` / `ensureMainList`
+  carry-over were LEFT in place (they still honour legacy stored completed ids).
+  Only the `done` styling path is now unreachable from the UI. Verified by probe:
+  0 Add button, 0 handles, 0 checkboxes, View opens with the list title as h1, and
+  swipe-LEFT still opens the Delete confirm. BUILD -> 202610150841.

@@ -1,26 +1,21 @@
 // <lol-list-main-card> — a single list row on the main list (light DOM).
 //
-// Owns its own layout (drag handle, completion checkbox, category/list
-// thumbnails, title, category title, View button, description). The host carries
-// the light-DOM class the app/Sortable relies on
-// (`main-drag-card`; the app sets it on the element), so the document theme
-// styles the card chrome while the content lives in the light DOM with it. All
-// layout is Bootstrap utilities in the template; the card's own minimal
-// functional CSS (done state, compact title hook, swipe touch-action, card
-// margin) is injected into the document head once by this module.
+// Owns its own layout (category/list thumbnails, title, category title, View
+// button, description). The host carries the light-DOM class the app sets on the
+// element, so the document theme styles the card chrome while the content lives
+// in the light DOM with it. All layout is Bootstrap utilities in the template;
+// the card's own minimal functional CSS (done state, compact title hook, swipe
+// touch-action, card margin) is injected into the document head once by this
+// module.
 //
-// An `<smd-draghandle class="drag-handle" slot="drag-handle">` is appended by
-// the consumer (Sortable needs a light-DOM handle); when none is provided the
-// built-in fallback handle is shown. On connect the component moves a slotted
-// handle into the handle cell and drops its own fallback.
+// There is NO drag handle and NO Sortable here: the main list is NOT reorderable.
 //
 // Attributes:
-//   list-id        — list id (echoed on lol-list-main-toggle, set as data-list-id on the checkbox)
+//   list-id        — list id (echoed on lol-list-main-delete)
 //   category-idx    — category index (echoed on lol-list-main-view)
 //   list-idx       — list index (echoed on lol-list-main-view)
 //   title         — list title
 //   done          — presence dims the card + strikes through the title
-//   checked       — checkbox state ("true"/"false")
 //   category-image  — category image name (rendered via smd-image)
 //   list-image     — list image name (rendered via smd-image)
 //   category-title  — category title shown under the category thumbnail, on the badge row
@@ -28,7 +23,6 @@
 //   key-prefix    — smd-image storage prefix (default: SmdConfig.imagePrefix)
 //
 // Events:
-//   lol-list-main-toggle — detail { listId, checked }
 //   lol-list-main-view   — detail { categoryIdx, listIdx }
 //   lol-list-main-delete — horizontal swipe LEFT past the threshold (detail { listId, categoryIdx, listIdx });
 //                      the card animates off before this fires — the app opens the delete confirm.
@@ -69,18 +63,8 @@ lolListMainCardTemplate.innerHTML = `
 
         <div class="d-flex py-2 border rounded-3">
 
-            <!-- 1️⃣ Drag Handle -->
-            <div class="d-flex align-items-center handle-col flex-shrink-0 ms-2">
-                <smd-draghandle class="drag-handle"></smd-draghandle>
-            </div>
-
-            <!-- 2️⃣ Checkbox -->
-            <div class="d-flex flex-column align-items-center justify-content-center flex-shrink-0">
-                <smd-checkbox class="list-checkbox me-1"></smd-checkbox>
-            </div>
-
-            <!-- 3️⃣ Category / List / Category Name -->
-            <div class="d-flex flex-column flex-shrink-0 images-col align-self-start">
+            <!-- Category / List / Category Name -->
+            <div class="d-flex flex-column flex-shrink-0 images-col align-self-start ms-2">
                 <div class="d-flex gap-1">
                     <div class="thumb category-thumb d-flex align-items-center justify-content-center flex-shrink-0"><smd-image key-prefix="shared-"></smd-image></div>
                     <div class="thumb list-thumb d-flex align-items-center justify-content-center flex-shrink-0"><smd-image key-prefix="shared-"></smd-image></div>
@@ -119,7 +103,7 @@ lolListMainCardTemplate.innerHTML = `
 
 class LolListMainCard extends HTMLElement {
   static get observedAttributes() {
-    return ['list-id', 'title', 'done', 'checked',
+    return ['list-id', 'title', 'done',
       'category-image', 'list-image', 'category-title', 'description', 'key-prefix'];
   }
 
@@ -129,25 +113,14 @@ class LolListMainCard extends HTMLElement {
   }
 
   connectedCallback() {
-    // A Sortable fallback ghost is a cloneNode(true) of this host: cloneNode
-    // copies attributes (including the `data-smd-built` marker) but NOT the
-    // `_bound` JS property, so without the marker a re-connected clone would
+    // `cloneNode` copies attributes (including the `data-smd-built` marker) but
+    // NOT the `_bound` JS property: without the marker a re-connected clone would
     // append the template a SECOND time and show doubled content.
     if (!this._bound && !this.hasAttribute("data-smd-built")) {
       this._bound = true;
       this.setAttribute("data-smd-built", "");
       this.classList.add("d-block");
       this.appendChild(lolListMainCardTemplate.content.cloneNode(true));
-      this._adoptSlottedHandle();
-      this.querySelector('smd-checkbox.list-checkbox').addEventListener('change', (e) => {
-        const checked = e.detail ? e.detail.checked : e.target.checked;
-        this.setAttribute('checked', checked ? 'true' : 'false');
-        this.dispatchEvent(new CustomEvent('lol-list-main-toggle', {
-          bubbles: true,
-          composed: true,
-          detail: { listId: this.getAttribute('list-id') || '', checked }
-        }));
-      });
       this.querySelector('.list-view-btn').addEventListener('click', () => {
         this.dispatchEvent(new CustomEvent('lol-list-main-view', {
           bubbles: true,
@@ -168,18 +141,6 @@ class LolListMainCard extends HTMLElement {
     if (this._bound && this.isConnected) this._render();
   }
 
-  // Move a consumer-provided drag handle (appended straight onto the host with
-  // slot="drag-handle") into the handle cell and drop our built-in fallback.
-  _adoptSlottedHandle() {
-    const external = this.querySelector(':scope > smd-draghandle.drag-handle');
-    if (!external) return;
-    const fallback = this.querySelector('.handle-col > smd-draghandle.drag-handle');
-    if (fallback) fallback.remove();
-    external.removeAttribute('slot');
-    const cell = this.querySelector('.handle-col');
-    if (cell) cell.insertBefore(external, cell.firstChild);
-  }
-
   _setupSwipe() {
     if (this._swipeBound) return;
     this._swipeBound = true;
@@ -193,7 +154,6 @@ class LolListMainCard extends HTMLElement {
 
     root.addEventListener('pointerdown', (e) => {
       if (e.button !== 0) return;
-      if (e.composedPath().some((el) => el && el.classList && el.classList.contains('drag-handle'))) return;
       s = { id: e.pointerId, startX: e.clientX, startY: e.clientY, active: false };
     });
 
@@ -274,14 +234,6 @@ class LolListMainCard extends HTMLElement {
     this.style.opacity = '1';
   }
 
-  get checked() {
-    return this.getAttribute('checked') === 'true';
-  }
-
-  set checked(value) {
-    this.setAttribute('checked', value ? 'true' : 'false');
-  }
-
   _render() {
     const root = this;
     const keyPrefix = this.getAttribute('key-prefix') || smdImagePrefix();
@@ -313,10 +265,6 @@ class LolListMainCard extends HTMLElement {
     } else {
       descEl.hidden = true;
     }
-
-    const checkbox = root.querySelector('smd-checkbox.list-checkbox');
-    checkbox.dataset.listId = this.getAttribute('list-id') || '';
-    checkbox.checked = this.getAttribute('checked') === 'true';
   }
 }
 

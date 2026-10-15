@@ -64,12 +64,6 @@ function renderMain() {
   dateHeading.className = "mb-0";
   dateHeading.textContent = dateStr;
   headingRow.appendChild(dateHeading);
-  const addBtn = document.createElement("button");
-  addBtn.className = "btn btn-primary editor-btn ms-auto";
-  addBtn.id = "btnAddCard";
-  addBtn.innerHTML = "&#43; Add List";
-  addBtn.onclick = function() { addMainCardWithModal(); };
-  headingRow.appendChild(addBtn);
   container.appendChild(headingRow);
 
   ensureMainList();
@@ -116,7 +110,7 @@ function renderMain() {
     const categoryImageName = category.image || "";
     const listImageName = list.image || "";
     const card = document.createElement("lol-list-main-card");
-    card.className = "main-drag-card d-block user-select-none mb-1";
+    card.className = "d-block mb-1";
     card.dataset.listId = list.id;
     card.dataset.categoryIdx = categoryIdx;
     card.setAttribute("list-id", list.id);
@@ -124,55 +118,17 @@ function renderMain() {
     card.setAttribute("list-idx", listIdx);
     card.setAttribute("title", list.title || "");
     if (isDone) card.setAttribute("done", "");
-    card.setAttribute("checked", isDone ? "true" : "false");
     if (categoryImageName) card.setAttribute("category-image", categoryImageName);
     if (listImageName) card.setAttribute("list-image", listImageName);
     card.setAttribute("category-title", categoryTitle || "");
     if (list.description) card.setAttribute("description", list.description);
     card.setAttribute("key-prefix", smdImagePrefix());
-    const handle = document.createElement("smd-draghandle");
-    handle.className = "drag-handle";
-    handle.setAttribute("slot", "drag-handle");
-    handle.setAttribute("title", "drag");
-    card.appendChild(handle);
     cardContainer.appendChild(card);
   });
 
   scrollBody.appendChild(cardContainer);
 
-  // checkbox + view handlers (composed events emitted by lol-list-main-card)
-  cardContainer.addEventListener("lol-list-main-toggle", (e) => {
-    const listId = e.detail.listId;
-    const card = e.target;
-    if (e.detail.checked) {
-      const categoryIdx = card ? parseInt(card.dataset.categoryIdx) : -1;
-      const categories = loadCategories();
-      const category = categories[categoryIdx];
-      if (category && category.title === "Ad Hoc") {
-        const list = (category.lists || []).find(j => j.id === listId);
-        showSmdModal({
-          title: "Remove from Ad Hoc?",
-          content: `Remove "<strong>${escapeHtml(list?.title || listId)}</strong>" from Ad Hoc?`,
-          buttons: [
-            { text: "Cancel", variant: "secondary", action: "cancel" },
-            { text: "Remove", variant: "danger", action: "remove" }
-          ],
-          onAction: (detail) => {
-            if (detail.action === "remove") removeAdhocList(categoryIdx, listId, card);
-            else if (card) card.checked = false;
-          }
-        });
-      } else {
-        markListDone(listId, card);
-      }
-    } else {
-      let completed = loadCompletedLists();
-      completed = completed.filter(id => id !== listId);
-      saveCompletedLists(completed);
-      if (card) card.removeAttribute("done");
-    }
-  });
-
+  // view handler (composed event emitted by lol-list-main-card)
   cardContainer.addEventListener("lol-list-main-view", (e) => {
     viewListReadOnly(e.detail.categoryIdx, e.detail.listIdx);
   });
@@ -206,29 +162,7 @@ function renderMain() {
     });
   });
 
-function removeAdhocList(categoryIdx, listId, card) {
-  const categories = loadCategories();
-  const category = categories[categoryIdx];
-  if (category) {
-    const lists = category.lists || [];
-    const idx = lists.findIndex(j => j.id === listId);
-    if (idx >= 0) lists.splice(idx, 1);
-    category.lists = lists;
-    saveCategories(categories);
-  }
-  markListDone(listId, card);
-  renderMain();
-}
-
-function markListDone(listId, card) {
-  let completed = loadCompletedLists();
-  if (!completed.includes(listId)) completed.push(listId);
-  saveCompletedLists(completed);
-  if (card) card.setAttribute("done", "");
-}
-
   updateNavState();
-  initMainCardsSortable();
 }
 
 function addMainCardWithModal() {
@@ -250,39 +184,4 @@ function addMainCardWithModal() {
   listsBuffer = JSON.parse(JSON.stringify(newList));
   listsEditingIdx = lists.length - 1; isNewList = true;
   buildListEditPage(false);
-}
-
-var mainCardsSortable = null;
-
-function initMainCardsSortable() {
-  if (mainCardsSortable) {
-    mainCardsSortable.destroy();
-    mainCardsSortable = null;
-  }
-  if (typeof Sortable === "undefined") return;
-  var el = document.getElementById("mainCardList");
-  if (!el || !el.querySelector(".main-drag-card")) return;
-  mainCardsSortable = new Sortable(el, {
-    handle: ".drag-handle",
-    draggable: ".main-drag-card",
-    animation: 150,
-    // Use the SAME fallback ghost as the categories editor lists so the drag preview
-    // is a real cloned card (the native HTML5 drag image cannot be styled).
-    forceFallback: true,
-    fallbackOnBody: true,
-    fallbackTolerance: 0,
-    fallbackClass: "sortable-fallback",
-    ghostClass: "sortable-ghost",
-    chosenClass: "sortable-chosen",
-    dragClass: "sortable-drag",
-    onEnd: function() {
-      var order = [];
-      el.querySelectorAll(".main-drag-card").forEach(function(card) {
-        var id = card.getAttribute("data-list-id");
-        if (id && order.indexOf(id) === -1) order.push(id);
-      });
-      if (order.length === 0) return;
-      saveMainOrder(order);
-    }
-  });
 }
