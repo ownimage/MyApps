@@ -51,6 +51,19 @@ function pbParseServerUrl(text) {
   }
 }
 
+// Resolve a SERVER-relative URL (e.g. "/app-icon-cache/x.png") against the
+// configured server base. The Flask server answers with ROOT-RELATIVE paths, which
+// are only correct when the app is served BY that server; from another origin
+// (GitHub Pages, or the tunnel) an unprefixed path is requested from the APP's host
+// instead (e.g. ownimage.github.io/app-icon-cache/...). An empty base (same origin)
+// leaves the path untouched.
+function pbServerUrl(path) {
+  var p = String(path == null ? "" : path);
+  // Absolute ("http://…"), protocol-relative ("//host/…") or relative -> as-is.
+  if (!p || p.charAt(0) !== "/" || p.charAt(1) === "/") return p;
+  return pbServerBase() + p;
+}
+
 var pbApi = {
   _fetch: function (path, options) {
     return fetch(pbServerBase() + path, options).then(function (resp) {

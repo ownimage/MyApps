@@ -27,7 +27,7 @@ function layoutDropdownOptions(layouts) {
 }
 
 function iconCacheUrl(name) {
-  return "/app-icon-cache/" + encodeURIComponent(name);
+  return pbServerUrl("/app-icon-cache/" + encodeURIComponent(name));
 }
 
 // Slug a display name into a layout key, kept unique against the loaded set.

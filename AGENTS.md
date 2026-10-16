@@ -396,6 +396,34 @@ Architecture:
   keypad, which makes DNS impossible — it is `inputmode="url"` with
   autocapitalize/autocorrect/spellcheck off. `:` is rejected in the address field
   (the port has its own field, else `host:5000` + port 5000 -> `:5000:5000`).
+  - SERVER-RELATIVE ASSETS (2026-10-16, BUG): the server answers with ROOT-RELATIVE
+    URLs (`/app-icon-cache/<name>.png`) for app icons — from `_cache_icon()`, so BOTH
+    `/api/apps` AND the socket's `app_change` — and the Manage Layout picker builds
+    one from a NAME. A root-relative URL is only correct when the app is served BY
+    that server; from another origin the browser resolves it against the APP's host
+    (the reported `ownimage.github.io/app-icon-cache/Windows%20Terminal%20Host.png`
+    instead of the tunnel URL). FIX: new `pbServerUrl(path)` in api.js prefixes
+    server-relative paths with `pbServerBase()` (absolute and protocol-relative paths,
+    and an empty base, pass through), used by `main-view.js` (the `app_change` icon),
+    `edit-app.js` (the Manage App dropdown's `imageUrl`) and `edit-layout.js`
+    (`iconCacheUrl`). RULE: ANY url the SERVER supplies must go through
+    `pbServerUrl()` before it reaches a `src`.
+  - CLOUDFLARE TUNNEL + QR (2026-10-16): `app.py` gained `--tunnel` (starts
+    `cloudflared tunnel --url http://127.0.0.1:5000`, echoes its output, REGEXes the
+    first `https://<name>.trycloudflare.com`, then prints the Settings values to
+    enter), `--no-tunnel` (override) and `--qr <url>` (a QR for an address you already
+    have, e.g. a NAMED tunnel). `PhoneButtonServer.cmd` passes `--tunnel` by DEFAULT
+    (it only adds it when the user gave no `--tunnel`/`--no-tunnel`/`--qr`) and it
+    again KILLS anything on port 5000 first. The QR is served by a new route
+    `/phonebuttons-qr?value=<url>`, rendered with the SHARED vendored
+    `shared/vendor/qrcode.min.js` (global `QRCode`), opened at
+    `http://127.0.0.1:5000/phonebuttons-qr?...` via `webbrowser`. `_find_cloudflared()`
+    checks `PB_CLOUDFLARED`, then PATH, then the usual install dirs; cloudflared is NOT
+    installed on this box, so without it the server still runs and prints an install
+    hint (`winget install cloudflare.cloudflared`). SECURITY: a quick tunnel is
+    PUBLIC (anyone with the random URL can drive the keyboard), and the QR route must
+    escape its value for BOTH html AND JS (`json.dumps` + `\u003c/\u003e/\u0026`) —
+    a raw `</script>` in the value would otherwise break out of the script block.
 - SAMPLE IMAGES MERGE (2026-09-14): the old `QRLinks/sampleImages.json` (8
   images, legacy `{name,data}` format) was merged into the shared set — all 8
   were already present in `shared/sampleImages.json` (shared is master; e.g.
@@ -4783,4 +4811,36 @@ Techniques / gotchas:
   the base incl. https + empty port and the REST URL; Scan QR parsing + the scan-page
   wiring; Connect re-targets; `raw` mode). 17/17 pass.
 - `BUILD_NUMBER` -> `202610161321` via `npm run bump:build`.
+
+### 2026-10-16 (c) - PhoneButtons: server-relative icons prefixed; cloudflared + QR
+- BUG (user): the GitHub-Pages copy requested app icons from ITS OWN host —
+  `https://ownimage.github.io/app-icon-cache/Windows%20Terminal%20Host.png` instead
+  of the configured tunnel server. CAUSE: the server answers with ROOT-RELATIVE icon
+  paths (`_cache_icon()` -> `/app-icon-cache/<name>.png`, used by `/api/apps` AND the
+  `app_change` socket push) and `edit-layout.js` built one from a NAME; a
+  root-relative URL resolves against the APP's origin, not the server's. FIX:
+  `pbServerUrl(path)` (api.js) prefixes server-relative paths with `pbServerBase()`
+  (absolute / protocol-relative / empty-base pass through), applied in `main-view.js`
+  (app_change icon), `edit-app.js` (Manage App dropdown `imageUrl`) and
+  `edit-layout.js` (`iconCacheUrl`). Test added (asserts the prefixed src + that
+  absolute/protocol-relative URLs are untouched).
+- FEATURE (user): `PhoneButtonServer.cmd` should parse the Cloudflare response and
+  show a QR to scan. `app.py` gained `--tunnel` (starts `cloudflared tunnel --url
+  http://127.0.0.1:5000`, echoes its output, regexes the first
+  `https://<name>.trycloudflare.com`, prints the Settings values), `--no-tunnel`, and
+  `--qr <url>`; the launcher passes `--tunnel` BY DEFAULT (only when the user gave no
+  tunnel/QR choice) and AGAIN kills anything on port 5000 first (that step had been
+  lost in the rollback). The QR comes from a new `/phonebuttons-qr?value=<url>` route
+  rendered with the shared vendored `qrcode.min.js`, opened at
+  `http://127.0.0.1:5000/phonebuttons-qr?...`. `_find_cloudflared()` checks
+  `PB_CLOUDFLARED` -> PATH -> usual install dirs; cloudflared is NOT installed on this
+  box so the server runs anyway and prints `winget install cloudflare.cloudflared`.
+  HARDENED: the route escapes its value for html AND js (`json.dumps` +
+  `\u003c/\u003e/\u0026`) because a raw `</script>` would break out of the script
+  block on a PUBLIC (tunnelled) route — verified all hostile values keep exactly 2
+  `<script` tags.
+- VERIFIED: `node --check` + `py_compile` clean; the QR route via Flask's test client
+  (200 + text/html, vendored lib, value passed, missing value 400, hostile values
+  escaped); `phonebuttons-regression` 18/18.
+- `BUILD_NUMBER` -> `202610161801` via `npm run bump:build`.
 

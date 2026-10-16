@@ -601,6 +601,31 @@ test.describe("PhoneButtons - Regression", () => {
       expect(urls[1]).toBe("https://calm-river-1234.trycloudflare.com");
     });
 
+    test("server-relative asset URLs are resolved against the configured server", async ({ page }) => {
+      await page.goto("/PhoneButtons/");
+      // Same origin (no configured address) -> paths stay relative.
+      expect(await page.evaluate(() => pbServerUrl("/app-icon-cache/x.png"))).toBe("/app-icon-cache/x.png");
+      // Absolute / protocol-relative URLs are left alone.
+      expect(await page.evaluate(() => pbServerUrl("https://cdn.example/x.png"))).toBe("https://cdn.example/x.png");
+      expect(await page.evaluate(() => pbServerUrl("//cdn.example/x.png"))).toBe("//cdn.example/x.png");
+
+      await page.evaluate(() => {
+        localStorage.setItem("pb_serverAddress", "calm-river-1234.trycloudflare.com");
+        localStorage.setItem("pb_serverPort", "");
+        localStorage.setItem("pb_serverHttps", "true");
+      });
+
+      // app_change pushes a ROOT-RELATIVE icon path; it must be prefixed, otherwise
+      // the image is requested from the APP's host (e.g. ownimage.github.io).
+      await page.evaluate(() => window.__serverEmit("app_change", { name: "App", icon: "/app-icon-cache/App.png" }));
+      await expect(page.locator("#serverAppIcon"))
+        .toHaveAttribute("src", "https://calm-river-1234.trycloudflare.com/app-icon-cache/App.png");
+
+      // The Manage Layout picker builds its URL from a bare NAME.
+      expect(await page.evaluate(() => iconCacheUrl("Windows Terminal Host.png")))
+        .toBe("https://calm-river-1234.trycloudflare.com/app-icon-cache/Windows%20Terminal%20Host.png");
+    });
+
     test("smd-qr-import raw mode emits the decoded text as-is", async ({ page }) => {
       await page.goto("/PhoneButtons/");
       const decoded = await page.evaluate(() => new Promise((resolve) => {

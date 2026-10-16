@@ -116,7 +116,7 @@ function renderManageAppOptions() {
     .filter(function (a) { return getShowBackgroundApps() || !a.background; })
     .sort(function (a, b) { return a.name.toLowerCase().localeCompare(b.name.toLowerCase()); });
   appDd.options = apps.map(function (a) {
-    return { name: a.name, value: a.name, imageUrl: a.icon || "" };
+    return { name: a.name, value: a.name, imageUrl: pbServerUrl(a.icon) };
   });
   var pick = apps.filter(function (a) { return a.name === _manageAppName; })[0];
   if (!pick) {
