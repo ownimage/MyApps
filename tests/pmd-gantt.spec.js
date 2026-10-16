@@ -47,13 +47,23 @@ async function openChart(page) {
   await page.waitForFunction(() => document.querySelectorAll(".rg-gantt-bar").length > 0, null, { timeout: 30000 });
 }
 
+// A relative LOCAL YYYY-MM-DD — NEVER a hardcoded date. The chart's range starts
+// two days before its earliest job, so a fixed PAST `sleepUntil` lets the
+// "today"-based bars (and their labels) drift rightwards day by day until they
+// leave the viewport (2026-10-16: the labels reached x=1269 on a 1280px viewport).
+const isoDay = (offset) => {
+  const d = new Date();
+  d.setDate(d.getDate() + offset);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+};
+
 const SAMPLE = [
   {
     title: "Work",
     sequence: 1,
     jobs: [
       { id: "job_daily", title: "Daily standup", sequence: 1, active: true, schedule: { type: "daily" }, duration: 3 },
-      { id: "job_sleep", title: "Planned review", sequence: 2, active: true, schedule: { type: "weekdays" }, sleepUntil: "2026-10-05", duration: 2 },
+      { id: "job_sleep", title: "Planned review", sequence: 2, active: true, schedule: { type: "weekdays" }, sleepUntil: isoDay(-3), duration: 2 },
       { id: "job_legacy", title: "Legacy job", sequence: 3, active: true, schedule: { type: "daily" } }
     ]
   },
@@ -116,8 +126,8 @@ test.describe("Gantt page", () => {
     expect(byTitle["Daily standup"].endDate).toBe(await page.evaluate((t) => ganttAddDaysStr(t, 2), today));
 
     // job with sleepUntil + duration -> starts on sleepUntil, spans 2 days
-    expect(byTitle["Planned review"].startDate).toBe("2026-10-05");
-    expect(byTitle["Planned review"].endDate).toBe("2026-10-06");
+    expect(byTitle["Planned review"].startDate).toBe(isoDay(-3));
+    expect(byTitle["Planned review"].endDate).toBe(isoDay(-2));
 
     // legacy job with no duration -> 1 day: start and end are the SAME day
     expect(byTitle["Legacy job"].startDate).toBe(today);
@@ -834,7 +844,11 @@ test.describe("Gantt page", () => {
       const [hi, lo] = a > b ? [a, b] : [b, a];
       return (hi + 0.05) / (lo + 0.05);
     };
-    const parse = (s) => String(s).match(/[\d.]+/g).slice(0, 3).map(Number);
+    const parse = (s) => {
+      const m = String(s == null ? "" : s).match(/[\d.]+/g);
+      if (!m) throw new Error(`not a colour: ${JSON.stringify(s)}`);
+      return m.slice(0, 3).map(Number);
+    };
 
     for (const [mode, theme] of [["dark", "superhero"], ["light", "flatly"]]) {
       await page.evaluate(([t, m]) => applyTheme(t, m), [theme, mode]);
@@ -864,7 +878,13 @@ test.describe("Gantt page", () => {
         const readLabel = (el) => {
           if (!el) return null;
           const r = el.getBoundingClientRect();
-          const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+          // Clamp the sample point INTO the viewport: the label sits to the RIGHT
+          // of its bar, so a bar near the chart's right edge puts the label's
+          // centre past the viewport edge, where elementFromPoint returns null
+          // (this used to crash the ratio maths with an unhelpful TypeError).
+          const cx = Math.min(Math.max(r.left + r.width / 2, 1), window.innerWidth - 2);
+          const cy = Math.min(Math.max(r.top + r.height / 2, 1), window.innerHeight - 2);
+          const hit = document.elementFromPoint(cx, cy);
           return { color: getComputedStyle(el).color, bg: hit ? read(hit).bg : null };
         };
         const cell = document.querySelector("revogr-data .rgCell");
@@ -879,6 +899,8 @@ test.describe("Gantt page", () => {
 
       for (const [what, v] of Object.entries(samples)) {
         if (what === "bodyFill") continue; // not a color pair; asserted separately below
+        if (!v) continue; // element not rendered in this mode
+        expect(v.bg, `${theme}/${mode} ${what}: no painted background found`).toBeTruthy();
         const r = ratio(parse(v.color), parse(v.bg));
         expect(r, `${theme}/${mode} ${what} contrast ${r.toFixed(2)} (color ${v.color} on ${v.bg})`).toBeGreaterThanOrEqual(4.5);
       }
@@ -902,7 +924,11 @@ test.describe("Gantt page", () => {
     await seedStreams(page, SAMPLE);
     await enableGantt(page);
 
-    const parse = (s) => String(s).match(/[\d.]+/g).slice(0, 3).map(Number);
+    const parse = (s) => {
+      const m = String(s == null ? "" : s).match(/[\d.]+/g);
+      if (!m) throw new Error(`not a colour: ${JSON.stringify(s)}`);
+      return m.slice(0, 3).map(Number);
+    };
     const rgb = (v) => {
       // Accept either "rgb(r, g, b)" (as the browser reports computed colors) or
       // a hex "#rrggbb" / "#rgb" (as the --bs-* custom props are declared).
@@ -1013,7 +1039,11 @@ test.describe("Gantt page", () => {
     await seedStreams(page, SAMPLE);
     await enableGantt(page);
 
-    const parse = (s) => String(s).match(/[\d.]+/g).slice(0, 3).map(Number);
+    const parse = (s) => {
+      const m = String(s == null ? "" : s).match(/[\d.]+/g);
+      if (!m) throw new Error(`not a colour: ${JSON.stringify(s)}`);
+      return m.slice(0, 3).map(Number);
+    };
     const rgb = (v) => {
       const s = String(v).trim();
       if (s.charAt(0) === "#") {
@@ -1271,7 +1301,11 @@ test.describe("Gantt page", () => {
     // it must have a SOLID background (the gantt/body surface) and a real
     // border, so the text does not float over the gridlines. The ghost lives on
     // <body> (outside #ganttPage), so it must use the global --bs-* tokens.
-    const parse = (s) => String(s).match(/[\d.]+/g).slice(0, 3).map(Number);
+    const parse = (s) => {
+      const m = String(s == null ? "" : s).match(/[\d.]+/g);
+      if (!m) throw new Error(`not a colour: ${JSON.stringify(s)}`);
+      return m.slice(0, 3).map(Number);
+    };
     const rgb = (v) => {
       const s = String(v).trim();
       if (s.charAt(0) === "#") {

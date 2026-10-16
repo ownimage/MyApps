@@ -39,6 +39,26 @@
     mid-action capture and the release that clears it) — fix the test to assert
     the invariant (e.g. "scroll stopped", two post-release samples equal) rather
     than masking it; re-run the full suite twice to confirm stability.
+18: NEVER HARDCODE A DATE IN A TEST (2026-10-16, restating the 2026-10-05 rule
+    because it was violated and cost a debugging round): compute every date at
+    RUN TIME from `new Date()` (`today + N` / `today - N`), or compare the value
+    only against ITSELF / a mocked payload. A fixed date does not just "go stale"
+    — it can silently move LAYOUT. Real failure: `pmd-gantt` seeded
+    `sleepUntil: "2026-10-05"` while other jobs started at today; the chart range
+    begins 2 days before its earliest job, so each passing day shifted the
+    today-based bars one 44px column right until their labels reached x=1269 on a
+    1280px viewport. `document.elementFromPoint` then returned null and
+    `parse(null).slice` threw `TypeError: Cannot read properties of null`.
+    AUDIT (`rg '20[0-9]{2}-[0-9]{2}-[0-9]{2}' tests/`): a literal is OK only when
+    (a) it is echoed straight back out of a mock, (b) it is intentionally PAST
+    (2020-01-01, 2000-01-01) and asserted as such, (c) it is a display-only fixture
+    (Minio XML `LastModified`), or (d) every expectation is DERIVED from that same
+    literal (the Gantt weekend-phase base). If any assertion compares it to "now",
+    or if the value drives a POSITION/size, it is a time bomb. Bundled sample data
+    with fixed dates is the same trap — rewrite one cached event to `today + 7`
+    (see `cmd-regression` "loads sample Google data..."). Also guard the test so a
+    bad sample fails clearly (`parse()` throws `not a colour: ...`, and clamp
+    off-viewport sample points into the viewport).
 
 ## Self-improving playbook
 At the START of every session, read this file fully and apply all rules.
@@ -4557,10 +4577,14 @@ Techniques / gotchas:
   600, click with a RAW `page.mouse` (no auto-scroll), and assert the edited card
   left the list and `window.scrollY` is still within 4px. RED on the old code
   (scrollY 0), GREEN after. Verified together: 3/3.
-- TOOLING: new top-level `CleanTestServerStart.cmd` (kills anything listening on
-  8080/8081, clears `node_modules\.vite`, then runs `node tests/serve-tests.mjs`
-  in the SAME window; Ctrl+C stops it). Use it to get a clean, non-stale server
-  before a run.
+- TOOLING: top-level `CleanTestServerStart.cmd` (kills anything listening on
+  8080/8081, clears `node_modules\.vite`, starts `node tests/serve-tests.mjs`
+  DETACHED in the background, waits for BOTH ports to accept a connection, prints
+  the run command, then EXITS — the servers keep running). Updated 2026-10-16: it
+  used to run the server in the SAME window and block until Ctrl+C. It logs to
+  `%TEMP%\myapps-serve.log` / `.err.log` and tails them on failure. One node
+  process serves both origins. Use it to get a clean, non-stale server before a
+  run, then `set EXTERNAL_SERVERS=1` and run Playwright (it reuses them).
 - VITE EPERM ON START (2026-10-15): starting the server can die immediately with
   `Error: EPERM: operation not permitted, rename 'node_modules\.vite\deps_temp_*'
   -> 'node_modules\.vite\deps'` (the ports open briefly then close, exit code 1).
@@ -4664,4 +4688,44 @@ Techniques / gotchas:
      mid-settle) and IGNORE a persistently undecodable image instead of aborting
      the screenshot. Verified: Auto-Hide Nav Behavior 4/4, launch-screenshots
      "settings menu tab" + "app grid" `--repeat-each=5` 10/10.
+
+### 2026-10-16 - Gantt contrast test: a hardcoded date pushed the bar labels off-screen
+- FAILURE (user): `pmd-gantt` "task text meets WCAG AA contrast in BOTH light and
+  dark mode" threw `TypeError: Cannot read properties of null (reading 'slice')`.
+- ROOT CAUSE: the spec's `SAMPLE` pinned `sleepUntil: "2026-10-05"` - a HARDCODED
+  date - while the other jobs start at TODAY. The chart range begins 2 days before
+  its earliest job, so as "today" advances the today-based bars march right by one
+  44px day column every day; on 2026-10-16 the bar label sat at x=1269 on a 1280px
+  viewport, so `document.elementFromPoint` (used to resolve the surface actually
+  painted UNDER the right-offset bar label) returned null -> `parse(null)` ->
+  `String(null).match(/\d+/)` is null -> `.slice` TypeError. The app was correct;
+  ONLY the test had aged out - exactly the 2026-10-05 "never hardcode a date in a
+  test" rule, caught late.
+- FIX (test-only): (a) `SAMPLE.sleepUntil` is now RELATIVE via a new `isoDay(n)`
+  helper (`isoDay(-3)`), and the two date assertions use `isoDay(-3)`/`isoDay(-2)`;
+  (b) `parse()` now throws a clear `not a colour: ...` instead of a TypeError (all 4
+  copies in the spec); (c) `readLabel` CLAMPS its sample point into the viewport so
+  a half-off-screen label still resolves a background; (d) the ratio loop asserts
+  `v.bg` is truthy with a message.
+- MUTATION-CHECKED (not vacuous): forcing `.rg-gantt-bar-label { color: transparent }`
+  fails with "superhero/dark timelineLabel contrast 1.36 (color rgba(0, 0, 0, 0) on
+  rgb(33, 37, 41))". Full `pmd-gantt` 59/59 after reverting the mutation.
+- ALSO: `.gitignore` had been REVERTED, so the `--gen-cert` CA/key were trackable
+  again; `/PhoneButtons/server/*.crt` + `*.key` re-added (`git check-ignore`
+  confirms). NEVER commit those private keys.
+- FOLLOW-UP (2026-10-16): FULL DATE AUDIT of every spec, after the user asked
+  whether the relative-date rule already existed (it did - the 2026-10-05 note).
+  Greps: `20[0-9]{2}-[0-9]{2}-[0-9]{2}` = 27 hits; `new Date("...")`, literal years
+  >= 2027 and hardcoded month names = ZERO. EVERY hit is safe: cmd-regression gcal
+  payloads (assert only `items.length` / modal text), `pastDate "2020-01-01"` and
+  `"2000-01-01"` (intentionally past, asserted as such), Minio XML
+  `LastModified`/`CreationDate` (display-only fixtures), solarcontrolar mocked
+  server dates (echoed into `power-date` / `#graph-date`), and the Gantt
+  weekend-phase `base = "2026-10-05"` (every expectation DERIVED from that same
+  base, so it cannot age). `loadGCalSampleData` is used by 4 cmd tests and only the
+  main-view one needs the `today + 7` rewrite (already there). `"09:00"` literals
+  are job SCHEDULE TIMES, not dates. Conclusion: no other test will age out.
+  Because the rule was violated anyway, it is now ALSO a prominent numbered rule 18
+  at the top of this file, with the concrete layout-drift failure and an audit
+  recipe.
 
