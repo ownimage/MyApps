@@ -31,14 +31,8 @@ document.addEventListener("DOMContentLoaded", function () {
   // pbServerBase() resolves the right target.
   ensureServerDefaults();
 
-  // Auto-connect when a server is configured, or when this page IS the server
-  // (localhost / the server's own port). A static-hosted copy (GitHub Pages) has
-  // no server to talk to yet, so it waits for the address to be set + Connect.
-  if (pbShouldAutoConnect()) {
-    connectServer();
-  } else {
-    _commLine("No server configured - set the address on Settings > Server, then Connect.", "info");
-  }
+  // The app is served by the server it controls, so connect automatically.
+  connectServer();
 
   // The server opens the browser with ?showQr=1 on startup. Show the Settings
   // page (which holds the "Share app" QR) and scroll the QR into view so it can

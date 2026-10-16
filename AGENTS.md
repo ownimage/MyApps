@@ -4745,21 +4745,4 @@ Techniques / gotchas:
   wrapped in a `<div>`, and `text-center` on that wrapper CENTERS the checkbox
   under the label. `BUILD_NUMBER` -> `202610152116` (bumped per layout iteration:
   ...152109, ...152111, ...152114, ...152116).
-- FOLLOW-UP 4 (2026-10-15): the GitHub-Pages copy kept requesting the PAGE origin
-  (`https://ownimage.github.io/socket.io/...`) instead of the configured server.
-  TWO bugs: (a) `pbSocket.connect()` returned the EXISTING socket forever, so a
-  Press-Connect never re-targeted after the address was set (the boot auto-connect
-  had already built a same-origin socket) - `connect()` now compares the socket's
-  URL with `pbServerBase()` and rebuilds when it differs (`socketUrl`); (b)
-  `serverAddressChanged`/`changeServerHttps`/scan only disconnected when
-  `isConnected()`, which is false during a FAILING connect, so the stale socket
-  survived - they now use the new `pbSocket.isActive()`. ALSO: boot auto-connect is
-  skipped via `pbShouldAutoConnect()` when no server is configured AND the page is
-  not the server (static-host copy), so it no longer fires a doomed request; and
-  Disconnect is enabled whenever a socket is ACTIVE (not just connected/connecting).
-  Tests: `window.io` now records the URL; new "Connect re-targets..." test.
-  `BUILD_NUMBER` -> `202610152133`. CAVEAT for the real cross-origin case: a
-  self-signed cert is rejected by the browser (`ERR_CERT_AUTHORITY_INVALID`) before
-  CORS, so GH Pages -> LAN HTTPS still needs a TRUSTED cert (mkcert + CA on the
-  device), and the GH Pages copy must be RE-DEPLOYED to pick these fixes up.
 

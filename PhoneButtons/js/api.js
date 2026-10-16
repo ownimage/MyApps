@@ -41,17 +41,6 @@ function pbServerBase() {
   return scheme + "://" + ip + ":" + port;
 }
 
-// Whether to auto-connect on boot: true when an explicit server is configured, or
-// when this page IS the server (its own port is the server port, or localhost). A
-// copy served from a static host (e.g. GitHub Pages) has no server to talk to, so
-// it waits for the user - otherwise the boot auto-connect fires a doomed
-// /socket.io/ request at the static host.
-function pbShouldAutoConnect() {
-  if (pbServerBase() !== "") return true;
-  return location.hostname === "localhost" || location.hostname === "127.0.0.1" ||
-    location.port === PB_DEFAULT_PORT;
-}
-
 var pbApi = {
   _fetch: function (path, options) {
     return fetch(pbServerBase() + path, options).then(function (resp) {
