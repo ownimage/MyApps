@@ -16,7 +16,9 @@ async function installFakeSocket(page) {
     window.__serverEmit = function (event, data) {
       (state.handlers[event] || []).forEach((cb) => cb(data));
     };
-    window.io = function () {
+    window.io = function (url) {
+      state.urls = state.urls || [];
+      state.urls.push(url === undefined ? null : url);
       const socket = {
         connected: false,
         id: "test-socket",
@@ -506,5 +508,135 @@ test.describe("PhoneButtons - Regression", () => {
     buttonCalls.forEach((c) => { byIndex[c.index] = c; });
     expect(byIndex[0]).toEqual({ layout: "reaper", index: 0, name: "", image1: "", image2: "", key: "", press: "regular" });
     expect(byIndex[1]).toEqual({ layout: "reaper", index: 1, name: "Next", image1: "", image2: "", key: "right", press: "regular" });
+  });
+
+  // ── Server address (Settings | Server) ──────────────────────
+
+  test.describe("Server address (Settings | Server)", () => {
+
+    test("the address fields drive the request base (IP, DNS, https, empty port)", async ({ page }) => {
+      await page.goto("/PhoneButtons/");
+      // The fresh default is an incomplete prefix -> not configured -> relative paths.
+      expect(await page.evaluate(() => pbServerBase())).toBe("");
+
+      await page.evaluate(() => openSettings());
+      await page.locator("#settingsTabs .smd-tab-btn").filter({ hasText: "Server" }).click();
+      await expect(page.locator("#serverAddressInput")).toHaveValue("192.168.1.");
+      await expect(page.locator("#serverPortInput")).toHaveValue("");
+      await expect(page.locator("#serverHttps")).not.toBeChecked();
+
+      // A DNS name + port over http.
+      await page.locator("#serverAddressInput").fill("my-pc.local");
+      await page.locator("#serverPortInput").fill("5000");
+      await expect.poll(() => page.evaluate(() => pbServerBase())).toBe("http://my-pc.local:5000");
+
+      // https + NO port -> the scheme default (what a Cloudflare tunnel needs).
+      await page.locator("#serverHttps").click();
+      await page.locator("#serverPortInput").fill("");
+      await expect.poll(() => page.evaluate(() => pbServerBase())).toBe("https://my-pc.local");
+      await expect.poll(() => page.evaluate(() => localStorage.getItem("pb_serverHttps"))).toBe("true");
+
+      // ...and the REST layer uses that base.
+      const url = await page.evaluate(() => {
+        let seen = null;
+        const orig = window.fetch;
+        window.fetch = (u) => { seen = u; return Promise.resolve({ ok: true, json: () => Promise.resolve({ layouts: [] }) }); };
+        return pbApi.getLayouts().then(() => { window.fetch = orig; return seen; });
+      });
+      expect(url).toBe("https://my-pc.local/api/layouts");
+    });
+
+    test("Scan QR parses a tunnel URL (no port) and an IP:port into the fields", async ({ page }) => {
+      await page.goto("/PhoneButtons/");
+      const parsed = await page.evaluate(() => [
+        pbParseServerUrl("https://calm-river-1234.trycloudflare.com"),
+        pbParseServerUrl("https://calm-river-1234.trycloudflare.com/"),
+        pbParseServerUrl("http://192.168.1.60:5000/PhoneButtons/"),
+        pbParseServerUrl("192.168.1.60:5000"),
+        pbParseServerUrl("my-pc.local"),
+        pbParseServerUrl("not an address")
+      ]);
+      expect(parsed[0]).toEqual({ https: true, address: "calm-river-1234.trycloudflare.com", port: "" });
+      expect(parsed[1]).toEqual({ https: true, address: "calm-river-1234.trycloudflare.com", port: "" });
+      expect(parsed[2]).toEqual({ https: false, address: "192.168.1.60", port: "5000" });
+      expect(parsed[3]).toEqual({ https: false, address: "192.168.1.60", port: "5000" });
+      expect(parsed[4]).toEqual({ https: false, address: "my-pc.local", port: "" });
+      expect(parsed[5]).toBeNull();
+
+      // The scan page hosts the shared importer in raw mode, and a decoded value
+      // fills the three controls.
+      await page.evaluate(() => openSettings());
+      await page.locator("#settingsTabs .smd-tab-btn").filter({ hasText: "Server" }).click();
+      await page.locator("#btnScanServerQr").click();
+      await expect(page.locator("#serverScanPage")).toHaveAttribute("open", "");
+      await expect(page.locator("#serverScanPage smd-qr-import[raw]")).toHaveCount(1);
+      await page.evaluate(() => {
+        document.querySelector("#serverScanPage smd-qr-import")
+          .dispatchEvent(new CustomEvent("smd-qr-import-complete", {
+            bubbles: true, composed: true, detail: { data: "https://calm-river-1234.trycloudflare.com" }
+          }));
+      });
+      await expect(page.locator("#serverAddressInput")).toHaveValue("calm-river-1234.trycloudflare.com");
+      await expect(page.locator("#serverPortInput")).toHaveValue("");
+      await expect(page.locator("#serverHttps")).toBeChecked();
+      expect(await page.evaluate(() => pbServerBase())).toBe("https://calm-river-1234.trycloudflare.com");
+      await expect(page.locator("#serverScanPage")).not.toHaveAttribute("open", "");
+    });
+
+    test("Connect re-targets the socket when the address changes", async ({ page }) => {
+      await page.goto("/PhoneButtons/");
+      await page.waitForFunction(() => typeof window.__serverConnect === "function");
+      // Boot auto-connect used the page origin (no configured address -> undefined).
+      let urls = await page.evaluate(() => window.__ioState.urls);
+      expect(urls).toEqual([null]);
+
+      await page.evaluate(() => {
+        localStorage.setItem("pb_serverAddress", "calm-river-1234.trycloudflare.com");
+        localStorage.setItem("pb_serverPort", "");
+        localStorage.setItem("pb_serverHttps", "true");
+      });
+      await page.evaluate(() => connectServer());
+      await expect.poll(() => page.evaluate(() => window.__ioState.urls.length)).toBe(2);
+      urls = await page.evaluate(() => window.__ioState.urls);
+      expect(urls[1]).toBe("https://calm-river-1234.trycloudflare.com");
+    });
+
+    test("server-relative asset URLs are resolved against the configured server", async ({ page }) => {
+      await page.goto("/PhoneButtons/");
+      // Same origin (no configured address) -> paths stay relative.
+      expect(await page.evaluate(() => pbServerUrl("/app-icon-cache/x.png"))).toBe("/app-icon-cache/x.png");
+      // Absolute / protocol-relative URLs are left alone.
+      expect(await page.evaluate(() => pbServerUrl("https://cdn.example/x.png"))).toBe("https://cdn.example/x.png");
+      expect(await page.evaluate(() => pbServerUrl("//cdn.example/x.png"))).toBe("//cdn.example/x.png");
+
+      await page.evaluate(() => {
+        localStorage.setItem("pb_serverAddress", "calm-river-1234.trycloudflare.com");
+        localStorage.setItem("pb_serverPort", "");
+        localStorage.setItem("pb_serverHttps", "true");
+      });
+
+      // app_change pushes a ROOT-RELATIVE icon path; it must be prefixed, otherwise
+      // the image is requested from the APP's host (e.g. ownimage.github.io).
+      await page.evaluate(() => window.__serverEmit("app_change", { name: "App", icon: "/app-icon-cache/App.png" }));
+      await expect(page.locator("#serverAppIcon"))
+        .toHaveAttribute("src", "https://calm-river-1234.trycloudflare.com/app-icon-cache/App.png");
+
+      // The Manage Layout picker builds its URL from a bare NAME.
+      expect(await page.evaluate(() => iconCacheUrl("Windows Terminal Host.png")))
+        .toBe("https://calm-river-1234.trycloudflare.com/app-icon-cache/Windows%20Terminal%20Host.png");
+    });
+
+    test("smd-qr-import raw mode emits the decoded text as-is", async ({ page }) => {
+      await page.goto("/PhoneButtons/");
+      const decoded = await page.evaluate(() => new Promise((resolve) => {
+        const el = document.createElement("smd-qr-import");
+        el.setAttribute("raw", "");
+        el.addEventListener("smd-qr-import-complete", (e) => resolve(e.detail.data));
+        document.body.appendChild(el);
+        el._stopped = false; // simulate an active scan
+        el._handleDecoded("https://calm-river.trycloudflare.com");
+      }));
+      expect(decoded).toBe("https://calm-river.trycloudflare.com");
+    });
   });
 });

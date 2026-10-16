@@ -3,13 +3,17 @@ import io
 import re
 import json
 import sys
+import html
+import time
 import socket
 import argparse
 import datetime
+import subprocess
 import threading
 import webbrowser
 import ctypes
 from ctypes import wintypes
+from urllib.parse import quote
 
 import win32gui
 import win32ui
@@ -25,10 +29,24 @@ from flask import Flask, jsonify, request, send_from_directory, redirect
 from flask_socketio import SocketIO, emit
 
 app = Flask(__name__)
-# The front end is served by THIS server (same origin), so no CORS is needed.
-# Deliberately NOT wildcard-CORS: this server can inject keystrokes, so it must
-# not be drivable by an arbitrary web page.
-socketio = SocketIO(app)
+
+# CORS -----------------------------------------------------------------------
+# The app is normally served by THIS server (same origin), but it can also be
+# served elsewhere (GitHub Pages, or via a Cloudflare tunnel) and pointed at this
+# server through Settings -> Server — a DIFFERENT origin, so /api/* and the
+# Socket.IO handshake need CORS. SECURITY: this server injects keystrokes, so
+# cross-origin access is only safe on a trusted setup; restrict it with
+# PB_CORS_ORIGINS (comma-separated origins, or a single origin) when needed.
+_CORS_ORIGINS = os.environ.get("PB_CORS_ORIGINS", "*")
+socketio = SocketIO(app, cors_allowed_origins=_CORS_ORIGINS)
+
+
+@app.after_request
+def _add_cors_headers(resp):
+    resp.headers["Access-Control-Allow-Origin"] = _CORS_ORIGINS
+    resp.headers["Access-Control-Allow-Headers"] = "Content-Type"
+    resp.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
+    return resp
 
 # Paths ---------------------------------------------------------------------
 # app.py lives in MyApps/PhoneButtons/server; the web app and the shared smd-*
@@ -762,6 +780,37 @@ def app_icon_cache(filename):
     return send_from_directory(ICON_DIR, filename)
 
 
+@app.route("/phonebuttons-qr")
+def phonebuttons_qr():
+    """A big scannable QR for ?value=<url> — used by `--tunnel` / `--qr` to show the
+    Cloudflare tunnel address on screen. Rendered with the SHARED vendored QR library,
+    so there is no extra dependency. This explicit route is more specific than the
+    `/<path:filename>` catch-all below and therefore wins."""
+    value = (request.args.get("value") or "").strip()
+    if not value:
+        return ("Missing ?value=", 400)
+    # JSON-encode for the JS string AND neutralise the HTML-significant characters:
+    # this route is reachable through the tunnel, so a raw `</script>` in the value
+    # would otherwise escape the script block (reflected XSS).
+    js_value = (json.dumps(value)
+                .replace("<", "\\u003c").replace(">", "\\u003e").replace("&", "\\u0026"))
+    return (
+        "<!DOCTYPE html><html><head><meta charset='utf-8'>"
+        "<title>PhoneButtons QR</title>"
+        "<meta name='viewport' content='width=device-width,initial-scale=1'>"
+        "<style>body{font-family:system-ui,-apple-system,Segoe UI,sans-serif;background:#fff;"
+        "color:#111;margin:0;min-height:100vh;display:flex;flex-direction:column;align-items:center;"
+        "justify-content:center;gap:16px;text-align:center;padding:16px;box-sizing:border-box}"
+        "#qr{padding:12px;background:#fff}code{font-size:15px;word-break:break-all;max-width:92vw}</style>"
+        "</head><body><div id='qr'></div>"
+        f"<code>{html.escape(value)}</code>"
+        "<script src='/shared/vendor/qrcode.min.js'></script>"
+        "<script>new QRCode(document.getElementById('qr'),{text:" + js_value +
+        ",width:320,height:320,correctLevel:QRCode.CorrectLevel.M});</script>"
+        "</body></html>"
+    )
+
+
 @app.route("/<path:filename>")
 def repo_static(filename):
     # Serves the app folder AND the shared smd-* library (shared/css, shared/js,
@@ -1109,19 +1158,131 @@ def _open_browser():
         _debug(f"Could not open browser: {e}")
 
 
+# ---- Cloudflare quick tunnel + QR -------------------------------------------
+# `--tunnel` publishes this server through a Cloudflare QUICK TUNNEL (a random
+# https://<name>.trycloudflare.com URL carrying a REAL, trusted certificate — so
+# the phone needs no cert install), parses that URL out of cloudflared's output and
+# shows it as a QR code to scan. Needs `cloudflared` on PATH or PB_CLOUDFLARED set;
+# `--qr <url>` just shows a QR for an address you already have (e.g. your own NAMED
+# tunnel).
+#
+# SECURITY: a quick tunnel is on the PUBLIC internet — anyone with the (random) URL
+# can drive this machine's keyboard. Keep PB_CORS_ORIGINS tight and stop the tunnel
+# when you are done.
+
+_QR_ENABLED = True  # mirrors --no-qr, read by the background tunnel thread
+
+
+def _find_cloudflared():
+    env = os.environ.get("PB_CLOUDFLARED")
+    if env and os.path.exists(env):
+        return env
+    from shutil import which
+    found = which("cloudflared")
+    if found:
+        return found
+    for cand in (
+        os.path.join(os.environ.get("ProgramFiles", r"C:\Program Files"), "cloudflared", "cloudflared.exe"),
+        os.path.join(os.environ.get("LOCALAPPDATA", ""), "cloudflared", "cloudflared.exe"),
+        os.path.join(os.environ.get("USERPROFILE", ""), "cloudflared.exe"),
+    ):
+        if cand and os.path.exists(cand):
+            return cand
+    return None
+
+
+def _show_qr(value):
+    if not _QR_ENABLED or not value:
+        return
+    page = "http://127.0.0.1:5000/phonebuttons-qr?value=" + quote(str(value), safe="")
+    _debug(f"Opening QR page: {page}")
+    try:
+        webbrowser.open(page)
+    except Exception as e:
+        _debug(f"Could not open the QR page: {e}")
+
+
+def _start_tunnel():
+    """Start cloudflared, echo its output, and return the trycloudflare URL."""
+    exe = _find_cloudflared()
+    if not exe:
+        print("cloudflared not found - install it (winget install cloudflare.cloudflared),")
+        print("set PB_CLOUDFLARED to its full path, or pass --qr <url> for an address you have.")
+        return None
+    print(f"Starting Cloudflare quick tunnel ({exe}) ...")
+    try:
+        proc = subprocess.Popen(
+            [exe, "tunnel", "--url", "http://127.0.0.1:5000"],
+            stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+            text=True, bufsize=1, encoding="utf-8", errors="replace",
+        )
+    except Exception as e:
+        print(f"Could not start cloudflared: {e}")
+        return None
+    deadline = time.time() + 60
+    while time.time() < deadline:
+        line = proc.stdout.readline()
+        if not line:
+            if proc.poll() is not None:
+                print("cloudflared exited before it reported a URL.")
+                return None
+            continue
+        print("[cloudflared] " + line.rstrip())
+        m = re.search(r"https://[a-z0-9][a-z0-9-]*\.trycloudflare\.com", line)
+        if m:
+            return m.group(0)
+    print("Timed out waiting for cloudflared to report a URL.")
+    return None
+
+
+def _tunnel_and_qr():
+    url = _start_tunnel()
+    if not url:
+        return
+    host = url.split("://", 1)[1]
+    print("=" * 62)
+    print(f"  Cloudflare tunnel : {url}")
+    print(f"  In PhoneButtons, Settings -> Server enter:")
+    print(f"      https [x]   Server address: {host}   Port: (leave EMPTY)")
+    print("=" * 62)
+    _show_qr(url)
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="PhoneButtons server")
     parser.add_argument(
         "--no-qr",
         action="store_true",
-        help="Do not open the Share-QR browser page on startup",
+        help="Do not open a browser page on startup (the Share QR / tunnel QR)",
+    )
+    parser.add_argument(
+        "--tunnel",
+        action="store_true",
+        help="Start a Cloudflare quick tunnel, print its https URL and show it as a QR code",
+    )
+    parser.add_argument(
+        "--no-tunnel",
+        action="store_true",
+        help="Do NOT start a Cloudflare tunnel (overrides --tunnel; the launcher passes --tunnel by default)",
+    )
+    parser.add_argument(
+        "--qr",
+        metavar="URL",
+        help="Show a QR code for URL (e.g. a named tunnel you started yourself) and skip the tunnel",
     )
     args = parser.parse_args()
+
+    _QR_ENABLED = not args.no_qr
 
     t = threading.Thread(target=_run_focus_hook, daemon=True)
     t.start()
     # Open a browser once the server is listening, showing the Share QR so it can
     # be scanned with a phone straight away (skip with --no-qr).
-    if not args.no_qr:
+    if args.tunnel and not args.no_tunnel:
+        # The tunnel QR is the useful page then; skip the local Share-QR page.
+        threading.Timer(2.0, _tunnel_and_qr).start()
+    elif args.qr:
+        threading.Timer(1.5, lambda: _show_qr(args.qr)).start()
+    elif not args.no_qr:
         threading.Timer(1.5, _open_browser).start()
     socketio.run(app, host="0.0.0.0", port=5000, allow_unsafe_werkzeug=True)

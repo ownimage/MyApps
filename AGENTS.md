@@ -368,6 +368,62 @@ Architecture:
   `lol-list-items` to `storybook/index.html` (script tags + sections + the
   nav-link count) and recipes to `storybook/cardViewer.html`, seeded with a
   neutral image prefix. Not done yet.
+- PHONEBUTTONS SERVER ADDRESS (2026-10-16): the app can run served BY the Flask
+  server (same origin) or from elsewhere (GitHub Pages, or the SAME server
+  published through a CLOUDFLARE TUNNEL, which gives a fully-signed https URL) and
+  be pointed at it via Settings | Server: an `https` checkbox, a **Server address**
+  (IP OR DNS name) and an optional **Port**, plus a **Scan QR** button. Storage:
+  `pb_serverHttps` / `pb_serverAddress` / `pb_serverPort` (address default
+  `192.168.1.` = an incomplete prefix meaning "not configured"; port default EMPTY).
+  `pbServerBase()` (`PhoneButtons/js/api.js`) resolves them to `""` when the address
+  is incomplete or IS the page origin (relative paths then), else
+  `<scheme>://<host>[:<port>]` — an EMPTY PORT omits it (scheme default 80/443),
+  which is exactly what a tunnel URL needs since its port is 443. `pbApi._fetch`
+  prefixes the base; `pbSocket.connect()` calls `io(base || undefined, …)` and the
+  socket TRACKS `socketUrl`, REBUILDING when the base changes (otherwise Connect
+  keeps hitting the old server); `pbSocket.isActive()` lets the address fields tear
+  down a stale socket. `pbParseServerUrl()` accepts `https://host`,
+  `http://host:port`, `host:port` or a bare host (port left "" when absent). Scan QR
+  reuses the shared `<smd-qr-import>` with its `raw` attribute — the Share QR is a
+  plain URL, so the JSON/lz-string envelope must be skipped (and lz-string is not
+  even loaded).
+  SERVER: `app.py` enables CORS (`SocketIO(app, cors_allowed_origins=_CORS_ORIGINS)`
+  + an `@app.after_request` ACAO block; `PB_CORS_ORIGINS` env, default `*`) because
+  the app may be a DIFFERENT origin. SECURITY: this server injects keystrokes, so
+  restrict `PB_CORS_ORIGINS` on an untrusted network. Tunnel: point it at
+  `http://127.0.0.1:5000` and leave the app's Port EMPTY + https ticked.
+  GOTCHA: `inputmode="decimal"` on the address field gives iOS a digits-and-dot-only
+  keypad, which makes DNS impossible — it is `inputmode="url"` with
+  autocapitalize/autocorrect/spellcheck off. `:` is rejected in the address field
+  (the port has its own field, else `host:5000` + port 5000 -> `:5000:5000`).
+  - SERVER-RELATIVE ASSETS (2026-10-16, BUG): the server answers with ROOT-RELATIVE
+    URLs (`/app-icon-cache/<name>.png`) for app icons — from `_cache_icon()`, so BOTH
+    `/api/apps` AND the socket's `app_change` — and the Manage Layout picker builds
+    one from a NAME. A root-relative URL is only correct when the app is served BY
+    that server; from another origin the browser resolves it against the APP's host
+    (the reported `ownimage.github.io/app-icon-cache/Windows%20Terminal%20Host.png`
+    instead of the tunnel URL). FIX: new `pbServerUrl(path)` in api.js prefixes
+    server-relative paths with `pbServerBase()` (absolute and protocol-relative paths,
+    and an empty base, pass through), used by `main-view.js` (the `app_change` icon),
+    `edit-app.js` (the Manage App dropdown's `imageUrl`) and `edit-layout.js`
+    (`iconCacheUrl`). RULE: ANY url the SERVER supplies must go through
+    `pbServerUrl()` before it reaches a `src`.
+  - CLOUDFLARE TUNNEL + QR (2026-10-16): `app.py` gained `--tunnel` (starts
+    `cloudflared tunnel --url http://127.0.0.1:5000`, echoes its output, REGEXes the
+    first `https://<name>.trycloudflare.com`, then prints the Settings values to
+    enter), `--no-tunnel` (override) and `--qr <url>` (a QR for an address you already
+    have, e.g. a NAMED tunnel). `PhoneButtonServer.cmd` passes `--tunnel` by DEFAULT
+    (it only adds it when the user gave no `--tunnel`/`--no-tunnel`/`--qr`) and it
+    again KILLS anything on port 5000 first. The QR is served by a new route
+    `/phonebuttons-qr?value=<url>`, rendered with the SHARED vendored
+    `shared/vendor/qrcode.min.js` (global `QRCode`), opened at
+    `http://127.0.0.1:5000/phonebuttons-qr?...` via `webbrowser`. `_find_cloudflared()`
+    checks `PB_CLOUDFLARED`, then PATH, then the usual install dirs; cloudflared is NOT
+    installed on this box, so without it the server still runs and prints an install
+    hint (`winget install cloudflare.cloudflared`). SECURITY: a quick tunnel is
+    PUBLIC (anyone with the random URL can drive the keyboard), and the QR route must
+    escape its value for BOTH html AND JS (`json.dumps` + `\u003c/\u003e/\u0026`) —
+    a raw `</script>` in the value would otherwise break out of the script block.
 - SAMPLE IMAGES MERGE (2026-09-14): the old `QRLinks/sampleImages.json` (8
   images, legacy `{name,data}` format) was merged into the shared set — all 8
   were already present in `shared/sampleImages.json` (shared is master; e.g.
@@ -4728,4 +4784,63 @@ Techniques / gotchas:
   Because the rule was violated anyway, it is now ALSO a prominent numbered rule 18
   at the top of this file, with the concrete layout-drift failure and an audit
   recipe.
+
+### 2026-10-16 (b) - PhoneButtons: Settings | Server address + Scan QR + server CORS
+- REQUEST (user): put the server ADDRESS config back on PhoneButtons Settings |
+  Server — the https checkbox, the server address and port, and a camera Scan QR
+  button — because they will publish the local http server through CLOUDFLARE to
+  get a fully-signed https URL. See the durable PHONEBUTTONS SERVER ADDRESS note
+  above for the full shape.
+- FILES: `PhoneButtons/js/api.js` (address helpers `pbServerHttps`/
+  `pbServerAddress`/`pbServerPort`/`pbHostComplete`/`pbServerBase`/
+  `pbParseServerUrl`; `_fetch` prefixes the base); `PhoneButtons/js/socket.js`
+  (`socketUrl` + `isActive()`; `connect()` uses `pbServerBase()` and REBUILDS when
+  the address changed); `PhoneButtons/js/settings-tab.js`
+  (`serverAddressChanged`/`restoreServerAddress` + `openServerScan`/`hideServerScan`
+  and the raw-QR handler; restored in `restoreServerTab`);
+  `PhoneButtons/index.html` (the Server-tab fields + `#serverScanPage` + the
+  `smd-qr.js`/`smd-qr-import.js` script tags);
+  `shared/js/components/smd-qr-import.js` (+`raw`);
+  `PhoneButtons/server/app.py` (+CORS); `PhoneButtons/server/README.md`.
+- DESIGN NOTES: the PORT is OPTIONAL (empty = scheme default 80/443) so a tunnel
+  URL (port 443, no explicit port) works; the address accepts an IP or a DNS name;
+  the socket must be able to RE-TARGET (see `socketUrl`) or a changed address is
+  ignored; CORS is now REQUIRED because the app and the tunnel host are different
+  origins.
+- TESTS: the fake `window.io` now RECORDS the URL; 4 new tests (address fields drive
+  the base incl. https + empty port and the REST URL; Scan QR parsing + the scan-page
+  wiring; Connect re-targets; `raw` mode). 17/17 pass.
+- `BUILD_NUMBER` -> `202610161321` via `npm run bump:build`.
+
+### 2026-10-16 (c) - PhoneButtons: server-relative icons prefixed; cloudflared + QR
+- BUG (user): the GitHub-Pages copy requested app icons from ITS OWN host —
+  `https://ownimage.github.io/app-icon-cache/Windows%20Terminal%20Host.png` instead
+  of the configured tunnel server. CAUSE: the server answers with ROOT-RELATIVE icon
+  paths (`_cache_icon()` -> `/app-icon-cache/<name>.png`, used by `/api/apps` AND the
+  `app_change` socket push) and `edit-layout.js` built one from a NAME; a
+  root-relative URL resolves against the APP's origin, not the server's. FIX:
+  `pbServerUrl(path)` (api.js) prefixes server-relative paths with `pbServerBase()`
+  (absolute / protocol-relative / empty-base pass through), applied in `main-view.js`
+  (app_change icon), `edit-app.js` (Manage App dropdown `imageUrl`) and
+  `edit-layout.js` (`iconCacheUrl`). Test added (asserts the prefixed src + that
+  absolute/protocol-relative URLs are untouched).
+- FEATURE (user): `PhoneButtonServer.cmd` should parse the Cloudflare response and
+  show a QR to scan. `app.py` gained `--tunnel` (starts `cloudflared tunnel --url
+  http://127.0.0.1:5000`, echoes its output, regexes the first
+  `https://<name>.trycloudflare.com`, prints the Settings values), `--no-tunnel`, and
+  `--qr <url>`; the launcher passes `--tunnel` BY DEFAULT (only when the user gave no
+  tunnel/QR choice) and AGAIN kills anything on port 5000 first (that step had been
+  lost in the rollback). The QR comes from a new `/phonebuttons-qr?value=<url>` route
+  rendered with the shared vendored `qrcode.min.js`, opened at
+  `http://127.0.0.1:5000/phonebuttons-qr?...`. `_find_cloudflared()` checks
+  `PB_CLOUDFLARED` -> PATH -> usual install dirs; cloudflared is NOT installed on this
+  box so the server runs anyway and prints `winget install cloudflare.cloudflared`.
+  HARDENED: the route escapes its value for html AND js (`json.dumps` +
+  `\u003c/\u003e/\u0026`) because a raw `</script>` would break out of the script
+  block on a PUBLIC (tunnelled) route — verified all hostile values keep exactly 2
+  `<script` tags.
+- VERIFIED: `node --check` + `py_compile` clean; the QR route via Flask's test client
+  (200 + text/html, vendored lib, value passed, missing value 400, hostile values
+  escaped); `phonebuttons-regression` 18/18.
+- `BUILD_NUMBER` -> `202610161801` via `npm run bump:build`.
 

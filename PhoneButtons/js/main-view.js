@@ -217,7 +217,7 @@ function bindSocketUi() {
     var iconEl = document.getElementById("serverAppIcon");
     if (iconEl) {
       if (data.icon) {
-        iconEl.src = data.icon;
+        iconEl.src = pbServerUrl(data.icon);
         iconEl.classList.remove("d-none");
       } else {
         iconEl.classList.add("d-none");
