@@ -25,10 +25,24 @@ from flask import Flask, jsonify, request, send_from_directory, redirect
 from flask_socketio import SocketIO, emit
 
 app = Flask(__name__)
-# The front end is served by THIS server (same origin), so no CORS is needed.
-# Deliberately NOT wildcard-CORS: this server can inject keystrokes, so it must
-# not be drivable by an arbitrary web page.
-socketio = SocketIO(app)
+
+# CORS -----------------------------------------------------------------------
+# The app is normally served by THIS server (same origin), but it can also be
+# served elsewhere (GitHub Pages, or via a Cloudflare tunnel) and pointed at this
+# server through Settings -> Server — a DIFFERENT origin, so /api/* and the
+# Socket.IO handshake need CORS. SECURITY: this server injects keystrokes, so
+# cross-origin access is only safe on a trusted setup; restrict it with
+# PB_CORS_ORIGINS (comma-separated origins, or a single origin) when needed.
+_CORS_ORIGINS = os.environ.get("PB_CORS_ORIGINS", "*")
+socketio = SocketIO(app, cors_allowed_origins=_CORS_ORIGINS)
+
+
+@app.after_request
+def _add_cors_headers(resp):
+    resp.headers["Access-Control-Allow-Origin"] = _CORS_ORIGINS
+    resp.headers["Access-Control-Allow-Headers"] = "Content-Type"
+    resp.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
+    return resp
 
 # Paths ---------------------------------------------------------------------
 # app.py lives in MyApps/PhoneButtons/server; the web app and the shared smd-*

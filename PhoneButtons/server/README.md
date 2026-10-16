@@ -4,10 +4,13 @@ Local Flask + Flask-SocketIO server that serves the MyApps **Phone Buttons**
 front end (and the whole shared `smd-*` library) and replays key presses on this
 PC.
 
-Everything is **same-origin**: the browser loads the app from this server and
-opens the Socket.IO connection back to the same origin, so there is no CORS and
-no HTTPS/mixed-content problem. Do not expose this server to untrusted networks
-— it can inject keystrokes.
+By default everything is **same-origin**: the browser loads the app from this
+server and opens the Socket.IO connection back to the same origin. The app can
+also be served from elsewhere (GitHub Pages, or the same server published through
+a **Cloudflare tunnel** for a fully-signed https URL) and pointed at this server
+via **Settings → Server** (https checkbox / server address / port / Scan QR) —
+that is a different origin, so CORS is enabled (see Notes). Do not expose this
+server to untrusted networks — it can inject keystrokes.
 
 ## Run
 
@@ -60,7 +63,13 @@ py -3.13 MyApps\PhoneButtons\server\app.py --no-qr
 
 ## Notes
 
-- Wildcard CORS is intentionally NOT enabled: the front end is same-origin, and
-  a wildcard would let any web page drive this machine's keyboard.
+- CORS IS enabled so the app can run from another origin (GitHub Pages, or a
+  Cloudflare-tunnelled https address) and reach this server: `/api/*` responses
+  carry `Access-Control-Allow-*` and Socket.IO accepts cross-origin connections.
+  The server can inject keystrokes, so on an untrusted network restrict it with
+  `PB_CORS_ORIGINS` (comma-separated origins, or a single origin); default `*`.
+- Tunnel note: point the tunnel at `http://127.0.0.1:5000`; it advertises a
+  `https://…` URL with no port, so leave the app's **Port** field EMPTY (an empty
+  port uses the scheme default, 443) and tick **https**.
 - To add a new shared asset, no server change is needed — it is served straight
   from the repo root.

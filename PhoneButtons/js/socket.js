@@ -12,6 +12,7 @@ var pbSocket = (function () {
   "use strict";
 
   var socket = null;
+  var socketUrl = null;
   var ioPromise = null;
   var status = "disconnected";
   var statusDetail = "";
@@ -69,6 +70,7 @@ var pbSocket = (function () {
   return {
     getStatus: function () { return { status: status, detail: statusDetail }; },
     isConnected: function () { return !!(socket && socket.connected); },
+    isActive: function () { return !!socket; },
 
     onStatus: function (cb) { statusListeners.push(cb); return cb; },
     on: function (event, cb) {
@@ -76,13 +78,22 @@ var pbSocket = (function () {
       return cb;
     },
 
-    // Connect to the origin this page was served from — the Flask server and
-    // the app are the same origin, so no URL/token is needed.
+    // Connect to the configured server (Settings -> Server); pbServerBase() is ""
+    // when that address IS this origin, so io() connects to the page origin then.
     connect: function () {
-      if (socket) return Promise.resolve(socket);
+      var base = typeof pbServerBase === "function" ? pbServerBase() : "";
+      // Re-use the live socket ONLY when it already targets the CURRENT address:
+      // the address can change in Settings after an earlier attempt, and the old
+      // socket must then be torn down or Connect would keep hitting the old server.
+      if (socket && socketUrl === base) return Promise.resolve(socket);
+      if (socket) {
+        try { socket.disconnect(); } catch (e) { /* already gone */ }
+        socket = null;
+      }
+      socketUrl = base;
       setStatus("connecting", "");
       return ensureIo().then(function (io) {
-        socket = io({
+        socket = io(base || undefined, {
           reconnection: true,
           reconnectionDelay: 500,
           reconnectionDelayMax: 5000,
@@ -101,6 +112,7 @@ var pbSocket = (function () {
         try { socket.disconnect(); } catch (e) { /* already gone */ }
         socket = null;
       }
+      socketUrl = null;
       setStatus("disconnected", "closed by user");
     },
 

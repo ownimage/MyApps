@@ -1,10 +1,59 @@
-// PhoneButtons — REST layer.
+// PhoneButtons — server address + REST layer.
 //
-// The app is served by the same Flask server it talks to, so every path is
-// same-origin (no base URL, no auth, no CORS).
+// The app may be served BY the same Flask server it talks to (same origin, so every
+// path stays relative) OR from elsewhere (GitHub Pages, or a Cloudflare-tunnelled
+// https server) and pointed at the server via Settings -> Server. pbServerBase()
+// resolves that to "" (same origin) or an absolute "<scheme>://<host>[:<port>]".
+
+var PB_DEFAULT_ADDRESS = "192.168.1."; // an incomplete prefix = "not configured"
+
+function pbServerHttps() { return localStorage.getItem(smdKey("serverHttps")) === "true"; }
+function pbServerAddress() { return (localStorage.getItem(smdKey("serverAddress")) || PB_DEFAULT_ADDRESS).trim(); }
+function pbServerPort() { return (localStorage.getItem(smdKey("serverPort")) || "").trim(); }
+
+// A COMPLETE host: not blank, no scheme/path/space/colon, not ending in ".". Accepts
+// an IP (192.168.1.60) OR a DNS name (something.trycloudflare.com). ":" is rejected
+// because the port has its own field (else `host:5000` + port 5000 -> :5000:5000).
+function pbHostComplete(host) { return !!host && !/[\s/%:]/.test(host) && !/\.$/.test(host); }
+
+// The base URL for API + socket calls. "" when the address is incomplete or IS this
+// origin (relative paths then), else "<scheme>://<host>[:<port>]". An EMPTY port
+// means the scheme's default (80/443) — which is what a Cloudflare tunnel needs.
+function pbServerBase() {
+  var host = pbServerAddress();
+  if (!pbHostComplete(host)) return "";
+  var scheme = pbServerHttps() ? "https" : "http";
+  var port = pbServerPort();
+  var herePort = location.port || (location.protocol === "https:" ? "443" : "80");
+  var wantPort = port || (scheme === "https" ? "443" : "80");
+  if (location.hostname === host && String(herePort) === String(wantPort) && location.protocol === scheme + ":") return "";
+  return scheme + "://" + host + (port ? ":" + port : "");
+}
+
+// Parse a scanned server URL — "https://something.trycloudflare.com",
+// "http://192.168.1.60:5000", "host:5000" or a bare host — into the two fields.
+// A URL with NO port yields port "" so the scheme's default is used.
+function pbParseServerUrl(text) {
+  text = String(text || "").trim();
+  if (!text) return null;
+  if (!/^[a-z][a-z0-9+.-]*:\/\//i.test(text)) text = "http://" + text;
+  try {
+    var u = new URL(text);
+    var host = u.hostname;
+    // A real host only: dot-separated labels (IPv4 or a name). `new URL()` happily
+    // percent-encodes free text, so validate rather than trust it.
+    if (!/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)*$/i.test(host)) return null;
+    var port = u.port || "";
+    if (port && (!/^\d{1,5}$/.test(port) || +port < 1 || +port > 65535)) return null;
+    return { https: u.protocol === "https:", address: host, port: String(port) };
+  } catch (e) {
+    return null;
+  }
+}
+
 var pbApi = {
   _fetch: function (path, options) {
-    return fetch(path, options).then(function (resp) {
+    return fetch(pbServerBase() + path, options).then(function (resp) {
       if (!resp.ok) {
         return resp.text().then(function (body) {
           throw new Error("HTTP " + resp.status + (body ? ": " + body.trim() : ""));
