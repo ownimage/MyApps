@@ -27,10 +27,6 @@ document.addEventListener("DOMContentLoaded", function () {
 
   _commLine("Phone Buttons ready.", "info");
 
-  // Seed the server address (defaults on first run) before the auto-connect so
-  // pbServerBase() resolves the right target.
-  ensureServerDefaults();
-
   // The app is served by the server it controls, so connect automatically.
   connectServer();
 

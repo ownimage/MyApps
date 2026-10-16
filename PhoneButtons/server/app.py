@@ -25,24 +25,10 @@ from flask import Flask, jsonify, request, send_from_directory, redirect
 from flask_socketio import SocketIO, emit
 
 app = Flask(__name__)
-
-# CORS -----------------------------------------------------------------------
-# The app is normally served by THIS server (same origin), but it can also run as
-# an installed PWA / from another origin and be pointed at this LAN server via
-# Settings -> Server. Allow the browser to reach /api/* and the Socket.IO endpoint
-# from that origin. SECURITY: this server injects keystrokes, so cross-origin
-# access is only safe on a trusted network; restrict it with PB_CORS_ORIGINS
-# (comma-separated origins, or a single origin) when needed.
-_CORS_ORIGINS = os.environ.get("PB_CORS_ORIGINS", "*")
-socketio = SocketIO(app, cors_allowed_origins=_CORS_ORIGINS)
-
-
-@app.after_request
-def _add_cors_headers(resp):
-    resp.headers["Access-Control-Allow-Origin"] = _CORS_ORIGINS
-    resp.headers["Access-Control-Allow-Headers"] = "Content-Type"
-    resp.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
-    return resp
+# The front end is served by THIS server (same origin), so no CORS is needed.
+# Deliberately NOT wildcard-CORS: this server can inject keystrokes, so it must
+# not be drivable by an arbitrary web page.
+socketio = SocketIO(app)
 
 # Paths ---------------------------------------------------------------------
 # app.py lives in MyApps/PhoneButtons/server; the web app and the shared smd-*
@@ -1115,34 +1101,12 @@ def _lan_ip():
 def _open_browser():
     # Open on the LAN address (not localhost) so the "Share app" QR encodes a URL
     # a phone on the same network can actually reach.
-    url = f"{_SCHEME}://{_lan_ip()}:{_PORT}/PhoneButtons/?showQr=1"
+    url = f"http://{_lan_ip()}:5000/PhoneButtons/?showQr=1"
     _debug(f"Opening browser: {url}")
     try:
         webbrowser.open(url)
     except Exception as e:
         _debug(f"Could not open browser: {e}")
-
-
-# Effective scheme/port for the URL the server opens (set in __main__).
-_SCHEME = "http"
-_PORT = 5000
-
-
-def _ssl_context(args):
-    """Werkzeug ssl_context from the CLI flags (None = plain HTTP)."""
-    if getattr(args, "no_tls", False):
-        # Explicit plain HTTP (the launcher passes this to opt out of its default).
-        return None
-    if getattr(args, "adhoc", False):
-        # On-the-fly self-signed cert (needs `cryptography`). The browser will
-        # warn about it; NOTE a self-signed cert is still NOT a secure context,
-        # so camera access (Settings -> Server -> Scan QR) stays blocked.
-        return "adhoc"
-    if args.cert or args.key:
-        if not (args.cert and args.key):
-            raise SystemExit("--cert and --key must be given together")
-        return (args.cert, args.key)
-    return None
 
 
 if __name__ == "__main__":
@@ -1152,25 +1116,7 @@ if __name__ == "__main__":
         action="store_true",
         help="Do not open the Share-QR browser page on startup",
     )
-    parser.add_argument("--port", type=int, default=5000, help="Port to listen on (default 5000)")
-    parser.add_argument("--cert", help="TLS certificate file (PEM) - enables HTTPS")
-    parser.add_argument("--key", help="TLS private key file (PEM) - with --cert")
-    parser.add_argument(
-        "--adhoc",
-        action="store_true",
-        help="Serve HTTPS with an on-the-fly self-signed certificate",
-    )
-    parser.add_argument(
-        "--no-tls",
-        action="store_true",
-        help="Serve plain HTTP (default when run directly; the launcher adds this "
-             "to opt out of its HTTPS default)",
-    )
     args = parser.parse_args()
-
-    ssl_ctx = _ssl_context(args)
-    _SCHEME = "https" if ssl_ctx else "http"
-    _PORT = args.port
 
     t = threading.Thread(target=_run_focus_hook, daemon=True)
     t.start()
@@ -1178,10 +1124,4 @@ if __name__ == "__main__":
     # be scanned with a phone straight away (skip with --no-qr).
     if not args.no_qr:
         threading.Timer(1.5, _open_browser).start()
-    socketio.run(
-        app,
-        host="0.0.0.0",
-        port=args.port,
-        allow_unsafe_werkzeug=True,
-        ssl_context=ssl_ctx,
-    )
+    socketio.run(app, host="0.0.0.0", port=5000, allow_unsafe_werkzeug=True)

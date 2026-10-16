@@ -76,14 +76,13 @@ var pbSocket = (function () {
       return cb;
     },
 
-    // Connect to the configured server (Settings -> Server); pbServerBase() is ""
-    // when that address IS this origin, so io() connects to the page origin then.
+    // Connect to the origin this page was served from — the Flask server and
+    // the app are the same origin, so no URL/token is needed.
     connect: function () {
       if (socket) return Promise.resolve(socket);
       setStatus("connecting", "");
       return ensureIo().then(function (io) {
-        var base = typeof pbServerBase === "function" ? pbServerBase() : "";
-        socket = io(base || undefined, {
+        socket = io({
           reconnection: true,
           reconnectionDelay: 500,
           reconnectionDelayMax: 5000,

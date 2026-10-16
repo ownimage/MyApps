@@ -10,9 +10,6 @@
 //
 // Attributes:
 //   autostart — start scanning as soon as the element is connected
-//   raw       — emit the decoded text AS-IS (a plain string, no JSON/lz-string
-//               envelope). Used to scan, e.g., a server URL QR instead of an
-//               export of this app's own data.
 //
 // Methods:
 //   start()  — (re)start scanning
@@ -91,12 +88,7 @@
       this._stopped = false;
       this._setStatus("Preparing camera\u2026");
 
-      // The chunked envelope needs lz-string; a `raw` scan (e.g. a plain URL QR)
-      // only needs jsQR.
-      const deps = this.hasAttribute("raw")
-        ? loadJsQr()
-        : Promise.all([loadLzString(), loadJsQr()]);
-      deps.then(() => {
+      Promise.all([loadLzString(), loadJsQr()]).then(() => {
         if (this._stopped) return;
         this._startCamera();
       }).catch((err) => {
@@ -187,18 +179,6 @@
 
     _handleDecoded(decoded) {
       if (this._stopped) return;
-
-      // Raw mode: hand back the decoded text untouched (a plain URL, host:port…).
-      if (this.hasAttribute("raw")) {
-        this.stop();
-        this._setStatus("Scan complete");
-        this.dispatchEvent(new CustomEvent("smd-qr-import-complete", {
-          bubbles: true,
-          composed: true,
-          detail: { data: decoded }
-        }));
-        return;
-      }
 
       let obj = null;
       try {

@@ -4,12 +4,10 @@ Local Flask + Flask-SocketIO server that serves the MyApps **Phone Buttons**
 front end (and the whole shared `smd-*` library) and replays key presses on this
 PC.
 
-By default everything is **same-origin**: the browser loads the app from this
-server and opens the Socket.IO connection back to the same origin. The app can
-also be served from elsewhere (an installed PWA / another origin) and pointed at
-this LAN server via **Settings → Server** (IP + port, or "Scan QR" of the
-Share-app QR) — see the CORS note below. Do not expose this server to untrusted
-networks — it can inject keystrokes.
+Everything is **same-origin**: the browser loads the app from this server and
+opens the Socket.IO connection back to the same origin, so there is no CORS and
+no HTTPS/mixed-content problem. Do not expose this server to untrusted networks
+— it can inject keystrokes.
 
 ## Run
 
@@ -31,26 +29,6 @@ py -3.13 MyApps\PhoneButtons\server\app.py --no-qr
 ```
 
 `/` redirects to `/PhoneButtons/`.
-
-### HTTPS
-
-The repo-root launcher `PhoneButtonServer.cmd` runs **HTTPS by default** (ad-hoc
-self-signed) and installs the deps; pass `--no-tls` to it for plain HTTP. Running
-`app.py` directly serves HTTP unless you pass a TLS option:
-
-Serve over TLS with `--cert`/`--key` (a PEM pair), or `--adhoc` for a throwaway
-self-signed certificate (needs the `cryptography` package):
-
-```powershell
-py -3.13 MyApps\PhoneButtons\server\app.py --adhoc
-py -3.13 MyApps\PhoneButtons\server\app.py --cert server.crt --key server.key --port 5000
-```
-
-The URL the server opens (and therefore the Share-app QR) switches to `https://`.
-A self-signed cert shows a browser warning AND is **not** a secure context, so the
-camera "Scan QR" stays blocked unless the cert is trusted by the device — generate
-one with [mkcert](https://github.com/FiloSottile/mkcert) and install its root CA on
-the phone.
 
 ## Layout
 
@@ -82,16 +60,7 @@ the phone.
 
 ## Notes
 
-- CORS IS enabled so the app can run from another origin (an installed PWA) and
-  reach this server: `/api/*` responses carry `Access-Control-Allow-*` and
-  Socket.IO accepts cross-origin connections. This is needed because the server
-  injects keystrokes, so **restrict it on an untrusted network** by setting
-  `PB_CORS_ORIGINS` (comma-separated origins, or a single origin) before starting
-  the server; it defaults to `*`.
-- Mixed content: an HTTPS app pointed at this server over plain HTTP is blocked
-  regardless of CORS — run the server with TLS (`--cert/--key` or `--adhoc`) so
-  both are HTTPS. The camera "Scan QR" also needs a secure context: over plain HTTP
-  type the address instead, and a self-signed cert only unblocks the camera if the
-  device trusts that cert.
+- Wildcard CORS is intentionally NOT enabled: the front end is same-origin, and
+  a wildcard would let any web page drive this machine's keyboard.
 - To add a new shared asset, no server change is needed — it is served straight
   from the repo root.
