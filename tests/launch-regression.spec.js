@@ -59,6 +59,49 @@ test.describe("Launch - Regression", () => {
     }
   });
 
+  // Every app shows its FULL NAME in the toolbar, next to the hamburger button.
+  // The label comes from the shared registry (`SmdApps.APPS[].navTitle || name`)
+  // keyed off the app's own path, so the nav and the Launch submenu can never
+  // disagree. Phone Buttons opts OUT (`navTitle: false`): its nav already shows
+  // the name of the app running on the server.
+  test("each app's nav shows the app name next to the hamburger", async ({ page }) => {
+    const EXPECTED = [
+      ["/", "My Apps"],
+      ["/PlanMyDay/", "Plan My Day"],
+      ["/CountMyDays/", "Count My Days"],
+      ["/QRLinks/", "QR Links"],
+      ["/SolarControlar/", "Solar Controlar"],
+      ["/FreeFormOX/", "FreeFormOX"],
+      ["/ListOfLists/", "List of Lists"]
+    ];
+    for (const [shell, name] of EXPECTED) {
+      await page.goto(shell);
+      const title = page.locator("#mainNav #appNavTitle");
+      await expect(title, shell).toHaveCount(1);
+      await expect(title, shell).toHaveText(name);
+      const geom = await page.evaluate(() => {
+        const nav = document.getElementById("mainNav");
+        const btn = document.getElementById("btnMainMenu");
+        const span = document.getElementById("appNavTitle");
+        const rb = btn.getBoundingClientRect(), rs = span.getBoundingClientRect();
+        return {
+          inNav: nav.contains(span),
+          sameRow: Math.abs((rb.top + rb.height / 2) - (rs.top + rs.height / 2)) < 6,
+          toTheRight: rs.left >= rb.right - 1,
+          // Pinned to the body colour, NOT Bootstrap's --bs-navbar-color.
+          bodyColour: getComputedStyle(span).color === getComputedStyle(document.body).color
+        };
+      });
+      expect(geom.inNav, shell).toBe(true);
+      expect(geom.sameRow, shell).toBe(true);
+      expect(geom.toTheRight, shell).toBe(true);
+      expect(geom.bodyColour, shell).toBe(true);
+    }
+    // Phone Buttons opts out of the nav title.
+    await page.goto("/PhoneButtons/");
+    await expect(page.locator("#appNavTitle")).toHaveCount(0);
+  });
+
   test("root shows the grid of available apps", async ({ page }) => {
     const errors = [];
     page.on("console", m => { if (m.type() === "error") errors.push(m.text()); });

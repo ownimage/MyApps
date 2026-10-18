@@ -23,8 +23,12 @@
     { name: "Solar Controlar", description: "Solar energy monitoring dashboard", path: "SolarControlar/", icon: "Solar Controlar" },
     { name: "FreeFormOX", description: "A tactical 5x5 Tic-Tac-Toe game", path: "FreeFormOX/", icon: "Noughts & Crosses" },
     { name: "List of Lists", description: "Organise anything into categories, lists and list items", path: "ListOfLists/", icon: "List of Lists" },
-    { name: "Phone Buttons", description: "Remote control buttons for this computer", path: "PhoneButtons/", icon: "Phone Buttons" },
-    { name: "Launch", description: "Open the app launcher", path: "", icon: "Launch" }
+    // `navTitle` overrides the name shown in the nav bar (see mountAppTitle):
+    //   - a string replaces `name` (Launch's page is titled "My Apps"),
+    //   - `false` opts OUT of a nav title entirely (Phone Buttons already shows
+    //     the running server app's name next to the hamburger).
+    { name: "Phone Buttons", description: "Remote control buttons for this computer", path: "PhoneButtons/", icon: "Phone Buttons", navTitle: false },
+    { name: "Launch", description: "Open the app launcher", path: "", icon: "Launch", navTitle: "My Apps" }
   ];
 
   function appByPath(path) {
@@ -109,6 +113,25 @@
 
   // Relative href from the current page to another app ("" is Launch itself).
   function href(path) { return _base + (path || ""); }
+
+  // The registry `path` of the app hosting the CURRENT page ("" = Launch, the
+  // repo root). Derived from the same module-URL trick as `_base`: the page path
+  // relative to the repo root is "" / "PlanMyDay/" / "PlanMyDay/index.html", so
+  // the first segment (plus its slash) names the app folder.
+  var _currentPath = (function () {
+    try {
+      var src = document.currentScript && document.currentScript.src;
+      if (!src) return null;
+      var root = src.replace(/shared\/js\/smd-apps\.js(\?.*)?$/, "");
+      var here = location.href.split(/[?#]/)[0];
+      if (here.indexOf(root) !== 0) return null;
+      var rel = here.slice(root.length);
+      var m = rel.match(/^([^/]+)\//);
+      return m ? m[1] + "/" : "";
+    } catch (e) { return null; }
+  })();
+
+  function currentPath() { return _currentPath; }
 
   // ---- Launch flyout submenu ------------------------------------------------
 
@@ -195,8 +218,43 @@
     });
   }
 
+  // ---- App name in the nav bar ----------------------------------------------
+
+  // Put the app's FULL NAME in the toolbar, right next to the hamburger button.
+  // The name comes from the registry above (so the nav and the Launch submenu
+  // can never disagree), resolved from the CURRENT page's path. An app whose
+  // entry sets `navTitle: false` (Phone Buttons) gets no title. Idempotent, and
+  // a no-op on pages without a #mainNav (the Storybook, the card viewer frames).
+  function mountAppTitle() {
+    var nav = document.getElementById("mainNav");
+    if (!nav || document.getElementById("appNavTitle")) return;
+    var app = _currentPath === null ? null : appByPath(_currentPath);
+    if (!app) return;
+    var title = app.navTitle === undefined ? app.name : app.navTitle;
+    if (!title) return;
+
+    var span = document.createElement("span");
+    span.id = "appNavTitle";
+    // `navbar-text` aligns the text in the navbar; `mb-0` keeps its default
+    // bottom margin from changing the bar height.
+    span.className = "navbar-text fw-semibold mb-0";
+    span.textContent = title;
+
+    // Directly after the hamburger's dropdown wrapper so it reads as part of the
+    // same control group; falls back to the start of the bar.
+    var btn = document.getElementById("btnMainMenu");
+    var anchor = btn && btn.closest ? btn.closest(".dropdown") : null;
+    if (anchor && anchor.parentNode) anchor.parentNode.insertBefore(span, anchor.nextSibling);
+    else nav.appendChild(span);
+
+    // The toolbar hides its hamburger while a secondary page is open; keep the
+    // title in step (smd-app.js owns that rule and is loaded before this file).
+    if (typeof updateMainMenuVisibility === "function") updateMainMenuVisibility();
+  }
+
   function boot() {
     try { buildLaunchSubmenu(); } catch (e) { /* never break app boot */ }
+    try { mountAppTitle(); } catch (e) { /* never break app boot */ }
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot);
   else boot();
@@ -213,6 +271,8 @@
     setFlag: setFlag,
     reorder: reorder,
     href: href,
-    buildLaunchSubmenu: buildLaunchSubmenu
+    currentPath: currentPath,
+    buildLaunchSubmenu: buildLaunchSubmenu,
+    mountAppTitle: mountAppTitle
   };
 })(window);

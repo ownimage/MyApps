@@ -259,6 +259,26 @@ Architecture:
   and would strict-mode-fail). Sample images "Launch" and "Phone Buttons" were
   added (native SVG + SURGICAL JSON append — a full `regen` rewrites 22
   pre-existing entries whose SVG files drifted from the JSON).
+- APP NAME IN THE NAV BAR (2026-10-18): every app shell's toolbar shows its FULL
+  NAME next to the hamburger. `SmdApps.mountAppTitle()` (shared/js/smd-apps.js)
+  inserts `<span id="appNavTitle" class="navbar-text fw-semibold mb-0">` after the
+  hamburger's `.dropdown` wrapper, using the name from THIS registry, resolved
+  from the page's own path (`SmdApps.currentPath()`, the same module-URL trick as
+  `href()`), so the nav and the Launch submenu can never disagree. `navTitle`
+  overrides the entry's `name`: Launch's page is titled "My Apps" (its content
+  `<h1>My Apps</h1>` was REMOVED as a duplicate), and PhoneButtons sets
+  `navTitle: false` to opt OUT because its nav already shows the running server
+  app's name (`#serverAppName`). It is mounted from `boot()` (with
+  `buildLaunchSubmenu`), idempotent, and a no-op where there is no `#mainNav`
+  (Storybook, card-viewer frames). `updateMainMenuVisibility()` in smd-app.js
+  now hides the title WITH the hamburger while a `smd-page` is open, and
+  `#appNavTitle` is pinned to `var(--bs-body-color)` in shared/css/styles.css
+  (matching the hamburger; a theme's `--bs-navbar-color` may target a different
+  navbar surface). To add a new app's title nothing is needed — it comes from its
+  `APPS` row. Tests: launch-regression "each app's nav shows the app name next to
+  the hamburger" (7 shells: text + same-row/right-of-button geometry + body
+  colour, then the PhoneButtons opt-out) and the pmd-regression "hides the main
+  menu while a secondary page is open" now also asserts the title hides.
 - SHARED IMAGE LIBRARY (2026-09-13): all apps share ONE images list,
   `shared-images`. `SmdConfig.imagePrefix = "shared-"` is set in every app's
   `app.js`; `smdImagePrefix()` (shared/js/smd-app.js) returns
@@ -4843,4 +4863,37 @@ Techniques / gotchas:
   (200 + text/html, vendored lib, value passed, missing value 400, hostile values
   escaped); `phonebuttons-regression` 18/18.
 - `BUILD_NUMBER` -> `202610161801` via `npm run bump:build`.
+
+### 2026-10-18 - app full name next to the hamburger in every nav bar
+- FEATURE (user): show each app's FULL NAME in the menu bar next to the hamburger.
+  Implemented ONCE, in the shared registry, not as 7 copies of markup:
+  `SmdApps.mountAppTitle()` (`shared/js/smd-apps.js`) resolves the CURRENT app
+  from the page path (`SmdApps.currentPath()`, derived from this module's own
+  script URL like `href()`) and inserts
+  `<span id="appNavTitle" class="navbar-text fw-semibold mb-0">NAME</span>`
+  directly after the hamburger's `.dropdown` wrapper. `APPS[].navTitle`
+  overrides `name`: `"My Apps"` for Launch, `false` (opt out) for Phone Buttons,
+  which already shows the running server app's name there. Called from `boot()`
+  next to `buildLaunchSubmenu()`; idempotent; a no-op without a `#mainNav`
+  (Storybook / card-viewer frames).
+- DUPLICATE REMOVED: the Launch page's content `<h1 class="h4 mt-2 mb-0">My
+  Apps</h1>` is gone (the nav shows it now). No test referenced it.
+- VISIBILITY: `updateMainMenuVisibility()` (smd-app.js) now hides the title
+  together with `#btnMainMenu` while any `smd-page[open]` is present, and
+  `#appNavTitle { color: var(--bs-body-color) }` was added to styles.css so a
+  theme's `--bs-navbar-color` (which may target a different navbar surface)
+  cannot make the title illegible - the same reason `#btnMainMenu` is pinned.
+- TDD: new `launch-regression` "each app's nav shows the app name next to the
+  hamburger" (7 shells: exactly one `#appNavTitle` with the registry name,
+  same-row + right-of-the-button geometry + body colour; then PhoneButtons must
+  have none) and the pmd-regression "hides the main menu while a secondary page
+  is open" test extended to assert the title hides and returns.
+  MUTATION-CHECKED: disabling the `mountAppTitle()` call in `boot()` fails the
+  new test with `Expected: 1, Received: 0`.
+- VERIFIED: launch-regression 13/13, phonebuttons-regression 18/18,
+  pmd-regression + pmd-touch `Main View|Auto-Hide Nav` 171/171,
+  settings-alignment 13/13, cmd/qrlinks/ffox/solar boot tests 7/7.
+- SCREENSHOTS ARE NOW STALE in every app (the nav text changed) and the Launch
+  grid moved up (the removed h1): regenerate with `--workers 16` before shipping.
+- `BUILD_NUMBER` -> `202610180853` via `npm run bump:build`.
 

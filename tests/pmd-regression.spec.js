@@ -146,12 +146,17 @@ test.describe("PlanMyDay - Regression", () => {
 
     test("hides the main menu while a secondary page is open", async ({ page }) => {
       await expect(page.locator("#btnMainMenu")).toBeVisible();
+      // The app name sits beside the hamburger and hides with it.
+      await expect(page.locator("#appNavTitle")).toHaveText("Plan My Day");
+      await expect(page.locator("#appNavTitle")).toBeVisible();
       await page.getByText("+ Add Job").click();
       await expect(page.locator("#jobEditPage")).toBeVisible();
       await expect(page.locator("#btnMainMenu")).toBeHidden();
+      await expect(page.locator("#appNavTitle")).toBeHidden();
       await page.locator("#jobEditCancelBtn").click();
       await expect(page.locator("#jobEditPage")).toBeHidden();
       await expect(page.locator("#btnMainMenu")).toBeVisible();
+      await expect(page.locator("#appNavTitle")).toBeVisible();
     });
 
     test("opening a new page closes the previous page", async ({ page }) => {

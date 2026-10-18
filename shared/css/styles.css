@@ -104,6 +104,15 @@ button.btn-sm, .btn-sm { font-size: var(--smd-type-p, 1rem); }
   color: var(--bs-body-color);
 }
 
+/* The app's FULL NAME in the toolbar, mounted next to the hamburger by
+   shared/js/smd-apps.js (mountAppTitle). It sits on the SAME --bs-body-bg
+   surface as the hamburger, so it takes the body colour rather than Bootstrap's
+   --bs-navbar-color, which a theme may have chosen for a different navbar
+   surface. */
+#appNavTitle {
+  color: var(--bs-body-color);
+}
+
 /* The HAMBURGER dropdown is painted with the body colour so it is fully opaque
    and matches the page. Scoped to #mainNav on purpose: other .dropdown-menus
    (e.g. the Gantt Streams filter) own a themed surface via --bs-dropdown-bg and
