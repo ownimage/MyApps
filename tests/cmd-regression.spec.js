@@ -619,6 +619,219 @@ test.describe("CountMyDays - Regression", () => {
     });
   });
 
+  test.describe("Minio", () => {
+
+    const MINIO_KEYS = {
+      enabled: "countmydays_minio_enabled",
+      server: "countmydays_minio_server",
+      username: "countmydays_minio_username",
+      password: "countmydays_minio_password",
+      bucket: "countmydays_minio_bucket",
+    };
+
+    async function enableMinio(page, overrides = {}) {
+      const config = {
+        server: "http://minio:9000",
+        username: "minioadmin",
+        password: "minioadmin",
+        bucket: "cmd",
+        ...overrides,
+      };
+      await page.evaluate(({ keys, cfg }) => {
+        localStorage.setItem(keys.enabled, "true");
+        if (cfg.server !== undefined) localStorage.setItem(keys.server, cfg.server);
+        if (cfg.username !== undefined) localStorage.setItem(keys.username, cfg.username);
+        if (cfg.password !== undefined) localStorage.setItem(keys.password, cfg.password);
+        if (cfg.bucket !== undefined) localStorage.setItem(keys.bucket, cfg.bucket);
+      }, { keys: MINIO_KEYS, cfg: config });
+      await page.reload();
+    }
+
+    test("settings has a Minio tab whose fields are disabled until enabled", async ({ page }) => {
+      await seed(page);
+      await page.evaluate(() => openSettings());
+      const tabs = page.locator("#settingsPage .smd-tab-btn");
+      await expect(tabs).toHaveText(["General", "G Cal", "Minio", "Danger"]);
+      await tabs.filter({ hasText: "Minio" }).click();
+      await expect(page.locator("#minioEnabled")).toBeVisible();
+      for (const id of ["#minioServer", "#minioUsername", "#minioPassword", "#minioBucket"]) {
+        await expect(page.locator(id), id).toBeDisabled();
+      }
+      await page.locator("#minioEnabled").check();
+      for (const id of ["#minioServer", "#minioUsername", "#minioPassword", "#minioBucket"]) {
+        await expect(page.locator(id), id).toBeEnabled();
+      }
+      // the values persist in the countmydays_ namespace
+      await page.locator("#minioServer").fill("http://srv:9000/");
+      await page.locator("#minioServer").blur();
+      await page.locator("#minioBucket").fill("mybucket");
+      await page.locator("#minioBucket").blur();
+      const stored = await page.evaluate((keys) => ({
+        enabled: localStorage.getItem(keys.enabled),
+        server: localStorage.getItem(keys.server),
+        bucket: localStorage.getItem(keys.bucket),
+      }), MINIO_KEYS);
+      expect(stored).toEqual({ enabled: "true", server: "http://srv:9000/", bucket: "mybucket" });
+    });
+
+    test("the menu only shows the Minio entries when it is enabled", async ({ page }) => {
+      await seed(page);
+      const menu = page.locator("#mainNav > .dropdown > .dropdown-menu");
+      const exportItem = page.locator("a.minio-menu-item").filter({ hasText: "Export to Minio" });
+      const importItem = page.locator("a.minio-menu-item").filter({ hasText: "Import from Minio" });
+      await page.locator("#btnMainMenu").click();
+      await expect(menu).toBeVisible();
+      await expect(exportItem).toBeHidden();
+      await expect(importItem).toBeHidden();
+      await page.locator("#btnMainMenu").click();
+
+      await enableMinio(page);
+      await page.locator("#btnMainMenu").click();
+      await expect(exportItem).toBeVisible();
+      await expect(importItem).toBeVisible();
+    });
+
+    test("export to Minio refuses to start without a full config", async ({ page }) => {
+      await seed(page);
+      await enableMinio(page, { server: "", username: "", password: "", bucket: "" });
+      await page.evaluate(() => exportToMinio());
+      const modal = page.locator("#smdConfirmModal");
+      await expect(modal).toBeVisible();
+      await expect(modal.locator("p")).toContainText("configure all Minio settings");
+      await modal.getByRole("button", { name: "OK" }).click();
+      await expect(page.locator("#exportWizardPage")).not.toHaveAttribute("open", "");
+    });
+
+    test("export to Minio runs the export wizard and uploads what it built", async ({ page }) => {
+      await seed(page);
+      await enableMinio(page);
+      await page.evaluate(() => {
+        window.__minioPut = null;
+        minioPutObject = (bucket, key, body) => {
+          window.__minioPut = { bucket, key, body };
+          return Promise.resolve();
+        };
+      });
+      await page.evaluate(() => exportToMinio());
+      const wiz = page.locator("#exportWizardPage");
+      await expect(wiz).toHaveAttribute("open", "");
+      await expect(wiz).toContainText("Export to Minio");
+      // "Export everything" is the default; wizard: main -> summary -> Export
+      await wiz.getByRole("button", { name: "Next" }).click();
+      await expect(wiz).toContainText("Export Summary");
+      await wiz.getByRole("button", { name: "Export" }).click();
+
+      await expect.poll(async () => page.evaluate(() => window.__minioPut && window.__minioPut.key))
+        .toMatch(/^countmydays-\d{12}\.json$/);
+      const put = await page.evaluate(() => window.__minioPut);
+      expect(put.bucket).toBe("cmd");
+      const payload = JSON.parse(put.body);
+      expect(payload.dates).toHaveLength(SEED_DATES.length);
+      expect(payload.categories).toHaveLength(SEED_CATEGORIES.length);
+      expect(payload.images).toHaveLength(SEED_IMAGES.length);
+      // a MinIO backup is the SAME shape as the JSON export
+      expect(Object.keys(payload).sort()).toEqual(["categories", "dates", "images"]);
+      await expect(page.locator("#smdConfirmModal")).toContainText("Exported countmydays-");
+      await expect(page.locator("#smdConfirmModal")).toContainText("to Minio bucket cmd");
+    });
+
+    test("export to Minio honours the wizard's partial selection", async ({ page }) => {
+      await seed(page);
+      await enableMinio(page);
+      await page.evaluate(() => {
+        window.__minioPut = null;
+        minioPutObject = (bucket, key, body) => {
+          window.__minioPut = { bucket, key, body };
+          return Promise.resolve();
+        };
+      });
+      await page.evaluate(() => exportToMinio());
+      const wiz = page.locator("#exportWizardPage");
+      await wiz.locator("#ewPartial").check();
+      await wiz.getByRole("button", { name: "Next" }).click();
+      await wiz.locator("#ewDatesNone").check();          // no dates
+      await wiz.getByRole("button", { name: "Next" }).click();
+      await wiz.locator("#ewCatsAll").check();            // all categories
+      await wiz.getByRole("button", { name: "Next" }).click();
+      await wiz.locator("#ewImgsNone").check();           // no images
+      await wiz.getByRole("button", { name: "Next" }).click();
+      await wiz.getByRole("button", { name: "Export" }).click();
+
+      await expect.poll(async () => page.evaluate(() => window.__minioPut && window.__minioPut.key))
+        .toMatch(/^countmydays-\d{12}\.json$/);
+      const payload = JSON.parse(await page.evaluate(() => window.__minioPut.body));
+      expect(payload.dates).toEqual([]);
+      expect(payload.categories).toHaveLength(SEED_CATEGORIES.length);
+      expect(payload.images).toEqual([]);
+    });
+
+    test("import from Minio hands the downloaded backup to the import wizard", async ({ page }) => {
+      const backup = {
+        dates: [{ name: "From Minio", category: "Work", image: "", type: "annual", month: 3, day: 9 }],
+        categories: [{ name: "Work", image: null }],
+        images: [],
+      };
+      await page.route((url) => url.hostname === "minio" && url.port === "9000", async (route) => {
+        const req = route.request();
+        if (req.method() === "GET" && req.url().indexOf("list-type=2") !== -1) {
+          const xml = ['<?xml version="1.0" encoding="UTF-8"?>',
+            '<ListBucketResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/">',
+            '<Name>cmd</Name><KeyCount>1</KeyCount><MaxKeys>1000</MaxKeys><IsTruncated>false</IsTruncated>',
+            '<Contents><Key>countmydays-backup.json</Key><LastModified>2026-08-01T10:00:00.000Z</LastModified><ETag>"abc"</ETag><Size>1024</Size><StorageClass>STANDARD</StorageClass></Contents>',
+            '</ListBucketResult>'].join("");
+          await route.fulfill({ status: 200, body: xml });
+          return;
+        }
+        await route.fulfill({ status: 200, body: JSON.stringify(backup) });
+      });
+      await seed(page);
+      await enableMinio(page);
+      await page.evaluate(() => importFromMinio());
+      await expect(page.locator("#minioImportPage")).toHaveAttribute("open", "");
+      await page.locator("#minioImportBody .list-group-item").first().click();
+
+      // the wizard takes over (keep/replace prompts), NOT a silent overwrite
+      const wizard = page.locator("#importWizardPage");
+      await expect(wizard).toHaveAttribute("open", "");
+      await expect(page.locator("#minioImportPage")).not.toHaveAttribute("open", "");
+      // the prompt counts the MINIO payload (1 category), not the 2 local ones
+      await expect(wizard).toContainText("1 categories");
+    });
+
+    test("import from Minio rejects a file without CountMyDays data", async ({ page }) => {
+      await page.route((url) => url.hostname === "minio" && url.port === "9000", async (route) => {
+        const req = route.request();
+        if (req.method() === "GET" && req.url().indexOf("list-type=2") !== -1) {
+          const xml = ['<?xml version="1.0" encoding="UTF-8"?>',
+            '<ListBucketResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/">',
+            '<Name>cmd</Name><KeyCount>1</KeyCount><MaxKeys>1000</MaxKeys><IsTruncated>false</IsTruncated>',
+            '<Contents><Key>planmydays-202601010000.json</Key><LastModified>2026-08-01T10:00:00.000Z</LastModified><ETag>"abc"</ETag><Size>1024</Size><StorageClass>STANDARD</StorageClass></Contents>',
+            '</ListBucketResult>'].join("");
+          await route.fulfill({ status: 200, body: xml });
+          return;
+        }
+        await route.fulfill({ status: 200, body: JSON.stringify({ streams: [], images: [] }) });
+      });
+      await seed(page);
+      await enableMinio(page);
+      await page.evaluate(() => importFromMinio());
+      await page.locator("#minioImportBody .list-group-item").first().click();
+      const modal = page.locator("#smdConfirmModal");
+      await expect(modal).toContainText("missing data for this app");
+      await expect(page.locator("#importWizardPage")).not.toHaveAttribute("open", "");
+      await modal.getByRole("button", { name: "OK" }).click();
+      // the file list is still usable after the rejection
+      await expect(page.locator("#minioImportBody .list-group-item")).toHaveCount(1);
+    });
+
+    test("import from Minio does nothing when it is disabled", async ({ page }) => {
+      await seed(page);
+      await page.evaluate(() => importFromMinio());
+      await expect(page.locator("#minioImportPage")).not.toHaveAttribute("open", "");
+      await expect(page.locator("#smdConfirmModal")).not.toBeVisible();
+    });
+  });
+
   test.describe("Export / Import", () => {
 
     test("export wizard walks the partial-selection steps", async ({ page }) => {

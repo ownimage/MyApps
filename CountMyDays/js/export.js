@@ -103,7 +103,7 @@ function renderExportWizard() {
   }
 
   if (ew.step === "main") {
-    page.title = "Export";
+    page.title = ew.type === "minio" ? "Export to Minio" : "Export";
     page.content = `
       <p class="mb-3">Choose what to export:</p>
       <div class="form-check mb-2">
@@ -436,9 +436,33 @@ function finishExportWizard() {
   closeExportWizard();
   if (type === "json") {
     doJSONExport(data);
+  } else if (type === "minio") {
+    doMinioExport(data);
   } else {
     openQrExportPage(data);
   }
+}
+
+// MinIO destination: the shared <smd-minio> entry point validates the settings and
+// hands over here (via SmdConfig.onMinioExport), and the wizard's scope choices
+// decide the payload. The file is the SAME shape as the JSON export, so a MinIO
+// backup can also be loaded with "Import JSON" (and vice versa).
+function doMinioExport(data) {
+  const config = window.__minioExportConfig || getMinioConfig();
+  window.__minioExportConfig = null;
+  if (!config.enabled) return;
+
+  const d = new Date();
+  const ts = d.getFullYear() + String(d.getMonth() + 1).padStart(2, "0") + String(d.getDate()).padStart(2, "0") +
+    String(d.getHours()).padStart(2, "0") + String(d.getMinutes()).padStart(2, "0");
+  const filename = "countmydays-" + ts + ".json";
+  const body = JSON.stringify(data, null, 2);
+
+  minioPutObject(config.bucket, filename, body, config).then(function () {
+    showMinioAlert("Exported " + filename + " to Minio bucket " + config.bucket, "info");
+  }).catch(function (e) {
+    showMinioAlert("Minio export failed: " + minioFriendlyError(e), "error");
+  });
 }
 
 function buildExportData() {

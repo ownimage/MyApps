@@ -649,8 +649,8 @@ Architecture:
   Calendar REST + `{count_my_days{...}}` description payload helpers) and
   `CountMyDays/js/googleCalendarEditor.js` (unified dates editor Google rows +
   `googleEventsPage`/`googleEventEditPage` smd-pages). Settings has a **G Cal**
-  tab (`General | G Cal | Danger`); when enabled, `.google-menu-item` entries
-  appear in the hamburger menu. Feed cache + settings are namespaced
+  tab (`General | G Cal | Minio | Danger`); when enabled, `.google-menu-item`
+  entries appear in the hamburger menu. Feed cache + settings are namespaced
   (`countmydays_google_cal`, `countmydays_gcal_*`) by `gcalKey()`/
   `googleCalCacheKey()` (call-time helpers — do NOT turn them into parse-time
   consts: google scripts load BEFORE `app.js`, which sets the storage prefix).
@@ -696,8 +696,42 @@ Architecture:
   edit, cancel and close" test now drives the category via
   `#gcalCategorySelect #smdImageDropdownBtn` + `#smdImageDropdownMenu .dropdown-item`
   instead of `pickOption` (it is no longer an `<smd-select>`).
-- SHARED IMAGE EDITOR (2026-09-13): `<smd-image-editor>`
-  (`shared/js/components/smd-image-editor.js`) is the ONE image edit form both
+- MINIO IN COUNTMYDAYS + THE SHARED HOOKS (2026-10-18): `shared/js/smd-minio.js`
+  now has TWO optional `SmdConfig` hooks so an app can own the DATA ends while the
+  module keeps the settings fields, the signed S3 requests and the import page:
+  - `SmdConfig.onMinioExport(config)` - called AFTER the config is validated; the
+    app decides what to save. CountMyDays sets it to open its EXPORT WIZARD
+    (`startExportWizard("minio")`, first step titled "Export to Minio") and then
+    uploads when the wizard finishes (`doMinioExport` in
+    `CountMyDays/js/export.js`), so the wizard's scope choices decide the payload.
+    The file is `countmydays-<YYYYMMDDHHMM>.json` and has EXACTLY the JSON-export
+    shape `{ dates, categories, images }`, so a MinIO backup can also be loaded
+    with "Import JSON" (and vice versa). The validated config is handed over via
+    `window.__minioExportConfig` because the wizard is async.
+  - `SmdConfig.onMinioImport(data)` - receives the parsed JSON; return true when
+    accepted (the app owns the UI, INCLUDING closing `#minioImportPage`) or false
+    for "invalid file" (the module then shows its error alert and reloads the file
+    list). CountMyDays validates dates+categories+images, calls
+    `closeMinioImport()` and hands the data to `startImportWizard(data)`, so its
+    per-section keep/replace prompts apply. PlanMyDay sets neither hook, so it
+    keeps writing straight over its streams+images.
+  THE UI (CountMyDays): a PlanMyDay-style Minio SETTINGS TAB (`General | G Cal |
+  Minio | Danger`; `#minioEnabled` + `#minioServer`/`#minioUsername`/
+  `#minioPassword` (+ eye)/`#minioBucket`, with `loadMinioSettings()` +
+  `bindMinioSettingsTabBehavior()` called from `openSettings()`'s `restore`), the
+  two `.minio-menu-item` entries (after "Import QR", toggled by
+  `updateMinioMenu()` at boot and on enable), the `#minioImportPage` host, the
+  `shared/js/smd-minio.js` script tag (after smd-images.js) and
+  `minioImportPage` added to `hideMainPages()` - ADD IT THERE for any future app,
+  or the page opens over the main view instead of replacing it. Keys use the
+  app's own `smdKey()` namespace (`countmydays_minio_*`).
+  TESTS: cmd-regression "Minio" (8: tab + disabled fields + persistence, menu
+  gating, refuse-without-config, export runs the wizard and uploads the full
+  payload, partial selection honoured, import hands the file to the wizard,
+  invalid file rejected + list reloaded, disabled import is a no-op) - they stub
+  `minioPutObject` for the upload and `page.route` the `minio:9000` host for the
+  list/GET. PlanMyDay's 50 Minio tests still pass.
+- SHARED IMAGE EDITOR (2026-09-13): `<smd-image-editor>`  (`shared/js/components/smd-image-editor.js`) is the ONE image edit form both
   apps host in their Bootstrap `#imageEditModal`. It renders in the LIGHT DOM on
   purpose: Bootstrap/app CSS must style it and the many existing selectors
   (`#imageEditModalBody .card input.form-control`, `.fw-bold`, …) keep working.
@@ -5113,4 +5147,40 @@ Techniques / gotchas:
 - VERIFIED: cmd-regression 59/59 (58 existing + the new layout test).
 - `BUILD_NUMBER` -> `202610181947` via `npm run bump:build` (the app script is a
   precached `APPS["CountMyDays/"]` asset).
+
+### 2026-10-18 (e) - CountMyDays MinIO export/import (app-owned, via SmdConfig hooks)
+- REQUEST (user): add MinIO saving to CountMyDays like PlanMyDay. The user chose
+  the RICHER variants for both ends: the export reuses CountMyDays' EXPORT WIZARD
+  scope choices (not a one-click dump), and the import goes through CountMyDays'
+  IMPORT WIZARD (per-section keep/replace prompts) instead of overwriting.
+- WHAT: `shared/js/smd-minio.js` gained two optional hooks (`onMinioExport` /
+  `onMinioImport`) so the module stays data-agnostic; PlanMyDay sets neither, so
+  its behaviour is byte-for-byte the same. CountMyDays sets both in `app.js`:
+  export -> `startExportWizard("minio")` (title "Export to Minio", unchanged
+  steps) and `finishExportWizard()` routes to a new `doMinioExport(data)` which
+  PUTs `countmydays-<ts>.json` with `{ dates, categories, images }` (the same
+  shape as the JSON export); import -> validate + `closeMinioImport()` +
+  `startImportWizard(data)`. Full UI wiring: Minio settings tab (General | G Cal |
+  Minio | Danger), the two `.minio-menu-item` menu entries, `#minioImportPage`,
+  the script tag, `updateMinioMenu()` at boot and `minioImportPage` in
+  `hideMainPages()`. See the durable note for the details.
+- DECISIONS WORTH REMEMBERING: (1) the shared `exportToMinio()` validates the
+  config BEFORE calling the hook, so an unconfigured MinIO never opens the wizard;
+  (2) the validated config is passed through `window.__minioExportConfig` because
+  the wizard returns later; (3) the import hook must close the import page itself
+  - otherwise the import wizard (an smd-page) SUSPENDS it and the MinIO page
+  reappears when the wizard closes.
+- TESTS: cmd-regression "Minio" = 8 new tests (settings tab + disabled fields +
+  `countmydays_minio_*` persistence, menu gating, refuse-without-config, export
+  runs the wizard and uploads the full payload with a `countmydays-\d{12}.json`
+  key, a partial selection is honoured, import hands the downloaded file to the
+  import wizard - asserted via its "1 categories" prompt - , an invalid file is
+  rejected with the list reloaded, a disabled import is a no-op). PlanMyDay's 50
+  Minio tests re-run green, so the shared-module change did not disturb it.
+- VERIFIED BY EYE as well (layout/UX change): screenshots of the Minio settings
+  tab and the "Export to Minio" wizard step, then the probe files were deleted.
+- The user runs the full regression themselves; the test servers were left
+  freshly restarted and serving build `202610182015` (verified in BOTH
+  `shared/js/build-number.js` and `sw.js`, on disk and over HTTP).
+- `BUILD_NUMBER` -> `202610182015` via `npm run bump:build`.
 
