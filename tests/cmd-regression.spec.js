@@ -235,13 +235,14 @@ test.describe("CountMyDays - Regression", () => {
       await page.evaluate(() => openSettings());
       await page.locator("#danger-tab").click();
       await expect(page.locator("#settingsPage #clearAllDataRow")).toBeHidden();
-      await expect(page.locator("#gcalDangerRow")).toBeHidden();
+      await expect(page.locator("#clearGcalCacheRow")).toBeHidden();
       await page.locator("#showDanger").check();
       await expect(page.locator("#settingsPage #clearAllDataRow")).toBeVisible();
-      // The Google data actions live on the Danger tab.
-      await expect(page.locator("#gcalDangerRow")).toBeVisible();
-      await expect(page.locator("#settingsPage").getByRole("button", { name: "Load sample data" })).toBeVisible();
-      await expect(page.locator("#settingsPage").getByRole("button", { name: "Clear cache" })).toBeVisible();
+      // The Google data actions live on the Danger tab, as separate rows.
+      await expect(page.locator("#loadGcalSampleRow")).toBeVisible();
+      await expect(page.locator("#clearGcalCacheRow")).toBeVisible();
+      await expect(page.locator("#settingsPage").getByRole("button", { name: "Load Sample Data" })).toBeVisible();
+      await expect(page.locator("#settingsPage").getByRole("button", { name: "Clear Google cache" })).toBeVisible();
     });
 
     test("danger tab uploads standard images and Replace clears existing images", async ({ page }) => {
@@ -1140,10 +1141,10 @@ test.describe("CountMyDays - Regression", () => {
       await page.locator("#gcalClientId").fill("dummy.apps.googleusercontent.com");
       await page.locator("#gcalClientId").blur();
 
-      // Refresh stays on the G Cal tab; Load sample data / Clear cache moved to
-      // the Danger tab.
+      // Refresh stays on the G Cal tab; Load Sample Data / Clear Google cache
+      // moved to the Danger tab as their own rows.
       await expect(page.locator("#settingsPage").getByRole("button", { name: "Refresh", exact: true })).toBeVisible();
-      await expect(page.locator("#gcalDangerRow")).toBeHidden();
+      await expect(page.locator("#loadGcalSampleRow")).toBeHidden();
 
       await expect.poll(async () => page.evaluate(() => localStorage.getItem("countmydays_gcal_enabled"))).toBe("true");
       await expect.poll(async () => page.evaluate(() => localStorage.getItem("countmydays_gcal_name"))).toBe("Test User");

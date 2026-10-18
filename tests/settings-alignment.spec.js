@@ -144,10 +144,138 @@ test.describe("Settings theme control alignment", () => {
 // The row labels are read from the DOM so the markup is validated, not a copy of
 // it; a control moved to the wrong tab (or an extra row inserted) fails.
 // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// The DANGER tab is shared in shape too (2026-10-18, user rule). One canonical
+// order, using only the rows an app actually has:
+//   Show danger / No Cache
+//   <gap> Regenerate Main Tiles / Sort <existing name>
+//   <gap> Refresh App / Clear local storage <APP> / Clear Google cache (CMD)
+//   <gap> Load Sample Data / Upload Standard Images / Load Sample Links/Images
+// A gap is `mt-4` on a group's FIRST row, so a group that is empty for an app
+// contributes nothing and there is never a gap after a gap. Colours: destructive
+// (Clear *) = danger, bulk maintenance (Regenerate/Sort) = warning, everything
+// else = secondary (loaders are NOT success - user decision).
+// ---------------------------------------------------------------------------
+async function dismissStartupModal(page) {
+  // SolarControlar shows a server error here (its Flask API is not mocked in this
+  // spec), and the overlay would intercept the tab click.
+  const dismissed = await page.evaluate(() => {
+    const modal = document.getElementById("smdConfirmModal");
+    if (!modal || !modal.hasAttribute("open")) return false;
+    const btn = modal.querySelector(".smd-footer button");
+    if (btn) btn.click();
+    return true;
+  });
+  if (dismissed) await expect(page.locator("#smdConfirmModal")).not.toHaveAttribute("open", "");
+}
+
+test.describe("Danger tab shape is consistent across apps", () => {
+  const DANGER = [
+    {
+      app: "PlanMyDay", path: "/PlanMyDay/",
+      rows: ["Show danger", "No Cache", "Regenerate Main Tiles", "Sort Jobs in Streams", "Refresh App",
+        "Clear local storage PMD", "Upload Standard Images"],
+    },
+    {
+      app: "CountMyDays", path: "/CountMyDays/",
+      rows: ["Show danger", "No Cache", "Refresh App", "Clear local storage CMD", "Clear Google cache",
+        "Load Sample Data", "Upload Standard Images"],
+    },
+    {
+      app: "QRLinks", path: "/QRLinks/",
+      rows: ["Show danger", "No Cache", "Refresh App", "Clear local storage QR", "Load Sample Links",
+        "Load Sample Images"],
+    },
+    {
+      app: "SolarControlar", path: "/SolarControlar/",
+      rows: ["Show danger", "No Cache", "Refresh App", "Clear local storage Solar"],
+    },
+    {
+      app: "ListOfLists", path: "/ListOfLists/",
+      rows: ["Show danger", "No Cache", "Regenerate Main Tiles", "Sort Lists in Categories", "Refresh App",
+        "Clear local storage LoL", "Upload Standard Images"],
+    },
+    {
+      app: "PhoneButtons", path: "/PhoneButtons/",
+      rows: ["Show danger", "No Cache", "Refresh App", "Clear local storage PB"],
+    },
+    {
+      app: "Launch", path: "/",
+      rows: ["Show danger", "No Cache", "Refresh App", "Clear local storage Launch"],
+    },
+    {
+      app: "FreeFormOX", path: "/FreeFormOX/",
+      rows: ["Show danger", "No Cache", "Refresh App", "Clear local storage FFOX"],
+    },
+  ];
+
+  // Colours (user rule, 2026-10-18): destructive = danger; bulk maintenance
+  // (Regenerate/Sort) = SECONDARY; Refresh App and every data LOADER = WARNING.
+  // The two switches have no colour.
+  const colourFor = (name) => {
+    if (name.startsWith("Clear ")) return "danger";
+    if (name.startsWith("Regenerate") || name.startsWith("Sort ")) return "secondary";
+    if (name === "Refresh App" || name.startsWith("Load ") || name.startsWith("Upload ")) return "warning";
+    return null;
+  };
+
+  for (const spec of DANGER) {
+    test(`${spec.app}: Danger rows are ordered, grouped and coloured consistently`, async ({ page }) => {
+      await page.goto(spec.path);
+      await page.evaluate(() => openSettings());
+      await dismissStartupModal(page);
+      await page.locator("#settingsPage .smd-tab-btn").filter({ hasText: "Danger" }).click();
+      await page.locator("#showDanger").check();
+      await expect(page.locator("#settingsPage .smd-tab-panel.active")).toHaveCount(1);
+      const rows = await page.evaluate(() => {
+        const panel = document.querySelector("#settingsPage .smd-tab-panel.active");
+        return Array.from(panel.querySelectorAll("div.row.col-md-8"))
+          .filter((row) => !row.classList.contains("d-none"))
+          .map((row) => {
+            const label = row.querySelector("label");
+            // Every action button is an <smd-button block> now (the user asked for
+            // the shared component, full width); read its variant ATTRIBUTE.
+            const host = row.querySelector("smd-button, button");
+            const btn = host && host.tagName === "SMD-BUTTON" ? host.querySelector("button") : host;
+            const colour = host
+              ? (host.getAttribute("variant") || (host.className.match(/btn-([a-z]+)/) || [])[1] || null)
+              : null;
+            const box = btn ? btn.getBoundingClientRect() : null;
+            return {
+              name: (label ? label.textContent : (host ? host.textContent : "")).trim(),
+              gapAbove: row.classList.contains("mt-4"),
+              colour: colour,
+              width: box ? Math.round(box.width) : null,
+              height: box ? Math.round(box.height) : null,
+              tag: host ? host.tagName : null,
+            };
+          });
+      });
+      expect(rows.map((r) => r.name)).toEqual(spec.rows);
+      expect(rows[0].gapAbove, "the first row never starts with a gap").toBe(false);
+      const buttons = rows.filter((r) => r.tag);
+      expect(buttons.length, "the app has action buttons").toBeGreaterThan(1);
+      for (let i = 0; i < rows.length; i++) {
+        expect(rows[i].colour, `${rows[i].name} colour`).toBe(colourFor(rows[i].name));
+        if (rows[i].tag) {
+          // every Danger action button is the shared component at ONE size
+          expect(rows[i].tag, rows[i].name).toBe("SMD-BUTTON");
+          expect(rows[i].width, `${rows[i].name} width`).toBe(buttons[0].width);
+          expect(rows[i].height, `${rows[i].name} height`).toBe(buttons[0].height);
+        }
+        if (i > 0) {
+          expect(rows[i].gapAbove && rows[i - 1].gapAbove,
+            `two gaps in a row before "${rows[i].name}"`).toBe(false);
+        }
+      }
+    });
+  }
+});
+
 test.describe("Settings page shape is consistent across apps", () => {
   const LAYOUT = [
     {
-      app: "Launch", path: "/", tabs: ["Display", "Menu"],
+      app: "Launch", path: "/", tabs: ["Display", "Menu", "Danger"],
       display: ["Theme", "Theme Mode", "Font size", "Icon size", "Touch size", "Slide speed", "Auto-hide menu"],
     },
     {
@@ -172,7 +300,7 @@ test.describe("Settings page shape is consistent across apps", () => {
       display: ["Theme", "Theme Mode", "Font size", "Touch size", "Slide speed", "Auto-hide menu"],
     },
     {
-      app: "FreeFormOX", path: "/FreeFormOX/", tabs: ["Display", "Game"],
+      app: "FreeFormOX", path: "/FreeFormOX/", tabs: ["Display", "Game", "Danger"],
       display: ["Theme", "Theme Mode", "Font size", "Touch size", "Slide speed", "Auto-hide menu"],
     },
     {

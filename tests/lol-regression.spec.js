@@ -762,13 +762,13 @@ test.describe("ListOfLists - Regression", () => {
       await expect(page.locator("#devTodayRow")).toBeHidden();
     });
 
-    test("Clear All Data asks first and then clears storage", async ({ page }) => {
+    test("Clear local storage asks first and then clears this app's data", async ({ page }) => {
       await openSettingsPage(page);
       await page.locator("#settingsPage .smd-tab-btn").filter({ hasText: "Danger" }).click();
       await page.locator("#showDanger").check();
       await page.locator("#btnClearAllData").click();
       const modal = page.locator("#smdConfirmModal");
-      await expect(modal).toContainText("Clear All Data?");
+      await expect(modal).toContainText("Clear ALL List of Lists data?");
       await modal.getByRole("button", { name: "Cancel" }).click();
       expect(await page.evaluate(() => localStorage.getItem("lol_categories"))).not.toBeNull();
       await page.locator("#btnClearAllData").click();

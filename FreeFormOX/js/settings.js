@@ -56,6 +56,7 @@ function buildSettingsContent() {
 function openSettings() {
   hideMainPages("settingsPage");
   smdSetupSettingsPage({
+    dangerIds: ffoxDangerIds(),
     restore: function () {
       ["x", "o"].forEach(s => {
         const nameEl = $id(s + "Name");
@@ -74,4 +75,19 @@ function closeSettings() {
   document.getElementById("mainContent").classList.remove("d-none");
   refreshPieces();
   updateGameButtons();
+}
+
+// Danger rows toggled by the "Show danger" switch (canonical order - AGENTS.md).
+function ffoxDangerIds() {
+  return ["noCacheRow", "refreshAppRow", "clearAllDataRow"];
+}
+
+function changeShowDanger(enabled) {
+  smdChangeShowDanger(enabled, ffoxDangerIds());
+}
+
+// Clear ONLY FreeFormOX's own data (its storage prefix); the shared image library
+// lives outside it and is always kept.
+function confirmClearAllData() {
+  smdConfirmClearAllData({ content: "Clear ALL FreeFormOX data? This cannot be undone." });
 }

@@ -10,6 +10,8 @@
 // Attributes:
 //   variant  — primary | secondary | success | danger | info | warning | light | dark (default primary)
 //   size     — normal (default) | small (adds Bootstrap's `btn-sm`)
+//   block    — boolean; the host becomes `d-block` and the inner button `w-100`, giving
+//              a FULL-WIDTH action button (settings Danger rows, page bodies)
 //   disabled — boolean
 (function (global) {
   "use strict";
@@ -33,7 +35,7 @@
 
   class SmdButton extends HTMLElement {
     static get observedAttributes() {
-      return ["variant", "disabled", "size"];
+      return ["variant", "disabled", "size", "block"];
     }
 
     constructor() {
@@ -65,6 +67,7 @@
         this._applyVariant();
         this._applySize();
       }
+      if (name === "block") this._applyBlock();
     }
 
     connectedCallback() {
@@ -97,6 +100,7 @@
       this.appendChild(btn);
       this._applyVariant();
       this._applySize();
+      this._applyBlock();
       this._applyDisabled();
     }
 
@@ -115,6 +119,17 @@
       const btn = this._btn();
       if (!btn) return;
       btn.classList.toggle("btn-sm", (this.getAttribute("size") || "normal").toLowerCase() === "small");
+    }
+
+    // `block` = a FULL-WIDTH action button: the host becomes a block box and the
+    // inner button fills it, so a column of these buttons is all one size.
+    _applyBlock() {
+      const btn = this._btn();
+      if (!btn) return;
+      const on = this.hasAttribute("block");
+      btn.classList.toggle("w-100", on);
+      this.classList.toggle("d-block", on);
+      this.classList.toggle("d-inline-block", !on);
     }
 
     _applyDisabled() {

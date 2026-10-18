@@ -88,7 +88,24 @@ function buildSettingsContent() {
 }
 
 function openSettings() {
-  smdSetupSettingsPage({ restore: renderAppMenuTab });
+  smdSetupSettingsPage({ restore: renderAppMenuTab, dangerIds: launchDangerIds() });
+}
+
+// Danger rows toggled by the "Show danger" switch (shared worker mode + the two
+// app actions). Kept in the canonical Danger order - see AGENTS.md.
+function launchDangerIds() {
+  return ["noCacheRow", "refreshAppRow", "clearAllDataRow"];
+}
+
+function changeShowDanger(enabled) {
+  smdChangeShowDanger(enabled, launchDangerIds());
+}
+
+// Clear ONLY Launch's own data (its storage prefix). The shared app-menu config
+// (`launch_appMenu`) and the shared image library live outside that prefix, so
+// both are deliberately kept.
+function confirmClearAllData() {
+  smdConfirmClearAllData({ content: "Clear ALL Launch data? This cannot be undone." });
 }
 
 function closeSettings() {

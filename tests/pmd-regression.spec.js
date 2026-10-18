@@ -711,7 +711,7 @@ test.describe("PlanMyDay - Regression", () => {
       await expect(cards.first()).toContainText("Google");
     });
 
-    test("Regenerate Today's Tiles clears today's CountMyDays dismissals", async ({ page }) => {
+    test("Regenerate Main Tiles clears today's CountMyDays dismissals", async ({ page }) => {
       const t = cmdToday();
       await seedCmd(page, { dates: [
         { name: "Birthday", type: "annual", month: t.month, day: t.day },
@@ -723,13 +723,13 @@ test.describe("PlanMyDay - Regression", () => {
       await expect(cards).toHaveCount(1);
       expect(await page.evaluate(() => localStorage.getItem("planmydays_cmdDismissed"))).not.toBeNull();
 
-      // Settings -> Danger -> Regenerate Today's Tiles
+      // Settings -> Danger -> Regenerate Main Tiles
       await page.locator("#btnMainMenu").click();
       await page.locator("a.dropdown-item").filter({ hasText: "Settings" }).click();
       await page.locator("#danger-tab").click();
       await page.locator("#showDanger").check();
       await page.locator("#regenerateTilesRow").waitFor({ state: "visible" });
-      await page.getByRole("button", { name: "Regenerate Today's Tiles" }).click();
+      await page.getByRole("button", { name: "Regenerate Main Tiles" }).click();
 
       expect(await page.evaluate(() => localStorage.getItem("planmydays_cmdDismissed"))).toBeNull();
       await expect(cards).toHaveCount(2);
@@ -944,6 +944,62 @@ test.describe("PlanMyDay - Regression", () => {
       const dark = await streamEditCancelColors(page);
       expect(dark.color).toBe(await bootswatchColor(page, "btn btn-secondary"));
       expect(dark.color).not.toBe(dark.bg);
+    });
+
+    test("superhero warning buttons use the body background colour in both modes", async ({ page }) => {
+      // Bootswatch renders `.btn-warning` white-on-amber in superhero; the user
+      // wants the label to use the theme's BODY BACKGROUND colour instead (both
+      // modes) - a dark navy that is clearly readable on the amber.
+      await setTheme(page, "superhero");
+      // Reveal the real Danger-tab warning buttons (they live behind the
+      // "Show danger" switch) so the rule is checked on the actual element too.
+      await page.locator("#btnMainMenu").click();
+      await page.locator("a.dropdown-item").filter({ hasText: "Settings" }).click();
+      await page.locator("#danger-tab").click();
+      await page.locator("#showDanger").check();
+      await page.locator("#clearAllDataRow").waitFor({ state: "visible" });
+      for (const mode of ["light", "dark"]) {
+        await page.evaluate((m) => changeThemeMode(m), mode);
+        await expect(page.locator("html")).toHaveAttribute("data-bs-theme", mode);
+        // The per-mode override sheet carries the rule, so wait for THAT sheet.
+        await expect.poll(() => page.evaluate(() => {
+          const link = document.getElementById("theme-override-specific");
+          const href = (link && link.getAttribute("href")) || "";
+          const sheet = link && link.sheet;
+          return href.indexOf("superhero." + (document.documentElement.dataset.bsTheme || "light") + ".css") !== -1 &&
+            !!sheet && sheet.cssRules.length > 0;
+        })).toBe(true);
+        // The override sheet itself must DECLARE the rule - deterministic, and
+        // independent of stylesheet-swap timing.
+        const declares = await page.evaluate(() => {
+          const sheet = document.getElementById("theme-override-specific").sheet;
+          return Array.from(sheet.cssRules).some((rule) =>
+            rule.selectorText === ".btn-warning" &&
+            rule.style.getPropertyValue("--bs-btn-color") === "var(--bs-body-bg)");
+        });
+        expect(declares, mode + " override sheet declares --bs-btn-color: var(--bs-body-bg)").toBe(true);
+
+        // The LIVE button follows var(--bs-body-bg). Poll, because a mode switch
+        // swaps the override sheet and the new value can land a frame later.
+        await expect.poll(() => page.evaluate(() => {
+          const real = document.querySelector("#btnRefreshApp-button");
+          if (!real) throw new Error("the Danger Refresh App button is not on the page");
+          const probe = document.createElement("div");
+          probe.style.cssText = "position:absolute;left:-9999px;background-color:var(--bs-body-bg)";
+          document.body.appendChild(probe);
+          const expected = getComputedStyle(probe).backgroundColor;
+          probe.remove();
+          return getComputedStyle(real).color === expected;
+        }), { message: mode + " warning button text follows var(--bs-body-bg)" }).toBe(true);
+
+        const colour = await page.evaluate(() =>
+          getComputedStyle(document.querySelector("#btnRefreshApp-button")).color);
+        // it is no longer Bootswatch's white ...
+        expect(colour, mode + " warning button text is not plain white").not.toBe("rgb(255, 255, 255)");
+        // ... and NOT the body TEXT colour (the first, near-invisible attempt)
+        const bodyText = await page.evaluate(() => getComputedStyle(document.body).color);
+        expect(colour, mode + " warning button text is not the body TEXT colour").not.toBe(bodyText);
+      }
     });
 
     test("inactive tabs use the Bootstrap text-bg-secondary contrast (no white-on-white)", async ({ page }) => {
@@ -5291,7 +5347,7 @@ test.describe("PlanMyDay - Regression", () => {
       await page.locator("#danger-tab").click();
       await page.locator("#showDanger").check();
       await page.locator("#regenerateTilesRow").waitFor({ state: "visible" });
-      await page.getByRole("button", { name: "Regenerate Today's Tiles" }).click();
+      await page.getByRole("button", { name: "Regenerate Main Tiles" }).click();
       await page.waitForTimeout(400);
       await expect(page.getByText("Report").first()).toBeVisible();
     });
@@ -5323,7 +5379,7 @@ test.describe("PlanMyDay - Regression", () => {
       await page.locator("#danger-tab").click();
       await page.locator("#showDanger").check();
       await page.locator("#regenerateTilesRow").waitFor({ state: "visible" });
-      await page.getByRole("button", { name: "Regenerate Today's Tiles" }).click();
+      await page.getByRole("button", { name: "Regenerate Main Tiles" }).click();
       await page.waitForTimeout(250);
       const streams = await page.evaluate(() => JSON.parse(localStorage.getItem("planmydays_streams")));
       expect(streams[0].jobs.find(j => j.id === "job_past").sleepUntil).toBe("");
@@ -5355,7 +5411,7 @@ test.describe("PlanMyDay - Regression", () => {
       await page.locator("#danger-tab").click();
       await page.locator("#showDanger").check();
       await page.locator("#regenerateTilesRow").waitFor({ state: "visible" });
-      await page.getByRole("button", { name: "Regenerate Today's Tiles" }).click();
+      await page.getByRole("button", { name: "Regenerate Main Tiles" }).click();
       await page.waitForTimeout(250);
       const matches = await page.evaluate(() => localStorage.getItem("planmydays_scheduleTestMatches") === "true");
       if (matches) {
@@ -5389,7 +5445,7 @@ test.describe("PlanMyDay - Regression", () => {
       await page.locator("#danger-tab").click();
       await page.locator("#showDanger").check();
       await page.locator("#regenerateTilesRow").waitFor({ state: "visible" });
-      await page.getByRole("button", { name: "Regenerate Today's Tiles" }).click();
+      await page.getByRole("button", { name: "Regenerate Main Tiles" }).click();
       await page.waitForTimeout(250);
       const matches = await page.evaluate(() => localStorage.getItem("planmydays_scheduleTestMatches") === "true");
       if (matches) {
@@ -5423,7 +5479,7 @@ test.describe("PlanMyDay - Regression", () => {
       await page.locator("#danger-tab").click();
       await page.locator("#showDanger").check();
       await page.locator("#regenerateTilesRow").waitFor({ state: "visible" });
-      await page.getByRole("button", { name: "Regenerate Today's Tiles" }).click();
+      await page.getByRole("button", { name: "Regenerate Main Tiles" }).click();
       await page.waitForTimeout(250);
       const matches = await page.evaluate(() => localStorage.getItem("planmydays_scheduleTestMatches") === "true");
       if (matches) {
@@ -5455,7 +5511,7 @@ test.describe("PlanMyDay - Regression", () => {
       await page.locator("#danger-tab").click();
       await page.locator("#showDanger").check();
       await page.locator("#regenerateTilesRow").waitFor({ state: "visible" });
-      await page.getByRole("button", { name: "Regenerate Today's Tiles" }).click();
+      await page.getByRole("button", { name: "Regenerate Main Tiles" }).click();
       await expect(page.getByText("SpecificDayRegen")).toBeVisible();
     });
 
@@ -5482,7 +5538,7 @@ test.describe("PlanMyDay - Regression", () => {
       await page.locator("#danger-tab").click();
       await page.locator("#showDanger").check();
       await page.locator("#regenerateTilesRow").waitFor({ state: "visible" });
-      await page.getByRole("button", { name: "Regenerate Today's Tiles" }).click();
+      await page.getByRole("button", { name: "Regenerate Main Tiles" }).click();
       // regenerating drops the non-matching job from the order; wait for it in storage first
       await expect
         .poll(() => page.evaluate(() => JSON.parse(localStorage.getItem("planmydays_today_order") || "[]")))
@@ -5512,7 +5568,7 @@ test.describe("PlanMyDay - Regression", () => {
       await page.locator("#danger-tab").click();
       await page.locator("#showDanger").check();
       await page.locator("#regenerateTilesRow").waitFor({ state: "visible" });
-      await page.getByRole("button", { name: "Regenerate Today's Tiles" }).click();
+      await page.getByRole("button", { name: "Regenerate Main Tiles" }).click();
       await page.waitForTimeout(250);
       await expect(page.getByText("MonthlyRegen")).toBeVisible();
     });
@@ -5540,18 +5596,18 @@ test.describe("PlanMyDay - Regression", () => {
       await page.locator("#danger-tab").click();
       await page.locator("#showDanger").check();
       await page.locator("#regenerateTilesRow").waitFor({ state: "visible" });
-      await page.getByRole("button", { name: "Regenerate Today's Tiles" }).click();
+      await page.getByRole("button", { name: "Regenerate Main Tiles" }).click();
       await page.waitForTimeout(250);
       await expect(page.getByText("MonthlyMismatch")).not.toBeVisible();
     });
 
-    test("clear all data removes everything", async ({ page }) => {
+    test("clear local storage clears only this app's data", async ({ page }) => {
       await page.evaluate(() => {
         localStorage.setItem("planmydays_streams", "[]");
         localStorage.setItem("shared-images", "[]");
         localStorage.setItem("planmydays_theme", "darkly");
         localStorage.setItem("theme", "old");
-        localStorage.setItem("images", "old");
+        localStorage.setItem("otherApp_probe", "keep");
         localStorage.setItem("showDanger", "true");
       });
       await page.reload();
@@ -5560,17 +5616,26 @@ test.describe("PlanMyDay - Regression", () => {
       await page.locator("#danger-tab").click();
       await page.locator("#showDanger").check();
       await page.locator("#clearAllDataRow").waitFor({ state: "visible" });
-      await page.getByRole("button", { name: "Clear All Data" }).click();
+      await page.getByRole("button", { name: "Clear local storage PMD" }).click();
       await expect(page.locator("#smdConfirmModal")).toBeVisible();
       await page.waitForTimeout(100);
       await page.locator("#smdConfirmModal").locator("button").filter({ hasText: "Clear" }).click();
       await page.waitForTimeout(250);
       await expect(page.locator("#smdConfirmModal")).not.toBeVisible({ timeout: 10000 });
-      const allKeys = await page.evaluate(() => {
-        const k = Object.keys(localStorage);
-        return k.filter(key => key !== "planmydays_last_gen" && key !== "planmydays_today_order" && key !== "planmydays_completed");
-      });
-      expect(allKeys.length).toBe(0);
+      const state = await page.evaluate(() => ({
+        keys: Object.keys(localStorage),
+        images: localStorage.getItem("shared-images"),
+        legacyTheme: localStorage.getItem("theme"),
+        probe: localStorage.getItem("otherApp_probe"),
+      }));
+      // PlanMyDay's OWN data is gone (only the three keys the main view
+      // regenerates immediately are back) ...
+      expect(state.keys.filter((k) => k.startsWith("planmydays_")).sort())
+        .toEqual(["planmydays_completed", "planmydays_last_gen", "planmydays_today_order"]);
+      // ... while the SHARED image library and other apps'/legacy keys survive.
+      expect(state.images).toBe("[]");
+      expect(state.legacyTheme).toBe("old");
+      expect(state.probe).toBe("keep");
     });
   });
 
@@ -5967,7 +6032,7 @@ test.describe("PlanMyDay - Regression", () => {
       await page.locator("#danger-tab").click();
       await page.locator("#showDanger").check();
       await page.locator("#regenerateTilesRow").waitFor({ state: "visible" });
-      await page.getByRole("button", { name: "Regenerate Today's Tiles" }).click();
+      await page.getByRole("button", { name: "Regenerate Main Tiles" }).click();
       await expect(page.getByText("RegenJob")).toBeVisible();
     });
   });

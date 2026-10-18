@@ -156,7 +156,8 @@ Architecture:
   by `localStorage["smdSwDriftReloadedFor"]` so it cannot loop. The new worker's
   activate step then deletes the stale `myapps-<old>` cache. A worker NEWER than
   the page is just a pending update, so it only logs a warning.
-  "NO CACHE" MODE (2026-09-27): PlanMyDay's Danger tab has a "No Cache" switch
+  "NO CACHE" MODE (2026-09-27; ON EVERY APP SINCE 2026-10-18): the Danger tab's
+  "No Cache" switch
   (`#noCacheRow`, key `smdKey("noCache")`) that makes the worker read every file
   from disk instead of the precache, so a fresh deploy is visible on the next
   load. It is a worker MODE, not an unregister: `serveNetworkFirst()` re-fetches
@@ -333,14 +334,14 @@ Architecture:
   always the LAST row** (PlanMyDay's "Show Gantt" sits before it; ListOfLists has
   no extras, so there it simply follows Auto-hide).
   Current shape:
-    Launch         Display, Menu
+    Launch         Display, Menu, Danger
     PlanMyDay      General, Display, Schedule, Minio, Danger
     CountMyDays    General, Display, G Cal, Minio, Danger  (General = Countdown
                    display + Max countdowns)
     QRLinks        Display, Danger
     SolarControlar General, Display, Danger                (General = Flask fields
                    + Auto-refresh)
-    FreeFormOX     Display, Game                           (Game = X/O names+styles,
+    FreeFormOX     Display, Game, Danger                   (Game = X/O names+styles,
                    Show undo/redo, Swap)
     ListOfLists    Display, Minio, Danger
     PhoneButtons   Display, Server, Danger
@@ -382,6 +383,73 @@ Architecture:
   "Screen resolution"])`. Before/after any reorder or row move, run
   `rg -n "Screen resolution|Show Gantt|order\[|last control" tests/` and read the
   display-order TABLES in this file and in `tests/settings-alignment.spec.js`.
+- DANGER TAB SHAPE IS SHARED (2026-10-18, user rule): one canonical order, using
+  only the rows an app actually has; a row that does not apply is DROPPED, and an
+  empty group leaves no trace:
+    1. `Show danger` (the switch)   2. `No cache` (the switch)
+    <gap> 3. `Regenerate Main Tiles`   4. `Sort <existing app name>` (PMD "Sort
+    Jobs in Streams", LoL "Sort Lists in Categories" - NEVER renamed)
+    <gap> 5. `Refresh App`   6. `Clear local storage <APP>`   7. `Clear Google
+    cache` (CountMyDays only)
+    <gap> 8. the data loaders: `Load Sample Data` (CMD's Google sample), `Load
+    Sample Links` / `Load Sample Images` (QRLinks), `Upload Standard Images`
+  A GAP is `mt-4` on a group's first visible row (all rows are `mb-4`), so a group
+  that is empty for an app contributes nothing and there are NEVER two gaps in a
+  row. COLOURS (user decision, 2026-10-18: nothing is success/green): destructive
+  `Clear *` = `btn-danger`; bulk maintenance `Regenerate`/`Sort` = `btn-secondary`
+  (NOT warning); `Refresh App` and EVERY loader/upload = `btn-warning`; the two
+  switches have no colour. `superhero` (the default theme) additionally renders
+  `btn-warning` text in the BODY BACKGROUND colour (`var(--bs-body-bg)`, the dark
+  navy surface) instead of Bootswatch's white-on-amber, in BOTH modes - the body
+  TEXT colour was tried first but is nearly identical to white (#ebebeb/#ced4da),
+  so it looked unchanged. Rule in
+  `shared/css/themes/superhero/superhero.{light,dark}.css`, guarded by
+  pmd-regression "superhero warning buttons use the body background colour in both
+  modes" (asserts BOTH a probe and the real `#btnRefreshApp-button`). EVERY action
+  button is the shared `<smd-button block variant="…">`
+  ("block" makes the host a block box and the inner button `w-100`, so a column of
+  them is all one size - the user asked for the component and one size); the host
+  keeps the old id (`#btnClearAllData`), the inner button is `<id>-button`. Per-app
+  rows:
+    PMD      Show danger, No Cache, Regenerate Main Tiles, Sort Jobs in Streams,
+             Refresh App, Clear local storage PMD, Upload Standard Images (+ dev rows)
+    CMD      Show danger, No Cache, Refresh App, Clear local storage CMD,
+             Clear Google cache, Load Sample Data, Upload Standard Images
+    QRLinks  Show danger, No Cache, Refresh App, Clear local storage QR,
+             Load Sample Links, Load Sample Images
+    Solar    Show danger, No Cache, Refresh App, Clear local storage Solar
+    LoL      Show danger, No Cache, Regenerate Main Tiles, Sort Lists in Categories,
+             Refresh App, Clear local storage LoL, Upload Standard Images (+ dev rows)
+    PB       Show danger, No Cache, Refresh App, Clear local storage PB
+    Launch   Show danger, No Cache, Refresh App, Clear local storage Launch
+    FFOX     Show danger, No Cache, Refresh App, Clear local storage FFOX
+  Each app clears ONLY ITS OWN DATA: `smdConfirmClearAllData()` removes just the
+  keys under `SmdConfig.storagePrefix` (PhoneButtons is uniform now - its old
+  theme/font/images keep-list is gone), so other apps' keys and the shared
+  `shared-images` library always survive; PMD/LoL no longer wipe all of
+  localStorage. Launch/FreeFormOX were ADDED a Danger tab on user request
+  (2026-10-18) with the applicable rows only (no tile list, no loaders).
+  WIRING: `changeNoCache` now lives ONCE in `shared/js/smd-settings.js` (it was
+  duplicated in PlanMyDay + ListOfLists); every app's Danger markup just needs the
+  `#noCacheRow` block, and the id must be in that app's danger-id list (PMD
+  `pmdDangerIds()`, LoL `lolDangerIds()`, CMD `CMD_DANGER_IDS`, QR
+  `QRLINK_DANGER_IDS`, PB's two inline arrays, Solar's `toggleDangerRows`, Launch
+  `launchDangerIds()`, FFOX `ffoxDangerIds()`). CMD's
+  old combined `#gcalDangerRow` (2 buttons in one row) is SPLIT into
+  `#clearGcalCacheRow` + `#loadGcalSampleRow`. SolarControlar gained
+  `confirmClearAllData()` (a thin `smdConfirmClearAllData` wrapper) + a
+  `#noCache` restore in `openSettings()` - Solar implements its settings page
+  itself, so it does not get the shared restores. Launch + FFOX gained
+  `changeShowDanger`/`confirmClearAllData` wrappers and `dangerIds` in their
+  `smdSetupSettingsPage`/`openSettings` call. Button IDS were deliberately kept
+  (`#btnClearAllData`, `#btnClearStorage`, `#btnRegenerateTiles`, ...) - only the
+  markup (`<smd-button block>`), the LABELS and the modal title changed. The clear
+  modal reads `Clear ALL <App> data?` (per-app), so tests asserting the old
+  generic "Clear All Data?" copy had to be updated.
+  TEST: `tests/settings-alignment.spec.js` "Danger tab shape is consistent across
+  apps" - one test per app asserting the exact visible row order, the colour of
+  every row, and that no two consecutive rows both carry a gap. Update its table
+  with any Danger change.
 - SHARED IMAGE LIBRARY (2026-09-13): all apps share ONE images list,
   `shared-images`. `SmdConfig.imagePrefix = "shared-"` is set in every app's
   `app.js`; `smdImagePrefix()` (shared/js/smd-app.js) returns
@@ -1102,6 +1170,62 @@ Techniques / gotchas:
   when an array is non-empty or a branch is taken.
 
 ## Session log
+
+### 2026-10-18 (b) - Danger tabs: shared `<smd-button block>`, one size, corrected colours, own-data clears, + Launch/FFOX tabs
+
+- WHAT (user request): make every app's Settings consistent - shared tab order,
+  shared Display contents and ONE canonical Danger tab - and give every app a
+  Danger tab that clears ONLY its own data. Later in the session the user also
+  asked for the shared component (`<smd-button>` for all Danger buttons, one
+  size = QR's `Refresh App`), a Danger tab on Launch AND FreeFormOX, and (final
+  request) superhero `btn-warning` text in the BODY colour, both modes.
+- SHAPE: tab order is General, Display, then the app's own, with an empty tab
+  removed; Display rows are Theme, Theme Mode, Font size, Icon size, Touch size,
+  Tile density, Slide speed, Auto-hide menu (only the rows the app really uses),
+  app extras, and `Screen resolution` LAST. Launch is now `Display, Menu, Danger`
+  and FreeFormOX `Display, Game, Danger`. `tests/settings-alignment.spec.js`
+  iterates all 8 shells and asserts the exact tab list + Display labels.
+- DANGER: canonical order = Show danger, No Cache | Regenerate, Sort | Refresh
+  App, Clear local storage <APP>, Clear Google cache (CMD) | the loaders (Load
+  Sample Data, Load Sample Links/Images, Upload Standard Images). Colours (user
+  rule): `Clear *` danger, `Regenerate`/`Sort` SECONDARY, `Refresh App` + every
+  loader/upload WARNING - nothing is success/green. Gaps are `mt-4` on a group's
+  first visible row (all rows `mb-4`), never two in a row; an empty group leaves
+  no trace. The same spec asserts order, colour, gap and that every action button
+  is `<smd-button block>` and all the same measured size.
+- COMPONENT: `smd-button` gained `block` mode - the host becomes a block box
+  (`d-block`) and the inner button gets `w-100`, so a column of Danger buttons is
+  uniformly full width. Host keeps the old id (`#btnClearAllData`); the inner
+  button is `<id>-button` (tests click the host/role). This also FIXED a latent
+  bug: an earlier colour-only edit had left some rows as `class="btn-secondary …"`
+  (base `btn` dropped), which the conversion to the component removed.
+- CLEAR SEMANTICS: `smdConfirmClearAllData()` removes only keys under
+  `SmdConfig.storagePrefix`, so other apps' keys and `shared-images` survive.
+  PMD/LoL dropped their all-keys wipe, PhoneButtons dropped its
+  theme/font/images keep-list (now uniform - clears all `pb_*`), and the modal
+  copy is per-app (`Clear ALL <App> data?`). Solar kept its own wrapper.
+- SUPERHERO WARNING BUTTONS: `shared/css/themes/superhero/superhero.{light,dark}.css`
+  set `.btn-warning` `--bs-btn-{,hover-,active-,disabled-}color` to
+  `var(--bs-body-bg)` (Bootswatch had white on amber). The user first asked for
+  the BODY TEXT colour, but that made almost no visible difference - superhero's
+  body text is `#ebebeb`/`#ced4da`, near-identical to the white it replaced - so
+  it was switched to the body BACKGROUND colour (the dark navy). Guarded by
+  pmd-regression "superhero warning buttons use the body background colour in both
+  modes" (probe + the real button); no other layer writes `--bs-btn-color`, so no
+  cascade fight.
+- TESTS TOUCHED: `settings-alignment` (tabs/Danger table/size), `launch-regression`
+  (tab list), `pmd-regression` (clear is prefix-scoped; new superhero test),
+  `phonebuttons-regression` (clear now uniform; the assert moved BEFORE the
+  self-reload), `lol-regression` (per-app modal copy). Verified: settings-alignment
+  36/36, launch/ffox/qrlinks/solar 45/45, phonebuttons 18/18, cmd 67/67,
+  pmd+lol greps, and the whole "Theme colours" block - 24/24.
+- GOTCHA (recorded so it is not repeated): two test assumptions were wrong, not
+  the app - (1) the legacy unprefixed `images` key is dropped by
+  `migrateImagesToShared()` at boot, so it cannot evidence "other keys survive";
+  (2) PhoneButtons re-persists its DEFAULT theme on boot, so after a clear+reload
+  `pb_theme` is never null - assert a neutral probe key instead. Set the build to
+  `202610182244` (`npm run bump:build`) and restarted the snapshotted test servers
+  after the HTML/JS/CSS edits.
 
 ### 2026-09-30 (b) - mode-based light.css / dark.css re-added (empty, for now)
 - WHAT (user request): put the shared MODE-based colour sheets back so the file
@@ -3376,6 +3500,16 @@ Techniques / gotchas:
 - All five existing screenshot suites (`pmd`, `cmd`, `qrlinks`, `ffox`, `launch`) now import `tests/screenshot-helpers.js`. The helper reads the live 26-theme `themeConfig`, iterates explicit modes `light` then `dark`, calls `applyTheme(theme, mode)`, emulates the requested media colour scheme, waits for all three stylesheet links, fonts, visible image decode, and two animation frames, and preserves app-specific `afterTheme` refresh callbacks.
 - Chosen output structure: `screenshots/<app>/<theme>/<light|dark>/<scene>.png`. There is no `default` output directory for generated images. Scene filenames remain stable. The full matrix is 26 themes × 2 modes × 56 existing scene names = 2,912 gallery images, plus the separate root `sample-images.png` gallery.
 - Screenshot generation ran with `--workers 16`: all 53 screenshot tests passed. Output audit found 2,912 files: pmd 1,872 (936 light + 936 dark), cmd 364, qrlinks 260, ffox 260, launch 156; every app had 26 themes and zero legacy direct PNGs. ALWAYS generate screenshots with `--workers 16`; this is the documented standard for every `tests/*-screenshots.spec.js` command.
+- SCREENSHOT GALLERY COVERAGE (2026-10-18): only SIX suites exist - `cmd`, `ffox`,
+  `launch`, `lol`, `pmd`, `qrlinks`. **SolarControlar, PhoneButtons and the
+  storybook have NO gallery** (user: "we haven't written screenshots for the other
+  apps yet"). The Screenshots command in `commands.md` lists exactly those six, in
+  alphabetical order; when an app gains a `<app>-screenshots.spec.js`, add it there
+  in alphabetical position (`screenshots/viewer.js` picks the new gallery up with no
+  code change). A `*`-GLOB DOES NOT WORK for that command on Windows: neither
+  cmd.exe nor PowerShell expands it and Playwright does not glob CLI paths, so
+  `test tests/*-screenshots.spec.js` collects 0 tests (verified) - keep the
+  explicit list.
 - `screenshots/viewer.js` supports the nested mode layout and legacy direct `<app>/<theme>/<scene>.png` files (shown as synthetic `Default`). The API shape is `theme -> modes[] -> { name, path, images }`. The UI has separate App, Theme, and Mode selectors; section identity is composite app/theme/mode so open state and drag ordering cannot collide. Selections persist under `screenshotViewerGallery`, `screenshotViewerTheme`, and `screenshotViewerMode`.
 - The viewer is covered by `tests/screenshot-viewer.spec.js` with a temporary synthetic tree; it verifies nested mode scans, legacy fallback, deep image serving, app/theme/mode filtering, persisted choices, and composite open-state. `createServer()` is exported behind a `require.main === module` guard so tests can use an ephemeral port.
 
@@ -5369,4 +5503,43 @@ Techniques / gotchas:
   to `expect(order.slice(-2)).toEqual(["Show Gantt", "Screen resolution"])` (and the
   test renamed to "...last SETTING..."). VERIFIED: pmd-gantt 59/59. Test-only change,
   so no `BUILD_NUMBER` bump.
+
+### 2026-10-18 (i) - one Danger tab shape across all apps
+- REQUEST (user): "For the danger tab there should be consistency across all apps"
+  with a canonical order - Show danger / No cache / <gap> Regenerate Main Tiles /
+  Sort (existing name) / <gap> Refresh App / Clear local storage <APP> /
+  Clear Google cache (CMD only) / <gap> Load Sample Data - only the items that
+  apply to an app, dropping the rest, never two gaps in a row, consistent
+  danger/warning colours.
+- DECISIONS (asked): (1) "No cache" is now on EVERY Danger tab (it is an
+  origin-wide worker mode); (2) "Clear local storage" added to SolarControlar too
+  (the 5 apps that had it keep it); (3) labels: PlanMyDay's "Regenerate Today's
+  Tiles" -> "Regenerate Main Tiles", clear buttons -> "Clear local storage
+  PMD/CMD/QR/LoL/Solar/PB" (the code's own abbreviations), CountMyDays' combined
+  Google row SPLIT into "Clear Google cache" + "Load Sample Data", the two Sort
+  buttons keep their existing names; (4) COLOURS: destructive = danger, bulk
+  maintenance (Regenerate/Sort) = warning, Refresh App + every loader = SECONDARY
+  ("loaders are secondary ... nothing is safe/success" - user correction of my
+  first proposal). Launch + FreeFormOX still have no Danger tab.
+- IMPLEMENTATION: `changeNoCache` de-duplicated into `shared/js/smd-settings.js`
+  (two identical copies removed = one CPD group fewer); all rows normalised to
+  `mb-4` with `mt-4` as the group gap; danger-id lists extended in CMD/QR/PB/Solar
+  so the new rows stay hidden until "Show danger"; Solar gained
+  `confirmClearAllData()` + a `#noCache` restore (it owns its settings page);
+  button IDs kept (tests keep targeting `#btnClearAllData` etc.).
+- TDD: new `settings-alignment` describe "Danger tab shape is consistent across
+  apps" - per app: exact visible row order, the colour of every row (reading the
+  `variant` ATTRIBUTE for `<smd-button>` and the `btn-*` class for raw buttons - my
+  first probe returned null for QRLinks' loaders and failed), and no two
+  consecutive gaps. 6/6 green.
+- TESTS UPDATED for the renames: pmd-regression "Regenerate Today's Tiles" ->
+  "Regenerate Main Tiles" (13 occurrences) and its Clear button name; cmd's danger
+  test now asserts the two split Google rows + "Load Sample Data"/"Clear Google
+  cache".
+- VERIFIED: settings-alignment 34/34 (12 alignment + 8 rhythm + 6 Danger + 8
+  shape), cmd+qrlinks+solar+phonebuttons 106/106, pmd
+  `--grep 'No Cache|danger|Regenerate|Sort Jobs|clear all data|Settings'` 58/58,
+  lol `--grep Settings` 10/10.
+- `BUILD_NUMBER` -> `202610182214` via `npm run bump:build`; the servers were
+  restarted afterwards (app JS is served from the startup snapshot).
 

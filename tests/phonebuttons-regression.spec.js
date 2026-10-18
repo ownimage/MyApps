@@ -202,26 +202,40 @@ test.describe("PhoneButtons - Regression", () => {
     await expect(page.locator("#btnRefreshApp")).toBeVisible();
     await expect.poll(() => page.evaluate(() => localStorage.getItem("pb_showDanger"))).toBe("true");
 
-    // The Clear Local Storage danger button keeps shared images/theme/font size.
-    await expect(page.locator("#btnClearStorage")).toBeVisible();
-    const kept = await page.evaluate(() => {
-      localStorage.setItem("pb_noCache", "true");
-      localStorage.setItem("shared-images", "[1]");
-      clearLocalStorageExcept();
-      return {
-        noCache: localStorage.getItem("pb_noCache"),
-        theme: localStorage.getItem("pb_theme"),
-        fontSize: localStorage.getItem("pb_fontSize"),
-        images: localStorage.getItem("shared-images")
-      };
-    });
-    expect(kept.noCache).toBeNull();
-    expect(kept.theme).toBe("brite");
-    expect(kept.fontSize).toBe("large");
-    expect(kept.images).toBe("[1]");
-
-    // The share QR encodes this server's own URL.
+    // The share QR encodes this server's own URL. (Asserted BEFORE the clear
+    // below, which reloads the page.)
     await expect(page.locator("#shareQrCode")).toHaveAttribute("value", "http://localhost:8080/PhoneButtons/");
+
+    // The Clear local storage button clears ONLY PhoneButtons' own keys - the
+    // shared image library and other apps' keys are never touched.
+    await expect(page.locator("#btnClearStorage")).toBeVisible();
+    await page.evaluate(() => {
+      localStorage.setItem("pb_noCache", "true");
+      localStorage.setItem("pb_theme", "brite");
+      localStorage.setItem("pb_fontSize", "large");
+      localStorage.setItem("pb_probeKey", "x");
+      localStorage.setItem("shared-images", "[1]");
+      localStorage.setItem("planmydays_probe", "keep");
+    });
+    await page.locator("#btnClearStorage").click();
+    await page.locator("#smdConfirmModal").locator("button").filter({ hasText: "Clear" }).click();
+    await page.waitForLoadState("load");            // the app reloads itself
+    const state = await page.evaluate(() => ({
+      noCache: localStorage.getItem("pb_noCache"),
+      theme: localStorage.getItem("pb_theme"),
+      fontSize: localStorage.getItem("pb_fontSize"),
+      probe: localStorage.getItem("pb_probeKey"),
+      images: localStorage.getItem("shared-images"),
+      other: localStorage.getItem("planmydays_probe"),
+    }));
+    expect(state.noCache).toBeNull();
+    expect(state.fontSize).toBeNull();
+    expect(state.probe).toBeNull();
+    // the planted NON-default theme was cleared; boot re-applies the DEFAULT one
+    expect(state.theme).not.toBe("brite");
+    // ... and the shared image library + other apps' keys are never touched
+    expect(state.images).toBe("[1]");
+    expect(state.other).toBe("keep");
   });
 
   test("settings OK closes the page", async ({ page }) => {

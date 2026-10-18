@@ -3,7 +3,7 @@
 // density, auto-hide) live in shared/js/smd-settings.js.
 
 // Danger-tab rows toggled by the shared "Show danger" switch.
-const QRLINK_DANGER_IDS = ["loadSampleLinksRow", "uploadStandardImagesRow", "clearAllDataRow", "refreshAppRow"];
+const QRLINK_DANGER_IDS = ["noCacheRow", "refreshAppRow", "clearAllDataRow", "loadSampleLinksRow", "uploadStandardImagesRow"];
 
 function changeShowDanger(enabled) {
   smdChangeShowDanger(enabled, QRLINK_DANGER_IDS);

@@ -156,7 +156,7 @@ test.describe("Launch - Regression", () => {
     await page.goto("/");
     await page.evaluate(() => openSettings());
     await expect(page.locator("#settingsPage")).toHaveAttribute("open", "");
-    await expect(page.locator("#settingsTabs .smd-tab-btn")).toHaveText(["Display", "Menu"]);
+    await expect(page.locator("#settingsTabs .smd-tab-btn")).toHaveText(["Display", "Menu", "Danger"]);
 
     // The settings page is an opaque full-screen surface: the Launch grid behind
     // it must not show through (this app does not explicitly hide its main content).

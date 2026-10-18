@@ -254,6 +254,19 @@ function changeTouchSize(value) {
   if (typeof applyTouchSize === "function") applyTouchSize();
 }
 
+// "No Cache": the worker stops serving its precache and re-reads every file from
+// disk, so a deploy is visible on the next load. The switch only takes effect for
+// files loaded AFTER it flips, hence the reload. Shared by EVERY app (the worker
+// is origin-wide), so an app only needs the #noCacheRow markup in its Danger tab.
+function changeNoCache(enabled) {
+  const done = function() { window.location.reload(); };
+  if (typeof smdSetNoCache !== "function") {
+    localStorage.setItem(smdKey("noCache"), enabled);
+    return done();
+  }
+  smdSetNoCache(enabled).then(done, done);
+}
+
 // SLIDE SPEED (smd-page slide-in/out duration in ms)
 function applySlideDuration(ms) {
   var value = parseInt(ms, 10);
