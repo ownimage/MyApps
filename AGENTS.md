@@ -672,6 +672,30 @@ Architecture:
   Local/Google source as an `<smd-badge>` under the date (`source` attribute set
   by `main-view.js`), using the standard primary/secondary button variants for
   now (pending styling refinement).
+- EDIT GOOGLE EVENT MIRRORS EDIT DATE (2026-10-18, user request): the
+  `#googleEventEditPage` content in `CountMyDays/js/googleCalendarEditor.js`
+  (`renderGcalEditContent`) now follows the Edit Date page row-for-row: (1) a
+  `Title` label + `#gcalTitleInput` (readonly, full width), (2) `Category` +
+  `Image` on one row (`#gcalCategorySelect` = the SHARED `<smd-image-dropdown>`
+  with `key-prefix` + `style="min-width:220px"`, and `#gcalImageSelect`), (3)
+  `#gcalDateInput` + `#gcalTypeInput` on one row (both readonly, both
+  `class="form-control w-auto"`, `aria-label` Date/Type, reading the existing
+  "Once"/"Recurring" wording), (4) the `#gcalShowCheck` tick on its own row. The
+  old left column (`#gcalCategoryPreview` tile + a native `<smd-select>`) and
+  `updateGcalCategoryPreview()` are DELETED: the dropdown itself carries the
+  category image, exactly like Edit Date. The dropdown is wired the Edit Date
+  way - `openGcalEditPage` binds ONE `smd-image-dropdown-change` listener on the
+  page (guard `page.__cmdGcalCategoryBound`) and identifies the source via
+  `composedPath()` (events retarget to the page host), mapping "No Category" ->
+  `""`. The footer is now `Cancel | OK` (was `OK | Cancel`) to match every other
+  page. TESTS: `cmd-regression` "Edit Google Event uses the Edit Date layout
+  (Title / Category+Image / Date+Type / Show)" asserts the ids/readonly state,
+  the missing preview tile, the row ORDER and the pair geometry (same start +
+  shared vertical band - NOT centre equality: the Image control is taller, it
+  carries the name + Edit button), and the older "google events editor search,
+  edit, cancel and close" test now drives the category via
+  `#gcalCategorySelect #smdImageDropdownBtn` + `#smdImageDropdownMenu .dropdown-item`
+  instead of `pickOption` (it is no longer an `<smd-select>`).
 - SHARED IMAGE EDITOR (2026-09-13): `<smd-image-editor>`
   (`shared/js/components/smd-image-editor.js`) is the ONE image edit form both
   apps host in their Bootstrap `#imageEditModal`. It renders in the LIGHT DOM on
@@ -5050,4 +5074,43 @@ Techniques / gotchas:
   (verified: 0 ESC bytes, 0 non-ASCII). Use the same treatment for any future spec
   that saves subprocess output to a file.
 - No app/web asset changed (app.py + test files only), so `BUILD_NUMBER` NOT bumped.
+
+### 2026-10-18 (d) - CountMyDays Edit Google Event follows the Edit Date layout
+- REQUEST (user): the Edit Google Event screen should look like Edit Date - Title
+  on the first row, Category + Image next, then the (non-editable) Date and the
+  Once/Annual-style control.
+- WHAT: `renderGcalEditContent()` (CountMyDays/js/googleCalendarEditor.js) rebuilt
+  as four rows matching `renderDateEditContent()`: Title (label + full-width
+  readonly `#gcalTitleInput`) / Category + Image (`#gcalCategorySelect` is now the
+  shared `<smd-image-dropdown>` - same control and 220px width as Edit Date - next
+  to `#gcalImageSelect`) / `#gcalDateInput` + `#gcalTypeInput` (readonly, compact,
+  `aria-label`ed, keeping the app's "Once"/"Recurring" wording since Google owns
+  the recurrence) / `#gcalShowCheck` on its own row. Deleted `#gcalCategoryPreview`
+  + `updateGcalCategoryPreview()` (the dropdown carries the image now) and the
+  separate `<smd-select>` + `<option>` markup. The page binds one
+  `smd-image-dropdown-change` listener via `composedPath()` (guard
+  `__cmdGcalCategoryBound`), mapping "No Category" -> "". Footer button order
+  normalised to Cancel | OK (it was OK | Cancel).
+- VERIFIED visually (probe screenshots of both pages, since this is a layout
+  change): same label positions, same 220px category control, same row spacing;
+  the only intended differences are the read-only values and the Show row.
+- TDD: new cmd-regression test "Edit Google Event uses the Edit Date layout
+  (Title / Category+Image / Date+Type / Show)" (ids, readonly state, no preview
+  tile, row order + geometry). My first cut compared the two controls' vertical
+  CENTRES (within 8px) and failed with 23px - the Image control is genuinely
+  taller (thumb + name + Edit button) and the row is `align-items-start`, so the
+  assertion now requires the same START (<=12px) + a shared vertical band
+  (>20px), which is the real "same row" invariant. The older gcal edit test now
+  drives the category through the dropdown menu instead of `pickOption`.
+- GOTCHA (again): after editing `CountMyDays/js/googleCalendarEditor.js` the run
+  failed with `openGoogleEventsEditor is not defined` on 6 tests, because the
+  long-running Vite server was serving a TRUNCATED copy (its tail stopped mid
+  expression). Not an app bug: kill the 8080/8081 listeners + clear
+  `node_modules\.vite` + restart `tests/serve-tests.mjs`, then verify the served
+  text equals the file (I checked `Invoke-WebRequest` length + tail). ALWAYS
+  restart the server after editing a served file - the earlier mutation checks
+  happening to pick up changes made me skip it this time.
+- VERIFIED: cmd-regression 59/59 (58 existing + the new layout test).
+- `BUILD_NUMBER` -> `202610181947` via `npm run bump:build` (the app script is a
+  precached `APPS["CountMyDays/"]` asset).
 

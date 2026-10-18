@@ -1027,6 +1027,59 @@ test.describe("CountMyDays - Regression", () => {
       await expect(page.locator("#datesEditor")).toHaveAttribute("open", "");
     });
 
+    test("Edit Google Event uses the Edit Date layout (Title / Category+Image / Date+Type / Show)", async ({ page }) => {
+      await seed(page, { settings: { gcal_enabled: "true", gcal_name: "Test User" } });
+      await page.evaluate(() => loadGCalSampleData());
+      await page.locator("#smdConfirmModal").getByRole("button", { name: "OK" }).click();
+
+      await page.evaluate(() => openDatesEditor());
+      await page.locator("#datesEditor cmd-date-card").filter({ hasText: "Dentist Appointment" })
+        .getByRole("button", { name: "Edit" }).click();
+      const edit = page.locator("#googleEventEditPage");
+      await expect(edit).toHaveAttribute("open", "");
+
+      // row 1: the event Title, read-only (Google owns the summary)
+      await expect(edit.locator("label").filter({ hasText: "Title" })).toHaveCount(1);
+      await expect(page.locator("#gcalTitleInput")).toHaveAttribute("readonly", "");
+      await expect(page.locator("#gcalTitleInput")).toHaveValue("Dentist Appointment");
+      // the old "Name" label is gone (renamed to Title, matching Edit Date)
+      await expect(edit.getByText("Name", { exact: true })).toHaveCount(0);
+
+      // row 2: Category + Image on one line. The Category control is the shared
+      // image dropdown, so the separate category-image tile is gone.
+      await expect(page.locator("#gcalCategoryPreview")).toHaveCount(0);
+      await expect(page.locator("#gcalCategorySelect")).toBeVisible();
+      await expect(page.locator("#gcalCategorySelect #smdImageBtnText")).toHaveText("No Category");
+      await expect(page.locator("#gcalImageSelect")).toBeVisible();
+
+      // row 3: Date + Type, both read-only and both owned by Google
+      await expect(page.locator("#gcalDateInput")).toHaveAttribute("readonly", "");
+      await expect(page.locator("#gcalTypeInput")).toHaveAttribute("readonly", "");
+      await expect(page.locator("#gcalTypeInput")).toHaveValue("Once");
+
+      // row 4: Show
+      await expect(page.locator("#gcalShowCheck")).toBeVisible();
+
+      // ...and they are stacked in that order, with the pairs sharing a line.
+      const boxes = {};
+      for (const [key, sel] of Object.entries({
+        title: "#gcalTitleInput", category: "#gcalCategorySelect", image: "#gcalImageSelect",
+        date: "#gcalDateInput", type: "#gcalTypeInput", show: "#gcalShowCheck",
+      })) boxes[key] = await page.locator(sel).boundingBox();
+      const overlaps = (a, b) => Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y);
+      expect(boxes.title.y + boxes.title.height, "title row is above the category row").toBeLessThanOrEqual(boxes.category.y + 1);
+      expect(boxes.category.y + boxes.category.height, "category row is above the date row").toBeLessThanOrEqual(boxes.date.y + 1);
+      expect(boxes.date.y + boxes.date.height, "date row is above Show").toBeLessThanOrEqual(boxes.show.y + 1);
+      // "same row" = the two controls start together and share the row's band.
+      // NOT their vertical centres: the Image control is TALLER than the Category
+      // dropdown (it carries the name + Edit button), so the centres never match.
+      for (const [a, b, label] of [[boxes.category, boxes.image, "category + image"],
+        [boxes.date, boxes.type, "date + type"]]) {
+        expect(Math.abs(a.y - b.y), `${label} start on the same line`).toBeLessThanOrEqual(12);
+        expect(overlaps(a, b), `${label} share a row`).toBeGreaterThan(20);
+      }
+    });
+
     test("refresh caches a stubbed feed and reports the count", async ({ page }) => {
       await seed(page, { settings: { gcal_enabled: "true", gcal_client_id: "dummy" } });
       await page.evaluate(() => {
@@ -1202,7 +1255,9 @@ test.describe("CountMyDays - Regression", () => {
 
       await listPage.locator("cmd-date-card").first().getByRole("button", { name: "Edit" }).click();
       await expect(page.locator("#googleEventEditPage")).toHaveAttribute("open", "");
-      await pickOption(page, "#gcalCategorySelect", "Birthday");
+      await page.locator("#gcalCategorySelect #smdImageDropdownBtn").click();
+      await page.locator("#gcalCategorySelect #smdImageDropdownMenu .dropdown-item").filter({ hasText: "Birthday" }).click();
+      await expect(page.locator("#gcalCategorySelect #smdImageBtnText")).toHaveText("Birthday");
       await page.locator("#gcalShowCheck").uncheck();
       await page.locator("#googleEventEditPage").getByRole("button", { name: "Cancel" }).click();
       await expect(page.locator("#googleEventEditPage")).not.toHaveAttribute("open", "");
