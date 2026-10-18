@@ -71,19 +71,21 @@ const SAMPLE = [
 ];
 
 test.describe("Gantt page", () => {
-  test("Show Gantt is the last control on the Display tab and defaults to off", async ({ page }) => {
+  test("Show Gantt is the last setting on the Display tab and defaults to off", async ({ page }) => {
     await page.goto("/PlanMyDay/");
     await page.locator("#btnMainMenu").click();
     await page.locator("a.dropdown-item").filter({ hasText: "Settings" }).click();
     await page.locator("#appearance-tab").click();
 
     await expect(page.locator("#showGantt")).not.toBeChecked();
-    // It must be the LAST row in the Display panel, after Screen resolution.
+    // It must be the LAST app SETTING in the Display panel. Since 2026-10-18 the
+    // shared settings shape puts the informational "Screen resolution" row last on
+    // every app, so Show Gantt sits directly ABOVE it (it used to be last overall).
     const order = await page.evaluate(() => {
       const panel = document.getElementById("appearance-tab-panel") || document.getElementById("themeSelector").closest(".smd-tab-panel");
       return Array.from(panel.querySelectorAll("label")).map((l) => l.textContent.trim()).filter(Boolean);
     });
-    expect(order[order.length - 1]).toBe("Show Gantt");
+    expect(order.slice(-2)).toEqual(["Show Gantt", "Screen resolution"]);
   });
 
   test("the Gantt menu item is hidden until the setting is on, and persists", async ({ page }) => {

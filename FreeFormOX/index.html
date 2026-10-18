@@ -81,11 +81,11 @@
     <template id="settingsTemplate">
       <div class="smd-settings">
 
-        <!-- Game -->
-        <section class="smd-settings-tab" data-tab="Game" data-tab-id="game-tab">
+        <!-- Display -->
+        <section class="smd-settings-tab" data-tab="Display" data-tab-id="appearance-tab">
           <smd-theme id="themeSelector" class="col-md-8 mt-3"></smd-theme>
 
-          <div class="row mb-3 align-items-center col-md-8">
+          <div class="row mb-4 align-items-center col-md-8">
             <div class="col-4 text-end"><label class="form-label mb-0">Font size</label></div>
             <div class="col-8">
               <smd-select id="fontSizeSelector" class="form-select" onchange="changeFontSize(this.value)">
@@ -99,13 +99,45 @@
             </div>
           </div>
 
-          <div class="row mb-3 align-items-center col-md-8">
+          <div class="row mb-4 align-items-center col-md-8">
+            <div class="col-4 text-end"><label class="form-label mb-0">Touch size</label></div>
+            <div class="col-8">
+              <smd-select id="touchSizeSelector" class="form-select" onchange="changeTouchSize(this.value)">
+                <option value="normal">Normal</option>
+                <option value="large">Large</option>
+              </smd-select>
+            </div>
+          </div>
+
+          <div class="row mb-4 align-items-center col-md-8">
+            <div class="col-4 text-end"><label class="form-label mb-0">Slide speed</label></div>
+            <div class="col-8">
+              <smd-select id="slideDurationSelector" class="form-select" onchange="changeSlideDuration(this.value)">
+                <option value="0">Off (instant)</option>
+                <option value="150">Fast (150 ms)</option>
+                <option value="300">Normal (300 ms)</option>
+                <option value="500">Slow (500 ms)</option>
+              </smd-select>
+            </div>
+          </div>
+
+          <div class="row mb-4 align-items-center col-md-8">
+            <div class="col-4 text-end"><label class="form-label mb-0">Auto-hide menu</label></div>
+            <div class="col-8">
+              <smd-checkbox id="autoHideMenu" switch onchange="changeAutoHideMenu(this.checked)"></smd-checkbox>
+            </div>
+          </div>
+        </section>
+
+        <!-- Game -->
+        <section class="smd-settings-tab" data-tab="Game" data-tab-id="game-tab">
+          <div class="row mb-4 align-items-center col-md-8 mt-3">
             <div class="col-4 text-end"><label class="form-label mb-0">X name</label></div>
             <div class="col-8">
               <input id="xName" class="form-control" type="text" maxlength="20" onchange="saveName('x', this.value)">
             </div>
           </div>
-          <div class="row mb-3 align-items-center col-md-8">
+          <div class="row mb-4 align-items-center col-md-8">
             <div class="col-4 text-end"><label class="form-label mb-0">X style</label></div>
             <div class="col-8">
               <smd-select id="xPieceStyle" class="form-select" onchange="changePieceStyle('x', this.value)">
@@ -116,13 +148,13 @@
             </div>
           </div>
 
-          <div class="row mb-3 align-items-center col-md-8">
+          <div class="row mb-4 align-items-center col-md-8">
             <div class="col-4 text-end"><label class="form-label mb-0">O name</label></div>
             <div class="col-8">
               <input id="oName" class="form-control" type="text" maxlength="20" onchange="saveName('o', this.value)">
             </div>
           </div>
-          <div class="row mb-3 align-items-center col-md-8">
+          <div class="row mb-4 align-items-center col-md-8">
             <div class="col-4 text-end"><label class="form-label mb-0">O style</label></div>
             <div class="col-8">
               <smd-select id="oPieceStyle" class="form-select" onchange="changePieceStyle('o', this.value)">
@@ -133,14 +165,14 @@
             </div>
           </div>
 
-          <div class="row mb-3 align-items-center col-md-8">
+          <div class="row mb-4 align-items-center col-md-8">
             <div class="col-4 text-end"><label class="form-label mb-0">Show undo/redo</label></div>
             <div class="col-8">
               <smd-checkbox id="showPlayReplay" switch onchange="savePlayReplaySetting(this.checked)"></smd-checkbox>
             </div>
           </div>
 
-          <div class="row mb-3 align-items-center col-md-8">
+          <div class="row mb-4 align-items-center col-md-8">
             <div class="col-4 text-end"></div>
             <div class="col-8">
               <smd-button variant="primary" onclick="swapPlayersAndRestart()">Swap Players &amp; Restart</smd-button>

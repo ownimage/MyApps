@@ -46,6 +46,10 @@
       </button>
       <ul class="dropdown-menu">
         <li><a class="dropdown-item" onclick="openSettings()">Settings</a></li>
+        <li><hr class="dropdown-divider"></li>
+        <!-- Replaced at boot by the shared Launch flyout (SmdApps.buildLaunchSubmenu),
+             exactly like every other app's menu: Settings | Launch | ... -->
+        <li><a class="dropdown-item" href="./">Launch</a></li>
       </ul>
     </div>
 
@@ -82,7 +86,7 @@
           </div>
 
           <div class="row mb-4 align-items-center col-md-8">
-            <div class="col-4 text-end"><label class="form-label mb-0">Image size</label></div>
+            <div class="col-4 text-end"><label class="form-label mb-0">Icon size</label></div>
             <div class="col-8">
               <smd-select id="iconSizeSelector" class="form-select" onchange="changeIconSize(this.value)">
                 <option value="xsmall">Extra small (32x32)</option>
@@ -92,6 +96,35 @@
                 <option value="xlarge">Extra large (80x80)</option>
                 <option value="jumbo">Jumbo (100x100)</option>
               </smd-select>
+            </div>
+          </div>
+
+          <div class="row mb-4 align-items-center col-md-8">
+            <div class="col-4 text-end"><label class="form-label mb-0">Touch size</label></div>
+            <div class="col-8">
+              <smd-select id="touchSizeSelector" class="form-select" onchange="changeTouchSize(this.value)">
+                <option value="normal">Normal</option>
+                <option value="large">Large</option>
+              </smd-select>
+            </div>
+          </div>
+
+          <div class="row mb-4 align-items-center col-md-8">
+            <div class="col-4 text-end"><label class="form-label mb-0">Slide speed</label></div>
+            <div class="col-8">
+              <smd-select id="slideDurationSelector" class="form-select" onchange="changeSlideDuration(this.value)">
+                <option value="0">Off (instant)</option>
+                <option value="150">Fast (150 ms)</option>
+                <option value="300">Normal (300 ms)</option>
+                <option value="500">Slow (500 ms)</option>
+              </smd-select>
+            </div>
+          </div>
+
+          <div class="row mb-4 align-items-center col-md-8">
+            <div class="col-4 text-end"><label class="form-label mb-0">Auto-hide menu</label></div>
+            <div class="col-8">
+              <smd-checkbox id="autoHideMenu" switch onchange="changeAutoHideMenu(this.checked)"></smd-checkbox>
             </div>
           </div>
         </section>

@@ -97,16 +97,6 @@
   <template id="settingsTemplate">
       <div class="smd-settings">
 
-        <!-- General -->
-        <section class="smd-settings-tab" data-tab="General" data-tab-id="general-tab">
-          <div class="row mb-4 align-items-center col-md-8 mt-3">
-            <div class="col-4 text-end"><label class="form-label mb-0">Auto-hide menu</label></div>
-            <div class="col-8">
-              <smd-checkbox id="autoHideMenu" switch onchange="changeAutoHideMenu(this.checked)"></smd-checkbox>
-            </div>
-          </div>
-        </section>
-
         <!-- Appearance -->
         <section class="smd-settings-tab" data-tab="Display" data-tab-id="appearance-tab">
           <smd-theme id="themeSelector" class="col-md-8 mt-3"></smd-theme>
@@ -140,20 +130,20 @@
           </div>
 
           <div class="row mb-4 align-items-center col-md-8">
-            <div class="col-4 text-end"><label class="form-label mb-0">Tile density</label></div>
-            <div class="col-8">
-              <smd-select id="densitySelector" class="form-select" onchange="changeDensity(this.value)">
-                <option value="normal">Normal</option>
-                <option value="compact">Compact</option>
-              </smd-select>
-            </div>
-          </div>
-          <div class="row mb-4 align-items-center col-md-8">
             <div class="col-4 text-end"><label class="form-label mb-0">Touch size</label></div>
             <div class="col-8">
               <smd-select id="touchSizeSelector" class="form-select" onchange="changeTouchSize(this.value)">
                 <option value="normal">Normal</option>
                 <option value="large">Large</option>
+              </smd-select>
+            </div>
+          </div>
+          <div class="row mb-4 align-items-center col-md-8">
+            <div class="col-4 text-end"><label class="form-label mb-0">Tile density</label></div>
+            <div class="col-8">
+              <smd-select id="densitySelector" class="form-select" onchange="changeDensity(this.value)">
+                <option value="normal">Normal</option>
+                <option value="compact">Compact</option>
               </smd-select>
             </div>
           </div>
@@ -166,6 +156,12 @@
                 <option value="300">Normal (300 ms)</option>
                 <option value="500">Slow (500 ms)</option>
               </smd-select>
+            </div>
+          </div>
+          <div class="row mb-4 align-items-center col-md-8">
+            <div class="col-4 text-end"><label class="form-label mb-0">Auto-hide menu</label></div>
+            <div class="col-8">
+              <smd-checkbox id="autoHideMenu" switch onchange="changeAutoHideMenu(this.checked)"></smd-checkbox>
             </div>
           </div>
           <div class="row mb-4 align-items-center col-md-8">

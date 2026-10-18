@@ -26,11 +26,23 @@ const APPS = [
 // breakpoint, where the bug was invisible and must stay that way.
 const WIDTHS = [832, 700];
 
+// Every shell (the two extra apps exist only for the shape/rhythm tests below).
+const ALL_APPS = [
+  { name: "PlanMyDay", path: "/PlanMyDay/" },
+  { name: "CountMyDays", path: "/CountMyDays/" },
+  { name: "FreeFormOX", path: "/FreeFormOX/" },
+  { name: "QRLinks", path: "/QRLinks/" },
+  { name: "SolarControlar", path: "/SolarControlar/" },
+  { name: "ListOfLists", path: "/ListOfLists/" },
+  { name: "PhoneButtons", path: "/PhoneButtons/" },
+  { name: "Launch", path: "/" }
+];
+
 async function openSettingsOnThemeTab(page) {
   await page.evaluate(() => openSettings());
-  // Not every app has the control on the default tab (PlanMyDay puts it on
-  // Display, the others on General), and a hidden panel measures as all-zero
-  // rects - which would make the geometry comparison pass for the wrong reason.
+  // The control lives on the Display tab in every app now, but resolve the tab
+  // from the host's own panel anyway - a hidden panel measures as all-zero rects,
+  // which would make the geometry comparison pass for the wrong reason.
   await page.evaluate(() => {
     const host = document.getElementById("themeSelector");
     const panel = host.closest(".smd-tab-panel");
@@ -97,21 +109,112 @@ test.describe("Settings theme control alignment", () => {
     }
   }
 
-  test("the Theme field keeps the same bottom gap as the app settings rows", async ({ page }) => {
-    await page.goto("/PlanMyDay/");
-    await openSettingsOnThemeTab(page);
-    const gaps = await page.evaluate(() => {
-      const host = document.getElementById("themeSelector");
-      const fields = host.querySelectorAll(".smd-theme-field");
-      const sibling = Array.from(host.parentElement.querySelectorAll("div.row"))
-        .find((row) => !host.contains(row) && row.classList.contains("col-md-8") && row.querySelector("label"));
-      const nextSibling = sibling.nextElementSibling;
-      const gap = (a, b) => Math.round(parseFloat(getComputedStyle(a).marginBottom) * 100) / 100;
-      return { themeField: gap(fields[0]), siblingRow: gap(sibling), nextRow: gap(nextSibling) };
+  // ONE rhythm per Display tab: every row's bottom gap must match the gap
+  // <smd-theme> injects (it is deliberately mb-4 to match the app rows), so the
+  // spacing between any two rows on the page is identical. FreeFormOX shipped its
+  // Display rows at mb-3 against the theme's 1.5rem gap - exactly this test.
+  for (const app of ALL_APPS) {
+    test(`${app.name}: the Display tab keeps one uniform vertical rhythm`, async ({ page }) => {
+      await page.goto(app.path);
+      await openSettingsOnThemeTab(page);
+      const gaps = await page.evaluate(() => {
+        const panel = document.querySelector("#settingsPage .smd-tab-panel.active");
+        const round = (el) => Math.round(parseFloat(getComputedStyle(el).marginBottom) * 100) / 100;
+        const theme = Array.from(panel.querySelectorAll("#themeSelector .smd-theme-field")).map(round);
+        const rows = Array.from(panel.querySelectorAll("div.row.col-md-8"))
+          .filter((row) => row.querySelector("label")).map(round);
+        return { theme, rows };
+      });
+      const all = [...gaps.theme, ...gaps.rows];
+      expect(all.length, "theme fields + the settings rows").toBeGreaterThanOrEqual(3);
+      expect(new Set(all).size,
+        `mixed vertical rhythm - theme: ${gaps.theme.join(",")} | rows: ${gaps.rows.join(",")}`).toBe(1);
     });
-    // mb-4 on the app rows; the component used to be mb-3 (1rem) and broke the
-    // vertical rhythm between the control and the rows around it.
-    expect(gaps.themeField).toBe(gaps.siblingRow);
-    expect(gaps.nextRow).toBe(gaps.siblingRow);
-  });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// The Settings page is SHARED IN SHAPE across every app (2026-10-18, user rule):
+//   * tabs in a fixed order - General, Display, then the app's own;
+//   * a tab that would be empty is REMOVED (so the list is asserted exactly);
+//   * the Display tab holds the appearance rows in a fixed order:
+//       Theme, Theme Mode, Font size, Icon size [where the app renders images],
+//       Tile density [where supported], Touch size, Slide speed, Auto-hide menu,
+//     followed by any app-specific extras (Screen resolution, Show Gantt).
+// The row labels are read from the DOM so the markup is validated, not a copy of
+// it; a control moved to the wrong tab (or an extra row inserted) fails.
+// ---------------------------------------------------------------------------
+test.describe("Settings page shape is consistent across apps", () => {
+  const LAYOUT = [
+    {
+      app: "Launch", path: "/", tabs: ["Display", "Menu"],
+      display: ["Theme", "Theme Mode", "Font size", "Icon size", "Touch size", "Slide speed", "Auto-hide menu"],
+    },
+    {
+      app: "PlanMyDay", path: "/PlanMyDay/", tabs: ["General", "Display", "Schedule", "Minio", "Danger"],
+      display: ["Theme", "Theme Mode", "Font size", "Icon size", "Touch size", "Tile density", "Slide speed",
+        "Auto-hide menu", "Show Gantt", "Screen resolution"],
+    },
+    {
+      app: "CountMyDays", path: "/CountMyDays/", tabs: ["General", "Display", "G Cal", "Minio", "Danger"],
+      display: ["Theme", "Theme Mode", "Font size", "Icon size", "Touch size", "Tile density", "Slide speed",
+        "Auto-hide menu"],
+    },
+    {
+      app: "QRLinks", path: "/QRLinks/", tabs: ["Display", "Danger"],
+      display: ["Theme", "Theme Mode", "Font size", "Icon size", "Touch size", "Tile density", "Slide speed",
+        "Auto-hide menu"],
+    },
+    {
+      app: "SolarControlar", path: "/SolarControlar/", tabs: ["General", "Display", "Danger"],
+      // no Icon size / Tile density: this app renders no <smd-image> and has no
+      // density-aware surfaces, so those controls are deliberately absent.
+      display: ["Theme", "Theme Mode", "Font size", "Touch size", "Slide speed", "Auto-hide menu"],
+    },
+    {
+      app: "FreeFormOX", path: "/FreeFormOX/", tabs: ["Display", "Game"],
+      display: ["Theme", "Theme Mode", "Font size", "Touch size", "Slide speed", "Auto-hide menu"],
+    },
+    {
+      app: "ListOfLists", path: "/ListOfLists/", tabs: ["Display", "Minio", "Danger"],
+      display: ["Theme", "Theme Mode", "Font size", "Icon size", "Touch size", "Tile density", "Slide speed",
+        "Auto-hide menu", "Screen resolution"],
+    },
+    {
+      app: "PhoneButtons", path: "/PhoneButtons/", tabs: ["Display", "Server", "Danger"],
+      display: ["Theme", "Theme Mode", "Font size", "Icon size", "Touch size", "Slide speed", "Auto-hide menu"],
+    },
+  ];
+
+  for (const spec of LAYOUT) {
+    test(`${spec.app}: tabs and Display rows follow the shared order`, async ({ page }) => {
+      await page.goto(spec.path);
+      await page.evaluate(() => openSettings());
+      await expect(page.locator("#settingsPage")).toHaveAttribute("open", "");
+      // Some apps show a startup modal in the test environment (SolarControlar's
+      // Flask API is not mocked in THIS spec). Dismiss it - it is unrelated to
+      // the Settings page under test - or it intercepts the tab click.
+      const dismissed = await page.evaluate(() => {
+        const modal = document.getElementById("smdConfirmModal");
+        if (!modal || !modal.hasAttribute("open")) return false;
+        const btn = modal.querySelector(".smd-footer button");
+        if (btn) btn.click();
+        return true;
+      });
+      if (dismissed) await expect(page.locator("#smdConfirmModal")).not.toHaveAttribute("open", "");
+      // Exact list, in order: also proves no tab was left empty (an empty tab
+      // must be removed, not kept with a blank panel).
+      await expect(page.locator("#settingsPage .smd-tab-btn")).toHaveText(spec.tabs);
+
+      await page.locator("#settingsPage .smd-tab-btn").filter({ hasText: "Display" }).click();
+      await expect(page.locator("#settingsPage .smd-tab-panel.active")).toHaveCount(1);
+      const labels = await page.evaluate(() => {
+        const panel = document.querySelector("#settingsPage .smd-tab-panel.active");
+        return Array.from(panel.querySelectorAll("label"))
+          .map((l) => l.textContent.trim())
+          .filter(Boolean);
+      });
+      expect(labels).toEqual(spec.display);
+    });
+  }
 });

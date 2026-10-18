@@ -172,16 +172,19 @@ test.describe("CountMyDays - Regression", () => {
       await seed(page);
       await page.evaluate(() => openSettings());
       await expect(page.locator("#settingsPage")).toHaveAttribute("open", "");
+      // General (default tab): the CountMyDays-specific rows stay here.
+      await expect(page.locator("#formatSelector")).toBeVisible();
+      await expect(page.locator("#maxCountdownsSelector")).toBeVisible();
+      // Display tab: theme/mode + the shared appearance controls.
+      await page.locator("#settingsPage .smd-tab-btn").filter({ hasText: "Display" }).click();
       await expect(page.locator("#themeSelector .smd-theme-select")).toBeVisible();
       await expect(page.locator("#themeSelector .smd-theme-mode-select")).toBeVisible();
       // 27 shared themes (26 + bootstrap)
       expect(await page.locator("#themeSelector .smd-theme-select .smd-select-item").count()).toBe(27);
       expect(await page.locator("#themeSelector .smd-theme-mode-select .smd-select-item").allTextContents()).toEqual(["Light", "Dark"]);
-      await expect(page.locator("#formatSelector")).toBeVisible();
       await expect(page.locator("#fontSizeSelector")).toBeVisible();
       await expect(page.locator("#iconSizeSelector")).toBeVisible();
       await expect(page.locator("#densitySelector")).toBeVisible();
-      await expect(page.locator("#maxCountdownsSelector")).toBeVisible();
       await expect(page.locator("#autoHideMenu")).toBeVisible();
       await page.locator("#settingsPage").getByRole("button", { name: "OK" }).click();
       await expect(page.locator("#countdownContainer")).not.toHaveClass(/d-none/);
@@ -190,6 +193,7 @@ test.describe("CountMyDays - Regression", () => {
     test("theme and mode changes persist in the shared settings keys", async ({ page }) => {
       await seed(page);
       await page.evaluate(() => openSettings());
+      await page.locator("#settingsPage .smd-tab-btn").filter({ hasText: "Display" }).click();
       await pickOption(page, "#themeSelector .smd-theme-select", "brite");
       await pickOption(page, "#themeSelector .smd-theme-mode-select", "dark");
       await expect.poll(async () => page.evaluate(() => localStorage.getItem("countmydays_theme"))).toBe("brite");
@@ -205,6 +209,7 @@ test.describe("CountMyDays - Regression", () => {
     test("font size and density apply body classes", async ({ page }) => {
       await seed(page);
       await page.evaluate(() => openSettings());
+      await page.locator("#settingsPage .smd-tab-btn").filter({ hasText: "Display" }).click();
       await pickOption(page, "#fontSizeSelector", "small");
       await pickOption(page, "#densitySelector", "compact");
       expect(await page.evaluate(() => document.body.classList.contains("font-size-small"))).toBe(true);
@@ -215,6 +220,7 @@ test.describe("CountMyDays - Regression", () => {
     test("icon size drives the smd-image render size", async ({ page }) => {
       await seed(page);
       await page.evaluate(() => openSettings());
+      await page.locator("#settingsPage .smd-tab-btn").filter({ hasText: "Display" }).click();
       await pickOption(page, "#iconSizeSelector", "small");
       const width = await page.evaluate(() => {
         const card = document.querySelector("cmd-countdown-card");
@@ -651,7 +657,7 @@ test.describe("CountMyDays - Regression", () => {
       await seed(page);
       await page.evaluate(() => openSettings());
       const tabs = page.locator("#settingsPage .smd-tab-btn");
-      await expect(tabs).toHaveText(["General", "G Cal", "Minio", "Danger"]);
+      await expect(tabs).toHaveText(["General", "Display", "G Cal", "Minio", "Danger"]);
       await tabs.filter({ hasText: "Minio" }).click();
       await expect(page.locator("#minioEnabled")).toBeVisible();
       for (const id of ["#minioServer", "#minioUsername", "#minioPassword", "#minioBucket"]) {

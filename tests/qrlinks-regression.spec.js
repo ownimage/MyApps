@@ -107,11 +107,11 @@ test.describe("QRLinks - Regression", () => {
     await expect(page.locator("#countdownContainer")).not.toHaveClass(/d-none/);
   });
 
-  test("settings has General/Danger tabs, theme, share QR and the sample actions", async ({ page }) => {
+  test("settings has Display/Danger tabs, theme, share QR and the sample actions", async ({ page }) => {
     await seed(page);
     await page.evaluate(() => openSettings());
     await expect(page.locator("#settingsPage")).toHaveAttribute("open", "");
-    await expect(page.locator("#settingsPage smd-tabs .smd-tab-btn")).toHaveText(["General", "Danger"]);
+    await expect(page.locator("#settingsPage smd-tabs .smd-tab-btn")).toHaveText(["Display", "Danger"]);
     expect(await page.locator("#themeSelector .smd-theme-select .smd-select-item").count()).toBe(27);
     expect(await page.locator("#themeSelector .smd-theme-mode-select .smd-select-item").allTextContents()).toEqual(["Light", "Dark"]);
     await expect(page.locator("#shareQrCode img").first()).toBeVisible({ timeout: 30000 });

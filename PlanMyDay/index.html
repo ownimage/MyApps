@@ -140,13 +140,6 @@
           </div>
 
           <div class="row mb-4 align-items-center col-md-8">
-            <div class="col-4 text-end"><label class="form-label mb-0">Auto-hide menu</label></div>
-            <div class="col-8">
-              <smd-checkbox id="autoHideMenu" switch onchange="changeAutoHideMenu(this.checked)"></smd-checkbox>
-            </div>
-          </div>
-
-          <div class="row mb-4 align-items-center col-md-8">
             <div class="col-4 text-end"><label class="form-label mb-0">Hide done</label></div>
             <div class="col-8">
               <smd-checkbox id="hideDone" switch onchange="changeHideDone(this.checked)"></smd-checkbox>
@@ -194,20 +187,20 @@
           </div>
 
           <div class="row mb-4 align-items-center col-md-8">
-            <div class="col-4 text-end"><label class="form-label mb-0">Tile density</label></div>
-            <div class="col-8">
-              <smd-select id="densitySelector" class="form-select" onchange="changeDensity(this.value)">
-                <option value="normal">Normal</option>
-                <option value="compact">Compact</option>
-              </smd-select>
-            </div>
-          </div>
-          <div class="row mb-4 align-items-center col-md-8">
             <div class="col-4 text-end"><label class="form-label mb-0">Touch size</label></div>
             <div class="col-8">
               <smd-select id="touchSizeSelector" class="form-select" onchange="changeTouchSize(this.value)">
                 <option value="normal">Normal</option>
                 <option value="large">Large</option>
+              </smd-select>
+            </div>
+          </div>
+          <div class="row mb-4 align-items-center col-md-8">
+            <div class="col-4 text-end"><label class="form-label mb-0">Tile density</label></div>
+            <div class="col-8">
+              <smd-select id="densitySelector" class="form-select" onchange="changeDensity(this.value)">
+                <option value="normal">Normal</option>
+                <option value="compact">Compact</option>
               </smd-select>
             </div>
           </div>
@@ -223,15 +216,21 @@
             </div>
           </div>
           <div class="row mb-4 align-items-center col-md-8">
-            <div class="col-4 text-end"><label class="form-label mb-0">Screen resolution</label></div>
+            <div class="col-4 text-end"><label class="form-label mb-0">Auto-hide menu</label></div>
             <div class="col-8">
-              <span id="screenResolution" class="form-control-plaintext"></span>
+              <smd-checkbox id="autoHideMenu" switch onchange="changeAutoHideMenu(this.checked)"></smd-checkbox>
             </div>
           </div>
           <div class="row mb-4 align-items-center col-md-8">
             <div class="col-4 text-end"><label class="form-label mb-0">Show Gantt</label></div>
             <div class="col-8">
               <smd-checkbox id="showGantt" switch onchange="changeShowGantt(this.checked)"></smd-checkbox>
+            </div>
+          </div>
+          <div class="row mb-4 align-items-center col-md-8">
+            <div class="col-4 text-end"><label class="form-label mb-0">Screen resolution</label></div>
+            <div class="col-8">
+              <span id="screenResolution" class="form-control-plaintext"></span>
             </div>
           </div>
         </section>

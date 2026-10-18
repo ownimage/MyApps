@@ -413,6 +413,14 @@ function smdSetupSettingsPage(opts) {
   const autoHideCb = $id("autoHideMenu");
   if (autoHideCb) autoHideCb.checked = autoHide;
 
+  const savedTouchSize = localStorage.getItem(smdKey("touchSize")) || "normal";
+  const touchSizeSel = $id("touchSizeSelector");
+  if (touchSizeSel) touchSizeSel.value = savedTouchSize;
+
+  const savedSlideDuration = localStorage.getItem(smdKey("slideDuration")) || "0";
+  const slideSel = $id("slideDurationSelector");
+  if (slideSel) slideSel.value = savedSlideDuration;
+
   const showDanger = localStorage.getItem(smdKey("showDanger")) === "true";
   const showDangerCb = $id("showDanger");
   if (showDangerCb) showDangerCb.checked = showDanger;

@@ -83,8 +83,8 @@
     <template id="settingsTemplate">
       <div class="smd-settings">
 
-        <!-- General -->
-        <section class="smd-settings-tab" data-tab="General" data-tab-id="general-tab">
+        <!-- Display -->
+        <section class="smd-settings-tab" data-tab="Display" data-tab-id="appearance-tab">
           <smd-theme id="themeSelector" class="col-md-8 mt-3"></smd-theme>
 
           <div class="row mb-4 align-items-center col-md-8">
@@ -116,11 +116,33 @@
           </div>
 
           <div class="row mb-4 align-items-center col-md-8">
+            <div class="col-4 text-end"><label class="form-label mb-0">Touch size</label></div>
+            <div class="col-8">
+              <smd-select id="touchSizeSelector" class="form-select" onchange="changeTouchSize(this.value)">
+                <option value="normal">Normal</option>
+                <option value="large">Large</option>
+              </smd-select>
+            </div>
+          </div>
+
+          <div class="row mb-4 align-items-center col-md-8">
             <div class="col-4 text-end"><label class="form-label mb-0">Tile density</label></div>
             <div class="col-8">
               <smd-select id="densitySelector" class="form-select" onchange="changeDensity(this.value)">
                 <option value="normal">Normal</option>
                 <option value="compact">Compact</option>
+              </smd-select>
+            </div>
+          </div>
+
+          <div class="row mb-4 align-items-center col-md-8">
+            <div class="col-4 text-end"><label class="form-label mb-0">Slide speed</label></div>
+            <div class="col-8">
+              <smd-select id="slideDurationSelector" class="form-select" onchange="changeSlideDuration(this.value)">
+                <option value="0">Off (instant)</option>
+                <option value="150">Fast (150 ms)</option>
+                <option value="300">Normal (300 ms)</option>
+                <option value="500">Slow (500 ms)</option>
               </smd-select>
             </div>
           </div>

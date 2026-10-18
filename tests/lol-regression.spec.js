@@ -709,7 +709,7 @@ test.describe("ListOfLists - Regression", () => {
     test("has the General, Display, Minio and Danger tabs", async ({ page }) => {
       await openSettingsPage(page);
       const tabs = page.locator("#settingsPage .smd-tab-btn");
-      await expect(tabs).toHaveText(["General", "Display", "Minio", "Danger"]);
+      await expect(tabs).toHaveText(["Display", "Minio", "Danger"]);
       await expect(page.locator("#autoHideMenu")).toBeVisible();
     });
 

@@ -1338,7 +1338,6 @@ test.describe("PlanMyDay - Regression", () => {
       await page.locator("#btnMainMenu").click();
       await page.locator("a.dropdown-item").filter({ hasText: "Settings" }).click();
       await expect(page.locator("#splitList")).toBeVisible();
-      await expect(page.locator("#autoHideMenu")).toBeVisible();
       await expect(page.locator("#hideDone")).toBeVisible();
       await page.locator("#appearance-tab").click();
       await expect(page.locator("#themeSelector")).toBeVisible();
@@ -1346,6 +1345,7 @@ test.describe("PlanMyDay - Regression", () => {
       await expect(page.locator("#iconSizeSelector")).toBeVisible();
       await expect(page.locator("#densitySelector")).toBeVisible();
       await expect(page.locator("#touchSizeSelector")).toBeVisible();
+      await expect(page.locator("#autoHideMenu")).toBeVisible();
       await page.locator("#schedule-tab").click();
       await expect(page.locator("#jan1Selector")).toBeVisible();
       await expect(page.locator("#mondaySelector")).toBeVisible();
@@ -1425,6 +1425,7 @@ test.describe("PlanMyDay - Regression", () => {
     test("auto hide menu toggle persists", async ({ page }) => {
       await page.locator("#btnMainMenu").click();
       await page.locator("a.dropdown-item").filter({ hasText: "Settings" }).click();
+      await page.locator("#appearance-tab").click();
       await page.locator("#autoHideMenu").check();
       await expect(page.locator("#autoHideMenu")).toBeChecked();
     });
@@ -3830,6 +3831,7 @@ test.describe("PlanMyDay - Regression", () => {
     });
 
     test("auto hide menu disabling unbinds events", async ({ page }) => {
+      await page.locator("#appearance-tab").click();
       await page.locator("#autoHideMenu").check();
       await page.locator("#autoHideMenu").uncheck();
       const autoHide = await page.evaluate(() => localStorage.getItem("planmydays_autoHideMenu"));
@@ -3885,6 +3887,7 @@ test.describe("PlanMyDay - Regression", () => {
     });
 
     test("auto hide menu toggle enables auto-hide", async ({ page }) => {
+      await page.locator("#appearance-tab").click();
       await page.locator("#autoHideMenu").check();
       const autoHide = await page.evaluate(() => localStorage.getItem("planmydays_autoHideMenu") === "true");
       expect(autoHide).toBe(true);

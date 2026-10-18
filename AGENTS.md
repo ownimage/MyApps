@@ -322,6 +322,66 @@ Architecture:
   `_set_app_icon_pref`/`_app_icon_prefs` ("preferred icon source") — no current UI
   sends that event, so the `preferred` branch of `_cache_icon` is unreachable from
   the app.
+- SETTINGS PAGE SHAPE IS SHARED (2026-10-18, user rule): every app's Settings page
+  uses the SAME tabs in the SAME order - **General, Display, then the app's own** -
+  and a tab left with nothing in it is REMOVED (QRLinks and ListOfLists lost their
+  General tab that way; QRLinks' old `general-tab` is now the Display tab with id
+  `appearance-tab`). The **Display** tab holds the shared appearance rows in this
+  exact order: `Theme`, `Theme Mode` (both from `<smd-theme>`, one component),
+  `Font size`, `Icon size`, `Touch size`, `Tile density`, `Slide speed`,
+  `Auto-hide menu`, then any app-specific extras - and **`Screen resolution` is
+  always the LAST row** (PlanMyDay's "Show Gantt" sits before it; ListOfLists has
+  no extras, so there it simply follows Auto-hide).
+  Current shape:
+    Launch         Display, Menu
+    PlanMyDay      General, Display, Schedule, Minio, Danger
+    CountMyDays    General, Display, G Cal, Minio, Danger  (General = Countdown
+                   display + Max countdowns)
+    QRLinks        Display, Danger
+    SolarControlar General, Display, Danger                (General = Flask fields
+                   + Auto-refresh)
+    FreeFormOX     Display, Game                           (Game = X/O names+styles,
+                   Show undo/redo, Swap)
+    ListOfLists    Display, Minio, Danger
+    PhoneButtons   Display, Server, Danger
+  NO DEAD CONTROLS (user): a row is only present where the setting does something.
+  `Icon size` is therefore ABSENT in SolarControlar and FreeFormOX (no
+  `<smd-image>`), and `Tile density` only exists in PlanMyDay/CountMyDays/QRLinks/
+  ListOfLists (the apps that already had it). Everything else - Touch size (drives
+  `<smd-checkbox>`/`<smd-draghandle>`), Slide speed (`smd-page`), Auto-hide menu
+  (the shared nav) - is meaningful in every app and was ADDED where missing.
+  SHARED ENGINE: `smdSetupSettingsPage()` (smd-app.js) now also restores
+  `touchSizeSelector` + `slideDurationSelector` (it already did theme/mode, font,
+  icon, density, auto-hide, show-danger), and `changeTouchSize()` +
+  the DOMContentLoaded boot call `SmdCheckbox.setDefaultSize` /
+  `SmdDragHandle.setDefaultSize` DIRECTLY - an app no longer needs an
+  `applyTouchSize()` hook for the control to work (PlanMyDay/ListOfLists still
+  have one; it is now redundant but harmless, and ListOfLists' `restore` keeps its
+  "large" default because it runs after the shared restore).
+  LABELS were aligned too: Launch + PhoneButtons said "Image size" for the same
+  `#iconSizeSelector` -> now "Icon size" everywhere.
+  TEST: `tests/settings-alignment.spec.js` "Settings page shape is consistent
+  across apps" iterates ALL 8 shells and asserts the exact tab list + the exact
+  Display row labels IN ORDER (read from the DOM). Adding/moving an appearance
+  control = update that table. Any spec that touches a moved control must first
+  activate the Display tab (the settings page opens on the FIRST tab, which is
+  General where it exists).
+  UNIFORM VERTICAL RHYTHM (2026-10-18, user-reported on FreeFormOX): every row on
+  the page is `mb-4` (1.5rem) - the same gap `<smd-theme>` injects - so the space
+  between ANY two rows is identical. FreeFormOX's Display rows were `mb-3` against
+  the theme's 1.5rem (the reported inconsistency) and its Game tab was `mb-3` too;
+  both are `mb-4` now. The same spec asserts it for all 8 apps by reading the
+  computed `margin-bottom` of every `.smd-theme-field` AND every `div.row.col-md-8`
+  in the active panel and requiring exactly ONE distinct value
+  ("<App>: the Display tab keeps one uniform vertical rhythm").
+  MOVING A ROW? GREP THE SUITE FOR ORDER ASSERTIONS FIRST (2026-10-18, my miss):
+  `pmd-gantt`'s "Show Gantt is the last control on the Display tab" test encoded the
+  pre-2026-10-18 layout (`expect(order[order.length - 1]).toBe("Show Gantt")`) and
+  broke the moment Screen resolution became last - it was the only failure in the
+  user's full run. It now asserts `expect(order.slice(-2)).toEqual(["Show Gantt",
+  "Screen resolution"])`. Before/after any reorder or row move, run
+  `rg -n "Screen resolution|Show Gantt|order\[|last control" tests/` and read the
+  display-order TABLES in this file and in `tests/settings-alignment.spec.js`.
 - SHARED IMAGE LIBRARY (2026-09-13): all apps share ONE images list,
   `shared-images`. `SmdConfig.imagePrefix = "shared-"` is set in every app's
   `app.js`; `smdImagePrefix()` (shared/js/smd-app.js) returns
@@ -346,7 +406,7 @@ Architecture:
   is `{ title, url, description, image, sequence }`. Pages: `linksEditor` +
   `linkEditPage` (Sortable drag reorder via `<smd-draghandle class="drag-handle">`),
   `imagesEditor` (shared smd-images.js), `settingsPage` (smd-tabs
-  General/Danger), `imagePickerPage`. App component `qrlink-card`
+  Display/Danger), `imagePickerPage`. App component `qrlink-card`
   (`QRLinks/js/components/qrlink-card.js`) → emits `qrlink-qr`, which
   `app.js` turns into a shared `showSmdModal` + `<smd-qrcode>` dialog with
   Open/Close. Legacy `qr_*` keys (incl. `qr_images`) are migrated by
@@ -637,10 +697,14 @@ Architecture:
   resolving); preview `<img>` writers use `src="" data-smdsrc="…"` filled via
   `smdSetImageSrc` after render. Tests must assert async fills (fetch the resolved
   `src`) rather than `src*=data:`.
-- MENU ORDER (2026-09-17): every app's hamburger menu lists **Settings**, then
-  a divider, then **Launch**, then a divider, then the rest of the options. The
-  Launch app's own menu keeps only "Settings" (it IS the launcher — no Launch
-  item). All apps
+- MENU ORDER (2026-09-17; Launch item added to the Launch app 2026-10-18): every
+  app's hamburger menu lists **Settings**, a divider, **Launch**, then (where there
+  is anything else) another divider and the rest of the options. ALL EIGHT shells
+  including Launch itself now carry the static `<a class="dropdown-item"
+  href="./">Launch</a>` that `SmdApps.buildLaunchSubmenu()` replaces with the
+  flyout, so the launcher can jump straight to any app too; a shell with nothing
+  after Launch simply omits the trailing divider (a dangling `<hr>` is a bug, not
+  a style). All apps
   also expose the six font sizes (xsmall/small/normal/large/xlarge/jumbo) in
   Settings; FreeFormOX + Launch gained the Font size selector this session
   (Launch's `.app-name` rules already covered the sizes; FreeFormOX got new
@@ -715,8 +779,8 @@ Architecture:
     `closeMinioImport()` and hands the data to `startImportWizard(data)`, so its
     per-section keep/replace prompts apply. PlanMyDay sets neither hook, so it
     keeps writing straight over its streams+images.
-  THE UI (CountMyDays): a PlanMyDay-style Minio SETTINGS TAB (`General | G Cal |
-  Minio | Danger`; `#minioEnabled` + `#minioServer`/`#minioUsername`/
+  THE UI (CountMyDays): a PlanMyDay-style Minio SETTINGS TAB (`General | Display |
+  G Cal | Minio | Danger`; `#minioEnabled` + `#minioServer`/`#minioUsername`/
   `#minioPassword` (+ eye)/`#minioBucket`, with `loadMinioSettings()` +
   `bindMinioSettingsTabBehavior()` called from `openSettings()`'s `restore`), the
   two `.minio-menu-item` entries (after "Import QR", toggled by
@@ -961,6 +1025,19 @@ Techniques / gotchas:
   find the listener (`Get-NetTCPConnection -LocalPort 8080 -State Listen`) and
   `Stop-Process` it so Playwright starts a fresh server. Do not debug the app
   code first.
+  LENGTH-CHANGE VARIANT (2026-10-18, hit with an HTML shell): the same stale
+  server also breaks a file whose SIZE changed after the server started. The
+  browser then reports `net::ERR_CONTENT_LENGTH_MISMATCH` for the PAGE ITSELF and
+  **`page.goto()` NEVER reaches `load`** (a 30s timeout where no assertion ever
+  runs) - while a PowerShell `Invoke-WebRequest` of the same URL can still return
+  the full, correct bytes, so checking the served size does NOT rule it out. Two
+  of my own edits reproduced it: `PhoneButtons/index.html` shortened by one line
+  (the other file edited in the same pass, `FreeFormOX/index.html`, survived
+  because `mb-3` -> `mb-4` keeps the byte count identical). RULE: after editing
+  ANY served file (`.html`, `.js`, `.css` are all in the snapshot) RESTART the
+  servers, and read the first symptom: a `page.goto` timeout on a page that works
+  in isolation = stale server, not an app bug. Remedy: kill 8080/8081 + clear
+  `node_modules\.vite`, then start `tests/serve-tests.mjs`.
 - SW PRECACHE REJECTS ON A DUPLICATE URL (2026-10-12, cost a debugging round): `cache.addAll(PRECACHE_URLS)`
   in `sw.js` REJECTS if the list contains the SAME URL twice, so the worker never installs.
   Symptom is NOT a 404: the page logs `Failed to update a ServiceWorker for scope ('…') with script
@@ -2345,7 +2422,8 @@ Techniques / gotchas:
   the pmd precache test + qrlinks default-theme assertion.
 - Menu order everywhere is now **Settings, divider, Launch, divider, rest**
   (PlanMyDay, CountMyDays, QRLinks, SolarControlar, FreeFormOX). The Launch
-  app's own menu keeps only its Settings item (it is the launcher).
+  app's own menu keeps only its Settings item (it is the launcher). (SUPERSEDED
+  2026-10-18: Launch now carries the same Launch flyout as every other shell.)
 - `BUILD_NUMBER` → `202609172101`.
 - Verified: 4 affected tests pass (menu links, theme selector, unknown-theme
   fallback → superhero, legacy-untouched). User asked not to run the full
@@ -2379,7 +2457,7 @@ Techniques / gotchas:
   covered the sizes. All apps now expose all six.
 - **Menu order**: PlanMyDay, CountMyDays, QRLinks, SolarControlar, FreeFormOX
   menus reordered to Settings, Launch, divider, rest. The Launch app's own menu
-  stays just "Settings".
+  stays just "Settings". (SUPERSEDED 2026-10-18: Launch carries the flyout too.)
 - `BUILD_NUMBER` → `202609172020`.
 - What worked: Node one-liner for the 28 CSS files (LF-safe); extending
   `applyTheme`/`setTheme` kept override handling in one shared place so the
@@ -5183,4 +5261,112 @@ Techniques / gotchas:
   freshly restarted and serving build `202610182015` (verified in BOTH
   `shared/js/build-number.js` and `sw.js`, on disk and over HTTP).
 - `BUILD_NUMBER` -> `202610182015` via `npm run bump:build`.
+
+### 2026-10-18 (f) - one Settings page shape across all apps
+- REQUEST (user): same Settings page everywhere - tabs in the order General,
+  Display, others; REMOVE a tab that ends up empty; the Display tab must hold
+  Theme, Theme mode, Font Size, Icon Size, Touch Size, Slide Speed, Auto-hide Menu
+  in that order, plus Tile density where the app supports it; other tabs untouched
+  for now (Danger is the next pass).
+- SHAPE APPLIED (8 shells): Launch [Display, Menu]; PlanMyDay [General, Display,
+  Schedule, Minio, Danger]; CountMyDays [General, Display, G Cal, Minio, Danger];
+  QRLinks [Display, Danger]; SolarControlar [General, Display, Danger];
+  FreeFormOX [Display, Game]; ListOfLists [Display, Minio, Danger]; PhoneButtons
+  [Display, Server, Danger]. QRLinks + ListOfLists General tabs were left EMPTY, so
+  they were deleted (QRLinks' Display reuses nothing from the old id - it is
+  `appearance-tab`). CountMyDays' General keeps Countdown display + Max
+  countdowns; Solar's keeps the Flask fields + Auto-refresh; FreeFormOX's Game
+  keeps the X/O names/styles + Show undo/redo + Swap.
+- NO DEAD CONTROLS (user correction mid-task): "do not add any of them if they are
+  not used by the app or the shared components the app uses". So Icon size was NOT
+  added to SolarControlar/FreeFormOX (no `<smd-image>`), Tile density stays only in
+  the four apps that had it, and Touch size / Slide speed / Auto-hide menu were
+  added to the six apps missing them because every app uses `<smd-checkbox>` /
+  `<smd-draghandle>` (Launch's tick-boxes and handles live inside
+  `launch-app-menu`, so a source grep for the tag undercounts them), `<smd-page>`
+  and the shared nav respectively. Labels aligned: Launch + PhoneButtons "Image
+  size" -> "Icon size".
+- SHARED ENGINE so a moved row works without per-app code:
+  `smdSetupSettingsPage()` restores touch + slide too, and `changeTouchSize()` +
+  the boot push the value into `SmdCheckbox`/`SmdDragHandle` directly (the
+  attribute alone already drove the checkbox CSS).
+- TDD: new `tests/settings-alignment.spec.js` "Settings page shape is consistent
+  across apps" - one test per shell asserting the EXACT tab list and the EXACT
+  Display row labels in order (read from the DOM, so the markup is what is tested).
+  It caught SolarControlar immediately: that app shows a startup modal when its
+  Flask API is not mocked, and the modal's overlay intercepted the tab click, so
+  the test dismisses an open `#smdConfirmModal` first (via an in-page click - a
+  Playwright `getAttribute` on the modal HANGS for 30s in apps that never created
+  the host).
+- TESTS UPDATED for the moves (a settings page opens on its FIRST tab, so anything
+  on Display needs the tab clicked first): cmd theme/font/icon/density tests and
+  its tab-list assertion; qrlinks + lol tab-list assertions; pmd "shows all main
+  settings controls" (auto-hide now on Display) + the three auto-hide tests;
+  ffox names/styles tests (Game is the second tab now); solar's Flask steps moved
+  before the Display click.
+- VERIFIED: settings-alignment 21/21, launch 13/13, qrlinks 9/9, ffox 11/11,
+  solar 12/12, phonebuttons 18/18, cmd 67/67, and pmd+lol `--grep Settings` 50/50.
+  Spot-checked the restructured pages visually (Solar General+Display, FFOX
+  Display, CountMyDays Display); probes deleted.
+- SCREENSHOTS: every app's settings scene changed (new rows/tabs) - regenerate.
+- `BUILD_NUMBER` -> `202610182041` via `npm run bump:build` (all 8 shells + two
+  shared scripts are precached assets).
+
+### 2026-10-18 (g) - Settings Display order: Screen resolution last, Touch before density
+- FOLLOW-UPS (user, same session): (1) `Screen resolution` must be the LAST row on
+  every app that has it - only PlanMyDay needed a change (it sat before "Show
+  Gantt"; ListOfLists already had it last). (2) The density position from the
+  earlier answer was corrected: on CMD the order is Font size / Icon size / TOUCH
+  size / TILE DENSITY / Slide speed / ..., and (asked, then confirmed) the same
+  order applies to ALL four apps with Tile density (CountMyDays, PlanMyDay,
+  QRLinks, ListOfLists) so the shared shape stays consistent.
+- The row swap was done with a one-shot node script that anchors on the LABEL text,
+  swaps the two whole row blocks (bottom-first so the top indices stay valid) and
+  VERIFIES the resulting label order per file before writing - the earlier
+  line-index deletion bug in this repo is exactly what that guard is for.
+- TEST: the `settings-alignment` consistency table was updated for the four apps
+  (Touch size before Tile density; PlanMyDay's Show Gantt before Screen resolution).
+- VERIFIED: settings-alignment 21/21, pmd `--grep Settings` 40/40.
+- `BUILD_NUMBER` -> `202610182132` via `npm run bump:build`.
+
+### 2026-10-18 (h) - FreeFormOX spacing, the Launch app's Launch menu, and a stale-server lesson
+- FFOX SPACING (user): "Settings | Display has not consistent vertical spacing".
+  CAUSE: FFOX's rows were `mb-3` (1rem) while `<smd-theme>` injects a `mb-4`
+  (1.5rem) gap, so the Theme -> next-row gap differed from every other gap on the
+  page. FIX: FFOX Display rows -> `mb-4`; then (user follow-up) its **Game** tab
+  rows too, so the whole app is one rhythm. CHECKED every other app: their Display
+  tabs were already uniformly mb-4 (only FFOX differed).
+- TDD: the old "theme gap == sibling row gap" test ran for PlanMyDay ONLY, which
+  is why FFOX was never caught. Replaced it with a per-app loop over ALL EIGHT
+  shells - "<App>: the Display tab keeps one uniform vertical rhythm" - reading the
+  computed `margin-bottom` of every `.smd-theme-field` and every `div.row.col-md-8`
+  in the active panel and requiring exactly ONE distinct value.
+- LAUNCH APP MENU (user): "even the Launch app should have the launch menu option
+  in the same way as the other apps - Settings | separator | Launch | separator |
+  others". The root `index.html` now carries the same static
+  `<a class="dropdown-item" href="./">Launch</a>` (after a divider) that
+  `SmdApps.buildLaunchSubmenu()` replaces with the flyout, so the launcher can jump
+  straight to any app. There is NO trailing divider - nothing follows Launch in
+  that menu and a dangling `<hr>` would look like a bug. `launch-regression`'s
+  submenu test now includes the root, with per-shell href prefixes ("" on the root,
+  "../" in the sub-apps; the Launch entry resolves to "./" at the root).
+- STALE-SERVER LESSON (cost three debugging runs): restarting is needed for HTML
+  too. See the LENGTH-CHANGE VARIANT note above - shortening
+  `PhoneButtons/index.html` by one line made the long-running server send a
+  mismatched Content-Length, the page died with
+  `net::ERR_CONTENT_LENGTH_MISMATCH` and `page.goto` never reached `load`, which
+  looked exactly like a broken PhoneButtons app (console errors absent,
+  `Invoke-WebRequest` fine). A restart fixed all 18 phonebuttons tests instantly.
+- VERIFIED: settings-alignment 28/28 (12 alignment + 8 rhythm + 8 shape),
+  launch-regression 13/13, ffox-regression 11/11, phonebuttons-regression 18/18.
+- `BUILD_NUMBER` -> `202610182146` via `npm run bump:build`; the test servers were
+  restarted afterwards and verified serving that build.
+- FALLOUT (user's full run: exactly 1 failure): `pmd-gantt` "Show Gantt is the last
+  control on the Display tab and defaults to off" asserted `order[last] ===
+  "Show Gantt"`, which the Screen-resolution-is-last rule invalidated. My own miss:
+  I ran pmd-regression `--grep Settings`, settings-alignment and the app suites, but
+  not pmd-gantt, and I did not grep for ORDER assertions when moving the row. Updated
+  to `expect(order.slice(-2)).toEqual(["Show Gantt", "Screen resolution"])` (and the
+  test renamed to "...last SETTING..."). VERIFIED: pmd-gantt 59/59. Test-only change,
+  so no `BUILD_NUMBER` bump.
 
