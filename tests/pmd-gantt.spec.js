@@ -962,7 +962,17 @@ test.describe("Gantt page", () => {
       const success = rgb(expected.success), danger = rgb(expected.danger);
 
       // (1) zoom buttons
-      const zoom = await page.evaluate(() => {
+      //
+      // TIMING: the page header (and so these buttons) is REBUILT by openChart()
+      // and `.active` is flipped on right after, while Bootstrap's 150ms
+      // `background-color`/`color` transition is still running - a single
+      // computed-style read therefore catches a BLEND of secondary and primary.
+      // Probe (bootstrap/light): rgb(108,117,125) at open -> rgb(86,115,155) at
+      // t=65ms -> rgb(13,110,253) at t=240ms, i.e. the old assertion failed only
+      // when the read landed inside that window (a full-suite-load flake). POLL
+      // until it settles: a genuinely wrong colour never arrives and still fails,
+      // with the mismatching key named in the diff.
+      await expect.poll(async () => page.evaluate(() => {
         const active = document.querySelector('#ganttPage .gantt-zoom > .btn.active');
         const inactive = document.querySelector('#ganttPage .gantt-zoom > .btn:not(.active)');
         return {
@@ -971,18 +981,20 @@ test.describe("Gantt page", () => {
           activeColor: active ? getComputedStyle(active).color : null,
           inactiveColor: inactive ? getComputedStyle(inactive).color : null
         };
+      }), { message: `${theme}/${mode} zoom buttons` }).toMatchObject({
+        activeBg: primary,
+        inactiveBg: secondary,
+        // Button text is WHITE on both the filled primary (selected) and secondary
+        // (unselected) surfaces, exactly like Bootstrap's own `.btn-primary`/
+        // `.btn-secondary` (`--bs-btn-color: #fff`). A `--bs-body-color` fallback
+        // would render black in light mode.
+        activeColor: "rgb(255, 255, 255)",
+        inactiveColor: "rgb(255, 255, 255)"
       });
-      expect(zoom.activeBg, `${theme}/${mode} active zoom is primary`).toBe(primary);
-      expect(zoom.inactiveBg, `${theme}/${mode} inactive zoom is secondary`).toBe(secondary);
-      // Button text is WHITE on both the filled primary (selected) and secondary
-      // (unselected) surfaces, exactly like Bootstrap's own `.btn-primary`/
-      // `.btn-secondary` (`--bs-btn-color: #fff`). A `--bs-body-color` fallback
-      // would render black in light mode.
-      expect(zoom.activeColor, `${theme}/${mode} active zoom text is white`).toBe("rgb(255, 255, 255)");
-      expect(zoom.inactiveColor, `${theme}/${mode} inactive zoom text is white`).toBe("rgb(255, 255, 255)");
 
-      // (2) bars: solid, matching the theme success/danger exactly
-      const bars = await page.evaluate(() => {
+      // (2) bars: solid, matching the theme success/danger exactly (same
+      //     transition race as the buttons above, so poll as well)
+      await expect.poll(async () => page.evaluate(() => {
         const job = document.querySelector('#ganttPage .rg-gantt-bar:not(.rg-gantt-bar--summary)');
         const stream = document.querySelector('#ganttPage .rg-gantt-bar--summary');
         return {
@@ -991,39 +1003,39 @@ test.describe("Gantt page", () => {
           streamBg: stream ? getComputedStyle(stream).backgroundColor : null,
           streamImage: stream ? getComputedStyle(stream).backgroundImage : null
         };
+      }), { message: `${theme}/${mode} gantt bars` }).toMatchObject({
+        jobBg: success,
+        jobImage: "none",
+        streamBg: danger,
+        streamImage: "none"
       });
-      expect(bars.jobBg, `${theme}/${mode} job bar is solid success`).toBe(success);
-      expect(bars.jobImage, `${theme}/${mode} job bar has no gradient`).toBe("none");
-      expect(bars.streamBg, `${theme}/${mode} stream bar is solid danger`).toBe(danger);
-      expect(bars.streamImage, `${theme}/${mode} stream bar has no gradient`).toBe("none");
 
       // (3) the timeline header background = the gantt BODY surface (--bs-body-bg)
       //     for this theme/mode, matching the cells - NOT --bs-secondary-bg
       //     (which is light-grey in superhero light and would render the
       //     near-white header text white-on-white) and NOT the vendor's dark
-      //     gradient.
-      const header = await page.evaluate(() => {
+      //     gradient. Same transition race as (1)/(2): poll the settled surface.
+      //     The Day view also carries the weekend highlight, which is a REPEATING
+      //     gradient, so strip those and assert no NON-repeating (vendor) gradient
+      //     is left.
+      await expect.poll(async () => page.evaluate(() => {
         const h = document.querySelector('#ganttPage .rg-gantt-header');
         const revo = document.querySelector('#ganttChart revo-grid revogr-header');
-        const cell = document.querySelector('#ganttChart .rg-gantt-cell');
+        const hCs = h ? getComputedStyle(h) : null;
+        const vendor = String(hCs ? hCs.backgroundImage : "").replace(/repeating-linear-gradient\(/g, "");
         return {
-          hBg: h ? getComputedStyle(h).backgroundColor : null,
-          hImage: h ? getComputedStyle(h).backgroundImage : null,
-          hColor: h ? getComputedStyle(h).color : null,
+          hBg: hCs ? hCs.backgroundColor : null,
+          hasVendorGradient: vendor.includes("linear-gradient("),
           revoBg: revo ? getComputedStyle(revo).backgroundColor : null,
-          cellBg: cell ? getComputedStyle(cell).backgroundColor : null
+          // the header text must be readable on the header surface (not white-on-white)
+          textIsReadable: !!hCs && hCs.color !== hCs.backgroundColor
         };
+      }), { message: `${theme}/${mode} timeline header surface` }).toMatchObject({
+        hBg: rgb(expected.bodyBg),
+        hasVendorGradient: false,
+        revoBg: rgb(expected.bodyBg),
+        textIsReadable: true
       });
-      expect(header.hBg, `${theme}/${mode} timeline header uses --bs-body-bg`).toBe(rgb(expected.bodyBg));
-      // The header is a flat --bs-body-bg surface (PlanMyDay/css/gantt.css clears
-      // the vendor's vertical gradient). In the Day view it also carries the
-      // weekend highlight, which is a REPEATING gradient, so strip those and
-      // assert no NON-repeating (vendor) gradient is left.
-      const vendorGradient = String(header.hImage).replace(/repeating-linear-gradient\(/g, "").includes("linear-gradient(");
-      expect(vendorGradient, `${theme}/${mode} timeline header has no vendor gradient`).toBe(false);
-      expect(header.revoBg, `${theme}/${mode} revogr-header uses --bs-body-bg`).toBe(rgb(expected.bodyBg));
-      // header text must contrast on the body surface (readable, not white-on-white)
-      expect(header.hColor, `${theme}/${mode} header text readable on body bg`).not.toBe(rgb(expected.bodyBg));
 
       await page.evaluate(() => closeGantt());
     }
@@ -1077,7 +1089,11 @@ test.describe("Gantt page", () => {
       });
       const secondary = rgb(expected.secondary);
 
-      const dropdown = await page.evaluate(() => {
+      // Same transition race as the test above: the toggle is a `.btn` whose
+      // fill flips when the header is rebuilt, so poll the settled values and
+      // keep the LAST snapshot for the contrast checks below.
+      let dropdown;
+      await expect.poll(async () => (dropdown = await page.evaluate(() => {
         const menu = document.querySelector("#ganttStreamMenu");
         const btn = document.querySelector("#ganttStreamMenuBtn");
         const row = document.querySelector(".gantt-stream-row");
@@ -1095,15 +1111,14 @@ test.describe("Gantt page", () => {
           rowColor: row ? getComputedStyle(row).color : null,
           hoverBgRule: hoverBg || null
         };
+      })), { message: `${theme}/${mode} streams filter` }).toMatchObject({
+        // (1) the toggle is a SOLID secondary button with white text
+        btnBg: secondary,
+        btnColor: "rgb(255, 255, 255)",
+        // (2) the menu surface comes from Bootstrap's theme-aware dropdown token,
+        //     so it is NOT the dull dark-navy body background of superhero light
+        menuBg: rgb(expected.dropdownBg)
       });
-
-      // (1) the toggle is a SOLID secondary button with white text
-      expect(dropdown.btnBg, `${theme}/${mode} toggle is solid secondary`).toBe(secondary);
-      expect(dropdown.btnColor, `${theme}/${mode} toggle text is white`).toBe("rgb(255, 255, 255)");
-
-      // (2) the menu surface comes from Bootstrap's theme-aware dropdown token,
-      //     so it is NOT the dull dark-navy body background of superhero light
-      expect(dropdown.menuBg, `${theme}/${mode} menu uses --bs-dropdown-bg`).toBe(rgb(expected.dropdownBg));
 
       // (3) the menu + row text is readable on the menu surface (contrast, not
       //     white-on-white)

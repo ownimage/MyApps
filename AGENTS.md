@@ -279,6 +279,49 @@ Architecture:
   the hamburger" (7 shells: text + same-row/right-of-button geometry + body
   colour, then the PhoneButtons opt-out) and the pmd-regression "hides the main
   menu while a secondary page is open" now also asserts the title hides.
+- PHONEBUTTONS SERVER TESTS (2026-10-18): `PhoneButtons/server/app.py` (the Flask +
+  Socket.IO server) is covered by PYTHON tests in
+  `PhoneButtons/server/test_app.py` (pytest, 120 tests, ~90% line coverage) —
+  run them with `py -3.13 -m pytest PhoneButtons/server/test_app.py --cov=app
+  --cov-report=term-missing`. `tests/phonebuttons-server.spec.js` wraps that suite
+  in the Playwright run (fails the suite if pytest fails, asserts the coverage
+  floor `MIN_COVERAGE = 80`, and SKIPS when `py -3.13` lacks the deps). The
+  wrapper writes its artefacts into the gitignored `PhoneButtons/server/`:
+  `coverage.txt` (the full pytest output incl. the `app.py` table, PLAIN TEXT —
+  pytest colours its output even when piped, so the wrapper passes `--color=no`
+  plus `NO_COLOR=1`/`PY_COLORS=0`/`TERM=dumb` and strips any ANSI escapes before
+  writing) and `htmlcov/index.html` (browsable, per-line). NOTE: the list/line
+  reporter does
+  NOT show a PASSING test's stdout, so the table is NOT in the terminal scrollback
+  — read `coverage.txt` or the HTML report (both paths are also added as test
+  annotations). The deps
+  (Flask/Flask-SocketIO/python-socketio/pywin32/psutil/Pillow) are installed ONLY
+  for the `py -3.13` interpreter on this box (+ `pytest`/`pytest-cov`, installed
+  2026-10-18); the default `python` (3.14) has none. `PB_PYTHON` overrides the
+  interpreter. Flask's `test_client()` drives the routes, `socketio.test_client()`
+  the events, and the Windows parts (GDI icon extraction, the foreground hook,
+  keystroke injection) are MOCKED — the tests must never press keys or touch the
+  real `config.json` (an autouse fixture repoints `CONFIG_PATH`/`ICON_DIR` at a
+  tmp dir and disables `DEBUG`). Keystroke tests patch `_send_key_down`/
+  `_send_key_up`/`send_key` and assert the ORDER (mods down, key, mods up
+  reversed). `test_app.py` imports `app` directly, which is safe: the module only
+  defines things at import (the hook and the server start under `__main__`).
+- app.py DEAD CODE + A REAL BUG (2026-10-18, found by those tests):
+  `_collect_icons`, `_extract_exe_icons_via_resources` and `_extract_uwp_icons`
+  had NO callers anywhere in the repo and were DELETED (216 lines).
+  `_extract_exe_icons_via_resources` also threw a **Windows access violation**
+  (faulthandler dump, process-threatening) when called with a
+  `LoadLibraryExW(..., LOAD_LIBRARY_AS_DATAFILE)` handle via
+  `win32api.EnumResourceNames` — dead, so it never bit in production, but do NOT
+  resurrect it without fixing that. Also FIXED: `_extract_icon_by_source` called
+  `win32gui.ExtractIcon(exe_path, 0)` with TWO args, but pywin32's signature is
+  `ExtractIcon(hInst, exeName, index)`; the `TypeError` was swallowed by the
+  surrounding `try/except`, so the "ExtractIcon(0)" icon source silently never
+  produced anything (now `ExtractIcon(0, exe_path, 0)`, with a regression test).
+  STILL DORMANT (not deleted): the `set_default_icon` socket event +
+  `_set_app_icon_pref`/`_app_icon_prefs` ("preferred icon source") — no current UI
+  sends that event, so the `preferred` branch of `_cache_icon` is unreachable from
+  the app.
 - SHARED IMAGE LIBRARY (2026-09-13): all apps share ONE images list,
   `shared-images`. `SmdConfig.imagePrefix = "shared-"` is set in every app's
   `app.js`; `smdImagePrefix()` (shared/js/smd-app.js) returns
@@ -350,8 +393,11 @@ Architecture:
   offset - and the Sleep-Until picker drops `first-day-of-week`). KEPT: General
   (Auto-hide menu), Display, Minio and Danger settings, MinIO import/export, JSON
   export/import, images editor, image picker, list/category editors, list search,
-  Ad Hoc. NO regression/screenshot specs yet
-  (user request) and NOT in the Storybook (TODO below). Registered in `Launch`
+  Ad Hoc. TESTS (2026-10-18): `tests/lol-regression.spec.js` (63 tests) and
+  `tests/lol-screenshots.spec.js` (7 scenes x 27 themes x both modes ->
+  `screenshots/lol/`) now exist, and `tests/coverage.js` collects
+  `/ListOfLists/js/` (it was filtered OUT, so the app read as 0% covered). Still
+  NOT in the Storybook (TODO below). Registered in `Launch`
   (a `LAUNCH_APPS` tile whose icon is the shared sample image "List of Lists",
   added as `shared/sampleImages/List_of_Lists.svg` + `shared/sampleImages.json`)
   and in `sw.js APPS` (no `ListOfLists/css/` entry - the app sheet is gone).
@@ -884,6 +930,24 @@ Techniques / gotchas:
   stashed baseline run and a patched run — PNG hashes are useless here: two untouched
   `pmd-screenshots` runs differ in 654 of 1,944 images.
 
+- A THEME-LOOP TEST MUST POLL THE SETTLED COMPUTED STYLE (2026-10-18): a test that
+  loops `applyTheme()` -> `openChart()` -> ONE `getComputedStyle()` read can catch a
+  colour MID-TRANSITION. `pmd-gantt` "Gantt uses theme primary/secondary for the
+  zoom buttons..." failed only in a full run with
+  `active zoom is primary: expected rgb(13,110,253), received rgb(86,115,155)`.
+  Root cause (probe, sampled every 20ms from the moment the chart opened): the
+  page header is REBUILT by `openChart()` and `ganttPaintZoomButtons()` flips
+  `.active` on right after, so Bootstrap's 150ms
+  `background-color`/`color` transition runs then and the read lands ~45-65ms in:
+  bootstrap/light went rgb(108,117,125) at open -> **rgb(86,115,155) at t=65ms** ->
+  rgb(13,110,253) at t=240ms. The `waitForTimeout(700)` before `openChart()` does
+  NOT help - the flip happens during the open, i.e. AFTER the sleep. FIX: wrap
+  each read-then-`toBe()` block in `expect.poll(...).toMatchObject({...})` (the
+  diff names the mismatching key) and keep the LAST snapshot in a variable for any
+  derived assertions (contrast maths). This is the same rule as the 2026-10-13 (d)
+  slate-gradient fix: assert the APPLIED computed style, never a single read.
+  MUTATION-CHECKED: painting `.gantt-zoom > .btn.active` with `--bs-secondary`
+  still fails the polled test (`activeBg` rgb(223,105,25) vs rgb(78,93,108)).
 - COVERAGE ONLY COUNTS SPECS WITH HOOKS (2026-10-04): `tests/coverage.js` records
   coverage only for pages where a spec calls `startCoverage`/`stopCoverage`, and
   `globalSetup` cleans the cache every run — so any spec WITHOUT the hooks is
@@ -4896,4 +4960,94 @@ Techniques / gotchas:
 - SCREENSHOTS ARE NOW STALE in every app (the nav text changed) and the Launch
   grid moved up (the removed h1): regenerate with `--workers 16` before shipping.
 - `BUILD_NUMBER` -> `202610180853` via `npm run bump:build`.
+
+### 2026-10-18 (b) - ListOfLists regression + screenshot suites; PhoneButtons server (app.py) tests
+- LISTOFLISTS TESTS (user request - the app had NONE): NEW
+  `tests/lol-regression.spec.js` = 63 tests over boot/namespace, the main view
+  (cards, order, empty state, swipe-left delete + cancel), View List read-only
+  (title as h1, no handles/delete, locked description, live tick/note, OK
+  persists), Edit List (single form, OK disabled with an empty title, description
+  reveal, category move, Delete, Show toggle, Cancel), list items (add top/bottom,
+  description/done/note persistence, delete confirm, drag reorder, note-row state
+  across a re-render), the Categories editor (headers in sequence order, exclusive
+  expansion, can-delete only when empty, Add/Edit/Delete category, Add List,
+  Active toggle -> main order, Edit a list, drag reorder, OK returns to main), Search
+  Lists (all lists, filter + Clear, no-match message, Edit, Active toggle, Add List
+  creates the Ad Hoc category, cancel removes it), the shared Images editor, Settings
+  (4 tabs, appearance controls, font/theme persistence under `lol_`, auto-hide,
+  Show danger, Clear All Data, Regenerate Main Tiles, Sort Lists, Minio menu gating)
+  and Export/Import (payload shape via a stubbed `smdDownloadJson`, import + reject).
+  NEW `tests/lol-screenshots.spec.js` = 7 scenes x 27 themes x light/dark
+  (`screenshots/lol/`), verified for superhero in both modes.
+- WHY THERE WAS NO COVERAGE: `tests/coverage.js` only merges `/<app>/js/` paths it
+  LISTS, and `/ListOfLists/js/` + `/PhoneButtons/js/` were missing, so those apps
+  read as 0% no matter how well they were tested. Both are now in the filter.
+- PHONEBUTTONS SERVER: NEW `PhoneButtons/server/test_app.py` (pytest, 120 tests,
+  ~90% of app.py): icon-filename sanitising, the config helpers, friendly-name
+  resolution, foreground info, the key parser (brackets must go through
+  `VkKeyScanW` - `ord("[")` is VK_LWIN), every HTTP route incl. traversal refusal
+  and the QR route's escaping, the socket events (key press ordering, pong,
+  set_default_icon), the running-apps scan and the focus hook (both mocked), the
+  tunnel URL parse/timeout branches, and a real-GDI smoke test of the icon
+  pipeline against notepad.exe. NEW `tests/phonebuttons-server.spec.js` runs that
+  pytest suite from the Playwright run (skip when the deps are absent, fail below
+  80% coverage). `pytest`/`pytest-cov` were installed for `py -3.13` (the only
+  interpreter here with Flask/pywin32); the default `python` is 3.14 and has none.
+- BUGS FOUND BY THOSE TESTS: `win32gui.ExtractIcon(exe_path, 0)` was called with
+  two args (pywin32 needs `(hInst, exeName, index)`), so the "ExtractIcon(0)" icon
+  source silently never worked - caught by a new test, fixed, red-then-green. And
+  three icon functions (`_collect_icons`, `_extract_exe_icons_via_resources`,
+  `_extract_uwp_icons`) had NO callers; `_extract_exe_icons_via_resources` even
+  ACCESS-VIOLATED the process when a test called it, so all three were deleted
+  (216 lines) - coverage of app.py then reflects real code.
+- TOOLING LESSONS: (1) my first deletion script pre-computed absolute line ranges
+  and then collapsed blank lines between splices, so an index shifted by one and it
+  ate the NEXT function's `def` line (leaving an orphaned body) - it only surfaced
+  because the script verified the def-name multiset. Re-resolve anchors on the LIVE
+  array for every removal, and always verify after editing (py_compile + a def
+  list). (2) A test that drives real GDI code can crash the RUNNER, not just fail:
+  the access violation above was printed by faulthandler while pytest still exited
+  0 - check for "Windows fatal exception" in the output, not only the exit code.
+- VERIFIED: lol-regression 63/63, lol-screenshots 7/7 (superhero, both modes),
+  phonebuttons-server 2/2 (wrapping 120 pytest tests at 90% app.py coverage),
+  launch-regression 13/13 + phonebuttons-regression 18/18 (unchanged), and the
+  full app.py `pytest` run. No app/web asset changed, so `BUILD_NUMBER` was NOT
+  bumped.
+
+### 2026-10-18 (c) - the Gantt theme-loop flake diagnosed + fixed; app.py coverage visible
+- FLAKE (user, from a full run): `pmd-gantt` "Gantt uses theme primary/secondary for
+  the zoom buttons, solid success/danger bars, and a standard header background in
+  light and dark" failed once with `bootstrap/light active zoom is primary:
+  expected rgb(13,110,253), received rgb(86,115,155)` - 836 passed / 1 failed, and it
+  passed on every isolated rerun. NOT an app bug: a probe that sampled the active
+  zoom button's `backgroundColor` every 20ms from the moment `openChart()` ran showed
+  it walking secondary -> primary over ~240ms
+  (rgb(108,117,125) -> **rgb(86,115,155) at 65ms** -> rgb(13,110,253) at 240ms). The
+  header is rebuilt by `openChart()` and `ganttPaintZoomButtons()` flips `.active`
+  immediately after, so Bootstrap's 150ms transition was still running when the test's
+  single computed-style read landed; under full-suite load the read fell inside that
+  window. The `waitForTimeout(700)` cannot help because the class flip happens later.
+- FIX (test-only): the zoom / bars / header reads in that test - and the
+  toggle/menu read in the sibling "Streams filter dropdown..." test, which has the
+  same shape - are now `expect.poll(...).toMatchObject({...})` on the SETTLED
+  computed style; the sibling keeps the last snapshot for its contrast maths.
+  MUTATION-CHECKED by painting `.gantt-zoom > .btn.active` with `--bs-secondary`:
+  the polled test still fails with `activeBg rgb(223,105,25)` vs `rgb(78,93,108)`,
+  so it is not vacuous. VERIFIED: the two tests `--repeat-each=5` 10/10, then the
+  whole `pmd-gantt` spec 59/59.
+- app.py COVERAGE IS NOT IN THE TERMINAL: `tests/phonebuttons-server.spec.js` passes
+  `--cov-report=term-missing` to pytest but the list/line reporter does NOT replay a
+  PASSING test's stdout (neither `console.log` nor `process.stdout.write` in the test
+  shows up), so the table only ever appeared in the captured output. The wrapper now
+  ALSO writes `PhoneButtons/server/coverage.txt` (full pytest output + the table) and
+  `PhoneButtons/server/htmlcov/index.html` (browsable, per line; both gitignored) and
+  adds them as test annotations. Embedding the whole output in a FAILING assertion
+  message stays, so a real failure still prints the table in the terminal.
+- FOLLOW-UP (user): `coverage.txt` was full of control characters - pytest colours
+  its output with ANSI escapes even when stdout is a pipe, and the wrapper wrote the
+  raw bytes. Now the pytest run gets `--color=no` + `NO_COLOR=1`/`PY_COLORS=0`/
+  `TERM=dumb` and the captured text is ANSI-stripped before it is written or parsed
+  (verified: 0 ESC bytes, 0 non-ASCII). Use the same treatment for any future spec
+  that saves subprocess output to a file.
+- No app/web asset changed (app.py + test files only), so `BUILD_NUMBER` NOT bumped.
 

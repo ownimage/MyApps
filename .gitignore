@@ -7,6 +7,13 @@ node_modules/
 /screenshots/
 /temp/
 
+# Python artefacts (the PhoneButtons server tests): coverage.py data files and
+# pytest's cache, if a run is ever started without redirecting them.
+.coverage
+.coverage.*
+.pytest_cache/
+htmlcov/
+
 # PhoneButtons server TLS certs (generated locally by --gen-cert: a local CA +
 # the server leaf). NEVER commit the private keys.
 /PhoneButtons/server/*.crt
