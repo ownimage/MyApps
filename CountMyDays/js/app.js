@@ -11,6 +11,24 @@
 SmdConfig.storagePrefix = "countmydays_";
 SmdConfig.imagePrefix = "shared-";
 
+// MinIO hooks (shared/js/smd-minio.js): CountMyDays owns BOTH data ends, so its
+// backups match its own JSON export and its import keeps the per-section
+// keep/replace prompts.
+//  - Export: the menu entry validates the MinIO settings, then this runs the
+//    export wizard; doMinioExport() (export.js) uploads what the wizard built.
+//  - Import: the downloaded JSON goes to the import wizard (which applies it and
+//    closes the MinIO import page through closeMinioImport()).
+SmdConfig.onMinioExport = function (config) {
+  window.__minioExportConfig = config;      // handed to doMinioExport when the wizard finishes
+  startExportWizard("minio");
+};
+SmdConfig.onMinioImport = function (data) {
+  if (!data || !data.dates || !data.categories || !data.images) return false;
+  closeMinioImport();
+  startImportWizard(data);
+  return true;
+};
+
 // All apps on this origin share one image library (`shared-images`), so no
 // per-app image migration is needed here.
 
@@ -23,7 +41,8 @@ function hideMainPages(exceptId) {
     "googleEventsPage", "googleEventEditPage",
     "categoriesEditor", "categoryEditPage",
     "imagesEditor", "settingsPage",
-    "exportWizardPage", "qrExportPage", "qrImportPage", "importWizardPage"
+    "exportWizardPage", "qrExportPage", "qrImportPage", "importWizardPage",
+    "minioImportPage"
   ].forEach(id => {
     if (id === exceptId) return;
     const el = document.getElementById(id);
@@ -104,6 +123,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Show/hide the Google menu entries and G Cal settings options.
   if (typeof setGCalVisible === "function") setGCalVisible(isGCalEnabled());
+
+  // Show/hide the Minio menu entries (only when MinIO is enabled).
+  if (typeof updateMinioMenu === "function") updateMinioMenu();
 
   renderMain();
 

@@ -87,6 +87,11 @@ function openSettings() {
       const gcalEnabledCb = $id("gcalEnabled");
       if (gcalEnabledCb) gcalEnabledCb.checked = gcalEnabled;
       setGCalVisible(gcalEnabled);
+
+      // Minio tab (shared smd-minio.js): restore the fields, and hide the
+      // password again when the user switches away from that tab.
+      if (typeof loadMinioSettings === "function") loadMinioSettings();
+      if (typeof bindMinioSettingsTabBehavior === "function") bindMinioSettingsTabBehavior();
     }
   });
 }

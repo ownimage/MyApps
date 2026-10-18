@@ -1,4 +1,16 @@
-// Minio (S3-compatible) client for PlanMyDay
+// Minio (S3-compatible) client, shared by PlanMyDay and CountMyDays.
+//
+// The settings fields, the signed S3 requests and the import page are generic
+// (they key everything through smdKey()). WHAT a backup contains is app-specific,
+// so an app can take over the two data ends with SmdConfig hooks:
+//   SmdConfig.onMinioExport(config)  - instead of uploading immediately, the app
+//                                     decides what to save (CountMyDays runs its
+//                                     export wizard and uploads when it finishes).
+//   SmdConfig.onMinioImport(data)    - apply the parsed JSON yourself; return
+//                                     true when accepted (the app owns the UI,
+//                                     INCLUDING closing the import page), false
+//                                     for an invalid file.
+// PlanMyDay sets neither hook, so it keeps the behaviour below.
 
 function changeMinioEnabled(enabled) {
   localStorage.setItem(smdKey("minio_enabled"), String(enabled));
@@ -352,6 +364,13 @@ function exportToMinio() {
     return;
   }
 
+  // App-owned export (CountMyDays: pick the scope in its export wizard, then
+  // upload). The config has already been validated above.
+  if (typeof SmdConfig !== "undefined" && typeof SmdConfig.onMinioExport === "function") {
+    SmdConfig.onMinioExport(config);
+    return;
+  }
+
   var data = {
     version: 1,
     exportedAt: new Date().toISOString(),
@@ -571,6 +590,23 @@ function importMinioFile(bucket, key) {
     } catch (e) {
       showMinioAlert("Invalid JSON file: " + e.message, "error");
       loadMinioBucketFiles(bucket);
+      return;
+    }
+
+    if (!data || (typeof data !== "object")) {
+      showMinioAlert("Invalid JSON file: expected an object.", "error");
+      loadMinioBucketFiles(bucket);
+      return;
+    }
+
+    // App-owned import (CountMyDays hands the file to its import wizard so the
+    // per-section keep/replace prompts still apply). The hook closes the import
+    // page itself when it accepts the data.
+    if (typeof SmdConfig !== "undefined" && typeof SmdConfig.onMinioImport === "function") {
+      if (!SmdConfig.onMinioImport(data)) {
+        showMinioAlert("Invalid backup file: missing data for this app.", "error");
+        loadMinioBucketFiles(bucket);
+      }
       return;
     }
 
