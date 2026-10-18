@@ -4,7 +4,9 @@
 // smd-page architecture:
 //   - the list is #googleEventsPage (Edit Google Events), the single editor is
 //     #googleEventEditPage; both use smd-page footers and the shared image
-//     picker (smd-image-select).
+//     picker (smd-image-select). The editor follows the Edit Date page's layout
+//     (Title / Category + Image / Date + Type / Show) with the shared
+//     <smd-image-dropdown> as the Category control.
 //   - Title / Date / Once|Recurring are read-only. OK patches the event
 //     description on Google and updates the cached feed.
 // -------------------------------
@@ -195,10 +197,23 @@ function openGcalEditPage() {
       else if (action === "cancel") cancelGcalEditing();
     });
   }
+  // The Category control is the shared <smd-image-dropdown> (same as the Edit Date
+  // page), which emits smd-image-dropdown-change rather than a native change. The
+  // event is retargeted to this page host across the shadow boundary, so identify
+  // the originating dropdown via composedPath().
+  if (!page.__cmdGcalCategoryBound) {
+    page.__cmdGcalCategoryBound = true;
+    page.addEventListener("smd-image-dropdown-change", e => {
+      const path = e.composedPath ? e.composedPath() : [];
+      if (!path.some(n => n && n.id === "gcalCategorySelect")) return;
+      const name = e.detail && e.detail.name;
+      gcalEditBufferField("category", !name || name === "No Category" ? "" : name);
+    });
+  }
   page.title = "Edit Google Event";
   page.buttons = [
-    { text: "OK", variant: "success", action: "ok", close: false },
-    { text: "Cancel", variant: "secondary", action: "cancel", close: false }
+    { text: "Cancel", variant: "secondary", action: "cancel", close: false },
+    { text: "OK", variant: "success", action: "ok", close: false }
   ];
   renderGcalEditContent();
   page.show();
@@ -214,41 +229,40 @@ function renderGcalEditContent() {
   const dateStr = formatDateShort(dateData);
   const showChecked = dateData.show !== false;
 
-  const catOptions = ['<option value="">No Category</option>']
-    .concat(categories.map(c =>
-      `<option value="${escAttr(c.name)}" ${dateData.category === c.name ? "selected" : ""}>${escapeHtml(c.name)}</option>`))
-    .join("");
-
+  // The layout mirrors the Edit Date page (renderDateEditContent): Title on its
+  // own row, then Category + Image, then the date + type, then anything extra.
+  // Everything but Category / Image / Show is READ-ONLY here - Google owns the
+  // event's title, date and recurrence, and OK only patches the local payload
+  // (category, image, show) back into the event description.
   page.content =
-    '<div class="d-flex gap-3 align-items-start flex-wrap">' +
-      '<div class="flex-shrink-0 text-center">' +
-        `<smd-image id="gcalCategoryPreview" key-prefix="${escAttr(smdImagePrefix())}"></smd-image>` +
-        `<smd-select class="form-select mt-2" id="gcalCategorySelect" onchange="gcalEditBufferField('category', this.value)">${catOptions}</smd-select>` +
+    '<div class="mb-3">' +
+      '<label class="form-label mb-1">Title</label>' +
+      `<input class="form-control" id="gcalTitleInput" value="${escAttr(dateData.name || "")}" readonly>` +
+    '</div>' +
+    '<div class="d-flex gap-3 align-items-start flex-wrap mb-3">' +
+      '<div>' +
+        '<label class="form-label mb-1">Category</label>' +
+        `<smd-image-dropdown id="gcalCategorySelect" key-prefix="${escAttr(smdImagePrefix())}" style="min-width:220px"></smd-image-dropdown>` +
       '</div>' +
-      '<div class="flex-grow-1" style="min-width:220px">' +
-        '<div class="mb-2">' +
-          '<label class="form-label mb-1">Name</label>' +
-          `<input class="form-control" value="${escAttr(dateData.name || "")}" readonly>` +
-        '</div>' +
-        '<div class="mb-2">' +
-          '<label class="form-label mb-1">Date</label>' +
-          `<input class="form-control" value="${escAttr(dateStr)}" readonly>` +
-        '</div>' +
-        '<div class="mb-2">' +
-          '<label class="form-label mb-1">Type</label>' +
-          `<input class="form-control" value="${escAttr(typeStr)}" readonly>` +
-        '</div>' +
-        '<div class="mb-3">' +
-          `<smd-checkbox id="gcalShowCheck" ${showChecked ? "checked" : ""} onchange="gcalEditBufferField('show', this.checked)">Show</smd-checkbox>` +
-        '</div>' +
-        '<div class="mb-1">' +
-          '<label class="form-label mb-1">Image</label>' +
-          `<smd-image-select id="gcalImageSelect" key-prefix="${escAttr(smdImagePrefix())}" label-id="gcalImageName" button-id="btnGcalImageChoose"></smd-image-select>` +
-        '</div>' +
+      '<div>' +
+        '<label class="form-label mb-1">Image</label>' +
+        `<smd-image-select id="gcalImageSelect" key-prefix="${escAttr(smdImagePrefix())}" label-id="gcalImageName" button-id="btnGcalImageChoose"></smd-image-select>` +
       '</div>' +
+    '</div>' +
+    '<div class="d-flex gap-2 align-items-center flex-wrap mb-3">' +
+      `<input class="form-control w-auto" id="gcalDateInput" aria-label="Date" value="${escAttr(dateStr)}" style="min-width:140px" readonly>` +
+      `<input class="form-control w-auto" id="gcalTypeInput" aria-label="Type" value="${escAttr(typeStr)}" style="min-width:120px" readonly>` +
+    '</div>' +
+    '<div class="mb-1">' +
+      `<smd-checkbox id="gcalShowCheck" ${showChecked ? "checked" : ""} onchange="gcalEditBufferField('show', this.checked)">Show</smd-checkbox>` +
     '</div>';
 
-  updateGcalCategoryPreview();
+  const catSel = $id("gcalCategorySelect");
+  if (catSel) {
+    catSel.options = [{ name: "No Category", image: "" }]
+      .concat(categories.map(c => ({ name: c.name, image: c.image || "" })));
+    catSel.selected = dateData.category || "No Category";
+  }
   updateGcalImagePreview();
 }
 
@@ -277,16 +291,6 @@ function gcalEditBufferField(field, value) {
   if (!gcalEditBuffer) return;
   if (field !== "category" && field !== "image" && field !== "show") return;
   gcalEditBuffer[field] = value;
-  if (field === "category") updateGcalCategoryPreview();
-}
-
-function updateGcalCategoryPreview() {
-  const preview = $id("gcalCategoryPreview");
-  if (!preview || !gcalEditBuffer) return;
-  const category = loadCategories().find(c => c.name === gcalEditBuffer.category);
-  const name = category ? (category.image || "") : "";
-  if (name) preview.setAttribute("image", name);
-  else preview.removeAttribute("image");
 }
 
 function updateGcalImagePreview() {
