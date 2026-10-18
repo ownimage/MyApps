@@ -97,9 +97,12 @@ function updateNavState() {
 
 function updateMainMenuVisibility() {
   const menu = document.getElementById("btnMainMenu");
-  if (!menu) return;
+  const title = document.getElementById("appNavTitle");
   const pageIsOpen = Array.from(document.querySelectorAll("smd-page[open]")).length > 0;
-  if (menu.hidden !== pageIsOpen) menu.hidden = pageIsOpen;
+  if (menu && menu.hidden !== pageIsOpen) menu.hidden = pageIsOpen;
+  // The app name sits beside the hamburger, so it hides with it (the smd-page
+  // overlay covers the toolbar while a secondary page is open).
+  if (title && title.hidden !== pageIsOpen) title.hidden = pageIsOpen;
 }
 
 function observeMainMenuVisibility() {
