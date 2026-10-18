@@ -1,6 +1,6 @@
 ### Run full regression test 
 ```bash
-.\CleanTestServerStart.cmd && set EXTERNAL_SERVER=1 && set SCREENSHOT_THEME=superhero&& .\node_modules\.bin\playwright.cmd test tests --retries=0 --workers=32
+.\CleanTestServerStart.cmd && set EXTERNAL_SERVER=1 && set SCREENSHOT_THEME=superhero&& .\node_modules\.bin\playwright.cmd test tests --retries=0 --workers=32 & type PhoneButtons\server\coverage.txt
 ``` 
 ### Re-run last failures
 ```bash
@@ -48,13 +48,13 @@ npm run extract:images
 ```
 ### Screenshots
 ```bash
-set SCREENSHOT_THEME=&& .\node_modules\.bin\playwright.cmd test tests/cmd-screenshots.spec.js tests/ffox-screenshots.spec.js tests/launch-screenshots.spec.js tests/pmd-screenshots.spec.js tests/qrlinks-screenshots.spec.js --workers 16
+set SCREENSHOT_THEME=&& .\node_modules\.bin\playwright.cmd test tests/cmd-screenshots.spec.js tests/ffox-screenshots.spec.js tests/launch-screenshots.spec.js tests/lol-screenshots.spec.js tests/pmd-screenshots.spec.js tests/qrlinks-screenshots.spec.js --workers 16
 ```
 Screenshots use `screenshots/<app>/<theme>/<light|dark>/<scene>.png`; the viewer also reads legacy `screenshots/<app>/<theme>/<scene>.png` files as `Default` mode.
 Run for ONE theme only (defaults to all 27 when the env var is unset; works for every screenshot spec below).
 
 ```bash
-set SCREENSHOT_THEME=superhero&& .\node_modules\.bin\playwright.cmd test tests/cmd-screenshots.spec.js tests/ffox-screenshots.spec.js tests/launch-screenshots.spec.js tests/pmd-screenshots.spec.js tests/qrlinks-screenshots.spec.js --workers 16
+set SCREENSHOT_THEME=superhero&& .\node_modules\.bin\playwright.cmd test tests/cmd-screenshots.spec.js tests/ffox-screenshots.spec.js tests/launch-screenshots.spec.js tests/lol-screenshots.spec.js tests/pmd-screenshots.spec.js tests/qrlinks-screenshots.spec.js --workers 16
 ```
 
 ### Screenshot viewer

@@ -1,3 +1,7 @@
 __pycache__/
 *.pyc
 app-icon-cache/
+.pytest_cache/
+.coverage
+htmlcov/
+coverage.txt

@@ -57,6 +57,18 @@ npx playwright test tests/cmd-regression.spec.js
 npx playwright test tests/qrlinks-regression.spec.js
 npx playwright test tests/ffox-regression.spec.js
 npx playwright test tests/launch-regression.spec.js
+npx playwright test tests/solarcontrolar-regression.spec.js
+npx playwright test tests/phonebuttons-regression.spec.js
+npx playwright test tests/lol-regression.spec.js
+```
+
+`tests/phonebuttons-server.spec.js` runs the PhoneButtons **server** suite
+(`PhoneButtons/server/test_app.py`, pytest) from the same run; it skips itself
+when Python 3.13 with Flask/pywin32/pytest is not available. To run the server
+tests on their own, with a coverage report for `app.py`:
+
+```bash
+py -3.13 -m pytest PhoneButtons/server/test_app.py --cov=app --cov-report=term-missing
 ```
 
 ### Run a single test
