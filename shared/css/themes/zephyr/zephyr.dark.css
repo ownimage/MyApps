@@ -38,4 +38,7 @@
 .btn-light:active {
   color: #212529 !important;
 }
+#mainNav .dropdown-menu {
+  border-color: #fff;
+}
 /* smd-contrast:end */

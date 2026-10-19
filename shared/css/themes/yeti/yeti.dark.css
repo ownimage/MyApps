@@ -61,4 +61,7 @@ smd-tabs .smd-tab-btn.text-bg-primary:hover,
 smd-tabs .smd-tab-btn.text-bg-primary:focus-visible {
   color: #000 !important;
 }
+#mainNav .dropdown-menu {
+  border-color: #fff;
+}
 /* smd-contrast:end */

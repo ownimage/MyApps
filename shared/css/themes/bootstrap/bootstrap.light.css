@@ -1,1 +1,9 @@
 
+
+/* smd-contrast:start - generated WCAG AA contrast overrides. Do not edit by hand:
+   regenerate with  SMD_CONTRAST_FIX=1 npx playwright test tests/contrast-css.spec.js
+   (tests/contrast-css.spec.js fails when this block no longer matches the theme). */
+#mainNav .dropdown-menu {
+  border-color: #000;
+}
+/* smd-contrast:end */

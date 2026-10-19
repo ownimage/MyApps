@@ -69,4 +69,7 @@ smd-tabs .smd-tab-btn.text-bg-primary {
 .btn-dark:active {
   color: #000 !important;
 }
+#mainNav .dropdown-menu {
+  border-color: #fff;
+}
 /* smd-contrast:end */

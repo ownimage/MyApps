@@ -534,6 +534,33 @@ Architecture:
   EVERY load without data (i.e. any boot before the Flask API answers, and every
   test). Now the attribute is only mutated when its state actually changes
   (`hasAttribute` guard), so the loop cannot start.
+- THEME WEBFONTS ARE VENDORED (2026-10-19, user: "why does the font on sketchy not
+  look like the bootswatch reference"): each Bootswatch theme loads its Google fonts
+  through an `@import url("https://fonts.googleapis.com/css?family=...")` at the top
+  of its own CSS - e.g. sketchy is `family=Neucha|Cabin+Sketch`, journal
+  `News Cycle`, cosmo/lumen/solar `Source Sans Pro`, morph `Nunito`, zephyr `Inter`,
+  minty `Montserrat`, lux `Nunito Sans`, cyborg/materia/sandstone `Roboto`,
+  darkly/flatly/superhero/vapor `Lato`, simplex/spacelab/yeti `Open Sans`, united
+  `Ubuntu`. This repo STRIPS that import and must instead (a) keep the woff2 files in
+  `shared/css/fonts/`, (b) declare them with `@font-face` in
+  `shared/css/fonts/fonts.css`, and (c) precache them in `sw.js` (the font block is
+  regenerated from the directory, so a new file can never be forgotten). A missing
+  @font-face is SILENT - the browser falls through to the next entry in the stack
+  (system-ui/Segoe UI), which is why sketchy looked like a normal sans. Six families
+  were lost this way and are wired now: **Neucha + Cabin Sketch** (sketchy),
+  **News Cycle** (journal), **Source Sans Pro** (cosmo/lumen/solar), **Nunito**
+  (morph), **Inter** (zephyr) - the Neucha/Source Sans Pro/Cabin Sketch/News Cycle
+  files were already vendored but never declared; Nunito + Inter files were missing
+  and were downloaded from Google. GOTCHA: three themes use their webfont only on
+  HEADINGS/navbar/buttons while the BODY stack stays system-ui (journal, minty,
+  sketchy) - so a check of `--bs-font-sans-serif`'s first family alone misses them
+  (that is exactly how Cabin Sketch/News Cycle slipped through). GUARD:
+  `tests/theme-fonts.spec.js` holds the per-theme EXPECTED map taken from Bootswatch's
+  own @imports, asserts every family is declared and every face LOADS, and separately
+  checks the heading-only faces are actually applied. To add/refresh a family:
+  `GET https://fonts.googleapis.com/css2?family=<Family>&display=swap` (Chrome UA for
+  woff2), save each subset into `shared/css/fonts/`, rewrite `src: url(...)` to the
+  local filename, append the blocks to `fonts.css`, and re-list the dir in `sw.js`.
 - CONTRAST FIXES ARE BAKED INTO THE THEME CSS (2026-10-18/19, user request: "I
   don't want code running that checks contrast ... I want the contrast changes
   written into the css overrides"): NO runtime code measures or repaints colours.
@@ -541,7 +568,9 @@ Architecture:
   (`shared/css/themes/<theme>/<theme>.<mode>.css`) carries a generated block
   between the `smd-contrast:start` / `smd-contrast:end` markers with the button /
   tab / hamburger-menu text colours that had to be repainted to reach WCAG AA
-  (4.5:1). 50 of 54 sheet/mode combos have one; `bootstrap` and `brite` need none.
+  (4.5:1), plus the hamburger menu + Launch submenu BORDER colour (3:1, see the
+  menu-border note below). 50 of 54 sheet/mode combos have one; `bootstrap` and
+  `brite` need none.
   The rules list only what FAILED - everything else keeps the theme's own colour.
   REGENERATE / CHECK with `tests/contrast-css.spec.js` (in the test directory, NOT
   in shared/): plain run = "nothing needs to change anywhere" (fails and prints the
@@ -574,12 +603,32 @@ Architecture:
   their own flat colour because slate and friends swap the image per state (which
   cannot be read without hovering). The slate fix that came out of this: secondary
   text is now WHITE.
-  OUTCOME GUARDS (these measure the rendered result, which is fine in tests):
-  `tests/contrast.spec.js` asserts every `smd-button` variant x state and both tab
+  OUTCOME GUARDS (these measure the rendered result, which is fine in tests):  `tests/contrast.spec.js` asserts every `smd-button` variant x state and both tab
   colours reach 4.5:1 on all 27 themes x both modes, plus a guard that NOTHING
   injects contrast styles or exposes a normaliser at runtime;
   `tests/menu-legibility.spec.js` covers the toolbar/menu (size, AA, colour
   consistency and the flyout hit-test).
+- HAMBURGER MENU + LAUNCH SUBMENU NEED A CONTRASTING BORDER (2026-10-19, user
+  request): "for every theme ... there should be a contrasting border around the
+  menu/submenu with the correct styling for the theme, but it should contrast". The
+  popup floats over the page, so its edge must read as a boundary - a non-text UI
+  element needs 3:1 (WCAG 1.4.11) - but a theme's own dropdown border is a
+  translucent near-background tint: **43 of 54 theme/modes were below 3:1** (1.16:1
+  minty light, 1.3:1 on most light themes, 1.89:1 on the dark ones), so the edge was
+  invisible. The baked contrast block now also carries
+  `#mainNav .dropdown-menu { border-color: <pick>; }` - ONE selector covers BOTH the
+  main menu and the Launch flyout (both are `.dropdown-menu` inside `#mainNav`) - and
+  only the COLOUR is repainted: the theme's width/style/radius stay (the 1px solid
+  geometry in styles.css matches every theme's own `--bs-dropdown-border-width`;
+  radius comes from the theme, e.g. sketchy's 555px/25px hand-drawn corners). The
+  pick is the better of `--bs-body-color` / `--bs-emphasis-color` that reaches 3:1,
+  falling back to black/white. GOTCHA: `--bs-emphasis-color` alone is NOT enough -
+  six themes (cyborg, darkly, slate, solar, superhero, vapor) keep it BLACK in LIGHT
+  mode while their page is dark, giving 1.04-1.47:1 - hence measuring per theme and
+  trying body-color first. GUARD: menu-legibility's "the menu and the Launch submenu
+  have a contrasting border on every theme" asserts, per theme/mode, that BOTH edges
+  exist (width/style) and meet 3:1 against the panel surface. NB this also gave
+  `bootstrap` a generated block for the first time (its menu border was 1.3:1).
 - sketchy + slate PRIMARY BORROWS THE DANGER PALETTE (2026-10-19, user request):
   in both themes `--bs-primary` and `--bs-secondary` are so close (sketchy #333 vs
   #555; slate #3a3f44 vs #7a8288, painted with near-identical grey gradients) that
@@ -1339,6 +1388,68 @@ Techniques / gotchas:
   when an array is non-empty or a branch is taken.
 
 ## Session log
+
+### 2026-10-19 (g) - hamburger menu + Launch submenu: contrasting border on every theme
+
+- WHAT (user): "for every theme for the main hamburger menu and the Launch sub
+  menu there should be a contrasting border around the menu/submenu with the correct
+  styling for the theme, but it should contrast."
+- MEASURED FIRST: the menu border came from `var(--bs-border-color)` (a translucent
+  theme tint) - **43 of 54 theme/modes were below 3:1** (1.16:1 minty light, 1.3:1 on
+  most light themes, 1.89:1 on the dark ones), i.e. an invisible edge. The 1px solid
+  geometry matches every theme's own `--bs-dropdown-border-width`, and radius comes
+  from the theme (sketchy keeps its 555px/25px hand-drawn corners), so only the
+  COLOUR was wrong.
+- FIX: the baked contrast generator (`tests/contrast-css.spec.js`) now also measures
+  the menu border against the menu surface and emits
+  `#mainNav .dropdown-menu { border-color: <pick>; }` - ONE selector covers both the
+  hamburger menu and the Launch flyout (both are `.dropdown-menu` inside `#mainNav`).
+  The pick is the better of `--bs-body-color` / `--bs-emphasis-color` that reaches
+  3:1 (WCAG 1.4.11 non-text contrast), falling back to black/white, and is emitted
+  only where the theme's own border fails. Regenerated: 50 sheets, and `bootstrap`
+  got a block for the first time (its border was 1.3:1).
+- GOTCHA: `--bs-emphasis-color` alone is not enough - cyborg, darkly, slate, solar,
+  superhero and vapor keep it BLACK in LIGHT mode while the page is dark
+  (1.04-1.47:1), which is why the pick tries the body colour first and falls back.
+- TEST: menu-legibility "the menu and the Launch submenu have a contrasting border on
+  every theme" (TDD: red on 43+ edges with e.g. bootstrap/light 1.30:1, then the
+  generator was extended and the sheets regenerated). It asserts, per theme/mode,
+  that BOTH edges exist (width + style) and meet 3:1 against the panel surface.
+- NOTE: the user started a full regression before I could watch the re-run go green;
+  the generation step verified every write itself, and the boundary test is the guard
+  that will confirm it.
+
+### 2026-10-19 (f) - theme webfonts: six families were never wired (sketchy had no hand-drawn font)
+
+- WHAT (user): "why does the font on MyApps for sketchy not look like the bootswatch
+  reference ... Please check all of the other fonts for the themes."
+- CAUSE: Bootswatch's CSS loads its Google fonts with
+  `@import url("https://fonts.googleapis.com/css?family=Neucha|Cabin+Sketch...")`.
+  This repo strips that import and vendors the files - but `fonts.css` only declared
+  six families, so six theme families silently fell back to system-ui/Segoe UI.
+  sketchy is Neucha (body) + Cabin Sketch (headings/`<b>`/navbar-brand); it was
+  rendering BOTH in Segoe UI.
+- AUDIT (authoritative): read the `@import` from `https://bootswatch.com/5/<theme>/bootstrap.css`
+  for all 27 themes and compared with `fonts.css`. Missing at the start: Neucha,
+  Cabin Sketch (sketchy), News Cycle (journal), Source Sans Pro (cosmo/lumen/solar),
+  Nunito (morph), Inter (zephyr). Neucha/Source Sans Pro/Cabin Sketch/News Cycle
+  files were ALREADY in `shared/css/fonts/` (just never declared); Nunito + Inter
+  were downloaded from Google (12 subsets).
+- FIX: @font-face blocks appended to `shared/css/fonts/fonts.css` (Google's own CSS,
+  URLs rewritten to the local filenames, `font-display` stripped to match the file's
+  style) and `sw.js` now precaches EVERY woff2 in the directory (135 files, sorted) so
+  a future font file cannot be forgotten. Webfont families declared now: Roboto,
+  Lato, Nunito Sans, Montserrat, Open Sans, Ubuntu, Neucha, Source Sans Pro, Nunito,
+  Inter, Cabin Sketch, News Cycle.
+- TEST: new `tests/theme-fonts.spec.js` - TDD (red: Neucha/News Cycle/Cabin Sketch
+  missing; then red again on the heading-usage assertion because the computed value
+  is quoted), now green. It holds the per-theme EXPECTED map taken from Bootswatch's
+  own @imports, asserts every family is declared and every face loads, and checks the
+  heading-only faces (sketchy Cabin Sketch, journal News Cycle, minty Montserrat) are
+  actually applied. GOTCHA recorded in the notes: checking only
+  `--bs-font-sans-serif`'s first family misses heading-only webfonts.
+- VERIFIED: theme-fonts 1/1 (27 themes); visually confirmed sketchy renders Neucha
+  body + Cabin Sketch headings, journal renders News Cycle headings/buttons.
 
 ### 2026-10-19 (e) - CMD tiles: ONE category caption underneath the two images
 

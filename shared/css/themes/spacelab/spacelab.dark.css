@@ -40,4 +40,7 @@ smd-tabs .smd-tab-btn.text-bg-secondary:hover,
 smd-tabs .smd-tab-btn.text-bg-secondary:focus-visible {
   color: #2d2d2d !important;
 }
+#mainNav .dropdown-menu {
+  border-color: #fff;
+}
 /* smd-contrast:end */

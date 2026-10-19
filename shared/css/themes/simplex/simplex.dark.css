@@ -83,4 +83,7 @@ smd-image-dropdown .btn:focus-visible
 .btn-info:disabled, .btn-info.disabled {
   color: #000 !important;
 }
+#mainNav .dropdown-menu {
+  border-color: #fff;
+}
 /* smd-contrast:end */
