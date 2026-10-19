@@ -534,6 +534,33 @@ Architecture:
   EVERY load without data (i.e. any boot before the Flask API answers, and every
   test). Now the attribute is only mutated when its state actually changes
   (`hasAttribute` guard), so the loop cannot start.
+- THEME WEBFONTS ARE VENDORED (2026-10-19, user: "why does the font on sketchy not
+  look like the bootswatch reference"): each Bootswatch theme loads its Google fonts
+  through an `@import url("https://fonts.googleapis.com/css?family=...")` at the top
+  of its own CSS - e.g. sketchy is `family=Neucha|Cabin+Sketch`, journal
+  `News Cycle`, cosmo/lumen/solar `Source Sans Pro`, morph `Nunito`, zephyr `Inter`,
+  minty `Montserrat`, lux `Nunito Sans`, cyborg/materia/sandstone `Roboto`,
+  darkly/flatly/superhero/vapor `Lato`, simplex/spacelab/yeti `Open Sans`, united
+  `Ubuntu`. This repo STRIPS that import and must instead (a) keep the woff2 files in
+  `shared/css/fonts/`, (b) declare them with `@font-face` in
+  `shared/css/fonts/fonts.css`, and (c) precache them in `sw.js` (the font block is
+  regenerated from the directory, so a new file can never be forgotten). A missing
+  @font-face is SILENT - the browser falls through to the next entry in the stack
+  (system-ui/Segoe UI), which is why sketchy looked like a normal sans. Six families
+  were lost this way and are wired now: **Neucha + Cabin Sketch** (sketchy),
+  **News Cycle** (journal), **Source Sans Pro** (cosmo/lumen/solar), **Nunito**
+  (morph), **Inter** (zephyr) - the Neucha/Source Sans Pro/Cabin Sketch/News Cycle
+  files were already vendored but never declared; Nunito + Inter files were missing
+  and were downloaded from Google. GOTCHA: three themes use their webfont only on
+  HEADINGS/navbar/buttons while the BODY stack stays system-ui (journal, minty,
+  sketchy) - so a check of `--bs-font-sans-serif`'s first family alone misses them
+  (that is exactly how Cabin Sketch/News Cycle slipped through). GUARD:
+  `tests/theme-fonts.spec.js` holds the per-theme EXPECTED map taken from Bootswatch's
+  own @imports, asserts every family is declared and every face LOADS, and separately
+  checks the heading-only faces are actually applied. To add/refresh a family:
+  `GET https://fonts.googleapis.com/css2?family=<Family>&display=swap` (Chrome UA for
+  woff2), save each subset into `shared/css/fonts/`, rewrite `src: url(...)` to the
+  local filename, append the blocks to `fonts.css`, and re-list the dir in `sw.js`.
 - CONTRAST FIXES ARE BAKED INTO THE THEME CSS (2026-10-18/19, user request: "I
   don't want code running that checks contrast ... I want the contrast changes
   written into the css overrides"): NO runtime code measures or repaints colours.
@@ -1339,6 +1366,38 @@ Techniques / gotchas:
   when an array is non-empty or a branch is taken.
 
 ## Session log
+
+### 2026-10-19 (f) - theme webfonts: six families were never wired (sketchy had no hand-drawn font)
+
+- WHAT (user): "why does the font on MyApps for sketchy not look like the bootswatch
+  reference ... Please check all of the other fonts for the themes."
+- CAUSE: Bootswatch's CSS loads its Google fonts with
+  `@import url("https://fonts.googleapis.com/css?family=Neucha|Cabin+Sketch...")`.
+  This repo strips that import and vendors the files - but `fonts.css` only declared
+  six families, so six theme families silently fell back to system-ui/Segoe UI.
+  sketchy is Neucha (body) + Cabin Sketch (headings/`<b>`/navbar-brand); it was
+  rendering BOTH in Segoe UI.
+- AUDIT (authoritative): read the `@import` from `https://bootswatch.com/5/<theme>/bootstrap.css`
+  for all 27 themes and compared with `fonts.css`. Missing at the start: Neucha,
+  Cabin Sketch (sketchy), News Cycle (journal), Source Sans Pro (cosmo/lumen/solar),
+  Nunito (morph), Inter (zephyr). Neucha/Source Sans Pro/Cabin Sketch/News Cycle
+  files were ALREADY in `shared/css/fonts/` (just never declared); Nunito + Inter
+  were downloaded from Google (12 subsets).
+- FIX: @font-face blocks appended to `shared/css/fonts/fonts.css` (Google's own CSS,
+  URLs rewritten to the local filenames, `font-display` stripped to match the file's
+  style) and `sw.js` now precaches EVERY woff2 in the directory (135 files, sorted) so
+  a future font file cannot be forgotten. Webfont families declared now: Roboto,
+  Lato, Nunito Sans, Montserrat, Open Sans, Ubuntu, Neucha, Source Sans Pro, Nunito,
+  Inter, Cabin Sketch, News Cycle.
+- TEST: new `tests/theme-fonts.spec.js` - TDD (red: Neucha/News Cycle/Cabin Sketch
+  missing; then red again on the heading-usage assertion because the computed value
+  is quoted), now green. It holds the per-theme EXPECTED map taken from Bootswatch's
+  own @imports, asserts every family is declared and every face loads, and checks the
+  heading-only faces (sketchy Cabin Sketch, journal News Cycle, minty Montserrat) are
+  actually applied. GOTCHA recorded in the notes: checking only
+  `--bs-font-sans-serif`'s first family misses heading-only webfonts.
+- VERIFIED: theme-fonts 1/1 (27 themes); visually confirmed sketchy renders Neucha
+  body + Cabin Sketch headings, journal renders News Cycle headings/buttons.
 
 ### 2026-10-19 (e) - CMD tiles: ONE category caption underneath the two images
 
