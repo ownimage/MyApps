@@ -282,6 +282,32 @@ test.describe("CountMyDays - Regression", () => {
       expect(await page.locator("#datesEditor cmd-date-card").count()).toBe(4);
     });
 
+    test("each tile leads its date with the short weekday", async ({ page }) => {
+      // "Mon 15 Jun": the weekday goes at the FRONT of the tile's date (user request
+      // 2026-10-19). It is the weekday of the date the app actually counts down to -
+      // this year's occurrence for an annual date, next year's once it has passed -
+      // so the tile agrees with the sort and the countdown.
+      const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+      const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const nextAnnual = (month, day) => {
+        const at = new Date(now.getFullYear(), month - 1, day);
+        if (at < today) at.setFullYear(at.getFullYear() + 1);
+        return at;
+      };
+      const annual = (month, day) => `${DAYS[nextAnnual(month, day).getDay()]} ${day} ${MONTHS[month - 1]}`;
+
+      await seed(page);
+      await page.evaluate(() => openDatesEditor());
+      const dateText = (name) => page.locator(`#datesEditor cmd-date-card[name="${name}"] .date-text`);
+
+      await expect(dateText("Today Event")).toHaveText(annual(TODAY_MONTH, TODAY_DAY));
+      await expect(dateText("Anniversary")).toHaveText(annual(7, 14));
+      await expect(dateText("Trip")).toHaveText(annual(11, 3));
+      await expect(dateText("Project Deadline"))
+        .toHaveText(`${DAYS[new Date(FUTURE_YEAR, 11, 25).getDay()]} 25 Dec ${FUTURE_YEAR}`);
+    });
+
     test("adds a date and saves its fields", async ({ page }) => {
       await seed(page);
       await page.evaluate(() => openDatesEditor());

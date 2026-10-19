@@ -1340,6 +1340,29 @@ Techniques / gotchas:
 
 ## Session log
 
+### 2026-10-19 (d) - CMD dates editor: weekday at the front of each tile's date
+
+- WHAT (user): "In Count My Days on the Edit Dates screen that lists all of the
+  dates, on the tiles add the short day of week (Mon, Tue, etc) to the front of the
+  date." Tiles now read `Mon 15 Jan` / `Mon 15 Jan 2030`.
+- WHERE: `CountMyDays/js/dates-editor.js` `renderDateList()` (both the local and the
+  google branches - the editor lists both sources) via a new `dateWeekday(d)`;
+  `CMD_DAYS` added to `utils.js` next to `CMD_MONTHS` and reused by `formatDate()`.
+- RULE (durable): the weekday is that of the date the app COUNTS DOWN TO - same as
+  `targetDate()`: an annual/recurring date uses this year's occurrence, or next
+  year's once it has passed, and a "once" date keeps its own year. So the tile, the
+  sort order and the countdown always agree (an annual date's weekday changes from
+  year to year - showing today's-year weekday for a date that already passed would
+  be wrong). Build it from LOCAL parts (`new Date(y, m - 1, d)`), never
+  `new Date("YYYY-MM-DD")`, which parses as UTC and can shift the day/weekday in
+  western time zones.
+- SCOPE: only the Edit Dates list. The Google Calendar editor's own
+  `cmd-date-card` list (`googleCalendarEditor.js`) still shows the bare date - say
+  the word if that should change too.
+- TEST: cmd-regression "each tile leads its date with the short weekday" (TDD: it
+  failed with `19 Oct` where it expected `Mon 19 Oct`, then passed). Full
+  cmd-regression + shared-helpers 73/73.
+
 ### 2026-10-19 (c) - gradient-aware contrast checker + sketchy/slate primary = danger
 
 - WHAT (user): "On the sketch and slate themes both modes there is almost no

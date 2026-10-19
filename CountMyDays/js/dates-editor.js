@@ -176,6 +176,24 @@ function editUnifiedDateEntry(source, index) {
   editDate(index);
 }
 
+// Short weekday ("Mon") of the date the app counts down to. Same rule as
+// targetDate(): an annual/recurring date uses this year's occurrence or next year's
+// once it has passed, and a "once" date keeps its own year - so the tile, the sort
+// and the countdown always agree. Always built from LOCAL parts: parsing
+// "YYYY-MM-DD" goes through UTC and can shift the day (and the weekday) in western
+// time zones.
+function dateWeekday(d) {
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const at = new Date(
+    d.type === "once" ? (d.year || now.getFullYear()) : now.getFullYear(),
+    (d.month || 1) - 1,
+    d.day || 1
+  );
+  if (d.type !== "once" && at < today) at.setFullYear(at.getFullYear() + 1);
+  return CMD_DAYS[at.getDay()];
+}
+
 function renderDateList() {
   const list = $id("dateList");
   if (!list) return;
@@ -203,16 +221,18 @@ function renderDateList() {
     const category = d.category ? categories.find(c => c.name === d.category) : null;
     const catImage = category ? (category.image || "") : "";
 
+    // The short weekday leads the date on the tile ("Mon 15 Jan").
+    const weekday = dateWeekday(d) + " ";
     let dateStr;
     if (entry.source === "google") {
-      dateStr = formatDateShort(d);
+      dateStr = weekday + formatDateShort(d);
     } else {
       const month = d.month || 1;
       const day = d.day || 1;
       const year = d.year || new Date().getFullYear();
-      dateStr = d.type === "once"
+      dateStr = weekday + (d.type === "once"
         ? `${day} ${CMD_MONTHS[month - 1]} ${year}`
-        : `${day} ${CMD_MONTHS[month - 1]}`;
+        : `${day} ${CMD_MONTHS[month - 1]}`);
     }
 
     const card = document.createElement("cmd-date-card");

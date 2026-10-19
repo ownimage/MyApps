@@ -5,7 +5,9 @@
 //   name            — date title
 //   category        — category name shown under the category thumbnail
 //   type            — "annual" | "once" | "recurring"
-//   date-text       — formatted day/month (and year for once/google)
+//   date-text       — formatted "Mon 15 Jan" (plus the year for once/google dates);
+//                     the weekday is produced by the caller (dateWeekday() in
+//                     dates-editor.js, i.e. the date the app counts down to)
 //   source          — "local" (default) | "google"
 //   recurring       — presence/true adds the Repeat badge (google events)
 //   data-google-hidden — presence/true adds the Hidden badge (google events)
