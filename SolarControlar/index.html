@@ -74,23 +74,7 @@
 
         <!-- General -->
         <section class="smd-settings-tab" data-tab="General" data-tab-id="general-tab">
-          <smd-theme id="themeSelector" class="col-md-8 mt-3"></smd-theme>
-
-          <div class="row mb-4 align-items-center col-md-8">
-            <div class="col-4 text-end"><label class="form-label mb-0">Font size</label></div>
-            <div class="col-8">
-              <smd-select id="fontSizeSelector" class="form-select" onchange="changeFontSize(this.value)">
-                <option value="xsmall">Extra small</option>
-                <option value="small">Small</option>
-                <option value="normal">Normal</option>
-                <option value="large">Large</option>
-                <option value="xlarge">Extra large</option>
-                <option value="jumbo">Jumbo</option>
-              </smd-select>
-            </div>
-          </div>
-
-          <div class="row mb-4 align-items-center col-md-8">
+          <div class="row mb-4 align-items-center col-md-8 mt-3">
             <div class="col-4 text-end"><label class="form-label mb-0">Flask URL</label></div>
             <div class="col-8">
               <input type="text" id="flaskUrlInput" class="form-control" placeholder="/solar" oninput="updateFlaskUrl(this.value)">
@@ -121,19 +105,80 @@
           </div>
         </section>
 
+        <!-- Display -->
+        <section class="smd-settings-tab" data-tab="Display" data-tab-id="appearance-tab">
+          <smd-theme id="themeSelector" class="col-md-8 mt-3"></smd-theme>
+
+          <div class="row mb-4 align-items-center col-md-8">
+            <div class="col-4 text-end"><label class="form-label mb-0">Font size</label></div>
+            <div class="col-8">
+              <smd-select id="fontSizeSelector" class="form-select" onchange="changeFontSize(this.value)">
+                <option value="xsmall">Extra small</option>
+                <option value="small">Small</option>
+                <option value="normal">Normal</option>
+                <option value="large">Large</option>
+                <option value="xlarge">Extra large</option>
+                <option value="jumbo">Jumbo</option>
+              </smd-select>
+            </div>
+          </div>
+
+          <div class="row mb-4 align-items-center col-md-8">
+            <div class="col-4 text-end"><label class="form-label mb-0">Touch size</label></div>
+            <div class="col-8">
+              <smd-select id="touchSizeSelector" class="form-select" onchange="changeTouchSize(this.value)">
+                <option value="normal">Normal</option>
+                <option value="large">Large</option>
+              </smd-select>
+            </div>
+          </div>
+
+          <div class="row mb-4 align-items-center col-md-8">
+            <div class="col-4 text-end"><label class="form-label mb-0">Slide speed</label></div>
+            <div class="col-8">
+              <smd-select id="slideDurationSelector" class="form-select" onchange="changeSlideDuration(this.value)">
+                <option value="0">Off (instant)</option>
+                <option value="150">Fast (150 ms)</option>
+                <option value="300">Normal (300 ms)</option>
+                <option value="500">Slow (500 ms)</option>
+              </smd-select>
+            </div>
+          </div>
+
+          <div class="row mb-4 align-items-center col-md-8">
+            <div class="col-4 text-end"><label class="form-label mb-0">Auto-hide menu</label></div>
+            <div class="col-8">
+              <smd-checkbox id="autoHideMenu" switch onchange="changeAutoHideMenu(this.checked)"></smd-checkbox>
+            </div>
+          </div>
+        </section>
+
         <!-- Danger -->
         <section class="smd-settings-tab" data-tab="Danger" data-tab-id="danger-tab">
-          <div class="row mb-3 align-items-center col-md-8 mt-3">
+          <div class="row mb-4 align-items-center col-md-8 mt-3">
             <div class="col-4 text-end"><label class="form-label mb-0">Show danger</label></div>
             <div class="col-8">
               <smd-checkbox id="showDanger" switch onchange="changeShowDanger(this.checked)"></smd-checkbox>
             </div>
           </div>
 
-          <div id="refreshAppRow" class="row mb-3 align-items-center col-md-8 d-none">
+          <div id="noCacheRow" class="row mb-4 align-items-center col-md-8 d-none">
+            <div class="col-4 text-end"><label class="form-label mb-0">No Cache</label></div>
+            <div class="col-8">
+              <smd-checkbox id="noCache" switch title="Always load the app from disk instead of the offline cache. The app reloads when you change this." onchange="changeNoCache(this.checked)"></smd-checkbox>
+            </div>
+          </div>
+
+          <div id="refreshAppRow" class="row mb-4 mt-4 align-items-center d-none">
             <div class="col-4 text-end"></div>
             <div class="col-8">
-              <button id="btnRefreshApp" class="btn btn-warning editor-btn btn-wide w-100" onclick="location.reload()">Refresh App</button>
+              <smd-button id="btnRefreshApp" block variant="warning" onclick="location.reload()">Refresh App</smd-button>
+            </div>
+          </div>
+          <div id="clearAllDataRow" class="row mb-4 align-items-center d-none">
+            <div class="col-4 text-end"></div>
+            <div class="col-8">
+              <smd-button id="btnClearAllData" block variant="danger" onclick="confirmClearAllData()">Clear local storage Solar</smd-button>
             </div>
           </div>
         </section>

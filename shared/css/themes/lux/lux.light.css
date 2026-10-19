@@ -2,3 +2,42 @@
    whenever this theme is selected in Light mode. Add theme-specific overrides
    here. This sheet is only ever loaded in this mode, so selectors do not need a
    `[data-bs-theme="light"]` qualifier. */
+
+/* smd-contrast:start - generated WCAG AA contrast overrides. Do not edit by hand:
+   regenerate with  SMD_CONTRAST_FIX=1 npx playwright test tests/contrast-css.spec.js
+   (tests/contrast-css.spec.js fails when this block no longer matches the theme). */
+.btn-success, .btn-warning {
+  --bs-btn-color: #000;
+  --bs-btn-hover-color: #000;
+  --bs-btn-active-color: #000;
+  --bs-btn-disabled-color: #000;
+}
+.btn-success,
+.btn-success:hover, .btn-success:focus-visible,
+.btn-success:active,
+.btn-success:disabled, .btn-success.disabled,
+.btn-warning,
+.btn-warning:hover, .btn-warning:focus-visible,
+.btn-warning:active,
+.btn-warning:disabled, .btn-warning.disabled {
+  color: #000 !important;
+}
+.btn-danger {
+  --bs-btn-color: #000;
+  --bs-btn-disabled-color: #000;
+}
+.btn-danger,
+.btn-danger:disabled, .btn-danger.disabled {
+  color: #000 !important;
+}
+.btn-info {
+  --bs-btn-color: #000;
+  --bs-btn-hover-color: #000;
+  --bs-btn-disabled-color: #000;
+}
+.btn-info,
+.btn-info:hover, .btn-info:focus-visible,
+.btn-info:disabled, .btn-info.disabled {
+  color: #000 !important;
+}
+/* smd-contrast:end */

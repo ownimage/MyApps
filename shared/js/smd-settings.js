@@ -245,8 +245,26 @@ function changeDensity(value) {
 function changeTouchSize(value) {
   localStorage.setItem(smdKey("touchSize"), value);
   document.documentElement.dataset.smdTouchSize = value;
-  // Optional app hook: push the new value into <smd-draghandle>/<smd-checkbox>.
+  // Size is a VALUE on the shared components, so drive them HERE (not only via an
+  // app hook) - otherwise an app without applyTouchSize() would show the control
+  // but never resize its checkboxes/drag handles.
+  if (typeof SmdCheckbox !== "undefined" && SmdCheckbox.setDefaultSize) SmdCheckbox.setDefaultSize(value);
+  if (typeof SmdDragHandle !== "undefined" && SmdDragHandle.setDefaultSize) SmdDragHandle.setDefaultSize(value);
+  // Optional app hook, kept for apps that size anything else.
   if (typeof applyTouchSize === "function") applyTouchSize();
+}
+
+// "No Cache": the worker stops serving its precache and re-reads every file from
+// disk, so a deploy is visible on the next load. The switch only takes effect for
+// files loaded AFTER it flips, hence the reload. Shared by EVERY app (the worker
+// is origin-wide), so an app only needs the #noCacheRow markup in its Danger tab.
+function changeNoCache(enabled) {
+  const done = function() { window.location.reload(); };
+  if (typeof smdSetNoCache !== "function") {
+    localStorage.setItem(smdKey("noCache"), enabled);
+    return done();
+  }
+  smdSetNoCache(enabled).then(done, done);
 }
 
 // SLIDE SPEED (smd-page slide-in/out duration in ms)
@@ -398,6 +416,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const savedTouchSize = localStorage.getItem(smdKey("touchSize")) || "normal";
   document.documentElement.dataset.smdTouchSize = savedTouchSize;
+  // Push the stored size into the shared components on every boot, so apps
+  // without an applyTouchSize() hook still render at the chosen size.
+  if (typeof SmdCheckbox !== "undefined" && SmdCheckbox.setDefaultSize) SmdCheckbox.setDefaultSize(savedTouchSize);
+  if (typeof SmdDragHandle !== "undefined" && SmdDragHandle.setDefaultSize) SmdDragHandle.setDefaultSize(savedTouchSize);
 
   const savedDensity = localStorage.getItem(smdKey("density")) || "normal";
   document.documentElement.dataset.smdTileDensity = savedDensity;

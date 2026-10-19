@@ -25,3 +25,67 @@
     color-mix(in srgb, var(--bs-gray-800) 94%, var(--bs-black))
   );
 }
+
+/* PRIMARY BORROWS THE DANGER PALETTE (user request 2026-10-19): slate's
+   --bs-primary (#3a3f44) and --bs-secondary (#7a8288) are painted with near-identical
+   grey gradients, so the primary button and the active tab were indistinguishable
+   from the secondary ones. Scoped to <smd-button> + <smd-tabs>; every other
+   primary-coloured surface keeps the theme value. Values (and gradients) copied
+   from .btn-danger. */
+#smd-app .btn-primary {
+  --bs-btn-bg: #ee5f5b;
+  --bs-btn-border-color: #ee5f5b;
+  --bs-btn-hover-bg: #ca514d;
+  --bs-btn-hover-border-color: #be4c49;
+  --bs-btn-active-bg: #be4c49;
+  --bs-btn-active-border-color: #b34744;
+  --bs-btn-disabled-bg: #ee5f5b;
+  --bs-btn-disabled-border-color: #ee5f5b;
+  background-image: linear-gradient(#ef6763, #ee5f5b 20%, #be4c49);
+}
+#smd-app .btn-primary:not([disabled]):not(.disabled):hover {
+  background-image: linear-gradient(#c8504c, #d65652 40%, #e05956);
+}
+#smd-app .btn-primary:not([disabled]):not(.disabled).active:hover,
+#smd-app .btn-primary:not([disabled]):not(.disabled):active:hover {
+  background-image: linear-gradient(#983d3a, #a74340 40%, #b04643);
+}
+/* text-bg-primary paints its background with !important, hence the overrides here. */
+smd-tabs .smd-tab-btn.text-bg-primary {
+  background-color: #ee5f5b !important;
+  background-image: linear-gradient(#ef6763, #ee5f5b 20%, #be4c49) !important;
+}
+
+/* smd-contrast:start - generated WCAG AA contrast overrides. Do not edit by hand:
+   regenerate with  SMD_CONTRAST_FIX=1 npx playwright test tests/contrast-css.spec.js
+   (tests/contrast-css.spec.js fails when this block no longer matches the theme). */
+.btn-primary, .btn-danger {
+  --bs-btn-hover-color: #000;
+}
+.btn-primary:hover, .btn-primary:focus-visible,
+.btn-danger:hover, .btn-danger:focus-visible {
+  color: #000 !important;
+}
+.btn-success, .btn-warning, .btn-info {
+  --bs-btn-color: #000;
+  --bs-btn-hover-color: #272b30;
+  --bs-btn-active-color: #000;
+  --bs-btn-disabled-color: #000;
+}
+.btn-success,
+.btn-success:active,
+.btn-success:disabled, .btn-success.disabled,
+.btn-warning,
+.btn-warning:active,
+.btn-warning:disabled, .btn-warning.disabled,
+.btn-info,
+.btn-info:active,
+.btn-info:disabled, .btn-info.disabled {
+  color: #000 !important;
+}
+.btn-success:hover, .btn-success:focus-visible,
+.btn-warning:hover, .btn-warning:focus-visible,
+.btn-info:hover, .btn-info:focus-visible {
+  color: #272b30 !important;
+}
+/* smd-contrast:end */

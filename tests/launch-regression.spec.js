@@ -156,7 +156,7 @@ test.describe("Launch - Regression", () => {
     await page.goto("/");
     await page.evaluate(() => openSettings());
     await expect(page.locator("#settingsPage")).toHaveAttribute("open", "");
-    await expect(page.locator("#settingsTabs .smd-tab-btn")).toHaveText(["Display", "Menu"]);
+    await expect(page.locator("#settingsTabs .smd-tab-btn")).toHaveText(["Display", "Menu", "Danger"]);
 
     // The settings page is an opaque full-screen surface: the Launch grid behind
     // it must not show through (this app does not explicitly hide its main content).
@@ -186,20 +186,23 @@ test.describe("Launch - Regression", () => {
   });
 
   test("every app's menu shows the Launch submenu of ticked apps", async ({ page }) => {
-    const EXPECTED_MENU = [
-      ["Plan My Day", "../PlanMyDay/"],
-      ["Count My Days", "../CountMyDays/"],
-      ["QR Links", "../QRLinks/"],
-      ["Solar Controlar", "../SolarControlar/"],
-      ["FreeFormOX", "../FreeFormOX/"],
-      ["List of Lists", "../ListOfLists/"],
-      ["Phone Buttons", "../PhoneButtons/"],
-      ["Launch", "../"]
+    const APPS = [
+      ["Plan My Day", "PlanMyDay/"],
+      ["Count My Days", "CountMyDays/"],
+      ["QR Links", "QRLinks/"],
+      ["Solar Controlar", "SolarControlar/"],
+      ["FreeFormOX", "FreeFormOX/"],
+      ["List of Lists", "ListOfLists/"],
+      ["Phone Buttons", "PhoneButtons/"],
+      ["Launch", ""]
     ];
     // SolarControlar is intentionally skipped: it needs its own power-data
     // backend (the /solar/api server), and without it the app's loading overlay
     // covers #btnMainMenu, so the menu can never be opened in this test.
-    for (const shell of ["/PlanMyDay/", "/CountMyDays/", "/QRLinks/", "/FreeFormOX/", "/ListOfLists/", "/PhoneButtons/"]) {
+    // The ROOT (Launch itself) is included: its menu carries the same flyout, so
+    // every app jumps to any other app from one place.
+    for (const [shell, prefix] of [["/", ""], ["/PlanMyDay/", "../"], ["/CountMyDays/", "../"],
+      ["/QRLinks/", "../"], ["/FreeFormOX/", "../"], ["/ListOfLists/", "../"], ["/PhoneButtons/", "../"]]) {
       await page.goto(shell);
       await page.locator("#btnMainMenu").click();
       const toggle = page.locator("#mainNav .launch-submenu-toggle");
@@ -209,10 +212,13 @@ test.describe("Launch - Regression", () => {
       await expect(toggle).not.toHaveAttribute("href", /.+/);
       await toggle.click();
       const items = page.locator("#mainNav .launch-submenu-menu .dropdown-item");
-      await expect(items, shell).toHaveCount(EXPECTED_MENU.length);
-      for (let i = 0; i < EXPECTED_MENU.length; i++) {
-        await expect(items.nth(i), shell).toHaveText(EXPECTED_MENU[i][0]);
-        await expect(items.nth(i), shell).toHaveAttribute("href", EXPECTED_MENU[i][1]);
+      await expect(items, shell).toHaveCount(APPS.length);
+      for (let i = 0; i < APPS.length; i++) {
+        const [name, path] = APPS[i];
+        // Launch itself keeps its own page ("" resolves to the repo root).
+        const href = path ? prefix + path : (prefix || "./");
+        await expect(items.nth(i), shell).toHaveText(name);
+        await expect(items.nth(i), `${shell} ${name}`).toHaveAttribute("href", href);
       }
     }
   });

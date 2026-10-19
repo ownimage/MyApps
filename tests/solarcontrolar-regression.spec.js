@@ -179,8 +179,7 @@ test.describe("SolarControlar - Regression", () => {
     await page.evaluate(() => openSettings());
     await expect(page.locator("#settingsPage")).toHaveAttribute("open", "");
 
-    await expect(page.locator("#themeSelector .smd-theme-select")).toBeVisible();
-    await expect(page.locator("#themeSelector .smd-theme-mode-select")).toBeVisible();
+    // General (default tab): the Flask connection fields + the app extras.
     await expect(page.locator("#flaskUrlInput")).toBeVisible();
     await expect(page.locator("#flaskUrlInput")).toHaveValue("/solar");
     await expect(page.locator("#flaskUserInput")).toBeVisible();
@@ -191,15 +190,7 @@ test.describe("SolarControlar - Regression", () => {
     await expect(page.locator("#shareQrCode img").first()).toBeVisible({ timeout: 30000 });
     await expect(page.locator("#settingsPage smd-fontawesome-credit")).toBeVisible();
 
-    // Theme persists in the solarcontrolar_ namespace.
-    await pickOption(page, "#themeSelector .smd-theme-select", "brite");
-    await pickOption(page, "#themeSelector .smd-theme-mode-select", "dark");
-    await expect.poll(async () => page.evaluate(() => localStorage.getItem("solarcontrolar_theme"))).toBe("brite");
-    await expect.poll(async () => page.evaluate(() => localStorage.getItem("solarcontrolar_themeMode"))).toBe("dark");
-    await expect(page.locator("html")).toHaveAttribute("data-bs-theme", "dark");
-    await expect(page.locator("#themeSelector")).toHaveAttribute("mode", "dark");
-
-    // Flask URL persists.
+    // Flask settings persist (still on the General tab).
     await page.locator("#flaskUrlInput").fill("http://localhost:5000/solar");
     await expect.poll(async () => page.evaluate(() => localStorage.getItem("solarcontrolar_flaskUrl"))).toBe("http://localhost:5000/solar");
 
@@ -215,6 +206,19 @@ test.describe("SolarControlar - Regression", () => {
     // Auto-refresh persists + starts.
     await page.locator("#autoRefresh").click();
     await expect.poll(async () => page.evaluate(() => localStorage.getItem("solarcontrolar_autoRefresh"))).toBe("true");
+
+    // Display tab: theme/mode + the shared appearance controls.
+    await page.locator("#settingsPage .smd-tab-btn").filter({ hasText: "Display" }).click();
+    await expect(page.locator("#themeSelector .smd-theme-select")).toBeVisible();
+    await expect(page.locator("#themeSelector .smd-theme-mode-select")).toBeVisible();
+
+    // Theme persists in the solarcontrolar_ namespace.
+    await pickOption(page, "#themeSelector .smd-theme-select", "brite");
+    await pickOption(page, "#themeSelector .smd-theme-mode-select", "dark");
+    await expect.poll(async () => page.evaluate(() => localStorage.getItem("solarcontrolar_theme"))).toBe("brite");
+    await expect.poll(async () => page.evaluate(() => localStorage.getItem("solarcontrolar_themeMode"))).toBe("dark");
+    await expect(page.locator("html")).toHaveAttribute("data-bs-theme", "dark");
+    await expect(page.locator("#themeSelector")).toHaveAttribute("mode", "dark");
   });
 
   test("settings OK closes the page", async ({ page }) => {

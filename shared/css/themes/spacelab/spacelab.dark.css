@@ -2,3 +2,42 @@
    whenever this theme is selected in Dark mode. Add theme-specific overrides
    here. This sheet is only ever loaded in this mode, so selectors do not need a
    `[data-bs-theme="dark"]` qualifier. */
+
+/* smd-contrast:start - generated WCAG AA contrast overrides. Do not edit by hand:
+   regenerate with  SMD_CONTRAST_FIX=1 npx playwright test tests/contrast-css.spec.js
+   (tests/contrast-css.spec.js fails when this block no longer matches the theme). */
+.btn-secondary, .btn-success {
+  --bs-btn-color: #000;
+  --bs-btn-hover-color: #000;
+  --bs-btn-active-color: #000;
+  --bs-btn-disabled-color: #000;
+}
+.btn-secondary,
+.btn-secondary:hover, .btn-secondary:focus-visible,
+.btn-secondary:active,
+.btn-secondary:disabled, .btn-secondary.disabled,
+.btn-success,
+.btn-success:hover, .btn-success:focus-visible,
+.btn-success:active,
+.btn-success:disabled, .btn-success.disabled {
+  color: #000 !important;
+}
+.btn-warning, .btn-info {
+  --bs-btn-color: #000;
+  --bs-btn-hover-color: #000;
+  --bs-btn-disabled-color: #000;
+}
+.btn-warning,
+.btn-warning:hover, .btn-warning:focus-visible,
+.btn-warning:disabled, .btn-warning.disabled,
+.btn-info,
+.btn-info:hover, .btn-info:focus-visible,
+.btn-info:disabled, .btn-info.disabled {
+  color: #000 !important;
+}
+smd-tabs .smd-tab-btn.text-bg-secondary,
+smd-tabs .smd-tab-btn.text-bg-secondary:hover,
+smd-tabs .smd-tab-btn.text-bg-secondary:focus-visible {
+  color: #2d2d2d !important;
+}
+/* smd-contrast:end */

@@ -55,6 +55,29 @@ smd-h1 h1, smd-h2 h2 { font-size: inherit; }
 button, .btn { font-size: var(--smd-type-h2, 1.25rem); }
 button.btn-sm, .btn-sm { font-size: var(--smd-type-p, 1rem); }
 
+/* FORM TEXT follows the Font Size setting too (2026-10-18, user-reported on
+   PlanMyDay's View Job page). The setting moves <body>'s font-size and the shared
+   tokens are em-based, so the ramp follows - but FORM text was the exception:
+   Bootstrap pins `.form-control` / `.form-select` to a rem `font-size` (a fixed
+   16px), and superhero/yeti pin plain `label` to `.875rem` (a fixed 14px against
+   the default xlarge 20.8px body), so field labels, inputs, selects, textareas and
+   checkbox labels stayed put while tabs, buttons and body text grew. Pin them to
+   the p token so they track <body>, exactly like `#mainNav .dropdown-menu` below.
+   Colours are deliberately untouched: the themes keep their own field look. */
+label,
+.form-label,
+.form-check-label,
+.col-form-label,
+.form-control,
+.form-select,
+.form-check-input,
+.input-group-text,
+textarea,
+select,
+input {
+  font-size: var(--smd-type-p);
+}
+
 
 /* FORM CONTROLS ---------------------------------------------------------
    Field SURFACE, TEXT and BORDER all come from Bootswatch itself: the shared
@@ -113,23 +136,52 @@ button.btn-sm, .btn-sm { font-size: var(--smd-type-p, 1rem); }
   color: var(--bs-body-color);
 }
 
+/* The TOOLBAR and its menu follow the Font size setting. Several themes pin
+   `.navbar` to a rem size (brite `1.09375rem` = a fixed 17.5px against the
+   default xlarge 20.8px body; journal 18px, litera 15.4px, lux/zephyr 14px) and
+   others pin the menu itself (`--bs-dropdown-font-size`, sandstone/yeti's 13px
+   `.dropdown-item`), so the hamburger menu came out SMALLER than the page text
+   and ignored the setting. `#mainNav` is (1,0,0) so it beats the theme's
+   `.navbar` (0,1,0), and the em token then resolves against the body-derived
+   parent. */
+#mainNav,
+#mainNav .dropdown-menu,
+#mainNav .dropdown-item {
+  font-size: var(--smd-type-p);
+}
+
 /* The HAMBURGER dropdown is painted with the body colour so it is fully opaque
    and matches the page. Scoped to #mainNav on purpose: other .dropdown-menus
    (e.g. the Gantt Streams filter) own a themed surface via --bs-dropdown-bg and
-   must keep it. Bootswatch also re-sets .dropdown-menu to a rem-based font-size
-   (a fixed 14px on superhero), so it ignored the Font Size setting; pin the nav
-   menu to the shared p token so it tracks <body> like the rest of the UI. A
+   must keep it. Bootswatch also re-sets .dropdown-menu to a rem-based font-size,
+   so it ignored the Font Size setting; the rule above pins it to the shared p
+   token. The menu's TEXT is the body colour because the SURFACE we force is the
+   body surface - a theme's own `--bs-dropdown-link-color` can be a greyer value
+   that no longer matches it (quartz dark ships #dee2e6 against a #fff body
+   colour). Hover/active keep that same text colour and only TINT the surface
+   with the text colour, so a highlight can never drop the label's contrast. A
    visible border (the theme's solid border colour) separates the popup from the
    page, which shares the same background. */
 #mainNav .dropdown-menu {
   background-color: var(--bs-body-bg);
   border: 1px solid var(--bs-border-color);
+  /* The "Launch" flyout is positioned at `left: 100%` of its parent menu item, so
+     any ancestor with `overflow: hidden` clips it away. sketchy is the only theme
+     that sets `.dropdown-menu{overflow:hidden}` (2026-10-19: its Main Menu |
+     Launch submenu was invisible in BOTH modes - the flyout had a geometry rect
+     but `elementFromPoint` landed on the page behind it). `border-radius` still
+     clips the background, so the theme's hand-drawn shape is not affected. */
+  overflow: visible;
   /* Bootstrap's default divider is a translucent BLACK (Bootswatch keeps it
      opaque-black per theme), which vanishes against the dark menu surface in
      themes like superhero (both modes). Use the theme's solid border colour,
      which is chosen to contrast with --bs-body-bg. */
   --bs-dropdown-divider-bg: var(--bs-border-color);
-  font-size: var(--smd-type-p);
+  --bs-dropdown-link-color: var(--bs-body-color);
+  --bs-dropdown-link-hover-color: var(--bs-body-color);
+  --bs-dropdown-link-hover-bg: rgba(var(--bs-body-color-rgb), 0.12);
+  --bs-dropdown-link-active-color: var(--bs-body-color);
+  --bs-dropdown-link-active-bg: rgba(var(--bs-body-color-rgb), 0.2);
 }
 
 /* SORTABLE DRAG-REORDER HOOKS

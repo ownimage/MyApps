@@ -140,13 +140,6 @@
           </div>
 
           <div class="row mb-4 align-items-center col-md-8">
-            <div class="col-4 text-end"><label class="form-label mb-0">Auto-hide menu</label></div>
-            <div class="col-8">
-              <smd-checkbox id="autoHideMenu" switch onchange="changeAutoHideMenu(this.checked)"></smd-checkbox>
-            </div>
-          </div>
-
-          <div class="row mb-4 align-items-center col-md-8">
             <div class="col-4 text-end"><label class="form-label mb-0">Hide done</label></div>
             <div class="col-8">
               <smd-checkbox id="hideDone" switch onchange="changeHideDone(this.checked)"></smd-checkbox>
@@ -194,20 +187,20 @@
           </div>
 
           <div class="row mb-4 align-items-center col-md-8">
-            <div class="col-4 text-end"><label class="form-label mb-0">Tile density</label></div>
-            <div class="col-8">
-              <smd-select id="densitySelector" class="form-select" onchange="changeDensity(this.value)">
-                <option value="normal">Normal</option>
-                <option value="compact">Compact</option>
-              </smd-select>
-            </div>
-          </div>
-          <div class="row mb-4 align-items-center col-md-8">
             <div class="col-4 text-end"><label class="form-label mb-0">Touch size</label></div>
             <div class="col-8">
               <smd-select id="touchSizeSelector" class="form-select" onchange="changeTouchSize(this.value)">
                 <option value="normal">Normal</option>
                 <option value="large">Large</option>
+              </smd-select>
+            </div>
+          </div>
+          <div class="row mb-4 align-items-center col-md-8">
+            <div class="col-4 text-end"><label class="form-label mb-0">Tile density</label></div>
+            <div class="col-8">
+              <smd-select id="densitySelector" class="form-select" onchange="changeDensity(this.value)">
+                <option value="normal">Normal</option>
+                <option value="compact">Compact</option>
               </smd-select>
             </div>
           </div>
@@ -223,15 +216,21 @@
             </div>
           </div>
           <div class="row mb-4 align-items-center col-md-8">
-            <div class="col-4 text-end"><label class="form-label mb-0">Screen resolution</label></div>
+            <div class="col-4 text-end"><label class="form-label mb-0">Auto-hide menu</label></div>
             <div class="col-8">
-              <span id="screenResolution" class="form-control-plaintext"></span>
+              <smd-checkbox id="autoHideMenu" switch onchange="changeAutoHideMenu(this.checked)"></smd-checkbox>
             </div>
           </div>
           <div class="row mb-4 align-items-center col-md-8">
             <div class="col-4 text-end"><label class="form-label mb-0">Show Gantt</label></div>
             <div class="col-8">
               <smd-checkbox id="showGantt" switch onchange="changeShowGantt(this.checked)"></smd-checkbox>
+            </div>
+          </div>
+          <div class="row mb-4 align-items-center col-md-8">
+            <div class="col-4 text-end"><label class="form-label mb-0">Screen resolution</label></div>
+            <div class="col-8">
+              <span id="screenResolution" class="form-control-plaintext"></span>
             </div>
           </div>
         </section>
@@ -344,45 +343,46 @@
             </div>
           </div>
 
-          <div id="regenerateTilesRow" class="row mb-4 align-items-center col-md-8 d-none">
+          <div id="regenerateTilesRow" class="row mb-4 mt-4 align-items-center d-none">
             <div class="col-4 text-end"></div>
             <div class="col-8">
-              <button id="btnRegenerateTiles" class="btn btn-primary editor-btn btn-wide w-100" onclick="regenerateTiles()">Regenerate Today's Tiles</button>
+              <smd-button id="btnRegenerateTiles" block variant="secondary" onclick="regenerateTiles()">Regenerate Main Tiles</smd-button>
             </div>
           </div>
 
-          <div id="sortJobsInStreamsRow" class="row mb-4 align-items-center col-md-8 d-none">
+          <div id="sortJobsInStreamsRow" class="row mb-4 align-items-center d-none">
             <div class="col-4 text-end"></div>
             <div class="col-8">
-              <button id="btnSortJobsInStreams" class="btn btn-primary editor-btn btn-wide w-100" onclick="sortJobsInStreams()">Sort Jobs in Streams</button>
+              <smd-button id="btnSortJobsInStreams" block variant="secondary" onclick="sortJobsInStreams()">Sort Jobs in Streams</smd-button>
             </div>
           </div>
 
-          <div id="clearAllDataRow" class="row mb-4 align-items-center col-md-8 d-none">
+          <div id="refreshAppRow" class="row mb-4 mt-4 align-items-center d-none">
             <div class="col-4 text-end"></div>
             <div class="col-8">
-              <button id="btnClearAllData" class="btn btn-danger editor-btn btn-wide w-100" onclick="confirmClearAllData()">Clear All Data</button>
+              <smd-button id="btnRefreshApp" block variant="warning" onclick="location.reload()">Refresh App</smd-button>
             </div>
           </div>
-          <div id="refreshAppRow" class="row mb-2 align-items-center col-md-8 d-none">
+          <div id="clearAllDataRow" class="row mb-4 align-items-center d-none">
             <div class="col-4 text-end"></div>
             <div class="col-8">
-              <button id="btnRefreshApp" class="btn btn-warning editor-btn btn-wide w-100" onclick="location.reload()">Refresh App</button>
+              <smd-button id="btnClearAllData" block variant="danger" onclick="confirmClearAllData()">Clear local storage PMD</smd-button>
             </div>
           </div>
-          <div id="uploadStandardImagesRow" class="row mb-2 align-items-center col-md-8 d-none">
+
+          <div id="uploadStandardImagesRow" class="row mb-4 mt-4 align-items-center d-none">
             <div class="col-4 text-end"></div>
             <div class="col-8">
-              <button id="btnUploadImages" class="btn btn-primary editor-btn btn-wide w-100" onclick="uploadStandardImages()">Upload Standard Images</button>
+              <smd-button id="btnUploadImages" block variant="warning" onclick="uploadStandardImages()">Upload Standard Images</smd-button>
             </div>
           </div>
-          <div id="devTodayRow" class="row mb-2 align-items-center col-md-8 d-none">
+          <div id="devTodayRow" class="row mb-4 align-items-center col-md-8 d-none">
             <div class="col-4 text-end"><label class="form-label mb-0">Dev Today</label></div>
             <div class="col-8">
               <input class="form-control" id="devTodayInput" placeholder="Pick a date">
             </div>
           </div>
-          <div id="devLastGenRow" class="row mb-2 align-items-center col-md-8 d-none">
+          <div id="devLastGenRow" class="row mb-4 align-items-center col-md-8 d-none">
             <div class="col-4 text-end"><label class="form-label mb-0">Dev Last Gen</label></div>
             <div class="col-8">
               <input class="form-control" id="devLastGenInput" placeholder="Pick a date">

@@ -67,3 +67,71 @@
 #smd-app #categoriesEditor lol-category-header[expanded] .category-accordion-header {
     background-color: color-mix(in hsl, var(--bs-success) 40%, black) !important;
 }
+
+/* Warning buttons (the Danger-tab "Refresh App" and data-loading actions).
+   Bootswatch sets `.btn-warning` text to white (#fff) on its amber surface;
+   this theme uses the BODY BACKGROUND colour instead, so the label reads as the
+   dark page surface on the amber (light #0f2537, dark #212529) and is clearly
+   different from white. Applies to every button state (user, 2026-10-18). */
+.btn-warning {
+    --bs-btn-color: var(--bs-body-bg);
+    --bs-btn-hover-color: var(--bs-body-bg);
+    --bs-btn-active-color: var(--bs-body-bg);
+    --bs-btn-disabled-color: var(--bs-body-bg);
+}
+
+/* smd-contrast:start - generated WCAG AA contrast overrides. Do not edit by hand:
+   regenerate with  SMD_CONTRAST_FIX=1 npx playwright test tests/contrast-css.spec.js
+   (tests/contrast-css.spec.js fails when this block no longer matches the theme). */
+.btn-primary {
+  --bs-btn-color: #0f2537;
+  --bs-btn-disabled-color: #0f2537;
+}
+.btn-primary,
+.btn-primary:disabled, .btn-primary.disabled {
+  color: #0f2537 !important;
+}
+.btn-success {
+  --bs-btn-color: #0f2537;
+  --bs-btn-hover-color: #0f2537;
+  --bs-btn-active-color: #000;
+  --bs-btn-disabled-color: #0f2537;
+}
+.btn-success,
+.btn-success:hover, .btn-success:focus-visible,
+.btn-success:disabled, .btn-success.disabled {
+  color: #0f2537 !important;
+}
+.btn-success:active {
+  color: #000 !important;
+}
+.btn-danger {
+  --bs-btn-color: #000;
+  --bs-btn-disabled-color: #000;
+}
+.btn-danger,
+.btn-danger:disabled, .btn-danger.disabled {
+  color: #000 !important;
+}
+.btn-info, .btn-light {
+  --bs-btn-color: #0f2537;
+  --bs-btn-hover-color: #0f2537;
+  --bs-btn-active-color: #0f2537;
+  --bs-btn-disabled-color: #0f2537;
+}
+.btn-info,
+.btn-info:hover, .btn-info:focus-visible,
+.btn-info:active,
+.btn-info:disabled, .btn-info.disabled,
+.btn-light,
+.btn-light:hover, .btn-light:focus-visible,
+.btn-light:active,
+.btn-light:disabled, .btn-light.disabled {
+  color: #0f2537 !important;
+}
+smd-tabs .smd-tab-btn.text-bg-primary,
+smd-tabs .smd-tab-btn.text-bg-primary:hover,
+smd-tabs .smd-tab-btn.text-bg-primary:focus-visible {
+  color: #0f2537 !important;
+}
+/* smd-contrast:end */

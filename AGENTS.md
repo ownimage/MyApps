@@ -11,7 +11,7 @@
 10: AGENTS.md NOTES: whenever you discover something a future session needs (architecture decisions, gotchas, upstream workflow, test recipes), add a useful, dated note to AGENTS.md — not just a session-log line. Keep notes concrete (file paths, function names, exact commands) and delete/condense notes that have gone stale.
 11: LIGHT-DOM CHROMIUM RULE (2026-09-19): a custom element whose CONSTRUCTOR appends child nodes to `this` (e.g. `this.appendChild(TEMPLATE.content.cloneNode(true))`) THROWS `NotSupportedError: Failed to execute 'createElement' on 'Document': The result must not have children` the moment an app creates it via `document.createElement(tag)`. Deferred, guarded append in `connectedCallback()` is safe; `attachShadow()` in the constructor is safe. This is why `shared/js/components/{smd-image-card,smd-image-select,smd-image-dropdown,smd-date-picker}.js` all build via `_build()` from `connectedCallback` (they were the last four hanging onto the constructor pattern and broke `cmd-regression.spec.js` test 444's images editor + the 3x "must not have children" pageerrors seen in test 615). When converting shadow→light DOM, ALWAYS move template cloning into `connectedCallback`, never the constructor. Watch for `setAttribute("hidden", "true"/"false")` too: `hidden` is a BOOLEAN attribute, so ANY presence hides the element (fine as `.hidden = true/false` property only); `CountMyDays/js/dates-editor.js` + `googleCalendarEditor.js` had this and it made every `cmd-date-card` 0x0/display:none.
 12: THEME TEXT VARS ARE LIVE AGAIN (2026-09-19): the light-DOM refactor reduced `applySmdVars()` in `shared/js/smd-settings.js` to a no-op AND dropped `color: var(--smd-tab-text)` from the inactive-tab rule in `shared/css/styles.css` → inactive tabs fell back to hardcoded `#fff`, failing pmd-regression:641 "inactive tabs use the Bootswatch secondary button text colour" (white instead of the theme's `btn btn-secondary` text, e.g. `rgb(73,80,87)` on cerulean). RESTORED the REAL `applySmdVars()` (hidden `.btn btn-secondary` probe → publishes `--smd-tab-text` + the `--smd-{primary,secondary,success,danger,info,warning}-text` vars on `:root`) with `applyTheme()` re-running it on the theme `<link>` `load`, plus DOMContentLoaded + window `load` hooks; tab CSS now `color: var(--smd-tab-text, #fff)`. Rule: a light-DOM component sitting on a theme-coloured surface must consume `var(--smd-<variant>-text)` / `var(--smd-tab-text)` — NEVER a hardcoded colour — or it won't match the Bootswatch theme. The stubs `smdBootstrapStyle/smdBootstrapColor` are real functions again.
-13: CENTRALIZED WCAG CONTRAST GENERATOR (2026-09-22): low contrast on themed surfaces was systemic (white-on-info ≈1.8–2.1 on quartz/slate/yeti/superhero/lumen, white-on-success ≈1.5–2.9 on vapor/minty/slate/darkly, white-on-warning ≈1.3–2.5). The fix is ONE shared module `shared/js/smd-contrast.js` (`window.SmdContrast` + global `applySmdContrastVars()`), loaded right AFTER `smd-settings.js` in every app's `index.html` (all 5 apps + root Launch index + storybook) and in `sw.js` SHARED_ASSETS. It reads the loaded theme's `--bs-*` surfaces off `:root` and publishes `--smd-on-{primary,secondary,success,danger,warning,info,body}`, `--smd-tab-active-text`, `--smd-muted-header-text`, `--smd-rgb-*` (debug) and the existing consumer aliases `--smd-{variant}-text`. HYBRID RULE: a theme keeps its OWN text when its choice already meets WCAG AA ≥4.5 (read from the `--smd-*-text` values `applySmdVars()` set just before), otherwise the generator substitutes pure `#000`/`#fff` (`bestText`, max contrast) — so thumb-tested themes (cerulean dark-grey secondary etc.) are untouched and only genuinely failing themes change. `applySmdVars()` in smd-settings.js calls `applySmdContrastVars()` (guarded by `typeof`) at its end, so the theme-selector flow triggers it; the module also self-heals on load if the palette already went live. PROBE GUARD `smd-probe`: shared/css/styles.css overrides `--bs-btn-color`/badge text with the generated vars matched `:not(.smd-probe)` — the hidden probe `smdBootstrapStyle()` in smd-settings.js and the pmd-regression `bootswatchColor()`/`bootswatchBadge()` helpers all add the `smd-probe` class so they keep reading the RAW Bootswatch colour (no circular read). Surfaces that now consume the palette: active tabs `var(--smd-tab-active-text)` (was hardcoded #fff), `.nav-tabs-info .nav-link.active` `var(--smd-on-info)`, page/modal header h1/h3 `var(--smd-muted-header-text)`, `.badge.text-bg-*`/`smd-badge.text-bg-*` colour, and `button/a/.btn-{primary,secondary,success,danger,warning,info}` `--bs-btn-*-color` overrides (hybrid keeps the theme look where it already passes). pmd-regression "badges use the centralized contrast palette and meet WCAG AA" asserts the badge text equals the palette value AND that its contrast ratio ≥4.5 (helper `ratioOf` recomputes WCAG ratio in-page). When wiring a NEW themed surface: consume `var(--smd-on-<variant>)`/`var(--smd-tab-active-text)`/`var(--smd-muted-header-text)` instead of hardcoding `#fff`/`color-mix(..., white)`.
+13: CONTRAST IS BAKED INTO THE THEME CSS (2026-10-19): no runtime code measures or repaints colours. Each theme's per-mode sheet carries a generated block (`smd-contrast:start` / `:end`); `tests/contrast-css.spec.js` fails when it drifts and `SMD_CONTRAST_FIX=1` regenerates it, while `tests/contrast.spec.js` asserts the rendered result meets WCAG AA 4.5:1 across all themes/modes and fails if anything injects a normaliser at runtime. The older centralized-generator design (2026-09-22: `SmdContrast`, `applySmdVars()`, published `--smd-on-*`/`--smd-*-text` variables, a hidden `smd-probe` element) and the 2026-10-18 runtime module at the same path are BOTH gone - do not reintroduce a runtime contrast layer. The generated rules treat a control's surface as the DARKEST extent of its `background-image` gradient (a flat `background-color` read hid slate dark's secondary button, whose ramp runs to #62686d), and sketchy + slate additionally make PRIMARY borrow the DANGER palette for `<smd-button>`/`<smd-tabs>` via a hand-written block ABOVE the markers (see that note).
 14: STORYBOOK `_bound` GUARD FOR LIGHT-DOM COMPONENTS (2026-09-22): the pmd-* light-DOM cards/headers (`pmd-stream-header`, `pmd-stream-job-card`, `pmd-job-today-card`, `pmd-job-search-card`) each clone their template in `connectedCallback` under a `this._bound` flag, but their `attributeChangedCallback` used to gate `_render` on only `this.isConnected`. When the storybook's demo code does `host.innerHTML = '<pmd-stream-header ...>'` on an ALREADY-CONNECTED host, the HTML parser fires `attributeChangedCallback` for each attribute BEFORE `connectedCallback` clones the template, so `_render` hit missing nodes (`Cannot set properties of null (setting 'textContent')`, 45 page errors). Chromium's incremental parser inserts the element into the live tree (isConnected=true) before the upgrade finishes, so `isConnected` alone is NOT a sufficient guard. FIX (applied to all four): `attributeChangedCallback() { if (this._bound && this.isConnected) this._render(); }`. Rule: any light-DOM component that builds in `connectedCallback` must gate attribute-triggered renders on the built flag too, NEVER `isConnected` alone. Verify with `tests/storybook-regression.spec.js` (Storybook - Regression: boots with no console/page errors/no failed requests, component demos render their host elements, theme swap re-renders sections without page errors) — run it whenever storybook or the pmd-* components change.
 15: Do not write non UTF-8 characters to AGENTS.md
 17: ACCESS (2026-10-05): at the START of every session, ALWAYS ask for access to the WHOLE of `p:\git\MyApps` (the entire repo tree, not a subfolder) before reading, editing or running anything. Never assume the working directory or a partial scope is enough; confirm full-repo access first.
@@ -156,7 +156,8 @@ Architecture:
   by `localStorage["smdSwDriftReloadedFor"]` so it cannot loop. The new worker's
   activate step then deletes the stale `myapps-<old>` cache. A worker NEWER than
   the page is just a pending update, so it only logs a warning.
-  "NO CACHE" MODE (2026-09-27): PlanMyDay's Danger tab has a "No Cache" switch
+  "NO CACHE" MODE (2026-09-27; ON EVERY APP SINCE 2026-10-18): the Danger tab's
+  "No Cache" switch
   (`#noCacheRow`, key `smdKey("noCache")`) that makes the worker read every file
   from disk instead of the precache, so a fresh deploy is visible on the next
   load. It is a worker MODE, not an unregister: `serveNetworkFirst()` re-fetches
@@ -322,6 +323,302 @@ Architecture:
   `_set_app_icon_pref`/`_app_icon_prefs` ("preferred icon source") — no current UI
   sends that event, so the `preferred` branch of `_cache_icon` is unreachable from
   the app.
+- SETTINGS PAGE SHAPE IS SHARED (2026-10-18, user rule): every app's Settings page
+  uses the SAME tabs in the SAME order - **General, Display, then the app's own** -
+  and a tab left with nothing in it is REMOVED (QRLinks and ListOfLists lost their
+  General tab that way; QRLinks' old `general-tab` is now the Display tab with id
+  `appearance-tab`). The **Display** tab holds the shared appearance rows in this
+  exact order: `Theme`, `Theme Mode` (both from `<smd-theme>`, one component),
+  `Font size`, `Icon size`, `Touch size`, `Tile density`, `Slide speed`,
+  `Auto-hide menu`, then any app-specific extras - and **`Screen resolution` is
+  always the LAST row** (PlanMyDay's "Show Gantt" sits before it; ListOfLists has
+  no extras, so there it simply follows Auto-hide).
+  Current shape:
+    Launch         Display, Menu, Danger
+    PlanMyDay      General, Display, Schedule, Minio, Danger
+    CountMyDays    General, Display, G Cal, Minio, Danger  (General = Countdown
+                   display + Max countdowns)
+    QRLinks        Display, Danger
+    SolarControlar General, Display, Danger                (General = Flask fields
+                   + Auto-refresh)
+    FreeFormOX     Display, Game, Danger                   (Game = X/O names+styles,
+                   Show undo/redo, Swap)
+    ListOfLists    Display, Minio, Danger
+    PhoneButtons   Display, Server, Danger
+  NO DEAD CONTROLS (user): a row is only present where the setting does something.
+  `Icon size` is therefore ABSENT in SolarControlar and FreeFormOX (no
+  `<smd-image>`), and `Tile density` only exists in PlanMyDay/CountMyDays/QRLinks/
+  ListOfLists (the apps that already had it). Everything else - Touch size (drives
+  `<smd-checkbox>`/`<smd-draghandle>`), Slide speed (`smd-page`), Auto-hide menu
+  (the shared nav) - is meaningful in every app and was ADDED where missing.
+  SHARED ENGINE: `smdSetupSettingsPage()` (smd-app.js) now also restores
+  `touchSizeSelector` + `slideDurationSelector` (it already did theme/mode, font,
+  icon, density, auto-hide, show-danger), and `changeTouchSize()` +
+  the DOMContentLoaded boot call `SmdCheckbox.setDefaultSize` /
+  `SmdDragHandle.setDefaultSize` DIRECTLY - an app no longer needs an
+  `applyTouchSize()` hook for the control to work (PlanMyDay/ListOfLists still
+  have one; it is now redundant but harmless, and ListOfLists' `restore` keeps its
+  "large" default because it runs after the shared restore).
+  LABELS were aligned too: Launch + PhoneButtons said "Image size" for the same
+  `#iconSizeSelector` -> now "Icon size" everywhere.
+  TEST: `tests/settings-alignment.spec.js` "Settings page shape is consistent
+  across apps" iterates ALL 8 shells and asserts the exact tab list + the exact
+  Display row labels IN ORDER (read from the DOM). Adding/moving an appearance
+  control = update that table. Any spec that touches a moved control must first
+  activate the Display tab (the settings page opens on the FIRST tab, which is
+  General where it exists).
+  UNIFORM VERTICAL RHYTHM (2026-10-18, user-reported on FreeFormOX): every row on
+  the page is `mb-4` (1.5rem) - the same gap `<smd-theme>` injects - so the space
+  between ANY two rows is identical. FreeFormOX's Display rows were `mb-3` against
+  the theme's 1.5rem (the reported inconsistency) and its Game tab was `mb-3` too;
+  both are `mb-4` now. The same spec asserts it for all 8 apps by reading the
+  computed `margin-bottom` of every `.smd-theme-field` AND every `div.row.col-md-8`
+  in the active panel and requiring exactly ONE distinct value
+  ("<App>: the Display tab keeps one uniform vertical rhythm").
+  MOVING A ROW? GREP THE SUITE FOR ORDER ASSERTIONS FIRST (2026-10-18, my miss):
+  `pmd-gantt`'s "Show Gantt is the last control on the Display tab" test encoded the
+  pre-2026-10-18 layout (`expect(order[order.length - 1]).toBe("Show Gantt")`) and
+  broke the moment Screen resolution became last - it was the only failure in the
+  user's full run. It now asserts `expect(order.slice(-2)).toEqual(["Show Gantt",
+  "Screen resolution"])`. Before/after any reorder or row move, run
+  `rg -n "Screen resolution|Show Gantt|order\[|last control" tests/` and read the
+  display-order TABLES in this file and in `tests/settings-alignment.spec.js`.
+- DANGER TAB SHAPE IS SHARED (2026-10-18, user rule): one canonical order, using
+  only the rows an app actually has; a row that does not apply is DROPPED, and an
+  empty group leaves no trace:
+    1. `Show danger` (the switch)   2. `No cache` (the switch)
+    <gap> 3. `Regenerate Main Tiles`   4. `Sort <existing app name>` (PMD "Sort
+    Jobs in Streams", LoL "Sort Lists in Categories" - NEVER renamed)
+    <gap> 5. `Refresh App`   6. `Clear local storage <APP>`   7. `Clear Google
+    cache` (CountMyDays only)
+    <gap> 8. the data loaders: `Load Sample Data` (CMD's Google sample), `Load
+    Sample Links` / `Load Sample Images` (QRLinks), `Upload Standard Images`
+  A GAP is `mt-4` on a group's first visible row (all rows are `mb-4`), so a group
+  that is empty for an app contributes nothing and there are NEVER two gaps in a
+  row. COLOURS (user decision, 2026-10-18: nothing is success/green): destructive
+  `Clear *` = `btn-danger`; bulk maintenance `Regenerate`/`Sort` = `btn-secondary`
+  (NOT warning); `Refresh App` and EVERY loader/upload = `btn-warning`; the two
+  switches have no colour. `superhero` (the default theme) additionally renders
+  `btn-warning` text in the BODY BACKGROUND colour (`var(--bs-body-bg)`, the dark
+  navy surface) instead of Bootswatch's white-on-amber, in BOTH modes - the body
+  TEXT colour was tried first but is nearly identical to white (#ebebeb/#ced4da),
+  so it looked unchanged. Rule in
+  `shared/css/themes/superhero/superhero.{light,dark}.css`, guarded by
+  pmd-regression "superhero warning buttons use the body background colour in both
+  modes" (asserts BOTH a probe and the real `#btnRefreshApp-button`). EVERY action
+  button is the shared `<smd-button block variant="…">`
+  ("block" makes the host a block box and the inner button `w-100`, so a column of
+  them is all one size - the user asked for the component and one size); the host
+  keeps the old id (`#btnClearAllData`), the inner button is `<id>-button`. Per-app
+  rows:
+    PMD      Show danger, No Cache, Regenerate Main Tiles, Sort Jobs in Streams,
+             Refresh App, Clear local storage PMD, Upload Standard Images (+ dev rows)
+    CMD      Show danger, No Cache, Refresh App, Clear local storage CMD,
+             Clear Google cache, Load Sample Data, Upload Standard Images
+    QRLinks  Show danger, No Cache, Refresh App, Clear local storage QR,
+             Load Sample Links, Load Sample Images
+    Solar    Show danger, No Cache, Refresh App, Clear local storage Solar
+    LoL      Show danger, No Cache, Regenerate Main Tiles, Sort Lists in Categories,
+             Refresh App, Clear local storage LoL, Upload Standard Images (+ dev rows)
+    PB       Show danger, No Cache, Refresh App, Clear local storage PB
+    Launch   Show danger, No Cache, Refresh App, Clear local storage Launch,
+             Upload Standard Images
+    FFOX     Show danger, No Cache, Refresh App, Clear local storage FFOX,
+             Upload Standard Images
+  Each app clears ONLY ITS OWN DATA: `smdConfirmClearAllData()` removes just the
+  keys under `SmdConfig.storagePrefix` (PhoneButtons is uniform now - its old
+  theme/font/images keep-list is gone), so other apps' keys and the shared
+  `shared-images` library always survive; PMD/LoL no longer wipe all of
+  localStorage. Launch/FreeFormOX were ADDED a Danger tab on user request
+  (2026-10-18) with the applicable rows only (no tile list); both later gained the
+  `Upload Standard Images` loader (user request 2026-10-19) - FreeFormOX therefore
+  also loads `shared/js/smd-images.js` and sets `SmdConfig.imagePrefix = "shared-"`
+  so the upload lands in the ONE shared library (`shared-images`), not an
+  app-private `ffox_images` list. Their `confirmClearAllData` still only clears
+  their own prefix, so that library is never wiped.
+  EVERY Danger ACTION ROW IS FULL WIDTH (user request 2026-10-19: "the buttons are
+  too narrow, they should start after where the label would be and continue the
+  full width"): the action rows used to carry `col-md-8` on the ROW as well as the
+  inner `col-4`/`col-8`, so a button was only 8/12 of 8/12 ~= 44% of the page. The
+  action rows (any row containing an `<smd-button>`) dropped the row-level
+  `col-md-8`, so they span the container and `col-4 + col-8` puts the button at the
+  label column (1/3) running to the right edge; the two SWITCH rows keep
+  `col-md-8`. `settings-alignment` asserts this per app (button right edge within
+  24px of the row's, left edge >= row/3 - 24, width > 55% of the row) AND now
+  selects Danger rows with `div.row` (not `div.row.col-md-8`, which would miss the
+  full-width rows).
+  DANGER ACTIONS MUST ACTUALLY RUN (2026-10-19): the shape test only checked
+  MARKUP, and FreeFormOX shipped `confirmClearAllData()` + Upload Standard Images
+  calling `showSmdModal()` with no `shared/js/components/smd-modal.js` loaded, so
+  both died with `modal.show is not a function` and no confirm ever appeared. The
+  shell now loads smd-modal.js, and a new settings-alignment test clicks "Clear
+  local storage <APP>" (id `#btnClearAllData`, or PhoneButtons' `#btnClearStorage`)
+  and the uploader in ALL 8 apps and asserts `#smdConfirmModal` opens with its
+  buttons - then Cancels.
+  WIRING: `changeNoCache` now lives ONCE in `shared/js/smd-settings.js` (it was
+  duplicated in PlanMyDay + ListOfLists); every app's Danger markup just needs the
+  `#noCacheRow` block, and the id must be in that app's danger-id list (PMD
+  `pmdDangerIds()`, LoL `lolDangerIds()`, CMD `CMD_DANGER_IDS`, QR
+  `QRLINK_DANGER_IDS`, PB's two inline arrays, Solar's `toggleDangerRows`, Launch
+  `launchDangerIds()`, FFOX `ffoxDangerIds()`). CMD's
+  old combined `#gcalDangerRow` (2 buttons in one row) is SPLIT into
+  `#clearGcalCacheRow` + `#loadGcalSampleRow`. SolarControlar gained
+  `confirmClearAllData()` (a thin `smdConfirmClearAllData` wrapper) + a
+  `#noCache` restore in `openSettings()` - Solar implements its settings page
+  itself, so it does not get the shared restores. Launch + FFOX gained
+  `changeShowDanger`/`confirmClearAllData` wrappers and `dangerIds` in their
+  `smdSetupSettingsPage`/`openSettings` call. Button IDS were deliberately kept
+  (`#btnClearAllData`, `#btnClearStorage`, `#btnRegenerateTiles`, ...) - only the
+  markup (`<smd-button block>`), the LABELS and the modal title changed. The clear
+  modal reads `Clear ALL <App> data?` (per-app), so tests asserting the old
+  generic "Clear All Data?" copy had to be updated.
+  TEST: `tests/settings-alignment.spec.js` "Danger tab shape is consistent across
+  apps" - one test per app asserting the exact visible row order, the colour of
+  every row, and that no two consecutive rows both carry a gap. Update its table
+  with any Danger change.
+- FONT SIZE COVERS FORM TEXT + THE TOOLBAR (2026-10-18, user-reported): the setting  moves `<body>`'s font-size and the `--smd-type-*` tokens are `em`, so the ramp
+  follows - but three things were pinned to rem/px and ignored it:
+  (a) Bootstrap's `.form-control` / `.form-select` (`font-size:1rem`) and
+  superhero/yeti's plain `label { font-size:.875rem }` - against the default
+  `xlarge` 20.8px body, every field label, input, select, textarea and checkbox
+  label sat at 14-16px while tabs/buttons grew. `shared/css/styles.css` now pins
+  `label`, `.form-label`, `.form-check-label`, `.col-form-label`, `.form-control`,
+  `.form-select`, `.form-check-input`, `.input-group-text`, `textarea`, `select`,
+  `input` to `var(--smd-type-p)` (colours untouched - themes keep their own field
+  look). Reported on PlanMyDay's View Job page.
+  (b) `#mainNav` and its menu: themes pin `.navbar` to a rem size (brite
+  `1.09375rem` = 17.5px, journal 18px, litera 15.4px, lux/zephyr 14px) or the
+  dropdown itself (sandstone/yeti 13px `.dropdown-item`, brite/others
+  `--bs-dropdown-font-size: .875rem`), so the hamburger menu came out SMALLER than
+  the page text. `#mainNav`, `#mainNav .dropdown-menu`, `#mainNav .dropdown-item`
+  are pinned to `var(--smd-type-p)`; `#mainNav` (1,0,0) beats the theme's
+  `.navbar` (0,1,0) and the em token then resolves against the body-derived parent.
+  (c) the menu's TEXT colour: the menu surface is forced to `--bs-body-bg`, so its
+  text must be `var(--bs-body-color)` (Bootstrap's `--bs-dropdown-link-color` can
+  be brighter/greyer than the surface we forced - quartz dark ships #dee2e6). Hover
+  and active keep that colour and only TINT the surface with
+  `rgba(var(--bs-body-color-rgb), .12/.2)`, so a highlight cannot drop contrast.
+  `shared/css/themes/<theme>/<theme>.<mode>.css` extends the AA guarantee to the menu
+  via its baked contrast block (minty light's
+  body text is #888 on #fff = 3.54:1, morph 2.63:1, spacelab 4.48:1): when the
+  body pair itself fails 4.5:1 the menu text is repainted to the best of
+  body-color/black/white, while the rest of the app keeps the theme's colour.
+  GUARDS: `tests/menu-legibility.spec.js` (menu never smaller than the body on all
+  27 themes x both modes; menu grows with the setting across all six sizes; AA +
+  "uses --bs-body-color verbatim where that already passes") and
+  `tests/display-settings.spec.js` (one test per app: every Display control is
+  present and takes effect - theme/mode, font size incl. the real label size,
+  touch size incl. the real checkbox size, density, slide duration on `<smd-page>`,
+  icon size, auto-hide body class). GOTCHAS the specs encode: PlanMyDay/ListOfLists
+  DEFAULT to touch size "large" (they read `dragSize` first), so drive both values;
+  `#mainNav` contains TWO `.dropdown-menu` elements (the menu + the nested "My
+  Apps" flyout) so locators need `.first()`; SolarControlar 404s its Flask API and
+  opens an error modal, so stub `**/solar/api/power_data*` before `goto`.
+- MAIN-MENU FLYOUT MUST NOT BE CLIPPED (2026-10-19, user-reported): "on the sketchy
+  theme the Main Menu | Launch does not show the submenu". The flyout is positioned
+  `left: 100%` (SUBMENU_CSS in `shared/js/smd-apps.js`), so any ancestor with
+  `overflow: hidden` clips it away - and **sketchy is the only theme whose
+  bootstrap sets `.dropdown-menu{overflow:hidden}`**. The element still reports a
+  geometry rect, so a rect/`toBeVisible()` check passes while the user sees
+  nothing: the honest test is `document.elementFromPoint` at the item's centre
+  (it landed on the page text BEHIND the flyout). Fixed by `overflow: visible` on
+  `#mainNav .dropdown-menu` in `shared/css/styles.css` (`border-radius` still
+  clips the background, so sketchy's hand-drawn shape is unaffected). Guarded by
+  menu-legibility's "the Launch flyout submenu is visible on every theme and mode",
+  which hit-tests the first flyout item for all 27 themes x both modes.
+- SOLAR TOP TILES RECURSED FOREVER (2026-10-19, found by the probes above):
+  `SolarControlar/js/components/solar-top-tiles.js` has `no-data` in
+  `observedAttributes`, and `_render()` called `setAttribute("no-data", "")` on the
+  no-data path - which re-entered `attributeChangedCallback()` -> `_render()` ->
+  setAttribute ... and threw `RangeError: Maximum call stack size exceeded` on
+  EVERY load without data (i.e. any boot before the Flask API answers, and every
+  test). Now the attribute is only mutated when its state actually changes
+  (`hasAttribute` guard), so the loop cannot start.
+- CONTRAST FIXES ARE BAKED INTO THE THEME CSS (2026-10-18/19, user request: "I
+  don't want code running that checks contrast ... I want the contrast changes
+  written into the css overrides"): NO runtime code measures or repaints colours.
+  Each theme's own per-mode sheet
+  (`shared/css/themes/<theme>/<theme>.<mode>.css`) carries a generated block
+  between the `smd-contrast:start` / `smd-contrast:end` markers with the button /
+  tab / hamburger-menu text colours that had to be repainted to reach WCAG AA
+  (4.5:1). 50 of 54 sheet/mode combos have one; `bootstrap` and `brite` need none.
+  The rules list only what FAILED - everything else keeps the theme's own colour.
+  REGENERATE / CHECK with `tests/contrast-css.spec.js` (in the test directory, NOT
+  in shared/): plain run = "nothing needs to change anywhere" (fails and prints the
+  exact rules a theme is missing, or the stale ones it still carries), and
+  `SMD_CONTRAST_FIX=1` rewrites every sheet and then verifies the result. It is
+  idempotent (a second FIX run rewrites 0 files) because it measures with the
+  generated block STRIPPED from the sheet (`page.route` fulfils a stripped body),
+  so a theme is never judged against our own output. The algorithm is the one the
+  deleted `shared/js/smd-contrast.js` used: keep the theme's colour when it passes,
+  else the better of `--bs-body-color`/`--bs-body-bg`, else black/white; every
+  button state (base/hover/active/disabled) is decided separately, and translucent
+  surfaces (quartz's `rgba(255,255,255,.4)`) are composited over the page first.
+  TWO GOTCHAS that cost real debugging time: (a) the app's SERVICE WORKER
+  precaches the theme CSS, so a `<link>` is served from the SW cache and
+  `page.route` never sees it - the spec must use `test.use({ serviceWorkers:
+  "block" })` or the strip is bypassed; (b) Bootstrap animates `.btn` colour for
+  150ms, so a single read after a theme swap lands mid-fade - waiting on the live
+  `link.sheet.href` PLUS a stable sample (two identical reads) is required, in
+  `tests/contrast-css.spec.js`, `tests/contrast.spec.js` and
+  `tests/menu-legibility.spec.js`. The 27x2 loops also need explicit
+  `test.setTimeout` (they exceed the 30s default).
+  GRADIENTS COUNT AS SURFACE (2026-10-19, user-reported): reading only
+  `background-color` missed slate dark's secondary button - the flat #7a8288 said
+  black was fine (5.37:1), but `background-image` runs down to #62686d where black
+  is 3.69:1 and white is 5.68:1. Both specs now take the surface to be the
+  DARKEST extent of the element's gradient (each stop composited over the colour):
+  that is the part dominating the body of the button, and for Bootstrap's usual
+  translucent white sheen the darkest extent IS the background colour, so ordinary
+  themes are unaffected. Gradient stops belong to the BASE state; hover/active use
+  their own flat colour because slate and friends swap the image per state (which
+  cannot be read without hovering). The slate fix that came out of this: secondary
+  text is now WHITE.
+  OUTCOME GUARDS (these measure the rendered result, which is fine in tests):
+  `tests/contrast.spec.js` asserts every `smd-button` variant x state and both tab
+  colours reach 4.5:1 on all 27 themes x both modes, plus a guard that NOTHING
+  injects contrast styles or exposes a normaliser at runtime;
+  `tests/menu-legibility.spec.js` covers the toolbar/menu (size, AA, colour
+  consistency and the flyout hit-test).
+- sketchy + slate PRIMARY BORROWS THE DANGER PALETTE (2026-10-19, user request):
+  in both themes `--bs-primary` and `--bs-secondary` are so close (sketchy #333 vs
+  #555; slate #3a3f44 vs #7a8288, painted with near-identical grey gradients) that
+  the primary button and the ACTIVE TAB looked like the secondary ones. Fix: a
+  hand-written block at the top of those four sheets (`sketchy`/`slate` x
+  light/dark), ABOVE the `smd-contrast` markers so the generator leaves it alone and
+  then derives the text colours for the new surface: `#smd-app .btn-primary` gets the
+  danger palette (bg/border/hover/active/disabled colours AND, for slate, the danger
+  `background-image` gradients) and `smd-tabs .smd-tab-btn.text-bg-primary` gets the
+  danger background (`!important`, because Bootswatch's `.text-bg-*` paints with
+  `!important`). Only `<smd-button>` and `<smd-tabs>` are affected - links, badges
+  and every other primary-coloured surface keep the theme value. TWO GOTCHAS:
+  (a) a bare `.btn-primary` LOSES to sketchy's `[data-bs-theme=dark] .btn-primary`
+  (0,2,0) - hence the `#smd-app` scope (1,1,0); (b) the danger TEXT colours are
+  copied too, otherwise the theme's own dark-mode `--bs-btn-color` (black, written
+  for its original light primary) leaves primary and danger looking different on the
+  same red surface. GUARD: `tests/theme-primary-danger.spec.js` (per theme/mode:
+  primary paints the danger background/gradient, the active tab matches, and primary
+  no longer matches secondary). pmd-regression's slate tab test now expects the
+  active tab to carry the danger gradient while the inactive keeps slate's swapped
+  one.
+- CONTRAST DETAILS THAT BIT (2026-10-18, still true of the baked CSS): Bootswatch
+  ships literal `--bs-btn-color` values (usually white) that often fail WCAG AA on
+  the theme's own accent surfaces - journal warning is white on #f5e625 (1.29:1),
+  minty's is 1.47:1 - and the `.text-bg-*` tab colours are just as theme-dependent.
+  When writing (or regenerating) the baked block remember: (a) EVERY state is
+  decided separately (base/hover/active/disabled) because Bootstrap paints each from
+  its own `--bs-btn-*-bg`; (b) the four `--bs-btn-*-color` vars belong on the BASE
+  selector (Bootstrap reads them per state, and a `:hover`-scoped var is unreadable
+  when not hovered) AND an explicit `color: ... !important` is needed, because
+  themes paint buttons with a literal colour (minty `.btn,.btn:hover{color:#fff}`)
+  and Bootswatch's `.text-bg-*` ships `color:#fff!important`; (c) tab rules are
+  scoped `smd-tabs .smd-tab-btn.text-bg-<variant>` so badges keep their own
+  `.text-bg-*` colours; (d) one repaint rule PER DISTINCT COLOUR (a variant group's
+  states can differ - darkly's success is #222 hover/disabled but #000 active).
+  NOTE: disabled buttons additionally get Bootstrap's `opacity: .65`, which the
+  measurement ignores (WCAG exempts disabled controls); and the superhero
+  `btn-warning` rule (see the Danger note) stays hand-written - the generator sees
+  that warning already passes, so it never emits a duplicate.
 - SHARED IMAGE LIBRARY (2026-09-13): all apps share ONE images list,
   `shared-images`. `SmdConfig.imagePrefix = "shared-"` is set in every app's
   `app.js`; `smdImagePrefix()` (shared/js/smd-app.js) returns
@@ -346,7 +643,7 @@ Architecture:
   is `{ title, url, description, image, sequence }`. Pages: `linksEditor` +
   `linkEditPage` (Sortable drag reorder via `<smd-draghandle class="drag-handle">`),
   `imagesEditor` (shared smd-images.js), `settingsPage` (smd-tabs
-  General/Danger), `imagePickerPage`. App component `qrlink-card`
+  Display/Danger), `imagePickerPage`. App component `qrlink-card`
   (`QRLinks/js/components/qrlink-card.js`) → emits `qrlink-qr`, which
   `app.js` turns into a shared `showSmdModal` + `<smd-qrcode>` dialog with
   Open/Close. Legacy `qr_*` keys (incl. `qr_images`) are migrated by
@@ -637,10 +934,14 @@ Architecture:
   resolving); preview `<img>` writers use `src="" data-smdsrc="…"` filled via
   `smdSetImageSrc` after render. Tests must assert async fills (fetch the resolved
   `src`) rather than `src*=data:`.
-- MENU ORDER (2026-09-17): every app's hamburger menu lists **Settings**, then
-  a divider, then **Launch**, then a divider, then the rest of the options. The
-  Launch app's own menu keeps only "Settings" (it IS the launcher — no Launch
-  item). All apps
+- MENU ORDER (2026-09-17; Launch item added to the Launch app 2026-10-18): every
+  app's hamburger menu lists **Settings**, a divider, **Launch**, then (where there
+  is anything else) another divider and the rest of the options. ALL EIGHT shells
+  including Launch itself now carry the static `<a class="dropdown-item"
+  href="./">Launch</a>` that `SmdApps.buildLaunchSubmenu()` replaces with the
+  flyout, so the launcher can jump straight to any app too; a shell with nothing
+  after Launch simply omits the trailing divider (a dangling `<hr>` is a bug, not
+  a style). All apps
   also expose the six font sizes (xsmall/small/normal/large/xlarge/jumbo) in
   Settings; FreeFormOX + Launch gained the Font size selector this session
   (Launch's `.app-name` rules already covered the sizes; FreeFormOX got new
@@ -715,8 +1016,8 @@ Architecture:
     `closeMinioImport()` and hands the data to `startImportWizard(data)`, so its
     per-section keep/replace prompts apply. PlanMyDay sets neither hook, so it
     keeps writing straight over its streams+images.
-  THE UI (CountMyDays): a PlanMyDay-style Minio SETTINGS TAB (`General | G Cal |
-  Minio | Danger`; `#minioEnabled` + `#minioServer`/`#minioUsername`/
+  THE UI (CountMyDays): a PlanMyDay-style Minio SETTINGS TAB (`General | Display |
+  G Cal | Minio | Danger`; `#minioEnabled` + `#minioServer`/`#minioUsername`/
   `#minioPassword` (+ eye)/`#minioBucket`, with `loadMinioSettings()` +
   `bindMinioSettingsTabBehavior()` called from `openSettings()`'s `restore`), the
   two `.minio-menu-item` entries (after "Import QR", toggled by
@@ -961,6 +1262,19 @@ Techniques / gotchas:
   find the listener (`Get-NetTCPConnection -LocalPort 8080 -State Listen`) and
   `Stop-Process` it so Playwright starts a fresh server. Do not debug the app
   code first.
+  LENGTH-CHANGE VARIANT (2026-10-18, hit with an HTML shell): the same stale
+  server also breaks a file whose SIZE changed after the server started. The
+  browser then reports `net::ERR_CONTENT_LENGTH_MISMATCH` for the PAGE ITSELF and
+  **`page.goto()` NEVER reaches `load`** (a 30s timeout where no assertion ever
+  runs) - while a PowerShell `Invoke-WebRequest` of the same URL can still return
+  the full, correct bytes, so checking the served size does NOT rule it out. Two
+  of my own edits reproduced it: `PhoneButtons/index.html` shortened by one line
+  (the other file edited in the same pass, `FreeFormOX/index.html`, survived
+  because `mb-3` -> `mb-4` keeps the byte count identical). RULE: after editing
+  ANY served file (`.html`, `.js`, `.css` are all in the snapshot) RESTART the
+  servers, and read the first symptom: a `page.goto` timeout on a page that works
+  in isolation = stale server, not an app bug. Remedy: kill 8080/8081 + clear
+  `node_modules\.vite`, then start `tests/serve-tests.mjs`.
 - SW PRECACHE REJECTS ON A DUPLICATE URL (2026-10-12, cost a debugging round): `cache.addAll(PRECACHE_URLS)`
   in `sw.js` REJECTS if the list contains the SAME URL twice, so the worker never installs.
   Symptom is NOT a 404: the page logs `Failed to update a ServiceWorker for scope ('…') with script
@@ -1025,6 +1339,257 @@ Techniques / gotchas:
   when an array is non-empty or a branch is taken.
 
 ## Session log
+
+### 2026-10-19 (c) - gradient-aware contrast checker + sketchy/slate primary = danger
+
+- WHAT (user): "On the sketch and slate themes both modes there is almost no
+  difference between the primary and secondary tab colours. For these only for these
+  for the smd-button, smd-tabs make the primary colour the same as the danger colour.
+  Also on slate dark secondary there text colour on the secondary buttons needs to be
+  white to stand out against the background gradient (its not a color). Can you check
+  why the contrast checker did not pick this up. Fix the checker and fix the colour.
+  Do this in a TDD fashion."
+- DIAGNOSIS (why the checker missed it): it read only `background-color`. slate dark
+  secondary is `background-color:#7a8288` (black = 5.37:1, "fine") painted with
+  `background-image: linear-gradient(#81888e, #7a8288 20%, #62686d)` - and black on
+  the ramp's dark end is 3.69:1 while white is 5.68:1.
+- TDD: (RED 1) made `tests/contrast.spec.js` gradient-aware first - it immediately
+  failed on slate secondary base/disabled (3.72) as well as genuine pre-existing
+  misses in materia (danger 4.01), simplex (info 4.29) and the rest of slate's ramp
+  (success 4.24, danger 4.32, warning 4.07, info 4.44); (RED 2) added
+  `tests/theme-primary-danger.spec.js`, which failed for all four sketchy/slate
+  combos. (GREEN) taught the generator the same rule, added the primary-borrows-
+  danger blocks, regenerated the baked CSS and updated pmd-regression's slate tab
+  test.
+- CHECKER MODEL: the surface is the DARKEST extent of the element's gradient (each
+  stop composited over the background colour) - that dominates the body of the
+  button, and for Bootstrap's usual translucent white sheen the darkest extent is the
+  background colour itself, so ordinary themes do not move. Stops belong to the BASE
+  state (slate overrides the image per state and that is not readable without
+  hovering), so base/disabled use them and hover/active keep their flat colour. A
+  first attempt that took the worst of EVERY stop was wrong the other way: it mixed
+  the base ramp into the hover/active surfaces and produced false failures.
+- RESULT: slate dark (and light) secondary text is now WHITE; slate/sketchy primary
+  buttons + active tabs paint the danger surface; materia/simplex/slate gained the
+  extra contrast rules the old checker missed.
+- VERIFIED: theme-primary-danger 4/4, contrast 3/3, contrast-css drift (regenerated,
+  idempotent), pmd-regression slate tab, settings-alignment + display-settings + the
+  7 app suites + the 3 colour specs 250/250, and pmd-gantt + storybook +
+  shared-helpers + image-edit-preview-size + pmd-touch + pmd-regression greps
+  114/114.
+
+### 2026-10-19 (b) - contrast fixes moved OUT of runtime JS and BAKED INTO the theme CSS
+
+- WHAT (user): "I dont want code running that checks contrast ... I want the contrast
+  changes written into the css overrides", and the generator should live in the test
+  directory as a test that proves nothing needs to change but can also rewrite the
+  CSS with a flag.
+- DELETED: `shared/js/smd-contrast.js` (the runtime normaliser), its `<script>` in
+  the 8 shells, its `sw.js` SHARED_ASSETS entry, and the `scheduleSmdContrast()`
+  hook in `applyThemeOverrides()` - nothing measures or repaints contrast at runtime.
+- BAKED: the generated rules now live in each theme's own per-mode sheet
+  (`shared/css/themes/<theme>/<theme>.<mode>.css`) between `smd-contrast:start` /
+  `smd-contrast:end` markers - 50 of 54 sheet/mode combos, ~10-20 lines each
+  (`bootstrap` and `brite` need none). Rules are grouped by identical
+  state->colour signature and emitted per distinct colour.
+- NEW SPEC: `tests/contrast-css.spec.js` (in the test dir, so no runtime code):
+  a plain run FAILS if any theme needs a rule it lacks or carries a stale one, and
+  `SMD_CONTRAST_FIX=1 npx playwright test tests/contrast-css.spec.js` rewrites the
+  blocks and verifies the writes. It strips the marked block (route-fulfilled from
+  disk) before measuring, so it judges the theme's own colours -> a second FIX run
+  rewrites 0 files (verified).
+- SPEC UPDATES: `tests/contrast.spec.js` keeps its AA assertions (all 27 themes x
+  both modes x 8 variants x 4 states + tabs) but drops the module-era polling and
+  the injected-sheet check; its third test now asserts NOTHING injects contrast
+  styles or exposes a normaliser at runtime. `tests/menu-legibility.spec.js` and one
+  pmd-regression comment updated to point at the baked block.
+- TWO GOTCHAS worth remembering (both cost real time here): the app's SERVICE WORKER
+  precaches the theme CSS, so `page.route` never sees the `<link>` request unless
+  the spec sets `test.use({ serviceWorkers: "block" })`; and Bootstrap animates
+  `.btn` colour for 150ms, so a single read after a theme swap lands mid-fade -
+  waiting on the live `link.sheet.href` PLUS a stable sample is required. The 27x2
+  loops also need explicit `test.setTimeout` (they exceed the 30s default).
+- EQUIVALENCE CHECK: re-measured 3780 rendered values (54 combos x buttons/tabs/menu)
+  against a pre-change snapshot - 0 differences in every `--bs-btn-*-color` var the
+  CSS sets; the 96 remaining deltas are all computed `color`/`background-color`
+  values in the OLD snapshot taken mid-transition.
+- VERIFIED: contrast-css (drift + idempotent FIX), contrast, menu-legibility,
+  settings-alignment, display-settings, the 7 app suites (242), pmd-gantt +
+  storybook + shared-helpers + image-edit-preview-size + pmd-touch (88), and
+  pmd-regression "Theme colours" (20).
+
+### 2026-10-19 (a) - Danger buttons full width, FFOX's missing modal, the sketchy submenu clip, and a Solar recursion
+
+- DANGER BUTTONS TOO NARROW (user): "on the Danger tab the buttons are too narrow.
+  They should start after where the label would be and continue the full width."
+  The action rows had `col-md-8` on the ROW as well as the inner `col-4`/`col-8`,
+  so a button was 8/12 x 8/12 = 44% of the page. Dropped the row-level `col-md-8`
+  from every row containing an `<smd-button>` in all 8 shells (switch rows keep
+  it); measured: the button now starts at 377px of a 1100px container (1/3) and
+  ends 12px from the row's right edge. `settings-alignment`'s Danger test now
+  selects `div.row` (it used `div.row.col-md-8` and would have silently found only
+  the switch rows) and asserts the geometry per app.
+- FFOX UPLOAD + CLEAR WERE DEAD (found while verifying the new loader): both call
+  `showSmdModal()`, but FreeFormOX never loaded
+  `shared/js/components/smd-modal.js`, so it threw `modal.show is not a function`
+  and no confirm appeared - a pre-existing bug in the clear action too. Added the
+  script, plus a settings-alignment test that CLICKS both Danger actions in all 8
+  apps and asserts the modal opens (PhoneButtons uses `#btnClearStorage`).
+  Also added `SmdConfig.imagePrefix = "shared-"` to FFOX: without it the upload
+  would have written `ffox_images` instead of the shared library. Verified: Launch
+  and FFOX both open the 4-way modal and write 168 images into `shared-images`.
+- SKETCHY SUBMENU INVISIBLE (user): the "Launch" flyout is `left: 100%`, and
+  sketchy is the only theme with `.dropdown-menu{overflow:hidden}` - the flyout was
+  clipped while still reporting a rect, so `toBeVisible()` passed but
+  `elementFromPoint` hit the page behind it. Fixed with `overflow: visible` on
+  `#mainNav .dropdown-menu`; added a hit-test guard over all 27 themes x 2 modes.
+- SOLAR RECURSION: `solar-top-tiles.js` observed `no-data` and set it inside
+  `_render()`, recursing until `RangeError: Maximum call stack size exceeded` on
+  every load without data. Guarded with `hasAttribute`.
+- ALSO: `settings-alignment`'s Solar startup-modal handling raced the async 404
+  modal, so the Danger tab click is now dismiss-and-retry (`openDangerTab`).
+- VERIFIED: settings-alignment + menu-legibility + contrast + display-settings +
+  the 7 app suites 245/245; pmd-regression "menu" 12/12. Build `202610190720`.
+
+### 2026-10-18 (d) - Font size reaches form text + the toolbar; main-menu legibility specs; Display-settings audit
+
+- WHAT (user-reported): "on the Settings | Display tab the font size does not seem
+  to be changing the size of the text or form text ... it is changing the
+  smd-tabs, smd-buttons not checkboxes. I am specifically looking at PlanMyDay View
+  Job." So: the Font size setting resized body text, tabs and buttons but NOT form
+  labels, inputs, selects, textareas or checkbox labels.
+- MEASURED: at `normal/large/jumbo` the body went 16/18/25.6px and tabs/buttons
+  followed, while `label.form-label` stayed 14px and `.form-control`/`textarea`/
+  the smd-checkbox label stayed 16/16/14px. Cause: Bootstrap pins
+  `.form-control`/`.form-select` to `font-size:1rem` and superhero/yeti pin plain
+  `label` to `.875rem` - both rem, so `body`'s font-size (the setting's mechanism)
+  cannot reach them.
+- FIX: pinned `label`, `.form-label`, `.form-check-label`, `.col-form-label`,
+  `.form-control`, `.form-select`, `.form-check-input`, `.input-group-text`,
+  `textarea`, `select`, `input` to `var(--smd-type-p)` in `shared/css/styles.css`
+  (before the FORM CONTROLS section). Colours untouched.
+- ALSO (same session, user follow-up): "run a legibility test on the main menu,
+  sometimes the text seems small ... and sometimes it seems grey (low contrast) -
+  write tests for both. Please check that all the Display settings are wired up
+  properly in all apps."
+- MEASURED the menu across all 27 themes x 2 modes: 17 problems.
+  TOO SMALL (14): brite/journal/litera/lux/zephyr pin `.navbar` (17.5/18/15.4/14px)
+  and sandstone/yeti pin the items (13/14px) - all against the default 20.8px body.
+  LOW CONTRAST (3): minty light 3.54:1, morph light 2.63:1, spacelab light 4.48:1 -
+  in every case the theme's OWN body text is the failing colour.
+- FIX: `#mainNav` + its menu/menu-items pinned to `var(--smd-type-p)`; menu text
+  pinned to `var(--bs-body-color)` with hover/active keeping that colour and only
+  tinting the surface (`rgba(var(--bs-body-color-rgb), .12/.2)`); and
+  `shared/js/smd-contrast.js` extended to the menu so a body pair that is itself
+  sub-AA gets repainted to the best of body-color/black/white. Menu problems after
+  the fix: 0/54.
+- NEW SPECS: `tests/menu-legibility.spec.js` (3 tests - size never smaller than the
+  body on every theme/mode, size follows the setting across all six sizes, AA +
+  body-colour consistency) and `tests/display-settings.spec.js` (8 tests, one per
+  app, driving every Display control and asserting its real effect). Writing the
+  second one surfaced three environment facts now recorded in the notes: PMD/LoL
+  default to touch size "large", `#mainNav` has two `.dropdown-menu` elements, and
+  SolarControlar needs its Flask API stubbed or its error modal blocks the toolbar.
+- VERIFIED: menu-legibility + display-settings 11/11; the 7 app suites +
+  settings-alignment + contrast 243/243; pmd-regression (full) + pmd-gantt +
+  pmd-touch + image-edit-preview-size + storybook + shared-helpers 572/572.
+
+### 2026-10-18 (c) - WCAG AA contrast normalisation for buttons/tabs + sample-image themes patch
+
+- WHAT (user request): "write a test to check the text colour on all the smd-button
+  variants and also smd-tab colours on all themes and theme modes ... where there
+  is not [good contrast] use the --bs-body-bg or --bs-body-colour". Threshold
+  agreed with the user: WCAG AA 4.5:1 (normal-size text).
+- MEASURED FIRST: 540 button/tab surfaces across 27 themes x 2 modes had 273 below
+  4.5:1 (`--body-*` and tabs included) - nearly all white on the theme's own accent
+  (journal warning 1.29:1, minty 1.47:1, quartz's translucent secondary 1:1 when
+  read as opaque). So this needed one general fix, not 273 per-theme patches.
+- FIX: new `shared/js/smd-contrast.js` (see the AGENTS note for the full contract).
+  It repaints a label only where the theme's own colour fails AA, preferring the
+  better of `--bs-body-color`/`--bs-body-bg`, falling back to black/white. Wired
+  into all 8 shells + the storybook after `smd-settings.js`, added to `sw.js`
+  SHARED_ASSETS, and re-run from `applyThemeOverrides()` + a capture-phase `load`
+  listener on the theme links.
+- TEST: new `tests/contrast.spec.js` - 3 tests walking all 27 themes x both modes
+  for every `smd-button` variant x 4 states and both tab colours (AA), plus a
+  "no overrides where the theme already passes" guard. The specs recompute the
+  ratios themselves from the resolved colours, so they assert the outcome rather
+  than re-running the module's arithmetic.
+- THREE BUGS THE FIRST CUT HAD (all found by the new spec, worth remembering):
+  (1) vars alone lose - minty/journal paint `.btn{color:#fff}` directly and
+  Bootswatch's `.text-bg-*` uses `color:#fff!important`, so an explicit
+  `color: ... !important` is required; (2) hover/active surfaces come from
+  `--bs-btn-*-bg` vars that must be resolved as raw tokens (hex too) and composited
+  for translucent ones; (3) the four `--bs-btn-*-color` vars must be set on the
+  BASE selector - `:hover`-scoped vars are unreadable when the button is not
+  hovered, which also made them untestable.
+- TESTS UPDATED: pmd-regression's "inactive tabs use the Bootstrap text-bg-secondary
+  contrast" became "tab text stays readable on the Bootstrap text-bg-* surfaces"
+  (bg equality kept, colour equality only asserted for brite which needs no repair,
+  AA asserted for both); the new spec supersedes it for coverage.
+- ALSO: `shared/sampleImages.json` - Plane 1/2/3 gained the `themes.light` blocks
+  the user supplied (line/fill/width), patched in place with the file's own
+  formatting (4-space entries / 8-space keys), everything else byte-identical; the
+  file still parses with 168 images. No test reads those fields (they only use
+  `.images.length` or filter by name).
+- VERIFIED: contrast 3/3, pmd-regression "Theme colours" + pmd-gantt +
+  settings-alignment + storybook-regression 167/167. Build `202610182317`.
+
+### 2026-10-18 (b) - Danger tabs: shared `<smd-button block>`, one size, corrected colours, own-data clears, + Launch/FFOX tabs
+
+- WHAT (user request): make every app's Settings consistent - shared tab order,
+  shared Display contents and ONE canonical Danger tab - and give every app a
+  Danger tab that clears ONLY its own data. Later in the session the user also
+  asked for the shared component (`<smd-button>` for all Danger buttons, one
+  size = QR's `Refresh App`), a Danger tab on Launch AND FreeFormOX, and (final
+  request) superhero `btn-warning` text in the BODY colour, both modes.
+- SHAPE: tab order is General, Display, then the app's own, with an empty tab
+  removed; Display rows are Theme, Theme Mode, Font size, Icon size, Touch size,
+  Tile density, Slide speed, Auto-hide menu (only the rows the app really uses),
+  app extras, and `Screen resolution` LAST. Launch is now `Display, Menu, Danger`
+  and FreeFormOX `Display, Game, Danger`. `tests/settings-alignment.spec.js`
+  iterates all 8 shells and asserts the exact tab list + Display labels.
+- DANGER: canonical order = Show danger, No Cache | Regenerate, Sort | Refresh
+  App, Clear local storage <APP>, Clear Google cache (CMD) | the loaders (Load
+  Sample Data, Load Sample Links/Images, Upload Standard Images). Colours (user
+  rule): `Clear *` danger, `Regenerate`/`Sort` SECONDARY, `Refresh App` + every
+  loader/upload WARNING - nothing is success/green. Gaps are `mt-4` on a group's
+  first visible row (all rows `mb-4`), never two in a row; an empty group leaves
+  no trace. The same spec asserts order, colour, gap and that every action button
+  is `<smd-button block>` and all the same measured size.
+- COMPONENT: `smd-button` gained `block` mode - the host becomes a block box
+  (`d-block`) and the inner button gets `w-100`, so a column of Danger buttons is
+  uniformly full width. Host keeps the old id (`#btnClearAllData`); the inner
+  button is `<id>-button` (tests click the host/role). This also FIXED a latent
+  bug: an earlier colour-only edit had left some rows as `class="btn-secondary …"`
+  (base `btn` dropped), which the conversion to the component removed.
+- CLEAR SEMANTICS: `smdConfirmClearAllData()` removes only keys under
+  `SmdConfig.storagePrefix`, so other apps' keys and `shared-images` survive.
+  PMD/LoL dropped their all-keys wipe, PhoneButtons dropped its
+  theme/font/images keep-list (now uniform - clears all `pb_*`), and the modal
+  copy is per-app (`Clear ALL <App> data?`). Solar kept its own wrapper.
+- SUPERHERO WARNING BUTTONS: `shared/css/themes/superhero/superhero.{light,dark}.css`
+  set `.btn-warning` `--bs-btn-{,hover-,active-,disabled-}color` to
+  `var(--bs-body-bg)` (Bootswatch had white on amber). The user first asked for
+  the BODY TEXT colour, but that made almost no visible difference - superhero's
+  body text is `#ebebeb`/`#ced4da`, near-identical to the white it replaced - so
+  it was switched to the body BACKGROUND colour (the dark navy). Guarded by
+  pmd-regression "superhero warning buttons use the body background colour in both
+  modes" (probe + the real button); no other layer writes `--bs-btn-color`, so no
+  cascade fight.
+- TESTS TOUCHED: `settings-alignment` (tabs/Danger table/size), `launch-regression`
+  (tab list), `pmd-regression` (clear is prefix-scoped; new superhero test),
+  `phonebuttons-regression` (clear now uniform; the assert moved BEFORE the
+  self-reload), `lol-regression` (per-app modal copy). Verified: settings-alignment
+  36/36, launch/ffox/qrlinks/solar 45/45, phonebuttons 18/18, cmd 67/67,
+  pmd+lol greps, and the whole "Theme colours" block - 24/24.
+- GOTCHA (recorded so it is not repeated): two test assumptions were wrong, not
+  the app - (1) the legacy unprefixed `images` key is dropped by
+  `migrateImagesToShared()` at boot, so it cannot evidence "other keys survive";
+  (2) PhoneButtons re-persists its DEFAULT theme on boot, so after a clear+reload
+  `pb_theme` is never null - assert a neutral probe key instead. Set the build to
+  `202610182244` (`npm run bump:build`) and restarted the snapshotted test servers
+  after the HTML/JS/CSS edits.
 
 ### 2026-09-30 (b) - mode-based light.css / dark.css re-added (empty, for now)
 - WHAT (user request): put the shared MODE-based colour sheets back so the file
@@ -2345,7 +2910,8 @@ Techniques / gotchas:
   the pmd precache test + qrlinks default-theme assertion.
 - Menu order everywhere is now **Settings, divider, Launch, divider, rest**
   (PlanMyDay, CountMyDays, QRLinks, SolarControlar, FreeFormOX). The Launch
-  app's own menu keeps only its Settings item (it is the launcher).
+  app's own menu keeps only its Settings item (it is the launcher). (SUPERSEDED
+  2026-10-18: Launch now carries the same Launch flyout as every other shell.)
 - `BUILD_NUMBER` → `202609172101`.
 - Verified: 4 affected tests pass (menu links, theme selector, unknown-theme
   fallback → superhero, legacy-untouched). User asked not to run the full
@@ -2379,7 +2945,7 @@ Techniques / gotchas:
   covered the sizes. All apps now expose all six.
 - **Menu order**: PlanMyDay, CountMyDays, QRLinks, SolarControlar, FreeFormOX
   menus reordered to Settings, Launch, divider, rest. The Launch app's own menu
-  stays just "Settings".
+  stays just "Settings". (SUPERSEDED 2026-10-18: Launch carries the flyout too.)
 - `BUILD_NUMBER` → `202609172020`.
 - What worked: Node one-liner for the 28 CSS files (LF-safe); extending
   `applyTheme`/`setTheme` kept override handling in one shared place so the
@@ -3298,6 +3864,16 @@ Techniques / gotchas:
 - All five existing screenshot suites (`pmd`, `cmd`, `qrlinks`, `ffox`, `launch`) now import `tests/screenshot-helpers.js`. The helper reads the live 26-theme `themeConfig`, iterates explicit modes `light` then `dark`, calls `applyTheme(theme, mode)`, emulates the requested media colour scheme, waits for all three stylesheet links, fonts, visible image decode, and two animation frames, and preserves app-specific `afterTheme` refresh callbacks.
 - Chosen output structure: `screenshots/<app>/<theme>/<light|dark>/<scene>.png`. There is no `default` output directory for generated images. Scene filenames remain stable. The full matrix is 26 themes × 2 modes × 56 existing scene names = 2,912 gallery images, plus the separate root `sample-images.png` gallery.
 - Screenshot generation ran with `--workers 16`: all 53 screenshot tests passed. Output audit found 2,912 files: pmd 1,872 (936 light + 936 dark), cmd 364, qrlinks 260, ffox 260, launch 156; every app had 26 themes and zero legacy direct PNGs. ALWAYS generate screenshots with `--workers 16`; this is the documented standard for every `tests/*-screenshots.spec.js` command.
+- SCREENSHOT GALLERY COVERAGE (2026-10-18): only SIX suites exist - `cmd`, `ffox`,
+  `launch`, `lol`, `pmd`, `qrlinks`. **SolarControlar, PhoneButtons and the
+  storybook have NO gallery** (user: "we haven't written screenshots for the other
+  apps yet"). The Screenshots command in `commands.md` lists exactly those six, in
+  alphabetical order; when an app gains a `<app>-screenshots.spec.js`, add it there
+  in alphabetical position (`screenshots/viewer.js` picks the new gallery up with no
+  code change). A `*`-GLOB DOES NOT WORK for that command on Windows: neither
+  cmd.exe nor PowerShell expands it and Playwright does not glob CLI paths, so
+  `test tests/*-screenshots.spec.js` collects 0 tests (verified) - keep the
+  explicit list.
 - `screenshots/viewer.js` supports the nested mode layout and legacy direct `<app>/<theme>/<scene>.png` files (shown as synthetic `Default`). The API shape is `theme -> modes[] -> { name, path, images }`. The UI has separate App, Theme, and Mode selectors; section identity is composite app/theme/mode so open state and drag ordering cannot collide. Selections persist under `screenshotViewerGallery`, `screenshotViewerTheme`, and `screenshotViewerMode`.
 - The viewer is covered by `tests/screenshot-viewer.spec.js` with a temporary synthetic tree; it verifies nested mode scans, legacy fallback, deep image serving, app/theme/mode filtering, persisted choices, and composite open-state. `createServer()` is exported behind a `require.main === module` guard so tests can use an ephemeral port.
 
@@ -5183,4 +5759,151 @@ Techniques / gotchas:
   freshly restarted and serving build `202610182015` (verified in BOTH
   `shared/js/build-number.js` and `sw.js`, on disk and over HTTP).
 - `BUILD_NUMBER` -> `202610182015` via `npm run bump:build`.
+
+### 2026-10-18 (f) - one Settings page shape across all apps
+- REQUEST (user): same Settings page everywhere - tabs in the order General,
+  Display, others; REMOVE a tab that ends up empty; the Display tab must hold
+  Theme, Theme mode, Font Size, Icon Size, Touch Size, Slide Speed, Auto-hide Menu
+  in that order, plus Tile density where the app supports it; other tabs untouched
+  for now (Danger is the next pass).
+- SHAPE APPLIED (8 shells): Launch [Display, Menu]; PlanMyDay [General, Display,
+  Schedule, Minio, Danger]; CountMyDays [General, Display, G Cal, Minio, Danger];
+  QRLinks [Display, Danger]; SolarControlar [General, Display, Danger];
+  FreeFormOX [Display, Game]; ListOfLists [Display, Minio, Danger]; PhoneButtons
+  [Display, Server, Danger]. QRLinks + ListOfLists General tabs were left EMPTY, so
+  they were deleted (QRLinks' Display reuses nothing from the old id - it is
+  `appearance-tab`). CountMyDays' General keeps Countdown display + Max
+  countdowns; Solar's keeps the Flask fields + Auto-refresh; FreeFormOX's Game
+  keeps the X/O names/styles + Show undo/redo + Swap.
+- NO DEAD CONTROLS (user correction mid-task): "do not add any of them if they are
+  not used by the app or the shared components the app uses". So Icon size was NOT
+  added to SolarControlar/FreeFormOX (no `<smd-image>`), Tile density stays only in
+  the four apps that had it, and Touch size / Slide speed / Auto-hide menu were
+  added to the six apps missing them because every app uses `<smd-checkbox>` /
+  `<smd-draghandle>` (Launch's tick-boxes and handles live inside
+  `launch-app-menu`, so a source grep for the tag undercounts them), `<smd-page>`
+  and the shared nav respectively. Labels aligned: Launch + PhoneButtons "Image
+  size" -> "Icon size".
+- SHARED ENGINE so a moved row works without per-app code:
+  `smdSetupSettingsPage()` restores touch + slide too, and `changeTouchSize()` +
+  the boot push the value into `SmdCheckbox`/`SmdDragHandle` directly (the
+  attribute alone already drove the checkbox CSS).
+- TDD: new `tests/settings-alignment.spec.js` "Settings page shape is consistent
+  across apps" - one test per shell asserting the EXACT tab list and the EXACT
+  Display row labels in order (read from the DOM, so the markup is what is tested).
+  It caught SolarControlar immediately: that app shows a startup modal when its
+  Flask API is not mocked, and the modal's overlay intercepted the tab click, so
+  the test dismisses an open `#smdConfirmModal` first (via an in-page click - a
+  Playwright `getAttribute` on the modal HANGS for 30s in apps that never created
+  the host).
+- TESTS UPDATED for the moves (a settings page opens on its FIRST tab, so anything
+  on Display needs the tab clicked first): cmd theme/font/icon/density tests and
+  its tab-list assertion; qrlinks + lol tab-list assertions; pmd "shows all main
+  settings controls" (auto-hide now on Display) + the three auto-hide tests;
+  ffox names/styles tests (Game is the second tab now); solar's Flask steps moved
+  before the Display click.
+- VERIFIED: settings-alignment 21/21, launch 13/13, qrlinks 9/9, ffox 11/11,
+  solar 12/12, phonebuttons 18/18, cmd 67/67, and pmd+lol `--grep Settings` 50/50.
+  Spot-checked the restructured pages visually (Solar General+Display, FFOX
+  Display, CountMyDays Display); probes deleted.
+- SCREENSHOTS: every app's settings scene changed (new rows/tabs) - regenerate.
+- `BUILD_NUMBER` -> `202610182041` via `npm run bump:build` (all 8 shells + two
+  shared scripts are precached assets).
+
+### 2026-10-18 (g) - Settings Display order: Screen resolution last, Touch before density
+- FOLLOW-UPS (user, same session): (1) `Screen resolution` must be the LAST row on
+  every app that has it - only PlanMyDay needed a change (it sat before "Show
+  Gantt"; ListOfLists already had it last). (2) The density position from the
+  earlier answer was corrected: on CMD the order is Font size / Icon size / TOUCH
+  size / TILE DENSITY / Slide speed / ..., and (asked, then confirmed) the same
+  order applies to ALL four apps with Tile density (CountMyDays, PlanMyDay,
+  QRLinks, ListOfLists) so the shared shape stays consistent.
+- The row swap was done with a one-shot node script that anchors on the LABEL text,
+  swaps the two whole row blocks (bottom-first so the top indices stay valid) and
+  VERIFIES the resulting label order per file before writing - the earlier
+  line-index deletion bug in this repo is exactly what that guard is for.
+- TEST: the `settings-alignment` consistency table was updated for the four apps
+  (Touch size before Tile density; PlanMyDay's Show Gantt before Screen resolution).
+- VERIFIED: settings-alignment 21/21, pmd `--grep Settings` 40/40.
+- `BUILD_NUMBER` -> `202610182132` via `npm run bump:build`.
+
+### 2026-10-18 (h) - FreeFormOX spacing, the Launch app's Launch menu, and a stale-server lesson
+- FFOX SPACING (user): "Settings | Display has not consistent vertical spacing".
+  CAUSE: FFOX's rows were `mb-3` (1rem) while `<smd-theme>` injects a `mb-4`
+  (1.5rem) gap, so the Theme -> next-row gap differed from every other gap on the
+  page. FIX: FFOX Display rows -> `mb-4`; then (user follow-up) its **Game** tab
+  rows too, so the whole app is one rhythm. CHECKED every other app: their Display
+  tabs were already uniformly mb-4 (only FFOX differed).
+- TDD: the old "theme gap == sibling row gap" test ran for PlanMyDay ONLY, which
+  is why FFOX was never caught. Replaced it with a per-app loop over ALL EIGHT
+  shells - "<App>: the Display tab keeps one uniform vertical rhythm" - reading the
+  computed `margin-bottom` of every `.smd-theme-field` and every `div.row.col-md-8`
+  in the active panel and requiring exactly ONE distinct value.
+- LAUNCH APP MENU (user): "even the Launch app should have the launch menu option
+  in the same way as the other apps - Settings | separator | Launch | separator |
+  others". The root `index.html` now carries the same static
+  `<a class="dropdown-item" href="./">Launch</a>` (after a divider) that
+  `SmdApps.buildLaunchSubmenu()` replaces with the flyout, so the launcher can jump
+  straight to any app. There is NO trailing divider - nothing follows Launch in
+  that menu and a dangling `<hr>` would look like a bug. `launch-regression`'s
+  submenu test now includes the root, with per-shell href prefixes ("" on the root,
+  "../" in the sub-apps; the Launch entry resolves to "./" at the root).
+- STALE-SERVER LESSON (cost three debugging runs): restarting is needed for HTML
+  too. See the LENGTH-CHANGE VARIANT note above - shortening
+  `PhoneButtons/index.html` by one line made the long-running server send a
+  mismatched Content-Length, the page died with
+  `net::ERR_CONTENT_LENGTH_MISMATCH` and `page.goto` never reached `load`, which
+  looked exactly like a broken PhoneButtons app (console errors absent,
+  `Invoke-WebRequest` fine). A restart fixed all 18 phonebuttons tests instantly.
+- VERIFIED: settings-alignment 28/28 (12 alignment + 8 rhythm + 8 shape),
+  launch-regression 13/13, ffox-regression 11/11, phonebuttons-regression 18/18.
+- `BUILD_NUMBER` -> `202610182146` via `npm run bump:build`; the test servers were
+  restarted afterwards and verified serving that build.
+- FALLOUT (user's full run: exactly 1 failure): `pmd-gantt` "Show Gantt is the last
+  control on the Display tab and defaults to off" asserted `order[last] ===
+  "Show Gantt"`, which the Screen-resolution-is-last rule invalidated. My own miss:
+  I ran pmd-regression `--grep Settings`, settings-alignment and the app suites, but
+  not pmd-gantt, and I did not grep for ORDER assertions when moving the row. Updated
+  to `expect(order.slice(-2)).toEqual(["Show Gantt", "Screen resolution"])` (and the
+  test renamed to "...last SETTING..."). VERIFIED: pmd-gantt 59/59. Test-only change,
+  so no `BUILD_NUMBER` bump.
+
+### 2026-10-18 (i) - one Danger tab shape across all apps
+- REQUEST (user): "For the danger tab there should be consistency across all apps"
+  with a canonical order - Show danger / No cache / <gap> Regenerate Main Tiles /
+  Sort (existing name) / <gap> Refresh App / Clear local storage <APP> /
+  Clear Google cache (CMD only) / <gap> Load Sample Data - only the items that
+  apply to an app, dropping the rest, never two gaps in a row, consistent
+  danger/warning colours.
+- DECISIONS (asked): (1) "No cache" is now on EVERY Danger tab (it is an
+  origin-wide worker mode); (2) "Clear local storage" added to SolarControlar too
+  (the 5 apps that had it keep it); (3) labels: PlanMyDay's "Regenerate Today's
+  Tiles" -> "Regenerate Main Tiles", clear buttons -> "Clear local storage
+  PMD/CMD/QR/LoL/Solar/PB" (the code's own abbreviations), CountMyDays' combined
+  Google row SPLIT into "Clear Google cache" + "Load Sample Data", the two Sort
+  buttons keep their existing names; (4) COLOURS: destructive = danger, bulk
+  maintenance (Regenerate/Sort) = warning, Refresh App + every loader = SECONDARY
+  ("loaders are secondary ... nothing is safe/success" - user correction of my
+  first proposal). Launch + FreeFormOX still have no Danger tab.
+- IMPLEMENTATION: `changeNoCache` de-duplicated into `shared/js/smd-settings.js`
+  (two identical copies removed = one CPD group fewer); all rows normalised to
+  `mb-4` with `mt-4` as the group gap; danger-id lists extended in CMD/QR/PB/Solar
+  so the new rows stay hidden until "Show danger"; Solar gained
+  `confirmClearAllData()` + a `#noCache` restore (it owns its settings page);
+  button IDs kept (tests keep targeting `#btnClearAllData` etc.).
+- TDD: new `settings-alignment` describe "Danger tab shape is consistent across
+  apps" - per app: exact visible row order, the colour of every row (reading the
+  `variant` ATTRIBUTE for `<smd-button>` and the `btn-*` class for raw buttons - my
+  first probe returned null for QRLinks' loaders and failed), and no two
+  consecutive gaps. 6/6 green.
+- TESTS UPDATED for the renames: pmd-regression "Regenerate Today's Tiles" ->
+  "Regenerate Main Tiles" (13 occurrences) and its Clear button name; cmd's danger
+  test now asserts the two split Google rows + "Load Sample Data"/"Clear Google
+  cache".
+- VERIFIED: settings-alignment 34/34 (12 alignment + 8 rhythm + 6 Danger + 8
+  shape), cmd+qrlinks+solar+phonebuttons 106/106, pmd
+  `--grep 'No Cache|danger|Regenerate|Sort Jobs|clear all data|Settings'` 58/58,
+  lol `--grep Settings` 10/10.
+- `BUILD_NUMBER` -> `202610182214` via `npm run bump:build`; the servers were
+  restarted afterwards (app JS is served from the startup snapshot).
 

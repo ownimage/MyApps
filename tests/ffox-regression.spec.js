@@ -114,10 +114,13 @@ test.describe("FreeFormOX - Regression", () => {
       await gotoGame(page);
       await page.evaluate(() => openSettings());
       await expect(page.locator("#settingsPage")).toHaveAttribute("open", "");
+      // Display tab (default): theme/mode + the shared appearance rows.
       await expect(page.locator("#themeSelector .smd-theme-select")).toBeVisible();
       await expect(page.locator("#themeSelector .smd-theme-mode-select")).toBeVisible();
       expect(await page.locator("#themeSelector .smd-theme-select .smd-select-item").count()).toBe(27);
       expect(await page.locator("#themeSelector .smd-theme-mode-select .smd-select-item").allTextContents()).toEqual(["Light", "Dark"]);
+      // Game tab: the app-specific player settings.
+      await page.locator("#settingsPage .smd-tab-btn").filter({ hasText: "Game" }).click();
       await expect(page.locator("#xName")).toBeVisible();
       await expect(page.locator("#xPieceStyle")).toBeVisible();
       await expect(page.locator("#oName")).toBeVisible();
@@ -144,6 +147,7 @@ test.describe("FreeFormOX - Regression", () => {
     test("names and piece styles persist in the ffox_ namespace", async ({ page }) => {
       await gotoGame(page);
       await page.evaluate(() => openSettings());
+      await page.locator("#settingsPage .smd-tab-btn").filter({ hasText: "Game" }).click();
       await page.locator("#xName").fill("Alpha");
       await page.locator("#xName").press("Tab");
       await pickOption(page, "#xPieceStyle", "dino");

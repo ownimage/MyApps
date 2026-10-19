@@ -10,3 +10,44 @@
 #smd-app .form-select {
   color: var(--bs-gray-700);
 }
+
+/* smd-contrast:start - generated WCAG AA contrast overrides. Do not edit by hand:
+   regenerate with  SMD_CONTRAST_FIX=1 npx playwright test tests/contrast-css.spec.js
+   (tests/contrast-css.spec.js fails when this block no longer matches the theme). */
+.btn-primary {
+  --bs-btn-hover-color: #000;
+  --bs-btn-disabled-color: #212529;
+}
+.btn-primary:hover, .btn-primary:focus-visible {
+  color: #000 !important;
+}
+.btn-primary:disabled, .btn-primary.disabled {
+  color: #212529 !important;
+}
+.btn-success, .btn-warning {
+  --bs-btn-hover-color: #212529;
+  --bs-btn-active-color: #212529;
+  --bs-btn-disabled-color: #212529;
+}
+.btn-success:hover, .btn-success:focus-visible,
+.btn-success:active,
+.btn-success:disabled, .btn-success.disabled,
+.btn-warning:hover, .btn-warning:focus-visible,
+.btn-warning:active,
+.btn-warning:disabled, .btn-warning.disabled {
+  color: #212529 !important;
+}
+.btn-light {
+  --bs-btn-hover-color: #212529;
+  --bs-btn-active-color: #212529;
+}
+.btn-light:hover, .btn-light:focus-visible,
+.btn-light:active {
+  color: #212529 !important;
+}
+smd-tabs .smd-tab-btn.text-bg-primary,
+smd-tabs .smd-tab-btn.text-bg-primary:hover,
+smd-tabs .smd-tab-btn.text-bg-primary:focus-visible {
+  color: #212529 !important;
+}
+/* smd-contrast:end */

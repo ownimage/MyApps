@@ -413,6 +413,19 @@ function smdSetupSettingsPage(opts) {
   const autoHideCb = $id("autoHideMenu");
   if (autoHideCb) autoHideCb.checked = autoHide;
 
+  // No Cache is a worker mode the app may or may not expose a switch for.
+  const noCache = localStorage.getItem(smdKey("noCache")) === "true";
+  const noCacheCb = $id("noCache");
+  if (noCacheCb) noCacheCb.checked = noCache;
+
+  const savedTouchSize = localStorage.getItem(smdKey("touchSize")) || "normal";
+  const touchSizeSel = $id("touchSizeSelector");
+  if (touchSizeSel) touchSizeSel.value = savedTouchSize;
+
+  const savedSlideDuration = localStorage.getItem(smdKey("slideDuration")) || "0";
+  const slideSel = $id("slideDurationSelector");
+  if (slideSel) slideSel.value = savedSlideDuration;
+
   const showDanger = localStorage.getItem(smdKey("showDanger")) === "true";
   const showDangerCb = $id("showDanger");
   if (showDangerCb) showDangerCb.checked = showDanger;

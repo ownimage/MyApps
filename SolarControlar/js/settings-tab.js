@@ -11,10 +11,14 @@ function changeShowDanger(enabled) {
 }
 
 function toggleDangerRows(enabled) {
-  ["refreshAppRow"].forEach(function (id) {
+  ["refreshAppRow", "noCacheRow", "clearAllDataRow"].forEach(function (id) {
     var el = $id(id);
     if (el) el.classList.toggle("d-none", !enabled);
   });
+}
+
+function confirmClearAllData() {
+  smdConfirmClearAllData({ content: "Clear ALL SolarControlar data? This cannot be undone." });
 }
 
 function updateFlaskUrl(value) {
@@ -125,6 +129,10 @@ function openSettings() {
   var showDangerCb = $id("showDanger");
   if (showDangerCb) showDangerCb.checked = isShowDanger();
   toggleDangerRows(isShowDanger());
+
+  // No Cache (shared worker mode)
+  var noCacheCb = $id("noCache");
+  if (noCacheCb) noCacheCb.checked = localStorage.getItem(smdKey("noCache")) === "true";
 }
 
 function closeSettings() {

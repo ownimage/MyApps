@@ -28,31 +28,16 @@ function changeShowBackgroundApps(enabled) {
 
 // Danger tab: the "Show danger" switch reveals the danger rows.
 function changeShowDanger(enabled) {
-  smdChangeShowDanger(enabled, ["refreshAppRow", "clearStorageRow"]);
+  smdChangeShowDanger(enabled, ["noCacheRow", "refreshAppRow", "clearStorageRow"]);
 }
 
-// Clear localStorage EXCEPT the shared image library, theme, theme mode and
-// font size.
-function clearLocalStorageExcept() {
-  var keep = ["shared-images", smdKey("theme"), smdKey("themeMode"), smdKey("fontSize")];
-  Object.keys(localStorage).forEach(function (key) {
-    if (keep.indexOf(key) === -1) localStorage.removeItem(key);
-  });
-}
-
+// Danger tab: clear ONLY this app's own data (its storage prefix) - it no longer
+// wipes every other app's keys, and the shared image library is never touched.
+// The page reloads afterwards so the socket/connection state resets.
 function clearLocalStorage() {
-  showSmdModal({
-    title: "Clear local storage?",
-    content: "Clears all PhoneButtons settings. Keeps the shared image library, theme, theme mode and font size.",
-    buttons: [
-      { text: "Cancel", variant: "secondary", action: "cancel" },
-      { text: "Clear", variant: "danger", action: "clear" }
-    ],
-    onAction: function (detail) {
-      if (detail.action !== "clear") return;
-      clearLocalStorageExcept();
-      location.reload();
-    }
+  smdConfirmClearAllData({
+    content: "Clear ALL PhoneButtons data? This cannot be undone.",
+    onClear: function () { window.location.reload(); }
   });
 }
 
@@ -140,7 +125,7 @@ function restoreServerTab() {
 }
 
 function openSettings() {
-  smdSetupSettingsPage({ restore: restoreServerTab, dangerIds: ["refreshAppRow", "clearStorageRow"] });
+  smdSetupSettingsPage({ restore: restoreServerTab, dangerIds: ["noCacheRow", "refreshAppRow", "clearStorageRow"] });
 }
 
 function closeSettings() {

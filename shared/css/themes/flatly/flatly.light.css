@@ -2,3 +2,87 @@
    whenever this theme is selected in Light mode. Add theme-specific overrides
    here. This sheet is only ever loaded in this mode, so selectors do not need a
    `[data-bs-theme="light"]` qualifier. */
+
+/* smd-contrast:start - generated WCAG AA contrast overrides. Do not edit by hand:
+   regenerate with  SMD_CONTRAST_FIX=1 npx playwright test tests/contrast-css.spec.js
+   (tests/contrast-css.spec.js fails when this block no longer matches the theme). */
+.btn-secondary {
+  --bs-btn-color: #212529;
+  --bs-btn-hover-color: #000;
+  --bs-btn-active-color: #000;
+  --bs-btn-disabled-color: #212529;
+}
+.btn-secondary,
+.btn-secondary:disabled, .btn-secondary.disabled {
+  color: #212529 !important;
+}
+.btn-secondary:hover, .btn-secondary:focus-visible,
+.btn-secondary:active {
+  color: #000 !important;
+}
+.btn-success {
+  --bs-btn-color: #212529;
+  --bs-btn-hover-color: #212529;
+  --bs-btn-active-color: #000;
+  --bs-btn-disabled-color: #212529;
+}
+.btn-success,
+.btn-success:hover, .btn-success:focus-visible,
+.btn-success:disabled, .btn-success.disabled {
+  color: #212529 !important;
+}
+.btn-success:active {
+  color: #000 !important;
+}
+.btn-danger {
+  --bs-btn-color: #000;
+  --bs-btn-disabled-color: #000;
+}
+.btn-danger,
+.btn-danger:disabled, .btn-danger.disabled {
+  color: #000 !important;
+}
+.btn-warning {
+  --bs-btn-color: #212529;
+  --bs-btn-hover-color: #212529;
+  --bs-btn-active-color: #212529;
+  --bs-btn-disabled-color: #212529;
+}
+.btn-warning,
+.btn-warning:hover, .btn-warning:focus-visible,
+.btn-warning:active,
+.btn-warning:disabled, .btn-warning.disabled {
+  color: #212529 !important;
+}
+.btn-info {
+  --bs-btn-color: #212529;
+  --bs-btn-hover-color: #000;
+  --bs-btn-disabled-color: #212529;
+}
+.btn-info,
+.btn-info:disabled, .btn-info.disabled {
+  color: #212529 !important;
+}
+.btn-info:hover, .btn-info:focus-visible {
+  color: #000 !important;
+}
+.btn-dark {
+  --bs-btn-color: #000;
+  --bs-btn-hover-color: #212529;
+  --bs-btn-active-color: #212529;
+  --bs-btn-disabled-color: #000;
+}
+.btn-dark,
+.btn-dark:disabled, .btn-dark.disabled {
+  color: #000 !important;
+}
+.btn-dark:hover, .btn-dark:focus-visible,
+.btn-dark:active {
+  color: #212529 !important;
+}
+smd-tabs .smd-tab-btn.text-bg-secondary,
+smd-tabs .smd-tab-btn.text-bg-secondary:hover,
+smd-tabs .smd-tab-btn.text-bg-secondary:focus-visible {
+  color: #212529 !important;
+}
+/* smd-contrast:end */

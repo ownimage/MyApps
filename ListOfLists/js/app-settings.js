@@ -24,15 +24,6 @@ function changeShowDanger(enabled) {
 // "No Cache": the worker stops serving its precache and re-reads every file from
 // disk, so a deploy is visible on the next load. The switch only takes effect
 // for files loaded AFTER it flips, hence the reload.
-function changeNoCache(enabled) {
-  const done = function() { window.location.reload(); };
-  if (typeof smdSetNoCache !== "function") {
-    localStorage.setItem(smdKey("noCache"), enabled);
-    return done();
-  }
-  smdSetNoCache(enabled).then(done, done);
-}
-
 function getSettingsSections() {
   return smdGetSettingsSections();
 }
@@ -145,21 +136,10 @@ function sortListsInCategories() {
   renderMain();
 }
 
+// Danger tab: clear ONLY this app's own data (its storage prefix). Never other
+// apps' keys, and never the shared image library.
 function confirmClearAllData() {
-  showSmdModal({
-    title: "Clear All Data?",
-    content: "Clear ALL data? This cannot be undone.",
-    buttons: [
-      { text: "Cancel", variant: "secondary", action: "cancel" },
-      { text: "Clear", variant: "danger", action: "clear" }
-    ],
-    onAction: function(detail) {
-      if (detail.action !== "clear") return;
-      const keys = Object.keys(localStorage);
-      keys.forEach(k => localStorage.removeItem(k));
-      closeSettings();
-    }
-  });
+  smdConfirmClearAllData({ content: "Clear ALL List of Lists data? This cannot be undone." });
 }
 
 function exportData() {
