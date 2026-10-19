@@ -164,6 +164,41 @@ test.describe("CountMyDays - Regression", () => {
       await expect(thumbs.nth(1)).toHaveAttribute("image", "imgB");
       await expect(thumbs.first().locator("img")).toBeVisible();
     });
+
+    test("ONE category caption runs underneath both images", async ({ page }) => {
+      // The tile carries two images side by side (category + date) and a SINGLE
+      // category name underneath the pair - not one caption per image (user
+      // request 2026-10-19).
+      await seed(page);
+      const card = page.locator("cmd-countdown-card").filter({ hasText: "Anniversary" });
+      const label = card.locator(".category-label");
+      await expect(label).toHaveCount(1);
+      await expect(label).toHaveText("Birthday");
+      const geom = await card.evaluate((el) => {
+        const caption = el.querySelector(".category-label");
+        const imgs = Array.from(el.querySelectorAll("smd-image"));
+        const rl = caption.getBoundingClientRect();
+        const rects = imgs.map((i) => i.getBoundingClientRect());
+        return {
+          images: rects.length,
+          belowAll: rects.every((r) => rl.top >= r.bottom - 1),
+          underBoth: (rl.left + rl.width / 2) >= Math.min(...rects.map((r) => r.left)) &&
+            (rl.left + rl.width / 2) <= Math.max(...rects.map((r) => r.right)),
+          leftAlignedWithCategoryImage: Math.abs(rl.left - Math.min(...rects.map((r) => r.left))) <= 2,
+          textAlign: getComputedStyle(caption).textAlign
+        };
+      });
+      expect(geom.images).toBe(2);
+      expect(geom.belowAll, "the caption sits below both images").toBe(true);
+      expect(geom.underBoth, "the caption sits under the pair, not under one image").toBe(true);
+      // The category name is LEFT aligned with the left edge of the category image.
+      expect(geom.leftAlignedWithCategoryImage, "the caption starts at the category image's left edge").toBe(true);
+      expect(["start", "left"], "the caption text is left aligned").toContain(geom.textAlign);
+      // an uncategorised date gets ONE empty caption, never stray text
+      const plain = page.locator('cmd-countdown-card[title="Today Event"]');
+      await expect(plain.locator(".category-label")).toHaveCount(1);
+      await expect(plain.locator(".category-label")).toHaveText("");
+    });
   });
 
   test.describe("Settings", () => {
@@ -306,6 +341,40 @@ test.describe("CountMyDays - Regression", () => {
       await expect(dateText("Trip")).toHaveText(annual(11, 3));
       await expect(dateText("Project Deadline"))
         .toHaveText(`${DAYS[new Date(FUTURE_YEAR, 11, 25).getDay()]} 25 Dec ${FUTURE_YEAR}`);
+    });
+
+    test("ONE category caption runs underneath both images", async ({ page }) => {
+      // Same rule as the countdown tile: one category name under the image PAIR.
+      await seed(page);
+      await page.evaluate(() => openDatesEditor());
+      const card = page.locator('#datesEditor cmd-date-card[name="Anniversary"]');
+      const label = card.locator(".category-label");
+      await expect(label).toHaveCount(1);
+      await expect(label).toHaveText("Birthday");
+      const geom = await card.evaluate((el) => {
+        const caption = el.querySelector(".category-label");
+        const imgs = Array.from(el.querySelectorAll("smd-image"));
+        const rl = caption.getBoundingClientRect();
+        const rects = imgs.map((i) => i.getBoundingClientRect());
+        return {
+          images: rects.length,
+          belowAll: rects.every((r) => rl.top >= r.bottom - 1),
+          underBoth: (rl.left + rl.width / 2) >= Math.min(...rects.map((r) => r.left)) &&
+            (rl.left + rl.width / 2) <= Math.max(...rects.map((r) => r.right)),
+          leftAlignedWithCategoryImage: Math.abs(rl.left - Math.min(...rects.map((r) => r.left))) <= 2,
+          textAlign: getComputedStyle(caption).textAlign
+        };
+      });
+      expect(geom.images).toBe(2);
+      expect(geom.belowAll, "the caption sits below both images").toBe(true);
+      expect(geom.underBoth, "the caption sits under the pair, not under one image").toBe(true);
+      // The category name is LEFT aligned with the left edge of the category image.
+      expect(geom.leftAlignedWithCategoryImage, "the caption starts at the category image's left edge").toBe(true);
+      expect(["start", "left"], "the caption text is left aligned").toContain(geom.textAlign);
+      // uncategorised date: one empty caption
+      const plain = page.locator('#datesEditor cmd-date-card[name="Today Event"]');
+      await expect(plain.locator(".category-label")).toHaveCount(1);
+      await expect(plain.locator(".category-label")).toHaveText("");
     });
 
     test("adds a date and saves its fields", async ({ page }) => {

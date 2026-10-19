@@ -1340,6 +1340,30 @@ Techniques / gotchas:
 
 ## Session log
 
+### 2026-10-19 (e) - CMD tiles: ONE category caption underneath the two images
+
+- WHAT (user): "on the cmd-countdown-card and cmd-date-card the Category Name needs to
+  go under both the category and the date image, rather than just one", clarified as
+  "2 images side by side with category name running underneath both of them".
+- LAYOUT: both components' thumbs are now a COLUMN - a `thumb-row` holding the two
+  images side by side, then ONE `.category-label` running underneath the pair,
+  LEFT-aligned with the category image's left edge (`align-items-stretch` on the
+  column + `text-start` on the caption, so the caption's box starts at the pair's
+  left edge instead of shrinking and centring). Before: `cmd-countdown-card`
+  captioned only the category image and `cmd-date-card` rendered no category name at
+  all (its doc claimed otherwise) even though `dates-editor.js` always set the
+  `category` attribute.
+- NOTE: two earlier cuts were rejected - repeating the label under EACH image (two
+  captions reading "Birthday Birthday") and centring one caption under the pair. The
+  final shape is one caption, left-aligned with the category image, running under
+  both.
+- TEST: cmd-regression "ONE category caption runs underneath both images" in both the
+  Main view and Dates editor describes (TDD: red with 2 labels / 0 labels, then red
+  again on the left-alignment assertion, then green). It asserts exactly one caption,
+  its text, that it sits BELOW both images, is centred within the pair, starts at the
+  category image's left edge (2px tolerance) and is `text-align: start`. Uncaptioned
+  dates get one empty caption. Full cmd-regression + shared-helpers 75/75.
+
 ### 2026-10-19 (d) - CMD dates editor: weekday at the front of each tile's date
 
 - WHAT (user): "In Count My Days on the Edit Dates screen that lists all of the

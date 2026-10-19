@@ -3,7 +3,7 @@
 // Attributes:
 //   index           — date index (echoed on the action events)
 //   name            — date title
-//   category        — category name shown under the category thumbnail
+//   category        — category name, ONE caption underneath the image pair
 //   type            — "annual" | "once" | "recurring"
 //   date-text       — formatted "Mon 15 Jan" (plus the year for once/google dates);
 //                     the weekday is produced by the caller (dateWeekday() in
@@ -22,9 +22,14 @@ const cmdDateCardTemplate = document.createElement("template");
 cmdDateCardTemplate.innerHTML = `
   <div class="card border-0 w-100">
     <div class="d-flex align-items-start gap-3 p-3 border rounded-3">
-      <div class="d-flex gap-2 flex-shrink-0">
-        <smd-image class="category-thumb"></smd-image>
-        <smd-image class="date-thumb"></smd-image>
+      <div class="thumbs d-flex flex-column align-items-stretch flex-shrink-0">
+        <div class="thumb-row d-flex gap-2 align-items-start">
+          <div class="thumb mb-1 d-flex align-items-center justify-content-center"><smd-image class="category-thumb"></smd-image></div>
+          <div class="thumb mb-1 d-flex align-items-center justify-content-center"><smd-image class="date-thumb"></smd-image></div>
+        </div>
+        <!-- ONE category caption, left-aligned with the category image, running
+             underneath BOTH images (not one caption per image). -->
+        <div class="category-label small text-start"></div>
       </div>
       <div class="content flex-grow-1 overflow-hidden">
         <div class="title fw-bold text-truncate mb-1"><span class="title-text"></span></div>
@@ -99,6 +104,8 @@ class CmdDateCard extends HTMLElement {
 
     root.querySelector(".title-text").textContent = this.getAttribute("name") || "";
     root.querySelector(".date-text").textContent = this.getAttribute("date-text") || "";
+    // The category name is ONE caption underneath the image PAIR.
+    root.querySelector(".category-label").textContent = this.getAttribute("category") || "";
 
     root.querySelector(".badges").innerHTML = "";
     this._addBadge(root, isGoogle ? "Google" : "Local", isGoogle ? "event-badge-google" : "event-badge-local");
