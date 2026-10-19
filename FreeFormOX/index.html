@@ -196,16 +196,23 @@
             </div>
           </div>
 
-          <div id="refreshAppRow" class="row mb-4 mt-4 align-items-center col-md-8 d-none">
+          <div id="refreshAppRow" class="row mb-4 mt-4 align-items-center d-none">
             <div class="col-4 text-end"></div>
             <div class="col-8">
               <smd-button id="btnRefreshApp" block variant="warning" onclick="location.reload()">Refresh App</smd-button>
             </div>
           </div>
-          <div id="clearAllDataRow" class="row mb-4 align-items-center col-md-8 d-none">
+          <div id="clearAllDataRow" class="row mb-4 align-items-center d-none">
             <div class="col-4 text-end"></div>
             <div class="col-8">
               <smd-button id="btnClearAllData" block variant="danger" onclick="confirmClearAllData()">Clear local storage FFOX</smd-button>
+            </div>
+          </div>
+
+          <div id="uploadStandardImagesRow" class="row mb-4 mt-4 align-items-center d-none">
+            <div class="col-4 text-end"></div>
+            <div class="col-8">
+              <smd-button id="btnUploadImages" block variant="warning" onclick="uploadStandardImages()">Upload Standard Images</smd-button>
             </div>
           </div>
         </section>
@@ -240,6 +247,7 @@
   <script>
   document.write('<script src="../shared/js/library.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="../shared/js/components/smd-button.js?v=' + BUILD_NUMBER + '"><\/script>');
+document.write('<script src="../shared/js/components/smd-modal.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="../shared/js/components/smd-page.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="../shared/js/components/smd-tabs.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="../shared/js/components/smd-select.js?v=' + BUILD_NUMBER + '"><\/script>');
@@ -252,6 +260,7 @@
   document.write('<script src="../shared/js/smd-settings.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="../shared/js/smd-contrast.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="../shared/js/smd-apps.js?v=' + BUILD_NUMBER + '"><\/script>');
+document.write('<script src="../shared/js/smd-images.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="js/settings.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="js/app.js?v=' + BUILD_NUMBER + '"><\/script>');
   </script>

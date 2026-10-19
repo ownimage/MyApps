@@ -94,7 +94,7 @@ function openSettings() {
 // Danger rows toggled by the "Show danger" switch (shared worker mode + the two
 // app actions). Kept in the canonical Danger order - see AGENTS.md.
 function launchDangerIds() {
-  return ["noCacheRow", "refreshAppRow", "clearAllDataRow"];
+  return ["noCacheRow", "refreshAppRow", "clearAllDataRow", "uploadStandardImagesRow"];
 }
 
 function changeShowDanger(enabled) {

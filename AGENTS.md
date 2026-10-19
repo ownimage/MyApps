@@ -421,14 +421,40 @@ Architecture:
     LoL      Show danger, No Cache, Regenerate Main Tiles, Sort Lists in Categories,
              Refresh App, Clear local storage LoL, Upload Standard Images (+ dev rows)
     PB       Show danger, No Cache, Refresh App, Clear local storage PB
-    Launch   Show danger, No Cache, Refresh App, Clear local storage Launch
-    FFOX     Show danger, No Cache, Refresh App, Clear local storage FFOX
+    Launch   Show danger, No Cache, Refresh App, Clear local storage Launch,
+             Upload Standard Images
+    FFOX     Show danger, No Cache, Refresh App, Clear local storage FFOX,
+             Upload Standard Images
   Each app clears ONLY ITS OWN DATA: `smdConfirmClearAllData()` removes just the
   keys under `SmdConfig.storagePrefix` (PhoneButtons is uniform now - its old
   theme/font/images keep-list is gone), so other apps' keys and the shared
   `shared-images` library always survive; PMD/LoL no longer wipe all of
   localStorage. Launch/FreeFormOX were ADDED a Danger tab on user request
-  (2026-10-18) with the applicable rows only (no tile list, no loaders).
+  (2026-10-18) with the applicable rows only (no tile list); both later gained the
+  `Upload Standard Images` loader (user request 2026-10-19) - FreeFormOX therefore
+  also loads `shared/js/smd-images.js` and sets `SmdConfig.imagePrefix = "shared-"`
+  so the upload lands in the ONE shared library (`shared-images`), not an
+  app-private `ffox_images` list. Their `confirmClearAllData` still only clears
+  their own prefix, so that library is never wiped.
+  EVERY Danger ACTION ROW IS FULL WIDTH (user request 2026-10-19: "the buttons are
+  too narrow, they should start after where the label would be and continue the
+  full width"): the action rows used to carry `col-md-8` on the ROW as well as the
+  inner `col-4`/`col-8`, so a button was only 8/12 of 8/12 ~= 44% of the page. The
+  action rows (any row containing an `<smd-button>`) dropped the row-level
+  `col-md-8`, so they span the container and `col-4 + col-8` puts the button at the
+  label column (1/3) running to the right edge; the two SWITCH rows keep
+  `col-md-8`. `settings-alignment` asserts this per app (button right edge within
+  24px of the row's, left edge >= row/3 - 24, width > 55% of the row) AND now
+  selects Danger rows with `div.row` (not `div.row.col-md-8`, which would miss the
+  full-width rows).
+  DANGER ACTIONS MUST ACTUALLY RUN (2026-10-19): the shape test only checked
+  MARKUP, and FreeFormOX shipped `confirmClearAllData()` + Upload Standard Images
+  calling `showSmdModal()` with no `shared/js/components/smd-modal.js` loaded, so
+  both died with `modal.show is not a function` and no confirm ever appeared. The
+  shell now loads smd-modal.js, and a new settings-alignment test clicks "Clear
+  local storage <APP>" (id `#btnClearAllData`, or PhoneButtons' `#btnClearStorage`)
+  and the uploader in ALL 8 apps and asserts `#smdConfirmModal` opens with its
+  buttons - then Cancels.
   WIRING: `changeNoCache` now lives ONCE in `shared/js/smd-settings.js` (it was
   duplicated in PlanMyDay + ListOfLists); every app's Danger markup just needs the
   `#noCacheRow` block, and the id must be in that app's danger-id list (PMD
@@ -450,8 +476,7 @@ Architecture:
   apps" - one test per app asserting the exact visible row order, the colour of
   every row, and that no two consecutive rows both carry a gap. Update its table
   with any Danger change.
-- FONT SIZE COVERS FORM TEXT + THE TOOLBAR (2026-10-18, user-reported): the setting
-  moves `<body>`'s font-size and the `--smd-type-*` tokens are `em`, so the ramp
+- FONT SIZE COVERS FORM TEXT + THE TOOLBAR (2026-10-18, user-reported): the setting  moves `<body>`'s font-size and the `--smd-type-*` tokens are `em`, so the ramp
   follows - but three things were pinned to rem/px and ignored it:
   (a) Bootstrap's `.form-control` / `.form-select` (`font-size:1rem`) and
   superhero/yeti's plain `label { font-size:.875rem }` - against the default
@@ -488,6 +513,26 @@ Architecture:
   `#mainNav` contains TWO `.dropdown-menu` elements (the menu + the nested "My
   Apps" flyout) so locators need `.first()`; SolarControlar 404s its Flask API and
   opens an error modal, so stub `**/solar/api/power_data*` before `goto`.
+- MAIN-MENU FLYOUT MUST NOT BE CLIPPED (2026-10-19, user-reported): "on the sketchy
+  theme the Main Menu | Launch does not show the submenu". The flyout is positioned
+  `left: 100%` (SUBMENU_CSS in `shared/js/smd-apps.js`), so any ancestor with
+  `overflow: hidden` clips it away - and **sketchy is the only theme whose
+  bootstrap sets `.dropdown-menu{overflow:hidden}`**. The element still reports a
+  geometry rect, so a rect/`toBeVisible()` check passes while the user sees
+  nothing: the honest test is `document.elementFromPoint` at the item's centre
+  (it landed on the page text BEHIND the flyout). Fixed by `overflow: visible` on
+  `#mainNav .dropdown-menu` in `shared/css/styles.css` (`border-radius` still
+  clips the background, so sketchy's hand-drawn shape is unaffected). Guarded by
+  menu-legibility's "the Launch flyout submenu is visible on every theme and mode",
+  which hit-tests the first flyout item for all 27 themes x both modes.
+- SOLAR TOP TILES RECURSED FOREVER (2026-10-19, found by the probes above):
+  `SolarControlar/js/components/solar-top-tiles.js` has `no-data` in
+  `observedAttributes`, and `_render()` called `setAttribute("no-data", "")` on the
+  no-data path - which re-entered `attributeChangedCallback()` -> `_render()` ->
+  setAttribute ... and threw `RangeError: Maximum call stack size exceeded` on
+  EVERY load without data (i.e. any boot before the Flask API answers, and every
+  test). Now the attribute is only mutated when its state actually changes
+  (`hasAttribute` guard), so the loop cannot start.
 - BUTTON/TAB TEXT CONTRAST IS NORMALISED (2026-10-18, user request): Bootswatch
   ships literal `--bs-btn-color` values (usually white) that often fail WCAG AA on
   the theme's own accent surfaces - journal warning is white on #f5e625 (1.29:1),
@@ -1241,6 +1286,39 @@ Techniques / gotchas:
   when an array is non-empty or a branch is taken.
 
 ## Session log
+
+### 2026-10-19 (a) - Danger buttons full width, FFOX's missing modal, the sketchy submenu clip, and a Solar recursion
+
+- DANGER BUTTONS TOO NARROW (user): "on the Danger tab the buttons are too narrow.
+  They should start after where the label would be and continue the full width."
+  The action rows had `col-md-8` on the ROW as well as the inner `col-4`/`col-8`,
+  so a button was 8/12 x 8/12 = 44% of the page. Dropped the row-level `col-md-8`
+  from every row containing an `<smd-button>` in all 8 shells (switch rows keep
+  it); measured: the button now starts at 377px of a 1100px container (1/3) and
+  ends 12px from the row's right edge. `settings-alignment`'s Danger test now
+  selects `div.row` (it used `div.row.col-md-8` and would have silently found only
+  the switch rows) and asserts the geometry per app.
+- FFOX UPLOAD + CLEAR WERE DEAD (found while verifying the new loader): both call
+  `showSmdModal()`, but FreeFormOX never loaded
+  `shared/js/components/smd-modal.js`, so it threw `modal.show is not a function`
+  and no confirm appeared - a pre-existing bug in the clear action too. Added the
+  script, plus a settings-alignment test that CLICKS both Danger actions in all 8
+  apps and asserts the modal opens (PhoneButtons uses `#btnClearStorage`).
+  Also added `SmdConfig.imagePrefix = "shared-"` to FFOX: without it the upload
+  would have written `ffox_images` instead of the shared library. Verified: Launch
+  and FFOX both open the 4-way modal and write 168 images into `shared-images`.
+- SKETCHY SUBMENU INVISIBLE (user): the "Launch" flyout is `left: 100%`, and
+  sketchy is the only theme with `.dropdown-menu{overflow:hidden}` - the flyout was
+  clipped while still reporting a rect, so `toBeVisible()` passed but
+  `elementFromPoint` hit the page behind it. Fixed with `overflow: visible` on
+  `#mainNav .dropdown-menu`; added a hit-test guard over all 27 themes x 2 modes.
+- SOLAR RECURSION: `solar-top-tiles.js` observed `no-data` and set it inside
+  `_render()`, recursing until `RangeError: Maximum call stack size exceeded` on
+  every load without data. Guarded with `hasAttribute`.
+- ALSO: `settings-alignment`'s Solar startup-modal handling raced the async 404
+  modal, so the Danger tab click is now dismiss-and-retry (`openDangerTab`).
+- VERIFIED: settings-alignment + menu-legibility + contrast + display-settings +
+  the 7 app suites 245/245; pmd-regression "menu" 12/12. Build `202610190720`.
 
 ### 2026-10-18 (d) - Font size reaches form text + the toolbar; main-menu legibility specs; Display-settings audit
 

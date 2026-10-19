@@ -184,4 +184,39 @@ test.describe("Main-menu legibility", () => {
     expect(failures.join("\n")).toBe("");
     expect(mismatched.join("\n")).toBe("");
   });
+
+  test("the Launch flyout submenu is visible on every theme and mode", async ({ page }) => {
+    // The flyout is positioned at `left: 100%`, so an ancestor with
+    // `overflow: hidden` clips it away: the element keeps its geometry but is
+    // never painted and never hit-tested. sketchy is the only theme that sets
+    // `.dropdown-menu{overflow:hidden}`, and its Main Menu | Launch submenu was
+    // invisible in both modes until #mainNav .dropdown-menu opted out.
+    // elementFromPoint is the honest check - a clipped element still reports a rect.
+    await page.goto("/PlanMyDay/");
+    const failures = [];
+    for (const theme of THEMES) {
+      for (const mode of MODES) {
+        const label = theme + "/" + mode;
+        await setTheme(page, theme, mode);
+        await openMenu(page);
+        await page.locator("#mainNav .launch-submenu-toggle").hover();
+        const hit = () => page.evaluate(() => {
+          const menu = document.querySelector("#mainNav .launch-submenu-menu");
+          const item = menu && menu.querySelector(".dropdown-item");
+          if (!item) return false;
+          const r = item.getBoundingClientRect();
+          const point = document.elementFromPoint(Math.round(r.x + r.width / 2), Math.round(r.y + r.height / 2));
+          return !!(point && menu.contains(point));
+        });
+        let visible = false;
+        try {
+          await expect.poll(hit, { timeout: 4000 }).toBe(true);
+          visible = true;
+        } catch (e) { visible = false; }
+        if (!visible) failures.push(label + ": the Launch submenu is clipped or not hit-testable");
+        await closeMenu(page);
+      }
+    }
+    expect(failures.join("\n")).toBe("");
+  });
 });

@@ -79,7 +79,7 @@ function closeSettings() {
 
 // Danger rows toggled by the "Show danger" switch (canonical order - AGENTS.md).
 function ffoxDangerIds() {
-  return ["noCacheRow", "refreshAppRow", "clearAllDataRow"];
+  return ["noCacheRow", "refreshAppRow", "clearAllDataRow", "uploadStandardImagesRow"];
 }
 
 function changeShowDanger(enabled) {

@@ -169,6 +169,22 @@ async function dismissStartupModal(page) {
   if (dismissed) await expect(page.locator("#smdConfirmModal")).not.toHaveAttribute("open", "");
 }
 
+// That startup modal appears ASYNCHRONOUSLY (the API 404 resolves after boot), so
+// dismissing once can still race it. Dismiss-then-click with a short timeout and
+// retry: the overlay either clears or the next attempt waits on the real thing.
+async function openDangerTab(page) {
+  const tab = page.locator("#settingsPage .smd-tab-btn").filter({ hasText: "Danger" });
+  for (let attempt = 0; attempt < 4; attempt++) {
+    await dismissStartupModal(page);
+    try {
+      await tab.click({ timeout: 2500 });
+      return;
+    } catch (e) {
+      if (attempt === 3) throw e;
+    }
+  }
+}
+
 test.describe("Danger tab shape is consistent across apps", () => {
   const DANGER = [
     {
@@ -201,11 +217,11 @@ test.describe("Danger tab shape is consistent across apps", () => {
     },
     {
       app: "Launch", path: "/",
-      rows: ["Show danger", "No Cache", "Refresh App", "Clear local storage Launch"],
+      rows: ["Show danger", "No Cache", "Refresh App", "Clear local storage Launch", "Upload Standard Images"],
     },
     {
       app: "FreeFormOX", path: "/FreeFormOX/",
-      rows: ["Show danger", "No Cache", "Refresh App", "Clear local storage FFOX"],
+      rows: ["Show danger", "No Cache", "Refresh App", "Clear local storage FFOX", "Upload Standard Images"],
     },
   ];
 
@@ -224,12 +240,17 @@ test.describe("Danger tab shape is consistent across apps", () => {
       await page.goto(spec.path);
       await page.evaluate(() => openSettings());
       await dismissStartupModal(page);
-      await page.locator("#settingsPage .smd-tab-btn").filter({ hasText: "Danger" }).click();
+      await openDangerTab(page);
       await page.locator("#showDanger").check();
       await expect(page.locator("#settingsPage .smd-tab-panel.active")).toHaveCount(1);
       const rows = await page.evaluate(() => {
         const panel = document.querySelector("#settingsPage .smd-tab-panel.active");
-        return Array.from(panel.querySelectorAll("div.row.col-md-8"))
+        // Every Danger row is a `div.row`; the ACTION rows are full width (no
+        // `col-md-8`), so the button starts where the label column ends and runs to
+        // the right edge - the switch rows keep the narrower `col-md-8` control
+        // column. (Before 2026-10-19 the action rows were `col-md-8` too, which
+        // made every Danger button ~44% of the page: the reported "too narrow".)
+        return Array.from(panel.querySelectorAll("div.row"))
           .filter((row) => !row.classList.contains("d-none"))
           .map((row) => {
             const label = row.querySelector("label");
@@ -241,6 +262,7 @@ test.describe("Danger tab shape is consistent across apps", () => {
               ? (host.getAttribute("variant") || (host.className.match(/btn-([a-z]+)/) || [])[1] || null)
               : null;
             const box = btn ? btn.getBoundingClientRect() : null;
+            const rowBox = row.getBoundingClientRect();
             return {
               name: (label ? label.textContent : (host ? host.textContent : "")).trim(),
               gapAbove: row.classList.contains("mt-4"),
@@ -248,6 +270,13 @@ test.describe("Danger tab shape is consistent across apps", () => {
               width: box ? Math.round(box.width) : null,
               height: box ? Math.round(box.height) : null,
               tag: host ? host.tagName : null,
+              // geometry, to pin the "starts after the label column, runs full
+              // width" rule
+              rowLeft: Math.round(rowBox.left),
+              rowRight: Math.round(rowBox.right),
+              rowWidth: Math.round(rowBox.width),
+              btnLeft: box ? Math.round(box.left) : null,
+              btnRight: box ? Math.round(box.right) : null,
             };
           });
       });
@@ -258,10 +287,17 @@ test.describe("Danger tab shape is consistent across apps", () => {
       for (let i = 0; i < rows.length; i++) {
         expect(rows[i].colour, `${rows[i].name} colour`).toBe(colourFor(rows[i].name));
         if (rows[i].tag) {
-          // every Danger action button is the shared component at ONE size
+          // every Danger action button is the shared component at ONE size ...
           expect(rows[i].tag, rows[i].name).toBe("SMD-BUTTON");
           expect(rows[i].width, `${rows[i].name} width`).toBe(buttons[0].width);
           expect(rows[i].height, `${rows[i].name} height`).toBe(buttons[0].height);
+          // ... and it runs to the right edge of the settings container, starting
+          // at the label column (col-4), not inside a narrower `col-md-8` row.
+          expect(rows[i].rowRight - rows[i].btnRight, `${rows[i].name} reaches the row's right edge`)
+            .toBeLessThanOrEqual(24);          // gutters/padding only
+          expect(rows[i].btnLeft - rows[i].rowLeft, `${rows[i].name} starts after the label column`)
+            .toBeGreaterThanOrEqual(rows[i].rowWidth / 3 - 24);
+          expect(rows[i].width, `${rows[i].name} uses the full width`).toBeGreaterThan(rows[i].rowWidth * 0.55);
         }
         if (i > 0) {
           expect(rows[i].gapAbove && rows[i - 1].gapAbove,
@@ -270,6 +306,40 @@ test.describe("Danger tab shape is consistent across apps", () => {
       }
     });
   }
+
+  // The rows above only prove the MARKUP. A Danger action also has to run: its
+  // handler must exist AND the shared <smd-modal> component must be loaded, or
+  // `showSmdModal()` throws `modal.show is not a function` and the confirm never
+  // appears (FreeFormOX shipped exactly that: `confirmClearAllData()` and the new
+  // Upload Standard Images button both died silently because the shell never
+  // loaded shared/js/components/smd-modal.js).
+  test("every app's Danger actions open their confirm modal", async ({ page }) => {
+    for (const spec of DANGER) {
+      await page.goto(spec.path);
+      await page.evaluate(() => openSettings());
+      await openDangerTab(page);
+      await page.locator("#showDanger").check();
+      const modal = page.locator("#smdConfirmModal");
+
+      // Clear local storage <APP> - asks first, and Cancel leaves the data alone.
+      // PhoneButtons' row keeps its own id (#btnClearStorage).
+      const clearButton = page.locator("#btnClearAllData, #btnClearStorage");
+      await clearButton.click();
+      await expect(modal, spec.app + ": Clear local storage opens a confirm").toBeVisible();
+      await expect(modal.getByRole("button", { name: "Clear" })).toBeVisible();
+      await modal.getByRole("button", { name: "Cancel" }).click();
+      await expect(modal).toBeHidden();
+
+      // Upload Standard Images (only the apps that have the row).
+      if (await page.locator("#btnUploadImages").count()) {
+        await page.locator("#btnUploadImages").click();
+        await expect(modal, spec.app + ": Upload Standard Images opens its dialog").toBeVisible();
+        await expect(modal.getByRole("button", { name: "Add" })).toBeVisible();
+        await modal.getByRole("button", { name: "Cancel" }).click();
+        await expect(modal).toBeHidden();
+      }
+    }
+  });
 });
 
 test.describe("Settings page shape is consistent across apps", () => {

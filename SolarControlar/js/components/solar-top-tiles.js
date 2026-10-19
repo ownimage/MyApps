@@ -221,10 +221,15 @@ class SolarTopTiles extends HTMLElement {
     var batteryLevel = this.getAttribute("battery-level");
 
     if (!dateStr && !timeStr) {
-      this.setAttribute("no-data", "");
+      // `no-data` is an OBSERVED attribute, so setting it from inside _render()
+      // re-entered attributeChangedCallback -> _render() -> setAttribute ... and
+      // blew the stack with `RangeError: Maximum call stack size exceeded` on
+      // EVERY load without data (e.g. before the API answers). Only mutate when
+      // the state actually changes.
+      if (!this.hasAttribute("no-data")) this.setAttribute("no-data", "");
       return;
     }
-    this.removeAttribute("no-data");
+    if (this.hasAttribute("no-data")) this.removeAttribute("no-data");
 
     // Date
     if (dateStr) {

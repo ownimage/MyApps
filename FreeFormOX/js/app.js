@@ -5,6 +5,10 @@
 // settings page.
 
 SmdConfig.storagePrefix = "ffox_";
+// The standard images live in the ONE shared library every app uses
+// (`shared-images`), so the Danger tab's "Upload Standard Images" writes there
+// rather than into an app-private `ffox_images` list.
+SmdConfig.imagePrefix = "shared-";
 
 let currentPlayer = "X";
 let gameOver = false;

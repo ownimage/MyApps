@@ -165,6 +165,13 @@ input {
 #mainNav .dropdown-menu {
   background-color: var(--bs-body-bg);
   border: 1px solid var(--bs-border-color);
+  /* The "Launch" flyout is positioned at `left: 100%` of its parent menu item, so
+     any ancestor with `overflow: hidden` clips it away. sketchy is the only theme
+     that sets `.dropdown-menu{overflow:hidden}` (2026-10-19: its Main Menu |
+     Launch submenu was invisible in BOTH modes - the flyout had a geometry rect
+     but `elementFromPoint` landed on the page behind it). `border-radius` still
+     clips the background, so the theme's hand-drawn shape is not affected. */
+  overflow: visible;
   /* Bootstrap's default divider is a translucent BLACK (Bootswatch keeps it
      opaque-black per theme), which vanishes against the dark menu surface in
      themes like superhero (both modes). Use the theme's solid border colour,
