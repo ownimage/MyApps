@@ -6,7 +6,7 @@
 //   source          — "local" (default) | "google"; shown as a badge under the date
 //   count1          — first countdown line ("12" or "3 weeks")
 //   count2          — optional second line ("4 days")
-//   category        — category label (shown under the category thumbnail)
+//   category        — category label, ONE caption underneath the image pair
 //   category-image  — category image name (rendered via smd-image)
 //   image           — date image name (rendered via smd-image)
 //   key-prefix      — smd-image storage prefix (default: SmdConfig.imagePrefix)
@@ -31,14 +31,14 @@ const cmdCountdownCardTemplate = document.createElement("template");
 cmdCountdownCardTemplate.innerHTML = `
   <div class="card border-0 w-100">
     <div class="d-flex align-items-center gap-3 px-3 py-2 border rounded-3">
-      <div class="thumbs d-flex flex-shrink-0 align-items-start gap-1">
-        <div class="thumb-block d-flex flex-column align-items-center">
+      <div class="thumbs d-flex flex-column align-items-stretch flex-shrink-0">
+        <div class="thumb-row d-flex align-items-start gap-1">
           <div class="thumb mb-1 d-flex align-items-center justify-content-center"><smd-image class="category-thumb"></smd-image></div>
-          <div class="category-label small text-center"></div>
+          <div class="thumb mb-1 d-flex align-items-center justify-content-center"><smd-image class="date-thumb"></smd-image></div>
         </div>
-        <div class="thumb-block d-flex flex-column align-items-center">
-          <div class="thumb d-flex align-items-center justify-content-center"><smd-image class="date-thumb"></smd-image></div>
-        </div>
+        <!-- ONE category caption, left-aligned with the category image, running
+             underneath BOTH images (not one caption per image). -->
+        <div class="category-label small text-start"></div>
       </div>
       <div class="content flex-grow-1 overflow-hidden">
         <h4 class="title fw-bold text-truncate mb-1"></h4>
@@ -103,6 +103,7 @@ class CmdCountdownCard extends HTMLElement {
     // tiles, where "0 days" is noise).
     root.querySelector(".counts").hidden = this.hasAttribute("hide-count");
 
+    // The category name is ONE caption underneath the image PAIR.
     root.querySelector(".category-label").textContent = this.getAttribute("category") || "";
 
     const setThumb = (selector, name) => {
