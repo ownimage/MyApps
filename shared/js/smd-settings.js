@@ -134,6 +134,9 @@ function applyThemeOverrides(theme, mode) {
   setOverrideLink("theme-override-mode", prefix + normalized + ".css?v=" + stamp);
   setOverrideLink("theme-override-specific", prefix + theme + "/" + theme + "." + normalized + ".css?v=" + stamp);
   orderThemeOverrideLinks();
+  // Re-normalise button/tab text contrast for the new theme+mode (guarded: the
+  // module is loaded after this file and may be absent in a stripped page).
+  if (typeof scheduleSmdContrast === "function") scheduleSmdContrast();
 }
 
 function setOverrideLink(id, href) {

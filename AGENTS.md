@@ -450,6 +450,77 @@ Architecture:
   apps" - one test per app asserting the exact visible row order, the colour of
   every row, and that no two consecutive rows both carry a gap. Update its table
   with any Danger change.
+- FONT SIZE COVERS FORM TEXT + THE TOOLBAR (2026-10-18, user-reported): the setting
+  moves `<body>`'s font-size and the `--smd-type-*` tokens are `em`, so the ramp
+  follows - but three things were pinned to rem/px and ignored it:
+  (a) Bootstrap's `.form-control` / `.form-select` (`font-size:1rem`) and
+  superhero/yeti's plain `label { font-size:.875rem }` - against the default
+  `xlarge` 20.8px body, every field label, input, select, textarea and checkbox
+  label sat at 14-16px while tabs/buttons grew. `shared/css/styles.css` now pins
+  `label`, `.form-label`, `.form-check-label`, `.col-form-label`, `.form-control`,
+  `.form-select`, `.form-check-input`, `.input-group-text`, `textarea`, `select`,
+  `input` to `var(--smd-type-p)` (colours untouched - themes keep their own field
+  look). Reported on PlanMyDay's View Job page.
+  (b) `#mainNav` and its menu: themes pin `.navbar` to a rem size (brite
+  `1.09375rem` = 17.5px, journal 18px, litera 15.4px, lux/zephyr 14px) or the
+  dropdown itself (sandstone/yeti 13px `.dropdown-item`, brite/others
+  `--bs-dropdown-font-size: .875rem`), so the hamburger menu came out SMALLER than
+  the page text. `#mainNav`, `#mainNav .dropdown-menu`, `#mainNav .dropdown-item`
+  are pinned to `var(--smd-type-p)`; `#mainNav` (1,0,0) beats the theme's
+  `.navbar` (0,1,0) and the em token then resolves against the body-derived parent.
+  (c) the menu's TEXT colour: the menu surface is forced to `--bs-body-bg`, so its
+  text must be `var(--bs-body-color)` (Bootstrap's `--bs-dropdown-link-color` can
+  be brighter/greyer than the surface we forced - quartz dark ships #dee2e6). Hover
+  and active keep that colour and only TINT the surface with
+  `rgba(var(--bs-body-color-rgb), .12/.2)`, so a highlight cannot drop contrast.
+  `shared/js/smd-contrast.js` extends its AA guarantee to the menu (minty light's
+  body text is #888 on #fff = 3.54:1, morph 2.63:1, spacelab 4.48:1): when the
+  body pair itself fails 4.5:1 the menu text is repainted to the best of
+  body-color/black/white, while the rest of the app keeps the theme's colour.
+  GUARDS: `tests/menu-legibility.spec.js` (menu never smaller than the body on all
+  27 themes x both modes; menu grows with the setting across all six sizes; AA +
+  "uses --bs-body-color verbatim where that already passes") and
+  `tests/display-settings.spec.js` (one test per app: every Display control is
+  present and takes effect - theme/mode, font size incl. the real label size,
+  touch size incl. the real checkbox size, density, slide duration on `<smd-page>`,
+  icon size, auto-hide body class). GOTCHAS the specs encode: PlanMyDay/ListOfLists
+  DEFAULT to touch size "large" (they read `dragSize` first), so drive both values;
+  `#mainNav` contains TWO `.dropdown-menu` elements (the menu + the nested "My
+  Apps" flyout) so locators need `.first()`; SolarControlar 404s its Flask API and
+  opens an error modal, so stub `**/solar/api/power_data*` before `goto`.
+- BUTTON/TAB TEXT CONTRAST IS NORMALISED (2026-10-18, user request): Bootswatch
+  ships literal `--bs-btn-color` values (usually white) that often fail WCAG AA on
+  the theme's own accent surfaces - journal warning is white on #f5e625 (1.29:1),
+  minty's is 1.47:1 - and the `.text-bg-*` tab colours are just as theme-dependent.
+  `shared/js/smd-contrast.js` (loaded right after `smd-settings.js` in all 8 shells
+  + the storybook, and in `sw.js` SHARED_ASSETS) runs after every theme/mode change,
+  measures the surfaces the browser will actually paint, and repaints a label ONLY
+  where the theme's own colour fails 4.5:1. Candidate order: (1) the theme's colour
+  when it already passes - untouched; (2) the better of `--bs-body-color` /
+  `--bs-body-bg`; (3) black/white, which always reach =4.58:1 on an opaque surface.
+  So a theme keeps its own look wherever that look is readable. Details that bit:
+  (a) EVERY state is judged separately (base/hover/active/disabled) because
+  Bootstrap paints each from its own `--bs-btn-*-bg` surface; translucent surfaces
+  (quartz's `--bs-secondary` is rgba(255,255,255,.4)) are composited over the page
+  background first; (b) the four `--bs-btn-*-color` vars go on the BASE selector
+  (Bootstrap reads them per state, and a `:hover`-scoped var is unreadable when not
+  hovered) AND an explicit `color: ... !important` is emitted, because themes paint
+  buttons with a literal colour (minty `.btn,.btn:hover{color:#fff}`) and
+  Bootswatch's `.text-bg-*` ships `color:#fff!important`; (c) tab overrides are
+  scoped `smd-tabs .smd-tab-btn.text-bg-<variant>` so badges keep their own
+  `.text-bg-*` colours; (d) the previous `<style id="smd-contrast-overrides">` is
+  removed before measuring, so a theme is never judged against our own output and a
+  theme with nothing to fix leaves no style behind. Re-runs are hooked from
+  `applyThemeOverrides()` (guarded by `typeof`) plus a capture-phase `load`
+  listener on the theme `<link>`s. GUARD: `tests/contrast.spec.js` walks ALL 27
+  themes x both modes, asserting >= 4.5:1 for every `smd-button` variant x every
+  state and both tab colours on REAL `<smd-button>`/`<smd-tabs>` instances (the
+  ratios are recomputed test-side, so it checks the outcome, not the method), plus
+  a test that bootstrap/brite - which already pass - get no style injected at all.
+  NOTE: disabled buttons additionally get Bootstrap's `opacity: .65`, which the
+  measurement ignores (WCAG exempts disabled controls); and the superhero
+  `btn-warning` rule (see the Danger note) is now redundant but kept - the module
+  independently picks `--bs-body-bg` there, so the outcome is identical.
 - SHARED IMAGE LIBRARY (2026-09-13): all apps share ONE images list,
   `shared-images`. `SmdConfig.imagePrefix = "shared-"` is set in every app's
   `app.js`; `smdImagePrefix()` (shared/js/smd-app.js) returns
@@ -1170,6 +1241,90 @@ Techniques / gotchas:
   when an array is non-empty or a branch is taken.
 
 ## Session log
+
+### 2026-10-18 (d) - Font size reaches form text + the toolbar; main-menu legibility specs; Display-settings audit
+
+- WHAT (user-reported): "on the Settings | Display tab the font size does not seem
+  to be changing the size of the text or form text ... it is changing the
+  smd-tabs, smd-buttons not checkboxes. I am specifically looking at PlanMyDay View
+  Job." So: the Font size setting resized body text, tabs and buttons but NOT form
+  labels, inputs, selects, textareas or checkbox labels.
+- MEASURED: at `normal/large/jumbo` the body went 16/18/25.6px and tabs/buttons
+  followed, while `label.form-label` stayed 14px and `.form-control`/`textarea`/
+  the smd-checkbox label stayed 16/16/14px. Cause: Bootstrap pins
+  `.form-control`/`.form-select` to `font-size:1rem` and superhero/yeti pin plain
+  `label` to `.875rem` - both rem, so `body`'s font-size (the setting's mechanism)
+  cannot reach them.
+- FIX: pinned `label`, `.form-label`, `.form-check-label`, `.col-form-label`,
+  `.form-control`, `.form-select`, `.form-check-input`, `.input-group-text`,
+  `textarea`, `select`, `input` to `var(--smd-type-p)` in `shared/css/styles.css`
+  (before the FORM CONTROLS section). Colours untouched.
+- ALSO (same session, user follow-up): "run a legibility test on the main menu,
+  sometimes the text seems small ... and sometimes it seems grey (low contrast) -
+  write tests for both. Please check that all the Display settings are wired up
+  properly in all apps."
+- MEASURED the menu across all 27 themes x 2 modes: 17 problems.
+  TOO SMALL (14): brite/journal/litera/lux/zephyr pin `.navbar` (17.5/18/15.4/14px)
+  and sandstone/yeti pin the items (13/14px) - all against the default 20.8px body.
+  LOW CONTRAST (3): minty light 3.54:1, morph light 2.63:1, spacelab light 4.48:1 -
+  in every case the theme's OWN body text is the failing colour.
+- FIX: `#mainNav` + its menu/menu-items pinned to `var(--smd-type-p)`; menu text
+  pinned to `var(--bs-body-color)` with hover/active keeping that colour and only
+  tinting the surface (`rgba(var(--bs-body-color-rgb), .12/.2)`); and
+  `shared/js/smd-contrast.js` extended to the menu so a body pair that is itself
+  sub-AA gets repainted to the best of body-color/black/white. Menu problems after
+  the fix: 0/54.
+- NEW SPECS: `tests/menu-legibility.spec.js` (3 tests - size never smaller than the
+  body on every theme/mode, size follows the setting across all six sizes, AA +
+  body-colour consistency) and `tests/display-settings.spec.js` (8 tests, one per
+  app, driving every Display control and asserting its real effect). Writing the
+  second one surfaced three environment facts now recorded in the notes: PMD/LoL
+  default to touch size "large", `#mainNav` has two `.dropdown-menu` elements, and
+  SolarControlar needs its Flask API stubbed or its error modal blocks the toolbar.
+- VERIFIED: menu-legibility + display-settings 11/11; the 7 app suites +
+  settings-alignment + contrast 243/243; pmd-regression (full) + pmd-gantt +
+  pmd-touch + image-edit-preview-size + storybook + shared-helpers 572/572.
+
+### 2026-10-18 (c) - WCAG AA contrast normalisation for buttons/tabs + sample-image themes patch
+
+- WHAT (user request): "write a test to check the text colour on all the smd-button
+  variants and also smd-tab colours on all themes and theme modes ... where there
+  is not [good contrast] use the --bs-body-bg or --bs-body-colour". Threshold
+  agreed with the user: WCAG AA 4.5:1 (normal-size text).
+- MEASURED FIRST: 540 button/tab surfaces across 27 themes x 2 modes had 273 below
+  4.5:1 (`--body-*` and tabs included) - nearly all white on the theme's own accent
+  (journal warning 1.29:1, minty 1.47:1, quartz's translucent secondary 1:1 when
+  read as opaque). So this needed one general fix, not 273 per-theme patches.
+- FIX: new `shared/js/smd-contrast.js` (see the AGENTS note for the full contract).
+  It repaints a label only where the theme's own colour fails AA, preferring the
+  better of `--bs-body-color`/`--bs-body-bg`, falling back to black/white. Wired
+  into all 8 shells + the storybook after `smd-settings.js`, added to `sw.js`
+  SHARED_ASSETS, and re-run from `applyThemeOverrides()` + a capture-phase `load`
+  listener on the theme links.
+- TEST: new `tests/contrast.spec.js` - 3 tests walking all 27 themes x both modes
+  for every `smd-button` variant x 4 states and both tab colours (AA), plus a
+  "no overrides where the theme already passes" guard. The specs recompute the
+  ratios themselves from the resolved colours, so they assert the outcome rather
+  than re-running the module's arithmetic.
+- THREE BUGS THE FIRST CUT HAD (all found by the new spec, worth remembering):
+  (1) vars alone lose - minty/journal paint `.btn{color:#fff}` directly and
+  Bootswatch's `.text-bg-*` uses `color:#fff!important`, so an explicit
+  `color: ... !important` is required; (2) hover/active surfaces come from
+  `--bs-btn-*-bg` vars that must be resolved as raw tokens (hex too) and composited
+  for translucent ones; (3) the four `--bs-btn-*-color` vars must be set on the
+  BASE selector - `:hover`-scoped vars are unreadable when the button is not
+  hovered, which also made them untestable.
+- TESTS UPDATED: pmd-regression's "inactive tabs use the Bootstrap text-bg-secondary
+  contrast" became "tab text stays readable on the Bootstrap text-bg-* surfaces"
+  (bg equality kept, colour equality only asserted for brite which needs no repair,
+  AA asserted for both); the new spec supersedes it for coverage.
+- ALSO: `shared/sampleImages.json` - Plane 1/2/3 gained the `themes.light` blocks
+  the user supplied (line/fill/width), patched in place with the file's own
+  formatting (4-space entries / 8-space keys), everything else byte-identical; the
+  file still parses with 168 images. No test reads those fields (they only use
+  `.images.length` or filter by name).
+- VERIFIED: contrast 3/3, pmd-regression "Theme colours" + pmd-gantt +
+  settings-alignment + storybook-regression 167/167. Build `202610182317`.
 
 ### 2026-10-18 (b) - Danger tabs: shared `<smd-button block>`, one size, corrected colours, own-data clears, + Launch/FFOX tabs
 

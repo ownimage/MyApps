@@ -1002,9 +1002,12 @@ test.describe("PlanMyDay - Regression", () => {
       }
     });
 
-    test("inactive tabs use the Bootstrap text-bg-secondary contrast (no white-on-white)", async ({ page }) => {
+    test("tab text stays readable on the Bootstrap text-bg-* surfaces", async ({ page }) => {
       // brite's secondary is #fff and cerulean's is #e9ecef, so hardcoded white
-      // tab text vanished. Tabs must use Bootstrap's own text-bg-* contrast.
+      // tab text vanished. Tabs use Bootstrap's own text-bg-* contrast, and where
+      // that still fails AA (cerulean's active tab is 2.77:1) shared/js/
+      // smd-contrast.js repaints the text - so assert READABILITY here, and the
+      // raw helper colour on the theme that needs no repair (brite).
       for (const theme of ["brite", "cerulean"]) {
         await setTheme(page, theme);
         await page.evaluate(() => openSettings());
@@ -1031,11 +1034,17 @@ test.describe("PlanMyDay - Regression", () => {
             pri: probe("text-bg-primary")
           };
         });
-        expect(cmp.inactive.color, theme).toBe(cmp.sec.color);
+        // The surfaces are untouched - they are still Bootstrap's text-bg-* ones.
         expect(cmp.inactive.bg, theme).toBe(cmp.sec.bg);
-        expect(cmp.inactive.color, theme).not.toBe(cmp.inactive.bg);
-        expect(cmp.active.color, theme).toBe(cmp.pri.color);
         expect(cmp.active.bg, theme).toBe(cmp.pri.bg);
+        expect(cmp.inactive.color, theme).not.toBe(cmp.inactive.bg);
+        expect(smdContrast(cmp.inactive.color, cmp.inactive.bg), theme + " inactive tab").toBeGreaterThanOrEqual(4.5);
+        expect(smdContrast(cmp.active.color, cmp.active.bg), theme + " active tab").toBeGreaterThanOrEqual(4.5);
+        if (theme === "brite") {
+          // nothing to repair here, so the text is Bootstrap's own helper colour
+          expect(cmp.inactive.color, theme).toBe(cmp.sec.color);
+          expect(cmp.active.color, theme).toBe(cmp.pri.color);
+        }
         await page.evaluate(() => closeSettings());
       }
     });

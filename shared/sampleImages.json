@@ -116,7 +116,14 @@
         "data": "data:image/svg+xml,%3Csvg%20fill%3D%22%23ffffff%22%20stroke%3D%22none%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22512%22%20height%3D%22512%22%20viewBox%3D%220%200%2024%2024%22%3E%3Cpath%20fill%3D%22%23ffffff%22%20d%3D%22M21.75%2012a1%201%200%200%200-.55-.89l-6.12-3.06v-4a3.08%203.08%200%201%200-6.16%200v4L2.8%2011.11a1%201%200%200%200-.55.89v3.33a1%201%200%200%200%20.43.83a1%201%200%200%200%20.92.11l5.32-2V18l-1.82.6a1%201%200%200%200-.68.95V22a1%201%200%200%200%20.3.71a1%201%200%200%200%20.7.29h9.17a1%201%200%200%200%201-1v-2.5a1%201%200%200%200-.68-.95L15.08%2018v-3.72l5.32%202a1%201%200%200%200%20.92-.11a1%201%200%200%200%20.43-.83Zm-7.31-.1a1%201%200%200%200-.93.11a1%201%200%200%200-.43.82v5.84a1%201%200%200%200%20.69.95l1.81.6V21H8.41v-.78l1.81-.6a1%201%200%200%200%20.69-.95v-5.84a1%201%200%200%200-.43-.82a1%201%200%200%200-.93-.11l-5.31%202v-1.28l6.11-3.06a1%201%200%200%200%20.56-.89V4.08a1.08%201.08%200%201%201%202.16%200v4.59a1%201%200%200%200%20.56.89l6.11%203.06v1.27Z%22%2F%3E%3C%2Fsvg%3E",
         "lineColor": "none",
         "fillColor": "#ffffff",
-        "_prevStroke": "#ffffff"
+        "_prevStroke": "#ffffff",
+        "themes": {
+            "light": {
+                "line": "none",
+                "fill": "#000000",
+                "width": null
+            }
+        }
     },
     {
         "name": "Square",
@@ -404,14 +411,28 @@
     {
         "name": "Plane 3",
         "data": "data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20width%3D'512'%20height%3D'512'%20viewBox%3D'0%200%2024%2024'%3E%3Cpath%20fill%3D'none'%20stroke%3D'%23ffffff'%20stroke-linecap%3D'round'%20stroke-linejoin%3D'round'%20stroke-width%3D'2'%20d%3D'm14.639%2010.258l4.83-1.294a2%202%200%201%201%201.035%203.863L6.015%2016.71l-4.45-5.02l2.897-.776l2.45%201.414l2.897-.776l-3.743-6.244l2.898-.777l5.675%205.727zM3%2021h18'%2F%3E%3C%2Fsvg%3E",
-        "lineColor": "#ffffff"
+        "lineColor": "#ffffff",
+        "themes": {
+            "light": {
+                "line": "#000000",
+                "fill": "#ffffff",
+                "width": null
+            }
+        }
     },
     {
         "name": "Plane 2",
         "data": "data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20width%3D'512'%20height%3D'512'%20viewBox%3D'0%200%2024%2024'%3E%3Cpath%20fill%3D'none'%20stroke%3D'%23ffffff'%20stroke-linecap%3D'round'%20stroke-linejoin%3D'round'%20stroke-width%3D'2'%20d%3D'm15.157%2011.81l4.83%201.295a2%202%200%201%201-1.036%203.863L4.462%2013.086L3.117%206.514l2.898.776l1.414%202.45l2.898.776l-.12-7.279l2.898.777l2.052%207.797zM3%2021h18'%2F%3E%3C%2Fsvg%3E",
         "lineColor": "#ffffff",
         "fillColor": "none",
-        "_prevFill": "#030303"
+        "_prevFill": "#030303",
+        "themes": {
+            "light": {
+                "line": "#000000",
+                "fill": "none",
+                "width": null
+            }
+        }
     },
     {
         "name": "Mountain 1",
