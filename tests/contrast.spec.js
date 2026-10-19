@@ -1,14 +1,15 @@
-// WCAG AA (4.5:1) contrast for BUTTON and TAB text on EVERY theme and mode.
+// WCAG AA (4.5:1) contrast for BUTTON and TAB text on EVERY theme and mode - the
+// OUTCOME guard.
 //
-// shared/js/smd-contrast.js repaints a label only where the theme's own colour
-// fails AA (preferring --bs-body-color / --bs-body-bg, falling back to
-// black/white); this spec is the guard that it actually did, measured on the
-// REAL `<smd-button>` / `<smd-tabs>` components rather than on raw `.btn-*`
-// probes. Every button state is checked, because hover/active paint their own
-// surface (`--bs-btn-hover-bg`, ...) from their own var.
+// The fixes are baked into each theme's own per-mode sheet
+// (shared/css/themes/<theme>/<theme>.<mode>.css, generated block);
+// tests/contrast-css.spec.js keeps that block current. This spec instead measures
+// the REAL `<smd-button>` / `<smd-tabs>` components to prove the baked CSS actually
+// renders readable labels. Every button state is checked, because hover/active
+// paint their own surface (`--bs-btn-hover-bg`, ...) from their own var.
 //
-// The ratios are recomputed here from the resolved colours the browser reports,
-// so the spec asserts the OUTCOME (>= 4.5:1) and not the module's method.
+// The ratios are recomputed here from the resolved colours the browser reports, so
+// the spec asserts the OUTCOME (>= 4.5:1) and not the method.
 const { test, expect } = require("@playwright/test");
 
 const THEMES = ["bootstrap", "brite", "cerulean", "cosmo", "cyborg", "darkly", "flatly", "journal", "litera",
@@ -94,7 +95,7 @@ const MEASURE = () => {
   const css = (c) => "rgb(" + Math.round(c.r) + ", " + Math.round(c.g) + ", " + Math.round(c.b) + ")";
 
   const pageBg = over(parse(getComputedStyle(document.body).backgroundColor), { r: 255, g: 255, b: 255, a: 1 });
-  const out = { buttons: {}, tabs: {}, hasOverrides: !!document.getElementById("smd-contrast-overrides") };
+  const out = { buttons: {}, tabs: {} };
 
   document.querySelectorAll("#contrastProbe smd-button").forEach((hostEl) => {
     const btn = hostEl.querySelector("button");
@@ -156,72 +157,104 @@ function tabFailures(m, label) {
   return out;
 }
 
-// Switch theme+mode and wait until the sheets the module measures are the ones
-// applyTheme() asked for (link.sheet lags a tick behind `href`).
+// Switch theme+mode and wait until the new sheets are actually APPLIED: the links'
+// `load` events, then the LIVE CSSStyleSheet objects naming the new theme, then a
+// stable sample of the applied colours (Bootstrap animates `.btn` colour for 150ms,
+// so a single sample can land mid-fade).
 async function setTheme(page, theme, mode) {
-  await page.evaluate(([t, m]) => applyTheme(t, m), [theme, mode]);
-  await page.waitForFunction(([t, m]) => {
-    const href = (el) => (el && el.getAttribute("href")) || "";
+  await page.evaluate(([t, m]) => new Promise((resolve) => {
+    const base = document.getElementById("bootstrap-theme-css");
     const specific = document.getElementById("theme-override-specific");
-    return href(document.getElementById("bootstrap-theme-css")).indexOf("/" + t + "/bootstrap.min.css") !== -1 &&
-      href(specific).indexOf("/" + t + "/" + t + "." + m + ".css") !== -1 && !!specific.sheet;
-  }, [theme, mode], { timeout: 15000 });
-}
+    const modeLayer = document.getElementById("theme-override-mode");
+    const href = (el) => (el && el.getAttribute("href")) || "";
+    if (href(base).indexOf("/" + t + "/bootstrap.min.css") !== -1 &&
+        href(specific).indexOf("/" + t + "/" + t + "." + m + ".css") !== -1) {
+      return resolve();
+    }
+    let pending = 0;
+    let settled = false;
+    const done = () => { if (settled || --pending > 0) return; settled = true; resolve(); };
+    [base, specific, modeLayer].filter(Boolean).forEach((el) => {
+      pending++;
+      const onLoad = () => { el.removeEventListener("load", onLoad); done(); };
+      el.addEventListener("load", onLoad);
+    });
+    applyTheme(t, m);
+    setTimeout(() => { if (!settled) { settled = true; resolve(); } }, 5000);
+  }), [theme, mode]);
 
-// The module runs off the sheets' load events, so poll rather than sampling once:
-// a broken automatic hookup times out here instead of passing by luck. Polling the
-// joined failure list (not a count) means a timeout shows exactly which
-// variant/state/mode is wrong.
-async function settle(page, label, failures) {
-  const report = async () => failures(await page.evaluate(MEASURE), label).join("\n");
-  await expect.poll(report, { timeout: 15000, message: label + ": waiting for the contrast normaliser" }).toBe("");
-  return failures(await page.evaluate(MEASURE), label);
+  await page.waitForFunction(([t, m]) => {
+    const sheetHref = (id) => { const el = document.getElementById(id); return (el && el.sheet && el.sheet.href) || ""; };
+    return sheetHref("bootstrap-theme-css").indexOf("/" + t + "/bootstrap.min.css") !== -1 &&
+      sheetHref("theme-override-specific").indexOf("/" + t + "/" + t + "." + m + ".css") !== -1;
+  }, [theme, mode], { timeout: 20000 });
+
+  let previous = null;
+  for (let i = 0; i < 30; i++) {
+    const now = await page.evaluate(() => {
+      const parts = [getComputedStyle(document.body).backgroundColor, getComputedStyle(document.body).color];
+      document.querySelectorAll("#contrastProbe smd-button button").forEach((el) => {
+        const cs = getComputedStyle(el);
+        parts.push(cs.color, cs.backgroundColor);
+        ["hover", "active", "disabled"].forEach((s) => parts.push(
+          cs.getPropertyValue("--bs-btn-" + s + "-color"), cs.getPropertyValue("--bs-btn-" + s + "-bg")));
+      });
+      return parts.join("|");
+    });
+    if (previous === now) return;
+    previous = now;
+    await page.waitForTimeout(60);
+  }
 }
 
 test.describe("Contrast (WCAG AA)", () => {
 
   test("every smd-button variant meets AA in every state, on every theme and mode", async ({ page }) => {
+    test.setTimeout(5 * 60 * 1000);          // 27 themes x 2 modes, each with a settle wait
     await page.goto("/PlanMyDay/");
+    await page.evaluate(RENDER, VARIANTS);            // probe once, reused per theme
     const failures = [];
     for (const theme of THEMES) {
       for (const mode of MODES) {
         const label = theme + "/" + mode;
         await setTheme(page, theme, mode);
-        await page.evaluate(RENDER, VARIANTS);
-        failures.push(...await settle(page, label, buttonFailures));
+        failures.push(...buttonFailures(await page.evaluate(MEASURE), label));
       }
     }
     expect(failures.join("\n")).toBe("");
   });
 
   test("smd-tab colours meet AA on every theme and mode", async ({ page }) => {
+    test.setTimeout(5 * 60 * 1000);
     await page.goto("/PlanMyDay/");
+    await page.evaluate(RENDER, VARIANTS);
     const failures = [];
     for (const theme of THEMES) {
       for (const mode of MODES) {
         const label = theme + "/" + mode;
         await setTheme(page, theme, mode);
-        await page.evaluate(RENDER, VARIANTS);
-        failures.push(...await settle(page, label, tabFailures));
+        failures.push(...tabFailures(await page.evaluate(MEASURE), label));
       }
     }
     expect(failures.join("\n")).toBe("");
   });
 
-  test("a theme whose own colours already pass AA gets no overrides injected", async ({ page }) => {
-    // The normaliser must be a repair, not a blanket repaint: bootstrap and brite
-    // pass everywhere, so shared/js/smd-contrast.js should leave no style behind
-    // (after any style left by the previous theme has been replaced).
+  test("nothing computes contrast at runtime any more", async ({ page }) => {
+    // The AA fixes are BAKED INTO the theme CSS (tests/contrast-css.spec.js keeps
+    // them current). Nothing may inject colour styles or expose a normaliser at
+    // runtime - this guard fails if that code is ever added back.
     await page.goto("/PlanMyDay/");
-    await setTheme(page, "minty", "light");           // a theme that DOES need repairs
     await page.evaluate(RENDER, VARIANTS);
-    await expect.poll(async () => (await page.evaluate(MEASURE)).hasOverrides).toBe(true);
-    for (const theme of ["bootstrap", "brite"]) {
+    for (const theme of ["superhero", "minty", "journal"]) {
       for (const mode of MODES) {
         await setTheme(page, theme, mode);
-        await page.evaluate(RENDER, VARIANTS);
-        await expect.poll(async () => (await page.evaluate(MEASURE)).hasOverrides,
-          { message: theme + "/" + mode + " must not need overrides" }).toBe(false);
+        const state = await page.evaluate(() => ({
+          injected: !!document.getElementById("smd-contrast-overrides"),
+          styleSheets: Array.from(document.styleSheets).filter((s) => !s.href).length,
+          normaliser: typeof window.applySmdContrastVars + "/" + typeof window.scheduleSmdContrast
+        }));
+        expect(state.injected, theme + "/" + mode + ": no contrast stylesheet may be injected").toBe(false);
+        expect(state.normaliser, theme + "/" + mode + ": no runtime normaliser may exist").toBe("undefined/undefined");
       }
     }
   });

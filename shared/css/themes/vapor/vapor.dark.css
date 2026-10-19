@@ -2,3 +2,47 @@
    background-color: color-mix(in hsl, var(--bs-secondary) 30%, black);
    border: 1px solid var(--bs-body-bg) !important;
 }
+
+/* smd-contrast:start - generated WCAG AA contrast overrides. Do not edit by hand:
+   regenerate with  SMD_CONTRAST_FIX=1 npx playwright test tests/contrast-css.spec.js
+   (tests/contrast-css.spec.js fails when this block no longer matches the theme). */
+.btn-secondary, .btn-danger {
+  --bs-btn-color: #170229;
+  --bs-btn-disabled-color: #170229;
+}
+.btn-secondary,
+.btn-secondary:disabled, .btn-secondary.disabled,
+.btn-danger,
+.btn-danger:disabled, .btn-danger.disabled {
+  color: #170229 !important;
+}
+.btn-success, .btn-warning, .btn-info, .btn-light {
+  --bs-btn-color: #170229;
+  --bs-btn-hover-color: #170229;
+  --bs-btn-active-color: #170229;
+  --bs-btn-disabled-color: #170229;
+}
+.btn-success,
+.btn-success:hover, .btn-success:focus-visible,
+.btn-success:active,
+.btn-success:disabled, .btn-success.disabled,
+.btn-warning,
+.btn-warning:hover, .btn-warning:focus-visible,
+.btn-warning:active,
+.btn-warning:disabled, .btn-warning.disabled,
+.btn-info,
+.btn-info:hover, .btn-info:focus-visible,
+.btn-info:active,
+.btn-info:disabled, .btn-info.disabled,
+.btn-light,
+.btn-light:hover, .btn-light:focus-visible,
+.btn-light:active,
+.btn-light:disabled, .btn-light.disabled {
+  color: #170229 !important;
+}
+smd-tabs .smd-tab-btn.text-bg-secondary,
+smd-tabs .smd-tab-btn.text-bg-secondary:hover,
+smd-tabs .smd-tab-btn.text-bg-secondary:focus-visible {
+  color: #170229 !important;
+}
+/* smd-contrast:end */

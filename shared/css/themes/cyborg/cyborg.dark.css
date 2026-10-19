@@ -13,3 +13,45 @@ html[data-theme="cyborg"] .smd-card {
 #smd-app #categoriesEditor lol-category-header[expanded] .category-accordion-header {
     background-color: color-mix(in hsl, var(--bs-success) 40%, black) !important;
 }
+
+/* smd-contrast:start - generated WCAG AA contrast overrides. Do not edit by hand:
+   regenerate with  SMD_CONTRAST_FIX=1 npx playwright test tests/contrast-css.spec.js
+   (tests/contrast-css.spec.js fails when this block no longer matches the theme). */
+.btn-primary, .btn-success {
+  --bs-btn-color: #212529;
+  --bs-btn-hover-color: #000;
+  --bs-btn-active-color: #000;
+  --bs-btn-disabled-color: #212529;
+}
+.btn-primary,
+.btn-primary:disabled, .btn-primary.disabled,
+.btn-success,
+.btn-success:disabled, .btn-success.disabled {
+  color: #212529 !important;
+}
+.btn-primary:hover, .btn-primary:focus-visible,
+.btn-primary:active,
+.btn-success:hover, .btn-success:focus-visible,
+.btn-success:active {
+  color: #000 !important;
+}
+.btn-warning {
+  --bs-btn-color: #212529;
+  --bs-btn-hover-color: #212529;
+  --bs-btn-active-color: #000;
+  --bs-btn-disabled-color: #212529;
+}
+.btn-warning,
+.btn-warning:hover, .btn-warning:focus-visible,
+.btn-warning:disabled, .btn-warning.disabled {
+  color: #212529 !important;
+}
+.btn-warning:active {
+  color: #000 !important;
+}
+smd-tabs .smd-tab-btn.text-bg-primary,
+smd-tabs .smd-tab-btn.text-bg-primary:hover,
+smd-tabs .smd-tab-btn.text-bg-primary:focus-visible {
+  color: #212529 !important;
+}
+/* smd-contrast:end */

@@ -12,9 +12,10 @@
 //       text must be the body colour; a theme's own `--bs-dropdown-link-color`
 //       can be a greyer value that no longer matches (quartz dark ships #dee2e6
 //       against a #fff body colour). And where the theme's own body text is
-//       itself sub-AA (minty light is #888 on #fff = 3.54:1, morph 2.63:1)
-//       shared/js/smd-contrast.js repaints the menu text, exactly as it does for
-//       buttons and tabs.
+//       itself sub-AA (minty light is #888 on #fff = 3.54:1, morph 2.63:1) the
+//       menu text is repainted by the theme's BAKED IN contrast block
+//       (shared/css/themes/<theme>/<theme>.<mode>.css; kept current by
+//       tests/contrast-css.spec.js) - exactly as buttons and tabs are.
 const { test, expect } = require("@playwright/test");
 
 const THEMES = ["bootstrap", "brite", "cerulean", "cosmo", "cyborg", "darkly", "flatly", "journal", "litera",
@@ -89,14 +90,53 @@ const MENU = () => {
   };
 };
 
+// Switch theme+mode and wait until it is actually APPLIED (see the same helper in
+// tests/contrast.spec.js): load events, then the LIVE sheets, then a stable sample.
 async function setTheme(page, theme, mode) {
-  await page.evaluate(([t, m]) => applyTheme(t, m), [theme, mode]);
-  await page.waitForFunction(([t, m]) => {
-    const href = (el) => (el && el.getAttribute("href")) || "";
+  await page.evaluate(([t, m]) => new Promise((resolve) => {
+    const base = document.getElementById("bootstrap-theme-css");
     const specific = document.getElementById("theme-override-specific");
-    return href(document.getElementById("bootstrap-theme-css")).indexOf("/" + t + "/bootstrap.min.css") !== -1 &&
-      href(specific).indexOf("/" + t + "/" + t + "." + m + ".css") !== -1 && !!specific.sheet;
-  }, [theme, mode], { timeout: 15000 });
+    const modeLayer = document.getElementById("theme-override-mode");
+    const href = (el) => (el && el.getAttribute("href")) || "";
+    if (href(base).indexOf("/" + t + "/bootstrap.min.css") !== -1 &&
+        href(specific).indexOf("/" + t + "/" + t + "." + m + ".css") !== -1) {
+      return resolve();
+    }
+    let pending = 0;
+    let settled = false;
+    const done = () => { if (settled || --pending > 0) return; settled = true; resolve(); };
+    [base, specific, modeLayer].filter(Boolean).forEach((el) => {
+      pending++;
+      const onLoad = () => { el.removeEventListener("load", onLoad); done(); };
+      el.addEventListener("load", onLoad);
+    });
+    applyTheme(t, m);
+    setTimeout(() => { if (!settled) { settled = true; resolve(); } }, 5000);
+  }), [theme, mode]);
+
+  await page.waitForFunction(([t, m]) => {
+    const sheetHref = (id) => { const el = document.getElementById(id); return (el && el.sheet && el.sheet.href) || ""; };
+    return sheetHref("bootstrap-theme-css").indexOf("/" + t + "/bootstrap.min.css") !== -1 &&
+      sheetHref("theme-override-specific").indexOf("/" + t + "/" + t + "." + m + ".css") !== -1;
+  }, [theme, mode], { timeout: 20000 });
+
+  let previous = null;
+  for (let i = 0; i < 30; i++) {
+    const now = await page.evaluate(() => {
+      const menu = document.querySelector("#mainNav .dropdown-menu");
+      const item = menu && menu.querySelector(".dropdown-item");
+      return [
+        getComputedStyle(document.body).backgroundColor,
+        getComputedStyle(document.body).color,
+        menu ? getComputedStyle(menu).fontSize : "",
+        item ? getComputedStyle(item).color : "",
+        item ? getComputedStyle(item).fontSize : ""
+      ].join("|");
+    });
+    if (previous === now) return;
+    previous = now;
+    await page.waitForTimeout(60);
+  }
 }
 
 async function openMenu(page) {
@@ -115,6 +155,8 @@ async function closeMenu(page) {
 }
 
 test.describe("Main-menu legibility", () => {
+  // 27 themes x 2 modes with a settle wait each.
+  test.describe.configure({ timeout: 5 * 60 * 1000 });
 
   test("the menu text is never smaller than the body text, on every theme and mode", async ({ page }) => {
     await page.goto("/PlanMyDay/");

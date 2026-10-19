@@ -1005,8 +1005,9 @@ test.describe("PlanMyDay - Regression", () => {
     test("tab text stays readable on the Bootstrap text-bg-* surfaces", async ({ page }) => {
       // brite's secondary is #fff and cerulean's is #e9ecef, so hardcoded white
       // tab text vanished. Tabs use Bootstrap's own text-bg-* contrast, and where
-      // that still fails AA (cerulean's active tab is 2.77:1) shared/js/
-      // smd-contrast.js repaints the text - so assert READABILITY here, and the
+      // that still fails AA the theme's baked-in contrast block repaints the text
+      // (shared/css/themes/<theme>/<theme>.<mode>.css) - so assert READABILITY
+      // here, and the
       // raw helper colour on the theme that needs no repair (brite).
       for (const theme of ["brite", "cerulean"]) {
         await setTheme(page, theme);

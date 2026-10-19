@@ -30,3 +30,53 @@
 .card {
     background: var(--bs-primary) !important;
 }
+
+/* smd-contrast:start - generated WCAG AA contrast overrides. Do not edit by hand:
+   regenerate with  SMD_CONTRAST_FIX=1 npx playwright test tests/contrast-css.spec.js
+   (tests/contrast-css.spec.js fails when this block no longer matches the theme). */
+.btn-secondary {
+  --bs-btn-color: #000;
+  --bs-btn-disabled-color: #000;
+}
+.btn-secondary,
+.btn-secondary:disabled, .btn-secondary.disabled {
+  color: #000 !important;
+}
+.btn-success, .btn-warning, .btn-info {
+  --bs-btn-color: #272b30;
+  --bs-btn-hover-color: #272b30;
+  --bs-btn-active-color: #000;
+  --bs-btn-disabled-color: #272b30;
+}
+.btn-success,
+.btn-success:hover, .btn-success:focus-visible,
+.btn-success:disabled, .btn-success.disabled,
+.btn-warning,
+.btn-warning:hover, .btn-warning:focus-visible,
+.btn-warning:disabled, .btn-warning.disabled,
+.btn-info,
+.btn-info:hover, .btn-info:focus-visible,
+.btn-info:disabled, .btn-info.disabled {
+  color: #272b30 !important;
+}
+.btn-success:active,
+.btn-warning:active,
+.btn-info:active {
+  color: #000 !important;
+}
+.btn-danger {
+  --bs-btn-color: #000;
+  --bs-btn-hover-color: #000;
+  --bs-btn-disabled-color: #000;
+}
+.btn-danger,
+.btn-danger:hover, .btn-danger:focus-visible,
+.btn-danger:disabled, .btn-danger.disabled {
+  color: #000 !important;
+}
+smd-tabs .smd-tab-btn.text-bg-secondary,
+smd-tabs .smd-tab-btn.text-bg-secondary:hover,
+smd-tabs .smd-tab-btn.text-bg-secondary:focus-visible {
+  color: #000 !important;
+}
+/* smd-contrast:end */

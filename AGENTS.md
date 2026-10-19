@@ -11,7 +11,7 @@
 10: AGENTS.md NOTES: whenever you discover something a future session needs (architecture decisions, gotchas, upstream workflow, test recipes), add a useful, dated note to AGENTS.md — not just a session-log line. Keep notes concrete (file paths, function names, exact commands) and delete/condense notes that have gone stale.
 11: LIGHT-DOM CHROMIUM RULE (2026-09-19): a custom element whose CONSTRUCTOR appends child nodes to `this` (e.g. `this.appendChild(TEMPLATE.content.cloneNode(true))`) THROWS `NotSupportedError: Failed to execute 'createElement' on 'Document': The result must not have children` the moment an app creates it via `document.createElement(tag)`. Deferred, guarded append in `connectedCallback()` is safe; `attachShadow()` in the constructor is safe. This is why `shared/js/components/{smd-image-card,smd-image-select,smd-image-dropdown,smd-date-picker}.js` all build via `_build()` from `connectedCallback` (they were the last four hanging onto the constructor pattern and broke `cmd-regression.spec.js` test 444's images editor + the 3x "must not have children" pageerrors seen in test 615). When converting shadow→light DOM, ALWAYS move template cloning into `connectedCallback`, never the constructor. Watch for `setAttribute("hidden", "true"/"false")` too: `hidden` is a BOOLEAN attribute, so ANY presence hides the element (fine as `.hidden = true/false` property only); `CountMyDays/js/dates-editor.js` + `googleCalendarEditor.js` had this and it made every `cmd-date-card` 0x0/display:none.
 12: THEME TEXT VARS ARE LIVE AGAIN (2026-09-19): the light-DOM refactor reduced `applySmdVars()` in `shared/js/smd-settings.js` to a no-op AND dropped `color: var(--smd-tab-text)` from the inactive-tab rule in `shared/css/styles.css` → inactive tabs fell back to hardcoded `#fff`, failing pmd-regression:641 "inactive tabs use the Bootswatch secondary button text colour" (white instead of the theme's `btn btn-secondary` text, e.g. `rgb(73,80,87)` on cerulean). RESTORED the REAL `applySmdVars()` (hidden `.btn btn-secondary` probe → publishes `--smd-tab-text` + the `--smd-{primary,secondary,success,danger,info,warning}-text` vars on `:root`) with `applyTheme()` re-running it on the theme `<link>` `load`, plus DOMContentLoaded + window `load` hooks; tab CSS now `color: var(--smd-tab-text, #fff)`. Rule: a light-DOM component sitting on a theme-coloured surface must consume `var(--smd-<variant>-text)` / `var(--smd-tab-text)` — NEVER a hardcoded colour — or it won't match the Bootswatch theme. The stubs `smdBootstrapStyle/smdBootstrapColor` are real functions again.
-13: CENTRALIZED WCAG CONTRAST GENERATOR (2026-09-22): low contrast on themed surfaces was systemic (white-on-info ≈1.8–2.1 on quartz/slate/yeti/superhero/lumen, white-on-success ≈1.5–2.9 on vapor/minty/slate/darkly, white-on-warning ≈1.3–2.5). The fix is ONE shared module `shared/js/smd-contrast.js` (`window.SmdContrast` + global `applySmdContrastVars()`), loaded right AFTER `smd-settings.js` in every app's `index.html` (all 5 apps + root Launch index + storybook) and in `sw.js` SHARED_ASSETS. It reads the loaded theme's `--bs-*` surfaces off `:root` and publishes `--smd-on-{primary,secondary,success,danger,warning,info,body}`, `--smd-tab-active-text`, `--smd-muted-header-text`, `--smd-rgb-*` (debug) and the existing consumer aliases `--smd-{variant}-text`. HYBRID RULE: a theme keeps its OWN text when its choice already meets WCAG AA ≥4.5 (read from the `--smd-*-text` values `applySmdVars()` set just before), otherwise the generator substitutes pure `#000`/`#fff` (`bestText`, max contrast) — so thumb-tested themes (cerulean dark-grey secondary etc.) are untouched and only genuinely failing themes change. `applySmdVars()` in smd-settings.js calls `applySmdContrastVars()` (guarded by `typeof`) at its end, so the theme-selector flow triggers it; the module also self-heals on load if the palette already went live. PROBE GUARD `smd-probe`: shared/css/styles.css overrides `--bs-btn-color`/badge text with the generated vars matched `:not(.smd-probe)` — the hidden probe `smdBootstrapStyle()` in smd-settings.js and the pmd-regression `bootswatchColor()`/`bootswatchBadge()` helpers all add the `smd-probe` class so they keep reading the RAW Bootswatch colour (no circular read). Surfaces that now consume the palette: active tabs `var(--smd-tab-active-text)` (was hardcoded #fff), `.nav-tabs-info .nav-link.active` `var(--smd-on-info)`, page/modal header h1/h3 `var(--smd-muted-header-text)`, `.badge.text-bg-*`/`smd-badge.text-bg-*` colour, and `button/a/.btn-{primary,secondary,success,danger,warning,info}` `--bs-btn-*-color` overrides (hybrid keeps the theme look where it already passes). pmd-regression "badges use the centralized contrast palette and meet WCAG AA" asserts the badge text equals the palette value AND that its contrast ratio ≥4.5 (helper `ratioOf` recomputes WCAG ratio in-page). When wiring a NEW themed surface: consume `var(--smd-on-<variant>)`/`var(--smd-tab-active-text)`/`var(--smd-muted-header-text)` instead of hardcoding `#fff`/`color-mix(..., white)`.
+13: CONTRAST IS BAKED INTO THE THEME CSS (2026-10-19): no runtime code measures or repaints colours. Each theme's per-mode sheet carries a generated block (`smd-contrast:start` / `:end`); `tests/contrast-css.spec.js` fails when it drifts and `SMD_CONTRAST_FIX=1` regenerates it, while `tests/contrast.spec.js` asserts the rendered result meets WCAG AA 4.5:1 across all themes/modes and fails if anything injects a normaliser at runtime. The older centralized-generator design (2026-09-22: `SmdContrast`, `applySmdVars()`, published `--smd-on-*`/`--smd-*-text` variables, a hidden `smd-probe` element) and the 2026-10-18 runtime module at the same path are BOTH gone - do not reintroduce a runtime contrast layer.
 14: STORYBOOK `_bound` GUARD FOR LIGHT-DOM COMPONENTS (2026-09-22): the pmd-* light-DOM cards/headers (`pmd-stream-header`, `pmd-stream-job-card`, `pmd-job-today-card`, `pmd-job-search-card`) each clone their template in `connectedCallback` under a `this._bound` flag, but their `attributeChangedCallback` used to gate `_render` on only `this.isConnected`. When the storybook's demo code does `host.innerHTML = '<pmd-stream-header ...>'` on an ALREADY-CONNECTED host, the HTML parser fires `attributeChangedCallback` for each attribute BEFORE `connectedCallback` clones the template, so `_render` hit missing nodes (`Cannot set properties of null (setting 'textContent')`, 45 page errors). Chromium's incremental parser inserts the element into the live tree (isConnected=true) before the upgrade finishes, so `isConnected` alone is NOT a sufficient guard. FIX (applied to all four): `attributeChangedCallback() { if (this._bound && this.isConnected) this._render(); }`. Rule: any light-DOM component that builds in `connectedCallback` must gate attribute-triggered renders on the built flag too, NEVER `isConnected` alone. Verify with `tests/storybook-regression.spec.js` (Storybook - Regression: boots with no console/page errors/no failed requests, component demos render their host elements, theme swap re-renders sections without page errors) — run it whenever storybook or the pmd-* components change.
 15: Do not write non UTF-8 characters to AGENTS.md
 17: ACCESS (2026-10-05): at the START of every session, ALWAYS ask for access to the WHOLE of `p:\git\MyApps` (the entire repo tree, not a subfolder) before reading, editing or running anything. Never assume the working directory or a partial scope is enough; confirm full-repo access first.
@@ -498,7 +498,8 @@ Architecture:
   be brighter/greyer than the surface we forced - quartz dark ships #dee2e6). Hover
   and active keep that colour and only TINT the surface with
   `rgba(var(--bs-body-color-rgb), .12/.2)`, so a highlight cannot drop contrast.
-  `shared/js/smd-contrast.js` extends its AA guarantee to the menu (minty light's
+  `shared/css/themes/<theme>/<theme>.<mode>.css` extends the AA guarantee to the menu
+  via its baked contrast block (minty light's
   body text is #888 on #fff = 3.54:1, morph 2.63:1, spacelab 4.48:1): when the
   body pair itself fails 4.5:1 the menu text is repainted to the best of
   body-color/black/white, while the rest of the app keeps the theme's colour.
@@ -533,39 +534,58 @@ Architecture:
   EVERY load without data (i.e. any boot before the Flask API answers, and every
   test). Now the attribute is only mutated when its state actually changes
   (`hasAttribute` guard), so the loop cannot start.
-- BUTTON/TAB TEXT CONTRAST IS NORMALISED (2026-10-18, user request): Bootswatch
+- CONTRAST FIXES ARE BAKED INTO THE THEME CSS (2026-10-18/19, user request: "I
+  don't want code running that checks contrast ... I want the contrast changes
+  written into the css overrides"): NO runtime code measures or repaints colours.
+  Each theme's own per-mode sheet
+  (`shared/css/themes/<theme>/<theme>.<mode>.css`) carries a generated block
+  between the `smd-contrast:start` / `smd-contrast:end` markers with the button /
+  tab / hamburger-menu text colours that had to be repainted to reach WCAG AA
+  (4.5:1). 50 of 54 sheet/mode combos have one; `bootstrap` and `brite` need none.
+  The rules list only what FAILED - everything else keeps the theme's own colour.
+  REGENERATE / CHECK with `tests/contrast-css.spec.js` (in the test directory, NOT
+  in shared/): plain run = "nothing needs to change anywhere" (fails and prints the
+  exact rules a theme is missing, or the stale ones it still carries), and
+  `SMD_CONTRAST_FIX=1` rewrites every sheet and then verifies the result. It is
+  idempotent (a second FIX run rewrites 0 files) because it measures with the
+  generated block STRIPPED from the sheet (`page.route` fulfils a stripped body),
+  so a theme is never judged against our own output. The algorithm is the one the
+  deleted `shared/js/smd-contrast.js` used: keep the theme's colour when it passes,
+  else the better of `--bs-body-color`/`--bs-body-bg`, else black/white; every
+  button state (base/hover/active/disabled) is decided separately, and translucent
+  surfaces (quartz's `rgba(255,255,255,.4)`) are composited over the page first.
+  TWO GOTCHAS that cost real debugging time: (a) the app's SERVICE WORKER
+  precaches the theme CSS, so a `<link>` is served from the SW cache and
+  `page.route` never sees it - the spec must use `test.use({ serviceWorkers:
+  "block" })` or the strip is bypassed; (b) Bootstrap animates `.btn` colour for
+  150ms, so a single read after a theme swap lands mid-fade - waiting on the live
+  `link.sheet.href` PLUS a stable sample (two identical reads) is required, in
+  `tests/contrast-css.spec.js`, `tests/contrast.spec.js` and
+  `tests/menu-legibility.spec.js`.
+  OUTCOME GUARDS (these measure the rendered result, which is fine in tests):
+  `tests/contrast.spec.js` asserts every `smd-button` variant x state and both tab
+  colours reach 4.5:1 on all 27 themes x both modes, plus a guard that NOTHING
+  injects contrast styles or exposes a normaliser at runtime;
+  `tests/menu-legibility.spec.js` covers the toolbar/menu (size, AA, colour
+  consistency and the flyout hit-test).
+- CONTRAST DETAILS THAT BIT (2026-10-18, still true of the baked CSS): Bootswatch
   ships literal `--bs-btn-color` values (usually white) that often fail WCAG AA on
   the theme's own accent surfaces - journal warning is white on #f5e625 (1.29:1),
   minty's is 1.47:1 - and the `.text-bg-*` tab colours are just as theme-dependent.
-  `shared/js/smd-contrast.js` (loaded right after `smd-settings.js` in all 8 shells
-  + the storybook, and in `sw.js` SHARED_ASSETS) runs after every theme/mode change,
-  measures the surfaces the browser will actually paint, and repaints a label ONLY
-  where the theme's own colour fails 4.5:1. Candidate order: (1) the theme's colour
-  when it already passes - untouched; (2) the better of `--bs-body-color` /
-  `--bs-body-bg`; (3) black/white, which always reach =4.58:1 on an opaque surface.
-  So a theme keeps its own look wherever that look is readable. Details that bit:
-  (a) EVERY state is judged separately (base/hover/active/disabled) because
-  Bootstrap paints each from its own `--bs-btn-*-bg` surface; translucent surfaces
-  (quartz's `--bs-secondary` is rgba(255,255,255,.4)) are composited over the page
-  background first; (b) the four `--bs-btn-*-color` vars go on the BASE selector
-  (Bootstrap reads them per state, and a `:hover`-scoped var is unreadable when not
-  hovered) AND an explicit `color: ... !important` is emitted, because themes paint
-  buttons with a literal colour (minty `.btn,.btn:hover{color:#fff}`) and
-  Bootswatch's `.text-bg-*` ships `color:#fff!important`; (c) tab overrides are
+  When writing (or regenerating) the baked block remember: (a) EVERY state is
+  decided separately (base/hover/active/disabled) because Bootstrap paints each from
+  its own `--bs-btn-*-bg`; (b) the four `--bs-btn-*-color` vars belong on the BASE
+  selector (Bootstrap reads them per state, and a `:hover`-scoped var is unreadable
+  when not hovered) AND an explicit `color: ... !important` is needed, because
+  themes paint buttons with a literal colour (minty `.btn,.btn:hover{color:#fff}`)
+  and Bootswatch's `.text-bg-*` ships `color:#fff!important`; (c) tab rules are
   scoped `smd-tabs .smd-tab-btn.text-bg-<variant>` so badges keep their own
-  `.text-bg-*` colours; (d) the previous `<style id="smd-contrast-overrides">` is
-  removed before measuring, so a theme is never judged against our own output and a
-  theme with nothing to fix leaves no style behind. Re-runs are hooked from
-  `applyThemeOverrides()` (guarded by `typeof`) plus a capture-phase `load`
-  listener on the theme `<link>`s. GUARD: `tests/contrast.spec.js` walks ALL 27
-  themes x both modes, asserting >= 4.5:1 for every `smd-button` variant x every
-  state and both tab colours on REAL `<smd-button>`/`<smd-tabs>` instances (the
-  ratios are recomputed test-side, so it checks the outcome, not the method), plus
-  a test that bootstrap/brite - which already pass - get no style injected at all.
+  `.text-bg-*` colours; (d) one repaint rule PER DISTINCT COLOUR (a variant group's
+  states can differ - darkly's success is #222 hover/disabled but #000 active).
   NOTE: disabled buttons additionally get Bootstrap's `opacity: .65`, which the
   measurement ignores (WCAG exempts disabled controls); and the superhero
-  `btn-warning` rule (see the Danger note) is now redundant but kept - the module
-  independently picks `--bs-body-bg` there, so the outcome is identical.
+  `btn-warning` rule (see the Danger note) stays hand-written - the generator sees
+  that warning already passes, so it never emits a duplicate.
 - SHARED IMAGE LIBRARY (2026-09-13): all apps share ONE images list,
   `shared-images`. `SmdConfig.imagePrefix = "shared-"` is set in every app's
   `app.js`; `smdImagePrefix()` (shared/js/smd-app.js) returns
@@ -1286,6 +1306,46 @@ Techniques / gotchas:
   when an array is non-empty or a branch is taken.
 
 ## Session log
+
+### 2026-10-19 (b) - contrast fixes moved OUT of runtime JS and BAKED INTO the theme CSS
+
+- WHAT (user): "I dont want code running that checks contrast ... I want the contrast
+  changes written into the css overrides", and the generator should live in the test
+  directory as a test that proves nothing needs to change but can also rewrite the
+  CSS with a flag.
+- DELETED: `shared/js/smd-contrast.js` (the runtime normaliser), its `<script>` in
+  the 8 shells, its `sw.js` SHARED_ASSETS entry, and the `scheduleSmdContrast()`
+  hook in `applyThemeOverrides()` - nothing measures or repaints contrast at runtime.
+- BAKED: the generated rules now live in each theme's own per-mode sheet
+  (`shared/css/themes/<theme>/<theme>.<mode>.css`) between `smd-contrast:start` /
+  `smd-contrast:end` markers - 50 of 54 sheet/mode combos, ~10-20 lines each
+  (`bootstrap` and `brite` need none). Rules are grouped by identical
+  state->colour signature and emitted per distinct colour.
+- NEW SPEC: `tests/contrast-css.spec.js` (in the test dir, so no runtime code):
+  a plain run FAILS if any theme needs a rule it lacks or carries a stale one, and
+  `SMD_CONTRAST_FIX=1 npx playwright test tests/contrast-css.spec.js` rewrites the
+  blocks and verifies the writes. It strips the marked block (route-fulfilled from
+  disk) before measuring, so it judges the theme's own colours -> a second FIX run
+  rewrites 0 files (verified).
+- SPEC UPDATES: `tests/contrast.spec.js` keeps its AA assertions (all 27 themes x
+  both modes x 8 variants x 4 states + tabs) but drops the module-era polling and
+  the injected-sheet check; its third test now asserts NOTHING injects contrast
+  styles or exposes a normaliser at runtime. `tests/menu-legibility.spec.js` and one
+  pmd-regression comment updated to point at the baked block.
+- TWO GOTCHAS worth remembering (both cost real time here): the app's SERVICE WORKER
+  precaches the theme CSS, so `page.route` never sees the `<link>` request unless
+  the spec sets `test.use({ serviceWorkers: "block" })`; and Bootstrap animates
+  `.btn` colour for 150ms, so a single read after a theme swap lands mid-fade -
+  waiting on the live `link.sheet.href` PLUS a stable sample is required. The 27x2
+  loops also need explicit `test.setTimeout` (they exceed the 30s default).
+- EQUIVALENCE CHECK: re-measured 3780 rendered values (54 combos x buttons/tabs/menu)
+  against a pre-change snapshot - 0 differences in every `--bs-btn-*-color` var the
+  CSS sets; the 96 remaining deltas are all computed `color`/`background-color`
+  values in the OLD snapshot taken mid-transition.
+- VERIFIED: contrast-css (drift + idempotent FIX), contrast, menu-legibility,
+  settings-alignment, display-settings, the 7 app suites (242), pmd-gantt +
+  storybook + shared-helpers + image-edit-preview-size + pmd-touch (88), and
+  pmd-regression "Theme colours" (20).
 
 ### 2026-10-19 (a) - Danger buttons full width, FFOX's missing modal, the sketchy submenu clip, and a Solar recursion
 

@@ -2,3 +2,75 @@
    whenever this theme is selected in Dark mode. Add theme-specific overrides
    here. This sheet is only ever loaded in this mode, so selectors do not need a
    `[data-bs-theme="dark"]` qualifier. */
+
+/* smd-contrast:start - generated WCAG AA contrast overrides. Do not edit by hand:
+   regenerate with  SMD_CONTRAST_FIX=1 npx playwright test tests/contrast-css.spec.js
+   (tests/contrast-css.spec.js fails when this block no longer matches the theme). */
+.btn-primary {
+  --bs-btn-color: #000;
+  --bs-btn-disabled-color: #000;
+}
+.btn-primary,
+.btn-primary:disabled, .btn-primary.disabled {
+  color: #000 !important;
+}
+.btn-success {
+  --bs-btn-color: #222;
+  --bs-btn-hover-color: #000;
+  --bs-btn-active-color: #000;
+  --bs-btn-disabled-color: #222;
+}
+.btn-success,
+.btn-success:disabled, .btn-success.disabled {
+  color: #222 !important;
+}
+.btn-success:hover, .btn-success:focus-visible,
+.btn-success:active {
+  color: #000 !important;
+}
+.btn-danger {
+  --bs-btn-color: #222;
+  --bs-btn-disabled-color: #222;
+}
+.btn-danger,
+.btn-danger:disabled, .btn-danger.disabled {
+  color: #222 !important;
+}
+.btn-warning {
+  --bs-btn-color: #222;
+  --bs-btn-hover-color: #222;
+  --bs-btn-active-color: #000;
+  --bs-btn-disabled-color: #222;
+}
+.btn-warning,
+.btn-warning:hover, .btn-warning:focus-visible,
+.btn-warning:disabled, .btn-warning.disabled {
+  color: #222 !important;
+}
+.btn-warning:active {
+  color: #000 !important;
+}
+.btn-info {
+  --bs-btn-color: #222;
+  --bs-btn-hover-color: #222;
+  --bs-btn-active-color: #222;
+  --bs-btn-disabled-color: #222;
+}
+.btn-info,
+.btn-info:hover, .btn-info:focus-visible,
+.btn-info:active,
+.btn-info:disabled, .btn-info.disabled {
+  color: #222 !important;
+}
+.btn-dark {
+  --bs-btn-active-color: #000;
+}
+.btn-dark:active {
+  color: #000 !important;
+}
+smd-tabs .smd-tab-btn.text-bg-primary,
+smd-tabs .smd-tab-btn.text-bg-primary:hover,
+smd-tabs .smd-tab-btn.text-bg-primary:focus-visible {
+  color: #000 !important;
+}
+/* smd-contrast:end */
