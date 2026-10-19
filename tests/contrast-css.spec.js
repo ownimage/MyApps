@@ -170,6 +170,28 @@ const MEASURE = (variants) => {
     return c ? rgb(c) : null;
   };
 
+  // A control's real surface is its background colour OR the DARKEST extent of its
+  // `background-image` gradient - the part that dominates the body of the button. A
+  // flat `background-color` read missed slate dark's secondary button (flat #7a8288
+  // reads as fine for black, but its ramp runs down to #62686d: 3.69:1 on black,
+  // 5.68:1 on white). For Bootstrap's usual translucent white sheen the darkest
+  // extent IS the background colour, so ordinary themes are unaffected.
+  const darkestSurface = (cs, bg) => {
+    let darkest = bg;
+    const img = String(cs.backgroundImage || "");
+    if (img && img !== "none" && /gradient/i.test(img)) {
+      const re = /(rgba?\([^)]*\)|color\([^)]*\)|#[0-9a-f]{3,8}\b|\b(?:white|black|transparent)\b)/gi;
+      let m;
+      while ((m = re.exec(img)) !== null) {
+        const stop = parse(m[1]);
+        if (!stop) continue;
+        const painted = over(stop, bg);
+        if (lum(painted) < lum(darkest)) darkest = painted;
+      }
+    }
+    return darkest;
+  };
+
   const out = { buttons: {}, tabs: {}, menu: null };
 
   document.querySelectorAll("#contrastCssProbe .btn").forEach((el) => {
@@ -186,14 +208,17 @@ const MEASURE = (variants) => {
       return !c || c.a === 0 ? fallback : c;
     };
     const baseColor = parse(cs.color);
+    // Gradient stops belong to the BASE state (slate overrides them per state and
+    // that cannot be read without hovering), so base/disabled use them - the image
+    // persists there - while hover/active are judged on their flat colour.
     out.buttons[v] = {
-      base: { current: baseColor ? rgb(baseColor) : null, surface: rgb(base), picked: pickCss(baseColor, base) },
+      base: { current: baseColor ? rgb(baseColor) : null, surface: rgb(darkestSurface(cs, base)), picked: pickCss(baseColor, darkestSurface(cs, base)) },
       hover: (() => { const c = colorOf("--bs-btn-hover-color", baseColor); const s = surfaceOf("--bs-btn-hover-bg", base);
         return { current: c ? rgb(c) : null, surface: rgb(s), picked: pickCss(c, s) }; })(),
       active: (() => { const c = colorOf("--bs-btn-active-color", baseColor); const s = surfaceOf("--bs-btn-active-bg", base);
         return { current: c ? rgb(c) : null, surface: rgb(s), picked: pickCss(c, s) }; })(),
       disabled: (() => { const c = colorOf("--bs-btn-disabled-color", baseColor); const s = surfaceOf("--bs-btn-disabled-bg", base);
-        return { current: c ? rgb(c) : null, surface: rgb(s), picked: pickCss(c, s) }; })()
+        return { current: c ? rgb(c) : null, surface: rgb(darkestSurface(cs, s)), picked: pickCss(c, darkestSurface(cs, s)) }; })()
     };
   });
 
@@ -201,7 +226,7 @@ const MEASURE = (variants) => {
     const el = host.querySelector("smd-tabs " + sel);
     if (!el) return;
     const cs = getComputedStyle(el);
-    const surface = over(parse(cs.backgroundColor), pageBg);
+    const surface = darkestSurface(cs, over(parse(cs.backgroundColor), pageBg));
     const col = parse(cs.color);
     out.tabs[name] = { current: col ? rgb(col) : null, surface: rgb(surface), picked: pickCss(col, surface) };
   });

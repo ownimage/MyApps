@@ -1050,12 +1050,15 @@ test.describe("PlanMyDay - Regression", () => {
       }
     });
 
-    test("slate swaps the active/inactive tab gradients in both modes", async ({ page }) => {
+    test("slate paints the active tab with the danger palette and the inactive one with slate's swapped gradient", async ({ page }) => {
       // slate/bootstrap.min.css paints the non-active tab with
       // #313539/#34393d/#373b40 and the active tab with #44494d/#3a3f44/#2e3236,
-      // which reads backwards. slate.<mode>.css swaps them (every stop is derived
+      // which reads backwards, so slate.<mode>.css swaps them (every stop is derived
       // from slate's --bs-gray-800 via color-mix, so there is no hardcoded hex).
-      const ACTIVE = "linear-gradient(rgb(49, 53, 57), rgb(52, 57, 61) 40%, rgb(55, 59, 64))";
+      // The ACTIVE tab is the primary surface, and slate's primary/secondary are
+      // near-identical greys, so it now carries the DANGER palette instead
+      // (user decision 2026-10-19 - see tests/theme-primary-danger.spec.js).
+      const ACTIVE = "linear-gradient(rgb(239, 103, 99), rgb(238, 95, 91) 20%, rgb(190, 76, 73))";
       const INACTIVE = "linear-gradient(rgb(68, 73, 77), rgb(58, 63, 68) 20%, rgb(46, 50, 54))";
       const gradient = (selector) => page.evaluate((sel) => {
         const el = document.querySelector(sel);

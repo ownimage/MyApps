@@ -3,6 +3,30 @@
    here. This sheet is only ever loaded in this mode, so selectors do not need a
    `[data-bs-theme="light"]` qualifier. */
 
+/* PRIMARY BORROWS THE DANGER PALETTE (user request 2026-10-19): sketchy's
+   --bs-primary (#333) and --bs-secondary (#555) are both near-black, so the primary
+   button and the active tab were indistinguishable from the secondary ones. Scoped
+   to <smd-button> + <smd-tabs>; every other primary-coloured surface keeps the
+   theme value. Values copied from .btn-danger. */
+#smd-app .btn-primary {
+  --bs-btn-color: #fff;
+  --bs-btn-hover-color: #fff;
+  --bs-btn-active-color: #fff;
+  --bs-btn-disabled-color: #fff;
+  --bs-btn-bg: #dc3545;
+  --bs-btn-border-color: #dc3545;
+  --bs-btn-hover-bg: #bb2d3b;
+  --bs-btn-hover-border-color: #b02a37;
+  --bs-btn-active-bg: #b02a37;
+  --bs-btn-active-border-color: #a52834;
+  --bs-btn-disabled-bg: #dc3545;
+  --bs-btn-disabled-border-color: #dc3545;
+}
+/* text-bg-primary paints its background with !important, hence the override here. */
+smd-tabs .smd-tab-btn.text-bg-primary {
+  background-color: #dc3545 !important;
+}
+
 /* smd-contrast:start - generated WCAG AA contrast overrides. Do not edit by hand:
    regenerate with  SMD_CONTRAST_FIX=1 npx playwright test tests/contrast-css.spec.js
    (tests/contrast-css.spec.js fails when this block no longer matches the theme). */

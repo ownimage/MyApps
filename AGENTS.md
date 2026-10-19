@@ -11,7 +11,7 @@
 10: AGENTS.md NOTES: whenever you discover something a future session needs (architecture decisions, gotchas, upstream workflow, test recipes), add a useful, dated note to AGENTS.md — not just a session-log line. Keep notes concrete (file paths, function names, exact commands) and delete/condense notes that have gone stale.
 11: LIGHT-DOM CHROMIUM RULE (2026-09-19): a custom element whose CONSTRUCTOR appends child nodes to `this` (e.g. `this.appendChild(TEMPLATE.content.cloneNode(true))`) THROWS `NotSupportedError: Failed to execute 'createElement' on 'Document': The result must not have children` the moment an app creates it via `document.createElement(tag)`. Deferred, guarded append in `connectedCallback()` is safe; `attachShadow()` in the constructor is safe. This is why `shared/js/components/{smd-image-card,smd-image-select,smd-image-dropdown,smd-date-picker}.js` all build via `_build()` from `connectedCallback` (they were the last four hanging onto the constructor pattern and broke `cmd-regression.spec.js` test 444's images editor + the 3x "must not have children" pageerrors seen in test 615). When converting shadow→light DOM, ALWAYS move template cloning into `connectedCallback`, never the constructor. Watch for `setAttribute("hidden", "true"/"false")` too: `hidden` is a BOOLEAN attribute, so ANY presence hides the element (fine as `.hidden = true/false` property only); `CountMyDays/js/dates-editor.js` + `googleCalendarEditor.js` had this and it made every `cmd-date-card` 0x0/display:none.
 12: THEME TEXT VARS ARE LIVE AGAIN (2026-09-19): the light-DOM refactor reduced `applySmdVars()` in `shared/js/smd-settings.js` to a no-op AND dropped `color: var(--smd-tab-text)` from the inactive-tab rule in `shared/css/styles.css` → inactive tabs fell back to hardcoded `#fff`, failing pmd-regression:641 "inactive tabs use the Bootswatch secondary button text colour" (white instead of the theme's `btn btn-secondary` text, e.g. `rgb(73,80,87)` on cerulean). RESTORED the REAL `applySmdVars()` (hidden `.btn btn-secondary` probe → publishes `--smd-tab-text` + the `--smd-{primary,secondary,success,danger,info,warning}-text` vars on `:root`) with `applyTheme()` re-running it on the theme `<link>` `load`, plus DOMContentLoaded + window `load` hooks; tab CSS now `color: var(--smd-tab-text, #fff)`. Rule: a light-DOM component sitting on a theme-coloured surface must consume `var(--smd-<variant>-text)` / `var(--smd-tab-text)` — NEVER a hardcoded colour — or it won't match the Bootswatch theme. The stubs `smdBootstrapStyle/smdBootstrapColor` are real functions again.
-13: CONTRAST IS BAKED INTO THE THEME CSS (2026-10-19): no runtime code measures or repaints colours. Each theme's per-mode sheet carries a generated block (`smd-contrast:start` / `:end`); `tests/contrast-css.spec.js` fails when it drifts and `SMD_CONTRAST_FIX=1` regenerates it, while `tests/contrast.spec.js` asserts the rendered result meets WCAG AA 4.5:1 across all themes/modes and fails if anything injects a normaliser at runtime. The older centralized-generator design (2026-09-22: `SmdContrast`, `applySmdVars()`, published `--smd-on-*`/`--smd-*-text` variables, a hidden `smd-probe` element) and the 2026-10-18 runtime module at the same path are BOTH gone - do not reintroduce a runtime contrast layer.
+13: CONTRAST IS BAKED INTO THE THEME CSS (2026-10-19): no runtime code measures or repaints colours. Each theme's per-mode sheet carries a generated block (`smd-contrast:start` / `:end`); `tests/contrast-css.spec.js` fails when it drifts and `SMD_CONTRAST_FIX=1` regenerates it, while `tests/contrast.spec.js` asserts the rendered result meets WCAG AA 4.5:1 across all themes/modes and fails if anything injects a normaliser at runtime. The older centralized-generator design (2026-09-22: `SmdContrast`, `applySmdVars()`, published `--smd-on-*`/`--smd-*-text` variables, a hidden `smd-probe` element) and the 2026-10-18 runtime module at the same path are BOTH gone - do not reintroduce a runtime contrast layer. The generated rules treat a control's surface as the DARKEST extent of its `background-image` gradient (a flat `background-color` read hid slate dark's secondary button, whose ramp runs to #62686d), and sketchy + slate additionally make PRIMARY borrow the DANGER palette for `<smd-button>`/`<smd-tabs>` via a hand-written block ABOVE the markers (see that note).
 14: STORYBOOK `_bound` GUARD FOR LIGHT-DOM COMPONENTS (2026-09-22): the pmd-* light-DOM cards/headers (`pmd-stream-header`, `pmd-stream-job-card`, `pmd-job-today-card`, `pmd-job-search-card`) each clone their template in `connectedCallback` under a `this._bound` flag, but their `attributeChangedCallback` used to gate `_render` on only `this.isConnected`. When the storybook's demo code does `host.innerHTML = '<pmd-stream-header ...>'` on an ALREADY-CONNECTED host, the HTML parser fires `attributeChangedCallback` for each attribute BEFORE `connectedCallback` clones the template, so `_render` hit missing nodes (`Cannot set properties of null (setting 'textContent')`, 45 page errors). Chromium's incremental parser inserts the element into the live tree (isConnected=true) before the upgrade finishes, so `isConnected` alone is NOT a sufficient guard. FIX (applied to all four): `attributeChangedCallback() { if (this._bound && this.isConnected) this._render(); }`. Rule: any light-DOM component that builds in `connectedCallback` must gate attribute-triggered renders on the built flag too, NEVER `isConnected` alone. Verify with `tests/storybook-regression.spec.js` (Storybook - Regression: boots with no console/page errors/no failed requests, component demos render their host elements, theme swap re-renders sections without page errors) — run it whenever storybook or the pmd-* components change.
 15: Do not write non UTF-8 characters to AGENTS.md
 17: ACCESS (2026-10-05): at the START of every session, ALWAYS ask for access to the WHOLE of `p:\git\MyApps` (the entire repo tree, not a subfolder) before reading, editing or running anything. Never assume the working directory or a partial scope is enough; confirm full-repo access first.
@@ -561,13 +561,46 @@ Architecture:
   150ms, so a single read after a theme swap lands mid-fade - waiting on the live
   `link.sheet.href` PLUS a stable sample (two identical reads) is required, in
   `tests/contrast-css.spec.js`, `tests/contrast.spec.js` and
-  `tests/menu-legibility.spec.js`.
+  `tests/menu-legibility.spec.js`. The 27x2 loops also need explicit
+  `test.setTimeout` (they exceed the 30s default).
+  GRADIENTS COUNT AS SURFACE (2026-10-19, user-reported): reading only
+  `background-color` missed slate dark's secondary button - the flat #7a8288 said
+  black was fine (5.37:1), but `background-image` runs down to #62686d where black
+  is 3.69:1 and white is 5.68:1. Both specs now take the surface to be the
+  DARKEST extent of the element's gradient (each stop composited over the colour):
+  that is the part dominating the body of the button, and for Bootstrap's usual
+  translucent white sheen the darkest extent IS the background colour, so ordinary
+  themes are unaffected. Gradient stops belong to the BASE state; hover/active use
+  their own flat colour because slate and friends swap the image per state (which
+  cannot be read without hovering). The slate fix that came out of this: secondary
+  text is now WHITE.
   OUTCOME GUARDS (these measure the rendered result, which is fine in tests):
   `tests/contrast.spec.js` asserts every `smd-button` variant x state and both tab
   colours reach 4.5:1 on all 27 themes x both modes, plus a guard that NOTHING
   injects contrast styles or exposes a normaliser at runtime;
   `tests/menu-legibility.spec.js` covers the toolbar/menu (size, AA, colour
   consistency and the flyout hit-test).
+- sketchy + slate PRIMARY BORROWS THE DANGER PALETTE (2026-10-19, user request):
+  in both themes `--bs-primary` and `--bs-secondary` are so close (sketchy #333 vs
+  #555; slate #3a3f44 vs #7a8288, painted with near-identical grey gradients) that
+  the primary button and the ACTIVE TAB looked like the secondary ones. Fix: a
+  hand-written block at the top of those four sheets (`sketchy`/`slate` x
+  light/dark), ABOVE the `smd-contrast` markers so the generator leaves it alone and
+  then derives the text colours for the new surface: `#smd-app .btn-primary` gets the
+  danger palette (bg/border/hover/active/disabled colours AND, for slate, the danger
+  `background-image` gradients) and `smd-tabs .smd-tab-btn.text-bg-primary` gets the
+  danger background (`!important`, because Bootswatch's `.text-bg-*` paints with
+  `!important`). Only `<smd-button>` and `<smd-tabs>` are affected - links, badges
+  and every other primary-coloured surface keep the theme value. TWO GOTCHAS:
+  (a) a bare `.btn-primary` LOSES to sketchy's `[data-bs-theme=dark] .btn-primary`
+  (0,2,0) - hence the `#smd-app` scope (1,1,0); (b) the danger TEXT colours are
+  copied too, otherwise the theme's own dark-mode `--bs-btn-color` (black, written
+  for its original light primary) leaves primary and danger looking different on the
+  same red surface. GUARD: `tests/theme-primary-danger.spec.js` (per theme/mode:
+  primary paints the danger background/gradient, the active tab matches, and primary
+  no longer matches secondary). pmd-regression's slate tab test now expects the
+  active tab to carry the danger gradient while the inactive keeps slate's swapped
+  one.
 - CONTRAST DETAILS THAT BIT (2026-10-18, still true of the baked CSS): Bootswatch
   ships literal `--bs-btn-color` values (usually white) that often fail WCAG AA on
   the theme's own accent surfaces - journal warning is white on #f5e625 (1.29:1),
@@ -1306,6 +1339,44 @@ Techniques / gotchas:
   when an array is non-empty or a branch is taken.
 
 ## Session log
+
+### 2026-10-19 (c) - gradient-aware contrast checker + sketchy/slate primary = danger
+
+- WHAT (user): "On the sketch and slate themes both modes there is almost no
+  difference between the primary and secondary tab colours. For these only for these
+  for the smd-button, smd-tabs make the primary colour the same as the danger colour.
+  Also on slate dark secondary there text colour on the secondary buttons needs to be
+  white to stand out against the background gradient (its not a color). Can you check
+  why the contrast checker did not pick this up. Fix the checker and fix the colour.
+  Do this in a TDD fashion."
+- DIAGNOSIS (why the checker missed it): it read only `background-color`. slate dark
+  secondary is `background-color:#7a8288` (black = 5.37:1, "fine") painted with
+  `background-image: linear-gradient(#81888e, #7a8288 20%, #62686d)` - and black on
+  the ramp's dark end is 3.69:1 while white is 5.68:1.
+- TDD: (RED 1) made `tests/contrast.spec.js` gradient-aware first - it immediately
+  failed on slate secondary base/disabled (3.72) as well as genuine pre-existing
+  misses in materia (danger 4.01), simplex (info 4.29) and the rest of slate's ramp
+  (success 4.24, danger 4.32, warning 4.07, info 4.44); (RED 2) added
+  `tests/theme-primary-danger.spec.js`, which failed for all four sketchy/slate
+  combos. (GREEN) taught the generator the same rule, added the primary-borrows-
+  danger blocks, regenerated the baked CSS and updated pmd-regression's slate tab
+  test.
+- CHECKER MODEL: the surface is the DARKEST extent of the element's gradient (each
+  stop composited over the background colour) - that dominates the body of the
+  button, and for Bootstrap's usual translucent white sheen the darkest extent is the
+  background colour itself, so ordinary themes do not move. Stops belong to the BASE
+  state (slate overrides the image per state and that is not readable without
+  hovering), so base/disabled use them and hover/active keep their flat colour. A
+  first attempt that took the worst of EVERY stop was wrong the other way: it mixed
+  the base ramp into the hover/active surfaces and produced false failures.
+- RESULT: slate dark (and light) secondary text is now WHITE; slate/sketchy primary
+  buttons + active tabs paint the danger surface; materia/simplex/slate gained the
+  extra contrast rules the old checker missed.
+- VERIFIED: theme-primary-danger 4/4, contrast 3/3, contrast-css drift (regenerated,
+  idempotent), pmd-regression slate tab, settings-alignment + display-settings + the
+  7 app suites + the 3 colour specs 250/250, and pmd-gantt + storybook +
+  shared-helpers + image-edit-preview-size + pmd-touch + pmd-regression greps
+  114/114.
 
 ### 2026-10-19 (b) - contrast fixes moved OUT of runtime JS and BAKED INTO the theme CSS
 

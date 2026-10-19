@@ -71,8 +71,14 @@ const RENDER = (variants) => {
   tabs.tabs = [{ title: "One" }, { title: "Two" }];
 };
 
-// Every resolved colour the browser will paint, with translucent surfaces
-// composited over the page background (that is what the eye sees).
+// The surface a control actually paints. Themes with a `background-image` gradient
+// (slate, materia, ...) paint MORE than the flat background-color, and the label has
+// to work against the gradient's DARKEST extent - that is the part that dominates
+// the body of the button (for Bootstrap's usual `rgba(255,255,255,.15)` sheen the
+// darkest extent IS the base colour, so ordinary themes are unaffected). Reading
+// only `background-color` is what missed slate dark's secondary button: the flat
+// #7a8288 said black was fine, but the ramp runs down to #62686d (3.69:1 on black,
+// 5.68:1 on white).
 const MEASURE = () => {
   const parse = (s) => {
     const str = String(s || "").trim();
@@ -93,6 +99,29 @@ const MEASURE = () => {
   const over = (fg, bg) => (!fg ? bg : fg.a >= 1 ? fg
     : { r: fg.r * fg.a + bg.r * (1 - fg.a), g: fg.g * fg.a + bg.g * (1 - fg.a), b: fg.b * fg.a + bg.b * (1 - fg.a), a: 1 });
   const css = (c) => "rgb(" + Math.round(c.r) + ", " + Math.round(c.g) + ", " + Math.round(c.b) + ")";
+  const luminance = (c) => {
+    const f = (v) => { const x = v / 255; return x <= 0.03928 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4); };
+    return 0.2126 * f(c.r) + 0.7152 * f(c.g) + 0.0722 * f(c.b);
+  };
+
+  // The darkest surface the element paints: its background colour, or the darkest
+  // colour stop of its gradient (each stop composited over the background, so a
+  // translucent sheen is handled like an opaque ramp).
+  const darkestSurface = (cs, bg) => {
+    let darkest = bg;
+    const img = String(cs.backgroundImage || "");
+    if (img && img !== "none" && /gradient/i.test(img)) {
+      const re = /(rgba?\([^)]*\)|color\([^)]*\)|#[0-9a-f]{3,8}\b|\b(?:white|black|transparent)\b)/gi;
+      let m;
+      while ((m = re.exec(img)) !== null) {
+        const stop = parse(m[1]);
+        if (!stop) continue;
+        const painted = over(stop, bg);
+        if (luminance(painted) < luminance(darkest)) darkest = painted;
+      }
+    }
+    return darkest;
+  };
 
   const pageBg = over(parse(getComputedStyle(document.body).backgroundColor), { r: 255, g: 255, b: 255, a: 1 });
   const out = { buttons: {}, tabs: {} };
@@ -105,20 +134,25 @@ const MEASURE = () => {
     // Each state paints from its own var; a missing/transparent surface var falls
     // back to the base surface, and an unparseable token (e.g. an unresolved
     // `var(...)`) falls back to the base colour - exactly as Bootstrap does.
+    // GRADIENTS: the element's `background-image` belongs to the BASE state (slate
+    // and friends override it per state, which cannot be read without hovering), so
+    // base/disabled use it (the image persists there) and hover/active are judged
+    // on their own flat background colour.
     const stateQuirk = (token) => /^(#|rgba?\(|color\()/i.test(String(token).trim());
-    const state = (colorToken, bgToken) => {
+    const state = (colorToken, bgToken, withGradient) => {
       const raw = parse(cs.getPropertyValue(bgToken).trim());
       const token = cs.getPropertyValue(colorToken).trim();
+      const bg = raw && raw.a > 0 ? over(raw, pageBg) : baseBg;
       return {
         color: stateQuirk(token) ? token : baseColor,
-        bg: raw && raw.a > 0 ? css(over(raw, pageBg)) : css(baseBg)
+        bg: css(withGradient ? darkestSurface(cs, bg) : bg)
       };
     };
     out.buttons[hostEl.getAttribute("variant")] = {
-      base: { color: baseColor, bg: css(baseBg) },
-      hover: state("--bs-btn-hover-color", "--bs-btn-hover-bg"),
-      active: state("--bs-btn-active-color", "--bs-btn-active-bg"),
-      disabled: state("--bs-btn-disabled-color", "--bs-btn-disabled-bg")
+      base: { color: baseColor, bg: css(darkestSurface(cs, baseBg)) },
+      hover: state("--bs-btn-hover-color", "--bs-btn-hover-bg", false),
+      active: state("--bs-btn-active-color", "--bs-btn-active-bg", false),
+      disabled: state("--bs-btn-disabled-color", "--bs-btn-disabled-bg", true)
     };
   });
 
@@ -126,7 +160,8 @@ const MEASURE = () => {
     const el = document.querySelector("#contrastProbe smd-tabs " + selector);
     if (!el) return null;
     const cs = getComputedStyle(el);
-    return { color: cs.color, bg: css(over(parse(cs.backgroundColor), pageBg)) };
+    const bg = over(parse(cs.backgroundColor), pageBg);
+    return { color: cs.color, bg: css(darkestSurface(cs, bg)) };
   };
   out.tabs.active = tabState(".smd-tab-btn.active");
   out.tabs.inactive = tabState(".smd-tab-btn:not(.active)");

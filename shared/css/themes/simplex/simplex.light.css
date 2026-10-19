@@ -55,15 +55,13 @@
   color: #000 !important;
 }
 .btn-info {
-  --bs-btn-color: #212529;
+  --bs-btn-color: #000;
   --bs-btn-hover-color: #000;
-  --bs-btn-disabled-color: #212529;
+  --bs-btn-disabled-color: #000;
 }
 .btn-info,
+.btn-info:hover, .btn-info:focus-visible,
 .btn-info:disabled, .btn-info.disabled {
-  color: #212529 !important;
-}
-.btn-info:hover, .btn-info:focus-visible {
   color: #000 !important;
 }
 /* smd-contrast:end */
