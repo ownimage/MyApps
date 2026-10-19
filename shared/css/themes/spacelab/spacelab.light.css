@@ -46,4 +46,7 @@ smd-tabs .smd-tab-btn.text-bg-secondary:focus-visible {
 #mainNav .dropdown-menu .dropdown-item.active {
   color: #000 !important;
 }
+#mainNav .dropdown-menu {
+  border-color: #000;
+}
 /* smd-contrast:end */

@@ -137,6 +137,27 @@ const MEASURE = (variants) => {
     return best.c;
   };
 
+  // NON-TEXT UI (the menu border): 3:1 is enough (WCAG 1.4.11), and the theme's
+  // body/emphasis colours are tried first before falling back to black/white.
+  const UI_MIN = 3;
+  const pickBorder = (current, surface, candidates) => {
+    if (!current || !surface) return null;
+    if (ratio(current, surface) >= UI_MIN) return null;
+    let best = null;
+    candidates.forEach((c) => {
+      if (!c) return;
+      const r = ratio(c, surface);
+      if (r >= UI_MIN && (!best || r > best.r)) best = { c, r };
+    });
+    if (!best) {
+      [BLACK, WHITE].forEach((c) => {
+        const r = ratio(c, surface);
+        if (!best || r > best.r) best = { c, r };
+      });
+    }
+    return best.c;
+  };
+
   const host = document.getElementById("contrastCssProbe") || (() => {
     const h = document.createElement("div");
     h.id = "contrastCssProbe";
@@ -236,6 +257,32 @@ const MEASURE = (variants) => {
     // styles.css paints the hamburger menu with the BODY surface and BODY colour.
     out.menu = { current: bodyColor ? rgb(bodyColor) : null, surface: rgb(pageBg), picked: pickCss(bodyColor, pageBg) };
   }
+
+  // MENU BORDER: the popup's edge has to read as a boundary against the page, which
+  // the theme's own translucent border tint does not (1.16-2.6:1 on most themes).
+  // Non-text UI needs 3:1 (WCAG 1.4.11). Only the COLOUR is repainted; the theme's
+  // width/style/radius stay.
+  const menuEl = document.querySelector("#mainNav .dropdown-menu");
+  if (menuEl) {
+    const mcs = getComputedStyle(menuEl);
+    const menuBg = over(parse(mcs.backgroundColor), pageBg);
+    const borderColor = parse(mcs.borderTopColor);
+    // --bs-emphasis-color is the theme's "strongest text" token; it is a good second
+    // candidate (some themes keep it dark on a dark page, hence the fallback).
+    const emphasisProbe = document.createElement("span");
+    emphasisProbe.style.cssText = "position:absolute;color:var(--bs-emphasis-color)";
+    document.body.appendChild(emphasisProbe);
+    const emphasis = parse(getComputedStyle(emphasisProbe).color);
+    emphasisProbe.remove();
+    const borderPick = pickBorder(borderColor, menuBg, [bodyColor, emphasis]);
+    out.menuBorder = {
+      current: borderColor ? rgb(borderColor) : null,
+      surface: rgb(menuBg),
+      width: parseFloat(mcs.borderTopWidth) || 0,
+      style: mcs.borderTopStyle,
+      picked: borderPick ? rgb(borderPick) : null
+    };
+  }
   return out;
 };
 
@@ -306,6 +353,12 @@ function formatBlock(measured) {
   if (measured.menu && measured.menu.picked) {
     const sel = "#mainNav .dropdown-menu .dropdown-item";
     rules.push(sel + ",\n" + sel + ":hover,\n" + sel + ":focus,\n" + sel + ".active {\n  color: " + hex(measured.menu.picked) + " !important;\n}");
+  }
+
+  // The menu + its Launch submenu both match `.dropdown-menu` inside #mainNav, so one
+  // rule gives both a boundary that contrasts with the panel (3:1, WCAG 1.4.11).
+  if (measured.menuBorder && measured.menuBorder.picked) {
+    rules.push("#mainNav .dropdown-menu {\n  border-color: " + hex(measured.menuBorder.picked) + ";\n}");
   }
 
   if (!rules.length) return "";

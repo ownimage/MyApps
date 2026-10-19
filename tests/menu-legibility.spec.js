@@ -261,4 +261,44 @@ test.describe("Main-menu legibility", () => {
     }
     expect(failures.join("\n")).toBe("");
   });
+
+  test("the menu and the Launch submenu have a contrasting border on every theme", async ({ page }) => {
+    // The popup floats over the page, so its edge must read as a boundary: a
+    // non-text UI element needs >= 3:1 against what it sits on (WCAG 1.4.11). A
+    // theme's own dropdown border is a translucent near-background tint (1.16-2.6:1
+    // on almost every theme), so it vanishes; the baked contrast block repaints ONLY
+    // the colour and keeps the theme's width/style/radius.
+    await page.goto("/PlanMyDay/");
+    const failures = [];
+    const BORDERS = () => {
+      const read = (el) => {
+        if (!el) return null;
+        const cs = getComputedStyle(el);
+        return {
+          width: parseFloat(cs.borderTopWidth),
+          style: cs.borderTopStyle,
+          color: cs.borderTopColor,
+          bg: cs.backgroundColor
+        };
+      };
+      return {
+        menu: read(document.querySelector("#mainNav .dropdown-menu")),
+        sub: read(document.querySelector("#mainNav .launch-submenu-menu"))
+      };
+    };
+    for (const theme of THEMES) {
+      for (const mode of MODES) {
+        const label = theme + "/" + mode;
+        await setTheme(page, theme, mode);
+        const b = await page.evaluate(BORDERS);
+        for (const [what, edge] of Object.entries(b)) {
+          if (!edge) { failures.push(`${label}  ${what}: not rendered`); continue; }
+          if (!edge.width || edge.style === "none") { failures.push(`${label}  ${what}: no border`); continue; }
+          const ratio = contrast(edge.color, solid(edge.bg));
+          if (ratio < 3) failures.push(`${label}  ${what}: border ${ratio.toFixed(2)}:1 (${edge.color} on ${solid(edge.bg)})`);
+        }
+      }
+    }
+    expect(failures.join("\n")).toBe("");
+  });
 });

@@ -52,4 +52,7 @@
 .btn-info:hover, .btn-info:focus-visible {
   color: #000 !important;
 }
+#mainNav .dropdown-menu {
+  border-color: #fff;
+}
 /* smd-contrast:end */
