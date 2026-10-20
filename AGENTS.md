@@ -1060,6 +1060,23 @@ Architecture:
   loose (user request). Tests: cmd-regression "timed Google events show the start
   time just before the source badge" (also asserts all-day/local show none) and
   pmd-regression "shows a timed Google event's start time just before the badge".
+- LISTOFLISTS MINIO BACKUP (2026-10-20, user request): the shared
+  `shared/js/smd-minio.js` export used a hard-coded `planmydays-<ts>.json`
+  filename and PlanMyDay's `streams` payload, so ListOfLists backups were both
+  misnamed and missing its categories. New shared hooks:
+  `SmdConfig.minioExportPrefix` (default `"planmydays"`),
+  `SmdConfig.minioExportData()` (default `{version, exportedAt, streams, images}`)
+  and `SmdConfig.onMinioImport(data, key)` (the key is the second arg now).
+  ListOfLists sets `minioExportPrefix = "listoflists"`,
+  `minioExportData = lolExportPayload` (`{version, exportedAt, categories,
+  images}`) and `onMinioImport` to restore `lol_categories` + images, close the
+  import page, alert with the filename and `regenerateTiles()`. Its JSON download
+  uses the SAME `lolExportPayload()`. PlanMyDay sets no hooks, so it still writes
+  `planmydays-<ts>.json` with `streams` (guarded by pmd-regression "export to
+  minio keeps the planmydays filename and streams payload"). LoL tests: "Export
+  to Minio names the file listoflists-<datetime>.json and uploads the categories
+  payload" and "Importing from Minio restores the categories through the app
+  hook".
 - EDIT GOOGLE EVENT MIRRORS EDIT DATE (2026-10-18, user request): the
   `#googleEventEditPage` content in `CountMyDays/js/googleCalendarEditor.js`
   (`renderGcalEditContent`) now follows the Edit Date page row-for-row: (1) a
@@ -6160,4 +6177,22 @@ Techniques / gotchas:
   launch-regression cross-shell menu test) are gone. The ID mapping/lookups
   remain unchanged, and `sampleData.json` now carries ids (`id` = name) so
   first-visit data is already id'd.
+
+### 2026-10-20 - ListOfLists MinIO filename + backup data
+- REQUEST (user): ListOfLists exported `planmydays-<datetime>.json`; it must be
+  `listoflists-<datetime>.json`.
+- FOUND: the name AND payload were hard-coded for PlanMyDay in
+  `shared/js/smd-minio.js` (`planmydays-`, `smdKey("streams")`), so a LoL MinIO
+  backup also contained no categories.
+- IMPLEMENTED: `SmdConfig.minioExportPrefix` + `SmdConfig.minioExportData()`
+  hooks (defaults preserve `planmydays-` + streams for PlanMyDay);
+  `SmdConfig.onMinioImport(data, key)` now receives the object key. ListOfLists
+  sets `minioExportPrefix = "listoflists"`, shares `lolExportPayload()` between
+  JSON download and MinIO export, and restores `lol_categories` + images through
+  `onMinioImport`. CountMyDays is untouched (its own `onMinioExport`).
+- VERIFIED: lol-regression 65/65 (2 new MinIO tests: filename/payload + import
+  hook); pmd-regression "export to minio keeps the planmydays filename and
+  streams payload" 1/1.
+- `BUILD_NUMBER` -> `202610201050` via `npm run bump:build`; restart the test
+  server afterwards (it snapshots app JS at startup).
 

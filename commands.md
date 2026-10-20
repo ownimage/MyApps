@@ -1,6 +1,6 @@
 ### Run full regression test 
 ```bash
-.\CleanTestServerStart.cmd && set EXTERNAL_SERVER=1 && set SCREENSHOT_THEME=superhero&& .\node_modules\.bin\playwright.cmd test tests --retries=0 --workers=32 & type PhoneButtons\server\coverage.txt
+.\CleanTestServerStart.cmd && set EXTERNAL_SERVER=1 && set SCREENSHOT_THEME=superhero&& .\node_modules\.bin\playwright.cmd test tests --retries=0 --workers=32 && type PhoneButtons\server\coverage.txt && date /T &&  time /T 
 ``` 
 ### Re-run last failures
 ```bash

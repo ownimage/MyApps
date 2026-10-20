@@ -886,4 +886,81 @@ test.describe("ListOfLists - Regression", () => {
       expect((await readCategories(page)).map((c) => c.title)).toEqual(["Work", "Home"]);
     });
   });
+
+  // ── Minio ───────────────────────────────────────────────────────────────
+
+  test.describe("Minio", () => {
+    async function enableMinio(page, bucket = "lol") {
+      await page.evaluate((bucketName) => {
+        localStorage.setItem("lol_minio_enabled", "true");
+        localStorage.setItem("lol_minio_server", "http://minio:9000");
+        localStorage.setItem("lol_minio_username", "minioadmin");
+        localStorage.setItem("lol_minio_password", "minioadmin");
+        localStorage.setItem("lol_minio_bucket", bucketName);
+      }, bucket);
+    }
+
+    test("Export to Minio names the file listoflists-<datetime>.json and uploads the categories payload", async ({ page }) => {
+      await seed(page);
+      await enableMinio(page);
+      await page.evaluate(() => {
+        window.__minioPut = null;
+        minioPutObject = (bucket, key, body) => {
+          window.__minioPut = { bucket, key, body };
+          return Promise.resolve();
+        };
+        exportToMinio();
+      });
+
+      await expect.poll(async () => page.evaluate(() => window.__minioPut && window.__minioPut.key))
+        .toMatch(/^listoflists-\d{12}\.json$/);
+      const put = await page.evaluate(() => window.__minioPut);
+      expect(put.bucket).toBe("lol");
+      const payload = JSON.parse(put.body);
+      expect(payload.categories.map((c) => c.title)).toEqual(["Work", "Home"]);
+      expect(payload.categories[0].lists.map((l) => l.title)).toEqual(["Report", "Meeting"]);
+      expect(payload.images).toEqual([]);
+      // ListOfLists must NOT use PlanMyDay's streams shape.
+      expect(payload.streams).toBeUndefined();
+
+      await expect(page.locator("#smdConfirmModal")).toContainText("Exported listoflists-");
+      await page.locator("#smdConfirmModal").getByRole("button", { name: "OK" }).click();
+    });
+
+    test("Importing from Minio restores the categories through the app hook", async ({ page }) => {
+      await seed(page);
+      const imported = [{
+        title: "Minio Import", sequence: 1, description: "", image: "",
+        lists: [{ id: "list_minio", title: "From Minio", sequence: 1, description: "", active: true, items: [] }],
+      }];
+
+      const result = await page.evaluate((categories) => {
+        const accepted = SmdConfig.onMinioImport(
+          { version: 1, categories, images: [] },
+          "listoflists-202601010000.json"
+        );
+        return {
+          accepted,
+          categories: JSON.parse(localStorage.getItem("lol_categories") || "[]")
+        };
+      }, imported);
+
+      expect(result.accepted).toBe(true);
+      expect(result.categories.map((c) => c.title)).toEqual(["Minio Import"]);
+      expect(result.categories[0].lists.map((l) => l.title)).toEqual(["From Minio"]);
+      await expect(page.locator("#smdConfirmModal")).toContainText("Imported listoflists-202601010000.json");
+      await page.locator("#smdConfirmModal").getByRole("button", { name: "OK" }).click();
+
+      // A file without categories or images is rejected and storage is untouched.
+      const rejected = await page.evaluate(() => {
+        const accepted = SmdConfig.onMinioImport({ nonsense: true }, "bad.json");
+        return {
+          accepted,
+          categories: JSON.parse(localStorage.getItem("lol_categories") || "[]")
+        };
+      });
+      expect(rejected.accepted).toBe(false);
+      expect(rejected.categories.map((c) => c.title)).toEqual(["Minio Import"]);
+    });
+  });
 });

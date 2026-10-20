@@ -18,6 +18,20 @@ SmdConfig.appName = "List of Lists";
 // All apps share ONE image library on this origin (`shared-images`).
 SmdConfig.imagePrefix = "shared-";
 
+// MinIO: ListOfLists backs up its OWN categories (with nested lists) + images,
+// not PlanMyDay's `streams`, and names the object listoflists-<timestamp>.json.
+// The import page hands the parsed JSON to the shared app hook, which restores
+// the same data and closes the page itself.
+SmdConfig.minioExportPrefix = "listoflists";
+SmdConfig.minioExportData = lolExportPayload;
+SmdConfig.onMinioImport = function (data, key) {
+  if (!lolImportBackup(data)) return false;
+  closeMinioImport();
+  showMinioAlert("Imported " + key + " successfully.", "info");
+  if (typeof regenerateTiles === "function") regenerateTiles();
+  return true;
+};
+
 document.addEventListener("DOMContentLoaded", () => {
   const settingsPage = document.getElementById("settingsPage");
   if (settingsPage) {

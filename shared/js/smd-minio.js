@@ -1,16 +1,21 @@
-// Minio (S3-compatible) client, shared by PlanMyDay and CountMyDays.
+// Minio (S3-compatible) client, shared by PlanMyDay, CountMyDays and ListOfLists.
 //
 // The settings fields, the signed S3 requests and the import page are generic
 // (they key everything through smdKey()). WHAT a backup contains is app-specific,
-// so an app can take over the two data ends with SmdConfig hooks:
+// so an app can take over the data ends with SmdConfig hooks:
 //   SmdConfig.onMinioExport(config)  - instead of uploading immediately, the app
 //                                     decides what to save (CountMyDays runs its
 //                                     export wizard and uploads when it finishes).
-//   SmdConfig.onMinioImport(data)    - apply the parsed JSON yourself; return
+//   SmdConfig.minioExportData()      - returns the payload the default export
+//                                     uploads (ListOfLists: categories + images;
+//                                     PlanMyDay: streams + images).
+//   SmdConfig.minioExportPrefix      - filename prefix (default "planmydays";
+//                                     ListOfLists sets "listoflists").
+//   SmdConfig.onMinioImport(data, key) - apply the parsed JSON yourself; return
 //                                     true when accepted (the app owns the UI,
 //                                     INCLUDING closing the import page), false
 //                                     for an invalid file.
-// PlanMyDay sets neither hook, so it keeps the behaviour below.
+// PlanMyDay sets none of these, so it keeps the streams default below.
 
 function changeMinioEnabled(enabled) {
   localStorage.setItem(smdKey("minio_enabled"), String(enabled));
@@ -371,16 +376,22 @@ function exportToMinio() {
     return;
   }
 
-  var data = {
-    version: 1,
-    exportedAt: new Date().toISOString(),
-    streams: JSON.parse(localStorage.getItem(smdKey("streams")) || "[]"),
-    images: loadImages()
-  };
+  var data;
+  if (typeof SmdConfig !== "undefined" && typeof SmdConfig.minioExportData === "function") {
+    data = SmdConfig.minioExportData();
+  } else {
+    data = {
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      streams: JSON.parse(localStorage.getItem(smdKey("streams")) || "[]"),
+      images: loadImages()
+    };
+  }
 
   var d = new Date();
   var ts = d.getFullYear() + String(d.getMonth() + 1).padStart(2, "0") + String(d.getDate()).padStart(2, "0") + String(d.getHours()).padStart(2, "0") + String(d.getMinutes()).padStart(2, "0");
-  var filename = "planmydays-" + ts + ".json";
+  var prefix = (typeof SmdConfig !== "undefined" && SmdConfig.minioExportPrefix) || "planmydays";
+  var filename = prefix + "-" + ts + ".json";
 
   var body = JSON.stringify(data, null, 2);
 
@@ -603,7 +614,7 @@ function importMinioFile(bucket, key) {
     // per-section keep/replace prompts still apply). The hook closes the import
     // page itself when it accepts the data.
     if (typeof SmdConfig !== "undefined" && typeof SmdConfig.onMinioImport === "function") {
-      if (!SmdConfig.onMinioImport(data)) {
+      if (!SmdConfig.onMinioImport(data, key)) {
         showMinioAlert("Invalid backup file: missing data for this app.", "error");
         loadMinioBucketFiles(bucket);
       }

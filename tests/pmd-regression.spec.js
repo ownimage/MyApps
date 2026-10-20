@@ -7604,6 +7604,36 @@ test.describe("PlanMyDay - Regression", () => {
       await expect(page.locator("#smdConfirmModal")).not.toBeVisible();
     });
 
+    test("export to minio keeps the planmydays filename and streams payload", async ({ page }) => {
+      await page.evaluate(() => {
+        localStorage.setItem("planmydays_minio_enabled", "true");
+        localStorage.setItem("planmydays_minio_server", "http://minio:9000");
+        localStorage.setItem("planmydays_minio_username", "minioadmin");
+        localStorage.setItem("planmydays_minio_password", "minioadmin");
+        localStorage.setItem("planmydays_minio_bucket", "pmd");
+        localStorage.setItem("planmydays_streams", JSON.stringify([{ name: "Personal", jobs: [] }]));
+        window.__minioPut = null;
+        minioPutObject = (bucket, key, body) => {
+          window.__minioPut = { bucket, key, body };
+          return Promise.resolve();
+        };
+        exportToMinio();
+      });
+
+      // PlanMyDay sets no hooks: the shared default filename and streams payload
+      // must stay unchanged (ListOfLists is the one that opts into listoflists).
+      await expect.poll(async () => page.evaluate(() => window.__minioPut && window.__minioPut.key))
+        .toMatch(/^planmydays-\d{12}\.json$/);
+      const put = await page.evaluate(() => window.__minioPut);
+      expect(put.bucket).toBe("pmd");
+      const payload = JSON.parse(put.body);
+      expect(payload.streams.map((s) => s.name)).toEqual(["Personal"]);
+      expect(payload.categories).toBeUndefined();
+
+      await expect(page.locator("#smdConfirmModal")).toContainText("Exported planmydays-");
+      await page.locator("#smdConfirmModal .smd-footer button").click();
+    });
+
     // ── Import error handling ──────────────────────────────
 
     test("import from minio shows alert when missing config", async ({ page }) => {

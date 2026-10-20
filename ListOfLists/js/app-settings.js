@@ -142,24 +142,38 @@ function confirmClearAllData() {
   smdConfirmClearAllData({ content: "Clear ALL List of Lists data? This cannot be undone." });
 }
 
-function exportData() {
-  smdDownloadJson({
+// The JSON (download) and MinIO backups share ONE payload shape: the app's own
+// categories (with their lists) plus the shared image library. ListOfLists does
+// not use PlanMyDay's `streams` key.
+function lolExportPayload() {
+  return {
     version: 1,
     exportedAt: new Date().toISOString(),
     categories: JSON.parse(localStorage.getItem(smdKey("categories")) || "[]"),
     images: loadImages()
-  }, "listoflists");
+  };
+}
+
+function exportData() {
+  smdDownloadJson(lolExportPayload(), "listoflists");
+}
+
+// Apply a backup (JSON file or MinIO object). Returns false for anything that is
+// not a ListOfLists backup, so the MinIO page can report an invalid file.
+function lolImportBackup(data) {
+  if (!data || (!data.categories && !data.images)) return false;
+  if (data.categories) localStorage.setItem(smdKey("categories"), JSON.stringify(data.categories));
+  if (data.images) saveImages(data.images);
+  return true;
 }
 
 function importData() {
   smdReadJsonFile(function (data) {
     if (data === undefined) { alert("Invalid JSON file."); return; }
-    if (!data || (!data.categories && !data.images)) {
+    if (!lolImportBackup(data)) {
       alert("Invalid backup file: missing categories or images data.");
       return;
     }
-    if (data.categories) localStorage.setItem(smdKey("categories"), JSON.stringify(data.categories));
-    if (data.images) saveImages(data.images);
     regenerateTiles();
   });
 }
