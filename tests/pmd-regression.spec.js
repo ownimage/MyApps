@@ -3007,6 +3007,116 @@ test.describe("PlanMyDay - Regression", () => {
       expect(glyphInfo.fontFamily).toContain("bootstrap-icons");
       expect(glyphInfo.glyph.length).toBeGreaterThan(0);
     });
+
+    // WebKit/iOS used to composite the PREVIOUS bitmap with the new one when an
+    // <img> was re-sourced in place, showing half of one image and half of the
+    // other (e.g. switching the Job editor's stream/category). The component now
+    // swaps in a freshly-built, decoded <img>; prove the old element is replaced
+    // (not re-sourced) and that exactly one decoded image remains.
+    test("changing the image swaps in a fresh decoded img element", async ({ page }) => {
+      test.setTimeout(30000);
+      await page.goto("/PlanMyDay/");
+      const red = "data:image/svg+xml," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><rect width="16" height="16" fill="#ff0000"/></svg>');
+      const blue = "data:image/svg+xml," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><rect width="16" height="16" fill="#0000ff"/></svg>');
+      await page.evaluate(({ red, blue }) => {
+        localStorage.setItem("shared-images", JSON.stringify([
+          { name: "SwapRed", data: red },
+          { name: "SwapBlue", data: blue }
+        ]));
+      }, { red, blue });
+      await page.reload();
+      await page.evaluate(() => {
+        const el = document.createElement("smd-image");
+        el.id = "swapTest";
+        el.setAttribute("key-prefix", "shared-");
+        el.setAttribute("image", "SwapRed");
+        el.setAttribute("size", "64");
+        document.body.appendChild(el);
+      });
+      await page.waitForFunction(() => {
+        const el = document.getElementById("swapTest");
+        const img = el && el.querySelector("img");
+        return img && img.getAttribute("src") && img.naturalWidth > 0;
+      }, null, { timeout: 10000 });
+
+      // Mark the first <img> so we can prove it is REPLACED, not re-sourced.
+      await page.evaluate(() => {
+        const el = document.getElementById("swapTest");
+        const img = el.querySelector("img");
+        img.dataset.first = "1";
+        el.__firstSrc = img.getAttribute("src");
+      });
+
+      await page.evaluate(() => document.getElementById("swapTest").setAttribute("image", "SwapBlue"));
+      await page.waitForFunction(() => {
+        const el = document.getElementById("swapTest");
+        const img = el && el.querySelector("img");
+        return img && img.dataset.first !== "1" && img.getAttribute("src") && img.naturalWidth > 0;
+      }, null, { timeout: 10000 });
+
+      const info = await page.evaluate(() => {
+        const el = document.getElementById("swapTest");
+        const img = el.querySelector("img");
+        return {
+          imgs: el.querySelectorAll("img").length,
+          firstStillConnected: !!el.querySelector('img[data-first="1"]'),
+          oldSrc: el.__firstSrc,
+          newSrc: img.getAttribute("src"),
+          decoded: img.naturalWidth > 0
+        };
+      });
+      expect(info.imgs).toBe(1);
+      expect(info.firstStillConnected).toBe(false);
+      expect(info.newSrc).not.toBe(info.oldSrc);
+      expect(info.decoded).toBe(true);
+    });
+
+    test("job editor stream thumbnail switches to the new category image", async ({ page }) => {
+      test.setTimeout(30000);
+      await page.goto("/PlanMyDay/");
+      const red = "data:image/svg+xml," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><rect width="16" height="16" fill="#ff0000"/></svg>');
+      const blue = "data:image/svg+xml," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><rect width="16" height="16" fill="#0000ff"/></svg>');
+      await page.evaluate(({ red, blue }) => {
+        localStorage.setItem("shared-images", JSON.stringify([
+          { name: "CatRed", data: red },
+          { name: "CatBlue", data: blue }
+        ]));
+        localStorage.setItem("planmydays_streams", JSON.stringify([
+          {
+            id: "stream_1", title: "Work", tab: "progress", image: "CatRed", sequence: 1,
+            jobs: [{ id: "job_1", title: "Report", active: true, frequency: "daily", sequence: 1, suffix: false, dayType: "dayOfYear", mod: "", tasks: [] }]
+          },
+          {
+            id: "stream_2", title: "Chores", tab: "maintenance", image: "CatBlue", sequence: 2, jobs: []
+          }
+        ]));
+      }, { red, blue });
+      await page.reload();
+      await page.evaluate(() => openStreamsEditor());
+      await page.locator("#streamEditorList .stream-header-main").first().click();
+      await page.locator("#streamEditorList .accordion-body .btn-primary").filter({ hasText: "Edit" }).first().click();
+      await page.locator("#jobEditPage").waitFor({ state: "visible" });
+
+      const thumbImg = () => page.locator("#jobStreamDropdown #smdImageBtnIcon smd-image img").first();
+      await expect.poll(() => thumbImg().evaluate((el) => !!el.getAttribute("src") && el.naturalWidth > 0), { timeout: 10000 }).toBe(true);
+      const before = await thumbImg().evaluate((el) => el.getAttribute("src"));
+
+      await page.locator("#smdImageDropdownBtn").click();
+      await page.locator("#smdImageDropdownMenu .dropdown-item").filter({ hasText: "Chores" }).click();
+      await expect.poll(() => thumbImg().evaluate((el) => el.getAttribute("src")), { timeout: 10000 }).not.toBe(before);
+
+      // The visible thumb must be the NEW image's painted bytes, not a blend.
+      const got = await page.evaluate(async () => {
+        const el = document.querySelector("#jobStreamDropdown #smdImageBtnIcon smd-image img");
+        const bytes = async (u) => Array.from(new Uint8Array(await (await fetch(u)).arrayBuffer()));
+        const a = await bytes(el.getAttribute("src"));
+        const painted = getThemedImageDataUrl(loadImages().find((i) => i.name === "CatBlue"));
+        const b = await bytes(await smdImageRenderUrl(painted));
+        return { a, b, imgs: document.querySelectorAll("#jobStreamDropdown #smdImageBtnIcon smd-image img").length };
+      });
+      expect(got.imgs).toBe(1);
+      expect(got.a).toEqual(got.b);
+    });
   });
 
   // ── Dev Mode ───────────────────────────────────────────────

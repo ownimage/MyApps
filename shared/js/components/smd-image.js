@@ -173,6 +173,11 @@
     }
 
     _render() {
+      // Invalidate in-flight paints FIRST, in ONE place, so the token covers
+      // stored images AND icon renders. (A stored-image promise that resolves
+      // after the element switched to an icon must not repaint the img.)
+      this._renderSeq = (this._renderSeq || 0) + 1;
+
       const name = this.getAttribute("image") || "";
       const px = this._sizePx();
 
@@ -198,17 +203,10 @@
     }
 
     _renderStored(name, px) {
-      const img = this.querySelector("img");
       const span = this.querySelector(".smd-bi");
-      if (!img) return;
       if (span) span.hidden = true;
 
-      // Sequence token: renders are async (the painted data URL resolves to a
-      // cached /smd-img/ file or a blob URL) and a stale promise must never
-      // repaint the img after a newer render (e.g. a theme flip) has run.
-      this._renderSeq = (this._renderSeq || 0) + 1;
       const seq = this._renderSeq;
-
       const stored = this._findImage();
       const alt = this.getAttribute("alt") || "";
 
@@ -223,26 +221,21 @@
           if (tiers[i] > 0) src = stored["data" + tiers[i]] || null;
         }
       }
+      const current = this.querySelector("img");
       if (!stored || !src) {
-        img.removeAttribute("src");
-        img.hidden = true;
+        if (current) {
+          current.removeAttribute("src");
+          current.hidden = true;
+        }
         return;
       }
       const theme = this.theme;
       const overrides = (stored.themes && stored.themes[theme]) || {};
       const painted = SmdLib.themedSvgSrc(src, overrides);
-      img.alt = alt || SmdLib.escapeHtml(this.getAttribute("image") || "");
+      const altText = alt || SmdLib.escapeHtml(this.getAttribute("image") || "");
 
-      const paint = (url) => {
-        if (seq !== this._renderSeq || !img.isConnected) return;
-        img.src = url;
-        img.hidden = false;
-      };
+      const paint = (url) => this._paintImage(url, altText, seq);
 
-      // Empty box (no request) until the cached/blob URL resolves: the DOM holds
-      // only that short URL instead of the full painted data URL.
-      img.removeAttribute("src");
-      img.hidden = false;
       if (typeof global.smdImageRenderUrl === "function") {
         try {
           global.smdImageRenderUrl(painted).then(paint).catch(() => paint(painted));
@@ -252,6 +245,62 @@
       } else {
         paint(painted);
       }
+    }
+
+    // Reveal `url` by swapping in a FRESHLY-BUILT <img> once it has decoded.
+    //
+    // Re-sourcing the existing <img> in place (removeAttribute("src") then
+    // img.src = url) is atomic only on paper: when the render URL is already
+    // memoised (shared/js/smd-images.js `_imgUrlMemo`) the swap happens in one
+    // frame, and WebKit (every iOS browser) can leave the PREVIOUS bitmap
+    // composited with the new one inside the fixed-size, overflow-hidden host.
+    // That is the "half of one image / half of the other" thumbnail seen when
+    // switching the Job editor's stream/category. A new element starts with no
+    // pixels, so the old and new bitmaps can never be shown together.
+    _paintImage(url, alt, seq) {
+      if (seq !== this._renderSeq || !this.isConnected) return;
+      const current = this.querySelector("img");
+
+      // Already showing this exact URL: keep the decoded bitmap and just make
+      // sure it is visible (alt text may have changed).
+      if (current && current.getAttribute("src") === url && current.complete) {
+        current.alt = alt;
+        current.hidden = false;
+        return;
+      }
+
+      const next = document.createElement("img");
+      next.alt = alt;
+      next.hidden = true;
+
+      const swap = () => {
+        if (seq !== this._renderSeq || !this.isConnected) return;
+        next.hidden = false;
+        if (current && current.parentNode === this) current.replaceWith(next);
+        else this.appendChild(next);
+      };
+
+      // decode() resolves when the image is ready to paint (SVG and raster);
+      // fall back to load/error when it is unavailable or rejects.
+      const ready = () => {
+        if (typeof next.decode === "function") {
+          return next.decode().catch(function () {
+            if (next.complete) return;
+            return new Promise(function (resolve) {
+              next.addEventListener("load", resolve, { once: true });
+              next.addEventListener("error", resolve, { once: true });
+            });
+          });
+        }
+        if (next.complete) return Promise.resolve();
+        return new Promise(function (resolve) {
+          next.addEventListener("load", resolve, { once: true });
+          next.addEventListener("error", resolve, { once: true });
+        });
+      };
+
+      next.src = url;
+      ready().then(swap, swap);
     }
 
     _renderIcon(set, iconName, px) {
