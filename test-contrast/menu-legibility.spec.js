@@ -15,7 +15,7 @@
 //       itself sub-AA (minty light is #888 on #fff = 3.54:1, morph 2.63:1) the
 //       menu text is repainted by the theme's BAKED IN contrast block
 //       (shared/css/themes/<theme>/<theme>.<mode>.css; kept current by
-//       tests/contrast-css.spec.js) - exactly as buttons and tabs are.
+//       test-contrast/contrast-css.spec.js) - exactly as buttons and tabs are.
 const { test, expect } = require("@playwright/test");
 
 const THEMES = ["bootstrap", "brite", "cerulean", "cosmo", "cyborg", "darkly", "flatly", "journal", "litera",
@@ -91,7 +91,7 @@ const MENU = () => {
 };
 
 // Switch theme+mode and wait until it is actually APPLIED (see the same helper in
-// tests/contrast.spec.js): load events, then the LIVE sheets, then a stable sample.
+// test-contrast/contrast.spec.js): load events, then the LIVE sheets, then a stable sample.
 async function setTheme(page, theme, mode) {
   await page.evaluate(([t, m]) => new Promise((resolve) => {
     const base = document.getElementById("bootstrap-theme-css");

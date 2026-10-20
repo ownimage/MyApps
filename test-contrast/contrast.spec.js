@@ -3,10 +3,11 @@
 //
 // The fixes are baked into each theme's own per-mode sheet
 // (shared/css/themes/<theme>/<theme>.<mode>.css, generated block);
-// tests/contrast-css.spec.js keeps that block current. This spec instead measures
-// the REAL `<smd-button>` / `<smd-tabs>` components to prove the baked CSS actually
-// renders readable labels. Every button state is checked, because hover/active
-// paint their own surface (`--bs-btn-hover-bg`, ...) from their own var.
+// test-contrast/contrast-css.spec.js keeps that block current. This spec instead
+// measures the REAL `<smd-button>` / `<smd-tabs>` components to prove the baked
+// CSS actually renders readable labels. Every button state is checked, because
+// hover/active paint their own surface (`--bs-btn-hover-bg`, ...) from their own
+// var.
 //
 // The ratios are recomputed here from the resolved colours the browser reports, so
 // the spec asserts the OUTCOME (>= 4.5:1) and not the method.
@@ -69,6 +70,44 @@ const RENDER = (variants) => {
   host.appendChild(tabs);
   document.body.appendChild(host);
   tabs.tabs = [{ title: "One" }, { title: "Two" }];
+};
+
+// Probe for the CountMyDays countdown card (date/time/count text) plus a form
+// entry and a Bootstrap checkbox/radio for the non-text border checks.
+const RENDER_CMD = () => {
+  const old = document.getElementById("cmdContrastProbe");
+  if (old) old.remove();
+  const card = document.createElement("cmd-countdown-card");
+  card.id = "cmdContrastProbe";
+  card.setAttribute("title", "Contrast Probe");
+  card.setAttribute("date-text", "Sat 12 Sep 2026");
+  card.setAttribute("time-text", "10:30");
+  card.setAttribute("count1", "3");
+  card.setAttribute("count2", "weeks");
+  document.body.appendChild(card);
+
+  const host = document.createElement("div");
+  host.id = "borderContrastProbe";
+  host.style.cssText = "position:absolute;left:-9999px;top:0";
+  const mk = (tag, cls, attrs) => {
+    const el = document.createElement(tag);
+    el.className = cls;
+    Object.entries(attrs || {}).forEach(([k, v]) => el.setAttribute(k, v));
+    if (tag === "select") {
+      const o = document.createElement("option");
+      o.textContent = "x";
+      el.appendChild(o);
+    }
+    host.appendChild(el);
+  };
+  mk("input", "form-control", { type: "text" });
+  mk("textarea", "form-control");
+  mk("select", "form-select");
+  mk("input", "form-check-input", { type: "checkbox" });
+  const nativeCb = document.createElement("smd-checkbox");
+  nativeCb.id = "nativeCheckboxProbe";
+  host.appendChild(nativeCb);
+  document.body.appendChild(host);
 };
 
 // The surface a control actually paints. Themes with a `background-image` gradient
@@ -166,6 +205,109 @@ const MEASURE = () => {
   out.tabs.active = tabState(".smd-tab-btn.active");
   out.tabs.inactive = tabState(".smd-tab-btn:not(.active)");
   return out;
+};
+
+// Card secondary text + form/checkbox border measurements. The card text must be
+// readable against the card surface; the borders are non-text UI boundaries, so
+// WCAG 1.4.11 applies (3:1, not 4.5:1).
+const MEASURE_CMD = () => {
+  const parse = (s) => {
+    const str = String(s || "").trim();
+    const hex = str.match(/^#([0-9a-f]{3,8})$/i);
+    if (hex) {
+      let h = hex[1];
+      if (h.length === 3 || h.length === 4) h = h.split("").map((c) => c + c).join("");
+      const p = (i) => parseInt(h.slice(i * 2, i * 2 + 2), 16);
+      return { r: p(0), g: p(1), b: p(2), a: h.length === 8 ? p(3) / 255 : 1 };
+    }
+    const m = str.match(/^(rgba?|color)\((.*)\)$/);
+    if (!m) return null;
+    const parts = m[2].split(/[\s,\/]+/).filter((v) => v !== "").map(Number);
+    const scale = m[1] === "color" ? 255 : 1;
+    return { r: parts[0] * scale, g: parts[1] * scale, b: parts[2] * scale, a: parts.length > 3 ? parts[3] : 1 };
+  };
+  const over = (fg, bg) => (!fg ? bg : fg.a >= 1 ? fg
+    : { r: fg.r * fg.a + bg.r * (1 - fg.a), g: fg.g * fg.a + bg.g * (1 - fg.a), b: fg.b * fg.a + bg.b * (1 - fg.a), a: 1 });
+  const lum = (c) => {
+    const f = (v) => { const x = v / 255; return x <= 0.03928 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4); };
+    return 0.2126 * f(c.r) + 0.7152 * f(c.g) + 0.0722 * f(c.b);
+  };
+  const ratio = (a, b) => { const x = lum(a), y = lum(b); const hi = Math.max(x, y), lo = Math.min(x, y); return (hi + 0.05) / (lo + 0.05); };
+  const rgb = (c) => "rgb(" + Math.round(c.r) + ", " + Math.round(c.g) + ", " + Math.round(c.b) + ")";
+  const darkestSurface = (cs, bg) => {
+    let darkest = bg;
+    const img = String(cs.backgroundImage || "");
+    if (img && img !== "none" && /gradient/i.test(img)) {
+      const re = /(rgba?\([^)]*\)|color\([^)]*\)|#[0-9a-f]{3,8}\b|\b(?:white|black|transparent)\b)/gi;
+      let m;
+      while ((m = re.exec(img)) !== null) {
+        const stop = parse(m[1]);
+        if (!stop) continue;
+        const painted = over(stop, bg);
+        if (lum(painted) < lum(darkest)) darkest = painted;
+      }
+    }
+    return darkest;
+  };
+
+  const pageBg = over(parse(getComputedStyle(document.body).backgroundColor), { r: 255, g: 255, b: 255, a: 1 });
+  const card = document.getElementById("cmdContrastProbe");
+
+  const cardEl = card && card.querySelector(".card");
+  let cardSurface = pageBg;
+  if (cardEl) {
+    const cs = getComputedStyle(cardEl);
+    cardSurface = darkestSurface(cs, over(parse(cs.backgroundColor), pageBg));
+  }
+
+  const text = {};
+  ["date-text", "time-text", "count-2"].forEach((cls) => {
+    const el = card ? card.querySelector("." + cls) : null;
+    if (!el) return;
+    const col = parse(getComputedStyle(el).color);
+    text[cls] = { color: rgb(col), bg: rgb(cardSurface), ratio: ratio(col, cardSurface) };
+  });
+
+  const host = document.getElementById("borderContrastProbe");
+  const border = (sel) => {
+    const el = host ? host.querySelector(sel) : null;
+    if (!el) return null;
+    const cs = getComputedStyle(el);
+    const raw = parse(cs.borderTopColor);
+    const painted = over(raw, pageBg);
+    return {
+      width: parseFloat(cs.borderTopWidth) || 0,
+      style: cs.borderTopStyle,
+      color: rgb(painted),
+      bg: rgb(pageBg),
+      ratio: ratio(painted, pageBg)
+    };
+  };
+  const borders = {
+    control: border("input.form-control"),
+    textarea: border("textarea.form-control"),
+    select: border("select.form-select"),
+    checkbox: border("input.form-check-input")
+  };
+  // The shared <smd-checkbox> is a browser-native input: its border is painted
+  // in the UA shadow and is not exposed/stylable. Its theme boundary is the
+  // outline ring, so measure that instead.
+  const nativeCb = host ? host.querySelector("smd-checkbox input") : null;
+  if (nativeCb) {
+    const cs = getComputedStyle(nativeCb);
+    const raw = parse(cs.outlineColor);
+    const painted = over(raw, pageBg);
+    borders.nativeCheckbox = {
+      width: parseFloat(cs.outlineWidth) || 0,
+      style: cs.outlineStyle,
+      color: rgb(painted),
+      bg: rgb(pageBg),
+      ratio: ratio(painted, pageBg)
+    };
+  } else {
+    borders.nativeCheckbox = null;
+  }
+  return { text, borders };
 };
 
 function buttonFailures(m, label) {
@@ -275,7 +417,7 @@ test.describe("Contrast (WCAG AA)", () => {
   });
 
   test("nothing computes contrast at runtime any more", async ({ page }) => {
-    // The AA fixes are BAKED INTO the theme CSS (tests/contrast-css.spec.js keeps
+    // The AA fixes are BAKED INTO the theme CSS (test-contrast/contrast-css.spec.js keeps
     // them current). Nothing may inject colour styles or expose a normaliser at
     // runtime - this guard fails if that code is ever added back.
     await page.goto("/PlanMyDay/");
@@ -292,5 +434,50 @@ test.describe("Contrast (WCAG AA)", () => {
         expect(state.normaliser, theme + "/" + mode + ": no runtime normaliser may exist").toBe("undefined/undefined");
       }
     }
+  });
+
+  test("CountMyDays card secondary text meets AA on every theme and mode", async ({ page }) => {
+    test.setTimeout(5 * 60 * 1000);
+    await page.goto("/CountMyDays/");
+    await page.evaluate(RENDER_CMD);
+    await page.evaluate(RENDER, VARIANTS);
+    const failures = [];
+    for (const theme of THEMES) {
+      for (const mode of MODES) {
+        const label = theme + "/" + mode;
+        await setTheme(page, theme, mode);
+        const measured = await page.evaluate(MEASURE_CMD);
+        for (const [cls, found] of Object.entries(measured.text)) {
+          if (found.ratio < AA) {
+            failures.push(`${label}  .${cls}: ${found.ratio.toFixed(2)}:1 (${found.color} on ${found.bg})`);
+          }
+        }
+      }
+    }
+    expect(failures.join("\n")).toBe("");
+  });
+
+  test("form entry and checkbox borders meet 3:1 on every theme and mode", async ({ page }) => {
+    test.setTimeout(5 * 60 * 1000);
+    await page.goto("/CountMyDays/");
+    await page.evaluate(RENDER_CMD);
+    await page.evaluate(RENDER, VARIANTS);
+    const failures = [];
+    for (const theme of THEMES) {
+      for (const mode of MODES) {
+        const label = theme + "/" + mode;
+        await setTheme(page, theme, mode);
+        const measured = await page.evaluate(MEASURE_CMD);
+        for (const [name, found] of Object.entries(measured.borders)) {
+          if (!found) { failures.push(`${label}  ${name}: not rendered`); continue; }
+          if (found.style === "none" || found.width < 1) {
+            failures.push(`${label}  ${name}: no visible border`);
+          } else if (found.ratio < 3) {
+            failures.push(`${label}  ${name}: ${found.ratio.toFixed(2)}:1 (${found.color} on ${found.bg})`);
+          }
+        }
+      }
+    }
+    expect(failures.join("\n")).toBe("");
   });
 });

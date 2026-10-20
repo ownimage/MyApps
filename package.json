@@ -4,7 +4,9 @@
   "private": true,
   "description": "Plan My Day - daily task management PWA",
   "scripts": {
-    "test": "playwright test",
+    "test": "node run-tests.mjs",
+    "test:main": "playwright test",
+    "test:contrast": "playwright test --config test-contrast/playwright.config.js",
     "test:headed": "playwright test --headed",
     "test:ui": "playwright test --ui",
     "test:debug": "playwright test --debug",

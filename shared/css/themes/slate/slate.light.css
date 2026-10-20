@@ -62,8 +62,8 @@ smd-tabs .smd-tab-btn.text-bg-primary {
 }
 
 /* smd-contrast:start - generated WCAG AA contrast overrides. Do not edit by hand:
-   regenerate with  SMD_CONTRAST_FIX=1 npx playwright test tests/contrast-css.spec.js
-   (tests/contrast-css.spec.js fails when this block no longer matches the theme). */
+   regenerate with  SMD_CONTRAST_FIX=1 npx playwright test --config test-contrast/playwright.config.js
+   (test-contrast/contrast-css.spec.js fails when this block no longer matches the theme). */
 .btn-primary, .btn-danger {
   --bs-btn-hover-color: #000;
 }
@@ -92,5 +92,18 @@ smd-tabs .smd-tab-btn.text-bg-primary {
 .btn-warning:hover, .btn-warning:focus-visible,
 .btn-info:hover, .btn-info:focus-visible {
   color: #272b30 !important;
+}
+cmd-countdown-card .text-secondary {
+  color: #aaa !important;
+}
+.form-control,
+.form-select {
+  border-color: #aaa;
+  border-style: solid;
+  border-width: 1px;
+}
+smd-checkbox input {
+  outline: 1px solid #aaa;
+  outline-offset: 0;
 }
 /* smd-contrast:end */

@@ -45,8 +45,33 @@ npx playwright install chromium
 
 ### Run all tests
 
+`npm test` runs the custom runner (`run-tests.mjs`). When `test-contrast/`
+contains specs, it starts that suite **first** and runs it concurrently with the
+main suite, so the slow 27-theme × 2-mode contrast loops finish alongside the
+rest of the run instead of being the last thing holding it up.
+
 ```bash
 npm test
+```
+
+Main suite only (contrast suite skipped):
+
+```bash
+npm run test:main
+```
+
+Contrast/legibility suite only (`test-contrast/`; includes the main-menu
+legibility checks):
+
+```bash
+npm run test:contrast
+```
+
+To regenerate the baked contrast CSS (PowerShell):
+
+```powershell
+$env:SMD_CONTRAST_FIX=1; npm run test:contrast
+Remove-Item Env:SMD_CONTRAST_FIX
 ```
 
 ### Run only the regression tests

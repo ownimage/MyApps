@@ -4,8 +4,8 @@
    `[data-bs-theme="dark"]` qualifier. */
 
 /* smd-contrast:start - generated WCAG AA contrast overrides. Do not edit by hand:
-   regenerate with  SMD_CONTRAST_FIX=1 npx playwright test tests/contrast-css.spec.js
-   (tests/contrast-css.spec.js fails when this block no longer matches the theme). */
+   regenerate with  SMD_CONTRAST_FIX=1 npx playwright test --config test-contrast/playwright.config.js
+   (test-contrast/contrast-css.spec.js fails when this block no longer matches the theme). */
 .btn-secondary {
   --bs-btn-color: #212529;
   --bs-btn-hover-color: #000;
@@ -84,5 +84,9 @@ smd-tabs .smd-tab-btn.text-bg-secondary,
 smd-tabs .smd-tab-btn.text-bg-secondary:hover,
 smd-tabs .smd-tab-btn.text-bg-secondary:focus-visible {
   color: #212529 !important;
+}
+smd-checkbox input {
+  outline: 1px solid #fff;
+  outline-offset: 0;
 }
 /* smd-contrast:end */

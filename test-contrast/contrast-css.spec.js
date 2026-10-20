@@ -11,7 +11,7 @@
 //                         change anywhere".
 //   SMD_CONTRAST_FIX=1    rewrites the marked block in every sheet, then verifies
 //                         the result, so a theme edit is one command:
-//                           SMD_CONTRAST_FIX=1 npx playwright test tests/contrast-css.spec.js
+//                           SMD_CONTRAST_FIX=1 npx playwright test --config test-contrast/playwright.config.js
 //
 // HOW IT MEASURES: the marked block is STRIPPED from the theme sheet (the request
 // is intercepted and fulfilled from disk), so the spec always judges the THEME's
@@ -19,7 +19,7 @@
 // idempotent - a second FIX run produces the same files.
 //
 // WHAT IT DOES NOT DO: prove the rendered result is readable. That is the outcome
-// guard in tests/contrast.spec.js (and tests/menu-legibility.spec.js), which
+// guard in test-contrast/contrast.spec.js (and test-contrast/menu-legibility.spec.js), which
 // measures the real components WITH the baked CSS applied.
 const { test, expect } = require("@playwright/test");
 const fs = require("fs");
@@ -181,6 +181,43 @@ const MEASURE = (variants) => {
     return h;
   })();
 
+  // CountMyDays card (date/time/count text) + form/checkbox probes, created once
+  // so every theme measures the same elements.
+  if (!document.getElementById("contrastCssCard")) {
+    const card = document.createElement("cmd-countdown-card");
+    card.id = "contrastCssCard";
+    card.setAttribute("title", "Contrast Probe");
+    card.setAttribute("date-text", "Sat 12 Sep 2026");
+    card.setAttribute("time-text", "10:30");
+    card.setAttribute("count1", "3");
+    card.setAttribute("count2", "weeks");
+    document.body.appendChild(card);
+  }
+  if (!document.getElementById("contrastCssBorders")) {
+    const bhost = document.createElement("div");
+    bhost.id = "contrastCssBorders";
+    bhost.style.cssText = "position:absolute;left:-9999px;top:0";
+    const mk = (tag, cls, attrs) => {
+      const el = document.createElement(tag);
+      el.className = cls;
+      Object.entries(attrs || {}).forEach(([k, v]) => el.setAttribute(k, v));
+      if (tag === "select") {
+        const o = document.createElement("option");
+        o.textContent = "x";
+        el.appendChild(o);
+      }
+      bhost.appendChild(el);
+    };
+    mk("input", "form-control", { type: "text" });
+    mk("textarea", "form-control");
+    mk("select", "form-select");
+    mk("input", "form-check-input", { type: "checkbox" });
+    const nativeCb = document.createElement("smd-checkbox");
+    nativeCb.id = "contrastCssNativeCheckbox";
+    bhost.appendChild(nativeCb);
+    document.body.appendChild(bhost);
+  }
+
   const bodyCs = getComputedStyle(document.body);
   const pageBg = over(parse(bodyCs.backgroundColor), WHITE);
   const bodyColor = parse(bodyCs.color);
@@ -283,6 +320,76 @@ const MEASURE = (variants) => {
       picked: borderPick ? rgb(borderPick) : null
     };
   }
+
+  // CountMyDays card secondary text (date/time/count) on the card surface.
+  const card = document.getElementById("contrastCssCard");
+  const cardEl = card && card.querySelector(".card");
+  if (cardEl) {
+    const ccs = getComputedStyle(cardEl);
+    const surface = darkestSurface(ccs, over(parse(ccs.backgroundColor), pageBg));
+    const dateEl = card.querySelector(".date-text");
+    if (dateEl) {
+      const col = parse(getComputedStyle(dateEl).color);
+      out.cardText = {
+        current: col ? rgb(col) : null,
+        surface: rgb(surface),
+        picked: pickCss(col, surface)
+      };
+    }
+  }
+
+  // Form-entry and Bootstrap checkbox/radio borders: non-text UI needs 3:1. A
+  // missing/zero-width border counts as failing (we add a 1px solid boundary).
+  const bhost = document.getElementById("contrastCssBorders");
+  if (bhost) {
+    const emphasisProbe = document.createElement("span");
+    emphasisProbe.style.cssText = "position:absolute;color:var(--bs-emphasis-color)";
+    document.body.appendChild(emphasisProbe);
+    const emphasis = parse(getComputedStyle(emphasisProbe).color);
+    emphasisProbe.remove();
+    const borderOf = (sel) => {
+      const el = bhost.querySelector(sel);
+      if (!el) return null;
+      const cs = getComputedStyle(el);
+      const raw = parse(cs.borderTopColor);
+      const painted = over(raw, pageBg);
+      const width = parseFloat(cs.borderTopWidth) || 0;
+      const style = cs.borderTopStyle;
+      const visible = width > 0 && style !== "none";
+      const pick = pickBorder(visible ? painted : pageBg, pageBg, [bodyColor, emphasis]);
+      return {
+        current: rgb(painted),
+        surface: rgb(pageBg),
+        width,
+        style,
+        picked: pick ? rgb(pick) : null
+      };
+    };
+    out.borders = {
+      control: borderOf("input.form-control"),
+      select: borderOf("select.form-select"),
+      checkbox: borderOf("input.form-check-input")
+    };
+    // <smd-checkbox> is a native input: its border lives in the UA shadow, so
+    // the theme-able boundary is an outline ring. Measure that instead.
+    const nativeCb = bhost.querySelector("smd-checkbox input");
+    if (nativeCb) {
+      const cs = getComputedStyle(nativeCb);
+      const raw = parse(cs.outlineColor);
+      const painted = over(raw, pageBg);
+      const width = parseFloat(cs.outlineWidth) || 0;
+      const style = cs.outlineStyle;
+      const visible = width > 0 && style !== "none";
+      const pick = pickBorder(visible ? painted : pageBg, pageBg, [bodyColor, emphasis]);
+      out.nativeCheckbox = {
+        current: rgb(painted),
+        surface: rgb(pageBg),
+        width,
+        style,
+        picked: pick ? rgb(pick) : null
+      };
+    }
+  }
   return out;
 };
 
@@ -361,11 +468,50 @@ function formatBlock(measured) {
     rules.push("#mainNav .dropdown-menu {\n  border-color: " + hex(measured.menuBorder.picked) + ";\n}");
   }
 
+  // CountMyDays card secondary text (date/time/count): match the card title /
+  // body colour when the theme's secondary palette is too close to the surface.
+  if (measured.cardText && measured.cardText.picked) {
+    rules.push("cmd-countdown-card .text-secondary {\n  color: " + hex(measured.cardText.picked) + " !important;\n}");
+  }
+
+  // Form-entry and checkbox/radio boundaries: 3:1 against the page (WCAG 1.4.11).
+  // Group selectors that resolved to the same colour.
+  if (measured.borders) {
+    const groups = new Map();
+    const add = (sel, m) => {
+      if (!m || !m.picked) return;
+      const colour = hex(m.picked);
+      if (!groups.has(colour)) groups.set(colour, []);
+      if (!groups.get(colour).includes(sel)) groups.get(colour).push(sel);
+    };
+    add(".form-control", measured.borders.control);
+    add(".form-select", measured.borders.select);
+    add(".form-check-input", measured.borders.checkbox);
+    groups.forEach((selectors, colour) => {
+      rules.push(
+        selectors.join(",\n") + " {\n" +
+        "  border-color: " + colour + ";\n" +
+        "  border-style: solid;\n" +
+        "  border-width: 1px;\n}"
+      );
+    });
+  }
+
+  // The shared <smd-checkbox> is a native control, so give it a theme-drawn
+  // outline ring (the UA border cannot be recoloured/measured).
+  if (measured.nativeCheckbox && measured.nativeCheckbox.picked) {
+    rules.push(
+      "smd-checkbox input {\n" +
+      "  outline: 1px solid " + hex(measured.nativeCheckbox.picked) + ";\n" +
+      "  outline-offset: 0;\n}"
+    );
+  }
+
   if (!rules.length) return "";
   return [
     "/* " + START + " - generated WCAG AA contrast overrides. Do not edit by hand:",
-    "   regenerate with  SMD_CONTRAST_FIX=1 npx playwright test tests/contrast-css.spec.js",
-    "   (tests/contrast-css.spec.js fails when this block no longer matches the theme). */",
+    "   regenerate with  SMD_CONTRAST_FIX=1 npx playwright test --config test-contrast/playwright.config.js",
+    "   (test-contrast/contrast-css.spec.js fails when this block no longer matches the theme). */",
     ...rules,
     "/* " + END + " */"
   ].join("\n");
@@ -512,7 +658,7 @@ test.describe("Contrast CSS is baked and current", () => {
     expect(
       problems.join("\n\n"),
       "The baked contrast CSS no longer matches the themes.\n" +
-      "Run:  SMD_CONTRAST_FIX=1 npx playwright test tests/contrast-css.spec.js"
+      "Run:  SMD_CONTRAST_FIX=1 npx playwright test --config test-contrast/playwright.config.js"
     ).toBe("");
   });
 });

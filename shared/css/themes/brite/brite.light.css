@@ -12,3 +12,15 @@
 .dropdown-item:focus {
   color: var(--bs-black) !important;
 }
+
+/* smd-contrast:start - generated WCAG AA contrast overrides. Do not edit by hand:
+   regenerate with  SMD_CONTRAST_FIX=1 npx playwright test --config test-contrast/playwright.config.js
+   (test-contrast/contrast-css.spec.js fails when this block no longer matches the theme). */
+cmd-countdown-card .text-secondary {
+  color: #212529 !important;
+}
+smd-checkbox input {
+  outline: 1px solid #000;
+  outline-offset: 0;
+}
+/* smd-contrast:end */
