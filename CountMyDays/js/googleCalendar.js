@@ -200,8 +200,10 @@ function serializeCmdUsersObject(users) {
 }
 
 // Shape: {count_my_days{'keith': {category: "...", image: "...", show: true}, ...}}
-// Amends the named user entry; leaves other names intact.
-function buildDescriptionWithCmdPayload(existingDescription, category, image, show) {
+// `category` holds the category ID (legacy data holds the category name, which
+// is the id for migrated categories). Amends the named user entry; leaves other
+// names intact.
+function buildDescriptionWithCmdPayload(existingDescription, categoryId, image, show) {
   const userName = getGCalUserName();
   if (!userName) {
     throw new Error("Set your Name in Settings -> G Cal before saving event icons.");
@@ -210,7 +212,7 @@ function buildDescriptionWithCmdPayload(existingDescription, category, image, sh
   const extracted = extractCmdPayloadBlock(existingDescription);
   const users = Object.assign({}, extracted.users);
   users[userName] = {
-    category: category || "",
+    category: categoryId || "",
     image: image || "",
     show: show !== false
   };

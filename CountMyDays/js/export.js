@@ -143,9 +143,11 @@ function renderExportWizard() {
     page.title = "Select Dates";
     const allDates = loadDates();
     const categories = loadCategories();
-    const catNames = [...new Set(allDates.map(d => d.category).filter(Boolean))];
+    const usedCats = [...new Set(allDates.map(d => String(d.category || "")).filter(Boolean))]
+      .map(ref => findCategoryByRef(ref, categories))
+      .filter(Boolean);
     const filtered = allDates.filter(d => {
-      if (ew.dateFilterCategory && d.category !== ew.dateFilterCategory) return false;
+      if (ew.dateFilterCategory && String(d.category || "") !== String(ew.dateFilterCategory)) return false;
       if (ew.dateFilterName && !d.name.toLowerCase().includes(ew.dateFilterName.toLowerCase())) return false;
       return true;
     });
@@ -156,21 +158,22 @@ function renderExportWizard() {
       <div class="d-flex gap-2 align-items-center mb-3 flex-wrap">
         <smd-select class="form-select w-auto" style="min-width:160px" onchange="ew.dateFilterCategory=this.value;ewSaveCheckboxes();renderExportWizard()">
           <option value="">All</option>
-          ${catNames.map(c => `<option value="${escAttr(c)}" ${ew.dateFilterCategory === c ? "selected" : ""}>${escapeHtml(c)}</option>`).join("")}
+          ${usedCats.map(c => `<option value="${escAttr(categoryRef(c))}" ${String(ew.dateFilterCategory) === categoryRef(c) ? "selected" : ""}>${escapeHtml(c.name)}</option>`).join("")}
         </smd-select>
         <input class="form-control flex-grow-1" id="ewDateFilterName" type="search" placeholder="Search date names..." style="min-width:150px" value="${escAttr(ew.dateFilterName)}" oninput="ew.dateFilterName=this.value;ewSaveCheckboxes();renderExportWizard()">
       </div>
       <div class="cmd-scroll-list">
       ${withDate.map(item => {
-        const category = categories.find(c => c.name === item.category);
+        const category = findCategoryByRef(item.category, categories);
         const imgName = category ? (category.image || "") : "";
+        const catName = category ? category.name : "";
         return `
         <div class="d-flex align-items-center gap-2 mb-2">
           ${ewThumb(imgName)}
           ${ewThumb(item.image)}
           <div class="form-check mb-0">
             <input class="form-check-input ew-date-cb" type="checkbox" value="${item.index}" data-index="${item.index}" ${ew.selectedDateIndices.includes(item.index) ? "checked" : ""}>
-            <label class="form-check-label">${escapeHtml(item.name)} — ${formatDate(item.target)} — ${escapeHtml(item.category || "No category")}</label>
+            <label class="form-check-label">${escapeHtml(item.name)} — ${formatDate(item.target)} — ${escapeHtml(catName || "No category")}</label>
           </div>
         </div>`;
       }).join("")}
@@ -271,12 +274,13 @@ function renderExportWizard() {
     const images = loadImages();
 
     const dateRows = data.dates.map(d => {
-      const cat = categories.find(c => c.name === d.category);
+      const cat = findCategoryByRef(d.category, categories);
       const catImage = cat ? (cat.image || "") : "";
+      const catName = cat ? cat.name : "";
       const dateStr = d.type === "once"
         ? `${d.day} ${CMD_MONTHS[(d.month || 1) - 1]} ${d.year}`
         : `${d.day} ${CMD_MONTHS[(d.month || 1) - 1]}`;
-      return { catImage, dateImage: d.image || "", name: d.name, dateStr, category: d.category || "" };
+      return { catImage, dateImage: d.image || "", name: d.name, dateStr, category: catName };
     });
 
     const catRows = data.categories.map(c => ({ image: c.image || "", name: c.name }));
@@ -488,8 +492,8 @@ function buildExportData() {
   if (ew.datesCascade && resultDates.length > 0) {
     const allCats = loadCategories();
     const allImgs = loadImages();
-    const usedCatNames = new Set(resultDates.map(d => d.category).filter(Boolean));
-    resultCategories = allCats.filter(c => usedCatNames.has(c.name));
+    const usedCatIds = new Set(resultDates.map(d => String(d.category || "")).filter(Boolean));
+    resultCategories = allCats.filter(c => usedCatIds.has(categoryRef(c)));
     const usedImgNames = new Set(resultCategories.map(c => c.image).filter(Boolean));
     resultDates.forEach(d => { if (d.image) usedImgNames.add(d.image); });
     resultImages = allImgs.filter(i => usedImgNames.has(i.name));

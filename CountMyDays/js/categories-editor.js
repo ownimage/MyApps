@@ -108,7 +108,7 @@ function renderCategoryList() {
 
 function addNewCategory() {
   const categories = loadCategories();
-  categories.push({ name: "New Category", image: null });
+  categories.push({ id: nextCategoryId(categories), name: "New Category", image: null });
   saveCategories(categories);
   categoryNameSearch = "";
   categoryEditIndex = categories.length - 1;
@@ -208,14 +208,10 @@ function doneCategoryEditing() {
     if (!editCategoryBuffer.name) return;
     if (!editCategoryBuffer.image) editCategoryBuffer.image = null;
     const categories = loadCategories();
-    const oldName = categories[categoryEditIndex] ? categories[categoryEditIndex].name : "";
     categories[categoryEditIndex] = editCategoryBuffer;
     saveCategories(categories);
-    if (oldName !== editCategoryBuffer.name) {
-      const dates = loadDates();
-      dates.forEach(d => { if (d.category === oldName) d.category = editCategoryBuffer.name; });
-      saveDates(dates);
-    }
+    // The id is immutable: dates and Google payloads reference it, so a rename
+    // does NOT touch any event. Every view resolves the id to the new name.
   }
   closeCategoryEditPage();
   renderCategoriesEditor();
@@ -247,7 +243,8 @@ function closeCategoryEditPage() {
 function confirmDeleteCategory(index) {
   const categories = loadCategories();
   const name = categories[index] ? categories[index].name : "";
-  const usedByDates = loadDates().filter(d => d.category === name).length;
+  const id = categoryRef(categories[index]);
+  const usedByDates = loadDates().filter(d => String(d.category || "") === id).length;
   let content = `Delete category "<strong>${escapeHtml(name)}</strong>"?`;
   if (usedByDates > 0) {
     content += `<br><br><span class="text-warning">This category is used by ${usedByDates} date${usedByDates === 1 ? "" : "s"}. The references will be cleared.</span>`;
@@ -268,12 +265,12 @@ function confirmDeleteCategory(index) {
 
 function deleteCategory(index) {
   const categories = loadCategories();
-  const removed = categories[index] ? categories[index].name : "";
+  const removed = categoryRef(categories[index]);
   categories.splice(index, 1);
   saveCategories(categories);
 
   const dates = loadDates();
-  dates.forEach(d => { if (d.category === removed) d.category = null; });
+  dates.forEach(d => { if (String(d.category || "") === removed) d.category = null; });
   saveDates(dates);
   renderCategoryList();
 }

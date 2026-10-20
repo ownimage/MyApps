@@ -20,6 +20,25 @@ function iwThumb(name, size) {
   return `<smd-image key-prefix="${escAttr(smdImagePrefix())}" image="${escAttr(name)}" size="${size || 32}"></smd-image>`;
 }
 
+// Events store the category ID. Older export files may store the category NAME
+// (which is also the id for migrated categories) and the wizard's conflict UI is
+// name based, so translate ids to names on the way in and back on the way out.
+function iwCategoryNameForRef(ref, categories) {
+  if (ref === undefined || ref === null || ref === "") return "";
+  const cats = categories || loadCategories();
+  const wanted = String(ref);
+  const byId = cats.find(c => categoryRef(c) === wanted);
+  if (byId) return byId.name;
+  const byName = cats.find(c => String(c.name) === wanted);
+  return byName ? byName.name : wanted;
+}
+
+function iwCategoryIdForName(name) {
+  if (!name) return "";
+  const cat = loadCategories().find(c => c.name === String(name));
+  return cat ? categoryRef(cat) : String(name);
+}
+
 // ---- entry points ----
 
 function importData() {
@@ -73,6 +92,22 @@ function startImportWizard(data) {
   (data.images || []).forEach(img => { img.name = (img.name || "").trim(); });
   (data.categories || []).forEach(c => { c.name = (c.name || "").trim(); });
   (data.dates || []).forEach(d => { d.name = (d.name || "").trim(); });
+
+  // Every imported category needs an id (missing -> the name, matching the app
+  // migration). Then translate imported date references to NAMES for the
+  // name-based conflict stages; finishDateStage writes the final ids back.
+  const importedCats = data.categories || [];
+  importedCats.forEach(c => {
+    c.id = (c.id === undefined || c.id === null || c.id === "") ? String(c.name || "") : String(c.id);
+  });
+  const idToName = {};
+  loadCategories().forEach(c => { idToName[categoryRef(c)] = c.name; });
+  importedCats.forEach(c => { idToName[c.id] = c.name; });
+  (data.dates || []).forEach(d => {
+    if (d.category === undefined || d.category === null || d.category === "") return;
+    const ref = String(d.category);
+    if (Object.prototype.hasOwnProperty.call(idToName, ref)) d.category = idToName[ref];
+  });
 
   importWizardState = {
     data: data,
@@ -681,24 +716,48 @@ function resolveCategoryConflict() {
   renderImportWizard();
 }
 
+// Pick an id for a category being imported. A preferred (exported) id is kept
+// only when it is not already used by an existing id OR name - otherwise the
+// next free numeric id is used, so imports can never make references ambiguous.
+function iwAssignCategoryId(preferred, categories, used) {
+  const preferredId = preferred === undefined || preferred === null ? "" : String(preferred);
+  if (preferredId && !used.has(preferredId)) {
+    used.add(preferredId);
+    return preferredId;
+  }
+  let next = parseInt(nextCategoryId(categories), 10) || 1;
+  while (used.has(String(next))) next++;
+  used.add(String(next));
+  return String(next);
+}
+
 function finishCategoryStage() {
   const state = importWizardState;
   const existingCategories = loadCategories();
   const catRenameMap = {};
+  const used = new Set();
+  existingCategories.forEach(c => {
+    const ref = categoryRef(c);
+    if (ref) used.add(ref);
+    if (c.name !== undefined && c.name !== null) used.add(String(c.name));
+  });
 
   (state.data.categories || []).forEach((cat, idx) => {
     const decision = state.catDecisions[idx];
     if (!decision) return;
 
     if (decision.action === "import") {
-      existingCategories.push({ name: cat.name, image: cat.image || null });
+      const id = iwAssignCategoryId(cat.id, existingCategories, used);
+      existingCategories.push({ id: id, name: cat.name, image: cat.image || null });
     } else if (decision.action === "overwrite") {
       const existing = existingCategories.find(e => e.name === cat.name);
       if (existing) {
+        // Keep the existing (immutable) id; only the image changes.
         existing.image = cat.image || null;
       }
     } else if (decision.action === "keepBoth") {
-      existingCategories.push({ name: decision.renameTo, image: cat.image || null });
+      const id = iwAssignCategoryId(cat.id, existingCategories, used);
+      existingCategories.push({ id: id, name: decision.renameTo, image: cat.image || null });
       catRenameMap[cat.name] = decision.renameTo;
     } else if (decision.action === "useExisting") {
       catRenameMap[cat.name] = decision.useExisting;
@@ -723,7 +782,9 @@ function datesEqual(a, b) {
   if (a.day !== b.day) return false;
   if (a.month !== b.month) return false;
   if (a.type === "once" && a.year !== b.year) return false;
-  if ((a.category || "") !== (b.category || "")) return false;
+  // a/b may hold an id from storage and a name from an imported file - compare
+  // what they resolve to, not the raw values.
+  if (iwCategoryNameForRef(a.category) !== iwCategoryNameForRef(b.category)) return false;
   if ((a.image || "") !== (b.image || "")) return false;
   return true;
 }
@@ -770,8 +831,8 @@ function renderDateStage(page) {
 
     const existingPick = existingSameName[0];
 
-    function catImg(name) {
-      const cat = categories.find(c => c.name === name);
+    function catImg(ref) {
+      const cat = findCategoryByRef(ref, categories);
       if (!cat || !cat.image) return null;
       const img = loadImages().find(i => i.name === cat.image);
       return img ? img.name : null;
@@ -790,7 +851,7 @@ function renderDateStage(page) {
           <div class="d-flex justify-content-center gap-2 mt-2">
             <div>
               ${catImg(existingPick.category) ? `<smd-image key-prefix="${escAttr(smdImagePrefix())}" image="${escAttr(catImg(existingPick.category))}" size="32"></smd-image>` : '<div class="ew-thumb-empty"></div>'}
-              <div class="small mt-1 text-secondary">${escapeHtml(existingPick.category || "None")}</div>
+              <div class="small mt-1 text-secondary">${escapeHtml(iwCategoryNameForRef(existingPick.category, categories) || "None")}</div>
             </div>
             <div>
               ${existingPick.image ? `<smd-image key-prefix="${escAttr(smdImagePrefix())}" image="${escAttr(existingPick.image)}" size="32"></smd-image>` : '<div class="ew-thumb-empty"></div>'}
@@ -805,7 +866,7 @@ function renderDateStage(page) {
           <div class="d-flex justify-content-center gap-2 mt-2">
             <div>
               ${catImg(importDate.category) ? `<smd-image key-prefix="${escAttr(smdImagePrefix())}" image="${escAttr(catImg(importDate.category))}" size="32"></smd-image>` : '<div class="ew-thumb-empty"></div>'}
-              <div class="small mt-1 text-secondary">${escapeHtml(importDate.category || "None")}</div>
+              <div class="small mt-1 text-secondary">${escapeHtml(iwCategoryNameForRef(importDate.category, categories) || "None")}</div>
             </div>
             <div>
               ${importDate.image ? `<smd-image key-prefix="${escAttr(smdImagePrefix())}" image="${escAttr(importDate.image)}" size="32"></smd-image>` : '<div class="ew-thumb-empty"></div>'}
@@ -836,7 +897,7 @@ function renderDateStage(page) {
             <span class="d-inline-block" style="min-width:240px">Use Existing - skip import, keep existing:</span>
             <smd-select class="form-select w-auto d-inline-block" id="dateExistingSelect" style="min-width:180px" disabled>
               <option value="">Select date</option>
-              ${existingDates.slice().sort((a, b) => a.name.localeCompare(b.name)).map(e => `<option value="${escAttr(e.name)}">${escapeHtml(e.name)} — ${formatDateShort(e)}${e.category ? " — " + escapeHtml(e.category) : ""}</option>`).join("")}
+              ${existingDates.slice().sort((a, b) => a.name.localeCompare(b.name)).map(e => `<option value="${escAttr(e.name)}">${escapeHtml(e.name)} — ${formatDateShort(e)}${e.category ? " — " + escapeHtml(iwCategoryNameForRef(e.category, categories)) : ""}</option>`).join("")}
             </smd-select>
           </label>
         </div>
@@ -945,8 +1006,11 @@ function finishDateStage() {
     const decision = state.dateDecisions[idx];
     if (!decision) return;
 
+    // d.category is a NAME (normalised at the start); store the final category id.
+    const categoryId = iwCategoryIdForName(d.category);
+
     if (decision.action === "import") {
-      existingDates.push({ ...d });
+      existingDates.push({ ...d, category: categoryId });
     } else if (decision.action === "overwrite") {
       const existing = existingDates.find(e => e.name === d.name);
       if (existing) {
@@ -954,11 +1018,11 @@ function finishDateStage() {
         existing.day = d.day;
         existing.month = d.month;
         if (d.type === "once") existing.year = d.year;
-        existing.category = d.category || null;
+        existing.category = categoryId || null;
         existing.image = d.image || null;
       }
     } else if (decision.action === "keepBoth") {
-      const copy = { ...d, name: decision.renameTo };
+      const copy = { ...d, name: decision.renameTo, category: categoryId };
       existingDates.push(copy);
     }
   });

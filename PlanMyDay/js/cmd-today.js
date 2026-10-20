@@ -137,6 +137,14 @@ function renderCmdTodayCards(container) {
   const format = cmdCountdownFormat();
   const categories = cmdReadJson(CMD_EVENTS_PREFIX + "categories", []);
 
+  function cmdFindCategory(ref) {
+    if (ref === undefined || ref === null || ref === "") return null;
+    const wanted = String(ref);
+    return categories.find(c => String(c.id !== undefined && c.id !== null && c.id !== "" ? c.id : c.name) === wanted)
+      || categories.find(c => String(c.name) === wanted)
+      || null;
+  }
+
   cmdTodayEvents().forEach(function (d) {
     const key = cmdEventKey(d);
     if (dismissed.indexOf(key) !== -1) return;
@@ -153,10 +161,10 @@ function renderCmdTodayCards(container) {
     const lines = cmdCountdownLines(0, format);
     card.setAttribute("count1", lines.line1);
     if (lines.line2) card.setAttribute("count2", lines.line2);
-    if (d.category) {
-      card.setAttribute("category", d.category);
-      const category = categories.find(c => c.name === d.category);
-      if (category && category.image) card.setAttribute("category-image", category.image);
+    const category = cmdFindCategory(d.category);
+    if (category) {
+      card.setAttribute("category", category.name);
+      if (category.image) card.setAttribute("category-image", category.image);
     }
     if (d.image) card.setAttribute("image", d.image);
     container.appendChild(card);

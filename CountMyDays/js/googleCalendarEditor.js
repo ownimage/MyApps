@@ -139,7 +139,6 @@ function renderGoogleEventsEditor() {
     card.className = "d-block mb-2";
     card.setAttribute("index", index);
     card.setAttribute("name", d.name || "");
-    card.setAttribute("category", d.category || "");
     card.setAttribute("date-text", formatDateShort(d));
     card.setAttribute("type", d.recurring ? "recurring" : "once");
     card.setAttribute("source", "google");
@@ -147,7 +146,8 @@ function renderGoogleEventsEditor() {
     if (d.show === false) card.setAttribute("data-google-hidden", "true");
     else card.removeAttribute("data-google-hidden");
     card.setAttribute("key-prefix", smdImagePrefix());
-    const category = d.category ? categories.find(c => c.name === d.category) : null;
+    const category = findCategoryByRef(d.category, categories);
+    card.setAttribute("category", category ? category.name : "");
     if (category && category.image) card.setAttribute("category-image", category.image);
     if (d.image) card.setAttribute("image", d.image);
     list.appendChild(card);
@@ -207,7 +207,12 @@ function openGcalEditPage() {
       const path = e.composedPath ? e.composedPath() : [];
       if (!path.some(n => n && n.id === "gcalCategorySelect")) return;
       const name = e.detail && e.detail.name;
-      gcalEditBufferField("category", !name || name === "No Category" ? "" : name);
+      if (!name || name === "No Category") {
+        gcalEditBufferField("category", "");
+      } else {
+        const category = loadCategories().find(c => c.name === name);
+        gcalEditBufferField("category", category ? categoryRef(category) : "");
+      }
     });
   }
   page.title = "Edit Google Event";
@@ -261,7 +266,7 @@ function renderGcalEditContent() {
   if (catSel) {
     catSel.options = [{ name: "No Category", image: "" }]
       .concat(categories.map(c => ({ name: c.name, image: c.image || "" })));
-    catSel.selected = dateData.category || "No Category";
+    catSel.selected = categoryNameForRef(dateData.category, categories) || "No Category";
   }
   updateGcalImagePreview();
 }
@@ -325,10 +330,10 @@ function doneGcalEditing() {
     return;
   }
 
-  const category = gcalEditBuffer.category || "";
+  const categoryId = gcalEditBuffer.category || "";
   const image = gcalEditBuffer.image || "";
   const show = gcalEditBuffer.show !== false;
-  const cmd = { category: category, image: image, show: show };
+  const cmd = { category: categoryId, image: image, show: show };
 
   // Recurring instance: patch the master series event; apply settings to all local siblings.
   if (evt.recurringEventId) {
@@ -340,7 +345,7 @@ function doneGcalEditing() {
     const baseDescription = (masterInCache && masterInCache.description != null)
       ? masterInCache.description
       : evt.description;
-    const newDescription = buildDescriptionWithCmdPayload(baseDescription, category, image, show);
+    const newDescription = buildDescriptionWithCmdPayload(baseDescription, categoryId, image, show);
 
     showSpinner();
     updateGoogleEventDescription(masterId, newDescription)
@@ -378,7 +383,7 @@ function doneGcalEditing() {
     return;
   }
 
-  const newDescription = buildDescriptionWithCmdPayload(evt.description, category, image, show);
+  const newDescription = buildDescriptionWithCmdPayload(evt.description, categoryId, image, show);
 
   showSpinner();
   updateGoogleEventDescription(evt.id, newDescription)

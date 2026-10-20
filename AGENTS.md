@@ -883,10 +883,10 @@ Architecture:
   so the document FA css applies).
 - COUNTMYDAYS (2026-09-12): second PWA migrated to the shared pattern. Served at
   `/CountMyDays/`; `SmdConfig.storagePrefix = "countmydays_"` set in
-  `CountMyDays/js/app.js`. Legacy UNPREFIXED keys are copied to the prefixed
-  namespace by `CountMyDays/js/storage.js migrateLegacyStorage()`, which logs a
-  `console.warn` on EVERY boot (deliberate TODO reminder — remove function +
-  warning once users have migrated). Pages: `datesEditor` + `dateEditPage`,
+  `CountMyDays/js/app.js`. The old UNPREFIXED-key migration
+  (`migrateLegacyStorage`) and its boot reminder were REMOVED (2026-10-18; the
+  only temporary migration now is the category-id one, see the CATEGORY IDS note).
+  Pages: `datesEditor` + `dateEditPage`,
   `categoriesEditor` + `categoryEditPage`, `imagesEditor` (shared smd-images.js),
   `settingsPage` (smd-tabs), `exportWizardPage`, `qrExportPage`, `qrImportPage`,
   `importWizardPage`, `imagePickerPage`. App components:
@@ -1010,18 +1010,34 @@ Architecture:
   no Delete for Google rows) and its events now carry `source`. Sample feed:
   `CountMyDays/js/googleCalendarSample.json` ("Load sample data"). The app-info
   dialogs use `showSmdModal`, not a custom overlay.
-- LEGACY MIGRATION REMINDER (2026-09-13): `CountMyDays/js/storage.js`
-  `migrateLegacyStorage()` is intentionally temporary and the app now calls
-  `showLegacyMigrationReminder()` on EVERY `DOMContentLoaded`, which opens the
-  shared `#smdConfirmModal` ("Legacy migration still active"). ANY test that
-  loads `/CountMyDays/` and then CLICKS must dismiss it first (the regression
-  spec has `dismissLegacyReminder(page)`; `cmd-screenshots.spec.js` dismisses in
-  its beforeEach). Pure visibility assertions are unaffected (occlusion does not
-  affect `toBeVisible`). Remove the migration, the reminder function and its
-  call together once users have migrated. `cmd-countdown-card` shows the
-  Local/Google source as an `<smd-badge>` under the date (`source` attribute set
-  by `main-view.js`), using the standard primary/secondary button variants for
-  now (pending styling refinement).
+- CATEGORY IDS + TEMPORARY MIGRATION (2026-10-20, user request): CountMyDays
+  categories are `{ id, name, image }` and the **id is immutable**. Dates and the
+  Google `{count_my_days{...}}` payload keep their existing `category` field, but
+  it now stores the category ID. `migrateCategoryIds()` (`CountMyDays/js/storage.js`)
+  runs at boot and defaults a missing id to the category NAME - that is why no
+  event/Google data had to be migrated (legacy values already equal the id).
+  New categories get `nextCategoryId()` = highest numeric id + 1, skipping any
+  number already used as an id OR a category name. All lookups go through
+  `findCategoryByRef()` / `categoryNameForRef()` (`categoryRef()` falls back to the
+  name), and every view resolves the id to the name. A rename therefore changes
+  ONLY the name; dates are never rewritten. `PlanMyDay/js/cmd-today.js` resolves
+  the same ids for its today cards. Import/export keep working: exported
+  categories carry ids; the wizard normalises old files (ids default to names),
+  keeps existing ids on overwrite, allocates fresh ids for new/kept-both
+  categories, and writes ids back onto imported dates.
+  THE POPUP IS DELIBERATE: `showCategoryIdMigrationReminder()` in
+  `CountMyDays/js/app.js` opens `#smdConfirmModal` on EVERY app open while the
+  migration exists (it names the count migrated this time). ANY test that loads
+  `/CountMyDays/` and then CLICKS must dismiss it with
+  `tests/cmd-helpers.js dismissCategoryIdMigration(page)` (used by cmd-regression's
+  `seed()`, `enableMinio()`, cmd-screenshots' beforeEach and launch-regression's
+  cross-shell menu test; settings-alignment and display-settings already dismiss
+  any startup modal). Pure visibility assertions
+  are unaffected. Remove `migrateCategoryIds()`, `showCategoryIdMigrationReminder()`
+  and the boot calls together once stored data has ids.
+  `cmd-countdown-card` shows the Local/Google source as an `<smd-badge>` under the
+  date (`source` attribute set by `main-view.js`), using the standard
+  primary/secondary button variants for now (pending styling refinement).
 - EDIT GOOGLE EVENT MIRRORS EDIT DATE (2026-10-18, user request): the
   `#googleEventEditPage` content in `CountMyDays/js/googleCalendarEditor.js`
   (`renderGcalEditContent`) now follows the Edit Date page row-for-row: (1) a
@@ -6064,4 +6080,31 @@ Techniques / gotchas:
   lol `--grep Settings` 10/10.
 - `BUILD_NUMBER` -> `202610182214` via `npm run bump:build`; the servers were
   restarted afterwards (app JS is served from the startup snapshot).
+
+### 2026-10-20 - immutable CountMyDays category ids
+- REQUEST (user): add a short immutable id to categories and use it in the events
+  so renaming a category no longer breaks the link; migrate missing ids at open,
+  defaulting to the category name (no Google-data migration); show an smd-modal
+  reminder on every open; new ids = highest + 1; if a category is NAMED "1" skip
+  that number.
+- IMPLEMENTED: `CountMyDays/js/storage.js` (`categoryRef`, `findCategoryByRef`,
+  `categoryNameForRef`, `nextCategoryId`, `migrateCategoryIds`); the `category`
+  field on dates/Google payloads now holds the id; `categories-editor.js`
+  allocates ids and no longer rewrites dates on rename; `dates-editor.js`/
+  `main-view.js`/`googleCalendarEditor.js`/`export.js`/`import-wizard.js` resolve
+  ids to names; `PlanMyDay/js/cmd-today.js` does too. Import/export remap old
+  name-based files to ids. The boot reminder is in `CountMyDays/js/app.js`.
+- TDD: new cmd-regression tests for the migration popup + id=name, next-id
+  allocation (including the name "1" skip), rename-keeps-linkage (main + dates
+  editor), numeric-id date rendering, and a Google event surviving a rename while
+  the payload keeps `category: "1"`; import expectations now assert ids.
+- GOTCHA: the always-on popup blocks clicks, so tests dismiss it via
+  `tests/cmd-helpers.js` `dismissCategoryIdMigration`. `seed()` dismisses by
+  default (`{ dismissMigration: false }` for the migration test itself).
+- VERIFIED: cmd-regression 75/75; settings-alignment + display-settings 45/45;
+  cmd-screenshots (one theme) + image-edit-preview-size 17/17; pmd-regression
+  CountMyDays Events 12/12 (incl. a new id-resolution test); launch-regression
+  13/13 (its cross-shell menu test also dismisses the reminder).
+- `BUILD_NUMBER` -> `202610200820` via `npm run bump:build`; restart the test
+  server afterwards (it snapshots app JS at startup).
 

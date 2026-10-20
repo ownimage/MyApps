@@ -1,6 +1,7 @@
 const { test, expect } = require("@playwright/test");
 const { startCoverage, stopCoverage } = require("./coverage");
 const { pickOption } = require("./theme-controls");
+const { dismissCategoryIdMigration } = require("./cmd-helpers");
 
 const now = new Date();
 const TODAY_MONTH = now.getMonth() + 1;
@@ -23,8 +24,8 @@ const SEED_IMAGES = [
 ];
 
 const SEED_CATEGORIES = [
-  { name: "Birthday", image: "imgA" },
-  { name: "Work", image: null }
+  { id: "Birthday", name: "Birthday", image: "imgA" },
+  { id: "Work", name: "Work", image: null }
 ];
 
 const SEED_DATES = [
@@ -34,7 +35,7 @@ const SEED_DATES = [
   { name: "Trip", category: "Birthday", image: "", type: "annual", month: 11, day: 3 }
 ];
 
-async function seed(page, overrides = {}) {
+async function seed(page, overrides = {}, options = {}) {
   const data = {
     dates: SEED_DATES,
     categories: SEED_CATEGORIES,
@@ -52,6 +53,7 @@ async function seed(page, overrides = {}) {
   }, data);
   await page.reload();
   await page.waitForLoadState("domcontentloaded");
+  if (options.dismissMigration !== false) await dismissCategoryIdMigration(page);
 }
 
 test.describe("CountMyDays - Regression", () => {
@@ -79,6 +81,29 @@ test.describe("CountMyDays - Regression", () => {
       expect(await page.locator("cmd-countdown-card").count()).toBe(4);
       expect(pageErrors).toEqual([]);
       expect(consoleErrors).toEqual([]);
+    });
+
+    test("migration gives legacy categories an id equal to the name and reminds on every open", async ({ page }) => {
+      // Explicit legacy data (no ids) - the seed helper normally writes ids and
+      // dismisses the reminder.
+      await seed(page, {
+        categories: [{ name: "Birthday", image: "imgA" }, { name: "Work", image: null }]
+      }, { dismissMigration: false });
+
+      const modal = page.locator("#smdConfirmModal");
+      await expect(modal).toBeVisible();
+      await expect(modal).toContainText("Category ID Migration");
+      await expect(modal).toContainText("Added an id to 2 categories that did not have one");
+      await expect(modal).toContainText("temporary");
+      const ids = await page.evaluate(() => JSON.parse(localStorage.getItem("countmydays_categories") || "[]").map(c => c.id));
+      expect(ids).toEqual(["Birthday", "Work"]);
+      await modal.getByRole("button", { name: "OK" }).click();
+
+      // The reminder is deliberate on EVERY open, even when nothing is migrated.
+      await page.reload();
+      await page.waitForLoadState("domcontentloaded");
+      await expect(page.locator("#smdConfirmModal")).toContainText("Category ID Migration");
+      await expect(page.locator("#smdConfirmModal")).toContainText("Every category already has an id");
     });
 
     test("sample data seeds empty stores on first visit", async ({ page }) => {
@@ -510,6 +535,28 @@ test.describe("CountMyDays - Regression", () => {
       expect(await page.evaluate(() => JSON.parse(localStorage.getItem("countmydays_dates") || "[]").some(d => d.name === "Trip"))).toBe(false);
     });
 
+    test("dates store the category id and render the category's current name", async ({ page }) => {
+      await seed(page, {
+        categories: [{ id: "1", name: "Birthday", image: "imgA" }],
+        dates: [{ name: "Anniversary", category: "1", image: "imgB", type: "annual", month: 7, day: 14 }]
+      });
+
+      const card = page.locator("cmd-countdown-card").filter({ hasText: "Anniversary" });
+      await expect(card).toHaveAttribute("category", "Birthday");
+      await expect(card).toHaveAttribute("category-image", "imgA");
+
+      await page.evaluate(() => openDatesEditor());
+      const row = page.locator("#datesEditor cmd-date-card").filter({ hasText: "Anniversary" });
+      await expect(row).toHaveAttribute("category", "Birthday");
+      await row.getByRole("button", { name: "Edit" }).click();
+      await expect(page.locator("#dateCategorySelect #smdImageBtnText")).toHaveText("Birthday");
+      await page.locator("#dateEditPage").getByRole("button", { name: "OK" }).click();
+
+      const saved = await page.evaluate(() =>
+        JSON.parse(localStorage.getItem("countmydays_dates") || "[]").find(d => d.name === "Anniversary"));
+      expect(saved.category).toBe("1");
+    });
+
     test("filters by category and title", async ({ page }) => {
       await seed(page);
       await page.evaluate(() => openDatesEditor());
@@ -580,14 +627,54 @@ test.describe("CountMyDays - Regression", () => {
       expect(await page.evaluate(() => JSON.parse(localStorage.getItem("countmydays_categories") || "[]").filter(c => c.name === "Work").length)).toBe(1);
     });
 
-    test("renaming a category updates its dates", async ({ page }) => {
+    test("new categories get the next numeric id", async ({ page }) => {
+      await seed(page, {
+        categories: [{ id: "1", name: "One", image: null }, { id: "2", name: "Two", image: null }]
+      });
+      await page.evaluate(() => openCategoriesEditor());
+      await page.locator("#categoriesEditor").getByRole("button", { name: "Add Category" }).click();
+      await page.locator("#categoryNameInput").fill("Three");
+      await page.locator("#categoryEditPage").getByRole("button", { name: "OK" }).click();
+      const id = await page.evaluate(() =>
+        JSON.parse(localStorage.getItem("countmydays_categories") || "[]").find(c => c.name === "Three").id);
+      expect(id).toBe("3");
+    });
+
+    test("next category id skips numbers already used as a category name", async ({ page }) => {
+      // A category NAMED "1" (its immutable id is not numeric) must not make a
+      // new category's id "1".
+      await seed(page, { categories: [{ id: "tour", name: "1", image: null }] });
+      await page.evaluate(() => openCategoriesEditor());
+      await page.locator("#categoriesEditor").getByRole("button", { name: "Add Category" }).click();
+      await page.locator("#categoryNameInput").fill("Second");
+      await page.locator("#categoryEditPage").getByRole("button", { name: "OK" }).click();
+      const id = await page.evaluate(() =>
+        JSON.parse(localStorage.getItem("countmydays_categories") || "[]").find(c => c.name === "Second").id);
+      expect(id).toBe("2");
+    });
+
+    test("renaming a category keeps its id and the event linkage", async ({ page }) => {
       await seed(page);
       await page.evaluate(() => openCategoriesEditor());
       await page.locator("#categoriesEditor cmd-category-card").filter({ hasText: "Birthday" }).getByRole("button", { name: "Edit" }).click();
       await page.locator("#categoryNameInput").fill("Celebrations");
       await page.locator("#categoryEditPage").getByRole("button", { name: "OK" }).click();
-      const renamedDates = await page.evaluate(() => JSON.parse(localStorage.getItem("countmydays_dates") || "[]").filter(d => d.category === "Celebrations").length);
-      expect(renamedDates).toBe(2);
+
+      const stored = await page.evaluate(() => ({
+        categories: JSON.parse(localStorage.getItem("countmydays_categories") || "[]"),
+        dates: JSON.parse(localStorage.getItem("countmydays_dates") || "[]")
+      }));
+      const renamed = stored.categories.find(c => c.name === "Celebrations");
+      expect(renamed.id).toBe("Birthday");
+      // The dates still point at the (unchanged) id - no rewrite needed.
+      expect(stored.dates.filter(d => d.category === "Birthday").length).toBe(2);
+      expect(stored.dates.some(d => d.category === "Celebrations")).toBe(false);
+
+      // Both the main view and the dates editor show the NEW name.
+      await page.evaluate(() => closeCategoriesEditor());
+      await expect(page.locator("cmd-countdown-card").filter({ hasText: "Anniversary" }).locator(".category-label")).toHaveText("Celebrations");
+      await page.evaluate(() => openDatesEditor());
+      await expect(page.locator("#datesEditor cmd-date-card").filter({ hasText: "Anniversary" }).locator(".category-label")).toHaveText("Celebrations");
     });
 
     test("deleting a category clears its date references", async ({ page }) => {
@@ -747,6 +834,7 @@ test.describe("CountMyDays - Regression", () => {
         if (cfg.bucket !== undefined) localStorage.setItem(keys.bucket, cfg.bucket);
       }, { keys: MINIO_KEYS, cfg: config });
       await page.reload();
+      await dismissCategoryIdMigration(page);
     }
 
     test("settings has a Minio tab whose fields are disabled until enabled", async ({ page }) => {
@@ -1147,8 +1235,14 @@ test.describe("CountMyDays - Regression", () => {
       expect(stored.images.some((i) => i.name === "imgA copy")).toBe(true);
       expect(stored.categories.some((c) => c.name === "Work 2" && c.image === "imgC")).toBe(true);
       expect(stored.dates.some((d) => d.name === "Anniversary 2")).toBe(true);
-      // The kept category rename propagates to an imported date that used it.
-      expect(stored.dates.find((d) => d.name === "Standup").category).toBe("Work 2");
+      // The kept category rename propagates to an imported date that used it,
+      // stored as the id of the NEW "Work 2" category.
+      const work2 = stored.categories.find((c) => c.name === "Work 2");
+      expect(work2 && work2.id).toBeTruthy();
+      expect(stored.dates.find((d) => d.name === "Standup").category).toBe(work2.id);
+      // Old files reference categories by name; the wizard maps them to ids.
+      expect(stored.dates.find((d) => d.name === "Anniversary 2").category)
+        .toBe(stored.categories.find((c) => c.name === "Birthday").id);
     });
 
     test("import wizard skips every section", async ({ page }) => {
@@ -1340,6 +1434,52 @@ test.describe("CountMyDays - Regression", () => {
       await page.locator("#smdConfirmModal").getByRole("button", { name: "OK" }).click();
       // Returning from a dates-launched Google edit reveals the dates editor.
       await expect(page.locator("#datesEditor")).toHaveAttribute("open", "");
+    });
+
+    test("Google events link by category id and survive a rename", async ({ page }) => {
+      const dt = new Date();
+      dt.setDate(dt.getDate() + 7);
+      const iso = dt.getFullYear() + "-" + String(dt.getMonth() + 1).padStart(2, "0") + "-" + String(dt.getDate()).padStart(2, "0");
+      await seed(page, {
+        categories: [{ id: "1", name: "Birthday", image: "imgA" }],
+        settings: { gcal_enabled: "true", gcal_name: "Test User" }
+      });
+      await page.evaluate((date) => {
+        localStorage.setItem("countmydays_google_cal", JSON.stringify({
+          items: [{
+            id: "g1", summary: "Dentist Appointment", start: { date: date },
+            _cmd: { category: "1", image: "imgA", show: true }
+          }]
+        }));
+        window.__patched = null;
+        updateGoogleEventDescription = (id, description) => {
+          window.__patched = { id, description };
+          return Promise.resolve({ id, description });
+        };
+      }, iso);
+
+      await page.evaluate(() => openGoogleEventsEditor());
+      const row = page.locator("#googleEventsPage cmd-date-card").filter({ hasText: "Dentist Appointment" });
+      await expect(row).toHaveAttribute("category", "Birthday");
+      await expect(row).toHaveAttribute("category-image", "imgA");
+
+      // Rename the category; its id must stay "1" so the event still links.
+      await page.evaluate(() => {
+        const cats = JSON.parse(localStorage.getItem("countmydays_categories") || "[]");
+        cats[0].name = "Celebrations";
+        localStorage.setItem("countmydays_categories", JSON.stringify(cats));
+        renderGoogleEventsEditor();
+      });
+      await expect(row).toHaveAttribute("category", "Celebrations");
+      await row.getByRole("button", { name: "Edit" }).click();
+      await expect(page.locator("#gcalCategorySelect #smdImageBtnText")).toHaveText("Celebrations");
+      await page.locator("#googleEventEditPage").getByRole("button", { name: "OK" }).click();
+
+      await expect.poll(async () => page.evaluate(() => window.__patched && window.__patched.description))
+        .toContain('category: "1"');
+      const cmd = await page.evaluate(() => JSON.parse(localStorage.getItem("countmydays_google_cal")).items[0]._cmd);
+      expect(cmd.category).toBe("1");
+      await page.locator("#smdConfirmModal").getByRole("button", { name: "OK" }).click();
     });
 
     test("Edit Google Event uses the Edit Date layout (Title / Category+Image / Date+Type / Show)", async ({ page }) => {

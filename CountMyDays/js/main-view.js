@@ -27,7 +27,7 @@ function renderCountdowns() {
   const futureEvents = withDays.filter(d => d.days > 0);
 
   function renderCard(d) {
-    const category = categories.find(c => c.name === d.category);
+    const category = findCategoryByRef(d.category, categories);
     const lines = countdownLines(d.days, format);
 
     const card = document.createElement("cmd-countdown-card");
@@ -38,7 +38,7 @@ function renderCountdowns() {
     card.setAttribute("source", d.gcal ? "google" : "local");
     card.setAttribute("count1", lines.line1);
     if (lines.line2) card.setAttribute("count2", lines.line2);
-    if (d.category) card.setAttribute("category", d.category);
+    if (category) card.setAttribute("category", category.name);
     if (category && category.image) card.setAttribute("category-image", category.image);
     if (d.image) card.setAttribute("image", d.image);
     container.appendChild(card);

@@ -86,7 +86,9 @@
     return users;
   }
 
-  // Returns category/image/show for ONE user name (null when absent).
+  // Returns category/image/show for ONE user name (null when absent). The
+  // `category` value is the category ID (legacy values are names, which are the
+  // ids of migrated categories).
   function parseCmdPayloadFromDescription(description, userName) {
     if (!userName) return null;
     const extracted = extractCmdPayloadBlock(description);
@@ -102,7 +104,7 @@
   // Map one Google Calendar feed item to a CountMyDays-style date entry. A
   // locally-stamped `_cmd` (written by the CountMyDays editor) wins; otherwise
   // the `{count_my_days{...}}` description payload for `userName` supplies the
-  // category / image / visibility.
+  // category ID / image / visibility.
   function gcalEventToDate(evt, userName) {
     const start = evt.start || {};
     let y, m, d;

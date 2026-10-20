@@ -77,7 +77,10 @@ function renderDatesEditor() {
         const name = e.detail && e.detail.name;
         if (!name || name === "All") setDateCategoryFilter("");
         else if (name === "None") setDateCategoryFilter(DATE_CATEGORY_NONE);
-        else setDateCategoryFilter(name);
+        else {
+          const category = loadCategories().find(c => c.name === name);
+          setDateCategoryFilter(category ? categoryRef(category) : "");
+        }
       });
     }
     const search = $id("dateSearch");
@@ -94,11 +97,12 @@ function renderDatesEditor() {
 function renderDateFilters() {
   const dd = $id("dateCategoryFilter");
   if (dd) {
-    const cats = loadCategories().map(c => c.name).filter(Boolean);
-    const catImages = {};
-    loadCategories().forEach(c => { if (c.name) catImages[c.name] = c.image || ""; });
-    dd.options = [{ name: "All", image: "" }, { name: "None", image: "" }].concat(cats.map(c => ({ name: c, image: catImages[c] })));
-    dd.selected = dateCategoryFilter === DATE_CATEGORY_NONE ? "None" : (dateCategoryFilter || "All");
+    const categories = loadCategories();
+    dd.options = [{ name: "All", image: "" }, { name: "None", image: "" }]
+      .concat(categories.filter(c => c.name).map(c => ({ name: c.name, image: c.image || "" })));
+    dd.selected = dateCategoryFilter === DATE_CATEGORY_NONE
+      ? "None"
+      : (categoryNameForRef(dateCategoryFilter, categories) || "All");
   }
   const input = $id("dateTitleSearch");
   if (input && input.value !== dateTitleSearch) input.value = dateTitleSearch;
@@ -206,7 +210,7 @@ function renderDateList() {
       const d = entry.d;
       if (dateCategoryFilter === DATE_CATEGORY_NONE) {
         if (d.category) return false;
-      } else if (dateCategoryFilter && d.category !== dateCategoryFilter) {
+      } else if (dateCategoryFilter && String(d.category || "") !== String(dateCategoryFilter)) {
         return false;
       }
       if (dateTitleSearch && !(d.name || "").toLowerCase().includes(dateTitleSearch.toLowerCase())) return false;
@@ -218,7 +222,7 @@ function renderDateList() {
 
   filtered.forEach(entry => {
     const d = entry.d;
-    const category = d.category ? categories.find(c => c.name === d.category) : null;
+    const category = findCategoryByRef(d.category, categories);
     const catImage = category ? (category.image || "") : "";
 
     // The short weekday leads the date on the tile ("Mon 15 Jan").
@@ -239,7 +243,7 @@ function renderDateList() {
     card.className = "d-block mb-2";
     card.setAttribute("index", entry.index);
     card.setAttribute("name", d.name || "");
-    card.setAttribute("category", d.category || "");
+    card.setAttribute("category", category ? category.name : "");
     card.setAttribute("date-text", dateStr);
     card.setAttribute("type", entry.source === "google"
       ? (d.recurring ? "recurring" : "once")
@@ -263,7 +267,7 @@ function addNewDate() {
   const today = new Date();
   const newDate = {
     name: "",
-    category: categories.length > 0 ? categories[0].name : "",
+    category: categories.length > 0 ? categoryRef(categories[0]) : "",
     image: "",
     type: "annual",
     // Default the date to TODAY for both the Annual and Once options: annual
@@ -309,7 +313,12 @@ function openDateEditPage() {
       const path = e.composedPath ? e.composedPath() : [];
       if (!path.some(n => n && n.id === "dateCategorySelect")) return;
       const name = e.detail && e.detail.name;
-      dateField("category", !name || name === "No Category" ? "" : name);
+      if (!name || name === "No Category") {
+        dateField("category", "");
+      } else {
+        const category = loadCategories().find(c => c.name === name);
+        dateField("category", category ? categoryRef(category) : "");
+      }
     });
   }
   if (!page.__cmdDatePickerBound) {
@@ -386,7 +395,7 @@ function renderDateEditContent() {
   const catSel = $id("dateCategorySelect");
   if (catSel) {
     catSel.options = catDropOptions;
-    catSel.selected = d.category || "No Category";
+    catSel.selected = categoryNameForRef(d.category, categories) || "No Category";
   }
 }
 

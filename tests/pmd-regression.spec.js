@@ -541,13 +541,15 @@ test.describe("PlanMyDay - Regression", () => {
     }
 
     // Seed CountMyDays' namespaced keys, then reload so PlanMyDay picks them up.
-    async function seedCmd(page, { dates, google } = {}) {
-      await page.evaluate(({ dates, google }) => {
+    async function seedCmd(page, { dates, google, categories } = {}) {
+      await page.evaluate(({ dates, google, categories }) => {
         if (dates) localStorage.setItem("countmydays_dates", JSON.stringify(dates));
         else localStorage.removeItem("countmydays_dates");
         if (google) localStorage.setItem("countmydays_google_cal", JSON.stringify({ items: google }));
         else localStorage.removeItem("countmydays_google_cal");
-      }, { dates: dates || null, google: google || null });
+        if (categories) localStorage.setItem("countmydays_categories", JSON.stringify(categories));
+        else localStorage.removeItem("countmydays_categories");
+      }, { dates: dates || null, google: google || null, categories: categories || null });
       await page.reload();
     }
 
@@ -568,6 +570,16 @@ test.describe("PlanMyDay - Regression", () => {
       }
       await page.mouse.up();
     }
+
+    test("resolves a CountMyDays event's category id to its current name", async ({ page }) => {
+      const t = cmdToday();
+      await seedCmd(page, {
+        categories: [{ id: "1", name: "Birthday", image: null }],
+        dates: [{ name: "Birthday Event", category: "1", type: "annual", month: t.month, day: t.day }]
+      });
+      const card = page.locator("#cmdTodayList cmd-countdown-card").filter({ hasText: "Birthday Event" });
+      await expect(card).toHaveAttribute("category", "Birthday");
+    });
 
     test("shows a single CountMyDays event that falls today", async ({ page }) => {
       const t = cmdToday();
