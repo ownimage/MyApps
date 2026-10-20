@@ -135,9 +135,15 @@ function getStreamEditFormHTML(data) {
   `;
 }
 
-function renderStreamsEditor() {
+function renderStreamsEditor(preserveScroll) {
   const page = document.getElementById("streamsEditor");
   if (!page) return;
+
+  // The editor scrolls inside <smd-page>'s .smd-page-body. Assigning any page
+  // property (title/content/buttons) rebuilds the page via innerHTML, which
+  // recreates that body and resets its scrollTop. Reorder handlers pass
+  // `preserveScroll` so the list stays where the user dropped the item.
+  const scrollTop = preserveScroll ? streamsEditorScrollTop() : 0;
 
   // remember which accordion items are expanded (by index; after a drag the
   // captured indices are translated through the reorder so the same stream stays open)
@@ -216,6 +222,27 @@ function renderStreamsEditor() {
   injectStreamsEditorStyles();
   initStreamsEditorSortable();
   initStreamJobsSortables();
+
+  if (preserveScroll) {
+    setStreamsEditorScrollTop(scrollTop);
+    // The body was just recreated; restore once more after layout so the offset
+    // cannot be clamped to the (not yet measured) pre-layout height.
+    requestAnimationFrame(function() { setStreamsEditorScrollTop(scrollTop); });
+  }
+}
+
+// Scroll container helpers: always re-query .smd-page-body, because every
+// page re-render replaces it. Used by renderStreamsEditor(preserveScroll).
+function streamsEditorScrollTop() {
+  var page = document.getElementById("streamsEditor");
+  var body = page ? page.querySelector(".smd-page-body") : null;
+  return body ? body.scrollTop : 0;
+}
+
+function setStreamsEditorScrollTop(top) {
+  var page = document.getElementById("streamsEditor");
+  var body = page ? page.querySelector(".smd-page-body") : null;
+  if (body) body.scrollTop = top;
 }
 
 function setStreamExpanded(index, expanded) {
@@ -312,7 +339,7 @@ function initStreamsEditorSortable() {
       var reordered = order.map(function(idx) { return streams[idx]; });
       reordered.forEach(function(s, i) { s.sequence = i + 1; });
       saveStreams(reordered);
-      renderStreamsEditor();
+      renderStreamsEditor(true);
     }
   });
 }
@@ -355,7 +382,7 @@ function initStreamJobsSortables() {
         reordered.forEach(function(j, i) { j.sequence = i + 1; });
         streams[streamIdx].jobs = reordered;
         saveStreams(streams);
-        renderStreamsEditor();
+        renderStreamsEditor(true);
       }
     }));
   });

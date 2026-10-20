@@ -113,13 +113,19 @@
         img.alt = "";
         this.appendChild(img);
       }
+      // A Sortable fallback ghost is cloneNode(true) and already carries the
+      // PAINTED <img>. Re-rendering on connect would resolve the URL again and
+      // swap in a second bitmap while the ghost is moving (a visibly doubled /
+      // broken image). Keep the clone's pixels; later attribute changes and
+      // theme flips still re-render through attributeChangedCallback/observer.
+      const alreadyPainted = !!this.querySelector("img[src]");
       liveInstances.add(this);
       this._themeObserver = new MutationObserver(() => this._render());
       this._themeObserver.observe(document.documentElement, {
         attributes: true,
         attributeFilter: ["data-bs-theme", "data-theme", "style"]
       });
-      this._render();
+      if (!alreadyPainted) this._render();
     }
 
     disconnectedCallback() {

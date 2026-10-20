@@ -4680,7 +4680,9 @@ Techniques / gotchas:
   Attributes survive `cloneNode`, so a ghost skips the rebuild (and its event
   listeners / swipe binding) while still running `_render()` to stay in sync.
   `smd-button` is already clone-safe because it clears `innerHTML` and rebuilds
-  from a stored label; badge/checkbox/draghandle/image are idempotent.
+  from a stored label; badge/checkbox/image are idempotent. `smd-draghandle` was
+  NOT clone-safe (it used a `_rendered` JS flag, which `cloneNode` drops), so
+  ghosts showed TWO hamburger glyphs - fixed 2026-10-20 with `data-smd-built`.
 - Also gave `pmd-job-today-card` the SAME fallback ghost as the other two
   (`forceFallback`, `fallbackOnBody`, `fallbackTolerance: 0`, and the
   fallback/ghost/chosen/drag classes in `PlanMyDay/js/main-view.js`) - it
@@ -4691,6 +4693,28 @@ Techniques / gotchas:
   the card (no doubled content)" (stream header, job card, today card).
 - Verified: pmd reorder 6/6, pmd `[Dd]rag` 11/11, pmd-touch 5/5, storybook 8/8.
 - `BUILD_NUMBER` NOT bumped - bump before shipping (`npm run bump:build`).
+
+### 2026-10-20 - drag ghost doubling + streams-editor scroll preservation
+- BUG 1 (user, iPhone): reordering streams or jobs after scrolling reset the
+  streams editor to the top. `renderStreamsEditor()` rebuilds the page through
+  `page.title/content/buttons` -> `smd-page._render()` -> `innerHTML`, which
+  destroys `.smd-page-body` (the scroll container) and its `scrollTop`. FIX:
+  `renderStreamsEditor(preserveScroll)` captures the body offset at the top and
+  restores it (plus once on `requestAnimationFrame`) at the end; only the two
+  reorder `onEnd` handlers pass `true`.
+- BUG 2 (user): drag ghosts for streams/jobs showed doubled content.
+  `smd-draghandle` used a `_rendered` JS flag that `cloneNode` does not copy, so
+  every fallback clone appended a second `.glyph`; now guarded by the
+  clone-safe `data-smd-built` attribute. `<smd-image>` also skips its render
+  when a clone already carries a painted `img[src]` (re-rendering swapped in a
+  second bitmap while the ghost moved). `.sortable-fallback` is forced opaque
+  (`opacity:1 !important`; Sortable writes inline 0.8) so the dimmed placeholder
+  cannot show through as a doubled card/image.
+- TDD: new pmd-regression tests "reordering streams preserves the editor scroll
+  position" and "reordering jobs preserves the editor scroll position"; the
+  existing Drag ghosts test now also asserts ONE `.drag-handle .glyph` and
+  `opacity: 1` on the stream and job ghosts.
+- `BUILD_NUMBER` bumped via `npm run bump:build`; restart the test server afterwards.
 
 ### 2026-10-07 (e) - dark-mode page/stream header surfaces aligned with light (hsl mixes)
 - BUG (user): in dark mode the `smd-page` header/footer and the

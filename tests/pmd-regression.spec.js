@@ -1827,6 +1827,72 @@ test.describe("PlanMyDay - Regression", () => {
       await expect(items.last()).toContainText("Work");
     });
 
+    // Regression: reordering rebuilds #streamsEditor via page.content, which
+    // destroys .smd-page-body and used to reset its scrollTop to 0. The drag must
+    // keep the editor scrolled where the user dropped the item.
+    test("reordering streams preserves the editor scroll position", async ({ page }) => {
+      // Enough streams to overflow the page body.
+      await page.evaluate(() => {
+        const streams = [];
+        for (let i = 1; i <= 14; i++) {
+          streams.push({
+            id: "stream_" + i,
+            title: "Stream " + i,
+            tab: "progress",
+            image: "",
+            sequence: i,
+            jobs: [{
+              id: "job_" + i, title: "Job " + i, active: true, frequency: "daily",
+              sequence: 1, suffix: false, dayType: "dayOfYear", mod: "", tasks: []
+            }]
+          });
+        }
+        localStorage.setItem("planmydays_streams", JSON.stringify(streams));
+        renderStreamsEditor();
+      });
+      const items = page.locator("#streamEditorList .stream-accordion-item");
+      await expect(items).toHaveCount(14);
+
+      // Scroll into the middle of the list and find two adjacent fully visible items.
+      const pair = await page.evaluate(() => {
+        const body = document.querySelector("#streamsEditor .smd-page-body");
+        body.scrollTop = Math.round((body.scrollHeight - body.clientHeight) / 2);
+        const br = body.getBoundingClientRect();
+        const els = Array.from(document.querySelectorAll("#streamEditorList .stream-accordion-item"));
+        const visible = [];
+        els.forEach((el, i) => {
+          const r = el.getBoundingClientRect();
+          if (r.top >= br.top + 4 && r.bottom <= br.bottom - 4) visible.push(i);
+        });
+        for (let k = 0; k < visible.length - 1; k++) {
+          if (visible[k + 1] === visible[k] + 1) return { first: visible[k], second: visible[k + 1] };
+        }
+        return null;
+      });
+      expect(pair).not.toBeNull();
+
+      const beforeOrder = await page.evaluate(() =>
+        JSON.parse(localStorage.getItem("planmydays_streams")).map(s => s.title));
+      const before = await page.evaluate(() =>
+        document.querySelector("#streamsEditor .smd-page-body").scrollTop);
+      expect(before).toBeGreaterThan(0);
+
+      const handleBox = await items.nth(pair.first).locator(".stream-accordion-header .drag-handle").boundingBox();
+      const targetBox = await items.nth(pair.second).boundingBox();
+      await page.mouse.move(handleBox.x + handleBox.width / 2, handleBox.y + handleBox.height / 2);
+      await page.mouse.down();
+      await page.mouse.move(targetBox.x + targetBox.width / 2, targetBox.y + targetBox.height * 0.9, { steps: 15 });
+      await page.mouse.up();
+
+      await expect.poll(() =>
+        page.evaluate(() => JSON.parse(localStorage.getItem("planmydays_streams")).map(s => s.title))
+      ).not.toEqual(beforeOrder);
+
+      const after = await page.evaluate(() =>
+        document.querySelector("#streamsEditor .smd-page-body").scrollTop);
+      expect(Math.abs(after - before)).toBeLessThanOrEqual(1);
+    });
+
     test("dragging an expanded stream keeps the same stream expanded", async ({ page }) => {
       // expand the first stream (Work)
       await page.locator("#streamEditorList .stream-header-main").first().click();
@@ -2270,6 +2336,70 @@ test.describe("PlanMyDay - Regression", () => {
       var jobTitles2 = page.locator("#streamEditorList .stream-accordion-item").first().locator(".accordion-body .job-drag-card .job-title");
       await expect(jobTitles2.first()).toContainText("Meeting");
       await expect(jobTitles2.last()).toContainText("Report");
+    });
+
+    // Regression: renderStreamsEditor() rebuilds page.content after a job
+    // reorder, which destroyed .smd-page-body and reset its scrollTop to 0.
+    test("reordering jobs preserves the editor scroll position", async ({ page }) => {
+      await page.evaluate(() => {
+        const jobs = [];
+        for (let i = 1; i <= 18; i++) {
+          jobs.push({
+            id: "job_" + i, title: "Job " + i, active: true, frequency: "daily",
+            sequence: i, suffix: false, dayType: "dayOfYear", mod: "", tasks: []
+          });
+        }
+        localStorage.setItem("planmydays_streams", JSON.stringify([
+          { id: "stream_1", title: "Work", tab: "progress", image: "", sequence: 1, jobs }
+        ]));
+        renderStreamsEditor();
+      });
+      if (await page.locator("#streamEditorList .accordion-collapse.show").count() === 0) {
+        await page.locator("#streamEditorList .stream-header-main").first().click();
+      }
+      await page.locator("#streamEditorList .accordion-collapse.show").waitFor({ state: "visible", timeout: 5000 });
+      const jobCards = page.locator("#streamEditorList .accordion-collapse.show .job-drag-card");
+      await expect(jobCards).toHaveCount(18);
+
+      // Scroll into the middle of the expanded job list and find two adjacent
+      // fully visible cards.
+      const pair = await page.evaluate(() => {
+        const body = document.querySelector("#streamsEditor .smd-page-body");
+        body.scrollTop = Math.round((body.scrollHeight - body.clientHeight) / 2);
+        const br = body.getBoundingClientRect();
+        const els = Array.from(document.querySelectorAll("#streamEditorList .accordion-collapse.show .job-drag-card"));
+        const visible = [];
+        els.forEach((el, i) => {
+          const r = el.getBoundingClientRect();
+          if (r.top >= br.top + 4 && r.bottom <= br.bottom - 4) visible.push(i);
+        });
+        for (let k = 0; k < visible.length - 1; k++) {
+          if (visible[k + 1] === visible[k] + 1) return { first: visible[k], second: visible[k + 1] };
+        }
+        return null;
+      });
+      expect(pair).not.toBeNull();
+
+      const beforeOrder = await page.evaluate(() =>
+        JSON.parse(localStorage.getItem("planmydays_streams"))[0].jobs.map(j => j.id));
+      const before = await page.evaluate(() =>
+        document.querySelector("#streamsEditor .smd-page-body").scrollTop);
+      expect(before).toBeGreaterThan(0);
+
+      const handleBox = await jobCards.nth(pair.first).locator(".drag-handle").boundingBox();
+      const targetBox = await jobCards.nth(pair.second).boundingBox();
+      await page.mouse.move(handleBox.x + handleBox.width / 2, handleBox.y + handleBox.height / 2);
+      await page.mouse.down();
+      await page.mouse.move(targetBox.x + targetBox.width / 2, targetBox.y + targetBox.height * 0.9, { steps: 15 });
+      await page.mouse.up();
+
+      await expect.poll(() =>
+        page.evaluate(() => JSON.parse(localStorage.getItem("planmydays_streams"))[0].jobs.map(j => j.id))
+      ).not.toEqual(beforeOrder);
+
+      const after = await page.evaluate(() =>
+        document.querySelector("#streamsEditor .smd-page-body").scrollTop);
+      expect(Math.abs(after - before)).toBeLessThanOrEqual(1);
     });
 
     test("active label is bold on job tiles", async ({ page }) => {
@@ -3445,6 +3575,11 @@ test.describe("PlanMyDay - Regression", () => {
       await expect(headerGhost).toHaveCount(1);
       await expect(headerGhost.locator("pmd-stream-header")).toHaveCount(1);
       await expect(headerGhost.locator(".stream-accordion-header")).toHaveCount(1);
+      // The cloned <smd-draghandle> must not append a second glyph.
+      await expect(headerGhost.locator(".stream-accordion-header .drag-handle .glyph")).toHaveCount(1);
+      // The floating clone is opaque so the in-list placeholder cannot show
+      // through it as a doubled image.
+      await expect(headerGhost).toHaveCSS("opacity", "1");
       await page.mouse.up();
       await page.waitForTimeout(300);
 
@@ -3460,6 +3595,8 @@ test.describe("PlanMyDay - Regression", () => {
       await expect(jobGhost.locator("pmd-job-summary-card")).toHaveCount(1);
       await expect(jobGhost.locator(".d-flex.py-2")).toHaveCount(1);
       await expect(jobGhost.locator(".job-edit-btn")).toHaveCount(1);
+      await expect(jobGhost.locator(".drag-handle .glyph")).toHaveCount(1);
+      await expect(jobGhost).toHaveCSS("opacity", "1");
       await page.mouse.up();
 
       // main view: drag a today card

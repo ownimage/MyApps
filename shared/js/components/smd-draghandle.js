@@ -34,8 +34,11 @@
           smd-draghandle .glyph { font-family: "Font Awesome 6 Free"; font-style: normal; font-weight: 900; }
         `);
       }
-      if (!this._rendered) {
-        this._rendered = true;
+      // Clone-safe: a Sortable fallback ghost is cloneNode(true) of the card, so
+      // the `data-smd-built` ATTRIBUTE (copied by cloneNode, unlike a JS flag)
+      // stops the cloned handle from appending a second glyph.
+      if (!this.hasAttribute("data-smd-built")) {
+        this.setAttribute("data-smd-built", "");
         // Merge in fresh light children (e.g. a slotted handle moved in by a
         // parent component) — the glyph is rendered with them, not in a shadow.
         this.appendChild(this._glyph);

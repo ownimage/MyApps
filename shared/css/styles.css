@@ -188,12 +188,15 @@ input {
    Sortable adds these classes to the app's reorderable cards (PMD today /
    streams / jobs lists). The in-list placeholder (`.sortable-ghost`) is dimmed;
    the floating cloned preview (`.sortable-fallback`) gets a lifted shadow.
-   Sortable still writes its own inline position/size/opacity on the clone. */
+   Sortable still writes its own inline position/size on the clone, plus
+   `opacity: 0.8`; force the floating clone opaque so the dimmed placeholder
+   underneath cannot show through it as a doubled card/image. */
 .sortable-ghost {
   opacity: 0.4;
 }
 
 .sortable-fallback {
+  opacity: 1 !important;
   box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.3);
 }
 
