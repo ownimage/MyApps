@@ -1,7 +1,6 @@
 const { test, expect } = require("@playwright/test");
 const { startCoverage, stopCoverage } = require("./coverage");
 const { pickOption } = require("./theme-controls");
-const { dismissCategoryIdMigration } = require("./cmd-helpers");
 
 // Coverage hooks (top-level so every test in this spec is captured).
 test.beforeEach(async ({ page }) => { await startCoverage(page); });
@@ -205,9 +204,6 @@ test.describe("Launch - Regression", () => {
     for (const [shell, prefix] of [["/", ""], ["/PlanMyDay/", "../"], ["/CountMyDays/", "../"],
       ["/QRLinks/", "../"], ["/FreeFormOX/", "../"], ["/ListOfLists/", "../"], ["/PhoneButtons/", "../"]]) {
       await page.goto(shell);
-      // CountMyDays shows its temporary category-id migration reminder on every
-      // open; its overlay otherwise intercepts the hamburger click.
-      await dismissCategoryIdMigration(page);
       await page.locator("#btnMainMenu").click();
       const toggle = page.locator("#mainNav .launch-submenu-toggle");
       await expect(toggle, shell).toBeVisible();

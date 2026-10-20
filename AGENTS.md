@@ -1025,31 +1025,25 @@ Architecture:
   no Delete for Google rows) and its events now carry `source`. Sample feed:
   `CountMyDays/js/googleCalendarSample.json` ("Load sample data"). The app-info
   dialogs use `showSmdModal`, not a custom overlay.
-- CATEGORY IDS + TEMPORARY MIGRATION (2026-10-20, user request): CountMyDays
-  categories are `{ id, name, image }` and the **id is immutable**. Dates and the
-  Google `{count_my_days{...}}` payload keep their existing `category` field, but
-  it now stores the category ID. `migrateCategoryIds()` (`CountMyDays/js/storage.js`)
-  runs at boot and defaults a missing id to the category NAME - that is why no
-  event/Google data had to be migrated (legacy values already equal the id).
-  New categories get `nextCategoryId()` = highest numeric id + 1, skipping any
-  number already used as an id OR a category name. All lookups go through
-  `findCategoryByRef()` / `categoryNameForRef()` (`categoryRef()` falls back to the
-  name), and every view resolves the id to the name. A rename therefore changes
-  ONLY the name; dates are never rewritten. `PlanMyDay/js/cmd-today.js` resolves
-  the same ids for its today cards. Import/export keep working: exported
-  categories carry ids; the wizard normalises old files (ids default to names),
-  keeps existing ids on overwrite, allocates fresh ids for new/kept-both
-  categories, and writes ids back onto imported dates.
-  THE POPUP IS DELIBERATE: `showCategoryIdMigrationReminder()` in
-  `CountMyDays/js/app.js` opens `#smdConfirmModal` on EVERY app open while the
-  migration exists (it names the count migrated this time). ANY test that loads
-  `/CountMyDays/` and then CLICKS must dismiss it with
-  `tests/cmd-helpers.js dismissCategoryIdMigration(page)` (used by cmd-regression's
-  `seed()`, `enableMinio()`, cmd-screenshots' beforeEach and launch-regression's
-  cross-shell menu test; settings-alignment and display-settings already dismiss
-  any startup modal). Pure visibility assertions
-  are unaffected. Remove `migrateCategoryIds()`, `showCategoryIdMigrationReminder()`
-  and the boot calls together once stored data has ids.
+- CATEGORY IDS (2026-10-20, user request; temporary migration removed same day):
+  CountMyDays categories are `{ id, name, image }` and the **id is immutable**.
+  Dates and the Google `{count_my_days{...}}` payload keep their existing
+  `category` field, but it now stores the category ID. New categories get
+  `nextCategoryId()` = highest numeric id + 1, skipping any number already used
+  as an id OR a category name. All lookups go through `findCategoryByRef()` /
+  `categoryNameForRef()` (`categoryRef()` falls back to the name at READ time
+  for legacy/imported data), and every view resolves the id to the name. A
+  rename therefore changes ONLY the name; dates are never rewritten.
+  `PlanMyDay/js/cmd-today.js` resolves the same ids for its today cards.
+  Import/export keep working: exported categories carry ids; the wizard
+  normalises old files (ids default to names), keeps existing ids on overwrite,
+  allocates fresh ids for new/kept-both categories, and writes ids back onto
+  imported dates. The bundled `sampleData.json` categories carry `id` = name,
+  so first-visit seeds are already id'd.
+  The temporary `migrateCategoryIds()` boot step and the
+  `showCategoryIdMigrationReminder()` popup were REMOVED (all stored data has
+  ids): boot is just `renderMain()` -> `seedSampleData()`, and no startup modal
+  exists, so tests no longer dismiss one. Keep the id mapping/lookup helpers.
   `cmd-countdown-card` shows the Local/Google source as an `<smd-badge>` under the
   date (`source` attribute set by `main-view.js`), using the standard
   primary/secondary button variants for now (pending styling refinement).
@@ -6122,4 +6116,11 @@ Techniques / gotchas:
   13/13 (its cross-shell menu test also dismisses the reminder).
 - `BUILD_NUMBER` -> `202610200820` via `npm run bump:build`; restart the test
   server afterwards (it snapshots app JS at startup).
+- REMOVED (2026-10-20, user request): the temporary migration step.
+  `migrateCategoryIds()`, `showCategoryIdMigrationReminder()`, the boot calls,
+  the cmd-regression migration test, `tests/cmd-helpers.js` and its uses
+  (cmd-regression `seed()`/`enableMinio()`, cmd-screenshots beforeEach,
+  launch-regression cross-shell menu test) are gone. The ID mapping/lookups
+  remain unchanged, and `sampleData.json` now carries ids (`id` = name) so
+  first-visit data is already id'd.
 

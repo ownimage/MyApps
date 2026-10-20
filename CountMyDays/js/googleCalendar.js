@@ -201,8 +201,8 @@ function serializeCmdUsersObject(users) {
 
 // Shape: {count_my_days{'keith': {category: "...", image: "...", show: true}, ...}}
 // `category` holds the category ID (legacy data holds the category name, which
-// is the id for migrated categories). Amends the named user entry; leaves other
-// names intact.
+// resolves through categoryRef's name fallback). Amends the named user entry;
+// leaves other names intact.
 function buildDescriptionWithCmdPayload(existingDescription, categoryId, image, show) {
   const userName = getGCalUserName();
   if (!userName) {

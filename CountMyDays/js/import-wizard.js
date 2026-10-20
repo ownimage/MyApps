@@ -21,8 +21,9 @@ function iwThumb(name, size) {
 }
 
 // Events store the category ID. Older export files may store the category NAME
-// (which is also the id for migrated categories) and the wizard's conflict UI is
-// name based, so translate ids to names on the way in and back on the way out.
+// (still resolved by the name fallback in categoryRef), and the wizard's
+// conflict UI is name based, so translate ids to names on the way in and back
+// on the way out.
 function iwCategoryNameForRef(ref, categories) {
   if (ref === undefined || ref === null || ref === "") return "";
   const cats = categories || loadCategories();
@@ -93,9 +94,10 @@ function startImportWizard(data) {
   (data.categories || []).forEach(c => { c.name = (c.name || "").trim(); });
   (data.dates || []).forEach(d => { d.name = (d.name || "").trim(); });
 
-  // Every imported category needs an id (missing -> the name, matching the app
-  // migration). Then translate imported date references to NAMES for the
-  // name-based conflict stages; finishDateStage writes the final ids back.
+  // Every imported category needs an id (missing -> the name, matching the
+  // legacy name references). Then translate imported date references to NAMES
+  // for the name-based conflict stages; finishDateStage writes the final ids
+  // back.
   const importedCats = data.categories || [];
   importedCats.forEach(c => {
     c.id = (c.id === undefined || c.id === null || c.id === "") ? String(c.name || "") : String(c.id);

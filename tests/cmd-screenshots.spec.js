@@ -1,6 +1,5 @@
 const { test } = require("@playwright/test");
 const { createScreenshotAllThemes } = require("./screenshot-helpers");
-const { dismissCategoryIdMigration } = require("./cmd-helpers");
 
 const sampleData = require("../CountMyDays/js/sampleData.json");
 
@@ -40,8 +39,6 @@ test.describe("CountMyDays - Screenshots", () => {
     await page.reload();
     await page.waitForLoadState("domcontentloaded");
     await page.waitForSelector("cmd-countdown-card");
-    // The temporary category-id migration reminder is shown on every open.
-    await dismissCategoryIdMigration(page);
   });
 
   test("main view", async ({ page }) => {

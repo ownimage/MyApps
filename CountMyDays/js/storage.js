@@ -23,10 +23,9 @@ function saveCategories(categories) {
 // ---- category ids ----
 // A category is { id, name, image }. The ID is IMMUTABLE and is the reference
 // stored in `category` on dates and in the Google Calendar {count_my_days{...}}
-// payload. Legacy data referenced a category by NAME, so the temporary migration
-// below defaults a missing id to that name: existing dates/Google payloads then
-// already contain the id and need no rewriting. New categories use the next
-// sequential numeric id (see nextCategoryId).
+// payload. New categories use the next sequential numeric id (see
+// nextCategoryId). `categoryRef` still falls back to the name at READ time so
+// legacy/imported data written before ids existed keeps resolving.
 function categoryRef(category) {
   if (!category) return "";
   if (category.id !== undefined && category.id !== null && category.id !== "") {
@@ -36,7 +35,7 @@ function categoryRef(category) {
 }
 
 // Resolve an event's category reference. Id first (the canonical link), then
-// name as a fallback for data written before ids existed / before CMD migrated.
+// name as a fallback for legacy/imported data written before ids existed.
 function findCategoryByRef(ref, categories) {
   if (ref === undefined || ref === null || ref === "") return null;
   const cats = categories || loadCategories();
@@ -68,23 +67,6 @@ function nextCategoryId(categories) {
   let next = highest + 1;
   while (used.has(String(next))) next++;
   return String(next);
-}
-
-// TEMPORARY migration: give every legacy category an id (defaulting to its
-// name). Returns the number of ids added. Remove this function, its boot call
-// and the reminder modal once all stored data has ids.
-function migrateCategoryIds() {
-  const categories = loadCategories();
-  let added = 0;
-  categories.forEach(c => {
-    if (!categoryRef(c)) return;
-    if (c.id === undefined || c.id === null || c.id === "") {
-      c.id = String(c.name || "");
-      added++;
-    }
-  });
-  if (added > 0) saveCategories(categories);
-  return added;
 }
 
 function loadGoogleCalFeed() {

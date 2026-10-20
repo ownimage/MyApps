@@ -1,7 +1,6 @@
 const { test, expect } = require("@playwright/test");
 const { startCoverage, stopCoverage } = require("./coverage");
 const { pickOption } = require("./theme-controls");
-const { dismissCategoryIdMigration } = require("./cmd-helpers");
 
 const now = new Date();
 const TODAY_MONTH = now.getMonth() + 1;
@@ -35,7 +34,7 @@ const SEED_DATES = [
   { name: "Trip", category: "Birthday", image: "", type: "annual", month: 11, day: 3 }
 ];
 
-async function seed(page, overrides = {}, options = {}) {
+async function seed(page, overrides = {}) {
   const data = {
     dates: SEED_DATES,
     categories: SEED_CATEGORIES,
@@ -53,7 +52,6 @@ async function seed(page, overrides = {}, options = {}) {
   }, data);
   await page.reload();
   await page.waitForLoadState("domcontentloaded");
-  if (options.dismissMigration !== false) await dismissCategoryIdMigration(page);
 }
 
 test.describe("CountMyDays - Regression", () => {
@@ -67,7 +65,7 @@ test.describe("CountMyDays - Regression", () => {
     await stopCoverage(page);
   });
 
-  test.describe("Boot + migration", () => {
+  test.describe("Boot", () => {
 
     test("boots with no console errors and renders countdowns", async ({ page }) => {
       const consoleErrors = [];
@@ -81,29 +79,6 @@ test.describe("CountMyDays - Regression", () => {
       expect(await page.locator("cmd-countdown-card").count()).toBe(4);
       expect(pageErrors).toEqual([]);
       expect(consoleErrors).toEqual([]);
-    });
-
-    test("migration gives legacy categories an id equal to the name and reminds on every open", async ({ page }) => {
-      // Explicit legacy data (no ids) - the seed helper normally writes ids and
-      // dismisses the reminder.
-      await seed(page, {
-        categories: [{ name: "Birthday", image: "imgA" }, { name: "Work", image: null }]
-      }, { dismissMigration: false });
-
-      const modal = page.locator("#smdConfirmModal");
-      await expect(modal).toBeVisible();
-      await expect(modal).toContainText("Category ID Migration");
-      await expect(modal).toContainText("Added an id to 2 categories that did not have one");
-      await expect(modal).toContainText("temporary");
-      const ids = await page.evaluate(() => JSON.parse(localStorage.getItem("countmydays_categories") || "[]").map(c => c.id));
-      expect(ids).toEqual(["Birthday", "Work"]);
-      await modal.getByRole("button", { name: "OK" }).click();
-
-      // The reminder is deliberate on EVERY open, even when nothing is migrated.
-      await page.reload();
-      await page.waitForLoadState("domcontentloaded");
-      await expect(page.locator("#smdConfirmModal")).toContainText("Category ID Migration");
-      await expect(page.locator("#smdConfirmModal")).toContainText("Every category already has an id");
     });
 
     test("sample data seeds empty stores on first visit", async ({ page }) => {
@@ -834,7 +809,6 @@ test.describe("CountMyDays - Regression", () => {
         if (cfg.bucket !== undefined) localStorage.setItem(keys.bucket, cfg.bucket);
       }, { keys: MINIO_KEYS, cfg: config });
       await page.reload();
-      await dismissCategoryIdMigration(page);
     }
 
     test("settings has a Minio tab whose fields are disabled until enabled", async ({ page }) => {

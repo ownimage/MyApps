@@ -87,8 +87,8 @@
   }
 
   // Returns category/image/show for ONE user name (null when absent). The
-  // `category` value is the category ID (legacy values are names, which are the
-  // ids of migrated categories).
+  // `category` value is the category ID (legacy values are names, resolved by
+  // the category name fallback).
   function parseCmdPayloadFromDescription(description, userName) {
     if (!userName) return null;
     const extracted = extractCmdPayloadBlock(description);

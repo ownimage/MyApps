@@ -79,22 +79,6 @@ function seedSampleData() {
     .catch(() => false);
 }
 
-// TEMPORARY reminder for the category-id migration (see migrateCategoryIds()).
-// It is shown on EVERY open on purpose, so the migration cannot be forgotten.
-function showCategoryIdMigrationReminder(added) {
-  if (typeof showSmdModal !== "function") return;
-  const count = parseInt(added, 10) || 0;
-  const detail = count > 0
-    ? `Added an id to ${count} categor${count === 1 ? "y" : "ies"} that did not have one.`
-    : "Every category already has an id.";
-  showSmdModal({
-    title: "Category ID Migration",
-    content: `<p class="mb-2">${detail}</p>` +
-      '<p class="mb-0">This migration is temporary - remove it once your data has been migrated.</p>',
-    buttons: [{ text: "OK", variant: "primary", action: "ok" }]
-  });
-}
-
 // The shared smd-images.js calls these hooks so CountMyDays' own data model
 // stays consistent when images are renamed/deleted and the "in use" flag
 // reflects category/date references (the shared default only knows streams).
@@ -143,20 +127,10 @@ document.addEventListener("DOMContentLoaded", () => {
   // Show/hide the Minio menu entries (only when MinIO is enabled).
   if (typeof updateMinioMenu === "function") updateMinioMenu();
 
-  // TEMPORARY category-id migration: give legacy categories an id BEFORE the
-  // first render. The reminder modal is shown on every open (see above).
-  const migratedCategoryIds = typeof migrateCategoryIds === "function" ? migrateCategoryIds() : 0;
-
   renderMain();
 
-  showCategoryIdMigrationReminder(migratedCategoryIds);
-
   seedSampleData().then(seeded => {
-    if (seeded) {
-      // The bundled sample data predates category ids.
-      if (typeof migrateCategoryIds === "function") migrateCategoryIds();
-      renderMain();
-    }
+    if (seeded) renderMain();
   });
 
   // The settings Display tab uses the shared <smd-theme> component.

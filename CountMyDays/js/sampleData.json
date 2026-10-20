@@ -45,22 +45,27 @@
   ],
   "categories": [
     {
+      "id": "Birthday",
       "name": "Birthday",
       "image": "Drink 2"
     },
     {
+      "id": "Holiday",
       "name": "Holiday",
       "image": "Suitcase 1"
     },
     {
+      "id": "Event",
       "name": "Event",
       "image": "Date 2"
     },
     {
+      "id": "Travel",
       "name": "Travel",
       "image": "Plane 1"
     },
     {
+      "id": "Work",
       "name": "Work",
       "image": "Work 3"
     }
