@@ -69,8 +69,8 @@
 }
 
 /* smd-contrast:start - generated WCAG AA contrast overrides. Do not edit by hand:
-   regenerate with  SMD_CONTRAST_FIX=1 npx playwright test tests/contrast-css.spec.js
-   (tests/contrast-css.spec.js fails when this block no longer matches the theme). */
+   regenerate with  SMD_CONTRAST_FIX=1 npx playwright test --config test-contrast/playwright.config.js
+   (test-contrast/contrast-css.spec.js fails when this block no longer matches the theme). */
 .btn-success {
   --bs-btn-color: #222;
   --bs-btn-hover-color: #222;
@@ -120,5 +120,16 @@
 }
 .btn-info:hover, .btn-info:focus-visible {
   color: #000 !important;
+}
+.form-control,
+.form-select,
+.form-check-input {
+  border-color: #fff;
+  border-style: solid;
+  border-width: 1px;
+}
+smd-checkbox input {
+  outline: 1px solid #fff;
+  outline-offset: 0;
 }
 /* smd-contrast:end */

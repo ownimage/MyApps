@@ -81,8 +81,8 @@
 }
 
 /* smd-contrast:start - generated WCAG AA contrast overrides. Do not edit by hand:
-   regenerate with  SMD_CONTRAST_FIX=1 npx playwright test tests/contrast-css.spec.js
-   (tests/contrast-css.spec.js fails when this block no longer matches the theme). */
+   regenerate with  SMD_CONTRAST_FIX=1 npx playwright test --config test-contrast/playwright.config.js
+   (test-contrast/contrast-css.spec.js fails when this block no longer matches the theme). */
 .btn-primary {
   --bs-btn-color: #0f2537;
   --bs-btn-disabled-color: #0f2537;
@@ -133,5 +133,16 @@ smd-tabs .smd-tab-btn.text-bg-primary,
 smd-tabs .smd-tab-btn.text-bg-primary:hover,
 smd-tabs .smd-tab-btn.text-bg-primary:focus-visible {
   color: #0f2537 !important;
+}
+.form-control,
+.form-select,
+.form-check-input {
+  border-color: #ebebeb;
+  border-style: solid;
+  border-width: 1px;
+}
+smd-checkbox input {
+  outline: 1px solid #ebebeb;
+  outline-offset: 0;
 }
 /* smd-contrast:end */

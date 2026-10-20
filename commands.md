@@ -1,10 +1,21 @@
-### Run full regression test 
+### 1. Run full regression tests (main + contrast; contrast starts first, in parallel)
 ```bash
-.\CleanTestServerStart.cmd && set EXTERNAL_SERVER=1 && set SCREENSHOT_THEME=superhero&& .\node_modules\.bin\playwright.cmd test tests --retries=0 --workers=32 && type PhoneButtons\server\coverage.txt && date /T &&  time /T 
-``` 
+.\CleanTestServerStart.cmd && set "EXTERNAL_SERVERS=1" && set "SCREENSHOT_THEME=superhero" && npm test -- --retries=0 --workers=32 && type PhoneButtons\server\coverage.txt && echo %date% %time%
+```
+
+### 2. Run full regression tests without the contrast suite
+```bash
+.\CleanTestServerStart.cmd && set "EXTERNAL_SERVERS=1" && set "SCREENSHOT_THEME=superhero" && npm run test:main -- --retries=0 --workers=32 && type PhoneButtons\server\coverage.txt && echo %date% %time%
+```
+
+### 3. Run the contrast tests only
+```bash
+.\CleanTestServerStart.cmd && set "EXTERNAL_SERVERS=1" && npm run test:contrast && echo %date% %time%
+```
+
 ### Re-run last failures
 ```bash
-set SCREENSHOT_THEME=superhero&& .\node_modules\.bin\playwright.cmd test --last-failed --retries=0
+set "SCREENSHOT_THEME=superhero" && .\node_modules\.bin\playwright.cmd test --last-failed --retries=0
 ```
 npx playwright test -g "your test name" --repeat-each=10
 npx playwright test tests/pmd-regression.spec.js --repeat-each=100
