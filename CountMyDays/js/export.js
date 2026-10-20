@@ -135,8 +135,7 @@ function renderExportWizard() {
         <label class="form-check-label" for="ewDatesSpecific">Select specific dates</label>
       </div>
       <div class="form-check ${showCascade ? "d-block" : "d-none"}" id="ewDatesCascadeWrapper">
-        <input class="form-check-input" type="checkbox" id="ewDatesCascade" ${ew.datesCascade ? "checked" : ""}>
-        <label class="form-check-label" for="ewDatesCascade">Cascade: include related categories and images</label>
+        <smd-checkbox id="ewDatesCascade" ${ew.datesCascade ? "checked" : ""}>Cascade: include related categories and images</smd-checkbox>
       </div>`;
     page.buttons = ewBackNext();
   } else if (ew.step === "dates2") {
@@ -171,10 +170,7 @@ function renderExportWizard() {
         <div class="d-flex align-items-center gap-2 mb-2">
           ${ewThumb(imgName)}
           ${ewThumb(item.image)}
-          <div class="form-check mb-0">
-            <input class="form-check-input ew-date-cb" type="checkbox" value="${item.index}" data-index="${item.index}" ${ew.selectedDateIndices.includes(item.index) ? "checked" : ""}>
-            <label class="form-check-label">${escapeHtml(item.name)} — ${formatDate(item.target)} — ${escapeHtml(catName || "No category")}</label>
-          </div>
+          <smd-checkbox class="ew-date-cb" value="${item.index}" data-index="${item.index}" ${ew.selectedDateIndices.includes(item.index) ? "checked" : ""}>${escapeHtml(item.name)} — ${formatDate(item.target)} — ${escapeHtml(catName || "No category")}</smd-checkbox>
         </div>`;
       }).join("")}
       </div>`;
@@ -196,8 +192,7 @@ function renderExportWizard() {
         <label class="form-check-label" for="ewCatsSpecific">Select specific categories</label>
       </div>
       <div class="form-check ${showCatsCascade ? "d-block" : "d-none"}" id="ewCategoriesCascadeWrapper">
-        <input class="form-check-input" type="checkbox" id="ewCategoriesCascade" ${ew.categoriesCascade ? "checked" : ""}>
-        <label class="form-check-label" for="ewCategoriesCascade">Cascade: include related images</label>
+        <smd-checkbox id="ewCategoriesCascade" ${ew.categoriesCascade ? "checked" : ""}>Cascade: include related images</smd-checkbox>
       </div>`;
     page.buttons = ewBackNext();
   } else if (ew.step === "categories2") {
@@ -218,10 +213,7 @@ function renderExportWizard() {
         return `
         <div class="d-flex align-items-center gap-2 mb-2">
           ${ewThumb(c.image)}
-          <div class="form-check mb-0">
-            <input class="form-check-input ew-cat-cb" type="checkbox" value="${realIndex}" data-index="${realIndex}" ${ew.selectedCategoryIndices.includes(realIndex) ? "checked" : ""}>
-            <label class="form-check-label">${escapeHtml(c.name)}</label>
-          </div>
+          <smd-checkbox class="ew-cat-cb" value="${realIndex}" data-index="${realIndex}" ${ew.selectedCategoryIndices.includes(realIndex) ? "checked" : ""}>${escapeHtml(c.name)}</smd-checkbox>
         </div>`;
       }).join("")}
       </div>`;
@@ -260,10 +252,7 @@ function renderExportWizard() {
         return `
         <div class="d-flex align-items-center gap-2 mb-2">
           ${ewThumb(img.name)}
-          <div class="form-check mb-0">
-            <input class="form-check-input ew-img-cb" type="checkbox" value="${realIndex}" data-index="${realIndex}" ${ew.selectedImageIndices.includes(realIndex) ? "checked" : ""}>
-            <label class="form-check-label">${escapeHtml(img.name)}</label>
-          </div>
+          <smd-checkbox class="ew-img-cb" value="${realIndex}" data-index="${realIndex}" ${ew.selectedImageIndices.includes(realIndex) ? "checked" : ""}>${escapeHtml(img.name)}</smd-checkbox>
         </div>`;
       }).join("")}
       </div>`;
@@ -347,19 +336,19 @@ function ewReadForm() {
     const sel = ewQuery('input[name="ewDatesChoice"]:checked');
     if (sel) ew.datesChoice = sel.value;
   } else if (ew.step === "dates2") {
-    ew.selectedDateIndices = ewQueryAll(".ew-date-cb:checked").map(cb => parseInt(cb.value, 10));
+    ew.selectedDateIndices = ewQueryAll(".ew-date-cb").filter(cb => cb.checked).map(cb => parseInt(cb.value, 10));
   } else if (ew.step === "categories1") {
     const sel = ewQuery('input[name="ewCategoriesChoice"]:checked');
     if (sel) ew.categoriesChoice = sel.value;
     const cascade = ewQuery("#ewCategoriesCascade");
     if (cascade) ew.categoriesCascade = cascade.checked;
   } else if (ew.step === "categories2") {
-    ew.selectedCategoryIndices = ewQueryAll(".ew-cat-cb:checked").map(cb => parseInt(cb.value, 10));
+    ew.selectedCategoryIndices = ewQueryAll(".ew-cat-cb").filter(cb => cb.checked).map(cb => parseInt(cb.value, 10));
   } else if (ew.step === "images1") {
     const sel = ewQuery('input[name="ewImagesChoice"]:checked');
     if (sel) ew.imagesChoice = sel.value;
   } else if (ew.step === "images2") {
-    ew.selectedImageIndices = ewQueryAll(".ew-img-cb:checked").map(cb => parseInt(cb.value, 10));
+    ew.selectedImageIndices = ewQueryAll(".ew-img-cb").filter(cb => cb.checked).map(cb => parseInt(cb.value, 10));
   }
 }
 
@@ -405,7 +394,7 @@ function ewSaveCheckboxes() {
   const save = (selector, current) => {
     const visible = ewQueryAll(selector);
     if (visible.length === 0) return current;
-    const checked = new Set(ewQueryAll(selector + ":checked").map(cb => parseInt(cb.value, 10)));
+    const checked = new Set(ewQueryAll(selector).filter(cb => cb.checked).map(cb => parseInt(cb.value, 10)));
     const visibleValues = new Set(visible.map(cb => parseInt(cb.value, 10)));
     const kept = new Set(current);
     checked.forEach(i => kept.add(i));

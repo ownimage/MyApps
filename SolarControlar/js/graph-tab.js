@@ -53,13 +53,13 @@ function renderGraphTab() {
         '<option value="">Select a day</option>' +
       '</smd-select>' +
       '<div class="graph-checkboxes d-flex flex-wrap align-items-center gap-3">' +
-        '<label class="form-check-label d-inline-flex align-items-center gap-1"><input type="checkbox" class="form-check-input graph-series" value="solar" checked onchange="loadGraphData()"> Solar</label>' +
-        '<label class="form-check-label d-inline-flex align-items-center gap-1"><input type="checkbox" class="form-check-input graph-series" value="grid" checked onchange="loadGraphData()"> Grid</label>' +
-        '<label class="form-check-label d-inline-flex align-items-center gap-1"><input type="checkbox" class="form-check-input graph-series" value="home" checked onchange="loadGraphData()"> Home</label>' +
-        '<label class="form-check-label d-inline-flex align-items-center gap-1"><input type="checkbox" class="form-check-input graph-series" value="battery" checked onchange="loadGraphData()"> Battery</label>' +
-        '<label class="form-check-label d-inline-flex align-items-center gap-1"><input type="checkbox" class="form-check-input graph-series" value="battery_level" checked onchange="loadGraphData()"> Battery Level</label>' +
+        '<smd-checkbox class="graph-series" value="solar" checked onchange="if (!event.detail) loadGraphData()">Solar</smd-checkbox>' +
+        '<smd-checkbox class="graph-series" value="grid" checked onchange="if (!event.detail) loadGraphData()">Grid</smd-checkbox>' +
+        '<smd-checkbox class="graph-series" value="home" checked onchange="if (!event.detail) loadGraphData()">Home</smd-checkbox>' +
+        '<smd-checkbox class="graph-series" value="battery" checked onchange="if (!event.detail) loadGraphData()">Battery</smd-checkbox>' +
+        '<smd-checkbox class="graph-series" value="battery_level" checked onchange="if (!event.detail) loadGraphData()">Battery Level</smd-checkbox>' +
       '</div>' +
-      '<label class="form-check-label d-inline-flex align-items-center gap-1"><input type="checkbox" class="form-check-input" id="graph-points" onchange="loadGraphData()"> Data Points</label>' +
+      '<smd-checkbox id="graph-points" onchange="if (!event.detail) loadGraphData()">Data Points</smd-checkbox>' +
     '</div>' +
     '<div class="graph-wrap bg-body-tertiary border rounded p-3 position-relative">' +
       '<canvas id="powerChart" class="w-100"></canvas>' +

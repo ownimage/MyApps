@@ -550,6 +550,35 @@ test.describe("CountMyDays - Regression", () => {
       await expect(page.locator("#dateCategoryFilter #smdImageBtnText")).toHaveText("All");
     });
 
+    test("date filters use the shared smd-checkbox component", async ({ page }) => {
+      await seed(page);
+      await page.evaluate(() => openDatesEditor());
+      for (const id of ["filterShowLocal", "filterShowGoogle", "filterShowGoogleHidden"]) {
+        expect(await page.locator("#" + id).evaluate((el) => el.tagName), id).toBe("SMD-CHECKBOX");
+      }
+      await page.locator("#filterShowGoogle").uncheck();
+      await expect(page.locator("#filterShowGoogle")).not.toBeChecked();
+      await page.locator("#filterShowGoogle").check();
+      await expect(page.locator("#filterShowGoogle")).toBeChecked();
+    });
+
+    test("date filters stack search, category and source checkboxes on separate rows", async ({ page }) => {
+      await seed(page);
+      await page.evaluate(() => openDatesEditor());
+      const box = async (sel) => page.locator(sel).boundingBox();
+      const search = await box("#dateSearch");
+      const category = await box("#dateCategoryFilter");
+      const local = await box("#filterShowLocal");
+      const google = await box("#filterShowGoogle");
+      const hidden = await box("#filterShowGoogleHidden");
+      // row 1 = search, row 2 = category, row 3 = source checkboxes
+      expect(category.y).toBeGreaterThanOrEqual(search.y + search.height - 1);
+      expect(local.y).toBeGreaterThanOrEqual(category.y + category.height - 1);
+      // the three source toggles share row 3
+      expect(Math.abs(local.y - google.y)).toBeLessThanOrEqual(1);
+      expect(Math.abs(local.y - hidden.y)).toBeLessThanOrEqual(1);
+    });
+
     test("none category filter matches only dates with no category", async ({ page }) => {
       await seed(page);
       await page.evaluate(() => openDatesEditor());
@@ -1032,8 +1061,10 @@ test.describe("CountMyDays - Regression", () => {
       // dates: specific + cascade, exercise the name filter and Back
       await wiz.locator("#ewDatesSpecific").check();
       await wiz.locator("#ewDatesCascade").check();
+      expect(await wiz.locator("#ewDatesCascade").evaluate((el) => el.tagName)).toBe("SMD-CHECKBOX");
       await wiz.getByRole("button", { name: "Next" }).click();
       const dateBoxes = wiz.locator(".ew-date-cb");
+      expect(await dateBoxes.first().evaluate((el) => el.tagName)).toBe("SMD-CHECKBOX");
       for (let i = 0; i < await dateBoxes.count(); i++) await dateBoxes.nth(i).check();
       await wiz.locator("#ewDateFilterName").fill("Ann");
       await wiz.locator("#ewDateFilterName").fill("");
@@ -1042,11 +1073,13 @@ test.describe("CountMyDays - Regression", () => {
       // categories: specific + cascade, Back, then filter + forward
       await wiz.locator("#ewCatsSpecific").check();
       await wiz.locator("#ewCategoriesCascade").check();
+      expect(await wiz.locator("#ewCategoriesCascade").evaluate((el) => el.tagName)).toBe("SMD-CHECKBOX");
       await wiz.getByRole("button", { name: "Next" }).click();
       await wiz.getByRole("button", { name: "Back" }).click();
       await expect(wiz).toContainText("Export Categories");
       await wiz.getByRole("button", { name: "Next" }).click();
       await wiz.locator(".ew-cat-cb").first().check();
+      expect(await wiz.locator(".ew-cat-cb").first().evaluate((el) => el.tagName)).toBe("SMD-CHECKBOX");
       await wiz.locator("#ewCatFilterName").fill("Birth");
       await wiz.locator("#ewCatFilterName").fill("");
       await wiz.getByRole("button", { name: "Next" }).click();
@@ -1055,6 +1088,7 @@ test.describe("CountMyDays - Regression", () => {
       await wiz.locator("#ewImgsSpecific").check();
       await wiz.getByRole("button", { name: "Next" }).click();
       await wiz.locator(".ew-img-cb").first().check();
+      expect(await wiz.locator(".ew-img-cb").first().evaluate((el) => el.tagName)).toBe("SMD-CHECKBOX");
       await wiz.locator("#ewImageFilterName").fill("img");
       await wiz.locator("#ewImageFilterName").fill("");
       await wiz.getByRole("button", { name: "Export" }).click();

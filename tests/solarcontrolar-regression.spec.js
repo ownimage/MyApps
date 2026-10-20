@@ -170,6 +170,15 @@ test.describe("SolarControlar - Regression", () => {
     await expect(page.locator("#graph-date")).toBeVisible({ timeout: 5000 });
     await expect(page.locator("#graph-date .smd-select-item")).toHaveCount(2);
     await expect(page.locator("#graph-date")).toHaveAttribute("value", "2026-09-15");
+    // Series/data-point toggles are the shared <smd-checkbox>, not native inputs.
+    await expect(page.locator(".graph-series")).toHaveCount(5);
+    expect(await page.locator(".graph-series").evaluateAll((els) => els.map((el) => el.tagName)))
+      .toEqual(Array(5).fill("SMD-CHECKBOX"));
+    await expect(page.locator("#graph-points")).toHaveJSProperty("tagName", "SMD-CHECKBOX");
+    await page.locator('.graph-series[value="battery"]').uncheck();
+    await expect(page.locator('.graph-series[value="battery"]')).not.toBeChecked();
+    await page.locator('.graph-series[value="battery"]').check();
+    await expect(page.locator('.graph-series[value="battery"]')).toBeChecked();
     await page.waitForTimeout(500);
   });
 

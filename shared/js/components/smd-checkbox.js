@@ -95,6 +95,15 @@
       else this.removeAttribute("disabled");
     }
 
+    // Host-level value, matching a native checkbox's API. Consumers that read
+    // `cb.value` (export wizard lists, the Solar graph series) keep working now
+    // that those checkboxes are <smd-checkbox> hosts.
+    get value() { return this.getAttribute("value") || "on"; }
+    set value(value) {
+      if (value === null || value === undefined) this.removeAttribute("value");
+      else this.setAttribute("value", String(value));
+    }
+
     _sync() {
       const input = this._input;
       if (!input) return;

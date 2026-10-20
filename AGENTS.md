@@ -6245,3 +6245,29 @@ Techniques / gotchas:
 - `BUILD_NUMBER` -> `202610201427` via `npm run bump:build`; restart the test
   server afterwards (it snapshots app JS at startup).
 
+### 2026-10-20 - Native checkboxes replaced with <smd-checkbox>
+- REQUEST (user): native checkboxes in app UI must use the shared
+  `<smd-checkbox>`; example was Edit Dates in CountMyDays.
+- CONVERTED: CountMyDays Edit Dates source filters (`#filterShowLocal` /
+  `#filterShowGoogle` / `#filterShowGoogleHidden`), the export wizard
+  (`#ewDatesCascade`, `#ewCategoriesCascade`, `.ew-date-cb`, `.ew-cat-cb`,
+  `.ew-img-cb`) and SolarControlar graph series + `#graph-points`.
+  Radios stay native (`smd-checkbox` is checkbox-only). Storybook demo controls
+  stay native (dev-only).
+- `smd-checkbox` gained a host-level `value` getter/setter (matching a native
+  checkbox) so the export/graph code can keep reading `cb.value`.
+- Export selectors that used `:checked` now filter hosts by `cb.checked`
+  (the host is not an `<input>`); the graph `onchange` uses
+  `if (!event.detail)` to ignore the component's duplicate custom `change`
+  event and call `loadGraphData()` once.
+- EDIT DATES LAYOUT: three rows - (1) search + Clear, (2) Category Filter,
+  (3) the three source `<smd-checkbox>`s.
+- GUARD: new `tests/native-checkbox-guard.spec.js` scans app JS/HTML and fails
+  on any `type="checkbox"` outside `shared/js/components/smd-checkbox.js`.
+- TESTS: new "date filters use the shared smd-checkbox component" + "date
+  filters stack search, category and source checkboxes on separate rows";
+  export wizard asserts the converted hosts; Solar graph asserts the five
+  `.graph-series` + `#graph-points` are SMD-CHECKBOX and toggle.
+- VERIFIED: cmd-regression + solarcontrolar-regression + the guard 90/90.
+- `BUILD_NUMBER` bumped via `npm run bump:build`; restart the test server.
+

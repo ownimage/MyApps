@@ -55,12 +55,14 @@ function renderDatesEditor() {
     page.title = "Edit Dates";
     page.content =
       '<div id="dateFilters" class="mb-3">' +
-        '<smd-search id="dateSearch" input-id="dateTitleSearch" placeholder="Search titles..." value="' + escAttr(dateTitleSearch) + '"></smd-search>' +
-        '<div class="d-flex gap-3 align-items-center flex-wrap mt-2">' +
+        '<div class="mb-2"><smd-search id="dateSearch" input-id="dateTitleSearch" placeholder="Search titles..." value="' + escAttr(dateTitleSearch) + '"></smd-search></div>' +
+        '<div class="mb-2 d-flex">' +
           `<smd-image-dropdown id="dateCategoryFilter" key-prefix="${escAttr(smdImagePrefix())}" style="min-width:180px"></smd-image-dropdown>` +
-          '<label class="d-flex gap-1 align-items-center"><input class="form-check-input" type="checkbox" id="filterShowLocal" onchange="setFilterShowLocal(this.checked)"> Local</label>' +
-          '<label class="d-flex gap-1 align-items-center"><input class="form-check-input" type="checkbox" id="filterShowGoogle" onchange="setFilterShowGoogle(this.checked)"> Google</label>' +
-          '<label class="d-flex gap-1 align-items-center"><input class="form-check-input" type="checkbox" id="filterShowGoogleHidden" onchange="setFilterShowGoogleHidden(this.checked)"> Google hidden</label>' +
+        '</div>' +
+        '<div class="d-flex gap-3 align-items-center flex-wrap">' +
+          '<smd-checkbox id="filterShowLocal" onchange="setFilterShowLocal(this.checked)">Local</smd-checkbox>' +
+          '<smd-checkbox id="filterShowGoogle" onchange="setFilterShowGoogle(this.checked)">Google</smd-checkbox>' +
+          '<smd-checkbox id="filterShowGoogleHidden" onchange="setFilterShowGoogleHidden(this.checked)">Google hidden</smd-checkbox>' +
         '</div>' +
       '</div>' +
       '<div id="dateList"></div>';
