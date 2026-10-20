@@ -49,17 +49,6 @@ async function seed(page, categories = CATEGORIES) {
   await page.reload();
 }
 
-// Seeds the main order too, so `ensureMainList()` keeps it (last_gen == today).
-async function seedWithOrder(page, order) {
-  await page.evaluate(({ cats, ord, gen }) => {
-    localStorage.setItem("lol_categories", JSON.stringify(cats));
-    localStorage.setItem("lol_main_order", JSON.stringify(ord));
-    localStorage.setItem("lol_completed", "[]");
-    localStorage.setItem("lol_last_gen", gen);
-  }, { cats: CATEGORIES, ord: order, gen: todayStr() });
-  await page.reload();
-}
-
 async function readCategories(page) {
   return page.evaluate(() => JSON.parse(localStorage.getItem("lol_categories") || "[]"));
 }
@@ -156,10 +145,32 @@ test.describe("ListOfLists - Regression", () => {
       expect(text.split(" ")[0]).toMatch(/^(Sun|Mon|Tue|Wed|Thu|Fri|Sat)$/);
     });
 
-    test("a seeded main order is respected", async ({ page }) => {
-      await seedWithOrder(page, ["list_2", "list_1"]);
+    test("the main view follows the Edit Categories order, not the daily main_order snapshot", async ({ page }) => {
+      const cats = [
+        {
+          title: "Second", sequence: 2, description: "", lists: [
+            { id: "list_b", title: "B1", sequence: 1, active: true, items: [] },
+          ],
+        },
+        {
+          title: "First", sequence: 1, description: "", lists: [
+            { id: "list_a1", title: "A1", sequence: 1, active: true, items: [] },
+            { id: "list_a2", title: "A2", sequence: 2, active: true, items: [] },
+          ],
+        },
+      ];
+      await page.evaluate(({ data, gen }) => {
+        localStorage.setItem("lol_categories", JSON.stringify(data));
+        // Deliberately conflicting daily snapshot: the front screen must ignore
+        // it in favour of the category sequence + list array order.
+        localStorage.setItem("lol_main_order", JSON.stringify(["list_b", "list_a2", "list_a1"]));
+        localStorage.setItem("lol_completed", "[]");
+        localStorage.setItem("lol_last_gen", gen);
+      }, { data: cats, gen: todayStr() });
+      await page.reload();
+
       const titles = await page.locator("#mainCardList lol-list-main-card .list-title").allTextContents();
-      expect(titles).toEqual(["Meeting", "Report"]);
+      expect(titles).toEqual(["A1", "A2", "B1"]);
     });
 
     test("both thumbnails keep their slot with no images", async ({ page }) => {
@@ -588,6 +599,27 @@ test.describe("ListOfLists - Regression", () => {
       await expect(page.locator("#categoryEditorList .editor-title")).toHaveText(["Home", "Work"]);
     });
 
+    test("reordering lists within a category reorders the main view", async ({ page }) => {
+      await openEditor(page);
+      await page.locator("#categoryEditorList lol-category-header").first().locator(".category-header-main").click();
+      await expect(page.locator("#categoryCollapse_0")).toHaveClass(/show/);
+
+      const cards = page.locator("#categoryCollapse_0 .list-drag-card");
+      const handle = cards.first().locator(".drag-handle");
+      const handleBox = await handle.boundingBox();
+      const lastBox = await cards.last().boundingBox();
+      await page.mouse.move(handleBox.x + handleBox.width / 2, handleBox.y + handleBox.height / 2);
+      await page.mouse.down();
+      await page.mouse.move(lastBox.x + lastBox.width / 2, lastBox.y + lastBox.height * 0.9, { steps: 15 });
+      await page.mouse.up();
+
+      await expect.poll(async () => (await readCategories(page))[0].lists.map((l) => l.title))
+        .toEqual(["Meeting", "Report"]);
+      await page.locator("#btnCategoriesDone").click();
+      const titles = await page.locator("#mainCardList lol-list-main-card .list-title").allTextContents();
+      expect(titles).toEqual(["Meeting", "Report"]);
+    });
+
     test("OK closes the editor and returns to the main view", async ({ page }) => {
       await openEditor(page);
       await page.locator("#btnCategoriesDone").click();
@@ -819,6 +851,9 @@ test.describe("ListOfLists - Regression", () => {
       const saved = await readCategories(page);
       // no sleepUntil + time first, then the plain ones, then the sleepUntil group
       expect(saved[0].lists.map((l) => l.title)).toEqual(["Timed", "Plain", "Later"]);
+      // The main view mirrors the reordered Edit Categories list order.
+      const titles = await page.locator("#mainCardList lol-list-main-card .list-title").allTextContents();
+      expect(titles).toEqual(["Timed", "Plain", "Later"]);
     });
 
     test("the Minio tab hides its menu items until enabled", async ({ page }) => {

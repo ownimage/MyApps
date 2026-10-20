@@ -1096,6 +1096,19 @@ Architecture:
   to Minio names the file listoflists-<datetime>.json and uploads the categories
   payload" and "Importing from Minio restores the categories through the app
   hook".
+- LISTOFLISTS MAIN-VIEW ORDER = EDIT-CATEGORIES ORDER (2026-10-20, user request):
+  `ListOfLists/js/main-view.js` `renderMain()` no longer sorts cards by the daily
+  `lol_main_order` snapshot. It now walks categories sorted by `sequence` (the
+  same comparator as `categories-editor.js`) and each category's `lists` array in
+  stored order, keeping only `active !== false` + `shouldShowListToday()`. So
+  dragging categories/lists or using "Sort Lists in Categories" changes the front
+  screen immediately, and the old global time-sort from
+  `addScheduleListsToOrder()` no longer decides display order. `main_order` is
+  still maintained (Active toggles, list add/delete, `ensureMainList` daily reset)
+  but is no longer read for display. Tests: "the main view follows the Edit
+  Categories order, not the daily main_order snapshot", "reordering lists within
+  a category reorders the main view", and the Sort test now also asserts the main
+  card order.
 - EDIT GOOGLE EVENT MIRRORS EDIT DATE (2026-10-18, user request): the
   `#googleEventEditPage` content in `CountMyDays/js/googleCalendarEditor.js`
   (`renderGcalEditContent`) now follows the Edit Date page row-for-row: (1) a
@@ -6213,5 +6226,22 @@ Techniques / gotchas:
   hook); pmd-regression "export to minio keeps the planmydays filename and
   streams payload" 1/1.
 - `BUILD_NUMBER` -> `202610201050` via `npm run bump:build`; restart the test
+  server afterwards (it snapshots app JS at startup).
+
+### 2026-10-20 - ListOfLists front screen follows Edit Categories order
+- REQUEST (user): the front-screen card order must match the Edit Categories
+  order. The main view used the daily `lol_main_order` snapshot, which only
+  changed on a new day or "Regenerate Main Tiles" - category/list drags never
+  touched it.
+- IMPLEMENTED: `renderMain()` derives the cards directly from categories sorted
+  by `sequence` + each category's `lists` array order (filtering active lists by
+  `shouldShowListToday`), and no longer reads `main_order` for ordering. The
+  legacy snapshot is still maintained for other code/tests.
+- TESTS: replaced "a seeded main order is respected" with "the main view follows
+  the Edit Categories order, not the daily main_order snapshot"; added "reordering
+  lists within a category reorders the main view"; the Sort Lists in Categories
+  test now also asserts the main card order.
+- VERIFIED: lol-regression 66/66.
+- `BUILD_NUMBER` -> `202610201427` via `npm run bump:build`; restart the test
   server afterwards (it snapshots app JS at startup).
 

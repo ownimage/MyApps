@@ -70,21 +70,22 @@ function renderMain() {
 
   const categories = loadCategories();
   const completed = loadCompletedLists();
-  const mainOrder = loadMainOrder() || [];
-  const mainSet = new Set(mainOrder);
 
+  // The front screen follows the Edit Categories order: categories by
+  // `sequence` (the same comparator the editor uses), then each category's
+  // lists in their stored array order. The daily `main_order` snapshot no
+  // longer decides display order.
   const allLists = [];
-  categories.forEach((t, categoryIdx) => {
-    (t.lists || []).forEach((j, listIdx) => {
-      if (j.active !== false && mainSet.has(j.id) && shouldShowListToday(j)) {
-        allLists.push({ list: j, categoryTitle: t.title, categoryIdx, listIdx });
-      }
+  categories
+    .map((category, categoryIdx) => ({ category, categoryIdx }))
+    .sort((a, b) => ((a.category.sequence || 0) - (b.category.sequence || 0)) || (a.categoryIdx - b.categoryIdx))
+    .forEach(({ category, categoryIdx }) => {
+      (category.lists || []).forEach((list, listIdx) => {
+        if (list.active !== false && shouldShowListToday(list)) {
+          allLists.push({ list: list, categoryTitle: category.title, categoryIdx: categoryIdx, listIdx: listIdx });
+        }
+      });
     });
-  });
-
-  const orderMap = {};
-  mainOrder.forEach((id, i) => { orderMap[id] = i; });
-  allLists.sort((a, b) => (orderMap[a.list.id] !== undefined ? orderMap[a.list.id] : 999) - (orderMap[b.list.id] !== undefined ? orderMap[b.list.id] : 999));
 
   const scrollBody = document.createElement("div");
   scrollBody.id = "mainScrollBody";
