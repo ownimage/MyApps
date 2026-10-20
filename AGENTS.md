@@ -983,6 +983,21 @@ Architecture:
   resolving); preview `<img>` writers use `src="" data-smdsrc="…"` filled via
   `smdSetImageSrc` after render. Tests must assert async fills (fetch the resolved
   `src`) rather than `src*=data:`.
+- IMAGE SWAP ON iOS (2026-10-20): `smd-image` no longer re-sources its single
+  `<img>` in place. `_paintImage` builds a NEW `<img>`, waits for
+  `decode()`/load, then `replaceWith`s it. `_renderSeq` is bumped ONCE in
+  `_render()` (not in `_renderStored`) so it also cancels a pending stored-image
+  paint when the element switches to an icon. Why: an in-place
+  `removeAttribute("src")` + `img.src = url` left the previous bitmap
+  composited with the new one on WebKit (every iOS browser) - the Job editor's
+  stream/category thumbnail showed half of the old image and half of the new
+  one. It was intermittent because memoised `smdImageRenderUrl` results resolve
+  in a microtask, so the clear + re-source coalesced into ONE paint; the first
+  (uncached) view of an image awaited a fetch and swapped cleanly. Do NOT
+  "simplify" this back to `img.src = url`; the regression tests ("changing the
+  image swaps in a fresh decoded img element" / "job editor stream thumbnail
+  switches to the new category image") assert the element is replaced and the
+  bytes match the NEW image.
 - MENU ORDER (2026-09-17; Launch item added to the Launch app 2026-10-18): every
   app's hamburger menu lists **Settings**, a divider, **Launch**, then (where there
   is anything else) another divider and the rest of the options. ALL EIGHT shells
