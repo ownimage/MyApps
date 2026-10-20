@@ -1376,6 +1376,51 @@ test.describe("CountMyDays - Regression", () => {
       await expect(googleCard.getByRole("button", { name: "Delete" })).toHaveCount(0);
     });
 
+    test("timed Google events show the start time just before the source badge", async ({ page }) => {
+      const timed = new Date();
+      timed.setDate(timed.getDate() + 1);
+      timed.setHours(10, 30, 0, 0);
+      const allDay = new Date(timed.getFullYear(), timed.getMonth(), timed.getDate());
+      const allDayIso = allDay.getFullYear() + "-" +
+        String(allDay.getMonth() + 1).padStart(2, "0") + "-" +
+        String(allDay.getDate()).padStart(2, "0");
+
+      await seed(page, { settings: { gcal_enabled: "true", gcal_name: "Test User" } });
+      await page.evaluate(({ dateTime, allDayDate }) => {
+        localStorage.setItem("countmydays_google_cal", JSON.stringify({
+          items: [
+            { id: "timed", summary: "Timed Meeting", start: { dateTime: dateTime }, end: { dateTime: dateTime } },
+            { id: "allday", summary: "All Day Event", start: { date: allDayDate }, end: { date: allDayDate } }
+          ]
+        }));
+        renderMain();
+      }, { dateTime: timed.toISOString(), allDayDate: allDayIso });
+
+      const timedCard = page.locator("cmd-countdown-card").filter({ hasText: "Timed Meeting" });
+      await expect(timedCard).toHaveAttribute("time-text", "10:30");
+      await expect(timedCard.locator(".time-text")).toHaveText("10:30");
+      const order = await timedCard.evaluate((el) => {
+        const time = el.querySelector(".time-text");
+        const badge = el.querySelector(".source-badge");
+        return {
+          timeBeforeBadge: !!(time.compareDocumentPosition(badge) & Node.DOCUMENT_POSITION_FOLLOWING),
+          sameRow: time.parentElement === badge.parentElement,
+          badgeText: badge.textContent
+        };
+      });
+      expect(order.timeBeforeBadge, "the time is rendered before the source badge").toBe(true);
+      expect(order.sameRow, "the time and badge share one row").toBe(true);
+      expect(order.badgeText).toBe("Google");
+
+      // All-day Google events and local dates carry no start time.
+      const allDayCard = page.locator("cmd-countdown-card").filter({ hasText: "All Day Event" });
+      await expect(allDayCard).not.toHaveAttribute("time-text", /.+/);
+      await expect(allDayCard.locator(".time-text")).toBeHidden();
+      const localCard = page.locator('cmd-countdown-card[title="Today Event"]');
+      await expect(localCard).not.toHaveAttribute("time-text", /.+/);
+      await expect(localCard.locator(".time-text")).toBeHidden();
+    });
+
     test("editing a Google event patches the description and the cached feed", async ({ page }) => {
       await seed(page, { settings: { gcal_enabled: "true", gcal_name: "Test User" } });
       await page.evaluate(() => loadGCalSampleData());

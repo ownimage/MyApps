@@ -35,6 +35,7 @@ function renderCountdowns() {
     card.setAttribute("key-prefix", smdImagePrefix());
     card.setAttribute("title", d.name || "");
     card.setAttribute("date-text", formatDate(targetDate(d)));
+    if (d.startTime) card.setAttribute("time-text", d.startTime);
     card.setAttribute("source", d.gcal ? "google" : "local");
     card.setAttribute("count1", lines.line1);
     if (lines.line2) card.setAttribute("count2", lines.line2);

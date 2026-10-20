@@ -1047,6 +1047,19 @@ Architecture:
   `cmd-countdown-card` shows the Local/Google source as an `<smd-badge>` under the
   date (`source` attribute set by `main-view.js`), using the standard
   primary/secondary button variants for now (pending styling refinement).
+- COUNTDOWN CARD START TIME (2026-10-20, user request): `shared/js/smd-gcal.js`
+  `gcalEventToDate()` keeps `startTime` (`HH:MM`, device-local, 24-hour) when the
+  Google event has `start.dateTime`; all-day events (`start.date`) and local
+  dates have no time. `<cmd-countdown-card>` gained a `time-text` attribute,
+  rendered by `.time-text` IMMEDIATELY BEFORE `.source-badge` inside
+  `.source-row`, and hidden when empty. BOTH apps feed the SAME component:
+  `CountMyDays/js/main-view.js` and `PlanMyDay/js/cmd-today.js` each pass
+  `time-text` from `d.startTime` (PlanMyDay loads
+  `../CountMyDays/js/components/cmd-countdown-card.js` in its shell). The
+  `.date-text` row dropped its `mb-1` - the 4px gap under the date looked too
+  loose (user request). Tests: cmd-regression "timed Google events show the start
+  time just before the source badge" (also asserts all-day/local show none) and
+  pmd-regression "shows a timed Google event's start time just before the badge".
 - EDIT GOOGLE EVENT MIRRORS EDIT DATE (2026-10-18, user request): the
   `#googleEventEditPage` content in `CountMyDays/js/googleCalendarEditor.js`
   (`renderGcalEditContent`) now follows the Edit Date page row-for-row: (1) a

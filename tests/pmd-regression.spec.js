@@ -711,6 +711,33 @@ test.describe("PlanMyDay - Regression", () => {
       expect(flag.keys).toEqual(["l|Anniversary"]);
     });
 
+    test("shows a timed Google event's start time just before the badge", async ({ page }) => {
+      const start = new Date();
+      start.setHours(10, 30, 0, 0);
+      await seedCmd(page, { google: [
+        { id: "g_timed", summary: "Timed Google Event", start: { dateTime: start.toISOString() }, _cmd: { show: true } },
+        { id: "g_allday", summary: "All Day Google Event", start: { date: todayStr }, _cmd: { show: true } }
+      ] });
+
+      const timed = page.locator("#cmdTodayList cmd-countdown-card").filter({ hasText: "Timed Google Event" });
+      await expect(timed.locator(".time-text")).toHaveText("10:30");
+      const order = await timed.evaluate((el) => {
+        const time = el.querySelector(".time-text");
+        const badge = el.querySelector(".source-badge");
+        return {
+          timeBeforeBadge: !!(time.compareDocumentPosition(badge) & Node.DOCUMENT_POSITION_FOLLOWING),
+          sameRow: time.parentElement === badge.parentElement,
+          badgeText: badge.textContent
+        };
+      });
+      expect(order.timeBeforeBadge, "the time is rendered before the source badge").toBe(true);
+      expect(order.sameRow, "the time and badge share one row").toBe(true);
+      expect(order.badgeText).toBe("Google");
+
+      const allDay = page.locator("#cmdTodayList cmd-countdown-card").filter({ hasText: "All Day Google Event" });
+      await expect(allDay.locator(".time-text")).toBeHidden();
+    });
+
     test("shows downloaded Google events even when marked hidden in CountMyDays", async ({ page }) => {
       await seedCmd(page, { google: [
         { id: "g_visible", summary: "Google Visible", start: { date: todayStr }, _cmd: { show: true } },

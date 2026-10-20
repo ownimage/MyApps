@@ -157,6 +157,7 @@ function renderCmdTodayCards(container) {
     card.setAttribute("key-prefix", smdImagePrefix());
     card.setAttribute("title", d.name || "");
     card.setAttribute("date-text", cmdFormatDate(cmdTargetDate(d)));
+    if (d.startTime) card.setAttribute("time-text", d.startTime);
     card.setAttribute("source", d.gcal ? "google" : "local");
     const lines = cmdCountdownLines(0, format);
     card.setAttribute("count1", lines.line1);

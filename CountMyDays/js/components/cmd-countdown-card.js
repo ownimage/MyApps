@@ -3,6 +3,8 @@
 // Attributes:
 //   title           — event title
 //   date-text       — formatted event date (e.g. "Sat 12 Sep 2026")
+//   time-text       — optional 24-hour start time ("10:30"); omitted for
+//                     all-day and local events
 //   source          — "local" (default) | "google"; shown as a badge under the date
 //   count1          — first countdown line ("12" or "3 weeks")
 //   count2          — optional second line ("4 days")
@@ -42,8 +44,9 @@ cmdCountdownCardTemplate.innerHTML = `
       </div>
       <div class="content flex-grow-1 overflow-hidden">
         <h4 class="title fw-bold text-truncate mb-1"></h4>
-        <div class="date-text text-secondary mb-1"></div>
-        <div class="source-row">
+        <div class="date-text text-secondary"></div>
+        <div class="source-row d-flex align-items-center gap-2">
+          <span class="time-text text-secondary"></span>
           <smd-badge class="source-badge" variant="secondary"></smd-badge>
         </div>
       </div>
@@ -57,7 +60,7 @@ cmdCountdownCardTemplate.innerHTML = `
 
 class CmdCountdownCard extends HTMLElement {
   static get observedAttributes() {
-    return ["title", "date-text", "source", "count1", "count2", "category",
+    return ["title", "date-text", "time-text", "source", "count1", "count2", "category",
       "category-image", "image", "key-prefix", "dismissable", "hide-count"];
   }
 
@@ -84,6 +87,13 @@ class CmdCountdownCard extends HTMLElement {
 
     root.querySelector(".title").textContent = this.getAttribute("title") || "";
     root.querySelector(".date-text").textContent = this.getAttribute("date-text") || "";
+
+    // Optional start time, shown immediately BEFORE the Local/Google badge.
+    // All-day events and local dates have no time, so the span is hidden.
+    const timeText = this.getAttribute("time-text") || "";
+    const timeEl = root.querySelector(".time-text");
+    timeEl.textContent = timeText;
+    timeEl.hidden = !timeText;
 
     // Source badge: variant colours are the standard (button) theme variants
     // for now — the exact styling will be refined later.

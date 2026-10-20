@@ -108,6 +108,7 @@
   function gcalEventToDate(evt, userName) {
     const start = evt.start || {};
     let y, m, d;
+    let startTime = "";
     if (start.date) {
       const parts = String(start.date).split("-");
       y = parseInt(parts[0], 10);
@@ -118,6 +119,9 @@
       y = dt.getFullYear();
       m = dt.getMonth() + 1;
       d = dt.getDate();
+      // 24-hour local start time (e.g. "10:30"). All-day events have start.date
+      // instead, so they keep startTime = "" and the tile shows no time.
+      startTime = String(dt.getHours()).padStart(2, "0") + ":" + String(dt.getMinutes()).padStart(2, "0");
     } else {
       return null;
     }
@@ -149,7 +153,8 @@
       type: "once",
       year: y,
       month: m,
-      day: d
+      day: d,
+      startTime: startTime
     };
   }
 
