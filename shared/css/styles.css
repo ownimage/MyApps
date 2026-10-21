@@ -210,7 +210,16 @@ input {
   display: none !important;
 }
 
-/* COMPONENT: smd-checkbox (size and theme; layout is in smd-checkbox.js) */
+/* COMPONENT: smd-checkbox (size, theme and control chrome; layout is in
+   smd-checkbox.js).
+   The input is a REAL <input type=checkbox> for free keyboard, focus and form
+   semantics, but its native rendering is stripped (`appearance: none`): the
+   browser still draws a UA border that cannot be recoloured, which used to sit
+   inside the contrast-generated ring and read as a double border. Now this
+   component draws the only border (`currentColor`, so it follows the label/
+   body text) and the contrast layer recolours THAT border instead of adding a
+   second ring. The checked fill uses the theme accent and the tick is drawn as
+   a background image so no UA tick is involved. */
 smd-checkbox {
   --smd-checkbox-input-size: 1.2em;
 }
@@ -221,9 +230,40 @@ smd-checkbox[size="large"] {
 }
 
 smd-checkbox input {
+  appearance: none;
+  -webkit-appearance: none;
   width: var(--smd-checkbox-input-size, 1em);
   height: var(--smd-checkbox-input-size, 1em);
+  margin: 0 0.35em 0 0; /* replaces the native checkbox's own inline margin */
+  flex-shrink: 0;
+  border: 1px solid currentColor;
+  border-radius: 0.2em;
+  background-color: transparent;
+  background-image: none;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: contain;
+  /* Kept so a checked box still advertises the theme accent to callers and
+     probes, even though the fill is now drawn by the rule below. */
   accent-color: var(--smd-checkbox-accent);
+  print-color-adjust: exact;
+  cursor: pointer;
+}
+
+smd-checkbox input:checked {
+  background-color: var(--smd-checkbox-accent, var(--bs-primary));
+  border-color: var(--smd-checkbox-accent, var(--bs-primary));
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3e%3cpath fill='none' stroke='%23fff' stroke-linecap='round' stroke-linejoin='round' stroke-width='3' d='m6 10 3 3 6-6'/%3e%3c/svg%3e");
+}
+
+smd-checkbox input:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+
+smd-checkbox input:disabled {
+  opacity: 0.5;
+  cursor: default;
 }
 
 /* COMPONENT: smd-draghandle (size and glyph typography; layout/touch mechanics

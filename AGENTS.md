@@ -6271,3 +6271,32 @@ Techniques / gotchas:
 - VERIFIED: cmd-regression + solarcontrolar-regression + the guard 90/90.
 - `BUILD_NUMBER` bumped via `npm run bump:build`; restart the test server.
 
+
+### 2026-10-21 - <smd-checkbox>: one CSS-drawn border (no native double ring)
+- REPORTED: the shared checkbox showed two borders - the themed one (a
+  contrast-generated `outline`) plus the browser-native input's own UA border.
+- FIX (`shared/css/styles.css`): `smd-checkbox input` now has `appearance: none`
+  (plus `-webkit-appearance`), so the UA border/tick are gone. The component
+  draws the only border (`1px solid currentColor`, `border-radius: .2em`),
+  checked fill `var(--smd-checkbox-accent, var(--bs-primary))` and a white tick
+  SVG as `background-image`; `:focus-visible` gets a currentColor outline;
+  `:disabled` dims to .5. The input stays a REAL `<input type=checkbox>` (no JS
+  change), so keyboard/focus/Playwright `check()`/`toBeChecked()` and the
+  `smd-checkbox input` locators still work.
+- TICK COLOUR: only brite's bright lime primary needs a dark tick, so
+  `brite.light.css` + `brite.dark.css` override `smd-checkbox input:checked`
+  with a `#000` stroke (Bootstrap gives brite's own `.form-check-input` a black
+  tick); every other theme uses the shared white tick.
+- CONTRAST LAYER REWRITTEN: the generated block no longer adds
+  `outline: 1px solid X; outline-offset: 0` (a second ring). It now emits
+  `smd-checkbox input { border-color: X; }` - the SAME single border. All 54
+  `<theme>.<mode>.css` blocks were converted in place. `contrast-css.spec.js`
+  measures `borderColor/Width/Style` and always re-picks the colour against the
+  page bg (same pick as before), so `SMD_CONTRAST_FIX=1` reproduces the
+  converted files byte-for-byte; `contrast.spec.js` measures the same border.
+- OBSOLETE NOTES: the older `accent-color` KNOWN LIMIT and the
+  `color-scheme: dark` workaround no longer apply. `accent-color` is still set
+  (probes/callers read it) but paints nothing on an `appearance:none` input.
+  Do NOT reintroduce a theme `outline` or a `color-scheme` fix for smd-checkbox.
+- At the user's request NO Playwright/pytest suite was run - visual check only.
+  `BUILD_NUMBER` -> `202610210745` (so the SW serves the new sheets).

@@ -370,17 +370,19 @@ const MEASURE = (variants) => {
       select: borderOf("select.form-select"),
       checkbox: borderOf("input.form-check-input")
     };
-    // <smd-checkbox> is a native input: its border lives in the UA shadow, so
-    // the theme-able boundary is an outline ring. Measure that instead.
+    // <smd-checkbox> now draws its own border (`appearance: none`), so the theme
+    // boundary is a normal border again instead of an outline ring. The pick
+    // deliberately ignores the inherited currentColor: the generated rule pins
+    // one contrast-safe COLOUR per theme, so it is stable no matter where the
+    // checkbox sits (the component sheet owns width/style/radius).
     const nativeCb = bhost.querySelector("smd-checkbox input");
     if (nativeCb) {
       const cs = getComputedStyle(nativeCb);
-      const raw = parse(cs.outlineColor);
+      const raw = parse(cs.borderColor);
       const painted = over(raw, pageBg);
-      const width = parseFloat(cs.outlineWidth) || 0;
-      const style = cs.outlineStyle;
-      const visible = width > 0 && style !== "none";
-      const pick = pickBorder(visible ? painted : pageBg, pageBg, [bodyColor, emphasis]);
+      const width = parseFloat(cs.borderWidth) || 0;
+      const style = cs.borderStyle;
+      const pick = pickBorder(pageBg, pageBg, [bodyColor, emphasis]);
       out.nativeCheckbox = {
         current: rgb(painted),
         surface: rgb(pageBg),
@@ -497,13 +499,13 @@ function formatBlock(measured) {
     });
   }
 
-  // The shared <smd-checkbox> is a native control, so give it a theme-drawn
-  // outline ring (the UA border cannot be recoloured/measured).
+  // The shared <smd-checkbox> draws its own single border (`appearance: none`),
+  // so recolour THAT border. Do not add an outline here: a second ring is the
+  // double-border bug this replaced.
   if (measured.nativeCheckbox && measured.nativeCheckbox.picked) {
     rules.push(
       "smd-checkbox input {\n" +
-      "  outline: 1px solid " + hex(measured.nativeCheckbox.picked) + ";\n" +
-      "  outline-offset: 0;\n}"
+      "  border-color: " + hex(measured.nativeCheckbox.picked) + ";\n}"
     );
   }
 

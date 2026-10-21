@@ -103,7 +103,6 @@ cmd-countdown-card .text-secondary {
   border-width: 1px;
 }
 smd-checkbox input {
-  outline: 1px solid #aaa;
-  outline-offset: 0;
+  border-color: #aaa;
 }
 /* smd-contrast:end */

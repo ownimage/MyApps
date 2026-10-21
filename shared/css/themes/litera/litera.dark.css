@@ -79,7 +79,6 @@ smd-tabs .smd-tab-btn.text-bg-secondary:focus-visible {
   border-width: 1px;
 }
 smd-checkbox input {
-  outline: 1px solid #fff;
-  outline-offset: 0;
+  border-color: #fff;
 }
 /* smd-contrast:end */

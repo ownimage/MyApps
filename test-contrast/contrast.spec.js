@@ -289,24 +289,9 @@ const MEASURE_CMD = () => {
     select: border("select.form-select"),
     checkbox: border("input.form-check-input")
   };
-  // The shared <smd-checkbox> is a browser-native input: its border is painted
-  // in the UA shadow and is not exposed/stylable. Its theme boundary is the
-  // outline ring, so measure that instead.
-  const nativeCb = host ? host.querySelector("smd-checkbox input") : null;
-  if (nativeCb) {
-    const cs = getComputedStyle(nativeCb);
-    const raw = parse(cs.outlineColor);
-    const painted = over(raw, pageBg);
-    borders.nativeCheckbox = {
-      width: parseFloat(cs.outlineWidth) || 0,
-      style: cs.outlineStyle,
-      color: rgb(painted),
-      bg: rgb(pageBg),
-      ratio: ratio(painted, pageBg)
-    };
-  } else {
-    borders.nativeCheckbox = null;
-  }
+  // The shared <smd-checkbox> draws its own single border (`appearance: none`),
+  // so it is measured like any other control border.
+  borders.nativeCheckbox = border("smd-checkbox input");
   return { text, borders };
 };
 

@@ -5,8 +5,9 @@
 // shared/css/styles.css). The
 // host itself is ARIA-checkable (`role=checkbox|switch` + `aria-checked`) so
 // assistive tech — and Playwright's check()/toBeChecked() — treat it like a real
-// checkbox. Clicking anywhere on the built-in label toggles it; a `switch`
-// attribute renders a pill toggle instead of a square.
+// checkbox. Clicking anywhere on the built-in label toggles it. A `switch`
+// attribute only changes the ARIA role (role=switch); the control keeps the
+// same square look.
 //
 // The light text inside the host is the label (captured on first connect, like
 // smd-button). The checkbox input also carries the host-id suffix "-input" for
