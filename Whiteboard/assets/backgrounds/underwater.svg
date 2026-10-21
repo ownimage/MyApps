@@ -1,0 +1,140 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2560" height="1440" viewBox="0 0 2560 1440" role="img" aria-label="Sunlit underwater scene with kelp, coral and bubbles">
+  <defs>
+    <linearGradient id="water" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0e7490"/>
+      <stop offset="0.28" stop-color="#0a5b7d"/>
+      <stop offset="0.62" stop-color="#073f5d"/>
+      <stop offset="1" stop-color="#021c2e"/>
+    </linearGradient>
+    <radialGradient id="sun" cx="50%" cy="0%" r="80%">
+      <stop offset="0" stop-color="#a5f3fc" stop-opacity="0.55"/>
+      <stop offset="0.45" stop-color="#22d3ee" stop-opacity="0.18"/>
+      <stop offset="1" stop-color="#0e7490" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="ray" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#e0f2fe" stop-opacity="0.30"/>
+      <stop offset="0.65" stop-color="#bae6fd" stop-opacity="0.08"/>
+      <stop offset="1" stop-color="#bae6fd" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="sand" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#e7d6a4"/>
+      <stop offset="0.55" stop-color="#cbae73"/>
+      <stop offset="1" stop-color="#9c7c48"/>
+    </linearGradient>
+    <linearGradient id="kelp" x1="0" y1="1" x2="0" y2="0">
+      <stop offset="0" stop-color="#14532d"/>
+      <stop offset="0.5" stop-color="#15803d"/>
+      <stop offset="1" stop-color="#4ade80"/>
+    </linearGradient>
+    <linearGradient id="kelp2" x1="0" y1="1" x2="0" y2="0">
+      <stop offset="0" stop-color="#0f766e"/>
+      <stop offset="1" stop-color="#2dd4bf"/>
+    </linearGradient>
+    <linearGradient id="coral" x1="0" y1="1" x2="0" y2="0">
+      <stop offset="0" stop-color="#be123c"/>
+      <stop offset="1" stop-color="#fb7185"/>
+    </linearGradient>
+    <linearGradient id="coral2" x1="0" y1="1" x2="0" y2="0">
+      <stop offset="0" stop-color="#c2410c"/>
+      <stop offset="1" stop-color="#fdba74"/>
+    </linearGradient>
+    <radialGradient id="bubble" cx="32%" cy="28%" r="70%">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.85"/>
+      <stop offset="0.35" stop-color="#bae6fd" stop-opacity="0.28"/>
+      <stop offset="1" stop-color="#7dd3fc" stop-opacity="0.10"/>
+    </radialGradient>
+  </defs>
+
+  <rect width="2560" height="1440" fill="url(#water)"/>
+  <rect width="2560" height="760" fill="url(#sun)"/>
+
+  <!-- wavy surface light -->
+  <g fill="none" stroke="#a5f3fc" stroke-linecap="round" opacity="0.22">
+    <path d="M0 70c180 34 300-26 470 4s280 46 470 10 300-42 500-6 320 38 520 0 330-34 600 10" stroke-width="14"/>
+    <path d="M0 130c200 26 320-30 510 0s300 40 500 4 320-36 520-2 330 32 540-6 340-28 490 12" stroke-width="9" opacity="0.8"/>
+    <path d="M0 196c220 22 340-24 540 4s320 34 520 0 340-30 540 2 340 26 520-8 300-22 440 8" stroke-width="5" opacity="0.7"/>
+  </g>
+
+  <!-- sun rays -->
+  <g opacity="0.85">
+    <path d="M300 0l210 0 470 1440-330 0z" fill="url(#ray)"/>
+    <path d="M780 0l150 0 320 1440-230 0z" fill="url(#ray)" opacity="0.8"/>
+    <path d="M1320 0l260 0 420 1440-380 0z" fill="url(#ray)" opacity="0.7"/>
+    <path d="M1900 0l170 0 240 1440-250 0z" fill="url(#ray)" opacity="0.6"/>
+  </g>
+
+  <!-- distant fish silhouettes -->
+  <g fill="#0b3a52" opacity="0.7">
+    <g transform="translate(1880 430) scale(0.9)">
+      <path d="M0 0c50-34 120-34 170 0-50 34-120 34-170 0z"/>
+      <path d="M-10 0l-38-26 10 26-10 26z"/>
+    </g>
+    <g transform="translate(2020 520) scale(0.6)">
+      <path d="M0 0c50-34 120-34 170 0-50 34-120 34-170 0z"/>
+      <path d="M-10 0l-38-26 10 26-10 26z"/>
+    </g>
+    <g transform="translate(430 620) scale(0.7) scale(-1 1)">
+      <path d="M0 0c50-34 120-34 170 0-50 34-120 34-170 0z"/>
+      <path d="M-10 0l-38-26 10 26-10 26z"/>
+    </g>
+  </g>
+
+  <!-- sea floor -->
+  <path d="M0 1190c220-70 380-40 560 10 190 52 330 40 520-16 180-52 340-70 530-18 190 52 330 62 520 8 150-42 280-50 430-10v276H0z" fill="url(#sand)"/>
+  <path d="M0 1280c240-54 420-22 620 20 190 40 340 26 540-20 190-44 350-34 540 10 190 44 330 44 520 4 140-30 240-38 340-14v160H0z" fill="#7c5f33" opacity="0.55"/>
+
+  <!-- rocks -->
+  <g>
+    <path d="M520 1230c-40-70-10-130 60-140 80-12 140 30 150 96 8 54-30 94-96 96-50 2-92-16-114-52z" fill="#334155"/>
+    <path d="M575 1218c-22-42-4-78 38-84 46-6 82 20 86 62 4 34-20 58-60 58-28 0-50-12-64-36z" fill="#475569" opacity="0.8"/>
+    <path d="M2150 1250c-30-52-4-96 50-104 62-8 108 24 116 74 6 40-26 70-78 72-40 0-70-14-88-42z" fill="#334155"/>
+    <path d="M2200 1240c-16-30-2-56 30-60 34-4 60 14 64 44 2 24-16 42-44 42-22 0-38-8-50-26z" fill="#475569" opacity="0.8"/>
+    <ellipse cx="1420" cy="1260" rx="150" ry="44" fill="#475569" opacity="0.55"/>
+  </g>
+
+  <!-- kelp forest -->
+  <g stroke="none">
+    <path d="M340 1240c-26-160 34-250 14-380 54 120 26 240 44 380z" fill="url(#kelp)"/>
+    <path d="M380 1240c10-190 82-250 72-400 52 140 2 260-24 400z" fill="url(#kelp)" opacity="0.9"/>
+    <path d="M300 1240c-46-130-16-220-60-320 62 90 44 210 74 320z" fill="url(#kelp2)" opacity="0.8"/>
+    <path d="M700 1240c-18-200 48-300 26-450 58 140 22 290 44 450z" fill="url(#kelp2)"/>
+    <path d="M760 1240c4-160 62-230 48-360 54 110 8 230-8 360z" fill="url(#kelp)" opacity="0.75"/>
+    <path d="M1880 1260c-30-190 30-280 6-430 60 140 26 270 54 430z" fill="url(#kelp)"/>
+    <path d="M1930 1260c6-170 70-230 56-380 56 120 6 240-16 380z" fill="url(#kelp2)" opacity="0.8"/>
+    <path d="M2330 1270c-22-150 28-220 8-340 52 110 20 220 44 340z" fill="url(#kelp)" opacity="0.8"/>
+  </g>
+
+  <!-- coral -->
+  <g>
+    <path d="M980 1240c-8-70 18-120 8-180 26 40 18 90 12 130 26-44 60-60 66-100 8 58-24 96-52 126 34-18 70-16 92-44-10 52-52 66-92 76z" fill="url(#coral)"/>
+    <path d="M1640 1240c-14-58 8-100 0-150 22 34 16 74 12 108 22-34 50-46 58-80 6 48-20 78-44 102 28-14 56-12 76-34-8 42-44 52-76 60z" fill="url(#coral2)"/>
+    <g fill="url(#coral)" opacity="0.9">
+      <circle cx="1050" cy="1110" r="18"/><circle cx="1012" cy="1150" r="12"/><circle cx="1084" cy="1160" r="10"/>
+    </g>
+    <g fill="url(#coral2)" opacity="0.9">
+      <circle cx="1690" cy="1130" r="14"/><circle cx="1660" cy="1162" r="10"/>
+    </g>
+  </g>
+
+  <!-- bubbles -->
+  <g>
+    <circle cx="240" cy="380" r="22" fill="url(#bubble)" stroke="#bae6fd" stroke-width="2" stroke-opacity="0.6"/>
+    <circle cx="284" cy="300" r="13" fill="url(#bubble)" stroke="#bae6fd" stroke-width="1.5" stroke-opacity="0.55"/>
+    <circle cx="206" cy="470" r="9" fill="url(#bubble)" stroke="#bae6fd" stroke-width="1" stroke-opacity="0.5"/>
+    <circle cx="1120" cy="540" r="26" fill="url(#bubble)" stroke="#bae6fd" stroke-width="2" stroke-opacity="0.55"/>
+    <circle cx="1180" cy="460" r="15" fill="url(#bubble)" stroke="#bae6fd" stroke-width="1.5" stroke-opacity="0.5"/>
+    <circle cx="1070" cy="640" r="10" fill="url(#bubble)" stroke="#bae6fd" stroke-width="1" stroke-opacity="0.5"/>
+    <circle cx="1780" cy="320" r="18" fill="url(#bubble)" stroke="#bae6fd" stroke-width="2" stroke-opacity="0.6"/>
+    <circle cx="1830" cy="240" r="10" fill="url(#bubble)" stroke="#bae6fd" stroke-width="1" stroke-opacity="0.5"/>
+    <circle cx="2240" cy="620" r="30" fill="url(#bubble)" stroke="#bae6fd" stroke-width="2" stroke-opacity="0.5"/>
+    <circle cx="2300" cy="530" r="13" fill="url(#bubble)" stroke="#bae6fd" stroke-width="1.5" stroke-opacity="0.5"/>
+    <circle cx="1470" cy="840" r="16" fill="url(#bubble)" stroke="#bae6fd" stroke-width="1.5" stroke-opacity="0.45"/>
+    <circle cx="1524" cy="770" r="8" fill="url(#bubble)" stroke="#bae6fd" stroke-width="1" stroke-opacity="0.45"/>
+    <circle cx="660" cy="780" r="12" fill="url(#bubble)" stroke="#bae6fd" stroke-width="1.5" stroke-opacity="0.45"/>
+    <circle cx="600" cy="700" r="7" fill="url(#bubble)" stroke="#bae6fd" stroke-width="1" stroke-opacity="0.4"/>
+  </g>
+
+  <!-- foreground vignette -->
+  <rect width="2560" height="1440" fill="none"/>
+  <path d="M0 0h2560v160c-420 60-760 20-1180 40-380 18-700 70-1020 40-180-16-280-8-360 10z" fill="#022c43" opacity="0.25"/>
+</svg>

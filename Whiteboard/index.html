@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#4f46e5">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <title>Whiteboard</title>
+
+  <link rel="stylesheet" href="../shared/vendor/fontawesome/css/fontawesome.min.css">
+  <link rel="stylesheet" href="../shared/vendor/fontawesome/css/solid.min.css">
+  <link rel="stylesheet" href="../shared/vendor/fontawesome/css/regular.min.css">
+  <link rel="stylesheet" href="../shared/vendor/fontawesome/css/brands.min.css">
+  <link id="bootstrap-theme-css" href="../shared/css/themes/superhero/bootstrap.min.css" rel="stylesheet">
+  <link id="smd-shared-css" rel="stylesheet" href="../shared/css/styles.css">
+  <link id="theme-override-mode" rel="stylesheet" href="../shared/css/themes/light.css">
+  <link id="theme-override-specific" rel="stylesheet" href="../shared/css/themes/superhero/superhero.light.css">
+  <link rel="stylesheet" href="css/whiteboard.css">
+  <script src="../shared/js/build-number.js"></script>
+  <script>
+    // Cache-bust every same-origin link (stylesheet/manifest/icon) with the
+    // build number so a new build always fetches fresh assets.
+    (function () {
+      if (typeof BUILD_NUMBER === "undefined") return;
+      var stamp = function (u) { return u + (u.indexOf("?") >= 0 ? "&" : "?") + "v=" + BUILD_NUMBER; };
+      var isLocal = function (u) { return u && u.indexOf("://") === -1 && u.charAt(0) !== "//"; };
+      document.querySelectorAll("link[href]").forEach(function (l) {
+        var h = l.getAttribute("href") || "";
+        if (isLocal(h) && h.indexOf("v=") === -1) l.setAttribute("href", stamp(h));
+      });
+    })();
+  </script>
+</head>
+
+<body id="smd-app">
+
+  <!-- FIXED TOOLBAR -->
+  <nav id="mainNav" class="navbar navbar-expand px-3 py-2 gap-1 flex-wrap">
+
+    <div class="dropdown">
+      <button id="btnMainMenu" class="btn p-1" data-bs-toggle="dropdown" title="Menu" aria-label="Menu">
+        <i class="fa-solid fa-bars" aria-hidden="true" style="font-size:22px"></i>
+      </button>
+      <ul class="dropdown-menu">
+        <li><a class="dropdown-item" onclick="openSettings()">Settings</a></li>
+        <li><hr class="dropdown-divider"></li>
+        <!-- Replaced at boot by the shared Launch flyout (SmdApps.buildLaunchSubmenu). -->
+        <li><a class="dropdown-item" href="../">Launch</a></li>
+      </ul>
+    </div>
+
+  </nav>
+
+  <!-- BOARD -->
+  <main id="whiteboardArea">
+
+    <div id="wbCanvas">
+      <div id="wbBackground" data-background="none"></div>
+      <div id="wbItems" class="wb-items"></div>
+      <div id="wbEmptyHint" class="wb-empty-hint">
+        <i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i>
+        <p>Choose a background, or add stickers and text from the toolbar.</p>
+      </div>
+    </div>
+
+    <div id="wbBoardName" class="wb-board-chip" role="button" tabindex="0" title="Switch board"></div>
+
+    <!-- LEFT TOOLBAR: rail + fly-out panel -->
+    <aside id="wbToolbar" class="wb-toolbar" data-open="" data-pinned="false" aria-label="Whiteboard toolbar">
+      <div class="wb-rail">
+        <button type="button" class="wb-rail-btn" data-tool="boards" title="Boards" aria-label="Boards">
+          <i class="fa-solid fa-chalkboard" aria-hidden="true"></i><span>Boards</span>
+        </button>
+        <button type="button" class="wb-rail-btn" data-tool="background" title="Background" aria-label="Background">
+          <i class="fa-solid fa-image" aria-hidden="true"></i><span>Background</span>
+        </button>
+        <button type="button" class="wb-rail-btn" data-tool="stickers" title="Stickers" aria-label="Stickers">
+          <i class="fa-solid fa-star" aria-hidden="true"></i><span>Stickers</span>
+        </button>
+        <button type="button" class="wb-rail-btn" data-tool="text" title="Text" aria-label="Text">
+          <i class="fa-solid fa-font" aria-hidden="true"></i><span>Text</span>
+        </button>
+        <div class="wb-rail-spacer"></div>
+        <button type="button" id="wbPinBtn" class="wb-rail-btn wb-pin-btn" title="Pin toolbar open" aria-label="Pin toolbar open" aria-pressed="false">
+          <i class="fa-solid fa-thumbtack" aria-hidden="true"></i><span>Pin</span>
+        </button>
+      </div>
+
+      <section class="wb-panel" role="region" aria-label="Tool panel">
+        <div class="wb-panel-head">
+          <h2 id="wbPanelTitle" class="wb-panel-title"></h2>
+          <button type="button" id="wbPanelClose" class="wb-panel-close" title="Close" aria-label="Close">
+            <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+          </button>
+        </div>
+        <div id="wbPanelBody" class="wb-panel-body"></div>
+      </section>
+    </aside>
+
+    <!-- SELECTED ITEM ACTIONS -->
+    <div id="wbSelectionBar" class="wb-selection-bar d-none" role="toolbar" aria-label="Selected item">
+      <button type="button" id="wbSelFront" class="wb-sel-btn" title="Bring to front" aria-label="Bring to front">
+        <i class="fa-solid fa-layer-group" aria-hidden="true"></i>
+      </button>
+      <button type="button" id="wbSelDuplicate" class="wb-sel-btn" title="Duplicate" aria-label="Duplicate">
+        <i class="fa-solid fa-copy" aria-hidden="true"></i>
+      </button>
+      <button type="button" id="wbSelDelete" class="wb-sel-btn" title="Delete" aria-label="Delete">
+        <i class="fa-solid fa-trash" aria-hidden="true"></i>
+      </button>
+    </div>
+
+  </main>
+
+  <!-- SETTINGS PAGE -->
+  <smd-page id="settingsPage" class="d-none"></smd-page>
+
+  <template id="settingsTemplate">
+    <div class="smd-settings">
+
+      <!-- Display -->
+      <section class="smd-settings-tab" data-tab="Display" data-tab-id="appearance-tab">
+        <smd-theme id="themeSelector" class="col-md-8 mt-3"></smd-theme>
+
+        <div class="row mb-4 align-items-center col-md-8">
+          <div class="col-4 text-end"><label class="form-label mb-0">Font size</label></div>
+          <div class="col-8">
+            <smd-select id="fontSizeSelector" class="form-select" onchange="changeFontSize(this.value)">
+              <option value="xsmall">Extra small</option>
+              <option value="small">Small</option>
+              <option value="normal">Normal</option>
+              <option value="large">Large</option>
+              <option value="xlarge">Extra large</option>
+              <option value="jumbo">Jumbo</option>
+            </smd-select>
+          </div>
+        </div>
+
+        <div class="row mb-4 align-items-center col-md-8">
+          <div class="col-4 text-end"><label class="form-label mb-0">Touch size</label></div>
+          <div class="col-8">
+            <smd-select id="touchSizeSelector" class="form-select" onchange="changeTouchSize(this.value)">
+              <option value="normal">Normal</option>
+              <option value="large">Large</option>
+            </smd-select>
+          </div>
+        </div>
+
+        <div class="row mb-4 align-items-center col-md-8">
+          <div class="col-4 text-end"><label class="form-label mb-0">Slide speed</label></div>
+          <div class="col-8">
+            <smd-select id="slideDurationSelector" class="form-select" onchange="changeSlideDuration(this.value)">
+              <option value="0">Off (instant)</option>
+              <option value="150">Fast (150 ms)</option>
+              <option value="300">Normal (300 ms)</option>
+              <option value="500">Slow (500 ms)</option>
+            </smd-select>
+          </div>
+        </div>
+
+        <div class="row mb-4 align-items-center col-md-8">
+          <div class="col-4 text-end"><label class="form-label mb-0">Auto-hide menu</label></div>
+          <div class="col-8">
+            <smd-checkbox id="autoHideMenu" switch onchange="changeAutoHideMenu(this.checked)"></smd-checkbox>
+          </div>
+        </div>
+
+        <div class="row mb-4 align-items-center col-md-8">
+          <div class="col-4 text-end"><label class="form-label mb-0">Screen resolution</label></div>
+          <div class="col-8">
+            <span id="screenResolution" class="form-control-plaintext"></span>
+          </div>
+        </div>
+      </section>
+
+      <div id="settingsFooter" class="mt-3">
+        <div class="row align-items-center col-md-8 mb-3">
+          <div class="col-4 text-end"></div>
+          <div class="col-8">
+            <a href="https://buymeacoffee.com/ownimage" target="_blank" rel="noopener">
+              <img src="../shared/vendor/bmc-default-yellow.png" alt="Buy Me A Coffee" style="height:50px">
+            </a>
+          </div>
+        </div>
+
+        <div class="row mb-4 align-items-center col-md-8">
+          <div class="col-4 text-end"><label class="form-label mb-0">Share app</label></div>
+          <div class="col-8">
+            <smd-qrcode id="shareQrCode" value="https://ownimage.github.io/MyApps/Whiteboard/" size="120"></smd-qrcode>
+          </div>
+        </div>
+
+        <div class="mt-5 small build-number">Build <span id="buildNumber"></span></div>
+
+        <smd-fontawesome-credit class="mt-2"></smd-fontawesome-credit>
+      </div>
+    </div>
+  </template>
+
+  <!-- BOOTSTRAP JS (hamburger dropdown) -->
+  <script>document.write('<script src="../shared/vendor/bootstrap.bundle.min.js?v=' + BUILD_NUMBER + '"><\/script>');</script>
+
+  <script>
+  document.write('<script src="../shared/js/library.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../shared/js/components/smd-button.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../shared/js/components/smd-h1.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../shared/js/components/smd-h2.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../shared/js/components/smd-modal.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../shared/js/components/smd-page.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../shared/js/components/smd-tabs.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../shared/js/components/smd-select.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../shared/js/components/smd-theme.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../shared/js/components/smd-checkbox.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../shared/js/components/smd-qrcode.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../shared/js/components/smd-fontawesome-credit.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../shared/js/smd-app.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../shared/js/smd-settings.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../shared/js/smd-apps.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="js/storage.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="js/board.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="js/toolbar.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="js/app-settings.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="js/app.js?v=' + BUILD_NUMBER + '"><\/script>');
+  </script>
+
+<script>
+  if ("serviceWorker" in navigator) {
+    var __updatePrompted = false;
+    var __applyingUpdate = false;
+    var __dismissedUpdate = "";
+    var __dismissedBuild = "";
+    try {
+      __dismissedBuild = localStorage.getItem("swUpdateDismissedBuild") || "";
+      // The SW registers at a STABLE URL, so scriptURL alone can't tell one
+      // build from another. Only suppress the prompt when the previously
+      // dismissed update belongs to the CURRENT build; once a newer build
+      // loads, forget the dismissal so it can prompt again.
+      if (String(BUILD_NUMBER) === __dismissedBuild) {
+        __dismissedUpdate = localStorage.getItem("swUpdateDismissedUrl") || "";
+      } else {
+        localStorage.removeItem("swUpdateDismissedUrl");
+        localStorage.removeItem("swUpdateDismissedBuild");
+      }
+    } catch (e) { __dismissedUpdate = ""; }
+    function showUpdatePrompt(reg) {
+      var w = reg && reg.waiting;
+      if (w && w.scriptURL === __dismissedUpdate) return; // user already dismissed THIS pending SW
+      if (__updatePrompted) return;
+      __updatePrompted = true;
+      if (typeof showSmdModal === "function") {
+        showSmdModal({
+          title: "Update available",
+          content: "A new version of Whiteboard is ready. Update now to get the latest changes?",
+          buttons: [
+            { text: "Later", variant: "secondary", action: "later" },
+            { text: "Update now", variant: "primary", action: "update" }
+          ],
+          onAction: function(detail) {
+            var pending = reg && reg.waiting;
+            if (!pending) return;
+            if (detail.action === "update") {
+              try { localStorage.removeItem("swUpdateDismissedUrl"); localStorage.removeItem("swUpdateDismissedBuild"); } catch (e) {}
+              __applyingUpdate = true;
+              pending.postMessage({ type: "SKIP_WAITING" });
+            } else if (detail.action === "later") {
+              try {
+                localStorage.setItem("swUpdateDismissedUrl", pending.scriptURL);
+                localStorage.setItem("swUpdateDismissedBuild", String(BUILD_NUMBER));
+              } catch (e) {}
+            }
+          }
+        });
+      }
+    }
+    window.__whiteboardSwUpdater = { showUpdatePrompt: showUpdatePrompt };
+
+    // STABLE worker url on purpose: versioning it would make the browser install
+    // a second worker for the same bump ("updates twice"). The update signal is
+    // the byte change in sw.js, whose inline BUILD_NUMBER is bumped with
+    // shared/js/build-number.js; smdRegisterServiceWorker also verifies at
+    // runtime that the worker and the page agree and repairs a drift.
+    var __registerSw = typeof smdRegisterServiceWorker === "function"
+      ? smdRegisterServiceWorker
+      : function(p) { return navigator.serviceWorker.register(p, { updateViaCache: "none" }); };
+    __registerSw("../sw.js").then(function(reg) {
+      if (navigator.serviceWorker.controller) {
+        if (reg.waiting) showUpdatePrompt(reg);
+        reg.addEventListener("updatefound", function() {
+          var inst = reg.installing;
+          if (!inst) return;
+          inst.addEventListener("statechange", function() {
+            if (inst.state === "installed" && navigator.serviceWorker.controller) showUpdatePrompt(reg);
+          });
+        });
+      }
+      // Force an immediate check on every visit: browsers throttle their own
+      // update checks (roughly once a day), so a freshly deployed build could
+      // otherwise take hours to surface the "Update available" prompt.
+      if (reg.update) reg.update();
+      window.addEventListener("focus", function() { if (reg.update) reg.update(); });
+    });
+
+    navigator.serviceWorker.addEventListener("controllerchange", function() {
+      if (!__applyingUpdate) return;
+      window.location.reload();
+    });
+  }
+</script>
+
+</body>
+</html>

@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="Shark sticker">
+  <defs>
+    <linearGradient id="shark" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#7dd3fc"/>
+      <stop offset="0.45" stop-color="#38bdf8"/>
+      <stop offset="1" stop-color="#0369a1"/>
+    </linearGradient>
+    <linearGradient id="belly" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f8fafc"/>
+      <stop offset="1" stop-color="#cbd5e1"/>
+    </linearGradient>
+    <linearGradient id="fin" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0ea5e9"/>
+      <stop offset="1" stop-color="#075985"/>
+    </linearGradient>
+  </defs>
+
+  <!-- tail -->
+  <path d="M396 244c22-34 46-62 76-84-8 38-4 70 12 98-30-10-56-6-78 6-10 8-14 20-12 34-22-16-30-36-24-60z" fill="url(#fin)" stroke="#0f172a" stroke-width="7" stroke-linejoin="round"/>
+
+  <!-- dorsal fin -->
+  <path d="M262 158c22-40 46-64 76-72-10 30-8 56 10 82z" fill="url(#fin)" stroke="#0f172a" stroke-width="7" stroke-linejoin="round"/>
+
+  <!-- body -->
+  <path d="M56 262c26-52 70-84 128-94 44-8 84 0 120 22 26 16 44 38 56 66-14 26-34 44-60 54-28 10-56 8-84-2-28 18-58 22-90 10-30-10-54-30-70-56z" fill="url(#shark)" stroke="#0f172a" stroke-width="7" stroke-linejoin="round"/>
+
+  <!-- belly -->
+  <path d="M104 300c26-16 54-20 82-10 18 6 30 18 38 34-26 16-54 20-82 12-16-6-30-18-38-36z" fill="url(#belly)" stroke="#0f172a" stroke-width="5" stroke-linejoin="round"/>
+
+  <!-- pectoral fin -->
+  <path d="M214 322c-4 30-20 52-46 64 4-30 0-52-12-68z" fill="url(#fin)" stroke="#0f172a" stroke-width="7" stroke-linejoin="round"/>
+
+  <!-- mouth + teeth -->
+  <path d="M70 286c26 12 54 14 84 6" fill="none" stroke="#0f172a" stroke-width="7" stroke-linecap="round"/>
+  <g fill="#ffffff" stroke="#0f172a" stroke-width="3" stroke-linejoin="round">
+    <path d="M86 292l8 14 8-12z"/>
+    <path d="M106 296l8 14 8-12z"/>
+    <path d="M126 298l8 14 8-12z"/>
+    <path d="M146 296l8 12 8-12z"/>
+  </g>
+
+  <!-- gills -->
+  <g fill="none" stroke="#075985" stroke-width="5" stroke-linecap="round" opacity="0.8">
+    <path d="M246 244c10 8 14 20 12 34"/>
+    <path d="M264 240c10 8 14 20 12 34"/>
+    <path d="M282 238c10 8 14 20 12 34"/>
+  </g>
+
+  <!-- eye -->
+  <circle cx="122" cy="230" r="13" fill="#ffffff" stroke="#0f172a" stroke-width="5"/>
+  <circle cx="118" cy="231" r="6.5" fill="#0f172a"/>
+  <circle cx="116" cy="229" r="2" fill="#ffffff"/>
+
+  <!-- bubbles -->
+  <g fill="none" stroke="#7dd3fc" stroke-width="4" opacity="0.8">
+    <circle cx="90" cy="160" r="12"/>
+    <circle cx="66" cy="120" r="7"/>
+    <circle cx="150" cy="126" r="8"/>
+    <circle cx="424" cy="354" r="10"/>
+  </g>
+</svg>

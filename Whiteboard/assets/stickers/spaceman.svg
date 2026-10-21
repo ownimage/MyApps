@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="Spaceman sticker">
+  <defs>
+    <linearGradient id="suit" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="0.6" stop-color="#e2e8f0"/>
+      <stop offset="1" stop-color="#b6c2d1"/>
+    </linearGradient>
+    <linearGradient id="visor" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0c4a6e"/>
+      <stop offset="0.5" stop-color="#0e7490"/>
+      <stop offset="1" stop-color="#164e63"/>
+    </linearGradient>
+    <linearGradient id="glove" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f8fafc"/>
+      <stop offset="1" stop-color="#94a3b8"/>
+    </linearGradient>
+  </defs>
+
+  <!-- backpack -->
+  <rect x="326" y="250" width="58" height="122" rx="18" fill="#94a3b8" stroke="#0f172a" stroke-width="7"/>
+  <rect x="338" y="268" width="34" height="40" rx="8" fill="#64748b"/>
+  <circle cx="355" cy="338" r="10" fill="#38bdf8" stroke="#0f172a" stroke-width="4"/>
+
+  <!-- legs -->
+  <path d="M214 372c-2 34-6 62-14 88 18 4 34 2 48-6 4-26 4-52 0-78" fill="url(#suit)" stroke="#0f172a" stroke-width="7" stroke-linejoin="round"/>
+  <path d="M292 372c2 34 6 62 14 88-18 4-34 2-48-6-4-26-4-52 0-78" fill="url(#suit)" stroke="#0f172a" stroke-width="7" stroke-linejoin="round"/>
+  <path d="M196 456c22 8 44 8 64 0 4 10 2 18-4 24-22 8-42 8-60 0-8-8-8-16 0-24z" fill="#64748b" stroke="#0f172a" stroke-width="7" stroke-linejoin="round"/>
+  <path d="M316 456c-22 8-44 8-64 0-4 10-2 18 4 24 22 8 42 8 60 0 8-8 8-16 0-24z" fill="#64748b" stroke="#0f172a" stroke-width="7" stroke-linejoin="round"/>
+  <path d="M212 396c18 8 36 8 56 0" fill="none" stroke="#94a3b8" stroke-width="5" stroke-linecap="round"/>
+
+  <!-- torso -->
+  <path d="M198 226c-8 18-10 40-6 62 6 30 18 54 36 70 18 10 38 10 56 0 18-16 30-40 36-70 4-22 2-44-6-62z" fill="url(#suit)" stroke="#0f172a" stroke-width="7" stroke-linejoin="round"/>
+
+  <!-- chest panel -->
+  <rect x="224" y="268" width="64" height="62" rx="12" fill="#64748b" stroke="#0f172a" stroke-width="6"/>
+  <circle cx="242" cy="288" r="7" fill="#22c55e" stroke="#0f172a" stroke-width="3"/>
+  <circle cx="266" cy="288" r="7" fill="#f97316" stroke="#0f172a" stroke-width="3"/>
+  <rect x="242" y="306" width="28" height="6" rx="3" fill="#e2e8f0"/>
+  <rect x="242" y="318" width="18" height="5" rx="2.5" fill="#e2e8f0"/>
+
+  <!-- left arm down -->
+  <path d="M198 242c-26 10-44 30-52 58-6 22-4 40 6 54 18 2 30-6 36-24 4-16 10-32 20-46" fill="url(#suit)" stroke="#0f172a" stroke-width="7" stroke-linejoin="round" stroke-linecap="round"/>
+  <circle cx="154" cy="360" r="22" fill="url(#glove)" stroke="#0f172a" stroke-width="7"/>
+
+  <!-- right arm waving -->
+  <path d="M314 240c24-8 42-24 54-48 10-20 8-38-4-52-18 0-30 10-36 28-6 18-14 32-26 44" fill="url(#suit)" stroke="#0f172a" stroke-width="7" stroke-linejoin="round" stroke-linecap="round"/>
+  <circle cx="362" cy="128" r="24" fill="url(#glove)" stroke="#0f172a" stroke-width="7"/>
+  <path d="M352 112c4-10 12-16 22-18" fill="none" stroke="#e2e8f0" stroke-width="5" stroke-linecap="round"/>
+
+  <!-- helmet -->
+  <circle cx="256" cy="156" r="92" fill="url(#suit)" stroke="#0f172a" stroke-width="8"/>
+  <circle cx="256" cy="156" r="68" fill="url(#visor)" stroke="#0f172a" stroke-width="7"/>
+  <path d="M204 176c18-44 60-66 104-56-4-10-12-18-24-22-46-12-86 22-86 66 0 6 2 10 6 12z" fill="#bae6fd" opacity="0.45"/>
+  <g fill="#fef3c7">
+    <circle cx="230" cy="136" r="4"/>
+    <circle cx="282" cy="122" r="3"/>
+    <circle cx="300" cy="164" r="3.5"/>
+    <circle cx="242" cy="184" r="2.5"/>
+    <circle cx="274" cy="194" r="2"/>
+  </g>
+  <path d="M300 108l4 10 10 4-10 4-4 10-4-10-10-4 10-4z" fill="#fde68a"/>
+  <path d="M196 112l3 8 8 3-8 3-3 8-3-8-8-3 8-3z" fill="#fde68a"/>
+  <path d="M256 70c14 0 26 4 36 12" fill="none" stroke="#ffffff" stroke-width="7" stroke-linecap="round" opacity="0.7"/>
+
+  <!-- tether -->
+  <path d="M170 300c-48 16-72 52-72 108" fill="none" stroke="#f59e0b" stroke-width="7" stroke-linecap="round" stroke-dasharray="2 14"/>
+</svg>

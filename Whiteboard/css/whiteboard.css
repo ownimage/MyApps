@@ -1,0 +1,779 @@
+/* Whiteboard — board surface, floating toolbar, objects and text frames.
+ *
+ * This sheet is app-owned layout: the shared stylesheet only carries theme
+ * colour + spatial-size values. Colours here always come from Bootstrap /
+ * Bootswatch variables so every theme works without a per-theme file.
+ */
+
+html,
+body {
+  height: 100%;
+}
+
+body#smd-app {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+#whiteboardArea {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* ---- Board surface ------------------------------------------------------ */
+
+#wbCanvas {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background-color: var(--bs-body-bg);
+}
+
+#wbBackground {
+  position: absolute;
+  inset: 0;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
+}
+
+#wbBackground[data-background="none"] {
+  background-color: var(--bs-body-bg);
+  background-image: radial-gradient(circle, rgba(var(--bs-body-color-rgb), 0.22) 1px, transparent 1.4px);
+  background-size: 24px 24px;
+}
+
+#wbBackground[data-background="space"] {
+  background-color: #04050f;
+}
+
+#wbBackground[data-background="underwater"] {
+  background-color: #021c2e;
+}
+
+.wb-items {
+  position: absolute;
+  inset: 0;
+}
+
+.wb-empty-hint {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 2rem 6rem;
+  color: rgba(var(--bs-body-color-rgb), 0.55);
+  text-align: center;
+  pointer-events: none;
+}
+
+.wb-empty-hint i {
+  color: #ffffff;
+  font-size: 2.2rem;
+  opacity: 0.9;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.65);
+}
+
+.wb-empty-hint p {
+  margin: 0;
+  max-width: 26rem;
+  padding: 0.6rem 1rem;
+  border-radius: 999px;
+  background: rgba(var(--bs-body-bg-rgb), 0.85);
+  color: var(--bs-body-color);
+  font-size: var(--smd-type-p, 1em);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.16);
+}
+
+.wb-board-chip {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 1015;
+  max-width: 45%;
+  overflow: hidden;
+  padding: 0.35rem 0.8rem;
+  border: 1px solid var(--bs-border-color);
+  border-radius: 999px;
+  background: var(--bs-body-bg);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.16);
+  color: var(--bs-body-color);
+  font-size: var(--smd-type-badge, 0.78em);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.wb-board-chip:hover {
+  border-color: var(--bs-primary);
+}
+
+/* The hamburger menu drops over the board (and over an open tool panel), so it
+ * must sit above the toolbar but still below smd-page (1040) / modal (1050). */
+#mainNav .dropdown-menu {
+  z-index: 1035;
+}
+
+/* ---- Toolbar rail ------------------------------------------------------- */
+
+.wb-toolbar {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  bottom: 12px;
+  z-index: 1020;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.wb-rail {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  gap: 4px;
+  width: 74px;
+  max-height: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: 6px;
+  border: 1px solid var(--bs-border-color);
+  border-radius: 16px;
+  background: var(--bs-body-bg);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.18);
+  pointer-events: auto;
+  scrollbar-width: none;
+}
+
+.wb-rail::-webkit-scrollbar {
+  display: none;
+}
+
+.wb-rail-spacer {
+  flex: 1 1 auto;
+  min-height: 12px;
+}
+
+.wb-rail-btn {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-height: 52px;
+  padding: 6px 2px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--bs-body-color);
+  font-size: 10px;
+  line-height: 1.15;
+  cursor: pointer;
+}
+
+.wb-rail-btn i {
+  font-size: 1.15rem;
+}
+
+.wb-rail-btn span {
+  display: block;
+  width: 100%;
+  overflow: hidden;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wb-rail-btn:hover {
+  background: rgba(var(--bs-body-color-rgb), 0.1);
+}
+
+.wb-rail-btn.active {
+  background: rgba(var(--bs-primary-rgb), 0.16);
+  color: var(--bs-primary);
+}
+
+.wb-pin-btn.active {
+  color: var(--bs-primary);
+}
+
+/* ---- Fly-out panel ------------------------------------------------------ */
+
+.wb-panel {
+  display: none;
+  flex-direction: column;
+  width: min(320px, calc(100vw - 92px));
+  max-height: 100%;
+  overflow: hidden;
+  border: 1px solid var(--bs-border-color);
+  border-radius: 16px;
+  background: var(--bs-body-bg);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.22);
+  pointer-events: auto;
+}
+
+.wb-toolbar[data-open="boards"] .wb-panel,
+.wb-toolbar[data-open="background"] .wb-panel,
+.wb-toolbar[data-open="stickers"] .wb-panel,
+.wb-toolbar[data-open="text"] .wb-panel {
+  display: flex;
+}
+
+.wb-panel-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.65rem 0.8rem;
+  border-bottom: 1px solid var(--bs-border-color);
+}
+
+.wb-panel-title {
+  flex: 1 1 auto;
+  margin: 0;
+  color: var(--bs-body-color);
+  font-size: var(--smd-type-h2, 1.1em);
+}
+
+.wb-panel-close {
+  flex: 0 0 auto;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--bs-body-color);
+  cursor: pointer;
+}
+
+.wb-panel-close:hover {
+  background: rgba(var(--bs-body-color-rgb), 0.12);
+}
+
+.wb-panel-body {
+  overflow: auto;
+  padding: 0.8rem;
+}
+
+.wb-panel-note {
+  margin: 0.75rem 0 0;
+  color: rgba(var(--bs-body-color-rgb), 0.7);
+  font-size: var(--smd-type-badge, 0.8em);
+}
+
+.wb-field-label {
+  display: block;
+  margin: 0.75rem 0 0.35rem;
+  color: rgba(var(--bs-body-color-rgb), 0.75);
+  font-size: var(--smd-type-badge, 0.8em);
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.wb-field-label:first-child {
+  margin-top: 0;
+}
+
+/* ---- Boards ------------------------------------------------------------- */
+
+.wb-board-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.wb-board-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--bs-border-color);
+  border-radius: 10px;
+}
+
+.wb-board-row.active {
+  border-color: var(--bs-primary);
+  background: rgba(var(--bs-primary-rgb), 0.1);
+}
+
+.wb-board-pick {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+  padding: 0.35rem 0.4rem;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font-size: var(--smd-type-p, 0.95em);
+  text-align: left;
+  cursor: pointer;
+}
+
+.wb-board-pick span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wb-board-pick:hover {
+  background: rgba(var(--bs-body-color-rgb), 0.08);
+}
+
+.wb-board-act {
+  flex: none;
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.wb-board-act:hover {
+  background: rgba(var(--bs-body-color-rgb), 0.12);
+}
+
+.wb-board-act:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.wb-board-name-input {
+  min-width: 0;
+}
+
+/* ---- Background picker -------------------------------------------------- */
+
+.wb-bg-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.wb-bg-option {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: stretch;
+  padding: 6px;
+  border: 2px solid transparent;
+  border-radius: 12px;
+  background: rgba(var(--bs-body-color-rgb), 0.05);
+  color: inherit;
+  font-size: var(--smd-type-badge, 0.8em);
+  cursor: pointer;
+}
+
+.wb-bg-option.active {
+  border-color: var(--bs-primary);
+  background: rgba(var(--bs-primary-rgb), 0.12);
+}
+
+.wb-bg-preview {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: 8px;
+  object-fit: cover;
+}
+
+.wb-bg-preview-none {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(var(--bs-body-color-rgb), 0.08);
+  color: rgba(var(--bs-body-color-rgb), 0.6);
+  font-size: 1.4rem;
+}
+
+/* ---- Sticker picker ----------------------------------------------------- */
+
+.wb-sticker-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.wb-sticker-option {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 6px;
+  border: 2px solid transparent;
+  border-radius: 12px;
+  background: rgba(var(--bs-body-color-rgb), 0.05);
+  color: inherit;
+  font-size: var(--smd-type-badge, 0.8em);
+  cursor: pointer;
+}
+
+.wb-sticker-option img {
+  width: 74px;
+  height: 74px;
+  object-fit: contain;
+}
+
+.wb-sticker-option:hover,
+.wb-sticker-option:focus-visible {
+  border-color: rgba(var(--bs-primary-rgb), 0.55);
+}
+
+.wb-sticker-option:nth-child(odd):last-child {
+  grid-column: span 2;
+}
+
+/* ---- Text controls ------------------------------------------------------ */
+
+.wb-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.wb-swatch {
+  position: relative;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--bs-border-color);
+  border-radius: 8px;
+  background-color: var(--wb-swatch);
+  cursor: pointer;
+}
+
+.wb-swatch.active {
+  outline: 2px solid var(--bs-primary);
+  outline-offset: 2px;
+}
+
+.wb-swatch-transparent {
+  background-image:
+    linear-gradient(45deg, rgba(var(--bs-body-color-rgb), 0.18) 25%, transparent 25%, transparent 75%, rgba(var(--bs-body-color-rgb), 0.18) 75%),
+    linear-gradient(45deg, rgba(var(--bs-body-color-rgb), 0.18) 25%, transparent 25%, transparent 75%, rgba(var(--bs-body-color-rgb), 0.18) 75%);
+  background-position: 0 0, 5px 5px;
+  background-size: 10px 10px;
+}
+
+.wb-border-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.wb-border-option {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 6px;
+  border: 2px solid transparent;
+  border-radius: 10px;
+  background: rgba(var(--bs-body-color-rgb), 0.05);
+  color: inherit;
+  font-size: var(--smd-type-badge, 0.75em);
+  cursor: pointer;
+}
+
+.wb-border-option.active {
+  border-color: var(--bs-primary);
+}
+
+.wb-border-preview {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 38px;
+  font-size: 0.85rem;
+}
+
+.wb-border-preview-none {
+  border: 1px solid rgba(var(--bs-body-color-rgb), 0.35);
+  border-radius: 6px;
+}
+
+.wb-border-preview-fancy {
+  border: 3px double var(--bs-body-color);
+  border-radius: 6px;
+  box-shadow: inset 0 0 0 2px var(--bs-body-bg), inset 0 0 0 3px var(--bs-body-color);
+}
+
+.wb-border-preview-hand {
+  border: 2px solid var(--bs-body-color);
+  border-radius: 255px 15px 225px 15px / 15px 225px 15px 255px;
+}
+
+.wb-border-preview-stamp {
+  border: 3px dashed var(--bs-body-color);
+  border-radius: 2px;
+}
+
+/* ---- Objects ------------------------------------------------------------ */
+
+.wb-object {
+  position: absolute;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: grab;
+  transform-origin: center center;
+}
+
+.wb-object:active {
+  cursor: grabbing;
+}
+
+.wb-object.selected {
+  border-radius: 6px;
+  outline: 1.5px dashed rgba(var(--bs-primary-rgb), 0.85);
+  outline-offset: 6px;
+}
+
+.wb-sticker {
+  display: block;
+  width: calc(15vmin * var(--wb-scale, 1));
+  height: auto;
+  pointer-events: none;
+  filter: drop-shadow(0 5px 8px rgba(0, 0, 0, 0.22));
+}
+
+.wb-text {
+  position: relative;
+  max-width: 24em;
+  padding: 10px 16px;
+  border-radius: 10px;
+  font-size: calc(var(--smd-type-h2, 1.25em) * 1.15 * var(--wb-text-scale, 1));
+  line-height: 1.22;
+  overflow-wrap: break-word;
+  text-align: center;
+  white-space: pre-wrap;
+}
+
+.wb-text[data-frame="fancy"],
+.wb-text[data-frame="hand"],
+.wb-text[data-frame="stamp"] {
+  padding: 8px 14px;
+  border: 18px solid transparent;
+  border-image-repeat: round;
+  border-image-slice: 30;
+  border-image-source: var(--wb-frame-image);
+  border-image-width: 18px;
+  background-clip: padding-box;
+}
+
+.wb-bg-transparent {
+  background-color: transparent;
+}
+
+.wb-bg-white {
+  background-color: #ffffff;
+}
+
+.wb-bg-black {
+  background-color: #000000;
+}
+
+.wb-bg-primary {
+  background-color: var(--bs-primary);
+}
+
+.wb-bg-secondary {
+  background-color: var(--bs-secondary);
+}
+
+.wb-bg-success {
+  background-color: var(--bs-success);
+}
+
+.wb-bg-danger {
+  background-color: var(--bs-danger);
+}
+
+.wb-bg-warning {
+  background-color: var(--bs-warning);
+}
+
+.wb-bg-info {
+  background-color: var(--bs-info);
+}
+
+.wb-bg-light {
+  background-color: var(--bs-light);
+}
+
+.wb-bg-dark {
+  background-color: var(--bs-dark);
+}
+
+.wb-color-auto {
+  color: var(--bs-body-color);
+}
+
+.wb-color-white {
+  color: #ffffff;
+}
+
+.wb-color-black {
+  color: #000000;
+}
+
+.wb-color-primary {
+  color: var(--bs-primary);
+}
+
+.wb-color-secondary {
+  color: var(--bs-secondary);
+}
+
+.wb-color-success {
+  color: var(--bs-success);
+}
+
+.wb-color-danger {
+  color: var(--bs-danger);
+}
+
+.wb-color-warning {
+  color: var(--bs-warning);
+}
+
+.wb-color-info {
+  color: var(--bs-info);
+}
+
+.wb-color-light {
+  color: var(--bs-light);
+}
+
+.wb-color-dark {
+  color: var(--bs-dark);
+}
+
+/* ---- Selection handles + action bar ------------------------------------- */
+
+.wb-handle {
+  position: absolute;
+  z-index: 5;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: 2px solid var(--bs-body-bg);
+  border-radius: 50%;
+  background: var(--bs-primary);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+  color: #ffffff;
+  font-size: 10px;
+  touch-action: none;
+}
+
+.wb-object.selected .wb-handle {
+  display: flex;
+}
+
+.wb-handle-scale {
+  right: -11px;
+  bottom: -11px;
+  cursor: nwse-resize;
+}
+
+.wb-handle-rotate {
+  top: -36px;
+  left: 50%;
+  transform: translateX(-50%);
+  cursor: grab;
+}
+
+html[data-smd-touch-size="large"] .wb-handle {
+  width: 30px;
+  height: 30px;
+  font-size: 12px;
+}
+
+html[data-smd-touch-size="large"] .wb-handle-scale {
+  right: -15px;
+  bottom: -15px;
+}
+
+html[data-smd-touch-size="large"] .wb-handle-rotate {
+  top: -46px;
+}
+
+.wb-selection-bar {
+  position: absolute;
+  z-index: 1030;
+  display: flex;
+  gap: 2px;
+  padding: 4px;
+  border: 1px solid var(--bs-border-color);
+  border-radius: 12px;
+  background: var(--bs-body-bg);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.24);
+  transform: translate(-50%, -100%);
+}
+
+.wb-sel-btn {
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--bs-body-color);
+  cursor: pointer;
+}
+
+.wb-sel-btn:hover {
+  background: rgba(var(--bs-body-color-rgb), 0.12);
+}
+
+#wbSelDelete:hover {
+  color: var(--bs-danger);
+}
+
+/* ---- Small screens ------------------------------------------------------ */
+
+@media (max-width: 520px) {
+  .wb-rail {
+    width: 50px;
+  }
+
+  .wb-rail-btn {
+    min-height: 46px;
+  }
+
+  .wb-rail-btn span {
+    display: none;
+  }
+
+  .wb-panel {
+    width: calc(100vw - 84px);
+  }
+
+  .wb-empty-hint {
+    padding: 2rem;
+  }
+
+  .wb-sticker-option img {
+    width: 58px;
+    height: 58px;
+  }
+
+  .wb-board-chip {
+    max-width: 38%;
+  }
+}

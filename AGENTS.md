@@ -295,7 +295,14 @@ Architecture:
   so the hamburger menu is never covered by the 1020 toolbar.
   GESTURES: objects are absolutely positioned and rotated around their centre.
   Selection shows a scale handle (bottom-right) and a rotate handle (top);
-  a floating bar offers Bring-to-front / Duplicate / Delete. Body drag moves;
+  a floating bar offers Bring-to-front / Duplicate / Delete. THE BAR SITS BESIDE
+  THE SELECTION (right of its AABB, else left, else above the rotate handle, else
+  below) — never centred above it: the first cut put it at `rect.top - 14` with
+  `translateY(-100%)`, which covered the top rotate handle exactly (the user
+  could not see it; `elementFromPoint` at the handle centre returned the
+  duplicate icon). Keep the bar outside the object's AABB so neither handle can
+  be covered, and re-check `elementFromPoint` on the rotate handle after any
+  selection-bar/layout change. Body drag moves;
   two pointers on ONE object pinch-scale, twist-rotate and slide-move
   (`wbState.drag.mode = "pinch"`). Pointer capture is try/catch (synthetic
   pointerIds throw). Delete/Backspace removes the selection, Escape closes the
@@ -6498,6 +6505,15 @@ Techniques / gotchas:
   with `removeProperty`); the first item was placed at 41% instead of centre
   (cascade formula rewritten); and rail labels were clipped by the badge-sized
   font (fixed 10px labels, 74px rail, hidden <=520px).
+- USER-FOUND AFTER THE FIRST BUILD: "I can't see the grab handle at the top." The
+  action bar was centred above the selection (`rect.top - 14`, translated -100%),
+  so it exactly covered the 22px rotate handle - the handle had `display:flex`
+  but `elementFromPoint` at its centre returned the duplicate icon, and a mouse
+  user saw only the bar. Fixed by placing the bar OUTSIDE the object's AABB
+  (right, else left, else above the rotate handle, else below) with an inline
+  transform per side. Verified with a probe: the bar moved from x=665..775
+  (covering the handle at 709..731) to x=800..910, and `elementFromPoint` now
+  returns the `fa-rotate` icon. Mouse rotation works.
 - NOT RUN (explicit user instruction): no regression tests were run and NO tests
   were added. Deferred test updates are listed in the WHITEBOARD APP note.
-- BUILD: `202610211918` via `npm run bump:build`.
+- BUILD: `202610211932` via `npm run bump:build`.
