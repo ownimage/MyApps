@@ -617,6 +617,20 @@ Architecture:
   `smd-checkbox input[type="checkbox"]` (0,1,2); brite's checked-tick override
   uses the same selector + `:checked`. NEVER shorten these to
   `smd-checkbox input`.
+  SKETCHY'S OWN CHECKBOX (2026-10-21, user request "remove our one and leave the
+  sketchy one"): sketchy also draws the box with `[type=checkbox]::before` and
+  the mark with `::after` (the "x"). `sketchy.light.css` / `sketchy.dark.css`
+  drop our border/fill/tick for `smd-checkbox input` and stretch `::before` to
+  100% of the touch-sized input (and centre `::after`), so there is ONE
+  hand-drawn border instead of two. `tests/contrast.spec.js` falls back to the
+  `::before` border when the input's own border is none; the generated
+  `border-color` rule stays in the block and is harmless with `border-style:
+  none`.
+  TEST SERVER CACHES CSS (2026-10-21, cost a false failure): `tests/serve-tests.mjs`
+  can keep serving a stale/TRUNCATED copy of a theme sheet edited while it was
+  running (observed: `sketchy.dark.css` served 2476 of 3405 bytes, dropping the
+  generated block, so form-control borders looked unfixed). Restart the test
+  server after editing theme CSS before believing a contrast failure.
   TWO GOTCHAS that cost real debugging time: (a) the app's SERVICE WORKER
   precaches the theme CSS, so a `<link>` is served from the SW cache and
   `page.route` never sees it - the spec must use `test.use({ serviceWorkers:

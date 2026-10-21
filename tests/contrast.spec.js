@@ -269,10 +269,10 @@ const MEASURE_CMD = () => {
   });
 
   const host = document.getElementById("borderContrastProbe");
-  const border = (sel) => {
+  const border = (sel, pseudo) => {
     const el = host ? host.querySelector(sel) : null;
     if (!el) return null;
-    const cs = getComputedStyle(el);
+    const cs = getComputedStyle(el, pseudo);
     const raw = parse(cs.borderTopColor);
     const painted = over(raw, pageBg);
     return {
@@ -290,8 +290,14 @@ const MEASURE_CMD = () => {
     checkbox: border("input.form-check-input")
   };
   // The shared <smd-checkbox> draws its own single border (`appearance: none`),
-  // so it is measured like any other control border.
+  // so it is measured like any other control border. Sketchy instead draws the
+  // checkbox with [type=checkbox]::before (and drops our border in its theme
+  // override), so fall back to the pseudo-element's border when ours is absent.
   borders.nativeCheckbox = border("smd-checkbox input");
+  if (borders.nativeCheckbox && (borders.nativeCheckbox.style === "none" || borders.nativeCheckbox.width < 1)) {
+    const pseudo = border("smd-checkbox input", "::before");
+    if (pseudo && pseudo.style !== "none" && pseudo.width >= 1) borders.nativeCheckbox = pseudo;
+  }
   return { text, borders };
 };
 
