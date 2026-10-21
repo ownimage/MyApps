@@ -116,9 +116,15 @@ body#smd-app {
 }
 
 /* The hamburger menu drops over the board (and over an open tool panel), so it
- * must sit above the toolbar but still below smd-page (1040) / modal (1050). */
+ * must sit above the toolbar but still below smd-page (1040) / modal (1050).
+ * The toolbar is ABOVE the selection bar (1030) so its panel - including the
+ * font dropdown - is never covered by the floating action bar. */
 #mainNav .dropdown-menu {
-  z-index: 1035;
+  z-index: 1038;
+}
+
+body.auto-hide-menu #mainNav {
+  z-index: 1039;
 }
 
 /* ---- Toolbar rail ------------------------------------------------------- */
@@ -128,7 +134,7 @@ body#smd-app {
   top: 12px;
   left: 12px;
   bottom: 12px;
-  z-index: 1020;
+  z-index: 1035;
   display: flex;
   align-items: flex-start;
   gap: 8px;
@@ -661,6 +667,82 @@ body#smd-app {
 
 .wb-color-dark {
   color: var(--bs-dark);
+}
+
+/* Text fonts. These families are declared in shared/css/fonts/fonts.css, which
+ * the theme sheet loads with @import; the last two are display faces. */
+.wb-font-theme {
+  font-family: var(--bs-body-font-family);
+}
+
+.wb-font-serif {
+  font-family: Georgia, "Times New Roman", serif;
+}
+
+.wb-font-mono {
+  font-family: "Cascadia Mono", "Segoe UI Mono", Consolas, "Liberation Mono", monospace;
+}
+
+.wb-font-roboto {
+  font-family: "Roboto", var(--bs-body-font-family);
+}
+
+.wb-font-lato {
+  font-family: "Lato", var(--bs-body-font-family);
+}
+
+.wb-font-open-sans {
+  font-family: "Open Sans", var(--bs-body-font-family);
+}
+
+.wb-font-montserrat {
+  font-family: "Montserrat", var(--bs-body-font-family);
+}
+
+.wb-font-ubuntu {
+  font-family: "Ubuntu", var(--bs-body-font-family);
+}
+
+.wb-font-nunito {
+  font-family: "Nunito", var(--bs-body-font-family);
+}
+
+.wb-font-nunito-sans {
+  font-family: "Nunito Sans", var(--bs-body-font-family);
+}
+
+.wb-font-source-sans-pro {
+  font-family: "Source Sans Pro", var(--bs-body-font-family);
+}
+
+.wb-font-inter {
+  font-family: "Inter", var(--bs-body-font-family);
+}
+
+.wb-font-news-cycle {
+  font-family: "News Cycle", Georgia, serif;
+}
+
+.wb-font-cabin-sketch {
+  font-family: "Cabin Sketch", "Neucha", cursive;
+}
+
+.wb-font-neucha {
+  font-family: "Neucha", "Cabin Sketch", cursive;
+}
+
+/* Preview of the chosen family, so the effect is visible even when the tool
+ * panel covers the text object on the board. */
+.wb-font-preview {
+  margin-top: 0.4rem;
+  overflow: hidden;
+  padding: 0.45rem 0.6rem;
+  border: 1px dashed var(--bs-border-color);
+  border-radius: 8px;
+  color: var(--bs-body-color);
+  font-size: var(--smd-type-p, 1em);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* ---- Selection handles + action bar ------------------------------------- */

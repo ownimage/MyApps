@@ -277,7 +277,7 @@ Architecture:
   `whiteboard_toolbarPinned`. `wbState.boards` is an array of
   `{id,name,background,items}`; items are stickers
   `{id,type:"sticker",sticker,x,y,scale,rotation,z}` or text
-  `{id,type:"text",text,bg,color,border,x,y,scale,rotation,z}`. `x`/`y` are
+  `{id,type:"text",text,bg,color,border,font,x,y,scale,rotation,z}`. `x`/`y` are
   PERCENTAGES of the board (2..98) so a board keeps its layout on resize; `z` is
   paint order. New items go to 50/50 then cascade +4% (first item must be
   centred, not offset). Backgrounds are ids (`space`/`underwater`/`""`), never
@@ -291,8 +291,11 @@ Architecture:
   node before the document-level outside-click listener runs, so `target.closest`
   no longer finds `#wbToolbar` and the panel closes itself — `wbOnPanelClick`
   stamps `wbState.panelClickAt` and the outside handler ignores clicks from the
-  last 150ms. The page's `#mainNav .dropdown-menu` is raised to `z-index: 1035`
-  so the hamburger menu is never covered by the 1020 toolbar.
+  last 150ms. The page's `#mainNav .dropdown-menu` is raised to `z-index: 1038`
+  (nav itself 1039 under auto-hide) so the hamburger menu is never covered by the
+  toolbar; the toolbar is 1035, i.e. ABOVE the 1030 selection bar, so an open
+  panel (and the font dropdown inside it) cannot be blocked by the floating
+  action bar. smd-page (1040) and smd-modal (1050) stay on top.
   GESTURES: objects are absolutely positioned and rotated around their centre.
   Selection shows a scale handle (bottom-right) and a rotate handle (top);
   a floating bar offers Bring-to-front / Duplicate / Delete. THE BAR SITS BESIDE
@@ -310,7 +313,15 @@ Architecture:
   text panel in edit mode; field changes apply LIVE (`wbApplyTextStyle`).
   TEXT: bg tokens `transparent|white|black|primary|secondary|success|danger|
   warning|info|light|dark` map to `.wb-bg-*`; colour tokens add `auto` (body
-  colour) and map to `.wb-color-*`. Borders `none|fancy|hand|stamp` are SVG
+  colour) and map to `.wb-color-*`. FONT defaults to `theme` (the Bootswatch body
+  stack) and is one of `WB_TEXT_FONTS` (system serif/mono plus the 12 families
+  vendored in `shared/css/fonts/fonts.css`: Roboto, Lato, Open Sans, Montserrat,
+  Ubuntu, Nunito, Nunito Sans, Source Sans Pro, Inter, News Cycle, Cabin Sketch,
+  Neucha), applied as `.wb-font-<id>`. No extra `<link>` is needed: every theme
+  sheet `@import`s `../../fonts/fonts.css`. The text panel's Font row is an
+  `<smd-select>`; its `change` updates the item (and the draft for the next text)
+  LIVE, and the family loads on first use (`document.fonts.check` verified Cabin
+  Sketch + News Cycle). Borders `none|fancy|hand|stamp` are SVG
   frames generated per object as a `border-image` data URI
   (`wbFrameDataUri(kind, wbResolveColor(token))`), so the frame follows the TEXT
   colour and every theme. Because the colour is baked into the URI, a theme or
@@ -6517,3 +6528,28 @@ Techniques / gotchas:
 - NOT RUN (explicit user instruction): no regression tests were run and NO tests
   were added. Deferred test updates are listed in the WHITEBOARD APP note.
 - BUILD: `202610211932` via `npm run bump:build`.
+
+### 2026-10-21 (f) - Whiteboard: text font picker
+- REQUEST (user): "I want to be able to select a font for the text."
+- ADDED: text items carry `font` (default `theme`); `WB_TEXT_FONTS` (storage.js)
+  offers the theme stack, system Serif/Monospace and the 12 vendored families
+  (Roboto, Lato, Open Sans, Montserrat, Ubuntu, Nunito, Nunito Sans, Source Sans
+  Pro, Inter, News Cycle, Cabin Sketch, Neucha). `wbNormalizeItem` validates it;
+  `wbStyleTextElement` adds `.wb-font-<id>`; whiteboard.css owns each stack.
+  The Text panel has a **Font** row (an `<smd-select>`, 15 options) between the
+  textarea and Background; its `change` writes the live item or the draft for the
+  next text, and a live `.wb-font-preview` line underneath shows the family even
+  when the panel covers the object. `wbPlaceText` copies the draft font onto the
+  new item.
+- NO EXTRA SCRIPT/LINK: the theme sheet already `@import`s
+  `shared/css/fonts/fonts.css` (all @font-face declarations are in the SW), so a
+  selected family loads on first use.
+- VERIFIED with a deleted probe: the select renders 15 options; choosing Cabin
+  Sketch gives `fontFamily: "Cabin Sketch", Neucha, cursive`,
+  `document.fonts.check` true, `item.font = "cabin-sketch"`, and the panel stays
+  open; editing the placed text to News Cycle and reloading keeps
+  `font: "news-cycle"` + the rendered family; the font dropdown is above the
+  selection bar (toolbar raised to 1035, nav dropdown 1038/1039) and the live
+  preview follows the selection (Montserrat checked + loaded); zero
+  console/page errors.
+- BUILD: `202610211939` via `npm run bump:build`.

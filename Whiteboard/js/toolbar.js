@@ -5,7 +5,7 @@
 var wbToolbarEls = {};
 
 function wbInitToolbar() {
-  wbState.textDraft = { bg: "transparent", color: "auto", border: "none" };
+  wbState.textDraft = { bg: "transparent", color: "auto", border: "none", font: "theme" };
 
   wbToolbarEls.toolbar = document.getElementById("wbToolbar");
   wbToolbarEls.panel = document.getElementById("wbPanel");
@@ -218,14 +218,23 @@ function wbAddSticker(id) {
 function wbRenderTextPanel() {
   if (wbState.editingTextId && !wbFindItem(wbState.editingTextId)) wbState.editingTextId = "";
   var item = wbState.editingTextId ? wbFindItem(wbState.editingTextId) : null;
-  var draft = wbState.textDraft || { bg: "transparent", color: "auto", border: "none" };
+  var draft = wbState.textDraft || { bg: "transparent", color: "auto", border: "none", font: "theme" };
   var text = item ? item.text : "";
   var bg = item ? item.bg : draft.bg;
   var color = item ? item.color : draft.color;
   var border = item ? item.border : draft.border;
+  var font = item ? item.font : draft.font;
 
   var html = '<label class="form-label wb-field-label" for="wbTextInput">Text</label>';
   html += '<textarea id="wbTextInput" class="form-control" rows="3" placeholder="Type your text">' + escapeHtml(text) + '</textarea>';
+
+  html += '<div class="wb-field-label">Font</div>';
+  html += '<smd-select id="wbFontSelector" class="form-select">';
+  WB_TEXT_FONTS.forEach(function (f) {
+    html += '<option value="' + f.id + '"' + (font === f.id ? " selected" : "") + '>' + f.name + '</option>';
+  });
+  html += '</smd-select>';
+  html += '<div id="wbFontPreview" class="wb-font-preview wb-font-' + font + '">The quick brown fox</div>';
 
   html += '<div class="wb-field-label">Background</div><div class="wb-swatches">';
   WB_BG_TOKENS.forEach(function (token) { html += wbSwatchHtml("bg", token, bg === token); });
@@ -247,6 +256,11 @@ function wbRenderTextPanel() {
   html += '<p class="wb-panel-note">Double-click or double-tap a text box on the board to edit it again.</p>';
 
   wbToolbarEls.body.innerHTML = html;
+  var fontSel = document.getElementById("wbFontSelector");
+  if (fontSel) {
+    if (fontSel.value !== font) fontSel.value = font;
+    fontSel.addEventListener("change", function () { wbTextField("font", fontSel.value); });
+  }
   var input = document.getElementById("wbTextInput");
   if (input) {
     wbTogglePlaceButton();
@@ -284,8 +298,12 @@ function wbTextField(field, value) {
     wbSaveSoon();
     wbApplyTextStyle(item);
   } else {
-    if (!wbState.textDraft) wbState.textDraft = { bg: "transparent", color: "auto", border: "none" };
+    if (!wbState.textDraft) wbState.textDraft = { bg: "transparent", color: "auto", border: "none", font: "theme" };
     wbState.textDraft[field] = value;
+  }
+  if (field === "font") {
+    var preview = document.getElementById("wbFontPreview");
+    if (preview) preview.className = "wb-font-preview wb-font-" + value;
   }
   wbMarkTextChoice(field, value);
 }
@@ -308,7 +326,7 @@ function wbPlaceText() {
   if (!text) return;
   var board = wbActiveBoard();
   if (!board) return;
-  var draft = wbState.textDraft || { bg: "transparent", color: "auto", border: "none" };
+  var draft = wbState.textDraft || { bg: "transparent", color: "auto", border: "none", font: "theme" };
   var n = board.items.length;
   var item = wbAddItem({
     type: "text",
@@ -316,6 +334,7 @@ function wbPlaceText() {
     bg: draft.bg,
     color: draft.color,
     border: draft.border,
+    font: draft.font,
     x: 50 + (n % 4) * 4,
     y: 50 + (n % 3) * 5,
     scale: 1,

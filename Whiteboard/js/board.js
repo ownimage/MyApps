@@ -119,7 +119,7 @@ function wbBuildItem(item) {
 }
 
 function wbStyleTextElement(el, item) {
-  el.className = "wb-text wb-bg-" + item.bg + " wb-color-" + item.color;
+  el.className = "wb-text wb-bg-" + item.bg + " wb-color-" + item.color + " wb-font-" + item.font;
   el.dataset.frame = item.border;
   el.textContent = item.text || " ";
   el.style.setProperty("--wb-text-scale", item.scale);

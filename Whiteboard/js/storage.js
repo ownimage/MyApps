@@ -30,6 +30,27 @@ var WB_TEXT_BORDERS = [
   { id: "stamp", name: "Stamp" }
 ];
 
+// Families declared in shared/css/fonts/fonts.css (loaded by the theme sheet's
+// @import), plus the theme stack and two system fallbacks. The CSS owns the
+// actual font stacks (`.wb-font-<id>` in whiteboard.css).
+var WB_TEXT_FONTS = [
+  { id: "theme", name: "Theme font" },
+  { id: "serif", name: "Serif" },
+  { id: "mono", name: "Monospace" },
+  { id: "roboto", name: "Roboto" },
+  { id: "lato", name: "Lato" },
+  { id: "open-sans", name: "Open Sans" },
+  { id: "montserrat", name: "Montserrat" },
+  { id: "ubuntu", name: "Ubuntu" },
+  { id: "nunito", name: "Nunito" },
+  { id: "nunito-sans", name: "Nunito Sans" },
+  { id: "source-sans-pro", name: "Source Sans Pro" },
+  { id: "inter", name: "Inter" },
+  { id: "news-cycle", name: "News Cycle" },
+  { id: "cabin-sketch", name: "Cabin Sketch" },
+  { id: "neucha", name: "Neucha" }
+];
+
 var WB_BG_TOKENS = ["transparent", "white", "black", "primary", "secondary", "success", "danger", "warning", "info", "light", "dark"];
 var WB_TEXT_TOKENS = ["auto", "white", "black", "primary", "secondary", "success", "danger", "warning", "info", "light", "dark"];
 
@@ -74,6 +95,10 @@ function wbHasBorder(id) {
   return WB_TEXT_BORDERS.some(function (b) { return b.id === id; });
 }
 
+function wbHasFont(id) {
+  return WB_TEXT_FONTS.some(function (f) { return f.id === id; });
+}
+
 function wbNormalizeItem(raw) {
   if (!raw || typeof raw !== "object") return null;
   var type = raw.type === "text" ? "text" : "sticker";
@@ -93,6 +118,7 @@ function wbNormalizeItem(raw) {
     item.bg = WB_BG_TOKENS.indexOf(raw.bg) >= 0 ? raw.bg : "transparent";
     item.color = WB_TEXT_TOKENS.indexOf(raw.color) >= 0 ? raw.color : "auto";
     item.border = wbHasBorder(raw.border) ? raw.border : "none";
+    item.font = wbHasFont(raw.font) ? raw.font : "theme";
   }
   return item;
 }
