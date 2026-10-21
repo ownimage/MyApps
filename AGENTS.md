@@ -6380,3 +6380,19 @@ Techniques / gotchas:
   did not want.
 - VERIFIED: `node --check` on the config and specs; the `--list` counts/order
   above; no @flaky tags remain. The suites were not run for this change.
+### 2026-10-21 (d) - Main View Scroll tests: smooth-scroll timing flake
+- FAILURE (user): pmd-regression "Main View Scroll" -> "editing a job off today's
+  list keeps the main view scrolled to the same place" and "swipe right then OK
+  keeps the main view scrolled to the same place" failed with
+  `expect(before).toBeGreaterThan(0)` receiving 0.
+- CAUSE: every theme's Bootstrap CSS contains
+  `@media (prefers-reduced-motion: no-preference) { :root { scroll-behavior: smooth } }`.
+  The helper's `window.scrollTo(0, 600)` therefore ANIMATES, and the immediate
+  `window.scrollY` read in the next evaluate can still be 0. It is a latent
+  timing flake, exposed by the faster 32-worker run - unrelated to the contrast /
+  checkbox changes.
+- FIX (test-only): `scrollDownToViewButton` now sets
+  `document.documentElement.style.scrollBehavior = "auto"` around the setup
+  `scrollTo` (restoring the previous inline value afterwards) and waits for
+  `window.scrollY > 0` before returning the card coordinates.
+- VERIFIED: both tests pass together with `--workers=2 --retries=0` (2 passed).
