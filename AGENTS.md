@@ -11,7 +11,7 @@
 10: AGENTS.md NOTES: whenever you discover something a future session needs (architecture decisions, gotchas, upstream workflow, test recipes), add a useful, dated note to AGENTS.md — not just a session-log line. Keep notes concrete (file paths, function names, exact commands) and delete/condense notes that have gone stale.
 11: LIGHT-DOM CHROMIUM RULE (2026-09-19): a custom element whose CONSTRUCTOR appends child nodes to `this` (e.g. `this.appendChild(TEMPLATE.content.cloneNode(true))`) THROWS `NotSupportedError: Failed to execute 'createElement' on 'Document': The result must not have children` the moment an app creates it via `document.createElement(tag)`. Deferred, guarded append in `connectedCallback()` is safe; `attachShadow()` in the constructor is safe. This is why `shared/js/components/{smd-image-card,smd-image-select,smd-image-dropdown,smd-date-picker}.js` all build via `_build()` from `connectedCallback` (they were the last four hanging onto the constructor pattern and broke `cmd-regression.spec.js` test 444's images editor + the 3x "must not have children" pageerrors seen in test 615). When converting shadow→light DOM, ALWAYS move template cloning into `connectedCallback`, never the constructor. Watch for `setAttribute("hidden", "true"/"false")` too: `hidden` is a BOOLEAN attribute, so ANY presence hides the element (fine as `.hidden = true/false` property only); `CountMyDays/js/dates-editor.js` + `googleCalendarEditor.js` had this and it made every `cmd-date-card` 0x0/display:none.
 12: THEME TEXT VARS ARE LIVE AGAIN (2026-09-19): the light-DOM refactor reduced `applySmdVars()` in `shared/js/smd-settings.js` to a no-op AND dropped `color: var(--smd-tab-text)` from the inactive-tab rule in `shared/css/styles.css` → inactive tabs fell back to hardcoded `#fff`, failing pmd-regression:641 "inactive tabs use the Bootswatch secondary button text colour" (white instead of the theme's `btn btn-secondary` text, e.g. `rgb(73,80,87)` on cerulean). RESTORED the REAL `applySmdVars()` (hidden `.btn btn-secondary` probe → publishes `--smd-tab-text` + the `--smd-{primary,secondary,success,danger,info,warning}-text` vars on `:root`) with `applyTheme()` re-running it on the theme `<link>` `load`, plus DOMContentLoaded + window `load` hooks; tab CSS now `color: var(--smd-tab-text, #fff)`. Rule: a light-DOM component sitting on a theme-coloured surface must consume `var(--smd-<variant>-text)` / `var(--smd-tab-text)` — NEVER a hardcoded colour — or it won't match the Bootswatch theme. The stubs `smdBootstrapStyle/smdBootstrapColor` are real functions again.
-13: CONTRAST IS BAKED INTO THE THEME CSS (2026-10-19): no runtime code measures or repaints colours. Each theme's per-mode sheet carries a generated block (`smd-contrast:start` / `:end`); `test-contrast/contrast-css.spec.js` fails when it drifts and `SMD_CONTRAST_FIX=1` regenerates it, while `test-contrast/contrast.spec.js` asserts the rendered result meets WCAG AA 4.5:1 across all themes/modes and fails if anything injects a normaliser at runtime. The older centralized-generator design (2026-09-22: `SmdContrast`, `applySmdVars()`, published `--smd-on-*`/`--smd-*-text` variables, a hidden `smd-probe` element) and the 2026-10-18 runtime module at the same path are BOTH gone - do not reintroduce a runtime contrast layer. The generated rules treat a control's surface as the DARKEST extent of its `background-image` gradient (a flat `background-color` read hid slate dark's secondary button, whose ramp runs to #62686d), and sketchy + slate additionally make PRIMARY borrow the DANGER palette for `<smd-button>`/`<smd-tabs>` via a hand-written block ABOVE the markers (see that note).
+13: CONTRAST IS BAKED INTO THE THEME CSS (2026-10-19): no runtime code measures or repaints colours. Each theme's per-mode sheet carries a generated block (`smd-contrast:start` / `:end`); `tests/contrast-css.spec.js` fails when it drifts and `SMD_CONTRAST_FIX=1 npx playwright test --project=contrast --workers=1` regenerates it (the theme sheets carry NO explanatory comment - only the two markers and the generated rules; this is the regeneration recipe), while `tests/contrast.spec.js` asserts the rendered result meets WCAG AA 4.5:1 across all themes/modes and fails if anything injects a normaliser at runtime. The older centralized-generator design (2026-09-22: `SmdContrast`, `applySmdVars()`, published `--smd-on-*`/`--smd-*-text` variables, a hidden `smd-probe` element) and the 2026-10-18 runtime module at the same path are BOTH gone - do not reintroduce a runtime contrast layer. The generated rules treat a control's surface as the DARKEST extent of its `background-image` gradient (a flat `background-color` read hid slate dark's secondary button, whose ramp runs to #62686d), and sketchy + slate additionally make PRIMARY borrow the DANGER palette for `<smd-button>`/`<smd-tabs>` via a hand-written block ABOVE the markers (see that note).
 14: STORYBOOK `_bound` GUARD FOR LIGHT-DOM COMPONENTS (2026-09-22): the pmd-* light-DOM cards/headers (`pmd-stream-header`, `pmd-stream-job-card`, `pmd-job-today-card`, `pmd-job-search-card`) each clone their template in `connectedCallback` under a `this._bound` flag, but their `attributeChangedCallback` used to gate `_render` on only `this.isConnected`. When the storybook's demo code does `host.innerHTML = '<pmd-stream-header ...>'` on an ALREADY-CONNECTED host, the HTML parser fires `attributeChangedCallback` for each attribute BEFORE `connectedCallback` clones the template, so `_render` hit missing nodes (`Cannot set properties of null (setting 'textContent')`, 45 page errors). Chromium's incremental parser inserts the element into the live tree (isConnected=true) before the upgrade finishes, so `isConnected` alone is NOT a sufficient guard. FIX (applied to all four): `attributeChangedCallback() { if (this._bound && this.isConnected) this._render(); }`. Rule: any light-DOM component that builds in `connectedCallback` must gate attribute-triggered renders on the built flag too, NEVER `isConnected` alone. Verify with `tests/storybook-regression.spec.js` (Storybook - Regression: boots with no console/page errors/no failed requests, component demos render their host elements, theme swap re-renders sections without page errors) — run it whenever storybook or the pmd-* components change.
 15: Do not write non UTF-8 characters to AGENTS.md
 17: ACCESS (2026-10-05): at the START of every session, ALWAYS ask for access to the WHOLE of `p:\git\MyApps` (the entire repo tree, not a subfolder) before reading, editing or running anything. Never assume the working directory or a partial scope is enough; confirm full-repo access first.
@@ -503,7 +503,7 @@ Architecture:
   body text is #888 on #fff = 3.54:1, morph 2.63:1, spacelab 4.48:1): when the
   body pair itself fails 4.5:1 the menu text is repainted to the best of
   body-color/black/white, while the rest of the app keeps the theme's colour.
-  GUARDS: `test-contrast/menu-legibility.spec.js` (menu never smaller than the body on all
+  GUARDS: `tests/menu-legibility.spec.js` (menu never smaller than the body on all
   27 themes x both modes; menu grows with the setting across all six sizes; AA +
   "uses --bs-body-color verbatim where that already passes") and
   `tests/display-settings.spec.js` (one test per app: every Display control is
@@ -574,12 +574,17 @@ Architecture:
   + Launch submenu border (3:1, see the menu-border note below). Only combos that
   FAIL get a rule.
   The rules list only what FAILED - everything else keeps the theme's own colour.
-  REGENERATE / CHECK with `test-contrast/contrast-css.spec.js` (its own config +
-  dir, NOT `tests/` or `shared/`). The suite is kept OUT of the default
-  `playwright.config.js` testDir so it never holds up a normal run:
-  `npm test` uses `run-tests.mjs`, which starts the contrast suite FIRST and
-  concurrently with the main suite; `npm run test:main` skips it;
-  `npm run test:contrast` runs it alone.
+  REGENERATE / CHECK with `tests/contrast-css.spec.js` (the `@contrast` project).
+  The generated block in each theme sheet is ONLY
+  `/* smd-contrast:start */` + rules + `/* smd-contrast:end */` - no explanatory
+  comments. Regeneration recipe:
+  `SMD_CONTRAST_FIX=1 npx playwright test --project=contrast --workers=1`.
+  Every spec now lives in `tests/`; project order in `playwright.config.js` is the
+  schedule (Playwright has no per-test priority): `@contrast` FIRST (it overlaps
+  the rest of the run), then chromium, then iphone-12-pro, then the `@cache`
+  project (the asset cache-busting tests) LAST. `npm test` is one Playwright run;
+  `npm run test:main` skips contrast; `npm run test:contrast` runs contrast alone
+  (`--project=contrast`).
   Plain run = "nothing needs to change anywhere" (fails and prints the
   exact rules a theme is missing, or the stale ones it still carries), and
   `SMD_CONTRAST_FIX=1` rewrites every sheet and then verifies the result. It is
@@ -608,8 +613,8 @@ Architecture:
   "block" })` or the strip is bypassed; (b) Bootstrap animates `.btn` colour for
   150ms, so a single read after a theme swap lands mid-fade - waiting on the live
   `link.sheet.href` PLUS a stable sample (two identical reads) is required, in
-  `test-contrast/contrast-css.spec.js`, `test-contrast/contrast.spec.js` and
-  `test-contrast/menu-legibility.spec.js`. The 27x2 loops also need explicit
+  `tests/contrast-css.spec.js`, `tests/contrast.spec.js` and
+  `tests/menu-legibility.spec.js`. The 27x2 loops also need explicit
   `test.setTimeout` (they exceed the 30s default).
   GRADIENTS COUNT AS SURFACE (2026-10-19, user-reported): reading only
   `background-color` missed slate dark's secondary button - the flat #7a8288 said
@@ -622,10 +627,10 @@ Architecture:
   their own flat colour because slate and friends swap the image per state (which
   cannot be read without hovering). The slate fix that came out of this: secondary
   text is now WHITE.
-  OUTCOME GUARDS (these measure the rendered result, which is fine in tests):  `test-contrast/contrast.spec.js` asserts every `smd-button` variant x state and both tab
+  OUTCOME GUARDS (these measure the rendered result, which is fine in tests):  `tests/contrast.spec.js` asserts every `smd-button` variant x state and both tab
   colours reach 4.5:1 on all 27 themes x both modes, plus a guard that NOTHING
   injects contrast styles or exposes a normaliser at runtime;
-  `test-contrast/menu-legibility.spec.js` covers the toolbar/menu (size, AA, colour
+  `tests/menu-legibility.spec.js` covers the toolbar/menu (size, AA, colour
   consistency and the flyout hit-test).
 - HAMBURGER MENU + LAUNCH SUBMENU NEED A CONTRASTING BORDER (2026-10-19, user
   request): "for every theme ... there should be a contrasting border around the
@@ -6300,3 +6305,54 @@ Techniques / gotchas:
   Do NOT reintroduce a theme `outline` or a `color-scheme` fix for smd-checkbox.
 - At the user's request NO Playwright/pytest suite was run - visual check only.
   `BUILD_NUMBER` -> `202610210745` (so the SW serves the new sheets).
+### 2026-10-21 (c) - contrast + cache-busting ordered by tags/projects (one Playwright run)
+- REQUEST (user): one single run; no separate contrast process/config; no flaky
+  retry layer. Contrast annotated to run first and overlap the rest; asset
+  cache-busting annotated to run last under less contention. Move the contrast
+  specs back into the main test directory.
+- VERIFIED CONSTRAINT: Playwright 1.52 has NO test sequencer/priority config.
+  `--test-list` only FILTERS (a reversed list still lists in source order), and
+  file collection is alphabetical. The native scheduling hooks are project order
+  (test groups are dispatched in config order) and project dependencies
+  (dependencies run first, but a failed dependency SKIPS the dependent project -
+  unusable for cache tests, which must run even when others fail). The order is
+  therefore implemented as ordered PROJECTS selected by tags.
+- MOVED: `test-contrast/{contrast,contrast-css,menu-legibility}.spec.js` ->
+  `tests/` (git mv). `test-contrast/playwright.config.js` and
+  `run-tests.mjs` deleted. `tests/contrast-css.spec.js` still resolves ROOT
+  from `__dirname/..` (now `tests/` -> repo root). The explanatory header was
+  REMOVED from all 54 theme sheets: each generated block is now just
+  `/* smd-contrast:start */` + rules + `/* smd-contrast:end */`. The regeneration
+  recipe lives in this file (rule 13 and the CONTRAST FIXES block above).
+- TAGGED: all three contrast describes `{ tag: "@contrast" }`; the
+  "asset cache-busting" describe `{ tag: "@cache" }`.
+- CONFIG (`playwright.config.js`) project order is the schedule:
+  1. `contrast` - grep /@contrast/
+  2. `chromium` - grepInvert /@contrast|@cache/, testIgnore pmd-touch
+  3. `iphone-12-pro` - testMatch pmd-touch
+  4. `cache` - grep /@cache/
+  Both annotated projects inherit `fullyParallel: true`, so they share the ONE
+  global worker pool and `--workers=32` is honoured everywhere (contrast can use
+  up to its 11 tests, cache up to its 11 at the tail); project order only decides
+  who is first in the queue.
+  Counts from `--list`: contrast 11, chromium 888, iphone-12-pro 6, cache 11,
+  total 916. `--list` project order is exactly contrast -> chromium ->
+  iphone-12-pro -> cache.
+- SCRIPTS: `npm test` = `playwright test` (one run, all projects);
+  `npm run test:main` = chromium + iphone + cache (skips contrast);
+  `npm run test:contrast` = `--project=contrast`.
+  Regenerate: `SMD_CONTRAST_FIX=1 npx playwright test --project=contrast --workers=1`.
+- REPORT + RERUNS: one Playwright run = one `playwright-report/` HTML report
+  (the `html` reporter is configured with `open: "never"`) and one
+  `test-results/.last-run.json` covering ALL projects.
+  `.\node_modules\.bin\playwright.cmd test --last-failed` therefore reruns every
+  failed test from that run, not just the last project's. Any later Playwright
+  invocation using the same output dir overwrites the file; use
+  `--last-failed-file <file>` to keep a separate history when needed.
+- CAVEAT: project order makes contrast START first and cache START last (after the
+  preceding groups have been dispatched), not "cache waits for every other test to
+  finish" - Playwright has no in-run hook for that. Exact after-everything
+  semantics would need a separate final invocation, which the user explicitly
+  did not want.
+- VERIFIED: `node --check` on the config and specs; the `--list` counts/order
+  above; no @flaky tags remain. The suites were not run for this change.

@@ -45,32 +45,32 @@ npx playwright install chromium
 
 ### Run all tests
 
-`npm test` runs the custom runner (`run-tests.mjs`). When `test-contrast/`
-contains specs, it starts that suite **first** and runs it concurrently with the
-main suite, so the slow 27-theme × 2-mode contrast loops finish alongside the
-rest of the run instead of being the last thing holding it up.
+`npm test` runs every project in one Playwright run. Playwright has no per-test
+priority, so scheduling comes from the project order in `playwright.config.js`:
+the 27-theme × 2-mode contrast/legibility project is first (it overlaps the rest
+of the run), and the load-sensitive asset cache-busting project is queued last.
 
 ```bash
 npm test
 ```
 
-Main suite only (contrast suite skipped):
+Main suite only (contrast project skipped; includes the cache-busting project):
 
 ```bash
 npm run test:main
 ```
 
-Contrast/legibility suite only (`test-contrast/`; includes the main-menu
-legibility checks):
+Contrast/legibility suite only (includes the main-menu legibility checks):
 
 ```bash
 npm run test:contrast
 ```
 
-To regenerate the baked contrast CSS (PowerShell):
+To regenerate the baked contrast CSS (PowerShell; one worker so no other
+contrast test reads a sheet mid-write):
 
 ```powershell
-$env:SMD_CONTRAST_FIX=1; npm run test:contrast
+$env:SMD_CONTRAST_FIX=1; npx playwright test --project=contrast --workers=1
 Remove-Item Env:SMD_CONTRAST_FIX
 ```
 
@@ -113,11 +113,21 @@ npx playwright test tests/pmd-regression.spec.js --grep "test name"
 
 ### Test report
 
-After a run, open the HTML report:
+One run produces one HTML report covering every project (contrast, chromium,
+iphone-12-pro and cache):
 
 ```bash
 npx playwright show-report
 ```
+
+Rerun every failure from that run (all projects, not just the last one):
+
+```bash
+npx playwright test --last-failed
+```
+
+A later Playwright run with the same output directory replaces the last-run
+record; use `--last-failed-file <file>` if you need to keep a separate history.
 
 ### Coverage
 

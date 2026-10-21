@@ -3,9 +3,7 @@
    here. This sheet is only ever loaded in this mode, so selectors do not need a
    `[data-bs-theme="dark"]` qualifier. */
 
-/* smd-contrast:start - generated WCAG AA contrast overrides. Do not edit by hand:
-   regenerate with  SMD_CONTRAST_FIX=1 npx playwright test --config test-contrast/playwright.config.js
-   (test-contrast/contrast-css.spec.js fails when this block no longer matches the theme). */
+/* smd-contrast:start */
 .btn-secondary {
   --bs-btn-color: #212529;
   --bs-btn-hover-color: #000;

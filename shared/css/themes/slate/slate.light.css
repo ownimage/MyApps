@@ -61,9 +61,7 @@ smd-tabs .smd-tab-btn.text-bg-primary {
   background-image: linear-gradient(#ef6763, #ee5f5b 20%, #be4c49) !important;
 }
 
-/* smd-contrast:start - generated WCAG AA contrast overrides. Do not edit by hand:
-   regenerate with  SMD_CONTRAST_FIX=1 npx playwright test --config test-contrast/playwright.config.js
-   (test-contrast/contrast-css.spec.js fails when this block no longer matches the theme). */
+/* smd-contrast:start */
 .btn-primary, .btn-danger {
   --bs-btn-hover-color: #000;
 }

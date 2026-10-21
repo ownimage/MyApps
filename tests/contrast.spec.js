@@ -3,7 +3,7 @@
 //
 // The fixes are baked into each theme's own per-mode sheet
 // (shared/css/themes/<theme>/<theme>.<mode>.css, generated block);
-// test-contrast/contrast-css.spec.js keeps that block current. This spec instead
+// tests/contrast-css.spec.js keeps that block current. This spec instead
 // measures the REAL `<smd-button>` / `<smd-tabs>` components to prove the baked
 // CSS actually renders readable labels. Every button state is checked, because
 // hover/active paint their own surface (`--bs-btn-hover-bg`, ...) from their own
@@ -369,7 +369,7 @@ async function setTheme(page, theme, mode) {
   }
 }
 
-test.describe("Contrast (WCAG AA)", () => {
+test.describe("Contrast (WCAG AA)", { tag: "@contrast" }, () => {
 
   test("every smd-button variant meets AA in every state, on every theme and mode", async ({ page }) => {
     test.setTimeout(5 * 60 * 1000);          // 27 themes x 2 modes, each with a settle wait
@@ -402,7 +402,7 @@ test.describe("Contrast (WCAG AA)", () => {
   });
 
   test("nothing computes contrast at runtime any more", async ({ page }) => {
-    // The AA fixes are BAKED INTO the theme CSS (test-contrast/contrast-css.spec.js keeps
+    // The AA fixes are BAKED INTO the theme CSS (tests/contrast-css.spec.js keeps
     // them current). Nothing may inject colour styles or expose a normaliser at
     // runtime - this guard fails if that code is ever added back.
     await page.goto("/PlanMyDay/");

@@ -8759,7 +8759,7 @@ test.describe("PlanMyDay - Regression", () => {
   // Every same-origin stylesheet/script load is versioned with
   // ?v=BUILD_NUMBER so a new build always fetches fresh files.
 
-  test.describe("asset cache-busting", () => {
+  test.describe("asset cache-busting", { tag: "@cache" }, () => {
 
     test("all stylesheets and same-origin scripts carry ?v=BUILD_NUMBER", async ({ page }) => {
       await page.goto("/PlanMyDay/");
