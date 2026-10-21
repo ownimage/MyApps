@@ -607,6 +607,16 @@ Architecture:
   emphasis, then black/white; a zero-width or `border-style: none` control counts
   as failing, and the generated rule also writes `border-style: solid;
   border-width: 1px`. The focused field border (`:focus`) keeps the theme primary.
+  SKETCHY CHECKBOX RESET (2026-10-21): sketchy's bootstrap ships
+  `[type="checkbox"] { width:0; height:0; appearance:none;
+  border-style:none; border-color:currentColor }` for its own hand-drawn
+  control. That is class-level specificity (0,1,0), so a plain
+  `smd-checkbox input` (0,0,2) lost BOTH the size and the border and the theme
+  measured "no visible border". The component rules in
+  `shared/css/styles.css` and the generated theme rule therefore use
+  `smd-checkbox input[type="checkbox"]` (0,1,2); brite's checked-tick override
+  uses the same selector + `:checked`. NEVER shorten these to
+  `smd-checkbox input`.
   TWO GOTCHAS that cost real debugging time: (a) the app's SERVICE WORKER
   precaches the theme CSS, so a `<link>` is served from the SW cache and
   `page.route` never sees it - the spec must use `test.use({ serviceWorkers:

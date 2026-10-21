@@ -55,7 +55,7 @@ smd-tabs .smd-tab-btn.text-bg-primary:focus-visible {
   border-style: solid;
   border-width: 1px;
 }
-smd-checkbox input {
+smd-checkbox input[type="checkbox"] {
   border-color: #fff;
 }
 /* smd-contrast:end */

@@ -504,7 +504,7 @@ function formatBlock(measured) {
   // double-border bug this replaced.
   if (measured.nativeCheckbox && measured.nativeCheckbox.picked) {
     rules.push(
-      "smd-checkbox input {\n" +
+      "smd-checkbox input[type=\"checkbox\"] {\n" +
       "  border-color: " + hex(measured.nativeCheckbox.picked) + ";\n}"
     );
   }
