@@ -8,6 +8,7 @@
 
 var wbEls = {};
 var wbTap = null;
+var WB_SVG_NS = "http://www.w3.org/2000/svg";
 
 function wbInitBoard() {
   wbEls.area = document.getElementById("whiteboardArea");
@@ -17,10 +18,14 @@ function wbInitBoard() {
   wbEls.hint = document.getElementById("wbEmptyHint");
   wbEls.selBar = document.getElementById("wbSelectionBar");
   wbEls.boardName = document.getElementById("wbBoardName");
+  wbEls.connectors = document.getElementById("wbConnectors");
+  wbEls.connectorPaths = document.getElementById("wbConnectorPaths");
+  wbEls.connectHint = document.getElementById("wbConnectHint");
 
   if (wbEls.items) wbEls.items.addEventListener("pointerdown", wbOnPointerDown);
   if (wbEls.canvas) wbEls.canvas.addEventListener("pointerdown", wbOnCanvasPointerDown);
   if (wbEls.items) wbEls.items.addEventListener("dblclick", wbOnDoubleClick);
+  if (wbEls.connectors) wbEls.connectors.addEventListener("pointerdown", wbOnConnectorPointerDown);
   if (wbEls.boardName) {
     wbEls.boardName.addEventListener("click", function () { wbOpenTool("boards"); });
     wbEls.boardName.addEventListener("keydown", function (e) {
@@ -30,18 +35,38 @@ function wbInitBoard() {
     });
   }
 
+  var connect = document.getElementById("wbSelConnect");
   var front = document.getElementById("wbSelFront");
   var duplicate = document.getElementById("wbSelDuplicate");
   var del = document.getElementById("wbSelDelete");
+  var connReverse = document.getElementById("wbConnReverse");
+  var connDelete = document.getElementById("wbConnDelete");
+  var connectCancel = document.getElementById("wbConnectCancel");
+  if (connect) connect.addEventListener("click", wbStartConnect);
   if (front) front.addEventListener("click", wbFrontSelected);
   if (duplicate) duplicate.addEventListener("click", wbDuplicateSelected);
   if (del) del.addEventListener("click", wbDeleteSelected);
+  if (connReverse) connReverse.addEventListener("click", wbReverseSelectedConnector);
+  if (connDelete) connDelete.addEventListener("click", wbDeleteSelectedConnector);
+  if (connectCancel) connectCancel.addEventListener("click", wbCancelConnect);
 
   document.addEventListener("pointermove", wbOnPointerMove, { passive: false });
   document.addEventListener("pointerup", wbOnPointerUp);
   document.addEventListener("pointercancel", wbOnPointerUp);
   document.addEventListener("keydown", wbOnKeyDown);
-  window.addEventListener("resize", wbPositionSelectionBar);
+  window.addEventListener("resize", function () {
+    wbRenderConnectors();
+    wbPositionSelectionBar();
+  });
+
+  // Text metrics change when a font loads or the font size setting moves, which
+  // moves the box edges a connector must attach to.
+  if (window.ResizeObserver) {
+    wbEls.objectObserver = new ResizeObserver(function () {
+      wbRenderConnectors();
+      wbPositionSelectionBar();
+    });
+  }
 }
 
 function renderMain() {
@@ -65,12 +90,18 @@ function wbRender() {
   }
 
   wbEls.items.innerHTML = "";
+  if (wbEls.objectObserver) wbEls.objectObserver.disconnect();
   var ordered = board.items.slice().sort(function (a, b) {
     return (Number(a.z) || 0) - (Number(b.z) || 0);
   });
   ordered.forEach(function (item) {
-    wbEls.items.appendChild(wbBuildItem(item));
+    var el = wbBuildItem(item);
+    wbEls.items.appendChild(el);
+    if (wbEls.objectObserver) wbEls.objectObserver.observe(el);
   });
+
+  wbRenderConnectors();
+  wbApplyConnectClasses();
 
   if (wbEls.hint) wbEls.hint.classList.toggle("d-none", board.items.length > 0);
   if (wbEls.boardName) wbEls.boardName.textContent = board.name;
@@ -140,6 +171,7 @@ function wbApplyItemTransform(item) {
   el.style.setProperty("--wb-scale", item.scale);
   var text = el.querySelector(".wb-text");
   if (text) text.style.setProperty("--wb-text-scale", item.scale);
+  wbRenderConnectors();
 }
 
 // Re-style one text object in place (used while typing in the panel, so the
@@ -148,32 +180,194 @@ function wbApplyTextStyle(item) {
   if (!wbEls.items) return;
   var el = wbEls.items.querySelector('.wb-object[data-id="' + item.id + '"] .wb-text');
   if (el) wbStyleTextElement(el, item);
+  wbRenderConnectors();
   wbPositionSelectionBar();
+}
+
+// ---- Connectors ------------------------------------------------------------
+//
+// One SVG layer sits between the background and the objects. Every connector is
+// a primary-coloured line with a background-coloured halo (so it stays readable
+// over the photo backgrounds) and an arrowhead marker at the TARGET end. The
+// endpoints are recomputed from the two text boxes' ORIENTED rectangles, so they
+// stay glued to the edges while a box is moved, scaled or rotated.
+
+function wbRenderConnectors() {
+  if (!wbEls.connectorPaths || !wbEls.items) return;
+  var board = wbActiveBoard();
+  var layer = wbEls.connectorPaths;
+  while (layer.firstChild) layer.removeChild(layer.firstChild);
+  if (!board || !Array.isArray(board.connectors) || !board.connectors.length) return;
+
+  var canvasRect = wbEls.canvas.getBoundingClientRect();
+  board.connectors.forEach(function (conn) {
+    var ends = wbConnectorEnds(conn, canvasRect);
+    if (!ends) return;
+    var d = "M" + ends.x1.toFixed(2) + " " + ends.y1.toFixed(2) +
+      " L" + ends.x2.toFixed(2) + " " + ends.y2.toFixed(2);
+
+    var g = document.createElementNS(WB_SVG_NS, "g");
+    g.setAttribute("class", "wb-connector" + (conn.id === wbState.selectedConnectorId ? " selected" : ""));
+    g.setAttribute("data-id", conn.id);
+
+    var halo = document.createElementNS(WB_SVG_NS, "path");
+    halo.setAttribute("class", "wb-connector-halo");
+    halo.setAttribute("d", d);
+    g.appendChild(halo);
+
+    var line = document.createElementNS(WB_SVG_NS, "path");
+    line.setAttribute("class", "wb-connector-line");
+    line.setAttribute("d", d);
+    line.setAttribute("marker-end", "url(#wbConnectorArrow)");
+    g.appendChild(line);
+
+    // A fat invisible stroke makes the thin arrow easy to hit with a finger.
+    var hit = document.createElementNS(WB_SVG_NS, "path");
+    hit.setAttribute("class", "wb-connector-hit");
+    hit.setAttribute("d", d);
+    g.appendChild(hit);
+
+    layer.appendChild(g);
+  });
+}
+
+function wbConnectorEnds(conn, canvasRect) {
+  var fromItem = wbFindItem(conn.from);
+  var toItem = wbFindItem(conn.to);
+  if (!fromItem || !toItem) return null;
+  var fromEl = wbEls.items.querySelector('.wb-object[data-id="' + conn.from + '"]');
+  var toEl = wbEls.items.querySelector('.wb-object[data-id="' + conn.to + '"]');
+  if (!fromEl || !toEl) return null;
+
+  var aRect = fromEl.getBoundingClientRect();
+  var bRect = toEl.getBoundingClientRect();
+  var ax = aRect.left + aRect.width / 2 - canvasRect.left;
+  var ay = aRect.top + aRect.height / 2 - canvasRect.top;
+  var bx = bRect.left + bRect.width / 2 - canvasRect.left;
+  var by = bRect.top + bRect.height / 2 - canvasRect.top;
+
+  var aEdge = wbEdgePoint(ax, ay, bx, by,
+    Math.max(1, fromEl.offsetWidth / 2), Math.max(1, fromEl.offsetHeight / 2),
+    fromItem.rotation * Math.PI / 180);
+  var bEdge = wbEdgePoint(bx, by, ax, ay,
+    Math.max(1, toEl.offsetWidth / 2), Math.max(1, toEl.offsetHeight / 2),
+    toItem.rotation * Math.PI / 180);
+
+  // Stop 5px short of each box so the arrowhead never touches the border.
+  var gap = 5;
+  var aOut = wbPushOut(ax, ay, aEdge, gap);
+  var bOut = wbPushOut(bx, by, bEdge, gap);
+  return { x1: aOut.x, y1: aOut.y, x2: bOut.x, y2: bOut.y };
+}
+
+// Intersect the ray centre -> target with the rotated rectangle's edge.
+function wbEdgePoint(cx, cy, tx, ty, halfW, halfH, angle) {
+  var dx = tx - cx;
+  var dy = ty - cy;
+  if (!dx && !dy) return { x: cx, y: cy };
+  var cos = Math.cos(angle);
+  var sin = Math.sin(angle);
+  // World vector -> the box's local (unrotated) frame.
+  var lx = dx * cos + dy * sin;
+  var ly = -dx * sin + dy * cos;
+  var txEdge = lx ? halfW / Math.abs(lx) : Infinity;
+  var tyEdge = ly ? halfH / Math.abs(ly) : Infinity;
+  var t = Math.min(txEdge, tyEdge);
+  if (!isFinite(t)) return { x: cx, y: cy };
+  var ex = lx * t;
+  var ey = ly * t;
+  // Local -> world.
+  return { x: cx + ex * cos - ey * sin, y: cy + ex * sin + ey * cos };
+}
+
+function wbPushOut(cx, cy, pt, gap) {
+  var dx = pt.x - cx;
+  var dy = pt.y - cy;
+  var len = Math.hypot(dx, dy) || 1;
+  return { x: pt.x + dx / len * gap, y: pt.y + dy / len * gap };
+}
+
+function wbOnConnectorPointerDown(e) {
+  var g = e.target.closest ? e.target.closest(".wb-connector") : null;
+  if (!g) return;
+  e.preventDefault();
+  e.stopPropagation();
+  if (wbState.connectFrom) wbCancelConnect();
+  wbSelectConnector(g.getAttribute("data-id"));
 }
 
 function wbSelect(id) {
   wbState.selectedId = id || "";
+  wbState.selectedConnectorId = "";
   wbUpdateSelectionUi();
+}
+
+function wbSelectConnector(id) {
+  wbState.selectedId = "";
+  wbState.selectedConnectorId = id || "";
+  wbUpdateSelectionUi();
+}
+
+function wbSetBarButton(id, show) {
+  var el = document.getElementById(id);
+  if (el) el.classList.toggle("d-none", !show);
 }
 
 function wbUpdateSelectionUi() {
   if (!wbEls.items) return;
-  var selected = wbState.selectedId;
+  var conn = wbSelectedConnector();
+  var selected = conn ? "" : wbState.selectedId;
   wbEls.items.querySelectorAll(".wb-object").forEach(function (el) {
     el.classList.toggle("selected", el.dataset.id === selected);
   });
-  var item = wbSelectedItem();
-  if (!item) {
-    if (wbEls.selBar) wbEls.selBar.classList.add("d-none");
+  if (wbEls.connectorPaths) {
+    wbEls.connectorPaths.querySelectorAll(".wb-connector").forEach(function (g) {
+      g.classList.toggle("selected", g.getAttribute("data-id") === wbState.selectedConnectorId);
+    });
+  }
+
+  var bar = wbEls.selBar;
+  if (!bar) return;
+  if (wbState.connectFrom) {
+    bar.classList.add("d-none");
     return;
   }
-  if (wbEls.selBar) wbEls.selBar.classList.remove("d-none");
+
+  if (conn) {
+    bar.classList.remove("d-none");
+    wbSetBarButton("wbSelConnect", false);
+    wbSetBarButton("wbSelFront", false);
+    wbSetBarButton("wbSelDuplicate", false);
+    wbSetBarButton("wbSelDelete", false);
+    wbSetBarButton("wbConnReverse", true);
+    wbSetBarButton("wbConnDelete", true);
+    wbPositionSelectionBar();
+    return;
+  }
+
+  wbSetBarButton("wbConnReverse", false);
+  wbSetBarButton("wbConnDelete", false);
+  var item = wbSelectedItem();
+  if (!item) {
+    bar.classList.add("d-none");
+    return;
+  }
+  bar.classList.remove("d-none");
+  wbSetBarButton("wbSelFront", true);
+  wbSetBarButton("wbSelDuplicate", true);
+  wbSetBarButton("wbSelDelete", true);
+  wbSetBarButton("wbSelConnect", item.type === "text");
   wbPositionSelectionBar();
 }
 
 function wbPositionSelectionBar() {
   if (!wbEls.selBar || !wbEls.items || !wbEls.area || wbEls.selBar.classList.contains("d-none")) return;
-  var el = wbEls.items.querySelector('.wb-object[data-id="' + wbState.selectedId + '"]');
+  var el;
+  if (wbState.selectedConnectorId) {
+    el = wbEls.connectorPaths.querySelector('.wb-connector[data-id="' + wbState.selectedConnectorId + '"] .wb-connector-line');
+  } else {
+    el = wbEls.items.querySelector('.wb-object[data-id="' + wbState.selectedId + '"]');
+  }
   if (!el) return;
   var r = el.getBoundingClientRect();
   var a = wbEls.area.getBoundingClientRect();
@@ -238,7 +432,26 @@ function wbPositionSelectionBar() {
 
 // ---- Selection actions -----------------------------------------------------
 
+function wbDeleteSelectedConnector() {
+  if (!wbState.selectedConnectorId) return;
+  if (!wbRemoveConnector(wbState.selectedConnectorId)) return;
+  wbRenderConnectors();
+  wbUpdateSelectionUi();
+}
+
+function wbReverseSelectedConnector() {
+  var conn = wbSelectedConnector();
+  if (!conn) return;
+  wbReverseConnector(conn.id);
+  wbRenderConnectors();
+  wbUpdateSelectionUi();
+}
+
 function wbDeleteSelected() {
+  if (wbState.selectedConnectorId) {
+    wbDeleteSelectedConnector();
+    return;
+  }
   if (!wbState.selectedId) return;
   if (!wbRemoveItem(wbState.selectedId)) return;
   wbRender();
@@ -259,11 +472,54 @@ function wbFrontSelected() {
   wbPositionSelectionBar();
 }
 
+// ---- Connector mode --------------------------------------------------------
+
+function wbApplyConnectClasses() {
+  var on = !!wbState.connectFrom;
+  if (wbEls.items) {
+    wbEls.items.classList.toggle("wb-connecting", on);
+    wbEls.items.querySelectorAll(".wb-object").forEach(function (el) {
+      el.classList.toggle("wb-connect-source", on && el.dataset.id === wbState.connectFrom);
+    });
+  }
+  if (wbEls.connectHint) wbEls.connectHint.classList.toggle("d-none", !on);
+}
+
+function wbStartConnect() {
+  var item = wbSelectedItem();
+  if (!item || item.type !== "text") return;
+  wbState.connectFrom = item.id;
+  wbState.selectedConnectorId = "";
+  // Give the board room to show the target boxes; a pinned panel stays put.
+  if (!wbState.pinned && wbState.tool) wbClosePanel();
+  wbApplyConnectClasses();
+  wbUpdateSelectionUi();
+}
+
+function wbCancelConnect() {
+  if (!wbState.connectFrom) return;
+  wbState.connectFrom = "";
+  wbApplyConnectClasses();
+  wbUpdateSelectionUi();
+}
+
+function wbCreateConnection(toId) {
+  var fromId = wbState.connectFrom;
+  if (!fromId || !toId || fromId === toId) return;
+  var conn = wbAddConnector(fromId, toId);
+  wbState.connectFrom = "";
+  wbApplyConnectClasses();
+  wbRenderConnectors();
+  if (conn) wbSelectConnector(conn.id);
+  else wbUpdateSelectionUi();
+}
+
 // ---- Pointer gestures ------------------------------------------------------
 
 function wbOnCanvasPointerDown(e) {
   var t = e.target;
-  if (t.closest && (t.closest(".wb-object") || t.closest(".wb-toolbar") || t.closest(".wb-selection-bar") || t.closest(".wb-board-chip"))) return;
+  if (t.closest && (t.closest(".wb-object") || t.closest(".wb-connector") || t.closest(".wb-toolbar") || t.closest(".wb-selection-bar") || t.closest(".wb-board-chip"))) return;
+  if (wbState.connectFrom) wbCancelConnect();
   wbSelect("");
 }
 
@@ -281,6 +537,18 @@ function wbOnPointerDown(e) {
   if (!objEl) return;
   var item = wbFindItem(objEl.dataset.id);
   if (!item) return;
+
+  // Connector mode: the next TEXT box becomes the arrow's target.
+  if (wbState.connectFrom) {
+    if (item.type === "text" && item.id !== wbState.connectFrom) {
+      e.preventDefault();
+      wbCreateConnection(item.id);
+      return;
+    }
+    // Clicking the source (or a sticker) cancels the mode and behaves normally.
+    wbCancelConnect();
+  }
+
   if (wbState.drag && wbState.drag.itemId !== item.id) return;
 
   var now = Date.now();
@@ -406,11 +674,12 @@ function wbOnKeyDown(e) {
   var tag = (t && t.tagName ? t.tagName : "").toLowerCase();
   if (tag === "input" || tag === "textarea" || tag === "select" || (t && t.isContentEditable)) return;
   if (e.key === "Delete" || e.key === "Backspace") {
-    if (!wbState.selectedId) return;
+    if (!wbState.selectedId && !wbState.selectedConnectorId) return;
     e.preventDefault();
     wbDeleteSelected();
   } else if (e.key === "Escape") {
-    if (wbState.tool) wbClosePanel();
+    if (wbState.connectFrom) wbCancelConnect();
+    else if (wbState.tool) wbClosePanel();
     else wbSelect("");
   }
 }

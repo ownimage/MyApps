@@ -59,6 +59,8 @@ var wbState = {
   boards: [],
   activeId: "",
   selectedId: "",
+  selectedConnectorId: "",
+  connectFrom: "",
   tool: "",
   pinned: false,
   editingTextId: "",
@@ -129,12 +131,34 @@ function wbNormalizeBoard(raw) {
     id: String(raw.id || wbUid()),
     name: String(raw.name || "Board").trim() || "Board",
     background: wbBackgroundById(raw.background) ? raw.background : "",
-    items: []
+    items: [],
+    connectors: []
   };
   if (Array.isArray(raw.items)) {
     raw.items.forEach(function (it) {
       var item = wbNormalizeItem(it);
       if (item) board.items.push(item);
+    });
+  }
+
+  // Connectors are directional links between two TEXT boxes. Drop anything that
+  // points at a missing/non-text item (or at itself), and keep at most one link
+  // per pair so two arrows can never overlap.
+  var textIds = {};
+  board.items.forEach(function (item) {
+    if (item.type === "text") textIds[item.id] = true;
+  });
+  var seenPairs = {};
+  if (Array.isArray(raw.connectors)) {
+    raw.connectors.forEach(function (rawConn) {
+      if (!rawConn || typeof rawConn !== "object") return;
+      var from = String(rawConn.from || "");
+      var to = String(rawConn.to || "");
+      if (!textIds[from] || !textIds[to] || from === to) return;
+      var pair = from < to ? from + "|" + to : to + "|" + from;
+      if (seenPairs[pair]) return;
+      seenPairs[pair] = true;
+      board.connectors.push({ id: String(rawConn.id || wbUid()), from: from, to: to });
     });
   }
   return board;
@@ -150,7 +174,7 @@ function wbLoadState() {
   if (!Array.isArray(boards)) boards = [];
   wbState.boards = boards.map(wbNormalizeBoard).filter(Boolean);
   if (!wbState.boards.length) {
-    wbState.boards.push({ id: wbUid(), name: "My Whiteboard", background: "", items: [] });
+    wbState.boards.push({ id: wbUid(), name: "My Whiteboard", background: "", items: [], connectors: [] });
   }
   var savedActive = localStorage.getItem(smdKey("activeBoard")) || "";
   wbState.activeId = wbFindBoard(savedActive) ? savedActive : wbState.boards[0].id;
@@ -228,10 +252,12 @@ function wbUniqueBoardName() {
 }
 
 function wbAddBoard() {
-  var board = { id: wbUid(), name: wbUniqueBoardName(), background: "", items: [] };
+  var board = { id: wbUid(), name: wbUniqueBoardName(), background: "", items: [], connectors: [] };
   wbState.boards.push(board);
   wbState.activeId = board.id;
   wbState.selectedId = "";
+  wbState.selectedConnectorId = "";
+  wbState.connectFrom = "";
   wbState.editingTextId = "";
   wbSaveState();
   wbRender();
@@ -251,6 +277,8 @@ function wbDeleteBoard(id) {
     wbState.activeId = wbState.boards[Math.min(index, wbState.boards.length - 1)].id;
   }
   wbState.selectedId = "";
+  wbState.selectedConnectorId = "";
+  wbState.connectFrom = "";
   wbState.editingTextId = "";
   wbSaveState();
   wbRender();
@@ -273,6 +301,8 @@ function wbSetActiveBoard(id) {
   if (!wbFindBoard(id) || id === wbState.activeId) return;
   wbState.activeId = id;
   wbState.selectedId = "";
+  wbState.selectedConnectorId = "";
+  wbState.connectFrom = "";
   wbState.editingTextId = "";
   wbSaveState();
   wbRender();
@@ -317,8 +347,91 @@ function wbRemoveItem(id) {
   var before = board.items.length;
   board.items = board.items.filter(function (it) { return it.id !== id; });
   if (board.items.length === before) return false;
+  // A connector needs BOTH ends: drop every link to/from the deleted box.
+  if (Array.isArray(board.connectors)) {
+    board.connectors = board.connectors.filter(function (c) {
+      return c.from !== id && c.to !== id;
+    });
+  }
   if (wbState.selectedId === id) wbState.selectedId = "";
   if (wbState.editingTextId === id) wbState.editingTextId = "";
+  if (wbState.connectFrom === id) wbState.connectFrom = "";
+  if (wbState.selectedConnectorId && !wbFindConnector(wbState.selectedConnectorId)) {
+    wbState.selectedConnectorId = "";
+  }
+  wbSaveState();
+  return true;
+}
+
+// ---- Connectors ------------------------------------------------------------
+
+function wbFindConnector(id) {
+  var board = wbActiveBoard();
+  if (!board || !Array.isArray(board.connectors) || !id) return null;
+  for (var i = 0; i < board.connectors.length; i++) {
+    if (board.connectors[i].id === id) return board.connectors[i];
+  }
+  return null;
+}
+
+function wbSelectedConnector() {
+  return wbFindConnector(wbState.selectedConnectorId);
+}
+
+function wbConnectorBetween(from, to) {
+  var board = wbActiveBoard();
+  if (!board || !Array.isArray(board.connectors)) return null;
+  for (var i = 0; i < board.connectors.length; i++) {
+    var c = board.connectors[i];
+    if ((c.from === from && c.to === to) || (c.from === to && c.to === from)) return c;
+  }
+  return null;
+}
+
+// Add a directional link from one text box to another. Returns the new (or the
+// existing) connector. Only text-to-text links are allowed.
+function wbAddConnector(from, to) {
+  var board = wbActiveBoard();
+  if (!board) return null;
+  if (!from || !to || from === to) return null;
+  var fromItem = wbFindItem(from);
+  var toItem = wbFindItem(to);
+  if (!fromItem || !toItem || fromItem.type !== "text" || toItem.type !== "text") return null;
+  var existing = wbConnectorBetween(from, to);
+  if (existing) {
+    // The newly requested direction wins: connecting A -> B when B -> A already
+    // exists flips the arrow instead of silently creating nothing.
+    if (existing.from !== from) {
+      existing.from = from;
+      existing.to = to;
+      wbSaveState();
+    }
+    return existing;
+  }
+  if (!Array.isArray(board.connectors)) board.connectors = [];
+  var conn = { id: wbUid(), from: from, to: to };
+  board.connectors.push(conn);
+  wbSaveState();
+  return conn;
+}
+
+function wbRemoveConnector(id) {
+  var board = wbActiveBoard();
+  if (!board || !Array.isArray(board.connectors)) return false;
+  var before = board.connectors.length;
+  board.connectors = board.connectors.filter(function (c) { return c.id !== id; });
+  if (board.connectors.length === before) return false;
+  if (wbState.selectedConnectorId === id) wbState.selectedConnectorId = "";
+  wbSaveState();
+  return true;
+}
+
+function wbReverseConnector(id) {
+  var conn = wbFindConnector(id);
+  if (!conn) return false;
+  var from = conn.from;
+  conn.from = conn.to;
+  conn.to = from;
   wbSaveState();
   return true;
 }

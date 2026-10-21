@@ -282,6 +282,27 @@ Architecture:
   paint order. New items go to 50/50 then cascade +4% (first item must be
   centred, not offset). Backgrounds are ids (`space`/`underwater`/`""`), never
   paths, so the asset list stays in `WB_BACKGROUNDS`/`WB_STICKERS`.
+  CONNECTORS (2026-10-21): each board also has `connectors: [{id,from,to}]`,
+  where `from`/`to` are TEXT item ids. Normalization drops dangling/self/non-text
+  links and keeps ONE link per pair (any direction). A text box's selection bar
+  shows a Connect arrow; it enters `wbState.connectFrom` mode (source outlined,
+  every other text box dashed via `.wb-connecting`, hint bar with Cancel) and the
+  next text click creates the link. Escape/blank/non-text cancels. Clicking the
+  arrow line selects the connector (fat 18px transparent hit path with
+  `pointer-events: stroke`) and the bar swaps to Reverse + Delete; Delete/
+  Backspace removes it. `wbAddConnector` flips an existing reverse link so the
+  newly requested direction wins. Deleting a text item removes its links.
+  RENDER: one SVG layer `#wbConnectors` between the background and `#wbItems`
+  (z-index 1 vs 2) with a halo (body-bg, 7px) under a body-color line (2.5px) and
+  an arrow marker at the TARGET. Use body-color/body-bg, NOT `--bs-primary`:
+  sketchy's primary is #333 and disappeared on the dark backgrounds. Endpoints
+  come from `wbEdgePoint` (ray vs the ROTATED rectangle using `item.rotation` and
+  offsetWidth/Height) plus a 5px gap; `wbRenderConnectors` runs on render, every
+  transform/text style change, window resize and a ResizeObserver on each object
+  (font loads / font-size changes). GOTCHA: `#wbItems` is `pointer-events: none`
+  with `.wb-object { pointer-events: auto }`, otherwise its transparent full-size
+  box swallows clicks meant for the connector hit strokes. Selection outlines and
+  handles use body-color + a body-bg halo for the same visibility reason.
   TOOLBAR: rail is always visible (74px desktop, labels fixed 10px; labels hidden
   at <=520px where the rail is 50px). One tool's panel slides out beside it
   (`#wbToolbar[data-open="boards|background|stickers|text"]`); clicking the same
@@ -6553,3 +6574,35 @@ Techniques / gotchas:
   preview follows the selection (Montserrat checked + loaded); zero
   console/page errors.
 - BUILD: `202610211939` via `npm run bump:build`.
+
+### 2026-10-21 (g) - Whiteboard: directional connectors between text boxes
+- REQUEST (user): "From the text boxes I want to be able to add connectors so
+  that I can add a directional connector to another text box."
+- BUILT: per-board `connectors: [{id,from,to}]` (text-to-text only, one per
+  pair); selection-bar Connect arrow -> connect mode -> click the target text
+  box; arrowhead at the TARGET. Click an arrow to select it, then Reverse or
+  Delete from the same bar; Delete/Backspace also works. Escape/blank/non-text
+  cancels connect mode. Deleting a box removes its links. Full contract is in the
+  WHITEBOARD APP note above.
+- RENDER: SVG layer under the objects, body-color line + body-bg halo + arrow
+  marker; endpoints recomputed against each box's ROTATED rectangle (item
+  rotation + offsetWidth/Height) with a 5px gap, so arrows stay glued while a box
+  moves, scales or rotates. Redraws on every transform/text style, window resize
+  and a per-object ResizeObserver (font loading changes metrics).
+- GOTCHA FOUND WHILE BUILDING: `#wbItems` had to become `pointer-events:none`
+  (with `.wb-object` auto) or its transparent full-board box swallowed every
+  click aimed at a connector's hit stroke. Handles/selection outlines were also
+  switched from primary to body-color + a body-bg halo - sketchy's primary is
+  #333, so its handles/outline vanished on the dark background.
+- VERIFIED (throwaway probes, deleted): Connect button text-only; hint + source
+  outline + dashed targets during connect; from/to + arrow marker; move and
+  rotate move the path endpoints; clicking the line selects it; Reverse swaps
+  from/to; Delete removes path + selection; Escape cancels; connector survives
+  reload; deleting a box drops its connectors; per-board isolation; font-size and
+  handle-scale redraw the endpoints; theme switch recolours the line/arrow;
+  zero console/page errors. Screenshots checked on superhero + sketchy dark +
+  flatly light over the space background.
+- NOTE: clicking a text box twice within 340ms opens the text editor by design,
+  so a pointer drag started immediately after selecting a box can be swallowed
+  as a double-click. Wait ~400ms or click once, then drag. Not a connector bug.
+- BUILD: `202610211957` via `npm run bump:build`.

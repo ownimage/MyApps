@@ -60,6 +60,15 @@
 
     <div id="wbCanvas">
       <div id="wbBackground" data-background="none"></div>
+      <svg id="wbConnectors" class="wb-connectors" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <defs>
+          <marker id="wbConnectorArrow" viewBox="0 0 10 10" refX="9" refY="5"
+                  markerWidth="6" markerHeight="6" orient="auto" markerUnits="strokeWidth">
+            <path class="wb-connector-arrow" d="M0,0 L10,5 L0,10 Z"></path>
+          </marker>
+        </defs>
+        <g id="wbConnectorPaths"></g>
+      </svg>
       <div id="wbItems" class="wb-items"></div>
       <div id="wbEmptyHint" class="wb-empty-hint">
         <i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i>
@@ -101,8 +110,18 @@
       </section>
     </aside>
 
+    <!-- CONNECTOR MODE HINT -->
+    <div id="wbConnectHint" class="wb-connect-hint d-none" role="status">
+      <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
+      <span>Select another text box to connect</span>
+      <button type="button" id="wbConnectCancel" class="btn btn-sm btn-secondary">Cancel</button>
+    </div>
+
     <!-- SELECTED ITEM ACTIONS -->
     <div id="wbSelectionBar" class="wb-selection-bar d-none" role="toolbar" aria-label="Selected item">
+      <button type="button" id="wbSelConnect" class="wb-sel-btn d-none" title="Connect to another text box" aria-label="Connect to another text box">
+        <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
+      </button>
       <button type="button" id="wbSelFront" class="wb-sel-btn" title="Bring to front" aria-label="Bring to front">
         <i class="fa-solid fa-layer-group" aria-hidden="true"></i>
       </button>
@@ -110,6 +129,12 @@
         <i class="fa-solid fa-copy" aria-hidden="true"></i>
       </button>
       <button type="button" id="wbSelDelete" class="wb-sel-btn" title="Delete" aria-label="Delete">
+        <i class="fa-solid fa-trash" aria-hidden="true"></i>
+      </button>
+      <button type="button" id="wbConnReverse" class="wb-sel-btn d-none" title="Reverse direction" aria-label="Reverse direction">
+        <i class="fa-solid fa-right-left" aria-hidden="true"></i>
+      </button>
+      <button type="button" id="wbConnDelete" class="wb-sel-btn d-none" title="Delete connector" aria-label="Delete connector">
         <i class="fa-solid fa-trash" aria-hidden="true"></i>
       </button>
     </div>
