@@ -13,6 +13,7 @@ This repo is set up to host **multiple PWAs off one origin** (GitHub Pages
 - `QRLinks/` — link/QR app, served at `/<project>/QRLinks/` (same structure; own `manifest.json` + icons).
 - `SolarControlar/` — solar energy monitoring dashboard (front-end for the Flask server), served at `/<project>/SolarControlar/` (same structure; own `manifest.json` + icons).
 - `FreeFormOX/` — free-form noughts & crosses app, served at `/<project>/FreeFormOX/` (same structure; own `manifest.json` + icons).
+- `Whiteboard/` — stickers, text and backgrounds on named boards, served at `/<project>/Whiteboard/` (same structure; own `manifest.json` + icons + `assets/`).
 - `Launch/` + the repo-root `index.html` — the launcher (grid of the available apps), served at `/<project>/`. Its support files live in `Launch/`; the entry is the root `index.html`.
 - `sw.js` — a **single site-wide service worker at the repo root**. It must live at
   the root because a service worker can only intercept requests inside its scope,

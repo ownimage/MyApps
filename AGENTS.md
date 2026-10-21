@@ -260,6 +260,73 @@ Architecture:
   and would strict-mode-fail). Sample images "Launch" and "Phone Buttons" were
   added (native SVG + SURGICAL JSON append — a full `regen` rewrites 22
   pre-existing entries whose SVG files drifted from the JSON).
+- WHITEBOARD APP (2026-10-21, NEW — the 9th app; older notes saying "all 8
+  shells/apps" predate it): `Whiteboard/` is a PlanMyDay-style classic-script PWA
+  (no modules, globals on purpose). It has the standard hamburger (Settings |
+  Launch flyout) and exactly ONE settings tab, **Display**, with only live rows:
+  Theme, Theme Mode, Font size, Touch size, Slide speed, Auto-hide menu, Screen
+  resolution (last). No Title/`<h1>` in the shell (the nav title reads
+  "Whiteboard" from `SmdApps`).
+  FILES: `js/storage.js` (data + colour/frame helpers), `js/board.js` (render +
+  pointer gestures), `js/toolbar.js` (rail, fly-out panels, text editor),
+  `js/app-settings.js`, `js/app.js`; `css/whiteboard.css` (all app layout; the
+  shared sheet is untouched); `assets/backgrounds/{space,underwater}.svg`
+  (2560x1440) and `assets/stickers/{mermaid,shark,seaweed,spaceman,spaceship}.svg`
+  (512 viewBox flat art, transparent). `icon.svg` + generated 192/512 PNGs.
+  DATA: keys via `smdKey()` = `whiteboard_boards`, `whiteboard_activeBoard`,
+  `whiteboard_toolbarPinned`. `wbState.boards` is an array of
+  `{id,name,background,items}`; items are stickers
+  `{id,type:"sticker",sticker,x,y,scale,rotation,z}` or text
+  `{id,type:"text",text,bg,color,border,x,y,scale,rotation,z}`. `x`/`y` are
+  PERCENTAGES of the board (2..98) so a board keeps its layout on resize; `z` is
+  paint order. New items go to 50/50 then cascade +4% (first item must be
+  centred, not offset). Backgrounds are ids (`space`/`underwater`/`""`), never
+  paths, so the asset list stays in `WB_BACKGROUNDS`/`WB_STICKERS`.
+  TOOLBAR: rail is always visible (74px desktop, labels fixed 10px; labels hidden
+  at <=520px where the rail is 50px). One tool's panel slides out beside it
+  (`#wbToolbar[data-open="boards|background|stickers|text"]`); clicking the same
+  rail button toggles it closed; outside clicks close it UNLESS pinned. Pin
+  persists (`whiteboard_toolbarPinned`) and on reload a pinned toolbar reopens
+  Boards. GOTCHA: a panel button that re-renders the panel DETACHES the clicked
+  node before the document-level outside-click listener runs, so `target.closest`
+  no longer finds `#wbToolbar` and the panel closes itself — `wbOnPanelClick`
+  stamps `wbState.panelClickAt` and the outside handler ignores clicks from the
+  last 150ms. The page's `#mainNav .dropdown-menu` is raised to `z-index: 1035`
+  so the hamburger menu is never covered by the 1020 toolbar.
+  GESTURES: objects are absolutely positioned and rotated around their centre.
+  Selection shows a scale handle (bottom-right) and a rotate handle (top);
+  a floating bar offers Bring-to-front / Duplicate / Delete. Body drag moves;
+  two pointers on ONE object pinch-scale, twist-rotate and slide-move
+  (`wbState.drag.mode = "pinch"`). Pointer capture is try/catch (synthetic
+  pointerIds throw). Delete/Backspace removes the selection, Escape closes the
+  panel/clears the selection. Double-click OR double-tap a text box opens the
+  text panel in edit mode; field changes apply LIVE (`wbApplyTextStyle`).
+  TEXT: bg tokens `transparent|white|black|primary|secondary|success|danger|
+  warning|info|light|dark` map to `.wb-bg-*`; colour tokens add `auto` (body
+  colour) and map to `.wb-color-*`. Borders `none|fancy|hand|stamp` are SVG
+  frames generated per object as a `border-image` data URI
+  (`wbFrameDataUri(kind, wbResolveColor(token))`), so the frame follows the TEXT
+  colour and every theme. Because the colour is baked into the URI, a theme or
+  mode change must re-render the board (app.js listens to `smd-theme-change`).
+  Background "None" must `style.removeProperty("background-image")` — assigning
+  `""` leaves an inline empty image that overrides the CSS dot grid.
+  REGISTRY: add `SmdApps.APPS` row (name/description/path `Whiteboard/`, icon
+  "Whiteboard"), a native `shared/sampleImages/Whiteboard.svg` appended
+  surgically to `shared/sampleImages.json`, and a `sw.js APPS["Whiteboard/"]`
+  entry listing index/manifest/icons/css/both background SVGs/all five sticker
+  SVGs/all five JS files. The Launch grid and the Launch flyout pick it up from
+  the registry (no root `index.html` edit).
+  TESTS DEFERRED (user request 2026-10-21: "do not run regression tests, do not
+  add tests at this time"): no spec was added and no suite was run. Before the
+  next full run, update `tests/launch-regression.spec.js` (`EXPECTED_TILES` is now
+  9 incl. `Whiteboard/`, plus `EXPECTED_MENU`, `ALL_APPS`, `SHELL_CASCADE` and the
+  nav-title app list), add Whiteboard to `tests/settings-alignment.spec.js`
+  (Display-only tab/shape/rhythm/tables) and `tests/display-settings.spec.js`,
+  and add a Whiteboard screenshot spec if screenshots are wanted. Verified
+  instead with throwaway Playwright probes (deleted): board/drag/scale/rotate,
+  synthetic two-finger pinch (scale + twist), text create/edit/frames, board
+  add/rename/delete/switch, pin persistence, Settings shape, 8081 sub-path,
+  Launch tile + nav title, zero console/page errors.
 - APP NAME IN THE NAV BAR (2026-10-18): every app shell's toolbar shows its FULL
   NAME next to the hamburger. `SmdApps.mountAppTitle()` (shared/js/smd-apps.js)
   inserts `<span id="appNavTitle" class="navbar-text fw-semibold mb-0">` after the
@@ -345,6 +412,7 @@ Architecture:
                    Show undo/redo, Swap)
     ListOfLists    Display, Minio, Danger
     PhoneButtons   Display, Server, Danger
+    Whiteboard     Display
   NO DEAD CONTROLS (user): a row is only present where the setting does something.
   `Icon size` is therefore ABSENT in SolarControlar and FreeFormOX (no
   `<smd-image>`), and `Tile density` only exists in PlanMyDay/CountMyDays/QRLinks/
@@ -6396,3 +6464,40 @@ Techniques / gotchas:
   `scrollTo` (restoring the previous inline value afterwards) and waits for
   `window.scrollY > 0` before returning the card coordinates.
 - VERIFIED: both tests pass together with `--workers=2 --retries=0` (2 passed).
+
+### 2026-10-21 (e) - Whiteboard: new app (stickers + text + backgrounds, named boards)
+- REQUEST (user): a new `Whiteboard` app based on PlanMyDay, with ONLY the
+  hamburger menu and Settings | Display; a left toolbar that flies out and can be
+  pinned; Backgrounds (space + underwater, 2k), Stickers (mermaid, shark,
+  seaweed, spaceman, spaceship) and Text (coloured/transparent background;
+  fancy, hand-drawn or stamp borders); stickers and text scalable + rotatable.
+  Answers to the design questions: MULTIPLE NAMED BOARDS, handles PLUS two-finger
+  pinch/rotate, original SVG artwork in the repo, four borders + a colour palette,
+  and the seven live Display rows.
+- BUILT: `Whiteboard/` (index/manifest/icons/css/js/assets), registered in
+  `SmdApps.APPS`, `shared/sampleImages.json` (+ native Whiteboard SVG) and
+  `sw.js APPS["Whiteboard/"]`. Full contract + gotchas are in the WHITEBOARD APP
+  architecture note above. Settings is a single Display tab (Theme, Theme Mode,
+  Font size, Touch size, Slide speed, Auto-hide menu, Screen resolution last).
+- WHAT WORKED: a throwaway Playwright probe (outside `tests/`, deleted after)
+  driving the real UI end to end. It proved background apply, sticker add, body
+  drag (+9% x for +130px), corner scale 1.0 -> 1.89, synthetic two-finger pinch
+  (scale 1.89 -> 4.49, rotation 0 -> 18.4) and rotate-handle (-> 37.6), text
+  placement with fancy border + danger bg + white text, double-click edit,
+  board add/rename/delete/switch, pin persistence across reload, Settings shape
+  (one Display tab, exact rows), font size 29.9 -> 36.8px, 8081 sub-path load,
+  Launch tile + nav title, and ZERO console/page errors. Screenshots confirmed
+  the space/underwater art, all five stickers, all four border styles, sketchy
+  dark recolouring, and the phone layout.
+- BUGS THE PROBE CAUGHT (all fixed): panel buttons re-render the panel via
+  `innerHTML`, so the clicked node was DETACHED before the document outside-click
+  handler ran -> `closest("#wbToolbar")` failed and the panel closed itself
+  (fixed with `wbState.panelClickAt`); the open tool panel covered the hamburger
+  dropdown (fixed with `#mainNav .dropdown-menu { z-index: 1035 }`); assigning
+  `background-image: ""` for "no background" overrode the CSS dot grid (fixed
+  with `removeProperty`); the first item was placed at 41% instead of centre
+  (cascade formula rewritten); and rail labels were clipped by the badge-sized
+  font (fixed 10px labels, 74px rail, hidden <=520px).
+- NOT RUN (explicit user instruction): no regression tests were run and NO tests
+  were added. Deferred test updates are listed in the WHITEBOARD APP note.
+- BUILD: `202610211918` via `npm run bump:build`.
