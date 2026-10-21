@@ -229,7 +229,11 @@ smd-checkbox[size="large"] {
   --smd-checkbox-input-size: 2em;
 }
 
-smd-checkbox input {
+/* `[type="checkbox"]` is part of the selector on purpose: sketchy ships a bare
+   `[type="checkbox"] { width:0; height:0; border-style:none }` reset (its own
+   hand-drawn checkbox), which has class-level specificity and would beat a plain
+   `smd-checkbox input` selector. The attribute keeps our control's size/border. */
+smd-checkbox input[type="checkbox"] {
   appearance: none;
   -webkit-appearance: none;
   width: var(--smd-checkbox-input-size, 1em);
@@ -250,18 +254,18 @@ smd-checkbox input {
   cursor: pointer;
 }
 
-smd-checkbox input:checked {
+smd-checkbox input[type="checkbox"]:checked {
   background-color: var(--smd-checkbox-accent, var(--bs-primary));
   border-color: var(--smd-checkbox-accent, var(--bs-primary));
   background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3e%3cpath fill='none' stroke='%23fff' stroke-linecap='round' stroke-linejoin='round' stroke-width='3' d='m6 10 3 3 6-6'/%3e%3c/svg%3e");
 }
 
-smd-checkbox input:focus-visible {
+smd-checkbox input[type="checkbox"]:focus-visible {
   outline: 2px solid currentColor;
   outline-offset: 2px;
 }
 
-smd-checkbox input:disabled {
+smd-checkbox input[type="checkbox"]:disabled {
   opacity: 0.5;
   cursor: default;
 }

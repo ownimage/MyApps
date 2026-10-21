@@ -48,9 +48,7 @@ smd-image-dropdown .btn:focus-visible
     background: black;
 }
 
-/* smd-contrast:start - generated WCAG AA contrast overrides. Do not edit by hand:
-   regenerate with  SMD_CONTRAST_FIX=1 npx playwright test --config test-contrast/playwright.config.js
-   (test-contrast/contrast-css.spec.js fails when this block no longer matches the theme). */
+/* smd-contrast:start */
 .btn-success {
   --bs-btn-color: #000;
   --bs-btn-disabled-color: #000;
@@ -96,7 +94,7 @@ cmd-countdown-card .text-secondary {
   border-style: solid;
   border-width: 1px;
 }
-smd-checkbox input {
+smd-checkbox input[type="checkbox"] {
   border-color: #fff;
 }
 /* smd-contrast:end */

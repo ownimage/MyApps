@@ -11,9 +11,7 @@
   color: var(--bs-gray-700);
 }
 
-/* smd-contrast:start - generated WCAG AA contrast overrides. Do not edit by hand:
-   regenerate with  SMD_CONTRAST_FIX=1 npx playwright test --config test-contrast/playwright.config.js
-   (test-contrast/contrast-css.spec.js fails when this block no longer matches the theme). */
+/* smd-contrast:start */
 .btn-primary {
   --bs-btn-hover-color: #000;
   --bs-btn-disabled-color: #212529;
@@ -57,7 +55,7 @@ smd-tabs .smd-tab-btn.text-bg-primary:focus-visible {
   border-style: solid;
   border-width: 1px;
 }
-smd-checkbox input {
+smd-checkbox input[type="checkbox"] {
   border-color: #fff;
 }
 /* smd-contrast:end */

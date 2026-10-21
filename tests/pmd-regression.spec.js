@@ -3736,7 +3736,18 @@ test.describe("PlanMyDay - Regression", () => {
     // centre for a card that is fully on screen (so a raw mouse click/swipe never
     // auto-scrolls the list first).
     async function scrollDownToViewButton(page) {
-      await page.evaluate(() => window.scrollTo(0, 600));
+      // Every theme's Bootstrap sets `:root { scroll-behavior: smooth }`, so a
+      // plain window.scrollTo animates and an immediate `scrollY` read is still
+      // 0 (the source of the old intermittent "Expected > 0, Received 0").
+      // Force the setup scroll to be instant, then wait until it has landed.
+      await page.evaluate(() => {
+        const root = document.documentElement;
+        const previous = root.style.scrollBehavior;
+        root.style.scrollBehavior = "auto";
+        window.scrollTo(0, 600);
+        root.style.scrollBehavior = previous;
+      });
+      await page.waitForFunction(() => window.scrollY > 0);
       return page.evaluate(() => {
         const cards = Array.from(document.querySelectorAll("#todayCardList .today-drag-card"));
         for (let i = 0; i < cards.length; i++) {
@@ -8759,7 +8770,7 @@ test.describe("PlanMyDay - Regression", () => {
   // Every same-origin stylesheet/script load is versioned with
   // ?v=BUILD_NUMBER so a new build always fetches fresh files.
 
-  test.describe("asset cache-busting", () => {
+  test.describe("asset cache-busting", { tag: "@cache" }, () => {
 
     test("all stylesheets and same-origin scripts carry ?v=BUILD_NUMBER", async ({ page }) => {
       await page.goto("/PlanMyDay/");

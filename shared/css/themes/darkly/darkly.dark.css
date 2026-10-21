@@ -10,9 +10,7 @@
     background-color: color-mix(in hsl, var(--bs-success) 40%, black) !important;
 }
 
-/* smd-contrast:start - generated WCAG AA contrast overrides. Do not edit by hand:
-   regenerate with  SMD_CONTRAST_FIX=1 npx playwright test --config test-contrast/playwright.config.js
-   (test-contrast/contrast-css.spec.js fails when this block no longer matches the theme). */
+/* smd-contrast:start */
 .btn-success {
   --bs-btn-color: #222;
   --bs-btn-hover-color: #222;
@@ -73,7 +71,7 @@
   border-style: solid;
   border-width: 1px;
 }
-smd-checkbox input {
+smd-checkbox input[type="checkbox"] {
   border-color: #fff;
 }
 /* smd-contrast:end */

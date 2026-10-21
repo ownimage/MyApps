@@ -27,9 +27,40 @@ smd-tabs .smd-tab-btn.text-bg-primary {
   background-color: #dc3545 !important;
 }
 
-/* smd-contrast:start - generated WCAG AA contrast overrides. Do not edit by hand:
-   regenerate with  SMD_CONTRAST_FIX=1 npx playwright test --config test-contrast/playwright.config.js
-   (test-contrast/contrast-css.spec.js fails when this block no longer matches the theme). */
+/* SKETCHY DRAWS ITS OWN CHECKBOX: [type=checkbox]::before is the hand-drawn box
+   and ::after is the "x". Our smd-checkbox chrome would add a second border and
+   paint over the theme's mark, so drop our border/fill/tick here and stretch the
+   theme's pseudo-element to the touch-sized input. The generated contrast block
+   still writes a border-color, but `border: none` leaves it invisible. */
+smd-checkbox input[type="checkbox"] {
+  border: none;
+  border-radius: 0;
+  background-color: transparent;
+}
+
+smd-checkbox input[type="checkbox"]:checked {
+  background-color: transparent;
+  border-color: transparent;
+  background-image: none;
+}
+
+smd-checkbox input[type="checkbox"]::before {
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+}
+
+smd-checkbox input[type="checkbox"]:checked::after {
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 1.5em;
+  line-height: 1;
+}
+
+/* smd-contrast:start */
 .btn-success, .btn-info {
   --bs-btn-color: #212529;
   --bs-btn-hover-color: #000;
@@ -77,7 +108,7 @@ smd-tabs .smd-tab-btn.text-bg-primary {
   border-style: solid;
   border-width: 1px;
 }
-smd-checkbox input {
+smd-checkbox input[type="checkbox"] {
   border-color: #000;
 }
 /* smd-contrast:end */

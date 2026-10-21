@@ -3,9 +3,7 @@
    border: 1px solid var(--bs-body-bg) !important;
 }
 
-/* smd-contrast:start - generated WCAG AA contrast overrides. Do not edit by hand:
-   regenerate with  SMD_CONTRAST_FIX=1 npx playwright test --config test-contrast/playwright.config.js
-   (test-contrast/contrast-css.spec.js fails when this block no longer matches the theme). */
+/* smd-contrast:start */
 .btn-secondary, .btn-danger {
   --bs-btn-color: #1a0933;
   --bs-btn-disabled-color: #1a0933;
@@ -65,7 +63,7 @@ cmd-countdown-card .text-secondary {
   border-style: solid;
   border-width: 1px;
 }
-smd-checkbox input {
+smd-checkbox input[type="checkbox"] {
   border-color: #32fbe2;
 }
 /* smd-contrast:end */

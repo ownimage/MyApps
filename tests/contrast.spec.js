@@ -3,7 +3,7 @@
 //
 // The fixes are baked into each theme's own per-mode sheet
 // (shared/css/themes/<theme>/<theme>.<mode>.css, generated block);
-// test-contrast/contrast-css.spec.js keeps that block current. This spec instead
+// tests/contrast-css.spec.js keeps that block current. This spec instead
 // measures the REAL `<smd-button>` / `<smd-tabs>` components to prove the baked
 // CSS actually renders readable labels. Every button state is checked, because
 // hover/active paint their own surface (`--bs-btn-hover-bg`, ...) from their own
@@ -269,10 +269,10 @@ const MEASURE_CMD = () => {
   });
 
   const host = document.getElementById("borderContrastProbe");
-  const border = (sel) => {
+  const border = (sel, pseudo) => {
     const el = host ? host.querySelector(sel) : null;
     if (!el) return null;
-    const cs = getComputedStyle(el);
+    const cs = getComputedStyle(el, pseudo);
     const raw = parse(cs.borderTopColor);
     const painted = over(raw, pageBg);
     return {
@@ -290,8 +290,14 @@ const MEASURE_CMD = () => {
     checkbox: border("input.form-check-input")
   };
   // The shared <smd-checkbox> draws its own single border (`appearance: none`),
-  // so it is measured like any other control border.
+  // so it is measured like any other control border. Sketchy instead draws the
+  // checkbox with [type=checkbox]::before (and drops our border in its theme
+  // override), so fall back to the pseudo-element's border when ours is absent.
   borders.nativeCheckbox = border("smd-checkbox input");
+  if (borders.nativeCheckbox && (borders.nativeCheckbox.style === "none" || borders.nativeCheckbox.width < 1)) {
+    const pseudo = border("smd-checkbox input", "::before");
+    if (pseudo && pseudo.style !== "none" && pseudo.width >= 1) borders.nativeCheckbox = pseudo;
+  }
   return { text, borders };
 };
 
@@ -369,7 +375,7 @@ async function setTheme(page, theme, mode) {
   }
 }
 
-test.describe("Contrast (WCAG AA)", () => {
+test.describe("Contrast (WCAG AA)", { tag: "@contrast" }, () => {
 
   test("every smd-button variant meets AA in every state, on every theme and mode", async ({ page }) => {
     test.setTimeout(5 * 60 * 1000);          // 27 themes x 2 modes, each with a settle wait
@@ -402,7 +408,7 @@ test.describe("Contrast (WCAG AA)", () => {
   });
 
   test("nothing computes contrast at runtime any more", async ({ page }) => {
-    // The AA fixes are BAKED INTO the theme CSS (test-contrast/contrast-css.spec.js keeps
+    // The AA fixes are BAKED INTO the theme CSS (tests/contrast-css.spec.js keeps
     // them current). Nothing may inject colour styles or expose a normaliser at
     // runtime - this guard fails if that code is ever added back.
     await page.goto("/PlanMyDay/");

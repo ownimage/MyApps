@@ -11,7 +11,7 @@
 //                         change anywhere".
 //   SMD_CONTRAST_FIX=1    rewrites the marked block in every sheet, then verifies
 //                         the result, so a theme edit is one command:
-//                           SMD_CONTRAST_FIX=1 npx playwright test --config test-contrast/playwright.config.js
+//                           SMD_CONTRAST_FIX=1 npx playwright test --project=contrast --workers=1
 //
 // HOW IT MEASURES: the marked block is STRIPPED from the theme sheet (the request
 // is intercepted and fulfilled from disk), so the spec always judges the THEME's
@@ -19,7 +19,7 @@
 // idempotent - a second FIX run produces the same files.
 //
 // WHAT IT DOES NOT DO: prove the rendered result is readable. That is the outcome
-// guard in test-contrast/contrast.spec.js (and test-contrast/menu-legibility.spec.js), which
+// guard in tests/contrast.spec.js (and tests/menu-legibility.spec.js), which
 // measures the real components WITH the baked CSS applied.
 const { test, expect } = require("@playwright/test");
 const fs = require("fs");
@@ -504,16 +504,14 @@ function formatBlock(measured) {
   // double-border bug this replaced.
   if (measured.nativeCheckbox && measured.nativeCheckbox.picked) {
     rules.push(
-      "smd-checkbox input {\n" +
+      "smd-checkbox input[type=\"checkbox\"] {\n" +
       "  border-color: " + hex(measured.nativeCheckbox.picked) + ";\n}"
     );
   }
 
   if (!rules.length) return "";
   return [
-    "/* " + START + " - generated WCAG AA contrast overrides. Do not edit by hand:",
-    "   regenerate with  SMD_CONTRAST_FIX=1 npx playwright test --config test-contrast/playwright.config.js",
-    "   (test-contrast/contrast-css.spec.js fails when this block no longer matches the theme). */",
+    "/* " + START + " */",
     ...rules,
     "/* " + END + " */"
   ].join("\n");
@@ -578,7 +576,7 @@ async function awaitTheme(page, theme, mode) {
     await page.waitForTimeout(60);
   }
 }
-test.describe("Contrast CSS is baked and current", () => {
+test.describe("Contrast CSS is baked and current", { tag: "@contrast" }, () => {
   // The app's service worker precaches the theme CSS, so a `<link>` for a theme is
   // served from the SW cache and page.route never sees it - the stripped body would
   // be bypassed and the measurement would see our own baked block. These specs only
@@ -660,7 +658,7 @@ test.describe("Contrast CSS is baked and current", () => {
     expect(
       problems.join("\n\n"),
       "The baked contrast CSS no longer matches the themes.\n" +
-      "Run:  SMD_CONTRAST_FIX=1 npx playwright test --config test-contrast/playwright.config.js"
+      "Run:  SMD_CONTRAST_FIX=1 npx playwright test --project=contrast --workers=1"
     ).toBe("");
   });
 });
