@@ -10,6 +10,37 @@ var wbEls = {};
 var wbTap = null;
 var WB_SVG_NS = "http://www.w3.org/2000/svg";
 
+// Browser zoom guard. A page zoom changes devicePixelRatio AND shrinks the CSS
+// viewport; a plain window resize only changes the viewport. On a zoom we must
+// NOT re-fit the board (that would cancel the magnifying effect of the browser's
+// larger CSS px): the board keeps its CSS size and the browser scales the whole
+// board as one image. A real window resize re-fits it.
+var wbLastDpr = (typeof window !== "undefined" && window.devicePixelRatio) || 1;
+var wbResizeTimer = null;
+
+// Size the board to the background artwork's aspect (whole image visible,
+// centred, bars around it when the window has a different shape). With no
+// background the board fills the area. Sticker size is board-relative so it
+// zooms with the board.
+function wbLayoutBoard() {
+  if (!wbEls.area || !wbEls.canvas) return;
+  var aw = wbEls.area.clientWidth;
+  var ah = wbEls.area.clientHeight;
+  if (!aw || !ah) return;
+  var board = wbActiveBoard();
+  var meta = board && board.background ? wbBackgroundById(board.background) : null;
+  var w = aw;
+  var h = ah;
+  if (meta && meta.width && meta.height) {
+    var fit = Math.min(aw / meta.width, ah / meta.height);
+    w = meta.width * fit;
+    h = meta.height * fit;
+  }
+  wbEls.canvas.style.width = w + "px";
+  wbEls.canvas.style.height = h + "px";
+  wbEls.canvas.style.setProperty("--wb-sticker-base", (Math.min(w, h) * 0.15) + "px");
+}
+
 function wbInitBoard() {
   wbEls.area = document.getElementById("whiteboardArea");
   wbEls.canvas = document.getElementById("wbCanvas");
@@ -21,9 +52,13 @@ function wbInitBoard() {
   wbEls.connectors = document.getElementById("wbConnectors");
   wbEls.connectorPaths = document.getElementById("wbConnectorPaths");
   wbEls.connectHint = document.getElementById("wbConnectHint");
+  wbLayoutBoard();
 
   if (wbEls.items) wbEls.items.addEventListener("pointerdown", wbOnPointerDown);
-  if (wbEls.canvas) wbEls.canvas.addEventListener("pointerdown", wbOnCanvasPointerDown);
+  // The board no longer fills the whole area (it is the artwork, centred with
+  // bars around it), so deselect on a click anywhere in the area - the handler
+  // ignores objects, connectors, the toolbar, the action bar and the board chip.
+  if (wbEls.area) wbEls.area.addEventListener("pointerdown", wbOnCanvasPointerDown);
   if (wbEls.items) wbEls.items.addEventListener("dblclick", wbOnDoubleClick);
   if (wbEls.connectors) wbEls.connectors.addEventListener("pointerdown", wbOnConnectorPointerDown);
   if (wbEls.boardName) {
@@ -59,8 +94,14 @@ function wbInitBoard() {
   document.addEventListener("pointercancel", wbOnPointerUp);
   document.addEventListener("keydown", wbOnKeyDown);
   window.addEventListener("resize", function () {
-    wbRenderConnectors();
-    wbPositionSelectionBar();
+    clearTimeout(wbResizeTimer);
+    wbResizeTimer = setTimeout(function () {
+      var dpr = window.devicePixelRatio || 1;
+      if (dpr === wbLastDpr) wbLayoutBoard();
+      else wbLastDpr = dpr;
+      wbRenderConnectors();
+      wbPositionSelectionBar();
+    }, 120);
   });
 
   // Text metrics change when a font loads or the font size setting moves, which
@@ -81,6 +122,10 @@ function wbRender() {
   if (!wbEls.items) wbInitBoard();
   var board = wbActiveBoard();
   if (!board || !wbEls.items) return;
+
+  // Size the board to the artwork BEFORE building items: the sticker width is
+  // board-relative and the item % positions live in this box.
+  wbLayoutBoard();
 
   var meta = wbBackgroundById(board.background);
   if (meta) {

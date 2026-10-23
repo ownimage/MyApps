@@ -13,8 +13,8 @@
 // `renderMain()` / `applyImageSize()` when it needs to.
 
 var WB_BACKGROUNDS = [
-  { id: "space", name: "Space", file: "assets/backgrounds/space.svg" },
-  { id: "underwater", name: "Underwater", file: "assets/backgrounds/underwater.svg" }
+  { id: "space", name: "Space", file: "assets/backgrounds/space.svg", width: 2560, height: 1440 },
+  { id: "underwater", name: "Underwater", file: "assets/backgrounds/underwater.svg", width: 2560, height: 1440 }
 ];
 
 var WB_STICKERS = [

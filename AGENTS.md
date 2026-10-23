@@ -304,6 +304,26 @@ Architecture:
   background while the mirror is on. `.wb-sel-btn` is `inline-flex` centred with
   `padding:0` and `line-height:1`, so every FA glyph (including the narrow
   up-down arrow) sits exactly in the middle of the 32px pressed background.
+  BOARD = THE WHOLE ARTWORK (2026-10-23, user request): the live board is no
+  longer the visible window with a `cover` crop. `wbLayoutBoard()` sizes
+  `#wbCanvas` to the background's aspect (`WB_BACKGROUNDS[].width/height`, both
+  2560x1440) fitted inside `#whiteboardArea` and centres it (`left/top:50%` +
+  `translate(-50%,-50%)`), so the WHOLE image is always visible and a window of a
+  different shape shows bars around it. No background -> the board fills the
+  area (dot grid). Item `x`/`y` are % of the BOARD (= % of the artwork).
+  Stickers are sized from `--wb-sticker-base` (15% of the board's smaller side,
+  set by `wbLayoutBoard`) instead of `15vmin`, so they belong to the board, not
+  the window. `#wbBackground` is `background-size:100% 100%` (the aspect already
+  matches, so nothing is cropped or stretched). A click anywhere in
+  `#whiteboardArea` deselects (the board no longer fills it); the handler ignores
+  objects/connectors/toolbar/action bar/board chip.
+  BROWSER ZOOM: the board's CSS size is deliberately NOT re-fitted when the page
+  is zoomed. `wbLastDpr` + a 120ms debounce in the resize handler distinguishes a
+  zoom (`devicePixelRatio` changed -> keep the board's px size, so the browser's
+  larger CSS px magnifies the WHOLE board as one image and the window crops it)
+  from a window resize (same DPR -> `wbLayoutBoard` re-fits the artwork). Do NOT
+  reintroduce `vmin`/`cover` sizes or a per-resize re-fit: they cancel the zoom
+  and leave text/stickers/background on different scales.
   SAVE AS JPG (2026-10-23, user request): the rail's `#wbSaveBtn` (fa-download)
   calls `wbDownloadJpg()` (`js/board.js`) and downloads
   `<slug(board.name)>.jpg`. It is a CANVAS drawing of the STORED board, not a
@@ -315,18 +335,14 @@ Architecture:
   padding, wrapped to the live box width, and fancy/hand/stamp SVG frames
   drawn as a 9-slice - source slice 30 of 120 at 18px). The toolbar, board chip,
   empty hint and selection outlines/handles are deliberately NOT in the image.
-  FULL-BACKGROUND MAPPING: the live board shows the art with `background-size:
-  cover`, so the canvas and the items live in a CROPPED window. The export
-  canvas is the image's natural size (capped at 4096px on the long edge) and
-  items are mapped back through the cover transform: `coverScale =
-  max(visW/imgW, visH/imgH)`, `offset = (vis - img * coverScale) / 2`, item
-  screen px -> `(px - offset) / coverScale`. Each item is drawn inside a
-  `translate(art) + rotate + scale(1/coverScale)` context, and connector
-  widths/arrow size are divided by `coverScale`, so the composition stays glued
-  to the same part of the artwork. Consequence: on a narrow phone (heavy
-  horizontal crop) an item at 20% of the visible window lands at ~39% of the
-  full 2560px art - correct relative to the picture, not to the crop. With no
-  background the export is the visible board at 2x CSS pixels.
+  FULL-ARTWORK MAPPING: the export canvas is the image's natural size (capped
+  at 4096px on the long edge). Because the board's aspect now EQUALS the
+  image's, `coverScale = max(visW/imgW, visH/imgH)` is uniform (offset 0) and
+  item %s map straight to artwork pixels; each item is drawn inside a
+  `translate(art) + rotate + scale(1/coverScale)` context, with connector
+  widths/arrow sizes divided by `coverScale`. With no background the export is
+  the visible board at 2x CSS pixels. Browser zoom does not affect the export
+  (the board's CSS size is unchanged).
   Images are the LIVE `<img>` elements (stickers) plus a fresh `Image` for the
   background file and frame data URIs, and `document.fonts.ready` is awaited so
   a family picked in the text panel renders. GOTCHA: canvas text must wrap

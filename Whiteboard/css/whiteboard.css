@@ -26,8 +26,17 @@ body#smd-app {
 /* ---- Board surface ------------------------------------------------------ */
 
 #wbCanvas {
+  /* The board is the ARTWORK. It is centred in #whiteboardArea and sized by JS
+     (wbLayoutBoard) to the background image's aspect, so the whole image is
+     visible and never cropped; a window of a different shape shows bars around
+     it. Browser zoom does NOT re-size it (the resize guard skips a DPR change),
+     so CSS px magnification scales the whole board as one image. */
   position: absolute;
-  inset: 0;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 100%;
+  height: 100%;
   overflow: hidden;
   background-color: var(--bs-body-bg);
 }
@@ -37,7 +46,9 @@ body#smd-app {
   inset: 0;
   background-position: center;
   background-repeat: no-repeat;
-  background-size: cover;
+  /* The board's aspect already equals the image's, so 100% 100% shows the WHOLE
+     image (cover would crop on a sub-pixel aspect mismatch). */
+  background-size: 100% 100%;
 }
 
 #wbBackground[data-background="none"] {
@@ -648,7 +659,11 @@ body.auto-hide-menu #mainNav {
 
 .wb-sticker {
   display: block;
-  width: calc(15vmin * var(--wb-scale, 1));
+  /* Board-relative, not viewport-relative: JS sets --wb-sticker-base from the
+     board's smaller side (15%) when the board is laid out, so browser zoom -
+     which leaves the board's CSS size unchanged - magnifies the sticker with
+     the rest of the board instead of keeping it a fixed physical size. */
+  width: calc(var(--wb-sticker-base, 96px) * var(--wb-scale, 1));
   height: auto;
   pointer-events: none;
   filter: drop-shadow(0 5px 8px rgba(0, 0, 0, 0.22));
