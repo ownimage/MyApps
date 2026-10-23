@@ -64,6 +64,75 @@ Turn the tunnel off with **`--no-tunnel`**.
 URL can drive this machine's keyboard. Keep `PB_CORS_ORIGINS` tight and stop the
 tunnel when you are done.
 
+The next three sections are for the PC with the mouse, not the server host.
+
+## Build mouser-capture.exe
+
+`mouser-capture.exe` is the C# capture client in `remoteHID/Mouser`; it runs on the
+PC with the physical mouse, not on this server. Build it where the .NET 8 SDK is
+installed, from the MyApps repo root:
+
+```powershell
+.\remoteHID\Mouser\build.ps1 -InterceptionDir C:\path\to\Interception\library\x64
+```
+
+That publishes a self-contained folder to `remoteHID\Mouser\out\`, copies
+`interception.dll` beside the exe, and creates `remoteHID\Mouser\mouser-capture.zip`.
+If you omit `-InterceptionDir`, the publish still succeeds but warns that the DLL is
+missing; copy `library\x64\interception.dll` into `out\` yourself.
+
+Compile-check only:
+
+```powershell
+dotnet build remoteHID\Mouser\capture\Mouser.Capture.csproj -c Release
+```
+
+See [`remoteHID/Mouser/README.md`](../Mouser/README.md) for prerequisites,
+`-FrameworkDependent`, `-NoZip`, and deployment options.
+
+## Run mouser-capture.exe
+
+On the PC with the mouse, from the published/copied folder:
+
+```powershell
+.\mouser-capture.exe --help
+```
+
+The help text is the authoritative option list. For the normal capture path:
+
+```powershell
+# Find the mouse's hardware-id substring (e.g. VID_046D)
+.\mouser-capture.exe --list
+
+# Optional: confirm normal forwarding before gating
+.\mouser-capture.exe --passthrough --filter VID_046D
+
+# Send gated MB4/MB5 motion to this server
+.\mouser-capture.exe --gate --filter VID_046D --udp 192.168.1.50:7801
+```
+
+`--filter` matches a substring from `--list`; without it every mouse is gated. The
+server must be reachable on UDP 7801 (see Notes). In v0.3.1 the configured mode
+buttons are consumed; add `--pass-mode-buttons` for the old click-through behaviour.
+
+## Installing Interception
+
+This is already covered in detail in
+[`remoteHID/Mouser/README.md`](../Mouser/README.md) under **Install the driver**;
+the full procedure is not duplicated here. On the mouse PC, once, from an elevated
+prompt:
+
+```powershell
+Unblock-File .\install-interception.exe
+.\install-interception.exe /install
+# reboot
+```
+
+Download it from <https://github.com/oblitum/Interception/releases>. Check Memory
+Integrity / HVCI first; it is the most common reason the driver refuses to load
+(details and troubleshooting are in the Mouser README). Uninstall with
+`.\install-interception.exe /uninstall`.
+
 ## Layout
 
 - `app.py` — the server. Serves the repo root (`MyApps/`) as static files, so
