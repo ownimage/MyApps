@@ -297,10 +297,26 @@ _app_icon_prefs = {}
 
 DEBUG = True
 
+# Key-send logging is separate from the general debug stream: the Mouser
+# ratchet can legitimately emit hundreds of presses per second, so it stays off
+# until --debug-keys is passed. `_debug_key` does not require DEBUG, which lets
+# `--no-debug --debug-keys` show only the key stream.
+DEBUG_KEYS = False
+
+
+def _print_debug(msg):
+    ts = datetime.datetime.now().strftime("%H:%M:%S.%f")[:-3]
+    print(f"[{ts}] {msg}", file=sys.stderr, flush=True)
+
+
 def _debug(msg):
     if DEBUG:
-        ts = datetime.datetime.now().strftime("%H:%M:%S.%f")[:-3]
-        print(f"[{ts}] {msg}", file=sys.stderr, flush=True)
+        _print_debug(msg)
+
+
+def _debug_key(msg):
+    if DEBUG_KEYS:
+        _print_debug(msg)
 
 
 def _load_config():
@@ -842,6 +858,7 @@ _KEY_MAP = {
     "F17": 0x80, "F18": 0x81, "F19": 0x82, "F20": 0x83,
     "F21": 0x84, "F22": 0x85, "F23": 0x86, "F24": 0x87,
     "LEFT": 0x25, "RIGHT": 0x27, "UP": 0x26, "DOWN": 0x28,
+    "HOME": 0x24, "END": 0x23, "INSERT": 0x2D, "PAGEUP": 0x21, "PAGEDOWN": 0x22,
     "VOLUME_MUTE": 0xAD, "VOLUME_DOWN": 0xAE, "VOLUME_UP": 0xAF,
     "MEDIA_NEXT_TRACK": 0xB0, "MEDIA_PREV_TRACK": 0xB1, "MEDIA_STOP": 0xB2,
     "MEDIA_PLAY_PAUSE": 0xB3,
@@ -920,6 +937,7 @@ def _send_key_string_fast(key_value):
     presses per frame, so the 10 ms sleeps in `button_press` would add up."""
     mods, vk = _parse_key_string(key_value)
     if not vk:
+        _debug_key(f"Mouser key NOT sent: {key_value!r} (unrecognised key)")
         return False
     for m in mods:
         _send_key_down(m)
@@ -927,6 +945,10 @@ def _send_key_string_fast(key_value):
     _send_key_up(vk)
     for m in reversed(mods):
         _send_key_up(m)
+    _debug_key(
+        f"Mouser key sent: {key_value!r} "
+        f"(VK=0x{vk:02X}, mods={[hex(m) for m in mods]})"
+    )
     return True
 
 
@@ -959,7 +981,7 @@ def handle_button_press(data):
     # Parse "ctrl+shift+Z" / "alt+F4" (or a bare character like "[").
     mods, vk = _parse_key_string(key_value)
     if vk:
-        _debug(f"Sending key: {key_value} (VK=0x{vk:02X}, mods={[hex(m) for m in mods]})")
+        _debug_key(f"Sending key: {key_value} (VK=0x{vk:02X}, mods={[hex(m) for m in mods]})")
         # Press modifiers in order (Ctrl, Alt, Shift)
         for m in mods:
             _send_key_down(m)
@@ -972,7 +994,7 @@ def handle_button_press(data):
         for m in reversed(mods):
             _send_key_up(m)
     else:
-        _debug(f"Unknown key: {key_value}")
+        _debug_key(f"Unknown key: {key_value}")
 
 
 # Press-and-hold: the phone sends key_down while a button is held and key_up on
@@ -982,7 +1004,7 @@ def handle_button_press(data):
 def handle_key_down(data):
     key_value = data.get("key", "") if isinstance(data, dict) else ""
     mods, vk = _parse_key_string(key_value)
-    _debug(f"key_down: '{key_value}' (vk=0x{vk:02X}, mods={[hex(m) for m in mods]})")
+    _debug_key(f"key_down: '{key_value}' (vk=0x{vk:02X}, mods={[hex(m) for m in mods]})")
     for m in mods:
         _send_key_down(m)
     if vk:
@@ -993,7 +1015,7 @@ def handle_key_down(data):
 def handle_key_up(data):
     key_value = data.get("key", "") if isinstance(data, dict) else ""
     mods, vk = _parse_key_string(key_value)
-    _debug(f"key_up: '{key_value}' (vk=0x{vk:02X}, mods={[hex(m) for m in mods]})")
+    _debug_key(f"key_up: '{key_value}' (vk=0x{vk:02X}, mods={[hex(m) for m in mods]})")
     if vk:
         _send_key_up(vk)
     for m in reversed(mods):
@@ -1136,8 +1158,35 @@ if __name__ == "__main__":
         metavar="URL",
         help="Show a QR code for URL (e.g. a named tunnel you started yourself) and skip the tunnel",
     )
+    parser.add_argument(
+        "--debug",
+        dest="debug",
+        action="store_true",
+        help="Enable the general verbose server log (the default)",
+    )
+    parser.add_argument(
+        "--no-debug",
+        dest="debug",
+        action="store_false",
+        help="Disable the general verbose server log",
+    )
+    parser.add_argument(
+        "--debug-keys",
+        dest="debug_keys",
+        action="store_true",
+        help="Log every key the server sends (Mouser can make this very noisy)",
+    )
+    parser.add_argument(
+        "--no-debug-keys",
+        dest="debug_keys",
+        action="store_false",
+        help="Disable key-send logging (the default)",
+    )
+    parser.set_defaults(debug=DEBUG, debug_keys=DEBUG_KEYS)
     args = parser.parse_args()
 
+    DEBUG = args.debug
+    DEBUG_KEYS = args.debug_keys
     _QR_ENABLED = not args.no_qr
 
     t = threading.Thread(target=_run_focus_hook, daemon=True)
@@ -1152,6 +1201,7 @@ if __name__ == "__main__":
         print(f"Mouser UDP listening on udp/{_mouser_udp.port}")
     except OSError as e:
         print(f"Mouser UDP disabled: {e}")
+    print(f"Key-send debug: {'on' if DEBUG_KEYS else 'off'} (toggle with --debug-keys / --no-debug-keys)")
     threading.Thread(target=_mouser_state_loop, daemon=True).start()
     # Open a browser once the server is listening, showing the Share QR so it can
     # be scanned with a phone straight away (skip with --no-qr).

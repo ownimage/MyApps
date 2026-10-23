@@ -543,6 +543,8 @@ still distinguishes devices.
   `rx<angle>`-style commands are approximated and deferred, not reproduced exactly.
 - **No virtual device.** Nothing pretends to be a SpaceMouse; the app must bind
   F13–F24 (or whichever keys the layout selects).
+- **No WebSocket client.** Capture telemetry is UDP 7801. The server's
+  Socket.IO/WebSocket transport is for the browser, not for the capture client.
 - **No tray UI or global hotkey.** Modes are MB4/MB5, configured on the capture
   command line; bindings are configured in the PhoneButtons web app.
 - **Mode buttons are consumed while `--gate` is active.** That is what stops MB4
@@ -573,13 +575,21 @@ Mouser/
    `remoteHID/PhoneButtonServer.cmd`).
 2. On the phone, open **Manage Layout**, pick the layout assigned to the app,
    open the **Mouser** tab, tick **Enable Mouser**, choose keys, and **Finish**.
-   The recommended defaults are F13–F24, one pair per axis.
+   The recommended defaults are F13–F24, one pair per axis, but each direction
+   accepts any key the server understands (`A`, `LEFT`, `PAGEUP`, ...) plus
+   Ctrl / Alt / Shift modifiers (`ctrl+shift+K`).
 3. Bind those keys in Blender/Unity.
 4. On the mouse machine, run:
    `mouser-capture --gate --udp <server-ip>:7801`
 5. Hold MB4 to rotate (`dx→ry`, `dy→rx`, `wheel→rz`) or MB5 to translate
    (`dx→tx`, `dy→tz`, `wheel→ty`). Those two buttons are consumed; add
    `--pass-mode-buttons` if you need them to click through as well.
+
+The capture banner shows the UDP target and warns when `--gate` has no `--udp`.
+It also prints `websocket: none - capture uses UDP; Socket.IO is browser-only`:
+the C# client has **no WebSocket transport**, and the server's Socket.IO/WebSocket
+connection is only for the phone/browser UI. To see what the server injects, run
+it with `--debug-keys` (and optionally `--no-debug` to suppress everything else).
 
 The server injects real keystrokes into the focused app. It and the target app
 must run at the same integrity level: Windows UIPI blocks injection from a

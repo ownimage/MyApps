@@ -469,7 +469,7 @@ var BUTTON_NAMED_KEYS = [
   "BACKSPACE", "TAB", "ENTER", "ESCAPE", "SPACE", "DELETE",
   "F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "F10", "F11", "F12",
   "F13", "F14", "F15", "F16", "F17", "F18", "F19", "F20", "F21", "F22", "F23", "F24",
-  "LEFT", "RIGHT", "UP", "DOWN",
+  "LEFT", "RIGHT", "UP", "DOWN", "HOME", "END", "INSERT", "PAGEUP", "PAGEDOWN",
   "VOLUME_MUTE", "VOLUME_DOWN", "VOLUME_UP",
   "MEDIA_NEXT_TRACK", "MEDIA_PREV_TRACK", "MEDIA_STOP", "MEDIA_PLAY_PAUSE"
 ];

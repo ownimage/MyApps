@@ -3,7 +3,8 @@
 Local Flask + Flask-SocketIO server that serves the MyApps **Phone Buttons**
 front end (and the whole shared `smd-*` library) and replays key presses on this
 PC. It is also the receiving end of the **Mouser** 6DOF capture client: UDP
-motion frames on port 7801 become real F13–F24 key presses in the focused app.
+motion frames on port 7801 become real key presses (F13–F24 by default, or the
+layout's chosen keys/modifiers) in the focused app.
 
 By default everything is **same-origin**: the browser loads the app from this
 server and opens the Socket.IO connection back to the same origin. The app can
@@ -35,6 +36,32 @@ py -3.13 remoteHID\server\app.py --no-qr
 ```
 
 `/` redirects to `/remoteHID/PhoneButtons/`.
+
+### Key-send debug (`--debug-keys`)
+
+The general server log is on by default and can be turned off with
+**`--no-debug`** (or back on with `--debug`). Key sends are separate and are
+**off by default**, because the Mouser ratchet can emit hundreds of presses per
+second. Turn on a line for every key the server actually sends with
+**`--debug-keys`**:
+
+```powershell
+py -3.13 remoteHID\server\app.py --debug-keys
+# or, if you only want the key lines:
+py -3.13 remoteHID\server\app.py --no-debug --debug-keys
+```
+
+Each successful injection is logged to stderr as, for example:
+
+```text
+[12:34:56.789] Mouser key sent: 'ctrl+shift+K' (VK=0x4B, mods=['0x11', '0x10'])
+```
+
+Turn it off again with **`--no-debug-keys`**. Startup prints
+`Key-send debug: on|off` so you can confirm the mode. If the Mouser tab's
+press count is increasing but Blender/Unity receives nothing, the keys are being
+injected but the target may be focused elsewhere or running at a higher integrity
+level (UIPI).
 
 ### Cloudflare tunnel + QR (`--tunnel`)
 

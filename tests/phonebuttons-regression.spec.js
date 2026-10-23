@@ -460,11 +460,14 @@ test.describe("PhoneButtons - Regression", () => {
 
     // A layout without a mouser block starts disabled with the F13-F24 defaults.
     expect(await page.locator("#mouserEnabled").evaluate((el) => el.checked)).toBe(false);
-    await expect(page.locator("#mouser-rx-positive")).toContainText("F13");
-    await expect(page.locator("#mouser-ty-positive")).toContainText("F21");
+    await expect(page.locator("#mouser-rx-positive")).toHaveValue("F13");
+    await expect(page.locator("#mouser-ty-positive")).toHaveValue("F21");
 
     await page.locator("#mouserEnabled").click();
-    await pickOption(page, "#mouser-rx-positive", "F24");
+    // Any key and Ctrl/Alt/Shift modifiers can be selected, not just F13-F24.
+    await page.fill("#mouser-rx-positive", "k");
+    await page.locator("#mouser-rx-positive-ctrl").click();
+    await page.locator("#mouser-rx-positive-shift").click();
 
     // The live readout is driven by the socket event (10 Hz).
     await page.evaluate(() => applyMouserState({
@@ -477,7 +480,7 @@ test.describe("PhoneButtons - Regression", () => {
 
     await page.locator("#manageLayoutPage").getByRole("button", { name: "Finish" }).click();
     await expect.poll(() => saved.mouser.enabled).toBe(true);
-    await expect.poll(() => saved.mouser.axes.rx.positive).toBe("F24");
+    await expect.poll(() => saved.mouser.axes.rx.positive).toBe("ctrl+shift+K");
     await expect.poll(() => saved.mouser.axes.rx.negative).toBe("F14");
     await expect.poll(() => Object.keys(saved.mouser.axes).sort().join(",")).toBe("rx,ry,rz,tx,ty,tz");
   });

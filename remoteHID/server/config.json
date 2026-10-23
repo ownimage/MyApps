@@ -185,7 +185,13 @@
       "rows": 2,
       "cols": 3,
       "buttons": [
-        {},
+        {
+          "image1": "Beach 2",
+          "image2": "",
+          "key": "a",
+          "name": "",
+          "press": "regular"
+        },
         {},
         {},
         {},
@@ -193,46 +199,46 @@
         {}
       ],
       "mouser": {
-        "enabled": false,
+        "enabled": true,
         "axes": {
           "rx": {
-            "positive": "F13",
-            "negative": "F14",
+            "positive": "A",
+            "negative": "A",
             "gain": 0.05,
             "step": 5,
             "deadband": 0
           },
           "ry": {
-            "positive": "F15",
-            "negative": "F16",
+            "positive": "A",
+            "negative": "A",
             "gain": 0.05,
             "step": 5,
             "deadband": 0
           },
           "rz": {
-            "positive": "F17",
-            "negative": "F18",
+            "positive": "A",
+            "negative": "A",
             "gain": 0.05,
             "step": 5,
             "deadband": 0
           },
           "tx": {
-            "positive": "F19",
-            "negative": "F20",
+            "positive": "A",
+            "negative": "A",
             "gain": 0.0001,
             "step": 0.01,
             "deadband": 0
           },
           "ty": {
-            "positive": "F21",
-            "negative": "F22",
+            "positive": "A",
+            "negative": "A",
             "gain": 0.0001,
             "step": 0.01,
             "deadband": 0
           },
           "tz": {
-            "positive": "F23",
-            "negative": "F24",
+            "positive": "A",
+            "negative": "A",
             "gain": 0.0001,
             "step": 0.01,
             "deadband": 0

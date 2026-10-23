@@ -61,6 +61,7 @@ def isolated(tmp_path, monkeypatch):
     monkeypatch.setattr(server, "CONFIG_PATH", str(tmp_path / "config.json"))
     monkeypatch.setattr(server, "ICON_DIR", str(icon_dir))
     monkeypatch.setattr(server, "DEBUG", False)
+    monkeypatch.setattr(server, "DEBUG_KEYS", False)
     monkeypatch.setattr(server, "_app_icon_prefs", {}, raising=False)
     monkeypatch.setattr(server, "_friendly_name_cache", {}, raising=False)
     monkeypatch.setattr(
@@ -279,6 +280,8 @@ class TestKeyParsing:
         assert server._resolve_key("F4") == (0x73, False)
         assert server._resolve_key("f13") == (0x7C, False)
         assert server._resolve_key("F24") == (0x87, False)
+        assert server._resolve_key("HOME") == (0x24, False)
+        assert server._resolve_key("PAGEUP") == (0x21, False)
         assert server._resolve_key("MEDIA_NEXT_TRACK") == (0xB0, False)
         assert server._resolve_key("NOT_A_KEY") == (0, False)
         assert server._resolve_key(None) == (0, False)
@@ -338,6 +341,25 @@ class TestFastKeyPath:
     def test_an_unknown_key_sends_nothing(self, keys):
         assert server._send_key_string_fast("NOT_A_KEY") is False
         assert keys == []
+
+    def test_debug_keys_logs_the_key_after_it_is_sent(self, keys, capsys, monkeypatch):
+        monkeypatch.setattr(server, "DEBUG_KEYS", True)
+        assert server._send_key_string_fast("ctrl+shift+f24") is True
+        err = capsys.readouterr().err
+        assert "Mouser key sent" in err
+        assert "ctrl+shift+f24" in err
+        assert "VK=0x87" in err
+
+    def test_debug_keys_is_silent_by_default(self, keys, capsys):
+        assert server._send_key_string_fast("F13") is True
+        assert capsys.readouterr().err == ""
+
+    def test_debug_keys_reports_an_unrecognised_key(self, keys, capsys, monkeypatch):
+        monkeypatch.setattr(server, "DEBUG_KEYS", True)
+        assert server._send_key_string_fast("NOT_A_KEY") is False
+        err = capsys.readouterr().err
+        assert "Mouser key NOT sent" in err
+        assert "NOT_A_KEY" in err
 
 
 # --------------------------------------------------------------------------- #

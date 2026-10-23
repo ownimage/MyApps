@@ -4,8 +4,10 @@
 //   { enabled, axes: { rx: {positive, negative, gain, step, deadband}, ... } }
 // The server watches the capture client's UDP frames and presses `positive`
 // when the accumulated value grows by `step`. `gain` is units per mouse count,
-// so a press happens every `step / gain` counts. Keys are F13-F24 by default
-// because games/Blender/Unity bind them happily and no normal keyboard has them.
+// so a press happens every `step / gain` counts. Keys are any key string the
+// server understands: F13, A, LEFT, or a chord such as ctrl+shift+K. F13-F24
+// are the defaults because games/Blender/Unity bind them happily and no normal
+// keyboard has them.
 
 var PB_MOUSER_AXES = [
   { axis: "rx", label: "Rotate X", source: "vertical (dy)" },
@@ -16,11 +18,21 @@ var PB_MOUSER_AXES = [
   { axis: "tz", label: "Translate Z", source: "vertical (dy)" }
 ];
 
-// F13-F24 first: they are the conflict-free defaults. F1-F12 are offered for
-// setups that cannot see F13+ (some remappers swallow them).
+// F13-F24 first: they are the conflict-free defaults. The rest mirror the
+// server's `_KEY_MAP` (plus A-Z / 0-9 / punctuation, which the server resolves
+// through VkKeyScanW) so the datalist can offer the full set.
 var PB_MOUSER_KEYS = (function () {
   var keys = ["F13", "F14", "F15", "F16", "F17", "F18", "F19", "F20", "F21", "F22", "F23", "F24"];
   for (var i = 1; i <= 12; i++) keys.push("F" + i);
+  keys = keys.concat([
+    "BACKSPACE", "TAB", "ENTER", "ESCAPE", "SPACE", "DELETE",
+    "LEFT", "RIGHT", "UP", "DOWN", "HOME", "END", "INSERT", "PAGEUP", "PAGEDOWN",
+    "VOLUME_MUTE", "VOLUME_DOWN", "VOLUME_UP",
+    "MEDIA_NEXT_TRACK", "MEDIA_PREV_TRACK", "MEDIA_STOP", "MEDIA_PLAY_PAUSE"
+  ]);
+  for (var c = 65; c <= 90; c++) keys.push(String.fromCharCode(c));
+  for (var n = 0; n <= 9; n++) keys.push(String(n));
+  keys = keys.concat(["-", "=", "[", "]", ";", "'", ",", ".", "/", "\\", "`"]);
   return keys;
 })();
 
@@ -33,14 +45,12 @@ var PB_MOUSER_DEFAULTS = {
   tz: { positive: "F23", negative: "F24", gain: 0.0001, step: 0.01, deadband: 0 }
 };
 
-function pbMouserKeyOptions() {
-  return [{ value: "", label: "None" }].concat(PB_MOUSER_KEYS.map(function (k) {
-    return { value: k, label: k };
-  }));
+function pbMouserKeyId(axis, direction) {
+  return "mouser-" + axis + "-" + direction;
 }
 
-function pbMouserSelectId(axis, direction) {
-  return "mouser-" + axis + "-" + direction;
+function pbMouserModifierId(axis, direction, modifier) {
+  return pbMouserKeyId(axis, direction) + "-" + modifier;
 }
 
 function pbMouserNumberId(axis, field) {
@@ -53,6 +63,63 @@ function pbMouserClamp(value, fallback, minimum) {
   return Math.max(minimum, n);
 }
 
+// "ctrl+shift+K" -> { mods: {ctrl, alt, shift}, key: "K" }
+function pbMouserParseKey(value) {
+  var parts = String(value == null ? "" : value).split("+");
+  var mods = { ctrl: false, alt: false, shift: false };
+  while (parts.length) {
+    var first = parts[0].trim().toLowerCase();
+    if (!Object.prototype.hasOwnProperty.call(mods, first)) break;
+    mods[first] = true;
+    parts.shift();
+  }
+  return { mods: mods, key: parts.join("+").trim() };
+}
+
+// Build the server-compatible string. A direction with no main key is UNSET,
+// even if a modifier box was left checked: a Mouser ratchet needs a main key.
+function pbMouserComposeKey(key, ctrl, alt, shift) {
+  var base = String(key == null ? "" : key).trim();
+  if (!base) return "";
+  var parts = [];
+  if (ctrl) parts.push("ctrl");
+  if (alt) parts.push("alt");
+  if (shift) parts.push("shift");
+  parts.push(base.toUpperCase());
+  return parts.join("+");
+}
+
+function pbMouserCanonicalKey(value) {
+  var parsed = pbMouserParseKey(value);
+  return pbMouserComposeKey(parsed.key, parsed.mods.ctrl, parsed.mods.alt, parsed.mods.shift);
+}
+
+function pbMouserSetBinding(axis, direction, value) {
+  var parsed = pbMouserParseKey(value);
+  var input = document.getElementById(pbMouserKeyId(axis, direction));
+  if (input) input.value = parsed.key ? parsed.key.toUpperCase() : "";
+  ["ctrl", "alt", "shift"].forEach(function (modifier) {
+    var box = document.getElementById(pbMouserModifierId(axis, direction, modifier));
+    if (box) box.checked = !!parsed.mods[modifier];
+  });
+}
+
+function pbMouserReadBinding(axis, direction) {
+  var input = document.getElementById(pbMouserKeyId(axis, direction));
+  // Accept both "type K + tick Ctrl" and typing the whole "ctrl+K" chord.
+  var parsed = pbMouserParseKey(input ? input.value : "");
+  function checked(modifier) {
+    var box = document.getElementById(pbMouserModifierId(axis, direction, modifier));
+    return !!(box && box.checked);
+  }
+  return pbMouserComposeKey(
+    parsed.key,
+    parsed.mods.ctrl || checked("ctrl"),
+    parsed.mods.alt || checked("alt"),
+    parsed.mods.shift || checked("shift")
+  );
+}
+
 // Normalise a stored (possibly partial, possibly empty) block to all six axes.
 function pbMouserNormalize(block) {
   block = block || {};
@@ -62,8 +129,8 @@ function pbMouserNormalize(block) {
     var d = PB_MOUSER_DEFAULTS[item.axis];
     var raw = stored[item.axis] || {};
     axes[item.axis] = {
-      positive: raw.positive == null ? d.positive : String(raw.positive).toUpperCase(),
-      negative: raw.negative == null ? d.negative : String(raw.negative).toUpperCase(),
+      positive: pbMouserCanonicalKey(raw.positive == null ? d.positive : raw.positive),
+      negative: pbMouserCanonicalKey(raw.negative == null ? d.negative : raw.negative),
       gain: pbMouserClamp(raw.gain, d.gain, 0.000001),
       step: pbMouserClamp(raw.step, d.step, 0.000001),
       deadband: pbMouserClamp(raw.deadband, d.deadband, 0)
@@ -72,13 +139,29 @@ function pbMouserNormalize(block) {
   return { enabled: !!block.enabled, axes: axes };
 }
 
-function pbMouserAxisHTML(item, cfg) {
-  var idPos = pbMouserSelectId(item.axis, "positive");
-  var idNeg = pbMouserSelectId(item.axis, "negative");
-  var options = pbMouserKeyOptions().map(function (o) {
-    return '<option value="' + o.value + '">' + o.label + '</option>';
+function pbMouserBindingHTML(item, direction, label, value) {
+  var keyId = pbMouserKeyId(item.axis, direction);
+  var parsed = pbMouserParseKey(value);
+  var modifiers = [
+    ["ctrl", "Ctrl"],
+    ["alt", "Alt"],
+    ["shift", "Shift"]
+  ].map(function (pair) {
+    return '<smd-checkbox id="' + pbMouserModifierId(item.axis, direction, pair[0]) + '"' +
+      (parsed.mods[pair[0]] ? ' checked' : '') + '>' + pair[1] + '</smd-checkbox>';
   }).join("");
 
+  return '<div class="col-6">' +
+    '<label class="form-label small mb-0" for="' + keyId + '">' + label + ' key</label>' +
+    '<input type="text" class="form-control form-control-sm" id="' + keyId + '" ' +
+      'list="pbMouserKeyList" value="' + pbMouserEscape(parsed.key.toUpperCase()) + '" ' +
+      'placeholder="F13, A, LEFT" autocomplete="off" autocapitalize="characters" spellcheck="false" ' +
+      'aria-label="' + item.label + ' ' + label + ' key">' +
+    '<div class="d-flex flex-wrap gap-2 mt-1">' + modifiers + '</div>' +
+  '</div>';
+}
+
+function pbMouserAxisHTML(item, cfg) {
   return '<div class="card mb-2">' +
     '<div class="card-body py-2">' +
       '<div class="d-flex justify-content-between align-items-baseline">' +
@@ -86,16 +169,8 @@ function pbMouserAxisHTML(item, cfg) {
         '<span class="form-text">' + item.source + '</span>' +
       '</div>' +
       '<div class="row g-2 mt-0">' +
-        '<div class="col-6">' +
-          '<label class="form-label small mb-0" for="' + idPos + '">+ key</label>' +
-          '<smd-select id="' + idPos + '" class="form-select form-select-sm" aria-label="' +
-            item.label + ' positive key">' + options + '</smd-select>' +
-        '</div>' +
-        '<div class="col-6">' +
-          '<label class="form-label small mb-0" for="' + idNeg + '">- key</label>' +
-          '<smd-select id="' + idNeg + '" class="form-select form-select-sm" aria-label="' +
-            item.label + ' negative key">' + options + '</smd-select>' +
-        '</div>' +
+        pbMouserBindingHTML(item, "positive", "+", cfg.positive) +
+        pbMouserBindingHTML(item, "negative", "-", cfg.negative) +
       '</div>' +
       '<div class="row g-2 mt-0">' +
         '<div class="col-4">' +
@@ -122,8 +197,12 @@ function buildMouserTabHTML() {
   var cards = PB_MOUSER_AXES.map(function (item) {
     return pbMouserAxisHTML(item, PB_MOUSER_DEFAULTS[item.axis]);
   }).join("");
+  var keyList = '<datalist id="pbMouserKeyList">' + PB_MOUSER_KEYS.map(function (key) {
+    return '<option value="' + pbMouserEscape(key) + '"></option>';
+  }).join("") + '</datalist>';
 
-  return '<div class="mb-2">' +
+  return keyList +
+    '<div class="mb-2">' +
       '<smd-checkbox id="mouserEnabled">Enable Mouser for this layout</smd-checkbox>' +
       '<div class="form-text">When off, mouse motion still reaches the PC normally; no keys are pressed.</div>' +
     '</div>' +
@@ -131,6 +210,10 @@ function buildMouserTabHTML() {
       'Hold <strong>MB4</strong> to rotate and <strong>MB5</strong> to translate. ' +
       'Each axis presses its key once per <em>Step</em>; <em>Gain</em> is units per mouse count ' +
       '(a press every <code>Step / Gain</code> counts). The live value is approximate and resets when the mode is released.' +
+    '</div>' +
+    '<div class="form-text mb-2">' +
+      'Type a key or pick one from the list (F13, A, LEFT, ...), then tick Ctrl / Alt / Shift. ' +
+      'Leave the key blank to leave that direction unbound. A chord may also be typed as <code>ctrl+shift+K</code>.' +
     '</div>' +
     '<div class="d-flex flex-wrap gap-2 mb-3">' +
       '<button type="button" class="btn btn-sm btn-outline-secondary" onclick="resetMouserKeys()">Recommended F13&ndash;F24</button>' +
@@ -146,10 +229,8 @@ function applyMouserLayout(layout) {
 
   PB_MOUSER_AXES.forEach(function (item) {
     var cfg = block.axes[item.axis];
-    var pos = document.getElementById(pbMouserSelectId(item.axis, "positive"));
-    var neg = document.getElementById(pbMouserSelectId(item.axis, "negative"));
-    if (pos) pos.value = cfg.positive;
-    if (neg) neg.value = cfg.negative;
+    pbMouserSetBinding(item.axis, "positive", cfg.positive);
+    pbMouserSetBinding(item.axis, "negative", cfg.negative);
     ["gain", "step", "deadband"].forEach(function (field) {
       var el = document.getElementById(pbMouserNumberId(item.axis, field));
       if (el) el.value = cfg[field];
@@ -164,11 +245,9 @@ function collectMouserLayout() {
   var axes = {};
   PB_MOUSER_AXES.forEach(function (item) {
     var d = PB_MOUSER_DEFAULTS[item.axis];
-    var pos = document.getElementById(pbMouserSelectId(item.axis, "positive"));
-    var neg = document.getElementById(pbMouserSelectId(item.axis, "negative"));
     axes[item.axis] = {
-      positive: (pos && pos.value ? String(pos.value) : "").toUpperCase(),
-      negative: (neg && neg.value ? String(neg.value) : "").toUpperCase(),
+      positive: pbMouserReadBinding(item.axis, "positive"),
+      negative: pbMouserReadBinding(item.axis, "negative"),
       gain: pbMouserClamp((document.getElementById(pbMouserNumberId(item.axis, "gain")) || {}).value, d.gain, 0.000001),
       step: pbMouserClamp((document.getElementById(pbMouserNumberId(item.axis, "step")) || {}).value, d.step, 0.000001),
       deadband: pbMouserClamp((document.getElementById(pbMouserNumberId(item.axis, "deadband")) || {}).value, d.deadband, 0)
@@ -180,10 +259,8 @@ function collectMouserLayout() {
 function resetMouserKeys() {
   PB_MOUSER_AXES.forEach(function (item) {
     var d = PB_MOUSER_DEFAULTS[item.axis];
-    var pos = document.getElementById(pbMouserSelectId(item.axis, "positive"));
-    var neg = document.getElementById(pbMouserSelectId(item.axis, "negative"));
-    if (pos) pos.value = d.positive;
-    if (neg) neg.value = d.negative;
+    pbMouserSetBinding(item.axis, "positive", d.positive);
+    pbMouserSetBinding(item.axis, "negative", d.negative);
   });
   if (typeof _commLine === "function") {
     _commLine("Mouser: recommended F13-F24 keys applied (save with Finish)", "info");

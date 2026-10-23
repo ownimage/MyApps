@@ -367,6 +367,14 @@ internal static class Program
                 udp = new UdpSender(options.UdpTarget);
                 Console.WriteLine($"  udp    : {options.UdpTarget}");
             }
+            else
+            {
+                Console.WriteLine("  udp    : not set - no frames will be sent (add --udp host:port)");
+            }
+
+            // The capture client is UDP-only. The server's Socket.IO/WebSocket
+            // transport is for the browser UI, not for these frames.
+            Console.WriteLine("  websocket: none - capture uses UDP; Socket.IO is browser-only");
 
             Console.WriteLine("  keys   : Q quit");
             Console.WriteLine();
@@ -374,6 +382,12 @@ internal static class Program
             if (modesEnabled && target == 0)
             {
                 Console.WriteLine("  WARNING: --filter not given, so every mouse will be gated.");
+                Console.WriteLine();
+            }
+
+            if (modesEnabled && options.UdpTarget is null)
+            {
+                Console.WriteLine("  WARNING: --gate without --udp sends nothing to the server.");
                 Console.WriteLine();
             }
 
