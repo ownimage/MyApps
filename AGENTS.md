@@ -103,6 +103,16 @@ Architecture:
   `.thumb { margin-top: calc(0.375rem + 1px) }`, matching the dropdown button's
   padding+border) so its image lines up with the dropdown image with OR without
   a job image; the Edit Job Image wrapper is deliberately NOT `align-items-center`.
+  MENU THUMBNAILS MATCH THE BUTTON (2026-10-23): every `.item .thumb` is the
+  SAME square as the closed button's image (`SmdImage.defaultSize`, i.e. the Icon
+  size setting), NOT a fixed `1.5rem`. Each option renders an `<smd-image>`
+  (`flex:none` in the component sheet) and a no-image option gets an EMPTY
+  `<smd-image>` inside `.thumb.thumb-blank` so the column stays aligned and
+  follows the setting. Do NOT reintroduce a fixed wrapper width: as a flex item
+  the image shrinks in WIDTH only, giving a 24x50 host whose Font Awesome glyph
+  is clipped and whose 300x60 upload is squeezed to 24x4.8. Guards:
+  pmd-regression "menu thumbnails match the closed button..." and "the widest
+  Font Awesome glyph (fa:braille) fits the menu thumbnail".
 - PMD TASKS (2026-09-26): the PlanMyDay job-edit Tasks list is the `PlanMyDay/js/components/pmd-tasks.js` component `<pmd-tasks>` (light DOM, host id `#jobTasksList`). DATA-driven: host sets `tasks = [{description, done, note, noteOpen}]` + the `read-only` attribute; it renders `.task-row`/`.task-note-row` keeping every id/class the suite targets (`.task-drag-card`, `.drag-handle`, `.task-done-cb`, `.task-desc-input`, `.task-note-btn`, `#taskNoteRow<i>`), and dispatches `pmd-task-change` ({index, field, value}, field done|description|note), `pmd-task-note-toggle` ({index, open}) and `pmd-task-delete` ({index}). `job-editor.js` `getJobTasksTabHTML` emits `<pmd-tasks id="jobTasksList" [read-only]>`; `renderJobTasks()` just sets `el.tasks = jobsBuffer.tasks`, toggles the top Add button and re-inits Sortable; `buildJobEditPage` calls `renderJobTasks()` for BOTH modes. The 3 events are wired on `#jobEditPage` in `app.js` -> `jobTaskField`/noteOpen/`jobDeleteTask`. `jobTaskToggleNote`/`taskNoteOpen` were deleted; `setTaskNoteBtnClass` stays (jobTaskField). Registered in `PlanMyDay/index.html`, `sw.js` APPS and the storybook (+section, nav count 31->32). Row colours come from the `--pmd-tasks-row-{background,foreground}` palette at the top of `shared/css/styles.css` (superhero overrides background to `--bs-dark`); see the 2026-09-26 (d) note.
 - Quartz's "glassmorphism" overrides live in `shared/css/styles.css` (`.modal-content`, `.dropdown-menu`).
 - REPO/PWA LAYOUT (2026-09-10): the repo hosts **multiple PWAs off one origin**
@@ -355,11 +365,12 @@ Architecture:
   entry listing index/manifest/icons/css/both background SVGs/all five sticker
   SVGs/all five JS files. The Launch grid and the Launch flyout pick it up from
   the registry (no root `index.html` edit).
-  TESTS DEFERRED (user request 2026-10-21: "do not run regression tests, do not
-  add tests at this time"): no spec was added and no suite was run. Before the
-  next full run, update `tests/launch-regression.spec.js` (`EXPECTED_TILES` is now
-  9 incl. `Whiteboard/`, plus `EXPECTED_MENU`, `ALL_APPS`, `SHELL_CASCADE` and the
-  nav-title app list), add Whiteboard to `tests/settings-alignment.spec.js`
+  TESTS: `tests/launch-regression.spec.js` was UPDATED for Whiteboard on
+  2026-10-23 (`toHaveCount(9)`, `EXPECTED_TILES` with `Whiteboard/` before
+  `Launch`, the tile-icon loop runs to `EXPECTED_TILES.length`, the nav-title
+  list, the Launch-submenu `APPS` + the `/Whiteboard/` shell, `ALL_APPS`, and
+  `SHELL_CASCADE`). STILL DEFERRED: add Whiteboard to
+  `tests/settings-alignment.spec.js`
   (Display-only tab/shape/rhythm/tables) and `tests/display-settings.spec.js`,
   and add a Whiteboard screenshot spec if screenshots are wanted. Verified
   instead with throwaway Playwright probes (deleted): board/drag/scale/rotate,
@@ -6606,3 +6617,45 @@ Techniques / gotchas:
   so a pointer drag started immediately after selecting a box can be swallowed
   as a double-click. Wait ~400ms or click once, then drag. Not a connector bug.
 - BUILD: `202610211957` via `npm run bump:build`.
+
+### 2026-10-23 - smd-image-dropdown: menu thumbnails match the closed button (no clipped icons)
+
+- REPORTED (user): "the space for the image in the dropdown seems to be too
+  narrow for all of the options if some of the images are wider", clarified as
+  Font Awesome `fa:computer` and "there might be other".
+- DIAGNOSIS (probe): the menu `.thumb` was pinned to `1.5rem` (24x24) in
+  `shared/css/styles.css` while the inner `<smd-image>` kept the app's Icon size
+  (50px at medium). As a flex item it shrank in WIDTH only -> a 24x50 host; the
+  glyph font-size came from the host's 50px (40px) so a 50px-wide `fa:computer`
+  was cropped to a 24px window (13px off each side), `fa:bars` lost ~5.5px,
+  `fa:image` ~8px. A 300x60 upload became a 24x4.8 sliver.
+- FIX: removed the fixed wrapper rule; added `smd-image-dropdown .thumb >
+  smd-image { flex:none; }` so the image stays square and sizes the wrapper;
+  no-image options now render an EMPTY `<smd-image>` inside `.thumb.thumb-blank`
+  (like `smd-image-select`) so the column follows the Icon size setting.
+  Result: menu thumbs equal the closed button (50x50 at medium), wide images
+  50x10, icons unclipped.
+- WIDEST AVAILABLE ART: swept the vendored sets in Chrome (canvas ink at
+  100px). FA solid `fa:braille` is the widest (ink 1.31em / advance 1.25em),
+  then `fa:bell-slash`/`fa:bug-slash`/`fa:eye-slash` (1.29), brands
+  `fab:opencart` (1.30); bootstrap-icons tops out at 1.08 (`bi:crop`); sample
+  SVGs max "Wedding 2" 1.164 (but `<img>`s are already constrained).
+  `smd-image._renderIcon` used `px * 0.8`, which makes braille's ink 1.048x the
+  box -> 1.2px clipped each side at 50px (2.4 at jumbo). Changed the glyph
+  scale to `px * 0.75` (1.31 x 0.75 = 0.98), so every available icon fits.
+  Test `pmd-regression` "renders a bi: prefixed name..." now expects 48px for a
+  64px box (was 51px).
+- TESTS (added; the USER RAN THE FULL SUITE, not this session):
+  pmd-regression "menu thumbnails match the closed button and keep a square
+  image box" (square, equals the button, 300x60 keeps 5:1) and "the widest Font
+  Awesome glyph (fa:braille) fits the menu thumbnail" (canvas ink fits in the
+  button AND the row); cmd-regression's blank "No Category" thumb assertion now
+  expects the empty `<smd-image>` (and no `image` attribute).
+- NOT CHANGED / IGNORED (user): the superhero light-mode palette mismatch
+  (white form field vs dark dropdown menu) and the auto light/dark artwork
+  choice on the ACTIVE row (orange highlight resolves "light"). Separate issue.
+- BUILD: `202610232000` via `npm run bump:build`.
+- SAME SESSION (full suite): the user's run reported the 5 expected
+  launch-regression failures from the deferred Whiteboard update (counts/lists
+  still said 8). Updated `tests/launch-regression.spec.js` (see the WHITEBOARD
+  APP note). Test-only change, so no additional BUILD bump.

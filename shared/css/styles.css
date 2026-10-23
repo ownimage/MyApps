@@ -417,11 +417,6 @@ smd-image-dropdown .item.active:focus {
   color: var(--smd-dropdown-item-active-foreground);
 }
 
-smd-image-dropdown .item .thumb {
-  width: 1.5rem;
-  height: 1.5rem;
-}
-
 /* COMPONENT: smd-select (text-only custom dropdown; layout is in smd-select.js).
    The button reuses Bootstrap's `.form-select` (and the shared --smd-form-*
    repaint), so only the MENU needs colours. A native <select> popup is
