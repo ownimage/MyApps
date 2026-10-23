@@ -301,7 +301,9 @@ Architecture:
   `transform: scaleX(var(--wb-flip-x,1)) scaleY(var(--wb-flip-y,1))` mirrors only
   the ARTWORK - never put the flip on the object itself, or its scale/rotate
   handles and outline mirror too. The buttons use `aria-pressed` + a highlighted
-  background while the mirror is on.
+  background while the mirror is on. `.wb-sel-btn` is `inline-flex` centred with
+  `padding:0` and `line-height:1`, so every FA glyph (including the narrow
+  up-down arrow) sits exactly in the middle of the 32px pressed background.
   CONNECTORS (2026-10-21): each board also has `connectors: [{id,from,to}]`,
   where `from`/`to` are TEXT item ids. Normalization drops dangling/self/non-text
   links and keeps ONE link per pair (any direction). A text box's selection bar
@@ -6675,4 +6677,6 @@ Techniques / gotchas:
   `wbApplyStickerFlip`, selection UI), `js/storage.js` (`flipX`/`flipY`
   normalize + `wbFlipItem`), `css/whiteboard.css` (image-only mirror + pressed
   style). No Whiteboard spec exists (tests still deferred), so this was NOT
-  run here - the user runs the full suite. BUILD -> `202610232025`.
+  run here - the user runs the full suite. Follow-up: the action-bar buttons are
+  now flex-centred (`padding:0`, `line-height:1`) - the UA button padding had
+  pushed the two flip glyphs off centre. BUILD -> `202610232043`.
