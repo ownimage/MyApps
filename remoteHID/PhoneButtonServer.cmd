@@ -44,5 +44,5 @@ set "TUNNEL=--tunnel"
 echo %* | findstr /i /c:"--tunnel" /c:"--no-tunnel" /c:"--qr" >nul
 if not errorlevel 1 set "TUNNEL="
 
-%PY% "server\app.py" %TUNNEL% %*
+%PY% "server\app.py" %TUNNEL% %* --debug-keys
 endlocal

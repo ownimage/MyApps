@@ -6457,3 +6457,34 @@ Techniques / gotchas:
 - VERSION: capture `0.3.1` (csproj + README/DESIGN). Direct Release build clean,
   zero warnings; `--version` and `--help` verified. No server/web changes, so the
   build number is unchanged. This is the new default for hardware acceptance A3.
+
+### 2026-10-23 (b) - Mouser arbitrary keys, key debug, Blender 4.4 add-on
+- MOUSER UI: each axis direction is now a text input + datalist plus Ctrl/Alt/
+  Shift checkboxes, not an F13-F24-only `<smd-select>`. Accepts `A`, `LEFT`,
+  `PAGEUP`, `ctrl+shift+K`, or any single character; blank = unbound. Stored
+  strings canonicalise to lowercase modifiers + uppercase key. `HOME`, `END`,
+  `INSERT`, `PAGEUP`, `PAGEDOWN` were added to the server `_KEY_MAP` and the
+  button editor's named-key list.
+- SERVER DEBUG: `--debug-keys` / `--no-debug-keys` (default off) logs each
+  injected key via `_debug_key`; `--debug` / `--no-debug` controls the rest of
+  the verbose log. Fast Mouser sends log `Mouser key sent: '...' (VK=..., mods=...)`.
+  Startup prints `Key-send debug: on|off`.
+- CAPTURE BANNER: `udp` line now says `not set` when no `--udp`; warns when
+  `--gate` has no target; prints `websocket: none - capture uses UDP; Socket.IO
+  is browser-only` (the capture has no WebSocket transport).
+- BLENDER 4.4.3: new `remoteHID/Mouser/blender/mouser_step_controls.py` add-on
+  auto-binds F13-F24 to `mouser.rotate_step` and `mouser.translate_step`; fixed
+  rotation step (default 5°) and translation step (default 0.1), target Selected
+  Objects or 3D Viewport, global/local axis, individual/median/cursor pivot.
+  F13-F24 keymap UI is bypassed via Python keymap registration. Object
+  transforms push one undo step; viewport orbit/pan does not. Install/use in
+  `blender/README.md`.
+- VERIFIED: 154 pytest passed; Blender 4.4.3 background tests for 12-key
+  auto-bind, object global/local/median rotation, global/local translation,
+  viewport rotation/translation math, add-on install in a temp config, and rebind
+  idempotency. Targeted Playwright Mouser test passed after restarting the stale
+  Vite server (it had a truncated cached JS file). Build number bumped to
+  `202610231534` (`shared/js/build-number.js` + `sw.js`). Full regression not run.
+- CURRENT USER CONFIG: `remoteHID/server/config.json` is back on the F13-F24
+  defaults; `PhoneButtonServer.cmd` still appends `--debug-keys` (uncommitted user
+  change, left untouched). The add-on's defaults match the config.

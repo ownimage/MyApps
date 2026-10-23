@@ -566,6 +566,7 @@ Mouser/
     RawInput.cs             hidden Win32 window + WM_INPUT witness
     Net.cs                  UDP framing
     Program.cs              CLI, modes, driver lifecycle
+  blender/                  Blender 4.4.3 fixed-step add-on
   out/                      published, self-contained, ready to copy
 ```
 
@@ -594,6 +595,27 @@ it with `--debug-keys` (and optionally `--no-debug` to suppress everything else)
 The server injects real keystrokes into the focused app. It and the target app
 must run at the same integrity level: Windows UIPI blocks injection from a
 normal process into an elevated one.
+
+### Blender 4.4.3 step controls
+
+Blender 4.4.3 can receive F13–F24 but its keymap UI often refuses to capture
+them. [`blender/mouser_step_controls.py`](blender/mouser_step_controls.py) is a
+small add-on that registers the keys from Python and rotates or translates
+selected objects (or the 3D viewport) by a fixed step per Mouser tap. It
+auto-binds the defaults:
+
+| Key | Action |
+|---|---|
+| F13 / F14 | Rotate X ± |
+| F15 / F16 | Rotate Y ± |
+| F17 / F18 | Rotate Z ± |
+| F19 / F20 | Translate X ± |
+| F21 / F22 | Translate Y ± |
+| F23 / F24 | Translate Z ± |
+
+The rotation and translation step sizes are configurable in the add-on
+preferences. Install/use instructions are in
+[`blender/README.md`](blender/README.md).
 
 ### Acceptance for v0.3.1
 
