@@ -38,6 +38,8 @@ function wbInitBoard() {
   var connect = document.getElementById("wbSelConnect");
   var front = document.getElementById("wbSelFront");
   var duplicate = document.getElementById("wbSelDuplicate");
+  var flipH = document.getElementById("wbSelFlipH");
+  var flipV = document.getElementById("wbSelFlipV");
   var del = document.getElementById("wbSelDelete");
   var connReverse = document.getElementById("wbConnReverse");
   var connDelete = document.getElementById("wbConnDelete");
@@ -45,6 +47,8 @@ function wbInitBoard() {
   if (connect) connect.addEventListener("click", wbStartConnect);
   if (front) front.addEventListener("click", wbFrontSelected);
   if (duplicate) duplicate.addEventListener("click", wbDuplicateSelected);
+  if (flipH) flipH.addEventListener("click", function () { wbFlipSelected("x"); });
+  if (flipV) flipV.addEventListener("click", function () { wbFlipSelected("y"); });
   if (del) del.addEventListener("click", wbDeleteSelected);
   if (connReverse) connReverse.addEventListener("click", wbReverseSelectedConnector);
   if (connDelete) connDelete.addEventListener("click", wbDeleteSelectedConnector);
@@ -127,6 +131,7 @@ function wbBuildItem(item) {
     img.alt = meta.name;
     img.draggable = false;
     el.appendChild(img);
+    wbApplyStickerFlip(el, item);
   } else {
     var text = document.createElement("div");
     wbStyleTextElement(text, item);
@@ -169,9 +174,24 @@ function wbApplyItemTransform(item) {
   el.style.top = item.y + "%";
   el.style.transform = "translate(-50%, -50%) rotate(" + item.rotation + "deg)";
   el.style.setProperty("--wb-scale", item.scale);
+  wbApplyStickerFlip(el, item);
   var text = el.querySelector(".wb-text");
   if (text) text.style.setProperty("--wb-text-scale", item.scale);
   wbRenderConnectors();
+}
+
+// Mirror ONLY the sticker artwork. The flags become CSS custom properties on the
+// object and `.wb-sticker`'s transform consumes them, so the object's own
+// translate/rotate transform (and its handles/outline) are untouched.
+function wbApplyStickerFlip(el, item) {
+  if (!el || !item) return;
+  if (item.type !== "sticker") {
+    el.style.removeProperty("--wb-flip-x");
+    el.style.removeProperty("--wb-flip-y");
+    return;
+  }
+  el.style.setProperty("--wb-flip-x", item.flipX ? "-1" : "1");
+  el.style.setProperty("--wb-flip-y", item.flipY ? "-1" : "1");
 }
 
 // Re-style one text object in place (used while typing in the panel, so the
@@ -313,6 +333,11 @@ function wbSetBarButton(id, show) {
   if (el) el.classList.toggle("d-none", !show);
 }
 
+function wbSetBarPressed(id, on) {
+  var el = document.getElementById(id);
+  if (el) el.setAttribute("aria-pressed", on ? "true" : "false");
+}
+
 function wbUpdateSelectionUi() {
   if (!wbEls.items) return;
   var conn = wbSelectedConnector();
@@ -338,6 +363,8 @@ function wbUpdateSelectionUi() {
     wbSetBarButton("wbSelConnect", false);
     wbSetBarButton("wbSelFront", false);
     wbSetBarButton("wbSelDuplicate", false);
+    wbSetBarButton("wbSelFlipH", false);
+    wbSetBarButton("wbSelFlipV", false);
     wbSetBarButton("wbSelDelete", false);
     wbSetBarButton("wbConnReverse", true);
     wbSetBarButton("wbConnDelete", true);
@@ -357,6 +384,13 @@ function wbUpdateSelectionUi() {
   wbSetBarButton("wbSelDuplicate", true);
   wbSetBarButton("wbSelDelete", true);
   wbSetBarButton("wbSelConnect", item.type === "text");
+  // Flip only makes sense for sticker artwork; the pressed state shows which
+  // mirrors are currently on.
+  var sticker = item.type === "sticker";
+  wbSetBarButton("wbSelFlipH", sticker);
+  wbSetBarButton("wbSelFlipV", sticker);
+  wbSetBarPressed("wbSelFlipH", !!item.flipX);
+  wbSetBarPressed("wbSelFlipV", !!item.flipY);
   wbPositionSelectionBar();
 }
 
@@ -373,6 +407,9 @@ function wbPositionSelectionBar() {
   var a = wbEls.area.getBoundingClientRect();
   var barW = wbEls.selBar.offsetWidth || 110;
   var barH = wbEls.selBar.offsetHeight || 42;
+  // Centred modes clamp by the bar's own half-width so a wide bar (the sticker
+  // actions add flip buttons) can never hang off a narrow screen.
+  var halfBarW = barW / 2 + 8;
   var gap = 12;
   var mode = "right";
   var left = 0;
@@ -418,11 +455,11 @@ function wbPositionSelectionBar() {
     top = Math.min(Math.max(top, barH / 2 + 8), Math.max(barH / 2 + 8, a.height - barH / 2 - 8));
   } else if (mode === "above") {
     wbEls.selBar.style.transform = "translate(-50%, -100%)";
-    left = Math.min(Math.max(left, 100), Math.max(100, a.width - 100));
+    left = Math.min(Math.max(left, halfBarW), Math.max(halfBarW, a.width - halfBarW));
     top = Math.min(Math.max(top, barH + 8), Math.max(barH + 8, a.height - 8));
   } else {
     wbEls.selBar.style.transform = "translate(-50%, 0)";
-    left = Math.min(Math.max(left, 100), Math.max(100, a.width - 100));
+    left = Math.min(Math.max(left, halfBarW), Math.max(halfBarW, a.width - halfBarW));
     top = Math.min(Math.max(top, 8), Math.max(8, a.height - barH - 8));
   }
 
@@ -469,6 +506,15 @@ function wbDuplicateSelected() {
 function wbFrontSelected() {
   if (!wbState.selectedId) return;
   wbBringToFront(wbState.selectedId);
+  wbPositionSelectionBar();
+}
+
+function wbFlipSelected(axis) {
+  if (!wbState.selectedId) return;
+  var item = wbFlipItem(wbState.selectedId, axis);
+  if (!item) return;
+  wbApplyItemTransform(item);
+  wbUpdateSelectionUi();
   wbPositionSelectionBar();
 }
 

@@ -1,9 +1,11 @@
 // Whiteboard — board + item storage.
 //
 // Every board is { id, name, background, items }. Items are either
-//   sticker: { id, type:"sticker", sticker, x, y, scale, rotation, z }
-//   text:    { id, type:"text", text, bg, color, border, x, y, scale, rotation, z }
-// x/y are PERCENTAGES of the board so a board keeps its layout on any screen.
+//   sticker: { id, type:"sticker", sticker, x, y, scale, rotation, z, flipX, flipY }
+//   text:    { id, type:"text", text, bg, color, border, x, y, scale, rotation, z, font }
+// `flipX`/`flipY` mirror the sticker ARTWORK only (the object box, handles and
+// connectors stay put). x/y are PERCENTAGES of the board so a board keeps its
+// layout on any screen.
 // All keys live under the app's `whiteboard_` prefix via smdKey().
 //
 // The whole app is classic scripts with globals, like every other app here:
@@ -115,6 +117,8 @@ function wbNormalizeItem(raw) {
   };
   if (type === "sticker") {
     item.sticker = wbStickerById(raw.sticker) ? raw.sticker : WB_STICKERS[0].id;
+    item.flipX = raw.flipX === true;
+    item.flipY = raw.flipY === true;
   } else {
     item.text = String(raw.text == null ? "" : raw.text);
     item.bg = WB_BG_TOKENS.indexOf(raw.bg) >= 0 ? raw.bg : "transparent";
@@ -459,6 +463,17 @@ function wbBringToFront(id) {
   item.z = wbMaxZ(board) + 1;
   wbSaveState();
   wbRender();
+}
+
+// Mirror a sticker's artwork. `axis` is "x" (horizontal mirror) or "y"
+// (vertical). The flag lives on the item, so it survives reloads and copies.
+function wbFlipItem(id, axis) {
+  var item = wbFindItem(id);
+  if (!item || item.type !== "sticker") return null;
+  if (axis === "y") item.flipY = !item.flipY;
+  else item.flipX = !item.flipX;
+  wbSaveState();
+  return item;
 }
 
 // ---- Colour / frame helpers ------------------------------------------------

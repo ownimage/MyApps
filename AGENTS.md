@@ -286,12 +286,22 @@ Architecture:
   DATA: keys via `smdKey()` = `whiteboard_boards`, `whiteboard_activeBoard`,
   `whiteboard_toolbarPinned`. `wbState.boards` is an array of
   `{id,name,background,items}`; items are stickers
-  `{id,type:"sticker",sticker,x,y,scale,rotation,z}` or text
+  `{id,type:"sticker",sticker,x,y,scale,rotation,z,flipX,flipY}` or text
   `{id,type:"text",text,bg,color,border,font,x,y,scale,rotation,z}`. `x`/`y` are
   PERCENTAGES of the board (2..98) so a board keeps its layout on resize; `z` is
   paint order. New items go to 50/50 then cascade +4% (first item must be
   centred, not offset). Backgrounds are ids (`space`/`underwater`/`""`), never
   paths, so the asset list stays in `WB_BACKGROUNDS`/`WB_STICKERS`.
+  STICKER FLIP (2026-10-23, user request): a selected sticker's action bar has
+  **Flip horizontally** (`#wbSelFlipH`, `fa-left-right`) and **Flip vertically**
+  (`#wbSelFlipV`, `fa-up-down`) toggles; they are hidden for text boxes and
+  connectors. The flags live on the item (`flipX`/`flipY`) so they survive a
+  reload and are copied by Duplicate. `wbApplyStickerFlip()` sets
+  `--wb-flip-x`/`--wb-flip-y` on the OBJECT and `.wb-sticker`'s
+  `transform: scaleX(var(--wb-flip-x,1)) scaleY(var(--wb-flip-y,1))` mirrors only
+  the ARTWORK - never put the flip on the object itself, or its scale/rotate
+  handles and outline mirror too. The buttons use `aria-pressed` + a highlighted
+  background while the mirror is on.
   CONNECTORS (2026-10-21): each board also has `connectors: [{id,from,to}]`,
   where `from`/`to` are TEXT item ids. Normalization drops dangling/self/non-text
   links and keeps ONE link per pair (any direction). A text box's selection bar
@@ -6659,3 +6669,10 @@ Techniques / gotchas:
   launch-regression failures from the deferred Whiteboard update (counts/lists
   still said 8). Updated `tests/launch-regression.spec.js` (see the WHITEBOARD
   APP note). Test-only change, so no additional BUILD bump.
+- SAME SESSION (feature, user request): Whiteboard stickers gained Flip
+  horizontally / Flip vertically (see the STICKER FLIP note above). Files:
+  `Whiteboard/index.html` (buttons), `js/board.js` (`wbFlipSelected`,
+  `wbApplyStickerFlip`, selection UI), `js/storage.js` (`flipX`/`flipY`
+  normalize + `wbFlipItem`), `css/whiteboard.css` (image-only mirror + pressed
+  style). No Whiteboard spec exists (tests still deferred), so this was NOT
+  run here - the user runs the full suite. BUILD -> `202610232025`.

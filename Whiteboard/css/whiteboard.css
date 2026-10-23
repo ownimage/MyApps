@@ -652,6 +652,9 @@ body.auto-hide-menu #mainNav {
   height: auto;
   pointer-events: none;
   filter: drop-shadow(0 5px 8px rgba(0, 0, 0, 0.22));
+  /* flipX/flipY set these on the object; mirroring the IMAGE keeps the object's
+     box, handles, outline and connectors exactly where they were. */
+  transform: scaleX(var(--wb-flip-x, 1)) scaleY(var(--wb-flip-y, 1));
 }
 
 .wb-text {
@@ -919,6 +922,11 @@ html[data-smd-touch-size="large"] .wb-handle-rotate {
 
 .wb-sel-btn:hover {
   background: rgba(var(--bs-body-color-rgb), 0.12);
+}
+
+/* A flip toggle stays highlighted while that mirror is on. */
+.wb-sel-btn[aria-pressed="true"] {
+  background: rgba(var(--bs-body-color-rgb), 0.2);
 }
 
 #wbSelDelete:hover {
