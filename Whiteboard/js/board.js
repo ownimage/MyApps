@@ -729,3 +729,325 @@ function wbOnKeyDown(e) {
     else wbSelect("");
   }
 }
+
+// ---- Save the board as a JPG ----------------------------------------------
+//
+// Drawn from the STORED items + the live layout metrics (not a DOM screenshot),
+// so the toolbar, board chip, selection outlines/handles and the empty hint are
+// never in the image. Paint order matches the board: surface -> connectors ->
+// items (z order). The canvas is 2x for readable text, capped on huge boards.
+
+function wbItemEl(id) {
+  if (!wbEls.items || !id) return null;
+  return wbEls.items.querySelector('.wb-object[data-id="' + id + '"]');
+}
+
+function wbSlug(name) {
+  return String(name || "whiteboard").toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60);
+}
+
+function wbLoadCanvasImage(src) {
+  return new Promise(function (resolve, reject) {
+    var img = new Image();
+    img.onload = function () { resolve(img); };
+    img.onerror = function () { reject(new Error("Could not load " + src)); };
+    img.src = src;
+  });
+}
+
+function wbImageReady(img) {
+  return new Promise(function (resolve, reject) {
+    if (img.complete) return resolve(img);
+    img.addEventListener("load", function () { resolve(img); }, { once: true });
+    img.addEventListener("error", function () { reject(new Error("Image failed")); }, { once: true });
+  });
+}
+
+function wbCanvasRoundRect(ctx, x, y, w, h, r) {
+  r = Math.max(0, Math.min(r, w / 2, h / 2));
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
+// Match white-space:pre-wrap + overflow-wrap:break-word without a DOM measure per
+// line: explicit newlines are kept, words wrap at the box width, long words break.
+function wbCanvasWrapText(ctx, text, maxWidth) {
+  var lines = [];
+  String(text == null ? "" : text).split("\n").forEach(function (para) {
+    if (para === "") { lines.push(""); return; }
+    var words = para.split(/\s+/);
+    var line = "";
+    words.forEach(function (word) {
+      var test = line ? line + " " + word : word;
+      if (ctx.measureText(test).width <= maxWidth) { line = test; return; }
+      if (line) { lines.push(line); line = ""; }
+      // A single word wider than the box: break it character by character.
+      var chunk = "";
+      for (var i = 0; i < word.length; i++) {
+        var next = chunk + word[i];
+        if (chunk && ctx.measureText(next).width > maxWidth) {
+          lines.push(chunk);
+          chunk = word[i];
+        } else {
+          chunk = next;
+        }
+      }
+      line = chunk;
+    });
+    lines.push(line);
+  });
+  return lines;
+}
+
+function wbDrawCanvasText(ctx, item, el, frame, frameImg) {
+  var cs = getComputedStyle(el);
+  var w = el.offsetWidth;
+  var h = el.offsetHeight;
+  if (!w || !h) return;
+  var x = -w / 2;
+  var y = -h / 2;
+
+  // Surface first (the live rule is background-clip: padding-box, so a framed
+  // box paints only inside the 18px border).
+  var bg = cs.backgroundColor;
+  if (bg && bg !== "rgba(0, 0, 0, 0)" && bg !== "transparent") {
+    ctx.fillStyle = bg;
+    wbCanvasRoundRect(ctx, x + frame, y + frame, w - frame * 2, h - frame * 2, frame ? 8 : 10);
+    ctx.fill();
+  }
+
+  // The SVG frame as a 9-slice (source slice 30 of 120).
+  if (frame && frameImg) {
+    var s = 30, src = 120, d = frame;
+    ctx.drawImage(frameImg, 0, 0, s, s, x, y, d, d);
+    ctx.drawImage(frameImg, src - s, 0, s, s, x + w - d, y, d, d);
+    ctx.drawImage(frameImg, 0, src - s, s, s, x, y + h - d, d, d);
+    ctx.drawImage(frameImg, src - s, src - s, s, s, x + w - d, y + h - d, d, d);
+    ctx.drawImage(frameImg, s, 0, src - s * 2, s, x + d, y, w - d * 2, d);
+    ctx.drawImage(frameImg, s, src - s, src - s * 2, s, x + d, y + h - d, w - d * 2, d);
+    ctx.drawImage(frameImg, 0, s, s, src - s * 2, x, y + d, d, h - d * 2);
+    ctx.drawImage(frameImg, src - s, s, s, src - s * 2, x + w - d, y + d, d, h - d * 2);
+  }
+
+  var padL = frame + parseFloat(cs.paddingLeft || 0);
+  var padR = frame + parseFloat(cs.paddingRight || 0);
+  var padT = frame + parseFloat(cs.paddingTop || 0);
+  var padB = frame + parseFloat(cs.paddingBottom || 0);
+  var contentLeft = x + padL;
+  var contentTop = y + padT;
+  var contentW = w - padL - padR;
+  var contentH = h - padT - padB;
+  if (contentW <= 0 || contentH <= 0) return;
+
+  var size = parseFloat(cs.fontSize) || 16;
+  var lineH = parseFloat(cs.lineHeight);
+  if (!isFinite(lineH) || lineH <= 0) lineH = size * 1.22;
+  var align = cs.textAlign === "center" ? "center"
+    : (cs.textAlign === "right" || cs.textAlign === "end") ? "right" : "left";
+  var tx = align === "center" ? contentLeft + contentW / 2
+    : align === "right" ? contentLeft + contentW : contentLeft;
+
+  ctx.save();
+  ctx.font = cs.fontStyle + " " + cs.fontWeight + " " + cs.fontSize + " " + cs.fontFamily;
+  ctx.fillStyle = cs.color;
+  ctx.textAlign = align;
+  ctx.textBaseline = "middle";
+  // offsetWidth/offsetHeight are rounded integers, while the browser lays the
+  // text out on fractional pixels - without the small tolerance a line that fits
+  // on screen (e.g. by 0.42px) would wrap in the canvas and lose its second line
+  // to the box height. No clip: the live box is already sized to its content.
+  var lines = wbCanvasWrapText(ctx, item.text || " ", contentW + 1.5);
+  var ty = contentTop + lineH / 2;
+  lines.forEach(function (line, i) { ctx.fillText(line, tx, ty + i * lineH); });
+  ctx.restore();
+}
+
+async function wbDownloadJpg() {
+  var board = wbActiveBoard();
+  if (!board || !wbEls.canvas) return;
+  var visW = wbEls.canvas.clientWidth;
+  var visH = wbEls.canvas.clientHeight;
+  if (!visW || !visH) return;
+  if (document.fonts && document.fonts.ready) {
+    try { await document.fonts.ready; } catch (e) { /* draw with the fallback */ }
+  }
+
+  // A board with a background image exports the WHOLE artwork, not the visible
+  // `cover` crop. The canvas is the image's natural size (capped at 4096px);
+  // items are mapped from screen space back into the artwork's coordinates so
+  // they stay on the same part of the picture as on screen.
+  var bgMeta = board.background ? wbBackgroundById(board.background) : null;
+  var bgImg = bgMeta ? await wbLoadCanvasImage(bgMeta.file).catch(function () { return null; }) : null;
+  var hasBg = !!(bgImg && bgImg.naturalWidth && bgImg.naturalHeight);
+
+  var W, H, outScale;
+  if (hasBg) {
+    W = bgImg.naturalWidth;
+    H = bgImg.naturalHeight;
+    outScale = Math.min(1, 4096 / Math.max(W, H));
+  } else {
+    W = visW;
+    H = visH;
+    outScale = Math.max(1, Math.min(2, 4096 / Math.max(W, H)));
+  }
+
+  // `cover` on the live board: how many CSS px one artwork px occupies, and the
+  // (negative) offset of the artwork inside the visible window.
+  var coverScale = hasBg ? Math.max(visW / W, visH / H) : 1;
+  var offsetX = hasBg ? (visW - W * coverScale) / 2 : 0;
+  var offsetY = hasBg ? (visH - H * coverScale) / 2 : 0;
+  var artScale = 1 / coverScale;
+  var toArt = function (px, py) {
+    return { x: (px - offsetX) / coverScale, y: (py - offsetY) / coverScale };
+  };
+
+  var canvas = document.createElement("canvas");
+  canvas.width = Math.round(W * outScale);
+  canvas.height = Math.round(H * outScale);
+  var ctx = canvas.getContext("2d");
+  ctx.scale(outScale, outScale);
+
+  var baseBg = getComputedStyle(wbEls.canvas).backgroundColor || "#ffffff";
+  var bodyColor = getComputedStyle(document.body).color;
+  ctx.fillStyle = baseBg;
+  ctx.fillRect(0, 0, W, H);
+
+  if (hasBg) {
+    var bgStyle = getComputedStyle(wbEls.bg);
+    if (bgStyle.backgroundColor && bgStyle.backgroundColor !== "rgba(0, 0, 0, 0)") {
+      ctx.fillStyle = bgStyle.backgroundColor;
+      ctx.fillRect(0, 0, W, H);
+    }
+    ctx.drawImage(bgImg, 0, 0, W, H);
+  } else {
+    // The empty board's dot grid: 1px dots at 24px spacing, 22% body colour.
+    ctx.save();
+    ctx.globalAlpha = 0.22;
+    ctx.fillStyle = bodyColor;
+    for (var gy = 12; gy < H; gy += 24) {
+      for (var gx = 12; gx < W; gx += 24) {
+        ctx.beginPath();
+        ctx.arc(gx, gy, 1, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+    ctx.restore();
+  }
+
+  // Connectors sit below the objects, exactly like the live SVG layer. Endpoints
+  // are computed in artwork space; widths are converted from CSS px so the line
+  // keeps the same thickness relative to the picture.
+  (board.connectors || []).forEach(function (conn) {
+    var from = wbFindItem(conn.from);
+    var to = wbFindItem(conn.to);
+    var fromEl = wbItemEl(conn.from);
+    var toEl = wbItemEl(conn.to);
+    if (!from || !to || !fromEl || !toEl) return;
+    var a = toArt(from.x / 100 * visW, from.y / 100 * visH);
+    var b = toArt(to.x / 100 * visW, to.y / 100 * visH);
+    var aEdge = wbEdgePoint(a.x, a.y, b.x, b.y,
+      Math.max(1, fromEl.offsetWidth / 2) * artScale,
+      Math.max(1, fromEl.offsetHeight / 2) * artScale,
+      from.rotation * Math.PI / 180);
+    var bEdge = wbEdgePoint(b.x, b.y, a.x, a.y,
+      Math.max(1, toEl.offsetWidth / 2) * artScale,
+      Math.max(1, toEl.offsetHeight / 2) * artScale,
+      to.rotation * Math.PI / 180);
+    var aOut = wbPushOut(a.x, a.y, aEdge, 5 * artScale);
+    var bOut = wbPushOut(b.x, b.y, bEdge, 5 * artScale);
+    ctx.save();
+    ctx.lineCap = "round";
+    ctx.globalAlpha = 0.85;
+    ctx.strokeStyle = baseBg;
+    ctx.lineWidth = 7 * artScale;
+    ctx.beginPath(); ctx.moveTo(aOut.x, aOut.y); ctx.lineTo(bOut.x, bOut.y); ctx.stroke();
+    ctx.globalAlpha = 1;
+    ctx.strokeStyle = bodyColor;
+    ctx.lineWidth = 2.5 * artScale;
+    ctx.beginPath(); ctx.moveTo(aOut.x, aOut.y); ctx.lineTo(bOut.x, bOut.y); ctx.stroke();
+    ctx.translate(bOut.x, bOut.y);
+    ctx.rotate(Math.atan2(bOut.y - aOut.y, bOut.x - aOut.x));
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(-11 * artScale, -5.5 * artScale);
+    ctx.lineTo(-11 * artScale, 5.5 * artScale);
+    ctx.closePath();
+    ctx.fillStyle = bodyColor;
+    ctx.strokeStyle = baseBg;
+    ctx.lineWidth = 3 * artScale;
+    ctx.lineJoin = "round";
+    ctx.stroke();
+    ctx.fill();
+    ctx.restore();
+  });
+
+  var ordered = board.items.slice().sort(function (a, b) {
+    return (Number(a.z) || 0) - (Number(b.z) || 0);
+  });
+  var frameCache = Object.create(null);
+  for (var i = 0; i < ordered.length; i++) {
+    var item = ordered[i];
+    var el = wbItemEl(item.id);
+    if (!el) continue;
+    var art = toArt(item.x / 100 * visW, item.y / 100 * visH);
+    ctx.save();
+    ctx.translate(art.x, art.y);
+    ctx.rotate((Number(item.rotation) || 0) * Math.PI / 180);
+    // Draw with the live CSS-pixel metrics, then shrink/grow them to the
+    // artwork's scale so an item covers the same fraction of the picture.
+    ctx.scale(artScale, artScale);
+
+    if (item.type === "sticker") {
+      var img = el.querySelector(".wb-sticker");
+      if (img) {
+        if (!img.complete) { try { await wbImageReady(img); } catch (e) { /* skip */ } }
+        var w = img.offsetWidth;
+        var h = img.offsetHeight;
+        if (w && h) {
+          ctx.scale(item.flipX ? -1 : 1, item.flipY ? -1 : 1);
+          // CSS drop-shadow(0 5px 8px rgba(0,0,0,.22)) survives the flip.
+          ctx.shadowColor = "rgba(0, 0, 0, 0.22)";
+          ctx.shadowBlur = 8;
+          ctx.shadowOffsetY = 5 * (item.flipY ? -1 : 1);
+          ctx.drawImage(img, -w / 2, -h / 2, w, h);
+        }
+      }
+    } else {
+      var textEl = el.querySelector(".wb-text");
+      if (textEl) {
+        var frame = item.border && item.border !== "none" ? 18 : 0;
+        var frameImg = null;
+        if (frame) {
+          var uri = wbFrameDataUri(item.border, wbResolveColor(item.color));
+          if (!frameCache[uri]) {
+            frameCache[uri] = await wbLoadCanvasImage(uri).catch(function () { return null; });
+          }
+          frameImg = frameCache[uri];
+        }
+        wbDrawCanvasText(ctx, item, textEl, frame, frameImg);
+      }
+    }
+    ctx.restore();
+  }
+
+  var blob = await new Promise(function (resolve) {
+    canvas.toBlob(function (b) { resolve(b); }, "image/jpeg", 0.92);
+  });
+  if (!blob) throw new Error("JPG encoding failed");
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement("a");
+  a.href = url;
+  a.download = (wbSlug(board.name) || "whiteboard") + ".jpg";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(function () { URL.revokeObjectURL(url); }, 1500);
+}
+
+

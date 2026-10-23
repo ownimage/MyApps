@@ -12,6 +12,7 @@ function wbInitToolbar() {
   wbToolbarEls.title = document.getElementById("wbPanelTitle");
   wbToolbarEls.body = document.getElementById("wbPanelBody");
   wbToolbarEls.pin = document.getElementById("wbPinBtn");
+  wbToolbarEls.save = document.getElementById("wbSaveBtn");
   wbToolbarEls.close = document.getElementById("wbPanelClose");
   wbToolbarEls.railBtns = Array.prototype.slice.call(document.querySelectorAll(".wb-rail-btn[data-tool]"));
 
@@ -26,6 +27,14 @@ function wbInitToolbar() {
   wbToolbarEls.railBtns.forEach(function (btn) {
     btn.addEventListener("click", function () { wbSetTool(btn.dataset.tool); });
   });
+  if (wbToolbarEls.save) {
+    wbToolbarEls.save.addEventListener("click", function () {
+      wbDownloadJpg().catch(function (err) {
+        console.error(err);
+        alert("Could not save this board as a JPG.");
+      });
+    });
+  }
   if (wbToolbarEls.close) wbToolbarEls.close.addEventListener("click", wbClosePanel);
   if (wbToolbarEls.body) {
     wbToolbarEls.body.addEventListener("click", wbOnPanelClick);

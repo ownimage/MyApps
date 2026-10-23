@@ -304,6 +304,36 @@ Architecture:
   background while the mirror is on. `.wb-sel-btn` is `inline-flex` centred with
   `padding:0` and `line-height:1`, so every FA glyph (including the narrow
   up-down arrow) sits exactly in the middle of the 32px pressed background.
+  SAVE AS JPG (2026-10-23, user request): the rail's `#wbSaveBtn` (fa-download)
+  calls `wbDownloadJpg()` (`js/board.js`) and downloads
+  `<slug(board.name)>.jpg`. It is a CANVAS drawing of the STORED board, not a
+  DOM screenshot: surface (**the WHOLE background artwork at its natural size**,
+  not the visible `cover` crop - or the 24px dot grid at 22% body colour) ->
+  connectors (same `wbEdgePoint`/`wbPushOut` endpoints,
+  body-bg halo + body-colour line + arrowhead) -> items in z order (sticker
+  img with rotation/flip/drop-shadow; text with its computed font/colour/
+  padding, wrapped to the live box width, and fancy/hand/stamp SVG frames
+  drawn as a 9-slice - source slice 30 of 120 at 18px). The toolbar, board chip,
+  empty hint and selection outlines/handles are deliberately NOT in the image.
+  FULL-BACKGROUND MAPPING: the live board shows the art with `background-size:
+  cover`, so the canvas and the items live in a CROPPED window. The export
+  canvas is the image's natural size (capped at 4096px on the long edge) and
+  items are mapped back through the cover transform: `coverScale =
+  max(visW/imgW, visH/imgH)`, `offset = (vis - img * coverScale) / 2`, item
+  screen px -> `(px - offset) / coverScale`. Each item is drawn inside a
+  `translate(art) + rotate + scale(1/coverScale)` context, and connector
+  widths/arrow size are divided by `coverScale`, so the composition stays glued
+  to the same part of the artwork. Consequence: on a narrow phone (heavy
+  horizontal crop) an item at 20% of the visible window lands at ~39% of the
+  full 2560px art - correct relative to the picture, not to the crop. With no
+  background the export is the visible board at 2x CSS pixels.
+  Images are the LIVE `<img>` elements (stickers) plus a fresh `Image` for the
+  background file and frame data URIs, and `document.fonts.ready` is awaited so
+  a family picked in the text panel renders. GOTCHA: canvas text must wrap
+  against the live box width PLUS a ~1.5px tolerance - `offsetWidth/
+  offsetHeight` are integers while the browser lays text out on fractional
+  pixels, so an exact-width wrap moves a word to a second line that the
+  one-line box then hides.
   CONNECTORS (2026-10-21): each board also has `connectors: [{id,from,to}]`,
   where `from`/`to` are TEXT item ids. Normalization drops dangling/self/non-text
   links and keeps ONE link per pair (any direction). A text box's selection bar
@@ -6680,3 +6710,16 @@ Techniques / gotchas:
   run here - the user runs the full suite. Follow-up: the action-bar buttons are
   now flex-centred (`padding:0`, `line-height:1`) - the UA button padding had
   pushed the two flip glyphs off centre. BUILD -> `202610232043`.
+- SAME SESSION (feature, user request): Whiteboard "Save" rail button downloads
+  the current board as a JPG (see SAVE AS JPG above). Verified with a throwaway
+  probe: space background, two flipped/rotated stickers, fancy + hand text
+  (Cabin Sketch and theme font), a connector; the 2560px JPG matched the board
+  and excluded the UI, with no console/page errors. GOTCHA found and fixed:
+  canvas text needs a ~1.5px wrap tolerance (integer offsetWidth vs fractional
+  browser layout) or the last word falls to a hidden second line. FOLLOW-UP
+  (user): the first cut saved the visible `cover` crop, so the JPG now exports
+  the WHOLE background artwork at natural size with items mapped back through
+  the cover transform (see the SAVE AS JPG note). Verified on a 390x575 board:
+  the JPG is 2560x1440 with the full space art, and items keep their position
+  on the art (LEFT moved from 20% of the crop to ~39% of the artwork).
+  BUILD -> `202610232126`.
