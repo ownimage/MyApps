@@ -30,7 +30,7 @@ REM Install the server deps if the key modules are missing.
 %PY% -c "import win32gui, psutil, PIL, flask, flask_socketio" 1>nul 2>nul
 if errorlevel 1 (
   echo Installing PhoneButtons server dependencies ^(first run^)...
-  %PY% -m pip install -r "PhoneButtons\server\requirements.txt"
+  %PY% -m pip install -r "server\requirements.txt"
   if errorlevel 1 (
     echo.
     echo Failed to install the dependencies. Check your Python / pip setup.
@@ -44,5 +44,5 @@ set "TUNNEL=--tunnel"
 echo %* | findstr /i /c:"--tunnel" /c:"--no-tunnel" /c:"--qr" >nul
 if not errorlevel 1 set "TUNNEL="
 
-%PY% "PhoneButtons\server\app.py" %TUNNEL% %*
+%PY% "server\app.py" %TUNNEL% %*
 endlocal

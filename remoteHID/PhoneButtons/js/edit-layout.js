@@ -1,11 +1,11 @@
 // PhoneButtons — "Manage Layout" page (main menu).
 //
 // ONE smd-page: pick a layout from the <pb-image-dropdown> (which also offers
-// "Add Layout…"), edit its display name / icon / grid (rows x cols) / buttons,
-// and Finish to save via POST /api/save-layout. Choosing "Add Layout…"
-// auto-generates a unique key from the display name. `layoutDropdownOptions()`
-// is reused by the Edit App wizard's layout picker.
-// the Edit App wizard's layout picker.
+// "Add Layout…"), then edit it in three tabs — General (display name / icon /
+// key / used-by), PhoneButtons (rows x cols + grid) and Mouser (six axis
+// bindings + live readout) — and Finish to save via POST /api/save-layout.
+// Choosing "Add Layout…" auto-generates a unique key from the display name.
+// `layoutDropdownOptions()` is reused by the Edit App wizard's layout picker.
 
 var _layoutsByKey = {};        // key -> layout object (from GET /api/layouts)
 var _selectedLayoutKey = "";   // currently selected layout key ("" while adding)
@@ -55,7 +55,34 @@ function buildManageLayoutContent(page) {
       '<pb-image-dropdown id="manageLayoutDropdown"></pb-image-dropdown>' +
       '<div id="manageLayoutHint" class="form-text"></div>' +
     '</div>' +
-    '<div class="mb-3">' +
+    '<smd-tabs id="manageLayoutTabs"></smd-tabs>';
+  page.buttons = [
+    { text: "Cancel", variant: "secondary", action: "cancel" },
+    { text: "Finish", variant: "success", action: "finish", close: false }
+  ];
+}
+
+// The three tabs are rendered by <smd-tabs>; assign `tabs` only after the page
+// is attached so the custom elements inside the panels upgrade normally.
+function initManageLayoutTabs() {
+  var tabsEl = document.getElementById("manageLayoutTabs");
+  if (!tabsEl) return;
+  tabsEl.tabs = [
+    { title: "General", content: manageGeneralTabHTML() },
+    { title: "PhoneButtons", content: manageButtonsTabHTML() },
+    {
+      title: "Mouser",
+      content: typeof buildMouserTabHTML === "function" ? buildMouserTabHTML() : ""
+    }
+  ];
+  tabsEl.addEventListener("smd-tabs-change", function (e) {
+    var index = e.detail && e.detail.index;
+    if (index === 1) renderManageGrid();   // cells size from the Image setting
+  });
+}
+
+function manageGeneralTabHTML() {
+  return '<div class="mb-3">' +
       '<label class="form-label" for="manageLayoutNameInput">Display name</label>' +
       '<input type="text" id="manageLayoutNameInput" class="form-control" placeholder="Layout name">' +
     '</div>' +
@@ -70,6 +97,20 @@ function buildManageLayoutContent(page) {
       '</div>' +
     '</div>' +
     '<div class="row mb-3 g-2">' +
+      '<div class="col-5">' +
+        '<label class="form-label" for="manageLayoutKey">Key</label>' +
+        '<input type="text" id="manageLayoutKey" class="form-control" readonly>' +
+      '</div>' +
+      '<div class="col-7">' +
+        '<label class="form-label">&nbsp;</label>' +
+        '<div id="manageLayoutUsedBy" class="form-text mt-2"></div>' +
+      '</div>' +
+    '</div>';
+}
+
+function manageButtonsTabHTML() {
+  return '<p class="form-text">Tap a cell to edit its key and image. Drag one cell onto another to swap them.</p>' +
+    '<div class="row mb-3 g-2">' +
       '<div class="col-6">' +
         '<label class="form-label" for="manageLayoutCols">Columns</label>' +
         '<input type="number" id="manageLayoutCols" class="form-control" min="1" max="12" value="3" oninput="onManageGridInput()">' +
@@ -80,10 +121,6 @@ function buildManageLayoutContent(page) {
       '</div>' +
     '</div>' +
     '<div id="manageLayoutGrid" class="pb-layout-grid mb-3"></div>';
-  page.buttons = [
-    { text: "Cancel", variant: "secondary", action: "cancel" },
-    { text: "Finish", variant: "success", action: "finish", close: false }
-  ];
 }
 
 function setManageHint(msg) {
@@ -114,6 +151,7 @@ function openManageLayout(preselect) {
   }
   buildManageLayoutContent(page);
   _openWizardPage(page);
+  initManageLayoutTabs();
   loadManageLayout(preselect);
 }
 
@@ -155,9 +193,19 @@ function applySelectedLayout(layout) {
   _selectedLayoutKey = layout.key;
   var nameInput = document.getElementById("manageLayoutNameInput");
   if (nameInput) nameInput.value = layout.displayName || layout.key;
+  var keyEl = document.getElementById("manageLayoutKey");
+  if (keyEl) keyEl.value = layout.key || "";
+  var usedEl = document.getElementById("manageLayoutUsedBy");
+  if (usedEl) {
+    var used = layout.usedBy || [];
+    usedEl.textContent = used.length
+      ? "Used by: " + used.join(", ")
+      : "Not assigned to an app yet.";
+  }
   setManageGridDims(layout.rows, layout.cols);
   applyLayoutIcon(layout);
   renderManageGrid();
+  if (typeof applyMouserLayout === "function") applyMouserLayout(layout);
 }
 
 // Blank the fields for a brand-new layout (its key is auto-generated on save).
@@ -166,10 +214,15 @@ function applyAddLayout() {
   _selectedLayoutKey = "";
   var nameInput = document.getElementById("manageLayoutNameInput");
   if (nameInput) nameInput.value = "";
+  var keyEl = document.getElementById("manageLayoutKey");
+  if (keyEl) keyEl.value = "new (generated on save)";
+  var usedEl = document.getElementById("manageLayoutUsedBy");
+  if (usedEl) usedEl.textContent = "Not assigned to an app yet.";
   setManageHint("");
   setManageGridDims(2, 3);
   applyLayoutIcon({ image: "" });
   renderManageGrid();
+  if (typeof applyMouserLayout === "function") applyMouserLayout(null);
 }
 
 function applyLayoutIcon(layout) {
@@ -200,7 +253,9 @@ function finishManageLayout() {
     rows: rows,
     cols: cols,
     // Persist the buttons as part of the layout.
-    buttons: buttons
+    buttons: buttons,
+    // The Mouser tab owns this sub-object; defaults come from mouser-tab.js.
+    mouser: (typeof collectMouserLayout === "function" ? collectMouserLayout() : {})
   };
   pbApi.saveLayout(payload).then(function () {
     _layoutsByKey[key] = payload;
@@ -413,6 +468,7 @@ var _buttonImage2 = "";
 var BUTTON_NAMED_KEYS = [
   "BACKSPACE", "TAB", "ENTER", "ESCAPE", "SPACE", "DELETE",
   "F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "F10", "F11", "F12",
+  "F13", "F14", "F15", "F16", "F17", "F18", "F19", "F20", "F21", "F22", "F23", "F24",
   "LEFT", "RIGHT", "UP", "DOWN",
   "VOLUME_MUTE", "VOLUME_DOWN", "VOLUME_UP",
   "MEDIA_NEXT_TRACK", "MEDIA_PREV_TRACK", "MEDIA_STOP", "MEDIA_PLAY_PAUSE"

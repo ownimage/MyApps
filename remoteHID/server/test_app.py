@@ -9,8 +9,8 @@ MOCKED - the tests must never press keys or touch the user's real config.json.
 
 Run from the repo root:
 
-    py -3.13 -m pytest PhoneButtons/server/test_app.py -q
-    py -3.13 -m pytest PhoneButtons/server/test_app.py --cov=app --cov-report=term-missing
+    py -3.13 -m pytest remoteHID/server/test_app.py -q
+    py -3.13 -m pytest remoteHID/server/test_app.py --cov=app --cov-report=term-missing
 """
 
 import json
@@ -188,6 +188,7 @@ class TestConfigHelpers:
                          "image2": "", "key": "left"},
                         {"name": "Next slide", "image1": "bi:skip-forward-fill",
                          "image2": "", "key": "right"}],
+            "mouser": {},
         }
 
     def test_get_app_layout_defaults_and_missing(self, config_file):
@@ -195,7 +196,7 @@ class TestConfigHelpers:
         data["app-layouts"]["Photoshop"] = "photoshop"
         write_config(config_file, data)
         assert server._get_app_layout("Photoshop") == \
-            {"key": "photoshop", "rows": 2, "cols": 3, "buttons": []}
+            {"key": "photoshop", "rows": 2, "cols": 3, "buttons": [], "mouser": {}}
         assert server._get_app_layout("Not Mapped") is None
         assert server._get_app_layout("Microsoft PowerPoint") is not None
 
@@ -276,6 +277,8 @@ class TestKeyParsing:
         assert server._resolve_key("ENTER") == (0x0D, False)
         assert server._resolve_key("enter") == (0x0D, False)
         assert server._resolve_key("F4") == (0x73, False)
+        assert server._resolve_key("f13") == (0x7C, False)
+        assert server._resolve_key("F24") == (0x87, False)
         assert server._resolve_key("MEDIA_NEXT_TRACK") == (0xB0, False)
         assert server._resolve_key("NOT_A_KEY") == (0, False)
         assert server._resolve_key(None) == (0, False)
@@ -317,6 +320,26 @@ class TestKeyParsing:
         assert mods == [0x10]
 
 
+class TestFastKeyPath:
+    """The Mouser ratchet calls this once per press; it must not use the 10 ms
+    sleeps in `button_press` and must still wrap modifiers correctly."""
+
+    def test_presses_and_releases_one_key(self, keys):
+        assert server._send_key_string_fast("F13") is True
+        assert keys == [("down", 0x7C), ("up", 0x7C)]
+
+    def test_modifiers_wrap_the_main_key(self, keys):
+        assert server._send_key_string_fast("ctrl+shift+f24") is True
+        assert keys == [
+            ("down", 0x11), ("down", 0x10), ("down", 0x87),
+            ("up", 0x87), ("up", 0x10), ("up", 0x11),
+        ]
+
+    def test_an_unknown_key_sends_nothing(self, keys):
+        assert server._send_key_string_fast("NOT_A_KEY") is False
+        assert keys == []
+
+
 # --------------------------------------------------------------------------- #
 # HTTP routes
 # --------------------------------------------------------------------------- #
@@ -325,10 +348,10 @@ class TestHttpRoutes:
     def test_root_redirects_to_the_app(self, client):
         resp = client.get("/")
         assert resp.status_code == 302
-        assert resp.headers["Location"].endswith("/PhoneButtons/")
+        assert resp.headers["Location"].endswith("/remoteHID/PhoneButtons/")
 
     def test_index_serves_the_app_shell(self, client):
-        resp = client.get("/PhoneButtons/")
+        resp = client.get("/remoteHID/PhoneButtons/")
         assert resp.status_code == 200
         assert b'id="smd-app"' in resp.data
 
@@ -362,7 +385,7 @@ class TestHttpRoutes:
             assert b"layouts" not in resp.data, path
 
     def test_cors_headers_are_added_to_every_response(self, client):
-        for path in ("/PhoneButtons/", "/api/layouts"):
+        for path in ("/remoteHID/PhoneButtons/", "/api/layouts"):
             resp = client.get(path)
             assert resp.headers["Access-Control-Allow-Origin"] == "*"
             assert "Content-Type" in resp.headers["Access-Control-Allow-Headers"]
@@ -407,9 +430,11 @@ class TestApiRoutes:
         assert powerpoint["image"] == "Microsoft PowerPoint.png"
         assert powerpoint["rows"] == 4 and powerpoint["cols"] == 2
         assert len(powerpoint["buttons"]) == 2
+        assert powerpoint["mouser"] == {}
+        assert powerpoint["usedBy"] == ["Microsoft PowerPoint"]
         assert payload["layouts"][1] == {
             "key": "photoshop", "displayName": "Photoshop", "image": "",
-            "rows": 2, "cols": 3, "buttons": [],
+            "rows": 2, "cols": 3, "buttons": [], "mouser": {}, "usedBy": [],
         }
 
     def test_api_layouts_without_a_config(self, client):
@@ -444,7 +469,8 @@ class TestSaveLayout:
         resp = self.post(client, {"key": "mine", "rows": 3, "cols": 4})
         assert resp.get_json() == {"ok": True}
         layout = read_config(server.CONFIG_PATH)["layouts"]["mine"]
-        assert layout == {"displayName": "mine", "image": "", "rows": 3, "cols": 4, "buttons": []}
+        assert layout == {"displayName": "mine", "image": "", "rows": 3, "cols": 4,
+                          "buttons": [], "mouser": {}}
 
     def test_merges_into_an_existing_layout_and_keeps_its_buttons(self, client, config_file):
         self.post(client, {"key": "powerpoint", "displayName": "PPT", "image": "x.png", "rows": 6, "cols": 1})
@@ -456,6 +482,16 @@ class TestSaveLayout:
     def test_an_explicit_buttons_list_replaces_the_stored_one(self, client, config_file):
         self.post(client, {"key": "powerpoint", "buttons": [{"key": "a"}]})
         assert read_config(server.CONFIG_PATH)["layouts"]["powerpoint"]["buttons"] == [{"key": "a"}]
+
+    def test_saves_the_mouser_block_and_keeps_it_when_omitted(self, client, config_file):
+        block = {"enabled": True, "axes": {"rx": {"positive": "F13", "negative": "F14",
+                                                    "gain": 0.05, "step": 5, "deadband": 0}}}
+        self.post(client, {"key": "powerpoint", "mouser": block})
+        assert read_config(server.CONFIG_PATH)["layouts"]["powerpoint"]["mouser"] == block
+
+        # A later save from a screen that does not send `mouser` must not drop it.
+        self.post(client, {"key": "powerpoint", "rows": 6})
+        assert read_config(server.CONFIG_PATH)["layouts"]["powerpoint"]["mouser"] == block
 
     def test_rows_and_cols_are_clamped_to_1_12(self, client):
         # 99 clamps down to 12; a negative value clamps up to 1; an explicit 0
@@ -755,7 +791,7 @@ class TestHelpers:
         monkeypatch.setattr(server.webbrowser, "open", lambda url: opened.append(url))
         monkeypatch.setattr(server, "_lan_ip", lambda: "192.168.1.50")
         server._open_browser()
-        assert opened == ["http://192.168.1.50:5000/PhoneButtons/?showQr=1"]
+        assert opened == ["http://192.168.1.50:5000/remoteHID/PhoneButtons/?showQr=1"]
 
 
 # --------------------------------------------------------------------------- #
@@ -842,7 +878,7 @@ class TestForegroundHook:
         # template + layout come from the config
         assert state["template"] == {"rows": 4, "cols": 2, "buttons": [{"key": "left"}]}
         assert state["layout"] == {"key": "powerpoint", "rows": 3, "cols": 3,
-                                   "buttons": [{"key": "right"}]}
+                                   "buttons": [{"key": "right"}], "mouser": {}}
         assert server._current_app["name"] == "Notepad"
 
     def test_same_app_is_not_pushed_again(self, monkeypatch, config_file):

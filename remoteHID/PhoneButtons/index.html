@@ -11,16 +11,16 @@
   <link rel="apple-touch-icon" href="icon-192.png">
   <title>Phone Buttons</title>
 
-  <link rel="stylesheet" href="../shared/vendor/bootstrap-icons.css">
-  <link rel="stylesheet" href="../shared/vendor/fontawesome/css/fontawesome.min.css">
-  <link rel="stylesheet" href="../shared/vendor/fontawesome/css/solid.min.css">
-  <link rel="stylesheet" href="../shared/vendor/fontawesome/css/regular.min.css">
-  <link rel="stylesheet" href="../shared/vendor/fontawesome/css/brands.min.css">
-  <link id="bootstrap-theme-css" href="../shared/css/themes/superhero/bootstrap.min.css" rel="stylesheet">
-  <link id="smd-shared-css" rel="stylesheet" href="../shared/css/styles.css">
-  <link id="theme-override-mode" rel="stylesheet" href="../shared/css/themes/light.css">
-  <link id="theme-override-specific" rel="stylesheet" href="../shared/css/themes/superhero/superhero.light.css">
-  <script src="../shared/js/build-number.js"></script>
+  <link rel="stylesheet" href="../../shared/vendor/bootstrap-icons.css">
+  <link rel="stylesheet" href="../../shared/vendor/fontawesome/css/fontawesome.min.css">
+  <link rel="stylesheet" href="../../shared/vendor/fontawesome/css/solid.min.css">
+  <link rel="stylesheet" href="../../shared/vendor/fontawesome/css/regular.min.css">
+  <link rel="stylesheet" href="../../shared/vendor/fontawesome/css/brands.min.css">
+  <link id="bootstrap-theme-css" href="../../shared/css/themes/superhero/bootstrap.min.css" rel="stylesheet">
+  <link id="smd-shared-css" rel="stylesheet" href="../../shared/css/styles.css">
+  <link id="theme-override-mode" rel="stylesheet" href="../../shared/css/themes/light.css">
+  <link id="theme-override-specific" rel="stylesheet" href="../../shared/css/themes/superhero/superhero.light.css">
+  <script src="../../shared/js/build-number.js"></script>
   <script>
     // Cache-bust every same-origin link (stylesheet/manifest/icon) with the
     // build number so a new build always fetches fresh assets.
@@ -85,7 +85,7 @@
       <ul class="dropdown-menu">
         <li><a class="dropdown-item" onclick="openSettings()">Settings</a></li>
         <li><hr class="dropdown-divider"></li>
-        <li><a class="dropdown-item" href="../">Launch</a></li>
+        <li><a class="dropdown-item" href="../../">Launch</a></li>
         <li><hr class="dropdown-divider"></li>
         <li><a class="dropdown-item" onclick="openManageApp()">Manage App</a></li>
         <li><a class="dropdown-item" onclick="openManageLayout()">Manage Layout</a></li>
@@ -206,7 +206,7 @@
             <div class="mt-3">
               <button id="btnScanServerQr" class="btn btn-primary" onclick="openServerScan()">Scan QR</button>
             </div>
-            <div class="form-text mt-2">The PC running PhoneButtons/server. Leave the port empty for the scheme default (443 / 80) — e.g. for a Cloudflare tunnel address.</div>
+            <div class="form-text mt-2">The PC running the PhoneButtons/Mouser server (remoteHID/server). Leave the port empty for the scheme default (443 / 80) — e.g. for a Cloudflare tunnel address.</div>
           </div>
           <div class="d-flex align-items-center gap-2 mt-3 mb-3">
             <smd-badge id="connBadge" variant="secondary">Disconnected</smd-badge>
@@ -270,7 +270,7 @@
             <div class="col-4 text-end"></div>
             <div class="col-8">
               <a href="https://buymeacoffee.com/ownimage" target="_blank" rel="noopener">
-                <img src="../shared/vendor/bmc-default-yellow.png" alt="Buy Me A Coffee" height="50">
+                <img src="../../shared/vendor/bmc-default-yellow.png" alt="Buy Me A Coffee" height="50">
               </a>
             </div>
           </div>
@@ -278,7 +278,7 @@
           <div class="row mb-4 align-items-center col-md-8">
             <div class="col-4 text-end"><label class="form-label mb-0">Share app</label></div>
             <div class="col-8">
-              <smd-qrcode id="shareQrCode" value="https://ownimage.github.io/PhoneButtons" size="120"></smd-qrcode>
+              <smd-qrcode id="shareQrCode" value="https://ownimage.github.io/MyApps/remoteHID/PhoneButtons/" size="120"></smd-qrcode>
             </div>
           </div>
 
@@ -292,36 +292,37 @@
   </div>
 
   <!-- BOOTSTRAP JS -->
-  <script>document.write('<script src="../shared/vendor/bootstrap.bundle.min.js?v=' + BUILD_NUMBER + '"><\/script>');</script>
+  <script>document.write('<script src="../../shared/vendor/bootstrap.bundle.min.js?v=' + BUILD_NUMBER + '"><\/script>');</script>
 
   <script>
-  document.write('<script src="../shared/js/library.js?v=' + BUILD_NUMBER + '"><\/script>');
-  document.write('<script src="../shared/js/components/smd-button.js?v=' + BUILD_NUMBER + '"><\/script>');
-  document.write('<script src="../shared/js/components/smd-modal.js?v=' + BUILD_NUMBER + '"><\/script>');
-  document.write('<script src="../shared/js/components/smd-page.js?v=' + BUILD_NUMBER + '"><\/script>');
-  document.write('<script src="../shared/js/components/smd-tabs.js?v=' + BUILD_NUMBER + '"><\/script>');
-  document.write('<script src="../shared/js/components/smd-select.js?v=' + BUILD_NUMBER + '"><\/script>');
-  document.write('<script src="../shared/js/components/smd-theme.js?v=' + BUILD_NUMBER + '"><\/script>');
-  document.write('<script src="../shared/js/components/smd-checkbox.js?v=' + BUILD_NUMBER + '"><\/script>');
-  document.write('<script src="../shared/js/components/smd-badge.js?v=' + BUILD_NUMBER + '"><\/script>');
-  document.write('<script src="../shared/js/components/smd-image.js?v=' + BUILD_NUMBER + '"><\/script>');
-  document.write('<script src="../shared/js/components/smd-image-select.js?v=' + BUILD_NUMBER + '"><\/script>');
-  document.write('<script src="../shared/js/components/smd-search.js?v=' + BUILD_NUMBER + '"><\/script>');
-  document.write('<script src="../shared/js/components/smd-image-picker.js?v=' + BUILD_NUMBER + '"><\/script>');
-  document.write('<script src="../shared/js/smd-qr.js?v=' + BUILD_NUMBER + '"><\/script>');
-  document.write('<script src="../shared/js/components/smd-qr-import.js?v=' + BUILD_NUMBER + '"><\/script>');
-  document.write('<script src="../shared/js/components/smd-qrcode.js?v=' + BUILD_NUMBER + '"><\/script>');
-  document.write('<script src="../shared/js/components/smd-fontawesome-credit.js?v=' + BUILD_NUMBER + '"><\/script>');
-  document.write('<script src="../shared/js/smd-app.js?v=' + BUILD_NUMBER + '"><\/script>');
-  document.write('<script src="../shared/js/smd-settings.js?v=' + BUILD_NUMBER + '"><\/script>');
-  document.write('<script src="../shared/js/smd-apps.js?v=' + BUILD_NUMBER + '"><\/script>');
-  document.write('<script src="../shared/js/smd-images.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../../shared/js/library.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../../shared/js/components/smd-button.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../../shared/js/components/smd-modal.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../../shared/js/components/smd-page.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../../shared/js/components/smd-tabs.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../../shared/js/components/smd-select.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../../shared/js/components/smd-theme.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../../shared/js/components/smd-checkbox.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../../shared/js/components/smd-badge.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../../shared/js/components/smd-image.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../../shared/js/components/smd-image-select.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../../shared/js/components/smd-search.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../../shared/js/components/smd-image-picker.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../../shared/js/smd-qr.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../../shared/js/components/smd-qr-import.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../../shared/js/components/smd-qrcode.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../../shared/js/components/smd-fontawesome-credit.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../../shared/js/smd-app.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../../shared/js/smd-settings.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../../shared/js/smd-apps.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../../shared/js/smd-images.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="js/socket.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="js/main-view.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="js/api.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="js/settings-tab.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="js/components/pb-image-dropdown.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="js/edit-app.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="js/mouser-tab.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="js/edit-layout.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="js/app.js?v=' + BUILD_NUMBER + '"><\/script>');
   </script>

@@ -1,11 +1,11 @@
 ### 1. Run full regression tests (main + contrast; contrast starts first, in parallel)
 ```bash
-.\CleanTestServerStart.cmd && set "EXTERNAL_SERVERS=1" && set "SCREENSHOT_THEME=superhero" && npm test -- --retries=0 --workers=32 && type PhoneButtons\server\coverage.txt && echo %date% %time%
+.\CleanTestServerStart.cmd && set "EXTERNAL_SERVERS=1" && set "SCREENSHOT_THEME=superhero" && npm test -- --retries=0 --workers=32 && type remoteHID\server\coverage.txt && echo %date% %time%
 ```
 
 ### 2. Run full regression tests without the contrast suite
 ```bash
-.\CleanTestServerStart.cmd && set "EXTERNAL_SERVERS=1" && set "SCREENSHOT_THEME=superhero" && npm run test:main -- --retries=0 --workers=32 && type PhoneButtons\server\coverage.txt && echo %date% %time%
+.\CleanTestServerStart.cmd && set "EXTERNAL_SERVERS=1" && set "SCREENSHOT_THEME=superhero" && npm run test:main -- --retries=0 --workers=32 && type remoteHID\server\coverage.txt && echo %date% %time%
 ```
 
 ### 3. Run the contrast tests only

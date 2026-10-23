@@ -107,7 +107,7 @@ Architecture:
 - Quartz's "glassmorphism" overrides live in `shared/css/styles.css` (`.modal-content`, `.dropdown-menu`).
 - REPO/PWA LAYOUT (2026-09-10): the repo hosts **multiple PWAs off one origin**
   (`ownimage.github.io/MyApps/…`). `shared/` = library; each app lives in its own
-  top-level folder (`PlanMyDay/`, future `CountMyDays/`, …) with its own
+  folder (`PlanMyDay/`, future `CountMyDays/`, …) with its own
   `index.html` + `manifest.json` (relative `start_url`/`scope: "."` → that app's
   URL; own `icon-192.png`/`icon-512.png`). There is **ONE service worker, `sw.js` at
   the repo root**, registered by every app as `../sw.js` (scope = repo root, e.g.
@@ -117,6 +117,14 @@ Architecture:
   adding an app = add an `APPS` entry. Fetch handler caches by PATHNAME with
   `ignoreSearch`; offline navigate fallback is APP-AWARE (`appIndexFor(pathname)`
   → that app's `index.html`). Cache name is `myapps-<BUILD_NUMBER>`.
+  APPS MAY BE GROUPED (2026-10-22): an app folder can sit under a group folder —
+  `remoteHID/PhoneButtons/` is the first (its Flask server is `remoteHID/server/`).
+  The registry `path` and `APPS` key are still REPO-ROOT-relative, and
+  `SmdApps.href()` derives the page depth, so the launcher and every Launch flyout
+  reach a grouped app without special cases. `SmdApps.currentPath()` matches the
+  LONGEST registered `APPS[].path` prefix, not the first URL segment, so a nested
+  app is not mistaken for its group folder. Add a grouped app to `sw.js APPS` with
+  its full `remoteHID/<App>/` prefix (the `cache.addAll` list must exist in full).
   Activation is USER-DRIVEN (no `skipWaiting()` on install; page shows an
   "Update available" `smd-modal`; `window.__pmdSwUpdater.showUpdatePrompt` test
   hook; `controllerchange` only reloads after the user chose to update).
@@ -6396,3 +6404,56 @@ Techniques / gotchas:
   `scrollTo` (restoring the previous inline value afterwards) and waits for
   `window.scrollY > 0` before returning the card coordinates.
 - VERIFIED: both tests pass together with `--workers=2 --retries=0` (2 passed).
+### 2026-10-22 - remoteHID group + Mouser 6DOF capture/server
+- MOVED: `PhoneButtons/` -> `remoteHID/PhoneButtons/`; `PhoneButtons/server/` ->
+  `remoteHID/server/`; `PhoneButtonServer.cmd` -> `remoteHID/PhoneButtonServer.cmd`.
+  Registry path is `remoteHID/PhoneButtons/`; `SmdApps.currentPath()` matches the
+  LONGEST `APPS[].path` prefix (durable note above), `sw.js` APPS carries the nested
+  key, and `cache.addAll` therefore precaches `mouser-tab.js` with the shell.
+  Public URL is `/MyApps/remoteHID/PhoneButtons/`: installed PWAs must be
+  reinstalled; no redirect shim at the old URL.
+- MOUSER (new, `remoteHID/Mouser/`): C# .NET 8 capture client copied from
+  `P:\git\Mouser`; `phase0/` -> `capture/`, assembly `mouser-capture`, v0.3.
+  MB4 held = rotate, MB5 held = translate; while held, motion + wheel are dropped
+  below raw input, buttons still pass in v0.3.0 (v0.3.1 consumes the configured
+  mode buttons; see the 2026-10-23 entry). `--rotate-button`/`--translate-button`
+  default 4/5; `--hold` is a deprecated alias.
+- WIRE: 32-byte UDP frames at ~100 Hz, magic `0x4D365331`, `mode u16` (0/1/2,
+  replaced the old `gate`). One wheel notch is +/-120 counts, not +/-1.
+- SERVER `remoteHID/server/mouser/`: `protocol.py` strict v2 parse, `axes.py` six
+  ratchets (deadband, per-frame cap, min press interval keeps deferred steps in
+  `acc`), `engine.py` fixed v1 map (rotate dx->ry, dy->rx, wheel->rz; translate
+  dx->tx, dy->tz, wheel->ty), `udp.py`. `app.py` injects real keys; F13-F24 added
+  to `_KEY_MAP`. `_send_key_string_fast` is the Mouser path - `button_press` sleeps
+  10 ms twice and must never be used for a ratchet burst. Startup binds UDP 7801
+  and emits `mouser_state` at 10 Hz.
+- LAYOUT: layouts may carry `mouser: {enabled, axes:{rx,ry,rz,tx,ty,tz}}`;
+  `/api/layouts` passes it and also returns `usedBy`. New layouts default
+  `enabled: false`; a save that omits `mouser` keeps the stored block.
+- UI: Manage Layout is three `<smd-tabs>`: General (name/icon/key/usedBy),
+  PhoneButtons (rows/cols + grid), Mouser (six axis cards with key `<smd-select>`s,
+  gain/step/deadband, live readout). Assign `tabs.tabs` once AFTER the page is
+  attached - the setter re-renders and resets `activeIndex`. Finish saves all three
+  tabs in one POST. The grid tab is re-rendered when activated.
+- TESTS: targeted only (the user owns the full regression): 151 pytest
+  (`test_mouser.py` + `test_app.py`), 5 Manage Layout Playwright tests (including
+  the new Mouser tab), 3 launch/nav tests; `node --check` on changed JS.
+- GOTCHA (v0.3.0, superseded 2026-10-23): mode buttons still click through, so
+  engaging MB4 could navigate a browser back. Blender/Unity and the server must run
+  at the same integrity level (UIPI).
+
+### 2026-10-23 - Mouser v0.3.1: consume the mode buttons
+- `--gate` now swallows the configured rotate/translate button down/up pair, so
+  MB4/MB5 no longer click through to the focused app. This supersedes the v0.3.0
+  click-through gotcha above. Motion + wheel are still dropped while held; every
+  other button still passes.
+- `--pass-mode-buttons` is the opt-out and restores the v0.3.0 click-through
+  behaviour (the old caveat then applies).
+- EDGE: an up is swallowed only if its down was swallowed. If the client starts
+  while a mode button is already held, the first up is forwarded so the OS can
+  clear any state it saw before the filter was armed; a fresh press enters the mode.
+  If a single stroke mixes a mode edge with another button bit, the other button bit
+  is forwarded after stripping the mode bits; wheel remains gated while a mode is held.
+- VERSION: capture `0.3.1` (csproj + README/DESIGN). Direct Release build clean,
+  zero warnings; `--version` and `--help` verified. No server/web changes, so the
+  build number is unchanged. This is the new default for hardware acceptance A3.

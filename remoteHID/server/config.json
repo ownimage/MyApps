@@ -133,6 +133,12 @@
       ]
     }
   },
+  "mouser": {
+    "enabled": true,
+    "udp_port": 7801,
+    "max_presses_per_frame": 3,
+    "min_press_interval_ms": 10
+  },
   "app-layouts": {
     "Microsoft PowerPoint": "powerpoint",
     "Adobe Photoshop 2026": "photoshop",

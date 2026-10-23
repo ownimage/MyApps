@@ -57,7 +57,7 @@ test.describe("PhoneButtons - Regression", () => {
     const errors = [];
     page.on("console", (m) => { if (m.type() === "error") errors.push(m.text()); });
 
-    await page.goto("/PhoneButtons/");
+    await page.goto("/remoteHID/PhoneButtons/");
 
     const cfg = await page.evaluate(() => ({
       prefix: SmdConfig.storagePrefix,
@@ -77,7 +77,7 @@ test.describe("PhoneButtons - Regression", () => {
   });
 
   test("connect, app_change push, ping, test key and disconnect", async ({ page }) => {
-    await page.goto("/PhoneButtons/");
+    await page.goto("/remoteHID/PhoneButtons/");
 
     // Boot auto-connect created the socket; flip it connected.
     await page.waitForFunction(() => typeof window.__serverConnect === "function");
@@ -111,7 +111,7 @@ test.describe("PhoneButtons - Regression", () => {
   });
 
   test("main page renders the app's layout buttons from the app_change push", async ({ page }) => {
-    await page.goto("/PhoneButtons/");
+    await page.goto("/remoteHID/PhoneButtons/");
     await page.waitForFunction(() => typeof window.__serverConnect === "function");
     await page.evaluate(() => window.__serverConnect());
 
@@ -146,8 +146,10 @@ test.describe("PhoneButtons - Regression", () => {
     }));
     await page.route("**/api/app-icons", (route) => route.fulfill({ contentType: "application/json", body: JSON.stringify({ icons: [] }) }));
 
-    await page.goto("/PhoneButtons/");
+    await page.goto("/remoteHID/PhoneButtons/");
     await page.evaluate(() => openManageLayout());
+    // The grid now lives on the PhoneButtons tab (General is selected first).
+    await page.locator("#manageLayoutTabs").getByRole("tab", { name: "PhoneButtons" }).click();
     await page.locator("#layoutButton1").click();
     await expect(page.locator("#buttonEditPage")).toHaveAttribute("open", "");
     await expect(page.locator("#buttonImage1Select")).toBeVisible();
@@ -158,7 +160,7 @@ test.describe("PhoneButtons - Regression", () => {
   });
 
   test("settings page has Display + Server tabs and persists to pb_ keys", async ({ page }) => {
-    await page.goto("/PhoneButtons/");
+    await page.goto("/remoteHID/PhoneButtons/");
     await page.evaluate(() => openSettings());
     await expect(page.locator("#settingsPage")).toHaveAttribute("open", "");
 
@@ -204,7 +206,7 @@ test.describe("PhoneButtons - Regression", () => {
 
     // The share QR encodes this server's own URL. (Asserted BEFORE the clear
     // below, which reloads the page.)
-    await expect(page.locator("#shareQrCode")).toHaveAttribute("value", "http://localhost:8080/PhoneButtons/");
+    await expect(page.locator("#shareQrCode")).toHaveAttribute("value", "http://localhost:8080/remoteHID/PhoneButtons/");
 
     // The Clear local storage button clears ONLY PhoneButtons' own keys - the
     // shared image library and other apps' keys are never touched.
@@ -239,7 +241,7 @@ test.describe("PhoneButtons - Regression", () => {
   });
 
   test("settings OK closes the page", async ({ page }) => {
-    await page.goto("/PhoneButtons/");
+    await page.goto("/remoteHID/PhoneButtons/");
     await page.evaluate(() => openSettings());
     await expect(page.locator("#settingsPage")).toHaveAttribute("open", "");
     await page.locator("#settingsPage").getByRole("button", { name: "OK" }).click();
@@ -268,7 +270,7 @@ test.describe("PhoneButtons - Regression", () => {
       route.fulfill({ contentType: "application/json", body: JSON.stringify({ ok: true }) });
     });
 
-    await page.goto("/PhoneButtons/");
+    await page.goto("/remoteHID/PhoneButtons/");
     await page.waitForFunction(() => typeof window.__serverConnect === "function");
     await page.evaluate(() => window.__serverConnect());
     await page.evaluate(() => window.__serverEmit("app_change", { name: "Microsoft PowerPoint", icon: "", layout: null }));
@@ -337,7 +339,7 @@ test.describe("PhoneButtons - Regression", () => {
       route.fulfill({ contentType: "application/json", body: JSON.stringify({ ok: true }) });
     });
 
-    await page.goto("/PhoneButtons/");
+    await page.goto("/remoteHID/PhoneButtons/");
     await page.evaluate(() => openManageLayout());
     await expect(page.locator("#manageLayoutPage")).toHaveAttribute("open", "");
     await expect(page.locator("#manageLayoutPage .smd-page-header h1")).toHaveText("Manage Layout");
@@ -355,6 +357,9 @@ test.describe("PhoneButtons - Regression", () => {
     await expect(page.locator("#layoutIconDropdown #pbImageBtnText")).toHaveText("gone.png (missing)");
     await expect(page.locator("#layoutIconHint")).toContainText("no longer in the server cache");
     await expect(page.locator("#layoutIconPreview")).toBeHidden();
+
+    // The grid lives on the PhoneButtons tab.
+    await page.locator("#manageLayoutTabs").getByRole("tab", { name: "PhoneButtons" }).click();
     await expect(page.locator("#layoutButton1")).toContainText("Next Slide");
 
     // Edit the button: rename + Ctrl + a special key.
@@ -377,7 +382,7 @@ test.describe("PhoneButtons - Regression", () => {
 
     // Finish saves the layout WITH its grid dims and buttons.
     await page.locator("#manageLayoutPage").getByRole("button", { name: "Finish" }).click();
-    await expect.poll(() => saved).toEqual({
+    await expect.poll(() => saved).toMatchObject({
       key: "reaper", displayName: "REAPER", image: "gone.png",
       rows: 2, cols: 3,
       buttons: [
@@ -385,6 +390,10 @@ test.describe("PhoneButtons - Regression", () => {
         {}, {}, {}, {}, {}
       ]
     });
+    // The Mouser tab always contributes a complete six-axis block.
+    await expect.poll(() => saved && saved.mouser && saved.mouser.enabled).toBe(false);
+    await expect.poll(() => Object.keys(saved.mouser.axes).sort().join(",")).toBe("rx,ry,rz,tx,ty,tz");
+    await expect.poll(() => saved.mouser.axes.rx).toMatchObject({ positive: "F13", negative: "F14" });
     await expect(page.locator("#manageLayoutPage")).not.toHaveAttribute("open", "");
   });
 
@@ -402,7 +411,7 @@ test.describe("PhoneButtons - Regression", () => {
       route.fulfill({ contentType: "application/json", body: JSON.stringify({ ok: true }) });
     });
 
-    await page.goto("/PhoneButtons/");
+    await page.goto("/remoteHID/PhoneButtons/");
     await page.evaluate(() => openManageLayout());
 
     // There is no key field, and "Add Layout…" is the FIRST dropdown option.
@@ -417,15 +426,64 @@ test.describe("PhoneButtons - Regression", () => {
     // ("My Keys" -> "my-keys", but that is taken, so "my-keys-2").
     await page.locator("#manageLayoutNameInput").fill("My Keys");
     await page.locator("#manageLayoutPage").getByRole("button", { name: "Finish" }).click();
-    await expect.poll(() => saved).toEqual({
+    await expect.poll(() => saved).toMatchObject({
       key: "my-keys-2", displayName: "My Keys", image: "",
       rows: 2, cols: 3, buttons: [{}, {}, {}, {}, {}, {}]
     });
+    await expect.poll(() => saved.mouser.enabled).toBe(false);
     await expect(page.locator("#manageLayoutPage")).not.toHaveAttribute("open", "");
   });
 
+  test("Manage Layout: the Mouser tab saves the six-axis block and shows live state", async ({ page }) => {
+    let saved = null;
+    await page.route("**/api/layouts", (route) => route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({ layouts: [
+        { key: "blender", displayName: "Blender", image: "", rows: 2, cols: 3, buttons: [] }
+      ] })
+    }));
+    await page.route("**/api/app-icons", (route) => route.fulfill({
+      contentType: "application/json", body: JSON.stringify({ icons: [] })
+    }));
+    await page.route("**/api/save-layout", (route) => {
+      saved = route.request().postDataJSON();
+      route.fulfill({ contentType: "application/json", body: JSON.stringify({ ok: true }) });
+    });
+
+    await page.goto("/remoteHID/PhoneButtons/");
+    await page.evaluate(() => openManageLayout());
+    await expect(page.locator("#manageLayoutTabs .smd-tab-btn")).toHaveCount(3);
+    await expect(page.locator("#manageLayoutTabs .smd-tab-btn").nth(0)).toHaveText("General");
+    await expect(page.locator("#manageLayoutTabs .smd-tab-btn").nth(1)).toHaveText("PhoneButtons");
+    await expect(page.locator("#manageLayoutTabs .smd-tab-btn").nth(2)).toHaveText("Mouser");
+    await page.locator("#manageLayoutTabs").getByRole("tab", { name: "Mouser" }).click();
+
+    // A layout without a mouser block starts disabled with the F13-F24 defaults.
+    expect(await page.locator("#mouserEnabled").evaluate((el) => el.checked)).toBe(false);
+    await expect(page.locator("#mouser-rx-positive")).toContainText("F13");
+    await expect(page.locator("#mouser-ty-positive")).toContainText("F21");
+
+    await page.locator("#mouserEnabled").click();
+    await pickOption(page, "#mouser-rx-positive", "F24");
+
+    // The live readout is driven by the socket event (10 Hz).
+    await page.evaluate(() => applyMouserState({
+      mode: 1, enabled: true, app: "Blender", layout: "blender", pressesPerSecond: 2,
+      axes: { ry: { value: 5.5, presses: 1 } }
+    }));
+    await expect(page.locator("#mouserLive")).toContainText("Rotate (MB4)");
+    await expect(page.locator("#mouserLive")).toContainText("Blender");
+    await expect(page.locator("#mouserLive")).toContainText("5.50");
+
+    await page.locator("#manageLayoutPage").getByRole("button", { name: "Finish" }).click();
+    await expect.poll(() => saved.mouser.enabled).toBe(true);
+    await expect.poll(() => saved.mouser.axes.rx.positive).toBe("F24");
+    await expect.poll(() => saved.mouser.axes.rx.negative).toBe("F14");
+    await expect.poll(() => Object.keys(saved.mouser.axes).sort().join(",")).toBe("rx,ry,rz,tx,ty,tz");
+  });
+
   test("main page buttons hold a key down and release it (press-and-hold)", async ({ page }) => {
-    await page.goto("/PhoneButtons/");
+    await page.goto("/remoteHID/PhoneButtons/");
     await page.waitForFunction(() => typeof window.__serverConnect === "function");
     await page.evaluate(() => window.__serverConnect());
     await page.evaluate(() => window.__serverEmit("app_change", {
@@ -458,8 +516,9 @@ test.describe("PhoneButtons - Regression", () => {
       route.fulfill({ contentType: "application/json", body: JSON.stringify({ ok: true }) });
     });
 
-    await page.goto("/PhoneButtons/");
+    await page.goto("/remoteHID/PhoneButtons/");
     await page.evaluate(() => openManageLayout());
+    await page.locator("#manageLayoutTabs").getByRole("tab", { name: "PhoneButtons" }).click();
     await page.locator("#layoutButton1").click();
     await expect(page.locator("#buttonEditPage")).toHaveAttribute("open", "");
     await page.locator("#buttonKeyCtrl").click();
@@ -477,8 +536,9 @@ test.describe("PhoneButtons - Regression", () => {
     }));
     await page.route("**/api/app-icons", (route) => route.fulfill({ contentType: "application/json", body: JSON.stringify({ icons: [] }) }));
 
-    await page.goto("/PhoneButtons/");
+    await page.goto("/remoteHID/PhoneButtons/");
     await page.evaluate(() => openManageLayout());
+    await page.locator("#manageLayoutTabs").getByRole("tab", { name: "PhoneButtons" }).click();
     await page.locator("#manageLayoutCols").fill("20");
     await expect(page.locator("#manageLayoutCols")).toHaveValue("12");
     await page.locator("#manageLayoutRows").fill("0");
@@ -500,8 +560,9 @@ test.describe("PhoneButtons - Regression", () => {
       route.fulfill({ contentType: "application/json", body: JSON.stringify({ ok: true }) });
     });
 
-    await page.goto("/PhoneButtons/");
+    await page.goto("/remoteHID/PhoneButtons/");
     await page.evaluate(() => openManageLayout());
+    await page.locator("#manageLayoutTabs").getByRole("tab", { name: "PhoneButtons" }).click();
     await expect(page.locator("#layoutButton1")).toContainText("Next");
 
     // Drag cell 1 onto cell 2.
@@ -529,7 +590,7 @@ test.describe("PhoneButtons - Regression", () => {
   test.describe("Server address (Settings | Server)", () => {
 
     test("the address fields drive the request base (IP, DNS, https, empty port)", async ({ page }) => {
-      await page.goto("/PhoneButtons/");
+      await page.goto("/remoteHID/PhoneButtons/");
       // The fresh default is an incomplete prefix -> not configured -> relative paths.
       expect(await page.evaluate(() => pbServerBase())).toBe("");
 
@@ -561,7 +622,7 @@ test.describe("PhoneButtons - Regression", () => {
     });
 
     test("Scan QR parses a tunnel URL (no port) and an IP:port into the fields", async ({ page }) => {
-      await page.goto("/PhoneButtons/");
+      await page.goto("/remoteHID/PhoneButtons/");
       const parsed = await page.evaluate(() => [
         pbParseServerUrl("https://calm-river-1234.trycloudflare.com"),
         pbParseServerUrl("https://calm-river-1234.trycloudflare.com/"),
@@ -598,7 +659,7 @@ test.describe("PhoneButtons - Regression", () => {
     });
 
     test("Connect re-targets the socket when the address changes", async ({ page }) => {
-      await page.goto("/PhoneButtons/");
+      await page.goto("/remoteHID/PhoneButtons/");
       await page.waitForFunction(() => typeof window.__serverConnect === "function");
       // Boot auto-connect used the page origin (no configured address -> undefined).
       let urls = await page.evaluate(() => window.__ioState.urls);
@@ -616,7 +677,7 @@ test.describe("PhoneButtons - Regression", () => {
     });
 
     test("server-relative asset URLs are resolved against the configured server", async ({ page }) => {
-      await page.goto("/PhoneButtons/");
+      await page.goto("/remoteHID/PhoneButtons/");
       // Same origin (no configured address) -> paths stay relative.
       expect(await page.evaluate(() => pbServerUrl("/app-icon-cache/x.png"))).toBe("/app-icon-cache/x.png");
       // Absolute / protocol-relative URLs are left alone.
@@ -641,7 +702,7 @@ test.describe("PhoneButtons - Regression", () => {
     });
 
     test("smd-qr-import raw mode emits the decoded text as-is", async ({ page }) => {
-      await page.goto("/PhoneButtons/");
+      await page.goto("/remoteHID/PhoneButtons/");
       const decoded = await page.evaluate(() => new Promise((resolve) => {
         const el = document.createElement("smd-qr-import");
         el.setAttribute("raw", "");

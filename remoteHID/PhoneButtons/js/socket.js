@@ -23,8 +23,8 @@ var pbSocket = (function () {
   // app is at the domain root, under a sub-path, or in a test origin.
   function vendorUrl() {
     var src = document.currentScript && document.currentScript.src;
-    if (src) return new URL("../../shared/vendor/socket.io.min.js", src).href;
-    return "../shared/vendor/socket.io.min.js";
+    if (src) return new URL("../../../shared/vendor/socket.io.min.js", src).href;
+    return "../../shared/vendor/socket.io.min.js";
   }
 
   function ensureIo() {
@@ -64,6 +64,7 @@ var pbSocket = (function () {
       setStatus("error", (err && err.message) ? err.message : String(err));
     });
     sock.on("app_change", function (data) { fire("app_change", data); });
+    sock.on("mouser_state", function (data) { fire("mouser_state", data); });
     sock.on("pong", function (data) { fire("pong", data); });
   }
 

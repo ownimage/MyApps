@@ -205,8 +205,14 @@ function bindSocketUi() {
     _renderConnStatus(status, detail);
     if (status === "connected") _commLine("connected (id=" + detail + ")", "ok");
     else if (status === "connecting") _commLine("connecting to this server \u2026", "info");
-    else if (status === "disconnected") _commLine("disconnected" + (detail ? " (" + detail + ")" : ""), "info");
-    else if (status === "error") _commLine("connection error: " + detail, "error");
+    else if (status === "disconnected") {
+      _commLine("disconnected" + (detail ? " (" + detail + ")" : ""), "info");
+      if (typeof applyMouserState === "function") applyMouserState(null);
+    }
+    else if (status === "error") {
+      _commLine("connection error: " + detail, "error");
+      if (typeof applyMouserState === "function") applyMouserState(null);
+    }
   });
 
   pbSocket.on("app_change", function (data) {
@@ -229,6 +235,10 @@ function bindSocketUi() {
 
   pbSocket.on("pong", function (data) {
     _commLine("server pong " + JSON.stringify(data || {}), "ok");
+  });
+
+  pbSocket.on("mouser_state", function (data) {
+    if (typeof applyMouserState === "function") applyMouserState(data);
   });
 
   // Re-fit the main-page grid when the viewport changes.
