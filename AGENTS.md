@@ -6805,3 +6805,27 @@ Techniques / gotchas:
   console/page errors or failed same-origin requests. The user runs the full
   suite.
   BUILD -> `202610241517`.
+
+### 2026-10-24 - Storyboard stamp frame colour
+- REQUEST (user, TDD): in the "Space" board the stamp edge around the `xczx`
+  text (`color:"auto"`, `border:"stamp"`) is black on screen but white in the
+  saved JPG.
+- CAUSE: a text frame is an SVG data URI with its colour baked by
+  `wbFrameDataUri(item.border, wbResolveColor(item.color))` at render time,
+  while the text colour is live CSS. `applyTheme()` only re-points the
+  stylesheet links, so their CSS can land after the first render (or after the
+  `smd-theme-change` render). The text then updates live, but the frame keeps
+  the old baked colour. The JPG exporter re-resolves the colour at save time,
+  which is why it could disagree with the screen.
+- TEST FIRST: added `tests/storyboard-stamp.spec.js` (the first Storyboard
+  spec). It loads a minimal auto/stamp board, switches the theme to Cerulean
+  and waits for the sheet, then requires the baked frame stroke to equal both
+  the live text colour and `wbResolveColor("auto")`. Before the fix it failed
+  with stale `#ebebeb` vs live `#495057`; after it passes.
+- FIX: `Storyboard/js/app.js` now listens for `load` on
+  `#bootstrap-theme-css`, `#theme-override-mode` and
+  `#theme-override-specific` and schedules one `requestAnimationFrame`
+  `wbRender()` when they arrive. This covers initial boot, live theme/mode
+  switches, and the exporter's resolved colour. Ran only the focused spec; the
+  user runs the full regression suite.
+  BUILD -> `202610241537`.

@@ -16,6 +16,24 @@ SmdConfig.imagePrefix = "shared-";
 document.addEventListener("DOMContentLoaded", function () {
   applyTheme(getStoredTheme());
 
+  // Text borders are SVG images with the resolved text colour baked in, while
+  // the text itself uses a live CSS colour. applyTheme() only re-points the
+  // stylesheet links, so their new colours can land after the first render (or
+  // after the smd-theme-change render). Repaint once the sheets arrive so a
+  // stamp/fancy/hand edge always matches the live text (and the JPG export).
+  var themeRepaint = 0;
+  var repaintAfterThemeSheet = function () {
+    if (themeRepaint) return;
+    themeRepaint = requestAnimationFrame(function () {
+      themeRepaint = 0;
+      if (typeof wbRender === "function") wbRender();
+    });
+  };
+  ["bootstrap-theme-css", "theme-override-mode", "theme-override-specific"].forEach(function (id) {
+    var link = document.getElementById(id);
+    if (link) link.addEventListener("load", repaintAfterThemeSheet);
+  });
+
   wbLoadState();
   wbInitBoard();
   wbInitToolbar();
