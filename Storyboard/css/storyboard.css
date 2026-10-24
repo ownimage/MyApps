@@ -57,6 +57,19 @@ body#smd-app {
   background-color: rgba(var(--bs-body-color-rgb), 0.6);
 }
 
+/* Space-drag panning: while Space is held the whole board area is a hand, and
+ * an active drag is a closed hand. !important beats the objects' grab cursor and
+ * the handles' resize cursors. The ACTIVE rule must stay after the READY rule. */
+#sbScroller.sb-pan-ready,
+#sbScroller.sb-pan-ready * {
+  cursor: grab !important;
+}
+
+#sbScroller.sb-pan-active,
+#sbScroller.sb-pan-active * {
+  cursor: grabbing !important;
+}
+
 /* Centres the board when it is smaller than the viewport. sbLayoutBoard()
  * sizes this element: viewport size at 100%, growing by a pasteboard margin
  * when the board is zoomed in so the handles at the artwork edge can be

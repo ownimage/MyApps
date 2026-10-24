@@ -362,6 +362,28 @@ Architecture:
   `tests/storyboard-zoom.spec.js` (rail layout, steps/limits/Fit, scrollbars
   only when zoomed, zoom-THEN-select edge-handle hit tests, selection anchoring,
   drag accuracy at 1.5x, persistence + centred reload).
+  SPACE-DRAG PAN (2026-10-24, user request): holding Space arms a hand mode
+  (`sbEnterPanMode`) ONLY when the scroller overflows (`sbCanPan`; at 100% the
+  fitted board is inert - user decision). `#sbScroller.sb-pan-ready` /
+  `.sb-pan-active` force `grab`/`grabbing` on the whole board area with
+  `!important` (objects and handles have their own cursors); the ACTIVE rule must
+  stay AFTER the READY rule. A CAPTURING `pointerdown` on `#sbScroller`
+  (`sbOnPanPointerDownCapture`) runs before the object/group/selection-box
+  handlers and stops them, so a pan starting on a sticker pans instead of
+  selecting or moving it, and an empty-area pan does not deselect - the
+  selection is untouched (user decision). Moves write
+  `scrollLeft/Top = start - pointer delta` (grab the canvas), with pointer
+  capture, and are handled at the TOP of `sbOnPointerMove`/`sbOnPointerUp`
+  before `sbState.pointers`. Releasing Space mid-drag KEEPS panning until
+  mouse-up (`sbLeavePanMode(false)` on keyup clears only `panReady`);
+  `window` blur forces an end (`sbLeavePanMode(true)`) so the hand cannot stick.
+  Space is ignored for typing targets, for a focused button/link/`[role=button]`
+  (rail/board chip keep native Space activation) and while a
+  `smd-page[open]`/`smd-modal[open]` or the invisible settings area is up.
+  Tests: `tests/storyboard-pan.spec.js` (10: 100% inert, pan + scroll + cursor
+  states, pan starting on a sticker leaves selection/positions untouched,
+  Space-release-mid-drag, edge clamping, normal object drag, textarea/
+  focused-button/settings guards, blur).
   SAVE AS JPG (2026-10-23, user request): the rail's `#sbSaveBtn` (fa-download)
   calls `sbDownloadJpg()` (`js/board.js`) and downloads
   `<slug(board.name)>.jpg`. It is a CANVAS drawing of the STORED board, not a
@@ -7035,3 +7057,25 @@ Techniques / gotchas:
 - GOTCHA for these tests: the fixed nav can cover a top handle at max scroll -
   centre the selection box in the scroller before `elementFromPoint`; and do not
   overlap two stickers (the second intercepts the click).
+
+### 2026-10-24 - Storyboard Space-drag pan
+- REQUEST (user): holding the space bar turns the pointer into a grabbing hand
+  and pans the canvas.
+- DECISIONS (user): pan only when zoomed/overflowing (100% stays fitted with no
+  scrollbars); keep the existing selection when a pan starts on a sticker;
+  releasing Space mid-drag keeps panning until mouse-up.
+- IMPLEMENTED: `sbState.panReady`/`sbState.pan`; capturing pointerdown on
+  `#sbScroller` ahead of the object/group handlers; pan branches at the top of
+  `sbOnPointerMove`/`sbOnPointerUp`; Space branch in `sbOnKeyDown` with guards
+  for typing/interactive targets/settings/modals; `keyup` + window `blur`
+  listeners; `#sbScroller.sb-pan-ready|.sb-pan-active` cursor rules.
+- TEST FIRST: new `tests/storyboard-pan.spec.js` (10 tests) was RED (no cursor
+  classes/scroll movement) then GREEN. It asserts rendered results: scroll
+  offsets, item SCREEN position moving with the canvas while stored x/y stay
+  50/50, selection/bar unchanged when grabbing a sticker, grabbing during drag /
+  grab after mouse-up / normal after keyup, clamping at scroll 0, and the
+  guards (textarea space, focused button activates, settings inert, blur).
+- VERIFIED: pan 10/10; storyboard pan+zoom+stamp+groups 36/36 (workers=4);
+  launch-regression 13/13. Node syntax checks clean.
+- The user runs the full regression suite.
+  BUILD -> `202610241816`.

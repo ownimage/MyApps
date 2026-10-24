@@ -74,6 +74,8 @@ var sbState = {
   editingTextId: "",
   drag: null,
   pointers: new Map(),
+  panReady: false,
+  pan: null,
   saveTimer: null
 };
 

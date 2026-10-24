@@ -261,6 +261,9 @@ function sbInitBoard() {
   // ignores objects, connectors, the toolbar, the action bar and the board chip.
   if (sbEls.area) sbEls.area.addEventListener("pointerdown", sbOnCanvasPointerDown);
   if (sbEls.scroller) {
+    // Space panning captures pointerdown BEFORE the object/group handlers, so a
+    // drag that starts on a sticker pans instead of moving/selecting it.
+    sbEls.scroller.addEventListener("pointerdown", sbOnPanPointerDownCapture, true);
     // The action bar is a viewport overlay, so it follows the board while the
     // user scrolls instead of scrolling away with it.
     sbEls.scroller.addEventListener("scroll", function () {
@@ -310,6 +313,9 @@ function sbInitBoard() {
   document.addEventListener("pointerup", sbOnPointerUp);
   document.addEventListener("pointercancel", sbOnPointerUp);
   document.addEventListener("keydown", sbOnKeyDown);
+  document.addEventListener("keyup", sbOnPanKeyUp);
+  // Without this an alt-tab while Space is held would leave the hand stuck on.
+  window.addEventListener("blur", sbOnPanBlur);
   window.addEventListener("resize", function () {
     clearTimeout(sbResizeTimer);
     sbResizeTimer = setTimeout(function () {
@@ -1096,6 +1102,104 @@ function sbCreateConnection(toId) {
   else sbUpdateSelectionUi();
 }
 
+// ---- Space-drag panning -----------------------------------------------------
+//
+// Holding Space turns the board into a hand: the scroller (and everything in
+// it) gets the grab cursor, and a left drag scrolls the view. The pointerdown is
+// captured on the SCROLLER before the object/group handlers run, so a pan that
+// starts on a sticker pans instead of selecting or moving it, and an empty-area
+// pan does not deselect. Pan mode is armed only when the board actually
+// overflows: at 100% the board is fitted, so Space is deliberately inert.
+
+function sbCanPan() {
+  var s = sbEls.scroller;
+  if (!s) return false;
+  return s.scrollWidth > s.clientWidth + 1 || s.scrollHeight > s.clientHeight + 1;
+}
+
+function sbSyncPanCursor() {
+  if (!sbEls.scroller) return;
+  sbEls.scroller.classList.toggle("sb-pan-ready", !!sbState.panReady);
+  sbEls.scroller.classList.toggle("sb-pan-active", !!sbState.pan);
+}
+
+function sbEnterPanMode() {
+  if (sbState.panReady || !sbCanPan()) return;
+  sbState.panReady = true;
+  sbSyncPanCursor();
+}
+
+// force=true (window blur) also abandons an in-flight drag. A plain Space keyup
+// must NOT: an active pan keeps going (and keeps the grabbing cursor) until the
+// mouse button is released.
+function sbLeavePanMode(force) {
+  sbState.panReady = false;
+  if (force) sbEndPanDrag();
+  sbSyncPanCursor();
+}
+
+function sbEndPanDrag() {
+  if (!sbState.pan) return;
+  var s = sbEls.scroller;
+  var pointerId = sbState.pan.pointerId;
+  sbState.pan = null;
+  if (s) {
+    try { s.releasePointerCapture(pointerId); } catch (err) { /* not captured */ }
+  }
+  sbSyncPanCursor();
+}
+
+function sbOnPanPointerDownCapture(e) {
+  if (!sbState.panReady || sbState.pan) return;
+  if (typeof e.button === "number" && e.button !== 0) return;
+  if (!sbCanPan()) {
+    // Zoomed back out while Space was held: there is nothing to pan any more.
+    sbState.panReady = false;
+    sbSyncPanCursor();
+    return;
+  }
+  var s = sbEls.scroller;
+  e.preventDefault();
+  e.stopPropagation();
+  sbState.pan = {
+    pointerId: e.pointerId,
+    startX: e.clientX,
+    startY: e.clientY,
+    startLeft: s.scrollLeft,
+    startTop: s.scrollTop
+  };
+  try { s.setPointerCapture(e.pointerId); } catch (err) { /* synthetic pointers */ }
+  sbSyncPanCursor();
+}
+
+// Returns true when the move belonged to the pan drag.
+function sbPanPointerMove(e) {
+  if (!sbState.pan || e.pointerId !== sbState.pan.pointerId) return false;
+  var s = sbEls.scroller;
+  // Grabbing the canvas and moving it right/down moves the CONTENT right/down,
+  // so the scroll offset goes the other way. The browser clamps at the edges.
+  s.scrollLeft = sbState.pan.startLeft - (e.clientX - sbState.pan.startX);
+  s.scrollTop = sbState.pan.startTop - (e.clientY - sbState.pan.startY);
+  e.preventDefault();
+  return true;
+}
+
+function sbOnPanKeyUp(e) {
+  if (e.code !== "Space" && e.key !== " ") return;
+  sbLeavePanMode(false);
+}
+
+function sbOnPanBlur() {
+  sbLeavePanMode(true);
+}
+
+// Space belongs to a focused control that uses it (button/link/select/role
+// button) - activating the Board chip or a rail button must keep working.
+function sbIsInteractiveKeyTarget(t) {
+  if (!t || !t.closest) return false;
+  return !!t.closest("input, textarea, select, button, a, [contenteditable='true'], [role='button'], [role='checkbox'], [role='switch'], [role='slider'], [role='tab'], [role='menuitem']");
+}
+
 // ---- Pointer gestures ------------------------------------------------------
 
 function sbOnCanvasPointerDown(e) {
@@ -1374,6 +1478,7 @@ function sbOnPointerDown(e) {
 }
 
 function sbOnPointerMove(e) {
+  if (sbPanPointerMove(e)) return;
   if (!sbState.pointers.has(e.pointerId) || !sbState.drag) return;
   sbState.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
   var drag = sbState.drag;
@@ -1412,6 +1517,10 @@ function sbOnPointerMove(e) {
 }
 
 function sbOnPointerUp(e) {
+  if (sbState.pan && e.pointerId === sbState.pan.pointerId) {
+    sbEndPanDrag();
+    return;
+  }
   sbCancelLongPress();
   if (!sbState.pointers.has(e.pointerId)) return;
   sbState.pointers.delete(e.pointerId);
@@ -1431,6 +1540,16 @@ function sbOnKeyDown(e) {
   var t = e.target;
   var tag = (t && t.tagName ? t.tagName : "").toLowerCase();
   if (tag === "input" || tag === "textarea" || tag === "select" || (t && t.isContentEditable)) return;
+  if (e.code === "Space" || e.key === " ") {
+    // A focused control that uses Space (a button/link/role button) keeps it;
+    // the settings page and modals own the keyboard too.
+    if (sbIsInteractiveKeyTarget(t)) return;
+    if (!sbEls.area || sbEls.area.classList.contains("invisible")) return;
+    if (document.querySelector("smd-page[open], smd-modal[open]")) return;
+    e.preventDefault();
+    sbEnterPanMode();
+    return;
+  }
   if (e.key === "Delete" || e.key === "Backspace") {
     if (!sbSelectionNodes().length && !sbState.selectedConnectorId) return;
     e.preventDefault();
