@@ -37,10 +37,6 @@
     return null;
   }
 
-  // The app previously registered as Whiteboard. Map the stored path to the new
-  // one so its Launch position and tick state survive the rename.
-  var LEGACY_PATHS = { "Whiteboard/": "Storyboard/" };
-
   // Stored order (known paths only), then any registered app that is missing,
   // in registry order, with both ticks on.
   function loadConfig() {
@@ -49,11 +45,9 @@
     var out = [], seen = {};
     if (Array.isArray(stored)) {
       stored.forEach(function (s) {
-        if (!s || typeof s.path !== "string") return;
-        var path = LEGACY_PATHS[s.path] || s.path;
-        if (seen[path] || !appByPath(path)) return;
-        seen[path] = true;
-        out.push({ path: path, onLaunch: s.onLaunch !== false, onMenu: s.onMenu !== false });
+        if (!s || typeof s.path !== "string" || seen[s.path] || !appByPath(s.path)) return;
+        seen[s.path] = true;
+        out.push({ path: s.path, onLaunch: s.onLaunch !== false, onMenu: s.onMenu !== false });
       });
     }
     APPS.forEach(function (a) {

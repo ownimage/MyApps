@@ -270,9 +270,8 @@ Architecture:
   and would strict-mode-fail). Sample images "Launch" and "Phone Buttons" were
   added (native SVG + SURGICAL JSON append — a full `regen` rewrites 22
   pre-existing entries whose SVG files drifted from the JSON).
-- STORYBOARD APP (2026-10-21, NEW — the 9th app; renamed from Whiteboard on
-  2026-10-24; older notes saying "all 8 shells/apps" predate it): `Storyboard/`
-  is a PlanMyDay-style classic-script PWA
+- STORYBOARD APP (2026-10-21, NEW — the 9th app; older notes saying "all 8
+  shells/apps" predate it): `Storyboard/` is a PlanMyDay-style classic-script PWA
   (no modules, globals on purpose). It has the standard hamburger (Settings |
   Launch flyout) and exactly ONE settings tab, **Display**, with only live rows:
   Theme, Theme Mode, Font size, Touch size, Slide speed, Auto-hide menu, Screen
@@ -285,9 +284,7 @@ Architecture:
   (2560x1440) and `assets/stickers/{mermaid,shark,seaweed,spaceman,spaceship}.svg`
   (512 viewBox flat art, transparent). `icon.svg` + generated 192/512 PNGs.
   DATA: keys via `smdKey()` = `storyboard_boards`, `storyboard_activeBoard`,
-  `storyboard_toolbarPinned`. A one-time boot migration copies any old
-  `whiteboard_*` keys to `storyboard_*` and removes the old keys (an existing new
-  key wins). `wbState.boards` is an array of
+  `storyboard_toolbarPinned`. `wbState.boards` is an array of
   `{id,name,background,items}`; items are stickers
   `{id,type:"sticker",sticker,x,y,scale,rotation,z,flipX,flipY}` or text
   `{id,type:"text",text,bg,color,border,font,x,y,scale,rotation,z}`. `x`/`y` are
@@ -6778,13 +6775,12 @@ Techniques / gotchas:
   and match. No console errors. The user runs the full regression suite.
   BUILD -> `202610241449`.
 
-### 2026-10-24 - Storyboard: renamed from Whiteboard
-- REQUEST (user): "I think that a better name for the app would be Storyboard
-  rather than Whiteboard, git rename the directory, the local storage keys,
-  titles in the Launcher app and menu, and anything else that needs it."
-- RENAMED with `git mv` (history preserved): `Whiteboard/` -> `Storyboard/`,
-  `css/whiteboard.css` -> `css/storyboard.css`, and
-  `shared/sampleImages/Whiteboard.svg` -> `shared/sampleImages/Storyboard.svg`.
+### 2026-10-24 - Storyboard rename
+- REQUEST (user): rename the app to Storyboard (directory, localStorage keys,
+  Launcher title/menu and all supporting references), with NO compatibility
+  layer for the old name.
+- RENAMED with `git mv` (history preserved): the app folder, its stylesheet and
+  its shared sample icon.
 - UPDATED: the `SmdApps.APPS` row (name/description/path/icon), the Launch grid
   and flyout (both read the registry), `shared/sampleImages.json` (entry name +
   embedded aria-label), `sw.js` `APPS["Storyboard/"]` and every precache path,
@@ -6792,22 +6788,20 @@ Techniques / gotchas:
   title (from the registry), the toolbar aria-label, the settings QR URL, the
   update-prompt copy, `window.__storyboardSwUpdater`, app comments, the default
   board name "My Storyboard", the JPG fallback slug, `README.md`, and
-  `tests/launch-regression.spec.js`. `#whiteboardArea` -> `#storyboardArea`.
-  The internal `wb*` globals, `wb-*` CSS classes and `#wb*` DOM ids were
-  deliberately left alone (implementation detail; no user-facing name).
-- STORAGE: `SmdConfig.storagePrefix = "storyboard_"`. A boot migration in
-  `Storyboard/js/app.js` copies any `whiteboard_*` keys to `storyboard_*` (an
-  existing new key wins) and removes the old keys before `wbLoadState()` reads
-  them. `SmdApps.loadConfig()` maps a stored `Whiteboard/` Launch entry to
-  `Storyboard/` in place, preserving its position and onLaunch/onMenu ticks; the
-  next config save writes the new path.
-- VERIFIED with throwaway probes (NOT the regression suite): the Launch entry
-  mapped in place (index 0, onMenu:false preserved), and with both ticks on the
-  grid tile (icon loaded) and flyout both show Storyboard -> `Storyboard/`;
-  `/Storyboard/` title/nav/toolbar/QR all say Storyboard; seeded `whiteboard_*`
-  keys migrated to `storyboard_*` (board "Legacy Board", active id, pinned=true)
-  with the old keys gone; manifest name/short_name/description are new;
-  `/Whiteboard/` is 404; the 8081 `/PlanMyDay/Storyboard/` mount renders the
-  default "My Storyboard"; no console/page errors or failed same-origin
-  requests. The user runs the full suite.
-  BUILD -> `202610241502`.
+  `tests/launch-regression.spec.js`. The board-area id is now
+  `#storyboardArea`. The internal `wb*` globals, `wb-*` CSS classes and `#wb*`
+  DOM ids were deliberately left alone (implementation detail; no user-facing
+  name).
+- STORAGE: `SmdConfig.storagePrefix = "storyboard_"`. There is deliberately NO
+  key migration and NO old-path mapping: the first load starts a fresh
+  `storyboard_*` state, and any pre-rename Launch path is simply unknown and
+  dropped by `SmdApps.loadConfig()`.
+- VERIFIED with throwaway probes (NOT the regression suite): the Launch grid
+  tile (icon loaded) and flyout both show Storyboard -> `Storyboard/`;
+  `/Storyboard/` title/nav/toolbar/QR all say Storyboard; a fresh load creates
+  `storyboard_boards`, `storyboard_activeBoard` and `storyboard_toolbarPinned`;
+  manifest name/short_name/description are new; the old URL is 404; the 8081
+  `/PlanMyDay/Storyboard/` mount renders the default "My Storyboard"; no
+  console/page errors or failed same-origin requests. The user runs the full
+  suite.
+  BUILD -> `202610241517`.
