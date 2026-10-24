@@ -92,10 +92,13 @@ Architecture:
   `<meta name="theme-color">` overrides it once loaded. There is NO manifest
   option for "follow the OS accent" (W3C manifest issue #695); omitting
   `theme_color` gives the OS default but also loses the mobile/task-switcher
-  branding. CHOSEN FALLBACK: the meta follows the SELECTED THEME'S SECONDARY
-  colour. `applyThemeColor()` + `smdRefreshThemeColor()` /
+  branding. CHOSEN FALLBACK: the meta follows the app's TOP-BAR SURFACE,
+  `--bs-body-bg`, so the OS title bar matches the in-app menu bar and follows
+  BOTH theme and mode. Do NOT use `--bs-secondary`: Yeti's secondary is #eee in
+  light AND dark (dark title bar went white) and superhero's #4e5d6c does not
+  match its navy bar. `applyThemeColor()` + `smdRefreshThemeColor()` /
   `smdBindThemeColorLink()` in `shared/js/smd-settings.js` read the live
-  `--bs-secondary` and re-run when a theme/mode sheet's `load` fires;
+  `--bs-body-bg` and re-run when a theme/mode sheet's `load` fires;
   `applyTheme`/`applyThemeMode` call them. STATIC `theme_color`/meta values are
   only the pre-load/install default - the old Android green `#3ddc84` was the
   reported "weird green", now `#212529` in the Launch and PMD/CMD/LoL/QRLinks
@@ -7298,18 +7301,26 @@ Techniques / gotchas:
   it follow the OS accent (W3C manifest#695): omitting theme_color gives the OS
   default but loses mobile branding, so used the user's fallback.
 - WHAT: shared `applyThemeColor()` (smd-settings.js) writes the live
-  `--bs-secondary` into `<meta name="theme-color">`; `smdRefreshThemeColor()`
+  `--bs-body-bg` into `<meta name="theme-color">`; `smdRefreshThemeColor()`
   runs it immediately + next rAF, and `smdBindThemeColorLink()` re-runs it on
   each theme/mode stylesheet `load` (the computed colour belongs to the sheet
   that is currently loaded). applyTheme + applyThemeMode call it. Static metas
   and manifests that shipped `#3ddc84` (Launch/root, PlanMyDay, CountMyDays,
   ListOfLists, QRLinks) now ship `#212529` as the pre-load/install default.
+- SECONDARY WAS WRONG (same day follow-up): the first version used
+  `--bs-secondary`. Yeti's secondary is `#eee` in BOTH modes, so its dark
+  title bar was white and did not change with the theme mode; Storyboard's
+  superhero secondary `#4e5d6c` also did not match its navy top bar
+  (`#0f2537`). Switched to `--bs-body-bg` - the SAME surface as `#mainNav` -
+  which is correct for every theme and flips white -> dark with the mode.
+  Tests assert cerulean #fff, superhero #0f2537 light / #212529 dark, Yeti
+  #fff light / #222 dark.
 - NOTE: an already-installed PWA may keep the old colour until Chromium
   refreshes the manifest (later launch after windows close); the page meta
   applies on load. If the user ever prefers the pure OS title bar, remove
   theme_color from the manifest and the meta.
-- TESTS: new `tests/pwa-theme-color.spec.js` (2): meta follows cerulean
-  secondary (#e9ecef) then a runtime switch to superhero (#4e5d6c), survives a
-  mode switch, never #3ddc84; all five main shells sync meta to their computed
-  secondary. RED before the change (#3ddc84 stayed), GREEN after. Also ran 37
-  existing theme/storybook tests: green.
+- TESTS: `tests/pwa-theme-color.spec.js` (2): meta follows the top-bar surface
+  (cerulean #fff, superhero #0f2537 light / #212529 dark, yeti #fff light /
+  #222 dark), updates on runtime theme AND mode switches, never #3ddc84; all
+  five main shells sync meta to their computed `--bs-body-bg`. RED before the
+  change, GREEN after. Also ran 37 existing theme/storybook tests: green.

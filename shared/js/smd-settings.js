@@ -97,15 +97,18 @@ function smdBuildStamp() {
 // Windows 11 paints an installed PWA's title bar from the manifest
 // `theme_color`, and the page's <meta name="theme-color"> overrides it once
 // loaded. There is no manifest option for "follow the OS accent", so the app's
-// fallback is to keep the meta on the chosen theme's SECONDARY colour: the
-// title bar then matches the theme the user picked (and mobile status bars do
-// too). The static manifest/meta values are only the pre-load default.
+// fallback is to keep the meta on the SAME surface as its in-app top menu bar
+// (`--bs-body-bg`): that always matches the chosen theme AND flips with
+// Light/Dark. (Do NOT use --bs-secondary: Yeti leaves it at #eee in BOTH modes,
+// which made the dark title bar white, and superhero's grey #4e5d6c did not
+// match its navy top bar.) The static manifest/meta values are only the
+// pre-load default.
 var SMD_DEFAULT_TITLEBAR_COLOR = "#212529";
 
-function smdReadThemeSecondaryColor() {
+function smdReadThemeBarColor() {
   var value = "";
   try {
-    value = getComputedStyle(document.documentElement).getPropertyValue("--bs-secondary").trim();
+    value = getComputedStyle(document.documentElement).getPropertyValue("--bs-body-bg").trim();
   } catch (e) {
     value = "";
   }
@@ -120,10 +123,10 @@ function applyThemeColor() {
     meta.setAttribute("name", "theme-color");
     document.head.appendChild(meta);
   }
-  meta.setAttribute("content", smdReadThemeSecondaryColor());
+  meta.setAttribute("content", smdReadThemeBarColor());
 }
 
-// The computed --bs-secondary belongs to whichever theme sheet is CURRENTLY
+// The computed --bs-body-bg belongs to whichever theme sheet is CURRENTLY
 // loaded, so re-apply when a swapped sheet arrives (theme/mode change).
 function smdBindThemeColorLink(link) {
   if (!link || link.__smdThemeColorBound) return;
