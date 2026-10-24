@@ -16,6 +16,54 @@ SmdConfig.imagePrefix = "shared-";
 // the NAME of a shared sample image (seeded into `shared-images`), rendered by
 // <smd-image> rather than a raw file path.
 
+// The shared image library is seeded ONCE per origin. After an app is added or
+// renamed, an existing library therefore has no entry for its new icon name and
+// the Launch tile is blank. Reconcile ONLY the registered app icons (not every
+// standard sample, so images the user deliberately deleted stay deleted).
+// seedSampleImages() owns the first-visit seed; this only runs once a library
+// already exists, so the two cannot race and persist a partial set.
+function ensureAppIcons() {
+  if (typeof SmdApps === "undefined" || typeof loadImages !== "function" ||
+      typeof saveImages !== "function" || typeof smdImagesKey !== "function") return;
+  if (localStorage.getItem(smdImagesKey()) === null) return;
+
+  let images;
+  try { images = loadImages(); } catch (e) { return; }
+  if (!Array.isArray(images)) return;
+
+  const have = {};
+  images.forEach(img => { if (img && img.name) have[img.name] = true; });
+  const missing = SmdApps.APPS.filter(app => app.icon && !have[app.icon]);
+  if (!missing.length) return;
+
+  const root = typeof smdAppRoot === "function" ? smdAppRoot() : "";
+  const v = typeof BUILD_NUMBER !== "undefined" ? BUILD_NUMBER : Date.now();
+  fetch(root + "sampleImages.json?v=" + v)
+    .then(res => res.json())
+    .then(data => {
+      const standard = (data && Array.isArray(data.images)) ? data.images : [];
+      if (!standard.length) return;
+
+      const current = loadImages();
+      const names = {};
+      current.forEach(img => { if (img && img.name) names[img.name] = true; });
+      let added = false;
+      missing.forEach(app => {
+        if (names[app.icon]) return;
+        const sample = standard.find(img => img && img.name === app.icon);
+        if (!sample) return;
+        current.push(sample);
+        names[sample.name] = true;
+        added = true;
+      });
+      if (!added) return;
+      saveImages(current);
+      // <smd-image> reads localStorage when it renders; repaint the tiles now.
+      document.querySelectorAll("#appGrid smd-image").forEach(el => el.refresh());
+    })
+    .catch(() => { /* a missing sample file must not break Launch */ });
+}
+
 function renderAppGrid() {
   const grid = document.getElementById("appGrid");
   if (!grid) return;
@@ -183,6 +231,10 @@ document.addEventListener("DOMContentLoaded", () => {
   // Seed the shared sample library on first visit so the tiles' <smd-image>
   // icons resolve by name; renderAppGrid's interval re-renders once it lands.
   if (typeof seedSampleImages === "function") seedSampleImages();
+  // Existing libraries predate newly added/renamed apps, so top up just the
+  // registered app icons (e.g. Storyboard) rather than requiring a manual
+  // "Upload Standard Images > Add".
+  ensureAppIcons();
 
   document.addEventListener("smd-theme-change", e => {
     const detail = e.detail || {};

@@ -3048,7 +3048,9 @@ test.describe("PlanMyDay - Regression", () => {
         };
       });
       expect(info.fontFamily).toContain("bootstrap-icons");
-      expect(info.fontSize).toBe("51px");
+      // 64px box * the 0.75 glyph scale (the widest available icon, fa:braille,
+      // is 1.31em of ink, so 0.8 would overflow the square).
+      expect(info.fontSize).toBe("48px");
       expect(info.hostW).toBe("64px");
       expect(info.imgHidden).toBeTruthy();
 
@@ -4699,6 +4701,113 @@ test.describe("PlanMyDay - Regression", () => {
         return Math.abs(a.top - b.top);
       });
       expect(delta).toBeLessThanOrEqual(1);
+    });
+
+    test("menu thumbnails match the closed button and keep a square image box", async ({ page }) => {
+      const wideSvg = "data:image/svg+xml," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 60"><rect width="300" height="60" fill="#cc3333"/></svg>');
+      await page.evaluate(({ square, wide }) => {
+        localStorage.setItem("shared-images", JSON.stringify([
+          { name: "TestImg", data: square },
+          { name: "WideImg", data: wide }
+        ]));
+        localStorage.setItem("planmydays_streams", JSON.stringify([
+          {
+            id: "stream_1", title: "Maintenance", tab: "maintenance", image: "TestImg", sequence: 1,
+            jobs: [{ id: "job_1", title: "Report", description: "", active: true, frequency: "daily", sequence: 1, suffix: false, dayType: "dayOfYear", mod: "", tasks: [], image: "TestImg" }]
+          },
+          { id: "stream_2", title: "Wide image", tab: "progress", image: "WideImg", sequence: 2, jobs: [] }
+        ]));
+      }, { square: svg, wide: wideSvg });
+      await page.reload();
+      await openJob(page, 0, 0);
+      await page.locator("#smdImageDropdownBtn").click();
+      const geo = await page.evaluate(() => {
+        const rect = (el) => {
+          const b = el.getBoundingClientRect();
+          return { left: b.left, top: b.top, width: b.width, height: b.height };
+        };
+        const rows = [...document.querySelectorAll("#smdImageDropdownMenu .item")];
+        const row = (name) => rows.find((r) => r.getAttribute("data-name") === name);
+        return {
+          btn: rect(document.querySelector("#smdImageBtnIcon")),
+          thumbs: rows.map((r) => rect(r.querySelector(".thumb"))),
+          firstHost: rect(row("Maintenance").querySelector(".thumb smd-image")),
+          wideImg: rect(row("Wide image").querySelector(".thumb img"))
+        };
+      });
+      // The menu image column is the same size as the closed dropdown's image.
+      expect(geo.thumbs[0].width).toBeCloseTo(geo.btn.width, 0);
+      expect(geo.thumbs[0].height).toBeCloseTo(geo.btn.height, 0);
+      // Every option reserves the same SQUARE image box, so labels stay aligned.
+      geo.thumbs.forEach((t) => {
+        expect(t.width).toBeCloseTo(t.height, 0);
+        expect(t.width).toBeCloseTo(geo.btn.width, 0);
+      });
+      expect(geo.firstHost.width).toBeCloseTo(geo.firstHost.height, 0);
+      expect(geo.firstHost.width).toBeCloseTo(geo.btn.width, 0);
+      // A wide (300x60) image keeps its aspect ratio inside that box instead of
+      // being squeezed into the old 24px-wide slot (24 x 4.8).
+      expect(geo.wideImg.width).toBeCloseTo(geo.btn.width, 0);
+      expect(geo.wideImg.height).toBeCloseTo(geo.btn.width * 0.2, 0);
+    });
+
+    test("the widest Font Awesome glyph (fa:braille) fits the menu thumbnail", async ({ page }) => {
+      await page.evaluate(() => {
+        localStorage.setItem("shared-images", "[]");
+        localStorage.setItem("planmydays_streams", JSON.stringify([
+          {
+            id: "stream_1", title: "Braille", tab: "progress", image: "fa:braille", sequence: 1,
+            jobs: [{ id: "job_1", title: "Report", description: "", active: true, frequency: "daily", sequence: 1, suffix: false, dayType: "dayOfYear", mod: "", tasks: [], image: "" }]
+          },
+          { id: "stream_2", title: "No icon", tab: "progress", image: "", sequence: 2, jobs: [] }
+        ]));
+      });
+      await page.reload();
+      await openJob(page, 0, 0);
+      await page.locator("#smdImageDropdownBtn").click();
+      // FA glyphs resolve from the vendored icon map asynchronously.
+      await page.waitForFunction(() => {
+        const span = document.querySelector('#smdImageDropdownMenu .item[data-name="Braille"] .smd-bi');
+        return !!span && span.textContent.trim().length > 0;
+      });
+      const geo = await page.evaluate(() => {
+        const b = (el) => {
+          const r = el.getBoundingClientRect();
+          return { left: r.left, top: r.top, right: r.right, bottom: r.bottom, width: r.width, height: r.height };
+        };
+        // fa:braille is the widest icon in the vendored sets: 1.31em of INK
+        // (advance 1.25em), i.e. wider than the text box itself. Measure the
+        // ink with canvas, because a DOM Range only reports the advance box.
+        const ink = (span) => {
+          const cs = getComputedStyle(span);
+          const canvas = document.createElement("canvas");
+          const ctx = canvas.getContext("2d");
+          ctx.font = cs.fontWeight + " " + cs.fontSize + " " + cs.fontFamily;
+          const m = ctx.measureText(span.textContent);
+          return {
+            width: m.actualBoundingBoxLeft + m.actualBoundingBoxRight,
+            height: m.actualBoundingBoxAscent + m.actualBoundingBoxDescent
+          };
+        };
+        const item = [...document.querySelectorAll("#smdImageDropdownMenu .item")]
+          .find((r) => r.getAttribute("data-name") === "Braille");
+        const rowSpan = item.querySelector(".thumb .smd-bi");
+        return {
+          thumb: b(item.querySelector(".thumb")),
+          btn: b(document.querySelector("#smdImageBtnIcon")),
+          rowInk: ink(rowSpan),
+          btnInk: ink(document.querySelector("#smdImageBtnIcon .smd-bi"))
+        };
+      });
+      // The menu thumbnail is the CLOSED BUTTON's size (it used to be 24px and
+      // the glyph was clipped down to a 24px window).
+      expect(geo.thumb.width).toBeCloseTo(geo.btn.width, 0);
+      expect(geo.thumb.height).toBeCloseTo(geo.btn.height, 0);
+      // The widest glyph's INK box fits inside the thumbnail in BOTH places.
+      expect(geo.rowInk.width).toBeLessThanOrEqual(geo.thumb.width + 0.5);
+      expect(geo.rowInk.height).toBeLessThanOrEqual(geo.thumb.height + 0.5);
+      expect(geo.btnInk.width).toBeLessThanOrEqual(geo.btn.width + 0.5);
+      expect(geo.btnInk.height).toBeLessThanOrEqual(geo.btn.height + 0.5);
     });
 
     test("dropdown options and selected getters expose the current data", async ({ page }) => {

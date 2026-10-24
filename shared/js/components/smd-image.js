@@ -339,7 +339,12 @@
       if (entry.weight != null) span.style.setProperty("font-weight", entry.weight);
       else span.style.removeProperty("font-weight");
       span.style.removeProperty("white-space");
-      span.style.fontSize = px > 0 ? Math.max(8, Math.round(px * 0.8)) + "px" : "1.5rem";
+      // Glyph scale: the widest glyph in the vendored sets is Font Awesome's
+      // `fa:braille`, whose INK is 1.31em wide (advance 1.25em); bootstrap-icons
+      // tops out at 1.08em. At 0.8 the ink is 1.048x the square box, so the
+      // outermost pixel column(s) were clipped. 0.75 leaves 1.31 * 0.75 = 0.98
+      // of the box, so EVERY available icon fits inside its square.
+      span.style.fontSize = px > 0 ? Math.max(8, Math.round(px * 0.75)) + "px" : "1.5rem";
       span.hidden = false;
     }
   }

@@ -1,0 +1,1156 @@
+/* Storyboard - board surface, floating toolbar, objects and text frames.
+ *
+ * This sheet is app-owned layout: the shared stylesheet only carries theme
+ * colour + spatial-size values. Colours here always come from Bootstrap /
+ * Bootswatch variables so every theme works without a per-theme file.
+ */
+
+html,
+body {
+  height: 100%;
+}
+
+body#smd-app {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+#storyboardArea {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* ---- Board surface ------------------------------------------------------ */
+
+/* Scroll container: only the board scrolls. The toolbar, board-name chip,
+ * action bar and connect hint are siblings of this element inside
+ * #storyboardArea, so they stay put while the board pans. */
+.sb-scroller {
+  position: absolute;
+  inset: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(var(--bs-body-color-rgb), 0.45) transparent;
+}
+
+.sb-scroller::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+.sb-scroller::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sb-scroller::-webkit-scrollbar-thumb {
+  border: 3px solid transparent;
+  border-radius: 999px;
+  background-clip: padding-box;
+  background-color: rgba(var(--bs-body-color-rgb), 0.4);
+}
+
+.sb-scroller::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(var(--bs-body-color-rgb), 0.6);
+}
+
+/* Space-drag panning: while Space is held the whole board area is a hand, and
+ * an active drag is a closed hand. !important beats the objects' grab cursor and
+ * the handles' resize cursors. The ACTIVE rule must stay after the READY rule. */
+#sbScroller.sb-pan-ready,
+#sbScroller.sb-pan-ready * {
+  cursor: grab !important;
+}
+
+#sbScroller.sb-pan-active,
+#sbScroller.sb-pan-active * {
+  cursor: grabbing !important;
+}
+
+/* Centres the board when it is smaller than the viewport. sbLayoutBoard()
+ * sizes this element: viewport size at 100%, growing by a pasteboard margin
+ * when the board is zoomed in so the handles at the artwork edge can be
+ * scrolled into view. */
+.sb-stage {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+}
+
+#sbCanvas {
+  /* The board is the ARTWORK. `sbLayoutBoard()` sizes it to the background's
+     aspect, fitted into whatever space the UI leaves and multiplied by the zoom
+     factor. `overflow: visible` lets the selection outline and grab handles at
+     the artwork edge paint into the pasteboard instead of being clipped; there
+     is no CSS transform here because the scroller needs real layout size.
+     --sb-design-scale (set by sbLayoutBoard) is boardHeight / 655. Text,
+     stickers, the dot grid and connector widths multiply by it, so they stay
+     glued to the artwork at ANY zoom. The UI (nav, toolbar, board name, action
+     bar) is deliberately NOT scaled. */
+  position: relative;
+  flex: none;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  background-color: var(--bs-body-bg);
+}
+
+#sbBackground {
+  position: absolute;
+  inset: 0;
+  background-position: center;
+  background-repeat: no-repeat;
+  /* The board's aspect already equals the image's, so 100% 100% shows the WHOLE
+     image (cover would crop on a sub-pixel aspect mismatch). */
+  background-size: 100% 100%;
+}
+
+#sbBackground[data-background="none"] {
+  background-color: var(--bs-body-bg);
+  background-image: radial-gradient(circle,
+    rgba(var(--bs-body-color-rgb), 0.22) calc(1px * var(--sb-design-scale, 1)),
+    transparent calc(1.4px * var(--sb-design-scale, 1)));
+  background-size: calc(24px * var(--sb-design-scale, 1)) calc(24px * var(--sb-design-scale, 1));
+}
+
+#sbBackground[data-background="space"] {
+  background-color: #04050f;
+}
+
+#sbBackground[data-background="underwater"] {
+  background-color: #021c2e;
+}
+
+/* Connectors live BELOW the objects but ABOVE the background. The layer itself
+ * ignores pointers; only the fat transparent hit stroke accepts clicks. */
+.sb-connectors {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.sb-connector-arrow {
+  fill: var(--bs-body-color);
+  stroke: var(--bs-body-bg);
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+}
+
+.sb-connector-halo {
+  fill: none;
+  stroke: var(--bs-body-bg);
+  stroke-width: calc(7px * var(--sb-design-scale, 1));
+  stroke-linecap: round;
+  stroke-opacity: 0.85;
+}
+
+.sb-connector-line {
+  fill: none;
+  stroke: var(--bs-body-color);
+  stroke-width: calc(2.5px * var(--sb-design-scale, 1));
+  stroke-linecap: round;
+}
+
+.sb-connector-hit {
+  fill: none;
+  stroke: transparent;
+  /* Keep the invisible touch target finger-sized whatever the artwork scale. */
+  stroke-width: 18;
+  stroke-linecap: round;
+  pointer-events: stroke;
+  cursor: pointer;
+}
+
+.sb-connector.selected .sb-connector-halo {
+  stroke-width: calc(9px * var(--sb-design-scale, 1));
+}
+
+.sb-connector.selected .sb-connector-line {
+  stroke-width: calc(4px * var(--sb-design-scale, 1));
+}
+
+.sb-items {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.sb-empty-hint {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 2rem 6rem;
+  color: rgba(var(--bs-body-color-rgb), 0.55);
+  text-align: center;
+  pointer-events: none;
+}
+
+.sb-empty-hint i {
+  color: #ffffff;
+  font-size: 2.2rem;
+  opacity: 0.9;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.65);
+}
+
+.sb-empty-hint p {
+  margin: 0;
+  max-width: 26rem;
+  padding: 0.6rem 1rem;
+  border-radius: 999px;
+  background: rgba(var(--bs-body-bg-rgb), 0.85);
+  color: var(--bs-body-color);
+  font-size: var(--smd-type-p, 1em);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.16);
+}
+
+.sb-board-chip {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 1015;
+  max-width: 45%;
+  overflow: hidden;
+  padding: 0.35rem 0.8rem;
+  border: 1px solid var(--bs-border-color);
+  border-radius: 999px;
+  background: var(--bs-body-bg);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.16);
+  color: var(--bs-body-color);
+  font-size: var(--smd-type-badge, 0.78em);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.sb-board-chip:hover {
+  border-color: var(--bs-primary);
+}
+
+/* The hamburger menu drops over the board (and over an open tool panel), so it
+ * must sit above the toolbar but still below smd-page (1040) / modal (1050).
+ * The toolbar is ABOVE the selection bar (1030) so its panel - including the
+ * font dropdown - is never covered by the floating action bar. */
+#mainNav .dropdown-menu {
+  z-index: 1038;
+}
+
+body.auto-hide-menu #mainNav {
+  z-index: 1039;
+}
+
+/* ---- Toolbar rail ------------------------------------------------------- */
+
+.sb-toolbar {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  bottom: 12px;
+  z-index: 1035;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.sb-rail {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  gap: 4px;
+  width: 74px;
+  max-height: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: 6px;
+  border: 1px solid var(--bs-border-color);
+  border-radius: 16px;
+  background: var(--bs-body-bg);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.18);
+  pointer-events: auto;
+  scrollbar-width: none;
+}
+
+.sb-rail::-webkit-scrollbar {
+  display: none;
+}
+
+.sb-rail-spacer {
+  flex: 1 1 auto;
+  min-height: 12px;
+}
+
+.sb-rail-btn {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-height: 52px;
+  padding: 6px 2px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--bs-body-color);
+  font-size: 10px;
+  line-height: 1.15;
+  cursor: pointer;
+}
+
+.sb-rail-btn i {
+  font-size: 1.15rem;
+}
+
+.sb-rail-btn span {
+  display: block;
+  width: 100%;
+  overflow: hidden;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sb-rail-btn:hover {
+  background: rgba(var(--bs-body-color-rgb), 0.1);
+}
+
+.sb-rail-btn.active {
+  background: rgba(var(--bs-primary-rgb), 0.16);
+  color: var(--bs-primary);
+}
+
+.sb-pin-btn.active {
+  color: var(--bs-primary);
+}
+
+/* ---- Zoom controls ------------------------------------------------------ */
+/* Bottom of the rail: magnifier minus/plus side by side, Fit underneath. */
+
+.sb-zoom {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sb-zoom-row {
+  display: flex;
+  gap: 4px;
+}
+
+.sb-zoom-btn {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 36px;
+  padding: 4px 0;
+}
+
+.sb-zoom-btn i {
+  font-size: 0.95rem;
+}
+
+.sb-zoom-fit {
+  min-height: 40px;
+}
+
+.sb-rail-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.sb-rail-btn:disabled:hover {
+  background: transparent;
+}
+
+/* ---- Fly-out panel ------------------------------------------------------ */
+
+.sb-panel {
+  display: none;
+  flex-direction: column;
+  width: min(320px, calc(100vw - 92px));
+  max-height: 100%;
+  overflow: hidden;
+  border: 1px solid var(--bs-border-color);
+  border-radius: 16px;
+  background: var(--bs-body-bg);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.22);
+  pointer-events: auto;
+}
+
+.sb-toolbar[data-open="boards"] .sb-panel,
+.sb-toolbar[data-open="background"] .sb-panel,
+.sb-toolbar[data-open="stickers"] .sb-panel,
+.sb-toolbar[data-open="text"] .sb-panel {
+  display: flex;
+}
+
+.sb-panel-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.65rem 0.8rem;
+  border-bottom: 1px solid var(--bs-border-color);
+}
+
+.sb-panel-title {
+  flex: 1 1 auto;
+  margin: 0;
+  color: var(--bs-body-color);
+  font-size: var(--smd-type-h2, 1.1em);
+}
+
+.sb-panel-close {
+  flex: 0 0 auto;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--bs-body-color);
+  cursor: pointer;
+}
+
+.sb-panel-close:hover {
+  background: rgba(var(--bs-body-color-rgb), 0.12);
+}
+
+.sb-panel-body {
+  overflow: auto;
+  padding: 0.8rem;
+}
+
+.sb-panel-note {
+  margin: 0.75rem 0 0;
+  color: rgba(var(--bs-body-color-rgb), 0.7);
+  font-size: var(--smd-type-badge, 0.8em);
+}
+
+.sb-field-label {
+  display: block;
+  margin: 0.75rem 0 0.35rem;
+  color: rgba(var(--bs-body-color-rgb), 0.75);
+  font-size: var(--smd-type-badge, 0.8em);
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.sb-field-label:first-child {
+  margin-top: 0;
+}
+
+/* ---- Boards ------------------------------------------------------------- */
+
+.sb-board-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.sb-board-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--bs-border-color);
+  border-radius: 10px;
+}
+
+.sb-board-row.active {
+  border-color: var(--bs-primary);
+  background: rgba(var(--bs-primary-rgb), 0.1);
+}
+
+.sb-board-pick {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+  padding: 0.35rem 0.4rem;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font-size: var(--smd-type-p, 0.95em);
+  text-align: left;
+  cursor: pointer;
+}
+
+.sb-board-pick span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sb-board-pick:hover {
+  background: rgba(var(--bs-body-color-rgb), 0.08);
+}
+
+.sb-board-act {
+  flex: none;
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.sb-board-act:hover {
+  background: rgba(var(--bs-body-color-rgb), 0.12);
+}
+
+.sb-board-act:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.sb-board-name-input {
+  min-width: 0;
+}
+
+/* ---- Background picker -------------------------------------------------- */
+
+.sb-bg-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.sb-bg-option {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: stretch;
+  padding: 6px;
+  border: 2px solid transparent;
+  border-radius: 12px;
+  background: rgba(var(--bs-body-color-rgb), 0.05);
+  color: inherit;
+  font-size: var(--smd-type-badge, 0.8em);
+  cursor: pointer;
+}
+
+.sb-bg-option.active {
+  border-color: var(--bs-primary);
+  background: rgba(var(--bs-primary-rgb), 0.12);
+}
+
+.sb-bg-preview {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: 8px;
+  object-fit: cover;
+}
+
+.sb-bg-preview-none {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(var(--bs-body-color-rgb), 0.08);
+  color: rgba(var(--bs-body-color-rgb), 0.6);
+  font-size: 1.4rem;
+}
+
+/* ---- Sticker picker ----------------------------------------------------- */
+
+.sb-sticker-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.sb-sticker-option {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 6px;
+  border: 2px solid transparent;
+  border-radius: 12px;
+  background: rgba(var(--bs-body-color-rgb), 0.05);
+  color: inherit;
+  font-size: var(--smd-type-badge, 0.8em);
+  cursor: pointer;
+}
+
+.sb-sticker-option img {
+  width: 74px;
+  height: 74px;
+  object-fit: contain;
+}
+
+.sb-sticker-option:hover,
+.sb-sticker-option:focus-visible {
+  border-color: rgba(var(--bs-primary-rgb), 0.55);
+}
+
+.sb-sticker-option:nth-child(odd):last-child {
+  grid-column: span 2;
+}
+
+/* ---- Text controls ------------------------------------------------------ */
+
+.sb-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.sb-swatch {
+  position: relative;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--bs-border-color);
+  border-radius: 8px;
+  background-color: var(--sb-swatch);
+  cursor: pointer;
+}
+
+.sb-swatch.active {
+  outline: 2px solid var(--bs-primary);
+  outline-offset: 2px;
+}
+
+.sb-swatch-transparent {
+  background-image:
+    linear-gradient(45deg, rgba(var(--bs-body-color-rgb), 0.18) 25%, transparent 25%, transparent 75%, rgba(var(--bs-body-color-rgb), 0.18) 75%),
+    linear-gradient(45deg, rgba(var(--bs-body-color-rgb), 0.18) 25%, transparent 25%, transparent 75%, rgba(var(--bs-body-color-rgb), 0.18) 75%);
+  background-position: 0 0, 5px 5px;
+  background-size: 10px 10px;
+}
+
+.sb-border-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.sb-border-option {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 6px;
+  border: 2px solid transparent;
+  border-radius: 10px;
+  background: rgba(var(--bs-body-color-rgb), 0.05);
+  color: inherit;
+  font-size: var(--smd-type-badge, 0.75em);
+  cursor: pointer;
+}
+
+.sb-border-option.active {
+  border-color: var(--bs-primary);
+}
+
+.sb-border-preview {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 38px;
+  font-size: 0.85rem;
+}
+
+.sb-border-preview-none {
+  border: 1px solid rgba(var(--bs-body-color-rgb), 0.35);
+  border-radius: 6px;
+}
+
+.sb-border-preview-fancy {
+  border: 3px double var(--bs-body-color);
+  border-radius: 6px;
+  box-shadow: inset 0 0 0 2px var(--bs-body-bg), inset 0 0 0 3px var(--bs-body-color);
+}
+
+.sb-border-preview-hand {
+  border: 2px solid var(--bs-body-color);
+  border-radius: 255px 15px 225px 15px / 15px 225px 15px 255px;
+}
+
+.sb-border-preview-stamp {
+  border: 3px dashed var(--bs-body-color);
+  border-radius: 2px;
+}
+
+/* ---- Objects ------------------------------------------------------------ */
+
+.sb-object {
+  position: absolute;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  pointer-events: auto;
+  cursor: grab;
+  transform-origin: center center;
+}
+
+.sb-object:active {
+  cursor: grabbing;
+}
+
+.sb-object.selected {
+  border-radius: 6px;
+  outline: 1.5px dashed var(--bs-body-color);
+  outline-offset: 6px;
+  box-shadow: 0 0 0 8px rgba(var(--bs-body-bg-rgb), 0.55);
+}
+
+/* Part of a multi/group selection: the same outline, but NO per-object handles -
+ * the one #sbSelectionBox owns the scale/rotate handles. */
+.sb-object.sb-member {
+  border-radius: 6px;
+  outline: 1.5px dashed var(--bs-body-color);
+  outline-offset: 6px;
+}
+
+.sb-object.sb-member .sb-handle {
+  display: none;
+}
+
+/* CONNECTOR MODE: the source is solid, every possible target is dashed. */
+.sb-object.sb-connect-source {
+  outline: 2px solid var(--bs-body-color);
+  outline-offset: 6px;
+  box-shadow: 0 0 0 8px rgba(var(--bs-body-bg-rgb), 0.55);
+}
+
+#sbItems.sb-connecting .sb-object-text:not(.sb-connect-source) {
+  border-radius: 8px;
+  outline: 2px dashed var(--bs-body-color);
+  outline-offset: 5px;
+  box-shadow: 0 0 0 7px rgba(var(--bs-body-bg-rgb), 0.45);
+  cursor: crosshair;
+}
+
+#sbItems.sb-connecting .sb-object-text:not(.sb-connect-source):hover {
+  outline-style: solid;
+}
+
+.sb-connect-hint {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  z-index: 1036;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  max-width: calc(100% - 120px);
+  padding: 0.45rem 0.65rem 0.45rem 0.9rem;
+  border: 1px solid var(--bs-border-color);
+  border-radius: 999px;
+  background: var(--bs-body-bg);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.22);
+  color: var(--bs-body-color);
+  font-size: var(--smd-type-p, 1em);
+  transform: translateX(-50%);
+}
+
+.sb-connect-hint .btn {
+  white-space: nowrap;
+}
+
+.sb-sticker {
+  display: block;
+  /* Board-relative: JS sets --sb-sticker-base from the board's smaller side
+     (15%) when the board is laid out. The board re-fits on window resize AND
+     browser zoom, so the sticker stays a constant fraction of the artwork. */
+  width: calc(var(--sb-sticker-base, 96px) * var(--sb-scale, 1));
+  height: auto;
+  pointer-events: none;
+  filter: drop-shadow(0 5px 8px rgba(0, 0, 0, 0.22));
+  /* flipX/flipY set these on the object; mirroring the IMAGE keeps the object's
+     box, handles, outline and connectors exactly where they were. */
+  transform: scaleX(var(--sb-flip-x, 1)) scaleY(var(--sb-flip-y, 1));
+}
+
+.sb-text {
+  position: relative;
+  max-width: 24em;
+  /* Everything here scales with --sb-design-scale (board height / 655) so a
+     text box keeps the same size relative to the artwork when the board fits a
+     different window or the browser zooms. The handles stay UI-sized. */
+  padding: calc(10px * var(--sb-design-scale, 1)) calc(16px * var(--sb-design-scale, 1));
+  border-radius: calc(10px * var(--sb-design-scale, 1));
+  font-size: calc(var(--smd-type-h2, 1.25em) * 1.15 * var(--sb-text-scale, 1) * var(--sb-design-scale, 1));
+  line-height: 1.22;
+  overflow-wrap: break-word;
+  text-align: center;
+  white-space: pre-wrap;
+}
+
+/* The inner span can be nudged onto the canvas export's text baseline without
+   changing the box (its normal-flow height still sizes the frame). */
+.sb-text-body {
+  display: block;
+  position: relative;
+}
+
+.sb-text[data-frame="fancy"],
+.sb-text[data-frame="hand"],
+.sb-text[data-frame="stamp"] {
+  padding: calc(8px * var(--sb-design-scale, 1)) calc(14px * var(--sb-design-scale, 1));
+  border: calc(18px * var(--sb-design-scale, 1)) solid transparent;
+  border-image-repeat: round;
+  border-image-slice: 30;
+  border-image-source: var(--sb-frame-image);
+  border-image-width: calc(18px * var(--sb-design-scale, 1));
+  background-clip: padding-box;
+}
+
+.sb-bg-transparent {
+  background-color: transparent;
+}
+
+.sb-bg-white {
+  background-color: #ffffff;
+}
+
+.sb-bg-black {
+  background-color: #000000;
+}
+
+.sb-bg-primary {
+  background-color: var(--bs-primary);
+}
+
+.sb-bg-secondary {
+  background-color: var(--bs-secondary);
+}
+
+.sb-bg-success {
+  background-color: var(--bs-success);
+}
+
+.sb-bg-danger {
+  background-color: var(--bs-danger);
+}
+
+.sb-bg-warning {
+  background-color: var(--bs-warning);
+}
+
+.sb-bg-info {
+  background-color: var(--bs-info);
+}
+
+.sb-bg-light {
+  background-color: var(--bs-light);
+}
+
+.sb-bg-dark {
+  background-color: var(--bs-dark);
+}
+
+.sb-color-auto {
+  color: var(--bs-body-color);
+}
+
+.sb-color-white {
+  color: #ffffff;
+}
+
+.sb-color-black {
+  color: #000000;
+}
+
+.sb-color-primary {
+  color: var(--bs-primary);
+}
+
+.sb-color-secondary {
+  color: var(--bs-secondary);
+}
+
+.sb-color-success {
+  color: var(--bs-success);
+}
+
+.sb-color-danger {
+  color: var(--bs-danger);
+}
+
+.sb-color-warning {
+  color: var(--bs-warning);
+}
+
+.sb-color-info {
+  color: var(--bs-info);
+}
+
+.sb-color-light {
+  color: var(--bs-light);
+}
+
+.sb-color-dark {
+  color: var(--bs-dark);
+}
+
+/* Text fonts. These families are declared in shared/css/fonts/fonts.css, which
+ * the theme sheet loads with @import; the last two are display faces. */
+.sb-font-theme {
+  font-family: var(--bs-body-font-family);
+}
+
+.sb-font-serif {
+  font-family: Georgia, "Times New Roman", serif;
+}
+
+.sb-font-mono {
+  font-family: "Cascadia Mono", "Segoe UI Mono", Consolas, "Liberation Mono", monospace;
+}
+
+.sb-font-roboto {
+  font-family: "Roboto", var(--bs-body-font-family);
+}
+
+.sb-font-lato {
+  font-family: "Lato", var(--bs-body-font-family);
+}
+
+.sb-font-open-sans {
+  font-family: "Open Sans", var(--bs-body-font-family);
+}
+
+.sb-font-montserrat {
+  font-family: "Montserrat", var(--bs-body-font-family);
+}
+
+.sb-font-ubuntu {
+  font-family: "Ubuntu", var(--bs-body-font-family);
+}
+
+.sb-font-nunito {
+  font-family: "Nunito", var(--bs-body-font-family);
+}
+
+.sb-font-nunito-sans {
+  font-family: "Nunito Sans", var(--bs-body-font-family);
+}
+
+.sb-font-source-sans-pro {
+  font-family: "Source Sans Pro", var(--bs-body-font-family);
+}
+
+.sb-font-inter {
+  font-family: "Inter", var(--bs-body-font-family);
+}
+
+.sb-font-news-cycle {
+  font-family: "News Cycle", Georgia, serif;
+}
+
+.sb-font-cabin-sketch {
+  font-family: "Cabin Sketch", "Neucha", cursive;
+}
+
+.sb-font-neucha {
+  font-family: "Neucha", "Cabin Sketch", cursive;
+}
+
+/* Preview of the chosen family, so the effect is visible even when the tool
+ * panel covers the text object on the board. */
+.sb-font-preview {
+  margin-top: 0.4rem;
+  overflow: hidden;
+  padding: 0.45rem 0.6rem;
+  border: 1px dashed var(--bs-border-color);
+  border-radius: 8px;
+  color: var(--bs-body-color);
+  font-size: var(--smd-type-p, 1em);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---- Selection handles + action bar ------------------------------------- */
+
+.sb-handle {
+  position: absolute;
+  z-index: 5;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: 2px solid var(--bs-body-bg);
+  border-radius: 50%;
+  background: var(--bs-primary);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35), 0 0 0 3px var(--bs-body-color);
+  color: #ffffff;
+  font-size: 10px;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.55);
+  touch-action: none;
+}
+
+.sb-object.selected .sb-handle {
+  display: flex;
+}
+
+.sb-handle-scale {
+  right: -11px;
+  bottom: -11px;
+  cursor: nwse-resize;
+}
+
+.sb-handle-rotate {
+  top: -36px;
+  left: 50%;
+  transform: translateX(-50%);
+  cursor: grab;
+}
+
+html[data-smd-touch-size="large"] .sb-handle {
+  width: 30px;
+  height: 30px;
+  font-size: 12px;
+}
+
+html[data-smd-touch-size="large"] .sb-handle-scale {
+  right: -15px;
+  bottom: -15px;
+}
+
+html[data-smd-touch-size="large"] .sb-handle-rotate {
+  top: -46px;
+}
+
+.sb-selection-bar {
+  position: absolute;
+  z-index: 1030;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--bs-border-color);
+  border-radius: 12px;
+  background: var(--bs-body-bg);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.24);
+  transform: translate(-50%, -100%);
+}
+
+/* One row of actions. The align/distribute row is a SECOND row that only opens
+ * on hover (or tap on touch), so the floating bar stays one small button wide
+ * until it is needed. */
+.sb-sel-row {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.sb-sel-align-row {
+  padding-top: 4px;
+  border-top: 1px solid var(--bs-border-color);
+}
+
+.sb-sel-divider {
+  width: 1px;
+  align-self: stretch;
+  margin: 2px 3px;
+  background: var(--bs-border-color);
+}
+
+/* One box + handles around a group or a loose multi-selection. The box itself
+ * never takes pointers (so objects underneath stay clickable); only its two
+ * handles do. z-index 3 sits above the .sb-items layer (2). */
+.sb-selection-box {
+  position: absolute;
+  z-index: 3;
+  border-radius: 6px;
+  outline: 1.5px dashed var(--bs-body-color);
+  outline-offset: 6px;
+  box-shadow: 0 0 0 8px rgba(var(--bs-body-bg-rgb), 0.55);
+  pointer-events: none;
+}
+
+.sb-selection-box .sb-handle {
+  display: flex;
+  pointer-events: auto;
+}
+
+.sb-sel-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--bs-body-color);
+  line-height: 1;
+  cursor: pointer;
+}
+
+.sb-sel-btn:hover {
+  background: rgba(var(--bs-body-color-rgb), 0.12);
+}
+
+/* A flip toggle stays highlighted while that mirror is on. */
+.sb-sel-btn[aria-pressed="true"] {
+  background: rgba(var(--bs-body-color-rgb), 0.2);
+}
+
+/* The Align button stays lit while its option row is expanded. */
+.sb-sel-btn[aria-expanded="true"] {
+  background: rgba(var(--bs-body-color-rgb), 0.2);
+}
+
+#sbSelDelete:hover {
+  color: var(--bs-danger);
+}
+
+/* ---- Small screens ------------------------------------------------------ */
+
+@media (max-width: 520px) {
+  .sb-rail {
+    width: 50px;
+  }
+
+  .sb-rail-btn {
+    min-height: 46px;
+  }
+
+  .sb-rail-btn span {
+    display: none;
+  }
+
+  .sb-panel {
+    width: calc(100vw - 84px);
+  }
+
+  .sb-empty-hint {
+    padding: 2rem;
+  }
+
+  .sb-sticker-option img {
+    width: 58px;
+    height: 58px;
+  }
+
+  .sb-board-chip {
+    max-width: 38%;
+  }
+}

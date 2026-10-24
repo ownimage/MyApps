@@ -20,6 +20,7 @@ test.describe("Launch - Regression", () => {
     "/FreeFormOX/",
     "/ListOfLists/",
     "/PhoneButtons/",
+    "/Storyboard/",
     "/storybook/",
     "/storybook/cardViewer.html"
   ];
@@ -72,7 +73,8 @@ test.describe("Launch - Regression", () => {
       ["/QRLinks/", "QR Links"],
       ["/SolarControlar/", "Solar Controlar"],
       ["/FreeFormOX/", "FreeFormOX"],
-      ["/ListOfLists/", "List of Lists"]
+      ["/ListOfLists/", "List of Lists"],
+      ["/Storyboard/", "Storyboard"]
     ];
     for (const [shell, name] of EXPECTED) {
       await page.goto(shell);
@@ -107,7 +109,7 @@ test.describe("Launch - Regression", () => {
     page.on("console", m => { if (m.type() === "error") errors.push(m.text()); });
 
     await page.goto("/");
-    await expect(page.locator("#appGrid .app-tile")).toHaveCount(8);
+    await expect(page.locator("#appGrid .app-tile")).toHaveCount(9);
 
     const tiles = page.locator("#appGrid .app-tile");
     const EXPECTED_TILES = [
@@ -118,6 +120,7 @@ test.describe("Launch - Regression", () => {
       ["FreeFormOX", "FreeFormOX/"],
       ["List of Lists", "ListOfLists/"],
       ["Phone Buttons", "PhoneButtons/"],
+      ["Storyboard", "Storyboard/"],
       ["Launch", "./"]
     ];
     for (let i = 0; i < EXPECTED_TILES.length; i++) {
@@ -128,7 +131,7 @@ test.describe("Launch - Regression", () => {
     // App icons load via <smd-image> from the shared sample library (the SVGs are
     // 512x512; the Solar Controlar icon is the unpacked 256px PNG, rendered at
     // the tile's data80 thumbnail when the 80px size sheet applies).
-    for (let i = 0; i < 8; i++) {
+    for (let i = 0; i < EXPECTED_TILES.length; i++) {
       await expect.poll(async () => tiles.nth(i).locator("smd-image img").evaluate(el => el.getAttribute("src") && el.naturalWidth)).toBeGreaterThan(0);
     }
     expect(await tiles.nth(3).locator("smd-image img").evaluate(async (imgEl) => {
@@ -194,6 +197,7 @@ test.describe("Launch - Regression", () => {
       ["FreeFormOX", "FreeFormOX/"],
       ["List of Lists", "ListOfLists/"],
       ["Phone Buttons", "PhoneButtons/"],
+      ["Storyboard", "Storyboard/"],
       ["Launch", ""]
     ];
     // SolarControlar is intentionally skipped: it needs its own power-data
@@ -202,7 +206,8 @@ test.describe("Launch - Regression", () => {
     // The ROOT (Launch itself) is included: its menu carries the same flyout, so
     // every app jumps to any other app from one place.
     for (const [shell, prefix] of [["/", ""], ["/PlanMyDay/", "../"], ["/CountMyDays/", "../"],
-      ["/QRLinks/", "../"], ["/FreeFormOX/", "../"], ["/ListOfLists/", "../"], ["/PhoneButtons/", "../"]]) {
+      ["/QRLinks/", "../"], ["/FreeFormOX/", "../"], ["/ListOfLists/", "../"], ["/PhoneButtons/", "../"],
+      ["/Storyboard/", "../"]]) {
       await page.goto(shell);
       await page.locator("#btnMainMenu").click();
       const toggle = page.locator("#mainNav .launch-submenu-toggle");
@@ -269,7 +274,7 @@ test.describe("Launch - Regression", () => {
 
   test.describe("Launch Menu tab", () => {
 
-    const ALL_APPS = ["Plan My Day", "Count My Days", "QR Links", "Solar Controlar", "FreeFormOX", "List of Lists", "Phone Buttons", "Launch"];
+    const ALL_APPS = ["Plan My Day", "Count My Days", "QR Links", "Solar Controlar", "FreeFormOX", "List of Lists", "Phone Buttons", "Storyboard", "Launch"];
 
     async function openMenuTab(page) {
       await page.goto("/");

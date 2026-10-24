@@ -28,6 +28,7 @@
     //   - `false` opts OUT of a nav title entirely (Phone Buttons already shows
     //     the running server app's name next to the hamburger).
     { name: "Phone Buttons", description: "Remote control buttons for this computer", path: "PhoneButtons/", icon: "Phone Buttons", navTitle: false },
+    { name: "Storyboard", description: "Place stickers and text anywhere on a storyboard", path: "Storyboard/", icon: "Storyboard" },
     { name: "Launch", description: "Open the app launcher", path: "", icon: "Launch", navTitle: "My Apps" }
   ];
 
