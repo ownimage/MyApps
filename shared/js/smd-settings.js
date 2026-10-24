@@ -350,6 +350,50 @@ function injectSettingsLayout() {
     #mainNav.nav-inactive { pointer-events: none; }
     #settingsPage .smd-page-body { scrollbar-width: none; -ms-overflow-style: none; }
     #settingsPage .smd-page-body::-webkit-scrollbar { display: none; }
+
+    /* WINDOW CONTROLS OVERLAY (desktop installed PWA): the nav lives in the
+       title-bar strip, so the in-app row and its height are gone. The body takes
+       a matching top inset (the title-bar area is still part of the viewport).
+       The overlay is user-enabled; body.smd-wco is set by smd-app.js only while
+       navigator.windowControlsOverlay.visible is true. */
+    body.smd-wco { padding-top: env(titlebar-area-height, 33px); }
+    body.smd-wco #mainNav,
+    body.smd-wco.auto-hide-menu #mainNav {
+      position: fixed;
+      top: env(titlebar-area-y, 0px);
+      left: env(titlebar-area-x, 0px);
+      right: auto;
+      width: env(titlebar-area-width, 100%);
+      height: env(titlebar-area-height, 33px);
+      padding: 0 0.5rem;
+      align-items: center;
+      flex-wrap: nowrap;
+      transform: none !important;
+      transition: none;
+      z-index: 1039;
+      app-region: drag;
+      -webkit-app-region: drag;
+    }
+    /* Draggable title-bar regions swallow pointer events - every control inside
+       must opt out or the hamburger/menu stops working. */
+    body.smd-wco #mainNav .dropdown,
+    body.smd-wco #mainNav button,
+    body.smd-wco #mainNav a,
+    body.smd-wco #mainNav input,
+    body.smd-wco #mainNav select,
+    body.smd-wco #mainNav .dropdown-menu {
+      app-region: no-drag;
+      -webkit-app-region: no-drag;
+    }
+    body.smd-wco #appNavTitle { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    body.smd-wco #mainNav #btnMainMenu { flex: none; }
+    /* Auto-hide is irrelevant while the overlay is open: the padding that
+       compensates for a hidden fixed nav must not come back. */
+    body.smd-wco.auto-hide-menu .container-fluid,
+    body.smd-wco.auto-hide-menu #mainNav.nav-hidden ~ .container-fluid {
+      padding-top: 0.5rem;
+      transition: none;
+    }
   `);
 }
 
