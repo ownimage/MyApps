@@ -58,21 +58,28 @@
   <!-- BOARD -->
   <main id="storyboardArea">
 
-    <div id="wbCanvas">
-      <div id="wbBackground" data-background="none"></div>
-      <svg id="wbConnectors" class="wb-connectors" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-        <defs>
-          <marker id="wbConnectorArrow" viewBox="0 0 10 10" refX="9" refY="5"
-                  markerWidth="6" markerHeight="6" orient="auto" markerUnits="strokeWidth">
-            <path class="wb-connector-arrow" d="M0,0 L10,5 L0,10 Z"></path>
-          </marker>
-        </defs>
-        <g id="wbConnectorPaths"></g>
-      </svg>
-      <div id="wbItems" class="wb-items"></div>
-      <div id="wbEmptyHint" class="wb-empty-hint">
-        <i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i>
-        <p>Choose a background, or add stickers and text from the toolbar.</p>
+    <!-- The scroller is the only part that scrolls: the toolbar, board name and
+         selection bar are fixed overlays inside the area, so they never scroll
+         away when the board is zoomed in. -->
+    <div id="wbScroller" class="wb-scroller">
+      <div id="wbStage" class="wb-stage">
+        <div id="wbCanvas">
+          <div id="wbBackground" data-background="none"></div>
+          <svg id="wbConnectors" class="wb-connectors" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <defs>
+              <marker id="wbConnectorArrow" viewBox="0 0 10 10" refX="9" refY="5"
+                      markerWidth="6" markerHeight="6" orient="auto" markerUnits="strokeWidth">
+                <path class="wb-connector-arrow" d="M0,0 L10,5 L0,10 Z"></path>
+              </marker>
+            </defs>
+            <g id="wbConnectorPaths"></g>
+          </svg>
+          <div id="wbItems" class="wb-items"></div>
+          <div id="wbEmptyHint" class="wb-empty-hint">
+            <i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i>
+            <p>Choose a background, or add stickers and text from the toolbar.</p>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -97,6 +104,19 @@
           <i class="fa-solid fa-download" aria-hidden="true"></i><span>Save</span>
         </button>
         <div class="wb-rail-spacer"></div>
+        <div class="wb-zoom">
+          <div class="wb-zoom-row" role="group" aria-label="Board zoom">
+            <button type="button" id="wbZoomOut" class="wb-rail-btn wb-zoom-btn" title="Zoom out" aria-label="Zoom out">
+              <i class="fa-solid fa-magnifying-glass-minus" aria-hidden="true"></i>
+            </button>
+            <button type="button" id="wbZoomIn" class="wb-rail-btn wb-zoom-btn" title="Zoom in" aria-label="Zoom in">
+              <i class="fa-solid fa-magnifying-glass-plus" aria-hidden="true"></i>
+            </button>
+          </div>
+          <button type="button" id="wbZoomFit" class="wb-rail-btn wb-zoom-fit" title="Fit board to window" aria-label="Fit board to window">
+            <i class="fa-solid fa-expand" aria-hidden="true"></i><span>Fit</span>
+          </button>
+        </div>
         <button type="button" id="wbPinBtn" class="wb-rail-btn wb-pin-btn" title="Pin toolbar open" aria-label="Pin toolbar open" aria-pressed="false">
           <i class="fa-solid fa-thumbtack" aria-hidden="true"></i><span>Pin</span>
         </button>

@@ -13,43 +13,224 @@ var WB_SVG_NS = "http://www.w3.org/2000/svg";
 // Reference board height (the 655px board of a 1280x720 window). Every piece of
 // ARTWORK - text, stickers, dot grid, connector widths - is sized as a fraction
 // of the board using this scale, so it stays glued to the picture when the board
-// re-fits. The UI is not scaled here; browser page zoom handles that.
+// re-fits or is zoomed. The UI is not scaled here; browser page zoom handles that.
 var WB_DESIGN_HEIGHT = 655;
+// Pasteboard margins used only when the board is zoomed past the fitted view.
+var WB_BOARD_PAD = 56;
+var WB_PASTE_GAP = 8;
 var wbResizeTimer = null;
+var wbScrollRaf = 0;
 
-// Current artwork scale: fitted board height / WB_DESIGN_HEIGHT.
+// Current artwork scale: board height / WB_DESIGN_HEIGHT.
 function wbDesignScale() {
   if (!wbEls.canvas) return 1;
   var v = parseFloat(wbEls.canvas.style.getPropertyValue("--wb-design-scale"));
   return isFinite(v) && v > 0 ? v : 1;
 }
 
-// Size the board to the background artwork's aspect and fit it (contain) into
-// the space the UI leaves: the whole image is always visible, as large as
-// possible, with bars when the window shape differs. With no background the
-// board fills the area. Everything inside scales from --wb-design-scale.
-function wbLayoutBoard() {
+function wbZoom() {
+  var v = Number(wbState.zoom);
+  return isFinite(v) && v > 0 ? v : 1;
+}
+
+// Size the board to the background artwork's aspect, fit it (contain) into the
+// space the UI leaves, then multiply by the zoom factor. At zoom 1 this is
+// exactly the old fitted view (whole image visible, bars when the window shape
+// differs). Everything inside scales from --wb-design-scale.
+function wbLayoutBoard(anchor) {
   if (!wbEls.area || !wbEls.canvas) return;
-  var aw = wbEls.area.clientWidth;
-  var ah = wbEls.area.clientHeight;
-  if (!aw || !ah) return;
+  var view = wbEls.scroller || wbEls.area;
+  var vw = view.clientWidth;
+  var vh = view.clientHeight;
+  if (!vw || !vh) return;
   var board = wbActiveBoard();
   var meta = board && board.background ? wbBackgroundById(board.background) : null;
-  var w = aw;
-  var h = ah;
+  var fitW = vw;
+  var fitH = vh;
   if (meta && meta.width && meta.height) {
-    var fit = Math.min(aw / meta.width, ah / meta.height);
-    w = meta.width * fit;
-    h = meta.height * fit;
+    var fit = Math.min(vw / meta.width, vh / meta.height);
+    fitW = meta.width * fit;
+    fitH = meta.height * fit;
   }
+  var zoom = wbZoom();
+  var w = fitW * zoom;
+  var h = fitH * zoom;
+  wbEls.fitW = fitW;
+  wbEls.fitH = fitH;
   wbEls.canvas.style.width = w + "px";
   wbEls.canvas.style.height = h + "px";
+  wbEls.canvas.dataset.zoom = String(zoom);
+  // Set the artwork scale BEFORE measuring overhangs: text and handles must be
+  // at their final size when their rects are read below.
   wbEls.canvas.style.setProperty("--wb-design-scale", h / WB_DESIGN_HEIGHT);
   wbEls.canvas.style.setProperty("--wb-sticker-base", (Math.min(w, h) * 0.15) + "px");
+  wbSizeStage(vw, vh, w, h, zoom);
+  if (anchor) wbApplyZoomAnchor(anchor);
+  wbUpdateZoomUi();
+}
+
+// The stage is at least the viewport (so a small board stays centred). When the
+// board is zoomed in it also reserves pasteboard on every side, big enough for
+// the objects AND their grab handles, so nothing at the artwork edge is
+// unreachable. At zoom 1 no margin is added: the fitted view is unchanged and
+// there are no scrollbars.
+function wbSizeStage(vw, vh, w, h, zoom) {
+  if (!wbEls.stage) return;
+  var padX = 0;
+  var padY = 0;
+  if (zoom > 1) {
+    var over = wbBoardOverhang();
+    padX = Math.max(WB_BOARD_PAD, over.left + WB_PASTE_GAP, over.right + WB_PASTE_GAP);
+    padY = Math.max(WB_BOARD_PAD, over.top + WB_PASTE_GAP, over.bottom + WB_PASTE_GAP);
+  }
+  wbEls.stage.style.width = Math.max(vw, w + padX * 2) + "px";
+  wbEls.stage.style.height = Math.max(vh, h + padY * 2) + "px";
+}
+
+// How far the rendered objects (and any visible grab handles) reach outside the
+// artwork, in CSS px. Measuring the DOM means a huge sticker or a long text box
+// at the edge gets exactly the pasteboard it needs - a fixed margin could not.
+function wbBoardOverhang() {
+  var out = { left: 0, right: 0, top: 0, bottom: 0 };
+  if (!wbEls.canvas || !wbEls.items) return out;
+  var cr = wbEls.canvas.getBoundingClientRect();
+  if (!cr.width || !cr.height) return out;
+  wbEls.items.querySelectorAll(".wb-object").forEach(function (obj) {
+    wbMeasureOverhang(out, cr, obj.getBoundingClientRect());
+    obj.querySelectorAll(".wb-handle").forEach(function (handle) {
+      var r = handle.getBoundingClientRect();
+      if (r.width || r.height) wbMeasureOverhang(out, cr, r);
+    });
+  });
+  return out;
+}
+
+function wbMeasureOverhang(out, cr, r) {
+  out.left = Math.max(out.left, cr.left - r.left);
+  out.right = Math.max(out.right, r.right - cr.right);
+  out.top = Math.max(out.top, cr.top - r.top);
+  out.bottom = Math.max(out.bottom, r.bottom - cr.bottom);
+}
+
+// Re-measure the pasteboard after the selection changes (handles appear) or a
+// drag finishes near an edge. The selected item is held at the same screen
+// position so growing the margin does not make the board jump.
+function wbRefreshPasteboard() {
+  if (!wbEls.stage || !wbEls.scroller || !wbEls.canvas) return;
+  var zoom = wbZoom();
+  if (zoom <= 1) return;
+  var vw = wbEls.scroller.clientWidth;
+  var vh = wbEls.scroller.clientHeight;
+  var w = wbEls.canvas.offsetWidth;
+  var h = wbEls.canvas.offsetHeight;
+  if (!vw || !vh || !w || !h) return;
+  var anchor = wbZoomAnchorPoint();
+  wbSizeStage(vw, vh, w, h, zoom);
+  wbApplyZoomAnchor(anchor);
+  // A clamped anchor scroll can move the board slightly; keep the action bar
+  // glued to the object after the margin change.
+  wbPositionSelectionBar();
+}
+
+// Zoom around the selected object/handlebox when there is one, otherwise around
+// whatever sits at the middle of the visible area. Returns the board fraction
+// plus the screen position that must stay put.
+function wbZoomAnchorPoint() {
+  var vw = wbEls.scroller ? wbEls.scroller.clientWidth : (wbEls.area ? wbEls.area.clientWidth : 0);
+  var vh = wbEls.scroller ? wbEls.scroller.clientHeight : (wbEls.area ? wbEls.area.clientHeight : 0);
+  var fallback = { fx: 0.5, fy: 0.5, sx: vw / 2, sy: vh / 2 };
+  if (!wbEls.canvas || !wbEls.scroller) return fallback;
+  var cr = wbEls.canvas.getBoundingClientRect();
+  if (!cr.width || !cr.height) return fallback;
+  var sr = wbEls.scroller.getBoundingClientRect();
+  var el = null;
+  if (wbState.selectedConnectorId && wbEls.connectorPaths) {
+    el = wbEls.connectorPaths.querySelector('.wb-connector[data-id="' + wbState.selectedConnectorId + '"] .wb-connector-line');
+  } else if (wbState.selectedId) {
+    el = wbItemEl(wbState.selectedId);
+  }
+  var r = el ? el.getBoundingClientRect() : null;
+  if (r && (r.width || r.height)) {
+    return {
+      fx: (r.left + r.width / 2 - cr.left) / cr.width,
+      fy: (r.top + r.height / 2 - cr.top) / cr.height,
+      sx: r.left + r.width / 2 - sr.left,
+      sy: r.top + r.height / 2 - sr.top
+    };
+  }
+  return {
+    fx: (sr.left + vw / 2 - cr.left) / cr.width,
+    fy: (sr.top + vh / 2 - cr.top) / cr.height,
+    sx: vw / 2,
+    sy: vh / 2
+  };
+}
+
+// Scroll so the anchored board point sits at the same screen position again.
+function wbApplyZoomAnchor(anchor) {
+  if (!anchor || !wbEls.scroller || !wbEls.canvas) return;
+  var sr = wbEls.scroller.getBoundingClientRect();
+  var cr = wbEls.canvas.getBoundingClientRect();
+  if (!cr.width || !cr.height) return;
+  var currentX = cr.left - sr.left + anchor.fx * cr.width;
+  var currentY = cr.top - sr.top + anchor.fy * cr.height;
+  wbEls.scroller.scrollLeft += currentX - anchor.sx;
+  wbEls.scroller.scrollTop += currentY - anchor.sy;
+}
+
+function wbCentreBoard() {
+  if (!wbEls.scroller) return;
+  wbEls.scroller.scrollLeft = Math.max(0, (wbEls.scroller.scrollWidth - wbEls.scroller.clientWidth) / 2);
+  wbEls.scroller.scrollTop = Math.max(0, (wbEls.scroller.scrollHeight - wbEls.scroller.clientHeight) / 2);
+}
+
+// ---- Zoom controls ---------------------------------------------------------
+
+function wbZoomIn() {
+  wbZoomStep(1);
+}
+
+function wbZoomOut() {
+  wbZoomStep(-1);
+}
+
+function wbZoomFit() {
+  wbZoomTo(1);
+}
+
+function wbZoomStep(direction) {
+  var index = WB_ZOOM_LEVELS.indexOf(wbNormalizeZoom(wbZoom()));
+  if (index < 0) index = WB_ZOOM_LEVELS.indexOf(1);
+  var next = WB_ZOOM_LEVELS[Math.min(WB_ZOOM_LEVELS.length - 1, Math.max(0, index + direction))];
+  wbZoomTo(next);
+}
+
+function wbZoomTo(next) {
+  var zoom = wbNormalizeZoom(next);
+  if (zoom === wbZoom()) return;
+  var anchor = wbZoomAnchorPoint();
+  wbState.zoom = zoom;
+  wbSaveState();
+  wbLayoutBoard(anchor);
+  wbRenderConnectors();
+  wbPositionSelectionBar();
+}
+
+function wbUpdateZoomUi() {
+  var zoom = wbNormalizeZoom(wbZoom());
+  var index = WB_ZOOM_LEVELS.indexOf(zoom);
+  var out = document.getElementById("wbZoomOut");
+  var inn = document.getElementById("wbZoomIn");
+  var fit = document.getElementById("wbZoomFit");
+  if (out) out.disabled = index <= 0;
+  if (inn) inn.disabled = index >= WB_ZOOM_LEVELS.length - 1;
+  if (fit) fit.disabled = zoom === 1;
 }
 
 function wbInitBoard() {
   wbEls.area = document.getElementById("storyboardArea");
+  wbEls.scroller = document.getElementById("wbScroller");
+  wbEls.stage = document.getElementById("wbStage");
   wbEls.canvas = document.getElementById("wbCanvas");
   wbEls.bg = document.getElementById("wbBackground");
   wbEls.items = document.getElementById("wbItems");
@@ -66,6 +247,17 @@ function wbInitBoard() {
   // bars around it), so deselect on a click anywhere in the area - the handler
   // ignores objects, connectors, the toolbar, the action bar and the board chip.
   if (wbEls.area) wbEls.area.addEventListener("pointerdown", wbOnCanvasPointerDown);
+  if (wbEls.scroller) {
+    // The action bar is a viewport overlay, so it follows the board while the
+    // user scrolls instead of scrolling away with it.
+    wbEls.scroller.addEventListener("scroll", function () {
+      if (wbScrollRaf) return;
+      wbScrollRaf = requestAnimationFrame(function () {
+        wbScrollRaf = 0;
+        wbPositionSelectionBar();
+      });
+    }, { passive: true });
+  }
   if (wbEls.items) wbEls.items.addEventListener("dblclick", wbOnDoubleClick);
   if (wbEls.connectors) wbEls.connectors.addEventListener("pointerdown", wbOnConnectorPointerDown);
   if (wbEls.boardName) {
@@ -105,8 +297,11 @@ function wbInitBoard() {
     wbResizeTimer = setTimeout(function () {
       // Re-fit on window resize AND browser zoom: the UI grows/shrinks with the
       // page, the board takes the remaining space, and the artwork scale keeps
-      // the text/stickers/connectors in place on the picture.
-      wbLayoutBoard();
+      // the text/stickers/connectors in place on the picture. Anchor on the
+      // selection (or the view centre) so a resize does not lose the user's place.
+      var anchor = wbZoomAnchorPoint();
+      wbLayoutBoard(anchor);
+      wbApplyAllTextNudges();
       wbRenderConnectors();
       wbPositionSelectionBar();
     }, 120);
@@ -158,6 +353,16 @@ function wbRender() {
   });
 
   wbApplyAllTextNudges();
+  // Re-run the layout now the items exist: the pasteboard must cover the
+  // rendered objects and the selected item's grab handles. A board/background
+  // change also recentres the scroller, so a remembered zoom opens on the
+  // middle of the board instead of its top-left corner.
+  wbLayoutBoard();
+  var layoutKey = board.id + "|" + board.background;
+  if (wbEls.layoutKey !== layoutKey) {
+    wbEls.layoutKey = layoutKey;
+    wbCentreBoard();
+  }
   wbRenderConnectors();
   wbApplyConnectClasses();
 
@@ -470,6 +675,7 @@ function wbUpdateSelectionUi() {
     wbSetBarButton("wbConnReverse", true);
     wbSetBarButton("wbConnDelete", true);
     wbPositionSelectionBar();
+    wbRefreshPasteboard();
     return;
   }
 
@@ -493,6 +699,7 @@ function wbUpdateSelectionUi() {
   wbSetBarPressed("wbSelFlipH", !!item.flipX);
   wbSetBarPressed("wbSelFlipV", !!item.flipY);
   wbPositionSelectionBar();
+  wbRefreshPasteboard();
 }
 
 function wbPositionSelectionBar() {
@@ -813,6 +1020,7 @@ function wbOnPointerUp(e) {
   if (item) {
     wbApplyItemTransform(item);
     wbPositionSelectionBar();
+    wbRefreshPasteboard();
   }
 }
 

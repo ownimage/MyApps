@@ -25,23 +25,66 @@ body#smd-app {
 
 /* ---- Board surface ------------------------------------------------------ */
 
-#wbCanvas {
-  /* The board is the ARTWORK. `wbLayoutBoard()` sizes it to the background's
-     aspect and fits it (contain) into whatever space the UI leaves, so the
-     whole image is always visible, as large as possible, with bars around it
-     when the window has a different shape.
-     --wb-design-scale (set by wbLayoutBoard) is boardHeight / 655. Text,
-     stickers, the dot grid and connector widths multiply by it, so they stay
-     glued to the artwork when the board re-fits (window resize OR browser
-     zoom). The UI (nav, toolbar, board name, action bar) is deliberately NOT
-     scaled: the browser's own page zoom handles that. */
+/* Scroll container: only the board scrolls. The toolbar, board-name chip,
+ * action bar and connect hint are siblings of this element inside
+ * #storyboardArea, so they stay put while the board pans. */
+.wb-scroller {
   position: absolute;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
+  inset: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(var(--bs-body-color-rgb), 0.45) transparent;
+}
+
+.wb-scroller::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+.wb-scroller::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.wb-scroller::-webkit-scrollbar-thumb {
+  border: 3px solid transparent;
+  border-radius: 999px;
+  background-clip: padding-box;
+  background-color: rgba(var(--bs-body-color-rgb), 0.4);
+}
+
+.wb-scroller::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(var(--bs-body-color-rgb), 0.6);
+}
+
+/* Centres the board when it is smaller than the viewport. wbLayoutBoard()
+ * sizes this element: viewport size at 100%, growing by a pasteboard margin
+ * when the board is zoomed in so the handles at the artwork edge can be
+ * scrolled into view. */
+.wb-stage {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   width: 100%;
   height: 100%;
-  overflow: hidden;
+  box-sizing: border-box;
+}
+
+#wbCanvas {
+  /* The board is the ARTWORK. `wbLayoutBoard()` sizes it to the background's
+     aspect, fitted into whatever space the UI leaves and multiplied by the zoom
+     factor. `overflow: visible` lets the selection outline and grab handles at
+     the artwork edge paint into the pasteboard instead of being clipped; there
+     is no CSS transform here because the scroller needs real layout size.
+     --wb-design-scale (set by wbLayoutBoard) is boardHeight / 655. Text,
+     stickers, the dot grid and connector widths multiply by it, so they stay
+     glued to the artwork at ANY zoom. The UI (nav, toolbar, board name, action
+     bar) is deliberately NOT scaled. */
+  position: relative;
+  flex: none;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
   background-color: var(--bs-body-bg);
 }
 
@@ -281,6 +324,45 @@ body.auto-hide-menu #mainNav {
 
 .wb-pin-btn.active {
   color: var(--bs-primary);
+}
+
+/* ---- Zoom controls ------------------------------------------------------ */
+/* Bottom of the rail: magnifier minus/plus side by side, Fit underneath. */
+
+.wb-zoom {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.wb-zoom-row {
+  display: flex;
+  gap: 4px;
+}
+
+.wb-zoom-btn {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 36px;
+  padding: 4px 0;
+}
+
+.wb-zoom-btn i {
+  font-size: 0.95rem;
+}
+
+.wb-zoom-fit {
+  min-height: 40px;
+}
+
+.wb-rail-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.wb-rail-btn:disabled:hover {
+  background: transparent;
 }
 
 /* ---- Fly-out panel ------------------------------------------------------ */

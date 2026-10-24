@@ -14,6 +14,9 @@ function wbInitToolbar() {
   wbToolbarEls.pin = document.getElementById("wbPinBtn");
   wbToolbarEls.save = document.getElementById("wbSaveBtn");
   wbToolbarEls.close = document.getElementById("wbPanelClose");
+  wbToolbarEls.zoomOut = document.getElementById("wbZoomOut");
+  wbToolbarEls.zoomIn = document.getElementById("wbZoomIn");
+  wbToolbarEls.zoomFit = document.getElementById("wbZoomFit");
   wbToolbarEls.railBtns = Array.prototype.slice.call(document.querySelectorAll(".wb-rail-btn[data-tool]"));
 
   if (wbToolbarEls.toolbar) {
@@ -35,6 +38,10 @@ function wbInitToolbar() {
       });
     });
   }
+  if (wbToolbarEls.zoomOut) wbToolbarEls.zoomOut.addEventListener("click", wbZoomOut);
+  if (wbToolbarEls.zoomIn) wbToolbarEls.zoomIn.addEventListener("click", wbZoomIn);
+  if (wbToolbarEls.zoomFit) wbToolbarEls.zoomFit.addEventListener("click", wbZoomFit);
+  wbUpdateZoomUi();
   if (wbToolbarEls.close) wbToolbarEls.close.addEventListener("click", wbClosePanel);
   if (wbToolbarEls.body) {
     wbToolbarEls.body.addEventListener("click", wbOnPanelClick);

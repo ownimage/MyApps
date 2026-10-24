@@ -309,8 +309,8 @@ Architecture:
   BOARD = THE WHOLE ARTWORK (2026-10-23, user request): the live board is no
   longer the visible window with a `cover` crop. `wbLayoutBoard()` sizes
   `#wbCanvas` to the background's aspect (`WB_BACKGROUNDS[].width/height`, both
-  2560x1440) fitted inside `#storyboardArea` and centres it (`left/top:50%` +
-  `translate(-50%,-50%)`), so the WHOLE image is always visible and a window of a
+  2560x1440) fitted inside the `#wbScroller`/`#wbStage` pair and centred by the
+  stage's flexbox, so the WHOLE image is always visible and a window of a
   different shape shows bars around it. No background -> the board fills the
   area (dot grid). Item `x`/`y` are % of the BOARD (= % of the artwork).
   Stickers are sized from `--wb-sticker-base` (15% of the board's smaller side,
@@ -324,13 +324,39 @@ Architecture:
   and scale with the browser's page zoom; the board takes whatever space the
   larger UI leaves, showing the whole image as large as possible (bars when the
   window shape differs). Everything INSIDE the board scales by
-  `--wb-design-scale` = fitted board height / `WB_DESIGN_HEIGHT` (655, the board
+  `--wb-design-scale` = (fitted board height x app zoom) / `WB_DESIGN_HEIGHT`
+  (655, the board
   of a 1280x720 window): the text font (plus padding/border/radius via `calc`),
   stickers (`--wb-sticker-base` = 15% of the fitted board's smaller side), the
   dot grid, connector stroke widths and the connector end gap. That keeps text
   and stickers in the same place and at the same relative size on the artwork
   when the board re-fits. Do NOT apply the design scale to the UI - the browser
   already magnifies it; the selection handles/action bar stay UI-sized.
+  APP ZOOM + SCROLL (2026-10-24, user request): the bottom of the rail has
+  magnifier minus/plus side by side (`#wbZoomOut`/`#wbZoomIn`, stepping
+  `WB_ZOOM_LEVELS` = 0.5/0.75/1/1.25/1.5/2/3/4) and `#wbZoomFit` (zoom 1 =
+  today's fitted view). NO percentage is shown; the factor is stored as
+  `storyboard_zoom` and restored on boot. DOM: `#storyboardArea > #wbScroller
+  (overflow:auto) > #wbStage (flex centred) > #wbCanvas` - only the board
+  scrolls; the toolbar, board chip, action bar and connect hint are fixed
+  overlays. `wbLayoutBoard(anchor)` sizes the canvas to fit x zoom. At zoom 1 the
+  stage is exactly the viewport (no scrollbars, view unchanged). Zoom > 1 adds a
+  PASTEBOARD: `wbBoardOverhang()` measures every rendered object and its visible
+  grab handles, and `wbSizeStage()` grows the stage by the biggest overhang per
+  axis (minimum `WB_BOARD_PAD` 56), so an item at the artwork edge can always be
+  scrolled until its rotate/scale handles are on screen. `#wbCanvas` is
+  `overflow: visible` for that reason (oversized objects also paint into the
+  pasteboard at 100%). Zoom anchors on the selected item, else the viewport
+  centre (`wbZoomAnchorPoint()`/`wbApplyZoomAnchor()`).
+  `wbRefreshPasteboard()` re-measures when the selection changes or a drag ends
+  - WITHOUT it, selecting a sticker AFTER zooming left its handles clipped (the
+  pad had been sized with no handles). The action bar is repositioned on the
+  scroller's `scroll` (rAF); board/background changes recentre via
+  `wbCentreBoard()`. Drag/scale/rotate and the JPG export keep using live rects,
+  so they need no zoom maths of their own. Tests:
+  `tests/storyboard-zoom.spec.js` (rail layout, steps/limits/Fit, scrollbars
+  only when zoomed, zoom-THEN-select edge-handle hit tests, selection anchoring,
+  drag accuracy at 1.5x, persistence + centred reload).
   SAVE AS JPG (2026-10-23, user request): the rail's `#wbSaveBtn` (fa-download)
   calls `wbDownloadJpg()` (`js/board.js`) and downloads
   `<slug(board.name)>.jpg`. It is a CANVAS drawing of the STORED board, not a
@@ -6852,3 +6878,79 @@ Techniques / gotchas:
 - Also ran the existing "root shows the grid of available apps" icon test;
   passes. Full suite left to the user.
   BUILD -> `202610241547`.
+
+### 2026-10-24 - Storyboard JPG stamp edges
+- REQUEST (user): on the same "Space" board, the stamp border around the text
+  renders in the saved JPG with the dots stretched along the sides.
+- CAUSE: the live CSS uses `border-image-repeat: round` plus
+  `border-image-slice: 30`, so the 120px frame SVG's middle edge slices repeat.
+  `wbDrawCanvasText()` drew each middle slice once with `drawImage()`, stretching
+  one 60x30 (top/bottom) or 30x60 (left/right) slice across the whole side.
+- TEST FIRST: extended `tests/storyboard-stamp.spec.js` with a tall/wide
+  three-line stamp box. It wraps `CanvasRenderingContext2D.prototype.drawImage`
+  during `wbDownloadJpg()` and records the 120x120 frame slices. It requires all
+  four middle edge source rectangles to be drawn more than once. Before the fix
+  each edge was one stretched call; after it passes.
+- FIX: added `wbDrawCanvasFrameEdge()`, which scales the slice across the border
+  to the frame width and then draws `Math.round(edge / naturalTile)` copies along
+  the edge, matching CSS "round". The four middle-edge draw calls now use it; the
+  corners are still single draws. This applies to every frame style, not just
+  stamp. Also inspected a JPG crop of the reported Space item: the dots are
+  round and evenly spaced.
+- Ran only the focused spec; the user runs the full regression suite.
+  BUILD -> `202610241647`.
+
+### 2026-10-24 - Storyboard live text baseline
+- REQUEST (user): the "Space" glyphs sit slightly higher in the JPG than on the
+  live board; other text boxes do the same, and the JPG alignment is preferred.
+- CAUSE: `wbDrawCanvasText()` centres each line with `textBaseline="middle"` at
+  `contentTop + lineHeight / 2`. CSS instead positions glyphs from the font's
+  ascent/descent, leaving the visual glyph centre a little lower. The gap is
+  font-dependent (about 0.08em for the theme Lato, less for mono).
+- FIX: text now lives in an inner `.wb-text-body` block span. `wbApplyTextNudge()`
+  measures the live font with an offscreen canvas (alphabetic vs middle
+  `fontBoundingBox` metrics) and sets only that span's relative `top` in `em`.
+  The box, frame, background, handles, wrapping and export geometry are
+  untouched; the JPG code still uses the item text and its existing baseline.
+  The nudge is recomputed after a webfont loads and on style/font changes.
+- TEST: added a third test to `tests/storyboard-stamp.spec.js`. It renders white
+  text on a black surface, screenshots the live element, exports the JPG, crops
+  the same box, and compares the white-pixel bbox centres. The old screen was
+  several px low; the test requires the centres within 2.5px (currently well
+  under). A throwaway six-font probe also checked theme, serif, mono, Roboto,
+  Montserrat and Cabin Sketch.
+- Ran only the focused spec; the user runs the full regression suite.
+  BUILD -> `202610241647`.
+
+### 2026-10-24 - Storyboard app zoom + scroll
+- REQUEST (user): zoom the canvas in/out; magnifier + and - side by side in the
+  side panel; a Fit button; scrollbars when zoomed; always be able to scroll to
+  see the working space (a selected sticker's grab handles and the action bar).
+- IMPLEMENTED: `#storyboardArea > #wbScroller (overflow:auto) > #wbStage (flex
+  centred) > #wbCanvas`; `wbLayoutBoard(anchor)` now multiplies the fitted size by
+  `wbState.zoom` (`WB_ZOOM_LEVELS`, stored as `storyboard_zoom`; no percentage
+  UI). `wbSizeStage()` + `wbBoardOverhang()` measure every object and its visible
+  handles and grow a pasteboard (min 56px) only when zoomed past the fitted view,
+  so 100% has no scrollbars and looks exactly as before. `#wbCanvas` is
+  `overflow: visible` so handles at the artwork edge are not clipped. Zoom
+  anchors on the selection (else viewport centre); the action bar repositions on
+  scroller scroll; board/background switches recentre.
+- TEST FIRST: `tests/storyboard-zoom.spec.js` (7 tests) failed with no
+  `#wbScroller`/buttons, then passed. It hit-tests the handles with
+  `elementFromPoint` (a clipped handle still reports a rect, so geometry alone
+  would lie) and covers the real order "zoom, THEN select". That order exposed a
+  real bug: the pasteboard had been sized with no handles visible, so the rotate
+  handle stayed clipped. Fixed with `wbRefreshPasteboard()`, called from
+  `wbUpdateSelectionUi()` and at the end of a drag.
+- Also ran `storyboard-stamp.spec.js` + `storyboard-zoom.spec.js` (10 passed) and
+  `launch-regression.spec.js` (13 passed). Visual probe (deleted) checked 100%,
+  150%, both edge handles, and the open Stickers panel.
+- GOTCHA (cost a full red run): a `serve-tests.mjs` process from a previous run
+  was still listening on 8080/8081 and Playwright reused it
+  (`reuseExistingServer`). sirv had snapshotted files from BEFORE the edits, and
+  mid-write reads produced truncated JS ("Invalid or unexpected token",
+  "wbLoadState is not defined") with every test seeing an empty board. ALWAYS
+  check/kill ports 8080/8081 before a run, or start `npm run dev:test` yourself
+  and use `EXTERNAL_SERVERS=1`.
+- The user runs the full regression suite.
+  BUILD -> `202610241647`.

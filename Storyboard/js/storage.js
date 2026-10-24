@@ -56,7 +56,11 @@ var WB_TEXT_FONTS = [
 var WB_BG_TOKENS = ["transparent", "white", "black", "primary", "secondary", "success", "danger", "warning", "info", "light", "dark"];
 var WB_TEXT_TOKENS = ["auto", "white", "black", "primary", "secondary", "success", "danger", "warning", "info", "light", "dark"];
 
-// Runtime state (deliberately not persisted, except boards/active/pinned).
+// Zoom factors the rail's magnifier buttons step through. 1 = the fitted view
+// (the whole board visible, exactly as before zooming existed).
+var WB_ZOOM_LEVELS = [0.5, 0.75, 1, 1.25, 1.5, 2, 3, 4];
+
+// Runtime state (deliberately not persisted, except boards/active/pinned/zoom).
 var wbState = {
   boards: [],
   activeId: "",
@@ -65,6 +69,7 @@ var wbState = {
   connectFrom: "",
   tool: "",
   pinned: false,
+  zoom: 1,
   editingTextId: "",
   drag: null,
   pointers: new Map(),
@@ -79,6 +84,17 @@ function wbClamp(value, min, max) {
   value = Number(value);
   if (!isFinite(value)) value = min;
   return Math.min(max, Math.max(min, value));
+}
+
+// Snap any stored zoom to the nearest supported step.
+function wbNormalizeZoom(value) {
+  var v = Number(value);
+  if (!isFinite(v) || v <= 0) return 1;
+  var best = WB_ZOOM_LEVELS[0];
+  WB_ZOOM_LEVELS.forEach(function (level) {
+    if (Math.abs(level - v) < Math.abs(best - v)) best = level;
+  });
+  return best;
 }
 
 function wbBackgroundById(id) {
@@ -183,6 +199,8 @@ function wbLoadState() {
   var savedActive = localStorage.getItem(smdKey("activeBoard")) || "";
   wbState.activeId = wbFindBoard(savedActive) ? savedActive : wbState.boards[0].id;
   wbState.pinned = localStorage.getItem(smdKey("toolbarPinned")) === "true";
+  var savedZoom = localStorage.getItem(smdKey("zoom"));
+  wbState.zoom = savedZoom == null ? 1 : wbNormalizeZoom(savedZoom);
   wbSaveState();
 }
 
@@ -195,6 +213,7 @@ function wbSaveState() {
     localStorage.setItem(smdKey("boards"), JSON.stringify(wbState.boards));
     localStorage.setItem(smdKey("activeBoard"), wbState.activeId);
     localStorage.setItem(smdKey("toolbarPinned"), wbState.pinned ? "true" : "false");
+    localStorage.setItem(smdKey("zoom"), String(wbState.zoom));
   } catch (e) { /* storage unavailable: the board still works for this visit */ }
 }
 
