@@ -283,7 +283,7 @@ Architecture:
 - STORYBOARD APP (2026-10-21, NEW — the 9th app; older notes saying "all 8
   shells/apps" predate it): `Storyboard/` is a PlanMyDay-style classic-script PWA
   (no modules, globals on purpose). It has the standard hamburger (Settings |
-  MinIO Save/Load | Launch flyout) and TWO settings tabs, **Display** and
+  Launch flyout | MinIO save/load items) and TWO settings tabs, **Display** and
   **Minio**. Display has only live rows:
   Theme, Theme Mode, Font size, Touch size, Slide speed, Auto-hide menu, Screen
   resolution (last). Minio holds the shared server/bucket/directory fields. No
@@ -291,17 +291,24 @@ Architecture:
   "Storyboard" from `SmdApps`).
   FILES: `js/storage.js` (data + colour/frame helpers), `js/board.js` (render +
   pointer gestures), `js/toolbar.js` (rail, fly-out panels, text editor),
-  `js/app-settings.js`, `js/app-minio.js` (board save/load), `js/app.js`;
+  `js/app-settings.js`, `js/app-minio.js` (story save/load), `js/app.js`;
   `css/storyboard.css` (all app layout; the
   shared sheet is untouched); `assets/backgrounds/{space,underwater}.svg`
   (2560x1440) and `assets/stickers/{mermaid,shark,seaweed,spaceman,spaceship}.svg`
   (512 viewBox flat art, transparent). `icon.svg` + generated 192/512 PNGs.
-  DATA: keys via `smdKey()` = `storyboard_boards`, `storyboard_activeBoard`,
-  `storyboard_toolbarPinned`. `sbState.boards` is an array of
-  `{id,name,background,items,connectors,groups,view}`; items are stickers
+  DATA (2026-10-24, Stories/Scenes): keys via `smdKey()` = `storyboard_stories`,
+  `storyboard_activeStory`, `storyboard_activeScene`, `storyboard_toolbarPinned`.
+  `sbState.stories` is an array of `{id,name,scenes:[scene],activeSceneId}`; a
+  SCENE is the old board shape
+  `{id,name,background,items,connectors,groups,view}`. `sbActiveBoard()` returns
+  the ACTIVE story's active scene, so every board-scoped render/edit/export
+  helper is unchanged. Items are stickers
   `{id,type:"sticker",sticker,x,y,scale,rotation,z,flipX,flipY}` or text
   `{id,type:"text",text,bg,color,border,font,x,y,scale,rotation,z}`. `view` is
-  that BOARD's own zoom + pan (`{zoom, fx, fy}`; see APP ZOOM below). `x`/`y` are
+  that SCENE's own zoom + pan (`{zoom, fx, fy}`; see APP ZOOM below). NOTE:
+  older notes in this section say "board" where the model now says SCENE; the
+  canvas is still board-shaped and the internal `sbBoard*`/`sbState.activeId`
+  names are kept on purpose. `x`/`y` are
   PERCENTAGES of the board (2..98 for a single-item transform; a group/multi
   transform clamps the SET's box instead and may use 0..100) so a board keeps its
   layout on resize; `z` is
@@ -7208,21 +7215,60 @@ Techniques / gotchas:
   `doMinioExport` now upload under `config.directory`; with an empty Directory
   the old filenames/keys are unchanged (PMD/CMD/LoL MinIO tests still green).
 - STORYBOARD: new `Storyboard/js/app-minio.js` (registered in `sw.js`), a Minio
-  settings tab, `#minioImportPage`, and hamburger items "Save Board to Minio" /
-  "Load Board from Minio" (deliberately NOT on the rail; `#sbSaveBtn` is still
-  Save as JPG). Save key = `<Directory>/<sanitised board name>/board-YYYYMMDDHHMM.json`
-  with payload `{version, app:"storyboard", exportedAt, board}`. Load goes through
-  `SmdConfig.onMinioImport`: a NAME THAT DOES NOT EXIST is added as a new board;
-  a name that ALREADY EXISTS asks via `showSmdModal` (Cancel / Overwrite) and
-  Overwrite replaces that existing board IN PLACE (same id, so no silent
-  duplicate "My Board 2"). Cancel returns to the file list. `board.view` is
-  captured before saving/switching.
+  settings tab, `#minioImportPage`, and hamburger items "Save Story to Minio" /
+  "Load Story from Minio" (deliberately NOT on the rail; `#sbSaveBtn` is still
+  Save scene as JPG). UPDATED for Stories/Scenes: save key =
+  `<Directory>/<sanitised story name>/story-YYYYMMDDHHMM.json` with payload
+  `{version, app:"storyboard", exportedAt, story}` (the WHOLE story including all
+  scenes). Load goes through `SmdConfig.onMinioImport`: an unused story name is
+  added as a new story with fresh story/scene ids; a name that ALREADY EXISTS
+  asks via `showSmdModal` (Cancel / Overwrite) and Overwrite replaces that
+  existing story IN PLACE (same story id). Cancel returns to the file list. Old
+  board-level files (`data.board`) are deliberately rejected.
 - TESTS: `tests/minio-directory.spec.js` (4: settings persistence, export path,
-  listing + `:latest` + folder navigation, CMD app-owned export) and
-  `tests/storyboard-minio.spec.js` (6: tab/menu, menu ORDER, save key/payload,
-  name sanitising, load-latest adds a board, same-name overwrite prompt/cancel/
-  overwrite). Also re-ran 63 existing MinIO tests and
-  all 57 Storyboard + new MinIO specs: green.
+  listing + `:latest` + folder navigation, CMD app-owned export),
+  `tests/storyboard-minio.spec.js` (6: tab/menu, menu ORDER, whole-story save
+  key/payload, story-name sanitising, load-latest adds a story, same-name
+  overwrite prompt/cancel/overwrite) and `tests/storyboard-stories.spec.js`
+  (5: default Story 1/Scene 1, New Story/New Scene, per-scene content + clicking
+  a story opens its scenes, rename persistence, delete guards). Also re-ran 63
+  existing MinIO tests and all 56 Storyboard specs: green.
 - GOTCHA: `tests/serve-tests.mjs` snapshots files at startup, so a long-running
   dev server serves STALE code after edits - restart `npm run dev:test` before
   trusting a red/green run.
+
+### 2026-10-24 - Storyboard: Stories contain Scenes (model rewrite)
+- REQUEST (user): call boards STORIES; a Story has any number of SCENES and each
+  scene is a board (background, stickers, text, connectors, groups, zoom/pan).
+  Loading a story shows it where the board was, but the sidebar lets you pick
+  any scene; clicking the story opens its scene list. NO data migration -
+  Storyboard has not shipped, so the old board store is deliberately ignored.
+- MODEL: `sbState.stories = [{id,name,scenes:[scene],activeSceneId}]` plus
+  `sbState.activeStoryId`; `sbState.activeId` is still the ACTIVE SCENE id (and
+  `sbActiveBoard()` returns that scene), so board-scoped render/edit/group/
+  connector/JPG-export code is untouched. Keys: `storyboard_stories`,
+  `storyboard_activeStory`, `storyboard_activeScene` (the old
+  `storyboard_boards`/`storyboard_activeBoard` keys are gone). New names: story
+  "Story N" with first scene "Scene 1"; further scenes "Scene N".
+- UI: rail's first tool re-labelled **Stories** (still `data-tool="boards"`
+  internally). Panel = one `.sb-story-row` per story; only the ACTIVE story is
+  expanded into `.sb-story-scenes` (sibling container, NOT inside the row - a
+  selector must use `.sb-story-row.active + .sb-story-scenes`). Clicking a story
+  selects/expands it; clicking a scene edits it. Story and scene rows have inline
+  rename + delete; `#sbAddStory` and each expanded story's `.sb-add-scene`.
+  Deleting the LAST scene of a story / the LAST story is disabled. The chip
+  reads `Story / Scene` and still opens the Stories panel.
+- MINIO: `js/app-minio.js` now saves/loads the whole Story
+  (`<dir>/<story>/story-YYYYMMDDHHMM.json`, payload `{... story}`); old
+  board-level files are rejected. Same-name load asks Overwrite/Cancel and
+  overwrite replaces that story in place; a new name adds a story with fresh
+  story+scene ids (active scene index preserved).
+- TESTS: new `tests/storyboard-stories.spec.js` (5) + rewritten
+  `tests/storyboard-minio.spec.js` (6). ALL Storyboard specs re-seeded to the
+  nested store (`storyboard_stories` / `activeStory` / `activeScene`): 61/61
+  green (align 12, groups 16, pan 10, stamp 3, zoom 9, minio 6, stories 5).
+- GOTCHA: the Story row and its scene list are SIBLINGS by design (the row is a
+  horizontal flex bar). Tests/selectors must use the adjacent-sibling form; a
+  descendant selector finds zero scenes. `sbSaveState()` mirrors
+  `activeId` into the active story's `activeSceneId`, so switching scenes and
+  reloading are consistent.

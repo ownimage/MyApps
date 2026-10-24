@@ -497,7 +497,11 @@ function sbRender() {
   sbApplyConnectClasses();
 
   if (sbEls.hint) sbEls.hint.classList.toggle("d-none", board.items.length > 0);
-  if (sbEls.boardName) sbEls.boardName.textContent = board.name;
+  if (sbEls.boardName) {
+    var activeStory = typeof sbActiveStory === "function" ? sbActiveStory() : null;
+    sbEls.boardName.textContent = activeStory ? activeStory.name + " / " + board.name : board.name;
+    sbEls.boardName.title = activeStory ? activeStory.name + " - " + board.name : board.name;
+  }
   sbUpdateSelectionUi();
 }
 

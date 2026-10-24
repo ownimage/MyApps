@@ -33,9 +33,14 @@ const PAN_BOARD = {
 async function seedBoard(page) {
   await page.goto("/");
   await page.evaluate((b) => {
-    localStorage.setItem("storyboard_boards", JSON.stringify([b]));
-    localStorage.setItem("storyboard_activeBoard", b.id);
-    localStorage.removeItem("storyboard_zoom");
+    localStorage.setItem("storyboard_stories", JSON.stringify([{
+      id: "story-" + b.id,
+      name: "Story 1",
+      scenes: [b],
+      activeSceneId: b.id
+    }]));
+    localStorage.setItem("storyboard_activeStory", "story-" + b.id);
+    localStorage.setItem("storyboard_activeScene", b.id);
   }, PAN_BOARD);
   await page.goto("/Storyboard/");
   await expect(page.locator('.sb-object[data-id="' + ITEM_ID + '"]')).toBeVisible();

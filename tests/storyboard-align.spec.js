@@ -37,9 +37,14 @@ const ALIGN_BOARD = () => makeBoard("align", [
 async function seedBoard(page, board) {
   await page.goto("/");
   await page.evaluate((b) => {
-    localStorage.setItem("storyboard_boards", JSON.stringify([b]));
-    localStorage.setItem("storyboard_activeBoard", b.id);
-    localStorage.removeItem("storyboard_zoom");
+    localStorage.setItem("storyboard_stories", JSON.stringify([{
+      id: "story-" + b.id,
+      name: "Story 1",
+      scenes: [b],
+      activeSceneId: b.id
+    }]));
+    localStorage.setItem("storyboard_activeStory", "story-" + b.id);
+    localStorage.setItem("storyboard_activeScene", b.id);
   }, board);
   await page.goto("/Storyboard/");
   await expect(page.locator("#sbCanvas")).toBeVisible();

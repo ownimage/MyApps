@@ -58,9 +58,14 @@ const OFFSET_BOARD = {
 async function seedBoard(page, board) {
   await page.goto("/");
   await page.evaluate((b) => {
-    localStorage.setItem("storyboard_boards", JSON.stringify([b]));
-    localStorage.setItem("storyboard_activeBoard", b.id);
-    localStorage.removeItem("storyboard_zoom");
+    localStorage.setItem("storyboard_stories", JSON.stringify([{
+      id: "story-" + b.id,
+      name: "Story 1",
+      scenes: [b],
+      activeSceneId: b.id
+    }]));
+    localStorage.setItem("storyboard_activeStory", "story-" + b.id);
+    localStorage.setItem("storyboard_activeScene", b.id);
   }, board);
   await page.goto("/Storyboard/");
   await expect(page.locator("#sbCanvas")).toBeVisible();
@@ -70,9 +75,14 @@ async function seedBoard(page, board) {
 async function seedBoards(page, boards, activeId) {
   await page.goto("/");
   await page.evaluate(({ list, active }) => {
-    localStorage.setItem("storyboard_boards", JSON.stringify(list));
-    localStorage.setItem("storyboard_activeBoard", active);
-    localStorage.removeItem("storyboard_zoom");
+    localStorage.setItem("storyboard_stories", JSON.stringify([{
+      id: "story-zoom",
+      name: "Story 1",
+      scenes: list,
+      activeSceneId: active
+    }]));
+    localStorage.setItem("storyboard_activeStory", "story-zoom");
+    localStorage.setItem("storyboard_activeScene", active);
   }, { list: boards, active: activeId || boards[0].id });
   await page.goto("/Storyboard/");
   await expect(page.locator("#sbCanvas")).toBeVisible();
@@ -363,9 +373,9 @@ test.describe("Storyboard - zoom", () => {
     const before = await viewFraction(page);
     expect(before.fx).toBeLessThan(0.45);
 
-    // The view lives on the BOARD, not in a separate key.
+    // The view lives on the SCENE, not in a separate key.
     const stored = await page.evaluate(() =>
-      JSON.parse(localStorage.getItem("storyboard_boards"))[0].view
+      JSON.parse(localStorage.getItem("storyboard_stories"))[0].scenes[0].view
     );
     expect(stored).toBeTruthy();
     expect(stored.zoom).toBe(1.5);

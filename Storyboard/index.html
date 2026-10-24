@@ -51,8 +51,8 @@
         <!-- Replaced at boot by the shared Launch flyout (SmdApps.buildLaunchSubmenu). -->
         <li><a class="dropdown-item" href="../">Launch</a></li>
         <li><hr class="dropdown-divider minio-menu-item" style="display:none"></li>
-        <li><a class="dropdown-item minio-menu-item" style="display:none" onclick="sbSaveBoardToMinio()">Save Board to Minio</a></li>
-        <li><a class="dropdown-item minio-menu-item" style="display:none" onclick="importFromMinio()">Load Board from Minio</a></li>
+        <li><a class="dropdown-item minio-menu-item" style="display:none" onclick="sbSaveStoryToMinio()">Save Story to Minio</a></li>
+        <li><a class="dropdown-item minio-menu-item" style="display:none" onclick="importFromMinio()">Load Story from Minio</a></li>
       </ul>
     </div>
 
@@ -95,8 +95,8 @@
     <!-- LEFT TOOLBAR: rail + fly-out panel -->
     <aside id="sbToolbar" class="sb-toolbar" data-open="" data-pinned="false" aria-label="Storyboard toolbar">
       <div class="sb-rail">
-        <button type="button" class="sb-rail-btn" data-tool="boards" title="Boards" aria-label="Boards">
-          <i class="fa-solid fa-chalkboard" aria-hidden="true"></i><span>Boards</span>
+        <button type="button" class="sb-rail-btn" data-tool="boards" title="Stories" aria-label="Stories">
+          <i class="fa-solid fa-book-open" aria-hidden="true"></i><span>Stories</span>
         </button>
         <button type="button" class="sb-rail-btn" data-tool="background" title="Background" aria-label="Background">
           <i class="fa-solid fa-image" aria-hidden="true"></i><span>Background</span>
@@ -107,7 +107,7 @@
         <button type="button" class="sb-rail-btn" data-tool="text" title="Text" aria-label="Text">
           <i class="fa-solid fa-font" aria-hidden="true"></i><span>Text</span>
         </button>
-        <button type="button" id="sbSaveBtn" class="sb-rail-btn" title="Save board as JPG" aria-label="Save board as JPG">
+        <button type="button" id="sbSaveBtn" class="sb-rail-btn" title="Save scene as JPG" aria-label="Save scene as JPG">
           <i class="fa-solid fa-download" aria-hidden="true"></i><span>Save</span>
         </button>
         <div class="sb-rail-spacer"></div>

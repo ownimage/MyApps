@@ -1,14 +1,16 @@
-// Storyboard - MinIO board backup.
+// Storyboard - MinIO story backup.
 //
 // The shared smd-minio.js owns the settings, the signed S3 requests and the
 // import page. This file only decides WHAT Storyboard saves and loads:
 //
-//   Save:  <Directory>/<board name>/board-YYYYMMDDHHMM.json
-//          (one directory level below the app's configured Directory, so every
-//          board keeps its own version history)
+//   Save:  <Directory>/<story name>/story-YYYYMMDDHHMM.json
+//          The WHOLE story (all of its scenes) is written in one file, one
+//          directory level below the app's configured Directory, so every story
+//          keeps its own version history.
 //   Load:  the shared import page lists the app Directory, its subdirectories
-//          and "<board name>:latest" shortcuts. A loaded file becomes a NEW
-//          board and is switched to; the current board is never overwritten.
+//          and "<story name>:latest" shortcuts. A loaded file becomes a NEW
+//          story (with all of its scenes) and is switched to; if a story with
+//          the same name already exists the app asks before overwriting it.
 
 // The timestamp half of the backup file name (same YYYYMMDDHHMM shape as the
 // other apps' backups, so filename ordering is chronological).
@@ -21,32 +23,32 @@ function sbMinioTimestamp(date) {
     String(d.getMinutes()).padStart(2, "0");
 }
 
-// A board name becomes one S3 "directory" segment: path separators and the
+// A story name becomes one S3 "directory" segment: path separators and the
 // characters Windows/S3 UIs dislike are replaced so the subdirectory is always
 // a single level. Spaces are preserved.
-function sbMinioBoardDirName(board) {
-  var name = String(board && board.name ? board.name : "").trim();
-  if (!name) return "board";
-  name = name.replace(/[\\/:*?"<>|\u0000-\u001f]/g, "-");
-  name = name.replace(/\s+/g, " ").trim();
-  if (!name || name === "." || name === "..") return "board";
-  return name;
+function sbMinioStoryDirName(name) {
+  var dir = String(name == null ? "" : name).trim();
+  if (!dir) return "story";
+  dir = dir.replace(/[\\/:*?"<>|\u0000-\u001f]/g, "-");
+  dir = dir.replace(/\s+/g, " ").trim();
+  if (!dir || dir === "." || dir === "..") return "story";
+  return dir;
 }
 
-function sbMinioBoardFileName(date) {
-  return "board-" + sbMinioTimestamp(date) + ".json";
+function sbMinioStoryFileName(date) {
+  return "story-" + sbMinioTimestamp(date) + ".json";
 }
 
-function sbSaveBoardToMinio() {
+function sbSaveStoryToMinio() {
   var config = getMinioConfig();
   if (!config.enabled) return;
   if (!config.server || !config.username || !config.password || !config.bucket) {
     showMinioAlert("Please configure all Minio settings first.", "error");
     return;
   }
-  var board = sbActiveBoard();
-  if (!board) {
-    showMinioAlert("There is no board to save.", "error");
+  var story = sbActiveStory();
+  if (!story) {
+    showMinioAlert("There is no story to save.", "error");
     return;
   }
 
@@ -54,12 +56,12 @@ function sbSaveBoardToMinio() {
   if (typeof sbCaptureView === "function") sbCaptureView();
   sbSaveState();
 
-  var key = minioBuildKey(config.directory, sbMinioBoardDirName(board), sbMinioBoardFileName(new Date()));
+  var key = minioBuildKey(config.directory, sbMinioStoryDirName(story.name), sbMinioStoryFileName(new Date()));
   var payload = {
     version: 1,
     app: "storyboard",
     exportedAt: new Date().toISOString(),
-    board: board
+    story: story
   };
 
   minioPutObject(config.bucket, key, JSON.stringify(payload, null, 2), config).then(function() {
@@ -69,58 +71,49 @@ function sbSaveBoardToMinio() {
   });
 }
 
-// A loaded board is ADDED, so a name clash gets a numeric suffix ("My Board 2").
-function sbUniqueImportedBoardName(name) {
-  var base = String(name || "Board").trim() || "Board";
-  var names = {};
-  sbState.boards.forEach(function(b) { names[b.name] = true; });
-  if (!names[base]) return base;
-  var n = 2;
-  while (names[base + " " + n]) n++;
-  return base + " " + n;
+// Keep the old name working for callers/tests that still use it.
+function sbSaveBoardToMinio() {
+  return sbSaveStoryToMinio();
 }
 
-function sbFindBoardByName(name) {
-  for (var i = 0; i < sbState.boards.length; i++) {
-    if (sbState.boards[i].name === name) return sbState.boards[i];
+function sbFindStoryByName(name) {
+  for (var i = 0; i < sbState.stories.length; i++) {
+    if (sbState.stories[i].name === name) return sbState.stories[i];
   }
   return null;
 }
 
-// Make a stored board active, with the usual "outgoing view is captured first"
-// and selection reset. Shared by the add and overwrite paths.
-function sbActivateImportedBoard(board) {
-  if (typeof sbCaptureView === "function") sbCaptureView();
-  sbState.activeId = board.id;
-  sbState.zoom = board.view ? board.view.zoom : 1;
-  sbState.selectedId = "";
-  sbState.selectedIds = [];
-  sbState.selectedConnectorId = "";
-  sbState.connectFrom = "";
-  sbState.editingTextId = "";
-  sbSaveState();
-  sbRender();
-  if (typeof sbRenderPanel === "function") sbRenderPanel();
+// Normalise a loaded story and give its story + scene ids fresh values, so a
+// loaded file can never collide with an existing in-memory story. The scene
+// that was active when the file was saved stays the active one.
+function sbPrepareImportedStory(raw) {
+  var story = sbNormalizeStory(raw);
+  if (!story) return null;
+  var oldActive = story.activeSceneId;
+  var activeIndex = 0;
+  story.scenes.forEach(function (scene, index) {
+    if (scene.id === oldActive) activeIndex = index;
+  });
+  story.id = sbUid();
+  story.scenes.forEach(function (scene) { scene.id = sbUid(); });
+  story.activeSceneId = story.scenes[activeIndex].id;
+  return story;
 }
 
-function sbAddImportedBoard(board) {
-  board.id = sbUid();
-  board.name = sbUniqueImportedBoardName(board.name);
-  sbState.boards.push(board);
-  sbActivateImportedBoard(board);
-  return board;
+function sbActivateLoadedStory(story) {
+  var board = story.scenes[0];
+  story.scenes.forEach(function (scene) {
+    if (scene.id === story.activeSceneId) board = scene;
+  });
+  sbActivateScene(story, board);
 }
 
-// Overwrite keeps the EXISTING board's id (and position in the board list), so
-// "load a newer version of this board" does not fork it into a duplicate.
-function sbOverwriteImportedBoard(existing, board) {
-  existing.name = board.name;
-  existing.background = board.background;
-  existing.items = board.items;
-  existing.connectors = board.connectors;
-  existing.groups = board.groups;
-  existing.view = board.view;
-  sbActivateImportedBoard(existing);
+function sbOverwriteStory(existing, incoming) {
+  existing.name = incoming.name;
+  existing.scenes = incoming.scenes;
+  existing.activeSceneId = incoming.activeSceneId;
+  sbState.activeStoryId = existing.id;
+  sbActivateLoadedStory(existing);
   return existing;
 }
 
@@ -128,31 +121,31 @@ function sbOverwriteImportedBoard(existing, board) {
 // "<directory>:latest" shortcut). Return true when the file is a Storyboard
 // backup; the hook owns closing the page.
 SmdConfig.onMinioImport = function(data, key) {
-  var raw = data && data.board && typeof data.board === "object"
-    ? data.board
-    : (data && Array.isArray(data.items) ? data : null);
-  if (!raw) return false;
+  if (!data || !data.story || typeof data.story !== "object") return false;
+  // Whole-story backups only: a story must carry at least one scene. Old
+  // single-board files (data.board) are deliberately NOT supported.
+  if (!Array.isArray(data.story.scenes) || !data.story.scenes.length) return false;
 
-  var board = sbNormalizeBoard(raw);
-  if (!board) return false;
+  var incoming = sbPrepareImportedStory(data.story);
+  if (!incoming) return false;
 
-  // A same-named board already exists: ASK before replacing it (smd-modal).
+  // A same-named story already exists: ASK before replacing it (smd-modal).
   // Cancel returns to the file list so another backup can be chosen.
-  var existing = sbFindBoardByName(board.name);
+  var existing = sbFindStoryByName(incoming.name);
   if (existing) {
     showSmdModal({
-      title: "Board already exists",
-      content: '<p style="margin:0">A board named <strong>' + escapeHtml(existing.name) +
-        '</strong> already exists. Do you want to overwrite the current board with this saved version?</p>',
+      title: "Story already exists",
+      content: '<p style="margin:0">A story named <strong>' + escapeHtml(existing.name) +
+        '</strong> already exists. Do you want to overwrite the current story with this saved version?</p>',
       buttons: [
         { text: "Cancel", variant: "secondary", action: "cancel" },
         { text: "Overwrite", variant: "primary", action: "overwrite" }
       ],
       onAction: function(detail) {
         if (detail && detail.action === "overwrite") {
-          sbOverwriteImportedBoard(existing, board);
+          sbOverwriteStory(existing, incoming);
           closeMinioImport();
-          showMinioAlert("Loaded " + key + " and overwrote board \"" + existing.name + "\".", "info");
+          showMinioAlert("Loaded " + key + " and overwrote story \"" + existing.name + "\".", "info");
         } else {
           var config = getMinioConfig();
           loadMinioBucketFiles(config.bucket, _minioCurrentPrefix);
@@ -162,8 +155,9 @@ SmdConfig.onMinioImport = function(data, key) {
     return true;
   }
 
-  sbAddImportedBoard(board);
+  sbState.stories.push(incoming);
+  sbActivateLoadedStory(incoming);
   closeMinioImport();
-  showMinioAlert("Loaded " + key + " as board \"" + board.name + "\".", "info");
+  showMinioAlert("Loaded " + key + " as story \"" + incoming.name + "\".", "info");
   return true;
 };
