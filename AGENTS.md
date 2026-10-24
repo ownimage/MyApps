@@ -6829,3 +6829,26 @@ Techniques / gotchas:
   switches, and the exporter's resolved colour. Ran only the focused spec; the
   user runs the full regression suite.
   BUILD -> `202610241537`.
+
+### 2026-10-24 - Launch Storyboard icon
+- REQUEST (user): the Launch grid has no icon for Storyboard.
+- CAUSE: Launch resolves each app icon by NAME from the origin-wide
+  `shared-images` library. `seedSampleImages()` only seeds when that key is
+  absent, so an existing browser library seeded before the rename still has the
+  old sample entry and no `Storyboard` entry; `<smd-image>` then has no source
+  and the tile is blank. A fresh browser was fine, which is why the existing
+  grid test did not catch it.
+- TEST FIRST: added `tests/launch-app-icons.spec.js`. It waits for the normal
+  seed, replaces the store with one missing both `Storyboard` and an ordinary
+  sample (`Person 1`), reloads, and requires the Storyboard tile's
+  `<smd-image img>` to paint. Before the fix the image had no `src`/natural
+  width; after it passes. It also asserts `Person 1` stays deleted, proving the
+  fix only reconciles app icons rather than merging the whole standard set.
+- FIX: `Launch/js/app.js` now calls `ensureAppIcons()` after
+  `seedSampleImages()`. It runs only when the library already exists (so it
+  never races the first seed), adds only missing registered app icons from
+  `shared/sampleImages.json`, saves the list, and refreshes the grid images. No
+  old-name migration or deletion of the user's existing samples.
+- Also ran the existing "root shows the grid of available apps" icon test;
+  passes. Full suite left to the user.
+  BUILD -> `202610241547`.
