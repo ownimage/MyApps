@@ -1,6 +1,6 @@
-// Storyboard - the floating left toolbar (boards, background, stickers, text)
-// and its fly-out panel. The rail is always visible; one tool's panel slides out
-// beside it. Pin keeps the panel open while the board is used.
+// Storyboard - the floating left toolbar (stories/scenes, background, stickers,
+// text) and its fly-out panel. The rail is always visible; one tool's panel
+// slides out beside it. Pin keeps the panel open while the board is used.
 
 var sbToolbarEls = {};
 
@@ -109,7 +109,7 @@ function sbRenderPanel() {
   }
   if (sbToolbarEls.title) {
     sbToolbarEls.title.textContent =
-      tool === "boards" ? "Boards" :
+      tool === "boards" ? "Stories" :
       tool === "background" ? "Background" :
       tool === "stickers" ? "Stickers" :
       (sbState.editingTextId ? "Edit text" : "Text");
@@ -120,40 +120,62 @@ function sbRenderPanel() {
   else if (tool === "text") sbRenderTextPanel();
 }
 
-// ---- Boards ----------------------------------------------------------------
+// ---- Stories / scenes ------------------------------------------------------
+//
+// The rail's first tool (still data-tool="boards" internally) is now the STORY
+// tree: a Story row, and - when it is the active story - its Scenes indented
+// beneath it. Clicking a story selects/expands it; clicking a scene edits it.
 
 function sbRenderBoardsPanel() {
+  var activeStory = sbActiveStory();
   var active = sbActiveBoard();
   var html = '<div class="sb-board-list">';
-  sbState.boards.forEach(function (board) {
-    html += '<div class="sb-board-row' + (active && board.id === active.id ? " active" : "") + '" data-board-id="' + board.id + '">' +
-      '<button type="button" class="sb-board-pick" data-act="pick" data-id="' + board.id + '">' +
-        '<i class="fa-solid fa-chalkboard" aria-hidden="true"></i>' +
-        '<span>' + escapeHtml(board.name) + '</span>' +
+  sbState.stories.forEach(function (story) {
+    var expanded = !!activeStory && story.id === activeStory.id;
+    html += '<div class="sb-story-row' + (expanded ? " active" : "") + '" data-story-id="' + story.id + '">' +
+      '<button type="button" class="sb-story-pick" data-act="pick-story" data-id="' + story.id + '">' +
+        '<i class="fa-solid ' + (expanded ? "fa-chevron-down" : "fa-chevron-right") + ' sb-story-chevron" aria-hidden="true"></i>' +
+        '<i class="fa-solid fa-book-open" aria-hidden="true"></i>' +
+        '<span>' + escapeHtml(story.name) + '</span>' +
       '</button>' +
-      '<button type="button" class="sb-board-act" data-act="rename" data-id="' + board.id + '" title="Rename board" aria-label="Rename board"><i class="fa-solid fa-pen"></i></button>' +
-      '<button type="button" class="sb-board-act" data-act="delete" data-id="' + board.id + '" title="Delete board" aria-label="Delete board"' +
-        (sbState.boards.length < 2 ? " disabled" : "") + '><i class="fa-solid fa-trash"></i></button>' +
+      '<button type="button" class="sb-story-act" data-act="rename-story" data-id="' + story.id + '" title="Rename story" aria-label="Rename story"><i class="fa-solid fa-pen"></i></button>' +
+      '<button type="button" class="sb-story-act" data-act="delete-story" data-id="' + story.id + '" title="Delete story" aria-label="Delete story"' +
+        (sbState.stories.length < 2 ? " disabled" : "") + '><i class="fa-solid fa-trash"></i></button>' +
     '</div>';
+    if (!expanded) return;
+    html += '<div class="sb-story-scenes">';
+    story.scenes.forEach(function (board) {
+      html += '<div class="sb-board-row' + (active && board.id === active.id ? " active" : "") + '" data-board-id="' + board.id + '">' +
+        '<button type="button" class="sb-board-pick" data-act="pick" data-id="' + board.id + '">' +
+          '<i class="fa-solid fa-clapperboard" aria-hidden="true"></i>' +
+          '<span>' + escapeHtml(board.name) + '</span>' +
+        '</button>' +
+        '<button type="button" class="sb-board-act" data-act="rename" data-id="' + board.id + '" title="Rename scene" aria-label="Rename scene"><i class="fa-solid fa-pen"></i></button>' +
+        '<button type="button" class="sb-board-act" data-act="delete" data-id="' + board.id + '" title="Delete scene" aria-label="Delete scene"' +
+          (story.scenes.length < 2 ? " disabled" : "") + '><i class="fa-solid fa-trash"></i></button>' +
+      '</div>';
+    });
+    html += '<button type="button" class="btn btn-sm btn-success sb-add-scene" data-act="add-scene" data-id="' + story.id + '">' +
+      '<i class="fa-solid fa-plus me-1"></i>New scene</button>';
+    html += '</div>';
   });
   html += '</div>';
-  html += '<button type="button" id="sbAddBoard" class="btn btn-success w-100"><i class="fa-solid fa-plus me-1"></i>New board</button>';
-  html += '<p class="sb-panel-note">Each board keeps its own background, stickers and text.</p>';
+  html += '<button type="button" id="sbAddStory" class="btn btn-success w-100"><i class="fa-solid fa-plus me-1"></i>New story</button>';
+  html += '<p class="sb-panel-note">A story contains scenes. Each scene is its own board with a background, stickers and text.</p>';
   sbToolbarEls.body.innerHTML = html;
 }
 
-function sbStartRename(id) {
-  var row = sbToolbarEls.body.querySelector('.sb-board-row[data-board-id="' + id + '"]');
-  var board = sbFindBoard(id);
-  if (!row || !board) return;
-  var pick = row.querySelector(".sb-board-pick");
-  pick.innerHTML = '<input class="form-control form-control-sm sb-board-name-input" value="' + escAttr(board.name) + '">';
+// Replace a row's clickable label with an input; Enter/blur saves, Escape cancels.
+function sbBeginInlineRename(row, pickSelector, currentName, onSave) {
+  var pick = row && row.querySelector(pickSelector);
+  if (!pick) return;
+  pick.innerHTML = '<input class="form-control form-control-sm sb-board-name-input" value="' + escAttr(currentName) + '">';
   var input = pick.querySelector("input");
   var done = false;
   var finish = function (save) {
     if (done) return;
     done = true;
-    if (save) sbRenameBoard(id, input.value);
+    if (save) onSave(input.value);
     else sbRenderPanel();
   };
   input.addEventListener("keydown", function (e) {
@@ -165,18 +187,54 @@ function sbStartRename(id) {
   input.select();
 }
 
+function sbStartRename(id) {
+  var board = sbFindBoard(id);
+  var row = sbToolbarEls.body.querySelector('.sb-board-row[data-board-id="' + id + '"]');
+  if (!board || !row) return;
+  sbBeginInlineRename(row, ".sb-board-pick", board.name, function (name) {
+    sbRenameBoard(id, name);
+  });
+}
+
+function sbStartRenameStory(id) {
+  var story = sbFindStory(id);
+  var row = sbToolbarEls.body.querySelector('.sb-story-row[data-story-id="' + id + '"]');
+  if (!story || !row) return;
+  sbBeginInlineRename(row, ".sb-story-pick", story.name, function (name) {
+    sbRenameStory(id, name);
+  });
+}
+
 function sbConfirmDeleteBoard(id) {
   var board = sbFindBoard(id);
-  if (!board) return;
+  var story = sbStoryForScene(id);
+  if (!board || !story) return;
   showSmdModal({
-    title: "Delete board?",
-    content: 'Delete "' + escapeHtml(board.name) + '" and everything on it? This cannot be undone.',
+    title: "Delete scene?",
+    content: 'Delete "' + escapeHtml(board.name) + '" from "' + escapeHtml(story.name) + '"? This cannot be undone.',
     buttons: [
       { text: "Cancel", variant: "secondary", action: "cancel" },
       { text: "Delete", variant: "danger", action: "delete" }
     ],
     onAction: function (detail) {
       if (detail.action === "delete") sbDeleteBoard(id);
+    }
+  });
+}
+
+function sbConfirmDeleteStory(id) {
+  var story = sbFindStory(id);
+  if (!story) return;
+  showSmdModal({
+    title: "Delete story?",
+    content: 'Delete "' + escapeHtml(story.name) + '" and all ' + story.scenes.length +
+      ' scene' + (story.scenes.length === 1 ? "" : "s") + '? This cannot be undone.',
+    buttons: [
+      { text: "Cancel", variant: "secondary", action: "cancel" },
+      { text: "Delete", variant: "danger", action: "delete" }
+    ],
+    onAction: function (detail) {
+      if (detail.action === "delete") sbDeleteStory(id);
     }
   });
 }
@@ -391,13 +449,17 @@ function sbOnPanelClick(e) {
   if (act) {
     var id = act.dataset.id;
     if (act.dataset.act === "pick") sbSetActiveBoard(id);
+    else if (act.dataset.act === "pick-story") sbSetActiveStory(id);
     else if (act.dataset.act === "rename") sbStartRename(id);
+    else if (act.dataset.act === "rename-story") sbStartRenameStory(id);
     else if (act.dataset.act === "delete") sbConfirmDeleteBoard(id);
+    else if (act.dataset.act === "delete-story") sbConfirmDeleteStory(id);
+    else if (act.dataset.act === "add-scene") sbAddSceneToStory(id);
     return;
   }
 
-  if (t.closest && t.closest("#sbAddBoard")) {
-    sbAddBoard();
+  if (t.closest && t.closest("#sbAddStory")) {
+    sbAddStory();
     return;
   }
   if (t.closest && t.closest("#sbPlaceText")) {

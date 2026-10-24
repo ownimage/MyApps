@@ -33,9 +33,14 @@ function makeBoard(id, items) {
 async function seedBoard(page, b) {
   await page.goto("/");
   await page.evaluate((seed) => {
-    localStorage.setItem("storyboard_boards", JSON.stringify([seed]));
-    localStorage.setItem("storyboard_activeBoard", seed.id);
-    localStorage.removeItem("storyboard_zoom");
+    localStorage.setItem("storyboard_stories", JSON.stringify([{
+      id: "story-" + seed.id,
+      name: "Story 1",
+      scenes: [seed],
+      activeSceneId: seed.id
+    }]));
+    localStorage.setItem("storyboard_activeStory", "story-" + seed.id);
+    localStorage.setItem("storyboard_activeScene", seed.id);
   }, b);
   await page.goto("/Storyboard/");
   await expect(page.locator("#sbCanvas")).toBeVisible();
@@ -44,8 +49,9 @@ async function seedBoard(page, b) {
 
 function storedBoard(page) {
   return page.evaluate(() => {
-    const boards = JSON.parse(localStorage.getItem("storyboard_boards"));
-    return boards.find((b) => b.id === sbState.activeId) || boards[0];
+    const stories = JSON.parse(localStorage.getItem("storyboard_stories"));
+    const scenes = stories.flatMap((s) => s.scenes);
+    return scenes.find((b) => b.id === sbState.activeId) || scenes[0];
   });
 }
 

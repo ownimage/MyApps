@@ -60,10 +60,13 @@ var SB_TEXT_TOKENS = ["auto", "white", "black", "primary", "secondary", "success
 // (the whole board visible, exactly as before zooming existed).
 var SB_ZOOM_LEVELS = [0.5, 0.75, 1, 1.25, 1.5, 2, 3, 4];
 
-// Runtime state (deliberately not persisted, except the boards themselves - each
-// carries its own `view` {zoom, fx, fy} - plus the active board and pin state).
+// Runtime state (deliberately not persisted, except the Stories - each SCENE
+// carries its own `view` {zoom, fx, fy} - plus the active story/scene and pin
+// state). A Story owns an ordered list of Scenes; every Scene is the same
+// "board" shape the canvas/render/export code already understands.
 var sbState = {
-  boards: [],
+  stories: [],
+  activeStoryId: "",
   activeId: "",
   selectedId: "",
   selectedIds: [],
@@ -215,6 +218,84 @@ function sbNormalizeBoard(raw) {
   return board;
 }
 
+// ---- Stories and scenes -----------------------------------------------------
+//
+// A Story is { id, name, scenes: [scene], activeSceneId }. A SCENE is exactly
+// the board shape above (background, items, connectors, groups, view), so every
+// existing board-scoped render/edit/export helper keeps working unchanged:
+// sbActiveBoard() simply returns the active scene of the active story.
+
+function sbNewScene(name) {
+  return {
+    id: sbUid(),
+    name: String(name || "Scene").trim() || "Scene",
+    background: "",
+    items: [],
+    connectors: [],
+    groups: [],
+    view: { zoom: 1, fx: 0.5, fy: 0.5 }
+  };
+}
+
+function sbNewStory(name, firstSceneName) {
+  var scene = sbNewScene(firstSceneName || "Scene 1");
+  return {
+    id: sbUid(),
+    name: String(name || "Story").trim() || "Story",
+    scenes: [scene],
+    activeSceneId: scene.id
+  };
+}
+
+function sbNormalizeStory(raw) {
+  if (!raw || typeof raw !== "object") return null;
+  var story = {
+    id: String(raw.id || sbUid()),
+    name: String(raw.name || "Story").trim() || "Story",
+    scenes: [],
+    activeSceneId: ""
+  };
+  if (Array.isArray(raw.scenes)) {
+    raw.scenes.forEach(function (sceneRaw) {
+      var scene = sbNormalizeBoard(sceneRaw);
+      if (scene) story.scenes.push(scene);
+    });
+  }
+  if (!story.scenes.length) story.scenes.push(sbNewScene("Scene 1"));
+  var active = String(raw.activeSceneId || "");
+  story.activeSceneId = story.scenes.some(function (s) { return s.id === active; })
+    ? active
+    : story.scenes[0].id;
+  return story;
+}
+
+function sbFindStory(id) {
+  for (var i = 0; i < sbState.stories.length; i++) {
+    if (sbState.stories[i].id === id) return sbState.stories[i];
+  }
+  return null;
+}
+
+// The story that owns a scene (scene ids are unique across all stories).
+function sbStoryForScene(sceneId) {
+  for (var i = 0; i < sbState.stories.length; i++) {
+    var scenes = sbState.stories[i].scenes || [];
+    for (var j = 0; j < scenes.length; j++) {
+      if (scenes[j].id === sceneId) return sbState.stories[i];
+    }
+  }
+  return null;
+}
+
+function sbActiveStory() {
+  var story = sbFindStory(sbState.activeStoryId);
+  if (!story) {
+    story = sbState.stories[0] || null;
+    if (story) sbState.activeStoryId = story.id;
+  }
+  return story;
+}
+
 // Sanitise a persisted group forest:
 //  - children must reference a known leaf or group, once, and never themselves;
 //  - a node has at most ONE parent (a forest, not a DAG);
@@ -310,24 +391,32 @@ function sbNormalizeGroups(board, rawGroups) {
 }
 
 function sbLoadState() {
-  var boards = null;
+  var stories = null;
   try {
-    boards = JSON.parse(localStorage.getItem(smdKey("boards")) || "null");
+    stories = JSON.parse(localStorage.getItem(smdKey("stories")) || "null");
   } catch (e) {
-    boards = null;
+    stories = null;
   }
-  if (!Array.isArray(boards)) boards = [];
-  sbState.boards = boards.map(sbNormalizeBoard).filter(Boolean);
-  if (!sbState.boards.length) {
-    sbState.boards.push({ id: sbUid(), name: "My Storyboard", background: "", items: [], connectors: [], groups: [], view: { zoom: 1, fx: 0.5, fy: 0.5 } });
+  if (!Array.isArray(stories)) stories = [];
+  sbState.stories = stories.map(sbNormalizeStory).filter(Boolean);
+  if (!sbState.stories.length) {
+    sbState.stories.push(sbNewStory("Story 1", "Scene 1"));
   }
-  var savedActive = localStorage.getItem(smdKey("activeBoard")) || "";
-  sbState.activeId = sbFindBoard(savedActive) ? savedActive : sbState.boards[0].id;
+  var savedStory = localStorage.getItem(smdKey("activeStory")) || "";
+  var story = sbFindStory(savedStory) || sbState.stories[0];
+  sbState.activeStoryId = story.id;
+  var savedScene = localStorage.getItem(smdKey("activeScene")) || story.activeSceneId;
+  var scene = null;
+  for (var i = 0; i < story.scenes.length; i++) {
+    if (story.scenes[i].id === savedScene) scene = story.scenes[i];
+  }
+  if (!scene) scene = story.scenes[0];
+  story.activeSceneId = scene.id;
+  sbState.activeId = scene.id;
   sbState.pinned = localStorage.getItem(smdKey("toolbarPinned")) === "true";
-  // The zoom is part of each board's own view; sbState.zoom mirrors the ACTIVE
-  // board so the layout/zoom code keeps working unchanged.
-  var active = sbFindBoard(sbState.activeId);
-  sbState.zoom = active && active.view ? active.view.zoom : 1;
+  // The zoom is part of each SCENE's own view; sbState.zoom mirrors the ACTIVE
+  // scene so the layout/zoom code keeps working unchanged.
+  sbState.zoom = scene.view ? scene.view.zoom : 1;
   sbSaveState();
 }
 
@@ -336,9 +425,12 @@ function sbSaveState() {
     clearTimeout(sbState.saveTimer);
     sbState.saveTimer = null;
   }
+  var story = sbActiveStory();
+  if (story && sbState.activeId) story.activeSceneId = sbState.activeId;
   try {
-    localStorage.setItem(smdKey("boards"), JSON.stringify(sbState.boards));
-    localStorage.setItem(smdKey("activeBoard"), sbState.activeId);
+    localStorage.setItem(smdKey("stories"), JSON.stringify(sbState.stories));
+    localStorage.setItem(smdKey("activeStory"), sbState.activeStoryId);
+    localStorage.setItem(smdKey("activeScene"), sbState.activeId);
     localStorage.setItem(smdKey("toolbarPinned"), sbState.pinned ? "true" : "false");
   } catch (e) { /* storage unavailable: the board still works for this visit */ }
 }
@@ -352,18 +444,33 @@ function sbSaveSoon() {
   }, 150);
 }
 
+// Scene lookup across every story (scene ids are globally unique).
 function sbFindBoard(id) {
-  for (var i = 0; i < sbState.boards.length; i++) {
-    if (sbState.boards[i].id === id) return sbState.boards[i];
+  for (var i = 0; i < sbState.stories.length; i++) {
+    var scenes = sbState.stories[i].scenes || [];
+    for (var j = 0; j < scenes.length; j++) {
+      if (scenes[j].id === id) return scenes[j];
+    }
   }
   return null;
 }
 
 function sbActiveBoard() {
-  var board = sbFindBoard(sbState.activeId);
+  var story = sbActiveStory();
+  if (!story) return null;
+  var board = null;
+  for (var i = 0; i < story.scenes.length; i++) {
+    if (story.scenes[i].id === sbState.activeId) board = story.scenes[i];
+  }
   if (!board) {
-    board = sbState.boards[0] || null;
-    if (board) sbState.activeId = board.id;
+    for (var j = 0; j < story.scenes.length; j++) {
+      if (story.scenes[j].id === story.activeSceneId) board = story.scenes[j];
+    }
+  }
+  if (!board) board = story.scenes[0] || null;
+  if (board) {
+    sbState.activeId = board.id;
+    story.activeSceneId = board.id;
   }
   return board;
 }
@@ -528,56 +635,141 @@ function sbCloneNode(nodeId, board, counter, offset) {
   return next.id;
 }
 
-function sbUniqueBoardName() {
-  var n = sbState.boards.length + 1;
+function sbUniqueStoryName() {
+  var n = sbState.stories.length + 1;
   var names = {};
-  sbState.boards.forEach(function (b) { names[b.name] = true; });
-  var name = "Board " + n;
+  sbState.stories.forEach(function (s) { names[s.name] = true; });
+  var name = "Story " + n;
   while (names[name]) {
     n++;
-    name = "Board " + n;
+    name = "Story " + n;
   }
   return name;
 }
 
-function sbAddBoard() {
-  // Keep the outgoing board's current zoom/position before switching away.
-  if (typeof sbCaptureView === "function") sbCaptureView();
-  var board = { id: sbUid(), name: sbUniqueBoardName(), background: "", items: [], connectors: [], groups: [], view: { zoom: 1, fx: 0.5, fy: 0.5 } };
-  sbState.boards.push(board);
-  sbState.activeId = board.id;
-  sbState.zoom = board.view.zoom;
+function sbUniqueSceneName(story) {
+  var scenes = (story && story.scenes) || [];
+  var n = scenes.length + 1;
+  var names = {};
+  scenes.forEach(function (s) { names[s.name] = true; });
+  var name = "Scene " + n;
+  while (names[name]) {
+    n++;
+    name = "Scene " + n;
+  }
+  return name;
+}
+
+// Reset the runtime selection when the active scene/story changes.
+function sbResetSceneSelection() {
   sbState.selectedId = "";
   sbState.selectedIds = [];
   sbState.selectedConnectorId = "";
   sbState.connectFrom = "";
   sbState.editingTextId = "";
+}
+
+function sbActivateScene(story, board) {
+  sbState.activeStoryId = story.id;
+  story.activeSceneId = board.id;
+  sbState.activeId = board.id;
+  sbState.zoom = board.view ? board.view.zoom : 1;
+  sbResetSceneSelection();
   sbSaveState();
   sbRender();
   sbRenderPanel();
+}
+
+function sbAddStory() {
+  // Keep the outgoing scene's current zoom/position before switching away.
+  if (typeof sbCaptureView === "function") sbCaptureView();
+  var story = sbNewStory(sbUniqueStoryName(), "Scene 1");
+  sbState.stories.push(story);
+  sbActivateScene(story, story.scenes[0]);
+  return story;
+}
+
+function sbSetActiveStory(id) {
+  var story = sbFindStory(id);
+  if (!story) return;
+  if (story.id === sbState.activeStoryId) {
+    // Clicking the already-active story just makes sure its scenes are showing.
+    sbRenderPanel();
+    return;
+  }
+  if (typeof sbCaptureView === "function") sbCaptureView();
+  var board = null;
+  for (var i = 0; i < story.scenes.length; i++) {
+    if (story.scenes[i].id === story.activeSceneId) board = story.scenes[i];
+  }
+  if (!board) board = story.scenes[0];
+  sbActivateScene(story, board);
+}
+
+function sbRenameStory(id, name) {
+  var story = sbFindStory(id);
+  if (!story) return;
+  var trimmed = String(name || "").trim();
+  if (!trimmed) return;
+  story.name = trimmed;
+  sbSaveState();
+  sbRender();
+  sbRenderPanel();
+}
+
+function sbDeleteStory(id) {
+  if (sbState.stories.length < 2) return false;
+  var index = -1;
+  for (var i = 0; i < sbState.stories.length; i++) {
+    if (sbState.stories[i].id === id) index = i;
+  }
+  if (index < 0) return false;
+  if (typeof sbCaptureView === "function") sbCaptureView();
+  sbState.stories.splice(index, 1);
+  if (sbState.activeStoryId === id || !sbFindStory(sbState.activeStoryId)) {
+    var nextStory = sbState.stories[Math.min(index, sbState.stories.length - 1)];
+    var nextBoard = nextStory.scenes[0];
+    sbActivateScene(nextStory, nextBoard);
+    return true;
+  }
+  sbSaveState();
+  sbRenderPanel();
+  return true;
+}
+
+// Scenes live inside the ACTIVE story's ordered list. "New scene" adds and
+// switches to it; the story keeps its previous scene's activeSceneId otherwise.
+function sbAddBoard() {
+  return sbAddSceneToStory(sbState.activeStoryId);
+}
+
+function sbAddSceneToStory(storyId) {
+  var story = sbFindStory(storyId) || sbActiveStory();
+  if (!story) return null;
+  if (typeof sbCaptureView === "function") sbCaptureView();
+  var board = sbNewScene(sbUniqueSceneName(story));
+  story.scenes.push(board);
+  sbActivateScene(story, board);
   return board;
 }
 
 function sbDeleteBoard(id) {
-  if (sbState.boards.length < 2) return false;
+  var story = sbStoryForScene(id);
+  if (!story || story.scenes.length < 2) return false;
   var index = -1;
-  for (var i = 0; i < sbState.boards.length; i++) {
-    if (sbState.boards[i].id === id) index = i;
+  for (var i = 0; i < story.scenes.length; i++) {
+    if (story.scenes[i].id === id) index = i;
   }
   if (index < 0) return false;
-  sbState.boards.splice(index, 1);
+  story.scenes.splice(index, 1);
   if (sbState.activeId === id || !sbFindBoard(sbState.activeId)) {
-    sbState.activeId = sbState.boards[Math.min(index, sbState.boards.length - 1)].id;
+    var next = story.scenes[Math.min(index, story.scenes.length - 1)];
+    sbState.activeStoryId = story.id;
+    sbActivateScene(story, next);
+    return true;
   }
-  var next = sbFindBoard(sbState.activeId);
-  sbState.zoom = next && next.view ? next.view.zoom : 1;
-  sbState.selectedId = "";
-  sbState.selectedIds = [];
-  sbState.selectedConnectorId = "";
-  sbState.connectFrom = "";
-  sbState.editingTextId = "";
+  if (story.activeSceneId === id) story.activeSceneId = story.scenes[Math.min(index, story.scenes.length - 1)].id;
   sbSaveState();
-  sbRender();
   sbRenderPanel();
   return true;
 }
@@ -595,19 +787,11 @@ function sbRenameBoard(id, name) {
 
 function sbSetActiveBoard(id) {
   if (!sbFindBoard(id) || id === sbState.activeId) return;
-  // Snapshot the outgoing board's zoom/position before the switch.
+  var story = sbStoryForScene(id);
+  if (!story) return;
+  // Snapshot the outgoing scene's zoom/position before the switch.
   if (typeof sbCaptureView === "function") sbCaptureView();
-  sbState.activeId = id;
-  var board = sbFindBoard(id);
-  sbState.zoom = board && board.view ? board.view.zoom : 1;
-  sbState.selectedId = "";
-  sbState.selectedIds = [];
-  sbState.selectedConnectorId = "";
-  sbState.connectFrom = "";
-  sbState.editingTextId = "";
-  sbSaveState();
-  sbRender();
-  sbRenderPanel();
+  sbActivateScene(story, sbFindBoard(id));
 }
 
 function sbSetBackground(id) {

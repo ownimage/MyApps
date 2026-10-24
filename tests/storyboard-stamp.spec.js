@@ -124,8 +124,14 @@ test.describe("Storyboard - text frames", () => {
   test("repaints an auto stamp frame when theme CSS lands after render", async ({ page }) => {
     await page.goto("/");
     await page.evaluate((board) => {
-      localStorage.setItem("storyboard_boards", JSON.stringify([board]));
-      localStorage.setItem("storyboard_activeBoard", board.id);
+      localStorage.setItem("storyboard_stories", JSON.stringify([{
+        id: "story-" + board.id,
+        name: "Story 1",
+        scenes: [board],
+        activeSceneId: board.id
+      }]));
+      localStorage.setItem("storyboard_activeStory", "story-" + board.id);
+      localStorage.setItem("storyboard_activeScene", board.id);
     }, STAMP_BOARD);
 
     await page.goto("/Storyboard/");
@@ -161,8 +167,14 @@ test.describe("Storyboard - text frames", () => {
   test("saves stamp edges as repeated tiles rather than one stretched slice", async ({ page }) => {
     await page.goto("/");
     await page.evaluate((board) => {
-      localStorage.setItem("storyboard_boards", JSON.stringify([board]));
-      localStorage.setItem("storyboard_activeBoard", board.id);
+      localStorage.setItem("storyboard_stories", JSON.stringify([{
+        id: "story-" + board.id,
+        name: "Story 1",
+        scenes: [board],
+        activeSceneId: board.id
+      }]));
+      localStorage.setItem("storyboard_activeStory", "story-" + board.id);
+      localStorage.setItem("storyboard_activeScene", board.id);
     }, STAMP_EDGE_BOARD);
 
     await page.goto("/Storyboard/");
@@ -208,8 +220,14 @@ test.describe("Storyboard - text frames", () => {
   test("keeps the live glyphs on the JPG's vertical baseline", async ({ page }) => {
     await page.goto("/");
     await page.evaluate((board) => {
-      localStorage.setItem("storyboard_boards", JSON.stringify([board]));
-      localStorage.setItem("storyboard_activeBoard", board.id);
+      localStorage.setItem("storyboard_stories", JSON.stringify([{
+        id: "story-" + board.id,
+        name: "Story 1",
+        scenes: [board],
+        activeSceneId: board.id
+      }]));
+      localStorage.setItem("storyboard_activeStory", "story-" + board.id);
+      localStorage.setItem("storyboard_activeScene", board.id);
     }, ALIGN_BOARD);
 
     await page.goto("/Storyboard/");

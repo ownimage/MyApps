@@ -87,6 +87,22 @@ Architecture:
 - TYPESCALE TOKENS (2026-09-18): one shared ramp in `shared/css/styles.css` — `body { --smd-type-base: 1rem }` plus `body.font-size-xsmall/small/large/xlarge/jumbo` overrides (0.8/0.925/1/1.125/1.3/1.6rem) — drives exactly four tokens `--smd-type-badge` (base×0.75), `--smd-type-p` (base), `--smd-type-h2` (base×1.25), `--smd-type-h1` (base×2), all declared on `body` (NOT `:root`: the ramp must recompute per font-size body class, and body custom props pierce shadow DOM while `:host-context()` doesn't). Tag map: h1→h1; h2/h3/h4→h2; h5/h6→p; text/inputs/tables→p; badges→badge. BUTTONS ARE h2 (one step above text): `<button>`, `.btn`, `.smd-tab-btn` all use `var(--smd-type-h2)`; `.btn-sm` stays at `var(--smd-type-p)`. Light-DOM home is `shared/css/styles.css` (`button, .btn` / `.btn-sm`); the shared `btnBadgeSheet` covers shadow buttons. Scaffold the h2/p rules inline wherever a shadow root does NOT adopt btnBadgeSheet: the 4 apps' `editor-styles.js`, `smd-settings.js`, `smd-minio.js`, `smd-modal.js`, `smd-image-picker.js`, `smd-image-dropdown.js`. Don't re-add per-component `.btn` font-size rules. Every component + app style now uses `var(--smd-type-*, original-value)` (original as fallback so behaviour is unchanged wherever the token is missing). Media-fit sizes are token CALCs (e.g. CM/QR title `calc(var(--smd-type-h1,1.5rem)*0.7667)`, CM count `*0.8333`, CM container h1 `*0.625`, Solar 480px block). Compact density = `--…-title-size: var(--smd-type-p)` overrides. Deliberate non-token exceptions: the 22px hamburger icon in `smd-app.js`, `smd-checkbox` 1.2em/2em + `smd-draghandle` FIXED 1.2rem/1.6rem touch sizes, vendor CSS, storybook chrome. Tests assert heading ELEMENT tags (now `h1` for main-view date/"Today!"/"From …" headings) and pmd-touch.spec.js:119 asserts the NEW pixel values (xlarge 41.6, jumbo 51.2, compact-jumbo 25.6) — update those literals together with any ramp change.
 - THEME TEXT COLOURS (2026-09-12): shadow-DOM buttons/tabs cannot use Bootswatch's `.btn-*` rules (document CSS doesn't cross the boundary, and `--bs-btn-*` is set on the `.btn-*` element, not `:root`). `applySmdVars()` reads a hidden light-DOM `<button class="btn btn-<variant>">` probe (`smdBootstrapColor()`) and publishes `--smd-primary/secondary/success/danger/info/warning-text` + `--smd-tab-text` on `<html>`; every shadow `.btn-*`/variant uses those vars. `applyTheme()` re-runs `applySmdVars` on the theme `<link>`'s `load`. Never hardcode white text for a theme-coloured surface; if Bootswatch's own `.btn-*` rule disagrees with its `--bs-btn-color` var (e.g. cerulean's later `.btn-secondary { color: ... }`), the probe wins — always match the probe.
 - BADGES (2026-09-12): use the shared `<smd-badge variant="primary|secondary|success|danger|warning|info|light|dark" pill?>` component everywhere — never a `<span class="badge bg-*">` (Bootstrap's badge vars live on the `.badge` element and can't reach shadow roots). `applySmdVars()` probes a hidden light-DOM `.badge.text-bg-<variant>` (`smdBootstrapStyle()`) and publishes `--smd-badge-<variant>-{bg,text}`; the component's own sheet consumes them, so text colour follows Bootswatch exactly (white on cerulean's navy info, black on its light secondary, etc.). `btnBadgeSheet` now only carries `.btn*` rules despite its name; `smd-page`'s badge/bg rules were removed.
+- PWA TITLE BAR COLOUR (2026-10-24): Windows 11 paints an installed PWA's
+  title bar from the manifest `theme_color`; the page's
+  `<meta name="theme-color">` overrides it once loaded. There is NO manifest
+  option for "follow the OS accent" (W3C manifest issue #695); omitting
+  `theme_color` gives the OS default but also loses the mobile/task-switcher
+  branding. CHOSEN FALLBACK: the meta follows the SELECTED THEME'S SECONDARY
+  colour. `applyThemeColor()` + `smdRefreshThemeColor()` /
+  `smdBindThemeColorLink()` in `shared/js/smd-settings.js` read the live
+  `--bs-secondary` and re-run when a theme/mode sheet's `load` fires;
+  `applyTheme`/`applyThemeMode` call them. STATIC `theme_color`/meta values are
+  only the pre-load/install default - the old Android green `#3ddc84` was the
+  reported "weird green", now `#212529` in the Launch and PMD/CMD/LoL/QRLinks
+  manifests + metas (other apps keep their brand colour until the meta loads).
+  Chromium updates an installed app's manifest theme_color on a later launch
+  after its windows close; the page meta takes effect when the page loads.
+  Test: `tests/pwa-theme-color.spec.js`.
 - IMAGE DROPDOWN (2026-09-18): the shared `<smd-image-dropdown>` (`shared/js/components/smd-image-dropdown.js`) is the generic image+name picker — the old PlanMyDay `pmd-stream-select` was folded into it and deleted. It is DATA-driven, not DOM: host sets `options = [{name, image}]` (image OPTIONAL → text-only rows, e.g. CountMyDays' no-image "All") and `selected` = the chosen option's NAME string; picks dispatch `smd-image-dropdown-change` ({ name }). Listener wiring: CountMyDays `#dateCategoryFilter` (`smd-image-dropdown-change` → `setDateCategoryFilter`, "" for All) in `dates-editor.js`; PlanMyDay `#jobStreamDropdown` (name mapped back via `streamIndexByName` in `editor-common.js`). Stable shadow ids for test locators: `smdImageDropdownBtn`, `smdImageBtnIcon`, `smdImageBtnText`, `smdImageDropdownMenu`. Its colours come from the `--smd-dropdown-*` palette in the shared MODE layer (`shared/css/themes/light.css` + `dark.css`), which since 2026-10-13 mirrors the form-field palette (`--smd-form-*`) for surface/label/border and does NOT change colour on hover (the closed control is field-like); a theme overrides in `shared/css/themes/<theme>/<theme>.<mode>.css` (superhero, cyborg, darkly do) — see the 2026-09-26 (c) and 2026-10-13 (e) session notes. GOTCHA (2026-10-13): the palette only sets `background-color`, so a theme whose stock `.btn` ALSO sets `background-image: var(--bs-gradient)` shows a white sheen over a dark button; materia is the only such theme and clears it with `#smd-app smd-image-dropdown .btn { background-image: none }` (the `#smd-app` scope is needed to beat the theme's `.btn:focus-visible` re-apply).
 - SMD-SELECT (2026-10-13): new shared `shared/js/components/smd-select.js` (`<smd-select>`) — a text-only custom dropdown with a `<select>` SHAPE (its button reuses Bootstrap's `.form-select`, so it inherits the shared `--smd-form-*` repaint) but a THEMED menu, because a native `<select>`'s open list is OS-rendered and cannot be CSS-styled cross-browser. API: `options = [{value,label}]`, `value` (reflected as an attribute for tests), attributes `disabled`/`value`, event `smd-select-change` ({value,label}); stable hooks `.smd-select-btn`, `.smd-select-item[data-value]`, `.smd-select-item.active`. The HOVERED row gets its primary surface from a CSS `:hover`/`:focus-visible` rule on `.smd-select-item` (so it ALWAYS shows), and the SELECTED row gets `.text-bg-primary`; the component ALSO adds `.text-bg-primary` to the hovered row so the theme's primary BUTTON variant supplies the correct contrast text (brite keeps BLACK text; a plain `--bs-primary`+white is unreadable there). Menu `z-index: 1030` (above Bootstrap `sticky-top` 1020, below smd-page 1040 / modal 1050). Rows are `<a>` so they need `text-decoration: none`. `<smd-theme>` now uses it for the Theme / Theme Mode fields (was a native `<select>`). Registered in all 8 shells AFTER `library.js` and BEFORE `smd-theme.js`, plus `sw.js SHARED_ASSETS`; tests drive it with `tests/theme-controls.js` `pickOption(page, control, value)` which clicks `.smd-select-item[data-value="…"]`. MIGRATION ENABLERS (2026-10-13): `<smd-select>` also (a) dispatches a bubbling `change` event so an existing inline `onchange="fn(this.value)"` keeps working after the tag swap, (b) reads declarative `<option>` children into `options` (then removes them), (c) drops a leftover `form-select`/`form-select-sm` class from the HOST (the inner button carries the look), (d) supports `w-auto` (shrink-to-fit) and basic keyboard nav (Arrow/Enter/Escape). So migrating a static `<select>…</select>` is literally two edits: `<select id=` → `<smd-select id=` and `</select>` → `</smd-select>`. PHASE 2 DONE: every appearance-settings select in the 7 shell `index.html`s (font/icon/density/touch size, slide duration, CM format + max countdowns, PMD suffix-start/jan1/monday/start-week, FFox x/o piece style) is now `<smd-select>`. PHASE 3 DONE: SolarControlar `#log-file` (files-tab) + `#graph-date` (graph-tab) and PhoneButtons `#buttonKeyNamed` + `#buttonPressSelect` (edit-layout). GOTCHA: a declarative `<option>` set leaves its inter-tag WHITESPACE text nodes in the host, so `_build()` clears all children (`this.textContent = ""`) and the template string is whitespace-free (otherwise a stray line/space shows in the host). When migrating a select whose OPTIONS ARE REBUILT in place, set `.options` — never `.innerHTML`/`appendChild(<option>)`, which would wipe the component (that is why `graph-tab.js` `loadGraphDates` now assigns `.options`). PHASE 4 DONE: CountMyDays date/category editors (`#dateDaySelect`/`#dateMonthSelect`/`#dateTypeSelect`/`#gcalCategorySelect`) and the export/import wizards (`#imgExistingSelect`/`#catExistingSelect`/`#dateExistingSelect` + the export category filter); `<smd-select>` gained a `disabled` getter/setter (the wizards assign `.disabled`). PHASE 5 DONE: PMD job editor `#jobTimeHour`/`#jobTimeMin` + the dayType/mod selects (tag swap, `<option>` markup kept) and the Schedule MODAL `#schedNInterval`/`#schedNOffset`/`#schedMonthlyDay` (which are JS-POPULATED, so `openScheduleModal`/`onScheduleNDaysChange` now assign `.options`). PHASE 6 DONE: storybook `#ctrl-modal-buttons`/`#ctrl-image-theme`/`#ctrl-image-size` and cardViewer `#cardSelect`/`#themeSelect` (JS-populated → `.options`); `<smd-select>` also maps `form-select-sm` / `size="small"` onto the inner button, and `storybook/cardViewer.html` now loads `smd-select.js`. ROLLOUT COMPLETE — no native `<select>` remains in the app shells or storybook (the dev-only `screenshots/viewer.js` output tool is deliberately untouched).
 - SMD-IMAGE-DROPDOWN CLOSED-STATE LAYOUT (2026-10-04): the closed button
@@ -270,25 +286,45 @@ Architecture:
   and would strict-mode-fail). Sample images "Launch" and "Phone Buttons" were
   added (native SVG + SURGICAL JSON append — a full `regen` rewrites 22
   pre-existing entries whose SVG files drifted from the JSON).
+- STANDARD HAMBURGER MENU ORDER (2026-10-24, user request): EVERY app's
+  `#mainNav .dropdown-menu` is ordered **Settings | divider | Launch (flyout) |
+  divider | app items**. Conditional groups (MinIO, GCal, Gantt) come AFTER the
+  app items and carry their own divider + visibility class (`minio-menu-item`,
+  `google-menu-item`, `gcal-menu-item`, ...), so enabling one never reorders the
+  menu. Storyboard was the odd one (MinIO sat before Launch) - keep any new app
+  in this order. Test: storyboard-minio "the hamburger menu follows Settings |
+  separator | Launch | separator | app items" asserts the top-level `<li>`
+  sequence. GOTCHA: scope the selector with
+  `:not(.launch-submenu-menu)`, or the flyout's own rows leak into the list.
 - STORYBOARD APP (2026-10-21, NEW — the 9th app; older notes saying "all 8
   shells/apps" predate it): `Storyboard/` is a PlanMyDay-style classic-script PWA
   (no modules, globals on purpose). It has the standard hamburger (Settings |
-  Launch flyout) and exactly ONE settings tab, **Display**, with only live rows:
+  Launch flyout | MinIO save/load items) and TWO settings tabs, **Display** and
+  **Minio**. Display has only live rows:
   Theme, Theme Mode, Font size, Touch size, Slide speed, Auto-hide menu, Screen
-  resolution (last). No Title/`<h1>` in the shell (the nav title reads
+  resolution (last). Minio holds the shared server/bucket/directory fields. No
+  Title/`<h1>` in the shell (the nav title reads
   "Storyboard" from `SmdApps`).
   FILES: `js/storage.js` (data + colour/frame helpers), `js/board.js` (render +
   pointer gestures), `js/toolbar.js` (rail, fly-out panels, text editor),
-  `js/app-settings.js`, `js/app.js`; `css/storyboard.css` (all app layout; the
+  `js/app-settings.js`, `js/app-minio.js` (story save/load), `js/app.js`;
+  `css/storyboard.css` (all app layout; the
   shared sheet is untouched); `assets/backgrounds/{space,underwater}.svg`
   (2560x1440) and `assets/stickers/{mermaid,shark,seaweed,spaceman,spaceship}.svg`
   (512 viewBox flat art, transparent). `icon.svg` + generated 192/512 PNGs.
-  DATA: keys via `smdKey()` = `storyboard_boards`, `storyboard_activeBoard`,
-  `storyboard_toolbarPinned`. `sbState.boards` is an array of
-  `{id,name,background,items,connectors,groups,view}`; items are stickers
+  DATA (2026-10-24, Stories/Scenes): keys via `smdKey()` = `storyboard_stories`,
+  `storyboard_activeStory`, `storyboard_activeScene`, `storyboard_toolbarPinned`.
+  `sbState.stories` is an array of `{id,name,scenes:[scene],activeSceneId}`; a
+  SCENE is the old board shape
+  `{id,name,background,items,connectors,groups,view}`. `sbActiveBoard()` returns
+  the ACTIVE story's active scene, so every board-scoped render/edit/export
+  helper is unchanged. Items are stickers
   `{id,type:"sticker",sticker,x,y,scale,rotation,z,flipX,flipY}` or text
   `{id,type:"text",text,bg,color,border,font,x,y,scale,rotation,z}`. `view` is
-  that BOARD's own zoom + pan (`{zoom, fx, fy}`; see APP ZOOM below). `x`/`y` are
+  that SCENE's own zoom + pan (`{zoom, fx, fy}`; see APP ZOOM below). NOTE:
+  older notes in this section say "board" where the model now says SCENE; the
+  canvas is still board-shaped and the internal `sbBoard*`/`sbState.activeId`
+  names are kept on purpose. `x`/`y` are
   PERCENTAGES of the board (2..98 for a single-item transform; a group/multi
   transform clamps the SET's box instead and may use 0..100) so a board keeps its
   layout on resize; `z` is
@@ -7174,3 +7210,106 @@ Techniques / gotchas:
   repositions it; without the button-anchor shift the pointer no longer hovers
   the button, the bar's mouseleave fires and the options collapse immediately.
 
+
+### 2026-10-24 - MinIO directories + Storyboard board save/load
+- FEATURE (user): shared MinIO **Directory** setting on every app's Minio tab
+  (`smdKey("minio_directory")`; empty = bucket root). `getMinioConfig().directory`
+  is normalised by `minioNormalizeDirectory()` (forward slashes, no leading/
+  trailing slash, no "."/".." segments); `changeMinioDirectory()` persists it.
+  `minioBuildKey(dir, extraDir, filename)` joins a FURTHER directory level into a
+  key, and `minioDirectoryPrefix(dir)` returns the trailing-slash list prefix.
+- LISTING: `minioListFolder(bucket, prefix, config)` = list-type=2 +
+  `delimiter=/` -> `{objects, prefixes}`; `minioListAllUnder()` follows
+  continuation tokens; `minioLatestJsonKey()` picks the lexicographically
+  greatest `.json` key (backup names carry YYYYMMDDHHMM). The import page is
+  scoped to the configured Directory and shows immediate files, subdirectory
+  rows, `<subdir>:latest` (newest JSON inside that subdir), and Up when nested.
+  Stable classes: `.minio-folder-item`, `.minio-latest-item`, `.minio-file-item`,
+  `.minio-up-item`. Navigation helpers: `minioNavigate()`/`minioParentPrefix()`;
+  the page NEVER lists above the configured Directory.
+- EXPORTS: the shared default export and CountMyDays' app-owned
+  `doMinioExport` now upload under `config.directory`; with an empty Directory
+  the old filenames/keys are unchanged (PMD/CMD/LoL MinIO tests still green).
+- STORYBOARD: new `Storyboard/js/app-minio.js` (registered in `sw.js`), a Minio
+  settings tab, `#minioImportPage`, and hamburger items "Save Story to Minio" /
+  "Load Story from Minio" (deliberately NOT on the rail; `#sbSaveBtn` is still
+  Save scene as JPG). UPDATED for Stories/Scenes: save key =
+  `<Directory>/<sanitised story name>/story-YYYYMMDDHHMM.json` with payload
+  `{version, app:"storyboard", exportedAt, story}` (the WHOLE story including all
+  scenes). Load goes through `SmdConfig.onMinioImport`: an unused story name is
+  added as a new story with fresh story/scene ids; a name that ALREADY EXISTS
+  asks via `showSmdModal` (Cancel / Overwrite) and Overwrite replaces that
+  existing story IN PLACE (same story id). Cancel returns to the file list. Old
+  board-level files (`data.board`) are deliberately rejected.
+- TESTS: `tests/minio-directory.spec.js` (4: settings persistence, export path,
+  listing + `:latest` + folder navigation, CMD app-owned export),
+  `tests/storyboard-minio.spec.js` (6: tab/menu, menu ORDER, whole-story save
+  key/payload, story-name sanitising, load-latest adds a story, same-name
+  overwrite prompt/cancel/overwrite) and `tests/storyboard-stories.spec.js`
+  (5: default Story 1/Scene 1, New Story/New Scene, per-scene content + clicking
+  a story opens its scenes, rename persistence, delete guards). Also re-ran 63
+  existing MinIO tests and all 56 Storyboard specs: green.
+- GOTCHA: `tests/serve-tests.mjs` snapshots files at startup, so a long-running
+  dev server serves STALE code after edits - restart `npm run dev:test` before
+  trusting a red/green run.
+
+### 2026-10-24 - Storyboard: Stories contain Scenes (model rewrite)
+- REQUEST (user): call boards STORIES; a Story has any number of SCENES and each
+  scene is a board (background, stickers, text, connectors, groups, zoom/pan).
+  Loading a story shows it where the board was, but the sidebar lets you pick
+  any scene; clicking the story opens its scene list. NO data migration -
+  Storyboard has not shipped, so the old board store is deliberately ignored.
+- MODEL: `sbState.stories = [{id,name,scenes:[scene],activeSceneId}]` plus
+  `sbState.activeStoryId`; `sbState.activeId` is still the ACTIVE SCENE id (and
+  `sbActiveBoard()` returns that scene), so board-scoped render/edit/group/
+  connector/JPG-export code is untouched. Keys: `storyboard_stories`,
+  `storyboard_activeStory`, `storyboard_activeScene` (the old
+  `storyboard_boards`/`storyboard_activeBoard` keys are gone). New names: story
+  "Story N" with first scene "Scene 1"; further scenes "Scene N".
+- UI: rail's first tool re-labelled **Stories** (still `data-tool="boards"`
+  internally). Panel = one `.sb-story-row` per story; only the ACTIVE story is
+  expanded into `.sb-story-scenes` (sibling container, NOT inside the row - a
+  selector must use `.sb-story-row.active + .sb-story-scenes`). Clicking a story
+  selects/expands it; clicking a scene edits it. Story and scene rows have inline
+  rename + delete; `#sbAddStory` and each expanded story's `.sb-add-scene`.
+  Deleting the LAST scene of a story / the LAST story is disabled. The chip
+  reads `Story / Scene` and still opens the Stories panel.
+- MINIO: `js/app-minio.js` now saves/loads the whole Story
+  (`<dir>/<story>/story-YYYYMMDDHHMM.json`, payload `{... story}`); old
+  board-level files are rejected. Same-name load asks Overwrite/Cancel and
+  overwrite replaces that story in place; a new name adds a story with fresh
+  story+scene ids (active scene index preserved).
+- TESTS: new `tests/storyboard-stories.spec.js` (5) + rewritten
+  `tests/storyboard-minio.spec.js` (6). ALL Storyboard specs re-seeded to the
+  nested store (`storyboard_stories` / `activeStory` / `activeScene`): 61/61
+  green (align 12, groups 16, pan 10, stamp 3, zoom 9, minio 6, stories 5).
+- GOTCHA: the Story row and its scene list are SIBLINGS by design (the row is a
+  horizontal flex bar). Tests/selectors must use the adjacent-sibling form; a
+  descendant selector finds zero scenes. `sbSaveState()` mirrors
+  `activeId` into the active story's `activeSceneId`, so switching scenes and
+  reloading are consistent.
+
+### 2026-10-24 - PWA title-bar colour follows the chosen theme
+- REQUEST (user): the installed MyApps PWA on Windows 11 had a "weird green"
+  title bar. Wanted something sympathetic to the OS, else based on the chosen
+  theme (secondary suggested).
+- FINDING: Windows 11 takes the installed PWA title bar from the manifest
+  theme_color; the page meta theme-color overrides it. No manifest option makes
+  it follow the OS accent (W3C manifest#695): omitting theme_color gives the OS
+  default but loses mobile branding, so used the user's fallback.
+- WHAT: shared `applyThemeColor()` (smd-settings.js) writes the live
+  `--bs-secondary` into `<meta name="theme-color">`; `smdRefreshThemeColor()`
+  runs it immediately + next rAF, and `smdBindThemeColorLink()` re-runs it on
+  each theme/mode stylesheet `load` (the computed colour belongs to the sheet
+  that is currently loaded). applyTheme + applyThemeMode call it. Static metas
+  and manifests that shipped `#3ddc84` (Launch/root, PlanMyDay, CountMyDays,
+  ListOfLists, QRLinks) now ship `#212529` as the pre-load/install default.
+- NOTE: an already-installed PWA may keep the old colour until Chromium
+  refreshes the manifest (later launch after windows close); the page meta
+  applies on load. If the user ever prefers the pure OS title bar, remove
+  theme_color from the manifest and the meta.
+- TESTS: new `tests/pwa-theme-color.spec.js` (2): meta follows cerulean
+  secondary (#e9ecef) then a runtime switch to superhero (#4e5d6c), survives a
+  mode switch, never #3ddc84; all five main shells sync meta to their computed
+  secondary. RED before the change (#3ddc84 stayed), GREEN after. Also ran 37
+  existing theme/storybook tests: green.

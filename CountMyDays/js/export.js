@@ -449,10 +449,11 @@ function doMinioExport(data) {
   const ts = d.getFullYear() + String(d.getMonth() + 1).padStart(2, "0") + String(d.getDate()).padStart(2, "0") +
     String(d.getHours()).padStart(2, "0") + String(d.getMinutes()).padStart(2, "0");
   const filename = "countmydays-" + ts + ".json";
+  const key = minioBuildKey(config.directory, filename);
   const body = JSON.stringify(data, null, 2);
 
-  minioPutObject(config.bucket, filename, body, config).then(function () {
-    showMinioAlert("Exported " + filename + " to Minio bucket " + config.bucket, "info");
+  minioPutObject(config.bucket, key, body, config).then(function () {
+    showMinioAlert("Exported " + key + " to Minio bucket " + config.bucket, "info");
   }).catch(function (e) {
     showMinioAlert("Minio export failed: " + minioFriendlyError(e), "error");
   });

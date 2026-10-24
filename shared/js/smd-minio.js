@@ -1,4 +1,4 @@
-// Minio (S3-compatible) client, shared by PlanMyDay, CountMyDays and ListOfLists.
+﻿// Minio (S3-compatible) client, shared by PlanMyDay, CountMyDays and ListOfLists.
 //
 // The settings fields, the signed S3 requests and the import page are generic
 // (they key everything through smdKey()). WHAT a backup contains is app-specific,
@@ -65,6 +65,41 @@ function changeMinioBucket(value) {
   localStorage.setItem(smdKey("minio_bucket"), value);
 }
 
+// The optional bucket-relative DIRECTORY an app works in. Empty means the
+// bucket's top level, which is what every app used before this setting existed.
+// Normalise once on write so saves and listings always agree: forward slashes,
+// no leading/trailing slash, no "."/".." segments and no empty segments.
+function minioNormalizeDirectory(value) {
+  return String(value == null ? "" : value)
+    .replace(/\\/g, "/")
+    .split("/")
+    .map(function(part) { return part.trim(); })
+    .filter(function(part) { return part && part !== "." && part !== ".."; })
+    .join("/");
+}
+
+function changeMinioDirectory(value) {
+  localStorage.setItem(smdKey("minio_directory"), minioNormalizeDirectory(value));
+}
+
+// Join any number of path pieces into one object key (a further directory level
+// is just another argument). Each piece is normalised like the Directory field,
+// so callers can pass a raw board/story name.
+function minioBuildKey() {
+  var segs = [];
+  for (var i = 0; i < arguments.length; i++) {
+    var value = minioNormalizeDirectory(arguments[i]);
+    if (value) segs.push(value);
+  }
+  return segs.join("/");
+}
+
+// The list prefix for a directory: "storyboard" -> "storyboard/", "" -> "".
+function minioDirectoryPrefix(directory) {
+  var dir = minioNormalizeDirectory(directory);
+  return dir ? dir + "/" : "";
+}
+
 function minioFriendlyError(e) {
   var msg = (e && e.message) || String(e);
   if (msg.indexOf("Failed to fetch") !== -1 || msg.indexOf("NetworkError") !== -1 || msg.indexOf("ERR_") !== -1) {
@@ -91,7 +126,8 @@ function getMinioConfig() {
     server: (localStorage.getItem(smdKey("minio_server")) || "").replace(/\/+$/, ""),
     username: localStorage.getItem(smdKey("minio_username")) || "",
     password: localStorage.getItem(smdKey("minio_password")) || "",
-    bucket: localStorage.getItem(smdKey("minio_bucket")) || ""
+    bucket: localStorage.getItem(smdKey("minio_bucket")) || "",
+    directory: minioNormalizeDirectory(localStorage.getItem(smdKey("minio_directory")) || "")
   };
 }
 
@@ -107,6 +143,8 @@ function loadMinioSettings() {
   if (el) el.value = config.password;
   el = $id("minioBucket");
   if (el) el.value = config.bucket;
+  el = $id("minioDirectory");
+  if (el) el.value = config.directory;
   var fields = $id("minioFields");
   if (fields) {
     var inputs = fields.querySelectorAll("input, button");
@@ -350,6 +388,72 @@ function minioListObjects(bucket, config) {
   });
 }
 
+function minioParseListPage(text) {
+  var parser = new DOMParser();
+  var xml = parser.parseFromString(text, "text/xml");
+  var objects = [];
+  xml.querySelectorAll("Contents").forEach(function(c) {
+    var key = c.querySelector("Key");
+    if (!key) return;
+    var modified = c.querySelector("LastModified");
+    objects.push({
+      key: key.textContent,
+      lastModified: modified ? modified.textContent : ""
+    });
+  });
+  var prefixes = [];
+  xml.querySelectorAll("CommonPrefixes > Prefix").forEach(function(p) {
+    if (p.textContent) prefixes.push(p.textContent);
+  });
+  var truncatedEl = xml.querySelector("IsTruncated");
+  var tokenEl = xml.querySelector("NextContinuationToken");
+  return {
+    objects: objects,
+    prefixes: prefixes,
+    truncated: !!truncatedEl && truncatedEl.textContent === "true",
+    nextToken: tokenEl ? tokenEl.textContent : ""
+  };
+}
+
+// One folder level (the "delimiter=/" form): immediate files + subdirectory
+// prefixes. The prefix is the configured Directory (+ the folder the user has
+// navigated into), and it MUST include the trailing slash.
+function minioListFolder(bucket, prefix, config) {
+  var params = { "list-type": "2", "delimiter": "/" };
+  if (prefix) params.prefix = prefix;
+  return minioRequest("GET", bucket, null, params, null, config).then(minioParseListPage);
+}
+
+// Every object under a prefix (no delimiter, following continuation tokens).
+function minioListAllUnder(bucket, prefix, config) {
+  var all = [];
+  function fetchPage(token) {
+    var params = { "list-type": "2" };
+    if (prefix) params.prefix = prefix;
+    if (token) params["continuation-token"] = token;
+    return minioRequest("GET", bucket, null, params, null, config).then(function(text) {
+      var page = minioParseListPage(text);
+      all = all.concat(page.objects);
+      if (page.truncated && page.nextToken) return fetchPage(page.nextToken);
+      return all;
+    });
+  }
+  return fetchPage("");
+}
+
+// The newest JSON file inside a directory, by FILENAME (the backup names carry
+// their timestamp: board-YYYYMMDDHHMM.json). Used by the "<dir>:latest" rows.
+function minioLatestJsonKey(bucket, prefix, config) {
+  return minioListAllUnder(bucket, prefix, config).then(function(objects) {
+    var keys = objects
+      .map(function(o) { return o.key; })
+      .filter(function(key) { return /\.json$/i.test(key); });
+    if (!keys.length) return "";
+    keys.sort();
+    return keys[keys.length - 1];
+  });
+}
+
 function minioGetObject(bucket, key, config) {
   return minioRequest("GET", bucket, key, null, null, config);
 }
@@ -392,11 +496,12 @@ function exportToMinio() {
   var ts = d.getFullYear() + String(d.getMonth() + 1).padStart(2, "0") + String(d.getDate()).padStart(2, "0") + String(d.getHours()).padStart(2, "0") + String(d.getMinutes()).padStart(2, "0");
   var prefix = (typeof SmdConfig !== "undefined" && SmdConfig.minioExportPrefix) || "planmydays";
   var filename = prefix + "-" + ts + ".json";
+  var key = minioBuildKey(config.directory, filename);
 
   var body = JSON.stringify(data, null, 2);
 
-  minioPutObject(config.bucket, filename, body, config).then(function() {
-    showMinioAlert("Exported " + filename + " to Minio bucket " + config.bucket, "info");
+  minioPutObject(config.bucket, key, body, config).then(function() {
+    showMinioAlert("Exported " + key + " to Minio bucket " + config.bucket, "info");
   }).catch(function(e) {
     showMinioAlert("Minio export failed: " + minioFriendlyError(e), "error");
   });
@@ -486,6 +591,7 @@ var MINIO_IMPORT_STYLES = `
 `;
 
 var _minioImportCloseTimer = null;
+var _minioCurrentPrefix = "";
 
 function openMinioImportPage() {
   var page = document.getElementById("minioImportPage");
@@ -509,7 +615,7 @@ function openMinioImportPage() {
 
   var config = getMinioConfig();
   if (config.bucket) {
-    loadMinioBucketFiles(config.bucket);
+    loadMinioBucketFiles(config.bucket, minioDirectoryPrefix(config.directory));
   } else {
     loadMinioBuckets();
   }
@@ -549,42 +655,110 @@ function loadMinioBuckets() {
   });
 }
 
-function loadMinioBucketFiles(bucket) {
+function loadMinioBucketFiles(bucket, prefix) {
+  var config = getMinioConfig();
+  var root = minioDirectoryPrefix(config.directory);
+  if (typeof prefix !== "string") prefix = root;
+  // Only the configured Directory (and folders beneath it) are browsable: an
+  // app never lists or imports another app's backups.
+  if (root && prefix.indexOf(root) !== 0) prefix = root;
+  _minioCurrentPrefix = prefix;
+
   var page = document.getElementById("minioImportPage");
   if (page) {
-    page.headerHtml = '<smd-badge variant="secondary" style="font-size:var(--smd-type-badge,0.8em);vertical-align:middle">Bucket: ' +
-      bucket.replace(/</g, "&lt;").replace(/>/g, "&gt;") + '</smd-badge>';
+    var header = '<smd-badge variant="secondary" style="font-size:var(--smd-type-badge,0.8em);vertical-align:middle">Bucket: ' +
+      escapeHtml(bucket) + '</smd-badge>';
+    if (config.directory) {
+      header += ' <smd-badge variant="secondary" style="font-size:var(--smd-type-badge,0.8em);vertical-align:middle">Directory: ' +
+        escapeHtml(config.directory + "/" + prefix.slice(root.length).replace(/\/$/, "")) + '</smd-badge>';
+    }
+    page.headerHtml = header;
     // injectStyleInto is idempotent (document-head styles are deduped), so it
     // is safe to re-apply on every render.
     injectStyleInto(MINIO_IMPORT_STYLES);
   }
   var body = $id("minioImportBody");
   if (!body) return;
-  var config = getMinioConfig();
 
   body.innerHTML = '<div class="text-center py-3"><div class="spinner-border"></div><p class="mt-2">Loading files...</p></div>';
 
-  minioListObjects(bucket, config).then(function(objects) {
-    var jsonFiles = objects.filter(function(o) { return o.toLowerCase().endsWith(".json"); }).sort().reverse();
+  minioListFolder(bucket, prefix, config).then(function(list) {
+    var folders = list.prefixes.slice().sort();
+    var files = list.objects.filter(function(o) {
+      return o.key && o.key !== prefix && !/\/$/.test(o.key) && /\.json$/i.test(o.key);
+    }).sort(function(a, b) {
+      return a.key < b.key ? 1 : (a.key > b.key ? -1 : 0);
+    });
 
-    if (jsonFiles.length === 0) {
-      body.innerHTML = '<p class="text-secondary">No JSON files found in this bucket.</p>';
-      return;
-    }
+    // Resolve each subdirectory's newest file for the "<name>:latest" rows.
+    var latestPromises = folders.map(function(folderPrefix) {
+      return minioLatestJsonKey(bucket, folderPrefix, config).catch(function() { return ""; });
+    });
+    return Promise.all(latestPromises).then(function(latests) {
+      var rows = [];
+      if (prefix !== root) {
+        rows.push('<li class="list-group-item list-group-item-action d-flex align-items-center gap-2 minio-up-item" style="cursor:pointer" onclick="minioNavigate(\'' +
+          minioInlineArg(bucket) + '\', \'' + minioInlineArg(minioParentPrefix(prefix, root)) + '\')">' +
+          '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M11.354 1.646a.5.5 0 0 1 0 .708L5.707 8l5.647 5.646a.5.5 0 0 1-.708.708l-6-6a.5.5 0 0 1 0-.708l6-6a.5.5 0 0 1 .708 0z"/></svg>' +
+          'Up</li>');
+      }
 
-    body.innerHTML = '<h6>Select a file to import:</h6><ul class="list-group">' +
-      jsonFiles.map(function(f) {
-        var escapedBucket = bucket.replace(/\\/g, "\\\\").replace(/'/g, "\\'").replace(/"/g, "&quot;");
-        var escapedKey = f.replace(/\\/g, "\\\\").replace(/'/g, "\\'").replace(/"/g, "&quot;");
-        return '<li class="list-group-item list-group-item-action d-flex align-items-center gap-2" style="cursor:pointer" onclick="importMinioFile(\'' + escapedBucket + '\', \'' + escapedKey + '\')">' +
+      folders.forEach(function(folderPrefix, index) {
+        var name = folderPrefix.slice(prefix.length).replace(/\/$/, "");
+        rows.push('<li class="list-group-item list-group-item-action d-flex align-items-center gap-2 minio-folder-item" style="cursor:pointer" onclick="minioNavigate(\'' +
+          minioInlineArg(bucket) + '\', \'' + minioInlineArg(folderPrefix) + '\')">' +
+          '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M.54 3.87.5 3a2 2 0 0 1 2-2h3.672a2 2 0 0 1 1.414.586l.828.828A2 2 0 0 0 9.828 3h3.982a2 2 0 0 1 1.992 2.181l-.637 7A2 2 0 0 1 13.174 14H2.826a2 2 0 0 1-1.991-1.819l-.637-7a1.984 1.984 0 0 1 .342-1.31z"/></svg>' +
+          escapeHtml(name) + '</li>');
+        if (latests[index]) {
+          rows.push('<li class="list-group-item list-group-item-action d-flex align-items-center gap-2 minio-latest-item" style="cursor:pointer" onclick="importMinioFile(\'' +
+            minioInlineArg(bucket) + '\', \'' + minioInlineArg(latests[index]) + '\')">' +
+            '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M8 3.5a.5.5 0 0 0-1 0V9a.5.5 0 0 0 .252.434l3.5 2a.5.5 0 0 0 .496-.868L8 8.71V3.5z"/><path d="M8 16A8 8 0 1 0 8 0a8 8 0 0 0 0 16zm7-8A7 7 0 1 1 1 8a7 7 0 0 1 14 0z"/></svg>' +
+            escapeHtml(name) + ':latest</li>');
+        }
+      });
+
+      files.forEach(function(obj) {
+        var name = obj.key.slice(prefix.length);
+        rows.push('<li class="list-group-item list-group-item-action d-flex align-items-center gap-2 minio-file-item" style="cursor:pointer" onclick="importMinioFile(\'' +
+          minioInlineArg(bucket) + '\', \'' + minioInlineArg(obj.key) + '\')">' +
           '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M4 0a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V4.414A1 1 0 0 0 13.707 4L10 .293A1 1 0 0 0 9.293 0H4zm5 1.5v2a1 1 0 0 0 1 1h2l-3-3z"/></svg>' +
-          f + '</li>';
-      }).join("") +
-      "</ul>";
+          escapeHtml(name) + '</li>');
+      });
+
+      if (!rows.length) {
+        body.innerHTML = '<p class="text-secondary">No JSON files or subdirectories found in this directory.</p>';
+        return;
+      }
+      body.innerHTML = '<h6>Select a file to import:</h6><ul class="list-group">' + rows.join("") + "</ul>";
+    });
   }).catch(function(e) {
     closeMinioImport();
     showMinioAlert("Failed to list files: " + minioFriendlyError(e), "error");
   });
+}
+
+// Safe value for an inline onclick('...') argument.
+function minioInlineArg(value) {
+  return String(value == null ? "" : value)
+    .replace(/\\/g, "\\\\")
+    .replace(/'/g, "\\'")
+    .replace(/"/g, "&quot;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+// Navigate the import page to a folder prefix (clamped to the app Directory).
+function minioNavigate(bucket, prefix) {
+  loadMinioBucketFiles(bucket, prefix);
+}
+
+// The parent of a folder prefix, clamped to the app's Directory.
+function minioParentPrefix(prefix, root) {
+  var trimmed = String(prefix || "").replace(/\/+$/, "");
+  var index = trimmed.lastIndexOf("/");
+  var parent = index >= 0 ? trimmed.slice(0, index + 1) : "";
+  if (root && parent.indexOf(root) !== 0) return root;
+  return parent;
 }
 
 function importMinioFile(bucket, key) {
@@ -600,13 +774,13 @@ function importMinioFile(bucket, key) {
       data = JSON.parse(content);
     } catch (e) {
       showMinioAlert("Invalid JSON file: " + e.message, "error");
-      loadMinioBucketFiles(bucket);
+      loadMinioBucketFiles(bucket, _minioCurrentPrefix);
       return;
     }
 
     if (!data || (typeof data !== "object")) {
       showMinioAlert("Invalid JSON file: expected an object.", "error");
-      loadMinioBucketFiles(bucket);
+      loadMinioBucketFiles(bucket, _minioCurrentPrefix);
       return;
     }
 
@@ -616,14 +790,14 @@ function importMinioFile(bucket, key) {
     if (typeof SmdConfig !== "undefined" && typeof SmdConfig.onMinioImport === "function") {
       if (!SmdConfig.onMinioImport(data, key)) {
         showMinioAlert("Invalid backup file: missing data for this app.", "error");
-        loadMinioBucketFiles(bucket);
+        loadMinioBucketFiles(bucket, _minioCurrentPrefix);
       }
       return;
     }
 
     if (!data || (!data.streams && !data.images)) {
       showMinioAlert("Invalid backup file: missing streams or images data.", "error");
-      loadMinioBucketFiles(bucket);
+      loadMinioBucketFiles(bucket, _minioCurrentPrefix);
       return;
     }
 
@@ -639,7 +813,7 @@ function importMinioFile(bucket, key) {
       msg = "Cannot reach Minio server. Check server URL, network, CORS, and HTTPS mixed content.";
     }
     showMinioAlert("Import failed: " + msg, "error");
-    loadMinioBucketFiles(bucket);
+    loadMinioBucketFiles(bucket, _minioCurrentPrefix);
   });
 }
 

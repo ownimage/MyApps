@@ -39,6 +39,9 @@ document.addEventListener("DOMContentLoaded", function () {
   sbInitToolbar();
   sbRender();
 
+  // Show/hide the Minio menu entries (only when MinIO is enabled).
+  if (typeof updateMinioMenu === "function") updateMinioMenu();
+
   // The JPG baseline nudge depends on the live font's metrics. Recompute it
   // when a webfont finishes loading (the first render may have used a fallback).
   if (document.fonts) {

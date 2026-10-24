@@ -20,7 +20,7 @@
 // comparison. If the two ever DO drift, the page notices at runtime
 // (GET_BUILD) and re-registers, so the drift self-heals instead of pinning
 // users to a build the worker will never replace.
-const BUILD_NUMBER = "202610241850";
+const BUILD_NUMBER = "202610242056";
 
 const CACHE = "myapps-" + BUILD_NUMBER;
 
@@ -565,6 +565,7 @@ const APPS = {
     "Storyboard/js/board.js",
     "Storyboard/js/toolbar.js",
     "Storyboard/js/app-settings.js",
+    "Storyboard/js/app-minio.js",
     "Storyboard/js/app.js"
   ]
 };
