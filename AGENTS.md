@@ -284,10 +284,11 @@ Architecture:
   (2560x1440) and `assets/stickers/{mermaid,shark,seaweed,spaceman,spaceship}.svg`
   (512 viewBox flat art, transparent). `icon.svg` + generated 192/512 PNGs.
   DATA: keys via `smdKey()` = `storyboard_boards`, `storyboard_activeBoard`,
-  `storyboard_toolbarPinned`, `storyboard_zoom`. `sbState.boards` is an array of
-  `{id,name,background,items,connectors,groups}`; items are stickers
+  `storyboard_toolbarPinned`. `sbState.boards` is an array of
+  `{id,name,background,items,connectors,groups,view}`; items are stickers
   `{id,type:"sticker",sticker,x,y,scale,rotation,z,flipX,flipY}` or text
-  `{id,type:"text",text,bg,color,border,font,x,y,scale,rotation,z}`. `x`/`y` are
+  `{id,type:"text",text,bg,color,border,font,x,y,scale,rotation,z}`. `view` is
+  that BOARD's own zoom + pan (`{zoom, fx, fy}`; see APP ZOOM below). `x`/`y` are
   PERCENTAGES of the board (2..98 for a single-item transform; a group/multi
   transform clamps the SET's box instead and may use 0..100) so a board keeps its
   layout on resize; `z` is
@@ -340,8 +341,18 @@ Architecture:
   APP ZOOM + SCROLL (2026-10-24, user request): the bottom of the rail has
   magnifier minus/plus side by side (`#sbZoomOut`/`#sbZoomIn`, stepping
   `SB_ZOOM_LEVELS` = 0.5/0.75/1/1.25/1.5/2/3/4) and `#sbZoomFit` (zoom 1 =
-  today's fitted view). NO percentage is shown; the factor is stored as
-  `storyboard_zoom` and restored on boot. DOM: `#storyboardArea > #sbScroller
+  today's fitted view). NO percentage is shown. ZOOM + PAN ARE PER BOARD
+  (2026-10-24): each board stores its own `view = {zoom, fx, fy}` inside the
+  board JSON (no separate `storyboard_zoom` key any more; there is deliberately
+  NO legacy migration). `sbState.zoom` is only the runtime mirror of the ACTIVE
+  board's `view.zoom`; `sbLoadState`/`sbSetActiveBoard`/`sbAddBoard`/
+  `sbDeleteBoard` set it from the incoming board. `fx`/`fy` are the BOARD
+  fraction at the centre of the visible scroller (0.5/0.5 = fitted + centred),
+  captured by `sbCaptureView()` on scroll/zoom/board switch/pagehide and restored
+  by `sbRestoreBoardView()` in `sbRender()`'s `layoutKey` branch - fractions, not
+  raw scrollLeft/Top, so the same artwork position survives a window-size
+  change. `sbCentreBoard()` remains only as the fallback for a board with no
+  view. DOM: `#storyboardArea > #sbScroller
   (overflow:auto) > #sbStage (flex centred) > #sbCanvas` - only the board
   scrolls; the toolbar, board chip, action bar and connect hint are fixed
   overlays. `sbLayoutBoard(anchor)` sizes the canvas to fit x zoom. At zoom 1 the
@@ -356,12 +367,13 @@ Architecture:
   `sbRefreshPasteboard()` re-measures when the selection changes or a drag ends
   - WITHOUT it, selecting a sticker AFTER zooming left its handles clipped (the
   pad had been sized with no handles). The action bar is repositioned on the
-  scroller's `scroll` (rAF); board/background changes recentre via
-  `sbCentreBoard()`. Drag/scale/rotate and the JPG export keep using live rects,
+  scroller's `scroll` (rAF). Drag/scale/rotate and the JPG export keep using live
+  rects,
   so they need no zoom maths of their own. Tests:
   `tests/storyboard-zoom.spec.js` (rail layout, steps/limits/Fit, scrollbars
   only when zoomed, zoom-THEN-select edge-handle hit tests, selection anchoring,
-  drag accuracy at 1.5x, persistence + centred reload).
+  drag accuracy at 1.5x, zoom + pan persisted on the board, per-board restore,
+  centred first visit).
   SPACE-DRAG PAN (2026-10-24, user request): holding Space arms a hand mode
   (`sbEnterPanMode`) ONLY when the scroller overflows (`sbCanPan`; at 100% the
   fitted board is inert - user decision). `#sbScroller.sb-pan-ready` /
@@ -7079,3 +7091,41 @@ Techniques / gotchas:
   launch-regression 13/13. Node syntax checks clean.
 - The user runs the full regression suite.
   BUILD -> `202610241816`.
+
+### 2026-10-24 - Storyboard: zoom + pan are per board (stored in the board data)
+- BUG (user): after zooming and panning, reopening the page restored the zoom but
+  CENTRED the board. `sbRender()` called `sbCentreBoard()` on the first render
+  (the `layoutKey` branch) and only the global `storyboard_zoom` was persisted.
+- FIX (user): zoom and pan are now PART OF EACH BOARD:
+  `board.view = { zoom, fx, fy }`, where fx/fy is the BOARD fraction at the
+  centre of the visible scroller (0.5/0.5 = fitted + centred). `sbNormalizeBoard`
+  validates it (`sbNormalizeZoom` + `sbNormalizeViewFraction`, -0.25..1.25,
+  default 0.5) and `sbAddBoard` starts at `{1, 0.5, 0.5}`. NO legacy migration:
+  the old `storyboard_zoom` key is no longer read or written (a stale value is
+  left in storage and ignored). There is no browser-fraction test dependency on
+  window size: fractions were chosen so the same artwork point survives a
+  window-size change (raw scrollLeft/Top would not).
+- CAPTURE: `sbCaptureView()` + `sbSaveViewSoon()` from the scroller's scroll rAF
+  (covers wheel/touchpad/scrollbar/SPACE-DRAG panning) and `sbSaveViewNow()` on
+  `sbZoomTo`, board switch/add (BEFORE `activeId` changes) and
+  `pagehide`/`visibilitychange:hidden`.
+- RESTORE: `sbRender()`'s `layoutKey` branch calls
+  `sbRestoreBoardView(board)` (`sbApplyZoomAnchor({fx, fy, sx/sy = viewport
+  centre})`) after the final `sbLayoutBoard()`, so a zoomed pasteboard already
+  exists. A never-panned board restores 0.5/0.5, i.e. the old centred view.
+  `sbState.zoom` is only the runtime mirror of the ACTIVE board's `view.zoom`;
+  `sbLoadState`, `sbSetActiveBoard`, `sbAddBoard` and `sbDeleteBoard` sync it
+  from the incoming board, so switching boards ALSO restores that board's zoom
+  (it used to be one global zoom).
+- TESTS (TDD, red first) in `tests/storyboard-zoom.spec.js`:
+  "panning is remembered when the page is reopened" (zoom 1.5, scroll to 0,0 ->
+  reload -> same board fraction and NOT centred; `board.view` holds zoom/fx/fy)
+  and "each board keeps its own zoom and pan position" (A 1.5 + top-left; B
+  starts at 1 and centred -> set 2 + bottom-right; switch back and forth, then
+  reload, then switch again - each restores its own). RED on the old code (no
+  `view`; switching kept the global zoom). GREEN 2/2; FULL Storyboard suite
+  38/38 (groups 16 + stamp 3 + zoom 9 + pan 10). BUILD -> `202610241833`.
+- GOTCHA: call `sbCaptureView()` BEFORE changing `activeId` in
+  `sbSetActiveBoard`/`sbAddBoard`, or the outgoing board's pan is lost; and keep
+  saving on the `pagehide`/`visibilitychange` path because a last pan may not
+  have passed the 150ms debounce.

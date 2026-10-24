@@ -60,7 +60,8 @@ var SB_TEXT_TOKENS = ["auto", "white", "black", "primary", "secondary", "success
 // (the whole board visible, exactly as before zooming existed).
 var SB_ZOOM_LEVELS = [0.5, 0.75, 1, 1.25, 1.5, 2, 3, 4];
 
-// Runtime state (deliberately not persisted, except boards/active/pinned/zoom).
+// Runtime state (deliberately not persisted, except the boards themselves - each
+// carries its own `view` {zoom, fx, fy} - plus the active board and pin state).
 var sbState = {
   boards: [],
   activeId: "",
@@ -98,6 +99,15 @@ function sbNormalizeZoom(value) {
     if (Math.abs(level - v) < Math.abs(best - v)) best = level;
   });
   return best;
+}
+
+// A board fraction: 0 = the board's left/top edge, 0.5 = centre, 1 = right/bottom.
+// A panned view can sit slightly outside the artwork (over the pasteboard), so a
+// small margin is allowed. Anything invalid falls back to "centred".
+function sbNormalizeViewFraction(value) {
+  var v = Number(value);
+  if (!isFinite(v)) return 0.5;
+  return Math.min(1.25, Math.max(-0.25, v));
 }
 
 function sbBackgroundById(id) {
@@ -190,6 +200,16 @@ function sbNormalizeBoard(raw) {
   // leaf item ids or other group ids, which is what makes nesting possible
   // without changing how items render, connect or export.
   board.groups = sbNormalizeGroups(board, raw.groups);
+
+  // Every board carries its own view (zoom + the board point at the viewport
+  // centre), so reopening the app restores the same place on the artwork. A
+  // missing view means "fitted and centred", which is the old behaviour.
+  var rawView = raw.view && typeof raw.view === "object" ? raw.view : null;
+  board.view = {
+    zoom: sbNormalizeZoom(rawView ? rawView.zoom : 1),
+    fx: sbNormalizeViewFraction(rawView ? rawView.fx : 0.5),
+    fy: sbNormalizeViewFraction(rawView ? rawView.fy : 0.5)
+  };
   return board;
 }
 
@@ -297,13 +317,15 @@ function sbLoadState() {
   if (!Array.isArray(boards)) boards = [];
   sbState.boards = boards.map(sbNormalizeBoard).filter(Boolean);
   if (!sbState.boards.length) {
-    sbState.boards.push({ id: sbUid(), name: "My Storyboard", background: "", items: [], connectors: [], groups: [] });
+    sbState.boards.push({ id: sbUid(), name: "My Storyboard", background: "", items: [], connectors: [], groups: [], view: { zoom: 1, fx: 0.5, fy: 0.5 } });
   }
   var savedActive = localStorage.getItem(smdKey("activeBoard")) || "";
   sbState.activeId = sbFindBoard(savedActive) ? savedActive : sbState.boards[0].id;
   sbState.pinned = localStorage.getItem(smdKey("toolbarPinned")) === "true";
-  var savedZoom = localStorage.getItem(smdKey("zoom"));
-  sbState.zoom = savedZoom == null ? 1 : sbNormalizeZoom(savedZoom);
+  // The zoom is part of each board's own view; sbState.zoom mirrors the ACTIVE
+  // board so the layout/zoom code keeps working unchanged.
+  var active = sbFindBoard(sbState.activeId);
+  sbState.zoom = active && active.view ? active.view.zoom : 1;
   sbSaveState();
 }
 
@@ -316,7 +338,6 @@ function sbSaveState() {
     localStorage.setItem(smdKey("boards"), JSON.stringify(sbState.boards));
     localStorage.setItem(smdKey("activeBoard"), sbState.activeId);
     localStorage.setItem(smdKey("toolbarPinned"), sbState.pinned ? "true" : "false");
-    localStorage.setItem(smdKey("zoom"), String(sbState.zoom));
   } catch (e) { /* storage unavailable: the board still works for this visit */ }
 }
 
@@ -518,9 +539,12 @@ function sbUniqueBoardName() {
 }
 
 function sbAddBoard() {
-  var board = { id: sbUid(), name: sbUniqueBoardName(), background: "", items: [], connectors: [], groups: [] };
+  // Keep the outgoing board's current zoom/position before switching away.
+  if (typeof sbCaptureView === "function") sbCaptureView();
+  var board = { id: sbUid(), name: sbUniqueBoardName(), background: "", items: [], connectors: [], groups: [], view: { zoom: 1, fx: 0.5, fy: 0.5 } };
   sbState.boards.push(board);
   sbState.activeId = board.id;
+  sbState.zoom = board.view.zoom;
   sbState.selectedId = "";
   sbState.selectedIds = [];
   sbState.selectedConnectorId = "";
@@ -543,6 +567,8 @@ function sbDeleteBoard(id) {
   if (sbState.activeId === id || !sbFindBoard(sbState.activeId)) {
     sbState.activeId = sbState.boards[Math.min(index, sbState.boards.length - 1)].id;
   }
+  var next = sbFindBoard(sbState.activeId);
+  sbState.zoom = next && next.view ? next.view.zoom : 1;
   sbState.selectedId = "";
   sbState.selectedIds = [];
   sbState.selectedConnectorId = "";
@@ -567,7 +593,11 @@ function sbRenameBoard(id, name) {
 
 function sbSetActiveBoard(id) {
   if (!sbFindBoard(id) || id === sbState.activeId) return;
+  // Snapshot the outgoing board's zoom/position before the switch.
+  if (typeof sbCaptureView === "function") sbCaptureView();
   sbState.activeId = id;
+  var board = sbFindBoard(id);
+  sbState.zoom = board && board.view ? board.view.zoom : 1;
   sbState.selectedId = "";
   sbState.selectedIds = [];
   sbState.selectedConnectorId = "";

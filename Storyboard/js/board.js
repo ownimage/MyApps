@@ -196,6 +196,62 @@ function sbCentreBoard() {
   sbEls.scroller.scrollTop = Math.max(0, (sbEls.scroller.scrollHeight - sbEls.scroller.clientHeight) / 2);
 }
 
+// ---- Per-board view (zoom + pan) -------------------------------------------
+//
+// Each board stores its own view in the board data: `view = { zoom, fx, fy }`,
+// where fx/fy is the BOARD fraction sitting at the centre of the visible
+// scroller. Fractions (not scrollLeft/Top) survive a window-size change between
+// visits. A default 0.5/0.5 is exactly "fitted and centred".
+
+// The board fraction currently at the viewport centre.
+function sbViewCentre() {
+  if (!sbEls.scroller || !sbEls.canvas) return null;
+  var sr = sbEls.scroller.getBoundingClientRect();
+  var cr = sbEls.canvas.getBoundingClientRect();
+  if (!cr.width || !cr.height) return null;
+  return {
+    fx: (sr.left + sbEls.scroller.clientWidth / 2 - cr.left) / cr.width,
+    fy: (sr.top + sbEls.scroller.clientHeight / 2 - cr.top) / cr.height
+  };
+}
+
+// Snapshot the ACTIVE board's zoom + centre fraction into its own data.
+function sbCaptureView() {
+  var board = sbActiveBoard();
+  if (!board) return;
+  if (!board.view) board.view = { zoom: sbZoom(), fx: 0.5, fy: 0.5 };
+  board.view.zoom = sbZoom();
+  var centre = sbViewCentre();
+  if (centre) {
+    board.view.fx = Math.min(1.25, Math.max(-0.25, centre.fx));
+    board.view.fy = Math.min(1.25, Math.max(-0.25, centre.fy));
+  }
+}
+
+function sbSaveViewSoon() {
+  sbCaptureView();
+  sbSaveSoon();
+}
+
+function sbSaveViewNow() {
+  sbCaptureView();
+  sbSaveState();
+}
+
+// Put a board's saved fraction back at the centre of the viewport (after the
+// final layout, so a zoomed pasteboard already exists).
+function sbRestoreBoardView(board) {
+  if (!sbEls.scroller || !sbEls.canvas) { sbCentreBoard(); return; }
+  var view = board && board.view ? board.view : null;
+  if (!view) { sbCentreBoard(); return; }
+  sbApplyZoomAnchor({
+    fx: view.fx,
+    fy: view.fy,
+    sx: sbEls.scroller.clientWidth / 2,
+    sy: sbEls.scroller.clientHeight / 2
+  });
+}
+
 // ---- Zoom controls ---------------------------------------------------------
 
 function sbZoomIn() {
@@ -222,10 +278,17 @@ function sbZoomTo(next) {
   if (zoom === sbZoom()) return;
   var anchor = sbZoomAnchorPoint();
   sbState.zoom = zoom;
-  sbSaveState();
+  var board = sbActiveBoard();
+  if (board) {
+    if (!board.view) board.view = { zoom: zoom, fx: 0.5, fy: 0.5 };
+    else board.view.zoom = zoom;
+  }
   sbLayoutBoard(anchor);
   sbRenderConnectors();
   sbPositionSelectionBar();
+  // Capture the post-layout centre too (clamping can shift it slightly) and
+  // persist the zoom + position together, on the board.
+  sbSaveViewNow();
 }
 
 function sbUpdateZoomUi() {
@@ -271,6 +334,9 @@ function sbInitBoard() {
       sbScrollRaf = requestAnimationFrame(function () {
         sbScrollRaf = 0;
         sbPositionSelectionBar();
+        // Every pan (scrollbar, wheel, touchpad or Space+drag) updates the
+        // active board's saved view (debounced by sbSaveSoon).
+        sbSaveViewSoon();
       });
     }, { passive: true });
   }
@@ -331,6 +397,12 @@ function sbInitBoard() {
     }, 120);
   });
 
+  // Persist the view when the page goes away (reload/close/backgrounded PWA).
+  window.addEventListener("pagehide", function () { sbSaveViewNow(); });
+  document.addEventListener("visibilitychange", function () {
+    if (document.visibilityState === "hidden") sbSaveViewNow();
+  });
+
   // Text metrics change when a font loads or the font size setting moves, which
   // moves the box edges a connector must attach to.
   if (window.ResizeObserver) {
@@ -385,7 +457,9 @@ function sbRender() {
   var layoutKey = board.id + "|" + board.background;
   if (sbEls.layoutKey !== layoutKey) {
     sbEls.layoutKey = layoutKey;
-    sbCentreBoard();
+    // First paint after a reload, or a board/background switch: reopen at the
+    // board's OWN saved fraction (a never-panned 0.5/0.5 is simply centred).
+    sbRestoreBoardView(board);
   }
   sbRenderConnectors();
   sbApplyConnectClasses();
