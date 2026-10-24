@@ -26,11 +26,15 @@ body#smd-app {
 /* ---- Board surface ------------------------------------------------------ */
 
 #wbCanvas {
-  /* The board is the ARTWORK. It is centred in #whiteboardArea and sized by JS
-     (wbLayoutBoard) to the background image's aspect, so the whole image is
-     visible and never cropped; a window of a different shape shows bars around
-     it. Browser zoom does NOT re-size it (the resize guard skips a DPR change),
-     so CSS px magnification scales the whole board as one image. */
+  /* The board is the ARTWORK. `wbLayoutBoard()` sizes it to the background's
+     aspect and fits it (contain) into whatever space the UI leaves, so the
+     whole image is always visible, as large as possible, with bars around it
+     when the window has a different shape.
+     --wb-design-scale (set by wbLayoutBoard) is boardHeight / 655. Text,
+     stickers, the dot grid and connector widths multiply by it, so they stay
+     glued to the artwork when the board re-fits (window resize OR browser
+     zoom). The UI (nav, toolbar, board name, action bar) is deliberately NOT
+     scaled: the browser's own page zoom handles that. */
   position: absolute;
   left: 50%;
   top: 50%;
@@ -53,8 +57,10 @@ body#smd-app {
 
 #wbBackground[data-background="none"] {
   background-color: var(--bs-body-bg);
-  background-image: radial-gradient(circle, rgba(var(--bs-body-color-rgb), 0.22) 1px, transparent 1.4px);
-  background-size: 24px 24px;
+  background-image: radial-gradient(circle,
+    rgba(var(--bs-body-color-rgb), 0.22) calc(1px * var(--wb-design-scale, 1)),
+    transparent calc(1.4px * var(--wb-design-scale, 1)));
+  background-size: calc(24px * var(--wb-design-scale, 1)) calc(24px * var(--wb-design-scale, 1));
 }
 
 #wbBackground[data-background="space"] {
@@ -87,7 +93,7 @@ body#smd-app {
 .wb-connector-halo {
   fill: none;
   stroke: var(--bs-body-bg);
-  stroke-width: 7;
+  stroke-width: calc(7px * var(--wb-design-scale, 1));
   stroke-linecap: round;
   stroke-opacity: 0.85;
 }
@@ -95,13 +101,14 @@ body#smd-app {
 .wb-connector-line {
   fill: none;
   stroke: var(--bs-body-color);
-  stroke-width: 2.5;
+  stroke-width: calc(2.5px * var(--wb-design-scale, 1));
   stroke-linecap: round;
 }
 
 .wb-connector-hit {
   fill: none;
   stroke: transparent;
+  /* Keep the invisible touch target finger-sized whatever the artwork scale. */
   stroke-width: 18;
   stroke-linecap: round;
   pointer-events: stroke;
@@ -109,11 +116,11 @@ body#smd-app {
 }
 
 .wb-connector.selected .wb-connector-halo {
-  stroke-width: 9;
+  stroke-width: calc(9px * var(--wb-design-scale, 1));
 }
 
 .wb-connector.selected .wb-connector-line {
-  stroke-width: 4;
+  stroke-width: calc(4px * var(--wb-design-scale, 1));
 }
 
 .wb-items {
@@ -659,10 +666,9 @@ body.auto-hide-menu #mainNav {
 
 .wb-sticker {
   display: block;
-  /* Board-relative, not viewport-relative: JS sets --wb-sticker-base from the
-     board's smaller side (15%) when the board is laid out, so browser zoom -
-     which leaves the board's CSS size unchanged - magnifies the sticker with
-     the rest of the board instead of keeping it a fixed physical size. */
+  /* Board-relative: JS sets --wb-sticker-base from the board's smaller side
+     (15%) when the board is laid out. The board re-fits on window resize AND
+     browser zoom, so the sticker stays a constant fraction of the artwork. */
   width: calc(var(--wb-sticker-base, 96px) * var(--wb-scale, 1));
   height: auto;
   pointer-events: none;
@@ -675,9 +681,12 @@ body.auto-hide-menu #mainNav {
 .wb-text {
   position: relative;
   max-width: 24em;
-  padding: 10px 16px;
-  border-radius: 10px;
-  font-size: calc(var(--smd-type-h2, 1.25em) * 1.15 * var(--wb-text-scale, 1));
+  /* Everything here scales with --wb-design-scale (board height / 655) so a
+     text box keeps the same size relative to the artwork when the board fits a
+     different window or the browser zooms. The handles stay UI-sized. */
+  padding: calc(10px * var(--wb-design-scale, 1)) calc(16px * var(--wb-design-scale, 1));
+  border-radius: calc(10px * var(--wb-design-scale, 1));
+  font-size: calc(var(--smd-type-h2, 1.25em) * 1.15 * var(--wb-text-scale, 1) * var(--wb-design-scale, 1));
   line-height: 1.22;
   overflow-wrap: break-word;
   text-align: center;
@@ -687,12 +696,12 @@ body.auto-hide-menu #mainNav {
 .wb-text[data-frame="fancy"],
 .wb-text[data-frame="hand"],
 .wb-text[data-frame="stamp"] {
-  padding: 8px 14px;
-  border: 18px solid transparent;
+  padding: calc(8px * var(--wb-design-scale, 1)) calc(14px * var(--wb-design-scale, 1));
+  border: calc(18px * var(--wb-design-scale, 1)) solid transparent;
   border-image-repeat: round;
   border-image-slice: 30;
   border-image-source: var(--wb-frame-image);
-  border-image-width: 18px;
+  border-image-width: calc(18px * var(--wb-design-scale, 1));
   background-clip: padding-box;
 }
 

@@ -317,13 +317,18 @@ Architecture:
   matches, so nothing is cropped or stretched). A click anywhere in
   `#whiteboardArea` deselects (the board no longer fills it); the handler ignores
   objects/connectors/toolbar/action bar/board chip.
-  BROWSER ZOOM: the board's CSS size is deliberately NOT re-fitted when the page
-  is zoomed. `wbLastDpr` + a 120ms debounce in the resize handler distinguishes a
-  zoom (`devicePixelRatio` changed -> keep the board's px size, so the browser's
-  larger CSS px magnifies the WHOLE board as one image and the window crops it)
-  from a window resize (same DPR -> `wbLayoutBoard` re-fits the artwork). Do NOT
-  reintroduce `vmin`/`cover` sizes or a per-resize re-fit: they cancel the zoom
-  and leave text/stickers/background on different scales.
+  BROWSER ZOOM: the resize handler re-fits the artwork on EVERY resize (120ms
+  debounce), including a page zoom. The nav/toolbar/board name/action bar are UI
+  and scale with the browser's page zoom; the board takes whatever space the
+  larger UI leaves, showing the whole image as large as possible (bars when the
+  window shape differs). Everything INSIDE the board scales by
+  `--wb-design-scale` = fitted board height / `WB_DESIGN_HEIGHT` (655, the board
+  of a 1280x720 window): the text font (plus padding/border/radius via `calc`),
+  stickers (`--wb-sticker-base` = 15% of the fitted board's smaller side), the
+  dot grid, connector stroke widths and the connector end gap. That keeps text
+  and stickers in the same place and at the same relative size on the artwork
+  when the board re-fits. Do NOT apply the design scale to the UI - the browser
+  already magnifies it; the selection handles/action bar stay UI-sized.
   SAVE AS JPG (2026-10-23, user request): the rail's `#wbSaveBtn` (fa-download)
   calls `wbDownloadJpg()` (`js/board.js`) and downloads
   `<slug(board.name)>.jpg`. It is a CANVAS drawing of the STORED board, not a
@@ -333,16 +338,19 @@ Architecture:
   body-bg halo + body-colour line + arrowhead) -> items in z order (sticker
   img with rotation/flip/drop-shadow; text with its computed font/colour/
   padding, wrapped to the live box width, and fancy/hand/stamp SVG frames
-  drawn as a 9-slice - source slice 30 of 120 at 18px). The toolbar, board chip,
-  empty hint and selection outlines/handles are deliberately NOT in the image.
+  drawn as a 9-slice - source slice 30 of 120 at the live computed border
+  width). The toolbar, board chip, empty hint and selection outlines/handles are
+  deliberately NOT in the image.
   FULL-ARTWORK MAPPING: the export canvas is the image's natural size (capped
   at 4096px on the long edge). Because the board's aspect now EQUALS the
   image's, `coverScale = max(visW/imgW, visH/imgH)` is uniform (offset 0) and
   item %s map straight to artwork pixels; each item is drawn inside a
-  `translate(art) + rotate + scale(1/coverScale)` context, with connector
-  widths/arrow sizes divided by `coverScale`. With no background the export is
-  the visible board at 2x CSS pixels. Browser zoom does not affect the export
-  (the board's CSS size is unchanged).
+  `translate(art) + rotate + scale(1/coverScale)` context. Text/sticker metrics
+  come from the live DOM, so the artwork scale is already baked into them;
+  connector widths/end gap and the dot grid are multiplied by the live
+  `--wb-design-scale` as well as `artScale`. The result is invariant to browser
+  zoom and window size: the board scale and the artwork mapping cancel. With no
+  background the export is the visible board at 2x its CSS pixels.
   Images are the LIVE `<img>` elements (stickers) plus a fresh `Image` for the
   background file and frame data URIs, and `document.fonts.ready` is awaited so
   a family picked in the text panel renders. GOTCHA: canvas text must wrap
@@ -6739,3 +6747,28 @@ Techniques / gotchas:
   the JPG is 2560x1440 with the full space art, and items keep their position
   on the art (LEFT moved from 20% of the crop to ~39% of the artwork).
   BUILD -> `202610232126`.
+- FOLLOW-UP 2 (user, browser zoom): "the background and images do not zoom but
+  the placed text does ... it moves inconsistently", then "I want the whole
+  background image to scale as one image". The live board is the WHOLE artwork:
+  `wbLayoutBoard()` fits the background aspect (2560x1440) inside
+  #whiteboardArea, centred with bars; `#wbBackground` is 100% 100%; stickers use
+  the board-relative `--wb-sticker-base`; a click on the bars deselects. The
+  earlier `--wb-zoom` layer + object inverse scale experiment was REMOVED.
+- FOLLOW-UP 3 (user, final zoom model): "the Menu and the side panel ... and the
+  name at the top right should all scale with the browser zoom. But the
+  background should be shown as large as possible (keeping its original ratio)
+  in the space available. Then the text and stickers need to be scaled to stay
+  in the normal places. I will implement canvas zoom next." Replaced the
+  no-refit/DPR guard: every resize (120ms debounce), including a page zoom,
+  re-fits the artwork. `--wb-design-scale` = fitted board height /
+  `WB_DESIGN_HEIGHT` (655, the board of a 1280x720 window) is set on #wbCanvas;
+  the text font/padding/border/radius, `--wb-sticker-base`, the dot grid,
+  connector stroke widths and the connector end gap multiply by it. The UI (nav,
+  rail, board chip, action bar) is untouched and the browser magnifies it.
+  Verified with a throwaway probe using a 640x360 CSS viewport at
+  deviceScaleFactor 2 (the equivalent of 200% page zoom): nav 65 -> 130
+  physical, board 1164.4x655 -> 524.4x295 CSS (1048.8x590 physical), font 29.9
+  -> 13.47, sticker 117.9 -> 53.1, line 2.5 -> 1.126 (all x0.4504); text and
+  sticker centres stayed at the same % of the artwork; both JPGs are 2560x1440
+  and match. No console errors. The user runs the full regression suite.
+  BUILD -> `202610241449`.

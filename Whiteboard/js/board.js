@@ -10,18 +10,24 @@ var wbEls = {};
 var wbTap = null;
 var WB_SVG_NS = "http://www.w3.org/2000/svg";
 
-// Browser zoom guard. A page zoom changes devicePixelRatio AND shrinks the CSS
-// viewport; a plain window resize only changes the viewport. On a zoom we must
-// NOT re-fit the board (that would cancel the magnifying effect of the browser's
-// larger CSS px): the board keeps its CSS size and the browser scales the whole
-// board as one image. A real window resize re-fits it.
-var wbLastDpr = (typeof window !== "undefined" && window.devicePixelRatio) || 1;
+// Reference board height (the 655px board of a 1280x720 window). Every piece of
+// ARTWORK - text, stickers, dot grid, connector widths - is sized as a fraction
+// of the board using this scale, so it stays glued to the picture when the board
+// re-fits. The UI is not scaled here; browser page zoom handles that.
+var WB_DESIGN_HEIGHT = 655;
 var wbResizeTimer = null;
 
-// Size the board to the background artwork's aspect (whole image visible,
-// centred, bars around it when the window has a different shape). With no
-// background the board fills the area. Sticker size is board-relative so it
-// zooms with the board.
+// Current artwork scale: fitted board height / WB_DESIGN_HEIGHT.
+function wbDesignScale() {
+  if (!wbEls.canvas) return 1;
+  var v = parseFloat(wbEls.canvas.style.getPropertyValue("--wb-design-scale"));
+  return isFinite(v) && v > 0 ? v : 1;
+}
+
+// Size the board to the background artwork's aspect and fit it (contain) into
+// the space the UI leaves: the whole image is always visible, as large as
+// possible, with bars when the window shape differs. With no background the
+// board fills the area. Everything inside scales from --wb-design-scale.
 function wbLayoutBoard() {
   if (!wbEls.area || !wbEls.canvas) return;
   var aw = wbEls.area.clientWidth;
@@ -38,6 +44,7 @@ function wbLayoutBoard() {
   }
   wbEls.canvas.style.width = w + "px";
   wbEls.canvas.style.height = h + "px";
+  wbEls.canvas.style.setProperty("--wb-design-scale", h / WB_DESIGN_HEIGHT);
   wbEls.canvas.style.setProperty("--wb-sticker-base", (Math.min(w, h) * 0.15) + "px");
 }
 
@@ -96,9 +103,10 @@ function wbInitBoard() {
   window.addEventListener("resize", function () {
     clearTimeout(wbResizeTimer);
     wbResizeTimer = setTimeout(function () {
-      var dpr = window.devicePixelRatio || 1;
-      if (dpr === wbLastDpr) wbLayoutBoard();
-      else wbLastDpr = dpr;
+      // Re-fit on window resize AND browser zoom: the UI grows/shrinks with the
+      // page, the board takes the remaining space, and the artwork scale keeps
+      // the text/stickers/connectors in place on the picture.
+      wbLayoutBoard();
       wbRenderConnectors();
       wbPositionSelectionBar();
     }, 120);
@@ -318,8 +326,9 @@ function wbConnectorEnds(conn, canvasRect) {
     Math.max(1, toEl.offsetWidth / 2), Math.max(1, toEl.offsetHeight / 2),
     toItem.rotation * Math.PI / 180);
 
-  // Stop 5px short of each box so the arrowhead never touches the border.
-  var gap = 5;
+  // Stop 5px short of each box so the arrowhead never touches the border. The
+  // gap is artwork-sized, like the connector's stroke.
+  var gap = 5 * wbDesignScale();
   var aOut = wbPushOut(ax, ay, aEdge, gap);
   var bOut = wbPushOut(bx, by, bEdge, gap);
   return { x1: aOut.x, y1: aOut.y, x2: bOut.x, y2: bOut.y };
@@ -919,6 +928,7 @@ async function wbDownloadJpg() {
   var visW = wbEls.canvas.clientWidth;
   var visH = wbEls.canvas.clientHeight;
   if (!visW || !visH) return;
+  var designScale = wbDesignScale();
   if (document.fonts && document.fonts.ready) {
     try { await document.fonts.ready; } catch (e) { /* draw with the fallback */ }
   }
@@ -971,14 +981,16 @@ async function wbDownloadJpg() {
     }
     ctx.drawImage(bgImg, 0, 0, W, H);
   } else {
-    // The empty board's dot grid: 1px dots at 24px spacing, 22% body colour.
+    // The empty board's dot grid, at the same artwork scale as the live board.
+    var dotGap = 24 * designScale;
+    var dotR = 1 * designScale;
     ctx.save();
     ctx.globalAlpha = 0.22;
     ctx.fillStyle = bodyColor;
-    for (var gy = 12; gy < H; gy += 24) {
-      for (var gx = 12; gx < W; gx += 24) {
+    for (var gy = dotGap / 2; gy < H; gy += dotGap) {
+      for (var gx = dotGap / 2; gx < W; gx += dotGap) {
         ctx.beginPath();
-        ctx.arc(gx, gy, 1, 0, Math.PI * 2);
+        ctx.arc(gx, gy, dotR, 0, Math.PI * 2);
         ctx.fill();
       }
     }
@@ -1004,28 +1016,28 @@ async function wbDownloadJpg() {
       Math.max(1, toEl.offsetWidth / 2) * artScale,
       Math.max(1, toEl.offsetHeight / 2) * artScale,
       to.rotation * Math.PI / 180);
-    var aOut = wbPushOut(a.x, a.y, aEdge, 5 * artScale);
-    var bOut = wbPushOut(b.x, b.y, bEdge, 5 * artScale);
+    var aOut = wbPushOut(a.x, a.y, aEdge, 5 * designScale * artScale);
+    var bOut = wbPushOut(b.x, b.y, bEdge, 5 * designScale * artScale);
     ctx.save();
     ctx.lineCap = "round";
     ctx.globalAlpha = 0.85;
     ctx.strokeStyle = baseBg;
-    ctx.lineWidth = 7 * artScale;
+    ctx.lineWidth = 7 * designScale * artScale;
     ctx.beginPath(); ctx.moveTo(aOut.x, aOut.y); ctx.lineTo(bOut.x, bOut.y); ctx.stroke();
     ctx.globalAlpha = 1;
     ctx.strokeStyle = bodyColor;
-    ctx.lineWidth = 2.5 * artScale;
+    ctx.lineWidth = 2.5 * designScale * artScale;
     ctx.beginPath(); ctx.moveTo(aOut.x, aOut.y); ctx.lineTo(bOut.x, bOut.y); ctx.stroke();
     ctx.translate(bOut.x, bOut.y);
     ctx.rotate(Math.atan2(bOut.y - aOut.y, bOut.x - aOut.x));
     ctx.beginPath();
     ctx.moveTo(0, 0);
-    ctx.lineTo(-11 * artScale, -5.5 * artScale);
-    ctx.lineTo(-11 * artScale, 5.5 * artScale);
+    ctx.lineTo(-11 * designScale * artScale, -5.5 * designScale * artScale);
+    ctx.lineTo(-11 * designScale * artScale, 5.5 * designScale * artScale);
     ctx.closePath();
     ctx.fillStyle = bodyColor;
     ctx.strokeStyle = baseBg;
-    ctx.lineWidth = 3 * artScale;
+    ctx.lineWidth = 3 * designScale * artScale;
     ctx.lineJoin = "round";
     ctx.stroke();
     ctx.fill();
@@ -1066,7 +1078,12 @@ async function wbDownloadJpg() {
     } else {
       var textEl = el.querySelector(".wb-text");
       if (textEl) {
-        var frame = item.border && item.border !== "none" ? 18 : 0;
+        // The live frame border is design-scaled, so measure it instead of
+        // assuming 18px.
+        var frame = 0;
+        if (item.border && item.border !== "none") {
+          frame = parseFloat(getComputedStyle(textEl).borderTopWidth) || 0;
+        }
         var frameImg = null;
         if (frame) {
           var uri = wbFrameDataUri(item.border, wbResolveColor(item.color));
