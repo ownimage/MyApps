@@ -157,6 +157,7 @@ function wbRender() {
     if (wbEls.objectObserver) wbEls.objectObserver.observe(el);
   });
 
+  wbApplyAllTextNudges();
   wbRenderConnectors();
   wbApplyConnectClasses();
 
@@ -210,13 +211,56 @@ function wbBuildItem(item) {
 function wbStyleTextElement(el, item) {
   el.className = "wb-text wb-bg-" + item.bg + " wb-color-" + item.color + " wb-font-" + item.font;
   el.dataset.frame = item.border;
-  el.textContent = item.text || " ";
+  var body = el.querySelector(".wb-text-body");
+  if (!body) {
+    body = document.createElement("span");
+    body.className = "wb-text-body";
+    el.textContent = "";
+    el.appendChild(body);
+  }
+  body.textContent = item.text || " ";
   el.style.setProperty("--wb-text-scale", item.scale);
   if (item.border && item.border !== "none") {
     el.style.setProperty("--wb-frame-image", 'url("' + wbFrameDataUri(item.border, wbResolveColor(item.color)) + '")');
   } else {
     el.style.removeProperty("--wb-frame-image");
   }
+}
+
+// The JPG exporter centres each line on the CSS line box with
+// textBaseline="middle". CSS itself positions the glyphs from the font's
+// ascent/descent, which leaves the live text a little lower than the export.
+// Keep only the text (not the frame/background/handles) on the exported
+// baseline by nudging the inner span. The nudge is stored in em so it follows
+// text scale and board resizes without recalculating.
+function wbApplyTextNudge(el) {
+  var body = el && el.querySelector(".wb-text-body");
+  if (!body) return;
+  var cs = getComputedStyle(el);
+  var ctx = document.createElement("canvas").getContext("2d");
+  if (!ctx) return;
+  ctx.font = cs.fontStyle + " " + cs.fontWeight + " " + cs.fontSize + " " + cs.fontFamily;
+  ctx.textBaseline = "alphabetic";
+  var alpha = ctx.measureText("Mg");
+  ctx.textBaseline = "middle";
+  var middle = ctx.measureText("Mg");
+  var ascent = alpha.fontBoundingBoxAscent;
+  var descent = alpha.fontBoundingBoxDescent;
+  var middleAscent = middle.fontBoundingBoxAscent;
+  if (!isFinite(ascent) || !isFinite(descent) || !isFinite(middleAscent)) {
+    body.style.removeProperty("top");
+    return;
+  }
+  var size = parseFloat(cs.fontSize);
+  if (!size) return;
+  var shift = ((ascent - middleAscent) - (ascent - descent) / 2) / size;
+  if (Math.abs(shift) < 0.0001) body.style.removeProperty("top");
+  else body.style.top = shift.toFixed(4) + "em";
+}
+
+function wbApplyAllTextNudges() {
+  if (!wbEls.items) return;
+  wbEls.items.querySelectorAll(".wb-text").forEach(wbApplyTextNudge);
 }
 
 function wbApplyItemTransform(item) {
@@ -252,7 +296,10 @@ function wbApplyStickerFlip(el, item) {
 function wbApplyTextStyle(item) {
   if (!wbEls.items) return;
   var el = wbEls.items.querySelector('.wb-object[data-id="' + item.id + '"] .wb-text');
-  if (el) wbStyleTextElement(el, item);
+  if (el) {
+    wbStyleTextElement(el, item);
+    wbApplyTextNudge(el);
+  }
   wbRenderConnectors();
   wbPositionSelectionBar();
 }
@@ -859,6 +906,23 @@ function wbCanvasWrapText(ctx, text, maxWidth) {
   return lines;
 }
 
+// Draw one middle edge slice the way the live `border-image-repeat: round`
+// does: scale it across the border to the frame width, then repeat it along the
+// edge an integer number of times. Without this the exporter stretches a single
+// 60px slice over the whole side, which turns the stamp dots into long dashes.
+function wbDrawCanvasFrameEdge(ctx, img, sx, sy, sw, sh, dx, dy, dw, dh, vertical) {
+  var natural = vertical ? sh * (dw / sw) : sw * (dh / sh);
+  var count = Math.max(1, Math.round((vertical ? dh : dw) / natural));
+  var tile = (vertical ? dh : dw) / count;
+  for (var i = 0; i < count; i++) {
+    if (vertical) {
+      ctx.drawImage(img, sx, sy, sw, sh, dx, dy + i * tile, dw, tile);
+    } else {
+      ctx.drawImage(img, sx, sy, sw, sh, dx + i * tile, dy, tile, dh);
+    }
+  }
+}
+
 function wbDrawCanvasText(ctx, item, el, frame, frameImg) {
   var cs = getComputedStyle(el);
   var w = el.offsetWidth;
@@ -883,10 +947,14 @@ function wbDrawCanvasText(ctx, item, el, frame, frameImg) {
     ctx.drawImage(frameImg, src - s, 0, s, s, x + w - d, y, d, d);
     ctx.drawImage(frameImg, 0, src - s, s, s, x, y + h - d, d, d);
     ctx.drawImage(frameImg, src - s, src - s, s, s, x + w - d, y + h - d, d, d);
-    ctx.drawImage(frameImg, s, 0, src - s * 2, s, x + d, y, w - d * 2, d);
-    ctx.drawImage(frameImg, s, src - s, src - s * 2, s, x + d, y + h - d, w - d * 2, d);
-    ctx.drawImage(frameImg, 0, s, s, src - s * 2, x, y + d, d, h - d * 2);
-    ctx.drawImage(frameImg, src - s, s, s, src - s * 2, x + w - d, y + d, d, h - d * 2);
+    wbDrawCanvasFrameEdge(ctx, frameImg, s, 0, src - s * 2, s,
+      x + d, y, w - d * 2, d, false);
+    wbDrawCanvasFrameEdge(ctx, frameImg, s, src - s, src - s * 2, s,
+      x + d, y + h - d, w - d * 2, d, false);
+    wbDrawCanvasFrameEdge(ctx, frameImg, 0, s, s, src - s * 2,
+      x, y + d, d, h - d * 2, true);
+    wbDrawCanvasFrameEdge(ctx, frameImg, src - s, s, s, src - s * 2,
+      x + w - d, y + d, d, h - d * 2, true);
   }
 
   var padL = frame + parseFloat(cs.paddingLeft || 0);

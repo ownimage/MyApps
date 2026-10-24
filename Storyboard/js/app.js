@@ -39,6 +39,20 @@ document.addEventListener("DOMContentLoaded", function () {
   wbInitToolbar();
   wbRender();
 
+  // The JPG baseline nudge depends on the live font's metrics. Recompute it
+  // when a webfont finishes loading (the first render may have used a fallback).
+  if (document.fonts) {
+    var refreshTextNudges = function () {
+      if (typeof wbApplyAllTextNudges === "function") wbApplyAllTextNudges();
+    };
+    if (document.fonts.ready && document.fonts.ready.then) {
+      document.fonts.ready.then(refreshTextNudges);
+    }
+    if (document.fonts.addEventListener) {
+      document.fonts.addEventListener("loadingdone", refreshTextNudges);
+    }
+  }
+
   // The shared <smd-theme> only announces a change; apply it and repaint so the
   // generated text-border colours (resolved from CSS variables) follow the theme.
   document.addEventListener("smd-theme-change", function (e) {

@@ -693,6 +693,13 @@ body.auto-hide-menu #mainNav {
   white-space: pre-wrap;
 }
 
+/* The inner span can be nudged onto the canvas export's text baseline without
+   changing the box (its normal-flow height still sizes the frame). */
+.wb-text-body {
+  display: block;
+  position: relative;
+}
+
 .wb-text[data-frame="fancy"],
 .wb-text[data-frame="hand"],
 .wb-text[data-frame="stamp"] {
