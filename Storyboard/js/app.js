@@ -26,7 +26,7 @@ document.addEventListener("DOMContentLoaded", function () {
     if (themeRepaint) return;
     themeRepaint = requestAnimationFrame(function () {
       themeRepaint = 0;
-      if (typeof wbRender === "function") wbRender();
+      if (typeof sbRender === "function") sbRender();
     });
   };
   ["bootstrap-theme-css", "theme-override-mode", "theme-override-specific"].forEach(function (id) {
@@ -34,16 +34,16 @@ document.addEventListener("DOMContentLoaded", function () {
     if (link) link.addEventListener("load", repaintAfterThemeSheet);
   });
 
-  wbLoadState();
-  wbInitBoard();
-  wbInitToolbar();
-  wbRender();
+  sbLoadState();
+  sbInitBoard();
+  sbInitToolbar();
+  sbRender();
 
   // The JPG baseline nudge depends on the live font's metrics. Recompute it
   // when a webfont finishes loading (the first render may have used a fallback).
   if (document.fonts) {
     var refreshTextNudges = function () {
-      if (typeof wbApplyAllTextNudges === "function") wbApplyAllTextNudges();
+      if (typeof sbApplyAllTextNudges === "function") sbApplyAllTextNudges();
     };
     if (document.fonts.ready && document.fonts.ready.then) {
       document.fonts.ready.then(refreshTextNudges);
@@ -62,6 +62,6 @@ document.addEventListener("DOMContentLoaded", function () {
     } else if (detail.theme && typeof changeTheme === "function") {
       changeTheme(detail.theme);
     }
-    if (typeof wbRender === "function") wbRender();
+    if (typeof sbRender === "function") sbRender();
   });
 });

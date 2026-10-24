@@ -1,50 +1,52 @@
 // Storyboard - painting the board and all direct-manipulation gestures.
 //
 // Objects are absolutely positioned by PERCENTAGE (left/top) so their relative
-// place survives a resize, then rotated around their centre. Selection shows two
-// handles: bottom-right = scale, top = rotate. Two fingers on one object pinch
-// to scale, twist to rotate and slide to move. Every gesture writes into the
-// stored item and saves (throttled while dragging).
+// place survives a resize, then rotated around their centre. A single selection
+// shows the two handles on the object (bottom-right = scale, top = rotate); a
+// group or a loose multi-selection uses ONE #sbSelectionBox around the union of
+// the members instead. Two fingers on the selection pinch to scale, twist to
+// rotate and slide to move. Groups are metadata only (board.groups): every
+// gesture composes the result into the stored LEAVES and saves (throttled).
 
-var wbEls = {};
-var wbTap = null;
-var WB_SVG_NS = "http://www.w3.org/2000/svg";
+var sbEls = {};
+var sbTap = null;
+var SB_SVG_NS = "http://www.w3.org/2000/svg";
 
 // Reference board height (the 655px board of a 1280x720 window). Every piece of
 // ARTWORK - text, stickers, dot grid, connector widths - is sized as a fraction
 // of the board using this scale, so it stays glued to the picture when the board
 // re-fits or is zoomed. The UI is not scaled here; browser page zoom handles that.
-var WB_DESIGN_HEIGHT = 655;
+var SB_DESIGN_HEIGHT = 655;
 // Pasteboard margins used only when the board is zoomed past the fitted view.
-var WB_BOARD_PAD = 56;
-var WB_PASTE_GAP = 8;
-var wbResizeTimer = null;
-var wbScrollRaf = 0;
+var SB_BOARD_PAD = 56;
+var SB_PASTE_GAP = 8;
+var sbResizeTimer = null;
+var sbScrollRaf = 0;
 
-// Current artwork scale: board height / WB_DESIGN_HEIGHT.
-function wbDesignScale() {
-  if (!wbEls.canvas) return 1;
-  var v = parseFloat(wbEls.canvas.style.getPropertyValue("--wb-design-scale"));
+// Current artwork scale: board height / SB_DESIGN_HEIGHT.
+function sbDesignScale() {
+  if (!sbEls.canvas) return 1;
+  var v = parseFloat(sbEls.canvas.style.getPropertyValue("--sb-design-scale"));
   return isFinite(v) && v > 0 ? v : 1;
 }
 
-function wbZoom() {
-  var v = Number(wbState.zoom);
+function sbZoom() {
+  var v = Number(sbState.zoom);
   return isFinite(v) && v > 0 ? v : 1;
 }
 
 // Size the board to the background artwork's aspect, fit it (contain) into the
 // space the UI leaves, then multiply by the zoom factor. At zoom 1 this is
 // exactly the old fitted view (whole image visible, bars when the window shape
-// differs). Everything inside scales from --wb-design-scale.
-function wbLayoutBoard(anchor) {
-  if (!wbEls.area || !wbEls.canvas) return;
-  var view = wbEls.scroller || wbEls.area;
+// differs). Everything inside scales from --sb-design-scale.
+function sbLayoutBoard(anchor) {
+  if (!sbEls.area || !sbEls.canvas) return;
+  var view = sbEls.scroller || sbEls.area;
   var vw = view.clientWidth;
   var vh = view.clientHeight;
   if (!vw || !vh) return;
-  var board = wbActiveBoard();
-  var meta = board && board.background ? wbBackgroundById(board.background) : null;
+  var board = sbActiveBoard();
+  var meta = board && board.background ? sbBackgroundById(board.background) : null;
   var fitW = vw;
   var fitH = vh;
   if (meta && meta.width && meta.height) {
@@ -52,21 +54,21 @@ function wbLayoutBoard(anchor) {
     fitW = meta.width * fit;
     fitH = meta.height * fit;
   }
-  var zoom = wbZoom();
+  var zoom = sbZoom();
   var w = fitW * zoom;
   var h = fitH * zoom;
-  wbEls.fitW = fitW;
-  wbEls.fitH = fitH;
-  wbEls.canvas.style.width = w + "px";
-  wbEls.canvas.style.height = h + "px";
-  wbEls.canvas.dataset.zoom = String(zoom);
+  sbEls.fitW = fitW;
+  sbEls.fitH = fitH;
+  sbEls.canvas.style.width = w + "px";
+  sbEls.canvas.style.height = h + "px";
+  sbEls.canvas.dataset.zoom = String(zoom);
   // Set the artwork scale BEFORE measuring overhangs: text and handles must be
   // at their final size when their rects are read below.
-  wbEls.canvas.style.setProperty("--wb-design-scale", h / WB_DESIGN_HEIGHT);
-  wbEls.canvas.style.setProperty("--wb-sticker-base", (Math.min(w, h) * 0.15) + "px");
-  wbSizeStage(vw, vh, w, h, zoom);
-  if (anchor) wbApplyZoomAnchor(anchor);
-  wbUpdateZoomUi();
+  sbEls.canvas.style.setProperty("--sb-design-scale", h / SB_DESIGN_HEIGHT);
+  sbEls.canvas.style.setProperty("--sb-sticker-base", (Math.min(w, h) * 0.15) + "px");
+  sbSizeStage(vw, vh, w, h, zoom);
+  if (anchor) sbApplyZoomAnchor(anchor);
+  sbUpdateZoomUi();
 }
 
 // The stage is at least the viewport (so a small board stays centred). When the
@@ -74,38 +76,47 @@ function wbLayoutBoard(anchor) {
 // the objects AND their grab handles, so nothing at the artwork edge is
 // unreachable. At zoom 1 no margin is added: the fitted view is unchanged and
 // there are no scrollbars.
-function wbSizeStage(vw, vh, w, h, zoom) {
-  if (!wbEls.stage) return;
+function sbSizeStage(vw, vh, w, h, zoom) {
+  if (!sbEls.stage) return;
   var padX = 0;
   var padY = 0;
   if (zoom > 1) {
-    var over = wbBoardOverhang();
-    padX = Math.max(WB_BOARD_PAD, over.left + WB_PASTE_GAP, over.right + WB_PASTE_GAP);
-    padY = Math.max(WB_BOARD_PAD, over.top + WB_PASTE_GAP, over.bottom + WB_PASTE_GAP);
+    var over = sbBoardOverhang();
+    padX = Math.max(SB_BOARD_PAD, over.left + SB_PASTE_GAP, over.right + SB_PASTE_GAP);
+    padY = Math.max(SB_BOARD_PAD, over.top + SB_PASTE_GAP, over.bottom + SB_PASTE_GAP);
   }
-  wbEls.stage.style.width = Math.max(vw, w + padX * 2) + "px";
-  wbEls.stage.style.height = Math.max(vh, h + padY * 2) + "px";
+  sbEls.stage.style.width = Math.max(vw, w + padX * 2) + "px";
+  sbEls.stage.style.height = Math.max(vh, h + padY * 2) + "px";
 }
 
 // How far the rendered objects (and any visible grab handles) reach outside the
 // artwork, in CSS px. Measuring the DOM means a huge sticker or a long text box
 // at the edge gets exactly the pasteboard it needs - a fixed margin could not.
-function wbBoardOverhang() {
+function sbBoardOverhang() {
   var out = { left: 0, right: 0, top: 0, bottom: 0 };
-  if (!wbEls.canvas || !wbEls.items) return out;
-  var cr = wbEls.canvas.getBoundingClientRect();
+  if (!sbEls.canvas || !sbEls.items) return out;
+  var cr = sbEls.canvas.getBoundingClientRect();
   if (!cr.width || !cr.height) return out;
-  wbEls.items.querySelectorAll(".wb-object").forEach(function (obj) {
-    wbMeasureOverhang(out, cr, obj.getBoundingClientRect());
-    obj.querySelectorAll(".wb-handle").forEach(function (handle) {
+  sbEls.items.querySelectorAll(".sb-object").forEach(function (obj) {
+    sbMeasureOverhang(out, cr, obj.getBoundingClientRect());
+    obj.querySelectorAll(".sb-handle").forEach(function (handle) {
       var r = handle.getBoundingClientRect();
-      if (r.width || r.height) wbMeasureOverhang(out, cr, r);
+      if (r.width || r.height) sbMeasureOverhang(out, cr, r);
     });
   });
+  // A group/multi selection puts its handles on #sbSelectionBox instead of on the
+  // objects, so the pasteboard must cover that box too.
+  if (sbEls.selectionBox && !sbEls.selectionBox.classList.contains("d-none")) {
+    sbMeasureOverhang(out, cr, sbEls.selectionBox.getBoundingClientRect());
+    sbEls.selectionBox.querySelectorAll(".sb-handle").forEach(function (handle) {
+      var r = handle.getBoundingClientRect();
+      if (r.width || r.height) sbMeasureOverhang(out, cr, r);
+    });
+  }
   return out;
 }
 
-function wbMeasureOverhang(out, cr, r) {
+function sbMeasureOverhang(out, cr, r) {
   out.left = Math.max(out.left, cr.left - r.left);
   out.right = Math.max(out.right, r.right - cr.right);
   out.top = Math.max(out.top, cr.top - r.top);
@@ -115,39 +126,40 @@ function wbMeasureOverhang(out, cr, r) {
 // Re-measure the pasteboard after the selection changes (handles appear) or a
 // drag finishes near an edge. The selected item is held at the same screen
 // position so growing the margin does not make the board jump.
-function wbRefreshPasteboard() {
-  if (!wbEls.stage || !wbEls.scroller || !wbEls.canvas) return;
-  var zoom = wbZoom();
+function sbRefreshPasteboard() {
+  if (!sbEls.stage || !sbEls.scroller || !sbEls.canvas) return;
+  var zoom = sbZoom();
   if (zoom <= 1) return;
-  var vw = wbEls.scroller.clientWidth;
-  var vh = wbEls.scroller.clientHeight;
-  var w = wbEls.canvas.offsetWidth;
-  var h = wbEls.canvas.offsetHeight;
+  var vw = sbEls.scroller.clientWidth;
+  var vh = sbEls.scroller.clientHeight;
+  var w = sbEls.canvas.offsetWidth;
+  var h = sbEls.canvas.offsetHeight;
   if (!vw || !vh || !w || !h) return;
-  var anchor = wbZoomAnchorPoint();
-  wbSizeStage(vw, vh, w, h, zoom);
-  wbApplyZoomAnchor(anchor);
+  var anchor = sbZoomAnchorPoint();
+  sbSizeStage(vw, vh, w, h, zoom);
+  sbApplyZoomAnchor(anchor);
   // A clamped anchor scroll can move the board slightly; keep the action bar
   // glued to the object after the margin change.
-  wbPositionSelectionBar();
+  sbPositionSelectionBox();
+  sbPositionSelectionBar();
 }
 
 // Zoom around the selected object/handlebox when there is one, otherwise around
 // whatever sits at the middle of the visible area. Returns the board fraction
 // plus the screen position that must stay put.
-function wbZoomAnchorPoint() {
-  var vw = wbEls.scroller ? wbEls.scroller.clientWidth : (wbEls.area ? wbEls.area.clientWidth : 0);
-  var vh = wbEls.scroller ? wbEls.scroller.clientHeight : (wbEls.area ? wbEls.area.clientHeight : 0);
+function sbZoomAnchorPoint() {
+  var vw = sbEls.scroller ? sbEls.scroller.clientWidth : (sbEls.area ? sbEls.area.clientWidth : 0);
+  var vh = sbEls.scroller ? sbEls.scroller.clientHeight : (sbEls.area ? sbEls.area.clientHeight : 0);
   var fallback = { fx: 0.5, fy: 0.5, sx: vw / 2, sy: vh / 2 };
-  if (!wbEls.canvas || !wbEls.scroller) return fallback;
-  var cr = wbEls.canvas.getBoundingClientRect();
+  if (!sbEls.canvas || !sbEls.scroller) return fallback;
+  var cr = sbEls.canvas.getBoundingClientRect();
   if (!cr.width || !cr.height) return fallback;
-  var sr = wbEls.scroller.getBoundingClientRect();
+  var sr = sbEls.scroller.getBoundingClientRect();
   var el = null;
-  if (wbState.selectedConnectorId && wbEls.connectorPaths) {
-    el = wbEls.connectorPaths.querySelector('.wb-connector[data-id="' + wbState.selectedConnectorId + '"] .wb-connector-line');
-  } else if (wbState.selectedId) {
-    el = wbItemEl(wbState.selectedId);
+  if (sbState.selectedConnectorId && sbEls.connectorPaths) {
+    el = sbEls.connectorPaths.querySelector('.sb-connector[data-id="' + sbState.selectedConnectorId + '"] .sb-connector-line');
+  } else if (sbState.selectedId) {
+    el = sbItemEl(sbState.selectedId);
   }
   var r = el ? el.getBoundingClientRect() : null;
   if (r && (r.width || r.height)) {
@@ -167,214 +179,220 @@ function wbZoomAnchorPoint() {
 }
 
 // Scroll so the anchored board point sits at the same screen position again.
-function wbApplyZoomAnchor(anchor) {
-  if (!anchor || !wbEls.scroller || !wbEls.canvas) return;
-  var sr = wbEls.scroller.getBoundingClientRect();
-  var cr = wbEls.canvas.getBoundingClientRect();
+function sbApplyZoomAnchor(anchor) {
+  if (!anchor || !sbEls.scroller || !sbEls.canvas) return;
+  var sr = sbEls.scroller.getBoundingClientRect();
+  var cr = sbEls.canvas.getBoundingClientRect();
   if (!cr.width || !cr.height) return;
   var currentX = cr.left - sr.left + anchor.fx * cr.width;
   var currentY = cr.top - sr.top + anchor.fy * cr.height;
-  wbEls.scroller.scrollLeft += currentX - anchor.sx;
-  wbEls.scroller.scrollTop += currentY - anchor.sy;
+  sbEls.scroller.scrollLeft += currentX - anchor.sx;
+  sbEls.scroller.scrollTop += currentY - anchor.sy;
 }
 
-function wbCentreBoard() {
-  if (!wbEls.scroller) return;
-  wbEls.scroller.scrollLeft = Math.max(0, (wbEls.scroller.scrollWidth - wbEls.scroller.clientWidth) / 2);
-  wbEls.scroller.scrollTop = Math.max(0, (wbEls.scroller.scrollHeight - wbEls.scroller.clientHeight) / 2);
+function sbCentreBoard() {
+  if (!sbEls.scroller) return;
+  sbEls.scroller.scrollLeft = Math.max(0, (sbEls.scroller.scrollWidth - sbEls.scroller.clientWidth) / 2);
+  sbEls.scroller.scrollTop = Math.max(0, (sbEls.scroller.scrollHeight - sbEls.scroller.clientHeight) / 2);
 }
 
 // ---- Zoom controls ---------------------------------------------------------
 
-function wbZoomIn() {
-  wbZoomStep(1);
+function sbZoomIn() {
+  sbZoomStep(1);
 }
 
-function wbZoomOut() {
-  wbZoomStep(-1);
+function sbZoomOut() {
+  sbZoomStep(-1);
 }
 
-function wbZoomFit() {
-  wbZoomTo(1);
+function sbZoomFit() {
+  sbZoomTo(1);
 }
 
-function wbZoomStep(direction) {
-  var index = WB_ZOOM_LEVELS.indexOf(wbNormalizeZoom(wbZoom()));
-  if (index < 0) index = WB_ZOOM_LEVELS.indexOf(1);
-  var next = WB_ZOOM_LEVELS[Math.min(WB_ZOOM_LEVELS.length - 1, Math.max(0, index + direction))];
-  wbZoomTo(next);
+function sbZoomStep(direction) {
+  var index = SB_ZOOM_LEVELS.indexOf(sbNormalizeZoom(sbZoom()));
+  if (index < 0) index = SB_ZOOM_LEVELS.indexOf(1);
+  var next = SB_ZOOM_LEVELS[Math.min(SB_ZOOM_LEVELS.length - 1, Math.max(0, index + direction))];
+  sbZoomTo(next);
 }
 
-function wbZoomTo(next) {
-  var zoom = wbNormalizeZoom(next);
-  if (zoom === wbZoom()) return;
-  var anchor = wbZoomAnchorPoint();
-  wbState.zoom = zoom;
-  wbSaveState();
-  wbLayoutBoard(anchor);
-  wbRenderConnectors();
-  wbPositionSelectionBar();
+function sbZoomTo(next) {
+  var zoom = sbNormalizeZoom(next);
+  if (zoom === sbZoom()) return;
+  var anchor = sbZoomAnchorPoint();
+  sbState.zoom = zoom;
+  sbSaveState();
+  sbLayoutBoard(anchor);
+  sbRenderConnectors();
+  sbPositionSelectionBar();
 }
 
-function wbUpdateZoomUi() {
-  var zoom = wbNormalizeZoom(wbZoom());
-  var index = WB_ZOOM_LEVELS.indexOf(zoom);
-  var out = document.getElementById("wbZoomOut");
-  var inn = document.getElementById("wbZoomIn");
-  var fit = document.getElementById("wbZoomFit");
+function sbUpdateZoomUi() {
+  var zoom = sbNormalizeZoom(sbZoom());
+  var index = SB_ZOOM_LEVELS.indexOf(zoom);
+  var out = document.getElementById("sbZoomOut");
+  var inn = document.getElementById("sbZoomIn");
+  var fit = document.getElementById("sbZoomFit");
   if (out) out.disabled = index <= 0;
-  if (inn) inn.disabled = index >= WB_ZOOM_LEVELS.length - 1;
+  if (inn) inn.disabled = index >= SB_ZOOM_LEVELS.length - 1;
   if (fit) fit.disabled = zoom === 1;
 }
 
-function wbInitBoard() {
-  wbEls.area = document.getElementById("storyboardArea");
-  wbEls.scroller = document.getElementById("wbScroller");
-  wbEls.stage = document.getElementById("wbStage");
-  wbEls.canvas = document.getElementById("wbCanvas");
-  wbEls.bg = document.getElementById("wbBackground");
-  wbEls.items = document.getElementById("wbItems");
-  wbEls.hint = document.getElementById("wbEmptyHint");
-  wbEls.selBar = document.getElementById("wbSelectionBar");
-  wbEls.boardName = document.getElementById("wbBoardName");
-  wbEls.connectors = document.getElementById("wbConnectors");
-  wbEls.connectorPaths = document.getElementById("wbConnectorPaths");
-  wbEls.connectHint = document.getElementById("wbConnectHint");
-  wbLayoutBoard();
+function sbInitBoard() {
+  sbEls.area = document.getElementById("storyboardArea");
+  sbEls.scroller = document.getElementById("sbScroller");
+  sbEls.stage = document.getElementById("sbStage");
+  sbEls.canvas = document.getElementById("sbCanvas");
+  sbEls.bg = document.getElementById("sbBackground");
+  sbEls.items = document.getElementById("sbItems");
+  sbEls.hint = document.getElementById("sbEmptyHint");
+  sbEls.selBar = document.getElementById("sbSelectionBar");
+  sbEls.boardName = document.getElementById("sbBoardName");
+  sbEls.connectors = document.getElementById("sbConnectors");
+  sbEls.connectorPaths = document.getElementById("sbConnectorPaths");
+  sbEls.connectHint = document.getElementById("sbConnectHint");
+  sbEls.selectionBox = document.getElementById("sbSelectionBox");
+  sbLayoutBoard();
 
-  if (wbEls.items) wbEls.items.addEventListener("pointerdown", wbOnPointerDown);
+  if (sbEls.items) sbEls.items.addEventListener("pointerdown", sbOnPointerDown);
   // The board no longer fills the whole area (it is the artwork, centred with
   // bars around it), so deselect on a click anywhere in the area - the handler
   // ignores objects, connectors, the toolbar, the action bar and the board chip.
-  if (wbEls.area) wbEls.area.addEventListener("pointerdown", wbOnCanvasPointerDown);
-  if (wbEls.scroller) {
+  if (sbEls.area) sbEls.area.addEventListener("pointerdown", sbOnCanvasPointerDown);
+  if (sbEls.scroller) {
     // The action bar is a viewport overlay, so it follows the board while the
     // user scrolls instead of scrolling away with it.
-    wbEls.scroller.addEventListener("scroll", function () {
-      if (wbScrollRaf) return;
-      wbScrollRaf = requestAnimationFrame(function () {
-        wbScrollRaf = 0;
-        wbPositionSelectionBar();
+    sbEls.scroller.addEventListener("scroll", function () {
+      if (sbScrollRaf) return;
+      sbScrollRaf = requestAnimationFrame(function () {
+        sbScrollRaf = 0;
+        sbPositionSelectionBar();
       });
     }, { passive: true });
   }
-  if (wbEls.items) wbEls.items.addEventListener("dblclick", wbOnDoubleClick);
-  if (wbEls.connectors) wbEls.connectors.addEventListener("pointerdown", wbOnConnectorPointerDown);
-  if (wbEls.boardName) {
-    wbEls.boardName.addEventListener("click", function () { wbOpenTool("boards"); });
-    wbEls.boardName.addEventListener("keydown", function (e) {
+  if (sbEls.items) sbEls.items.addEventListener("dblclick", sbOnDoubleClick);
+  if (sbEls.connectors) sbEls.connectors.addEventListener("pointerdown", sbOnConnectorPointerDown);
+  if (sbEls.boardName) {
+    sbEls.boardName.addEventListener("click", function () { sbOpenTool("boards"); });
+    sbEls.boardName.addEventListener("keydown", function (e) {
       if (e.key !== "Enter" && e.key !== " ") return;
       e.preventDefault();
-      wbOpenTool("boards");
+      sbOpenTool("boards");
     });
   }
 
-  var connect = document.getElementById("wbSelConnect");
-  var front = document.getElementById("wbSelFront");
-  var duplicate = document.getElementById("wbSelDuplicate");
-  var flipH = document.getElementById("wbSelFlipH");
-  var flipV = document.getElementById("wbSelFlipV");
-  var del = document.getElementById("wbSelDelete");
-  var connReverse = document.getElementById("wbConnReverse");
-  var connDelete = document.getElementById("wbConnDelete");
-  var connectCancel = document.getElementById("wbConnectCancel");
-  if (connect) connect.addEventListener("click", wbStartConnect);
-  if (front) front.addEventListener("click", wbFrontSelected);
-  if (duplicate) duplicate.addEventListener("click", wbDuplicateSelected);
-  if (flipH) flipH.addEventListener("click", function () { wbFlipSelected("x"); });
-  if (flipV) flipV.addEventListener("click", function () { wbFlipSelected("y"); });
-  if (del) del.addEventListener("click", wbDeleteSelected);
-  if (connReverse) connReverse.addEventListener("click", wbReverseSelectedConnector);
-  if (connDelete) connDelete.addEventListener("click", wbDeleteSelectedConnector);
-  if (connectCancel) connectCancel.addEventListener("click", wbCancelConnect);
+  var connect = document.getElementById("sbSelConnect");
+  var front = document.getElementById("sbSelFront");
+  var duplicate = document.getElementById("sbSelDuplicate");
+  var flipH = document.getElementById("sbSelFlipH");
+  var flipV = document.getElementById("sbSelFlipV");
+  var del = document.getElementById("sbSelDelete");
+  var connReverse = document.getElementById("sbConnReverse");
+  var connDelete = document.getElementById("sbConnDelete");
+  var connectCancel = document.getElementById("sbConnectCancel");
+  var groupBtn = document.getElementById("sbSelGroup");
+  var ungroupBtn = document.getElementById("sbSelUngroup");
+  if (connect) connect.addEventListener("click", sbStartConnect);
+  if (front) front.addEventListener("click", sbFrontSelected);
+  if (duplicate) duplicate.addEventListener("click", sbDuplicateSelected);
+  if (flipH) flipH.addEventListener("click", function () { sbFlipSelected("x"); });
+  if (flipV) flipV.addEventListener("click", function () { sbFlipSelected("y"); });
+  if (del) del.addEventListener("click", sbDeleteSelected);
+  if (groupBtn) groupBtn.addEventListener("click", sbGroupSelected);
+  if (ungroupBtn) ungroupBtn.addEventListener("click", sbUngroupSelected);
+  if (connReverse) connReverse.addEventListener("click", sbReverseSelectedConnector);
+  if (connDelete) connDelete.addEventListener("click", sbDeleteSelectedConnector);
+  if (connectCancel) connectCancel.addEventListener("click", sbCancelConnect);
+  if (sbEls.selectionBox) sbEls.selectionBox.addEventListener("pointerdown", sbOnSelectionPointerDown);
 
-  document.addEventListener("pointermove", wbOnPointerMove, { passive: false });
-  document.addEventListener("pointerup", wbOnPointerUp);
-  document.addEventListener("pointercancel", wbOnPointerUp);
-  document.addEventListener("keydown", wbOnKeyDown);
+  document.addEventListener("pointermove", sbOnPointerMove, { passive: false });
+  document.addEventListener("pointerup", sbOnPointerUp);
+  document.addEventListener("pointercancel", sbOnPointerUp);
+  document.addEventListener("keydown", sbOnKeyDown);
   window.addEventListener("resize", function () {
-    clearTimeout(wbResizeTimer);
-    wbResizeTimer = setTimeout(function () {
+    clearTimeout(sbResizeTimer);
+    sbResizeTimer = setTimeout(function () {
       // Re-fit on window resize AND browser zoom: the UI grows/shrinks with the
       // page, the board takes the remaining space, and the artwork scale keeps
       // the text/stickers/connectors in place on the picture. Anchor on the
       // selection (or the view centre) so a resize does not lose the user's place.
-      var anchor = wbZoomAnchorPoint();
-      wbLayoutBoard(anchor);
-      wbApplyAllTextNudges();
-      wbRenderConnectors();
-      wbPositionSelectionBar();
+      var anchor = sbZoomAnchorPoint();
+      sbLayoutBoard(anchor);
+      sbApplyAllTextNudges();
+      sbRenderConnectors();
+      sbPositionSelectionBar();
     }, 120);
   });
 
   // Text metrics change when a font loads or the font size setting moves, which
   // moves the box edges a connector must attach to.
   if (window.ResizeObserver) {
-    wbEls.objectObserver = new ResizeObserver(function () {
-      wbRenderConnectors();
-      wbPositionSelectionBar();
+    sbEls.objectObserver = new ResizeObserver(function () {
+      sbRenderConnectors();
+      sbPositionSelectionBar();
     });
   }
 }
 
 function renderMain() {
-  wbRender();
+  sbRender();
 }
 
-function wbRender() {
-  if (!wbEls.items) wbInitBoard();
-  var board = wbActiveBoard();
-  if (!board || !wbEls.items) return;
+function sbRender() {
+  if (!sbEls.items) sbInitBoard();
+  var board = sbActiveBoard();
+  if (!board || !sbEls.items) return;
 
   // Size the board to the artwork BEFORE building items: the sticker width is
   // board-relative and the item % positions live in this box.
-  wbLayoutBoard();
+  sbLayoutBoard();
 
-  var meta = wbBackgroundById(board.background);
+  var meta = sbBackgroundById(board.background);
   if (meta) {
-    wbEls.bg.style.backgroundImage = 'url("' + meta.file + '")';
-    wbEls.bg.dataset.background = meta.id;
+    sbEls.bg.style.backgroundImage = 'url("' + meta.file + '")';
+    sbEls.bg.dataset.background = meta.id;
   } else {
     // REMOVE the inline property rather than assigning "": an empty inline
     // background-image would override the CSS dot-grid for the empty board.
-    wbEls.bg.style.removeProperty("background-image");
-    wbEls.bg.dataset.background = "none";
+    sbEls.bg.style.removeProperty("background-image");
+    sbEls.bg.dataset.background = "none";
   }
 
-  wbEls.items.innerHTML = "";
-  if (wbEls.objectObserver) wbEls.objectObserver.disconnect();
+  sbEls.items.innerHTML = "";
+  if (sbEls.objectObserver) sbEls.objectObserver.disconnect();
   var ordered = board.items.slice().sort(function (a, b) {
     return (Number(a.z) || 0) - (Number(b.z) || 0);
   });
   ordered.forEach(function (item) {
-    var el = wbBuildItem(item);
-    wbEls.items.appendChild(el);
-    if (wbEls.objectObserver) wbEls.objectObserver.observe(el);
+    var el = sbBuildItem(item);
+    sbEls.items.appendChild(el);
+    if (sbEls.objectObserver) sbEls.objectObserver.observe(el);
   });
 
-  wbApplyAllTextNudges();
+  sbApplyAllTextNudges();
   // Re-run the layout now the items exist: the pasteboard must cover the
   // rendered objects and the selected item's grab handles. A board/background
   // change also recentres the scroller, so a remembered zoom opens on the
   // middle of the board instead of its top-left corner.
-  wbLayoutBoard();
+  sbLayoutBoard();
   var layoutKey = board.id + "|" + board.background;
-  if (wbEls.layoutKey !== layoutKey) {
-    wbEls.layoutKey = layoutKey;
-    wbCentreBoard();
+  if (sbEls.layoutKey !== layoutKey) {
+    sbEls.layoutKey = layoutKey;
+    sbCentreBoard();
   }
-  wbRenderConnectors();
-  wbApplyConnectClasses();
+  sbRenderConnectors();
+  sbApplyConnectClasses();
 
-  if (wbEls.hint) wbEls.hint.classList.toggle("d-none", board.items.length > 0);
-  if (wbEls.boardName) wbEls.boardName.textContent = board.name;
-  wbUpdateSelectionUi();
+  if (sbEls.hint) sbEls.hint.classList.toggle("d-none", board.items.length > 0);
+  if (sbEls.boardName) sbEls.boardName.textContent = board.name;
+  sbUpdateSelectionUi();
 }
 
-function wbBuildItem(item) {
+function sbBuildItem(item) {
   var el = document.createElement("div");
-  el.className = "wb-object wb-object-" + item.type;
-  if (item.id === wbState.selectedId) el.classList.add("selected");
+  el.className = "sb-object sb-object-" + item.type;
+  if (item.id === sbState.selectedId) el.classList.add("selected");
   el.dataset.id = item.id;
   el.style.left = item.x + "%";
   el.style.top = item.y + "%";
@@ -382,29 +400,29 @@ function wbBuildItem(item) {
   el.style.transform = "translate(-50%, -50%) rotate(" + item.rotation + "deg)";
 
   if (item.type === "sticker") {
-    var meta = wbStickerById(item.sticker) || WB_STICKERS[0];
-    el.style.setProperty("--wb-scale", item.scale);
+    var meta = sbStickerById(item.sticker) || SB_STICKERS[0];
+    el.style.setProperty("--sb-scale", item.scale);
     var img = document.createElement("img");
-    img.className = "wb-sticker";
+    img.className = "sb-sticker";
     img.src = meta.file;
     img.alt = meta.name;
     img.draggable = false;
     el.appendChild(img);
-    wbApplyStickerFlip(el, item);
+    sbApplyStickerFlip(el, item);
   } else {
     var text = document.createElement("div");
-    wbStyleTextElement(text, item);
+    sbStyleTextElement(text, item);
     el.appendChild(text);
   }
 
   var scaleHandle = document.createElement("span");
-  scaleHandle.className = "wb-handle wb-handle-scale";
+  scaleHandle.className = "sb-handle sb-handle-scale";
   scaleHandle.dataset.handle = "scale";
   scaleHandle.setAttribute("aria-hidden", "true");
   el.appendChild(scaleHandle);
 
   var rotateHandle = document.createElement("span");
-  rotateHandle.className = "wb-handle wb-handle-rotate";
+  rotateHandle.className = "sb-handle sb-handle-rotate";
   rotateHandle.dataset.handle = "rotate";
   rotateHandle.setAttribute("aria-hidden", "true");
   rotateHandle.innerHTML = '<i class="fa-solid fa-rotate"></i>';
@@ -413,22 +431,22 @@ function wbBuildItem(item) {
   return el;
 }
 
-function wbStyleTextElement(el, item) {
-  el.className = "wb-text wb-bg-" + item.bg + " wb-color-" + item.color + " wb-font-" + item.font;
+function sbStyleTextElement(el, item) {
+  el.className = "sb-text sb-bg-" + item.bg + " sb-color-" + item.color + " sb-font-" + item.font;
   el.dataset.frame = item.border;
-  var body = el.querySelector(".wb-text-body");
+  var body = el.querySelector(".sb-text-body");
   if (!body) {
     body = document.createElement("span");
-    body.className = "wb-text-body";
+    body.className = "sb-text-body";
     el.textContent = "";
     el.appendChild(body);
   }
   body.textContent = item.text || " ";
-  el.style.setProperty("--wb-text-scale", item.scale);
+  el.style.setProperty("--sb-text-scale", item.scale);
   if (item.border && item.border !== "none") {
-    el.style.setProperty("--wb-frame-image", 'url("' + wbFrameDataUri(item.border, wbResolveColor(item.color)) + '")');
+    el.style.setProperty("--sb-frame-image", 'url("' + sbFrameDataUri(item.border, sbResolveColor(item.color)) + '")');
   } else {
-    el.style.removeProperty("--wb-frame-image");
+    el.style.removeProperty("--sb-frame-image");
   }
 }
 
@@ -438,8 +456,8 @@ function wbStyleTextElement(el, item) {
 // Keep only the text (not the frame/background/handles) on the exported
 // baseline by nudging the inner span. The nudge is stored in em so it follows
 // text scale and board resizes without recalculating.
-function wbApplyTextNudge(el) {
-  var body = el && el.querySelector(".wb-text-body");
+function sbApplyTextNudge(el) {
+  var body = el && el.querySelector(".sb-text-body");
   if (!body) return;
   var cs = getComputedStyle(el);
   var ctx = document.createElement("canvas").getContext("2d");
@@ -463,50 +481,50 @@ function wbApplyTextNudge(el) {
   else body.style.top = shift.toFixed(4) + "em";
 }
 
-function wbApplyAllTextNudges() {
-  if (!wbEls.items) return;
-  wbEls.items.querySelectorAll(".wb-text").forEach(wbApplyTextNudge);
+function sbApplyAllTextNudges() {
+  if (!sbEls.items) return;
+  sbEls.items.querySelectorAll(".sb-text").forEach(sbApplyTextNudge);
 }
 
-function wbApplyItemTransform(item) {
-  if (!wbEls.items) return;
-  var el = wbEls.items.querySelector('.wb-object[data-id="' + item.id + '"]');
+function sbApplyItemTransform(item) {
+  if (!sbEls.items) return;
+  var el = sbEls.items.querySelector('.sb-object[data-id="' + item.id + '"]');
   if (!el) return;
   el.style.left = item.x + "%";
   el.style.top = item.y + "%";
   el.style.transform = "translate(-50%, -50%) rotate(" + item.rotation + "deg)";
-  el.style.setProperty("--wb-scale", item.scale);
-  wbApplyStickerFlip(el, item);
-  var text = el.querySelector(".wb-text");
-  if (text) text.style.setProperty("--wb-text-scale", item.scale);
-  wbRenderConnectors();
+  el.style.setProperty("--sb-scale", item.scale);
+  sbApplyStickerFlip(el, item);
+  var text = el.querySelector(".sb-text");
+  if (text) text.style.setProperty("--sb-text-scale", item.scale);
+  sbRenderConnectors();
 }
 
 // Mirror ONLY the sticker artwork. The flags become CSS custom properties on the
-// object and `.wb-sticker`'s transform consumes them, so the object's own
+// object and `.sb-sticker`'s transform consumes them, so the object's own
 // translate/rotate transform (and its handles/outline) are untouched.
-function wbApplyStickerFlip(el, item) {
+function sbApplyStickerFlip(el, item) {
   if (!el || !item) return;
   if (item.type !== "sticker") {
-    el.style.removeProperty("--wb-flip-x");
-    el.style.removeProperty("--wb-flip-y");
+    el.style.removeProperty("--sb-flip-x");
+    el.style.removeProperty("--sb-flip-y");
     return;
   }
-  el.style.setProperty("--wb-flip-x", item.flipX ? "-1" : "1");
-  el.style.setProperty("--wb-flip-y", item.flipY ? "-1" : "1");
+  el.style.setProperty("--sb-flip-x", item.flipX ? "-1" : "1");
+  el.style.setProperty("--sb-flip-y", item.flipY ? "-1" : "1");
 }
 
 // Re-style one text object in place (used while typing in the panel, so the
 // board updates without a full re-render that would lose focus).
-function wbApplyTextStyle(item) {
-  if (!wbEls.items) return;
-  var el = wbEls.items.querySelector('.wb-object[data-id="' + item.id + '"] .wb-text');
+function sbApplyTextStyle(item) {
+  if (!sbEls.items) return;
+  var el = sbEls.items.querySelector('.sb-object[data-id="' + item.id + '"] .sb-text');
   if (el) {
-    wbStyleTextElement(el, item);
-    wbApplyTextNudge(el);
+    sbStyleTextElement(el, item);
+    sbApplyTextNudge(el);
   }
-  wbRenderConnectors();
-  wbPositionSelectionBar();
+  sbRenderConnectors();
+  sbPositionSelectionBar();
 }
 
 // ---- Connectors ------------------------------------------------------------
@@ -517,38 +535,38 @@ function wbApplyTextStyle(item) {
 // endpoints are recomputed from the two text boxes' ORIENTED rectangles, so they
 // stay glued to the edges while a box is moved, scaled or rotated.
 
-function wbRenderConnectors() {
-  if (!wbEls.connectorPaths || !wbEls.items) return;
-  var board = wbActiveBoard();
-  var layer = wbEls.connectorPaths;
+function sbRenderConnectors() {
+  if (!sbEls.connectorPaths || !sbEls.items) return;
+  var board = sbActiveBoard();
+  var layer = sbEls.connectorPaths;
   while (layer.firstChild) layer.removeChild(layer.firstChild);
   if (!board || !Array.isArray(board.connectors) || !board.connectors.length) return;
 
-  var canvasRect = wbEls.canvas.getBoundingClientRect();
+  var canvasRect = sbEls.canvas.getBoundingClientRect();
   board.connectors.forEach(function (conn) {
-    var ends = wbConnectorEnds(conn, canvasRect);
+    var ends = sbConnectorEnds(conn, canvasRect);
     if (!ends) return;
     var d = "M" + ends.x1.toFixed(2) + " " + ends.y1.toFixed(2) +
       " L" + ends.x2.toFixed(2) + " " + ends.y2.toFixed(2);
 
-    var g = document.createElementNS(WB_SVG_NS, "g");
-    g.setAttribute("class", "wb-connector" + (conn.id === wbState.selectedConnectorId ? " selected" : ""));
+    var g = document.createElementNS(SB_SVG_NS, "g");
+    g.setAttribute("class", "sb-connector" + (conn.id === sbState.selectedConnectorId ? " selected" : ""));
     g.setAttribute("data-id", conn.id);
 
-    var halo = document.createElementNS(WB_SVG_NS, "path");
-    halo.setAttribute("class", "wb-connector-halo");
+    var halo = document.createElementNS(SB_SVG_NS, "path");
+    halo.setAttribute("class", "sb-connector-halo");
     halo.setAttribute("d", d);
     g.appendChild(halo);
 
-    var line = document.createElementNS(WB_SVG_NS, "path");
-    line.setAttribute("class", "wb-connector-line");
+    var line = document.createElementNS(SB_SVG_NS, "path");
+    line.setAttribute("class", "sb-connector-line");
     line.setAttribute("d", d);
-    line.setAttribute("marker-end", "url(#wbConnectorArrow)");
+    line.setAttribute("marker-end", "url(#sbConnectorArrow)");
     g.appendChild(line);
 
     // A fat invisible stroke makes the thin arrow easy to hit with a finger.
-    var hit = document.createElementNS(WB_SVG_NS, "path");
-    hit.setAttribute("class", "wb-connector-hit");
+    var hit = document.createElementNS(SB_SVG_NS, "path");
+    hit.setAttribute("class", "sb-connector-hit");
     hit.setAttribute("d", d);
     g.appendChild(hit);
 
@@ -556,12 +574,12 @@ function wbRenderConnectors() {
   });
 }
 
-function wbConnectorEnds(conn, canvasRect) {
-  var fromItem = wbFindItem(conn.from);
-  var toItem = wbFindItem(conn.to);
+function sbConnectorEnds(conn, canvasRect) {
+  var fromItem = sbFindItem(conn.from);
+  var toItem = sbFindItem(conn.to);
   if (!fromItem || !toItem) return null;
-  var fromEl = wbEls.items.querySelector('.wb-object[data-id="' + conn.from + '"]');
-  var toEl = wbEls.items.querySelector('.wb-object[data-id="' + conn.to + '"]');
+  var fromEl = sbEls.items.querySelector('.sb-object[data-id="' + conn.from + '"]');
+  var toEl = sbEls.items.querySelector('.sb-object[data-id="' + conn.to + '"]');
   if (!fromEl || !toEl) return null;
 
   var aRect = fromEl.getBoundingClientRect();
@@ -571,23 +589,23 @@ function wbConnectorEnds(conn, canvasRect) {
   var bx = bRect.left + bRect.width / 2 - canvasRect.left;
   var by = bRect.top + bRect.height / 2 - canvasRect.top;
 
-  var aEdge = wbEdgePoint(ax, ay, bx, by,
+  var aEdge = sbEdgePoint(ax, ay, bx, by,
     Math.max(1, fromEl.offsetWidth / 2), Math.max(1, fromEl.offsetHeight / 2),
     fromItem.rotation * Math.PI / 180);
-  var bEdge = wbEdgePoint(bx, by, ax, ay,
+  var bEdge = sbEdgePoint(bx, by, ax, ay,
     Math.max(1, toEl.offsetWidth / 2), Math.max(1, toEl.offsetHeight / 2),
     toItem.rotation * Math.PI / 180);
 
   // Stop 5px short of each box so the arrowhead never touches the border. The
   // gap is artwork-sized, like the connector's stroke.
-  var gap = 5 * wbDesignScale();
-  var aOut = wbPushOut(ax, ay, aEdge, gap);
-  var bOut = wbPushOut(bx, by, bEdge, gap);
+  var gap = 5 * sbDesignScale();
+  var aOut = sbPushOut(ax, ay, aEdge, gap);
+  var bOut = sbPushOut(bx, by, bEdge, gap);
   return { x1: aOut.x, y1: aOut.y, x2: bOut.x, y2: bOut.y };
 }
 
 // Intersect the ray centre -> target with the rotated rectangle's edge.
-function wbEdgePoint(cx, cy, tx, ty, halfW, halfH, angle) {
+function sbEdgePoint(cx, cy, tx, ty, halfW, halfH, angle) {
   var dx = tx - cx;
   var dy = ty - cy;
   if (!dx && !dy) return { x: cx, y: cy };
@@ -606,115 +624,248 @@ function wbEdgePoint(cx, cy, tx, ty, halfW, halfH, angle) {
   return { x: cx + ex * cos - ey * sin, y: cy + ex * sin + ey * cos };
 }
 
-function wbPushOut(cx, cy, pt, gap) {
+function sbPushOut(cx, cy, pt, gap) {
   var dx = pt.x - cx;
   var dy = pt.y - cy;
   var len = Math.hypot(dx, dy) || 1;
   return { x: pt.x + dx / len * gap, y: pt.y + dy / len * gap };
 }
 
-function wbOnConnectorPointerDown(e) {
-  var g = e.target.closest ? e.target.closest(".wb-connector") : null;
+function sbOnConnectorPointerDown(e) {
+  var g = e.target.closest ? e.target.closest(".sb-connector") : null;
   if (!g) return;
   e.preventDefault();
   e.stopPropagation();
-  if (wbState.connectFrom) wbCancelConnect();
-  wbSelectConnector(g.getAttribute("data-id"));
+  if (sbState.connectFrom) sbCancelConnect();
+  sbSelectConnector(g.getAttribute("data-id"));
 }
 
-function wbSelect(id) {
-  wbState.selectedId = id || "";
-  wbState.selectedConnectorId = "";
-  wbUpdateSelectionUi();
+// ---- Selection -------------------------------------------------------------
+//
+// `sbState.selectedIds` holds the selected TOP-LEVEL nodes: leaf item ids or
+// group ids. `sbState.selectedId` remains the compatibility field for the ONE
+// selected leaf (text editing, Connect, Flip), and is empty for a group or a
+// multi-selection. A click on a grouped object selects the outer-most group.
+
+function sbSelectionNodes() {
+  var out = [];
+  (sbState.selectedIds || []).forEach(function (id) {
+    if (!id) return;
+    if (!sbFindItem(id) && !sbGroupById(id)) return;
+    if (out.indexOf(id) === -1) out.push(id);
+  });
+  return out;
 }
 
-function wbSelectConnector(id) {
-  wbState.selectedId = "";
-  wbState.selectedConnectorId = id || "";
-  wbUpdateSelectionUi();
+function sbSyncSelectedId() {
+  var nodes = sbSelectionNodes();
+  sbState.selectedIds = nodes;
+  sbState.selectedId = (nodes.length === 1 && sbFindItem(nodes[0])) ? nodes[0] : "";
 }
 
-function wbSetBarButton(id, show) {
+function sbSetSelection(ids) {
+  sbState.selectedConnectorId = "";
+  sbState.selectedIds = [];
+  (ids || []).forEach(function (id) {
+    if (!id) return;
+    if (!sbFindItem(id) && !sbGroupById(id)) return;
+    if (sbState.selectedIds.indexOf(id) === -1) sbState.selectedIds.push(id);
+  });
+  sbSyncSelectedId();
+  sbUpdateSelectionUi();
+}
+
+function sbSelect(id) {
+  sbSetSelection(id ? [sbTopGroupId(id)] : []);
+}
+
+function sbToggleNode(nodeId) {
+  if (!nodeId) return;
+  var nodes = sbSelectionNodes();
+  var at = nodes.indexOf(nodeId);
+  if (at === -1) nodes.push(nodeId);
+  else nodes.splice(at, 1);
+  sbSetSelection(nodes);
+}
+
+function sbAddNodeToSelection(nodeId) {
+  if (!nodeId) return;
+  var nodes = sbSelectionNodes();
+  if (nodes.indexOf(nodeId) === -1) nodes.push(nodeId);
+  sbSetSelection(nodes);
+}
+
+function sbSelectConnector(id) {
+  sbState.selectedIds = [];
+  sbState.selectedId = "";
+  sbState.selectedConnectorId = id || "";
+  sbUpdateSelectionUi();
+}
+
+// Union of the rendered member rects, in canvas-local pixels. Rotated text and
+// stickers contribute their axis-aligned bounding rect, which is the standard
+// multi-selection box.
+function sbSelectionRect() {
+  if (!sbEls.items || !sbEls.canvas) return null;
+  var nodes = sbSelectionNodes();
+  if (!nodes.length) return null;
+  var cr = sbEls.canvas.getBoundingClientRect();
+  var left = Infinity, top = Infinity, right = -Infinity, bottom = -Infinity;
+  var any = false;
+  nodes.forEach(function (node) {
+    sbNodeLeafIds(node).forEach(function (id) {
+      var el = sbItemEl(id);
+      if (!el) return;
+      var r = el.getBoundingClientRect();
+      if (!r.width && !r.height) return;
+      any = true;
+      left = Math.min(left, r.left);
+      top = Math.min(top, r.top);
+      right = Math.max(right, r.right);
+      bottom = Math.max(bottom, r.bottom);
+    });
+  });
+  if (!any) return null;
+  return {
+    left: left - cr.left,
+    top: top - cr.top,
+    width: right - left,
+    height: bottom - top,
+    centreX: (left + right) / 2 - cr.left,
+    centreY: (top + bottom) / 2 - cr.top,
+    canvasLeft: cr.left,
+    canvasTop: cr.top,
+    canvasW: Math.max(1, cr.width),
+    canvasH: Math.max(1, cr.height)
+  };
+}
+
+function sbShowSelectionBox() {
+  if (sbEls.selectionBox) sbEls.selectionBox.classList.remove("d-none");
+}
+
+function sbHideSelectionBox() {
+  if (sbEls.selectionBox) sbEls.selectionBox.classList.add("d-none");
+}
+
+function sbPositionSelectionBox() {
+  var box = sbEls.selectionBox;
+  if (!box || box.classList.contains("d-none")) return;
+  var rect = sbSelectionRect();
+  if (!rect) { box.classList.add("d-none"); return; }
+  box.style.left = rect.left + "px";
+  box.style.top = rect.top + "px";
+  box.style.width = rect.width + "px";
+  box.style.height = rect.height + "px";
+}
+
+function sbSetBarButton(id, show) {
   var el = document.getElementById(id);
   if (el) el.classList.toggle("d-none", !show);
 }
 
-function wbSetBarPressed(id, on) {
+function sbSetBarPressed(id, on) {
   var el = document.getElementById(id);
   if (el) el.setAttribute("aria-pressed", on ? "true" : "false");
 }
 
-function wbUpdateSelectionUi() {
-  if (!wbEls.items) return;
-  var conn = wbSelectedConnector();
-  var selected = conn ? "" : wbState.selectedId;
-  wbEls.items.querySelectorAll(".wb-object").forEach(function (el) {
-    el.classList.toggle("selected", el.dataset.id === selected);
+function sbUpdateSelectionUi() {
+  if (!sbEls.items) return;
+  var conn = sbSelectedConnector();
+  var nodes = conn ? [] : sbSelectionNodes();
+  var singleLeaf = (nodes.length === 1 && sbFindItem(nodes[0])) ? sbFindItem(nodes[0]) : null;
+
+  var memberLeaf = {};
+  nodes.forEach(function (node) {
+    sbNodeLeafIds(node).forEach(function (id) { memberLeaf[id] = true; });
   });
-  if (wbEls.connectorPaths) {
-    wbEls.connectorPaths.querySelectorAll(".wb-connector").forEach(function (g) {
-      g.classList.toggle("selected", g.getAttribute("data-id") === wbState.selectedConnectorId);
+  sbEls.items.querySelectorAll(".sb-object").forEach(function (el) {
+    var id = el.dataset.id;
+    el.classList.toggle("selected", !!(singleLeaf && id === singleLeaf.id));
+    el.classList.toggle("sb-member", !singleLeaf && !!memberLeaf[id]);
+  });
+  if (sbEls.connectorPaths) {
+    sbEls.connectorPaths.querySelectorAll(".sb-connector").forEach(function (g) {
+      g.classList.toggle("selected", g.getAttribute("data-id") === sbState.selectedConnectorId);
     });
   }
 
-  var bar = wbEls.selBar;
+  var bar = sbEls.selBar;
   if (!bar) return;
-  if (wbState.connectFrom) {
+  if (sbState.connectFrom) {
     bar.classList.add("d-none");
+    sbHideSelectionBox();
     return;
   }
 
   if (conn) {
     bar.classList.remove("d-none");
-    wbSetBarButton("wbSelConnect", false);
-    wbSetBarButton("wbSelFront", false);
-    wbSetBarButton("wbSelDuplicate", false);
-    wbSetBarButton("wbSelFlipH", false);
-    wbSetBarButton("wbSelFlipV", false);
-    wbSetBarButton("wbSelDelete", false);
-    wbSetBarButton("wbConnReverse", true);
-    wbSetBarButton("wbConnDelete", true);
-    wbPositionSelectionBar();
-    wbRefreshPasteboard();
+    sbSetBarButton("sbSelConnect", false);
+    sbSetBarButton("sbSelFront", false);
+    sbSetBarButton("sbSelDuplicate", false);
+    sbSetBarButton("sbSelGroup", false);
+    sbSetBarButton("sbSelUngroup", false);
+    sbSetBarButton("sbSelFlipH", false);
+    sbSetBarButton("sbSelFlipV", false);
+    sbSetBarButton("sbSelDelete", false);
+    sbSetBarButton("sbConnReverse", true);
+    sbSetBarButton("sbConnDelete", true);
+    sbHideSelectionBox();
+    sbPositionSelectionBar();
+    sbRefreshPasteboard();
     return;
   }
 
-  wbSetBarButton("wbConnReverse", false);
-  wbSetBarButton("wbConnDelete", false);
-  var item = wbSelectedItem();
-  if (!item) {
+  sbSetBarButton("sbConnReverse", false);
+  sbSetBarButton("sbConnDelete", false);
+
+  if (!nodes.length) {
     bar.classList.add("d-none");
+    sbHideSelectionBox();
     return;
   }
+
   bar.classList.remove("d-none");
-  wbSetBarButton("wbSelFront", true);
-  wbSetBarButton("wbSelDuplicate", true);
-  wbSetBarButton("wbSelDelete", true);
-  wbSetBarButton("wbSelConnect", item.type === "text");
+  sbSetBarButton("sbSelFront", true);
+  sbSetBarButton("sbSelDuplicate", true);
+  sbSetBarButton("sbSelDelete", true);
+  sbSetBarButton("sbSelConnect", !!singleLeaf && singleLeaf.type === "text");
   // Flip only makes sense for sticker artwork; the pressed state shows which
   // mirrors are currently on.
-  var sticker = item.type === "sticker";
-  wbSetBarButton("wbSelFlipH", sticker);
-  wbSetBarButton("wbSelFlipV", sticker);
-  wbSetBarPressed("wbSelFlipH", !!item.flipX);
-  wbSetBarPressed("wbSelFlipV", !!item.flipY);
-  wbPositionSelectionBar();
-  wbRefreshPasteboard();
+  var sticker = !!singleLeaf && singleLeaf.type === "sticker";
+  sbSetBarButton("sbSelFlipH", sticker);
+  sbSetBarButton("sbSelFlipV", sticker);
+  sbSetBarPressed("sbSelFlipH", sticker && !!singleLeaf.flipX);
+  sbSetBarPressed("sbSelFlipV", sticker && !!singleLeaf.flipY);
+  // Group needs at least two top-level nodes; Ungroup exactly one group.
+  sbSetBarButton("sbSelGroup", nodes.length >= 2);
+  sbSetBarButton("sbSelUngroup", nodes.length === 1 && !!sbGroupById(nodes[0]));
+
+  if (singleLeaf) {
+    sbHideSelectionBox();
+  } else {
+    sbShowSelectionBox();
+    sbPositionSelectionBox();
+  }
+  sbPositionSelectionBar();
+  sbRefreshPasteboard();
 }
 
-function wbPositionSelectionBar() {
-  if (!wbEls.selBar || !wbEls.items || !wbEls.area || wbEls.selBar.classList.contains("d-none")) return;
+function sbPositionSelectionBar() {
+  if (!sbEls.selBar || !sbEls.items || !sbEls.area || sbEls.selBar.classList.contains("d-none")) return;
   var el;
-  if (wbState.selectedConnectorId) {
-    el = wbEls.connectorPaths.querySelector('.wb-connector[data-id="' + wbState.selectedConnectorId + '"] .wb-connector-line');
+  if (sbState.selectedConnectorId) {
+    el = sbEls.connectorPaths.querySelector('.sb-connector[data-id="' + sbState.selectedConnectorId + '"] .sb-connector-line');
   } else {
-    el = wbEls.items.querySelector('.wb-object[data-id="' + wbState.selectedId + '"]');
+    var nodes = sbSelectionNodes();
+    if (nodes.length === 1 && sbFindItem(nodes[0])) el = sbItemEl(nodes[0]);
+    else if (sbEls.selectionBox && !sbEls.selectionBox.classList.contains("d-none")) el = sbEls.selectionBox;
   }
   if (!el) return;
   var r = el.getBoundingClientRect();
-  var a = wbEls.area.getBoundingClientRect();
-  var barW = wbEls.selBar.offsetWidth || 110;
-  var barH = wbEls.selBar.offsetHeight || 42;
+  var a = sbEls.area.getBoundingClientRect();
+  var barW = sbEls.selBar.offsetWidth || 110;
+  var barH = sbEls.selBar.offsetHeight || 42;
   // Centred modes clamp by the bar's own half-width so a wide bar (the sticker
   // actions add flip buttons) can never hang off a narrow screen.
   var halfBarW = barW / 2 + 8;
@@ -737,7 +888,7 @@ function wbPositionSelectionBar() {
   } else {
     // No room either side (narrow screen): above the object AND its rotate
     // handle, or below it when even that would leave the board.
-    var rotate = el.querySelector(".wb-handle-rotate");
+    var rotate = el.querySelector(".sb-handle-rotate");
     var rotateRect = rotate ? rotate.getBoundingClientRect() : r;
     var aboveTop = Math.min(r.top, rotateRect.top) - a.top - gap;
     if (aboveTop - barH >= 4) {
@@ -746,7 +897,7 @@ function wbPositionSelectionBar() {
       top = aboveTop;
     } else {
       mode = "below";
-      var scale = el.querySelector(".wb-handle-scale");
+      var scale = el.querySelector(".sb-handle-scale");
       var scaleRect = scale ? scale.getBoundingClientRect() : r;
       left = r.left - a.left + r.width / 2;
       top = Math.max(r.bottom, scaleRect.bottom) - a.top + gap;
@@ -754,288 +905,540 @@ function wbPositionSelectionBar() {
   }
 
   if (mode === "right") {
-    wbEls.selBar.style.transform = "translate(0, -50%)";
+    sbEls.selBar.style.transform = "translate(0, -50%)";
     left = Math.min(Math.max(left, 8), Math.max(8, a.width - barW - 8));
     top = Math.min(Math.max(top, barH / 2 + 8), Math.max(barH / 2 + 8, a.height - barH / 2 - 8));
   } else if (mode === "left") {
-    wbEls.selBar.style.transform = "translate(-100%, -50%)";
+    sbEls.selBar.style.transform = "translate(-100%, -50%)";
     left = Math.min(Math.max(left, barW + 8), Math.max(barW + 8, a.width - 8));
     top = Math.min(Math.max(top, barH / 2 + 8), Math.max(barH / 2 + 8, a.height - barH / 2 - 8));
   } else if (mode === "above") {
-    wbEls.selBar.style.transform = "translate(-50%, -100%)";
+    sbEls.selBar.style.transform = "translate(-50%, -100%)";
     left = Math.min(Math.max(left, halfBarW), Math.max(halfBarW, a.width - halfBarW));
     top = Math.min(Math.max(top, barH + 8), Math.max(barH + 8, a.height - 8));
   } else {
-    wbEls.selBar.style.transform = "translate(-50%, 0)";
+    sbEls.selBar.style.transform = "translate(-50%, 0)";
     left = Math.min(Math.max(left, halfBarW), Math.max(halfBarW, a.width - halfBarW));
     top = Math.min(Math.max(top, 8), Math.max(8, a.height - barH - 8));
   }
 
-  wbEls.selBar.style.left = left + "px";
-  wbEls.selBar.style.top = top + "px";
+  sbEls.selBar.style.left = left + "px";
+  sbEls.selBar.style.top = top + "px";
 }
 
 // ---- Selection actions -----------------------------------------------------
 
-function wbDeleteSelectedConnector() {
-  if (!wbState.selectedConnectorId) return;
-  if (!wbRemoveConnector(wbState.selectedConnectorId)) return;
-  wbRenderConnectors();
-  wbUpdateSelectionUi();
+function sbDeleteSelectedConnector() {
+  if (!sbState.selectedConnectorId) return;
+  if (!sbRemoveConnector(sbState.selectedConnectorId)) return;
+  sbRenderConnectors();
+  sbUpdateSelectionUi();
 }
 
-function wbReverseSelectedConnector() {
-  var conn = wbSelectedConnector();
+function sbReverseSelectedConnector() {
+  var conn = sbSelectedConnector();
   if (!conn) return;
-  wbReverseConnector(conn.id);
-  wbRenderConnectors();
-  wbUpdateSelectionUi();
+  sbReverseConnector(conn.id);
+  sbRenderConnectors();
+  sbUpdateSelectionUi();
 }
 
-function wbDeleteSelected() {
-  if (wbState.selectedConnectorId) {
-    wbDeleteSelectedConnector();
+function sbSelectionLeafIds(nodes) {
+  var leaves = [];
+  (nodes || sbSelectionNodes()).forEach(function (node) {
+    sbNodeLeafIds(node).forEach(function (id) {
+      if (leaves.indexOf(id) === -1) leaves.push(id);
+    });
+  });
+  return leaves;
+}
+
+function sbDeleteSelected() {
+  if (sbState.selectedConnectorId) {
+    sbDeleteSelectedConnector();
     return;
   }
-  if (!wbState.selectedId) return;
-  if (!wbRemoveItem(wbState.selectedId)) return;
-  wbRender();
+  var nodes = sbSelectionNodes();
+  if (!nodes.length) return;
+  var board = sbActiveBoard();
+  if (!board) return;
+  var leaves = sbSelectionLeafIds(nodes);
+  var groupIds = [];
+  nodes.forEach(function (node) {
+    if (sbGroupById(node)) sbCollectGroupIds(node, groupIds);
+  });
+  board.items = board.items.filter(function (it) { return leaves.indexOf(it.id) === -1; });
+  board.connectors = (board.connectors || []).filter(function (c) {
+    return leaves.indexOf(c.from) === -1 && leaves.indexOf(c.to) === -1;
+  });
+  board.groups = (board.groups || []).filter(function (g) { return groupIds.indexOf(g.id) === -1; });
+  board.groups = sbNormalizeGroups(board, board.groups);
+  sbState.selectedIds = [];
+  sbState.selectedId = "";
+  sbState.editingTextId = "";
+  sbSaveState();
+  sbRender();
   // Deleting the text currently open in the panel leaves it in edit mode with
   // no item; drop back to the "new text" form.
-  if (wbState.tool === "text") wbRenderPanel();
+  if (sbState.tool === "text") sbRenderPanel();
 }
 
-function wbDuplicateSelected() {
-  if (!wbState.selectedId) return;
-  wbDuplicateItem(wbState.selectedId);
-  wbPositionSelectionBar();
+function sbDuplicateSelected() {
+  var nodes = sbSelectionNodes();
+  if (!nodes.length) return;
+  var board = sbActiveBoard();
+  var counter = { value: sbMaxZ(board) };
+  var copies = [];
+  nodes.forEach(function (node) {
+    var copy = sbCloneNode(node, board, counter, 4);
+    if (copy) copies.push(copy);
+  });
+  if (!copies.length) return;
+  board.groups = sbNormalizeGroups(board, board.groups);
+  sbState.selectedConnectorId = "";
+  sbState.selectedIds = copies;
+  sbSyncSelectedId();
+  sbSaveState();
+  sbRender();
 }
 
-function wbFrontSelected() {
-  if (!wbState.selectedId) return;
-  wbBringToFront(wbState.selectedId);
-  wbPositionSelectionBar();
+function sbFrontSelected() {
+  var nodes = sbSelectionNodes();
+  if (!nodes.length) return;
+  var board = sbActiveBoard();
+  var leaves = sbSelectionLeafIds(nodes);
+  leaves.sort(function (a, b) {
+    var ia = sbFindItem(a), ib = sbFindItem(b);
+    return ((ia && Number(ia.z)) || 0) - ((ib && Number(ib.z)) || 0);
+  });
+  var max = sbMaxZ(board);
+  leaves.forEach(function (id, i) {
+    var item = sbFindItem(id);
+    if (item) item.z = max + 1 + i;
+  });
+  sbSaveState();
+  sbRender();
 }
 
-function wbFlipSelected(axis) {
-  if (!wbState.selectedId) return;
-  var item = wbFlipItem(wbState.selectedId, axis);
+// Group every selected TOP-LEVEL node (leaves and/or groups) into a new group.
+// The selection becomes that group. Nested groups are allowed: a selected group
+// simply becomes a child of the new one.
+function sbGroupSelected() {
+  var nodes = sbSelectionNodes();
+  if (nodes.length < 2) return;
+  var group = sbCreateGroup(nodes);
+  if (!group) return;
+  sbState.selectedConnectorId = "";
+  sbState.selectedIds = [group.id];
+  sbSyncSelectedId();
+  sbRender();
+}
+
+// Remove ONE level: its children take its place (inside its parent if nested)
+// and become the selection. Repeated ungrouping peels the nesting.
+function sbUngroupSelected() {
+  var nodes = sbSelectionNodes();
+  if (nodes.length !== 1 || !sbGroupById(nodes[0])) return;
+  var children = sbDissolveGroup(nodes[0]);
+  sbState.selectedIds = children;
+  sbSyncSelectedId();
+  sbRender();
+}
+
+function sbFlipSelected(axis) {
+  if (!sbState.selectedId) return;
+  var item = sbFlipItem(sbState.selectedId, axis);
   if (!item) return;
-  wbApplyItemTransform(item);
-  wbUpdateSelectionUi();
-  wbPositionSelectionBar();
+  sbApplyItemTransform(item);
+  sbUpdateSelectionUi();
+  sbPositionSelectionBar();
 }
 
 // ---- Connector mode --------------------------------------------------------
 
-function wbApplyConnectClasses() {
-  var on = !!wbState.connectFrom;
-  if (wbEls.items) {
-    wbEls.items.classList.toggle("wb-connecting", on);
-    wbEls.items.querySelectorAll(".wb-object").forEach(function (el) {
-      el.classList.toggle("wb-connect-source", on && el.dataset.id === wbState.connectFrom);
+function sbApplyConnectClasses() {
+  var on = !!sbState.connectFrom;
+  if (sbEls.items) {
+    sbEls.items.classList.toggle("sb-connecting", on);
+    sbEls.items.querySelectorAll(".sb-object").forEach(function (el) {
+      el.classList.toggle("sb-connect-source", on && el.dataset.id === sbState.connectFrom);
     });
   }
-  if (wbEls.connectHint) wbEls.connectHint.classList.toggle("d-none", !on);
+  if (sbEls.connectHint) sbEls.connectHint.classList.toggle("d-none", !on);
 }
 
-function wbStartConnect() {
-  var item = wbSelectedItem();
+function sbStartConnect() {
+  var item = sbSelectedItem();
   if (!item || item.type !== "text") return;
-  wbState.connectFrom = item.id;
-  wbState.selectedConnectorId = "";
+  sbState.connectFrom = item.id;
+  sbState.selectedConnectorId = "";
   // Give the board room to show the target boxes; a pinned panel stays put.
-  if (!wbState.pinned && wbState.tool) wbClosePanel();
-  wbApplyConnectClasses();
-  wbUpdateSelectionUi();
+  if (!sbState.pinned && sbState.tool) sbClosePanel();
+  sbApplyConnectClasses();
+  sbUpdateSelectionUi();
 }
 
-function wbCancelConnect() {
-  if (!wbState.connectFrom) return;
-  wbState.connectFrom = "";
-  wbApplyConnectClasses();
-  wbUpdateSelectionUi();
+function sbCancelConnect() {
+  if (!sbState.connectFrom) return;
+  sbState.connectFrom = "";
+  sbApplyConnectClasses();
+  sbUpdateSelectionUi();
 }
 
-function wbCreateConnection(toId) {
-  var fromId = wbState.connectFrom;
+function sbCreateConnection(toId) {
+  var fromId = sbState.connectFrom;
   if (!fromId || !toId || fromId === toId) return;
-  var conn = wbAddConnector(fromId, toId);
-  wbState.connectFrom = "";
-  wbApplyConnectClasses();
-  wbRenderConnectors();
-  if (conn) wbSelectConnector(conn.id);
-  else wbUpdateSelectionUi();
+  var conn = sbAddConnector(fromId, toId);
+  sbState.connectFrom = "";
+  sbApplyConnectClasses();
+  sbRenderConnectors();
+  if (conn) sbSelectConnector(conn.id);
+  else sbUpdateSelectionUi();
 }
 
 // ---- Pointer gestures ------------------------------------------------------
 
-function wbOnCanvasPointerDown(e) {
+function sbOnCanvasPointerDown(e) {
   var t = e.target;
-  if (t.closest && (t.closest(".wb-object") || t.closest(".wb-connector") || t.closest(".wb-toolbar") || t.closest(".wb-selection-bar") || t.closest(".wb-board-chip"))) return;
-  if (wbState.connectFrom) wbCancelConnect();
-  wbSelect("");
+  if (t.closest && (t.closest(".sb-object") || t.closest(".sb-connector") || t.closest(".sb-toolbar") || t.closest(".sb-selection-bar") || t.closest(".sb-selection-box") || t.closest(".sb-board-chip"))) return;
+  // A modifier-click on empty space keeps the selection (only a plain click
+  // clears it), which is what multi-select users expect.
+  if (e.ctrlKey || e.metaKey || e.shiftKey) return;
+  if (sbState.connectFrom) sbCancelConnect();
+  sbSelect("");
 }
 
-function wbOnDoubleClick(e) {
-  var obj = e.target.closest ? e.target.closest(".wb-object") : null;
+function sbOnDoubleClick(e) {
+  var obj = e.target.closest ? e.target.closest(".sb-object") : null;
   if (!obj) return;
-  var item = wbFindItem(obj.dataset.id);
+  var item = sbFindItem(obj.dataset.id);
   if (!item || item.type !== "text") return;
   e.preventDefault();
-  wbOpenTextEditor(item.id);
+  sbOpenTextEditor(item.id);
 }
 
-function wbOnPointerDown(e) {
-  var objEl = e.target.closest ? e.target.closest(".wb-object") : null;
+// ---- Multi-selection gestures ----------------------------------------------
+//
+// Every transform is applied to a SNAPSHOT of the selected leaves, so a group
+// move/scale/rotate composes the same result into each member and nesting works
+// recursively. The selection rect (union of rendered member rects) supplies the
+// centre for scale and rotation.
+
+function sbSelectionSnapshot(nodes) {
+  var leaves = [];
+  (nodes || sbSelectionNodes()).forEach(function (node) {
+    sbNodeLeafIds(node).forEach(function (id) {
+      if (leaves.some(function (leaf) { return leaf.id === id; })) return;
+      var item = sbFindItem(id);
+      if (!item) return;
+      leaves.push({ id: id, x: item.x, y: item.y, scale: item.scale, rotation: item.rotation });
+    });
+  });
+  return leaves;
+}
+
+function sbWriteItemTransform(item) {
+  var el = sbItemEl(item.id);
+  if (!el) return;
+  el.style.left = item.x + "%";
+  el.style.top = item.y + "%";
+  el.style.transform = "translate(-50%, -50%) rotate(" + item.rotation + "deg)";
+  el.style.setProperty("--sb-scale", item.scale);
+  sbApplyStickerFlip(el, item);
+  var text = el.querySelector(".sb-text");
+  if (text) text.style.setProperty("--sb-text-scale", item.scale);
+}
+
+// factor = scale multiplier, deltaDeg = rigid rotation about the selection centre,
+// moveX/moveY = extra translation in canvas pixels. All three are composed, which
+// is what a two-finger pinch needs.
+function sbApplyDrag(drag, factor, deltaDeg, moveX, moveY) {
+  if (!drag || !drag.leaves || !drag.rect) return;
+  var width = drag.canvasW;
+  var height = drag.canvasH;
+  var rect = drag.rect;
+  var single = drag.leaves.length === 1;
+
+  // A group must not deform at the board edge: clamp the WHOLE translation by the
+  // selection box. A single item keeps the historical 2..98 clamp per item.
+  if (!single) {
+    if (moveX < -rect.left) moveX = -rect.left;
+    if (moveX > width - rect.left - rect.width) moveX = width - rect.left - rect.width;
+    if (moveY < -rect.top) moveY = -rect.top;
+    if (moveY > height - rect.top - rect.height) moveY = height - rect.top - rect.height;
+  }
+
+  var cpx = rect.centreX;
+  var cpy = rect.centreY;
+  var rad = deltaDeg * Math.PI / 180;
+  var cos = Math.cos(rad);
+  var sin = Math.sin(rad);
+
+  // Keep every member's scale in 0.2..5 by clamping the shared factor.
+  var minF = 0;
+  var maxF = Infinity;
+  drag.leaves.forEach(function (leaf) {
+    var s = Number(leaf.scale) || 1;
+    minF = Math.max(minF, 0.2 / s);
+    maxF = Math.min(maxF, 5 / s);
+  });
+  var f = Math.min(maxF, Math.max(minF, factor));
+
+  drag.leaves.forEach(function (leaf) {
+    var item = sbFindItem(leaf.id);
+    if (!item) return;
+    var px = leaf.x / 100 * width;
+    var py = leaf.y / 100 * height;
+    var rx = (px - cpx) * f;
+    var ry = (py - cpy) * f;
+    var nx = cpx + (rx * cos - ry * sin) + moveX;
+    var ny = cpy + (rx * sin + ry * cos) + moveY;
+    item.x = sbClamp(nx / width * 100, single ? 2 : 0, single ? 98 : 100);
+    item.y = sbClamp(ny / height * 100, single ? 2 : 0, single ? 98 : 100);
+    item.scale = sbClamp((Number(leaf.scale) || 1) * f, 0.2, 5);
+    item.rotation = (Number(leaf.rotation) || 0) + deltaDeg;
+    sbWriteItemTransform(item);
+  });
+
+  sbRenderConnectors();
+  sbPositionSelectionBox();
+  sbPositionSelectionBar();
+}
+
+function sbBeginDrag(e, mode, rect, centre) {
+  var nodes = sbSelectionNodes();
+  var leaves = sbSelectionSnapshot(nodes);
+  if (!leaves.length || !rect) return false;
+  sbCancelLongPress();
+  sbState.drag = {
+    itemId: "",
+    mode: mode,
+    leaves: leaves,
+    rect: rect,
+    centre: centre,
+    canvasW: rect.canvasW,
+    canvasH: rect.canvasH,
+    startClientX: e.clientX,
+    startClientY: e.clientY,
+    downX: e.clientX,
+    downY: e.clientY,
+    startDist: Math.max(1, Math.hypot(e.clientX - centre.x, e.clientY - centre.y)),
+    startAngle: Math.atan2(e.clientY - centre.y, e.clientX - centre.x),
+    startMidX: e.clientX,
+    startMidY: e.clientY
+  };
+  return true;
+}
+
+function sbBeginPinch(e) {
+  var pts = Array.from(sbState.pointers.values());
+  if (pts.length < 2) return;
+  var p0 = pts[0], p1 = pts[1];
+  var rect = sbSelectionRect();
+  var leaves = sbSelectionSnapshot(sbSelectionNodes());
+  if (!rect || !leaves.length) { sbState.pointers.clear(); return; }
+  sbCancelLongPress();
+  sbState.drag = {
+    itemId: "",
+    mode: "pinch",
+    leaves: leaves,
+    rect: rect,
+    centre: { x: rect.canvasLeft + rect.centreX, y: rect.canvasTop + rect.centreY },
+    canvasW: rect.canvasW,
+    canvasH: rect.canvasH,
+    startDist: Math.max(1, Math.hypot(p1.x - p0.x, p1.y - p0.y)),
+    startAngle: Math.atan2(p1.y - p0.y, p1.x - p0.x),
+    startMidX: (p0.x + p1.x) / 2,
+    startMidY: (p0.y + p1.y) / 2,
+    downX: e.clientX,
+    downY: e.clientY
+  };
+}
+
+// Scale/rotate handles live on #sbSelectionBox (outside #sbItems).
+function sbOnSelectionPointerDown(e) {
+  var handle = e.target.closest ? e.target.closest(".sb-handle") : null;
+  if (!handle) return;
+  var nodes = sbSelectionNodes();
+  if (!(nodes.length > 1 || (nodes.length === 1 && sbGroupById(nodes[0])))) return;
+  e.preventDefault();
+  e.stopPropagation();
+  var rect = sbSelectionRect();
+  if (!rect) return;
+  var centre = { x: rect.canvasLeft + rect.centreX, y: rect.canvasTop + rect.centreY };
+  sbState.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  sbBeginDrag(e, handle.dataset.handle === "rotate" ? "rotate" : "scale", rect, centre);
+}
+
+// Touch: a press-and-hold adds the object to the selection instead of starting a
+// drag. Cancelled by movement or a second finger.
+var sbLongPressTimer = null;
+
+function sbStartLongPress(e, item, priorNodes) {
+  sbCancelLongPress();
+  if (e.pointerType !== "touch" && e.pointerType !== "pen") return;
+  var node = sbTopGroupId(item.id);
+  var prior = (priorNodes || []).slice();
+  sbLongPressTimer = setTimeout(function () {
+    sbLongPressTimer = null;
+    sbState.drag = null;
+    sbState.pointers.clear();
+    sbTap = null;
+    // The press already replaced the selection with this object; restore the
+    // previous selection and ADD this one so long-press means "select more".
+    sbState.selectedIds = prior;
+    sbAddNodeToSelection(node);
+  }, 450);
+}
+
+function sbCancelLongPress() {
+  if (sbLongPressTimer) {
+    clearTimeout(sbLongPressTimer);
+    sbLongPressTimer = null;
+  }
+}
+
+function sbOnPointerDown(e) {
+  var objEl = e.target.closest ? e.target.closest(".sb-object") : null;
   if (!objEl) return;
-  var item = wbFindItem(objEl.dataset.id);
+  var item = sbFindItem(objEl.dataset.id);
   if (!item) return;
 
   // Connector mode: the next TEXT box becomes the arrow's target.
-  if (wbState.connectFrom) {
-    if (item.type === "text" && item.id !== wbState.connectFrom) {
+  if (sbState.connectFrom) {
+    if (item.type === "text" && item.id !== sbState.connectFrom) {
       e.preventDefault();
-      wbCreateConnection(item.id);
+      sbCreateConnection(item.id);
       return;
     }
     // Clicking the source (or a sticker) cancels the mode and behaves normally.
-    wbCancelConnect();
+    sbCancelConnect();
   }
 
-  if (wbState.drag && wbState.drag.itemId !== item.id) return;
-
   var now = Date.now();
-  if (item.type === "text" && wbTap && wbTap.id === item.id && now - wbTap.time < 340) {
-    wbTap = null;
-    wbSelect(item.id);
-    wbOpenTextEditor(item.id);
+  if (item.type === "text" && sbTap && sbTap.id === item.id && now - sbTap.time < 340) {
+    sbTap = null;
+    sbSelect(item.id);
+    sbOpenTextEditor(item.id);
     e.preventDefault();
     return;
   }
-  wbTap = { id: item.id, time: now };
+  sbTap = { id: item.id, time: now };
 
-  wbSelect(item.id);
+  var node = sbTopGroupId(item.id);
 
-  var handle = e.target.closest(".wb-handle");
-  try { objEl.setPointerCapture(e.pointerId); } catch (err) { /* synthetic pointers */ }
-  wbState.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
-
-  var rect = objEl.getBoundingClientRect();
-  var centre = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
-
-  if (wbState.pointers.size === 2) {
-    var pts = Array.from(wbState.pointers.values());
-    var p0 = pts[0], p1 = pts[1];
-    wbState.drag = {
-      itemId: item.id,
-      mode: "pinch",
-      el: objEl,
-      centre: centre,
-      startScale: item.scale,
-      startRotation: item.rotation,
-      startX: item.x,
-      startY: item.y,
-      startDist: Math.max(1, Math.hypot(p1.x - p0.x, p1.y - p0.y)),
-      startAngle: Math.atan2(p1.y - p0.y, p1.x - p0.x),
-      startMidX: (p0.x + p1.x) / 2,
-      startMidY: (p0.y + p1.y) / 2,
-      downX: e.clientX,
-      downY: e.clientY
-    };
-  } else {
-    var mode = "move";
-    if (handle) mode = handle.dataset.handle === "rotate" ? "rotate" : "scale";
-    wbState.drag = {
-      itemId: item.id,
-      mode: mode,
-      el: objEl,
-      centre: centre,
-      startScale: item.scale,
-      startRotation: item.rotation,
-      startX: item.x,
-      startY: item.y,
-      startClientX: e.clientX,
-      startClientY: e.clientY,
-      downX: e.clientX,
-      downY: e.clientY,
-      startDist: Math.max(1, Math.hypot(e.clientX - centre.x, e.clientY - centre.y)),
-      startAngle: Math.atan2(e.clientY - centre.y, e.clientX - centre.x)
-    };
+  // Ctrl/Cmd/Shift toggles this object (or its whole group) in/out of the
+  // selection; it never starts a drag.
+  if (e.ctrlKey || e.metaKey || e.shiftKey) {
+    e.preventDefault();
+    sbCancelLongPress();
+    sbToggleNode(node);
+    return;
   }
+
+  // Pressing a member of the current multi/group selection keeps that selection
+  // so the whole set can be dragged; pressing anything else selects just it.
+  // `priorNodes` is kept so a touch long-press can ADD to the old selection.
+  var priorNodes = sbSelectionNodes();
+  var nodes = sbSelectionNodes();
+  if (nodes.indexOf(node) === -1) {
+    sbState.selectedConnectorId = "";
+    sbState.selectedIds = [node];
+    sbSyncSelectedId();
+    sbUpdateSelectionUi();
+  }
+
+  var handle = e.target.closest(".sb-handle");
+  try { objEl.setPointerCapture(e.pointerId); } catch (err) { /* synthetic pointers */ }
+  sbState.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+  if (sbState.pointers.size === 2) {
+    sbBeginPinch(e);
+    e.preventDefault();
+    return;
+  }
+
+  var rect = sbSelectionRect();
+  if (!rect) return;
+  var centre = { x: rect.canvasLeft + rect.centreX, y: rect.canvasTop + rect.centreY };
+  var mode = "move";
+  if (handle) mode = handle.dataset.handle === "rotate" ? "rotate" : "scale";
+  sbBeginDrag(e, mode, rect, centre);
+  // A click (no drag) on a member of a multi/group selection collapses to it;
+  // a drag moves the whole set. The collapse is applied on pointerup.
+  if (sbState.drag && nodes.length > 1 && nodes.indexOf(node) !== -1) {
+    sbState.drag.collapseOnTap = node;
+  }
+  sbStartLongPress(e, item, priorNodes);
   e.preventDefault();
 }
 
-function wbOnPointerMove(e) {
-  if (!wbState.pointers.has(e.pointerId) || !wbState.drag) return;
-  wbState.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
-  var drag = wbState.drag;
-  var item = wbFindItem(drag.itemId);
-  if (!item) return;
-  var canvasRect = wbEls.canvas.getBoundingClientRect();
-  var width = Math.max(1, canvasRect.width);
-  var height = Math.max(1, canvasRect.height);
+function sbOnPointerMove(e) {
+  if (!sbState.pointers.has(e.pointerId) || !sbState.drag) return;
+  sbState.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  var drag = sbState.drag;
 
-  // Any real movement means this was a drag, not a tap: don't let it pair with
-  // the next tap to open the text editor.
-  if (Math.abs(e.clientX - drag.downX) > 6 || Math.abs(e.clientY - drag.downY) > 6) wbTap = null;
+  // Any real movement means this was a drag, not a tap/long-press: don't let it
+  // pair with the next tap to open the text editor.
+  if (Math.abs(e.clientX - drag.downX) > 6 || Math.abs(e.clientY - drag.downY) > 6) {
+    drag.moved = true;
+    sbTap = null;
+    sbCancelLongPress();
+  }
 
   if (drag.mode === "pinch") {
-    if (wbState.pointers.size < 2) return;
-    var pts = Array.from(wbState.pointers.values());
+    if (sbState.pointers.size < 2) return;
+    var pts = Array.from(sbState.pointers.values());
     var p0 = pts[0], p1 = pts[1];
     var dist = Math.max(1, Math.hypot(p1.x - p0.x, p1.y - p0.y));
     var angle = Math.atan2(p1.y - p0.y, p1.x - p0.x);
     var midX = (p0.x + p1.x) / 2;
     var midY = (p0.y + p1.y) / 2;
-    item.scale = wbClamp(drag.startScale * (dist / drag.startDist), 0.2, 5);
-    item.rotation = drag.startRotation + (angle - drag.startAngle) * 180 / Math.PI;
-    item.x = wbClamp(drag.startX + (midX - drag.startMidX) / width * 100, 2, 98);
-    item.y = wbClamp(drag.startY + (midY - drag.startMidY) / height * 100, 2, 98);
+    sbApplyDrag(drag, dist / drag.startDist,
+      (angle - drag.startAngle) * 180 / Math.PI,
+      midX - drag.startMidX, midY - drag.startMidY);
   } else if (drag.mode === "rotate") {
     var rotAngle = Math.atan2(e.clientY - drag.centre.y, e.clientX - drag.centre.x);
-    item.rotation = drag.startRotation + (rotAngle - drag.startAngle) * 180 / Math.PI;
+    sbApplyDrag(drag, 1, (rotAngle - drag.startAngle) * 180 / Math.PI, 0, 0);
   } else if (drag.mode === "scale") {
     var sDist = Math.hypot(e.clientX - drag.centre.x, e.clientY - drag.centre.y);
-    item.scale = wbClamp(drag.startScale * (sDist / drag.startDist), 0.2, 5);
+    sbApplyDrag(drag, sDist / drag.startDist, 0, 0, 0);
   } else {
-    item.x = wbClamp(drag.startX + (e.clientX - drag.startClientX) / width * 100, 2, 98);
-    item.y = wbClamp(drag.startY + (e.clientY - drag.startClientY) / height * 100, 2, 98);
+    sbApplyDrag(drag, 1, 0, e.clientX - drag.startClientX, e.clientY - drag.startClientY);
   }
 
-  wbApplyItemTransform(item);
-  wbPositionSelectionBar();
-  wbSaveSoon();
+  sbSaveSoon();
   e.preventDefault();
 }
 
-function wbOnPointerUp(e) {
-  if (!wbState.pointers.has(e.pointerId)) return;
-  wbState.pointers.delete(e.pointerId);
-  if (!wbState.drag) return;
-  wbState.pointers.clear();
-  var item = wbFindItem(wbState.drag.itemId);
-  wbState.drag = null;
-  wbSaveState();
-  if (item) {
-    wbApplyItemTransform(item);
-    wbPositionSelectionBar();
-    wbRefreshPasteboard();
-  }
+function sbOnPointerUp(e) {
+  sbCancelLongPress();
+  if (!sbState.pointers.has(e.pointerId)) return;
+  sbState.pointers.delete(e.pointerId);
+  if (!sbState.drag) return;
+  var drag = sbState.drag;
+  var collapse = drag.collapseOnTap && !drag.moved ? drag.collapseOnTap : "";
+  sbState.pointers.clear();
+  sbState.drag = null;
+  sbSaveState();
+  if (collapse) sbSetSelection([collapse]);
+  sbPositionSelectionBox();
+  sbPositionSelectionBar();
+  sbRefreshPasteboard();
 }
 
-function wbOnKeyDown(e) {
+function sbOnKeyDown(e) {
   var t = e.target;
   var tag = (t && t.tagName ? t.tagName : "").toLowerCase();
   if (tag === "input" || tag === "textarea" || tag === "select" || (t && t.isContentEditable)) return;
   if (e.key === "Delete" || e.key === "Backspace") {
-    if (!wbState.selectedId && !wbState.selectedConnectorId) return;
+    if (!sbSelectionNodes().length && !sbState.selectedConnectorId) return;
     e.preventDefault();
-    wbDeleteSelected();
+    sbDeleteSelected();
   } else if (e.key === "Escape") {
-    if (wbState.connectFrom) wbCancelConnect();
-    else if (wbState.tool) wbClosePanel();
-    else wbSelect("");
+    if (sbState.connectFrom) sbCancelConnect();
+    else if (sbState.tool) sbClosePanel();
+    else sbSelect("");
   }
 }
 
@@ -1046,17 +1449,17 @@ function wbOnKeyDown(e) {
 // never in the image. Paint order matches the board: surface -> connectors ->
 // items (z order). The canvas is 2x for readable text, capped on huge boards.
 
-function wbItemEl(id) {
-  if (!wbEls.items || !id) return null;
-  return wbEls.items.querySelector('.wb-object[data-id="' + id + '"]');
+function sbItemEl(id) {
+  if (!sbEls.items || !id) return null;
+  return sbEls.items.querySelector('.sb-object[data-id="' + id + '"]');
 }
 
-function wbSlug(name) {
+function sbSlug(name) {
   return String(name || "storyboard").toLowerCase()
     .replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60);
 }
 
-function wbLoadCanvasImage(src) {
+function sbLoadCanvasImage(src) {
   return new Promise(function (resolve, reject) {
     var img = new Image();
     img.onload = function () { resolve(img); };
@@ -1065,7 +1468,7 @@ function wbLoadCanvasImage(src) {
   });
 }
 
-function wbImageReady(img) {
+function sbImageReady(img) {
   return new Promise(function (resolve, reject) {
     if (img.complete) return resolve(img);
     img.addEventListener("load", function () { resolve(img); }, { once: true });
@@ -1073,7 +1476,7 @@ function wbImageReady(img) {
   });
 }
 
-function wbCanvasRoundRect(ctx, x, y, w, h, r) {
+function sbCanvasRoundRect(ctx, x, y, w, h, r) {
   r = Math.max(0, Math.min(r, w / 2, h / 2));
   ctx.beginPath();
   ctx.moveTo(x + r, y);
@@ -1086,7 +1489,7 @@ function wbCanvasRoundRect(ctx, x, y, w, h, r) {
 
 // Match white-space:pre-wrap + overflow-wrap:break-word without a DOM measure per
 // line: explicit newlines are kept, words wrap at the box width, long words break.
-function wbCanvasWrapText(ctx, text, maxWidth) {
+function sbCanvasWrapText(ctx, text, maxWidth) {
   var lines = [];
   String(text == null ? "" : text).split("\n").forEach(function (para) {
     if (para === "") { lines.push(""); return; }
@@ -1118,7 +1521,7 @@ function wbCanvasWrapText(ctx, text, maxWidth) {
 // does: scale it across the border to the frame width, then repeat it along the
 // edge an integer number of times. Without this the exporter stretches a single
 // 60px slice over the whole side, which turns the stamp dots into long dashes.
-function wbDrawCanvasFrameEdge(ctx, img, sx, sy, sw, sh, dx, dy, dw, dh, vertical) {
+function sbDrawCanvasFrameEdge(ctx, img, sx, sy, sw, sh, dx, dy, dw, dh, vertical) {
   var natural = vertical ? sh * (dw / sw) : sw * (dh / sh);
   var count = Math.max(1, Math.round((vertical ? dh : dw) / natural));
   var tile = (vertical ? dh : dw) / count;
@@ -1131,7 +1534,7 @@ function wbDrawCanvasFrameEdge(ctx, img, sx, sy, sw, sh, dx, dy, dw, dh, vertica
   }
 }
 
-function wbDrawCanvasText(ctx, item, el, frame, frameImg) {
+function sbDrawCanvasText(ctx, item, el, frame, frameImg) {
   var cs = getComputedStyle(el);
   var w = el.offsetWidth;
   var h = el.offsetHeight;
@@ -1144,7 +1547,7 @@ function wbDrawCanvasText(ctx, item, el, frame, frameImg) {
   var bg = cs.backgroundColor;
   if (bg && bg !== "rgba(0, 0, 0, 0)" && bg !== "transparent") {
     ctx.fillStyle = bg;
-    wbCanvasRoundRect(ctx, x + frame, y + frame, w - frame * 2, h - frame * 2, frame ? 8 : 10);
+    sbCanvasRoundRect(ctx, x + frame, y + frame, w - frame * 2, h - frame * 2, frame ? 8 : 10);
     ctx.fill();
   }
 
@@ -1155,13 +1558,13 @@ function wbDrawCanvasText(ctx, item, el, frame, frameImg) {
     ctx.drawImage(frameImg, src - s, 0, s, s, x + w - d, y, d, d);
     ctx.drawImage(frameImg, 0, src - s, s, s, x, y + h - d, d, d);
     ctx.drawImage(frameImg, src - s, src - s, s, s, x + w - d, y + h - d, d, d);
-    wbDrawCanvasFrameEdge(ctx, frameImg, s, 0, src - s * 2, s,
+    sbDrawCanvasFrameEdge(ctx, frameImg, s, 0, src - s * 2, s,
       x + d, y, w - d * 2, d, false);
-    wbDrawCanvasFrameEdge(ctx, frameImg, s, src - s, src - s * 2, s,
+    sbDrawCanvasFrameEdge(ctx, frameImg, s, src - s, src - s * 2, s,
       x + d, y + h - d, w - d * 2, d, false);
-    wbDrawCanvasFrameEdge(ctx, frameImg, 0, s, s, src - s * 2,
+    sbDrawCanvasFrameEdge(ctx, frameImg, 0, s, s, src - s * 2,
       x, y + d, d, h - d * 2, true);
-    wbDrawCanvasFrameEdge(ctx, frameImg, src - s, s, s, src - s * 2,
+    sbDrawCanvasFrameEdge(ctx, frameImg, src - s, s, s, src - s * 2,
       x + w - d, y + d, d, h - d * 2, true);
   }
 
@@ -1192,19 +1595,19 @@ function wbDrawCanvasText(ctx, item, el, frame, frameImg) {
   // text out on fractional pixels - without the small tolerance a line that fits
   // on screen (e.g. by 0.42px) would wrap in the canvas and lose its second line
   // to the box height. No clip: the live box is already sized to its content.
-  var lines = wbCanvasWrapText(ctx, item.text || " ", contentW + 1.5);
+  var lines = sbCanvasWrapText(ctx, item.text || " ", contentW + 1.5);
   var ty = contentTop + lineH / 2;
   lines.forEach(function (line, i) { ctx.fillText(line, tx, ty + i * lineH); });
   ctx.restore();
 }
 
-async function wbDownloadJpg() {
-  var board = wbActiveBoard();
-  if (!board || !wbEls.canvas) return;
-  var visW = wbEls.canvas.clientWidth;
-  var visH = wbEls.canvas.clientHeight;
+async function sbDownloadJpg() {
+  var board = sbActiveBoard();
+  if (!board || !sbEls.canvas) return;
+  var visW = sbEls.canvas.clientWidth;
+  var visH = sbEls.canvas.clientHeight;
   if (!visW || !visH) return;
-  var designScale = wbDesignScale();
+  var designScale = sbDesignScale();
   if (document.fonts && document.fonts.ready) {
     try { await document.fonts.ready; } catch (e) { /* draw with the fallback */ }
   }
@@ -1213,8 +1616,8 @@ async function wbDownloadJpg() {
   // `cover` crop. The canvas is the image's natural size (capped at 4096px);
   // items are mapped from screen space back into the artwork's coordinates so
   // they stay on the same part of the picture as on screen.
-  var bgMeta = board.background ? wbBackgroundById(board.background) : null;
-  var bgImg = bgMeta ? await wbLoadCanvasImage(bgMeta.file).catch(function () { return null; }) : null;
+  var bgMeta = board.background ? sbBackgroundById(board.background) : null;
+  var bgImg = bgMeta ? await sbLoadCanvasImage(bgMeta.file).catch(function () { return null; }) : null;
   var hasBg = !!(bgImg && bgImg.naturalWidth && bgImg.naturalHeight);
 
   var W, H, outScale;
@@ -1244,13 +1647,13 @@ async function wbDownloadJpg() {
   var ctx = canvas.getContext("2d");
   ctx.scale(outScale, outScale);
 
-  var baseBg = getComputedStyle(wbEls.canvas).backgroundColor || "#ffffff";
+  var baseBg = getComputedStyle(sbEls.canvas).backgroundColor || "#ffffff";
   var bodyColor = getComputedStyle(document.body).color;
   ctx.fillStyle = baseBg;
   ctx.fillRect(0, 0, W, H);
 
   if (hasBg) {
-    var bgStyle = getComputedStyle(wbEls.bg);
+    var bgStyle = getComputedStyle(sbEls.bg);
     if (bgStyle.backgroundColor && bgStyle.backgroundColor !== "rgba(0, 0, 0, 0)") {
       ctx.fillStyle = bgStyle.backgroundColor;
       ctx.fillRect(0, 0, W, H);
@@ -1277,23 +1680,23 @@ async function wbDownloadJpg() {
   // are computed in artwork space; widths are converted from CSS px so the line
   // keeps the same thickness relative to the picture.
   (board.connectors || []).forEach(function (conn) {
-    var from = wbFindItem(conn.from);
-    var to = wbFindItem(conn.to);
-    var fromEl = wbItemEl(conn.from);
-    var toEl = wbItemEl(conn.to);
+    var from = sbFindItem(conn.from);
+    var to = sbFindItem(conn.to);
+    var fromEl = sbItemEl(conn.from);
+    var toEl = sbItemEl(conn.to);
     if (!from || !to || !fromEl || !toEl) return;
     var a = toArt(from.x / 100 * visW, from.y / 100 * visH);
     var b = toArt(to.x / 100 * visW, to.y / 100 * visH);
-    var aEdge = wbEdgePoint(a.x, a.y, b.x, b.y,
+    var aEdge = sbEdgePoint(a.x, a.y, b.x, b.y,
       Math.max(1, fromEl.offsetWidth / 2) * artScale,
       Math.max(1, fromEl.offsetHeight / 2) * artScale,
       from.rotation * Math.PI / 180);
-    var bEdge = wbEdgePoint(b.x, b.y, a.x, a.y,
+    var bEdge = sbEdgePoint(b.x, b.y, a.x, a.y,
       Math.max(1, toEl.offsetWidth / 2) * artScale,
       Math.max(1, toEl.offsetHeight / 2) * artScale,
       to.rotation * Math.PI / 180);
-    var aOut = wbPushOut(a.x, a.y, aEdge, 5 * designScale * artScale);
-    var bOut = wbPushOut(b.x, b.y, bEdge, 5 * designScale * artScale);
+    var aOut = sbPushOut(a.x, a.y, aEdge, 5 * designScale * artScale);
+    var bOut = sbPushOut(b.x, b.y, bEdge, 5 * designScale * artScale);
     ctx.save();
     ctx.lineCap = "round";
     ctx.globalAlpha = 0.85;
@@ -1326,7 +1729,7 @@ async function wbDownloadJpg() {
   var frameCache = Object.create(null);
   for (var i = 0; i < ordered.length; i++) {
     var item = ordered[i];
-    var el = wbItemEl(item.id);
+    var el = sbItemEl(item.id);
     if (!el) continue;
     var art = toArt(item.x / 100 * visW, item.y / 100 * visH);
     ctx.save();
@@ -1337,9 +1740,9 @@ async function wbDownloadJpg() {
     ctx.scale(artScale, artScale);
 
     if (item.type === "sticker") {
-      var img = el.querySelector(".wb-sticker");
+      var img = el.querySelector(".sb-sticker");
       if (img) {
-        if (!img.complete) { try { await wbImageReady(img); } catch (e) { /* skip */ } }
+        if (!img.complete) { try { await sbImageReady(img); } catch (e) { /* skip */ } }
         var w = img.offsetWidth;
         var h = img.offsetHeight;
         if (w && h) {
@@ -1352,7 +1755,7 @@ async function wbDownloadJpg() {
         }
       }
     } else {
-      var textEl = el.querySelector(".wb-text");
+      var textEl = el.querySelector(".sb-text");
       if (textEl) {
         // The live frame border is design-scaled, so measure it instead of
         // assuming 18px.
@@ -1362,13 +1765,13 @@ async function wbDownloadJpg() {
         }
         var frameImg = null;
         if (frame) {
-          var uri = wbFrameDataUri(item.border, wbResolveColor(item.color));
+          var uri = sbFrameDataUri(item.border, sbResolveColor(item.color));
           if (!frameCache[uri]) {
-            frameCache[uri] = await wbLoadCanvasImage(uri).catch(function () { return null; });
+            frameCache[uri] = await sbLoadCanvasImage(uri).catch(function () { return null; });
           }
           frameImg = frameCache[uri];
         }
-        wbDrawCanvasText(ctx, item, textEl, frame, frameImg);
+        sbDrawCanvasText(ctx, item, textEl, frame, frameImg);
       }
     }
     ctx.restore();
@@ -1381,7 +1784,7 @@ async function wbDownloadJpg() {
   var url = URL.createObjectURL(blob);
   var a = document.createElement("a");
   a.href = url;
-  a.download = (wbSlug(board.name) || "storyboard") + ".jpg";
+  a.download = (sbSlug(board.name) || "storyboard") + ".jpg";
   document.body.appendChild(a);
   a.click();
   a.remove();

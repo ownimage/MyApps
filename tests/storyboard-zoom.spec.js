@@ -63,14 +63,14 @@ async function seedBoard(page, board) {
     localStorage.removeItem("storyboard_zoom");
   }, board);
   await page.goto("/Storyboard/");
-  await expect(page.locator("#wbCanvas")).toBeVisible();
-  await expect(page.locator('.wb-object[data-id="' + board.items[0].id + '"]')).toBeVisible();
+  await expect(page.locator("#sbCanvas")).toBeVisible();
+  await expect(page.locator('.sb-object[data-id="' + board.items[0].id + '"]')).toBeVisible();
 }
 
 function metrics(page) {
   return page.evaluate(() => {
-    const canvas = document.getElementById("wbCanvas");
-    const scroller = document.getElementById("wbScroller");
+    const canvas = document.getElementById("sbCanvas");
+    const scroller = document.getElementById("sbScroller");
     const cr = canvas.getBoundingClientRect();
     const sr = scroller.getBoundingClientRect();
     return {
@@ -86,16 +86,16 @@ function metrics(page) {
       scrollH: scroller.scrollHeight,
       scrollLeft: scroller.scrollLeft,
       scrollTop: scroller.scrollTop,
-      zoom: window.wbState.zoom,
-      fitW: window.wbEls.fitW,
-      fitH: window.wbEls.fitH
+      zoom: window.sbState.zoom,
+      fitW: window.sbEls.fitW,
+      fitH: window.sbEls.fitH
     };
   });
 }
 
 async function scrollTo(page, left, top) {
   await page.evaluate(({ left, top }) => {
-    const s = document.getElementById("wbScroller");
+    const s = document.getElementById("sbScroller");
     s.scrollLeft = left;
     s.scrollTop = top;
   }, { left, top });
@@ -105,8 +105,8 @@ async function scrollTo(page, left, top) {
 // assertion alone would pass while the user can see (and grab) nothing.
 function hitHandle(page, id, which) {
   return page.evaluate(({ id, which }) => {
-    const obj = document.querySelector('.wb-object[data-id="' + id + '"]');
-    const handle = obj && obj.querySelector(".wb-handle-" + which);
+    const obj = document.querySelector('.sb-object[data-id="' + id + '"]');
+    const handle = obj && obj.querySelector(".sb-handle-" + which);
     if (!handle) return { ok: false, reason: "missing handle" };
     const r = handle.getBoundingClientRect();
     const cx = r.left + r.width / 2;
@@ -124,7 +124,7 @@ function hitHandle(page, id, which) {
 
 function objectCentre(page, id) {
   return page.evaluate((id) => {
-    const r = document.querySelector('.wb-object[data-id="' + id + '"]').getBoundingClientRect();
+    const r = document.querySelector('.sb-object[data-id="' + id + '"]').getBoundingClientRect();
     return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
   }, id);
 }
@@ -133,10 +133,10 @@ test.describe("Storyboard - zoom", () => {
   test("magnifier buttons sit side by side at the bottom of the rail, above Pin", async ({ page }) => {
     await seedBoard(page, BG_BOARD);
 
-    const zoomOut = page.locator("#wbZoomOut");
-    const zoomIn = page.locator("#wbZoomIn");
-    const fit = page.locator("#wbZoomFit");
-    const pin = page.locator("#wbPinBtn");
+    const zoomOut = page.locator("#sbZoomOut");
+    const zoomIn = page.locator("#sbZoomIn");
+    const fit = page.locator("#sbZoomFit");
+    const pin = page.locator("#sbPinBtn");
     await expect(zoomOut).toBeVisible();
     await expect(zoomIn).toBeVisible();
     await expect(fit).toBeVisible();
@@ -154,9 +154,9 @@ test.describe("Storyboard - zoom", () => {
     expect(pinBox.y).toBeGreaterThanOrEqual(fitBox.y + fitBox.height - 1);
 
     // No percentage readout anywhere in the rail (user decision).
-    const railText = await page.locator("#wbToolbar .wb-rail").innerText();
+    const railText = await page.locator("#sbToolbar .sb-rail").innerText();
     expect(railText).not.toMatch(/\d+\s*%/);
-    await expect(page.locator("#wbZoomFit")).toBeDisabled();
+    await expect(page.locator("#sbZoomFit")).toBeDisabled();
   });
 
   test("zoom in / out scales the board and only then adds scrollbars; Fit restores the fitted view", async ({ page }) => {
@@ -168,22 +168,22 @@ test.describe("Storyboard - zoom", () => {
     expect(fitted.scrollW).toBeLessThanOrEqual(fitted.viewW + 1);
     expect(fitted.scrollH).toBeLessThanOrEqual(fitted.viewH + 1);
 
-    await page.locator("#wbZoomIn").click();
+    await page.locator("#sbZoomIn").click();
     await expect.poll(async () => (await metrics(page)).zoom).toBe(1.25);
     let m = await metrics(page);
     expect(Math.abs(m.w - m.fitW * 1.25)).toBeLessThan(2);
     expect(m.scrollW > m.viewW || m.scrollH > m.viewH).toBe(true);
-    await expect(page.locator("#wbZoomFit")).toBeEnabled();
+    await expect(page.locator("#sbZoomFit")).toBeEnabled();
 
-    await page.locator("#wbZoomFit").click();
+    await page.locator("#sbZoomFit").click();
     await expect.poll(async () => (await metrics(page)).zoom).toBe(1);
     m = await metrics(page);
     expect(Math.abs(m.w - fitted.fitW)).toBeLessThan(2);
     expect(m.scrollW).toBeLessThanOrEqual(m.viewW + 1);
     expect(m.scrollH).toBeLessThanOrEqual(m.viewH + 1);
-    await expect(page.locator("#wbZoomFit")).toBeDisabled();
+    await expect(page.locator("#sbZoomFit")).toBeDisabled();
 
-    await page.locator("#wbZoomOut").click();
+    await page.locator("#sbZoomOut").click();
     await expect.poll(async () => (await metrics(page)).zoom).toBe(0.75);
     m = await metrics(page);
     expect(Math.abs(m.w - m.fitW * 0.75)).toBeLessThan(2);
@@ -198,7 +198,7 @@ test.describe("Storyboard - zoom", () => {
   test("zoom buttons stop at the ends of the range", async ({ page }) => {
     await seedBoard(page, PLAIN_BOARD);
 
-    const zoomOut = page.locator("#wbZoomOut");
+    const zoomOut = page.locator("#sbZoomOut");
     for (let i = 0; i < 12 && !(await zoomOut.isDisabled()); i++) {
       await zoomOut.click();
       await page.waitForTimeout(30);
@@ -206,10 +206,10 @@ test.describe("Storyboard - zoom", () => {
     await expect(zoomOut).toBeDisabled();
     expect((await metrics(page)).zoom).toBe(0.5);
 
-    await page.locator("#wbZoomFit").click();
+    await page.locator("#sbZoomFit").click();
     await expect.poll(async () => (await metrics(page)).zoom).toBe(1);
 
-    const zoomIn = page.locator("#wbZoomIn");
+    const zoomIn = page.locator("#sbZoomIn");
     for (let i = 0; i < 12 && !(await zoomIn.isDisabled()); i++) {
       await zoomIn.click();
       await page.waitForTimeout(30);
@@ -223,14 +223,14 @@ test.describe("Storyboard - zoom", () => {
 
     // Zoom FIRST, then select: the handle appears after the pasteboard was
     // already sized, so the selection itself must re-measure it.
-    await page.locator("#wbZoomIn").click();
-    await page.locator("#wbZoomIn").click();
+    await page.locator("#sbZoomIn").click();
+    await page.locator("#sbZoomIn").click();
     await expect.poll(async () => (await metrics(page)).zoom).toBe(1.5);
-    await page.locator('.wb-object[data-id="zoom-edge-top"]').click();
+    await page.locator('.sb-object[data-id="zoom-edge-top"]').click();
 
     await scrollTo(page, 0, 0);
     await page.evaluate(() => {
-      const s = document.getElementById("wbScroller");
+      const s = document.getElementById("sbScroller");
       s.scrollLeft = (s.scrollWidth - s.clientWidth) / 2;
     });
     const rotate = await hitHandle(page, "zoom-edge-top", "rotate");
@@ -239,9 +239,9 @@ test.describe("Storyboard - zoom", () => {
 
     // Sticker in the bottom-right corner: its scale handle needs the
     // bottom/right pasteboard.
-    await page.locator('.wb-object[data-id="zoom-edge-corner"]').click();
+    await page.locator('.sb-object[data-id="zoom-edge-corner"]').click();
     await page.evaluate(() => {
-      const s = document.getElementById("wbScroller");
+      const s = document.getElementById("sbScroller");
       s.scrollLeft = s.scrollWidth;
       s.scrollTop = s.scrollHeight;
     });
@@ -251,7 +251,7 @@ test.describe("Storyboard - zoom", () => {
 
     // The floating action bar is pinned to the viewport, so it stays usable.
     const bar = await page.evaluate(() => {
-      const el = document.getElementById("wbSelectionBar");
+      const el = document.getElementById("sbSelectionBar");
       const r = el.getBoundingClientRect();
       const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
       return {
@@ -267,10 +267,10 @@ test.describe("Storyboard - zoom", () => {
 
   test("zooming anchors on the selected item so it stays put on screen", async ({ page }) => {
     await seedBoard(page, OFFSET_BOARD);
-    await page.locator('.wb-object[data-id="zoom-offset-sticker"]').click();
+    await page.locator('.sb-object[data-id="zoom-offset-sticker"]').click();
 
     const before = await objectCentre(page, "zoom-offset-sticker");
-    await page.locator("#wbZoomIn").click();
+    await page.locator("#sbZoomIn").click();
     await expect.poll(async () => (await metrics(page)).zoom).toBe(1.25);
     const after = await objectCentre(page, "zoom-offset-sticker");
 
@@ -280,11 +280,11 @@ test.describe("Storyboard - zoom", () => {
 
   test("dragging an item still follows the pointer when zoomed in", async ({ page }) => {
     await seedBoard(page, BG_BOARD);
-    await page.locator("#wbZoomIn").click();
-    await page.locator("#wbZoomIn").click();
+    await page.locator("#sbZoomIn").click();
+    await page.locator("#sbZoomIn").click();
     await expect.poll(async () => (await metrics(page)).zoom).toBe(1.5);
 
-    const box = await page.locator('.wb-object[data-id="zoom-bg-sticker"]').boundingBox();
+    const box = await page.locator('.sb-object[data-id="zoom-bg-sticker"]').boundingBox();
     const startX = box.x + box.width / 2;
     const startY = box.y + box.height / 2;
     const dx = 120;
@@ -295,8 +295,8 @@ test.describe("Storyboard - zoom", () => {
     await page.mouse.up();
 
     const state = await page.evaluate(() => {
-      const item = wbFindItem("zoom-bg-sticker");
-      const c = document.getElementById("wbCanvas").getBoundingClientRect();
+      const item = sbFindItem("zoom-bg-sticker");
+      const c = document.getElementById("sbCanvas").getBoundingClientRect();
       return { x: item.x, y: item.y, w: c.width, h: c.height };
     });
     expect(Math.abs(state.x - (50 + dx / state.w * 100))).toBeLessThan(0.6);
@@ -305,12 +305,12 @@ test.describe("Storyboard - zoom", () => {
 
   test("the zoom level is remembered across a reload", async ({ page }) => {
     await seedBoard(page, BG_BOARD);
-    await page.locator("#wbZoomIn").click();
-    await page.locator("#wbZoomIn").click();
+    await page.locator("#sbZoomIn").click();
+    await page.locator("#sbZoomIn").click();
     await expect.poll(async () => (await metrics(page)).zoom).toBe(1.5);
 
     await page.reload();
-    await expect(page.locator("#wbCanvas")).toBeVisible();
+    await expect(page.locator("#sbCanvas")).toBeVisible();
     const m = await metrics(page);
     expect(m.zoom).toBe(1.5);
     expect(Math.abs(m.w - m.fitW * 1.5)).toBeLessThan(2);

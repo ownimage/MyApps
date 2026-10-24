@@ -28,7 +28,7 @@ body#smd-app {
 /* Scroll container: only the board scrolls. The toolbar, board-name chip,
  * action bar and connect hint are siblings of this element inside
  * #storyboardArea, so they stay put while the board pans. */
-.wb-scroller {
+.sb-scroller {
   position: absolute;
   inset: 0;
   overflow: auto;
@@ -37,31 +37,31 @@ body#smd-app {
   scrollbar-color: rgba(var(--bs-body-color-rgb), 0.45) transparent;
 }
 
-.wb-scroller::-webkit-scrollbar {
+.sb-scroller::-webkit-scrollbar {
   width: 12px;
   height: 12px;
 }
 
-.wb-scroller::-webkit-scrollbar-track {
+.sb-scroller::-webkit-scrollbar-track {
   background: transparent;
 }
 
-.wb-scroller::-webkit-scrollbar-thumb {
+.sb-scroller::-webkit-scrollbar-thumb {
   border: 3px solid transparent;
   border-radius: 999px;
   background-clip: padding-box;
   background-color: rgba(var(--bs-body-color-rgb), 0.4);
 }
 
-.wb-scroller::-webkit-scrollbar-thumb:hover {
+.sb-scroller::-webkit-scrollbar-thumb:hover {
   background-color: rgba(var(--bs-body-color-rgb), 0.6);
 }
 
-/* Centres the board when it is smaller than the viewport. wbLayoutBoard()
+/* Centres the board when it is smaller than the viewport. sbLayoutBoard()
  * sizes this element: viewport size at 100%, growing by a pasteboard margin
  * when the board is zoomed in so the handles at the artwork edge can be
  * scrolled into view. */
-.wb-stage {
+.sb-stage {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -70,13 +70,13 @@ body#smd-app {
   box-sizing: border-box;
 }
 
-#wbCanvas {
-  /* The board is the ARTWORK. `wbLayoutBoard()` sizes it to the background's
+#sbCanvas {
+  /* The board is the ARTWORK. `sbLayoutBoard()` sizes it to the background's
      aspect, fitted into whatever space the UI leaves and multiplied by the zoom
      factor. `overflow: visible` lets the selection outline and grab handles at
      the artwork edge paint into the pasteboard instead of being clipped; there
      is no CSS transform here because the scroller needs real layout size.
-     --wb-design-scale (set by wbLayoutBoard) is boardHeight / 655. Text,
+     --sb-design-scale (set by sbLayoutBoard) is boardHeight / 655. Text,
      stickers, the dot grid and connector widths multiply by it, so they stay
      glued to the artwork at ANY zoom. The UI (nav, toolbar, board name, action
      bar) is deliberately NOT scaled. */
@@ -88,7 +88,7 @@ body#smd-app {
   background-color: var(--bs-body-bg);
 }
 
-#wbBackground {
+#sbBackground {
   position: absolute;
   inset: 0;
   background-position: center;
@@ -98,25 +98,25 @@ body#smd-app {
   background-size: 100% 100%;
 }
 
-#wbBackground[data-background="none"] {
+#sbBackground[data-background="none"] {
   background-color: var(--bs-body-bg);
   background-image: radial-gradient(circle,
-    rgba(var(--bs-body-color-rgb), 0.22) calc(1px * var(--wb-design-scale, 1)),
-    transparent calc(1.4px * var(--wb-design-scale, 1)));
-  background-size: calc(24px * var(--wb-design-scale, 1)) calc(24px * var(--wb-design-scale, 1));
+    rgba(var(--bs-body-color-rgb), 0.22) calc(1px * var(--sb-design-scale, 1)),
+    transparent calc(1.4px * var(--sb-design-scale, 1)));
+  background-size: calc(24px * var(--sb-design-scale, 1)) calc(24px * var(--sb-design-scale, 1));
 }
 
-#wbBackground[data-background="space"] {
+#sbBackground[data-background="space"] {
   background-color: #04050f;
 }
 
-#wbBackground[data-background="underwater"] {
+#sbBackground[data-background="underwater"] {
   background-color: #021c2e;
 }
 
 /* Connectors live BELOW the objects but ABOVE the background. The layer itself
  * ignores pointers; only the fat transparent hit stroke accepts clicks. */
-.wb-connectors {
+.sb-connectors {
   position: absolute;
   inset: 0;
   z-index: 1;
@@ -126,29 +126,29 @@ body#smd-app {
   pointer-events: none;
 }
 
-.wb-connector-arrow {
+.sb-connector-arrow {
   fill: var(--bs-body-color);
   stroke: var(--bs-body-bg);
   stroke-width: 1.5;
   stroke-linejoin: round;
 }
 
-.wb-connector-halo {
+.sb-connector-halo {
   fill: none;
   stroke: var(--bs-body-bg);
-  stroke-width: calc(7px * var(--wb-design-scale, 1));
+  stroke-width: calc(7px * var(--sb-design-scale, 1));
   stroke-linecap: round;
   stroke-opacity: 0.85;
 }
 
-.wb-connector-line {
+.sb-connector-line {
   fill: none;
   stroke: var(--bs-body-color);
-  stroke-width: calc(2.5px * var(--wb-design-scale, 1));
+  stroke-width: calc(2.5px * var(--sb-design-scale, 1));
   stroke-linecap: round;
 }
 
-.wb-connector-hit {
+.sb-connector-hit {
   fill: none;
   stroke: transparent;
   /* Keep the invisible touch target finger-sized whatever the artwork scale. */
@@ -158,22 +158,22 @@ body#smd-app {
   cursor: pointer;
 }
 
-.wb-connector.selected .wb-connector-halo {
-  stroke-width: calc(9px * var(--wb-design-scale, 1));
+.sb-connector.selected .sb-connector-halo {
+  stroke-width: calc(9px * var(--sb-design-scale, 1));
 }
 
-.wb-connector.selected .wb-connector-line {
-  stroke-width: calc(4px * var(--wb-design-scale, 1));
+.sb-connector.selected .sb-connector-line {
+  stroke-width: calc(4px * var(--sb-design-scale, 1));
 }
 
-.wb-items {
+.sb-items {
   position: absolute;
   inset: 0;
   z-index: 2;
   pointer-events: none;
 }
 
-.wb-empty-hint {
+.sb-empty-hint {
   position: absolute;
   inset: 0;
   display: flex;
@@ -187,14 +187,14 @@ body#smd-app {
   pointer-events: none;
 }
 
-.wb-empty-hint i {
+.sb-empty-hint i {
   color: #ffffff;
   font-size: 2.2rem;
   opacity: 0.9;
   text-shadow: 0 2px 10px rgba(0, 0, 0, 0.65);
 }
 
-.wb-empty-hint p {
+.sb-empty-hint p {
   margin: 0;
   max-width: 26rem;
   padding: 0.6rem 1rem;
@@ -205,7 +205,7 @@ body#smd-app {
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.16);
 }
 
-.wb-board-chip {
+.sb-board-chip {
   position: absolute;
   top: 12px;
   right: 12px;
@@ -225,7 +225,7 @@ body#smd-app {
   cursor: pointer;
 }
 
-.wb-board-chip:hover {
+.sb-board-chip:hover {
   border-color: var(--bs-primary);
 }
 
@@ -243,7 +243,7 @@ body.auto-hide-menu #mainNav {
 
 /* ---- Toolbar rail ------------------------------------------------------- */
 
-.wb-toolbar {
+.sb-toolbar {
   position: absolute;
   top: 12px;
   left: 12px;
@@ -255,7 +255,7 @@ body.auto-hide-menu #mainNav {
   pointer-events: none;
 }
 
-.wb-rail {
+.sb-rail {
   display: flex;
   flex: 0 0 auto;
   flex-direction: column;
@@ -273,16 +273,16 @@ body.auto-hide-menu #mainNav {
   scrollbar-width: none;
 }
 
-.wb-rail::-webkit-scrollbar {
+.sb-rail::-webkit-scrollbar {
   display: none;
 }
 
-.wb-rail-spacer {
+.sb-rail-spacer {
   flex: 1 1 auto;
   min-height: 12px;
 }
 
-.wb-rail-btn {
+.sb-rail-btn {
   display: flex;
   flex: 0 0 auto;
   flex-direction: column;
@@ -300,11 +300,11 @@ body.auto-hide-menu #mainNav {
   cursor: pointer;
 }
 
-.wb-rail-btn i {
+.sb-rail-btn i {
   font-size: 1.15rem;
 }
 
-.wb-rail-btn span {
+.sb-rail-btn span {
   display: block;
   width: 100%;
   overflow: hidden;
@@ -313,61 +313,61 @@ body.auto-hide-menu #mainNav {
   white-space: nowrap;
 }
 
-.wb-rail-btn:hover {
+.sb-rail-btn:hover {
   background: rgba(var(--bs-body-color-rgb), 0.1);
 }
 
-.wb-rail-btn.active {
+.sb-rail-btn.active {
   background: rgba(var(--bs-primary-rgb), 0.16);
   color: var(--bs-primary);
 }
 
-.wb-pin-btn.active {
+.sb-pin-btn.active {
   color: var(--bs-primary);
 }
 
 /* ---- Zoom controls ------------------------------------------------------ */
 /* Bottom of the rail: magnifier minus/plus side by side, Fit underneath. */
 
-.wb-zoom {
+.sb-zoom {
   display: flex;
   flex: 0 0 auto;
   flex-direction: column;
   gap: 4px;
 }
 
-.wb-zoom-row {
+.sb-zoom-row {
   display: flex;
   gap: 4px;
 }
 
-.wb-zoom-btn {
+.sb-zoom-btn {
   flex: 1 1 0;
   min-width: 0;
   min-height: 36px;
   padding: 4px 0;
 }
 
-.wb-zoom-btn i {
+.sb-zoom-btn i {
   font-size: 0.95rem;
 }
 
-.wb-zoom-fit {
+.sb-zoom-fit {
   min-height: 40px;
 }
 
-.wb-rail-btn:disabled {
+.sb-rail-btn:disabled {
   opacity: 0.35;
   cursor: default;
 }
 
-.wb-rail-btn:disabled:hover {
+.sb-rail-btn:disabled:hover {
   background: transparent;
 }
 
 /* ---- Fly-out panel ------------------------------------------------------ */
 
-.wb-panel {
+.sb-panel {
   display: none;
   flex-direction: column;
   width: min(320px, calc(100vw - 92px));
@@ -380,14 +380,14 @@ body.auto-hide-menu #mainNav {
   pointer-events: auto;
 }
 
-.wb-toolbar[data-open="boards"] .wb-panel,
-.wb-toolbar[data-open="background"] .wb-panel,
-.wb-toolbar[data-open="stickers"] .wb-panel,
-.wb-toolbar[data-open="text"] .wb-panel {
+.sb-toolbar[data-open="boards"] .sb-panel,
+.sb-toolbar[data-open="background"] .sb-panel,
+.sb-toolbar[data-open="stickers"] .sb-panel,
+.sb-toolbar[data-open="text"] .sb-panel {
   display: flex;
 }
 
-.wb-panel-head {
+.sb-panel-head {
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -395,14 +395,14 @@ body.auto-hide-menu #mainNav {
   border-bottom: 1px solid var(--bs-border-color);
 }
 
-.wb-panel-title {
+.sb-panel-title {
   flex: 1 1 auto;
   margin: 0;
   color: var(--bs-body-color);
   font-size: var(--smd-type-h2, 1.1em);
 }
 
-.wb-panel-close {
+.sb-panel-close {
   flex: 0 0 auto;
   width: 32px;
   height: 32px;
@@ -413,22 +413,22 @@ body.auto-hide-menu #mainNav {
   cursor: pointer;
 }
 
-.wb-panel-close:hover {
+.sb-panel-close:hover {
   background: rgba(var(--bs-body-color-rgb), 0.12);
 }
 
-.wb-panel-body {
+.sb-panel-body {
   overflow: auto;
   padding: 0.8rem;
 }
 
-.wb-panel-note {
+.sb-panel-note {
   margin: 0.75rem 0 0;
   color: rgba(var(--bs-body-color-rgb), 0.7);
   font-size: var(--smd-type-badge, 0.8em);
 }
 
-.wb-field-label {
+.sb-field-label {
   display: block;
   margin: 0.75rem 0 0.35rem;
   color: rgba(var(--bs-body-color-rgb), 0.75);
@@ -438,19 +438,19 @@ body.auto-hide-menu #mainNav {
   text-transform: uppercase;
 }
 
-.wb-field-label:first-child {
+.sb-field-label:first-child {
   margin-top: 0;
 }
 
 /* ---- Boards ------------------------------------------------------------- */
 
-.wb-board-list {
+.sb-board-list {
   display: flex;
   flex-direction: column;
   gap: 6px;
 }
 
-.wb-board-row {
+.sb-board-row {
   display: flex;
   align-items: center;
   gap: 4px;
@@ -459,12 +459,12 @@ body.auto-hide-menu #mainNav {
   border-radius: 10px;
 }
 
-.wb-board-row.active {
+.sb-board-row.active {
   border-color: var(--bs-primary);
   background: rgba(var(--bs-primary-rgb), 0.1);
 }
 
-.wb-board-pick {
+.sb-board-pick {
   display: flex;
   flex: 1 1 auto;
   align-items: center;
@@ -480,17 +480,17 @@ body.auto-hide-menu #mainNav {
   cursor: pointer;
 }
 
-.wb-board-pick span {
+.sb-board-pick span {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.wb-board-pick:hover {
+.sb-board-pick:hover {
   background: rgba(var(--bs-body-color-rgb), 0.08);
 }
 
-.wb-board-act {
+.sb-board-act {
   flex: none;
   width: 30px;
   height: 30px;
@@ -501,28 +501,28 @@ body.auto-hide-menu #mainNav {
   cursor: pointer;
 }
 
-.wb-board-act:hover {
+.sb-board-act:hover {
   background: rgba(var(--bs-body-color-rgb), 0.12);
 }
 
-.wb-board-act:disabled {
+.sb-board-act:disabled {
   opacity: 0.35;
   cursor: default;
 }
 
-.wb-board-name-input {
+.sb-board-name-input {
   min-width: 0;
 }
 
 /* ---- Background picker -------------------------------------------------- */
 
-.wb-bg-grid {
+.sb-bg-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 8px;
 }
 
-.wb-bg-option {
+.sb-bg-option {
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -536,12 +536,12 @@ body.auto-hide-menu #mainNav {
   cursor: pointer;
 }
 
-.wb-bg-option.active {
+.sb-bg-option.active {
   border-color: var(--bs-primary);
   background: rgba(var(--bs-primary-rgb), 0.12);
 }
 
-.wb-bg-preview {
+.sb-bg-preview {
   display: block;
   width: 100%;
   aspect-ratio: 16 / 9;
@@ -549,7 +549,7 @@ body.auto-hide-menu #mainNav {
   object-fit: cover;
 }
 
-.wb-bg-preview-none {
+.sb-bg-preview-none {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -560,13 +560,13 @@ body.auto-hide-menu #mainNav {
 
 /* ---- Sticker picker ----------------------------------------------------- */
 
-.wb-sticker-grid {
+.sb-sticker-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 8px;
 }
 
-.wb-sticker-option {
+.sb-sticker-option {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -580,46 +580,46 @@ body.auto-hide-menu #mainNav {
   cursor: pointer;
 }
 
-.wb-sticker-option img {
+.sb-sticker-option img {
   width: 74px;
   height: 74px;
   object-fit: contain;
 }
 
-.wb-sticker-option:hover,
-.wb-sticker-option:focus-visible {
+.sb-sticker-option:hover,
+.sb-sticker-option:focus-visible {
   border-color: rgba(var(--bs-primary-rgb), 0.55);
 }
 
-.wb-sticker-option:nth-child(odd):last-child {
+.sb-sticker-option:nth-child(odd):last-child {
   grid-column: span 2;
 }
 
 /* ---- Text controls ------------------------------------------------------ */
 
-.wb-swatches {
+.sb-swatches {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
 }
 
-.wb-swatch {
+.sb-swatch {
   position: relative;
   width: 28px;
   height: 28px;
   padding: 0;
   border: 1px solid var(--bs-border-color);
   border-radius: 8px;
-  background-color: var(--wb-swatch);
+  background-color: var(--sb-swatch);
   cursor: pointer;
 }
 
-.wb-swatch.active {
+.sb-swatch.active {
   outline: 2px solid var(--bs-primary);
   outline-offset: 2px;
 }
 
-.wb-swatch-transparent {
+.sb-swatch-transparent {
   background-image:
     linear-gradient(45deg, rgba(var(--bs-body-color-rgb), 0.18) 25%, transparent 25%, transparent 75%, rgba(var(--bs-body-color-rgb), 0.18) 75%),
     linear-gradient(45deg, rgba(var(--bs-body-color-rgb), 0.18) 25%, transparent 25%, transparent 75%, rgba(var(--bs-body-color-rgb), 0.18) 75%);
@@ -627,13 +627,13 @@ body.auto-hide-menu #mainNav {
   background-size: 10px 10px;
 }
 
-.wb-border-grid {
+.sb-border-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 6px;
 }
 
-.wb-border-option {
+.sb-border-option {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -647,11 +647,11 @@ body.auto-hide-menu #mainNav {
   cursor: pointer;
 }
 
-.wb-border-option.active {
+.sb-border-option.active {
   border-color: var(--bs-primary);
 }
 
-.wb-border-preview {
+.sb-border-preview {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -660,30 +660,30 @@ body.auto-hide-menu #mainNav {
   font-size: 0.85rem;
 }
 
-.wb-border-preview-none {
+.sb-border-preview-none {
   border: 1px solid rgba(var(--bs-body-color-rgb), 0.35);
   border-radius: 6px;
 }
 
-.wb-border-preview-fancy {
+.sb-border-preview-fancy {
   border: 3px double var(--bs-body-color);
   border-radius: 6px;
   box-shadow: inset 0 0 0 2px var(--bs-body-bg), inset 0 0 0 3px var(--bs-body-color);
 }
 
-.wb-border-preview-hand {
+.sb-border-preview-hand {
   border: 2px solid var(--bs-body-color);
   border-radius: 255px 15px 225px 15px / 15px 225px 15px 255px;
 }
 
-.wb-border-preview-stamp {
+.sb-border-preview-stamp {
   border: 3px dashed var(--bs-body-color);
   border-radius: 2px;
 }
 
 /* ---- Objects ------------------------------------------------------------ */
 
-.wb-object {
+.sb-object {
   position: absolute;
   touch-action: none;
   user-select: none;
@@ -693,25 +693,37 @@ body.auto-hide-menu #mainNav {
   transform-origin: center center;
 }
 
-.wb-object:active {
+.sb-object:active {
   cursor: grabbing;
 }
 
-.wb-object.selected {
+.sb-object.selected {
   border-radius: 6px;
   outline: 1.5px dashed var(--bs-body-color);
   outline-offset: 6px;
   box-shadow: 0 0 0 8px rgba(var(--bs-body-bg-rgb), 0.55);
 }
 
+/* Part of a multi/group selection: the same outline, but NO per-object handles -
+ * the one #sbSelectionBox owns the scale/rotate handles. */
+.sb-object.sb-member {
+  border-radius: 6px;
+  outline: 1.5px dashed var(--bs-body-color);
+  outline-offset: 6px;
+}
+
+.sb-object.sb-member .sb-handle {
+  display: none;
+}
+
 /* CONNECTOR MODE: the source is solid, every possible target is dashed. */
-.wb-object.wb-connect-source {
+.sb-object.sb-connect-source {
   outline: 2px solid var(--bs-body-color);
   outline-offset: 6px;
   box-shadow: 0 0 0 8px rgba(var(--bs-body-bg-rgb), 0.55);
 }
 
-#wbItems.wb-connecting .wb-object-text:not(.wb-connect-source) {
+#sbItems.sb-connecting .sb-object-text:not(.sb-connect-source) {
   border-radius: 8px;
   outline: 2px dashed var(--bs-body-color);
   outline-offset: 5px;
@@ -719,11 +731,11 @@ body.auto-hide-menu #mainNav {
   cursor: crosshair;
 }
 
-#wbItems.wb-connecting .wb-object-text:not(.wb-connect-source):hover {
+#sbItems.sb-connecting .sb-object-text:not(.sb-connect-source):hover {
   outline-style: solid;
 }
 
-.wb-connect-hint {
+.sb-connect-hint {
   position: absolute;
   bottom: 20px;
   left: 50%;
@@ -742,33 +754,33 @@ body.auto-hide-menu #mainNav {
   transform: translateX(-50%);
 }
 
-.wb-connect-hint .btn {
+.sb-connect-hint .btn {
   white-space: nowrap;
 }
 
-.wb-sticker {
+.sb-sticker {
   display: block;
-  /* Board-relative: JS sets --wb-sticker-base from the board's smaller side
+  /* Board-relative: JS sets --sb-sticker-base from the board's smaller side
      (15%) when the board is laid out. The board re-fits on window resize AND
      browser zoom, so the sticker stays a constant fraction of the artwork. */
-  width: calc(var(--wb-sticker-base, 96px) * var(--wb-scale, 1));
+  width: calc(var(--sb-sticker-base, 96px) * var(--sb-scale, 1));
   height: auto;
   pointer-events: none;
   filter: drop-shadow(0 5px 8px rgba(0, 0, 0, 0.22));
   /* flipX/flipY set these on the object; mirroring the IMAGE keeps the object's
      box, handles, outline and connectors exactly where they were. */
-  transform: scaleX(var(--wb-flip-x, 1)) scaleY(var(--wb-flip-y, 1));
+  transform: scaleX(var(--sb-flip-x, 1)) scaleY(var(--sb-flip-y, 1));
 }
 
-.wb-text {
+.sb-text {
   position: relative;
   max-width: 24em;
-  /* Everything here scales with --wb-design-scale (board height / 655) so a
+  /* Everything here scales with --sb-design-scale (board height / 655) so a
      text box keeps the same size relative to the artwork when the board fits a
      different window or the browser zooms. The handles stay UI-sized. */
-  padding: calc(10px * var(--wb-design-scale, 1)) calc(16px * var(--wb-design-scale, 1));
-  border-radius: calc(10px * var(--wb-design-scale, 1));
-  font-size: calc(var(--smd-type-h2, 1.25em) * 1.15 * var(--wb-text-scale, 1) * var(--wb-design-scale, 1));
+  padding: calc(10px * var(--sb-design-scale, 1)) calc(16px * var(--sb-design-scale, 1));
+  border-radius: calc(10px * var(--sb-design-scale, 1));
+  font-size: calc(var(--smd-type-h2, 1.25em) * 1.15 * var(--sb-text-scale, 1) * var(--sb-design-scale, 1));
   line-height: 1.22;
   overflow-wrap: break-word;
   text-align: center;
@@ -777,176 +789,176 @@ body.auto-hide-menu #mainNav {
 
 /* The inner span can be nudged onto the canvas export's text baseline without
    changing the box (its normal-flow height still sizes the frame). */
-.wb-text-body {
+.sb-text-body {
   display: block;
   position: relative;
 }
 
-.wb-text[data-frame="fancy"],
-.wb-text[data-frame="hand"],
-.wb-text[data-frame="stamp"] {
-  padding: calc(8px * var(--wb-design-scale, 1)) calc(14px * var(--wb-design-scale, 1));
-  border: calc(18px * var(--wb-design-scale, 1)) solid transparent;
+.sb-text[data-frame="fancy"],
+.sb-text[data-frame="hand"],
+.sb-text[data-frame="stamp"] {
+  padding: calc(8px * var(--sb-design-scale, 1)) calc(14px * var(--sb-design-scale, 1));
+  border: calc(18px * var(--sb-design-scale, 1)) solid transparent;
   border-image-repeat: round;
   border-image-slice: 30;
-  border-image-source: var(--wb-frame-image);
-  border-image-width: calc(18px * var(--wb-design-scale, 1));
+  border-image-source: var(--sb-frame-image);
+  border-image-width: calc(18px * var(--sb-design-scale, 1));
   background-clip: padding-box;
 }
 
-.wb-bg-transparent {
+.sb-bg-transparent {
   background-color: transparent;
 }
 
-.wb-bg-white {
+.sb-bg-white {
   background-color: #ffffff;
 }
 
-.wb-bg-black {
+.sb-bg-black {
   background-color: #000000;
 }
 
-.wb-bg-primary {
+.sb-bg-primary {
   background-color: var(--bs-primary);
 }
 
-.wb-bg-secondary {
+.sb-bg-secondary {
   background-color: var(--bs-secondary);
 }
 
-.wb-bg-success {
+.sb-bg-success {
   background-color: var(--bs-success);
 }
 
-.wb-bg-danger {
+.sb-bg-danger {
   background-color: var(--bs-danger);
 }
 
-.wb-bg-warning {
+.sb-bg-warning {
   background-color: var(--bs-warning);
 }
 
-.wb-bg-info {
+.sb-bg-info {
   background-color: var(--bs-info);
 }
 
-.wb-bg-light {
+.sb-bg-light {
   background-color: var(--bs-light);
 }
 
-.wb-bg-dark {
+.sb-bg-dark {
   background-color: var(--bs-dark);
 }
 
-.wb-color-auto {
+.sb-color-auto {
   color: var(--bs-body-color);
 }
 
-.wb-color-white {
+.sb-color-white {
   color: #ffffff;
 }
 
-.wb-color-black {
+.sb-color-black {
   color: #000000;
 }
 
-.wb-color-primary {
+.sb-color-primary {
   color: var(--bs-primary);
 }
 
-.wb-color-secondary {
+.sb-color-secondary {
   color: var(--bs-secondary);
 }
 
-.wb-color-success {
+.sb-color-success {
   color: var(--bs-success);
 }
 
-.wb-color-danger {
+.sb-color-danger {
   color: var(--bs-danger);
 }
 
-.wb-color-warning {
+.sb-color-warning {
   color: var(--bs-warning);
 }
 
-.wb-color-info {
+.sb-color-info {
   color: var(--bs-info);
 }
 
-.wb-color-light {
+.sb-color-light {
   color: var(--bs-light);
 }
 
-.wb-color-dark {
+.sb-color-dark {
   color: var(--bs-dark);
 }
 
 /* Text fonts. These families are declared in shared/css/fonts/fonts.css, which
  * the theme sheet loads with @import; the last two are display faces. */
-.wb-font-theme {
+.sb-font-theme {
   font-family: var(--bs-body-font-family);
 }
 
-.wb-font-serif {
+.sb-font-serif {
   font-family: Georgia, "Times New Roman", serif;
 }
 
-.wb-font-mono {
+.sb-font-mono {
   font-family: "Cascadia Mono", "Segoe UI Mono", Consolas, "Liberation Mono", monospace;
 }
 
-.wb-font-roboto {
+.sb-font-roboto {
   font-family: "Roboto", var(--bs-body-font-family);
 }
 
-.wb-font-lato {
+.sb-font-lato {
   font-family: "Lato", var(--bs-body-font-family);
 }
 
-.wb-font-open-sans {
+.sb-font-open-sans {
   font-family: "Open Sans", var(--bs-body-font-family);
 }
 
-.wb-font-montserrat {
+.sb-font-montserrat {
   font-family: "Montserrat", var(--bs-body-font-family);
 }
 
-.wb-font-ubuntu {
+.sb-font-ubuntu {
   font-family: "Ubuntu", var(--bs-body-font-family);
 }
 
-.wb-font-nunito {
+.sb-font-nunito {
   font-family: "Nunito", var(--bs-body-font-family);
 }
 
-.wb-font-nunito-sans {
+.sb-font-nunito-sans {
   font-family: "Nunito Sans", var(--bs-body-font-family);
 }
 
-.wb-font-source-sans-pro {
+.sb-font-source-sans-pro {
   font-family: "Source Sans Pro", var(--bs-body-font-family);
 }
 
-.wb-font-inter {
+.sb-font-inter {
   font-family: "Inter", var(--bs-body-font-family);
 }
 
-.wb-font-news-cycle {
+.sb-font-news-cycle {
   font-family: "News Cycle", Georgia, serif;
 }
 
-.wb-font-cabin-sketch {
+.sb-font-cabin-sketch {
   font-family: "Cabin Sketch", "Neucha", cursive;
 }
 
-.wb-font-neucha {
+.sb-font-neucha {
   font-family: "Neucha", "Cabin Sketch", cursive;
 }
 
 /* Preview of the chosen family, so the effect is visible even when the tool
  * panel covers the text object on the board. */
-.wb-font-preview {
+.sb-font-preview {
   margin-top: 0.4rem;
   overflow: hidden;
   padding: 0.45rem 0.6rem;
@@ -960,7 +972,7 @@ body.auto-hide-menu #mainNav {
 
 /* ---- Selection handles + action bar ------------------------------------- */
 
-.wb-handle {
+.sb-handle {
   position: absolute;
   z-index: 5;
   display: none;
@@ -978,39 +990,39 @@ body.auto-hide-menu #mainNav {
   touch-action: none;
 }
 
-.wb-object.selected .wb-handle {
+.sb-object.selected .sb-handle {
   display: flex;
 }
 
-.wb-handle-scale {
+.sb-handle-scale {
   right: -11px;
   bottom: -11px;
   cursor: nwse-resize;
 }
 
-.wb-handle-rotate {
+.sb-handle-rotate {
   top: -36px;
   left: 50%;
   transform: translateX(-50%);
   cursor: grab;
 }
 
-html[data-smd-touch-size="large"] .wb-handle {
+html[data-smd-touch-size="large"] .sb-handle {
   width: 30px;
   height: 30px;
   font-size: 12px;
 }
 
-html[data-smd-touch-size="large"] .wb-handle-scale {
+html[data-smd-touch-size="large"] .sb-handle-scale {
   right: -15px;
   bottom: -15px;
 }
 
-html[data-smd-touch-size="large"] .wb-handle-rotate {
+html[data-smd-touch-size="large"] .sb-handle-rotate {
   top: -46px;
 }
 
-.wb-selection-bar {
+.sb-selection-bar {
   position: absolute;
   z-index: 1030;
   display: flex;
@@ -1023,7 +1035,25 @@ html[data-smd-touch-size="large"] .wb-handle-rotate {
   transform: translate(-50%, -100%);
 }
 
-.wb-sel-btn {
+/* One box + handles around a group or a loose multi-selection. The box itself
+ * never takes pointers (so objects underneath stay clickable); only its two
+ * handles do. z-index 3 sits above the .sb-items layer (2). */
+.sb-selection-box {
+  position: absolute;
+  z-index: 3;
+  border-radius: 6px;
+  outline: 1.5px dashed var(--bs-body-color);
+  outline-offset: 6px;
+  box-shadow: 0 0 0 8px rgba(var(--bs-body-bg-rgb), 0.55);
+  pointer-events: none;
+}
+
+.sb-selection-box .sb-handle {
+  display: flex;
+  pointer-events: auto;
+}
+
+.sb-sel-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1038,48 +1068,48 @@ html[data-smd-touch-size="large"] .wb-handle-rotate {
   cursor: pointer;
 }
 
-.wb-sel-btn:hover {
+.sb-sel-btn:hover {
   background: rgba(var(--bs-body-color-rgb), 0.12);
 }
 
 /* A flip toggle stays highlighted while that mirror is on. */
-.wb-sel-btn[aria-pressed="true"] {
+.sb-sel-btn[aria-pressed="true"] {
   background: rgba(var(--bs-body-color-rgb), 0.2);
 }
 
-#wbSelDelete:hover {
+#sbSelDelete:hover {
   color: var(--bs-danger);
 }
 
 /* ---- Small screens ------------------------------------------------------ */
 
 @media (max-width: 520px) {
-  .wb-rail {
+  .sb-rail {
     width: 50px;
   }
 
-  .wb-rail-btn {
+  .sb-rail-btn {
     min-height: 46px;
   }
 
-  .wb-rail-btn span {
+  .sb-rail-btn span {
     display: none;
   }
 
-  .wb-panel {
+  .sb-panel {
     width: calc(100vw - 84px);
   }
 
-  .wb-empty-hint {
+  .sb-empty-hint {
     padding: 2rem;
   }
 
-  .wb-sticker-option img {
+  .sb-sticker-option img {
     width: 58px;
     height: 58px;
   }
 
-  .wb-board-chip {
+  .sb-board-chip {
     max-width: 38%;
   }
 }

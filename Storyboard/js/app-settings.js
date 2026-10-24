@@ -30,5 +30,5 @@ function closeSettings() {
   smdHideSettingsPage();
   var area = document.getElementById("storyboardArea");
   if (area) area.classList.remove("invisible");
-  if (typeof wbPositionSelectionBar === "function") wbPositionSelectionBar();
+  if (typeof sbPositionSelectionBar === "function") sbPositionSelectionBar();
 }

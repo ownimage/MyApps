@@ -75,10 +75,10 @@ const ALIGN_BOARD = {
 
 function readStamp(page) {
   return page.evaluate(() => {
-    const el = Array.from(document.querySelectorAll(".wb-text"))
+    const el = Array.from(document.querySelectorAll(".sb-text"))
       .find((candidate) => candidate.textContent === "xczx");
     if (!el) return null;
-    const uri = el.style.getPropertyValue("--wb-frame-image");
+    const uri = el.style.getPropertyValue("--sb-frame-image");
     const svg = decodeURIComponent(
       uri.replace(/^url\("?/, "").replace(/"\)$/, "").replace("data:image/svg+xml,", "")
     );
@@ -88,7 +88,7 @@ function readStamp(page) {
       textColor: getComputedStyle(el).color,
       bodyVar: getComputedStyle(document.documentElement)
         .getPropertyValue("--bs-body-color").trim(),
-      resolved: window.wbResolveColor("auto")
+      resolved: window.sbResolveColor("auto")
     };
   });
 }
@@ -129,7 +129,7 @@ test.describe("Storyboard - text frames", () => {
     }, STAMP_BOARD);
 
     await page.goto("/Storyboard/");
-    await expect(page.locator(".wb-text", { hasText: "xczx" })).toBeVisible();
+    await expect(page.locator(".sb-text", { hasText: "xczx" })).toBeVisible();
 
     // applyTheme() only re-points the stylesheet links, so the new CSS arrives
     // after the caller's render - exactly what can happen on the initial boot
@@ -151,7 +151,7 @@ test.describe("Storyboard - text frames", () => {
 
     const frame = await readStamp(page);
     expect(frame.resolved).toBe("#495057");
-    // wbDownloadJpg() draws the frame with this same wbResolveColor("auto")
+    // sbDownloadJpg() draws the frame with this same sbResolveColor("auto")
     // value, so matching the live text colour here also matches the saved JPG.
     expect(frame.stroke).toBe(frame.resolved);
     expect(frame.textColor).toBe("rgb(73, 80, 87)");
@@ -166,7 +166,7 @@ test.describe("Storyboard - text frames", () => {
     }, STAMP_EDGE_BOARD);
 
     await page.goto("/Storyboard/");
-    await expect(page.locator(".wb-text")).toBeVisible();
+    await expect(page.locator(".sb-text")).toBeVisible();
 
     // The frame SVG is 120x120. Its middle edge slices are 60x30 (top/bottom)
     // and 30x60 (left/right). On screen those slices are repeated by
@@ -185,7 +185,7 @@ test.describe("Storyboard - text frames", () => {
       const click = HTMLAnchorElement.prototype.click;
       HTMLAnchorElement.prototype.click = function () {};
       try {
-        await wbDownloadJpg();
+        await sbDownloadJpg();
       } finally {
         CanvasRenderingContext2D.prototype.drawImage = drawImage;
         HTMLAnchorElement.prototype.click = click;
@@ -213,14 +213,14 @@ test.describe("Storyboard - text frames", () => {
     }, ALIGN_BOARD);
 
     await page.goto("/Storyboard/");
-    const text = page.locator(".wb-text");
+    const text = page.locator(".sb-text");
     await expect(text).toBeVisible();
     await page.evaluate(() => document.fonts.ready);
     await page.waitForTimeout(200);
 
     const geom = await text.evaluate((el) => {
       const cs = getComputedStyle(el);
-      const canvas = document.getElementById("wbCanvas");
+      const canvas = document.getElementById("sbCanvas");
       return {
         width: el.offsetWidth,
         height: el.offsetHeight,
@@ -228,14 +228,14 @@ test.describe("Storyboard - text frames", () => {
         visH: canvas.clientHeight,
         padLeft: parseFloat(cs.paddingLeft),
         padTop: parseFloat(cs.paddingTop),
-        bodyTop: el.querySelector(".wb-text-body").style.top
+        bodyTop: el.querySelector(".sb-text-body").style.top
       };
     });
     expect(parseFloat(geom.bodyTop)).toBeLessThan(0);
 
     const screen = await text.screenshot();
     const downloadPromise = page.waitForEvent("download");
-    await page.evaluate(() => wbDownloadJpg());
+    await page.evaluate(() => sbDownloadJpg());
     const download = await downloadPromise;
     const jpgPath = test.info().outputPath("text-align.jpg");
     await download.saveAs(jpgPath);

@@ -61,21 +61,25 @@
     <!-- The scroller is the only part that scrolls: the toolbar, board name and
          selection bar are fixed overlays inside the area, so they never scroll
          away when the board is zoomed in. -->
-    <div id="wbScroller" class="wb-scroller">
-      <div id="wbStage" class="wb-stage">
-        <div id="wbCanvas">
-          <div id="wbBackground" data-background="none"></div>
-          <svg id="wbConnectors" class="wb-connectors" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <div id="sbScroller" class="sb-scroller">
+      <div id="sbStage" class="sb-stage">
+        <div id="sbCanvas">
+          <div id="sbBackground" data-background="none"></div>
+          <svg id="sbConnectors" class="sb-connectors" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
             <defs>
-              <marker id="wbConnectorArrow" viewBox="0 0 10 10" refX="9" refY="5"
+              <marker id="sbConnectorArrow" viewBox="0 0 10 10" refX="9" refY="5"
                       markerWidth="6" markerHeight="6" orient="auto" markerUnits="strokeWidth">
-                <path class="wb-connector-arrow" d="M0,0 L10,5 L0,10 Z"></path>
+                <path class="sb-connector-arrow" d="M0,0 L10,5 L0,10 Z"></path>
               </marker>
             </defs>
-            <g id="wbConnectorPaths"></g>
+            <g id="sbConnectorPaths"></g>
           </svg>
-          <div id="wbItems" class="wb-items"></div>
-          <div id="wbEmptyHint" class="wb-empty-hint">
+          <div id="sbItems" class="sb-items"></div>
+          <div id="sbSelectionBox" class="sb-selection-box d-none" aria-hidden="true">
+            <span class="sb-handle sb-handle-scale" data-handle="scale" aria-hidden="true"></span>
+            <span class="sb-handle sb-handle-rotate" data-handle="rotate" aria-hidden="true"><i class="fa-solid fa-rotate"></i></span>
+          </div>
+          <div id="sbEmptyHint" class="sb-empty-hint">
             <i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i>
             <p>Choose a background, or add stickers and text from the toolbar.</p>
           </div>
@@ -83,87 +87,93 @@
       </div>
     </div>
 
-    <div id="wbBoardName" class="wb-board-chip" role="button" tabindex="0" title="Switch board"></div>
+    <div id="sbBoardName" class="sb-board-chip" role="button" tabindex="0" title="Switch board"></div>
 
     <!-- LEFT TOOLBAR: rail + fly-out panel -->
-    <aside id="wbToolbar" class="wb-toolbar" data-open="" data-pinned="false" aria-label="Storyboard toolbar">
-      <div class="wb-rail">
-        <button type="button" class="wb-rail-btn" data-tool="boards" title="Boards" aria-label="Boards">
+    <aside id="sbToolbar" class="sb-toolbar" data-open="" data-pinned="false" aria-label="Storyboard toolbar">
+      <div class="sb-rail">
+        <button type="button" class="sb-rail-btn" data-tool="boards" title="Boards" aria-label="Boards">
           <i class="fa-solid fa-chalkboard" aria-hidden="true"></i><span>Boards</span>
         </button>
-        <button type="button" class="wb-rail-btn" data-tool="background" title="Background" aria-label="Background">
+        <button type="button" class="sb-rail-btn" data-tool="background" title="Background" aria-label="Background">
           <i class="fa-solid fa-image" aria-hidden="true"></i><span>Background</span>
         </button>
-        <button type="button" class="wb-rail-btn" data-tool="stickers" title="Stickers" aria-label="Stickers">
+        <button type="button" class="sb-rail-btn" data-tool="stickers" title="Stickers" aria-label="Stickers">
           <i class="fa-solid fa-star" aria-hidden="true"></i><span>Stickers</span>
         </button>
-        <button type="button" class="wb-rail-btn" data-tool="text" title="Text" aria-label="Text">
+        <button type="button" class="sb-rail-btn" data-tool="text" title="Text" aria-label="Text">
           <i class="fa-solid fa-font" aria-hidden="true"></i><span>Text</span>
         </button>
-        <button type="button" id="wbSaveBtn" class="wb-rail-btn" title="Save board as JPG" aria-label="Save board as JPG">
+        <button type="button" id="sbSaveBtn" class="sb-rail-btn" title="Save board as JPG" aria-label="Save board as JPG">
           <i class="fa-solid fa-download" aria-hidden="true"></i><span>Save</span>
         </button>
-        <div class="wb-rail-spacer"></div>
-        <div class="wb-zoom">
-          <div class="wb-zoom-row" role="group" aria-label="Board zoom">
-            <button type="button" id="wbZoomOut" class="wb-rail-btn wb-zoom-btn" title="Zoom out" aria-label="Zoom out">
+        <div class="sb-rail-spacer"></div>
+        <div class="sb-zoom">
+          <div class="sb-zoom-row" role="group" aria-label="Board zoom">
+            <button type="button" id="sbZoomOut" class="sb-rail-btn sb-zoom-btn" title="Zoom out" aria-label="Zoom out">
               <i class="fa-solid fa-magnifying-glass-minus" aria-hidden="true"></i>
             </button>
-            <button type="button" id="wbZoomIn" class="wb-rail-btn wb-zoom-btn" title="Zoom in" aria-label="Zoom in">
+            <button type="button" id="sbZoomIn" class="sb-rail-btn sb-zoom-btn" title="Zoom in" aria-label="Zoom in">
               <i class="fa-solid fa-magnifying-glass-plus" aria-hidden="true"></i>
             </button>
           </div>
-          <button type="button" id="wbZoomFit" class="wb-rail-btn wb-zoom-fit" title="Fit board to window" aria-label="Fit board to window">
+          <button type="button" id="sbZoomFit" class="sb-rail-btn sb-zoom-fit" title="Fit board to window" aria-label="Fit board to window">
             <i class="fa-solid fa-expand" aria-hidden="true"></i><span>Fit</span>
           </button>
         </div>
-        <button type="button" id="wbPinBtn" class="wb-rail-btn wb-pin-btn" title="Pin toolbar open" aria-label="Pin toolbar open" aria-pressed="false">
+        <button type="button" id="sbPinBtn" class="sb-rail-btn sb-pin-btn" title="Pin toolbar open" aria-label="Pin toolbar open" aria-pressed="false">
           <i class="fa-solid fa-thumbtack" aria-hidden="true"></i><span>Pin</span>
         </button>
       </div>
 
-      <section class="wb-panel" role="region" aria-label="Tool panel">
-        <div class="wb-panel-head">
-          <h2 id="wbPanelTitle" class="wb-panel-title"></h2>
-          <button type="button" id="wbPanelClose" class="wb-panel-close" title="Close" aria-label="Close">
+      <section class="sb-panel" role="region" aria-label="Tool panel">
+        <div class="sb-panel-head">
+          <h2 id="sbPanelTitle" class="sb-panel-title"></h2>
+          <button type="button" id="sbPanelClose" class="sb-panel-close" title="Close" aria-label="Close">
             <i class="fa-solid fa-xmark" aria-hidden="true"></i>
           </button>
         </div>
-        <div id="wbPanelBody" class="wb-panel-body"></div>
+        <div id="sbPanelBody" class="sb-panel-body"></div>
       </section>
     </aside>
 
     <!-- CONNECTOR MODE HINT -->
-    <div id="wbConnectHint" class="wb-connect-hint d-none" role="status">
+    <div id="sbConnectHint" class="sb-connect-hint d-none" role="status">
       <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
       <span>Select another text box to connect</span>
-      <button type="button" id="wbConnectCancel" class="btn btn-sm btn-secondary">Cancel</button>
+      <button type="button" id="sbConnectCancel" class="btn btn-sm btn-secondary">Cancel</button>
     </div>
 
     <!-- SELECTED ITEM ACTIONS -->
-    <div id="wbSelectionBar" class="wb-selection-bar d-none" role="toolbar" aria-label="Selected item">
-      <button type="button" id="wbSelConnect" class="wb-sel-btn d-none" title="Connect to another text box" aria-label="Connect to another text box">
+    <div id="sbSelectionBar" class="sb-selection-bar d-none" role="toolbar" aria-label="Selected item">
+      <button type="button" id="sbSelConnect" class="sb-sel-btn d-none" title="Connect to another text box" aria-label="Connect to another text box">
         <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
       </button>
-      <button type="button" id="wbSelFront" class="wb-sel-btn" title="Bring to front" aria-label="Bring to front">
+      <button type="button" id="sbSelFront" class="sb-sel-btn" title="Bring to front" aria-label="Bring to front">
         <i class="fa-solid fa-layer-group" aria-hidden="true"></i>
       </button>
-      <button type="button" id="wbSelDuplicate" class="wb-sel-btn" title="Duplicate" aria-label="Duplicate">
+      <button type="button" id="sbSelDuplicate" class="sb-sel-btn" title="Duplicate" aria-label="Duplicate">
         <i class="fa-solid fa-copy" aria-hidden="true"></i>
       </button>
-      <button type="button" id="wbSelFlipH" class="wb-sel-btn d-none" title="Flip horizontally" aria-label="Flip horizontally" aria-pressed="false">
+      <button type="button" id="sbSelGroup" class="sb-sel-btn d-none" title="Group" aria-label="Group">
+        <i class="fa-solid fa-object-group" aria-hidden="true"></i>
+      </button>
+      <button type="button" id="sbSelUngroup" class="sb-sel-btn d-none" title="Ungroup" aria-label="Ungroup">
+        <i class="fa-solid fa-object-ungroup" aria-hidden="true"></i>
+      </button>
+      <button type="button" id="sbSelFlipH" class="sb-sel-btn d-none" title="Flip horizontally" aria-label="Flip horizontally" aria-pressed="false">
         <i class="fa-solid fa-left-right" aria-hidden="true"></i>
       </button>
-      <button type="button" id="wbSelFlipV" class="wb-sel-btn d-none" title="Flip vertically" aria-label="Flip vertically" aria-pressed="false">
+      <button type="button" id="sbSelFlipV" class="sb-sel-btn d-none" title="Flip vertically" aria-label="Flip vertically" aria-pressed="false">
         <i class="fa-solid fa-up-down" aria-hidden="true"></i>
       </button>
-      <button type="button" id="wbSelDelete" class="wb-sel-btn" title="Delete" aria-label="Delete">
+      <button type="button" id="sbSelDelete" class="sb-sel-btn" title="Delete" aria-label="Delete">
         <i class="fa-solid fa-trash" aria-hidden="true"></i>
       </button>
-      <button type="button" id="wbConnReverse" class="wb-sel-btn d-none" title="Reverse direction" aria-label="Reverse direction">
+      <button type="button" id="sbConnReverse" class="sb-sel-btn d-none" title="Reverse direction" aria-label="Reverse direction">
         <i class="fa-solid fa-right-left" aria-hidden="true"></i>
       </button>
-      <button type="button" id="wbConnDelete" class="wb-sel-btn d-none" title="Delete connector" aria-label="Delete connector">
+      <button type="button" id="sbConnDelete" class="sb-sel-btn d-none" title="Delete connector" aria-label="Delete connector">
         <i class="fa-solid fa-trash" aria-hidden="true"></i>
       </button>
     </div>

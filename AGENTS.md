@@ -284,38 +284,43 @@ Architecture:
   (2560x1440) and `assets/stickers/{mermaid,shark,seaweed,spaceman,spaceship}.svg`
   (512 viewBox flat art, transparent). `icon.svg` + generated 192/512 PNGs.
   DATA: keys via `smdKey()` = `storyboard_boards`, `storyboard_activeBoard`,
-  `storyboard_toolbarPinned`. `wbState.boards` is an array of
-  `{id,name,background,items}`; items are stickers
+  `storyboard_toolbarPinned`, `storyboard_zoom`. `sbState.boards` is an array of
+  `{id,name,background,items,connectors,groups}`; items are stickers
   `{id,type:"sticker",sticker,x,y,scale,rotation,z,flipX,flipY}` or text
   `{id,type:"text",text,bg,color,border,font,x,y,scale,rotation,z}`. `x`/`y` are
-  PERCENTAGES of the board (2..98) so a board keeps its layout on resize; `z` is
+  PERCENTAGES of the board (2..98 for a single-item transform; a group/multi
+  transform clamps the SET's box instead and may use 0..100) so a board keeps its
+  layout on resize; `z` is
   paint order. New items go to 50/50 then cascade +4% (first item must be
   centred, not offset). Backgrounds are ids (`space`/`underwater`/`""`), never
-  paths, so the asset list stays in `WB_BACKGROUNDS`/`WB_STICKERS`.
-  INTERNALS: the `wb*` globals, `wb-*` CSS classes and `#wb*` DOM ids are
-  implementation details and were deliberately left unchanged by the rename.
+  paths, so the asset list stays in `SB_BACKGROUNDS`/`SB_STICKERS`.
+  INTERNALS (renamed 2026-10-24): the globals are `sb*`, CSS classes `sb-*`, DOM
+  ids `#sb*`, constants `SB_*` and custom props `--sb-*` (they were `wb`/`WB_`
+  from the original Whiteboard name; a word-boundary rename changed ~1,553
+  occurrences with no behaviour change). Storage keys were already
+  `storyboard_*`, so no data migration is involved.
   STICKER FLIP (2026-10-23, user request): a selected sticker's action bar has
-  **Flip horizontally** (`#wbSelFlipH`, `fa-left-right`) and **Flip vertically**
-  (`#wbSelFlipV`, `fa-up-down`) toggles; they are hidden for text boxes and
+  **Flip horizontally** (`#sbSelFlipH`, `fa-left-right`) and **Flip vertically**
+  (`#sbSelFlipV`, `fa-up-down`) toggles; they are hidden for text boxes and
   connectors. The flags live on the item (`flipX`/`flipY`) so they survive a
-  reload and are copied by Duplicate. `wbApplyStickerFlip()` sets
-  `--wb-flip-x`/`--wb-flip-y` on the OBJECT and `.wb-sticker`'s
-  `transform: scaleX(var(--wb-flip-x,1)) scaleY(var(--wb-flip-y,1))` mirrors only
+  reload and are copied by Duplicate. `sbApplyStickerFlip()` sets
+  `--sb-flip-x`/`--sb-flip-y` on the OBJECT and `.sb-sticker`'s
+  `transform: scaleX(var(--sb-flip-x,1)) scaleY(var(--sb-flip-y,1))` mirrors only
   the ARTWORK - never put the flip on the object itself, or its scale/rotate
   handles and outline mirror too. The buttons use `aria-pressed` + a highlighted
-  background while the mirror is on. `.wb-sel-btn` is `inline-flex` centred with
+  background while the mirror is on. `.sb-sel-btn` is `inline-flex` centred with
   `padding:0` and `line-height:1`, so every FA glyph (including the narrow
   up-down arrow) sits exactly in the middle of the 32px pressed background.
   BOARD = THE WHOLE ARTWORK (2026-10-23, user request): the live board is no
-  longer the visible window with a `cover` crop. `wbLayoutBoard()` sizes
-  `#wbCanvas` to the background's aspect (`WB_BACKGROUNDS[].width/height`, both
-  2560x1440) fitted inside the `#wbScroller`/`#wbStage` pair and centred by the
+  longer the visible window with a `cover` crop. `sbLayoutBoard()` sizes
+  `#sbCanvas` to the background's aspect (`SB_BACKGROUNDS[].width/height`, both
+  2560x1440) fitted inside the `#sbScroller`/`#sbStage` pair and centred by the
   stage's flexbox, so the WHOLE image is always visible and a window of a
   different shape shows bars around it. No background -> the board fills the
   area (dot grid). Item `x`/`y` are % of the BOARD (= % of the artwork).
-  Stickers are sized from `--wb-sticker-base` (15% of the board's smaller side,
-  set by `wbLayoutBoard`) instead of `15vmin`, so they belong to the board, not
-  the window. `#wbBackground` is `background-size:100% 100%` (the aspect already
+  Stickers are sized from `--sb-sticker-base` (15% of the board's smaller side,
+  set by `sbLayoutBoard`) instead of `15vmin`, so they belong to the board, not
+  the window. `#sbBackground` is `background-size:100% 100%` (the aspect already
   matches, so nothing is cropped or stretched). A click anywhere in
   `#storyboardArea` deselects (the board no longer fills it); the handler ignores
   objects/connectors/toolbar/action bar/board chip.
@@ -324,45 +329,45 @@ Architecture:
   and scale with the browser's page zoom; the board takes whatever space the
   larger UI leaves, showing the whole image as large as possible (bars when the
   window shape differs). Everything INSIDE the board scales by
-  `--wb-design-scale` = (fitted board height x app zoom) / `WB_DESIGN_HEIGHT`
+  `--sb-design-scale` = (fitted board height x app zoom) / `SB_DESIGN_HEIGHT`
   (655, the board
   of a 1280x720 window): the text font (plus padding/border/radius via `calc`),
-  stickers (`--wb-sticker-base` = 15% of the fitted board's smaller side), the
+  stickers (`--sb-sticker-base` = 15% of the fitted board's smaller side), the
   dot grid, connector stroke widths and the connector end gap. That keeps text
   and stickers in the same place and at the same relative size on the artwork
   when the board re-fits. Do NOT apply the design scale to the UI - the browser
   already magnifies it; the selection handles/action bar stay UI-sized.
   APP ZOOM + SCROLL (2026-10-24, user request): the bottom of the rail has
-  magnifier minus/plus side by side (`#wbZoomOut`/`#wbZoomIn`, stepping
-  `WB_ZOOM_LEVELS` = 0.5/0.75/1/1.25/1.5/2/3/4) and `#wbZoomFit` (zoom 1 =
+  magnifier minus/plus side by side (`#sbZoomOut`/`#sbZoomIn`, stepping
+  `SB_ZOOM_LEVELS` = 0.5/0.75/1/1.25/1.5/2/3/4) and `#sbZoomFit` (zoom 1 =
   today's fitted view). NO percentage is shown; the factor is stored as
-  `storyboard_zoom` and restored on boot. DOM: `#storyboardArea > #wbScroller
-  (overflow:auto) > #wbStage (flex centred) > #wbCanvas` - only the board
+  `storyboard_zoom` and restored on boot. DOM: `#storyboardArea > #sbScroller
+  (overflow:auto) > #sbStage (flex centred) > #sbCanvas` - only the board
   scrolls; the toolbar, board chip, action bar and connect hint are fixed
-  overlays. `wbLayoutBoard(anchor)` sizes the canvas to fit x zoom. At zoom 1 the
+  overlays. `sbLayoutBoard(anchor)` sizes the canvas to fit x zoom. At zoom 1 the
   stage is exactly the viewport (no scrollbars, view unchanged). Zoom > 1 adds a
-  PASTEBOARD: `wbBoardOverhang()` measures every rendered object and its visible
-  grab handles, and `wbSizeStage()` grows the stage by the biggest overhang per
-  axis (minimum `WB_BOARD_PAD` 56), so an item at the artwork edge can always be
-  scrolled until its rotate/scale handles are on screen. `#wbCanvas` is
+  PASTEBOARD: `sbBoardOverhang()` measures every rendered object and its visible
+  grab handles, and `sbSizeStage()` grows the stage by the biggest overhang per
+  axis (minimum `SB_BOARD_PAD` 56), so an item at the artwork edge can always be
+  scrolled until its rotate/scale handles are on screen. `#sbCanvas` is
   `overflow: visible` for that reason (oversized objects also paint into the
   pasteboard at 100%). Zoom anchors on the selected item, else the viewport
-  centre (`wbZoomAnchorPoint()`/`wbApplyZoomAnchor()`).
-  `wbRefreshPasteboard()` re-measures when the selection changes or a drag ends
+  centre (`sbZoomAnchorPoint()`/`sbApplyZoomAnchor()`).
+  `sbRefreshPasteboard()` re-measures when the selection changes or a drag ends
   - WITHOUT it, selecting a sticker AFTER zooming left its handles clipped (the
   pad had been sized with no handles). The action bar is repositioned on the
   scroller's `scroll` (rAF); board/background changes recentre via
-  `wbCentreBoard()`. Drag/scale/rotate and the JPG export keep using live rects,
+  `sbCentreBoard()`. Drag/scale/rotate and the JPG export keep using live rects,
   so they need no zoom maths of their own. Tests:
   `tests/storyboard-zoom.spec.js` (rail layout, steps/limits/Fit, scrollbars
   only when zoomed, zoom-THEN-select edge-handle hit tests, selection anchoring,
   drag accuracy at 1.5x, persistence + centred reload).
-  SAVE AS JPG (2026-10-23, user request): the rail's `#wbSaveBtn` (fa-download)
-  calls `wbDownloadJpg()` (`js/board.js`) and downloads
+  SAVE AS JPG (2026-10-23, user request): the rail's `#sbSaveBtn` (fa-download)
+  calls `sbDownloadJpg()` (`js/board.js`) and downloads
   `<slug(board.name)>.jpg`. It is a CANVAS drawing of the STORED board, not a
   DOM screenshot: surface (**the WHOLE background artwork at its natural size**,
   not the visible `cover` crop - or the 24px dot grid at 22% body colour) ->
-  connectors (same `wbEdgePoint`/`wbPushOut` endpoints,
+  connectors (same `sbEdgePoint`/`sbPushOut` endpoints,
   body-bg halo + body-colour line + arrowhead) -> items in z order (sticker
   img with rotation/flip/drop-shadow; text with its computed font/colour/
   padding, wrapped to the live box width, and fancy/hand/stamp SVG frames
@@ -376,7 +381,7 @@ Architecture:
   `translate(art) + rotate + scale(1/coverScale)` context. Text/sticker metrics
   come from the live DOM, so the artwork scale is already baked into them;
   connector widths/end gap and the dot grid are multiplied by the live
-  `--wb-design-scale` as well as `artScale`. The result is invariant to browser
+  `--sb-design-scale` as well as `artScale`. The result is invariant to browser
   zoom and window size: the board scale and the artwork mapping cancel. With no
   background the export is the visible board at 2x its CSS pixels.
   Images are the LIVE `<img>` elements (stickers) plus a fresh `Image` for the
@@ -389,41 +394,55 @@ Architecture:
   CONNECTORS (2026-10-21): each board also has `connectors: [{id,from,to}]`,
   where `from`/`to` are TEXT item ids. Normalization drops dangling/self/non-text
   links and keeps ONE link per pair (any direction). A text box's selection bar
-  shows a Connect arrow; it enters `wbState.connectFrom` mode (source outlined,
-  every other text box dashed via `.wb-connecting`, hint bar with Cancel) and the
+  shows a Connect arrow; it enters `sbState.connectFrom` mode (source outlined,
+  every other text box dashed via `.sb-connecting`, hint bar with Cancel) and the
   next text click creates the link. Escape/blank/non-text cancels. Clicking the
   arrow line selects the connector (fat 18px transparent hit path with
   `pointer-events: stroke`) and the bar swaps to Reverse + Delete; Delete/
-  Backspace removes it. `wbAddConnector` flips an existing reverse link so the
+  Backspace removes it. `sbAddConnector` flips an existing reverse link so the
   newly requested direction wins. Deleting a text item removes its links.
-  RENDER: one SVG layer `#wbConnectors` between the background and `#wbItems`
+  RENDER: one SVG layer `#sbConnectors` between the background and `#sbItems`
   (z-index 1 vs 2) with a halo (body-bg, 7px) under a body-color line (2.5px) and
   an arrow marker at the TARGET. Use body-color/body-bg, NOT `--bs-primary`:
   sketchy's primary is #333 and disappeared on the dark backgrounds. Endpoints
-  come from `wbEdgePoint` (ray vs the ROTATED rectangle using `item.rotation` and
-  offsetWidth/Height) plus a 5px gap; `wbRenderConnectors` runs on render, every
+  come from `sbEdgePoint` (ray vs the ROTATED rectangle using `item.rotation` and
+  offsetWidth/Height) plus a 5px gap; `sbRenderConnectors` runs on render, every
   transform/text style change, window resize and a ResizeObserver on each object
-  (font loads / font-size changes). GOTCHA: `#wbItems` is `pointer-events: none`
-  with `.wb-object { pointer-events: auto }`, otherwise its transparent full-size
+  (font loads / font-size changes). GOTCHA: `#sbItems` is `pointer-events: none`
+  with `.sb-object { pointer-events: auto }`, otherwise its transparent full-size
   box swallows clicks meant for the connector hit strokes. Selection outlines and
   handles use body-color + a body-bg halo for the same visibility reason.
   TOOLBAR: rail is always visible (74px desktop, labels fixed 10px; labels hidden
   at <=520px where the rail is 50px). One tool's panel slides out beside it
-  (`#wbToolbar[data-open="boards|background|stickers|text"]`); clicking the same
+  (`#sbToolbar[data-open="boards|background|stickers|text"]`); clicking the same
   rail button toggles it closed; outside clicks close it UNLESS pinned. Pin
   persists (`storyboard_toolbarPinned`) and on reload a pinned toolbar reopens
   Boards. GOTCHA: a panel button that re-renders the panel DETACHES the clicked
   node before the document-level outside-click listener runs, so `target.closest`
-  no longer finds `#wbToolbar` and the panel closes itself — `wbOnPanelClick`
-  stamps `wbState.panelClickAt` and the outside handler ignores clicks from the
+  no longer finds `#sbToolbar` and the panel closes itself — `sbOnPanelClick`
+  stamps `sbState.panelClickAt` and the outside handler ignores clicks from the
   last 150ms. The page's `#mainNav .dropdown-menu` is raised to `z-index: 1038`
   (nav itself 1039 under auto-hide) so the hamburger menu is never covered by the
   toolbar; the toolbar is 1035, i.e. ABOVE the 1030 selection bar, so an open
   panel (and the font dropdown inside it) cannot be blocked by the floating
   action bar. smd-page (1040) and smd-modal (1050) stay on top.
   GESTURES: objects are absolutely positioned and rotated around their centre.
-  Selection shows a scale handle (bottom-right) and a rotate handle (top);
-  a floating bar offers Bring-to-front / Duplicate / Delete. THE BAR SITS BESIDE
+  A SINGLE selection shows the object's own scale (bottom-right) and rotate (top)
+  handles; a GROUP or loose MULTI-selection shows ONE `#sbSelectionBox` around the
+  union of the rendered member rects, with the same two handles. Selection state
+  is `sbState.selectedIds` (top-level leaf/group nodes) plus `sbState.selectedId`
+  = the single selected LEAF (text edit / Connect / Flip). Ctrl/Cmd/Shift+click
+  toggles an object's top-level node in/out; a touch press-and-hold (450ms,
+  cancelled by >6px movement or a second finger) ADDS it. Clicking a grouped
+  object selects its OUTER-MOST group. A plain click on a member of a
+  multi-selection COLLAPSES to it on pointerup (`drag.collapseOnTap` +
+  `drag.moved`); a real drag moves the whole set.
+  Move/scale/rotate/pinch all run through `sbApplyDrag()` against a SNAPSHOT of
+  the selected leaves and the selection rect: scale multiplies each leaf's
+  `scale` and its offset from the rect centre; rotation is rigid about that centre
+  (position orbits + `rotation += delta`); a set translates as a unit, clamped by
+  its BOX (never per item, or a group deforms at the edge). Every member's scale
+  stays 0.2..5. THE BAR SITS BESIDE
   THE SELECTION (right of its AABB, else left, else above the rotate handle, else
   below) — never centred above it: the first cut put it at `rect.top - 14` with
   `translateY(-100%)`, which covered the top rotate handle exactly (the user
@@ -431,24 +450,40 @@ Architecture:
   duplicate icon). Keep the bar outside the object's AABB so neither handle can
   be covered, and re-check `elementFromPoint` on the rotate handle after any
   selection-bar/layout change. Body drag moves;
-  two pointers on ONE object pinch-scale, twist-rotate and slide-move
-  (`wbState.drag.mode = "pinch"`). Pointer capture is try/catch (synthetic
+  two pointers on the SELECTION pinch-scale, twist-rotate and slide-move
+  (`sbState.drag.mode = "pinch"`). Pointer capture is try/catch (synthetic
   pointerIds throw). Delete/Backspace removes the selection, Escape closes the
   panel/clears the selection. Double-click OR double-tap a text box opens the
-  text panel in edit mode; field changes apply LIVE (`wbApplyTextStyle`).
+  text panel in edit mode; field changes apply LIVE (`sbApplyTextStyle`).
+  GROUPS (2026-10-24): `board.groups = [{id, children:[leafId|groupId]}]` is a
+  FOREST over the flat item list (nesting allowed). `sbNormalizeGroups()` drops
+  unknown/duplicate/cyclic links and DISSOLVES a wrapper with fewer than 2
+  children, hoisting its children into its parent (or top level). Rendering,
+  connectors, z-order and the JPG export are unchanged: transforms are BAKED into
+  leaves, so a group is pure metadata. Group/Ungroup live in the floating bar
+  (`#sbSelGroup` with 2+ selected nodes, `#sbSelUngroup` with exactly one group;
+  hidden otherwise) and Ungroup peels ONE level (the children take the group's
+  place inside its parent, or become top-level). Members get `.sb-member`
+  (outline only, no per-object handles); `#sbSelectionBox` owns the handles and
+  `sbBoardOverhang()` measures it so they get pasteboard at zoom. Delete removes
+  every leaf + nested group; Duplicate deep-copies the nesting (+4% offsets, z
+  above the originals); Front raises all members preserving their relative order.
+  Tests: `tests/storyboard-groups.spec.js` (16: bar visibility, toggle, grouping,
+  nesting + ungroup levels, move/scale/rotate maths, loose selection, delete,
+  duplicate, persistence, long-press, mixed text+sticker, zoomed handles).
   TEXT: bg tokens `transparent|white|black|primary|secondary|success|danger|
-  warning|info|light|dark` map to `.wb-bg-*`; colour tokens add `auto` (body
-  colour) and map to `.wb-color-*`. FONT defaults to `theme` (the Bootswatch body
-  stack) and is one of `WB_TEXT_FONTS` (system serif/mono plus the 12 families
+  warning|info|light|dark` map to `.sb-bg-*`; colour tokens add `auto` (body
+  colour) and map to `.sb-color-*`. FONT defaults to `theme` (the Bootswatch body
+  stack) and is one of `SB_TEXT_FONTS` (system serif/mono plus the 12 families
   vendored in `shared/css/fonts/fonts.css`: Roboto, Lato, Open Sans, Montserrat,
   Ubuntu, Nunito, Nunito Sans, Source Sans Pro, Inter, News Cycle, Cabin Sketch,
-  Neucha), applied as `.wb-font-<id>`. No extra `<link>` is needed: every theme
+  Neucha), applied as `.sb-font-<id>`. No extra `<link>` is needed: every theme
   sheet `@import`s `../../fonts/fonts.css`. The text panel's Font row is an
   `<smd-select>`; its `change` updates the item (and the draft for the next text)
   LIVE, and the family loads on first use (`document.fonts.check` verified Cabin
   Sketch + News Cycle). Borders `none|fancy|hand|stamp` are SVG
   frames generated per object as a `border-image` data URI
-  (`wbFrameDataUri(kind, wbResolveColor(token))`), so the frame follows the TEXT
+  (`sbFrameDataUri(kind, sbResolveColor(token))`), so the frame follows the TEXT
   colour and every theme. Because the colour is baked into the URI, a theme or
   mode change must re-render the board (app.js listens to `smd-theme-change`).
   Background "None" must `style.removeProperty("background-image")` — assigning
@@ -6635,8 +6670,8 @@ Techniques / gotchas:
   dark recolouring, and the phone layout.
 - BUGS THE PROBE CAUGHT (all fixed): panel buttons re-render the panel via
   `innerHTML`, so the clicked node was DETACHED before the document outside-click
-  handler ran -> `closest("#wbToolbar")` failed and the panel closed itself
-  (fixed with `wbState.panelClickAt`); the open tool panel covered the hamburger
+  handler ran -> `closest("#sbToolbar")` failed and the panel closed itself
+  (fixed with `sbState.panelClickAt`); the open tool panel covered the hamburger
   dropdown (fixed with `#mainNav .dropdown-menu { z-index: 1035 }`); assigning
   `background-image: ""` for "no background" overrode the CSS dot grid (fixed
   with `removeProperty`); the first item was placed at 41% instead of centre
@@ -6657,15 +6692,15 @@ Techniques / gotchas:
 
 ### 2026-10-21 (f) - Storyboard: text font picker
 - REQUEST (user): "I want to be able to select a font for the text."
-- ADDED: text items carry `font` (default `theme`); `WB_TEXT_FONTS` (storage.js)
+- ADDED: text items carry `font` (default `theme`); `SB_TEXT_FONTS` (storage.js)
   offers the theme stack, system Serif/Monospace and the 12 vendored families
   (Roboto, Lato, Open Sans, Montserrat, Ubuntu, Nunito, Nunito Sans, Source Sans
-  Pro, Inter, News Cycle, Cabin Sketch, Neucha). `wbNormalizeItem` validates it;
-  `wbStyleTextElement` adds `.wb-font-<id>`; storyboard.css owns each stack.
+  Pro, Inter, News Cycle, Cabin Sketch, Neucha). `sbNormalizeItem` validates it;
+  `sbStyleTextElement` adds `.sb-font-<id>`; storyboard.css owns each stack.
   The Text panel has a **Font** row (an `<smd-select>`, 15 options) between the
   textarea and Background; its `change` writes the live item or the draft for the
-  next text, and a live `.wb-font-preview` line underneath shows the family even
-  when the panel covers the object. `wbPlaceText` copies the draft font onto the
+  next text, and a live `.sb-font-preview` line underneath shows the family even
+  when the panel covers the object. `sbPlaceText` copies the draft font onto the
   new item.
 - NO EXTRA SCRIPT/LINK: the theme sheet already `@import`s
   `shared/css/fonts/fonts.css` (all @font-face declarations are in the SW), so a
@@ -6694,8 +6729,8 @@ Techniques / gotchas:
   rotation + offsetWidth/Height) with a 5px gap, so arrows stay glued while a box
   moves, scales or rotates. Redraws on every transform/text style, window resize
   and a per-object ResizeObserver (font loading changes metrics).
-- GOTCHA FOUND WHILE BUILDING: `#wbItems` had to become `pointer-events:none`
-  (with `.wb-object` auto) or its transparent full-board box swallowed every
+- GOTCHA FOUND WHILE BUILDING: `#sbItems` had to become `pointer-events:none`
+  (with `.sb-object` auto) or its transparent full-board box swallowed every
   click aimed at a connector's hit stroke. Handles/selection outlines were also
   switched from primary to body-color + a body-bg halo - sketchy's primary is
   #333, so its handles/outline vanished on the dark background.
@@ -6755,9 +6790,9 @@ Techniques / gotchas:
   APP note). Test-only change, so no additional BUILD bump.
 - SAME SESSION (feature, user request): Storyboard stickers gained Flip
   horizontally / Flip vertically (see the STICKER FLIP note above). Files:
-  `Storyboard/index.html` (buttons), `js/board.js` (`wbFlipSelected`,
-  `wbApplyStickerFlip`, selection UI), `js/storage.js` (`flipX`/`flipY`
-  normalize + `wbFlipItem`), `css/storyboard.css` (image-only mirror + pressed
+  `Storyboard/index.html` (buttons), `js/board.js` (`sbFlipSelected`,
+  `sbApplyStickerFlip`, selection UI), `js/storage.js` (`flipX`/`flipY`
+  normalize + `sbFlipItem`), `css/storyboard.css` (image-only mirror + pressed
   style). No Storyboard spec exists (tests still deferred), so this was NOT
   run here - the user runs the full suite. Follow-up: the action-bar buttons are
   now flex-centred (`padding:0`, `line-height:1`) - the UA button padding had
@@ -6778,19 +6813,19 @@ Techniques / gotchas:
 - FOLLOW-UP 2 (user, browser zoom): "the background and images do not zoom but
   the placed text does ... it moves inconsistently", then "I want the whole
   background image to scale as one image". The live board is the WHOLE artwork:
-  `wbLayoutBoard()` fits the background aspect (2560x1440) inside
-  #storyboardArea, centred with bars; `#wbBackground` is 100% 100%; stickers use
-  the board-relative `--wb-sticker-base`; a click on the bars deselects. The
-  earlier `--wb-zoom` layer + object inverse scale experiment was REMOVED.
+  `sbLayoutBoard()` fits the background aspect (2560x1440) inside
+  #storyboardArea, centred with bars; `#sbBackground` is 100% 100%; stickers use
+  the board-relative `--sb-sticker-base`; a click on the bars deselects. The
+  earlier `--sb-zoom` layer + object inverse scale experiment was REMOVED.
 - FOLLOW-UP 3 (user, final zoom model): "the Menu and the side panel ... and the
   name at the top right should all scale with the browser zoom. But the
   background should be shown as large as possible (keeping its original ratio)
   in the space available. Then the text and stickers need to be scaled to stay
   in the normal places. I will implement canvas zoom next." Replaced the
   no-refit/DPR guard: every resize (120ms debounce), including a page zoom,
-  re-fits the artwork. `--wb-design-scale` = fitted board height /
-  `WB_DESIGN_HEIGHT` (655, the board of a 1280x720 window) is set on #wbCanvas;
-  the text font/padding/border/radius, `--wb-sticker-base`, the dot grid,
+  re-fits the artwork. `--sb-design-scale` = fitted board height /
+  `SB_DESIGN_HEIGHT` (655, the board of a 1280x720 window) is set on #sbCanvas;
+  the text font/padding/border/radius, `--sb-sticker-base`, the dot grid,
   connector stroke widths and the connector end gap multiply by it. The UI (nav,
   rail, board chip, action bar) is untouched and the browser magnifies it.
   Verified with a throwaway probe using a 640x360 CSS viewport at
@@ -6815,7 +6850,7 @@ Techniques / gotchas:
   update-prompt copy, `window.__storyboardSwUpdater`, app comments, the default
   board name "My Storyboard", the JPG fallback slug, `README.md`, and
   `tests/launch-regression.spec.js`. The board-area id is now
-  `#storyboardArea`. The internal `wb*` globals, `wb-*` CSS classes and `#wb*`
+  `#storyboardArea`. The internal `sb*` globals, `sb-*` CSS classes and `#sb*`
   DOM ids were deliberately left alone (implementation detail; no user-facing
   name).
 - STORAGE: `SmdConfig.storagePrefix = "storyboard_"`. There is deliberately NO
@@ -6837,7 +6872,7 @@ Techniques / gotchas:
   text (`color:"auto"`, `border:"stamp"`) is black on screen but white in the
   saved JPG.
 - CAUSE: a text frame is an SVG data URI with its colour baked by
-  `wbFrameDataUri(item.border, wbResolveColor(item.color))` at render time,
+  `sbFrameDataUri(item.border, sbResolveColor(item.color))` at render time,
   while the text colour is live CSS. `applyTheme()` only re-points the
   stylesheet links, so their CSS can land after the first render (or after the
   `smd-theme-change` render). The text then updates live, but the frame keeps
@@ -6846,12 +6881,12 @@ Techniques / gotchas:
 - TEST FIRST: added `tests/storyboard-stamp.spec.js` (the first Storyboard
   spec). It loads a minimal auto/stamp board, switches the theme to Cerulean
   and waits for the sheet, then requires the baked frame stroke to equal both
-  the live text colour and `wbResolveColor("auto")`. Before the fix it failed
+  the live text colour and `sbResolveColor("auto")`. Before the fix it failed
   with stale `#ebebeb` vs live `#495057`; after it passes.
 - FIX: `Storyboard/js/app.js` now listens for `load` on
   `#bootstrap-theme-css`, `#theme-override-mode` and
   `#theme-override-specific` and schedules one `requestAnimationFrame`
-  `wbRender()` when they arrive. This covers initial boot, live theme/mode
+  `sbRender()` when they arrive. This covers initial boot, live theme/mode
   switches, and the exporter's resolved colour. Ran only the focused spec; the
   user runs the full regression suite.
   BUILD -> `202610241537`.
@@ -6884,14 +6919,14 @@ Techniques / gotchas:
   renders in the saved JPG with the dots stretched along the sides.
 - CAUSE: the live CSS uses `border-image-repeat: round` plus
   `border-image-slice: 30`, so the 120px frame SVG's middle edge slices repeat.
-  `wbDrawCanvasText()` drew each middle slice once with `drawImage()`, stretching
+  `sbDrawCanvasText()` drew each middle slice once with `drawImage()`, stretching
   one 60x30 (top/bottom) or 30x60 (left/right) slice across the whole side.
 - TEST FIRST: extended `tests/storyboard-stamp.spec.js` with a tall/wide
   three-line stamp box. It wraps `CanvasRenderingContext2D.prototype.drawImage`
-  during `wbDownloadJpg()` and records the 120x120 frame slices. It requires all
+  during `sbDownloadJpg()` and records the 120x120 frame slices. It requires all
   four middle edge source rectangles to be drawn more than once. Before the fix
   each edge was one stretched call; after it passes.
-- FIX: added `wbDrawCanvasFrameEdge()`, which scales the slice across the border
+- FIX: added `sbDrawCanvasFrameEdge()`, which scales the slice across the border
   to the frame width and then draws `Math.round(edge / naturalTile)` copies along
   the edge, matching CSS "round". The four middle-edge draw calls now use it; the
   corners are still single draws. This applies to every frame style, not just
@@ -6903,11 +6938,11 @@ Techniques / gotchas:
 ### 2026-10-24 - Storyboard live text baseline
 - REQUEST (user): the "Space" glyphs sit slightly higher in the JPG than on the
   live board; other text boxes do the same, and the JPG alignment is preferred.
-- CAUSE: `wbDrawCanvasText()` centres each line with `textBaseline="middle"` at
+- CAUSE: `sbDrawCanvasText()` centres each line with `textBaseline="middle"` at
   `contentTop + lineHeight / 2`. CSS instead positions glyphs from the font's
   ascent/descent, leaving the visual glyph centre a little lower. The gap is
   font-dependent (about 0.08em for the theme Lato, less for mono).
-- FIX: text now lives in an inner `.wb-text-body` block span. `wbApplyTextNudge()`
+- FIX: text now lives in an inner `.sb-text-body` block span. `sbApplyTextNudge()`
   measures the live font with an offscreen canvas (alphabetic vs middle
   `fontBoundingBox` metrics) and sets only that span's relative `top` in `em`.
   The box, frame, background, handles, wrapping and export geometry are
@@ -6926,22 +6961,22 @@ Techniques / gotchas:
 - REQUEST (user): zoom the canvas in/out; magnifier + and - side by side in the
   side panel; a Fit button; scrollbars when zoomed; always be able to scroll to
   see the working space (a selected sticker's grab handles and the action bar).
-- IMPLEMENTED: `#storyboardArea > #wbScroller (overflow:auto) > #wbStage (flex
-  centred) > #wbCanvas`; `wbLayoutBoard(anchor)` now multiplies the fitted size by
-  `wbState.zoom` (`WB_ZOOM_LEVELS`, stored as `storyboard_zoom`; no percentage
-  UI). `wbSizeStage()` + `wbBoardOverhang()` measure every object and its visible
+- IMPLEMENTED: `#storyboardArea > #sbScroller (overflow:auto) > #sbStage (flex
+  centred) > #sbCanvas`; `sbLayoutBoard(anchor)` now multiplies the fitted size by
+  `sbState.zoom` (`SB_ZOOM_LEVELS`, stored as `storyboard_zoom`; no percentage
+  UI). `sbSizeStage()` + `sbBoardOverhang()` measure every object and its visible
   handles and grow a pasteboard (min 56px) only when zoomed past the fitted view,
-  so 100% has no scrollbars and looks exactly as before. `#wbCanvas` is
+  so 100% has no scrollbars and looks exactly as before. `#sbCanvas` is
   `overflow: visible` so handles at the artwork edge are not clipped. Zoom
   anchors on the selection (else viewport centre); the action bar repositions on
   scroller scroll; board/background switches recentre.
 - TEST FIRST: `tests/storyboard-zoom.spec.js` (7 tests) failed with no
-  `#wbScroller`/buttons, then passed. It hit-tests the handles with
+  `#sbScroller`/buttons, then passed. It hit-tests the handles with
   `elementFromPoint` (a clipped handle still reports a rect, so geometry alone
   would lie) and covers the real order "zoom, THEN select". That order exposed a
   real bug: the pasteboard had been sized with no handles visible, so the rotate
-  handle stayed clipped. Fixed with `wbRefreshPasteboard()`, called from
-  `wbUpdateSelectionUi()` and at the end of a drag.
+  handle stayed clipped. Fixed with `sbRefreshPasteboard()`, called from
+  `sbUpdateSelectionUi()` and at the end of a drag.
 - Also ran `storyboard-stamp.spec.js` + `storyboard-zoom.spec.js` (10 passed) and
   `launch-regression.spec.js` (13 passed). Visual probe (deleted) checked 100%,
   150%, both edge handles, and the open Stickers panel.
@@ -6949,8 +6984,54 @@ Techniques / gotchas:
   was still listening on 8080/8081 and Playwright reused it
   (`reuseExistingServer`). sirv had snapshotted files from BEFORE the edits, and
   mid-write reads produced truncated JS ("Invalid or unexpected token",
-  "wbLoadState is not defined") with every test seeing an empty board. ALWAYS
+  "sbLoadState is not defined") with every test seeing an empty board. ALWAYS
   check/kill ports 8080/8081 before a run, or start `npm run dev:test` yourself
   and use `EXTERNAL_SERVERS=1`.
 - The user runs the full regression suite.
   BUILD -> `202610241647`.
+
+### 2026-10-24 - Storyboard: `wb`→`sb` internal rename + multi-select + nested groups
+- RENAME (user): `wb`/`WB_` were the old Whiteboard prefix (the app-name rename had
+  left every internal token alone). Renamed with a word-boundary script across
+  `Storyboard/js/*.js`, `index.html`, `storyboard.css`, both storyboard specs and
+  the Storyboard notes in AGENTS.md: `wb*`→`sb*`, `wb-*`→`sb-*`, `#wb*`→`#sb*`,
+  `--wb-*`→`--sb-*`, `WB_*`→`SB_*` (~1,553 occurrences, 282 identifiers). File
+  names, storage keys (`storyboard_*`) and behaviour unchanged; no `sb*` name
+  collisions existed. Verified by running stamp+zoom 10/10 AFTER the rename.
+- MULTI-SELECT + GROUPS (user): Ctrl/Cmd/Shift+click toggles; touch long-press
+  (450ms, cancelled by movement or a second finger) adds. Group/Ungroup live on
+  the floating selection bar and are HIDDEN unless usable (2+ nodes / one group).
+  Groups nest.
+- MODEL: `board.groups = [{id, children:[leafId|groupId]}]` (a forest over the
+  flat item list). `sbNormalizeGroups` sanitises on load/mutation: unknown/dup/
+  cyclic links dropped, one parent per node, wrappers with <2 children dissolved
+  and hoisted into their parent. A group has NO transform of its own: gestures
+  bake the composed result into each selected leaf, so rendering, connectors,
+  z-order and the JPG export are untouched.
+- SELECTION: `sbState.selectedIds` (top-level nodes) + `selectedId` (single leaf
+  for text edit/Connect/Flip). Clicking a member selects the OUTER-MOST group. A
+  plain click on a member of a multi-selection COLLAPSES to it on pointerup; a
+  drag moves the whole set (`drag.collapseOnTap` + `drag.moved`). New
+  `#sbSelectionBox` inside `#sbCanvas` (above `.sb-items`) draws ONE outline +
+  scale/rotate handles for a group/multi selection; members get `.sb-member`
+  (outline only); a single leaf keeps its per-object handles.
+- TRANSFORMS: `sbApplyDrag(drag, factor, deltaDeg, moveX, moveY)` from a
+  pointerdown SNAPSHOT over the selection rect. Scale multiplies each leaf's
+  scale and its offset from the rect centre; rotate is rigid about that centre
+  (position orbits, `rotation += delta`); move clamps the SET's box (single items
+  keep 2..98); every member's scale stays 0.2..5. Pinch now spans the selection.
+- GROUP/UNGROUP: `sbCreateGroup` / `sbDissolveGroup` (ONE level; children take the
+  group's place inside its parent, or become top-level). Delete removes all leaves
+  + nested groups (and their connectors); Duplicate deep-copies the nesting (+4%,
+  z above); Front raises members preserving their order.
+- PASTEBOARD: `sbBoardOverhang` also measures `#sbSelectionBox` + its handles, so
+  group handles can be scrolled into view when zoomed (tested at 1.5x).
+- TESTS (TDD, red first): new `tests/storyboard-groups.spec.js` (16): bar
+  visibility, Ctrl toggle, grouping, nesting + one-level ungroup, move/scale/
+  rotate maths, loose-selection move, delete, duplicate (incl. nested),
+  persistence, touch long-press, mixed text+sticker, zoomed handles. RED
+  confirmed before implementing (buttons/selection box missing). GREEN: 16/16;
+  stamp 3/3; zoom 7/7. BUILD -> `202610241753`.
+- GOTCHA for these tests: the fixed nav can cover a top handle at max scroll -
+  centre the selection box in the scroller before `elementFromPoint`; and do not
+  overlap two stickers (the second intercepts the click).
