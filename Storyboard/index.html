@@ -146,36 +146,69 @@
 
     <!-- SELECTED ITEM ACTIONS -->
     <div id="sbSelectionBar" class="sb-selection-bar d-none" role="toolbar" aria-label="Selected item">
-      <button type="button" id="sbSelConnect" class="sb-sel-btn d-none" title="Connect to another text box" aria-label="Connect to another text box">
-        <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
-      </button>
-      <button type="button" id="sbSelFront" class="sb-sel-btn" title="Bring to front" aria-label="Bring to front">
-        <i class="fa-solid fa-layer-group" aria-hidden="true"></i>
-      </button>
-      <button type="button" id="sbSelDuplicate" class="sb-sel-btn" title="Duplicate" aria-label="Duplicate">
-        <i class="fa-solid fa-copy" aria-hidden="true"></i>
-      </button>
-      <button type="button" id="sbSelGroup" class="sb-sel-btn d-none" title="Group" aria-label="Group">
-        <i class="fa-solid fa-object-group" aria-hidden="true"></i>
-      </button>
-      <button type="button" id="sbSelUngroup" class="sb-sel-btn d-none" title="Ungroup" aria-label="Ungroup">
-        <i class="fa-solid fa-object-ungroup" aria-hidden="true"></i>
-      </button>
-      <button type="button" id="sbSelFlipH" class="sb-sel-btn d-none" title="Flip horizontally" aria-label="Flip horizontally" aria-pressed="false">
-        <i class="fa-solid fa-left-right" aria-hidden="true"></i>
-      </button>
-      <button type="button" id="sbSelFlipV" class="sb-sel-btn d-none" title="Flip vertically" aria-label="Flip vertically" aria-pressed="false">
-        <i class="fa-solid fa-up-down" aria-hidden="true"></i>
-      </button>
-      <button type="button" id="sbSelDelete" class="sb-sel-btn" title="Delete" aria-label="Delete">
-        <i class="fa-solid fa-trash" aria-hidden="true"></i>
-      </button>
-      <button type="button" id="sbConnReverse" class="sb-sel-btn d-none" title="Reverse direction" aria-label="Reverse direction">
-        <i class="fa-solid fa-right-left" aria-hidden="true"></i>
-      </button>
-      <button type="button" id="sbConnDelete" class="sb-sel-btn d-none" title="Delete connector" aria-label="Delete connector">
-        <i class="fa-solid fa-trash" aria-hidden="true"></i>
-      </button>
+      <div class="sb-sel-row">
+        <button type="button" id="sbSelConnect" class="sb-sel-btn d-none" title="Connect to another text box" aria-label="Connect to another text box">
+          <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
+        </button>
+        <button type="button" id="sbSelFront" class="sb-sel-btn" title="Bring to front" aria-label="Bring to front">
+          <i class="fa-solid fa-layer-group" aria-hidden="true"></i>
+        </button>
+        <button type="button" id="sbSelDuplicate" class="sb-sel-btn" title="Duplicate" aria-label="Duplicate">
+          <i class="fa-solid fa-copy" aria-hidden="true"></i>
+        </button>
+        <button type="button" id="sbSelAlign" class="sb-sel-btn d-none" title="Align and distribute" aria-label="Align and distribute" aria-haspopup="true" aria-expanded="false">
+          <i class="fa-solid fa-align-left" aria-hidden="true"></i>
+        </button>
+        <button type="button" id="sbSelGroup" class="sb-sel-btn d-none" title="Group" aria-label="Group">
+          <i class="fa-solid fa-object-group" aria-hidden="true"></i>
+        </button>
+        <button type="button" id="sbSelUngroup" class="sb-sel-btn d-none" title="Ungroup" aria-label="Ungroup">
+          <i class="fa-solid fa-object-ungroup" aria-hidden="true"></i>
+        </button>
+        <button type="button" id="sbSelFlipH" class="sb-sel-btn d-none" title="Flip horizontally" aria-label="Flip horizontally" aria-pressed="false">
+          <i class="fa-solid fa-left-right" aria-hidden="true"></i>
+        </button>
+        <button type="button" id="sbSelFlipV" class="sb-sel-btn d-none" title="Flip vertically" aria-label="Flip vertically" aria-pressed="false">
+          <i class="fa-solid fa-up-down" aria-hidden="true"></i>
+        </button>
+        <button type="button" id="sbSelDelete" class="sb-sel-btn" title="Delete" aria-label="Delete">
+          <i class="fa-solid fa-trash" aria-hidden="true"></i>
+        </button>
+        <button type="button" id="sbConnReverse" class="sb-sel-btn d-none" title="Reverse direction" aria-label="Reverse direction">
+          <i class="fa-solid fa-right-left" aria-hidden="true"></i>
+        </button>
+        <button type="button" id="sbConnDelete" class="sb-sel-btn d-none" title="Delete connector" aria-label="Delete connector">
+          <i class="fa-solid fa-trash" aria-hidden="true"></i>
+        </button>
+      </div>
+      <div id="sbSelAlignRow" class="sb-sel-row sb-sel-align-row d-none">
+        <button type="button" id="sbAlignLeft" class="sb-sel-btn d-none" data-align="left" title="Align left" aria-label="Align left">
+          <i class="fa-solid fa-align-left" aria-hidden="true"></i>
+        </button>
+        <button type="button" id="sbAlignCenterH" class="sb-sel-btn d-none" data-align="centerH" title="Align centre" aria-label="Align centre">
+          <i class="fa-solid fa-align-center" aria-hidden="true"></i>
+        </button>
+        <button type="button" id="sbAlignRight" class="sb-sel-btn d-none" data-align="right" title="Align right" aria-label="Align right">
+          <i class="fa-solid fa-align-right" aria-hidden="true"></i>
+        </button>
+        <span class="sb-sel-divider" aria-hidden="true"></span>
+        <button type="button" id="sbAlignTop" class="sb-sel-btn d-none" data-align="top" title="Align top" aria-label="Align top">
+          <i class="fa-solid fa-arrows-up-to-line" aria-hidden="true"></i>
+        </button>
+        <button type="button" id="sbAlignMiddleV" class="sb-sel-btn d-none" data-align="middleV" title="Align middle" aria-label="Align middle">
+          <i class="fa-solid fa-arrows-alt-v" aria-hidden="true"></i>
+        </button>
+        <button type="button" id="sbAlignBottom" class="sb-sel-btn d-none" data-align="bottom" title="Align bottom" aria-label="Align bottom">
+          <i class="fa-solid fa-arrows-down-to-line" aria-hidden="true"></i>
+        </button>
+        <span class="sb-sel-divider" aria-hidden="true"></span>
+        <button type="button" id="sbDistributeH" class="sb-sel-btn d-none" data-distribute="h" title="Distribute horizontally" aria-label="Distribute horizontally">
+          <i class="fa-solid fa-arrows-left-right" aria-hidden="true"></i>
+        </button>
+        <button type="button" id="sbDistributeV" class="sb-sel-btn d-none" data-distribute="v" title="Distribute vertically" aria-label="Distribute vertically">
+          <i class="fa-solid fa-arrows-up-down" aria-hidden="true"></i>
+        </button>
+      </div>
     </div>
 
   </main>

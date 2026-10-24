@@ -375,6 +375,38 @@ function sbInitBoard() {
   if (connectCancel) connectCancel.addEventListener("click", sbCancelConnect);
   if (sbEls.selectionBox) sbEls.selectionBox.addEventListener("pointerdown", sbOnSelectionPointerDown);
 
+  // One Align button; its option row expands on hover (mouse) or tap (touch).
+  var alignBtn = document.getElementById("sbSelAlign");
+  var alignRow = document.getElementById("sbSelAlignRow");
+  if (alignBtn) {
+    alignBtn.addEventListener("mouseenter", function () {
+      sbCancelAlignHide();
+      sbShowAlignMenu(true);
+    });
+    alignBtn.addEventListener("mouseleave", sbHideAlignMenuSoon);
+    alignBtn.addEventListener("focus", function () { sbShowAlignMenu(true); });
+    alignBtn.addEventListener("click", function (e) {
+      e.preventDefault();
+      // Hover-capable pointers already expanded it; a tap toggles.
+      var hoverable = window.matchMedia && window.matchMedia("(hover: hover) and (pointer: fine)").matches;
+      sbShowAlignMenu(hoverable ? true : !sbState.alignOpen);
+    });
+  }
+  if (alignRow) {
+    alignRow.addEventListener("mouseenter", sbCancelAlignHide);
+    alignRow.addEventListener("mouseleave", sbHideAlignMenuSoon);
+    alignRow.addEventListener("click", function (e) {
+      var align = e.target.closest ? e.target.closest("[data-align]") : null;
+      if (align) { sbAlignSelection(align.dataset.align); return; }
+      var dist = e.target.closest ? e.target.closest("[data-distribute]") : null;
+      if (dist) sbDistributeSelection(dist.dataset.distribute);
+    });
+  }
+  if (sbEls.selBar) {
+    sbEls.selBar.addEventListener("mouseenter", sbCancelAlignHide);
+    sbEls.selBar.addEventListener("mouseleave", sbHideAlignMenuSoon);
+  }
+
   document.addEventListener("pointermove", sbOnPointerMove, { passive: false });
   document.addEventListener("pointerup", sbOnPointerUp);
   document.addEventListener("pointercancel", sbOnPointerUp);
@@ -874,6 +906,8 @@ function sbUpdateSelectionUi() {
   if (!bar) return;
   if (sbState.connectFrom) {
     bar.classList.add("d-none");
+    sbSetBarButton("sbSelAlign", false);
+    sbShowAlignMenu(false);
     sbHideSelectionBox();
     return;
   }
@@ -890,6 +924,8 @@ function sbUpdateSelectionUi() {
     sbSetBarButton("sbSelDelete", false);
     sbSetBarButton("sbConnReverse", true);
     sbSetBarButton("sbConnDelete", true);
+    sbSetBarButton("sbSelAlign", false);
+    sbShowAlignMenu(false);
     sbHideSelectionBox();
     sbPositionSelectionBar();
     sbRefreshPasteboard();
@@ -901,6 +937,8 @@ function sbUpdateSelectionUi() {
 
   if (!nodes.length) {
     bar.classList.add("d-none");
+    sbSetBarButton("sbSelAlign", false);
+    sbShowAlignMenu(false);
     sbHideSelectionBox();
     return;
   }
@@ -920,6 +958,21 @@ function sbUpdateSelectionUi() {
   // Group needs at least two top-level nodes; Ungroup exactly one group.
   sbSetBarButton("sbSelGroup", nodes.length >= 2);
   sbSetBarButton("sbSelUngroup", nodes.length === 1 && !!sbGroupById(nodes[0]));
+
+  // One Align button for a multi-selection. Its option row is collapsed until
+  // the button is hovered/tapped; distribute needs three or more nodes.
+  var multi = nodes.length >= 2;
+  sbSetBarButton("sbSelAlign", multi);
+  ["sbAlignLeft", "sbAlignCenterH", "sbAlignRight", "sbAlignTop", "sbAlignMiddleV", "sbAlignBottom"].forEach(function (id) {
+    sbSetBarButton(id, multi);
+  });
+  sbSetBarButton("sbDistributeH", nodes.length >= 3);
+  sbSetBarButton("sbDistributeV", nodes.length >= 3);
+  var alignSig = nodes.join("|");
+  if (alignSig !== sbState.alignSig || !multi) {
+    sbState.alignSig = alignSig;
+    sbShowAlignMenu(false);
+  }
 
   if (singleLeaf) {
     sbHideSelectionBox();
@@ -1004,6 +1057,159 @@ function sbPositionSelectionBar() {
 
   sbEls.selBar.style.left = left + "px";
   sbEls.selBar.style.top = top + "px";
+}
+
+// ---- Align / distribute -----------------------------------------------------
+//
+// The selection bar has ONE align button; its option row expands on hover (or
+// tap on touch). Align uses each selected TOP-LEVEL node's rendered AABB (a
+// group counts as one unit). Distribute equalises the gaps between adjacent
+// edges, keeping the first and last objects fixed.
+
+var sbAlignHideTimer = null;
+
+function sbShowAlignMenu(open) {
+  var row = document.getElementById("sbSelAlignRow");
+  var btn = document.getElementById("sbSelAlign");
+  if (!row || !btn) return;
+  var multi = sbSelectionNodes().length >= 2;
+  open = !!open && multi;
+  // Expanding the bar changes its height, so the positioner moves it. Re-anchor
+  // on the Align button so the pointer stays over it (otherwise hovering would
+  // immediately mouseleave and collapse the row again).
+  var before = btn.getBoundingClientRect();
+  sbState.alignOpen = open;
+  row.classList.toggle("d-none", !open);
+  btn.setAttribute("aria-expanded", open ? "true" : "false");
+  sbPositionSelectionBar();
+  if (open && sbEls.selBar) {
+    var after = btn.getBoundingClientRect();
+    var dy = before.top - after.top;
+    if (Math.abs(dy) > 0.5) {
+      sbEls.selBar.style.top = ((parseFloat(sbEls.selBar.style.top) || 0) + dy) + "px";
+    }
+  }
+}
+
+function sbHideAlignMenuSoon() {
+  if (sbAlignHideTimer) return;
+  sbAlignHideTimer = setTimeout(function () {
+    sbAlignHideTimer = null;
+    sbShowAlignMenu(false);
+  }, 180);
+}
+
+function sbCancelAlignHide() {
+  if (sbAlignHideTimer) {
+    clearTimeout(sbAlignHideTimer);
+    sbAlignHideTimer = null;
+  }
+}
+
+// Union of a selected node's rendered leaves, in viewport pixels. A group is
+// measured as one box, which is exactly what alignment should treat as a unit.
+function sbNodeRect(nodeId) {
+  var left = Infinity, top = Infinity, right = -Infinity, bottom = -Infinity;
+  var any = false;
+  sbNodeLeafIds(nodeId).forEach(function (id) {
+    var el = sbItemEl(id);
+    if (!el) return;
+    var r = el.getBoundingClientRect();
+    if (!r.width && !r.height) return;
+    any = true;
+    left = Math.min(left, r.left);
+    top = Math.min(top, r.top);
+    right = Math.max(right, r.right);
+    bottom = Math.max(bottom, r.bottom);
+  });
+  if (!any) return null;
+  return {
+    left: left, top: top, right: right, bottom: bottom,
+    width: right - left, height: bottom - top,
+    cx: (left + right) / 2, cy: (top + bottom) / 2
+  };
+}
+
+function sbSelectionNodeRects() {
+  var out = [];
+  sbSelectionNodes().forEach(function (id) {
+    var rect = sbNodeRect(id);
+    if (rect) out.push({ id: id, rect: rect });
+  });
+  return out;
+}
+
+// Move every leaf inside a node by a viewport-pixel delta. Groups keep their
+// shape because each leaf gets the same delta.
+function sbMoveNode(nodeId, dx, dy) {
+  if (!dx && !dy) return;
+  var canvas = sbEls.canvas.getBoundingClientRect();
+  var w = Math.max(1, canvas.width);
+  var h = Math.max(1, canvas.height);
+  sbNodeLeafIds(nodeId).forEach(function (id) {
+    var item = sbFindItem(id);
+    if (!item) return;
+    item.x = sbClamp(item.x + dx / w * 100, 0, 100);
+    item.y = sbClamp(item.y + dy / h * 100, 0, 100);
+    sbWriteItemTransform(item);
+  });
+}
+
+function sbCommitAlignment() {
+  sbRenderConnectors();
+  sbPositionSelectionBox();
+  sbPositionSelectionBar();
+  sbRefreshPasteboard();
+  sbSaveState();
+}
+
+function sbAlignSelection(mode) {
+  var nodes = sbSelectionNodeRects();
+  if (nodes.length < 2) return;
+  var left = Infinity, top = Infinity, right = -Infinity, bottom = -Infinity;
+  nodes.forEach(function (n) {
+    left = Math.min(left, n.rect.left);
+    top = Math.min(top, n.rect.top);
+    right = Math.max(right, n.rect.right);
+    bottom = Math.max(bottom, n.rect.bottom);
+  });
+  var cx = (left + right) / 2;
+  var cy = (top + bottom) / 2;
+  nodes.forEach(function (n) {
+    var dx = 0, dy = 0;
+    if (mode === "left") dx = left - n.rect.left;
+    else if (mode === "centerH") dx = cx - n.rect.cx;
+    else if (mode === "right") dx = right - n.rect.right;
+    else if (mode === "top") dy = top - n.rect.top;
+    else if (mode === "middleV") dy = cy - n.rect.cy;
+    else if (mode === "bottom") dy = bottom - n.rect.bottom;
+    sbMoveNode(n.id, dx, dy);
+  });
+  sbCommitAlignment();
+}
+
+function sbDistributeSelection(axis) {
+  var nodes = sbSelectionNodeRects();
+  if (nodes.length < 3) return;
+  var horizontal = axis === "h";
+  nodes.sort(function (a, b) {
+    return horizontal ? (a.rect.left - b.rect.left) : (a.rect.top - b.rect.top);
+  });
+  var first = nodes[0].rect;
+  var last = nodes[nodes.length - 1].rect;
+  var span = horizontal ? (last.right - first.left) : (last.bottom - first.top);
+  var total = 0;
+  nodes.forEach(function (n) { total += horizontal ? n.rect.width : n.rect.height; });
+  var gap = (span - total) / (nodes.length - 1);
+  var cursor = horizontal ? first.left : first.top;
+  nodes.forEach(function (n) {
+    var start = horizontal ? n.rect.left : n.rect.top;
+    var size = horizontal ? n.rect.width : n.rect.height;
+    if (horizontal) sbMoveNode(n.id, cursor - start, 0);
+    else sbMoveNode(n.id, 0, cursor - start);
+    cursor += size + gap;
+  });
+  sbCommitAlignment();
 }
 
 // ---- Selection actions -----------------------------------------------------
@@ -1629,7 +1835,8 @@ function sbOnKeyDown(e) {
     e.preventDefault();
     sbDeleteSelected();
   } else if (e.key === "Escape") {
-    if (sbState.connectFrom) sbCancelConnect();
+    if (sbState.alignOpen) sbShowAlignMenu(false);
+    else if (sbState.connectFrom) sbCancelConnect();
     else if (sbState.tool) sbClosePanel();
     else sbSelect("");
   }

@@ -73,6 +73,8 @@ var sbState = {
   pinned: false,
   zoom: 1,
   editingTextId: "",
+  alignOpen: false,
+  alignSig: "",
   drag: null,
   pointers: new Map(),
   panReady: false,

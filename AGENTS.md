@@ -505,6 +505,22 @@ Architecture:
   Tests: `tests/storyboard-groups.spec.js` (16: bar visibility, toggle, grouping,
   nesting + ungroup levels, move/scale/rotate maths, loose selection, delete,
   duplicate, persistence, long-press, mixed text+sticker, zoomed handles).
+  ALIGN + DISTRIBUTE (2026-10-24, user request): the floating selection bar has
+  ONE `#sbSelAlign` button, visible only with 2+ selected nodes. Hovering it
+  (mouse) or tapping it (touch) expands `#sbSelAlignRow` - a SECOND `.sb-sel-row`
+  inside the bar - holding six align buttons (`sbAlignLeft/CenterH/Right/Top/
+  MiddleV/Bottom`) and, with 3+ nodes, two distribute buttons (`sbDistributeH/V`).
+  The row collapses on a selection change and 180ms after the pointer leaves the
+  bar; expanding RE-ANCHORS the bar on the button (`sbShowAlignMenu` shifts
+  `style.top` by the button's rect delta) because growing the bar would otherwise
+  move the button out from under the pointer and immediately mouseleave. Align
+  and distribute operate on each selected TOP-LEVEL node's rendered AABB
+  (`sbNodeRect()`; a group is ONE unit) and move every leaf of that node by the
+  same delta (`sbMoveNode`), so groups keep their shape. Distribute equalises the
+  GAPS between adjacent edges and keeps the first/last objects fixed (Figma
+  "distribute spacing", not centres). Tests: `tests/storyboard-align.spec.js`
+  (12: one-button visibility + hover expand/collapse, six aligns on the AABB,
+  both distributions, group-as-a-unit, persistence).
   TEXT: bg tokens `transparent|white|black|primary|secondary|success|danger|
   warning|info|light|dark` map to `.sb-bg-*`; colour tokens add `auto` (body
   colour) and map to `.sb-color-*`. FONT defaults to `theme` (the Bootswatch body
@@ -7129,3 +7145,32 @@ Techniques / gotchas:
   `sbSetActiveBoard`/`sbAddBoard`, or the outgoing board's pan is lost; and keep
   saving on the `pagehide`/`visibilitychange` path because a last pan may not
   have passed the 150ms debounce.
+
+### 2026-10-24 - Storyboard: one-button align/distribute (hover to expand)
+- FEATURE (user): with 2+ objects selected, align them left/centre/right,
+  top/middle/bottom, or distribute horizontally/vertically. The user refined the
+  UI mid-implementation: ONE align button that lights up, expanding on hover to
+  show the options (not eight permanent icons).
+- UI: `#sbSelAlign` in the floating selection bar (hidden unless 2+). Hover/tap
+  expands `#sbSelAlignRow` (a second `.sb-sel-row`), with the 6 align buttons and,
+  at 3+ nodes, the 2 distribute buttons. Collapses on a selection change and 180ms
+  after the pointer leaves the bar. Hover-capable pointers open it on
+  mouseenter; touch toggles on click. The bar RE-ANCHORS on the button when the
+  row opens (otherwise the height change moved the button out from under the
+  pointer and the bar's mouseleave collapsed it instantly).
+- MATHS: `sbNodeRect()` = the rendered AABB of a top-level node (a group counts
+  as ONE unit). `sbAlignSelection(mode)` targets the selection bbox edge/centre;
+  `sbDistributeSelection(axis)` equalises the GAPS between adjacent edges and
+  keeps the first/last objects fixed. `sbMoveNode()` moves every leaf of the
+  node by the same delta (viewport px -> board %), so groups keep their shape.
+  Using rendered AABBs makes it work with rotation and zoom (client px = canvas
+  px).
+- TESTS (TDD, red first): `tests/storyboard-align.spec.js` (12): button
+  visibility + hover expand/collapse, the six aligns, both distributions, a
+  group aligned as one unit, and persistence. RED before the UI existed. GREEN
+  12/12; FULL Storyboard suite 50/50 (align 12 + groups 16 + pan 10 + stamp 3 +
+  zoom 9). BUILD -> `202610241850`.
+- GOTCHA: the align row changes the bar's height and `sbPositionSelectionBar()`
+  repositions it; without the button-anchor shift the pointer no longer hovers
+  the button, the bar's mouseleave fires and the options collapse immediately.
+

@@ -1039,13 +1039,36 @@ html[data-smd-touch-size="large"] .sb-handle-rotate {
   position: absolute;
   z-index: 1030;
   display: flex;
-  gap: 2px;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
   padding: 4px;
   border: 1px solid var(--bs-border-color);
   border-radius: 12px;
   background: var(--bs-body-bg);
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.24);
   transform: translate(-50%, -100%);
+}
+
+/* One row of actions. The align/distribute row is a SECOND row that only opens
+ * on hover (or tap on touch), so the floating bar stays one small button wide
+ * until it is needed. */
+.sb-sel-row {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.sb-sel-align-row {
+  padding-top: 4px;
+  border-top: 1px solid var(--bs-border-color);
+}
+
+.sb-sel-divider {
+  width: 1px;
+  align-self: stretch;
+  margin: 2px 3px;
+  background: var(--bs-border-color);
 }
 
 /* One box + handles around a group or a loose multi-selection. The box itself
@@ -1087,6 +1110,11 @@ html[data-smd-touch-size="large"] .sb-handle-rotate {
 
 /* A flip toggle stays highlighted while that mirror is on. */
 .sb-sel-btn[aria-pressed="true"] {
+  background: rgba(var(--bs-body-color-rgb), 0.2);
+}
+
+/* The Align button stays lit while its option row is expanded. */
+.sb-sel-btn[aria-expanded="true"] {
   background: rgba(var(--bs-body-color-rgb), 0.2);
 }
 
