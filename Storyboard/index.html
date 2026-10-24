@@ -50,6 +50,9 @@
         <li><hr class="dropdown-divider"></li>
         <!-- Replaced at boot by the shared Launch flyout (SmdApps.buildLaunchSubmenu). -->
         <li><a class="dropdown-item" href="../">Launch</a></li>
+        <li><hr class="dropdown-divider minio-menu-item" style="display:none"></li>
+        <li><a class="dropdown-item minio-menu-item" style="display:none" onclick="sbSaveBoardToMinio()">Save Board to Minio</a></li>
+        <li><a class="dropdown-item minio-menu-item" style="display:none" onclick="importFromMinio()">Load Board from Minio</a></li>
       </ul>
     </div>
 
@@ -216,6 +219,9 @@
   <!-- SETTINGS PAGE -->
   <smd-page id="settingsPage" class="d-none"></smd-page>
 
+  <!-- MINIO IMPORT / LOAD PAGE -->
+  <smd-page id="minioImportPage" class="d-none"></smd-page>
+
   <template id="settingsTemplate">
     <div class="smd-settings">
 
@@ -274,6 +280,56 @@
         </div>
       </section>
 
+      <!-- Minio -->
+      <section class="smd-settings-tab" data-tab="Minio" data-tab-id="minio-tab">
+        <div class="row mb-4 align-items-center col-md-8 mt-3">
+          <div class="col-4 text-end"><label class="form-label mb-0">Enable</label></div>
+          <div class="col-8">
+            <smd-checkbox id="minioEnabled" switch onchange="changeMinioEnabled(this.checked)"></smd-checkbox>
+          </div>
+        </div>
+        <div id="minioFields">
+          <div class="row mb-4 align-items-center col-md-8">
+            <div class="col-4 text-end"><label class="form-label mb-0">Server</label></div>
+            <div class="col-8">
+              <input id="minioServer" class="form-control" type="text" placeholder="http://localhost:9000" onchange="changeMinioServer(this.value)">
+            </div>
+          </div>
+          <div class="row mb-4 align-items-center col-md-8">
+            <div class="col-4 text-end"><label class="form-label mb-0">Username</label></div>
+            <div class="col-8">
+              <input id="minioUsername" class="form-control" type="text" onchange="changeMinioUsername(this.value)">
+            </div>
+          </div>
+          <div class="row mb-4 align-items-center col-md-8">
+            <div class="col-4 text-end"><label class="form-label mb-0">Password</label></div>
+            <div class="col-8">
+              <div class="input-group">
+                <input id="minioPassword" class="form-control" type="password" onchange="changeMinioPassword(this.value)">
+                <button class="btn btn-outline-secondary" type="button" onclick="toggleMinioPassword()" title="Show/hide password">
+                  <svg id="minioPasswordEye" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                    <path d="M16 8s-3-5.5-8-5.5S0 8 0 8s3 5.5 8 5.5S16 8 16 8zM1.173 8a13.133 13.133 0 0 1 1.66-2.043C4.12 4.668 5.88 3.5 8 3.5c2.12 0 3.879 1.168 5.168 2.457A13.133 13.133 0 0 1 14.828 8c-.058.087-.122.183-.195.288-.335.48-.83 1.12-1.465 1.755C11.879 11.332 10.119 12.5 8 12.5c-2.12 0-3.879-1.168-5.168-2.457A13.134 13.134 0 0 1 1.172 8z"/>
+                    <path d="M8 5.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5zM4.5 8a3.5 3.5 0 1 1 7 0 3.5 3.5 0 0 1-7 0z"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+          <div class="row mb-4 align-items-center col-md-8">
+            <div class="col-4 text-end"><label class="form-label mb-0">Bucket</label></div>
+            <div class="col-8">
+              <input id="minioBucket" class="form-control" type="text" onchange="changeMinioBucket(this.value)">
+            </div>
+          </div>
+          <div class="row mb-4 align-items-center col-md-8">
+            <div class="col-4 text-end"><label class="form-label mb-0">Directory</label></div>
+            <div class="col-8">
+              <input id="minioDirectory" class="form-control" type="text" placeholder="optional, e.g. storyboard (empty = bucket root)" onchange="changeMinioDirectory(this.value)">
+            </div>
+          </div>
+        </div>
+      </section>
+
       <div id="settingsFooter" class="mt-3">
         <div class="row align-items-center col-md-8 mb-3">
           <div class="col-4 text-end"></div>
@@ -316,11 +372,13 @@
   document.write('<script src="../shared/js/components/smd-fontawesome-credit.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="../shared/js/smd-app.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="../shared/js/smd-settings.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../shared/js/smd-minio.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="../shared/js/smd-apps.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="js/storage.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="js/board.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="js/toolbar.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="js/app-settings.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="js/app-minio.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="js/app.js?v=' + BUILD_NUMBER + '"><\/script>');
   </script>
 

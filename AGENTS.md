@@ -270,16 +270,29 @@ Architecture:
   and would strict-mode-fail). Sample images "Launch" and "Phone Buttons" were
   added (native SVG + SURGICAL JSON append — a full `regen` rewrites 22
   pre-existing entries whose SVG files drifted from the JSON).
+- STANDARD HAMBURGER MENU ORDER (2026-10-24, user request): EVERY app's
+  `#mainNav .dropdown-menu` is ordered **Settings | divider | Launch (flyout) |
+  divider | app items**. Conditional groups (MinIO, GCal, Gantt) come AFTER the
+  app items and carry their own divider + visibility class (`minio-menu-item`,
+  `google-menu-item`, `gcal-menu-item`, ...), so enabling one never reorders the
+  menu. Storyboard was the odd one (MinIO sat before Launch) - keep any new app
+  in this order. Test: storyboard-minio "the hamburger menu follows Settings |
+  separator | Launch | separator | app items" asserts the top-level `<li>`
+  sequence. GOTCHA: scope the selector with
+  `:not(.launch-submenu-menu)`, or the flyout's own rows leak into the list.
 - STORYBOARD APP (2026-10-21, NEW — the 9th app; older notes saying "all 8
   shells/apps" predate it): `Storyboard/` is a PlanMyDay-style classic-script PWA
   (no modules, globals on purpose). It has the standard hamburger (Settings |
-  Launch flyout) and exactly ONE settings tab, **Display**, with only live rows:
+  MinIO Save/Load | Launch flyout) and TWO settings tabs, **Display** and
+  **Minio**. Display has only live rows:
   Theme, Theme Mode, Font size, Touch size, Slide speed, Auto-hide menu, Screen
-  resolution (last). No Title/`<h1>` in the shell (the nav title reads
+  resolution (last). Minio holds the shared server/bucket/directory fields. No
+  Title/`<h1>` in the shell (the nav title reads
   "Storyboard" from `SmdApps`).
   FILES: `js/storage.js` (data + colour/frame helpers), `js/board.js` (render +
   pointer gestures), `js/toolbar.js` (rail, fly-out panels, text editor),
-  `js/app-settings.js`, `js/app.js`; `css/storyboard.css` (all app layout; the
+  `js/app-settings.js`, `js/app-minio.js` (board save/load), `js/app.js`;
+  `css/storyboard.css` (all app layout; the
   shared sheet is untouched); `assets/backgrounds/{space,underwater}.svg`
   (2560x1440) and `assets/stickers/{mermaid,shark,seaweed,spaceman,spaceship}.svg`
   (512 viewBox flat art, transparent). `icon.svg` + generated 192/512 PNGs.
@@ -7174,3 +7187,42 @@ Techniques / gotchas:
   repositions it; without the button-anchor shift the pointer no longer hovers
   the button, the bar's mouseleave fires and the options collapse immediately.
 
+
+### 2026-10-24 - MinIO directories + Storyboard board save/load
+- FEATURE (user): shared MinIO **Directory** setting on every app's Minio tab
+  (`smdKey("minio_directory")`; empty = bucket root). `getMinioConfig().directory`
+  is normalised by `minioNormalizeDirectory()` (forward slashes, no leading/
+  trailing slash, no "."/".." segments); `changeMinioDirectory()` persists it.
+  `minioBuildKey(dir, extraDir, filename)` joins a FURTHER directory level into a
+  key, and `minioDirectoryPrefix(dir)` returns the trailing-slash list prefix.
+- LISTING: `minioListFolder(bucket, prefix, config)` = list-type=2 +
+  `delimiter=/` -> `{objects, prefixes}`; `minioListAllUnder()` follows
+  continuation tokens; `minioLatestJsonKey()` picks the lexicographically
+  greatest `.json` key (backup names carry YYYYMMDDHHMM). The import page is
+  scoped to the configured Directory and shows immediate files, subdirectory
+  rows, `<subdir>:latest` (newest JSON inside that subdir), and Up when nested.
+  Stable classes: `.minio-folder-item`, `.minio-latest-item`, `.minio-file-item`,
+  `.minio-up-item`. Navigation helpers: `minioNavigate()`/`minioParentPrefix()`;
+  the page NEVER lists above the configured Directory.
+- EXPORTS: the shared default export and CountMyDays' app-owned
+  `doMinioExport` now upload under `config.directory`; with an empty Directory
+  the old filenames/keys are unchanged (PMD/CMD/LoL MinIO tests still green).
+- STORYBOARD: new `Storyboard/js/app-minio.js` (registered in `sw.js`), a Minio
+  settings tab, `#minioImportPage`, and hamburger items "Save Board to Minio" /
+  "Load Board from Minio" (deliberately NOT on the rail; `#sbSaveBtn` is still
+  Save as JPG). Save key = `<Directory>/<sanitised board name>/board-YYYYMMDDHHMM.json`
+  with payload `{version, app:"storyboard", exportedAt, board}`. Load goes through
+  `SmdConfig.onMinioImport`: a NAME THAT DOES NOT EXIST is added as a new board;
+  a name that ALREADY EXISTS asks via `showSmdModal` (Cancel / Overwrite) and
+  Overwrite replaces that existing board IN PLACE (same id, so no silent
+  duplicate "My Board 2"). Cancel returns to the file list. `board.view` is
+  captured before saving/switching.
+- TESTS: `tests/minio-directory.spec.js` (4: settings persistence, export path,
+  listing + `:latest` + folder navigation, CMD app-owned export) and
+  `tests/storyboard-minio.spec.js` (6: tab/menu, menu ORDER, save key/payload,
+  name sanitising, load-latest adds a board, same-name overwrite prompt/cancel/
+  overwrite). Also re-ran 63 existing MinIO tests and
+  all 57 Storyboard + new MinIO specs: green.
+- GOTCHA: `tests/serve-tests.mjs` snapshots files at startup, so a long-running
+  dev server serves STALE code after edits - restart `npm run dev:test` before
+  trusting a red/green run.
