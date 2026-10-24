@@ -92,12 +92,57 @@ function smdBuildStamp() {
   return typeof BUILD_NUMBER !== "undefined" ? BUILD_NUMBER : Date.now();
 }
 
+// ---- PWA / OS title-bar colour --------------------------------------------
+//
+// Windows 11 paints an installed PWA's title bar from the manifest
+// `theme_color`, and the page's <meta name="theme-color"> overrides it once
+// loaded. There is no manifest option for "follow the OS accent", so the app's
+// fallback is to keep the meta on the chosen theme's SECONDARY colour: the
+// title bar then matches the theme the user picked (and mobile status bars do
+// too). The static manifest/meta values are only the pre-load default.
+var SMD_DEFAULT_TITLEBAR_COLOR = "#212529";
+
+function smdReadThemeSecondaryColor() {
+  var value = "";
+  try {
+    value = getComputedStyle(document.documentElement).getPropertyValue("--bs-secondary").trim();
+  } catch (e) {
+    value = "";
+  }
+  return value || SMD_DEFAULT_TITLEBAR_COLOR;
+}
+
+function applyThemeColor() {
+  if (!document.head) return;
+  var meta = document.querySelector('meta[name="theme-color"]');
+  if (!meta) {
+    meta = document.createElement("meta");
+    meta.setAttribute("name", "theme-color");
+    document.head.appendChild(meta);
+  }
+  meta.setAttribute("content", smdReadThemeSecondaryColor());
+}
+
+// The computed --bs-secondary belongs to whichever theme sheet is CURRENTLY
+// loaded, so re-apply when a swapped sheet arrives (theme/mode change).
+function smdBindThemeColorLink(link) {
+  if (!link || link.__smdThemeColorBound) return;
+  link.__smdThemeColorBound = true;
+  link.addEventListener("load", applyThemeColor);
+}
+
+function smdRefreshThemeColor() {
+  applyThemeColor();
+  requestAnimationFrame(applyThemeColor);
+}
+
 function applyTheme(name, modeOverride) {
   const valid = normalizeTheme(name);
   const hasModeOverride = typeof modeOverride !== "undefined";
   const mode = hasModeOverride ? normalizeThemeMode(modeOverride) : getStoredThemeMode();
   const link = document.getElementById("bootstrap-theme-css");
   if (link) {
+    smdBindThemeColorLink(link);
     link.href = smdThemeCssPrefix() + valid + "/bootstrap.min.css?v=" + smdBuildStamp();
   }
   document.documentElement.setAttribute("data-bs-theme", mode);
@@ -105,6 +150,7 @@ function applyTheme(name, modeOverride) {
   localStorage.setItem(smdKey("theme"), valid);
   if (!hasModeOverride) localStorage.setItem(smdKey("themeMode"), mode);
   applyThemeOverrides(valid, mode);
+  smdRefreshThemeColor();
 }
 
 // A mode switch no longer only flips two attributes: the override sheet is
@@ -116,6 +162,7 @@ function applyThemeMode(theme, mode) {
   document.documentElement.setAttribute("data-bs-theme", normalized);
   document.documentElement.setAttribute("data-theme", valid);
   applyThemeOverrides(valid, normalized);
+  smdRefreshThemeColor();
 }
 
 // The override layer is TWO sheets, both re-pointed here:
@@ -134,6 +181,7 @@ function applyThemeOverrides(theme, mode) {
   setOverrideLink("theme-override-mode", prefix + normalized + ".css?v=" + stamp);
   setOverrideLink("theme-override-specific", prefix + theme + "/" + theme + "." + normalized + ".css?v=" + stamp);
   orderThemeOverrideLinks();
+  smdRefreshThemeColor();
 }
 
 function setOverrideLink(id, href) {
@@ -146,6 +194,7 @@ function setOverrideLink(id, href) {
     if (anchor && anchor.parentNode) anchor.parentNode.insertBefore(el, anchor.nextSibling);
     else document.head.appendChild(el);
   }
+  smdBindThemeColorLink(el);
   el.href = href;
   return el;
 }
