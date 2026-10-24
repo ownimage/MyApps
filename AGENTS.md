@@ -270,21 +270,24 @@ Architecture:
   and would strict-mode-fail). Sample images "Launch" and "Phone Buttons" were
   added (native SVG + SURGICAL JSON append — a full `regen` rewrites 22
   pre-existing entries whose SVG files drifted from the JSON).
-- WHITEBOARD APP (2026-10-21, NEW — the 9th app; older notes saying "all 8
-  shells/apps" predate it): `Whiteboard/` is a PlanMyDay-style classic-script PWA
+- STORYBOARD APP (2026-10-21, NEW — the 9th app; renamed from Whiteboard on
+  2026-10-24; older notes saying "all 8 shells/apps" predate it): `Storyboard/`
+  is a PlanMyDay-style classic-script PWA
   (no modules, globals on purpose). It has the standard hamburger (Settings |
   Launch flyout) and exactly ONE settings tab, **Display**, with only live rows:
   Theme, Theme Mode, Font size, Touch size, Slide speed, Auto-hide menu, Screen
   resolution (last). No Title/`<h1>` in the shell (the nav title reads
-  "Whiteboard" from `SmdApps`).
+  "Storyboard" from `SmdApps`).
   FILES: `js/storage.js` (data + colour/frame helpers), `js/board.js` (render +
   pointer gestures), `js/toolbar.js` (rail, fly-out panels, text editor),
-  `js/app-settings.js`, `js/app.js`; `css/whiteboard.css` (all app layout; the
+  `js/app-settings.js`, `js/app.js`; `css/storyboard.css` (all app layout; the
   shared sheet is untouched); `assets/backgrounds/{space,underwater}.svg`
   (2560x1440) and `assets/stickers/{mermaid,shark,seaweed,spaceman,spaceship}.svg`
   (512 viewBox flat art, transparent). `icon.svg` + generated 192/512 PNGs.
-  DATA: keys via `smdKey()` = `whiteboard_boards`, `whiteboard_activeBoard`,
-  `whiteboard_toolbarPinned`. `wbState.boards` is an array of
+  DATA: keys via `smdKey()` = `storyboard_boards`, `storyboard_activeBoard`,
+  `storyboard_toolbarPinned`. A one-time boot migration copies any old
+  `whiteboard_*` keys to `storyboard_*` and removes the old keys (an existing new
+  key wins). `wbState.boards` is an array of
   `{id,name,background,items}`; items are stickers
   `{id,type:"sticker",sticker,x,y,scale,rotation,z,flipX,flipY}` or text
   `{id,type:"text",text,bg,color,border,font,x,y,scale,rotation,z}`. `x`/`y` are
@@ -292,6 +295,8 @@ Architecture:
   paint order. New items go to 50/50 then cascade +4% (first item must be
   centred, not offset). Backgrounds are ids (`space`/`underwater`/`""`), never
   paths, so the asset list stays in `WB_BACKGROUNDS`/`WB_STICKERS`.
+  INTERNALS: the `wb*` globals, `wb-*` CSS classes and `#wb*` DOM ids are
+  implementation details and were deliberately left unchanged by the rename.
   STICKER FLIP (2026-10-23, user request): a selected sticker's action bar has
   **Flip horizontally** (`#wbSelFlipH`, `fa-left-right`) and **Flip vertically**
   (`#wbSelFlipV`, `fa-up-down`) toggles; they are hidden for text boxes and
@@ -307,7 +312,7 @@ Architecture:
   BOARD = THE WHOLE ARTWORK (2026-10-23, user request): the live board is no
   longer the visible window with a `cover` crop. `wbLayoutBoard()` sizes
   `#wbCanvas` to the background's aspect (`WB_BACKGROUNDS[].width/height`, both
-  2560x1440) fitted inside `#whiteboardArea` and centres it (`left/top:50%` +
+  2560x1440) fitted inside `#storyboardArea` and centres it (`left/top:50%` +
   `translate(-50%,-50%)`), so the WHOLE image is always visible and a window of a
   different shape shows bars around it. No background -> the board fills the
   area (dot grid). Item `x`/`y` are % of the BOARD (= % of the artwork).
@@ -315,7 +320,7 @@ Architecture:
   set by `wbLayoutBoard`) instead of `15vmin`, so they belong to the board, not
   the window. `#wbBackground` is `background-size:100% 100%` (the aspect already
   matches, so nothing is cropped or stretched). A click anywhere in
-  `#whiteboardArea` deselects (the board no longer fills it); the handler ignores
+  `#storyboardArea` deselects (the board no longer fills it); the handler ignores
   objects/connectors/toolbar/action bar/board chip.
   BROWSER ZOOM: the resize handler re-fits the artwork on EVERY resize (120ms
   debounce), including a page zoom. The nav/toolbar/board name/action bar are UI
@@ -383,7 +388,7 @@ Architecture:
   at <=520px where the rail is 50px). One tool's panel slides out beside it
   (`#wbToolbar[data-open="boards|background|stickers|text"]`); clicking the same
   rail button toggles it closed; outside clicks close it UNLESS pinned. Pin
-  persists (`whiteboard_toolbarPinned`) and on reload a pinned toolbar reopens
+  persists (`storyboard_toolbarPinned`) and on reload a pinned toolbar reopens
   Boards. GOTCHA: a panel button that re-renders the panel DETACHES the clicked
   node before the document-level outside-click listener runs, so `target.closest`
   no longer finds `#wbToolbar` and the panel closes itself — `wbOnPanelClick`
@@ -425,20 +430,20 @@ Architecture:
   mode change must re-render the board (app.js listens to `smd-theme-change`).
   Background "None" must `style.removeProperty("background-image")` — assigning
   `""` leaves an inline empty image that overrides the CSS dot grid.
-  REGISTRY: add `SmdApps.APPS` row (name/description/path `Whiteboard/`, icon
-  "Whiteboard"), a native `shared/sampleImages/Whiteboard.svg` appended
-  surgically to `shared/sampleImages.json`, and a `sw.js APPS["Whiteboard/"]`
+  REGISTRY: add `SmdApps.APPS` row (name/description/path `Storyboard/`, icon
+  "Storyboard"), a native `shared/sampleImages/Storyboard.svg` appended
+  surgically to `shared/sampleImages.json`, and a `sw.js APPS["Storyboard/"]`
   entry listing index/manifest/icons/css/both background SVGs/all five sticker
   SVGs/all five JS files. The Launch grid and the Launch flyout pick it up from
   the registry (no root `index.html` edit).
-  TESTS: `tests/launch-regression.spec.js` was UPDATED for Whiteboard on
-  2026-10-23 (`toHaveCount(9)`, `EXPECTED_TILES` with `Whiteboard/` before
+  TESTS: `tests/launch-regression.spec.js` was UPDATED for Storyboard on
+  2026-10-23 (`toHaveCount(9)`, `EXPECTED_TILES` with `Storyboard/` before
   `Launch`, the tile-icon loop runs to `EXPECTED_TILES.length`, the nav-title
-  list, the Launch-submenu `APPS` + the `/Whiteboard/` shell, `ALL_APPS`, and
-  `SHELL_CASCADE`). STILL DEFERRED: add Whiteboard to
+  list, the Launch-submenu `APPS` + the `/Storyboard/` shell, `ALL_APPS`, and
+  `SHELL_CASCADE`). STILL DEFERRED: add Storyboard to
   `tests/settings-alignment.spec.js`
   (Display-only tab/shape/rhythm/tables) and `tests/display-settings.spec.js`,
-  and add a Whiteboard screenshot spec if screenshots are wanted. Verified
+  and add a Storyboard screenshot spec if screenshots are wanted. Verified
   instead with throwaway Playwright probes (deleted): board/drag/scale/rotate,
   synthetic two-finger pinch (scale + twist), text create/edit/frames, board
   add/rename/delete/switch, pin persistence, Settings shape, 8081 sub-path,
@@ -528,7 +533,7 @@ Architecture:
                    Show undo/redo, Swap)
     ListOfLists    Display, Minio, Danger
     PhoneButtons   Display, Server, Danger
-    Whiteboard     Display
+    Storyboard     Display
   NO DEAD CONTROLS (user): a row is only present where the setting does something.
   `Icon size` is therefore ABSENT in SolarControlar and FreeFormOX (no
   `<smd-image>`), and `Tile density` only exists in PlanMyDay/CountMyDays/QRLinks/
@@ -6581,8 +6586,8 @@ Techniques / gotchas:
   `window.scrollY > 0` before returning the card coordinates.
 - VERIFIED: both tests pass together with `--workers=2 --retries=0` (2 passed).
 
-### 2026-10-21 (e) - Whiteboard: new app (stickers + text + backgrounds, named boards)
-- REQUEST (user): a new `Whiteboard` app based on PlanMyDay, with ONLY the
+### 2026-10-21 (e) - Storyboard: new app (stickers + text + backgrounds, named boards)
+- REQUEST (user): a new `Storyboard` app based on PlanMyDay, with ONLY the
   hamburger menu and Settings | Display; a left toolbar that flies out and can be
   pinned; Backgrounds (space + underwater, 2k), Stickers (mermaid, shark,
   seaweed, spaceman, spaceship) and Text (coloured/transparent background;
@@ -6590,9 +6595,9 @@ Techniques / gotchas:
   Answers to the design questions: MULTIPLE NAMED BOARDS, handles PLUS two-finger
   pinch/rotate, original SVG artwork in the repo, four borders + a colour palette,
   and the seven live Display rows.
-- BUILT: `Whiteboard/` (index/manifest/icons/css/js/assets), registered in
-  `SmdApps.APPS`, `shared/sampleImages.json` (+ native Whiteboard SVG) and
-  `sw.js APPS["Whiteboard/"]`. Full contract + gotchas are in the WHITEBOARD APP
+- BUILT: `Storyboard/` (index/manifest/icons/css/js/assets), registered in
+  `SmdApps.APPS`, `shared/sampleImages.json` (+ native Storyboard SVG) and
+  `sw.js APPS["Storyboard/"]`. Full contract + gotchas are in the STORYBOARD APP
   architecture note above. Settings is a single Display tab (Theme, Theme Mode,
   Font size, Touch size, Slide speed, Auto-hide menu, Screen resolution last).
 - WHAT WORKED: a throwaway Playwright probe (outside `tests/`, deleted after)
@@ -6624,16 +6629,16 @@ Techniques / gotchas:
   (covering the handle at 709..731) to x=800..910, and `elementFromPoint` now
   returns the `fa-rotate` icon. Mouse rotation works.
 - NOT RUN (explicit user instruction): no regression tests were run and NO tests
-  were added. Deferred test updates are listed in the WHITEBOARD APP note.
+  were added. Deferred test updates are listed in the STORYBOARD APP note.
 - BUILD: `202610211932` via `npm run bump:build`.
 
-### 2026-10-21 (f) - Whiteboard: text font picker
+### 2026-10-21 (f) - Storyboard: text font picker
 - REQUEST (user): "I want to be able to select a font for the text."
 - ADDED: text items carry `font` (default `theme`); `WB_TEXT_FONTS` (storage.js)
   offers the theme stack, system Serif/Monospace and the 12 vendored families
   (Roboto, Lato, Open Sans, Montserrat, Ubuntu, Nunito, Nunito Sans, Source Sans
   Pro, Inter, News Cycle, Cabin Sketch, Neucha). `wbNormalizeItem` validates it;
-  `wbStyleTextElement` adds `.wb-font-<id>`; whiteboard.css owns each stack.
+  `wbStyleTextElement` adds `.wb-font-<id>`; storyboard.css owns each stack.
   The Text panel has a **Font** row (an `<smd-select>`, 15 options) between the
   textarea and Background; its `change` writes the live item or the draft for the
   next text, and a live `.wb-font-preview` line underneath shows the family even
@@ -6652,7 +6657,7 @@ Techniques / gotchas:
   console/page errors.
 - BUILD: `202610211939` via `npm run bump:build`.
 
-### 2026-10-21 (g) - Whiteboard: directional connectors between text boxes
+### 2026-10-21 (g) - Storyboard: directional connectors between text boxes
 - REQUEST (user): "From the text boxes I want to be able to add connectors so
   that I can add a directional connector to another text box."
 - BUILT: per-board `connectors: [{id,from,to}]` (text-to-text only, one per
@@ -6660,7 +6665,7 @@ Techniques / gotchas:
   box; arrowhead at the TARGET. Click an arrow to select it, then Reverse or
   Delete from the same bar; Delete/Backspace also works. Escape/blank/non-text
   cancels connect mode. Deleting a box removes its links. Full contract is in the
-  WHITEBOARD APP note above.
+  STORYBOARD APP note above.
 - RENDER: SVG layer under the objects, body-color line + body-bg halo + arrow
   marker; endpoints recomputed against each box's ROTATED rectangle (item
   rotation + offsetWidth/Height) with a 5px gap, so arrows stay glued while a box
@@ -6722,19 +6727,19 @@ Techniques / gotchas:
   choice on the ACTIVE row (orange highlight resolves "light"). Separate issue.
 - BUILD: `202610232000` via `npm run bump:build`.
 - SAME SESSION (full suite): the user's run reported the 5 expected
-  launch-regression failures from the deferred Whiteboard update (counts/lists
-  still said 8). Updated `tests/launch-regression.spec.js` (see the WHITEBOARD
+  launch-regression failures from the deferred Storyboard update (counts/lists
+  still said 8). Updated `tests/launch-regression.spec.js` (see the STORYBOARD
   APP note). Test-only change, so no additional BUILD bump.
-- SAME SESSION (feature, user request): Whiteboard stickers gained Flip
+- SAME SESSION (feature, user request): Storyboard stickers gained Flip
   horizontally / Flip vertically (see the STICKER FLIP note above). Files:
-  `Whiteboard/index.html` (buttons), `js/board.js` (`wbFlipSelected`,
+  `Storyboard/index.html` (buttons), `js/board.js` (`wbFlipSelected`,
   `wbApplyStickerFlip`, selection UI), `js/storage.js` (`flipX`/`flipY`
-  normalize + `wbFlipItem`), `css/whiteboard.css` (image-only mirror + pressed
-  style). No Whiteboard spec exists (tests still deferred), so this was NOT
+  normalize + `wbFlipItem`), `css/storyboard.css` (image-only mirror + pressed
+  style). No Storyboard spec exists (tests still deferred), so this was NOT
   run here - the user runs the full suite. Follow-up: the action-bar buttons are
   now flex-centred (`padding:0`, `line-height:1`) - the UA button padding had
   pushed the two flip glyphs off centre. BUILD -> `202610232043`.
-- SAME SESSION (feature, user request): Whiteboard "Save" rail button downloads
+- SAME SESSION (feature, user request): Storyboard "Save" rail button downloads
   the current board as a JPG (see SAVE AS JPG above). Verified with a throwaway
   probe: space background, two flipped/rotated stickers, fancy + hand text
   (Cabin Sketch and theme font), a connector; the 2560px JPG matched the board
@@ -6751,7 +6756,7 @@ Techniques / gotchas:
   the placed text does ... it moves inconsistently", then "I want the whole
   background image to scale as one image". The live board is the WHOLE artwork:
   `wbLayoutBoard()` fits the background aspect (2560x1440) inside
-  #whiteboardArea, centred with bars; `#wbBackground` is 100% 100%; stickers use
+  #storyboardArea, centred with bars; `#wbBackground` is 100% 100%; stickers use
   the board-relative `--wb-sticker-base`; a click on the bars deselects. The
   earlier `--wb-zoom` layer + object inverse scale experiment was REMOVED.
 - FOLLOW-UP 3 (user, final zoom model): "the Menu and the side panel ... and the
@@ -6772,3 +6777,37 @@ Techniques / gotchas:
   sticker centres stayed at the same % of the artwork; both JPGs are 2560x1440
   and match. No console errors. The user runs the full regression suite.
   BUILD -> `202610241449`.
+
+### 2026-10-24 - Storyboard: renamed from Whiteboard
+- REQUEST (user): "I think that a better name for the app would be Storyboard
+  rather than Whiteboard, git rename the directory, the local storage keys,
+  titles in the Launcher app and menu, and anything else that needs it."
+- RENAMED with `git mv` (history preserved): `Whiteboard/` -> `Storyboard/`,
+  `css/whiteboard.css` -> `css/storyboard.css`, and
+  `shared/sampleImages/Whiteboard.svg` -> `shared/sampleImages/Storyboard.svg`.
+- UPDATED: the `SmdApps.APPS` row (name/description/path/icon), the Launch grid
+  and flyout (both read the registry), `shared/sampleImages.json` (entry name +
+  embedded aria-label), `sw.js` `APPS["Storyboard/"]` and every precache path,
+  `Storyboard/manifest.json` (name/short_name/description), `<title>`, the nav
+  title (from the registry), the toolbar aria-label, the settings QR URL, the
+  update-prompt copy, `window.__storyboardSwUpdater`, app comments, the default
+  board name "My Storyboard", the JPG fallback slug, `README.md`, and
+  `tests/launch-regression.spec.js`. `#whiteboardArea` -> `#storyboardArea`.
+  The internal `wb*` globals, `wb-*` CSS classes and `#wb*` DOM ids were
+  deliberately left alone (implementation detail; no user-facing name).
+- STORAGE: `SmdConfig.storagePrefix = "storyboard_"`. A boot migration in
+  `Storyboard/js/app.js` copies any `whiteboard_*` keys to `storyboard_*` (an
+  existing new key wins) and removes the old keys before `wbLoadState()` reads
+  them. `SmdApps.loadConfig()` maps a stored `Whiteboard/` Launch entry to
+  `Storyboard/` in place, preserving its position and onLaunch/onMenu ticks; the
+  next config save writes the new path.
+- VERIFIED with throwaway probes (NOT the regression suite): the Launch entry
+  mapped in place (index 0, onMenu:false preserved), and with both ticks on the
+  grid tile (icon loaded) and flyout both show Storyboard -> `Storyboard/`;
+  `/Storyboard/` title/nav/toolbar/QR all say Storyboard; seeded `whiteboard_*`
+  keys migrated to `storyboard_*` (board "Legacy Board", active id, pinned=true)
+  with the old keys gone; manifest name/short_name/description are new;
+  `/Whiteboard/` is 404; the 8081 `/PlanMyDay/Storyboard/` mount renders the
+  default "My Storyboard"; no console/page errors or failed same-origin
+  requests. The user runs the full suite.
+  BUILD -> `202610241502`.

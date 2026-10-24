@@ -1,4 +1,4 @@
-// Whiteboard — painting the board and all direct-manipulation gestures.
+// Storyboard - painting the board and all direct-manipulation gestures.
 //
 // Objects are absolutely positioned by PERCENTAGE (left/top) so their relative
 // place survives a resize, then rotated around their centre. Selection shows two
@@ -49,7 +49,7 @@ function wbLayoutBoard() {
 }
 
 function wbInitBoard() {
-  wbEls.area = document.getElementById("whiteboardArea");
+  wbEls.area = document.getElementById("storyboardArea");
   wbEls.canvas = document.getElementById("wbCanvas");
   wbEls.bg = document.getElementById("wbBackground");
   wbEls.items = document.getElementById("wbItems");
@@ -797,7 +797,7 @@ function wbItemEl(id) {
 }
 
 function wbSlug(name) {
-  return String(name || "whiteboard").toLowerCase()
+  return String(name || "storyboard").toLowerCase()
     .replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60);
 }
 
@@ -1105,7 +1105,7 @@ async function wbDownloadJpg() {
   var url = URL.createObjectURL(blob);
   var a = document.createElement("a");
   a.href = url;
-  a.download = (wbSlug(board.name) || "whiteboard") + ".jpg";
+  a.download = (wbSlug(board.name) || "storyboard") + ".jpg";
   document.body.appendChild(a);
   a.click();
   a.remove();

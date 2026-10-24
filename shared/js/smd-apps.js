@@ -28,7 +28,7 @@
     //   - `false` opts OUT of a nav title entirely (Phone Buttons already shows
     //     the running server app's name next to the hamburger).
     { name: "Phone Buttons", description: "Remote control buttons for this computer", path: "PhoneButtons/", icon: "Phone Buttons", navTitle: false },
-    { name: "Whiteboard", description: "Place stickers and text anywhere on a whiteboard", path: "Whiteboard/", icon: "Whiteboard" },
+    { name: "Storyboard", description: "Place stickers and text anywhere on a storyboard", path: "Storyboard/", icon: "Storyboard" },
     { name: "Launch", description: "Open the app launcher", path: "", icon: "Launch", navTitle: "My Apps" }
   ];
 
@@ -36,6 +36,10 @@
     for (var i = 0; i < APPS.length; i++) if (APPS[i].path === path) return APPS[i];
     return null;
   }
+
+  // The app previously registered as Whiteboard. Map the stored path to the new
+  // one so its Launch position and tick state survive the rename.
+  var LEGACY_PATHS = { "Whiteboard/": "Storyboard/" };
 
   // Stored order (known paths only), then any registered app that is missing,
   // in registry order, with both ticks on.
@@ -45,9 +49,11 @@
     var out = [], seen = {};
     if (Array.isArray(stored)) {
       stored.forEach(function (s) {
-        if (!s || typeof s.path !== "string" || seen[s.path] || !appByPath(s.path)) return;
-        seen[s.path] = true;
-        out.push({ path: s.path, onLaunch: s.onLaunch !== false, onMenu: s.onMenu !== false });
+        if (!s || typeof s.path !== "string") return;
+        var path = LEGACY_PATHS[s.path] || s.path;
+        if (seen[path] || !appByPath(path)) return;
+        seen[path] = true;
+        out.push({ path: path, onLaunch: s.onLaunch !== false, onMenu: s.onMenu !== false });
       });
     }
     APPS.forEach(function (a) {

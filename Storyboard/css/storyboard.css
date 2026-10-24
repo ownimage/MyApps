@@ -1,4 +1,4 @@
-/* Whiteboard — board surface, floating toolbar, objects and text frames.
+/* Storyboard - board surface, floating toolbar, objects and text frames.
  *
  * This sheet is app-owned layout: the shared stylesheet only carries theme
  * colour + spatial-size values. Colours here always come from Bootstrap /
@@ -16,7 +16,7 @@ body#smd-app {
   overflow: hidden;
 }
 
-#whiteboardArea {
+#storyboardArea {
   position: relative;
   flex: 1 1 auto;
   min-height: 0;

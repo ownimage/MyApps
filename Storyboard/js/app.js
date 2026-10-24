@@ -1,4 +1,4 @@
-// Whiteboard — app entry point.
+// Storyboard — app entry point.
 //
 // Classic scripts + globals, matching every other app in this repo: generated
 // HTML uses inline handlers and the shared settings engine calls global hooks
@@ -8,10 +8,32 @@
 // toolbar before the first render so the pin state is applied.
 
 // All boards, the active board and the pin state live under this namespace.
-SmdConfig.storagePrefix = "whiteboard_";
-// Whiteboard has no image picker, but the shared sample-image library is still
+SmdConfig.storagePrefix = "storyboard_";
+// Storyboard has no image picker, but the shared sample-image library is still
 // used by the Launch grid; keep the prefix consistent with every app.
 SmdConfig.imagePrefix = "shared-";
+
+// One-time rename of the old `whiteboard_` keys. Copy each value to the new
+// prefix first (an existing new key wins), then remove the old key so there is
+// a single source of truth. Runs before wbLoadState() reads anything.
+(function wbMigrateLegacyStorage() {
+  try {
+    var oldPrefix = "whiteboard_";
+    var newPrefix = "storyboard_";
+    var legacy = [];
+    for (var i = 0; i < localStorage.length; i++) {
+      var key = localStorage.key(i);
+      if (key && key.indexOf(oldPrefix) === 0) legacy.push(key);
+    }
+    legacy.forEach(function (oldKey) {
+      var newKey = newPrefix + oldKey.slice(oldPrefix.length);
+      if (localStorage.getItem(newKey) === null) {
+        localStorage.setItem(newKey, localStorage.getItem(oldKey));
+      }
+      localStorage.removeItem(oldKey);
+    });
+  } catch (e) { /* private mode / storage disabled */ }
+})();
 
 document.addEventListener("DOMContentLoaded", function () {
   applyTheme(getStoredTheme());

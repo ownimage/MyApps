@@ -1,4 +1,4 @@
-// Whiteboard — Settings | Display.
+// Storyboard - Settings | Display.
 //
 // The app deliberately has ONE settings tab. Every row here drives something in
 // the app: theme/mode recolours the board chrome and text frames, Font size
@@ -17,7 +17,7 @@ function buildSettingsContent() {
 function openSettings() {
   smdSetupSettingsPage({
     onBeforeOpen: function () {
-      var area = document.getElementById("whiteboardArea");
+      var area = document.getElementById("storyboardArea");
       if (area) area.classList.add("invisible");
     },
     restore: function () {
@@ -28,7 +28,7 @@ function openSettings() {
 
 function closeSettings() {
   smdHideSettingsPage();
-  var area = document.getElementById("whiteboardArea");
+  var area = document.getElementById("storyboardArea");
   if (area) area.classList.remove("invisible");
   if (typeof wbPositionSelectionBar === "function") wbPositionSelectionBar();
 }

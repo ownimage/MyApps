@@ -20,7 +20,7 @@
 // comparison. If the two ever DO drift, the page notices at runtime
 // (GET_BUILD) and re-registers, so the drift self-heals instead of pinning
 // users to a build the worker will never replace.
-const BUILD_NUMBER = "202610241449";
+const BUILD_NUMBER = "202610241502";
 
 const CACHE = "myapps-" + BUILD_NUMBER;
 
@@ -546,26 +546,26 @@ const APPS = {
     "ListOfLists/js/components/lol-list-main-card.js",
     "ListOfLists/js/components/lol-list-items.js"
   ],
-  "Whiteboard/": [
-    "Whiteboard/",
-    "Whiteboard/index.html",
-    "Whiteboard/manifest.json",
-    "Whiteboard/icon.svg",
-    "Whiteboard/icon-192.png",
-    "Whiteboard/icon-512.png",
-    "Whiteboard/css/whiteboard.css",
-    "Whiteboard/assets/backgrounds/space.svg",
-    "Whiteboard/assets/backgrounds/underwater.svg",
-    "Whiteboard/assets/stickers/mermaid.svg",
-    "Whiteboard/assets/stickers/shark.svg",
-    "Whiteboard/assets/stickers/seaweed.svg",
-    "Whiteboard/assets/stickers/spaceman.svg",
-    "Whiteboard/assets/stickers/spaceship.svg",
-    "Whiteboard/js/storage.js",
-    "Whiteboard/js/board.js",
-    "Whiteboard/js/toolbar.js",
-    "Whiteboard/js/app-settings.js",
-    "Whiteboard/js/app.js"
+  "Storyboard/": [
+    "Storyboard/",
+    "Storyboard/index.html",
+    "Storyboard/manifest.json",
+    "Storyboard/icon.svg",
+    "Storyboard/icon-192.png",
+    "Storyboard/icon-512.png",
+    "Storyboard/css/storyboard.css",
+    "Storyboard/assets/backgrounds/space.svg",
+    "Storyboard/assets/backgrounds/underwater.svg",
+    "Storyboard/assets/stickers/mermaid.svg",
+    "Storyboard/assets/stickers/shark.svg",
+    "Storyboard/assets/stickers/seaweed.svg",
+    "Storyboard/assets/stickers/spaceman.svg",
+    "Storyboard/assets/stickers/spaceship.svg",
+    "Storyboard/js/storage.js",
+    "Storyboard/js/board.js",
+    "Storyboard/js/toolbar.js",
+    "Storyboard/js/app-settings.js",
+    "Storyboard/js/app.js"
   ]
 };
 

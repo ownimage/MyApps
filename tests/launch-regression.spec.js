@@ -20,7 +20,7 @@ test.describe("Launch - Regression", () => {
     "/FreeFormOX/",
     "/ListOfLists/",
     "/PhoneButtons/",
-    "/Whiteboard/",
+    "/Storyboard/",
     "/storybook/",
     "/storybook/cardViewer.html"
   ];
@@ -74,7 +74,7 @@ test.describe("Launch - Regression", () => {
       ["/SolarControlar/", "Solar Controlar"],
       ["/FreeFormOX/", "FreeFormOX"],
       ["/ListOfLists/", "List of Lists"],
-      ["/Whiteboard/", "Whiteboard"]
+      ["/Storyboard/", "Storyboard"]
     ];
     for (const [shell, name] of EXPECTED) {
       await page.goto(shell);
@@ -120,7 +120,7 @@ test.describe("Launch - Regression", () => {
       ["FreeFormOX", "FreeFormOX/"],
       ["List of Lists", "ListOfLists/"],
       ["Phone Buttons", "PhoneButtons/"],
-      ["Whiteboard", "Whiteboard/"],
+      ["Storyboard", "Storyboard/"],
       ["Launch", "./"]
     ];
     for (let i = 0; i < EXPECTED_TILES.length; i++) {
@@ -197,7 +197,7 @@ test.describe("Launch - Regression", () => {
       ["FreeFormOX", "FreeFormOX/"],
       ["List of Lists", "ListOfLists/"],
       ["Phone Buttons", "PhoneButtons/"],
-      ["Whiteboard", "Whiteboard/"],
+      ["Storyboard", "Storyboard/"],
       ["Launch", ""]
     ];
     // SolarControlar is intentionally skipped: it needs its own power-data
@@ -207,7 +207,7 @@ test.describe("Launch - Regression", () => {
     // every app jumps to any other app from one place.
     for (const [shell, prefix] of [["/", ""], ["/PlanMyDay/", "../"], ["/CountMyDays/", "../"],
       ["/QRLinks/", "../"], ["/FreeFormOX/", "../"], ["/ListOfLists/", "../"], ["/PhoneButtons/", "../"],
-      ["/Whiteboard/", "../"]]) {
+      ["/Storyboard/", "../"]]) {
       await page.goto(shell);
       await page.locator("#btnMainMenu").click();
       const toggle = page.locator("#mainNav .launch-submenu-toggle");
@@ -274,7 +274,7 @@ test.describe("Launch - Regression", () => {
 
   test.describe("Launch Menu tab", () => {
 
-    const ALL_APPS = ["Plan My Day", "Count My Days", "QR Links", "Solar Controlar", "FreeFormOX", "List of Lists", "Phone Buttons", "Whiteboard", "Launch"];
+    const ALL_APPS = ["Plan My Day", "Count My Days", "QR Links", "Solar Controlar", "FreeFormOX", "List of Lists", "Phone Buttons", "Storyboard", "Launch"];
 
     async function openMenuTab(page) {
       await page.goto("/");

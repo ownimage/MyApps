@@ -1,4 +1,4 @@
-// Whiteboard — the floating left toolbar (boards, background, stickers, text)
+// Storyboard - the floating left toolbar (boards, background, stickers, text)
 // and its fly-out panel. The rail is always visible; one tool's panel slides out
 // beside it. Pin keeps the panel open while the board is used.
 

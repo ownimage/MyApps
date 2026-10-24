@@ -1,7 +1,7 @@
 {
-  "name": "Whiteboard",
-  "short_name": "Whiteboard",
-  "description": "Place stickers and text anywhere on a whiteboard",
+  "name": "Storyboard",
+  "short_name": "Storyboard",
+  "description": "Place stickers and text anywhere on a storyboard",
   "start_url": ".",
   "scope": ".",
   "display": "standalone",

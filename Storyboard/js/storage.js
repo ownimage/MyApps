@@ -1,4 +1,4 @@
-// Whiteboard — board + item storage.
+// Storyboard - board + item storage.
 //
 // Every board is { id, name, background, items }. Items are either
 //   sticker: { id, type:"sticker", sticker, x, y, scale, rotation, z, flipX, flipY }
@@ -6,7 +6,7 @@
 // `flipX`/`flipY` mirror the sticker ARTWORK only (the object box, handles and
 // connectors stay put). x/y are PERCENTAGES of the board so a board keeps its
 // layout on any screen.
-// All keys live under the app's `whiteboard_` prefix via smdKey().
+// All keys live under the app's `storyboard_` prefix via smdKey().
 //
 // The whole app is classic scripts with globals, like every other app here:
 // generated markup uses inline handlers and the shared settings code calls
@@ -34,7 +34,7 @@ var WB_TEXT_BORDERS = [
 
 // Families declared in shared/css/fonts/fonts.css (loaded by the theme sheet's
 // @import), plus the theme stack and two system fallbacks. The CSS owns the
-// actual font stacks (`.wb-font-<id>` in whiteboard.css).
+// actual font stacks (`.wb-font-<id>` in storyboard.css).
 var WB_TEXT_FONTS = [
   { id: "theme", name: "Theme font" },
   { id: "serif", name: "Serif" },
@@ -178,7 +178,7 @@ function wbLoadState() {
   if (!Array.isArray(boards)) boards = [];
   wbState.boards = boards.map(wbNormalizeBoard).filter(Boolean);
   if (!wbState.boards.length) {
-    wbState.boards.push({ id: wbUid(), name: "My Whiteboard", background: "", items: [], connectors: [] });
+    wbState.boards.push({ id: wbUid(), name: "My Storyboard", background: "", items: [], connectors: [] });
   }
   var savedActive = localStorage.getItem(smdKey("activeBoard")) || "";
   wbState.activeId = wbFindBoard(savedActive) ? savedActive : wbState.boards[0].id;

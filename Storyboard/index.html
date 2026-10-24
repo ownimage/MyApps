@@ -9,7 +9,7 @@
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="icon-192.png">
-  <title>Whiteboard</title>
+  <title>Storyboard</title>
 
   <link rel="stylesheet" href="../shared/vendor/fontawesome/css/fontawesome.min.css">
   <link rel="stylesheet" href="../shared/vendor/fontawesome/css/solid.min.css">
@@ -19,7 +19,7 @@
   <link id="smd-shared-css" rel="stylesheet" href="../shared/css/styles.css">
   <link id="theme-override-mode" rel="stylesheet" href="../shared/css/themes/light.css">
   <link id="theme-override-specific" rel="stylesheet" href="../shared/css/themes/superhero/superhero.light.css">
-  <link rel="stylesheet" href="css/whiteboard.css">
+  <link rel="stylesheet" href="css/storyboard.css">
   <script src="../shared/js/build-number.js"></script>
   <script>
     // Cache-bust every same-origin link (stylesheet/manifest/icon) with the
@@ -56,7 +56,7 @@
   </nav>
 
   <!-- BOARD -->
-  <main id="whiteboardArea">
+  <main id="storyboardArea">
 
     <div id="wbCanvas">
       <div id="wbBackground" data-background="none"></div>
@@ -79,7 +79,7 @@
     <div id="wbBoardName" class="wb-board-chip" role="button" tabindex="0" title="Switch board"></div>
 
     <!-- LEFT TOOLBAR: rail + fly-out panel -->
-    <aside id="wbToolbar" class="wb-toolbar" data-open="" data-pinned="false" aria-label="Whiteboard toolbar">
+    <aside id="wbToolbar" class="wb-toolbar" data-open="" data-pinned="false" aria-label="Storyboard toolbar">
       <div class="wb-rail">
         <button type="button" class="wb-rail-btn" data-tool="boards" title="Boards" aria-label="Boards">
           <i class="fa-solid fa-chalkboard" aria-hidden="true"></i><span>Boards</span>
@@ -224,7 +224,7 @@
         <div class="row mb-4 align-items-center col-md-8">
           <div class="col-4 text-end"><label class="form-label mb-0">Share app</label></div>
           <div class="col-8">
-            <smd-qrcode id="shareQrCode" value="https://ownimage.github.io/MyApps/Whiteboard/" size="120"></smd-qrcode>
+            <smd-qrcode id="shareQrCode" value="https://ownimage.github.io/MyApps/Storyboard/" size="120"></smd-qrcode>
           </div>
         </div>
 
@@ -288,7 +288,7 @@
       if (typeof showSmdModal === "function") {
         showSmdModal({
           title: "Update available",
-          content: "A new version of Whiteboard is ready. Update now to get the latest changes?",
+          content: "A new version of Storyboard is ready. Update now to get the latest changes?",
           buttons: [
             { text: "Later", variant: "secondary", action: "later" },
             { text: "Update now", variant: "primary", action: "update" }
@@ -310,7 +310,7 @@
         });
       }
     }
-    window.__whiteboardSwUpdater = { showUpdatePrompt: showUpdatePrompt };
+    window.__storyboardSwUpdater = { showUpdatePrompt: showUpdatePrompt };
 
     // STABLE worker url on purpose: versioning it would make the browser install
     // a second worker for the same bump ("updates twice"). The update signal is
