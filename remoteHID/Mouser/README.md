@@ -659,7 +659,7 @@ auto-binds the defaults:
 
 The rotation and translation step sizes are configurable in the add-on
 preferences. Install/use instructions are in
-[`blender/README.md`](blender/README.md).
+[`blender/README.md`](../blender/README.md).
 
 ### Acceptance for v0.3.1
 
