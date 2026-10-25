@@ -14,6 +14,7 @@ This repo is set up to host **multiple PWAs off one origin** (GitHub Pages
 - `SolarControlar/` — solar energy monitoring dashboard (front-end for the Flask server), served at `/<project>/SolarControlar/` (same structure; own `manifest.json` + icons).
 - `remoteHID/` — grouped remote-input apps: `remoteHID/PhoneButtons/` (the PWA, served at `/<project>/remoteHID/PhoneButtons/`), `remoteHID/server/` (its Flask + Socket.IO + Mouser UDP server) and `remoteHID/Mouser/` (the C# capture client for the mouse machine).
 - `FreeFormOX/` — free-form noughts & crosses app, served at `/<project>/FreeFormOX/` (same structure; own `manifest.json` + icons).
+- `Storyboard/` — stickers, text and backgrounds on named boards, served at `/<project>/Storyboard/` (same structure; own `manifest.json` + icons + `assets/`).
 - `Launch/` + the repo-root `index.html` — the launcher (grid of the available apps), served at `/<project>/`. Its support files live in `Launch/`; the entry is the root `index.html`.
 - `sw.js` — a **single site-wide service worker at the repo root**. It must live at
   the root because a service worker can only intercept requests inside its scope,

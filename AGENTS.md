@@ -87,6 +87,46 @@ Architecture:
 - TYPESCALE TOKENS (2026-09-18): one shared ramp in `shared/css/styles.css` — `body { --smd-type-base: 1rem }` plus `body.font-size-xsmall/small/large/xlarge/jumbo` overrides (0.8/0.925/1/1.125/1.3/1.6rem) — drives exactly four tokens `--smd-type-badge` (base×0.75), `--smd-type-p` (base), `--smd-type-h2` (base×1.25), `--smd-type-h1` (base×2), all declared on `body` (NOT `:root`: the ramp must recompute per font-size body class, and body custom props pierce shadow DOM while `:host-context()` doesn't). Tag map: h1→h1; h2/h3/h4→h2; h5/h6→p; text/inputs/tables→p; badges→badge. BUTTONS ARE h2 (one step above text): `<button>`, `.btn`, `.smd-tab-btn` all use `var(--smd-type-h2)`; `.btn-sm` stays at `var(--smd-type-p)`. Light-DOM home is `shared/css/styles.css` (`button, .btn` / `.btn-sm`); the shared `btnBadgeSheet` covers shadow buttons. Scaffold the h2/p rules inline wherever a shadow root does NOT adopt btnBadgeSheet: the 4 apps' `editor-styles.js`, `smd-settings.js`, `smd-minio.js`, `smd-modal.js`, `smd-image-picker.js`, `smd-image-dropdown.js`. Don't re-add per-component `.btn` font-size rules. Every component + app style now uses `var(--smd-type-*, original-value)` (original as fallback so behaviour is unchanged wherever the token is missing). Media-fit sizes are token CALCs (e.g. CM/QR title `calc(var(--smd-type-h1,1.5rem)*0.7667)`, CM count `*0.8333`, CM container h1 `*0.625`, Solar 480px block). Compact density = `--…-title-size: var(--smd-type-p)` overrides. Deliberate non-token exceptions: the 22px hamburger icon in `smd-app.js`, `smd-checkbox` 1.2em/2em + `smd-draghandle` FIXED 1.2rem/1.6rem touch sizes, vendor CSS, storybook chrome. Tests assert heading ELEMENT tags (now `h1` for main-view date/"Today!"/"From …" headings) and pmd-touch.spec.js:119 asserts the NEW pixel values (xlarge 41.6, jumbo 51.2, compact-jumbo 25.6) — update those literals together with any ramp change.
 - THEME TEXT COLOURS (2026-09-12): shadow-DOM buttons/tabs cannot use Bootswatch's `.btn-*` rules (document CSS doesn't cross the boundary, and `--bs-btn-*` is set on the `.btn-*` element, not `:root`). `applySmdVars()` reads a hidden light-DOM `<button class="btn btn-<variant>">` probe (`smdBootstrapColor()`) and publishes `--smd-primary/secondary/success/danger/info/warning-text` + `--smd-tab-text` on `<html>`; every shadow `.btn-*`/variant uses those vars. `applyTheme()` re-runs `applySmdVars` on the theme `<link>`'s `load`. Never hardcode white text for a theme-coloured surface; if Bootswatch's own `.btn-*` rule disagrees with its `--bs-btn-color` var (e.g. cerulean's later `.btn-secondary { color: ... }`), the probe wins — always match the probe.
 - BADGES (2026-09-12): use the shared `<smd-badge variant="primary|secondary|success|danger|warning|info|light|dark" pill?>` component everywhere — never a `<span class="badge bg-*">` (Bootstrap's badge vars live on the `.badge` element and can't reach shadow roots). `applySmdVars()` probes a hidden light-DOM `.badge.text-bg-<variant>` (`smdBootstrapStyle()`) and publishes `--smd-badge-<variant>-{bg,text}`; the component's own sheet consumes them, so text colour follows Bootswatch exactly (white on cerulean's navy info, black on its light secondary, etc.). `btnBadgeSheet` now only carries `.btn*` rules despite its name; `smd-page`'s badge/bg rules were removed.
+- PWA TITLE BAR COLOUR (2026-10-24): Windows 11 paints an installed PWA's
+  title bar from the manifest `theme_color`; the page's
+  `<meta name="theme-color">` overrides it once loaded. There is NO manifest
+  option for "follow the OS accent" (W3C manifest issue #695); omitting
+  `theme_color` gives the OS default but also loses the mobile/task-switcher
+  branding. CHOSEN FALLBACK: the meta follows the app's TOP-BAR SURFACE,
+  `--bs-body-bg`, so the OS title bar matches the in-app menu bar and follows
+  BOTH theme and mode. Do NOT use `--bs-secondary`: Yeti's secondary is #eee in
+  light AND dark (dark title bar went white) and superhero's #4e5d6c does not
+  match its navy bar. `applyThemeColor()` + `smdRefreshThemeColor()` /
+  `smdBindThemeColorLink()` in `shared/js/smd-settings.js` read the live
+  `--bs-body-bg` and re-run when a theme/mode sheet's `load` fires;
+  `applyTheme`/`applyThemeMode` call them. STATIC `theme_color`/meta values are
+  only the pre-load/install default - the old Android green `#3ddc84` was the
+  reported "weird green", now `#212529` in the Launch and PMD/CMD/LoL/QRLinks
+  manifests + metas (other apps keep their brand colour until the meta loads).
+  Chromium updates an installed app's manifest theme_color on a later launch
+  after its windows close; the page meta takes effect when the page loads.
+  Test: `tests/pwa-theme-color.spec.js`.
+- WINDOW CONTROLS OVERLAY (2026-10-24, user request): ALL 9 manifests opt in
+  with `"display_override": ["window-controls-overlay"]` (keep
+  `"display": "standalone"`). The overlay is USER-enabled (PWA menu -> Hide
+  title bar) and starts OFF; the app cannot force it, so the normal nav row must
+  keep working. `smdInitWindowControlsOverlay()` in `shared/js/smd-app.js`
+  toggles `body.smd-wco` from `navigator.windowControlsOverlay.visible` on init,
+  `geometrychange` and the `(display-mode: window-controls-overlay)` media
+  query. CSS in `injectSettingsLayout()` (smd-settings.js) then moves
+  `#mainNav` into the strip (`env(titlebar-area-x/y/width/height)`, 33px
+  fallbacks), gives body the same `padding-top`, pins `transform:none
+  !important`, drops the auto-hide container padding, and marks the nav
+  `app-region: drag` with every button/link/input/`.dropdown`/`.dropdown-menu`
+  `no-drag`. CONSEQUENCE: the Auto-hide menu setting is irrelevant while the
+  overlay is on (nav is always in the title bar), but works again when off.
+  GOTCHA: don't put `overflow:hidden` on the nav - it clips the hamburger
+  dropdown. Storyboard's left rail sits directly under the title-bar hamburger,
+  so `body.smd-wco #sbToolbar { top: 24px }` (storyboard.css) doubles its normal
+  12px inset; the web app keeps 12px. Tests: `tests/wco.spec.js` (all manifests;
+  Storyboard title-bar geometry + body inset + rail gap >= 24px + hamburger
+  opens + `hideNav()` cannot slide it; transition off restores the row and the
+  12px rail inset; PlanMyDay shell).
 - IMAGE DROPDOWN (2026-09-18): the shared `<smd-image-dropdown>` (`shared/js/components/smd-image-dropdown.js`) is the generic image+name picker — the old PlanMyDay `pmd-stream-select` was folded into it and deleted. It is DATA-driven, not DOM: host sets `options = [{name, image}]` (image OPTIONAL → text-only rows, e.g. CountMyDays' no-image "All") and `selected` = the chosen option's NAME string; picks dispatch `smd-image-dropdown-change` ({ name }). Listener wiring: CountMyDays `#dateCategoryFilter` (`smd-image-dropdown-change` → `setDateCategoryFilter`, "" for All) in `dates-editor.js`; PlanMyDay `#jobStreamDropdown` (name mapped back via `streamIndexByName` in `editor-common.js`). Stable shadow ids for test locators: `smdImageDropdownBtn`, `smdImageBtnIcon`, `smdImageBtnText`, `smdImageDropdownMenu`. Its colours come from the `--smd-dropdown-*` palette in the shared MODE layer (`shared/css/themes/light.css` + `dark.css`), which since 2026-10-13 mirrors the form-field palette (`--smd-form-*`) for surface/label/border and does NOT change colour on hover (the closed control is field-like); a theme overrides in `shared/css/themes/<theme>/<theme>.<mode>.css` (superhero, cyborg, darkly do) — see the 2026-09-26 (c) and 2026-10-13 (e) session notes. GOTCHA (2026-10-13): the palette only sets `background-color`, so a theme whose stock `.btn` ALSO sets `background-image: var(--bs-gradient)` shows a white sheen over a dark button; materia is the only such theme and clears it with `#smd-app smd-image-dropdown .btn { background-image: none }` (the `#smd-app` scope is needed to beat the theme's `.btn:focus-visible` re-apply).
 - SMD-SELECT (2026-10-13): new shared `shared/js/components/smd-select.js` (`<smd-select>`) — a text-only custom dropdown with a `<select>` SHAPE (its button reuses Bootstrap's `.form-select`, so it inherits the shared `--smd-form-*` repaint) but a THEMED menu, because a native `<select>`'s open list is OS-rendered and cannot be CSS-styled cross-browser. API: `options = [{value,label}]`, `value` (reflected as an attribute for tests), attributes `disabled`/`value`, event `smd-select-change` ({value,label}); stable hooks `.smd-select-btn`, `.smd-select-item[data-value]`, `.smd-select-item.active`. The HOVERED row gets its primary surface from a CSS `:hover`/`:focus-visible` rule on `.smd-select-item` (so it ALWAYS shows), and the SELECTED row gets `.text-bg-primary`; the component ALSO adds `.text-bg-primary` to the hovered row so the theme's primary BUTTON variant supplies the correct contrast text (brite keeps BLACK text; a plain `--bs-primary`+white is unreadable there). Menu `z-index: 1030` (above Bootstrap `sticky-top` 1020, below smd-page 1040 / modal 1050). Rows are `<a>` so they need `text-decoration: none`. `<smd-theme>` now uses it for the Theme / Theme Mode fields (was a native `<select>`). Registered in all 8 shells AFTER `library.js` and BEFORE `smd-theme.js`, plus `sw.js SHARED_ASSETS`; tests drive it with `tests/theme-controls.js` `pickOption(page, control, value)` which clicks `.smd-select-item[data-value="…"]`. MIGRATION ENABLERS (2026-10-13): `<smd-select>` also (a) dispatches a bubbling `change` event so an existing inline `onchange="fn(this.value)"` keeps working after the tag swap, (b) reads declarative `<option>` children into `options` (then removes them), (c) drops a leftover `form-select`/`form-select-sm` class from the HOST (the inner button carries the look), (d) supports `w-auto` (shrink-to-fit) and basic keyboard nav (Arrow/Enter/Escape). So migrating a static `<select>…</select>` is literally two edits: `<select id=` → `<smd-select id=` and `</select>` → `</smd-select>`. PHASE 2 DONE: every appearance-settings select in the 7 shell `index.html`s (font/icon/density/touch size, slide duration, CM format + max countdowns, PMD suffix-start/jan1/monday/start-week, FFox x/o piece style) is now `<smd-select>`. PHASE 3 DONE: SolarControlar `#log-file` (files-tab) + `#graph-date` (graph-tab) and PhoneButtons `#buttonKeyNamed` + `#buttonPressSelect` (edit-layout). GOTCHA: a declarative `<option>` set leaves its inter-tag WHITESPACE text nodes in the host, so `_build()` clears all children (`this.textContent = ""`) and the template string is whitespace-free (otherwise a stray line/space shows in the host). When migrating a select whose OPTIONS ARE REBUILT in place, set `.options` — never `.innerHTML`/`appendChild(<option>)`, which would wipe the component (that is why `graph-tab.js` `loadGraphDates` now assigns `.options`). PHASE 4 DONE: CountMyDays date/category editors (`#dateDaySelect`/`#dateMonthSelect`/`#dateTypeSelect`/`#gcalCategorySelect`) and the export/import wizards (`#imgExistingSelect`/`#catExistingSelect`/`#dateExistingSelect` + the export category filter); `<smd-select>` gained a `disabled` getter/setter (the wizards assign `.disabled`). PHASE 5 DONE: PMD job editor `#jobTimeHour`/`#jobTimeMin` + the dayType/mod selects (tag swap, `<option>` markup kept) and the Schedule MODAL `#schedNInterval`/`#schedNOffset`/`#schedMonthlyDay` (which are JS-POPULATED, so `openScheduleModal`/`onScheduleNDaysChange` now assign `.options`). PHASE 6 DONE: storybook `#ctrl-modal-buttons`/`#ctrl-image-theme`/`#ctrl-image-size` and cardViewer `#cardSelect`/`#themeSelect` (JS-populated → `.options`); `<smd-select>` also maps `form-select-sm` / `size="small"` onto the inner button, and `storybook/cardViewer.html` now loads `smd-select.js`. ROLLOUT COMPLETE — no native `<select>` remains in the app shells or storybook (the dev-only `screenshots/viewer.js` output tool is deliberately untouched).
 - SMD-IMAGE-DROPDOWN CLOSED-STATE LAYOUT (2026-10-04): the closed button
@@ -103,6 +143,16 @@ Architecture:
   `.thumb { margin-top: calc(0.375rem + 1px) }`, matching the dropdown button's
   padding+border) so its image lines up with the dropdown image with OR without
   a job image; the Edit Job Image wrapper is deliberately NOT `align-items-center`.
+  MENU THUMBNAILS MATCH THE BUTTON (2026-10-23): every `.item .thumb` is the
+  SAME square as the closed button's image (`SmdImage.defaultSize`, i.e. the Icon
+  size setting), NOT a fixed `1.5rem`. Each option renders an `<smd-image>`
+  (`flex:none` in the component sheet) and a no-image option gets an EMPTY
+  `<smd-image>` inside `.thumb.thumb-blank` so the column stays aligned and
+  follows the setting. Do NOT reintroduce a fixed wrapper width: as a flex item
+  the image shrinks in WIDTH only, giving a 24x50 host whose Font Awesome glyph
+  is clipped and whose 300x60 upload is squeezed to 24x4.8. Guards:
+  pmd-regression "menu thumbnails match the closed button..." and "the widest
+  Font Awesome glyph (fa:braille) fits the menu thumbnail".
 - PMD TASKS (2026-09-26): the PlanMyDay job-edit Tasks list is the `PlanMyDay/js/components/pmd-tasks.js` component `<pmd-tasks>` (light DOM, host id `#jobTasksList`). DATA-driven: host sets `tasks = [{description, done, note, noteOpen}]` + the `read-only` attribute; it renders `.task-row`/`.task-note-row` keeping every id/class the suite targets (`.task-drag-card`, `.drag-handle`, `.task-done-cb`, `.task-desc-input`, `.task-note-btn`, `#taskNoteRow<i>`), and dispatches `pmd-task-change` ({index, field, value}, field done|description|note), `pmd-task-note-toggle` ({index, open}) and `pmd-task-delete` ({index}). `job-editor.js` `getJobTasksTabHTML` emits `<pmd-tasks id="jobTasksList" [read-only]>`; `renderJobTasks()` just sets `el.tasks = jobsBuffer.tasks`, toggles the top Add button and re-inits Sortable; `buildJobEditPage` calls `renderJobTasks()` for BOTH modes. The 3 events are wired on `#jobEditPage` in `app.js` -> `jobTaskField`/noteOpen/`jobDeleteTask`. `jobTaskToggleNote`/`taskNoteOpen` were deleted; `setTaskNoteBtnClass` stays (jobTaskField). Registered in `PlanMyDay/index.html`, `sw.js` APPS and the storybook (+section, nav count 31->32). Row colours come from the `--pmd-tasks-row-{background,foreground}` palette at the top of `shared/css/styles.css` (superhero overrides background to `--bs-dark`); see the 2026-09-26 (d) note.
 - Quartz's "glassmorphism" overrides live in `shared/css/styles.css` (`.modal-content`, `.dropdown-menu`).
 - REPO/PWA LAYOUT (2026-09-10): the repo hosts **multiple PWAs off one origin**
@@ -268,6 +318,312 @@ Architecture:
   and would strict-mode-fail). Sample images "Launch" and "Phone Buttons" were
   added (native SVG + SURGICAL JSON append — a full `regen` rewrites 22
   pre-existing entries whose SVG files drifted from the JSON).
+- STANDARD HAMBURGER MENU ORDER (2026-10-24, user request): EVERY app's
+  `#mainNav .dropdown-menu` is ordered **Settings | divider | Launch (flyout) |
+  divider | app items**. Conditional groups (MinIO, GCal, Gantt) come AFTER the
+  app items and carry their own divider + visibility class (`minio-menu-item`,
+  `google-menu-item`, `gcal-menu-item`, ...), so enabling one never reorders the
+  menu. Storyboard was the odd one (MinIO sat before Launch) - keep any new app
+  in this order. Test: storyboard-minio "the hamburger menu follows Settings |
+  separator | Launch | separator | app items" asserts the top-level `<li>`
+  sequence. GOTCHA: scope the selector with
+  `:not(.launch-submenu-menu)`, or the flyout's own rows leak into the list.
+- STORYBOARD APP (2026-10-21, NEW — the 9th app; older notes saying "all 8
+  shells/apps" predate it): `Storyboard/` is a PlanMyDay-style classic-script PWA
+  (no modules, globals on purpose). It has the standard hamburger (Settings |
+  Launch flyout | MinIO save/load items) and TWO settings tabs, **Display** and
+  **Minio**. Display has only live rows:
+  Theme, Theme Mode, Font size, Touch size, Slide speed, Auto-hide menu, Screen
+  resolution (last). Minio holds the shared server/bucket/directory fields. No
+  Title/`<h1>` in the shell (the nav title reads
+  "Storyboard" from `SmdApps`).
+  FILES: `js/storage.js` (data + colour/frame helpers), `js/board.js` (render +
+  pointer gestures), `js/toolbar.js` (rail, fly-out panels, text editor),
+  `js/app-settings.js`, `js/app-minio.js` (story save/load), `js/app.js`;
+  `css/storyboard.css` (all app layout; the
+  shared sheet is untouched); `assets/backgrounds/{space,underwater}.svg`
+  (2560x1440) and `assets/stickers/{mermaid,shark,seaweed,spaceman,spaceship}.svg`
+  (512 viewBox flat art, transparent). `icon.svg` + generated 192/512 PNGs.
+  DATA (2026-10-24, Stories/Scenes): keys via `smdKey()` = `storyboard_stories`,
+  `storyboard_activeStory`, `storyboard_activeScene`, `storyboard_toolbarPinned`.
+  `sbState.stories` is an array of `{id,name,scenes:[scene],activeSceneId}`; a
+  SCENE is the old board shape
+  `{id,name,background,items,connectors,groups,view}`. `sbActiveBoard()` returns
+  the ACTIVE story's active scene, so every board-scoped render/edit/export
+  helper is unchanged. Items are stickers
+  `{id,type:"sticker",sticker,x,y,scale,rotation,z,flipX,flipY}` or text
+  `{id,type:"text",text,bg,color,border,font,x,y,scale,rotation,z}`. `view` is
+  that SCENE's own zoom + pan (`{zoom, fx, fy}`; see APP ZOOM below). NOTE:
+  older notes in this section say "board" where the model now says SCENE; the
+  canvas is still board-shaped and the internal `sbBoard*`/`sbState.activeId`
+  names are kept on purpose. `x`/`y` are
+  PERCENTAGES of the board (2..98 for a single-item transform; a group/multi
+  transform clamps the SET's box instead and may use 0..100) so a board keeps its
+  layout on resize; `z` is
+  paint order. New items go to 50/50 then cascade +4% (first item must be
+  centred, not offset). Backgrounds are ids (`space`/`underwater`/`""`), never
+  paths, so the asset list stays in `SB_BACKGROUNDS`/`SB_STICKERS`.
+  INTERNALS (renamed 2026-10-24): the globals are `sb*`, CSS classes `sb-*`, DOM
+  ids `#sb*`, constants `SB_*` and custom props `--sb-*` (they were `wb`/`WB_`
+  from the original Whiteboard name; a word-boundary rename changed ~1,553
+  occurrences with no behaviour change). Storage keys were already
+  `storyboard_*`, so no data migration is involved.
+  STICKER FLIP (2026-10-23, user request): a selected sticker's action bar has
+  **Flip horizontally** (`#sbSelFlipH`, `fa-left-right`) and **Flip vertically**
+  (`#sbSelFlipV`, `fa-up-down`) toggles; they are hidden for text boxes and
+  connectors. The flags live on the item (`flipX`/`flipY`) so they survive a
+  reload and are copied by Duplicate. `sbApplyStickerFlip()` sets
+  `--sb-flip-x`/`--sb-flip-y` on the OBJECT and `.sb-sticker`'s
+  `transform: scaleX(var(--sb-flip-x,1)) scaleY(var(--sb-flip-y,1))` mirrors only
+  the ARTWORK - never put the flip on the object itself, or its scale/rotate
+  handles and outline mirror too. The buttons use `aria-pressed` + a highlighted
+  background while the mirror is on. `.sb-sel-btn` is `inline-flex` centred with
+  `padding:0` and `line-height:1`, so every FA glyph (including the narrow
+  up-down arrow) sits exactly in the middle of the 32px pressed background.
+  BOARD = THE WHOLE ARTWORK (2026-10-23, user request): the live board is no
+  longer the visible window with a `cover` crop. `sbLayoutBoard()` sizes
+  `#sbCanvas` to the background's aspect (`SB_BACKGROUNDS[].width/height`, both
+  2560x1440) fitted inside the `#sbScroller`/`#sbStage` pair and centred by the
+  stage's flexbox, so the WHOLE image is always visible and a window of a
+  different shape shows bars around it. No background -> the board fills the
+  area (dot grid). Item `x`/`y` are % of the BOARD (= % of the artwork).
+  Stickers are sized from `--sb-sticker-base` (15% of the board's smaller side,
+  set by `sbLayoutBoard`) instead of `15vmin`, so they belong to the board, not
+  the window. `#sbBackground` is `background-size:100% 100%` (the aspect already
+  matches, so nothing is cropped or stretched). A click anywhere in
+  `#storyboardArea` deselects (the board no longer fills it); the handler ignores
+  objects/connectors/toolbar/action bar/board chip.
+  BROWSER ZOOM: the resize handler re-fits the artwork on EVERY resize (120ms
+  debounce), including a page zoom. The nav/toolbar/board name/action bar are UI
+  and scale with the browser's page zoom; the board takes whatever space the
+  larger UI leaves, showing the whole image as large as possible (bars when the
+  window shape differs). Everything INSIDE the board scales by
+  `--sb-design-scale` = (fitted board height x app zoom) / `SB_DESIGN_HEIGHT`
+  (655, the board
+  of a 1280x720 window): the text font (plus padding/border/radius via `calc`),
+  stickers (`--sb-sticker-base` = 15% of the fitted board's smaller side), the
+  dot grid, connector stroke widths and the connector end gap. That keeps text
+  and stickers in the same place and at the same relative size on the artwork
+  when the board re-fits. Do NOT apply the design scale to the UI - the browser
+  already magnifies it; the selection handles/action bar stay UI-sized.
+  APP ZOOM + SCROLL (2026-10-24, user request): the bottom of the rail has
+  magnifier minus/plus side by side (`#sbZoomOut`/`#sbZoomIn`, stepping
+  `SB_ZOOM_LEVELS` = 0.5/0.75/1/1.25/1.5/2/3/4) and `#sbZoomFit` (zoom 1 =
+  today's fitted view). NO percentage is shown. ZOOM + PAN ARE PER BOARD
+  (2026-10-24): each board stores its own `view = {zoom, fx, fy}` inside the
+  board JSON (no separate `storyboard_zoom` key any more; there is deliberately
+  NO legacy migration). `sbState.zoom` is only the runtime mirror of the ACTIVE
+  board's `view.zoom`; `sbLoadState`/`sbSetActiveBoard`/`sbAddBoard`/
+  `sbDeleteBoard` set it from the incoming board. `fx`/`fy` are the BOARD
+  fraction at the centre of the visible scroller (0.5/0.5 = fitted + centred),
+  captured by `sbCaptureView()` on scroll/zoom/board switch/pagehide and restored
+  by `sbRestoreBoardView()` in `sbRender()`'s `layoutKey` branch - fractions, not
+  raw scrollLeft/Top, so the same artwork position survives a window-size
+  change. `sbCentreBoard()` remains only as the fallback for a board with no
+  view. DOM: `#storyboardArea > #sbScroller
+  (overflow:auto) > #sbStage (flex centred) > #sbCanvas` - only the board
+  scrolls; the toolbar, board chip, action bar and connect hint are fixed
+  overlays. `sbLayoutBoard(anchor)` sizes the canvas to fit x zoom. At zoom 1 the
+  stage is exactly the viewport (no scrollbars, view unchanged). Zoom > 1 adds a
+  PASTEBOARD: `sbBoardOverhang()` measures every rendered object and its visible
+  grab handles, and `sbSizeStage()` grows the stage by the biggest overhang per
+  axis (minimum `SB_BOARD_PAD` 56), so an item at the artwork edge can always be
+  scrolled until its rotate/scale handles are on screen. `#sbCanvas` is
+  `overflow: visible` for that reason (oversized objects also paint into the
+  pasteboard at 100%). Zoom anchors on the selected item, else the viewport
+  centre (`sbZoomAnchorPoint()`/`sbApplyZoomAnchor()`).
+  `sbRefreshPasteboard()` re-measures when the selection changes or a drag ends
+  - WITHOUT it, selecting a sticker AFTER zooming left its handles clipped (the
+  pad had been sized with no handles). The action bar is repositioned on the
+  scroller's `scroll` (rAF). Drag/scale/rotate and the JPG export keep using live
+  rects,
+  so they need no zoom maths of their own. Tests:
+  `tests/storyboard-zoom.spec.js` (rail layout, steps/limits/Fit, scrollbars
+  only when zoomed, zoom-THEN-select edge-handle hit tests, selection anchoring,
+  drag accuracy at 1.5x, zoom + pan persisted on the board, per-board restore,
+  centred first visit).
+  SPACE-DRAG PAN (2026-10-24, user request): holding Space arms a hand mode
+  (`sbEnterPanMode`) ONLY when the scroller overflows (`sbCanPan`; at 100% the
+  fitted board is inert - user decision). `#sbScroller.sb-pan-ready` /
+  `.sb-pan-active` force `grab`/`grabbing` on the whole board area with
+  `!important` (objects and handles have their own cursors); the ACTIVE rule must
+  stay AFTER the READY rule. A CAPTURING `pointerdown` on `#sbScroller`
+  (`sbOnPanPointerDownCapture`) runs before the object/group/selection-box
+  handlers and stops them, so a pan starting on a sticker pans instead of
+  selecting or moving it, and an empty-area pan does not deselect - the
+  selection is untouched (user decision). Moves write
+  `scrollLeft/Top = start - pointer delta` (grab the canvas), with pointer
+  capture, and are handled at the TOP of `sbOnPointerMove`/`sbOnPointerUp`
+  before `sbState.pointers`. Releasing Space mid-drag KEEPS panning until
+  mouse-up (`sbLeavePanMode(false)` on keyup clears only `panReady`);
+  `window` blur forces an end (`sbLeavePanMode(true)`) so the hand cannot stick.
+  Space is ignored for typing targets, for a focused button/link/`[role=button]`
+  (rail/board chip keep native Space activation) and while a
+  `smd-page[open]`/`smd-modal[open]` or the invisible settings area is up.
+  Tests: `tests/storyboard-pan.spec.js` (10: 100% inert, pan + scroll + cursor
+  states, pan starting on a sticker leaves selection/positions untouched,
+  Space-release-mid-drag, edge clamping, normal object drag, textarea/
+  focused-button/settings guards, blur).
+  SAVE AS JPG (2026-10-23, user request): the rail's `#sbSaveBtn` (fa-download)
+  calls `sbDownloadJpg()` (`js/board.js`) and downloads
+  `<slug(board.name)>.jpg`. It is a CANVAS drawing of the STORED board, not a
+  DOM screenshot: surface (**the WHOLE background artwork at its natural size**,
+  not the visible `cover` crop - or the 24px dot grid at 22% body colour) ->
+  connectors (same `sbEdgePoint`/`sbPushOut` endpoints,
+  body-bg halo + body-colour line + arrowhead) -> items in z order (sticker
+  img with rotation/flip/drop-shadow; text with its computed font/colour/
+  padding, wrapped to the live box width, and fancy/hand/stamp SVG frames
+  drawn as a 9-slice - source slice 30 of 120 at the live computed border
+  width). The toolbar, board chip, empty hint and selection outlines/handles are
+  deliberately NOT in the image.
+  FULL-ARTWORK MAPPING: the export canvas is the image's natural size (capped
+  at 4096px on the long edge). Because the board's aspect now EQUALS the
+  image's, `coverScale = max(visW/imgW, visH/imgH)` is uniform (offset 0) and
+  item %s map straight to artwork pixels; each item is drawn inside a
+  `translate(art) + rotate + scale(1/coverScale)` context. Text/sticker metrics
+  come from the live DOM, so the artwork scale is already baked into them;
+  connector widths/end gap and the dot grid are multiplied by the live
+  `--sb-design-scale` as well as `artScale`. The result is invariant to browser
+  zoom and window size: the board scale and the artwork mapping cancel. With no
+  background the export is the visible board at 2x its CSS pixels.
+  Images are the LIVE `<img>` elements (stickers) plus a fresh `Image` for the
+  background file and frame data URIs, and `document.fonts.ready` is awaited so
+  a family picked in the text panel renders. GOTCHA: canvas text must wrap
+  against the live box width PLUS a ~1.5px tolerance - `offsetWidth/
+  offsetHeight` are integers while the browser lays text out on fractional
+  pixels, so an exact-width wrap moves a word to a second line that the
+  one-line box then hides.
+  CONNECTORS (2026-10-21): each board also has `connectors: [{id,from,to}]`,
+  where `from`/`to` are TEXT item ids. Normalization drops dangling/self/non-text
+  links and keeps ONE link per pair (any direction). A text box's selection bar
+  shows a Connect arrow; it enters `sbState.connectFrom` mode (source outlined,
+  every other text box dashed via `.sb-connecting`, hint bar with Cancel) and the
+  next text click creates the link. Escape/blank/non-text cancels. Clicking the
+  arrow line selects the connector (fat 18px transparent hit path with
+  `pointer-events: stroke`) and the bar swaps to Reverse + Delete; Delete/
+  Backspace removes it. `sbAddConnector` flips an existing reverse link so the
+  newly requested direction wins. Deleting a text item removes its links.
+  RENDER: one SVG layer `#sbConnectors` between the background and `#sbItems`
+  (z-index 1 vs 2) with a halo (body-bg, 7px) under a body-color line (2.5px) and
+  an arrow marker at the TARGET. Use body-color/body-bg, NOT `--bs-primary`:
+  sketchy's primary is #333 and disappeared on the dark backgrounds. Endpoints
+  come from `sbEdgePoint` (ray vs the ROTATED rectangle using `item.rotation` and
+  offsetWidth/Height) plus a 5px gap; `sbRenderConnectors` runs on render, every
+  transform/text style change, window resize and a ResizeObserver on each object
+  (font loads / font-size changes). GOTCHA: `#sbItems` is `pointer-events: none`
+  with `.sb-object { pointer-events: auto }`, otherwise its transparent full-size
+  box swallows clicks meant for the connector hit strokes. Selection outlines and
+  handles use body-color + a body-bg halo for the same visibility reason.
+  TOOLBAR: rail is always visible (74px desktop, labels fixed 10px; labels hidden
+  at <=520px where the rail is 50px). One tool's panel slides out beside it
+  (`#sbToolbar[data-open="boards|background|stickers|text"]`); clicking the same
+  rail button toggles it closed; outside clicks close it UNLESS pinned. Pin
+  persists (`storyboard_toolbarPinned`) and on reload a pinned toolbar reopens
+  Boards. GOTCHA: a panel button that re-renders the panel DETACHES the clicked
+  node before the document-level outside-click listener runs, so `target.closest`
+  no longer finds `#sbToolbar` and the panel closes itself — `sbOnPanelClick`
+  stamps `sbState.panelClickAt` and the outside handler ignores clicks from the
+  last 150ms. The page's `#mainNav .dropdown-menu` is raised to `z-index: 1038`
+  (nav itself 1039 under auto-hide) so the hamburger menu is never covered by the
+  toolbar; the toolbar is 1035, i.e. ABOVE the 1030 selection bar, so an open
+  panel (and the font dropdown inside it) cannot be blocked by the floating
+  action bar. smd-page (1040) and smd-modal (1050) stay on top.
+  GESTURES: objects are absolutely positioned and rotated around their centre.
+  A SINGLE selection shows the object's own scale (bottom-right) and rotate (top)
+  handles; a GROUP or loose MULTI-selection shows ONE `#sbSelectionBox` around the
+  union of the rendered member rects, with the same two handles. Selection state
+  is `sbState.selectedIds` (top-level leaf/group nodes) plus `sbState.selectedId`
+  = the single selected LEAF (text edit / Connect / Flip). Ctrl/Cmd/Shift+click
+  toggles an object's top-level node in/out; a touch press-and-hold (450ms,
+  cancelled by >6px movement or a second finger) ADDS it. Clicking a grouped
+  object selects its OUTER-MOST group. A plain click on a member of a
+  multi-selection COLLAPSES to it on pointerup (`drag.collapseOnTap` +
+  `drag.moved`); a real drag moves the whole set.
+  Move/scale/rotate/pinch all run through `sbApplyDrag()` against a SNAPSHOT of
+  the selected leaves and the selection rect: scale multiplies each leaf's
+  `scale` and its offset from the rect centre; rotation is rigid about that centre
+  (position orbits + `rotation += delta`); a set translates as a unit, clamped by
+  its BOX (never per item, or a group deforms at the edge). Every member's scale
+  stays 0.2..5. THE BAR SITS BESIDE
+  THE SELECTION (right of its AABB, else left, else above the rotate handle, else
+  below) — never centred above it: the first cut put it at `rect.top - 14` with
+  `translateY(-100%)`, which covered the top rotate handle exactly (the user
+  could not see it; `elementFromPoint` at the handle centre returned the
+  duplicate icon). Keep the bar outside the object's AABB so neither handle can
+  be covered, and re-check `elementFromPoint` on the rotate handle after any
+  selection-bar/layout change. Body drag moves;
+  two pointers on the SELECTION pinch-scale, twist-rotate and slide-move
+  (`sbState.drag.mode = "pinch"`). Pointer capture is try/catch (synthetic
+  pointerIds throw). Delete/Backspace removes the selection, Escape closes the
+  panel/clears the selection. Double-click OR double-tap a text box opens the
+  text panel in edit mode; field changes apply LIVE (`sbApplyTextStyle`).
+  GROUPS (2026-10-24): `board.groups = [{id, children:[leafId|groupId]}]` is a
+  FOREST over the flat item list (nesting allowed). `sbNormalizeGroups()` drops
+  unknown/duplicate/cyclic links and DISSOLVES a wrapper with fewer than 2
+  children, hoisting its children into its parent (or top level). Rendering,
+  connectors, z-order and the JPG export are unchanged: transforms are BAKED into
+  leaves, so a group is pure metadata. Group/Ungroup live in the floating bar
+  (`#sbSelGroup` with 2+ selected nodes, `#sbSelUngroup` with exactly one group;
+  hidden otherwise) and Ungroup peels ONE level (the children take the group's
+  place inside its parent, or become top-level). Members get `.sb-member`
+  (outline only, no per-object handles); `#sbSelectionBox` owns the handles and
+  `sbBoardOverhang()` measures it so they get pasteboard at zoom. Delete removes
+  every leaf + nested group; Duplicate deep-copies the nesting (+4% offsets, z
+  above the originals); Front raises all members preserving their relative order.
+  Tests: `tests/storyboard-groups.spec.js` (16: bar visibility, toggle, grouping,
+  nesting + ungroup levels, move/scale/rotate maths, loose selection, delete,
+  duplicate, persistence, long-press, mixed text+sticker, zoomed handles).
+  ALIGN + DISTRIBUTE (2026-10-24, user request): the floating selection bar has
+  ONE `#sbSelAlign` button, visible only with 2+ selected nodes. Hovering it
+  (mouse) or tapping it (touch) expands `#sbSelAlignRow` - a SECOND `.sb-sel-row`
+  inside the bar - holding six align buttons (`sbAlignLeft/CenterH/Right/Top/
+  MiddleV/Bottom`) and, with 3+ nodes, two distribute buttons (`sbDistributeH/V`).
+  The row collapses on a selection change and 180ms after the pointer leaves the
+  bar; expanding RE-ANCHORS the bar on the button (`sbShowAlignMenu` shifts
+  `style.top` by the button's rect delta) because growing the bar would otherwise
+  move the button out from under the pointer and immediately mouseleave. Align
+  and distribute operate on each selected TOP-LEVEL node's rendered AABB
+  (`sbNodeRect()`; a group is ONE unit) and move every leaf of that node by the
+  same delta (`sbMoveNode`), so groups keep their shape. Distribute equalises the
+  GAPS between adjacent edges and keeps the first/last objects fixed (Figma
+  "distribute spacing", not centres). Tests: `tests/storyboard-align.spec.js`
+  (12: one-button visibility + hover expand/collapse, six aligns on the AABB,
+  both distributions, group-as-a-unit, persistence).
+  TEXT: bg tokens `transparent|white|black|primary|secondary|success|danger|
+  warning|info|light|dark` map to `.sb-bg-*`; colour tokens add `auto` (body
+  colour) and map to `.sb-color-*`. FONT defaults to `theme` (the Bootswatch body
+  stack) and is one of `SB_TEXT_FONTS` (system serif/mono plus the 12 families
+  vendored in `shared/css/fonts/fonts.css`: Roboto, Lato, Open Sans, Montserrat,
+  Ubuntu, Nunito, Nunito Sans, Source Sans Pro, Inter, News Cycle, Cabin Sketch,
+  Neucha), applied as `.sb-font-<id>`. No extra `<link>` is needed: every theme
+  sheet `@import`s `../../fonts/fonts.css`. The text panel's Font row is an
+  `<smd-select>`; its `change` updates the item (and the draft for the next text)
+  LIVE, and the family loads on first use (`document.fonts.check` verified Cabin
+  Sketch + News Cycle). Borders `none|fancy|hand|stamp` are SVG
+  frames generated per object as a `border-image` data URI
+  (`sbFrameDataUri(kind, sbResolveColor(token))`), so the frame follows the TEXT
+  colour and every theme. Because the colour is baked into the URI, a theme or
+  mode change must re-render the board (app.js listens to `smd-theme-change`).
+  Background "None" must `style.removeProperty("background-image")` — assigning
+  `""` leaves an inline empty image that overrides the CSS dot grid.
+  REGISTRY: add `SmdApps.APPS` row (name/description/path `Storyboard/`, icon
+  "Storyboard"), a native `shared/sampleImages/Storyboard.svg` appended
+  surgically to `shared/sampleImages.json`, and a `sw.js APPS["Storyboard/"]`
+  entry listing index/manifest/icons/css/both background SVGs/all five sticker
+  SVGs/all five JS files. The Launch grid and the Launch flyout pick it up from
+  the registry (no root `index.html` edit).
+  TESTS: `tests/launch-regression.spec.js` was UPDATED for Storyboard on
+  2026-10-23 (`toHaveCount(9)`, `EXPECTED_TILES` with `Storyboard/` before
+  `Launch`, the tile-icon loop runs to `EXPECTED_TILES.length`, the nav-title
+  list, the Launch-submenu `APPS` + the `/Storyboard/` shell, `ALL_APPS`, and
+  `SHELL_CASCADE`). STILL DEFERRED: add Storyboard to
+  `tests/settings-alignment.spec.js`
+  (Display-only tab/shape/rhythm/tables) and `tests/display-settings.spec.js`,
+  and add a Storyboard screenshot spec if screenshots are wanted. Verified
+  instead with throwaway Playwright probes (deleted): board/drag/scale/rotate,
+  synthetic two-finger pinch (scale + twist), text create/edit/frames, board
+  add/rename/delete/switch, pin persistence, Settings shape, 8081 sub-path,
+  Launch tile + nav title, zero console/page errors.
 - APP NAME IN THE NAV BAR (2026-10-18): every app shell's toolbar shows its FULL
   NAME next to the hamburger. `SmdApps.mountAppTitle()` (shared/js/smd-apps.js)
   inserts `<span id="appNavTitle" class="navbar-text fw-semibold mb-0">` after the
@@ -353,6 +709,7 @@ Architecture:
                    Show undo/redo, Swap)
     ListOfLists    Display, Minio, Danger
     PhoneButtons   Display, Server, Danger
+    Storyboard     Display
   NO DEAD CONTROLS (user): a row is only present where the setting does something.
   `Icon size` is therefore ABSENT in SolarControlar and FreeFormOX (no
   `<smd-image>`), and `Tile density` only exists in PlanMyDay/CountMyDays/QRLinks/
@@ -4146,16 +4503,36 @@ Techniques / gotchas:
 - All five existing screenshot suites (`pmd`, `cmd`, `qrlinks`, `ffox`, `launch`) now import `tests/screenshot-helpers.js`. The helper reads the live 26-theme `themeConfig`, iterates explicit modes `light` then `dark`, calls `applyTheme(theme, mode)`, emulates the requested media colour scheme, waits for all three stylesheet links, fonts, visible image decode, and two animation frames, and preserves app-specific `afterTheme` refresh callbacks.
 - Chosen output structure: `screenshots/<app>/<theme>/<light|dark>/<scene>.png`. There is no `default` output directory for generated images. Scene filenames remain stable. The full matrix is 26 themes × 2 modes × 56 existing scene names = 2,912 gallery images, plus the separate root `sample-images.png` gallery.
 - Screenshot generation ran with `--workers 16`: all 53 screenshot tests passed. Output audit found 2,912 files: pmd 1,872 (936 light + 936 dark), cmd 364, qrlinks 260, ffox 260, launch 156; every app had 26 themes and zero legacy direct PNGs. ALWAYS generate screenshots with `--workers 16`; this is the documented standard for every `tests/*-screenshots.spec.js` command.
-- SCREENSHOT GALLERY COVERAGE (2026-10-18): only SIX suites exist - `cmd`, `ffox`,
-  `launch`, `lol`, `pmd`, `qrlinks`. **SolarControlar, PhoneButtons and the
-  storybook have NO gallery** (user: "we haven't written screenshots for the other
-  apps yet"). The Screenshots command in `commands.md` lists exactly those six, in
-  alphabetical order; when an app gains a `<app>-screenshots.spec.js`, add it there
-  in alphabetical position (`screenshots/viewer.js` picks the new gallery up with no
-  code change). A `*`-GLOB DOES NOT WORK for that command on Windows: neither
-  cmd.exe nor PowerShell expands it and Playwright does not glob CLI paths, so
+- SCREENSHOT GALLERY COVERAGE (2026-10-25): SEVEN suites exist - `cmd`, `ffox`,
+  `launch`, `lol`, `pmd`, `qrlinks`, `storyboard`. **SolarControlar, PhoneButtons
+  and the storybook have NO gallery** (user: "we haven't written screenshots for
+  the other apps yet"). The Screenshots command in `commands.md` lists exactly
+  those seven, in alphabetical order; when an app gains a
+  `<app>-screenshots.spec.js`, add it there in alphabetical position
+  (`screenshots/viewer.js` picks the new gallery up with no code change). A
+  `*`-GLOB DOES NOT WORK for that command on Windows: neither cmd.exe nor
+  PowerShell expands it and Playwright does not glob CLI paths, so
   `test tests/*-screenshots.spec.js` collects 0 tests (verified) - keep the
   explicit list.
+- STORYBOARD GALLERY + ONEDRIVE SCENES (2026-10-25): `tests/storyboard-screenshots.spec.js`
+  captures 11 scenes x 27 themes x both modes into `screenshots/storyboard/`
+  (594 PNGs): board, stories panel, background panel, stickers panel, text panel,
+  selection bar, multi-selection align, main menu dropdown, settings,
+  settings-onedrive, open-from-onedrive. It uses a 1280x800 desktop viewport (the
+  rail labels hide <=520px and the phone window shrinks the art) and seeds
+  `storyboard_stories` from `/` before navigating to `/Storyboard/` (a direct
+  reload of the app overwrites the seed via its `pagehide` save). Its
+  `afterTheme` re-runs `sbRender()` (text frames bake the resolved colour into an
+  SVG data URI) but SKIPS while an `smd-page[open]` is up, because the hidden
+  board would measure 0x0; `window.__sbShotAlign` re-opens the align row each
+  theme. PMD/CMD/LoL each gained `settings-onedrive.png`, `open-from-onedrive.png`
+  and `main-menu-filesync.png` (minio + onedrive entries enabled).
+  `tests/screenshot-helpers.js` now exports `seedOneDriveSettings(page, {prefix,
+  directory, minio})` (localStorage + a stubbed `oneDriveInit`, because opening
+  FileSync > OneDrive asks MSAL and an unregistered client ID would clear the
+  seeded account name) and `stubOneDriveBrowser(page, {directory, latestName,
+  folderNames, noBackupFolders})` (Graph stubs so the page renders without
+  Microsoft).
 - `screenshots/viewer.js` supports the nested mode layout and legacy direct `<app>/<theme>/<scene>.png` files (shown as synthetic `Default`). The API shape is `theme -> modes[] -> { name, path, images }`. The UI has separate App, Theme, and Mode selectors; section identity is composite app/theme/mode so open state and drag ordering cannot collide. Selections persist under `screenshotViewerGallery`, `screenshotViewerTheme`, and `screenshotViewerMode`.
 - The viewer is covered by `tests/screenshot-viewer.spec.js` with a temporary synthetic tree; it verifies nested mode scans, legacy fallback, deep image serving, app/theme/mode filtering, persisted choices, and composite open-state. `createServer()` is exported behind a `require.main === module` guard so tests can use an ephemeral port.
 
@@ -6404,6 +6781,110 @@ Techniques / gotchas:
   `scrollTo` (restoring the previous inline value afterwards) and waits for
   `window.scrollY > 0` before returning the card coordinates.
 - VERIFIED: both tests pass together with `--workers=2 --retries=0` (2 passed).
+
+### 2026-10-21 (e) - Storyboard: new app (stickers + text + backgrounds, named boards)
+- REQUEST (user): a new `Storyboard` app based on PlanMyDay, with ONLY the
+  hamburger menu and Settings | Display; a left toolbar that flies out and can be
+  pinned; Backgrounds (space + underwater, 2k), Stickers (mermaid, shark,
+  seaweed, spaceman, spaceship) and Text (coloured/transparent background;
+  fancy, hand-drawn or stamp borders); stickers and text scalable + rotatable.
+  Answers to the design questions: MULTIPLE NAMED BOARDS, handles PLUS two-finger
+  pinch/rotate, original SVG artwork in the repo, four borders + a colour palette,
+  and the seven live Display rows.
+- BUILT: `Storyboard/` (index/manifest/icons/css/js/assets), registered in
+  `SmdApps.APPS`, `shared/sampleImages.json` (+ native Storyboard SVG) and
+  `sw.js APPS["Storyboard/"]`. Full contract + gotchas are in the STORYBOARD APP
+  architecture note above. Settings is a single Display tab (Theme, Theme Mode,
+  Font size, Touch size, Slide speed, Auto-hide menu, Screen resolution last).
+- WHAT WORKED: a throwaway Playwright probe (outside `tests/`, deleted after)
+  driving the real UI end to end. It proved background apply, sticker add, body
+  drag (+9% x for +130px), corner scale 1.0 -> 1.89, synthetic two-finger pinch
+  (scale 1.89 -> 4.49, rotation 0 -> 18.4) and rotate-handle (-> 37.6), text
+  placement with fancy border + danger bg + white text, double-click edit,
+  board add/rename/delete/switch, pin persistence across reload, Settings shape
+  (one Display tab, exact rows), font size 29.9 -> 36.8px, 8081 sub-path load,
+  Launch tile + nav title, and ZERO console/page errors. Screenshots confirmed
+  the space/underwater art, all five stickers, all four border styles, sketchy
+  dark recolouring, and the phone layout.
+- BUGS THE PROBE CAUGHT (all fixed): panel buttons re-render the panel via
+  `innerHTML`, so the clicked node was DETACHED before the document outside-click
+  handler ran -> `closest("#sbToolbar")` failed and the panel closed itself
+  (fixed with `sbState.panelClickAt`); the open tool panel covered the hamburger
+  dropdown (fixed with `#mainNav .dropdown-menu { z-index: 1035 }`); assigning
+  `background-image: ""` for "no background" overrode the CSS dot grid (fixed
+  with `removeProperty`); the first item was placed at 41% instead of centre
+  (cascade formula rewritten); and rail labels were clipped by the badge-sized
+  font (fixed 10px labels, 74px rail, hidden <=520px).
+- USER-FOUND AFTER THE FIRST BUILD: "I can't see the grab handle at the top." The
+  action bar was centred above the selection (`rect.top - 14`, translated -100%),
+  so it exactly covered the 22px rotate handle - the handle had `display:flex`
+  but `elementFromPoint` at its centre returned the duplicate icon, and a mouse
+  user saw only the bar. Fixed by placing the bar OUTSIDE the object's AABB
+  (right, else left, else above the rotate handle, else below) with an inline
+  transform per side. Verified with a probe: the bar moved from x=665..775
+  (covering the handle at 709..731) to x=800..910, and `elementFromPoint` now
+  returns the `fa-rotate` icon. Mouse rotation works.
+- NOT RUN (explicit user instruction): no regression tests were run and NO tests
+  were added. Deferred test updates are listed in the STORYBOARD APP note.
+- BUILD: `202610211932` via `npm run bump:build`.
+
+### 2026-10-21 (f) - Storyboard: text font picker
+- REQUEST (user): "I want to be able to select a font for the text."
+- ADDED: text items carry `font` (default `theme`); `SB_TEXT_FONTS` (storage.js)
+  offers the theme stack, system Serif/Monospace and the 12 vendored families
+  (Roboto, Lato, Open Sans, Montserrat, Ubuntu, Nunito, Nunito Sans, Source Sans
+  Pro, Inter, News Cycle, Cabin Sketch, Neucha). `sbNormalizeItem` validates it;
+  `sbStyleTextElement` adds `.sb-font-<id>`; storyboard.css owns each stack.
+  The Text panel has a **Font** row (an `<smd-select>`, 15 options) between the
+  textarea and Background; its `change` writes the live item or the draft for the
+  next text, and a live `.sb-font-preview` line underneath shows the family even
+  when the panel covers the object. `sbPlaceText` copies the draft font onto the
+  new item.
+- NO EXTRA SCRIPT/LINK: the theme sheet already `@import`s
+  `shared/css/fonts/fonts.css` (all @font-face declarations are in the SW), so a
+  selected family loads on first use.
+- VERIFIED with a deleted probe: the select renders 15 options; choosing Cabin
+  Sketch gives `fontFamily: "Cabin Sketch", Neucha, cursive`,
+  `document.fonts.check` true, `item.font = "cabin-sketch"`, and the panel stays
+  open; editing the placed text to News Cycle and reloading keeps
+  `font: "news-cycle"` + the rendered family; the font dropdown is above the
+  selection bar (toolbar raised to 1035, nav dropdown 1038/1039) and the live
+  preview follows the selection (Montserrat checked + loaded); zero
+  console/page errors.
+- BUILD: `202610211939` via `npm run bump:build`.
+
+### 2026-10-21 (g) - Storyboard: directional connectors between text boxes
+- REQUEST (user): "From the text boxes I want to be able to add connectors so
+  that I can add a directional connector to another text box."
+- BUILT: per-board `connectors: [{id,from,to}]` (text-to-text only, one per
+  pair); selection-bar Connect arrow -> connect mode -> click the target text
+  box; arrowhead at the TARGET. Click an arrow to select it, then Reverse or
+  Delete from the same bar; Delete/Backspace also works. Escape/blank/non-text
+  cancels connect mode. Deleting a box removes its links. Full contract is in the
+  STORYBOARD APP note above.
+- RENDER: SVG layer under the objects, body-color line + body-bg halo + arrow
+  marker; endpoints recomputed against each box's ROTATED rectangle (item
+  rotation + offsetWidth/Height) with a 5px gap, so arrows stay glued while a box
+  moves, scales or rotates. Redraws on every transform/text style, window resize
+  and a per-object ResizeObserver (font loading changes metrics).
+- GOTCHA FOUND WHILE BUILDING: `#sbItems` had to become `pointer-events:none`
+  (with `.sb-object` auto) or its transparent full-board box swallowed every
+  click aimed at a connector's hit stroke. Handles/selection outlines were also
+  switched from primary to body-color + a body-bg halo - sketchy's primary is
+  #333, so its handles/outline vanished on the dark background.
+- VERIFIED (throwaway probes, deleted): Connect button text-only; hint + source
+  outline + dashed targets during connect; from/to + arrow marker; move and
+  rotate move the path endpoints; clicking the line selects it; Reverse swaps
+  from/to; Delete removes path + selection; Escape cancels; connector survives
+  reload; deleting a box drops its connectors; per-board isolation; font-size and
+  handle-scale redraw the endpoints; theme switch recolours the line/arrow;
+  zero console/page errors. Screenshots checked on superhero + sketchy dark +
+  flatly light over the space background.
+- NOTE: clicking a text box twice within 340ms opens the text editor by design,
+  so a pointer drag started immediately after selecting a box can be swallowed
+  as a double-click. Wait ~400ms or click once, then drag. Not a connector bug.
+- BUILD: `202610211957` via `npm run bump:build`.
+
 ### 2026-10-22 - remoteHID group + Mouser 6DOF capture/server
 - MOVED: `PhoneButtons/` -> `remoteHID/PhoneButtons/`; `PhoneButtons/server/` ->
   `remoteHID/server/`; `PhoneButtonServer.cmd` -> `remoteHID/PhoneButtonServer.cmd`.
@@ -6488,3 +6969,943 @@ Techniques / gotchas:
 - CURRENT USER CONFIG: `remoteHID/server/config.json` is back on the F13-F24
   defaults; `PhoneButtonServer.cmd` still appends `--debug-keys` (uncommitted user
   change, left untouched). The add-on's defaults match the config.
+
+### 2026-10-23 - smd-image-dropdown: menu thumbnails match the closed button (no clipped icons)
+
+- REPORTED (user): "the space for the image in the dropdown seems to be too
+  narrow for all of the options if some of the images are wider", clarified as
+  Font Awesome `fa:computer` and "there might be other".
+- DIAGNOSIS (probe): the menu `.thumb` was pinned to `1.5rem` (24x24) in
+  `shared/css/styles.css` while the inner `<smd-image>` kept the app's Icon size
+  (50px at medium). As a flex item it shrank in WIDTH only -> a 24x50 host; the
+  glyph font-size came from the host's 50px (40px) so a 50px-wide `fa:computer`
+  was cropped to a 24px window (13px off each side), `fa:bars` lost ~5.5px,
+  `fa:image` ~8px. A 300x60 upload became a 24x4.8 sliver.
+- FIX: removed the fixed wrapper rule; added `smd-image-dropdown .thumb >
+  smd-image { flex:none; }` so the image stays square and sizes the wrapper;
+  no-image options now render an EMPTY `<smd-image>` inside `.thumb.thumb-blank`
+  (like `smd-image-select`) so the column follows the Icon size setting.
+  Result: menu thumbs equal the closed button (50x50 at medium), wide images
+  50x10, icons unclipped.
+- WIDEST AVAILABLE ART: swept the vendored sets in Chrome (canvas ink at
+  100px). FA solid `fa:braille` is the widest (ink 1.31em / advance 1.25em),
+  then `fa:bell-slash`/`fa:bug-slash`/`fa:eye-slash` (1.29), brands
+  `fab:opencart` (1.30); bootstrap-icons tops out at 1.08 (`bi:crop`); sample
+  SVGs max "Wedding 2" 1.164 (but `<img>`s are already constrained).
+  `smd-image._renderIcon` used `px * 0.8`, which makes braille's ink 1.048x the
+  box -> 1.2px clipped each side at 50px (2.4 at jumbo). Changed the glyph
+  scale to `px * 0.75` (1.31 x 0.75 = 0.98), so every available icon fits.
+  Test `pmd-regression` "renders a bi: prefixed name..." now expects 48px for a
+  64px box (was 51px).
+- TESTS (added; the USER RAN THE FULL SUITE, not this session):
+  pmd-regression "menu thumbnails match the closed button and keep a square
+  image box" (square, equals the button, 300x60 keeps 5:1) and "the widest Font
+  Awesome glyph (fa:braille) fits the menu thumbnail" (canvas ink fits in the
+  button AND the row); cmd-regression's blank "No Category" thumb assertion now
+  expects the empty `<smd-image>` (and no `image` attribute).
+- NOT CHANGED / IGNORED (user): the superhero light-mode palette mismatch
+  (white form field vs dark dropdown menu) and the auto light/dark artwork
+  choice on the ACTIVE row (orange highlight resolves "light"). Separate issue.
+- BUILD: `202610232000` via `npm run bump:build`.
+- SAME SESSION (full suite): the user's run reported the 5 expected
+  launch-regression failures from the deferred Storyboard update (counts/lists
+  still said 8). Updated `tests/launch-regression.spec.js` (see the STORYBOARD
+  APP note). Test-only change, so no additional BUILD bump.
+- SAME SESSION (feature, user request): Storyboard stickers gained Flip
+  horizontally / Flip vertically (see the STICKER FLIP note above). Files:
+  `Storyboard/index.html` (buttons), `js/board.js` (`sbFlipSelected`,
+  `sbApplyStickerFlip`, selection UI), `js/storage.js` (`flipX`/`flipY`
+  normalize + `sbFlipItem`), `css/storyboard.css` (image-only mirror + pressed
+  style). No Storyboard spec exists (tests still deferred), so this was NOT
+  run here - the user runs the full suite. Follow-up: the action-bar buttons are
+  now flex-centred (`padding:0`, `line-height:1`) - the UA button padding had
+  pushed the two flip glyphs off centre. BUILD -> `202610232043`.
+- SAME SESSION (feature, user request): Storyboard "Save" rail button downloads
+  the current board as a JPG (see SAVE AS JPG above). Verified with a throwaway
+  probe: space background, two flipped/rotated stickers, fancy + hand text
+  (Cabin Sketch and theme font), a connector; the 2560px JPG matched the board
+  and excluded the UI, with no console/page errors. GOTCHA found and fixed:
+  canvas text needs a ~1.5px wrap tolerance (integer offsetWidth vs fractional
+  browser layout) or the last word falls to a hidden second line. FOLLOW-UP
+  (user): the first cut saved the visible `cover` crop, so the JPG now exports
+  the WHOLE background artwork at natural size with items mapped back through
+  the cover transform (see the SAVE AS JPG note). Verified on a 390x575 board:
+  the JPG is 2560x1440 with the full space art, and items keep their position
+  on the art (LEFT moved from 20% of the crop to ~39% of the artwork).
+  BUILD -> `202610232126`.
+- FOLLOW-UP 2 (user, browser zoom): "the background and images do not zoom but
+  the placed text does ... it moves inconsistently", then "I want the whole
+  background image to scale as one image". The live board is the WHOLE artwork:
+  `sbLayoutBoard()` fits the background aspect (2560x1440) inside
+  #storyboardArea, centred with bars; `#sbBackground` is 100% 100%; stickers use
+  the board-relative `--sb-sticker-base`; a click on the bars deselects. The
+  earlier `--sb-zoom` layer + object inverse scale experiment was REMOVED.
+- FOLLOW-UP 3 (user, final zoom model): "the Menu and the side panel ... and the
+  name at the top right should all scale with the browser zoom. But the
+  background should be shown as large as possible (keeping its original ratio)
+  in the space available. Then the text and stickers need to be scaled to stay
+  in the normal places. I will implement canvas zoom next." Replaced the
+  no-refit/DPR guard: every resize (120ms debounce), including a page zoom,
+  re-fits the artwork. `--sb-design-scale` = fitted board height /
+  `SB_DESIGN_HEIGHT` (655, the board of a 1280x720 window) is set on #sbCanvas;
+  the text font/padding/border/radius, `--sb-sticker-base`, the dot grid,
+  connector stroke widths and the connector end gap multiply by it. The UI (nav,
+  rail, board chip, action bar) is untouched and the browser magnifies it.
+  Verified with a throwaway probe using a 640x360 CSS viewport at
+  deviceScaleFactor 2 (the equivalent of 200% page zoom): nav 65 -> 130
+  physical, board 1164.4x655 -> 524.4x295 CSS (1048.8x590 physical), font 29.9
+  -> 13.47, sticker 117.9 -> 53.1, line 2.5 -> 1.126 (all x0.4504); text and
+  sticker centres stayed at the same % of the artwork; both JPGs are 2560x1440
+  and match. No console errors. The user runs the full regression suite.
+  BUILD -> `202610241449`.
+
+### 2026-10-24 - Storyboard rename
+- REQUEST (user): rename the app to Storyboard (directory, localStorage keys,
+  Launcher title/menu and all supporting references), with NO compatibility
+  layer for the old name.
+- RENAMED with `git mv` (history preserved): the app folder, its stylesheet and
+  its shared sample icon.
+- UPDATED: the `SmdApps.APPS` row (name/description/path/icon), the Launch grid
+  and flyout (both read the registry), `shared/sampleImages.json` (entry name +
+  embedded aria-label), `sw.js` `APPS["Storyboard/"]` and every precache path,
+  `Storyboard/manifest.json` (name/short_name/description), `<title>`, the nav
+  title (from the registry), the toolbar aria-label, the settings QR URL, the
+  update-prompt copy, `window.__storyboardSwUpdater`, app comments, the default
+  board name "My Storyboard", the JPG fallback slug, `README.md`, and
+  `tests/launch-regression.spec.js`. The board-area id is now
+  `#storyboardArea`. The internal `sb*` globals, `sb-*` CSS classes and `#sb*`
+  DOM ids were deliberately left alone (implementation detail; no user-facing
+  name).
+- STORAGE: `SmdConfig.storagePrefix = "storyboard_"`. There is deliberately NO
+  key migration and NO old-path mapping: the first load starts a fresh
+  `storyboard_*` state, and any pre-rename Launch path is simply unknown and
+  dropped by `SmdApps.loadConfig()`.
+- VERIFIED with throwaway probes (NOT the regression suite): the Launch grid
+  tile (icon loaded) and flyout both show Storyboard -> `Storyboard/`;
+  `/Storyboard/` title/nav/toolbar/QR all say Storyboard; a fresh load creates
+  `storyboard_boards`, `storyboard_activeBoard` and `storyboard_toolbarPinned`;
+  manifest name/short_name/description are new; the old URL is 404; the 8081
+  `/PlanMyDay/Storyboard/` mount renders the default "My Storyboard"; no
+  console/page errors or failed same-origin requests. The user runs the full
+  suite.
+  BUILD -> `202610241517`.
+
+### 2026-10-24 - Storyboard stamp frame colour
+- REQUEST (user, TDD): in the "Space" board the stamp edge around the `xczx`
+  text (`color:"auto"`, `border:"stamp"`) is black on screen but white in the
+  saved JPG.
+- CAUSE: a text frame is an SVG data URI with its colour baked by
+  `sbFrameDataUri(item.border, sbResolveColor(item.color))` at render time,
+  while the text colour is live CSS. `applyTheme()` only re-points the
+  stylesheet links, so their CSS can land after the first render (or after the
+  `smd-theme-change` render). The text then updates live, but the frame keeps
+  the old baked colour. The JPG exporter re-resolves the colour at save time,
+  which is why it could disagree with the screen.
+- TEST FIRST: added `tests/storyboard-stamp.spec.js` (the first Storyboard
+  spec). It loads a minimal auto/stamp board, switches the theme to Cerulean
+  and waits for the sheet, then requires the baked frame stroke to equal both
+  the live text colour and `sbResolveColor("auto")`. Before the fix it failed
+  with stale `#ebebeb` vs live `#495057`; after it passes.
+- FIX: `Storyboard/js/app.js` now listens for `load` on
+  `#bootstrap-theme-css`, `#theme-override-mode` and
+  `#theme-override-specific` and schedules one `requestAnimationFrame`
+  `sbRender()` when they arrive. This covers initial boot, live theme/mode
+  switches, and the exporter's resolved colour. Ran only the focused spec; the
+  user runs the full regression suite.
+  BUILD -> `202610241537`.
+
+### 2026-10-24 - Launch Storyboard icon
+- REQUEST (user): the Launch grid has no icon for Storyboard.
+- CAUSE: Launch resolves each app icon by NAME from the origin-wide
+  `shared-images` library. `seedSampleImages()` only seeds when that key is
+  absent, so an existing browser library seeded before the rename still has the
+  old sample entry and no `Storyboard` entry; `<smd-image>` then has no source
+  and the tile is blank. A fresh browser was fine, which is why the existing
+  grid test did not catch it.
+- TEST FIRST: added `tests/launch-app-icons.spec.js`. It waits for the normal
+  seed, replaces the store with one missing both `Storyboard` and an ordinary
+  sample (`Person 1`), reloads, and requires the Storyboard tile's
+  `<smd-image img>` to paint. Before the fix the image had no `src`/natural
+  width; after it passes. It also asserts `Person 1` stays deleted, proving the
+  fix only reconciles app icons rather than merging the whole standard set.
+- FIX: `Launch/js/app.js` now calls `ensureAppIcons()` after
+  `seedSampleImages()`. It runs only when the library already exists (so it
+  never races the first seed), adds only missing registered app icons from
+  `shared/sampleImages.json`, saves the list, and refreshes the grid images. No
+  old-name migration or deletion of the user's existing samples.
+- Also ran the existing "root shows the grid of available apps" icon test;
+  passes. Full suite left to the user.
+  BUILD -> `202610241547`.
+
+### 2026-10-24 - Storyboard JPG stamp edges
+- REQUEST (user): on the same "Space" board, the stamp border around the text
+  renders in the saved JPG with the dots stretched along the sides.
+- CAUSE: the live CSS uses `border-image-repeat: round` plus
+  `border-image-slice: 30`, so the 120px frame SVG's middle edge slices repeat.
+  `sbDrawCanvasText()` drew each middle slice once with `drawImage()`, stretching
+  one 60x30 (top/bottom) or 30x60 (left/right) slice across the whole side.
+- TEST FIRST: extended `tests/storyboard-stamp.spec.js` with a tall/wide
+  three-line stamp box. It wraps `CanvasRenderingContext2D.prototype.drawImage`
+  during `sbDownloadJpg()` and records the 120x120 frame slices. It requires all
+  four middle edge source rectangles to be drawn more than once. Before the fix
+  each edge was one stretched call; after it passes.
+- FIX: added `sbDrawCanvasFrameEdge()`, which scales the slice across the border
+  to the frame width and then draws `Math.round(edge / naturalTile)` copies along
+  the edge, matching CSS "round". The four middle-edge draw calls now use it; the
+  corners are still single draws. This applies to every frame style, not just
+  stamp. Also inspected a JPG crop of the reported Space item: the dots are
+  round and evenly spaced.
+- Ran only the focused spec; the user runs the full regression suite.
+  BUILD -> `202610241647`.
+
+### 2026-10-24 - Storyboard live text baseline
+- REQUEST (user): the "Space" glyphs sit slightly higher in the JPG than on the
+  live board; other text boxes do the same, and the JPG alignment is preferred.
+- CAUSE: `sbDrawCanvasText()` centres each line with `textBaseline="middle"` at
+  `contentTop + lineHeight / 2`. CSS instead positions glyphs from the font's
+  ascent/descent, leaving the visual glyph centre a little lower. The gap is
+  font-dependent (about 0.08em for the theme Lato, less for mono).
+- FIX: text now lives in an inner `.sb-text-body` block span. `sbApplyTextNudge()`
+  measures the live font with an offscreen canvas (alphabetic vs middle
+  `fontBoundingBox` metrics) and sets only that span's relative `top` in `em`.
+  The box, frame, background, handles, wrapping and export geometry are
+  untouched; the JPG code still uses the item text and its existing baseline.
+  The nudge is recomputed after a webfont loads and on style/font changes.
+- TEST: added a third test to `tests/storyboard-stamp.spec.js`. It renders white
+  text on a black surface, screenshots the live element, exports the JPG, crops
+  the same box, and compares the white-pixel bbox centres. The old screen was
+  several px low; the test requires the centres within 2.5px (currently well
+  under). A throwaway six-font probe also checked theme, serif, mono, Roboto,
+  Montserrat and Cabin Sketch.
+- Ran only the focused spec; the user runs the full regression suite.
+  BUILD -> `202610241647`.
+
+### 2026-10-24 - Storyboard app zoom + scroll
+- REQUEST (user): zoom the canvas in/out; magnifier + and - side by side in the
+  side panel; a Fit button; scrollbars when zoomed; always be able to scroll to
+  see the working space (a selected sticker's grab handles and the action bar).
+- IMPLEMENTED: `#storyboardArea > #sbScroller (overflow:auto) > #sbStage (flex
+  centred) > #sbCanvas`; `sbLayoutBoard(anchor)` now multiplies the fitted size by
+  `sbState.zoom` (`SB_ZOOM_LEVELS`, stored as `storyboard_zoom`; no percentage
+  UI). `sbSizeStage()` + `sbBoardOverhang()` measure every object and its visible
+  handles and grow a pasteboard (min 56px) only when zoomed past the fitted view,
+  so 100% has no scrollbars and looks exactly as before. `#sbCanvas` is
+  `overflow: visible` so handles at the artwork edge are not clipped. Zoom
+  anchors on the selection (else viewport centre); the action bar repositions on
+  scroller scroll; board/background switches recentre.
+- TEST FIRST: `tests/storyboard-zoom.spec.js` (7 tests) failed with no
+  `#sbScroller`/buttons, then passed. It hit-tests the handles with
+  `elementFromPoint` (a clipped handle still reports a rect, so geometry alone
+  would lie) and covers the real order "zoom, THEN select". That order exposed a
+  real bug: the pasteboard had been sized with no handles visible, so the rotate
+  handle stayed clipped. Fixed with `sbRefreshPasteboard()`, called from
+  `sbUpdateSelectionUi()` and at the end of a drag.
+- Also ran `storyboard-stamp.spec.js` + `storyboard-zoom.spec.js` (10 passed) and
+  `launch-regression.spec.js` (13 passed). Visual probe (deleted) checked 100%,
+  150%, both edge handles, and the open Stickers panel.
+- GOTCHA (cost a full red run): a `serve-tests.mjs` process from a previous run
+  was still listening on 8080/8081 and Playwright reused it
+  (`reuseExistingServer`). sirv had snapshotted files from BEFORE the edits, and
+  mid-write reads produced truncated JS ("Invalid or unexpected token",
+  "sbLoadState is not defined") with every test seeing an empty board. ALWAYS
+  check/kill ports 8080/8081 before a run, or start `npm run dev:test` yourself
+  and use `EXTERNAL_SERVERS=1`.
+- The user runs the full regression suite.
+  BUILD -> `202610241647`.
+
+### 2026-10-24 - Storyboard: `wb`→`sb` internal rename + multi-select + nested groups
+- RENAME (user): `wb`/`WB_` were the old Whiteboard prefix (the app-name rename had
+  left every internal token alone). Renamed with a word-boundary script across
+  `Storyboard/js/*.js`, `index.html`, `storyboard.css`, both storyboard specs and
+  the Storyboard notes in AGENTS.md: `wb*`→`sb*`, `wb-*`→`sb-*`, `#wb*`→`#sb*`,
+  `--wb-*`→`--sb-*`, `WB_*`→`SB_*` (~1,553 occurrences, 282 identifiers). File
+  names, storage keys (`storyboard_*`) and behaviour unchanged; no `sb*` name
+  collisions existed. Verified by running stamp+zoom 10/10 AFTER the rename.
+- MULTI-SELECT + GROUPS (user): Ctrl/Cmd/Shift+click toggles; touch long-press
+  (450ms, cancelled by movement or a second finger) adds. Group/Ungroup live on
+  the floating selection bar and are HIDDEN unless usable (2+ nodes / one group).
+  Groups nest.
+- MODEL: `board.groups = [{id, children:[leafId|groupId]}]` (a forest over the
+  flat item list). `sbNormalizeGroups` sanitises on load/mutation: unknown/dup/
+  cyclic links dropped, one parent per node, wrappers with <2 children dissolved
+  and hoisted into their parent. A group has NO transform of its own: gestures
+  bake the composed result into each selected leaf, so rendering, connectors,
+  z-order and the JPG export are untouched.
+- SELECTION: `sbState.selectedIds` (top-level nodes) + `selectedId` (single leaf
+  for text edit/Connect/Flip). Clicking a member selects the OUTER-MOST group. A
+  plain click on a member of a multi-selection COLLAPSES to it on pointerup; a
+  drag moves the whole set (`drag.collapseOnTap` + `drag.moved`). New
+  `#sbSelectionBox` inside `#sbCanvas` (above `.sb-items`) draws ONE outline +
+  scale/rotate handles for a group/multi selection; members get `.sb-member`
+  (outline only); a single leaf keeps its per-object handles.
+- TRANSFORMS: `sbApplyDrag(drag, factor, deltaDeg, moveX, moveY)` from a
+  pointerdown SNAPSHOT over the selection rect. Scale multiplies each leaf's
+  scale and its offset from the rect centre; rotate is rigid about that centre
+  (position orbits, `rotation += delta`); move clamps the SET's box (single items
+  keep 2..98); every member's scale stays 0.2..5. Pinch now spans the selection.
+- GROUP/UNGROUP: `sbCreateGroup` / `sbDissolveGroup` (ONE level; children take the
+  group's place inside its parent, or become top-level). Delete removes all leaves
+  + nested groups (and their connectors); Duplicate deep-copies the nesting (+4%,
+  z above); Front raises members preserving their order.
+- PASTEBOARD: `sbBoardOverhang` also measures `#sbSelectionBox` + its handles, so
+  group handles can be scrolled into view when zoomed (tested at 1.5x).
+- TESTS (TDD, red first): new `tests/storyboard-groups.spec.js` (16): bar
+  visibility, Ctrl toggle, grouping, nesting + one-level ungroup, move/scale/
+  rotate maths, loose-selection move, delete, duplicate (incl. nested),
+  persistence, touch long-press, mixed text+sticker, zoomed handles. RED
+  confirmed before implementing (buttons/selection box missing). GREEN: 16/16;
+  stamp 3/3; zoom 7/7. BUILD -> `202610241753`.
+- GOTCHA for these tests: the fixed nav can cover a top handle at max scroll -
+  centre the selection box in the scroller before `elementFromPoint`; and do not
+  overlap two stickers (the second intercepts the click).
+
+### 2026-10-24 - Storyboard Space-drag pan
+- REQUEST (user): holding the space bar turns the pointer into a grabbing hand
+  and pans the canvas.
+- DECISIONS (user): pan only when zoomed/overflowing (100% stays fitted with no
+  scrollbars); keep the existing selection when a pan starts on a sticker;
+  releasing Space mid-drag keeps panning until mouse-up.
+- IMPLEMENTED: `sbState.panReady`/`sbState.pan`; capturing pointerdown on
+  `#sbScroller` ahead of the object/group handlers; pan branches at the top of
+  `sbOnPointerMove`/`sbOnPointerUp`; Space branch in `sbOnKeyDown` with guards
+  for typing/interactive targets/settings/modals; `keyup` + window `blur`
+  listeners; `#sbScroller.sb-pan-ready|.sb-pan-active` cursor rules.
+- TEST FIRST: new `tests/storyboard-pan.spec.js` (10 tests) was RED (no cursor
+  classes/scroll movement) then GREEN. It asserts rendered results: scroll
+  offsets, item SCREEN position moving with the canvas while stored x/y stay
+  50/50, selection/bar unchanged when grabbing a sticker, grabbing during drag /
+  grab after mouse-up / normal after keyup, clamping at scroll 0, and the
+  guards (textarea space, focused button activates, settings inert, blur).
+- VERIFIED: pan 10/10; storyboard pan+zoom+stamp+groups 36/36 (workers=4);
+  launch-regression 13/13. Node syntax checks clean.
+- The user runs the full regression suite.
+  BUILD -> `202610241816`.
+
+### 2026-10-24 - Storyboard: zoom + pan are per board (stored in the board data)
+- BUG (user): after zooming and panning, reopening the page restored the zoom but
+  CENTRED the board. `sbRender()` called `sbCentreBoard()` on the first render
+  (the `layoutKey` branch) and only the global `storyboard_zoom` was persisted.
+- FIX (user): zoom and pan are now PART OF EACH BOARD:
+  `board.view = { zoom, fx, fy }`, where fx/fy is the BOARD fraction at the
+  centre of the visible scroller (0.5/0.5 = fitted + centred). `sbNormalizeBoard`
+  validates it (`sbNormalizeZoom` + `sbNormalizeViewFraction`, -0.25..1.25,
+  default 0.5) and `sbAddBoard` starts at `{1, 0.5, 0.5}`. NO legacy migration:
+  the old `storyboard_zoom` key is no longer read or written (a stale value is
+  left in storage and ignored). There is no browser-fraction test dependency on
+  window size: fractions were chosen so the same artwork point survives a
+  window-size change (raw scrollLeft/Top would not).
+- CAPTURE: `sbCaptureView()` + `sbSaveViewSoon()` from the scroller's scroll rAF
+  (covers wheel/touchpad/scrollbar/SPACE-DRAG panning) and `sbSaveViewNow()` on
+  `sbZoomTo`, board switch/add (BEFORE `activeId` changes) and
+  `pagehide`/`visibilitychange:hidden`.
+- RESTORE: `sbRender()`'s `layoutKey` branch calls
+  `sbRestoreBoardView(board)` (`sbApplyZoomAnchor({fx, fy, sx/sy = viewport
+  centre})`) after the final `sbLayoutBoard()`, so a zoomed pasteboard already
+  exists. A never-panned board restores 0.5/0.5, i.e. the old centred view.
+  `sbState.zoom` is only the runtime mirror of the ACTIVE board's `view.zoom`;
+  `sbLoadState`, `sbSetActiveBoard`, `sbAddBoard` and `sbDeleteBoard` sync it
+  from the incoming board, so switching boards ALSO restores that board's zoom
+  (it used to be one global zoom).
+- TESTS (TDD, red first) in `tests/storyboard-zoom.spec.js`:
+  "panning is remembered when the page is reopened" (zoom 1.5, scroll to 0,0 ->
+  reload -> same board fraction and NOT centred; `board.view` holds zoom/fx/fy)
+  and "each board keeps its own zoom and pan position" (A 1.5 + top-left; B
+  starts at 1 and centred -> set 2 + bottom-right; switch back and forth, then
+  reload, then switch again - each restores its own). RED on the old code (no
+  `view`; switching kept the global zoom). GREEN 2/2; FULL Storyboard suite
+  38/38 (groups 16 + stamp 3 + zoom 9 + pan 10). BUILD -> `202610241833`.
+- GOTCHA: call `sbCaptureView()` BEFORE changing `activeId` in
+  `sbSetActiveBoard`/`sbAddBoard`, or the outgoing board's pan is lost; and keep
+  saving on the `pagehide`/`visibilitychange` path because a last pan may not
+  have passed the 150ms debounce.
+
+### 2026-10-24 - Storyboard: one-button align/distribute (hover to expand)
+- FEATURE (user): with 2+ objects selected, align them left/centre/right,
+  top/middle/bottom, or distribute horizontally/vertically. The user refined the
+  UI mid-implementation: ONE align button that lights up, expanding on hover to
+  show the options (not eight permanent icons).
+- UI: `#sbSelAlign` in the floating selection bar (hidden unless 2+). Hover/tap
+  expands `#sbSelAlignRow` (a second `.sb-sel-row`), with the 6 align buttons and,
+  at 3+ nodes, the 2 distribute buttons. Collapses on a selection change and 180ms
+  after the pointer leaves the bar. Hover-capable pointers open it on
+  mouseenter; touch toggles on click. The bar RE-ANCHORS on the button when the
+  row opens (otherwise the height change moved the button out from under the
+  pointer and the bar's mouseleave collapsed it instantly).
+- MATHS: `sbNodeRect()` = the rendered AABB of a top-level node (a group counts
+  as ONE unit). `sbAlignSelection(mode)` targets the selection bbox edge/centre;
+  `sbDistributeSelection(axis)` equalises the GAPS between adjacent edges and
+  keeps the first/last objects fixed. `sbMoveNode()` moves every leaf of the
+  node by the same delta (viewport px -> board %), so groups keep their shape.
+  Using rendered AABBs makes it work with rotation and zoom (client px = canvas
+  px).
+- TESTS (TDD, red first): `tests/storyboard-align.spec.js` (12): button
+  visibility + hover expand/collapse, the six aligns, both distributions, a
+  group aligned as one unit, and persistence. RED before the UI existed. GREEN
+  12/12; FULL Storyboard suite 50/50 (align 12 + groups 16 + pan 10 + stamp 3 +
+  zoom 9). BUILD -> `202610241850`.
+- GOTCHA: the align row changes the bar's height and `sbPositionSelectionBar()`
+  repositions it; without the button-anchor shift the pointer no longer hovers
+  the button, the bar's mouseleave fires and the options collapse immediately.
+
+
+### 2026-10-24 - MinIO directories + Storyboard board save/load
+- FEATURE (user): shared MinIO **Directory** setting on every app's Minio tab
+  (`smdKey("minio_directory")`; empty = bucket root). `getMinioConfig().directory`
+  is normalised by `minioNormalizeDirectory()` (forward slashes, no leading/
+  trailing slash, no "."/".." segments); `changeMinioDirectory()` persists it.
+  `minioBuildKey(dir, extraDir, filename)` joins a FURTHER directory level into a
+  key, and `minioDirectoryPrefix(dir)` returns the trailing-slash list prefix.
+- LISTING: `minioListFolder(bucket, prefix, config)` = list-type=2 +
+  `delimiter=/` -> `{objects, prefixes}`; `minioListAllUnder()` follows
+  continuation tokens; `minioLatestJsonKey()` picks the lexicographically
+  greatest `.json` key (backup names carry YYYYMMDDHHMM). The import page is
+  scoped to the configured Directory and shows immediate files, subdirectory
+  rows, `<subdir>:latest` (newest JSON inside that subdir), and Up when nested.
+  Stable classes: `.minio-folder-item`, `.minio-latest-item`, `.minio-file-item`,
+  `.minio-up-item`. Navigation helpers: `minioNavigate()`/`minioParentPrefix()`;
+  the page NEVER lists above the configured Directory.
+- EXPORTS: the shared default export and CountMyDays' app-owned
+  `doMinioExport` now upload under `config.directory`; with an empty Directory
+  the old filenames/keys are unchanged (PMD/CMD/LoL MinIO tests still green).
+- STORYBOARD: new `Storyboard/js/app-minio.js` (registered in `sw.js`), a Minio
+  settings tab, `#minioImportPage`, and hamburger items "Save Story to Minio" /
+  "Load Story from Minio" (deliberately NOT on the rail; `#sbSaveBtn` is still
+  Save scene as JPG). UPDATED for Stories/Scenes: save key =
+  `<Directory>/<sanitised story name>/story-YYYYMMDDHHMM.json` with payload
+  `{version, app:"storyboard", exportedAt, story}` (the WHOLE story including all
+  scenes). Load goes through `SmdConfig.onMinioImport`: an unused story name is
+  added as a new story with fresh story/scene ids; a name that ALREADY EXISTS
+  asks via `showSmdModal` (Cancel / Overwrite) and Overwrite replaces that
+  existing story IN PLACE (same story id). Cancel returns to the file list. Old
+  board-level files (`data.board`) are deliberately rejected.
+- TESTS: `tests/minio-directory.spec.js` (4: settings persistence, export path,
+  listing + `:latest` + folder navigation, CMD app-owned export),
+  `tests/storyboard-minio.spec.js` (6: tab/menu, menu ORDER, whole-story save
+  key/payload, story-name sanitising, load-latest adds a story, same-name
+  overwrite prompt/cancel/overwrite) and `tests/storyboard-stories.spec.js`
+  (5: default Story 1/Scene 1, New Story/New Scene, per-scene content + clicking
+  a story opens its scenes, rename persistence, delete guards). Also re-ran 63
+  existing MinIO tests and all 56 Storyboard specs: green.
+- GOTCHA: `tests/serve-tests.mjs` snapshots files at startup, so a long-running
+  dev server serves STALE code after edits - restart `npm run dev:test` before
+  trusting a red/green run.
+
+### 2026-10-24 - Storyboard: Stories contain Scenes (model rewrite)
+- REQUEST (user): call boards STORIES; a Story has any number of SCENES and each
+  scene is a board (background, stickers, text, connectors, groups, zoom/pan).
+  Loading a story shows it where the board was, but the sidebar lets you pick
+  any scene; clicking the story opens its scene list. NO data migration -
+  Storyboard has not shipped, so the old board store is deliberately ignored.
+- MODEL: `sbState.stories = [{id,name,scenes:[scene],activeSceneId}]` plus
+  `sbState.activeStoryId`; `sbState.activeId` is still the ACTIVE SCENE id (and
+  `sbActiveBoard()` returns that scene), so board-scoped render/edit/group/
+  connector/JPG-export code is untouched. Keys: `storyboard_stories`,
+  `storyboard_activeStory`, `storyboard_activeScene` (the old
+  `storyboard_boards`/`storyboard_activeBoard` keys are gone). New names: story
+  "Story N" with first scene "Scene 1"; further scenes "Scene N".
+- UI: rail's first tool re-labelled **Stories** (still `data-tool="boards"`
+  internally). Panel = one `.sb-story-row` per story; only the ACTIVE story is
+  expanded into `.sb-story-scenes` (sibling container, NOT inside the row - a
+  selector must use `.sb-story-row.active + .sb-story-scenes`). Clicking a story
+  selects/expands it; clicking a scene edits it. Story and scene rows have inline
+  rename + delete; `#sbAddStory` and each expanded story's `.sb-add-scene`.
+  Deleting the LAST scene of a story / the LAST story is disabled. The chip
+  reads `Story / Scene` and still opens the Stories panel.
+- MINIO: `js/app-minio.js` now saves/loads the whole Story
+  (`<dir>/<story>/story-YYYYMMDDHHMM.json`, payload `{... story}`); old
+  board-level files are rejected. Same-name load asks Overwrite/Cancel and
+  overwrite replaces that story in place; a new name adds a story with fresh
+  story+scene ids (active scene index preserved).
+- TESTS: new `tests/storyboard-stories.spec.js` (5) + rewritten
+  `tests/storyboard-minio.spec.js` (6). ALL Storyboard specs re-seeded to the
+  nested store (`storyboard_stories` / `activeStory` / `activeScene`): 61/61
+  green (align 12, groups 16, pan 10, stamp 3, zoom 9, minio 6, stories 5).
+- GOTCHA: the Story row and its scene list are SIBLINGS by design (the row is a
+  horizontal flex bar). Tests/selectors must use the adjacent-sibling form; a
+  descendant selector finds zero scenes. `sbSaveState()` mirrors
+  `activeId` into the active story's `activeSceneId`, so switching scenes and
+  reloading are consistent.
+
+### 2026-10-24 - PWA title-bar colour follows the chosen theme
+- REQUEST (user): the installed MyApps PWA on Windows 11 had a "weird green"
+  title bar. Wanted something sympathetic to the OS, else based on the chosen
+  theme (secondary suggested).
+- FINDING: Windows 11 takes the installed PWA title bar from the manifest
+  theme_color; the page meta theme-color overrides it. No manifest option makes
+  it follow the OS accent (W3C manifest#695): omitting theme_color gives the OS
+  default but loses mobile branding, so used the user's fallback.
+- WHAT: shared `applyThemeColor()` (smd-settings.js) writes the live
+  `--bs-body-bg` into `<meta name="theme-color">`; `smdRefreshThemeColor()`
+  runs it immediately + next rAF, and `smdBindThemeColorLink()` re-runs it on
+  each theme/mode stylesheet `load` (the computed colour belongs to the sheet
+  that is currently loaded). applyTheme + applyThemeMode call it. Static metas
+  and manifests that shipped `#3ddc84` (Launch/root, PlanMyDay, CountMyDays,
+  ListOfLists, QRLinks) now ship `#212529` as the pre-load/install default.
+- SECONDARY WAS WRONG (same day follow-up): the first version used
+  `--bs-secondary`. Yeti's secondary is `#eee` in BOTH modes, so its dark
+  title bar was white and did not change with the theme mode; Storyboard's
+  superhero secondary `#4e5d6c` also did not match its navy top bar
+  (`#0f2537`). Switched to `--bs-body-bg` - the SAME surface as `#mainNav` -
+  which is correct for every theme and flips white -> dark with the mode.
+  Tests assert cerulean #fff, superhero #0f2537 light / #212529 dark, Yeti
+  #fff light / #222 dark.
+- NOTE: an already-installed PWA may keep the old colour until Chromium
+  refreshes the manifest (later launch after windows close); the page meta
+  applies on load. If the user ever prefers the pure OS title bar, remove
+  theme_color from the manifest and the meta.
+- TESTS: `tests/pwa-theme-color.spec.js` (2): meta follows the top-bar surface
+  (cerulean #fff, superhero #0f2537 light / #212529 dark, yeti #fff light /
+  #222 dark), updates on runtime theme AND mode switches, never #3ddc84; all
+  five main shells sync meta to their computed `--bs-body-bg`. RED before the
+  change, GREEN after. Also ran 37 existing theme/storybook tests: green.
+
+### 2026-10-24 - Window Controls Overlay: hamburger in the title bar
+- REQUEST (user): use the Windows Window Controls Overlay to put the hamburger
+  menu in the title bar and save the in-app top row; Auto-hide menu is then
+  irrelevant.
+- WHAT: all 9 manifests got `"display_override": ["window-controls-overlay"]`.
+  Shared `smdInitWindowControlsOverlay()` (smd-app.js) adds `body.smd-wco` while
+  `navigator.windowControlsOverlay.visible` is true (init + geometrychange +
+  display-mode query). `injectSettingsLayout()` CSS fixes `#mainNav` into
+  `env(titlebar-area-*)` (33px fallback), insets the body by the same height,
+  forces `transform:none !important` and removes the auto-hide container
+  padding, and marks buttons/menus `app-region: no-drag` inside a draggable nav.
+- CAVEAT: the overlay is USER-controlled (PWA menu -> "Hide title bar") and
+  starts disabled, so this is progressive: the normal nav row is unchanged
+  until the user enables it. The app cannot turn it on. On Chrome 144+ manifest
+  display_override changes are picked up without reinstalling; older installs
+  may need a relaunch.
+- TESTS: new `tests/wco.spec.js` (4): every manifest opts in; Storyboard nav is
+  fixed at 33px/top 0 with body padding 33px, hamburger still opens, `hideNav()`
+  leaves transform:none; turning the overlay off restores the static row;
+  PlanMyDay starts its container below the strip. RED before, GREEN after; also
+  ran pwa-theme-color + all Launch regression + Storyboard stories: 20/20.
+- FOLLOW-UP (same day): the left rail was too close to the WCO hamburger, so
+  `body.smd-wco #sbToolbar { top: 24px }` doubles its inset only in the overlay
+  window; the web app stays at 12px. wco.spec now asserts the rail gap
+  (>=24px) and the 12px restored inset; 4/4 green.
+- GOTCHA: do NOT set `overflow:hidden` on the WCO nav - the hamburger dropdown
+  is a child and gets clipped; only the title text ellipsises.
+
+### 2026-10-25 - INACTIVE (read-only / disabled) controls: shared rules + per-mode palette, all themes
+- REQUEST (user, three passes): first a superhero-only visual spike on PlanMyDay
+  View Job, then bootstrap + vapor, then "roll this out to all themes and all
+  modes and all pages on all apps ... add to the contrast tests ... bump the
+  build". This note SUPERSEDES the two per-theme spike notes it replaces.
+- WHERE IT LIVES NOW (do not re-duplicate per theme):
+  - RULES: `shared/css/styles.css`, the "INACTIVE (read-only / disabled)
+    CONTROLS" block right after the FORM CONTROLS section. `#smd-app`-scoped so
+    they beat Bootswatch; they cover `.form-control[readonly]`,
+    `.form-control:disabled`, `.form-select:disabled`,
+    `smd-date-picker[readonly] #smdDatePickerAlt`, `smd-checkbox[disabled]` (+ its
+    input, unchecked and checked), and `.btn:disabled`. Being shared and
+    `#smd-app`-scoped, they apply to every app and every page with no app work.
+  - PALETTE: `shared/css/themes/light.css` and `dark.css` (`--smd-inactive-surface`,
+    `-border`, `-text`, `-muted`, `-box`, `-caret`). Values are NEUTRAL LITERALS,
+    never `--bs-gray-*`: every Bootswatch theme re-declares the gray scale
+    (superhero's gray-600 is #4e5d6c, not #6c757d), so a themed token is not
+    predictable enough for a "switched off" look.
+  - THEME OVERRIDES are VALUES ONLY, and only where a theme's page contradicts
+    its mode: the always-dark themes need the DARK ramp even in Light mode
+    (superhero, cyborg, darkly, slate, solar, vapor - each in its
+    `<theme>.light.css`); morph light darkens just the muted label (its page is
+    pale blue, 3.6:1 there); quartz light gets its own set (its page is a
+    MID-TONE purple gradient where neither shared ramp works - a mid grey is
+    1.02:1 and the dark ramp's #adb5bd is 2.05:1, so boundary/box go dark #212529
+    and the muted label white); sketchy colours its hand-drawn
+    `input[type=checkbox]:disabled::before` because it sets `border: none` on the
+    input.
+- THE FIVE PAIRS THE DESIGN MUST SATISFY (one grey cannot do all of them): field
+  text on the inactive surface (4.5:1), border on the surface the control SITS ON
+  (3:1 - the page OR the `<pmd-tasks>` row, which differ), checkbox box on that
+  same surface (3:1), the tick on the box (3:1), and the muted checkbox label on
+  the page (4.5:1). Hence the light ramp uses a DARK box (#6c757d, white tick) and
+  the dark ramp a MID box (#868e96, white tick) - a LIGHT box would force a
+  per-theme dark-tick override everywhere.
+- VAPOR/MATERIA STYLE GOTCHA: vapor's `.btn` is borderless and draws a coloured
+  `box-shadow` glow per variant, so the disabled rule sets `box-shadow: none` AND
+  `border-width/style`. A grey button otherwise keeps a neon halo AND has no
+  boundary - its fill is only 1.6:1 on the purple page. The forced 1px border is
+  in the SHARED rule for exactly that reason.
+- FIXED ALONG THE WAY (pre-existing, found by the new test): slate/solar/vapor
+  LIGHT mode renders a DARK page but `--bs-tertiary-bg` is Bootstrap's light
+  #f8f9fa, so `<pmd-tasks>` rows were near-white strips carrying the theme's light
+  body colour. Those three `.light.css` files now derive the row surface from the
+  page (`color-mix(in hsl, var(--bs-body-bg) 88%, var(--bs-body-color))`), like
+  superhero/cyborg/darkly already did.
+- TEST: new `tests/contrast.spec.js` test "inactive (read-only / disabled)
+  controls meet AA on every theme and mode" (tag @contrast). It mounts every
+  inactive control kind TWICE - on the page and inside a `<pmd-tasks>` row - then
+  walks all 27 themes x 2 modes and asserts the five pairs (text 4.5, graphics 3,
+  plus "no visible border"). It reads the tick colour from the SVG's
+  `stroke='%23...'` so a dark-tick theme would be measured correctly. GOTCHAS
+  baked in: measure a control's BORDER against the surface it SITS ON (its own
+  background returns 1.0 - comparing a fill to itself produced false failures),
+  only treat a CHECKBOX as having a meaningful "fill" (a text field's fill is its
+  own surface), and fall back to `::before` for sketchy's hand-drawn box (the same
+  fallback the existing form-border test uses).
+- VERIFIED: contrast project 12/12 (incl. contrast-css drift - no regeneration
+  needed - and the new test); settings-alignment + display-settings +
+  native-checkbox-guard 46/46; storybook + cmd 85/85; lol/qrlinks/launch/ffox/
+  solar/phonebuttons/image-edit-preview-size 139/139; pmd-regression
+  "Theme colours|View Job|Job Edit|Tasks|dropdown" 96/96; pmd-touch (iPhone) 6/6.
+  Visually checked View Job in quartz/sketchy/materia/minty/slate/vapor/lux/
+  superhero plus a SolarControlar settings page.
+- BUILD: bumped to 202610250448 via `npm run bump:build`. SCREENSHOTS ARE STALE in
+  every app (disabled/read-only fields, and the three fixed task-row themes) -
+  regenerate before shipping.
+
+### 2026-10-25 (c) - FileSync settings tab + OneDrive phase 1 (UI shell)
+- REQUEST (user): add OneDrive alongside MinIO. The settings MinIO tab becomes
+  **FileSync** with two sub-tabs (Minio as now, OneDrive), OneDrive has an Enable
+  switch + a possibly-nested Directory, and enabling it adds Open/Save OneDrive
+  entries to the hamburger. Chosen (user answers): Microsoft Graph + vendored
+  MSAL (Client ID in Settings, no hardcoded app), shared origin-wide sign-in with
+  per-app enable/directory, timestamped saves, a NEW OneDrive page for folder
+  navigation, ':latest' per subfolder, and the four MinIO apps only.
+- PHASE 1 (this change) is visual/structural only - no network yet:
+  - shared/js/smd-filesync.js (new): setupFileSyncTabs(),
+    loadFileSyncSettings(), updateFileSyncMenu(),
+    focusFileSyncSettingsTab(which).
+  - shared/js/smd-onedrive.js (new): per-app enable/directory, origin-wide
+    Client ID/tenant, account row, updateOneDriveMenu(), the
+    #oneDriveImportPage shell (breadcrumb + Up/Refresh + status, with an
+    "Open Settings" shortcut that lands on FileSync > OneDrive), and honest
+    phase-1 stubs for sign-in/save. Sign-in and Graph land in phase 2.
+  - The 4 shells (PlanMyDay, CountMyDays, ListOfLists, Storyboard) now wrap the
+    MinIO block and the new OneDrive block in
+    <template id="fileSyncMinioTpl"> / <template id="fileSyncOneDriveTpl">
+    and render them through <smd-tabs id="fileSyncTabs">. Templates keep the
+    existing MinIO ids OUT of the live document until the sub-tabs clone them -
+    without that loadMinioSettings() could resolve the template copy.
+  - data-tab-id is now filesync-tab; the app restore hooks call
+    loadFileSyncSettings() once (replacing loadMinioSettings + binder), and
+    the boots call updateFileSyncMenu().
+  - Menu items: .onedrive-menu-item divider + "Export/Import to OneDrive"
+    (Storyboard: "Save Story/Load Story to OneDrive"), gated by the app's
+    OneDrive enable switch. Default directories: MyApps/<AppName>.
+- NESTED smd-tabs BUG FIXED (found by the phase-1 probe): _updateActive()
+  used DESCENDANT selectors (this.querySelectorAll('.smd-tab-btn')), so an
+  outer tabs component also toggled a nested <smd-tabs>'s buttons/panels by
+  its own index - the FileSync sub-tabs rendered with NO active panel. Both
+  _render()'s click binding and _updateActive() now use
+  :scope > .smd-tab-list .smd-tab-btn / :scope > .smd-tab-panel. Do NOT
+  revert to descendant selectors; nested tabs are supported now.
+- GOTCHA: MINIO_IMPORT_STYLES makes every .btn transparent (written for the
+  MinIO page's outline buttons). A .btn-primary on the OneDrive page therefore
+  had the theme's primary TEXT colour (dark navy on superhero) on the page
+  background - an apparently empty button. ONEDRIVE_PAGE_STYLES now restores
+  the theme surface for #oneDriveBody .btn-primary.
+- TESTS UPDATED (existing only; the phase-1 spec comes with the later test
+  phase): settings-alignment tab tables/panel selectors (nested panels make
+  #settingsPage .smd-tab-panel.active match two - use
+  #settingsTabs > .smd-tab-panel.active), display-settings same, pmd
+  #minio-tab -> #filesync-tab (13), pmd-screenshots, cmd/lol/storyboard
+  tab lists + FileSync clicks, storyboard menu order now includes the OneDrive
+  pair, minio-directory click.
+- VERIFIED: phase-1 probe (tabs, OneDrive field persistence, menu gating,
+  Open page + status, Open Settings shortcut, Storyboard labels, 0 console/page
+  errors, screenshots reviewed); settings-alignment 36/36 + display-settings
+  8/8 + minio-directory 4/4 + storyboard-minio 6/6; pmd Minio 51/51; cmd Minio
+  8/8; lol Minio 4/4; pmd Settings 40/40; storybook 8/8; pmd screenshot
+  "settings - minio" green.
+- BUILD: bumped to 202610250914 via `npm run bump:build`. Restart the test
+  server after the edit (it snapshots served files at startup).
+- NEXT: phase 2 vendors MSAL, the onedrive-callback.html redirect page,
+  sign-in/refresh/sign-out and the Graph calls (ensure folder, list, get, put,
+  ':latest'); phase 3 fills the browser; phase 4 migrates the app hooks
+  (CountMyDays wizard, Storyboard story save, LoL/PMD defaults).
+
+### 2026-10-25 (d) - OneDrive phase 2: MSAL auth, Graph and the working browser
+- PHASE 2 COMPLETE (phases 3+4 were folded in because the menu entries could not
+  ship half-wired):
+  - Vendored `shared/vendor/msal-browser.min.js` (v5.26.0 UMD, global `msal`;
+    keep the licence header). Lazy-loaded by `smd-onedrive.js` only when the
+    OneDrive settings tab/page/save is used.
+  - `onedrive-callback.html` (repo root) + `shared/js/onedrive-callback.js`:
+    ONE registered redirect URI for every app. MSAL v5 requires the dedicated
+    redirect bridge here, NOT handleRedirectPromise: the page loads
+    `shared/vendor/msal-redirect-bridge.min.js` (global `msalRedirectBridge`) and
+    calls `broadcastResponseToMainFrame()`, which broadcasts to the opener
+    (popup flow) or caches the response and navigates back to the initiating
+    page (redirect flow).
+  - `smd-onedrive.js` now has: origin-wide Client ID + tenant, per-app
+    enable/directory, sign-in/sign-out, token cache, `oneDriveListFolder`,
+    `oneDriveLatestJson`, `oneDriveEnsureFolder`, `oneDriveGetFile`,
+    `oneDrivePutFile`, friendly Graph/auth errors, and the folder browser
+    (Up/Refresh/breadcrumb, folders, `<folder>:latest`, JSON files with modified
+    dates, clamped to the configured Directory).
+  - Save: generic timestamped `<prefix>-YYYYMMDDHHMM.json` (creates nested
+    folders); app-owned via `SmdConfig.onFileSyncExport` / `fileSyncExportData` /
+    `fileSyncExportPrefix`, import via `onFileSyncImport(provider, data, key)`
+    with `closeFileSyncImport(provider)` / `showFileSyncAlert(provider, ...)`.
+    Wired: CountMyDays (export wizard gets type "onedrive"; import wizard),
+    ListOfLists (categories payload; import restores), Storyboard (whole-story
+    save under `<dir>/<story>/story-<ts>.json`; same-name overwrite prompt) and
+    PlanMyDay (streams + images default).
+- GOTCHAS (all cost real time):
+  (a) MSAL v5 requires `await instance.initialize()` before `loginPopup` /
+      `handleRedirectPromise`; without it the error is
+      `uninitialized_public_client_application`.
+  (b) `loginPopup` must be called SYNCHRONOUSLY from the click or the browser
+      blocks it after the async MSAL load. `oneDriveReadyInstance()` returns the
+      already-initialised instance; the settings sub-tab and Open page warm it.
+      The cold path shows "OneDrive is preparing sign-in. Click Sign in again."
+  (c) `MINIO_IMPORT_STYLES` used to be GLOBAL (`.smd-page-body .btn` made every
+      button on EVERY smd-page transparent once the MinIO page had opened - the
+      "outline instead of filled" look). Its selectors are now scoped with
+      `:is(#minioImportPage, #oneDriveImportPage) .smd-page-body`. The OneDrive
+      page's own overrides therefore need a DOUBLED page id
+      (`#oneDriveImportPage #oneDriveBody .btn-primary|secondary|.list-group-item:hover`)
+      to outrank the `:is(...)` specificity.
+  (d) The OneDrive list hover must not use `--bs-secondary-bg`/`--bs-tertiary-bg`:
+      both are LIGHT on the always-dark themes (superhero light). It uses a
+      translucent `rgba(var(--bs-body-color-rgb), .14)` overlay.
+  (e) `oneDriveCurrentPath` deliberately has NO leading underscore: inline
+      onclick handlers in the page markup reference the global.
+  (f) Storyboard tests must seed `storyboard_stories` from `/` (Launch) and then
+      navigate to `/Storyboard/` - reloading the Storyboard page overwrites the
+      seeded value via its `pagehide` `sbSaveState()`.
+  (g) MSAL v5 REMOVED `temporaryCacheLocation` and expects a redirect-bridge
+      page. Calling `handleRedirectPromise()` on the callback page fails with
+      `no_token_request_cache_error` (the token request cache belongs to the
+      opener). Use @azure/msal-browser/redirect-bridge
+      (`broadcastResponseToMainFrame`) and set `smd_onedrive_pendingRedirect`
+      before `loginRedirect`, so the app page runs one `oneDriveInit()` on
+      return (the DOMContentLoaded hook at the end of smd-onedrive.js).
+- TESTS: new `tests/onedrive.spec.js` (9, coverage hooks) - settings persistence
+  + menu gating, filled `smd-button` surfaces (no outline/transparent), folder/
+  file/:latest browsing + provider-aware import, PlanMyDay save key/payload,
+  ListOfLists payload + import hook, Storyboard whole-story save, path helpers.
+  A throwaway probe verified the real MSAL authorize URL
+  (`login.microsoftonline.com/common/oauth2/v2.0/authorize`) carries the Client
+  ID, `redirect_uri=<origin>/onedrive-callback.html`, scopes
+  `Files.ReadWrite openid profile offline_access`, PKCE S256 and state, with zero
+  console/page errors; the callback page shows its "No Client ID" state cleanly.
+  Existing MinIO suites re-run green: minio-directory 4/4, storyboard-minio 6/6,
+  cmd Minio 8/8 + Export 13/13, LoL Minio 4/4.
+- TODO / USER ACTION: register the Azure app (SPA platform) with redirect URIs
+  `https://ownimage.github.io/MyApps/onedrive-callback.html`,
+  `http://localhost:8080/onedrive-callback.html` and
+  `http://localhost:8081/PlanMyDay/onedrive-callback.html`; delegated
+  `Files.ReadWrite` (+ admin consent if the tenant requires it); then paste the
+  Client ID into Settings > FileSync > OneDrive. Real sign-in/token exchange and
+  live Graph calls were NOT exercised without that registration.
+- BUILD: bumped after this change (see the build-number note). Screenshots for
+  the four settings pages are stale (FileSync tab).
+
+### 2026-10-25 (e) - FileSync polish: OneDrive first, danger Sign out, top ":latest"
+- REQUEST (user): on Settings > FileSync the OneDrive sub-tab comes FIRST; the
+  OneDrive Sign in / Sign out buttons are filled primary / danger (not
+  secondary/outline); the import browser shows a ":latest" pseudo-file at the
+  TOP of the directory being viewed when that directory holds the app's
+  date-stamped backups.
+- DONE:
+  - `setupFileSyncTabs()` order is now OneDrive, Minio, so FileSync opens on
+    OneDrive. Tests that wanted the MinIO fields after clicking `#filesync-tab`
+    now also click the inner `Minio` sub-tab (pmd-regression 12x, pmd-screenshots
+    "settings - minio", minio-directory, cmd/lol/storyboard MinIO tests).
+  - `#btnOneDriveSignOut` is `variant="danger"` in all four shells (Sign in is
+    already `primary`); `tests/onedrive.spec.js` asserts the variants and the
+    filled `btn-danger` inner button (no outline).
+  - The OneDrive browser renders `od-latest-current` as the first content row
+    (after Up) when the CURRENT directory has the app's date-stamped backups:
+    label `<directory name>:latest`, meta = newest filename. The per-subfolder
+    `od-latest` rows stay. Matching is app-specific:
+    `oneDriveIsAppBackupName()` uses `SmdConfig.fileSyncLatestPattern` when set
+    (Storyboard: `/^story-\d{12}\.json$/i`), else
+    `<fileSyncExportPrefix|minioExportPrefix|planmydays>-<12 digits>.json`.
+    CountMyDays now sets `SmdConfig.fileSyncExportPrefix = "countmydays"` (its
+    files are countmydays-*), ListOfLists keeps "listoflists", PlanMyDay uses
+    the default "planmydays".
+- VERIFIED: onedrive 9/9 (new tab order + variant + top-latest assertions),
+  minio-directory 4/4, storyboard-minio 6/6, cmd MinIO 8/8, LoL MinIO 4/4, pmd
+  MinIO 51/51, pmd screenshot "settings - minio" green. Visual check: the
+  OneDrive root lists `PlanMyDay:latest` above the folder and the two files.
+- BUILD: bumped again after this change.
+
+### 2026-10-25 (f) - FileSync/OneDrive polish: shared buttons, Storyboard split rows, latest stamps
+- REQUEST (user): the OneDrive settings buttons must look like CountMyDays in every
+  app; Storyboard's "Open from OneDrive" must use ONE row per folder (left half
+  navigates, right half opens the latest); append "DD MON YYYY. HH24:MI" to every
+  OneDrive ":latest" file name.
+- BUTTONS: CountMyDays' `CMD_EDITOR_STYLES` already had
+  `.smd-tab-panel smd-button { display:block; width:100% }`, which is why only
+  CMD showed stacked full-width Sign in/out buttons. The shared OneDrive Account
+  markup now uses `d-flex flex-column gap-2` + `<smd-button block ...>` (no
+  `size="small"`) in ALL four shells, so every app matches without a new global
+  rule. `tests/onedrive.spec.js` asserts the block attribute, the `w-100` inner
+  button and the flex-column wrapper in all four apps.
+- STORYBOARD SPLIT: `SmdConfig.oneDriveSplitFolderRows = true` (Storyboard only).
+  `oneDriveRenderList` emits one `.od-folder-split` `<li>` with two
+  `.od-split-half` buttons: `.od-split-nav` (navigate) and `.od-split-latest`
+  (open the newest backup, or a disabled "No backups" half). Other apps keep the
+  folder + folder:latest rows.
+- LATEST STAMPS: `oneDriveLatestMeta()` appends ` / DD MON YYYY. HH24:MI` (LOCAL
+  time; hardcoded English month abbreviations) to the filename in the top
+  `od-latest-current` row, the per-subfolder `od-latest` rows and Storyboard's
+  right half.
+- BUG FIXED (found by the split-row visual): `oneDriveRenderList` sorted folders
+  by name while `latests` was index-aligned to the UNSORTED list, so a
+  multi-folder directory could attach a folder's latest to the wrong folder.
+  `oneDriveLoadFolder` now returns `latests` KEYED BY PATH and the renderer looks
+  up `latests[folder.path]`. The Storyboard test deliberately returns folders in
+  reverse-alphabetical order to guard it.
+- VERIFIED: onedrive 11/11 (4-app button layout + split rows + latest stamps),
+  minio-directory 4/4, storyboard-minio 6/6, cmd/lol/pmd MinIO suites unchanged.
+  Visual check: PMD/CMD/Storyboard settings match; Storyboard shows Holiday
+  ("No backups") and My Board ("story-...json / 25 Oct 2026. 09:00") as one split
+  row each.
+- BUILD: bumped after this change.
+
+### 2026-10-25 (g) - OneDrive page: no toolbar Up, fa:file icons, Storyboard 40/60 split
+- REQUEST (user): remove the toolbar Up button (the directory list already has a
+  "< Up" row); make the Storyboard split 40/60; on its right half replace the
+  clock with an smd-image fa:file and prefix the filename/date with ":latest ";
+  use smd-image fa:file wherever filenames have the file SVG.
+- DONE:
+  - `oneDriveToolbarHtml()` is now Refresh + breadcrumb only. The `.od-up` LIST
+    row remains the ONLY back control (clamped to the configured Directory), in
+    every app. The toolbar Up button (`#btnOneDriveUp`) is gone.
+  - Storyboard: `.od-split-nav` is `flex: 0 0 40%`, `.od-split-latest` is
+    `flex: 1 1 60%`.
+  - The Storyboard right half uses `<smd-image image="fa:file" size="18">` and
+    its label is `:latest <file> / DD MON YYYY. HH24:MI`.
+  - The file rows use `<smd-image image="fa:file" size="18">` instead of the file
+    SVG in every app. The clock icon remains on the top-of-directory and
+    per-subfolder `:latest` rows (only the Storyboard right half was switched to
+    the file icon).
+  - `Storyboard/index.html` now loads `shared/js/components/smd-image.js` (it did
+    not before) because its OneDrive page uses `<smd-image>`; `sw.js` already
+    precached it.
+  - `oneDriveFileIcon(extraClass)` fixes `size="18"` so the glyph does NOT follow
+    the app's Icon size setting (which would be far too large in a row).
+- TESTS: onedrive 11/11 - the browsing test asserts no `#btnOneDriveUp`, an
+  `.od-up` row only when nested (and that it returns to the root), and the
+  fa:file icon in the file row; the Storyboard split test asserts the 40/60
+  ratio, `:latest <file> / stamp`, the fa:file icon and the disabled "No
+  backups" half. A console/pageerror probe confirmed Storyboard boots and
+  renders the icon cleanly.
+- BUILD: bumped after this change.
+
+### 2026-10-25 (h) - OneDrive top ":latest" uses Bootstrap clock-history
+- The top-of-directory `.od-latest-current` icon is now
+  `<smd-image image="bi:clock-history" size="18">` (oneDriveLatestIcon) instead of
+  the inline SVG clock. The per-subfolder `od-latest` rows keep the SVG clock.
+- `Storyboard/index.html` now links `shared/vendor/bootstrap-icons.css` (PMD, CMD
+  and LoL already did) so the `bi:` glyph font is registered; `smd-image` fetches
+  the CSS glyph map itself, but the font comes from that document-level link.
+- TEST: `tests/onedrive.spec.js` asserts the bi:clock-history host on the top row
+  (11/11); a visual probe confirmed the clock-history glyph. BUILD bumped.
+
+### 2026-10-25 (i) - OneDrive test matrix complete + affected regression pass
+- TESTS: `tests/onedrive.spec.js` is now 15 tests. Added CountMyDays' export
+  wizard -> OneDrive upload (title, `countmydays-<ts>.json` key, payload shape),
+  CountMyDays OneDrive import -> import wizard (page closes), friendly 404 page +
+  expired-session -> Sign in (account cleared), sign-out clears the cached
+  account, and 401/429/network/sign-in friendly messages.
+- GOTCHA: the FileSync inner tabs mean
+  `#settingsPage smd-tabs .smd-tab-btn` matches TWO active tabs (outer General +
+  inner OneDrive). The three PMD theme-colour tests that used it now scope to
+  `#settingsTabs > .smd-tab-list .smd-tab-btn...` (8 replacements). Any future
+  settings-tab colour/size assertion must use the outer list, never the
+  descendant selector.
+- REGRESSION (affected set, all green): onedrive 15/15; settings-alignment +
+  display-settings + launch-regression + storybook + minio-directory +
+  storyboard-minio 76/76; cmd + lol full 143/143; pmd-regression FULL 482/482;
+  Storyboard suite (align/groups/pan/stamp/stories/zoom) 55/55; @cache 11/11.
+- No app code changed in this verification pass (test-only), so BUILD stays
+  202610251210. SCREENSHOTS for the four FileSync settings pages are still stale
+  (regenerate before shipping).
+
+### 2026-10-25 (j) - Storyboard flake: a modal confirm closed the Stories panel
+- ROOT CAUSE: the toolbar's document click listener closes the panel for any
+  click outside `#sbToolbar`, but a click on `#smdConfirmModal`'s Delete is
+  outside it. A 150ms `panelClickAt` grace masked it when fast; under load the
+  confirm click landed after the grace, closed the panel, and the confirmed
+  delete re-rendered into a CLOSED panel (0 `.sb-story-row`) -> the intermittent
+  failure at `storyboard-stories.spec.js:197`.
+- FIX: `Storyboard/js/toolbar.js`'s document click handler also ignores
+  `t.closest("smd-modal")`, so a confirm opened from a panel keeps the panel
+  open through its action. (The 150ms guard stays for detached panel buttons.)
+- TDD: new test "a delete confirmation keeps the Stories panel open after the
+  outside-click grace" waits 300ms before confirming (past the grace) and
+  asserts `#sbToolbar[data-open="boards"]` plus the remaining story row.
+  MUTATION-CHECKED: removing the `smd-modal` clause makes it fail with
+  `data-open=""` (panel closed).
+- VERIFIED: storyboard-stories 6/6; the delete + grace pair repeat-each=15 at 4
+  workers 30/30; full Storyboard suite (align/groups/minio/pan/stamp/stories/
+  zoom) 62/62. BUILD bumped.
+
+### 2026-10-25 (k) - Storyboard screenshot gallery + OneDrive scenes (all apps)
+- REQUEST (user): build a Storyboard screenshot gallery covering everything
+  (including OneDrive), add OneDrive scene shots to the four MinIO apps
+  (PlanMyDay, CountMyDays, ListOfLists, Storyboard), add the new suite to the
+  `commands.md` screenshot command, and run the Storyboard gallery for ALL
+  themes/modes.
+- NEW `tests/storyboard-screenshots.spec.js`: 11 scenes x 27 themes x both modes
+  = 594 PNGs in `screenshots/storyboard/`: board (space art, 3 stickers, fancy +
+  stamp text, directional connector), stories panel, background panel, stickers
+  panel, text panel (font/border/colour controls), selection bar, multi-selection
+  align (align row expanded), main menu dropdown (MinIO + OneDrive entries),
+  settings, settings-onedrive, open-from-onedrive (split folder rows, one with
+  "No backups").
+- SHARED HELPERS (`tests/screenshot-helpers.js`): `seedOneDriveSettings()` writes
+  the client ID / signed-in account / per-app Enable+Directory AND stubs
+  `oneDriveInit` (opening FileSync > OneDrive asks MSAL; an unregistered client ID
+  returns no account and the app clears the seeded name, so the settings shot
+  would read "Not signed in"); `stubOneDriveBrowser()` stubs the Graph list/latest
+  calls (the suites must never reach Microsoft).
+- PMD/CMD/LoL each gained `settings-onedrive.png`, `open-from-onedrive.png` and
+  `main-menu-filesync.png` (both providers enabled so every hamburger entry
+  shows).
+- BUG SURFACED BY THE PHONE-WIDTH SHOT: the `:latest` rows put the right-aligned
+  `.od-meta` timestamp on one nowrap line, so on a 390px phone the name+stamp ran
+  past the right edge and the stamp was clipped. TDD: new `tests/onedrive.spec.js`
+  test "the file browser fits a phone width without overflowing" was RED
+  (row scrollWidth 581 vs 371 client) before the fix. FIX in
+  `ONEDRIVE_PAGE_STYLES`: the rows `flex-wrap: wrap` and `.od-meta` wraps
+  (`max-width:100%`, `overflow-wrap:anywhere`, `padding-left:.5rem`) instead of
+  `white-space: nowrap`, so the stamp drops to its own right-aligned line on a
+  narrow screen and stays inline on a wide one.
+- COMMANDS: `commands.md`'s Screenshots list now has seven suites (storyboard
+  after qrlinks) and uses `--workers 16` in both the all-themes and one-theme
+  commands.
+- VERIFIED: storyboard-screenshots 11/11 for all 27 themes (594 files, 54 mode
+  dirs, 11 scenes each); PMD/CMD/LoL `*onedrive*` 6/6 + `*filesync*` 3/3 (54
+  files each scene); onedrive.spec 16/16. Spot-checked superhero, sketchy dark and
+  bootstrap light shots.
+- BUILD bumped (shared asset changed).
+
+### 2026-10-25 (l) - merge main into remoteHID: conflicts resolved
+- MERGED `main` into `remoteHID`. Four files conflicted; resolutions:
+  - `shared/js/smd-apps.js`: the registry keeps BOTH sides - Phone Buttons at the
+    GROUPED path `remoteHID/PhoneButtons/` (HEAD) AND the `Storyboard/` entry
+    (main), in menu order Phone Buttons -> Storyboard -> Launch.
+  - `sw.js`: build number taken from main (`202610251421`) so the two build files
+    agree; both were then bumped to `202610251616` (`npm run bump:build`).
+  - `tests/launch-regression.spec.js`: every list keeps the grouped
+    `/remoteHID/PhoneButtons/` shell (prefix `../../`) and adds `/Storyboard/`
+    (`../`); the grid + submenu tables list Phone Buttons (grouped href) then
+    Storyboard. `toHaveCount(9)` still holds (8 apps + Launch).
+  - `AGENTS.md`: both session logs kept. The remoteHID 2026-10-22 / 2026-10-23
+    Mouser entries were moved from the top of the conflict to their chronological
+    spot (after 2026-10-21 (g), before the 2026-10-23 image-dropdown entry); main's
+    2026-10-21 (e) .. 2026-10-25 (k) entries are unchanged.
+- NOT a conflict but worth knowing: `shared/js/build-number.js` merged to main's
+  value automatically because remoteHID's own bump (`202610231534`) is an ancestor
+  of main's later bumps.
+- VERIFIED at `--workers=16 --retries=0`: launch-regression + settings-alignment +
+  display-settings + native-checkbox-guard + phonebuttons-regression +
+  phonebuttons-server 80/80; storyboard (align/groups/pan/stamp/stories/zoom/
+  minio) + onedrive + minio-directory + storybook 90/90; `@cache` 11/11 (mirror +
+  precache: 462 URLs, 0 duplicates). The user runs the full regression.
+- POST-MERGE PATH AUDIT (found by the user's full run): `tests/wco.spec.js`'s
+  `APPS` list still named `PhoneButtons` (it reads each `manifest.json` straight
+  off disk), so it threw ENOENT. Fixed to `remoteHID/PhoneButtons`; `wco.spec.js`
+  then 4/4. A repo-wide grep (`git grep PhoneButtons`, excluding docs and
+  `remoteHID/`) shows NO other stale folder path - the remaining hits are UI
+  labels ("PhoneButtons" tab), a sample URL and comments. When a future app moves
+  under a group folder, grep for BARE folder names in tests, not just `/App/`
+  URLs.
+- MERGE IS STAGED, NOT COMMITTED: commit it after the full run passes.

@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>OneDrive sign-in</title>
+  <style>
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+      font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+      background: #212529;
+      color: #f8f9fa;
+      text-align: center;
+    }
+    #msg { max-width: 34rem; line-height: 1.5; }
+  </style>
+</head>
+<body>
+  <p id="msg">Completing OneDrive sign-in…</p>
+  <!-- One shared redirect URI for every MyApps PWA on this origin. MSAL v5's
+       redirect bridge hands the response to the opener (popup) or navigates
+       back to the app (redirect), so this page needs no full MSAL instance. -->
+  <script src="shared/vendor/msal-redirect-bridge.min.js"></script>
+  <script src="shared/js/onedrive-callback.js"></script>
+</body>
+</html>

@@ -61,6 +61,13 @@ class SmdImageDropdown extends HTMLElement {
            image and its wide right padding so the geometry is unchanged. */
         smd-image-dropdown .form-select { display: flex; align-items: center; width: 100%; padding: 0.375rem 0.75rem; background-image: none; }
         smd-image-dropdown .thumb { flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; overflow: hidden; }
+        /* The menu thumbnail is the SAME square as the closed button's image
+           (SmdImage.defaultSize / the Icon size setting). Never give the inner
+           <smd-image> a fixed wrapper size: as a flex item it would shrink in
+           WIDTH only, leaving a 24x50 host whose Font Awesome glyph is clipped
+           (and a 300x60 upload squeezed to 24x4.8). flex:none keeps the host
+           square and lets its own size drive the wrapper. */
+        smd-image-dropdown .thumb > smd-image { flex: none; }
         smd-image-dropdown .labels { flex: 1 1 auto; min-width: 0; display: grid; }
         smd-image-dropdown .labels > * { grid-area: 1 / 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; }
         smd-image-dropdown .labels .sizer { visibility: hidden; }
@@ -168,14 +175,18 @@ class SmdImageDropdown extends HTMLElement {
       a.setAttribute('data-name', name);
       const itemThumb = document.createElement('span');
       itemThumb.className = 'thumb';
+      // An EMPTY <smd-image> reserves the configured square for an option with
+      // no image, exactly like smd-image-select's placeholder: the box stays
+      // aligned with the image rows AND follows the Icon size setting (a fixed
+      // CSS width would not).
+      const itemImg = document.createElement('smd-image');
+      itemImg.setAttribute('key-prefix', keyPrefix);
       if (o.image) {
-        const img = document.createElement('smd-image');
-        img.setAttribute('key-prefix', keyPrefix);
-        img.setAttribute('image', o.image);
-        itemThumb.appendChild(img);
+        itemImg.setAttribute('image', o.image);
       } else {
         itemThumb.classList.add('thumb-blank');
       }
+      itemThumb.appendChild(itemImg);
       a.appendChild(itemThumb);
       const itemTitle = document.createElement('span');
       itemTitle.className = 'title';

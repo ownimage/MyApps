@@ -43,13 +43,11 @@ function openSettings() {
       document.getElementById("listSearchEditor").classList.add("d-none");
     },
     restore: function () {
-      if (typeof bindMinioSettingsTabBehavior === "function") bindMinioSettingsTabBehavior();
+      if (typeof loadFileSyncSettings === "function") loadFileSyncSettings();
 
       const noCache = localStorage.getItem(smdKey("noCache")) === "true";
       const noCacheCb = $id("noCache");
       if (noCacheCb) noCacheCb.checked = noCache;
-
-      if (typeof loadMinioSettings === "function") loadMinioSettings();
 
       if (isDevMode) {
         ["devTodayInput", "devLastGenInput"].forEach(id => {

@@ -118,7 +118,7 @@ test.describe("Settings theme control alignment", () => {
       await page.goto(app.path);
       await openSettingsOnThemeTab(page);
       const gaps = await page.evaluate(() => {
-        const panel = document.querySelector("#settingsPage .smd-tab-panel.active");
+        const panel = document.querySelector("#settingsTabs > .smd-tab-panel.active");
         const round = (el) => Math.round(parseFloat(getComputedStyle(el).marginBottom) * 100) / 100;
         const theme = Array.from(panel.querySelectorAll("#themeSelector .smd-theme-field")).map(round);
         const rows = Array.from(panel.querySelectorAll("div.row.col-md-8"))
@@ -242,9 +242,9 @@ test.describe("Danger tab shape is consistent across apps", () => {
       await dismissStartupModal(page);
       await openDangerTab(page);
       await page.locator("#showDanger").check();
-      await expect(page.locator("#settingsPage .smd-tab-panel.active")).toHaveCount(1);
+      await expect(page.locator("#settingsTabs > .smd-tab-panel.active")).toHaveCount(1);
       const rows = await page.evaluate(() => {
-        const panel = document.querySelector("#settingsPage .smd-tab-panel.active");
+        const panel = document.querySelector("#settingsTabs > .smd-tab-panel.active");
         // Every Danger row is a `div.row`; the ACTION rows are full width (no
         // `col-md-8`), so the button starts where the label column ends and runs to
         // the right edge - the switch rows keep the narrower `col-md-8` control
@@ -349,12 +349,12 @@ test.describe("Settings page shape is consistent across apps", () => {
       display: ["Theme", "Theme Mode", "Font size", "Icon size", "Touch size", "Slide speed", "Auto-hide menu"],
     },
     {
-      app: "PlanMyDay", path: "/PlanMyDay/", tabs: ["General", "Display", "Schedule", "Minio", "Danger"],
+      app: "PlanMyDay", path: "/PlanMyDay/", tabs: ["General", "Display", "Schedule", "FileSync", "Danger"],
       display: ["Theme", "Theme Mode", "Font size", "Icon size", "Touch size", "Tile density", "Slide speed",
         "Auto-hide menu", "Show Gantt", "Screen resolution"],
     },
     {
-      app: "CountMyDays", path: "/CountMyDays/", tabs: ["General", "Display", "G Cal", "Minio", "Danger"],
+      app: "CountMyDays", path: "/CountMyDays/", tabs: ["General", "Display", "G Cal", "FileSync", "Danger"],
       display: ["Theme", "Theme Mode", "Font size", "Icon size", "Touch size", "Tile density", "Slide speed",
         "Auto-hide menu"],
     },
@@ -374,7 +374,7 @@ test.describe("Settings page shape is consistent across apps", () => {
       display: ["Theme", "Theme Mode", "Font size", "Touch size", "Slide speed", "Auto-hide menu"],
     },
     {
-      app: "ListOfLists", path: "/ListOfLists/", tabs: ["Display", "Minio", "Danger"],
+      app: "ListOfLists", path: "/ListOfLists/", tabs: ["Display", "FileSync", "Danger"],
       display: ["Theme", "Theme Mode", "Font size", "Icon size", "Touch size", "Tile density", "Slide speed",
         "Auto-hide menu", "Screen resolution"],
     },
@@ -402,12 +402,12 @@ test.describe("Settings page shape is consistent across apps", () => {
       if (dismissed) await expect(page.locator("#smdConfirmModal")).not.toHaveAttribute("open", "");
       // Exact list, in order: also proves no tab was left empty (an empty tab
       // must be removed, not kept with a blank panel).
-      await expect(page.locator("#settingsPage .smd-tab-btn")).toHaveText(spec.tabs);
+      await expect(page.locator("#settingsTabs > .smd-tab-list .smd-tab-btn")).toHaveText(spec.tabs);
 
       await page.locator("#settingsPage .smd-tab-btn").filter({ hasText: "Display" }).click();
-      await expect(page.locator("#settingsPage .smd-tab-panel.active")).toHaveCount(1);
+      await expect(page.locator("#settingsTabs > .smd-tab-panel.active")).toHaveCount(1);
       const labels = await page.evaluate(() => {
-        const panel = document.querySelector("#settingsPage .smd-tab-panel.active");
+        const panel = document.querySelector("#settingsTabs > .smd-tab-panel.active");
         return Array.from(panel.querySelectorAll("label"))
           .map((l) => l.textContent.trim())
           .filter(Boolean);

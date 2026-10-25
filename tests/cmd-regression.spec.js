@@ -401,10 +401,13 @@ test.describe("CountMyDays - Regression", () => {
       // first category and shows its image thumb.
       await expect(page.locator("#dateCategorySelect #smdImageBtnText")).toHaveText("Birthday");
       await page.locator("#dateCategorySelect #smdImageDropdownBtn").click();
-      // "No Category" carries a blank thumb placeholder so all rows line up.
+      // "No Category" carries a blank thumb placeholder so all rows line up:
+      // an EMPTY <smd-image> reserves the configured square (no image attached).
       const noCategoryRow = page.locator("#dateCategorySelect #smdImageDropdownMenu .dropdown-item").filter({ hasText: "No Category" });
-      await expect(noCategoryRow.locator("smd-image")).toHaveCount(0);
-      await expect(noCategoryRow.locator(".thumb.thumb-blank")).toHaveCount(1);
+      const blankThumb = noCategoryRow.locator(".thumb.thumb-blank");
+      await expect(blankThumb).toHaveCount(1);
+      await expect(blankThumb.locator("smd-image")).toHaveCount(1);
+      expect(await blankThumb.locator("smd-image").getAttribute("image")).toBeNull();
       const birthdayRow = page.locator("#dateCategorySelect #smdImageDropdownMenu .dropdown-item").filter({ hasText: "Birthday" });
       await expect(birthdayRow.locator("smd-image")).toHaveCount(1);
       await birthdayRow.click();
@@ -843,9 +846,10 @@ test.describe("CountMyDays - Regression", () => {
     test("settings has a Minio tab whose fields are disabled until enabled", async ({ page }) => {
       await seed(page);
       await page.evaluate(() => openSettings());
-      const tabs = page.locator("#settingsPage .smd-tab-btn");
-      await expect(tabs).toHaveText(["General", "Display", "G Cal", "Minio", "Danger"]);
-      await tabs.filter({ hasText: "Minio" }).click();
+      const tabs = page.locator("#settingsTabs > .smd-tab-list .smd-tab-btn");
+      await expect(tabs).toHaveText(["General", "Display", "G Cal", "FileSync", "Danger"]);
+      await page.locator("#filesync-tab").click();
+      await page.locator("#fileSyncTabs > .smd-tab-list .smd-tab-btn").filter({ hasText: "Minio" }).click();
       await expect(page.locator("#minioEnabled")).toBeVisible();
       for (const id of ["#minioServer", "#minioUsername", "#minioPassword", "#minioBucket"]) {
         await expect(page.locator(id), id).toBeDisabled();

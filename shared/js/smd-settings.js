@@ -92,12 +92,60 @@ function smdBuildStamp() {
   return typeof BUILD_NUMBER !== "undefined" ? BUILD_NUMBER : Date.now();
 }
 
+// ---- PWA / OS title-bar colour --------------------------------------------
+//
+// Windows 11 paints an installed PWA's title bar from the manifest
+// `theme_color`, and the page's <meta name="theme-color"> overrides it once
+// loaded. There is no manifest option for "follow the OS accent", so the app's
+// fallback is to keep the meta on the SAME surface as its in-app top menu bar
+// (`--bs-body-bg`): that always matches the chosen theme AND flips with
+// Light/Dark. (Do NOT use --bs-secondary: Yeti leaves it at #eee in BOTH modes,
+// which made the dark title bar white, and superhero's grey #4e5d6c did not
+// match its navy top bar.) The static manifest/meta values are only the
+// pre-load default.
+var SMD_DEFAULT_TITLEBAR_COLOR = "#212529";
+
+function smdReadThemeBarColor() {
+  var value = "";
+  try {
+    value = getComputedStyle(document.documentElement).getPropertyValue("--bs-body-bg").trim();
+  } catch (e) {
+    value = "";
+  }
+  return value || SMD_DEFAULT_TITLEBAR_COLOR;
+}
+
+function applyThemeColor() {
+  if (!document.head) return;
+  var meta = document.querySelector('meta[name="theme-color"]');
+  if (!meta) {
+    meta = document.createElement("meta");
+    meta.setAttribute("name", "theme-color");
+    document.head.appendChild(meta);
+  }
+  meta.setAttribute("content", smdReadThemeBarColor());
+}
+
+// The computed --bs-body-bg belongs to whichever theme sheet is CURRENTLY
+// loaded, so re-apply when a swapped sheet arrives (theme/mode change).
+function smdBindThemeColorLink(link) {
+  if (!link || link.__smdThemeColorBound) return;
+  link.__smdThemeColorBound = true;
+  link.addEventListener("load", applyThemeColor);
+}
+
+function smdRefreshThemeColor() {
+  applyThemeColor();
+  requestAnimationFrame(applyThemeColor);
+}
+
 function applyTheme(name, modeOverride) {
   const valid = normalizeTheme(name);
   const hasModeOverride = typeof modeOverride !== "undefined";
   const mode = hasModeOverride ? normalizeThemeMode(modeOverride) : getStoredThemeMode();
   const link = document.getElementById("bootstrap-theme-css");
   if (link) {
+    smdBindThemeColorLink(link);
     link.href = smdThemeCssPrefix() + valid + "/bootstrap.min.css?v=" + smdBuildStamp();
   }
   document.documentElement.setAttribute("data-bs-theme", mode);
@@ -105,6 +153,7 @@ function applyTheme(name, modeOverride) {
   localStorage.setItem(smdKey("theme"), valid);
   if (!hasModeOverride) localStorage.setItem(smdKey("themeMode"), mode);
   applyThemeOverrides(valid, mode);
+  smdRefreshThemeColor();
 }
 
 // A mode switch no longer only flips two attributes: the override sheet is
@@ -116,6 +165,7 @@ function applyThemeMode(theme, mode) {
   document.documentElement.setAttribute("data-bs-theme", normalized);
   document.documentElement.setAttribute("data-theme", valid);
   applyThemeOverrides(valid, normalized);
+  smdRefreshThemeColor();
 }
 
 // The override layer is TWO sheets, both re-pointed here:
@@ -134,6 +184,7 @@ function applyThemeOverrides(theme, mode) {
   setOverrideLink("theme-override-mode", prefix + normalized + ".css?v=" + stamp);
   setOverrideLink("theme-override-specific", prefix + theme + "/" + theme + "." + normalized + ".css?v=" + stamp);
   orderThemeOverrideLinks();
+  smdRefreshThemeColor();
 }
 
 function setOverrideLink(id, href) {
@@ -146,6 +197,7 @@ function setOverrideLink(id, href) {
     if (anchor && anchor.parentNode) anchor.parentNode.insertBefore(el, anchor.nextSibling);
     else document.head.appendChild(el);
   }
+  smdBindThemeColorLink(el);
   el.href = href;
   return el;
 }
@@ -298,6 +350,50 @@ function injectSettingsLayout() {
     #mainNav.nav-inactive { pointer-events: none; }
     #settingsPage .smd-page-body { scrollbar-width: none; -ms-overflow-style: none; }
     #settingsPage .smd-page-body::-webkit-scrollbar { display: none; }
+
+    /* WINDOW CONTROLS OVERLAY (desktop installed PWA): the nav lives in the
+       title-bar strip, so the in-app row and its height are gone. The body takes
+       a matching top inset (the title-bar area is still part of the viewport).
+       The overlay is user-enabled; body.smd-wco is set by smd-app.js only while
+       navigator.windowControlsOverlay.visible is true. */
+    body.smd-wco { padding-top: env(titlebar-area-height, 33px); }
+    body.smd-wco #mainNav,
+    body.smd-wco.auto-hide-menu #mainNav {
+      position: fixed;
+      top: env(titlebar-area-y, 0px);
+      left: env(titlebar-area-x, 0px);
+      right: auto;
+      width: env(titlebar-area-width, 100%);
+      height: env(titlebar-area-height, 33px);
+      padding: 0 0.5rem;
+      align-items: center;
+      flex-wrap: nowrap;
+      transform: none !important;
+      transition: none;
+      z-index: 1039;
+      app-region: drag;
+      -webkit-app-region: drag;
+    }
+    /* Draggable title-bar regions swallow pointer events - every control inside
+       must opt out or the hamburger/menu stops working. */
+    body.smd-wco #mainNav .dropdown,
+    body.smd-wco #mainNav button,
+    body.smd-wco #mainNav a,
+    body.smd-wco #mainNav input,
+    body.smd-wco #mainNav select,
+    body.smd-wco #mainNav .dropdown-menu {
+      app-region: no-drag;
+      -webkit-app-region: no-drag;
+    }
+    body.smd-wco #appNavTitle { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    body.smd-wco #mainNav #btnMainMenu { flex: none; }
+    /* Auto-hide is irrelevant while the overlay is open: the padding that
+       compensates for a hidden fixed nav must not come back. */
+    body.smd-wco.auto-hide-menu .container-fluid,
+    body.smd-wco.auto-hide-menu #mainNav.nav-hidden ~ .container-fluid {
+      padding-top: 0.5rem;
+      transition: none;
+    }
   `);
 }
 

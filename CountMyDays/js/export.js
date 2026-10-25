@@ -103,7 +103,7 @@ function renderExportWizard() {
   }
 
   if (ew.step === "main") {
-    page.title = ew.type === "minio" ? "Export to Minio" : "Export";
+    page.title = ew.type === "minio" ? "Export to Minio" : (ew.type === "onedrive" ? "Export to OneDrive" : "Export");
     page.content = `
       <p class="mb-3">Choose what to export:</p>
       <div class="form-check mb-2">
@@ -431,6 +431,8 @@ function finishExportWizard() {
     doJSONExport(data);
   } else if (type === "minio") {
     doMinioExport(data);
+  } else if (type === "onedrive") {
+    doOneDriveExport(data);
   } else {
     openQrExportPage(data);
   }
@@ -449,12 +451,30 @@ function doMinioExport(data) {
   const ts = d.getFullYear() + String(d.getMonth() + 1).padStart(2, "0") + String(d.getDate()).padStart(2, "0") +
     String(d.getHours()).padStart(2, "0") + String(d.getMinutes()).padStart(2, "0");
   const filename = "countmydays-" + ts + ".json";
+  const key = minioBuildKey(config.directory, filename);
   const body = JSON.stringify(data, null, 2);
 
-  minioPutObject(config.bucket, filename, body, config).then(function () {
-    showMinioAlert("Exported " + filename + " to Minio bucket " + config.bucket, "info");
+  minioPutObject(config.bucket, key, body, config).then(function () {
+    showMinioAlert("Exported " + key + " to Minio bucket " + config.bucket, "info");
   }).catch(function (e) {
     showMinioAlert("Minio export failed: " + minioFriendlyError(e), "error");
+  });
+}
+
+// OneDrive destination: the shared OneDrive entry point validates the settings
+// and hands over here (via SmdConfig.onFileSyncExport); the wizard's scope
+// choices decide the payload. Same JSON shape as the JSON/MinIO exports.
+function doOneDriveExport(data) {
+  const handoff = window.__fileSyncExport || { provider: "onedrive", config: getOneDriveConfig() };
+  window.__fileSyncExport = null;
+  const config = handoff.config || getOneDriveConfig();
+  if (!config.enabled) return;
+
+  const key = oneDriveJoinPath(config.directory, "countmydays-" + oneDriveTimestamp() + ".json");
+  oneDrivePutFile(key, JSON.stringify(data, null, 2)).then(function () {
+    showOneDriveAlert("Exported " + key + " to OneDrive.", "info");
+  }).catch(function (e) {
+    showOneDriveAlert("OneDrive export failed: " + oneDriveFriendlyError(e), "error");
   });
 }
 

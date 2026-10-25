@@ -33,6 +33,21 @@
   --smd-form-disabled-background: var(--bs-gray-100);
   --smd-form-disabled-foreground: var(--bs-gray-600);
 
+  /* INACTIVE (read-only / disabled) controls - the rules live in styles.css.
+     Deliberately NEUTRAL literals, NOT --bs-gray-*: every Bootswatch theme
+     re-declares the gray scale (superhero's --bs-gray-600 is #4e5d6c, not
+     #6c757d), so a themed token is not predictable enough for a "switched off"
+     look. These values satisfy all four pairs the contrast test checks: text on
+     the surface (4.5:1), border on the page/task-row (3:1), box on the
+     page/row (3:1) and the tick on the box (3:1). */
+  --smd-inactive-surface: #e9ecef;
+  --smd-inactive-border: #6c757d;
+  --smd-inactive-text: #495057;
+  --smd-inactive-muted: #6c757d;
+  --smd-inactive-box: #6c757d;
+  /* Dark chevron, for the light inactive surface. */
+  --smd-inactive-caret: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23495057' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m2 5 6 6 6-6'/%3e%3c/svg%3e");
+
   /* Palette for <smd-image-dropdown> (the shared image+name selector). The
      surface/LABEL mirror the form-field palette so the picker reads as one of
      the form controls; deriving them from --bs-tertiary-bg / --bs-body-color

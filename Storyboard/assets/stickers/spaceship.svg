@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="Spaceship sticker">
+  <defs>
+    <linearGradient id="hull" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#cbd5e1"/>
+      <stop offset="0.28" stop-color="#ffffff"/>
+      <stop offset="0.62" stop-color="#e2e8f0"/>
+      <stop offset="1" stop-color="#94a3b8"/>
+    </linearGradient>
+    <linearGradient id="nose" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fb7185"/>
+      <stop offset="1" stop-color="#be123c"/>
+    </linearGradient>
+    <linearGradient id="flame" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fef08a"/>
+      <stop offset="0.45" stop-color="#fb923c"/>
+      <stop offset="1" stop-color="#ef4444"/>
+    </linearGradient>
+    <linearGradient id="glass" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#67e8f9"/>
+      <stop offset="1" stop-color="#0369a1"/>
+    </linearGradient>
+  </defs>
+
+  <!-- fins -->
+  <path d="M196 286c-34 14-58 42-70 84 26-10 50-8 72 6 4-28 4-58-2-90z" fill="#ef4444" stroke="#0f172a" stroke-width="7" stroke-linejoin="round"/>
+  <path d="M316 286c34 14 58 42 70 84-26-10-50-8-72 6-4-28-4-58 2-90z" fill="#ef4444" stroke="#0f172a" stroke-width="7" stroke-linejoin="round"/>
+
+  <!-- flame -->
+  <path d="M224 400c8 30 20 54 32 74 12-20 24-44 32-74-12 8-22 10-32 10s-20-2-32-10z" fill="url(#flame)" stroke="#0f172a" stroke-width="7" stroke-linejoin="round"/>
+  <path d="M242 406c4 18 10 32 14 42 4-10 10-24 14-42-6 4-10 6-14 6s-8-2-14-6z" fill="#fff7ed"/>
+
+  <!-- hull -->
+  <path d="M256 54c34 22 58 56 66 102 6 34 6 104 2 140-6 56-30 92-68 108-38-16-62-52-68-108-4-36-4-106 2-140 8-46 32-80 66-102z" fill="url(#hull)" stroke="#0f172a" stroke-width="8" stroke-linejoin="round"/>
+
+  <!-- nose cone -->
+  <path d="M256 54c18 12 32 28 42 50-26 8-58 8-84 0 10-22 24-38 42-50z" fill="url(#nose)" stroke="#0f172a" stroke-width="8" stroke-linejoin="round"/>
+
+  <!-- porthole -->
+  <circle cx="256" cy="208" r="46" fill="#e2e8f0" stroke="#0f172a" stroke-width="8"/>
+  <circle cx="256" cy="208" r="34" fill="url(#glass)" stroke="#0f172a" stroke-width="6"/>
+  <path d="M234 190c10-10 24-14 38-10-12 2-22 8-28 18z" fill="#e0f2fe" opacity="0.75"/>
+
+  <!-- panel lines -->
+  <path d="M206 268c32 10 68 10 100 0" fill="none" stroke="#94a3b8" stroke-width="6" stroke-linecap="round"/>
+  <path d="M210 318c30 10 62 10 92 0" fill="none" stroke="#94a3b8" stroke-width="6" stroke-linecap="round"/>
+  <rect x="238" y="282" width="36" height="12" rx="6" fill="#22c55e" stroke="#0f172a" stroke-width="4"/>
+
+  <!-- rivets -->
+  <g fill="#64748b" stroke="#0f172a" stroke-width="3">
+    <circle cx="214" cy="238" r="5"/>
+    <circle cx="298" cy="238" r="5"/>
+    <circle cx="214" cy="298" r="5"/>
+    <circle cx="298" cy="298" r="5"/>
+  </g>
+
+  <!-- sparkles -->
+  <g fill="#fde68a">
+    <path d="M118 150l5 13 13 5-13 5-5 13-5-13-13-5 13-5z"/>
+    <path d="M396 176l4 10 10 4-10 4-4 10-4-10-10-4 10-4z"/>
+    <path d="M382 366l3 8 8 3-8 3-3 8-3-8-8-3 8-3z"/>
+  </g>
+  <g fill="#e0f2fe" opacity="0.85">
+    <circle cx="86" cy="300" r="4"/>
+    <circle cx="430" cy="290" r="5"/>
+    <circle cx="410" cy="100" r="3"/>
+  </g>
+</svg>

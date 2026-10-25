@@ -13,6 +13,8 @@ window.isDevMode = new URLSearchParams(window.location.search).get("dev") === "t
 
 // All apps share ONE image library on this origin (`shared-images`).
 SmdConfig.imagePrefix = "shared-";
+// OneDrive default backup directory (each app keeps its own, inside the drive).
+SmdConfig.oneDriveDefaultDirectory = "MyApps/PlanMyDay";
 
 document.addEventListener("DOMContentLoaded", () => {
   const settingsPage = document.getElementById("settingsPage");
@@ -153,7 +155,8 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  if (typeof updateMinioMenu === "function") updateMinioMenu();
+  if (typeof updateFileSyncMenu === "function") updateFileSyncMenu();
+  else if (typeof updateMinioMenu === "function") updateMinioMenu();
   // The Gantt menu item is opt-in via Settings -> Display -> Show Gantt.
   if (typeof updateGanttMenu === "function") updateGanttMenu();
   // The Refresh Google Calendar item shows only when CountMyDays GCal is enabled.

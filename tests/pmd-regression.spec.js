@@ -1051,7 +1051,7 @@ test.describe("PlanMyDay - Regression", () => {
       for (const theme of ["brite", "cerulean"]) {
         await setTheme(page, theme);
         await page.evaluate(() => openSettings());
-        await expect(page.locator("#settingsPage smd-tabs .smd-tab-btn.active")).toBeVisible();
+        await expect(page.locator("#settingsTabs > .smd-tab-list .smd-tab-btn.active")).toBeVisible();
         const cmp = await page.evaluate(() => {
           function probe(cls) {
             const el = document.createElement("span");
@@ -1063,8 +1063,8 @@ test.describe("PlanMyDay - Regression", () => {
             el.remove();
             return out;
           }
-          const inactive = document.querySelector("#settingsPage smd-tabs .smd-tab-btn:not(.active)");
-          const active = document.querySelector("#settingsPage smd-tabs .smd-tab-btn.active");
+          const inactive = document.querySelector("#settingsTabs > .smd-tab-list .smd-tab-btn:not(.active)");
+          const active = document.querySelector("#settingsTabs > .smd-tab-list .smd-tab-btn.active");
           const ics = getComputedStyle(inactive);
           const acs = getComputedStyle(active);
           return {
@@ -1110,14 +1110,14 @@ test.describe("PlanMyDay - Regression", () => {
       for (const mode of ["light", "dark"]) {
         await page.evaluate(({ theme, mode }) => applyTheme(theme, mode), { theme: "slate", mode });
         await page.evaluate(() => openSettings());
-        await expect(page.locator("#settingsPage smd-tabs .smd-tab-btn.active")).toBeVisible();
+        await expect(page.locator("#settingsTabs > .smd-tab-list .smd-tab-btn.active")).toBeVisible();
         // Poll the APPLIED style, not the <link>: applyTheme() updates the href
         // synchronously while link.sheet still points at the PREVIOUS sheet, so a
         // wait on href/sheet can pass a tick before the new CSS is applied (the
         // flake seen in a full run). A genuinely wrong or missing override still
         // fails here after the timeout.
-        await expect.poll(async () => norm(await gradient("#settingsPage smd-tabs .smd-tab-btn.active")), { timeout: 15000, message: mode }).toBe(ACTIVE);
-        await expect.poll(async () => norm(await gradient("#settingsPage smd-tabs .smd-tab-btn:not(.active)")), { timeout: 15000 }).toBe(INACTIVE);
+        await expect.poll(async () => norm(await gradient("#settingsTabs > .smd-tab-list .smd-tab-btn.active")), { timeout: 15000, message: mode }).toBe(ACTIVE);
+        await expect.poll(async () => norm(await gradient("#settingsTabs > .smd-tab-list .smd-tab-btn:not(.active)")), { timeout: 15000 }).toBe(INACTIVE);
         await page.evaluate(() => closeSettings());
       }
     });
@@ -1326,11 +1326,11 @@ test.describe("PlanMyDay - Regression", () => {
       for (const mode of ["light", "dark"]) {
         await page.evaluate((mo) => applyTheme("quartz", mo), mode);
         await page.evaluate(() => openSettings());
-        await expect(page.locator("#settingsPage smd-tabs .smd-tab-btn.active")).toBeVisible();
+        await expect(page.locator("#settingsTabs > .smd-tab-list .smd-tab-btn.active")).toBeVisible();
         const label = "quartz/" + mode;
         await expect.poll(async () => {
           const r = await page.evaluate(() => {
-            const a = document.querySelector("#settingsPage smd-tabs .smd-tab-btn.active");
+            const a = document.querySelector("#settingsTabs > .smd-tab-list .smd-tab-btn.active");
             const s = getComputedStyle(a);
             return { color: s.color, bg: s.backgroundColor, img: s.backgroundImage };
           });
@@ -3048,7 +3048,9 @@ test.describe("PlanMyDay - Regression", () => {
         };
       });
       expect(info.fontFamily).toContain("bootstrap-icons");
-      expect(info.fontSize).toBe("51px");
+      // 64px box * the 0.75 glyph scale (the widest available icon, fa:braille,
+      // is 1.31em of ink, so 0.8 would overflow the square).
+      expect(info.fontSize).toBe("48px");
       expect(info.hostW).toBe("64px");
       expect(info.imgHidden).toBeTruthy();
 
@@ -4699,6 +4701,113 @@ test.describe("PlanMyDay - Regression", () => {
         return Math.abs(a.top - b.top);
       });
       expect(delta).toBeLessThanOrEqual(1);
+    });
+
+    test("menu thumbnails match the closed button and keep a square image box", async ({ page }) => {
+      const wideSvg = "data:image/svg+xml," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 60"><rect width="300" height="60" fill="#cc3333"/></svg>');
+      await page.evaluate(({ square, wide }) => {
+        localStorage.setItem("shared-images", JSON.stringify([
+          { name: "TestImg", data: square },
+          { name: "WideImg", data: wide }
+        ]));
+        localStorage.setItem("planmydays_streams", JSON.stringify([
+          {
+            id: "stream_1", title: "Maintenance", tab: "maintenance", image: "TestImg", sequence: 1,
+            jobs: [{ id: "job_1", title: "Report", description: "", active: true, frequency: "daily", sequence: 1, suffix: false, dayType: "dayOfYear", mod: "", tasks: [], image: "TestImg" }]
+          },
+          { id: "stream_2", title: "Wide image", tab: "progress", image: "WideImg", sequence: 2, jobs: [] }
+        ]));
+      }, { square: svg, wide: wideSvg });
+      await page.reload();
+      await openJob(page, 0, 0);
+      await page.locator("#smdImageDropdownBtn").click();
+      const geo = await page.evaluate(() => {
+        const rect = (el) => {
+          const b = el.getBoundingClientRect();
+          return { left: b.left, top: b.top, width: b.width, height: b.height };
+        };
+        const rows = [...document.querySelectorAll("#smdImageDropdownMenu .item")];
+        const row = (name) => rows.find((r) => r.getAttribute("data-name") === name);
+        return {
+          btn: rect(document.querySelector("#smdImageBtnIcon")),
+          thumbs: rows.map((r) => rect(r.querySelector(".thumb"))),
+          firstHost: rect(row("Maintenance").querySelector(".thumb smd-image")),
+          wideImg: rect(row("Wide image").querySelector(".thumb img"))
+        };
+      });
+      // The menu image column is the same size as the closed dropdown's image.
+      expect(geo.thumbs[0].width).toBeCloseTo(geo.btn.width, 0);
+      expect(geo.thumbs[0].height).toBeCloseTo(geo.btn.height, 0);
+      // Every option reserves the same SQUARE image box, so labels stay aligned.
+      geo.thumbs.forEach((t) => {
+        expect(t.width).toBeCloseTo(t.height, 0);
+        expect(t.width).toBeCloseTo(geo.btn.width, 0);
+      });
+      expect(geo.firstHost.width).toBeCloseTo(geo.firstHost.height, 0);
+      expect(geo.firstHost.width).toBeCloseTo(geo.btn.width, 0);
+      // A wide (300x60) image keeps its aspect ratio inside that box instead of
+      // being squeezed into the old 24px-wide slot (24 x 4.8).
+      expect(geo.wideImg.width).toBeCloseTo(geo.btn.width, 0);
+      expect(geo.wideImg.height).toBeCloseTo(geo.btn.width * 0.2, 0);
+    });
+
+    test("the widest Font Awesome glyph (fa:braille) fits the menu thumbnail", async ({ page }) => {
+      await page.evaluate(() => {
+        localStorage.setItem("shared-images", "[]");
+        localStorage.setItem("planmydays_streams", JSON.stringify([
+          {
+            id: "stream_1", title: "Braille", tab: "progress", image: "fa:braille", sequence: 1,
+            jobs: [{ id: "job_1", title: "Report", description: "", active: true, frequency: "daily", sequence: 1, suffix: false, dayType: "dayOfYear", mod: "", tasks: [], image: "" }]
+          },
+          { id: "stream_2", title: "No icon", tab: "progress", image: "", sequence: 2, jobs: [] }
+        ]));
+      });
+      await page.reload();
+      await openJob(page, 0, 0);
+      await page.locator("#smdImageDropdownBtn").click();
+      // FA glyphs resolve from the vendored icon map asynchronously.
+      await page.waitForFunction(() => {
+        const span = document.querySelector('#smdImageDropdownMenu .item[data-name="Braille"] .smd-bi');
+        return !!span && span.textContent.trim().length > 0;
+      });
+      const geo = await page.evaluate(() => {
+        const b = (el) => {
+          const r = el.getBoundingClientRect();
+          return { left: r.left, top: r.top, right: r.right, bottom: r.bottom, width: r.width, height: r.height };
+        };
+        // fa:braille is the widest icon in the vendored sets: 1.31em of INK
+        // (advance 1.25em), i.e. wider than the text box itself. Measure the
+        // ink with canvas, because a DOM Range only reports the advance box.
+        const ink = (span) => {
+          const cs = getComputedStyle(span);
+          const canvas = document.createElement("canvas");
+          const ctx = canvas.getContext("2d");
+          ctx.font = cs.fontWeight + " " + cs.fontSize + " " + cs.fontFamily;
+          const m = ctx.measureText(span.textContent);
+          return {
+            width: m.actualBoundingBoxLeft + m.actualBoundingBoxRight,
+            height: m.actualBoundingBoxAscent + m.actualBoundingBoxDescent
+          };
+        };
+        const item = [...document.querySelectorAll("#smdImageDropdownMenu .item")]
+          .find((r) => r.getAttribute("data-name") === "Braille");
+        const rowSpan = item.querySelector(".thumb .smd-bi");
+        return {
+          thumb: b(item.querySelector(".thumb")),
+          btn: b(document.querySelector("#smdImageBtnIcon")),
+          rowInk: ink(rowSpan),
+          btnInk: ink(document.querySelector("#smdImageBtnIcon .smd-bi"))
+        };
+      });
+      // The menu thumbnail is the CLOSED BUTTON's size (it used to be 24px and
+      // the glyph was clipped down to a 24px window).
+      expect(geo.thumb.width).toBeCloseTo(geo.btn.width, 0);
+      expect(geo.thumb.height).toBeCloseTo(geo.btn.height, 0);
+      // The widest glyph's INK box fits inside the thumbnail in BOTH places.
+      expect(geo.rowInk.width).toBeLessThanOrEqual(geo.thumb.width + 0.5);
+      expect(geo.rowInk.height).toBeLessThanOrEqual(geo.thumb.height + 0.5);
+      expect(geo.btnInk.width).toBeLessThanOrEqual(geo.btn.width + 0.5);
+      expect(geo.btnInk.height).toBeLessThanOrEqual(geo.btn.height + 0.5);
     });
 
     test("dropdown options and selected getters expose the current data", async ({ page }) => {
@@ -7452,13 +7561,14 @@ test.describe("PlanMyDay - Regression", () => {
     test("minio tab exists in settings", async ({ page }) => {
       await page.locator("#btnMainMenu").click();
       await page.locator("a.dropdown-item").filter({ hasText: "Settings" }).click();
-      await expect(page.locator("#minio-tab")).toBeVisible();
+      await expect(page.locator("#filesync-tab")).toBeVisible();
     });
 
     test("minio tab shows fields when enabled", async ({ page }) => {
       await page.locator("#btnMainMenu").click();
       await page.locator("a.dropdown-item").filter({ hasText: "Settings" }).click();
-      await page.locator("#minio-tab").click();
+      await page.locator("#filesync-tab").click();
+      await page.locator("#fileSyncTabs > .smd-tab-list .smd-tab-btn").filter({ hasText: "Minio" }).click();
       await expect(page.locator("#minioEnabled")).toBeVisible();
       await expect(page.locator("#minioServer")).toBeVisible();
       await expect(page.locator("#minioUsername")).toBeVisible();
@@ -7469,7 +7579,8 @@ test.describe("PlanMyDay - Regression", () => {
     test("minio fields are disabled when enable toggle is off", async ({ page }) => {
       await page.locator("#btnMainMenu").click();
       await page.locator("a.dropdown-item").filter({ hasText: "Settings" }).click();
-      await page.locator("#minio-tab").click();
+      await page.locator("#filesync-tab").click();
+      await page.locator("#fileSyncTabs > .smd-tab-list .smd-tab-btn").filter({ hasText: "Minio" }).click();
       await expect(page.locator("#minioEnabled")).not.toBeChecked();
       await expect(page.locator("#minioServer")).toBeDisabled();
       await expect(page.locator("#minioUsername")).toBeDisabled();
@@ -7480,7 +7591,8 @@ test.describe("PlanMyDay - Regression", () => {
     test("minio fields become enabled when toggle is on", async ({ page }) => {
       await page.locator("#btnMainMenu").click();
       await page.locator("a.dropdown-item").filter({ hasText: "Settings" }).click();
-      await page.locator("#minio-tab").click();
+      await page.locator("#filesync-tab").click();
+      await page.locator("#fileSyncTabs > .smd-tab-list .smd-tab-btn").filter({ hasText: "Minio" }).click();
       await page.waitForTimeout(100);
       await page.locator("#minioEnabled").check();
       await expect(page.locator("#minioServer")).toBeEnabled();
@@ -7500,7 +7612,8 @@ test.describe("PlanMyDay - Regression", () => {
       await page.reload();
       await page.locator("#btnMainMenu").click();
       await page.locator("a.dropdown-item").filter({ hasText: "Settings" }).click();
-      await page.locator("#minio-tab").click();
+      await page.locator("#filesync-tab").click();
+      await page.locator("#fileSyncTabs > .smd-tab-list .smd-tab-btn").filter({ hasText: "Minio" }).click();
       await page.waitForTimeout(150);
       await expect(page.locator("#minioEnabled")).toBeChecked();
       await expect(page.locator("#minioServer")).toHaveValue("http://minio:9000");
@@ -7512,7 +7625,8 @@ test.describe("PlanMyDay - Regression", () => {
     test("password toggle shows and hides password", async ({ page }) => {
       await page.locator("#btnMainMenu").click();
       await page.locator("a.dropdown-item").filter({ hasText: "Settings" }).click();
-      await page.locator("#minio-tab").click();
+      await page.locator("#filesync-tab").click();
+      await page.locator("#fileSyncTabs > .smd-tab-list .smd-tab-btn").filter({ hasText: "Minio" }).click();
       await page.waitForTimeout(100);
       await page.locator("#minioEnabled").check();
       await page.locator("#minioPassword").fill("secret");
@@ -7526,7 +7640,8 @@ test.describe("PlanMyDay - Regression", () => {
     test("password is hidden when leaving minio tab", async ({ page }) => {
       await page.locator("#btnMainMenu").click();
       await page.locator("a.dropdown-item").filter({ hasText: "Settings" }).click();
-      await page.locator("#minio-tab").click();
+      await page.locator("#filesync-tab").click();
+      await page.locator("#fileSyncTabs > .smd-tab-list .smd-tab-btn").filter({ hasText: "Minio" }).click();
       await page.waitForTimeout(100);
       await page.locator("#minioEnabled").check();
       await page.locator("#minioPassword").fill("secret");
@@ -7562,7 +7677,8 @@ test.describe("PlanMyDay - Regression", () => {
       // settings -> minio tab -> disabled
       await page.locator("#btnMainMenu").click();
       await page.locator("a.dropdown-item").filter({ hasText: "Settings" }).click();
-      await page.locator("#minio-tab").click();
+      await page.locator("#filesync-tab").click();
+      await page.locator("#fileSyncTabs > .smd-tab-list .smd-tab-btn").filter({ hasText: "Minio" }).click();
       await expect(page.locator("#minioEnabled")).not.toBeChecked();
       await page.getByRole("button", { name: "OK" }).click();
       // main menu should not show the import/export options
@@ -7571,7 +7687,8 @@ test.describe("PlanMyDay - Regression", () => {
       await expect(page.locator("a.dropdown-item").filter({ hasText: "Import from Minio" })).not.toBeVisible();
       // enabling in settings makes them appear
       await page.locator("a.dropdown-item").filter({ hasText: "Settings" }).click();
-      await page.locator("#minio-tab").click();
+      await page.locator("#filesync-tab").click();
+      await page.locator("#fileSyncTabs > .smd-tab-list .smd-tab-btn").filter({ hasText: "Minio" }).click();
       await page.locator("#minioEnabled").check();
       await page.getByRole("button", { name: "OK" }).click();
       await page.locator("#btnMainMenu").click();
@@ -7579,7 +7696,8 @@ test.describe("PlanMyDay - Regression", () => {
       await expect(page.locator("a.dropdown-item").filter({ hasText: "Import from Minio" })).toBeVisible();
       // disabling again hides them again
       await page.locator("a.dropdown-item").filter({ hasText: "Settings" }).click();
-      await page.locator("#minio-tab").click();
+      await page.locator("#filesync-tab").click();
+      await page.locator("#fileSyncTabs > .smd-tab-list .smd-tab-btn").filter({ hasText: "Minio" }).click();
       await page.locator("#minioEnabled").uncheck();
       await page.getByRole("button", { name: "OK" }).click();
       await page.locator("#btnMainMenu").click();
@@ -7830,7 +7948,8 @@ test.describe("PlanMyDay - Regression", () => {
     test("changeMinioEnabled toggles fields and menu", async ({ page }) => {
       await page.locator("#btnMainMenu").click();
       await page.locator("a.dropdown-item").filter({ hasText: "Settings" }).click();
-      await page.locator("#minio-tab").click();
+      await page.locator("#filesync-tab").click();
+      await page.locator("#fileSyncTabs > .smd-tab-list .smd-tab-btn").filter({ hasText: "Minio" }).click();
       await page.waitForTimeout(100);
       await page.locator("#minioEnabled").check();
       const items = await page.locator(".minio-menu-item").count();
@@ -7860,7 +7979,8 @@ test.describe("PlanMyDay - Regression", () => {
     test("loadMinioSettings populates fields from localStorage", async ({ page }) => {
       await page.locator("#btnMainMenu").click();
       await page.locator("a.dropdown-item").filter({ hasText: "Settings" }).click();
-      await page.locator("#minio-tab").click();
+      await page.locator("#filesync-tab").click();
+      await page.locator("#fileSyncTabs > .smd-tab-list .smd-tab-btn").filter({ hasText: "Minio" }).click();
       await page.evaluate(() => {
         localStorage.setItem("planmydays_minio_enabled", "true");
         localStorage.setItem("planmydays_minio_server", "http://srv:9000");
@@ -7879,7 +7999,8 @@ test.describe("PlanMyDay - Regression", () => {
     test("loadMinioSettings disables fields when not enabled", async ({ page }) => {
       await page.locator("#btnMainMenu").click();
       await page.locator("a.dropdown-item").filter({ hasText: "Settings" }).click();
-      await page.locator("#minio-tab").click();
+      await page.locator("#filesync-tab").click();
+      await page.locator("#fileSyncTabs > .smd-tab-list .smd-tab-btn").filter({ hasText: "Minio" }).click();
       await page.evaluate(() => loadMinioSettings());
       await expect(page.locator("#minioServer")).toBeDisabled();
       await expect(page.locator("#minioUsername")).toBeDisabled();

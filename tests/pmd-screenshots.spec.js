@@ -1,5 +1,5 @@
 const { test, expect } = require("@playwright/test");
-const { createScreenshotAllThemes } = require("./screenshot-helpers");
+const { createScreenshotAllThemes, seedOneDriveSettings, stubOneDriveBrowser } = require("./screenshot-helpers");
 
 const sampleImagesData = require("../shared/sampleImages.json");
 
@@ -631,7 +631,8 @@ test.describe("PlanMyDay - Screenshots", () => {
     await page.locator("#btnMainMenu").click();
     await page.locator("a.dropdown-item").filter({ hasText: "Settings" }).click();
     await page.waitForSelector("#settingsPage:not(.d-none)");
-    await page.locator("#minio-tab").click();
+    await page.locator("#filesync-tab").click();
+    await page.locator("#fileSyncTabs > .smd-tab-list .smd-tab-btn").filter({ hasText: "Minio" }).click();
     await page.waitForTimeout(300);
     await screenshotAllThemes(page, "settings-minio.png");
   });
@@ -660,5 +661,36 @@ test.describe("PlanMyDay - Screenshots", () => {
     await page.waitForSelector("#minioImportBody .list-group-item");
     await page.waitForTimeout(400);
     await screenshotAllThemes(page, "import-minio.png");
+  });
+
+  test("settings - onedrive", async ({ page }) => {
+    await seedOneDriveSettings(page, { prefix: "planmydays_", directory: "MyApps/PlanMyDay" });
+    await page.evaluate(() => openSettings());
+    await page.waitForSelector("#settingsPage:not(.d-none)");
+    await page.locator("#filesync-tab").click();
+    await page.locator("#fileSyncTabs > .smd-tab-list .smd-tab-btn").filter({ hasText: "OneDrive" }).click();
+    await page.waitForTimeout(400);
+    await screenshotAllThemes(page, "settings-onedrive.png");
+  });
+
+  test("main menu dropdown - filesync", async ({ page }) => {
+    await seedOneDriveSettings(page, { prefix: "planmydays_", directory: "MyApps/PlanMyDay" });
+    await page.evaluate(() => updateFileSyncMenu());
+    await page.locator("#btnMainMenu").click();
+    await page.locator(".dropdown-menu.show").first().waitFor({ state: "visible" });
+    await page.waitForTimeout(250);
+    await screenshotAllThemes(page, "main-menu-filesync.png");
+  });
+
+  test("open from onedrive", async ({ page }) => {
+    await seedOneDriveSettings(page, { prefix: "planmydays_", directory: "MyApps/PlanMyDay" });
+    await stubOneDriveBrowser(page, {
+      directory: "MyApps/PlanMyDay",
+      latestName: "planmydays-202610250930.json"
+    });
+    await page.evaluate(() => openOneDrivePage());
+    await page.waitForSelector("#oneDriveBody .od-latest-current");
+    await page.waitForTimeout(400);
+    await screenshotAllThemes(page, "open-from-onedrive.png");
   });
 });

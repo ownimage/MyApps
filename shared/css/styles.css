@@ -92,6 +92,76 @@ input {
   border-color: var(--smd-form-focus-border-color);
 }
 
+/* INACTIVE (read-only / disabled) CONTROLS -------------------------------
+   Bootswatch paints a read-only field exactly like an editable one, and its
+   disabled look is either a flat `--bs-secondary-bg` box or the brand colour at
+   65% opacity - which still reads as "live". This gives EVERY theme and mode one
+   neutral "switched off" appearance: greyed surface + muted text for fields, a
+   flat grey button, and a grey checkbox box that keeps a visible tick (a done
+   task must still read as done).
+
+   The PALETTE lives in the shared MODE layer (shared/css/themes/light.css /
+   dark.css, the `--smd-inactive-*` set), so a theme overrides values only, never
+   selectors, and only where its page contradicts its mode (the themes whose
+   LIGHT mode renders a DARK page: superhero, cyborg, darkly, slate, solar,
+   vapor). tests/contrast.spec.js asserts the rendered ratios (4.5:1 text, 3:1
+   non-text) on every theme/mode, on the page AND inside a task row.
+
+   `#smd-app` lifts these above Bootswatch's own `.form-control`/`.btn` rules.
+   `#smdDatePickerAlt` is excluded from the generic [readonly] rule because
+   flatpickr keeps that input read-only even while the picker is LIVE (edit
+   mode); `smd-date-picker[readonly]` is the real "inactive" signal. */
+#smd-app .form-control[readonly]:not(#smdDatePickerAlt),
+#smd-app .form-control:disabled,
+#smd-app .form-select:disabled,
+#smd-app smd-date-picker[readonly] #smdDatePickerAlt {
+  background-color: var(--smd-inactive-surface);
+  border-color: var(--smd-inactive-border);
+  color: var(--smd-inactive-text);
+  opacity: 1;
+  cursor: default;
+}
+
+/* The caret must contrast the INACTIVE surface, which follows the mode palette
+   rather than the theme's own field, so it is a palette value too. */
+#smd-app .form-select:disabled {
+  --bs-form-select-bg-img: var(--smd-inactive-caret);
+}
+
+#smd-app smd-checkbox[disabled] {
+  color: var(--smd-inactive-muted);
+}
+
+#smd-app smd-checkbox input[type="checkbox"]:disabled {
+  opacity: 1;
+  background-color: transparent;
+  border-color: var(--smd-inactive-box);
+}
+
+#smd-app smd-checkbox input[type="checkbox"]:disabled:checked {
+  background-color: var(--smd-inactive-box);
+  border-color: var(--smd-inactive-box);
+}
+
+/* Buttons (<smd-button>, the smd-image-select Edit button and the apps' raw
+   .btn markup). `border-width/style` are FORCED because some themes ship a
+   borderless `.btn` (vapor, materia), which would leave the grey button with no
+   perceivable boundary; `!important` on the colour because the generated
+   contrast block sets a variant colour the same way; `box-shadow: none` clears
+   vapor's per-variant neon glow. */
+#smd-app .btn:disabled,
+#smd-app .btn.disabled {
+  background-color: var(--smd-inactive-surface);
+  background-image: none;
+  border-width: 1px;
+  border-style: solid;
+  border-color: var(--smd-inactive-border);
+  color: var(--smd-inactive-text) !important;
+  box-shadow: none;
+  opacity: 1;
+  cursor: default;
+}
+
 
 /* APP SHELL / NAVIGATION
    The #mainNav auto-hide mechanics (fixed positioning, the hide/reveal transform
@@ -415,11 +485,6 @@ smd-image-dropdown .item.active:hover,
 smd-image-dropdown .item.active:focus {
   background-color: var(--smd-dropdown-item-active-background);
   color: var(--smd-dropdown-item-active-foreground);
-}
-
-smd-image-dropdown .item .thumb {
-  width: 1.5rem;
-  height: 1.5rem;
 }
 
 /* COMPONENT: smd-select (text-only custom dropdown; layout is in smd-select.js).

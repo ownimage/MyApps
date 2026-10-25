@@ -104,3 +104,26 @@ smd-checkbox input[type="checkbox"] {
   border-color: #aaa;
 }
 /* smd-contrast:end */
+
+/* This theme's LIGHT mode renders a DARK page (it is one of the always-dark
+   Bootswatch themes), so the inactive-control ramp has to be the DARK one even
+   though the shared mode layer loaded light.css. Values only - the rules live in
+   shared/css/styles.css. See the INACTIVE note there. */
+:root {
+  --smd-inactive-surface: #343a40;
+  --smd-inactive-border: #adb5bd;
+  --smd-inactive-text: #adb5bd;
+  --smd-inactive-muted: #adb5bd;
+  --smd-inactive-box: #868e96;
+  --smd-inactive-caret: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23ced4da' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m2 5 6 6 6-6'/%3e%3c/svg%3e");
+}
+
+/* INACTIVE controls (and the list-item rows): this theme's LIGHT mode still
+   renders a DARK page, but `--bs-tertiary-bg` is Bootstrap's LIGHT value
+   (#f8f9fa), so <pmd-tasks> rows came out as near-white strips carrying the
+   theme's light body colour - and an inactive-control border cannot contrast a
+   dark page and a white row at once. Derive the row surface from the page
+   instead, like superhero/cyborg/darkly already do in their own sheets. */
+:root {
+  --pmd-tasks-row-background: color-mix(in hsl, var(--bs-body-bg) 88%, var(--bs-body-color));
+}

@@ -5,6 +5,74 @@ const SCREENSHOT_MODES = ["light", "dark"];
 const STYLESHEET_IDS = ["bootstrap-theme-css", "theme-override-mode", "theme-override-specific"];
 const IMAGE_RE = /\.(png|jpg|jpeg|gif|webp|svg|bmp)$/i;
 
+// A syntactically valid but fake Azure client ID: the screenshot suites must
+// never reach Microsoft, so the OneDrive Graph calls are stubbed in the page.
+const SCREENSHOT_ONEDRIVE_CLIENT_ID = "11111111-2222-3333-4444-555555555555";
+
+// Seed the shared OneDrive settings (client ID, signed-in account, per-app
+// Enable + Directory) so the FileSync > OneDrive settings tab and the hamburger
+// entries have something to show. `prefix` is the app's SmdConfig.storagePrefix.
+function seedOneDriveSettings(page, options) {
+  return page.evaluate((opts) => {
+    localStorage.setItem("smd_onedrive_clientId", opts.clientId);
+    localStorage.setItem("smd_onedrive_account", "designer@example.com");
+    localStorage.setItem(opts.prefix + "onedrive_enabled", "true");
+    localStorage.setItem(opts.prefix + "onedrive_directory", opts.directory);
+    if (opts.minio) localStorage.setItem(opts.prefix + "minio_enabled", "true");
+    // Opening FileSync > OneDrive asks MSAL for the cached account, and a real
+    // (unregistered) client ID would come back with none and clear the seeded
+    // name. Stub it so the settings screenshot shows a signed-in account.
+    window.oneDriveInit = function () {
+      return Promise.resolve({ username: "designer@example.com" });
+    };
+  }, {
+    prefix: options.prefix,
+    directory: options.directory,
+    minio: options.minio !== false,
+    clientId: SCREENSHOT_ONEDRIVE_CLIENT_ID
+  });
+}
+
+// Stub every Microsoft call the Open-from-OneDrive page makes. `latestName` is
+// the app's date-stamped backup name (planmydays-YYYYMMDDHHMM.json, or
+// story-YYYYMMDDHHMM.json for Storyboard), used for the top-of-directory
+// ":latest" shortcut and for each subfolder's shortcut.
+function stubOneDriveBrowser(page, options) {
+  return page.evaluate((opts) => {
+    window.oneDriveInit = function () {
+      return Promise.resolve({ username: "designer@example.com" });
+    };
+    window.oneDriveListFolder = function (path) {
+      return Promise.resolve({
+        folders: (opts.folderNames || []).map(function (name) {
+          return { name: name, path: path + "/" + name };
+        }),
+        files: [{
+          name: opts.latestName,
+          key: opts.directory + "/" + opts.latestName,
+          lastModified: "2026-10-25T09:30:00Z"
+        }]
+      });
+    };
+    window.oneDriveLatestJson = function (path) {
+      var isEmpty = (opts.noBackupFolders || []).some(function (name) {
+        return path.indexOf("/" + name) >= 0;
+      });
+      if (isEmpty) return Promise.resolve(null);
+      return Promise.resolve({
+        name: opts.latestName,
+        key: path + "/" + opts.latestName,
+        lastModified: "2026-10-25T08:15:00Z"
+      });
+    };
+  }, {
+    directory: options.directory,
+    latestName: options.latestName,
+    folderNames: options.folderNames || ["Backups", "Older"],
+    noBackupFolders: options.noBackupFolders || []
+  });
+}
+
 function createScreenshotAllThemes(appId, afterTheme) {
   return async function screenshotAllThemes(page, scene, callOptions) {
     // beforeCapture(page, { theme, mode }) runs in Node AFTER the theme/mode has
@@ -138,4 +206,4 @@ function createScreenshotAllThemes(appId, afterTheme) {
   };
 }
 
-module.exports = { createScreenshotAllThemes };
+module.exports = { createScreenshotAllThemes, seedOneDriveSettings, stubOneDriveBrowser };

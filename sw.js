@@ -20,7 +20,7 @@
 // comparison. If the two ever DO drift, the page notices at runtime
 // (GET_BUILD) and re-registers, so the drift self-heals instead of pinning
 // users to a build the worker will never replace.
-const BUILD_NUMBER = "202610231534";
+const BUILD_NUMBER = "202610251616";
 
 const CACHE = "myapps-" + BUILD_NUMBER;
 
@@ -83,6 +83,7 @@ const TRANSPARENT_GIF_RESPONSE = new Response(TRANSPARENT_GIF, {
 // ---- Shared library assets (used by every app) ----
 const SHARED_ASSETS = [
   "shared/sampleImages.json",
+  "onedrive-callback.html",
   "shared/css/styles.css",
   "shared/css/vendor-overrides.css",
   "shared/css/themes/bootstrap/bootstrap.min.css",
@@ -397,9 +398,14 @@ const SHARED_ASSETS = [
   "shared/js/smd-app.js",
   "shared/js/smd-gcal.js",
   "shared/js/smd-minio.js",
+  "shared/js/smd-onedrive.js",
+  "shared/js/onedrive-callback.js",
+  "shared/js/smd-filesync.js",
   "shared/js/smd-settings.js",
   "shared/js/smd-images.js",
   "shared/js/smd-apps.js",
+  "shared/vendor/msal-browser.min.js",
+  "shared/vendor/msal-redirect-bridge.min.js",
   "shared/vendor/chart.umd.min.js",
   "shared/vendor/chartjs-adapter-date-fns.bundle.min.js",
   "shared/sampleImages/Noughts_&_Crosses.svg"
@@ -562,6 +568,28 @@ const APPS = {
     "ListOfLists/js/components/lol-list-summary-card.js",
     "ListOfLists/js/components/lol-list-main-card.js",
     "ListOfLists/js/components/lol-list-items.js"
+  ],
+  "Storyboard/": [
+    "Storyboard/",
+    "Storyboard/index.html",
+    "Storyboard/manifest.json",
+    "Storyboard/icon.svg",
+    "Storyboard/icon-192.png",
+    "Storyboard/icon-512.png",
+    "Storyboard/css/storyboard.css",
+    "Storyboard/assets/backgrounds/space.svg",
+    "Storyboard/assets/backgrounds/underwater.svg",
+    "Storyboard/assets/stickers/mermaid.svg",
+    "Storyboard/assets/stickers/shark.svg",
+    "Storyboard/assets/stickers/seaweed.svg",
+    "Storyboard/assets/stickers/spaceman.svg",
+    "Storyboard/assets/stickers/spaceship.svg",
+    "Storyboard/js/storage.js",
+    "Storyboard/js/board.js",
+    "Storyboard/js/toolbar.js",
+    "Storyboard/js/app-settings.js",
+    "Storyboard/js/app-minio.js",
+    "Storyboard/js/app.js"
   ]
 };
 

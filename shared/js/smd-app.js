@@ -326,6 +326,43 @@ function smdEnablePullToRefresh() {
   }, { passive: true });
 }
 
+// ---- Window Controls Overlay (installed desktop PWA) -----------------------
+// The manifest opts into `display_override: ["window-controls-overlay"]`, but
+// the overlay is USER-operated: the PWA's app menu shows "Hide title bar", and
+// it starts disabled. When visible, the page owns the title-bar strip, so
+// shared/css (injectSettingsLayout) moves #mainNav up there and the body gets a
+// matching top inset. The class is the single switch both the CSS and tests use.
+function smdInitWindowControlsOverlay() {
+  const wco = navigator.windowControlsOverlay;
+  if (!wco || typeof wco.visible === "undefined") return;
+  const apply = function () {
+    if (!document.body) return;
+    const on = !!wco.visible;
+    document.body.classList.toggle("smd-wco", on);
+    // Auto-hide must be irrelevant while the nav lives in the title bar.
+    if (on) {
+      const nav = document.getElementById("mainNav");
+      if (nav) nav.classList.remove("nav-hidden");
+    }
+  };
+  apply();
+  if (typeof wco.addEventListener === "function") {
+    wco.addEventListener("geometrychange", apply);
+  }
+  // The display-mode media query is the reliable on/off signal across Chromium
+  // versions; geometrychange covers size changes while the overlay stays on.
+  const mq = window.matchMedia ? window.matchMedia("(display-mode: window-controls-overlay)") : null;
+  if (mq && typeof mq.addEventListener === "function") mq.addEventListener("change", apply);
+  // Test/debug hook: lets the suite re-apply after flipping the mocked state.
+  window.__smdRefreshWco = apply;
+}
+
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", smdInitWindowControlsOverlay);
+} else {
+  smdInitWindowControlsOverlay();
+}
+
 // ---- Shared settings-page framework ----------------------------------------
 // Every app's js/app-settings.js (or js/settings.js) used to copy this
 // #settingsTemplate -> smd-tabs/smd-page build, the open/close slide dance and

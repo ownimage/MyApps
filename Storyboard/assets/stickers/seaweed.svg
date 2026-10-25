@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="Seaweed sticker">
+  <defs>
+    <linearGradient id="weedA" x1="0" y1="1" x2="0" y2="0">
+      <stop offset="0" stop-color="#14532d"/>
+      <stop offset="0.55" stop-color="#16a34a"/>
+      <stop offset="1" stop-color="#86efac"/>
+    </linearGradient>
+    <linearGradient id="weedB" x1="0" y1="1" x2="0" y2="0">
+      <stop offset="0" stop-color="#0f766e"/>
+      <stop offset="1" stop-color="#5eead4"/>
+    </linearGradient>
+    <linearGradient id="rock" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#94a3b8"/>
+      <stop offset="1" stop-color="#475569"/>
+    </linearGradient>
+  </defs>
+
+  <!-- back frond -->
+  <path d="M300 430c-6-70 4-130 30-184 14 20 18 46 12 76 18-26 42-40 72-42-28 30-44 62-48 98 20-18 42-24 66-18-32 26-50 56-56 90z" fill="url(#weedB)" stroke="#0f172a" stroke-width="7" stroke-linejoin="round"/>
+  <!-- left frond -->
+  <path d="M196 432c-8-86 6-160 42-226 18 26 22 58 12 96 24-30 54-46 90-48-34 38-52 78-56 120 24-22 50-28 78-20-38 32-60 68-66 106z" fill="url(#weedA)" stroke="#0f172a" stroke-width="7" stroke-linejoin="round"/>
+
+  <!-- centre tall stalk with leaf pairs -->
+  <path d="M258 438c-4-96 2-180 18-252" fill="none" stroke="#0f172a" stroke-width="16" stroke-linecap="round"/>
+  <path d="M258 438c-4-96 2-180 18-252" fill="none" stroke="#22c55e" stroke-width="10" stroke-linecap="round"/>
+  <g fill="url(#weedA)" stroke="#0f172a" stroke-width="6" stroke-linejoin="round">
+    <path d="M270 372c-34-6-58-24-72-54 34 4 58 18 72 42z"/>
+    <path d="M266 318c32-10 54-30 64-60-32 8-54 24-64 48z"/>
+    <path d="M262 262c-30-8-50-26-60-54 30 6 50 20 60 42z"/>
+    <path d="M258 214c26-8 44-24 54-48-28 6-46 20-54 40z"/>
+  </g>
+
+  <!-- smaller front sprig -->
+  <path d="M348 438c2-56 14-102 36-140" fill="none" stroke="#0f172a" stroke-width="12" stroke-linecap="round"/>
+  <path d="M348 438c2-56 14-102 36-140" fill="none" stroke="#2dd4bf" stroke-width="7" stroke-linecap="round"/>
+  <g fill="url(#weedB)" stroke="#0f172a" stroke-width="5" stroke-linejoin="round">
+    <path d="M366 372c-22-4-38-16-48-34 22 2 38 10 48 24z"/>
+    <path d="M372 330c22-6 38-20 46-40-22 6-38 18-46 32z"/>
+  </g>
+
+  <!-- rock base -->
+  <ellipse cx="256" cy="440" rx="160" ry="42" fill="url(#rock)" stroke="#0f172a" stroke-width="7"/>
+  <ellipse cx="218" cy="428" rx="46" ry="16" fill="#cbd5e1" opacity="0.45"/>
+  <path d="M140 452c26 14 56 20 90 20" fill="none" stroke="#334155" stroke-width="5" stroke-linecap="round" opacity="0.7"/>
+
+  <!-- bubbles -->
+  <g fill="none" stroke="#7dd3fc" stroke-width="4" opacity="0.8">
+    <circle cx="392" cy="286" r="12"/>
+    <circle cx="414" cy="246" r="7"/>
+    <circle cx="128" cy="270" r="10"/>
+    <circle cx="104" cy="232" r="6"/>
+  </g>
+</svg>

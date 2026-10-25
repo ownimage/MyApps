@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="Mermaid sticker">
+  <defs>
+    <linearGradient id="tail" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#2dd4bf"/>
+      <stop offset="0.55" stop-color="#0d9488"/>
+      <stop offset="1" stop-color="#0f766e"/>
+    </linearGradient>
+    <linearGradient id="fin" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#5eead4"/>
+      <stop offset="1" stop-color="#14b8a6"/>
+    </linearGradient>
+    <linearGradient id="hair" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fb7185"/>
+      <stop offset="1" stop-color="#be123c"/>
+    </linearGradient>
+    <linearGradient id="skin" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffe0c2"/>
+      <stop offset="1" stop-color="#f4b183"/>
+    </linearGradient>
+  </defs>
+
+  <!-- hair flowing behind -->
+  <path d="M188 128c-54 22-92 78-96 148-4 64-22 104-48 140 44-10 72-34 90-68 10 46 2 80-14 112 42-16 66-50 68-98 18 30 16 62 2 92 40-26 52-66 40-112 24 18 34 42 30 70 32-38 26-84 2-120 28 8 46 26 54 52 6-52-18-96-58-122" fill="url(#hair)" stroke="#0f172a" stroke-width="7" stroke-linejoin="round"/>
+
+  <!-- tail -->
+  <path d="M222 296c22 40 46 70 82 94 30 20 46 44 44 72-30-16-54-14-76 2 6-26-2-46-26-62-38-26-62-64-72-108z" fill="url(#tail)" stroke="#0f172a" stroke-width="7" stroke-linejoin="round"/>
+  <path d="M332 430c22-30 50-36 80-24-18 12-28 28-30 48-16-16-32-24-50-24z" fill="url(#fin)" stroke="#0f172a" stroke-width="7" stroke-linejoin="round"/>
+  <path d="M348 462c10 26 8 48-6 66 24-4 42-18 52-40-18-10-32-18-46-26z" fill="url(#fin)" stroke="#0f172a" stroke-width="7" stroke-linejoin="round"/>
+  <g fill="none" stroke="#134e4a" stroke-width="3" opacity="0.55">
+    <path d="M262 352c14 4 22 12 26 24"/>
+    <path d="M282 384c14 4 22 12 26 24"/>
+    <path d="M302 412c14 4 22 12 26 24"/>
+    <path d="M320 438c12 4 20 10 24 20"/>
+  </g>
+
+  <!-- torso -->
+  <path d="M206 210c-8 34 0 66 22 92l34-6c14-28 14-58 4-88z" fill="url(#skin)" stroke="#0f172a" stroke-width="7" stroke-linejoin="round"/>
+
+  <!-- shell top -->
+  <path d="M206 226c10-16 26-20 40-8-4-18 8-30 26-30s34 14 30 34c14-8 28-2 34 14-20 16-44 22-70 20-26 2-48-8-60-30z" fill="#a855f7" stroke="#0f172a" stroke-width="7" stroke-linejoin="round"/>
+  <path d="M218 228c8 10 18 14 30 14m52-14c-8 10-18 14-30 14" fill="none" stroke="#7e22ce" stroke-width="4" stroke-linecap="round"/>
+
+  <!-- arms -->
+  <path d="M212 232c-22 6-38 20-48 42-8 18-24 24-42 18 4 18 18 28 38 28 18 0 32-10 42-26" fill="url(#skin)" stroke="#0f172a" stroke-width="7" stroke-linejoin="round" stroke-linecap="round"/>
+  <path d="M266 228c18-10 34-26 46-48 8-16 22-22 38-16-2 18-12 30-28 36-10 4-16 12-18 24" fill="url(#skin)" stroke="#0f172a" stroke-width="7" stroke-linejoin="round" stroke-linecap="round"/>
+
+  <!-- head -->
+  <circle cx="252" cy="148" r="58" fill="url(#skin)" stroke="#0f172a" stroke-width="7"/>
+  <path d="M194 132c10-30 36-48 66-48 34 0 58 20 66 52-22-12-42-10-60 2-20-14-44-16-72-6z" fill="url(#hair)" stroke="#0f172a" stroke-width="7" stroke-linejoin="round"/>
+  <circle cx="232" cy="150" r="6.5" fill="#0f172a"/>
+  <circle cx="274" cy="150" r="6.5" fill="#0f172a"/>
+  <circle cx="229" cy="147" r="2" fill="#ffffff"/>
+  <circle cx="271" cy="147" r="2" fill="#ffffff"/>
+  <path d="M238 172c8 8 20 8 28 0" fill="none" stroke="#0f172a" stroke-width="5" stroke-linecap="round"/>
+  <circle cx="214" cy="168" r="8" fill="#fb7185" opacity="0.55"/>
+  <circle cx="292" cy="168" r="8" fill="#fb7185" opacity="0.55"/>
+  <path d="M186 124c-8 10-12 22-12 34" fill="none" stroke="#fda4af" stroke-width="8" stroke-linecap="round"/>
+
+  <!-- bubbles -->
+  <g fill="none" stroke="#7dd3fc" stroke-width="4" opacity="0.75">
+    <circle cx="112" cy="120" r="14"/>
+    <circle cx="88" cy="82" r="7"/>
+    <circle cx="386" cy="120" r="11"/>
+    <circle cx="410" cy="88" r="6"/>
+  </g>
+</svg>

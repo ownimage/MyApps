@@ -73,11 +73,11 @@ async function openDisplayTab(page) {
   const settings = page.locator("#settingsPage");
   await expect(settings).toHaveAttribute("open", "");
   await settings.locator(".smd-tab-btn").filter({ hasText: "Display" }).click();
-  await expect(settings.locator(".smd-tab-panel.active")).toBeVisible();
+  await expect(settings.locator("#settingsTabs > .smd-tab-panel.active")).toBeVisible();
 }
 
 const labelFontSize = () => {
-  const label = document.querySelector("#settingsPage .smd-tab-panel.active .form-label");
+  const label = document.querySelector("#settingsTabs > .smd-tab-panel.active .form-label");
   return label ? parseFloat(getComputedStyle(label).fontSize) : null;
 };
 // The Display tab's own switch (the first checkbox in ANOTHER tab would be

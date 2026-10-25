@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#4f46e5">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <title>Storyboard</title>
+
+  <link rel="stylesheet" href="../shared/vendor/fontawesome/css/fontawesome.min.css">
+  <link rel="stylesheet" href="../shared/vendor/fontawesome/css/solid.min.css">
+  <link rel="stylesheet" href="../shared/vendor/fontawesome/css/regular.min.css">
+  <link rel="stylesheet" href="../shared/vendor/fontawesome/css/brands.min.css">
+<link rel="stylesheet" href="../shared/vendor/bootstrap-icons.css">
+  <link id="bootstrap-theme-css" href="../shared/css/themes/superhero/bootstrap.min.css" rel="stylesheet">
+  <link id="smd-shared-css" rel="stylesheet" href="../shared/css/styles.css">
+  <link id="theme-override-mode" rel="stylesheet" href="../shared/css/themes/light.css">
+  <link id="theme-override-specific" rel="stylesheet" href="../shared/css/themes/superhero/superhero.light.css">
+  <link rel="stylesheet" href="css/storyboard.css">
+  <script src="../shared/js/build-number.js"></script>
+  <script>
+    // Cache-bust every same-origin link (stylesheet/manifest/icon) with the
+    // build number so a new build always fetches fresh assets.
+    (function () {
+      if (typeof BUILD_NUMBER === "undefined") return;
+      var stamp = function (u) { return u + (u.indexOf("?") >= 0 ? "&" : "?") + "v=" + BUILD_NUMBER; };
+      var isLocal = function (u) { return u && u.indexOf("://") === -1 && u.charAt(0) !== "//"; };
+      document.querySelectorAll("link[href]").forEach(function (l) {
+        var h = l.getAttribute("href") || "";
+        if (isLocal(h) && h.indexOf("v=") === -1) l.setAttribute("href", stamp(h));
+      });
+    })();
+  </script>
+</head>
+
+<body id="smd-app">
+
+  <!-- FIXED TOOLBAR -->
+  <nav id="mainNav" class="navbar navbar-expand px-3 py-2 gap-1 flex-wrap">
+
+    <div class="dropdown">
+      <button id="btnMainMenu" class="btn p-1" data-bs-toggle="dropdown" title="Menu" aria-label="Menu">
+        <i class="fa-solid fa-bars" aria-hidden="true" style="font-size:22px"></i>
+      </button>
+      <ul class="dropdown-menu">
+        <li><a class="dropdown-item" onclick="openSettings()">Settings</a></li>
+        <li><hr class="dropdown-divider"></li>
+        <!-- Replaced at boot by the shared Launch flyout (SmdApps.buildLaunchSubmenu). -->
+        <li><a class="dropdown-item" href="../">Launch</a></li>
+        <li><hr class="dropdown-divider minio-menu-item" style="display:none"></li>
+        <li><a class="dropdown-item minio-menu-item" style="display:none" onclick="sbSaveStoryToMinio()">Save Story to Minio</a></li>
+        <li><a class="dropdown-item minio-menu-item" style="display:none" onclick="importFromMinio()">Load Story from Minio</a></li>
+        <li><hr class="dropdown-divider onedrive-menu-item" style="display:none"></li>
+        <li><a class="dropdown-item onedrive-menu-item" style="display:none" onclick="saveToOneDrive()">Save Story to OneDrive</a></li>
+        <li><a class="dropdown-item onedrive-menu-item" style="display:none" onclick="openOneDrivePage()">Load Story from OneDrive</a></li>
+      </ul>
+    </div>
+
+  </nav>
+
+  <!-- BOARD -->
+  <main id="storyboardArea">
+
+    <!-- The scroller is the only part that scrolls: the toolbar, board name and
+         selection bar are fixed overlays inside the area, so they never scroll
+         away when the board is zoomed in. -->
+    <div id="sbScroller" class="sb-scroller">
+      <div id="sbStage" class="sb-stage">
+        <div id="sbCanvas">
+          <div id="sbBackground" data-background="none"></div>
+          <svg id="sbConnectors" class="sb-connectors" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <defs>
+              <marker id="sbConnectorArrow" viewBox="0 0 10 10" refX="9" refY="5"
+                      markerWidth="6" markerHeight="6" orient="auto" markerUnits="strokeWidth">
+                <path class="sb-connector-arrow" d="M0,0 L10,5 L0,10 Z"></path>
+              </marker>
+            </defs>
+            <g id="sbConnectorPaths"></g>
+          </svg>
+          <div id="sbItems" class="sb-items"></div>
+          <div id="sbSelectionBox" class="sb-selection-box d-none" aria-hidden="true">
+            <span class="sb-handle sb-handle-scale" data-handle="scale" aria-hidden="true"></span>
+            <span class="sb-handle sb-handle-rotate" data-handle="rotate" aria-hidden="true"><i class="fa-solid fa-rotate"></i></span>
+          </div>
+          <div id="sbEmptyHint" class="sb-empty-hint">
+            <i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i>
+            <p>Choose a background, or add stickers and text from the toolbar.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="sbBoardName" class="sb-board-chip" role="button" tabindex="0" title="Switch board"></div>
+
+    <!-- LEFT TOOLBAR: rail + fly-out panel -->
+    <aside id="sbToolbar" class="sb-toolbar" data-open="" data-pinned="false" aria-label="Storyboard toolbar">
+      <div class="sb-rail">
+        <button type="button" class="sb-rail-btn" data-tool="boards" title="Stories" aria-label="Stories">
+          <i class="fa-solid fa-book-open" aria-hidden="true"></i><span>Stories</span>
+        </button>
+        <button type="button" class="sb-rail-btn" data-tool="background" title="Background" aria-label="Background">
+          <i class="fa-solid fa-image" aria-hidden="true"></i><span>Background</span>
+        </button>
+        <button type="button" class="sb-rail-btn" data-tool="stickers" title="Stickers" aria-label="Stickers">
+          <i class="fa-solid fa-star" aria-hidden="true"></i><span>Stickers</span>
+        </button>
+        <button type="button" class="sb-rail-btn" data-tool="text" title="Text" aria-label="Text">
+          <i class="fa-solid fa-font" aria-hidden="true"></i><span>Text</span>
+        </button>
+        <button type="button" id="sbSaveBtn" class="sb-rail-btn" title="Save scene as JPG" aria-label="Save scene as JPG">
+          <i class="fa-solid fa-download" aria-hidden="true"></i><span>Save</span>
+        </button>
+        <div class="sb-rail-spacer"></div>
+        <div class="sb-zoom">
+          <div class="sb-zoom-row" role="group" aria-label="Board zoom">
+            <button type="button" id="sbZoomOut" class="sb-rail-btn sb-zoom-btn" title="Zoom out" aria-label="Zoom out">
+              <i class="fa-solid fa-magnifying-glass-minus" aria-hidden="true"></i>
+            </button>
+            <button type="button" id="sbZoomIn" class="sb-rail-btn sb-zoom-btn" title="Zoom in" aria-label="Zoom in">
+              <i class="fa-solid fa-magnifying-glass-plus" aria-hidden="true"></i>
+            </button>
+          </div>
+          <button type="button" id="sbZoomFit" class="sb-rail-btn sb-zoom-fit" title="Fit board to window" aria-label="Fit board to window">
+            <i class="fa-solid fa-expand" aria-hidden="true"></i><span>Fit</span>
+          </button>
+        </div>
+        <button type="button" id="sbPinBtn" class="sb-rail-btn sb-pin-btn" title="Pin toolbar open" aria-label="Pin toolbar open" aria-pressed="false">
+          <i class="fa-solid fa-thumbtack" aria-hidden="true"></i><span>Pin</span>
+        </button>
+      </div>
+
+      <section class="sb-panel" role="region" aria-label="Tool panel">
+        <div class="sb-panel-head">
+          <h2 id="sbPanelTitle" class="sb-panel-title"></h2>
+          <button type="button" id="sbPanelClose" class="sb-panel-close" title="Close" aria-label="Close">
+            <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+          </button>
+        </div>
+        <div id="sbPanelBody" class="sb-panel-body"></div>
+      </section>
+    </aside>
+
+    <!-- CONNECTOR MODE HINT -->
+    <div id="sbConnectHint" class="sb-connect-hint d-none" role="status">
+      <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
+      <span>Select another text box to connect</span>
+      <button type="button" id="sbConnectCancel" class="btn btn-sm btn-secondary">Cancel</button>
+    </div>
+
+    <!-- SELECTED ITEM ACTIONS -->
+    <div id="sbSelectionBar" class="sb-selection-bar d-none" role="toolbar" aria-label="Selected item">
+      <div class="sb-sel-row">
+        <button type="button" id="sbSelConnect" class="sb-sel-btn d-none" title="Connect to another text box" aria-label="Connect to another text box">
+          <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
+        </button>
+        <button type="button" id="sbSelFront" class="sb-sel-btn" title="Bring to front" aria-label="Bring to front">
+          <i class="fa-solid fa-layer-group" aria-hidden="true"></i>
+        </button>
+        <button type="button" id="sbSelDuplicate" class="sb-sel-btn" title="Duplicate" aria-label="Duplicate">
+          <i class="fa-solid fa-copy" aria-hidden="true"></i>
+        </button>
+        <button type="button" id="sbSelAlign" class="sb-sel-btn d-none" title="Align and distribute" aria-label="Align and distribute" aria-haspopup="true" aria-expanded="false">
+          <i class="fa-solid fa-align-left" aria-hidden="true"></i>
+        </button>
+        <button type="button" id="sbSelGroup" class="sb-sel-btn d-none" title="Group" aria-label="Group">
+          <i class="fa-solid fa-object-group" aria-hidden="true"></i>
+        </button>
+        <button type="button" id="sbSelUngroup" class="sb-sel-btn d-none" title="Ungroup" aria-label="Ungroup">
+          <i class="fa-solid fa-object-ungroup" aria-hidden="true"></i>
+        </button>
+        <button type="button" id="sbSelFlipH" class="sb-sel-btn d-none" title="Flip horizontally" aria-label="Flip horizontally" aria-pressed="false">
+          <i class="fa-solid fa-left-right" aria-hidden="true"></i>
+        </button>
+        <button type="button" id="sbSelFlipV" class="sb-sel-btn d-none" title="Flip vertically" aria-label="Flip vertically" aria-pressed="false">
+          <i class="fa-solid fa-up-down" aria-hidden="true"></i>
+        </button>
+        <button type="button" id="sbSelDelete" class="sb-sel-btn" title="Delete" aria-label="Delete">
+          <i class="fa-solid fa-trash" aria-hidden="true"></i>
+        </button>
+        <button type="button" id="sbConnReverse" class="sb-sel-btn d-none" title="Reverse direction" aria-label="Reverse direction">
+          <i class="fa-solid fa-right-left" aria-hidden="true"></i>
+        </button>
+        <button type="button" id="sbConnDelete" class="sb-sel-btn d-none" title="Delete connector" aria-label="Delete connector">
+          <i class="fa-solid fa-trash" aria-hidden="true"></i>
+        </button>
+      </div>
+      <div id="sbSelAlignRow" class="sb-sel-row sb-sel-align-row d-none">
+        <button type="button" id="sbAlignLeft" class="sb-sel-btn d-none" data-align="left" title="Align left" aria-label="Align left">
+          <i class="fa-solid fa-align-left" aria-hidden="true"></i>
+        </button>
+        <button type="button" id="sbAlignCenterH" class="sb-sel-btn d-none" data-align="centerH" title="Align centre" aria-label="Align centre">
+          <i class="fa-solid fa-align-center" aria-hidden="true"></i>
+        </button>
+        <button type="button" id="sbAlignRight" class="sb-sel-btn d-none" data-align="right" title="Align right" aria-label="Align right">
+          <i class="fa-solid fa-align-right" aria-hidden="true"></i>
+        </button>
+        <span class="sb-sel-divider" aria-hidden="true"></span>
+        <button type="button" id="sbAlignTop" class="sb-sel-btn d-none" data-align="top" title="Align top" aria-label="Align top">
+          <i class="fa-solid fa-arrows-up-to-line" aria-hidden="true"></i>
+        </button>
+        <button type="button" id="sbAlignMiddleV" class="sb-sel-btn d-none" data-align="middleV" title="Align middle" aria-label="Align middle">
+          <i class="fa-solid fa-arrows-alt-v" aria-hidden="true"></i>
+        </button>
+        <button type="button" id="sbAlignBottom" class="sb-sel-btn d-none" data-align="bottom" title="Align bottom" aria-label="Align bottom">
+          <i class="fa-solid fa-arrows-down-to-line" aria-hidden="true"></i>
+        </button>
+        <span class="sb-sel-divider" aria-hidden="true"></span>
+        <button type="button" id="sbDistributeH" class="sb-sel-btn d-none" data-distribute="h" title="Distribute horizontally" aria-label="Distribute horizontally">
+          <i class="fa-solid fa-arrows-left-right" aria-hidden="true"></i>
+        </button>
+        <button type="button" id="sbDistributeV" class="sb-sel-btn d-none" data-distribute="v" title="Distribute vertically" aria-label="Distribute vertically">
+          <i class="fa-solid fa-arrows-up-down" aria-hidden="true"></i>
+        </button>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- SETTINGS PAGE -->
+  <smd-page id="settingsPage" class="d-none"></smd-page>
+
+  <!-- MINIO IMPORT / LOAD PAGE -->
+  <smd-page id="minioImportPage" class="d-none"></smd-page>
+
+  <!-- ONEDRIVE OPEN / LOAD PAGE -->
+  <smd-page id="oneDriveImportPage" class="d-none"></smd-page>
+
+  <template id="settingsTemplate">
+    <div class="smd-settings">
+
+      <!-- Display -->
+      <section class="smd-settings-tab" data-tab="Display" data-tab-id="appearance-tab">
+        <smd-theme id="themeSelector" class="col-md-8 mt-3"></smd-theme>
+
+        <div class="row mb-4 align-items-center col-md-8">
+          <div class="col-4 text-end"><label class="form-label mb-0">Font size</label></div>
+          <div class="col-8">
+            <smd-select id="fontSizeSelector" class="form-select" onchange="changeFontSize(this.value)">
+              <option value="xsmall">Extra small</option>
+              <option value="small">Small</option>
+              <option value="normal">Normal</option>
+              <option value="large">Large</option>
+              <option value="xlarge">Extra large</option>
+              <option value="jumbo">Jumbo</option>
+            </smd-select>
+          </div>
+        </div>
+
+        <div class="row mb-4 align-items-center col-md-8">
+          <div class="col-4 text-end"><label class="form-label mb-0">Touch size</label></div>
+          <div class="col-8">
+            <smd-select id="touchSizeSelector" class="form-select" onchange="changeTouchSize(this.value)">
+              <option value="normal">Normal</option>
+              <option value="large">Large</option>
+            </smd-select>
+          </div>
+        </div>
+
+        <div class="row mb-4 align-items-center col-md-8">
+          <div class="col-4 text-end"><label class="form-label mb-0">Slide speed</label></div>
+          <div class="col-8">
+            <smd-select id="slideDurationSelector" class="form-select" onchange="changeSlideDuration(this.value)">
+              <option value="0">Off (instant)</option>
+              <option value="150">Fast (150 ms)</option>
+              <option value="300">Normal (300 ms)</option>
+              <option value="500">Slow (500 ms)</option>
+            </smd-select>
+          </div>
+        </div>
+
+        <div class="row mb-4 align-items-center col-md-8">
+          <div class="col-4 text-end"><label class="form-label mb-0">Auto-hide menu</label></div>
+          <div class="col-8">
+            <smd-checkbox id="autoHideMenu" switch onchange="changeAutoHideMenu(this.checked)"></smd-checkbox>
+          </div>
+        </div>
+
+        <div class="row mb-4 align-items-center col-md-8">
+          <div class="col-4 text-end"><label class="form-label mb-0">Screen resolution</label></div>
+          <div class="col-8">
+            <span id="screenResolution" class="form-control-plaintext"></span>
+          </div>
+        </div>
+      </section>
+
+      <!-- FileSync (Minio + OneDrive) -->
+      <section class="smd-settings-tab" data-tab="FileSync" data-tab-id="filesync-tab">
+        <template id="fileSyncMinioTpl">
+        <div class="row mb-4 align-items-center col-md-8 mt-3">
+          <div class="col-4 text-end"><label class="form-label mb-0">Enable</label></div>
+          <div class="col-8">
+            <smd-checkbox id="minioEnabled" switch onchange="changeMinioEnabled(this.checked)"></smd-checkbox>
+          </div>
+        </div>
+        <div id="minioFields">
+          <div class="row mb-4 align-items-center col-md-8">
+            <div class="col-4 text-end"><label class="form-label mb-0">Server</label></div>
+            <div class="col-8">
+              <input id="minioServer" class="form-control" type="text" placeholder="http://localhost:9000" onchange="changeMinioServer(this.value)">
+            </div>
+          </div>
+          <div class="row mb-4 align-items-center col-md-8">
+            <div class="col-4 text-end"><label class="form-label mb-0">Username</label></div>
+            <div class="col-8">
+              <input id="minioUsername" class="form-control" type="text" onchange="changeMinioUsername(this.value)">
+            </div>
+          </div>
+          <div class="row mb-4 align-items-center col-md-8">
+            <div class="col-4 text-end"><label class="form-label mb-0">Password</label></div>
+            <div class="col-8">
+              <div class="input-group">
+                <input id="minioPassword" class="form-control" type="password" onchange="changeMinioPassword(this.value)">
+                <button class="btn btn-outline-secondary" type="button" onclick="toggleMinioPassword()" title="Show/hide password">
+                  <svg id="minioPasswordEye" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                    <path d="M16 8s-3-5.5-8-5.5S0 8 0 8s3 5.5 8 5.5S16 8 16 8zM1.173 8a13.133 13.133 0 0 1 1.66-2.043C4.12 4.668 5.88 3.5 8 3.5c2.12 0 3.879 1.168 5.168 2.457A13.133 13.133 0 0 1 14.828 8c-.058.087-.122.183-.195.288-.335.48-.83 1.12-1.465 1.755C11.879 11.332 10.119 12.5 8 12.5c-2.12 0-3.879-1.168-5.168-2.457A13.134 13.134 0 0 1 1.172 8z"/>
+                    <path d="M8 5.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5zM4.5 8a3.5 3.5 0 1 1 7 0 3.5 3.5 0 0 1-7 0z"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+          <div class="row mb-4 align-items-center col-md-8">
+            <div class="col-4 text-end"><label class="form-label mb-0">Bucket</label></div>
+            <div class="col-8">
+              <input id="minioBucket" class="form-control" type="text" onchange="changeMinioBucket(this.value)">
+            </div>
+          </div>
+          <div class="row mb-4 align-items-center col-md-8">
+            <div class="col-4 text-end"><label class="form-label mb-0">Directory</label></div>
+            <div class="col-8">
+              <input id="minioDirectory" class="form-control" type="text" placeholder="optional, e.g. storyboard (empty = bucket root)" onchange="changeMinioDirectory(this.value)">
+            </div>
+          </div>
+        </div>
+        </template>
+        <template id="fileSyncOneDriveTpl">
+          <div class="row mb-4 align-items-center col-md-8 mt-3">
+            <div class="col-4 text-end"><label class="form-label mb-0">Enable</label></div>
+            <div class="col-8">
+              <smd-checkbox id="oneDriveEnabled" switch onchange="changeOneDriveEnabled(this.checked)"></smd-checkbox>
+            </div>
+          </div>
+          <div class="row mb-4 align-items-center col-md-8">
+            <div class="col-4 text-end"><label class="form-label mb-0">Directory</label></div>
+            <div class="col-8">
+              <input id="oneDriveDirectory" class="form-control" type="text" placeholder="optional, e.g. MyApps/Storyboard (empty = OneDrive root)" onchange="changeOneDriveDirectory(this.value)">
+            </div>
+          </div>
+          <div class="row mb-4 align-items-center col-md-8">
+            <div class="col-4 text-end"><label class="form-label mb-0">Client ID</label></div>
+            <div class="col-8">
+              <input id="oneDriveClientId" class="form-control" type="text" placeholder="Azure app registration (client) ID" onchange="changeOneDriveClientId(this.value)">
+            </div>
+          </div>
+          <div class="row mb-4 align-items-center col-md-8">
+            <div class="col-4 text-end"><label class="form-label mb-0">Tenant</label></div>
+            <div class="col-8">
+              <input id="oneDriveTenant" class="form-control" type="text" placeholder="common" onchange="changeOneDriveTenant(this.value)">
+            </div>
+          </div>
+          <div class="row mb-4 align-items-center col-md-8">
+            <div class="col-4 text-end"><label class="form-label mb-0">Account</label></div>
+            <div class="col-8">
+              <div class="d-flex flex-column gap-2">
+                <span id="oneDriveAccount" class="text-secondary">Not signed in</span>
+                <smd-button id="btnOneDriveSignIn" block variant="primary" onclick="signInToOneDrive()">Sign in</smd-button>
+                <smd-button id="btnOneDriveSignOut" block variant="danger" onclick="signOutOfOneDrive()">Sign out</smd-button>
+              </div>
+            </div>
+          </div>
+          <div class="row mb-4 col-md-8">
+            <div class="col-4"></div>
+            <div class="col-8"><p class="text-secondary mb-0">OneDrive backups are stored under the Directory above. Sign-in is shared by every MyApps app on this device.</p></div>
+          </div>
+        </template>
+        <smd-tabs id="fileSyncTabs" narrow padding="small" class="mt-2"></smd-tabs>
+      </section>
+
+      <div id="settingsFooter" class="mt-3">
+        <div class="row align-items-center col-md-8 mb-3">
+          <div class="col-4 text-end"></div>
+          <div class="col-8">
+            <a href="https://buymeacoffee.com/ownimage" target="_blank" rel="noopener">
+              <img src="../shared/vendor/bmc-default-yellow.png" alt="Buy Me A Coffee" style="height:50px">
+            </a>
+          </div>
+        </div>
+
+        <div class="row mb-4 align-items-center col-md-8">
+          <div class="col-4 text-end"><label class="form-label mb-0">Share app</label></div>
+          <div class="col-8">
+            <smd-qrcode id="shareQrCode" value="https://ownimage.github.io/MyApps/Storyboard/" size="120"></smd-qrcode>
+          </div>
+        </div>
+
+        <div class="mt-5 small build-number">Build <span id="buildNumber"></span></div>
+
+        <smd-fontawesome-credit class="mt-2"></smd-fontawesome-credit>
+      </div>
+    </div>
+  </template>
+
+  <!-- BOOTSTRAP JS (hamburger dropdown) -->
+  <script>document.write('<script src="../shared/vendor/bootstrap.bundle.min.js?v=' + BUILD_NUMBER + '"><\/script>');</script>
+
+  <script>
+  document.write('<script src="../shared/js/library.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../shared/js/components/smd-button.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../shared/js/components/smd-image.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../shared/js/components/smd-h1.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../shared/js/components/smd-h2.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../shared/js/components/smd-modal.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../shared/js/components/smd-page.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../shared/js/components/smd-tabs.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../shared/js/components/smd-select.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../shared/js/components/smd-theme.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../shared/js/components/smd-checkbox.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../shared/js/components/smd-qrcode.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../shared/js/components/smd-fontawesome-credit.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../shared/js/smd-app.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../shared/js/smd-settings.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../shared/js/smd-minio.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../shared/js/smd-onedrive.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../shared/js/smd-filesync.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../shared/js/smd-apps.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="js/storage.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="js/board.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="js/toolbar.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="js/app-settings.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="js/app-minio.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="js/app.js?v=' + BUILD_NUMBER + '"><\/script>');
+  </script>
+
+<script>
+  if ("serviceWorker" in navigator) {
+    var __updatePrompted = false;
+    var __applyingUpdate = false;
+    var __dismissedUpdate = "";
+    var __dismissedBuild = "";
+    try {
+      __dismissedBuild = localStorage.getItem("swUpdateDismissedBuild") || "";
+      // The SW registers at a STABLE URL, so scriptURL alone can't tell one
+      // build from another. Only suppress the prompt when the previously
+      // dismissed update belongs to the CURRENT build; once a newer build
+      // loads, forget the dismissal so it can prompt again.
+      if (String(BUILD_NUMBER) === __dismissedBuild) {
+        __dismissedUpdate = localStorage.getItem("swUpdateDismissedUrl") || "";
+      } else {
+        localStorage.removeItem("swUpdateDismissedUrl");
+        localStorage.removeItem("swUpdateDismissedBuild");
+      }
+    } catch (e) { __dismissedUpdate = ""; }
+    function showUpdatePrompt(reg) {
+      var w = reg && reg.waiting;
+      if (w && w.scriptURL === __dismissedUpdate) return; // user already dismissed THIS pending SW
+      if (__updatePrompted) return;
+      __updatePrompted = true;
+      if (typeof showSmdModal === "function") {
+        showSmdModal({
+          title: "Update available",
+          content: "A new version of Storyboard is ready. Update now to get the latest changes?",
+          buttons: [
+            { text: "Later", variant: "secondary", action: "later" },
+            { text: "Update now", variant: "primary", action: "update" }
+          ],
+          onAction: function(detail) {
+            var pending = reg && reg.waiting;
+            if (!pending) return;
+            if (detail.action === "update") {
+              try { localStorage.removeItem("swUpdateDismissedUrl"); localStorage.removeItem("swUpdateDismissedBuild"); } catch (e) {}
+              __applyingUpdate = true;
+              pending.postMessage({ type: "SKIP_WAITING" });
+            } else if (detail.action === "later") {
+              try {
+                localStorage.setItem("swUpdateDismissedUrl", pending.scriptURL);
+                localStorage.setItem("swUpdateDismissedBuild", String(BUILD_NUMBER));
+              } catch (e) {}
+            }
+          }
+        });
+      }
+    }
+    window.__storyboardSwUpdater = { showUpdatePrompt: showUpdatePrompt };
+
+    // STABLE worker url on purpose: versioning it would make the browser install
+    // a second worker for the same bump ("updates twice"). The update signal is
+    // the byte change in sw.js, whose inline BUILD_NUMBER is bumped with
+    // shared/js/build-number.js; smdRegisterServiceWorker also verifies at
+    // runtime that the worker and the page agree and repairs a drift.
+    var __registerSw = typeof smdRegisterServiceWorker === "function"
+      ? smdRegisterServiceWorker
+      : function(p) { return navigator.serviceWorker.register(p, { updateViaCache: "none" }); };
+    __registerSw("../sw.js").then(function(reg) {
+      if (navigator.serviceWorker.controller) {
+        if (reg.waiting) showUpdatePrompt(reg);
+        reg.addEventListener("updatefound", function() {
+          var inst = reg.installing;
+          if (!inst) return;
+          inst.addEventListener("statechange", function() {
+            if (inst.state === "installed" && navigator.serviceWorker.controller) showUpdatePrompt(reg);
+          });
+        });
+      }
+      // Force an immediate check on every visit: browsers throttle their own
+      // update checks (roughly once a day), so a freshly deployed build could
+      // otherwise take hours to surface the "Update available" prompt.
+      if (reg.update) reg.update();
+      window.addEventListener("focus", function() { if (reg.update) reg.update(); });
+    });
+
+    navigator.serviceWorker.addEventListener("controllerchange", function() {
+      if (!__applyingUpdate) return;
+      window.location.reload();
+    });
+  }
+</script>
+
+</body>
+</html>

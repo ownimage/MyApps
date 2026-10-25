@@ -112,3 +112,11 @@ smd-checkbox input[type="checkbox"] {
   border-color: #000;
 }
 /* smd-contrast:end */
+
+/* INACTIVE checkbox: sketchy draws the box with [type=checkbox]::before and sets
+   `border: none` on the input, so the shared disabled border-color has nothing to
+   paint and Bootstrap's own disabled box falls back to #aaa (2.3:1 on white).
+   Colour the hand-drawn box instead (values only - rules live in styles.css). */
+smd-checkbox input[type="checkbox"]:disabled::before {
+  border-color: var(--smd-inactive-box);
+}

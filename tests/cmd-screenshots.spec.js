@@ -1,5 +1,5 @@
 const { test } = require("@playwright/test");
-const { createScreenshotAllThemes } = require("./screenshot-helpers");
+const { createScreenshotAllThemes, seedOneDriveSettings, stubOneDriveBrowser } = require("./screenshot-helpers");
 
 const sampleData = require("../CountMyDays/js/sampleData.json");
 
@@ -88,5 +88,36 @@ test.describe("CountMyDays - Screenshots", () => {
     });
     await page.waitForTimeout(500);
     await screenshotAllThemes(page, "image-picker.png");
+  });
+
+  test("settings - onedrive", async ({ page }) => {
+    await seedOneDriveSettings(page, { prefix: "countmydays_", directory: "MyApps/CountMyDays" });
+    await page.evaluate(() => openSettings());
+    await page.waitForSelector("#settingsPage:not(.d-none)");
+    await page.locator("#filesync-tab").click();
+    await page.locator("#fileSyncTabs > .smd-tab-list .smd-tab-btn").filter({ hasText: "OneDrive" }).click();
+    await page.waitForTimeout(400);
+    await screenshotAllThemes(page, "settings-onedrive.png");
+  });
+
+  test("main menu dropdown - filesync", async ({ page }) => {
+    await seedOneDriveSettings(page, { prefix: "countmydays_", directory: "MyApps/CountMyDays" });
+    await page.evaluate(() => updateFileSyncMenu());
+    await page.locator("#btnMainMenu").click();
+    await page.locator(".dropdown-menu.show").first().waitFor({ state: "visible" });
+    await page.waitForTimeout(250);
+    await screenshotAllThemes(page, "main-menu-filesync.png");
+  });
+
+  test("open from onedrive", async ({ page }) => {
+    await seedOneDriveSettings(page, { prefix: "countmydays_", directory: "MyApps/CountMyDays" });
+    await stubOneDriveBrowser(page, {
+      directory: "MyApps/CountMyDays",
+      latestName: "countmydays-202610250930.json"
+    });
+    await page.evaluate(() => openOneDrivePage());
+    await page.waitForSelector("#oneDriveBody .od-latest-current");
+    await page.waitForTimeout(400);
+    await screenshotAllThemes(page, "open-from-onedrive.png");
   });
 });

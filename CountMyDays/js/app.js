@@ -10,6 +10,8 @@
 // through smdKey()). All apps share ONE image library (`shared-images`).
 SmdConfig.storagePrefix = "countmydays_";
 SmdConfig.imagePrefix = "shared-";
+// OneDrive default backup directory (each app keeps its own, inside the drive).
+SmdConfig.oneDriveDefaultDirectory = "MyApps/CountMyDays";
 
 // MinIO hooks (shared/js/smd-minio.js): CountMyDays owns BOTH data ends, so its
 // backups match its own JSON export and its import keeps the per-section
@@ -29,6 +31,24 @@ SmdConfig.onMinioImport = function (data) {
   return true;
 };
 
+// FileSync (Minio/OneDrive): the export wizard knows which provider asked for
+// the file (its title and the upload destination), and an import goes to the
+// same keep/replace wizard.
+SmdConfig.onFileSyncExport = function (provider, config) {
+  if (provider !== "onedrive") return;
+  window.__fileSyncExport = { provider: provider, config: config };
+  startExportWizard("onedrive");
+};
+// Files are countmydays-YYYYMMDDHHMM.json (the export wizard names them).
+// This also drives the OneDrive page's ":latest" shortcuts.
+SmdConfig.fileSyncExportPrefix = "countmydays";
+SmdConfig.onFileSyncImport = function (provider, data) {
+  if (!data || !data.dates || !data.categories || !data.images) return false;
+  closeFileSyncImport(provider);
+  startImportWizard(data);
+  return true;
+};
+
 // All apps on this origin share one image library (`shared-images`), so no
 // per-app image migration is needed here.
 
@@ -42,7 +62,7 @@ function hideMainPages(exceptId) {
     "categoriesEditor", "categoryEditPage",
     "imagesEditor", "settingsPage",
     "exportWizardPage", "qrExportPage", "qrImportPage", "importWizardPage",
-    "minioImportPage"
+    "minioImportPage", "oneDriveImportPage"
   ].forEach(id => {
     if (id === exceptId) return;
     const el = document.getElementById(id);
@@ -125,7 +145,8 @@ document.addEventListener("DOMContentLoaded", () => {
   if (typeof setGCalVisible === "function") setGCalVisible(isGCalEnabled());
 
   // Show/hide the Minio menu entries (only when MinIO is enabled).
-  if (typeof updateMinioMenu === "function") updateMinioMenu();
+  if (typeof updateFileSyncMenu === "function") updateFileSyncMenu();
+  else if (typeof updateMinioMenu === "function") updateMinioMenu();
 
   renderMain();
 
