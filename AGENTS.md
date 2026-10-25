@@ -4495,16 +4495,36 @@ Techniques / gotchas:
 - All five existing screenshot suites (`pmd`, `cmd`, `qrlinks`, `ffox`, `launch`) now import `tests/screenshot-helpers.js`. The helper reads the live 26-theme `themeConfig`, iterates explicit modes `light` then `dark`, calls `applyTheme(theme, mode)`, emulates the requested media colour scheme, waits for all three stylesheet links, fonts, visible image decode, and two animation frames, and preserves app-specific `afterTheme` refresh callbacks.
 - Chosen output structure: `screenshots/<app>/<theme>/<light|dark>/<scene>.png`. There is no `default` output directory for generated images. Scene filenames remain stable. The full matrix is 26 themes × 2 modes × 56 existing scene names = 2,912 gallery images, plus the separate root `sample-images.png` gallery.
 - Screenshot generation ran with `--workers 16`: all 53 screenshot tests passed. Output audit found 2,912 files: pmd 1,872 (936 light + 936 dark), cmd 364, qrlinks 260, ffox 260, launch 156; every app had 26 themes and zero legacy direct PNGs. ALWAYS generate screenshots with `--workers 16`; this is the documented standard for every `tests/*-screenshots.spec.js` command.
-- SCREENSHOT GALLERY COVERAGE (2026-10-18): only SIX suites exist - `cmd`, `ffox`,
-  `launch`, `lol`, `pmd`, `qrlinks`. **SolarControlar, PhoneButtons and the
-  storybook have NO gallery** (user: "we haven't written screenshots for the other
-  apps yet"). The Screenshots command in `commands.md` lists exactly those six, in
-  alphabetical order; when an app gains a `<app>-screenshots.spec.js`, add it there
-  in alphabetical position (`screenshots/viewer.js` picks the new gallery up with no
-  code change). A `*`-GLOB DOES NOT WORK for that command on Windows: neither
-  cmd.exe nor PowerShell expands it and Playwright does not glob CLI paths, so
+- SCREENSHOT GALLERY COVERAGE (2026-10-25): SEVEN suites exist - `cmd`, `ffox`,
+  `launch`, `lol`, `pmd`, `qrlinks`, `storyboard`. **SolarControlar, PhoneButtons
+  and the storybook have NO gallery** (user: "we haven't written screenshots for
+  the other apps yet"). The Screenshots command in `commands.md` lists exactly
+  those seven, in alphabetical order; when an app gains a
+  `<app>-screenshots.spec.js`, add it there in alphabetical position
+  (`screenshots/viewer.js` picks the new gallery up with no code change). A
+  `*`-GLOB DOES NOT WORK for that command on Windows: neither cmd.exe nor
+  PowerShell expands it and Playwright does not glob CLI paths, so
   `test tests/*-screenshots.spec.js` collects 0 tests (verified) - keep the
   explicit list.
+- STORYBOARD GALLERY + ONEDRIVE SCENES (2026-10-25): `tests/storyboard-screenshots.spec.js`
+  captures 11 scenes x 27 themes x both modes into `screenshots/storyboard/`
+  (594 PNGs): board, stories panel, background panel, stickers panel, text panel,
+  selection bar, multi-selection align, main menu dropdown, settings,
+  settings-onedrive, open-from-onedrive. It uses a 1280x800 desktop viewport (the
+  rail labels hide <=520px and the phone window shrinks the art) and seeds
+  `storyboard_stories` from `/` before navigating to `/Storyboard/` (a direct
+  reload of the app overwrites the seed via its `pagehide` save). Its
+  `afterTheme` re-runs `sbRender()` (text frames bake the resolved colour into an
+  SVG data URI) but SKIPS while an `smd-page[open]` is up, because the hidden
+  board would measure 0x0; `window.__sbShotAlign` re-opens the align row each
+  theme. PMD/CMD/LoL each gained `settings-onedrive.png`, `open-from-onedrive.png`
+  and `main-menu-filesync.png` (minio + onedrive entries enabled).
+  `tests/screenshot-helpers.js` now exports `seedOneDriveSettings(page, {prefix,
+  directory, minio})` (localStorage + a stubbed `oneDriveInit`, because opening
+  FileSync > OneDrive asks MSAL and an unregistered client ID would clear the
+  seeded account name) and `stubOneDriveBrowser(page, {directory, latestName,
+  folderNames, noBackupFolders})` (Graph stubs so the page renders without
+  Microsoft).
 - `screenshots/viewer.js` supports the nested mode layout and legacy direct `<app>/<theme>/<scene>.png` files (shown as synthetic `Default`). The API shape is `theme -> modes[] -> { name, path, images }`. The UI has separate App, Theme, and Mode selectors; section identity is composite app/theme/mode so open state and drag ordering cannot collide. Selections persist under `screenshotViewerGallery`, `screenshotViewerTheme`, and `screenshotViewerMode`.
 - The viewer is covered by `tests/screenshot-viewer.spec.js` with a temporary synthetic tree; it verifies nested mode scans, legacy fallback, deep image serving, app/theme/mode filtering, persisted choices, and composite open-state. `createServer()` is exported behind a `require.main === module` guard so tests can use an ephemeral port.
 
@@ -7723,3 +7743,43 @@ Techniques / gotchas:
 - VERIFIED: storyboard-stories 6/6; the delete + grace pair repeat-each=15 at 4
   workers 30/30; full Storyboard suite (align/groups/minio/pan/stamp/stories/
   zoom) 62/62. BUILD bumped.
+
+### 2026-10-25 (k) - Storyboard screenshot gallery + OneDrive scenes (all apps)
+- REQUEST (user): build a Storyboard screenshot gallery covering everything
+  (including OneDrive), add OneDrive scene shots to the four MinIO apps
+  (PlanMyDay, CountMyDays, ListOfLists, Storyboard), add the new suite to the
+  `commands.md` screenshot command, and run the Storyboard gallery for ALL
+  themes/modes.
+- NEW `tests/storyboard-screenshots.spec.js`: 11 scenes x 27 themes x both modes
+  = 594 PNGs in `screenshots/storyboard/`: board (space art, 3 stickers, fancy +
+  stamp text, directional connector), stories panel, background panel, stickers
+  panel, text panel (font/border/colour controls), selection bar, multi-selection
+  align (align row expanded), main menu dropdown (MinIO + OneDrive entries),
+  settings, settings-onedrive, open-from-onedrive (split folder rows, one with
+  "No backups").
+- SHARED HELPERS (`tests/screenshot-helpers.js`): `seedOneDriveSettings()` writes
+  the client ID / signed-in account / per-app Enable+Directory AND stubs
+  `oneDriveInit` (opening FileSync > OneDrive asks MSAL; an unregistered client ID
+  returns no account and the app clears the seeded name, so the settings shot
+  would read "Not signed in"); `stubOneDriveBrowser()` stubs the Graph list/latest
+  calls (the suites must never reach Microsoft).
+- PMD/CMD/LoL each gained `settings-onedrive.png`, `open-from-onedrive.png` and
+  `main-menu-filesync.png` (both providers enabled so every hamburger entry
+  shows).
+- BUG SURFACED BY THE PHONE-WIDTH SHOT: the `:latest` rows put the right-aligned
+  `.od-meta` timestamp on one nowrap line, so on a 390px phone the name+stamp ran
+  past the right edge and the stamp was clipped. TDD: new `tests/onedrive.spec.js`
+  test "the file browser fits a phone width without overflowing" was RED
+  (row scrollWidth 581 vs 371 client) before the fix. FIX in
+  `ONEDRIVE_PAGE_STYLES`: the rows `flex-wrap: wrap` and `.od-meta` wraps
+  (`max-width:100%`, `overflow-wrap:anywhere`, `padding-left:.5rem`) instead of
+  `white-space: nowrap`, so the stamp drops to its own right-aligned line on a
+  narrow screen and stays inline on a wide one.
+- COMMANDS: `commands.md`'s Screenshots list now has seven suites (storyboard
+  after qrlinks) and uses `--workers 16` in both the all-themes and one-theme
+  commands.
+- VERIFIED: storyboard-screenshots 11/11 for all 27 themes (594 files, 54 mode
+  dirs, 11 scenes each); PMD/CMD/LoL `*onedrive*` 6/6 + `*filesync*` 3/3 (54
+  files each scene); onedrive.spec 16/16. Spot-checked superhero, sketchy dark and
+  bootstrap light shots.
+- BUILD bumped (shared asset changed).
