@@ -268,6 +268,13 @@ body.auto-hide-menu #mainNav {
   pointer-events: none;
 }
 
+/* Installed WCO window: the nav is in the OS title bar, directly above this
+   rail, so give it the same breathing room it has under the normal in-app nav
+   row (on the web app the 12px inset sits below the whole nav bar). */
+body.smd-wco #sbToolbar {
+  top: 24px;
+}
+
 .sb-rail {
   display: flex;
   flex: 0 0 auto;
