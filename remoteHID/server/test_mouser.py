@@ -16,12 +16,18 @@ from mouser.axes import AxisModel, build_axes
 from mouser.engine import MouserEngine
 from mouser.protocol import (
     DATA_SIZE,
+    MAGIC_PING,
+    MAGIC_PONG,
     MAGIC_V1,
     MAGIC_V2,
     MODE_OFF,
     MODE_ROTATE,
     MODE_TRANSLATE,
+    PING_SIZE,
+    is_ping,
+    is_pong,
     parse_frame,
+    pong_reply,
 )
 from mouser.udp import MouserUdpReceiver
 
@@ -29,6 +35,10 @@ from mouser.udp import MouserUdpReceiver
 def make_frame(dx=0.0, dy=0.0, wheel=0.0, mode=MODE_ROTATE, *,
                sequence=1, qpc=0, magic=MAGIC_V2, pad=0):
     return struct.pack("<IIqfffHH", magic, sequence, qpc, dx, dy, wheel, mode, pad)
+
+
+def make_ping(sequence=1, qpc=1234, magic=MAGIC_PING):
+    return struct.pack("<IIq", magic, sequence, qpc)
 
 
 def rotate_profile(**overrides):
@@ -273,5 +283,73 @@ class TestMouserUdpReceiver:
             while receiver.bad_packets < 2 and time.monotonic() < deadline:
                 time.sleep(0.01)
             assert receiver.bad_packets == 2
+        finally:
+            receiver.stop()
+
+
+# --------------------------------------------------------------------------- #
+# Ping / pong reachability probe
+#
+# `mouser-capture --ping --udp <server>:<port>` is the documented way to prove
+# the capture machine can reach the server (Mouser README T8). `--recv` answers
+# it, but the Flask server did not, so a ping against the real server always
+# timed out even when the link was fine. The server now echoes PONG.
+# --------------------------------------------------------------------------- #
+
+class TestPingReply:
+    def test_a_ping_is_recognised_and_a_data_frame_is_not(self):
+        assert is_ping(make_ping()) is True
+        assert is_ping(make_frame()) is False
+        assert is_ping(b"") is False
+        assert is_ping(b"\x47\x4e\x49\x50") is False  # too short
+
+    def test_a_pong_is_recognised_and_a_ping_is_not(self):
+        assert is_pong(make_ping(magic=MAGIC_PONG)) is True
+        assert is_pong(make_ping()) is False
+
+    def test_pong_reply_echoes_the_payload_and_swaps_the_magic(self):
+        reply = pong_reply(make_ping(sequence=42, qpc=987654321))
+
+        assert len(reply) == PING_SIZE
+        assert struct.unpack_from("<I", reply)[0] == MAGIC_PONG
+        # Everything after the magic is echoed verbatim, so the capture can match
+        # its own sequence/qpc (it only checks the magic today).
+        assert reply[4:] == make_ping(sequence=42, qpc=987654321)[4:]
+
+    def test_the_receiver_answers_a_ping_even_when_the_engine_is_disabled(self):
+        # Reachability must be provable with no layout/enable state involved.
+        presses = []
+        engine = MouserEngine(presses.append)          # no profile: disabled
+
+        receiver = MouserUdpReceiver(engine, "127.0.0.1", 0)
+        receiver.start()
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as client:
+                client.settimeout(2.0)
+                client.sendto(make_ping(sequence=7, qpc=1234), ("127.0.0.1", receiver.port))
+                reply, _ = client.recvfrom(64)
+
+            assert len(reply) == PING_SIZE
+            assert struct.unpack_from("<I", reply)[0] == MAGIC_PONG
+            assert struct.unpack_from("<I", reply, 4)[0] == 7
+            assert presses == []
+            assert receiver.pings == 1
+            assert receiver.bad_packets == 0
+        finally:
+            receiver.stop()
+
+    def test_a_pong_is_ignored_so_two_servers_cannot_ping_pong(self):
+        engine = MouserEngine(lambda key: True)
+        receiver = MouserUdpReceiver(engine, "127.0.0.1", 0)
+        receiver.start()
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as client:
+                client.settimeout(0.4)
+                client.sendto(make_ping(magic=MAGIC_PONG), ("127.0.0.1", receiver.port))
+                with pytest.raises(OSError):
+                    client.recvfrom(64)
+
+            assert receiver.pings == 0
+            assert receiver.bad_packets == 0
         finally:
             receiver.stop()

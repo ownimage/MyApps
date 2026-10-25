@@ -136,11 +136,30 @@ The help text is the authoritative option list. For the normal capture path:
 
 # Send gated MB4/MB5 motion to this server
 .\mouser-capture.exe --gate --filter VID_046D --udp 192.168.1.50:7801
+
+# Prove the UDP hop before blaming the keys (the server answers PONG)
+.\mouser-capture.exe --ping --udp 192.168.1.50:7801
 ```
 
 `--filter` matches a substring from `--list`; without it every mouse is gated. The
 server must be reachable on UDP 7801 (see Notes). In v0.3.1 the configured mode
 buttons are consumed; add `--pass-mode-buttons` for the old click-through behaviour.
+
+Use the **server PC's own LAN address** (the one its startup banner/`ipconfig`
+shows) - the examples here are illustrative, and a DHCP lease change silently
+breaks an old command line. **UDP is not tunnelled**: a `--udp` target on the
+Cloudflare hostname can never arrive.
+
+**Quote a full hardware id in `cmd.exe`/PowerShell.** `&` is a command separator
+there, so an unquoted
+`--filter HID\VID_046D&PID_C52B&REV_1210&MI_01&Col01 --udp 1.2.3.4:7801` is cut at
+the first `&`: the capture starts with `--filter HID\VID_046D` and **`--udp` is
+never passed** (the mouse is gated, no frames are sent, and the banner warns
+`--gate without --udp`). Quote the value:
+
+```powershell
+.\mouser-capture.exe --gate --filter "HID\VID_046D&PID_C52B&REV_1210&MI_01&Col01" --udp 192.168.1.69:7801
+```
 
 ## Installing Interception
 

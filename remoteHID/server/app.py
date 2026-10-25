@@ -1199,6 +1199,12 @@ if __name__ == "__main__":
     try:
         _mouser_udp.start()
         print(f"Mouser UDP listening on udp/{_mouser_udp.port}")
+        # Name the exact address to put in the capture's --udp: it changes with the
+        # DHCP lease, and the docs' example address is not this machine's.
+        print(
+            f"  capture target: --udp {_lan_ip()}:{_mouser_udp.port} "
+            f"(check it with: mouser-capture --ping --udp {_lan_ip()}:{_mouser_udp.port})"
+        )
     except OSError as e:
         print(f"Mouser UDP disabled: {e}")
     print(f"Key-send debug: {'on' if DEBUG_KEYS else 'off'} (toggle with --debug-keys / --no-debug-keys)")

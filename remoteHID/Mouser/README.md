@@ -411,6 +411,20 @@ On the machine with the mouse:
 (`magic u32 | seq u32 | qpc i64 | dx f32 | dy f32 | wheel f32 | mode u16 | pad u16`);
 `--recv` reports packet rate, gaps, and echoes the pings.
 
+In the real setup `--recv` is optional: the **Flask server answers the same ping**
+(its UDP receiver echoes `PONG` to `PING`, and counts them as `pings`/`pongs_sent`).
+`--recv` binds UDP 7801, so it cannot run while the server holds that port - use
+`--ping` against the running server instead:
+
+```powershell
+& $m --ping --udp <server-lan-ip>:7801
+```
+
+`timeout` on every line means the capture machine cannot reach the server
+(firewall, DHCP-lease change, wrong port, or a tunnelled hostname - UDP is not
+proxied by the Cloudflare tunnel). Replies mean the hop is fine, so a missing key
+press is a server-side profile/key issue.
+
 **Pass:** median RTT under 1 ms on wired LAN, under 5 ms on Wi-Fi, and zero `gaps`
 while moving the mouse. Above 20 ms the device will feel wrong no matter how good
 the input path is.
@@ -585,6 +599,36 @@ Mouser/
 5. Hold MB4 to rotate (`dx→ry`, `dy→rx`, `wheel→rz`) or MB5 to translate
    (`dx→tx`, `dy→tz`, `wheel→ty`). Those two buttons are consumed; add
    `--pass-mode-buttons` if you need them to click through as well.
+
+**Prove the hop first** (this is the fastest way to isolate "no key presses"):
+
+```powershell
+mouser-capture.exe --ping --udp <server-ip>:7801
+```
+
+Both ends answer that probe: `mouser-capture --recv` and the Flask server (its
+UDP receiver echoes `PONG` to `PING`). Twenty RTT lines means the capture machine
+can reach the machine that injects keys; `timeout` on every line means the hop
+(firewall, wrong IP, wrong port) is the problem, not Mouser.
+
+**QUOTE `--filter` IN `cmd.exe`.** A hardware id contains `&`, which cmd.exe
+treats as a command separator, so
+
+```text
+mouser-capture.exe --gate --filter HID\VID_046D&PID_C52B&REV_1210&MI_01&Col01 --udp 192.168.1.69:7801
+```
+
+actually runs `mouser-capture.exe --gate --filter HID\VID_046D` and then tries
+`PID_C52B`, `REV_1210`, ... as separate commands - **`--udp` is never passed**,
+so the mouse is gated and nothing is sent. The banner then says
+`udp    : not set - no frames will be sent (add --udp host:port)` and
+`WARNING: --gate without --udp sends nothing to the server.` Always quote:
+
+```powershell
+mouser-capture.exe --gate --filter "HID\VID_046D&PID_C52B&REV_1210&MI_01&Col01" --udp 192.168.1.69:7801
+```
+
+(The same applies in PowerShell, where `&` is an operator.)
 
 The capture banner shows the UDP target and warns when `--gate` has no `--udp`.
 It also prints `websocket: none - capture uses UDP; Socket.IO is browser-only`:

@@ -7909,3 +7909,57 @@ Techniques / gotchas:
   under a group folder, grep for BARE folder names in tests, not just `/App/`
   URLs.
 - MERGE IS STAGED, NOT COMMITTED: commit it after the full run passes.
+
+
+### 2026-10-25 (m) - Mouser: server answers `--ping`; the cmd.exe `&` trap that silently drops `--udp`
+
+- REPORTED: "mouser-capture.exe is running on a remote machine, pointed at the udp
+  server port, but mouse events are not generating key clicks. It was working
+  before and there was a merge conflict."
+- THE MERGE LOST NOTHING: `git diff 5db39ec 1bfdb02 -- remoteHID/` is ONE line
+  (`remoteHID/PhoneButtons/manifest.json`, main's `display_override`). Every
+  `remoteHID/` file in the merge result is byte-identical to the `remoteHID`
+  parent; the tree is clean apart from the pre-move generated `PhoneButtons/`
+  folder at the repo root (htmlcov/__pycache__/icons, no source).
+- THE SERVER CODE IS INTACT: 154 pytest pass, and a throwaway probe that sends the
+  EXACT `Net.cs` frame (`<IIqfffHH`, magic `0x4D365331`) to a real
+  `MouserUdpReceiver` produced 80x F15 (mode 1 + dx), 24x F21 (mode 2 + wheel),
+  0 presses for mode 0, and rejected a v1-magic frame. So socket -> parse ->
+  ratchet -> `press_key` is proven; the fault is at the boundary.
+- ROOT CAUSE (almost certainly): the hardware id contains `&`, and `cmd.exe`
+  treats `&` as a COMMAND SEPARATOR even inside an argument. So
+  `--gate --filter HID\VID_046D&PID_C52B&REV_1210&MI_01&Col01 --udp 192.168.1.69:7801`
+  runs `mouser-capture.exe --gate --filter HID\VID_046D` and then tries
+  `PID_C52B`, `REV_1210`, ... as separate commands - **`--udp` is never passed**,
+  so the mouse IS gated and streaming but nothing is sent (the banner says
+  `udp : not set - no frames will be sent` + `WARNING: --gate without --udp`).
+  ALWAYS QUOTE the filter value (cmd.exe AND PowerShell):
+  `--filter "HID\VID_046D&PID_C52B&REV_1210&MI_01&Col01"`.
+- FEATURE (user request): the Flask server now ANSWERS `mouser-capture --ping`.
+  `mouser/protocol.py` gained `MAGIC_PING`/`MAGIC_PONG`/`PING_SIZE`, `is_ping`,
+  `is_pong`, `pong_reply` (echo the 16 bytes, swap the magic);
+  `mouser/udp.py` replies `PONG` to the SENDER before any engine work (so a ping
+  works with no layout/enabled state) and ignores an incoming PONG so two
+  listeners cannot ping-pong; counters `pings`/`pongs_sent` sit next to
+  `bad_packets`. `remoteHID/server/README.md` + `remoteHID/Mouser/README.md`
+  document the ping recipe and the quoting trap. NB `mouser-capture --recv` binds
+  UDP 7801, so it cannot run alongside the server - ping the running server
+  instead.
+- STARTUP now names the exact capture target, because the docs' `192.168.1.50`
+  is only an example and this PC is on DHCP (it was `192.168.1.69`):
+  `capture target: --udp <lan-ip>:7801 (check it with: mouser-capture --ping --udp <lan-ip>:7801)`.
+  Also remember UDP is NOT tunnelled (a Cloudflare hostname can never deliver).
+- DIAGNOSIS ORDER for "no keys" (fastest first): (1) capture banner - is `udp`
+  set, and does it print `mode=ROT` + `gated > 0` while MB4 is held? (2)
+  `mouser-capture --ping --udp <server-ip>:7801` - RTT vs timeout proves the hop;
+  (3) PhoneButtons -> Manage Layout -> Mouser live readout - it shows
+  `enabled|disabled`, mode, app/layout and presses/s (the engine is DISABLED
+  unless the FOREGROUND app has a layout with `mouser.enabled`; the shipped
+  config enables only `notepad` (Notepad++) and `blender`); (4) server console
+  `--debug-keys` lines (`Mouser key sent: 'F13' ...`).
+- TESTS: `test_mouser.py` +5 (`TestPingReply`): ping/pong detection, `pong_reply`
+  echo, the receiver answers a ping with the engine disabled, and a PONG gets no
+  answer. `python -m pytest test_app.py test_mouser.py` -> 159 passed. PONG
+  support was TDD (red on the missing imports, green after).
+- No web asset changed, so `BUILD_NUMBER` was NOT bumped; the user restarts
+  `remoteHID\PhoneButtonServer.cmd` to pick up the pong.

@@ -5,7 +5,7 @@ from __future__ import annotations
 import socket
 import threading
 
-from .protocol import DATA_SIZE, parse_frame
+from .protocol import DATA_SIZE, is_ping, is_pong, parse_frame, pong_reply
 
 
 class MouserUdpReceiver:
@@ -14,6 +14,9 @@ class MouserUdpReceiver:
         self.host = host
         self.port = port
         self.bad_packets = 0
+        # Reachability probe counters (`mouser-capture --ping`).
+        self.pings = 0
+        self.pongs_sent = 0
 
         self._socket: socket.socket | None = None
         self._thread: threading.Thread | None = None
@@ -43,11 +46,27 @@ class MouserUdpReceiver:
         assert self._socket is not None
         while not self._stop.is_set():
             try:
-                data, _addr = self._socket.recvfrom(max(2048, DATA_SIZE))
+                data, addr = self._socket.recvfrom(max(2048, DATA_SIZE))
             except socket.timeout:
                 continue
             except OSError:
                 break
+
+            # `mouser-capture --ping` is the documented reachability probe. Answer
+            # it before anything else: a ping must work whether or not the
+            # foreground app has a Mouser profile (that is the point of the test).
+            if is_ping(data):
+                self.pings += 1
+                try:
+                    self._socket.sendto(pong_reply(data), addr)
+                    self.pongs_sent += 1
+                except OSError:
+                    pass
+                continue
+
+            # Never answer a pong: two listeners must not echo each other.
+            if is_pong(data):
+                continue
 
             frame = parse_frame(data)
             if frame is None:
