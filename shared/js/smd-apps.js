@@ -27,7 +27,7 @@
     //   - a string replaces `name` (Launch's page is titled "My Apps"),
     //   - `false` opts OUT of a nav title entirely (Phone Buttons already shows
     //     the running server app's name next to the hamburger).
-    { name: "Phone Buttons", description: "Remote control buttons for this computer", path: "PhoneButtons/", icon: "Phone Buttons", navTitle: false },
+    { name: "Phone Buttons", description: "Remote control buttons for this computer", path: "remoteHID/PhoneButtons/", icon: "Phone Buttons", navTitle: false },
     { name: "Storyboard", description: "Place stickers and text anywhere on a storyboard", path: "Storyboard/", icon: "Storyboard" },
     { name: "Launch", description: "Open the app launcher", path: "", icon: "Launch", navTitle: "My Apps" }
   ];
@@ -117,8 +117,8 @@
 
   // The registry `path` of the app hosting the CURRENT page ("" = Launch, the
   // repo root). Derived from the same module-URL trick as `_base`: the page path
-  // relative to the repo root is "" / "PlanMyDay/" / "PlanMyDay/index.html", so
-  // the first segment (plus its slash) names the app folder.
+  // relative to the repo root is matched against the registered `APPS[].path`
+  // values, longest prefix first, so a grouped app is not mistaken for its group.
   var _currentPath = (function () {
     try {
       var src = document.currentScript && document.currentScript.src;
@@ -127,6 +127,14 @@
       var here = location.href.split(/[?#]/)[0];
       if (here.indexOf(root) !== 0) return null;
       var rel = here.slice(root.length);
+      // Longest registered prefix wins, so a nested app folder
+      // ("remoteHID/PhoneButtons/") is not mistaken for its group ("remoteHID/").
+      var best = "";
+      APPS.forEach(function (a) {
+        if (!a.path) return;
+        if (rel.indexOf(a.path) === 0 && a.path.length > best.length) best = a.path;
+      });
+      if (best) return best;
       var m = rel.match(/^([^/]+)\//);
       return m ? m[1] + "/" : "";
     } catch (e) { return null; }

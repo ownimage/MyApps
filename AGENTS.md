@@ -157,7 +157,7 @@ Architecture:
 - Quartz's "glassmorphism" overrides live in `shared/css/styles.css` (`.modal-content`, `.dropdown-menu`).
 - REPO/PWA LAYOUT (2026-09-10): the repo hosts **multiple PWAs off one origin**
   (`ownimage.github.io/MyApps/…`). `shared/` = library; each app lives in its own
-  top-level folder (`PlanMyDay/`, future `CountMyDays/`, …) with its own
+  folder (`PlanMyDay/`, future `CountMyDays/`, …) with its own
   `index.html` + `manifest.json` (relative `start_url`/`scope: "."` → that app's
   URL; own `icon-192.png`/`icon-512.png`). There is **ONE service worker, `sw.js` at
   the repo root**, registered by every app as `../sw.js` (scope = repo root, e.g.
@@ -167,6 +167,14 @@ Architecture:
   adding an app = add an `APPS` entry. Fetch handler caches by PATHNAME with
   `ignoreSearch`; offline navigate fallback is APP-AWARE (`appIndexFor(pathname)`
   → that app's `index.html`). Cache name is `myapps-<BUILD_NUMBER>`.
+  APPS MAY BE GROUPED (2026-10-22): an app folder can sit under a group folder —
+  `remoteHID/PhoneButtons/` is the first (its Flask server is `remoteHID/server/`).
+  The registry `path` and `APPS` key are still REPO-ROOT-relative, and
+  `SmdApps.href()` derives the page depth, so the launcher and every Launch flyout
+  reach a grouped app without special cases. `SmdApps.currentPath()` matches the
+  LONGEST registered `APPS[].path` prefix, not the first URL segment, so a nested
+  app is not mistaken for its group folder. Add a grouped app to `sw.js APPS` with
+  its full `remoteHID/<App>/` prefix (the `cache.addAll` list must exist in full).
   Activation is USER-DRIVEN (no `skipWaiting()` on install; page shows an
   "Update available" `smd-modal`; `window.__pmdSwUpdater.showUpdatePrompt` test
   hook; `controllerchange` only reloads after the user chose to update).
@@ -6877,6 +6885,91 @@ Techniques / gotchas:
   as a double-click. Wait ~400ms or click once, then drag. Not a connector bug.
 - BUILD: `202610211957` via `npm run bump:build`.
 
+### 2026-10-22 - remoteHID group + Mouser 6DOF capture/server
+- MOVED: `PhoneButtons/` -> `remoteHID/PhoneButtons/`; `PhoneButtons/server/` ->
+  `remoteHID/server/`; `PhoneButtonServer.cmd` -> `remoteHID/PhoneButtonServer.cmd`.
+  Registry path is `remoteHID/PhoneButtons/`; `SmdApps.currentPath()` matches the
+  LONGEST `APPS[].path` prefix (durable note above), `sw.js` APPS carries the nested
+  key, and `cache.addAll` therefore precaches `mouser-tab.js` with the shell.
+  Public URL is `/MyApps/remoteHID/PhoneButtons/`: installed PWAs must be
+  reinstalled; no redirect shim at the old URL.
+- MOUSER (new, `remoteHID/Mouser/`): C# .NET 8 capture client copied from
+  `P:\git\Mouser`; `phase0/` -> `capture/`, assembly `mouser-capture`, v0.3.
+  MB4 held = rotate, MB5 held = translate; while held, motion + wheel are dropped
+  below raw input, buttons still pass in v0.3.0 (v0.3.1 consumes the configured
+  mode buttons; see the 2026-10-23 entry). `--rotate-button`/`--translate-button`
+  default 4/5; `--hold` is a deprecated alias.
+- WIRE: 32-byte UDP frames at ~100 Hz, magic `0x4D365331`, `mode u16` (0/1/2,
+  replaced the old `gate`). One wheel notch is +/-120 counts, not +/-1.
+- SERVER `remoteHID/server/mouser/`: `protocol.py` strict v2 parse, `axes.py` six
+  ratchets (deadband, per-frame cap, min press interval keeps deferred steps in
+  `acc`), `engine.py` fixed v1 map (rotate dx->ry, dy->rx, wheel->rz; translate
+  dx->tx, dy->tz, wheel->ty), `udp.py`. `app.py` injects real keys; F13-F24 added
+  to `_KEY_MAP`. `_send_key_string_fast` is the Mouser path - `button_press` sleeps
+  10 ms twice and must never be used for a ratchet burst. Startup binds UDP 7801
+  and emits `mouser_state` at 10 Hz.
+- LAYOUT: layouts may carry `mouser: {enabled, axes:{rx,ry,rz,tx,ty,tz}}`;
+  `/api/layouts` passes it and also returns `usedBy`. New layouts default
+  `enabled: false`; a save that omits `mouser` keeps the stored block.
+- UI: Manage Layout is three `<smd-tabs>`: General (name/icon/key/usedBy),
+  PhoneButtons (rows/cols + grid), Mouser (six axis cards with key `<smd-select>`s,
+  gain/step/deadband, live readout). Assign `tabs.tabs` once AFTER the page is
+  attached - the setter re-renders and resets `activeIndex`. Finish saves all three
+  tabs in one POST. The grid tab is re-rendered when activated.
+- TESTS: targeted only (the user owns the full regression): 151 pytest
+  (`test_mouser.py` + `test_app.py`), 5 Manage Layout Playwright tests (including
+  the new Mouser tab), 3 launch/nav tests; `node --check` on changed JS.
+- GOTCHA (v0.3.0, superseded 2026-10-23): mode buttons still click through, so
+  engaging MB4 could navigate a browser back. Blender/Unity and the server must run
+  at the same integrity level (UIPI).
+
+### 2026-10-23 - Mouser v0.3.1: consume the mode buttons
+- `--gate` now swallows the configured rotate/translate button down/up pair, so
+  MB4/MB5 no longer click through to the focused app. This supersedes the v0.3.0
+  click-through gotcha above. Motion + wheel are still dropped while held; every
+  other button still passes.
+- `--pass-mode-buttons` is the opt-out and restores the v0.3.0 click-through
+  behaviour (the old caveat then applies).
+- EDGE: an up is swallowed only if its down was swallowed. If the client starts
+  while a mode button is already held, the first up is forwarded so the OS can
+  clear any state it saw before the filter was armed; a fresh press enters the mode.
+  If a single stroke mixes a mode edge with another button bit, the other button bit
+  is forwarded after stripping the mode bits; wheel remains gated while a mode is held.
+- VERSION: capture `0.3.1` (csproj + README/DESIGN). Direct Release build clean,
+  zero warnings; `--version` and `--help` verified. No server/web changes, so the
+  build number is unchanged. This is the new default for hardware acceptance A3.
+
+### 2026-10-23 (b) - Mouser arbitrary keys, key debug, Blender 4.4 add-on
+- MOUSER UI: each axis direction is now a text input + datalist plus Ctrl/Alt/
+  Shift checkboxes, not an F13-F24-only `<smd-select>`. Accepts `A`, `LEFT`,
+  `PAGEUP`, `ctrl+shift+K`, or any single character; blank = unbound. Stored
+  strings canonicalise to lowercase modifiers + uppercase key. `HOME`, `END`,
+  `INSERT`, `PAGEUP`, `PAGEDOWN` were added to the server `_KEY_MAP` and the
+  button editor's named-key list.
+- SERVER DEBUG: `--debug-keys` / `--no-debug-keys` (default off) logs each
+  injected key via `_debug_key`; `--debug` / `--no-debug` controls the rest of
+  the verbose log. Fast Mouser sends log `Mouser key sent: '...' (VK=..., mods=...)`.
+  Startup prints `Key-send debug: on|off`.
+- CAPTURE BANNER: `udp` line now says `not set` when no `--udp`; warns when
+  `--gate` has no target; prints `websocket: none - capture uses UDP; Socket.IO
+  is browser-only` (the capture has no WebSocket transport).
+- BLENDER 4.4.3: new `remoteHID/Mouser/blender/mouser_step_controls.py` add-on
+  auto-binds F13-F24 to `mouser.rotate_step` and `mouser.translate_step`; fixed
+  rotation step (default 5°) and translation step (default 0.1), target Selected
+  Objects or 3D Viewport, global/local axis, individual/median/cursor pivot.
+  F13-F24 keymap UI is bypassed via Python keymap registration. Object
+  transforms push one undo step; viewport orbit/pan does not. Install/use in
+  `blender/README.md`.
+- VERIFIED: 154 pytest passed; Blender 4.4.3 background tests for 12-key
+  auto-bind, object global/local/median rotation, global/local translation,
+  viewport rotation/translation math, add-on install in a temp config, and rebind
+  idempotency. Targeted Playwright Mouser test passed after restarting the stale
+  Vite server (it had a truncated cached JS file). Build number bumped to
+  `202610231534` (`shared/js/build-number.js` + `sw.js`). Full regression not run.
+- CURRENT USER CONFIG: `remoteHID/server/config.json` is back on the F13-F24
+  defaults; `PhoneButtonServer.cmd` still appends `--debug-keys` (uncommitted user
+  change, left untouched). The add-on's defaults match the config.
+
 ### 2026-10-23 - smd-image-dropdown: menu thumbnails match the closed button (no clipped icons)
 
 - REPORTED (user): "the space for the image in the dropdown seems to be too
@@ -7783,3 +7876,90 @@ Techniques / gotchas:
   files each scene); onedrive.spec 16/16. Spot-checked superhero, sketchy dark and
   bootstrap light shots.
 - BUILD bumped (shared asset changed).
+
+### 2026-10-25 (l) - merge main into remoteHID: conflicts resolved
+- MERGED `main` into `remoteHID`. Four files conflicted; resolutions:
+  - `shared/js/smd-apps.js`: the registry keeps BOTH sides - Phone Buttons at the
+    GROUPED path `remoteHID/PhoneButtons/` (HEAD) AND the `Storyboard/` entry
+    (main), in menu order Phone Buttons -> Storyboard -> Launch.
+  - `sw.js`: build number taken from main (`202610251421`) so the two build files
+    agree; both were then bumped to `202610251616` (`npm run bump:build`).
+  - `tests/launch-regression.spec.js`: every list keeps the grouped
+    `/remoteHID/PhoneButtons/` shell (prefix `../../`) and adds `/Storyboard/`
+    (`../`); the grid + submenu tables list Phone Buttons (grouped href) then
+    Storyboard. `toHaveCount(9)` still holds (8 apps + Launch).
+  - `AGENTS.md`: both session logs kept. The remoteHID 2026-10-22 / 2026-10-23
+    Mouser entries were moved from the top of the conflict to their chronological
+    spot (after 2026-10-21 (g), before the 2026-10-23 image-dropdown entry); main's
+    2026-10-21 (e) .. 2026-10-25 (k) entries are unchanged.
+- NOT a conflict but worth knowing: `shared/js/build-number.js` merged to main's
+  value automatically because remoteHID's own bump (`202610231534`) is an ancestor
+  of main's later bumps.
+- VERIFIED at `--workers=16 --retries=0`: launch-regression + settings-alignment +
+  display-settings + native-checkbox-guard + phonebuttons-regression +
+  phonebuttons-server 80/80; storyboard (align/groups/pan/stamp/stories/zoom/
+  minio) + onedrive + minio-directory + storybook 90/90; `@cache` 11/11 (mirror +
+  precache: 462 URLs, 0 duplicates). The user runs the full regression.
+- POST-MERGE PATH AUDIT (found by the user's full run): `tests/wco.spec.js`'s
+  `APPS` list still named `PhoneButtons` (it reads each `manifest.json` straight
+  off disk), so it threw ENOENT. Fixed to `remoteHID/PhoneButtons`; `wco.spec.js`
+  then 4/4. A repo-wide grep (`git grep PhoneButtons`, excluding docs and
+  `remoteHID/`) shows NO other stale folder path - the remaining hits are UI
+  labels ("PhoneButtons" tab), a sample URL and comments. When a future app moves
+  under a group folder, grep for BARE folder names in tests, not just `/App/`
+  URLs.
+- MERGE IS STAGED, NOT COMMITTED: commit it after the full run passes.
+
+
+### 2026-10-25 (m) - Mouser: server answers `--ping`; the cmd.exe `&` trap that silently drops `--udp`
+
+- REPORTED: "mouser-capture.exe is running on a remote machine, pointed at the udp
+  server port, but mouse events are not generating key clicks. It was working
+  before and there was a merge conflict."
+- THE MERGE LOST NOTHING: `git diff 5db39ec 1bfdb02 -- remoteHID/` is ONE line
+  (`remoteHID/PhoneButtons/manifest.json`, main's `display_override`). Every
+  `remoteHID/` file in the merge result is byte-identical to the `remoteHID`
+  parent; the tree is clean apart from the pre-move generated `PhoneButtons/`
+  folder at the repo root (htmlcov/__pycache__/icons, no source).
+- THE SERVER CODE IS INTACT: 154 pytest pass, and a throwaway probe that sends the
+  EXACT `Net.cs` frame (`<IIqfffHH`, magic `0x4D365331`) to a real
+  `MouserUdpReceiver` produced 80x F15 (mode 1 + dx), 24x F21 (mode 2 + wheel),
+  0 presses for mode 0, and rejected a v1-magic frame. So socket -> parse ->
+  ratchet -> `press_key` is proven; the fault is at the boundary.
+- ROOT CAUSE (almost certainly): the hardware id contains `&`, and `cmd.exe`
+  treats `&` as a COMMAND SEPARATOR even inside an argument. So
+  `--gate --filter HID\VID_046D&PID_C52B&REV_1210&MI_01&Col01 --udp 192.168.1.69:7801`
+  runs `mouser-capture.exe --gate --filter HID\VID_046D` and then tries
+  `PID_C52B`, `REV_1210`, ... as separate commands - **`--udp` is never passed**,
+  so the mouse IS gated and streaming but nothing is sent (the banner says
+  `udp : not set - no frames will be sent` + `WARNING: --gate without --udp`).
+  ALWAYS QUOTE the filter value (cmd.exe AND PowerShell):
+  `--filter "HID\VID_046D&PID_C52B&REV_1210&MI_01&Col01"`.
+- FEATURE (user request): the Flask server now ANSWERS `mouser-capture --ping`.
+  `mouser/protocol.py` gained `MAGIC_PING`/`MAGIC_PONG`/`PING_SIZE`, `is_ping`,
+  `is_pong`, `pong_reply` (echo the 16 bytes, swap the magic);
+  `mouser/udp.py` replies `PONG` to the SENDER before any engine work (so a ping
+  works with no layout/enabled state) and ignores an incoming PONG so two
+  listeners cannot ping-pong; counters `pings`/`pongs_sent` sit next to
+  `bad_packets`. `remoteHID/server/README.md` + `remoteHID/Mouser/README.md`
+  document the ping recipe and the quoting trap. NB `mouser-capture --recv` binds
+  UDP 7801, so it cannot run alongside the server - ping the running server
+  instead.
+- STARTUP now names the exact capture target, because the docs' `192.168.1.50`
+  is only an example and this PC is on DHCP (it was `192.168.1.69`):
+  `capture target: --udp <lan-ip>:7801 (check it with: mouser-capture --ping --udp <lan-ip>:7801)`.
+  Also remember UDP is NOT tunnelled (a Cloudflare hostname can never deliver).
+- DIAGNOSIS ORDER for "no keys" (fastest first): (1) capture banner - is `udp`
+  set, and does it print `mode=ROT` + `gated > 0` while MB4 is held? (2)
+  `mouser-capture --ping --udp <server-ip>:7801` - RTT vs timeout proves the hop;
+  (3) PhoneButtons -> Manage Layout -> Mouser live readout - it shows
+  `enabled|disabled`, mode, app/layout and presses/s (the engine is DISABLED
+  unless the FOREGROUND app has a layout with `mouser.enabled`; the shipped
+  config enables only `notepad` (Notepad++) and `blender`); (4) server console
+  `--debug-keys` lines (`Mouser key sent: 'F13' ...`).
+- TESTS: `test_mouser.py` +5 (`TestPingReply`): ping/pong detection, `pong_reply`
+  echo, the receiver answers a ping with the engine disabled, and a PONG gets no
+  answer. `python -m pytest test_app.py test_mouser.py` -> 159 passed. PONG
+  support was TDD (red on the missing imports, green after).
+- No web asset changed, so `BUILD_NUMBER` was NOT bumped; the user restarts
+  `remoteHID\PhoneButtonServer.cmd` to pick up the pong.

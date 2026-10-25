@@ -1,0 +1,325 @@
+{
+  "layouts": {
+    "powerpoint": {
+      "displayName": "PowerPoint",
+      "image": "Microsoft PowerPoint.png",
+      "rows": 4,
+      "cols": 2,
+      "buttons": [
+        {},
+        {},
+        {},
+        {},
+        {},
+        {},
+        {
+          "image1": "bi:skip-backward-fill",
+          "image2": "",
+          "key": "left",
+          "name": "Prev slide"
+        },
+        {
+          "image1": "bi:skip-forward-fill",
+          "image2": "",
+          "key": "right",
+          "name": "Next slide"
+        }
+      ],
+      "mouser": {
+        "enabled": false,
+        "axes": {
+          "rx": {
+            "positive": "F13",
+            "negative": "F14",
+            "gain": 0.05,
+            "step": 5,
+            "deadband": 0
+          },
+          "ry": {
+            "positive": "F15",
+            "negative": "F16",
+            "gain": 0.05,
+            "step": 5,
+            "deadband": 0
+          },
+          "rz": {
+            "positive": "F17",
+            "negative": "F18",
+            "gain": 0.05,
+            "step": 5,
+            "deadband": 0
+          },
+          "tx": {
+            "positive": "F19",
+            "negative": "F20",
+            "gain": 0.0001,
+            "step": 0.01,
+            "deadband": 0
+          },
+          "ty": {
+            "positive": "F21",
+            "negative": "F22",
+            "gain": 0.0001,
+            "step": 0.01,
+            "deadband": 0
+          },
+          "tz": {
+            "positive": "F23",
+            "negative": "F24",
+            "gain": 0.0001,
+            "step": 0.01,
+            "deadband": 0
+          }
+        }
+      }
+    },
+    "photoshop": {
+      "displayName": "Photoshop",
+      "image": "Adobe Photoshop 2026.png",
+      "rows": 2,
+      "cols": 3,
+      "buttons": [
+        {
+          "name": "",
+          "image1": "bi:brush-fill",
+          "image2": "",
+          "key": "b",
+          "press": "regular"
+        },
+        {
+          "name": "",
+          "image1": "bi:app",
+          "image2": "",
+          "key": "m",
+          "press": "regular"
+        },
+        {
+          "name": "Alt",
+          "image1": "",
+          "image2": "",
+          "key": "alt",
+          "press": "extended"
+        },
+        {},
+        {},
+        {}
+      ]
+    },
+    "clip-studio-paint": {
+      "displayName": "Clip Studio Paint",
+      "image": "CLIP STUDIO PAINT.png",
+      "rows": 2,
+      "cols": 6,
+      "buttons": [
+        {
+          "image1": "bi:brush",
+          "image2": "fa:plus",
+          "key": "]",
+          "name": "Brush +",
+          "press": "regular"
+        },
+        {
+          "image1": "fa:hand",
+          "image2": "",
+          "key": "space",
+          "name": "Move",
+          "press": "extended"
+        },
+        {
+          "image1": "bi:brush",
+          "image2": "",
+          "key": "b",
+          "name": "Brush",
+          "press": "regular"
+        },
+        {
+          "image1": "fa:eraser",
+          "image2": "",
+          "key": "e",
+          "name": "Erase",
+          "press": "regular"
+        },
+        {
+          "name": "Zoom In",
+          "image1": "bi:zoom-in",
+          "image2": "",
+          "key": "ctrl+=",
+          "press": "regular"
+        },
+        {},
+        {
+          "image1": "bi:brush",
+          "image2": "fa:minus",
+          "key": "[",
+          "name": "Brush -",
+          "press": "regular"
+        },
+        {
+          "image1": "fa:rotate",
+          "image2": "",
+          "key": "r",
+          "name": "Rotate",
+          "press": "regular"
+        },
+        {
+          "image1": "fa:pen",
+          "image2": "fa:pencil",
+          "key": "p",
+          "name": "Pen/Pencil",
+          "press": "regular"
+        },
+        {},
+        {
+          "name": "Zoom Out",
+          "image1": "bi:zoom-out",
+          "image2": "",
+          "key": "ctrl+-",
+          "press": "regular"
+        },
+        {}
+      ]
+    },
+    "notepad": {
+      "displayName": "Notepad++",
+      "image": "Notepad++.png",
+      "rows": 2,
+      "cols": 3,
+      "buttons": [
+        {
+          "image1": "Beach 2",
+          "image2": "",
+          "key": "a",
+          "name": "",
+          "press": "regular"
+        },
+        {},
+        {},
+        {},
+        {},
+        {}
+      ],
+      "mouser": {
+        "enabled": true,
+        "axes": {
+          "rx": {
+            "positive": "A",
+            "negative": "A",
+            "gain": 0.05,
+            "step": 5,
+            "deadband": 0
+          },
+          "ry": {
+            "positive": "A",
+            "negative": "A",
+            "gain": 0.05,
+            "step": 5,
+            "deadband": 0
+          },
+          "rz": {
+            "positive": "A",
+            "negative": "A",
+            "gain": 0.05,
+            "step": 5,
+            "deadband": 0
+          },
+          "tx": {
+            "positive": "A",
+            "negative": "A",
+            "gain": 0.0001,
+            "step": 0.01,
+            "deadband": 0
+          },
+          "ty": {
+            "positive": "A",
+            "negative": "A",
+            "gain": 0.0001,
+            "step": 0.01,
+            "deadband": 0
+          },
+          "tz": {
+            "positive": "A",
+            "negative": "A",
+            "gain": 0.0001,
+            "step": 0.01,
+            "deadband": 0
+          }
+        }
+      }
+    },
+    "blender": {
+      "displayName": "Blender",
+      "image": "Blender.png",
+      "rows": 2,
+      "cols": 3,
+      "buttons": [
+        {},
+        {},
+        {},
+        {},
+        {},
+        {}
+      ],
+      "mouser": {
+        "enabled": true,
+        "axes": {
+          "rx": {
+            "positive": "F13",
+            "negative": "F14",
+            "gain": 0.05,
+            "step": 5,
+            "deadband": 0
+          },
+          "ry": {
+            "positive": "F15",
+            "negative": "F16",
+            "gain": 0.05,
+            "step": 5,
+            "deadband": 0
+          },
+          "rz": {
+            "positive": "F17",
+            "negative": "F18",
+            "gain": 0.05,
+            "step": 5,
+            "deadband": 0
+          },
+          "tx": {
+            "positive": "F19",
+            "negative": "F20",
+            "gain": 0.0001,
+            "step": 0.01,
+            "deadband": 0
+          },
+          "ty": {
+            "positive": "F21",
+            "negative": "F22",
+            "gain": 0.0001,
+            "step": 0.01,
+            "deadband": 0
+          },
+          "tz": {
+            "positive": "F23",
+            "negative": "F24",
+            "gain": 0.0001,
+            "step": 0.01,
+            "deadband": 0
+          }
+        }
+      }
+    }
+  },
+  "mouser": {
+    "enabled": true,
+    "udp_port": 7801,
+    "max_presses_per_frame": 3,
+    "min_press_interval_ms": 10
+  },
+  "app-layouts": {
+    "Microsoft PowerPoint": "powerpoint",
+    "Adobe Photoshop 2026": "photoshop",
+    "CLIP STUDIO PAINT": "clip-studio-paint",
+    "Notepad": "clip-studio-paint",
+    "Notepad++": "notepad",
+    "Blender": "blender"
+  }
+}

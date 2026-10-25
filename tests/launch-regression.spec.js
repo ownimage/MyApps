@@ -19,7 +19,7 @@ test.describe("Launch - Regression", () => {
     "/SolarControlar/",
     "/FreeFormOX/",
     "/ListOfLists/",
-    "/PhoneButtons/",
+    "/remoteHID/PhoneButtons/",
     "/Storyboard/",
     "/storybook/",
     "/storybook/cardViewer.html"
@@ -100,7 +100,7 @@ test.describe("Launch - Regression", () => {
       expect(geom.bodyColour, shell).toBe(true);
     }
     // Phone Buttons opts out of the nav title.
-    await page.goto("/PhoneButtons/");
+    await page.goto("/remoteHID/PhoneButtons/");
     await expect(page.locator("#appNavTitle")).toHaveCount(0);
   });
 
@@ -119,7 +119,7 @@ test.describe("Launch - Regression", () => {
       ["Solar Controlar", "SolarControlar/"],
       ["FreeFormOX", "FreeFormOX/"],
       ["List of Lists", "ListOfLists/"],
-      ["Phone Buttons", "PhoneButtons/"],
+      ["Phone Buttons", "remoteHID/PhoneButtons/"],
       ["Storyboard", "Storyboard/"],
       ["Launch", "./"]
     ];
@@ -196,7 +196,7 @@ test.describe("Launch - Regression", () => {
       ["Solar Controlar", "SolarControlar/"],
       ["FreeFormOX", "FreeFormOX/"],
       ["List of Lists", "ListOfLists/"],
-      ["Phone Buttons", "PhoneButtons/"],
+      ["Phone Buttons", "remoteHID/PhoneButtons/"],
       ["Storyboard", "Storyboard/"],
       ["Launch", ""]
     ];
@@ -206,7 +206,7 @@ test.describe("Launch - Regression", () => {
     // The ROOT (Launch itself) is included: its menu carries the same flyout, so
     // every app jumps to any other app from one place.
     for (const [shell, prefix] of [["/", ""], ["/PlanMyDay/", "../"], ["/CountMyDays/", "../"],
-      ["/QRLinks/", "../"], ["/FreeFormOX/", "../"], ["/ListOfLists/", "../"], ["/PhoneButtons/", "../"],
+      ["/QRLinks/", "../"], ["/FreeFormOX/", "../"], ["/ListOfLists/", "../"], ["/remoteHID/PhoneButtons/", "../../"],
       ["/Storyboard/", "../"]]) {
       await page.goto(shell);
       await page.locator("#btnMainMenu").click();
@@ -301,9 +301,9 @@ test.describe("Launch - Regression", () => {
 
     test("the Show on Launch tick hides an app from the grid and persists", async ({ page }) => {
       await openMenuTab(page);
-      await page.locator('#appMenuList launch-app-menu[path="PhoneButtons/"] smd-checkbox.launch-toggle input').click();
+      await page.locator('#appMenuList launch-app-menu[path="remoteHID/PhoneButtons/"] smd-checkbox.launch-toggle input').click();
       await expect.poll(() => page.evaluate(() =>
-        JSON.parse(localStorage.getItem("launch_appMenu")).find(c => c.path === "PhoneButtons/").onLaunch
+        JSON.parse(localStorage.getItem("launch_appMenu")).find(c => c.path === "remoteHID/PhoneButtons/").onLaunch
       )).toBe(false);
       await page.evaluate(() => closeSettings());
       await expect(page.locator("#appGrid .app-tile")).toHaveCount(ALL_APPS.length - 1);

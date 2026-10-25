@@ -20,7 +20,7 @@ const APP_DIRS = [
   "ListOfLists/js",
   "SolarControlar/js",
   "FreeFormOX/js",
-  "PhoneButtons/js",
+  "remoteHID/PhoneButtons/js",
   "Launch/js",
   "shared/js"
 ];
@@ -32,7 +32,7 @@ const APP_HTML = [
   "ListOfLists/index.html",
   "SolarControlar/index.html",
   "FreeFormOX/index.html",
-  "PhoneButtons/index.html",
+  "remoteHID/PhoneButtons/index.html",
   "Launch/index.html"
 ];
 const ALLOWED = new Set([

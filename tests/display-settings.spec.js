@@ -19,7 +19,7 @@ const APPS = [
   { app: "SolarControlar", path: "/SolarControlar/" },
   { app: "FreeFormOX", path: "/FreeFormOX/" },
   { app: "ListOfLists", path: "/ListOfLists/" },
-  { app: "PhoneButtons", path: "/PhoneButtons/" }
+  { app: "PhoneButtons", path: "/remoteHID/PhoneButtons/" }
 ];
 
 const UNIVERSAL = [

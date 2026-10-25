@@ -1,8 +1,9 @@
 // Runs the PhoneButtons SERVER test suite (Python) from the JS suite, so a plain
 // `playwright test` covers app.py too. The Python side lives in
-// `PhoneButtons/server/test_app.py` (pytest, Flask + Socket.IO test clients) and
-// needs the Python 3.13 interpreter, where Flask/pywin32/psutil/pytest are
-// installed - see PhoneButtons/server/README.md.
+// `remoteHID/server/test_app.py` and `remoteHID/server/test_mouser.py` (pytest,
+// Flask + Socket.IO + Mouser engine/transport) and needs the Python 3.13
+// interpreter, where Flask/pywin32/psutil/pytest are installed - see
+// remoteHID/server/README.md.
 //
 // It SKIPS (with the reason) when that interpreter or those packages are absent,
 // so the JS suite still runs on a machine without them.
@@ -45,7 +46,7 @@ test.describe("PhoneButtons server (Python)", () => {
 
   test.describe.configure({ timeout: 240000 });
 
-  test("app.py unit tests pass with coverage", () => {
+  test("server unit tests pass with coverage", () => {
     // Probe the interpreter + packages first so a missing env SKIPS, not FAILS.
     try {
       run(["-c", "import flask, flask_socketio, win32api, psutil, pytest, coverage"]);
@@ -54,17 +55,17 @@ test.describe("PhoneButtons server (Python)", () => {
         + "(flask, flask-socketio, pywin32, psutil, pytest, coverage)");
     }
 
-    // Named artefacts (both inside the gitignored PhoneButtons/server folder, so
+    // Named artefacts (both inside the gitignored remoteHID/server folder, so
     // a run never dirties the repo):
     //   coverage.txt    the full pytest output incl. the app.py table
     //   htmlcov/        the browsable HTML report (open htmlcov/index.html)
-    const textReport = path.join(REPO_ROOT, "PhoneButtons", "server", "coverage.txt");
-    const htmlReport = path.join(REPO_ROOT, "PhoneButtons", "server", "htmlcov");
+    const textReport = path.join(REPO_ROOT, "remoteHID", "server", "coverage.txt");
+    const htmlReport = path.join(REPO_ROOT, "remoteHID", "server", "htmlcov");
     const coverageFile = path.join(os.tmpdir(), "myapps-pb-app.coverage");
     let output;
     try {
       output = plain(run([
-        "-m", "pytest", "PhoneButtons/server/test_app.py",
+        "-m", "pytest", "remoteHID/server/test_app.py", "remoteHID/server/test_mouser.py",
         "--cov=app", "--cov-report=term-missing", `--cov-report=html:${htmlReport}`,
         "--color=no", "-q", "-p", "no:cacheprovider",
       ], { COVERAGE_FILE: coverageFile }));
@@ -105,7 +106,7 @@ test.describe("PhoneButtons server (Python)", () => {
     // requirements.txt (a missing one only shows up as an ImportError on a
     // fresh install).
     const requirements = fs.readFileSync(
-      path.join(REPO_ROOT, "PhoneButtons", "server", "requirements.txt"), "utf8",
+      path.join(REPO_ROOT, "remoteHID", "server", "requirements.txt"), "utf8",
     ).toLowerCase();
     for (const dep of ["flask", "flask-socketio", "python-socketio", "pywin32", "psutil", "pillow"]) {
       expect(requirements, `requirements.txt is missing ${dep}`).toContain(dep);

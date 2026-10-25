@@ -34,7 +34,7 @@ const ALL_APPS = [
   { name: "QRLinks", path: "/QRLinks/" },
   { name: "SolarControlar", path: "/SolarControlar/" },
   { name: "ListOfLists", path: "/ListOfLists/" },
-  { name: "PhoneButtons", path: "/PhoneButtons/" },
+  { name: "PhoneButtons", path: "/remoteHID/PhoneButtons/" },
   { name: "Launch", path: "/" }
 ];
 
@@ -212,7 +212,7 @@ test.describe("Danger tab shape is consistent across apps", () => {
         "Clear local storage LoL", "Upload Standard Images"],
     },
     {
-      app: "PhoneButtons", path: "/PhoneButtons/",
+      app: "PhoneButtons", path: "/remoteHID/PhoneButtons/",
       rows: ["Show danger", "No Cache", "Refresh App", "Clear local storage PB"],
     },
     {
@@ -379,7 +379,7 @@ test.describe("Settings page shape is consistent across apps", () => {
         "Auto-hide menu", "Screen resolution"],
     },
     {
-      app: "PhoneButtons", path: "/PhoneButtons/", tabs: ["Display", "Server", "Danger"],
+      app: "PhoneButtons", path: "/remoteHID/PhoneButtons/", tabs: ["Display", "Server", "Danger"],
       display: ["Theme", "Theme Mode", "Font size", "Icon size", "Touch size", "Slide speed", "Auto-hide menu"],
     },
   ];

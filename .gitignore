@@ -13,8 +13,9 @@ node_modules/
 .coverage.*
 .pytest_cache/
 htmlcov/
+/remoteHID/server/coverage.txt
 
 # PhoneButtons server TLS certs (generated locally by --gen-cert: a local CA +
 # the server leaf). NEVER commit the private keys.
-/PhoneButtons/server/*.crt
-/PhoneButtons/server/*.key
+/remoteHID/server/*.crt
+/remoteHID/server/*.key

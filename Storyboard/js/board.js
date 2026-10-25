@@ -2194,5 +2194,3 @@ async function sbDownloadJpg() {
   a.remove();
   setTimeout(function () { URL.revokeObjectURL(url); }, 1500);
 }
-
-

@@ -121,7 +121,10 @@ function restoreServerTab() {
   var cb = document.getElementById("showBackgroundApps");
   if (cb) cb.checked = getShowBackgroundApps();
   var qr = document.getElementById("shareQrCode");
-  if (qr) qr.setAttribute("value", window.location.origin + "/PhoneButtons/");
+  // Share the URL this app was actually loaded from (including a repo prefix
+  // such as /MyApps/), not origin + a hard-coded path.
+  var here = window.location.href.split(/[?#]/)[0];
+  if (qr) qr.setAttribute("value", here.replace(/index\.html$/, ""));
 }
 
 function openSettings() {

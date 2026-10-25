@@ -28,6 +28,9 @@ from PIL import Image
 from flask import Flask, jsonify, request, send_from_directory, redirect
 from flask_socketio import SocketIO, emit
 
+from mouser.engine import MouserEngine
+from mouser.udp import MouserUdpReceiver
+
 app = Flask(__name__)
 
 # CORS -----------------------------------------------------------------------
@@ -49,7 +52,7 @@ def _add_cors_headers(resp):
     return resp
 
 # Paths ---------------------------------------------------------------------
-# app.py lives in MyApps/PhoneButtons/server; the web app and the shared smd-*
+# app.py lives in MyApps/remoteHID/server; the web app and the shared smd-*
 # library are served straight out of the MyApps repo root (two levels up).
 SERVER_DIR = os.path.dirname(os.path.abspath(__file__))
 REPO_ROOT = os.path.abspath(os.path.join(SERVER_DIR, "..", ".."))
@@ -137,6 +140,7 @@ def _get_app_layout(name):
         "rows": layout.get("rows", 2),
         "cols": layout.get("cols", 3),
         "buttons": layout.get("buttons", []),
+        "mouser": layout.get("mouser", {}),
     }
 
 
@@ -215,6 +219,7 @@ def _on_foreground_change(hWinEventHook, event, hwnd, idObject, idChild, dwEvent
             template = _get_app_template(name)
             _current_app = {"name": name, "icon": icon_url, "template": template,
                             "layout": _get_app_layout(name)}
+            _sync_mouser_profile()
             socketio.emit("app_change", _current_app)
     except Exception as e:
         _debug(f"Focus hook callback error: {e}")
@@ -261,14 +266,57 @@ CONFIG_PATH = os.path.join(SERVER_DIR, "config.json")
 
 _current_app = {"name": "Unknown", "icon": "", "layout": None}
 
+# Mouser is optional: the engine is created after the key-injection helpers
+# below, and the UDP receiver only starts under __main__.
+mouser_engine = None
+_mouser_udp = None
+
+
+def _mouser_global_config():
+    """The top-level `mouser` block (enabled / udp_port / press limits)."""
+    try:
+        with open(CONFIG_PATH, "r") as f:
+            config = json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        config = {}
+    return config.get("mouser") or {}
+
+
+def _sync_mouser_profile():
+    """Push the foreground layout's `mouser` block into the engine."""
+    if mouser_engine is None:
+        return
+    settings = _mouser_global_config()
+    mouser_engine.set_profile(
+        _current_app.get("layout"),
+        app_name=_current_app.get("name"),
+        global_enabled=bool(settings.get("enabled", True)),
+    )
+
 _app_icon_prefs = {}
 
 DEBUG = True
 
+# Key-send logging is separate from the general debug stream: the Mouser
+# ratchet can legitimately emit hundreds of presses per second, so it stays off
+# until --debug-keys is passed. `_debug_key` does not require DEBUG, which lets
+# `--no-debug --debug-keys` show only the key stream.
+DEBUG_KEYS = False
+
+
+def _print_debug(msg):
+    ts = datetime.datetime.now().strftime("%H:%M:%S.%f")[:-3]
+    print(f"[{ts}] {msg}", file=sys.stderr, flush=True)
+
+
 def _debug(msg):
     if DEBUG:
-        ts = datetime.datetime.now().strftime("%H:%M:%S.%f")[:-3]
-        print(f"[{ts}] {msg}", file=sys.stderr, flush=True)
+        _print_debug(msg)
+
+
+def _debug_key(msg):
+    if DEBUG_KEYS:
+        _print_debug(msg)
 
 
 def _load_config():
@@ -549,14 +597,14 @@ def _cache_icon(exe_path, hwnd, name):
 
 @app.route("/")
 def index():
-    # The remote UI is the MyApps front end in PhoneButtons/, served from the
+    # The remote UI is the MyApps front end in remoteHID/PhoneButtons/, served from the
     # repo root by the catch-all route below.
-    return redirect("/PhoneButtons/")
+    return redirect("/remoteHID/PhoneButtons/")
 
 
-@app.route("/PhoneButtons/")
+@app.route("/remoteHID/PhoneButtons/")
 def phonebuttons_index():
-    return send_from_directory(REPO_ROOT, "PhoneButtons/index.html")
+    return send_from_directory(REPO_ROOT, "remoteHID/PhoneButtons/index.html")
 
 
 @app.route("/app-icon-cache/<path:filename>")
@@ -612,6 +660,7 @@ def api_layouts():
     except (FileNotFoundError, json.JSONDecodeError):
         config = {}
     layouts = config.get("layouts", {})
+    app_layouts = config.get("app-layouts", {})
     result = [{
         "key": key,
         "displayName": value.get("displayName", key),
@@ -619,6 +668,8 @@ def api_layouts():
         "rows": value.get("rows", 2),
         "cols": value.get("cols", 3),
         "buttons": value.get("buttons", []),
+        "mouser": value.get("mouser", {}),
+        "usedBy": [app for app, layout_key in app_layouts.items() if layout_key == key],
     } for key, value in layouts.items()]
     return jsonify({"layouts": result})
 
@@ -669,6 +720,10 @@ def api_save_layout():
         layout["buttons"] = data["buttons"]
     else:
         layout.setdefault("buttons", [])
+    if isinstance(data.get("mouser"), dict):
+        layout["mouser"] = data["mouser"]
+    else:
+        layout.setdefault("mouser", {})
     with open(CONFIG_PATH, "w", newline="\n") as f:
         json.dump(config, f, indent=2)
     _debug(f"Saved layout: {key}")
@@ -676,6 +731,7 @@ def api_save_layout():
     global _current_app
     if (_current_app.get("layout") or {}).get("key") == key:
         _current_app = dict(_current_app, layout=_get_app_layout(_current_app.get("name")))
+        _sync_mouser_profile()
         socketio.emit("app_change", _current_app)
     return jsonify({"ok": True})
 
@@ -742,6 +798,7 @@ def api_save_app_layout():
     global _current_app
     if _current_app.get("name") == name:
         _current_app = dict(_current_app, layout=_get_app_layout(name))
+        _sync_mouser_profile()
         socketio.emit("app_change", _current_app)
     return jsonify({"ok": True})
 
@@ -797,7 +854,11 @@ _KEY_MAP = {
     "F1": 0x70, "F2": 0x71, "F3": 0x72, "F4": 0x73,
     "F5": 0x74, "F6": 0x75, "F7": 0x76, "F8": 0x77,
     "F9": 0x78, "F10": 0x79, "F11": 0x7A, "F12": 0x7B,
+    "F13": 0x7C, "F14": 0x7D, "F15": 0x7E, "F16": 0x7F,
+    "F17": 0x80, "F18": 0x81, "F19": 0x82, "F20": 0x83,
+    "F21": 0x84, "F22": 0x85, "F23": 0x86, "F24": 0x87,
     "LEFT": 0x25, "RIGHT": 0x27, "UP": 0x26, "DOWN": 0x28,
+    "HOME": 0x24, "END": 0x23, "INSERT": 0x2D, "PAGEUP": 0x21, "PAGEDOWN": 0x22,
     "VOLUME_MUTE": 0xAD, "VOLUME_DOWN": 0xAE, "VOLUME_UP": 0xAF,
     "MEDIA_NEXT_TRACK": 0xB0, "MEDIA_PREV_TRACK": 0xB1, "MEDIA_STOP": 0xB2,
     "MEDIA_PLAY_PAUSE": 0xB3,
@@ -871,13 +932,56 @@ def send_key(vk):
     _send_key_up(vk)
 
 
+def _send_key_string_fast(key_value):
+    """Parse + press one key string with NO sleeps. The ratchet can emit several
+    presses per frame, so the 10 ms sleeps in `button_press` would add up."""
+    mods, vk = _parse_key_string(key_value)
+    if not vk:
+        _debug_key(f"Mouser key NOT sent: {key_value!r} (unrecognised key)")
+        return False
+    for m in mods:
+        _send_key_down(m)
+    _send_key_down(vk)
+    _send_key_up(vk)
+    for m in reversed(mods):
+        _send_key_up(m)
+    _debug_key(
+        f"Mouser key sent: {key_value!r} "
+        f"(VK=0x{vk:02X}, mods={[hex(m) for m in mods]})"
+    )
+    return True
+
+
+_mouser_settings = _mouser_global_config()
+mouser_engine = MouserEngine(
+    press_key=_send_key_string_fast,
+    max_presses_per_frame=int(_mouser_settings.get("max_presses_per_frame", 3)),
+    min_press_interval_ms=float(_mouser_settings.get("min_press_interval_ms", 10)),
+)
+_mouser_udp = MouserUdpReceiver(
+    mouser_engine,
+    "0.0.0.0",
+    int(_mouser_settings.get("udp_port", 7801)),
+)
+
+
+def _mouser_state_loop():
+    """Push a small telemetry snapshot to the browser at 10 Hz."""
+    while True:
+        time.sleep(0.1)
+        try:
+            socketio.emit("mouser_state", mouser_engine.snapshot())
+        except Exception:
+            pass
+
+
 @socketio.on("button_press")
 def handle_button_press(data):
     key_value = data.get("key", "")
     # Parse "ctrl+shift+Z" / "alt+F4" (or a bare character like "[").
     mods, vk = _parse_key_string(key_value)
     if vk:
-        _debug(f"Sending key: {key_value} (VK=0x{vk:02X}, mods={[hex(m) for m in mods]})")
+        _debug_key(f"Sending key: {key_value} (VK=0x{vk:02X}, mods={[hex(m) for m in mods]})")
         # Press modifiers in order (Ctrl, Alt, Shift)
         for m in mods:
             _send_key_down(m)
@@ -890,7 +994,7 @@ def handle_button_press(data):
         for m in reversed(mods):
             _send_key_up(m)
     else:
-        _debug(f"Unknown key: {key_value}")
+        _debug_key(f"Unknown key: {key_value}")
 
 
 # Press-and-hold: the phone sends key_down while a button is held and key_up on
@@ -900,7 +1004,7 @@ def handle_button_press(data):
 def handle_key_down(data):
     key_value = data.get("key", "") if isinstance(data, dict) else ""
     mods, vk = _parse_key_string(key_value)
-    _debug(f"key_down: '{key_value}' (vk=0x{vk:02X}, mods={[hex(m) for m in mods]})")
+    _debug_key(f"key_down: '{key_value}' (vk=0x{vk:02X}, mods={[hex(m) for m in mods]})")
     for m in mods:
         _send_key_down(m)
     if vk:
@@ -911,7 +1015,7 @@ def handle_key_down(data):
 def handle_key_up(data):
     key_value = data.get("key", "") if isinstance(data, dict) else ""
     mods, vk = _parse_key_string(key_value)
-    _debug(f"key_up: '{key_value}' (vk=0x{vk:02X}, mods={[hex(m) for m in mods]})")
+    _debug_key(f"key_up: '{key_value}' (vk=0x{vk:02X}, mods={[hex(m) for m in mods]})")
     if vk:
         _send_key_up(vk)
     for m in reversed(mods):
@@ -934,7 +1038,7 @@ def _lan_ip():
 def _open_browser():
     # Open on the LAN address (not localhost) so the "Share app" QR encodes a URL
     # a phone on the same network can actually reach.
-    url = f"http://{_lan_ip()}:5000/PhoneButtons/?showQr=1"
+    url = f"http://{_lan_ip()}:5000/remoteHID/PhoneButtons/?showQr=1"
     _debug(f"Opening browser: {url}")
     try:
         webbrowser.open(url)
@@ -1054,12 +1158,57 @@ if __name__ == "__main__":
         metavar="URL",
         help="Show a QR code for URL (e.g. a named tunnel you started yourself) and skip the tunnel",
     )
+    parser.add_argument(
+        "--debug",
+        dest="debug",
+        action="store_true",
+        help="Enable the general verbose server log (the default)",
+    )
+    parser.add_argument(
+        "--no-debug",
+        dest="debug",
+        action="store_false",
+        help="Disable the general verbose server log",
+    )
+    parser.add_argument(
+        "--debug-keys",
+        dest="debug_keys",
+        action="store_true",
+        help="Log every key the server sends (Mouser can make this very noisy)",
+    )
+    parser.add_argument(
+        "--no-debug-keys",
+        dest="debug_keys",
+        action="store_false",
+        help="Disable key-send logging (the default)",
+    )
+    parser.set_defaults(debug=DEBUG, debug_keys=DEBUG_KEYS)
     args = parser.parse_args()
 
+    DEBUG = args.debug
+    DEBUG_KEYS = args.debug_keys
     _QR_ENABLED = not args.no_qr
 
     t = threading.Thread(target=_run_focus_hook, daemon=True)
     t.start()
+    # Prime the foreground state so Mouser has a profile before the first alt-tab.
+    try:
+        _on_foreground_change(0, 0, win32gui.GetForegroundWindow(), 0, 0, 0, 0)
+    except Exception as e:
+        _debug(f"Initial foreground read failed: {e}")
+    try:
+        _mouser_udp.start()
+        print(f"Mouser UDP listening on udp/{_mouser_udp.port}")
+        # Name the exact address to put in the capture's --udp: it changes with the
+        # DHCP lease, and the docs' example address is not this machine's.
+        print(
+            f"  capture target: --udp {_lan_ip()}:{_mouser_udp.port} "
+            f"(check it with: mouser-capture --ping --udp {_lan_ip()}:{_mouser_udp.port})"
+        )
+    except OSError as e:
+        print(f"Mouser UDP disabled: {e}")
+    print(f"Key-send debug: {'on' if DEBUG_KEYS else 'off'} (toggle with --debug-keys / --no-debug-keys)")
+    threading.Thread(target=_mouser_state_loop, daemon=True).start()
     # Open a browser once the server is listening, showing the Share QR so it can
     # be scanned with a phone straight away (skip with --no-qr).
     if args.tunnel and not args.no_tunnel:
