@@ -16,6 +16,16 @@ test.afterEach(async ({ page }) => { await stopCoverage(page); });
 // PKCE S256 challenge.
 
 const CLIENT_ID = "11111111-2222-3333-4444-555555555555";
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+// The app formats the :latest timestamp in LOCAL time, so derive the expected
+// value from the same ISO string (Node and Chromium share the host time zone).
+function expectedStamp(iso) {
+  const d = new Date(iso);
+  return String(d.getDate()).padStart(2, "0") + " " + MONTHS[d.getMonth()] + " " +
+    d.getFullYear() + ". " + String(d.getHours()).padStart(2, "0") + ":" +
+    String(d.getMinutes()).padStart(2, "0");
+}
 
 async function seedOneDrive(page, path, entries) {
   await page.goto(path);
@@ -59,7 +69,8 @@ async function stubOneDrive(page, options = {}) {
     window.oneDriveLatestJson = function (path) {
       return Promise.resolve({
         name: "planmydays-202610250800.json",
-        key: path + "/planmydays-202610250800.json"
+        key: path + "/planmydays-202610250800.json",
+        lastModified: "2026-10-25T08:00:00Z"
       });
     };
     window.oneDriveGetFile = function () {
@@ -155,15 +166,24 @@ test.describe("OneDrive", () => {
     await page.evaluate(() => openOneDrivePage());
 
     await expect(page.locator("#oneDriveBody .od-folder")).toHaveText("Backups");
+    await expect(page.locator("#oneDriveBody .od-folder-split")).toHaveCount(0);
     await expect(page.locator("#oneDriveBody .od-latest")).toContainText("Backups:latest");
+    await expect(page.locator("#oneDriveBody .od-latest")).toContainText(
+      "planmydays-202610250800.json / " + expectedStamp("2026-10-25T08:00:00Z")
+    );
     await expect(page.locator("#oneDriveBody .od-latest-current")).toContainText("PlanMyDay:latest");
-    await expect(page.locator("#oneDriveBody .od-latest-current")).toContainText("planmydays-202610250900.json");
+    await expect(page.locator("#oneDriveBody .od-latest-current")).toContainText(
+      "planmydays-202610250900.json / " + expectedStamp("2026-10-25T09:00:00Z")
+    );
     await expect(page.locator("#oneDriveBody .od-file")).toContainText("planmydays-202610250900.json");
     await expect(page.locator("#oneDriveBody smd-button").first()).toHaveAttribute("disabled", "");
 
     await page.locator("#oneDriveBody .od-folder").click();
     await expect(page.locator("#oneDriveBody .od-crumbs")).toContainText("Backups");
     await expect(page.locator("#oneDriveBody .od-latest-current")).toContainText("Backups:latest");
+    await expect(page.locator("#oneDriveBody .od-latest-current")).toContainText(
+      "planmydays-202610250800.json / " + expectedStamp("2026-10-25T08:00:00Z")
+    );
     await expect(page.locator("#oneDriveBody smd-button").first()).not.toHaveAttribute("disabled", "");
 
     await page.locator("#oneDriveBody .od-file").first().click();
@@ -276,6 +296,83 @@ test.describe("OneDrive", () => {
     expect(await page.evaluate(() => !!window.msalRedirectBridge &&
       typeof window.msalRedirectBridge.broadcastResponseToMainFrame === "function")).toBe(true);
     await expect(page.locator("#msg")).toContainText("No OneDrive sign-in response");
+  });
+
+  test("the OneDrive account actions use the full-width CountMyDays layout in every app", async ({ page }) => {
+    const apps = ["/PlanMyDay/", "/CountMyDays/", "/ListOfLists/", "/Storyboard/"];
+    for (const path of apps) {
+      await page.goto(path);
+      await page.evaluate((clientId) => {
+        localStorage.setItem("smd_onedrive_clientId", clientId);
+        window.oneDriveInit = function () { return Promise.resolve(null); };
+      }, CLIENT_ID);
+      await page.evaluate(() => openSettings());
+      await page.locator("#filesync-tab").click();
+      expect(await page.locator("#oneDriveAccount").evaluate((el) => el.parentElement.className))
+        .toContain("flex-column");
+      await expect(page.locator("#btnOneDriveSignIn")).toHaveAttribute("block", "");
+      await expect(page.locator("#btnOneDriveSignOut")).toHaveAttribute("block", "");
+      await expect(page.locator("#btnOneDriveSignIn button")).toHaveClass(/w-100/);
+      await expect(page.locator("#btnOneDriveSignOut button")).toHaveClass(/w-100/);
+      await expect(page.locator("#btnOneDriveSignOut button")).toHaveClass(/btn-danger/);
+      await expect(page.locator("#btnOneDriveSignOut button")).not.toHaveClass(/btn-outline/);
+      await page.evaluate(() => closeSettings());
+    }
+  });
+
+  test("Storyboard uses one split folder row (navigate | latest)", async ({ page }) => {
+    await page.goto("/Storyboard/");
+    await page.evaluate((clientId) => {
+      localStorage.setItem("smd_onedrive_clientId", clientId);
+      localStorage.setItem("smd_onedrive_account", "test@example.com");
+      localStorage.setItem("storyboard_onedrive_directory", "MyApps/Storyboard");
+    }, CLIENT_ID);
+    await page.reload();
+    await page.evaluate(() => {
+      window.__pickedKey = null;
+      window.__navigatedTo = null;
+      window.oneDriveInit = function () { return Promise.resolve({ username: "test@example.com" }); };
+      window.oneDriveListFolder = function () {
+        return Promise.resolve({
+          folders: [
+            // Deliberately reverse-alphabetical: the renderer sorts by name, so
+            // the :latest lookup must be keyed by path, not by array index.
+            { name: "Story B", path: "MyApps/Storyboard/Story B" },
+            { name: "Story A", path: "MyApps/Storyboard/Story A" }
+          ],
+          files: []
+        });
+      };
+      window.oneDriveLatestJson = function (path) {
+        if (path.indexOf("Story A") === -1) return Promise.resolve(null);
+        return Promise.resolve({
+          name: "story-202610250900.json",
+          key: path + "/story-202610250900.json",
+          lastModified: "2026-10-25T09:00:00Z"
+        });
+      };
+      window.oneDriveNavigate = function (path) { window.__navigatedTo = path; };
+      window.oneDrivePickFile = function (key) { window.__pickedKey = key; };
+      openOneDrivePage();
+    });
+
+    await expect(page.locator("#oneDriveBody .od-folder-split")).toHaveCount(2);
+    await expect(page.locator("#oneDriveBody .od-folder")).toHaveCount(0);
+    await expect(page.locator("#oneDriveBody .od-latest")).toHaveCount(0);
+    const navs = page.locator("#oneDriveBody .od-split-nav");
+    await expect(navs).toHaveText(["Story A", "Story B"]);
+    const latest = page.locator("#oneDriveBody .od-split-latest");
+    await expect(latest.first()).toContainText(
+      "story-202610250900.json / " + expectedStamp("2026-10-25T09:00:00Z")
+    );
+    await expect(latest.nth(1)).toBeDisabled();
+    await expect(latest.nth(1)).toContainText("No backups");
+
+    await navs.first().click();
+    expect(await page.evaluate(() => window.__navigatedTo)).toBe("MyApps/Storyboard/Story A");
+    await latest.first().click();
+    expect(await page.evaluate(() => window.__pickedKey))
+      .toBe("MyApps/Storyboard/Story A/story-202610250900.json");
   });
 
   test("path helpers encode, clamp and resolve parents predictably", async ({ page }) => {

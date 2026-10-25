@@ -708,6 +708,42 @@ var ONEDRIVE_PAGE_STYLES = `
     font-size: var(--smd-type-badge, 0.8em);
     white-space: nowrap;
   }
+  /* Storyboard's split folder row: left half navigates, right half opens the
+     latest backup (or is disabled). One row per directory. */
+  #oneDriveImportPage #oneDriveBody .od-folder-split {
+    display: flex;
+    align-items: stretch;
+    padding: 0;
+  }
+  #oneDriveImportPage #oneDriveBody .od-split-half {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex: 1 1 50%;
+    min-width: 0;
+    padding: 0.75rem 1rem;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+  #oneDriveImportPage #oneDriveBody .od-split-half + .od-split-half {
+    border-left: 1px solid var(--bs-border-color, rgba(255, 255, 255, 0.15));
+  }
+  #oneDriveImportPage #oneDriveBody .od-split-half:hover:not(:disabled) {
+    background-color: rgba(var(--bs-body-color-rgb, 33, 37, 41), 0.06);
+  }
+  #oneDriveImportPage #oneDriveBody .od-split-half:disabled {
+    cursor: default;
+    opacity: 0.6;
+  }
+  #oneDriveImportPage #oneDriveBody .od-split-label {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
   /* MINIO_IMPORT_STYLES' hover uses --bs-secondary-bg, which is a LIGHT surface
      on the always-dark themes (superhero light) while the text stays light.
      The doubled page id outranks the :is(...)-scoped MinIO rule. */
@@ -820,6 +856,30 @@ function oneDriveFormatDate(value) {
   return date.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
 }
 
+var ONEDRIVE_MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
+  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+// DD MON YYYY. HH24:MI (local time) for the ":latest" file names.
+function oneDriveFormatStamp(value) {
+  if (!value) return "";
+  var date = new Date(value);
+  if (isNaN(date.getTime())) return "";
+  return String(date.getDate()).padStart(2, "0") + " " +
+    ONEDRIVE_MONTHS[date.getMonth()] + " " + date.getFullYear() + ". " +
+    String(date.getHours()).padStart(2, "0") + ":" +
+    String(date.getMinutes()).padStart(2, "0");
+}
+
+function oneDriveLatestMeta(latest) {
+  if (!latest) return "";
+  var stamp = oneDriveFormatStamp(latest.lastModified);
+  return escapeHtml(latest.name) + (stamp ? " / " + escapeHtml(stamp) : "");
+}
+
+function oneDriveSplitFolderRows() {
+  return typeof SmdConfig !== "undefined" && SmdConfig.oneDriveSplitFolderRows === true;
+}
+
 function oneDriveRenderList(path, list, latests) {
   var body = $id("oneDriveBody");
   if (!body) return;
@@ -847,17 +907,33 @@ function oneDriveRenderList(path, list, latests) {
     rows.push('<li class="list-group-item list-group-item-action d-flex align-items-center od-latest-current" style="cursor:pointer" onclick="oneDrivePickFile(\'' +
       oneDriveInlineArg(currentLatest.key) + '\')">' + ONEDRIVE_ICON_LATEST +
       escapeHtml(oneDriveDirectoryLabel(path)) +
-      ':latest<span class="od-meta">' + escapeHtml(currentLatest.name) + '</span></li>');
+      ':latest<span class="od-meta">' + oneDriveLatestMeta(currentLatest) + '</span></li>');
   }
 
-  folders.forEach(function (folder, index) {
+  folders.forEach(function (folder) {
+    var latest = latests[folder.path];
+    if (oneDriveSplitFolderRows()) {
+      // Storyboard: ONE row per directory. Left half navigates; right half opens
+      // the newest backup (or is disabled when the folder has none).
+      rows.push('<li class="list-group-item od-folder-split">' +
+        '<button type="button" class="od-split-half od-split-nav" onclick="oneDriveNavigate(\'' +
+          oneDriveInlineArg(folder.path) + '\')">' + ONEDRIVE_ICON_FOLDER +
+          '<span class="od-split-label">' + escapeHtml(folder.name) + '</span></button>' +
+        (latest
+          ? '<button type="button" class="od-split-half od-split-latest" onclick="oneDrivePickFile(\'' +
+              oneDriveInlineArg(latest.key) + '\')">' + ONEDRIVE_ICON_LATEST +
+              '<span class="od-split-label">' + oneDriveLatestMeta(latest) + '</span></button>'
+          : '<button type="button" class="od-split-half od-split-latest" disabled>' +
+              '<span class="od-split-label">No backups</span></button>') +
+        '</li>');
+      return;
+    }
     rows.push('<li class="list-group-item list-group-item-action d-flex align-items-center od-folder" style="cursor:pointer" onclick="oneDriveNavigate(\'' +
       oneDriveInlineArg(folder.path) + '\')">' + ONEDRIVE_ICON_FOLDER + escapeHtml(folder.name) + '</li>');
-    var latest = latests[index];
     if (latest) {
       rows.push('<li class="list-group-item list-group-item-action d-flex align-items-center od-latest" style="cursor:pointer" onclick="oneDrivePickFile(\'' +
         oneDriveInlineArg(latest.key) + '\')">' + ONEDRIVE_ICON_LATEST + escapeHtml(folder.name) +
-        ':latest<span class="od-meta">' + escapeHtml(latest.name) + '</span></li>');
+        ':latest<span class="od-meta">' + oneDriveLatestMeta(latest) + '</span></li>');
     }
   });
 
@@ -908,9 +984,19 @@ function oneDriveLoadFolder(path) {
 
   oneDriveListFolder(target).then(function (list) {
     var latestPromises = list.folders.map(function (folder) {
-      return oneDriveLatestJson(folder.path).catch(function () { return null; });
+      return oneDriveLatestJson(folder.path).then(function (latest) {
+        return { path: folder.path, latest: latest };
+      }).catch(function () {
+        return { path: folder.path, latest: null };
+      });
     });
-    return Promise.all(latestPromises).then(function (latests) {
+    return Promise.all(latestPromises).then(function (results) {
+      // Key by PATH: the renderer sorts folders by name, so an index-aligned
+      // array would attach a folder's :latest to the wrong row.
+      var latests = {};
+      results.forEach(function (result) {
+        latests[result.path] = result.latest;
+      });
       return { list: list, latests: latests };
     });
   }).then(function (result) {

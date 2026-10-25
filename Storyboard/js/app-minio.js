@@ -155,6 +155,9 @@ SmdConfig.onFileSyncExport = function (provider, config) {
 // Storyboard files are <story>/story-YYYYMMDDHHMM.json, so the ":latest"
 // shortcut matches that name rather than a flat <prefix>-<timestamp>.json.
 SmdConfig.fileSyncLatestPattern = /^story-\d{12}\.json$/i;
+// One split row per story folder: left half navigates, right half opens the
+// newest backup (the two-row folder + folder:latest layout is used elsewhere).
+SmdConfig.oneDriveSplitFolderRows = true;
 
 // Shared import: receives the parsed JSON from either import page (also from
 // the "<directory>:latest" shortcut). Returns true for a Storyboard backup; the

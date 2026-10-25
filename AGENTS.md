@@ -7610,3 +7610,37 @@ Techniques / gotchas:
   MinIO 51/51, pmd screenshot "settings - minio" green. Visual check: the
   OneDrive root lists `PlanMyDay:latest` above the folder and the two files.
 - BUILD: bumped again after this change.
+
+### 2026-10-25 (f) - FileSync/OneDrive polish: shared buttons, Storyboard split rows, latest stamps
+- REQUEST (user): the OneDrive settings buttons must look like CountMyDays in every
+  app; Storyboard's "Open from OneDrive" must use ONE row per folder (left half
+  navigates, right half opens the latest); append "DD MON YYYY. HH24:MI" to every
+  OneDrive ":latest" file name.
+- BUTTONS: CountMyDays' `CMD_EDITOR_STYLES` already had
+  `.smd-tab-panel smd-button { display:block; width:100% }`, which is why only
+  CMD showed stacked full-width Sign in/out buttons. The shared OneDrive Account
+  markup now uses `d-flex flex-column gap-2` + `<smd-button block ...>` (no
+  `size="small"`) in ALL four shells, so every app matches without a new global
+  rule. `tests/onedrive.spec.js` asserts the block attribute, the `w-100` inner
+  button and the flex-column wrapper in all four apps.
+- STORYBOARD SPLIT: `SmdConfig.oneDriveSplitFolderRows = true` (Storyboard only).
+  `oneDriveRenderList` emits one `.od-folder-split` `<li>` with two
+  `.od-split-half` buttons: `.od-split-nav` (navigate) and `.od-split-latest`
+  (open the newest backup, or a disabled "No backups" half). Other apps keep the
+  folder + folder:latest rows.
+- LATEST STAMPS: `oneDriveLatestMeta()` appends ` / DD MON YYYY. HH24:MI` (LOCAL
+  time; hardcoded English month abbreviations) to the filename in the top
+  `od-latest-current` row, the per-subfolder `od-latest` rows and Storyboard's
+  right half.
+- BUG FIXED (found by the split-row visual): `oneDriveRenderList` sorted folders
+  by name while `latests` was index-aligned to the UNSORTED list, so a
+  multi-folder directory could attach a folder's latest to the wrong folder.
+  `oneDriveLoadFolder` now returns `latests` KEYED BY PATH and the renderer looks
+  up `latests[folder.path]`. The Storyboard test deliberately returns folders in
+  reverse-alphabetical order to guard it.
+- VERIFIED: onedrive 11/11 (4-app button layout + split rows + latest stamps),
+  minio-directory 4/4, storyboard-minio 6/6, cmd/lol/pmd MinIO suites unchanged.
+  Visual check: PMD/CMD/Storyboard settings match; Storyboard shows Holiday
+  ("No backups") and My Board ("story-...json / 25 Oct 2026. 09:00") as one split
+  row each.
+- BUILD: bumped after this change.
