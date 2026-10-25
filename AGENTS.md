@@ -7644,3 +7644,33 @@ Techniques / gotchas:
   ("No backups") and My Board ("story-...json / 25 Oct 2026. 09:00") as one split
   row each.
 - BUILD: bumped after this change.
+
+### 2026-10-25 (g) - OneDrive page: no toolbar Up, fa:file icons, Storyboard 40/60 split
+- REQUEST (user): remove the toolbar Up button (the directory list already has a
+  "< Up" row); make the Storyboard split 40/60; on its right half replace the
+  clock with an smd-image fa:file and prefix the filename/date with ":latest ";
+  use smd-image fa:file wherever filenames have the file SVG.
+- DONE:
+  - `oneDriveToolbarHtml()` is now Refresh + breadcrumb only. The `.od-up` LIST
+    row remains the ONLY back control (clamped to the configured Directory), in
+    every app. The toolbar Up button (`#btnOneDriveUp`) is gone.
+  - Storyboard: `.od-split-nav` is `flex: 0 0 40%`, `.od-split-latest` is
+    `flex: 1 1 60%`.
+  - The Storyboard right half uses `<smd-image image="fa:file" size="18">` and
+    its label is `:latest <file> / DD MON YYYY. HH24:MI`.
+  - The file rows use `<smd-image image="fa:file" size="18">` instead of the file
+    SVG in every app. The clock icon remains on the top-of-directory and
+    per-subfolder `:latest` rows (only the Storyboard right half was switched to
+    the file icon).
+  - `Storyboard/index.html` now loads `shared/js/components/smd-image.js` (it did
+    not before) because its OneDrive page uses `<smd-image>`; `sw.js` already
+    precached it.
+  - `oneDriveFileIcon(extraClass)` fixes `size="18"` so the glyph does NOT follow
+    the app's Icon size setting (which would be far too large in a row).
+- TESTS: onedrive 11/11 - the browsing test asserts no `#btnOneDriveUp`, an
+  `.od-up` row only when nested (and that it returns to the root), and the
+  fa:file icon in the file row; the Storyboard split test asserts the 40/60
+  ratio, `:latest <file> / stamp`, the fa:file icon and the disabled "No
+  backups" half. A console/pageerror probe confirmed Storyboard boots and
+  renders the icon cleanly.
+- BUILD: bumped after this change.

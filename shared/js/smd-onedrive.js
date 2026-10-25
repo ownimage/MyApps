@@ -586,6 +586,13 @@ function oneDriveDirectoryLabel(path) {
   return parts.length ? parts[parts.length - 1] : "OneDrive";
 }
 
+// Font Awesome file glyph via the shared <smd-image> (size fixed so it does not
+// follow the app's Icon size setting, which would be far too large in a row).
+function oneDriveFileIcon(extraClass) {
+  return '<smd-image image="fa:file" size="18" class="' + (extraClass || "") +
+    ' flex-shrink-0" aria-hidden="true"></smd-image>';
+}
+
 // Newest JSON in a folder (subfolder ":latest" rows).
 function oneDriveLatestJson(folderPath) {
   return oneDriveListFolder(folderPath).then(function (list) {
@@ -719,7 +726,6 @@ var ONEDRIVE_PAGE_STYLES = `
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    flex: 1 1 50%;
     min-width: 0;
     padding: 0.75rem 1rem;
     border: 0;
@@ -727,6 +733,12 @@ var ONEDRIVE_PAGE_STYLES = `
     color: inherit;
     text-align: left;
     cursor: pointer;
+  }
+  #oneDriveImportPage #oneDriveBody .od-split-nav {
+    flex: 0 0 40%;
+  }
+  #oneDriveImportPage #oneDriveBody .od-split-latest {
+    flex: 1 1 60%;
   }
   #oneDriveImportPage #oneDriveBody .od-split-half + .od-split-half {
     border-left: 1px solid var(--bs-border-color, rgba(255, 255, 255, 0.15));
@@ -773,7 +785,6 @@ var ONEDRIVE_PAGE_STYLES = `
 var ONEDRIVE_ICON_UP = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="me-2 flex-shrink-0" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M11.354 1.646a.5.5 0 0 1 0 .708L5.707 8l5.647 5.646a.5.5 0 0 1-.708.708l-6-6a.5.5 0 0 1 0-.708l6-6a.5.5 0 0 1 .708 0z"/></svg>';
 var ONEDRIVE_ICON_FOLDER = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="me-2 flex-shrink-0" viewBox="0 0 16 16"><path d="M.54 3.87.5 3a2 2 0 0 1 2-2h3.672a2 2 0 0 1 1.414.586l.828.828A2 2 0 0 0 9.828 3h3.982a2 2 0 0 1 1.992 2.181l-.637 7A2 2 0 0 1 13.174 14H2.826a2 2 0 0 1-1.991-1.819l-.637-7a1.984 1.984 0 0 1 .342-1.31z"/></svg>';
 var ONEDRIVE_ICON_LATEST = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="me-2 flex-shrink-0" viewBox="0 0 16 16"><path d="M8 3.5a.5.5 0 0 0-1 0V9a.5.5 0 0 0 .252.434l3.5 2a.5.5 0 0 0 .496-.868L8 8.71V3.5z"/><path d="M8 16A8 8 0 1 0 8 0a8 8 0 0 0 0 16zm7-8A7 7 0 1 1 1 8a7 7 0 0 1 14 0z"/></svg>';
-var ONEDRIVE_ICON_FILE = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="me-2 flex-shrink-0" viewBox="0 0 16 16"><path d="M4 0a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V4.414A1 1 0 0 0 13.707 4L10 .293A1 1 0 0 0 9.293 0H4zm5 1.5v2a1 1 0 0 0 1 1h2l-3-3z"/></svg>';
 
 function oneDriveTimestamp() {
   var d = new Date();
@@ -823,12 +834,10 @@ function oneDriveParentPath(path) {
 }
 
 function oneDriveToolbarHtml(path) {
-  var root = oneDriveRootPath();
-  var atRoot = !root || oneDriveNormalizeDirectory(path) === root;
+  // No Up control here: the directory LIST already carries an "< Up" row when
+  // the current folder has a parent (the apps only save inside the configured
+  // Directory, and the list row is the one navigation affordance).
   return '<div class="od-toolbar">' +
-    '<smd-button id="btnOneDriveUp" size="small" variant="secondary"' +
-      (atRoot ? ' disabled' : '') +
-      ' onclick="oneDriveNavigate(oneDriveParentPath(oneDriveCurrentPath))">Up</smd-button>' +
     '<smd-button id="btnOneDriveRefresh" size="small" variant="secondary" onclick="oneDriveRefresh()">Refresh</smd-button>' +
     '<span class="od-crumbs">' + oneDriveBreadcrumb(path) + '</span>' +
     '</div>';
@@ -921,8 +930,8 @@ function oneDriveRenderList(path, list, latests) {
           '<span class="od-split-label">' + escapeHtml(folder.name) + '</span></button>' +
         (latest
           ? '<button type="button" class="od-split-half od-split-latest" onclick="oneDrivePickFile(\'' +
-              oneDriveInlineArg(latest.key) + '\')">' + ONEDRIVE_ICON_LATEST +
-              '<span class="od-split-label">' + oneDriveLatestMeta(latest) + '</span></button>'
+              oneDriveInlineArg(latest.key) + '\')">' + oneDriveFileIcon("") +
+              '<span class="od-split-label">:latest ' + oneDriveLatestMeta(latest) + '</span></button>'
           : '<button type="button" class="od-split-half od-split-latest" disabled>' +
               '<span class="od-split-label">No backups</span></button>') +
         '</li>');
@@ -939,7 +948,7 @@ function oneDriveRenderList(path, list, latests) {
 
   files.forEach(function (file) {
     rows.push('<li class="list-group-item list-group-item-action d-flex align-items-center od-file" style="cursor:pointer" onclick="oneDrivePickFile(\'' +
-      oneDriveInlineArg(file.key) + '\')">' + ONEDRIVE_ICON_FILE + escapeHtml(file.name) +
+      oneDriveInlineArg(file.key) + '\')">' + oneDriveFileIcon("me-2") + escapeHtml(file.name) +
       '<span class="od-meta">' + escapeHtml(oneDriveFormatDate(file.lastModified)) + '</span></li>');
   });
 

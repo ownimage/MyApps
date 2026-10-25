@@ -176,7 +176,10 @@ test.describe("OneDrive", () => {
       "planmydays-202610250900.json / " + expectedStamp("2026-10-25T09:00:00Z")
     );
     await expect(page.locator("#oneDriveBody .od-file")).toContainText("planmydays-202610250900.json");
-    await expect(page.locator("#oneDriveBody smd-button").first()).toHaveAttribute("disabled", "");
+    await expect(page.locator("#oneDriveBody .od-file smd-image[image='fa:file']")).toHaveCount(1);
+    // No toolbar Up control: the directory list owns the "< Up" row.
+    await expect(page.locator("#btnOneDriveUp")).toHaveCount(0);
+    await expect(page.locator("#oneDriveBody .od-up")).toHaveCount(0);
 
     await page.locator("#oneDriveBody .od-folder").click();
     await expect(page.locator("#oneDriveBody .od-crumbs")).toContainText("Backups");
@@ -184,7 +187,11 @@ test.describe("OneDrive", () => {
     await expect(page.locator("#oneDriveBody .od-latest-current")).toContainText(
       "planmydays-202610250800.json / " + expectedStamp("2026-10-25T08:00:00Z")
     );
-    await expect(page.locator("#oneDriveBody smd-button").first()).not.toHaveAttribute("disabled", "");
+    await expect(page.locator("#oneDriveBody .od-up")).toHaveCount(1);
+    await page.locator("#oneDriveBody .od-up").click();
+    await expect(page.locator("#oneDriveBody .od-crumbs")).toHaveText("OneDrive / MyApps / PlanMyDay");
+    await page.locator("#oneDriveBody .od-folder").click();
+    await expect(page.locator("#oneDriveBody .od-crumbs")).toContainText("Backups");
 
     await page.locator("#oneDriveBody .od-file").first().click();
     await expect.poll(async () => page.evaluate(() => window.__picked && window.__picked.provider))
@@ -363,10 +370,17 @@ test.describe("OneDrive", () => {
     await expect(navs).toHaveText(["Story A", "Story B"]);
     const latest = page.locator("#oneDriveBody .od-split-latest");
     await expect(latest.first()).toContainText(
-      "story-202610250900.json / " + expectedStamp("2026-10-25T09:00:00Z")
+      ":latest story-202610250900.json / " + expectedStamp("2026-10-25T09:00:00Z")
     );
+    await expect(page.locator("#oneDriveBody .od-split-latest smd-image[image='fa:file']")).toHaveCount(1);
     await expect(latest.nth(1)).toBeDisabled();
     await expect(latest.nth(1)).toContainText("No backups");
+    const halves = await page.evaluate(() => {
+      const nav = document.querySelector("#oneDriveBody .od-split-nav").getBoundingClientRect().width;
+      const right = document.querySelector("#oneDriveBody .od-split-latest").getBoundingClientRect().width;
+      return { nav: nav, right: right };
+    });
+    expect(halves.nav / (halves.nav + halves.right)).toBeCloseTo(0.4, 1);
 
     await navs.first().click();
     expect(await page.evaluate(() => window.__navigatedTo)).toBe("MyApps/Storyboard/Story A");
