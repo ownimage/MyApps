@@ -717,9 +717,20 @@ var ONEDRIVE_PAGE_STYLES = `
   #oneDriveBody .od-status smd-button { margin-top: 1rem; }
   #oneDriveBody .od-meta {
     margin-left: auto;
+    max-width: 100%;
+    padding-left: 0.5rem;
     color: var(--bs-secondary-color, #6c757d);
     font-size: var(--smd-type-badge, 0.8em);
-    white-space: nowrap;
+    /* The name + timestamp is longer than a phone row, so the meta wraps onto
+       its own line(s) rather than running past the right edge. On a wide row it
+       still sits right-aligned on one line. */
+    overflow-wrap: anywhere;
+  }
+  /* A phone cannot fit the file name and its right-aligned timestamp on one
+     line: without wrap the name + meta run past the right edge and the stamp is
+     clipped. With wrap the meta drops to its own (still right-aligned) line. */
+  #oneDriveBody .list-group-item {
+    flex-wrap: wrap;
   }
   /* Storyboard's split folder row: left half navigates, right half opens the
      latest backup (or is disabled). One row per directory. */

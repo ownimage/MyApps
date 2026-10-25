@@ -158,6 +158,37 @@ test.describe("OneDrive", () => {
     expect(signIn.cls).toContain("btn-primary");
   });
 
+  test("the file browser fits a phone width without overflowing", async ({ page }) => {
+    // The screenshot gallery surfaced this: the right-aligned ":latest" meta kept
+    // its nowrap width, so the name + timestamp ran off the right edge on a phone.
+    await page.setViewportSize({ width: 390, height: 797 });
+    await seedOneDrive(page, "/PlanMyDay/", {
+      planmydays_onedrive_directory: "MyApps/PlanMyDay"
+    });
+    await stubOneDrive(page);
+    await page.evaluate(() => openOneDrivePage());
+    await expect(page.locator("#oneDriveBody .od-latest-current")).toBeVisible();
+
+    const rows = await page.evaluate(() => Array.from(
+      document.querySelectorAll("#oneDriveBody .list-group-item")
+    ).map((row) => ({
+      text: row.textContent.trim().slice(0, 48),
+      scroll: row.scrollWidth,
+      client: row.clientWidth
+    })));
+    expect(rows.length).toBeGreaterThan(0);
+    for (const row of rows) {
+      expect(row.scroll, `row overflows: ${row.text}`).toBeLessThanOrEqual(row.client + 1);
+    }
+    // The timestamp itself must stay inside the row.
+    const meta = await page.evaluate(() => {
+      const row = document.querySelector("#oneDriveBody .od-latest-current");
+      const stamp = row.querySelector(".od-meta");
+      return { rowRight: row.getBoundingClientRect().right, metaRight: stamp.getBoundingClientRect().right };
+    });
+    expect(meta.metaRight).toBeLessThanOrEqual(meta.rowRight + 1);
+  });
+
   test("browses folders, files and :latest, then imports through the provider hook", async ({ page }) => {
     await seedOneDrive(page, "/PlanMyDay/", {
       planmydays_onedrive_directory: "MyApps/PlanMyDay"

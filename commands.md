@@ -58,12 +58,12 @@ node shared/regen_sample_images.js extract
 npm run extract:images
 ```
 ### Screenshots
-Regenerate every gallery that EXISTS (all six suites, in alphabetical order - the
+Regenerate every gallery that EXISTS (all seven suites, in alphabetical order - the
 apps without a gallery yet are SolarControlar, PhoneButtons and the storybook).
 ALWAYS pass `--workers 16`; add a new `tests/<app>-screenshots.spec.js` here, in
 alphabetical position, when an app gains one:
 ```bash
-set SCREENSHOT_THEME=&& .\node_modules\.bin\playwright.cmd test tests/cmd-screenshots.spec.js tests/ffox-screenshots.spec.js tests/launch-screenshots.spec.js tests/lol-screenshots.spec.js tests/pmd-screenshots.spec.js tests/qrlinks-screenshots.spec.js --workers 32
+set SCREENSHOT_THEME=&& .\node_modules\.bin\playwright.cmd test tests/cmd-screenshots.spec.js tests/ffox-screenshots.spec.js tests/launch-screenshots.spec.js tests/lol-screenshots.spec.js tests/pmd-screenshots.spec.js tests/qrlinks-screenshots.spec.js tests/storyboard-screenshots.spec.js --workers 16
 ```
 NOTE: do NOT "tidy" the list into a glob (`tests/*-screenshots.spec.js`) - neither
 cmd.exe nor PowerShell expands it and Playwright does not glob CLI paths, so the run
@@ -72,7 +72,7 @@ Screenshots use `screenshots/<app>/<theme>/<light|dark>/<scene>.png`; the viewer
 Run for ONE theme only (defaults to all 27 when the env var is unset; works for every screenshot spec above):
 
 ```bash
-set SCREENSHOT_THEME=superhero&& .\node_modules\.bin\playwright.cmd test tests/cmd-screenshots.spec.js tests/ffox-screenshots.spec.js tests/launch-screenshots.spec.js tests/lol-screenshots.spec.js tests/pmd-screenshots.spec.js tests/qrlinks-screenshots.spec.js --workers 16
+set SCREENSHOT_THEME=superhero&& .\node_modules\.bin\playwright.cmd test tests/cmd-screenshots.spec.js tests/ffox-screenshots.spec.js tests/launch-screenshots.spec.js tests/lol-screenshots.spec.js tests/pmd-screenshots.spec.js tests/qrlinks-screenshots.spec.js tests/storyboard-screenshots.spec.js --workers 16
 ```
 
 ### Screenshot viewer
