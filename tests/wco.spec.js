@@ -72,6 +72,15 @@ test.describe("Window Controls Overlay", () => {
     expect(geom.bodyPad).toBe("33px");
     expect(geom.areaTop).toBeGreaterThanOrEqual(33);
 
+    // The left rail needs extra breathing room under the title-bar hamburger;
+    // the normal web app keeps its 12px inset.
+    const railGap = await page.evaluate(() => {
+      const nav = document.getElementById("mainNav").getBoundingClientRect();
+      const rail = document.getElementById("sbToolbar").getBoundingClientRect();
+      return Math.round(rail.top - nav.bottom);
+    });
+    expect(railGap).toBeGreaterThanOrEqual(24);
+
     // The hamburger must still open its menu: a drag region would swallow it.
     await page.locator("#btnMainMenu").click();
     await expect(page.locator("#mainNav .dropdown-menu").first()).toBeVisible();
@@ -95,6 +104,9 @@ test.describe("Window Controls Overlay", () => {
       getComputedStyle(document.getElementById("mainNav")).position)).not.toBe("fixed");
     expect(await page.evaluate(() =>
       getComputedStyle(document.body).paddingTop)).toBe("0px");
+    // The normal in-app nav row keeps the rail's original 12px inset.
+    expect(await page.evaluate(() =>
+      getComputedStyle(document.getElementById("sbToolbar")).top)).toBe("12px");
   });
 
   test("a non-Storyboard shell also hands the title-bar strip to the nav", async ({ page }) => {
