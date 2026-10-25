@@ -20,7 +20,7 @@
 // comparison. If the two ever DO drift, the page notices at runtime
 // (GET_BUILD) and re-registers, so the drift self-heals instead of pinning
 // users to a build the worker will never replace.
-const BUILD_NUMBER = "202610250448";
+const BUILD_NUMBER = "202610250914";
 
 const CACHE = "myapps-" + BUILD_NUMBER;
 
@@ -397,6 +397,8 @@ const SHARED_ASSETS = [
   "shared/js/smd-app.js",
   "shared/js/smd-gcal.js",
   "shared/js/smd-minio.js",
+  "shared/js/smd-onedrive.js",
+  "shared/js/smd-filesync.js",
   "shared/js/smd-settings.js",
   "shared/js/smd-images.js",
   "shared/js/smd-apps.js",

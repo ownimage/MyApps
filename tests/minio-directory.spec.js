@@ -56,7 +56,7 @@ test.describe("MinIO - directory setting", () => {
   test("the Minio settings tab has an optional Directory field that persists", async ({ page }) => {
     await page.goto("/PlanMyDay/");
     await page.evaluate(() => openSettings());
-    await page.locator("#settingsPage .smd-tab-btn").filter({ hasText: "Minio" }).click();
+    await page.locator("#filesync-tab").click();
     await expect(page.locator("#minioDirectory")).toBeVisible();
     await page.locator("#minioEnabled").check();
     await page.locator("#minioDirectory").fill("backups/2026/");

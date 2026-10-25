@@ -846,9 +846,9 @@ test.describe("CountMyDays - Regression", () => {
     test("settings has a Minio tab whose fields are disabled until enabled", async ({ page }) => {
       await seed(page);
       await page.evaluate(() => openSettings());
-      const tabs = page.locator("#settingsPage .smd-tab-btn");
-      await expect(tabs).toHaveText(["General", "Display", "G Cal", "Minio", "Danger"]);
-      await tabs.filter({ hasText: "Minio" }).click();
+      const tabs = page.locator("#settingsTabs > .smd-tab-list .smd-tab-btn");
+      await expect(tabs).toHaveText(["General", "Display", "G Cal", "FileSync", "Danger"]);
+      await page.locator("#filesync-tab").click();
       await expect(page.locator("#minioEnabled")).toBeVisible();
       for (const id of ["#minioServer", "#minioUsername", "#minioPassword", "#minioBucket"]) {
         await expect(page.locator(id), id).toBeDisabled();

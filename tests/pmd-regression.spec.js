@@ -7561,13 +7561,13 @@ test.describe("PlanMyDay - Regression", () => {
     test("minio tab exists in settings", async ({ page }) => {
       await page.locator("#btnMainMenu").click();
       await page.locator("a.dropdown-item").filter({ hasText: "Settings" }).click();
-      await expect(page.locator("#minio-tab")).toBeVisible();
+      await expect(page.locator("#filesync-tab")).toBeVisible();
     });
 
     test("minio tab shows fields when enabled", async ({ page }) => {
       await page.locator("#btnMainMenu").click();
       await page.locator("a.dropdown-item").filter({ hasText: "Settings" }).click();
-      await page.locator("#minio-tab").click();
+      await page.locator("#filesync-tab").click();
       await expect(page.locator("#minioEnabled")).toBeVisible();
       await expect(page.locator("#minioServer")).toBeVisible();
       await expect(page.locator("#minioUsername")).toBeVisible();
@@ -7578,7 +7578,7 @@ test.describe("PlanMyDay - Regression", () => {
     test("minio fields are disabled when enable toggle is off", async ({ page }) => {
       await page.locator("#btnMainMenu").click();
       await page.locator("a.dropdown-item").filter({ hasText: "Settings" }).click();
-      await page.locator("#minio-tab").click();
+      await page.locator("#filesync-tab").click();
       await expect(page.locator("#minioEnabled")).not.toBeChecked();
       await expect(page.locator("#minioServer")).toBeDisabled();
       await expect(page.locator("#minioUsername")).toBeDisabled();
@@ -7589,7 +7589,7 @@ test.describe("PlanMyDay - Regression", () => {
     test("minio fields become enabled when toggle is on", async ({ page }) => {
       await page.locator("#btnMainMenu").click();
       await page.locator("a.dropdown-item").filter({ hasText: "Settings" }).click();
-      await page.locator("#minio-tab").click();
+      await page.locator("#filesync-tab").click();
       await page.waitForTimeout(100);
       await page.locator("#minioEnabled").check();
       await expect(page.locator("#minioServer")).toBeEnabled();
@@ -7609,7 +7609,7 @@ test.describe("PlanMyDay - Regression", () => {
       await page.reload();
       await page.locator("#btnMainMenu").click();
       await page.locator("a.dropdown-item").filter({ hasText: "Settings" }).click();
-      await page.locator("#minio-tab").click();
+      await page.locator("#filesync-tab").click();
       await page.waitForTimeout(150);
       await expect(page.locator("#minioEnabled")).toBeChecked();
       await expect(page.locator("#minioServer")).toHaveValue("http://minio:9000");
@@ -7621,7 +7621,7 @@ test.describe("PlanMyDay - Regression", () => {
     test("password toggle shows and hides password", async ({ page }) => {
       await page.locator("#btnMainMenu").click();
       await page.locator("a.dropdown-item").filter({ hasText: "Settings" }).click();
-      await page.locator("#minio-tab").click();
+      await page.locator("#filesync-tab").click();
       await page.waitForTimeout(100);
       await page.locator("#minioEnabled").check();
       await page.locator("#minioPassword").fill("secret");
@@ -7635,7 +7635,7 @@ test.describe("PlanMyDay - Regression", () => {
     test("password is hidden when leaving minio tab", async ({ page }) => {
       await page.locator("#btnMainMenu").click();
       await page.locator("a.dropdown-item").filter({ hasText: "Settings" }).click();
-      await page.locator("#minio-tab").click();
+      await page.locator("#filesync-tab").click();
       await page.waitForTimeout(100);
       await page.locator("#minioEnabled").check();
       await page.locator("#minioPassword").fill("secret");
@@ -7671,7 +7671,7 @@ test.describe("PlanMyDay - Regression", () => {
       // settings -> minio tab -> disabled
       await page.locator("#btnMainMenu").click();
       await page.locator("a.dropdown-item").filter({ hasText: "Settings" }).click();
-      await page.locator("#minio-tab").click();
+      await page.locator("#filesync-tab").click();
       await expect(page.locator("#minioEnabled")).not.toBeChecked();
       await page.getByRole("button", { name: "OK" }).click();
       // main menu should not show the import/export options
@@ -7680,7 +7680,7 @@ test.describe("PlanMyDay - Regression", () => {
       await expect(page.locator("a.dropdown-item").filter({ hasText: "Import from Minio" })).not.toBeVisible();
       // enabling in settings makes them appear
       await page.locator("a.dropdown-item").filter({ hasText: "Settings" }).click();
-      await page.locator("#minio-tab").click();
+      await page.locator("#filesync-tab").click();
       await page.locator("#minioEnabled").check();
       await page.getByRole("button", { name: "OK" }).click();
       await page.locator("#btnMainMenu").click();
@@ -7688,7 +7688,7 @@ test.describe("PlanMyDay - Regression", () => {
       await expect(page.locator("a.dropdown-item").filter({ hasText: "Import from Minio" })).toBeVisible();
       // disabling again hides them again
       await page.locator("a.dropdown-item").filter({ hasText: "Settings" }).click();
-      await page.locator("#minio-tab").click();
+      await page.locator("#filesync-tab").click();
       await page.locator("#minioEnabled").uncheck();
       await page.getByRole("button", { name: "OK" }).click();
       await page.locator("#btnMainMenu").click();
@@ -7939,7 +7939,7 @@ test.describe("PlanMyDay - Regression", () => {
     test("changeMinioEnabled toggles fields and menu", async ({ page }) => {
       await page.locator("#btnMainMenu").click();
       await page.locator("a.dropdown-item").filter({ hasText: "Settings" }).click();
-      await page.locator("#minio-tab").click();
+      await page.locator("#filesync-tab").click();
       await page.waitForTimeout(100);
       await page.locator("#minioEnabled").check();
       const items = await page.locator(".minio-menu-item").count();
@@ -7969,7 +7969,7 @@ test.describe("PlanMyDay - Regression", () => {
     test("loadMinioSettings populates fields from localStorage", async ({ page }) => {
       await page.locator("#btnMainMenu").click();
       await page.locator("a.dropdown-item").filter({ hasText: "Settings" }).click();
-      await page.locator("#minio-tab").click();
+      await page.locator("#filesync-tab").click();
       await page.evaluate(() => {
         localStorage.setItem("planmydays_minio_enabled", "true");
         localStorage.setItem("planmydays_minio_server", "http://srv:9000");
@@ -7988,7 +7988,7 @@ test.describe("PlanMyDay - Regression", () => {
     test("loadMinioSettings disables fields when not enabled", async ({ page }) => {
       await page.locator("#btnMainMenu").click();
       await page.locator("a.dropdown-item").filter({ hasText: "Settings" }).click();
-      await page.locator("#minio-tab").click();
+      await page.locator("#filesync-tab").click();
       await page.evaluate(() => loadMinioSettings());
       await expect(page.locator("#minioServer")).toBeDisabled();
       await expect(page.locator("#minioUsername")).toBeDisabled();

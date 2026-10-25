@@ -740,8 +740,8 @@ test.describe("ListOfLists - Regression", () => {
 
     test("has the General, Display, Minio and Danger tabs", async ({ page }) => {
       await openSettingsPage(page);
-      const tabs = page.locator("#settingsPage .smd-tab-btn");
-      await expect(tabs).toHaveText(["Display", "Minio", "Danger"]);
+      const tabs = page.locator("#settingsTabs > .smd-tab-list .smd-tab-btn");
+      await expect(tabs).toHaveText(["Display", "FileSync", "Danger"]);
       await expect(page.locator("#autoHideMenu")).toBeVisible();
     });
 
@@ -866,7 +866,7 @@ test.describe("ListOfLists - Regression", () => {
       await page.locator("#btnMainMenu").click();                 // close the menu again
 
       await page.evaluate(() => openSettings());
-      await page.locator("#settingsPage .smd-tab-btn").filter({ hasText: "Minio" }).click();
+      await page.locator("#filesync-tab").click();
       await page.locator("#minioEnabled").check();
       await page.locator("#settingsPage .smd-page-footer smd-button").filter({ hasText: "OK" }).click();
       await expect(page.locator("#settingsPage")).toBeHidden();

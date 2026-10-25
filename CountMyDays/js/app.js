@@ -10,6 +10,8 @@
 // through smdKey()). All apps share ONE image library (`shared-images`).
 SmdConfig.storagePrefix = "countmydays_";
 SmdConfig.imagePrefix = "shared-";
+// OneDrive default backup directory (each app keeps its own, inside the drive).
+SmdConfig.oneDriveDefaultDirectory = "MyApps/CountMyDays";
 
 // MinIO hooks (shared/js/smd-minio.js): CountMyDays owns BOTH data ends, so its
 // backups match its own JSON export and its import keeps the per-section
@@ -42,7 +44,7 @@ function hideMainPages(exceptId) {
     "categoriesEditor", "categoryEditPage",
     "imagesEditor", "settingsPage",
     "exportWizardPage", "qrExportPage", "qrImportPage", "importWizardPage",
-    "minioImportPage"
+    "minioImportPage", "oneDriveImportPage"
   ].forEach(id => {
     if (id === exceptId) return;
     const el = document.getElementById(id);
@@ -125,7 +127,8 @@ document.addEventListener("DOMContentLoaded", () => {
   if (typeof setGCalVisible === "function") setGCalVisible(isGCalEnabled());
 
   // Show/hide the Minio menu entries (only when MinIO is enabled).
-  if (typeof updateMinioMenu === "function") updateMinioMenu();
+  if (typeof updateFileSyncMenu === "function") updateFileSyncMenu();
+  else if (typeof updateMinioMenu === "function") updateMinioMenu();
 
   renderMain();
 

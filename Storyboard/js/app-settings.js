@@ -21,8 +21,7 @@ function openSettings() {
       if (area) area.classList.add("invisible");
     },
     restore: function () {
-      if (typeof loadMinioSettings === "function") loadMinioSettings();
-      if (typeof bindMinioSettingsTabBehavior === "function") bindMinioSettingsTabBehavior();
+      if (typeof loadFileSyncSettings === "function") loadFileSyncSettings();
       if (typeof updateScreenResolution === "function") updateScreenResolution();
     }
   });

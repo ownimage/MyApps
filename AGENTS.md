@@ -7441,3 +7441,64 @@ Techniques / gotchas:
 - BUILD: bumped to 202610250448 via `npm run bump:build`. SCREENSHOTS ARE STALE in
   every app (disabled/read-only fields, and the three fixed task-row themes) -
   regenerate before shipping.
+
+### 2026-10-25 (c) - FileSync settings tab + OneDrive phase 1 (UI shell)
+- REQUEST (user): add OneDrive alongside MinIO. The settings MinIO tab becomes
+  **FileSync** with two sub-tabs (Minio as now, OneDrive), OneDrive has an Enable
+  switch + a possibly-nested Directory, and enabling it adds Open/Save OneDrive
+  entries to the hamburger. Chosen (user answers): Microsoft Graph + vendored
+  MSAL (Client ID in Settings, no hardcoded app), shared origin-wide sign-in with
+  per-app enable/directory, timestamped saves, a NEW OneDrive page for folder
+  navigation, ':latest' per subfolder, and the four MinIO apps only.
+- PHASE 1 (this change) is visual/structural only - no network yet:
+  - shared/js/smd-filesync.js (new): setupFileSyncTabs(),
+    loadFileSyncSettings(), updateFileSyncMenu(),
+    focusFileSyncSettingsTab(which).
+  - shared/js/smd-onedrive.js (new): per-app enable/directory, origin-wide
+    Client ID/tenant, account row, updateOneDriveMenu(), the
+    #oneDriveImportPage shell (breadcrumb + Up/Refresh + status, with an
+    "Open Settings" shortcut that lands on FileSync > OneDrive), and honest
+    phase-1 stubs for sign-in/save. Sign-in and Graph land in phase 2.
+  - The 4 shells (PlanMyDay, CountMyDays, ListOfLists, Storyboard) now wrap the
+    MinIO block and the new OneDrive block in
+    <template id="fileSyncMinioTpl"> / <template id="fileSyncOneDriveTpl">
+    and render them through <smd-tabs id="fileSyncTabs">. Templates keep the
+    existing MinIO ids OUT of the live document until the sub-tabs clone them -
+    without that loadMinioSettings() could resolve the template copy.
+  - data-tab-id is now filesync-tab; the app restore hooks call
+    loadFileSyncSettings() once (replacing loadMinioSettings + binder), and
+    the boots call updateFileSyncMenu().
+  - Menu items: .onedrive-menu-item divider + "Export/Import to OneDrive"
+    (Storyboard: "Save Story/Load Story to OneDrive"), gated by the app's
+    OneDrive enable switch. Default directories: MyApps/<AppName>.
+- NESTED smd-tabs BUG FIXED (found by the phase-1 probe): _updateActive()
+  used DESCENDANT selectors (this.querySelectorAll('.smd-tab-btn')), so an
+  outer tabs component also toggled a nested <smd-tabs>'s buttons/panels by
+  its own index - the FileSync sub-tabs rendered with NO active panel. Both
+  _render()'s click binding and _updateActive() now use
+  :scope > .smd-tab-list .smd-tab-btn / :scope > .smd-tab-panel. Do NOT
+  revert to descendant selectors; nested tabs are supported now.
+- GOTCHA: MINIO_IMPORT_STYLES makes every .btn transparent (written for the
+  MinIO page's outline buttons). A .btn-primary on the OneDrive page therefore
+  had the theme's primary TEXT colour (dark navy on superhero) on the page
+  background - an apparently empty button. ONEDRIVE_PAGE_STYLES now restores
+  the theme surface for #oneDriveBody .btn-primary.
+- TESTS UPDATED (existing only; the phase-1 spec comes with the later test
+  phase): settings-alignment tab tables/panel selectors (nested panels make
+  #settingsPage .smd-tab-panel.active match two - use
+  #settingsTabs > .smd-tab-panel.active), display-settings same, pmd
+  #minio-tab -> #filesync-tab (13), pmd-screenshots, cmd/lol/storyboard
+  tab lists + FileSync clicks, storyboard menu order now includes the OneDrive
+  pair, minio-directory click.
+- VERIFIED: phase-1 probe (tabs, OneDrive field persistence, menu gating,
+  Open page + status, Open Settings shortcut, Storyboard labels, 0 console/page
+  errors, screenshots reviewed); settings-alignment 36/36 + display-settings
+  8/8 + minio-directory 4/4 + storyboard-minio 6/6; pmd Minio 51/51; cmd Minio
+  8/8; lol Minio 4/4; pmd Settings 40/40; storybook 8/8; pmd screenshot
+  "settings - minio" green.
+- BUILD: bumped to 202610250914 via `npm run bump:build`. Restart the test
+  server after the edit (it snapshots served files at startup).
+- NEXT: phase 2 vendors MSAL, the onedrive-callback.html redirect page,
+  sign-in/refresh/sign-out and the Graph calls (ensure folder, list, get, put,
+  ':latest'); phase 3 fills the browser; phase 4 migrates the app hooks
+  (CountMyDays wizard, Storyboard story save, LoL/PMD defaults).

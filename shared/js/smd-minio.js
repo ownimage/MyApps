@@ -823,6 +823,12 @@ function bindMinioSettingsTabBehavior() {
   tabs.__minioTabBound = true;
   tabs.addEventListener("smd-tabs-change", function(e) {
     var tab = e.detail && e.detail.tab;
-    if ((!tab || tab.id !== "minio-tab")) hideMinioPassword();
+    var tabId = tab && tab.id;
+    // Settings nests Minio/OneDrive inside the FileSync tab, so the password
+    // may stay visible only while the MinIO sub-tab itself is active. The
+    // legacy "minio-tab" id stays supported for any shell not yet migrated.
+    var onMinioTab = tabId === "filesync-minio-tab" || tabId === "minio-tab";
+    if (!onMinioTab) hideMinioPassword();
+    if (typeof refreshOneDriveSettingsUi === "function") refreshOneDriveSettingsUi();
   });
 }

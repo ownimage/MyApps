@@ -17,6 +17,8 @@ SmdConfig.appName = "List of Lists";
 
 // All apps share ONE image library on this origin (`shared-images`).
 SmdConfig.imagePrefix = "shared-";
+// OneDrive default backup directory (each app keeps its own, inside the drive).
+SmdConfig.oneDriveDefaultDirectory = "MyApps/ListOfLists";
 
 // MinIO: ListOfLists backs up its OWN categories (with nested lists) + images,
 // not PlanMyDay's `streams`, and names the object listoflists-<timestamp>.json.
@@ -168,5 +170,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  if (typeof updateMinioMenu === "function") updateMinioMenu();
+  if (typeof updateFileSyncMenu === "function") updateFileSyncMenu();
+  else if (typeof updateMinioMenu === "function") updateMinioMenu();
 });

@@ -71,7 +71,7 @@ function openSettings() {
       document.getElementById("jobSearchEditor").classList.add("d-none");
     },
     restore: function () {
-      if (typeof bindMinioSettingsTabBehavior === "function") bindMinioSettingsTabBehavior();
+      if (typeof loadFileSyncSettings === "function") loadFileSyncSettings();
 
       const splitList = localStorage.getItem(smdKey("splitList")) === "true";
       const splitListCb = $id("splitList");
@@ -104,8 +104,6 @@ function openSettings() {
       const skipAdhoc = localStorage.getItem(smdKey("skipAdhocConfirm")) === "true";
       const skipAdhocCb = $id("skipAdhocConfirm");
       if (skipAdhocCb) skipAdhocCb.checked = skipAdhoc;
-
-      if (typeof loadMinioSettings === "function") loadMinioSettings();
 
       if (isDevMode) {
         ["devTodayInput", "devLastGenInput"].forEach(id => {
