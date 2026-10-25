@@ -12,6 +12,8 @@ SmdConfig.storagePrefix = "storyboard_";
 // Storyboard has no image picker, but the shared sample-image library is still
 // used by the Launch grid; keep the prefix consistent with every app.
 SmdConfig.imagePrefix = "shared-";
+// OneDrive default backup directory (each app keeps its own, inside the drive).
+SmdConfig.oneDriveDefaultDirectory = "MyApps/Storyboard";
 
 document.addEventListener("DOMContentLoaded", function () {
   applyTheme(getStoredTheme());
@@ -40,7 +42,8 @@ document.addEventListener("DOMContentLoaded", function () {
   sbRender();
 
   // Show/hide the Minio menu entries (only when MinIO is enabled).
-  if (typeof updateMinioMenu === "function") updateMinioMenu();
+  if (typeof updateFileSyncMenu === "function") updateFileSyncMenu();
+  else if (typeof updateMinioMenu === "function") updateMinioMenu();
 
   // The JPG baseline nudge depends on the live font's metrics. Recompute it
   // when a webfont finishes loading (the first render may have used a fallback).

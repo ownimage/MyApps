@@ -7441,3 +7441,285 @@ Techniques / gotchas:
 - BUILD: bumped to 202610250448 via `npm run bump:build`. SCREENSHOTS ARE STALE in
   every app (disabled/read-only fields, and the three fixed task-row themes) -
   regenerate before shipping.
+
+### 2026-10-25 (c) - FileSync settings tab + OneDrive phase 1 (UI shell)
+- REQUEST (user): add OneDrive alongside MinIO. The settings MinIO tab becomes
+  **FileSync** with two sub-tabs (Minio as now, OneDrive), OneDrive has an Enable
+  switch + a possibly-nested Directory, and enabling it adds Open/Save OneDrive
+  entries to the hamburger. Chosen (user answers): Microsoft Graph + vendored
+  MSAL (Client ID in Settings, no hardcoded app), shared origin-wide sign-in with
+  per-app enable/directory, timestamped saves, a NEW OneDrive page for folder
+  navigation, ':latest' per subfolder, and the four MinIO apps only.
+- PHASE 1 (this change) is visual/structural only - no network yet:
+  - shared/js/smd-filesync.js (new): setupFileSyncTabs(),
+    loadFileSyncSettings(), updateFileSyncMenu(),
+    focusFileSyncSettingsTab(which).
+  - shared/js/smd-onedrive.js (new): per-app enable/directory, origin-wide
+    Client ID/tenant, account row, updateOneDriveMenu(), the
+    #oneDriveImportPage shell (breadcrumb + Up/Refresh + status, with an
+    "Open Settings" shortcut that lands on FileSync > OneDrive), and honest
+    phase-1 stubs for sign-in/save. Sign-in and Graph land in phase 2.
+  - The 4 shells (PlanMyDay, CountMyDays, ListOfLists, Storyboard) now wrap the
+    MinIO block and the new OneDrive block in
+    <template id="fileSyncMinioTpl"> / <template id="fileSyncOneDriveTpl">
+    and render them through <smd-tabs id="fileSyncTabs">. Templates keep the
+    existing MinIO ids OUT of the live document until the sub-tabs clone them -
+    without that loadMinioSettings() could resolve the template copy.
+  - data-tab-id is now filesync-tab; the app restore hooks call
+    loadFileSyncSettings() once (replacing loadMinioSettings + binder), and
+    the boots call updateFileSyncMenu().
+  - Menu items: .onedrive-menu-item divider + "Export/Import to OneDrive"
+    (Storyboard: "Save Story/Load Story to OneDrive"), gated by the app's
+    OneDrive enable switch. Default directories: MyApps/<AppName>.
+- NESTED smd-tabs BUG FIXED (found by the phase-1 probe): _updateActive()
+  used DESCENDANT selectors (this.querySelectorAll('.smd-tab-btn')), so an
+  outer tabs component also toggled a nested <smd-tabs>'s buttons/panels by
+  its own index - the FileSync sub-tabs rendered with NO active panel. Both
+  _render()'s click binding and _updateActive() now use
+  :scope > .smd-tab-list .smd-tab-btn / :scope > .smd-tab-panel. Do NOT
+  revert to descendant selectors; nested tabs are supported now.
+- GOTCHA: MINIO_IMPORT_STYLES makes every .btn transparent (written for the
+  MinIO page's outline buttons). A .btn-primary on the OneDrive page therefore
+  had the theme's primary TEXT colour (dark navy on superhero) on the page
+  background - an apparently empty button. ONEDRIVE_PAGE_STYLES now restores
+  the theme surface for #oneDriveBody .btn-primary.
+- TESTS UPDATED (existing only; the phase-1 spec comes with the later test
+  phase): settings-alignment tab tables/panel selectors (nested panels make
+  #settingsPage .smd-tab-panel.active match two - use
+  #settingsTabs > .smd-tab-panel.active), display-settings same, pmd
+  #minio-tab -> #filesync-tab (13), pmd-screenshots, cmd/lol/storyboard
+  tab lists + FileSync clicks, storyboard menu order now includes the OneDrive
+  pair, minio-directory click.
+- VERIFIED: phase-1 probe (tabs, OneDrive field persistence, menu gating,
+  Open page + status, Open Settings shortcut, Storyboard labels, 0 console/page
+  errors, screenshots reviewed); settings-alignment 36/36 + display-settings
+  8/8 + minio-directory 4/4 + storyboard-minio 6/6; pmd Minio 51/51; cmd Minio
+  8/8; lol Minio 4/4; pmd Settings 40/40; storybook 8/8; pmd screenshot
+  "settings - minio" green.
+- BUILD: bumped to 202610250914 via `npm run bump:build`. Restart the test
+  server after the edit (it snapshots served files at startup).
+- NEXT: phase 2 vendors MSAL, the onedrive-callback.html redirect page,
+  sign-in/refresh/sign-out and the Graph calls (ensure folder, list, get, put,
+  ':latest'); phase 3 fills the browser; phase 4 migrates the app hooks
+  (CountMyDays wizard, Storyboard story save, LoL/PMD defaults).
+
+### 2026-10-25 (d) - OneDrive phase 2: MSAL auth, Graph and the working browser
+- PHASE 2 COMPLETE (phases 3+4 were folded in because the menu entries could not
+  ship half-wired):
+  - Vendored `shared/vendor/msal-browser.min.js` (v5.26.0 UMD, global `msal`;
+    keep the licence header). Lazy-loaded by `smd-onedrive.js` only when the
+    OneDrive settings tab/page/save is used.
+  - `onedrive-callback.html` (repo root) + `shared/js/onedrive-callback.js`:
+    ONE registered redirect URI for every app. MSAL v5 requires the dedicated
+    redirect bridge here, NOT handleRedirectPromise: the page loads
+    `shared/vendor/msal-redirect-bridge.min.js` (global `msalRedirectBridge`) and
+    calls `broadcastResponseToMainFrame()`, which broadcasts to the opener
+    (popup flow) or caches the response and navigates back to the initiating
+    page (redirect flow).
+  - `smd-onedrive.js` now has: origin-wide Client ID + tenant, per-app
+    enable/directory, sign-in/sign-out, token cache, `oneDriveListFolder`,
+    `oneDriveLatestJson`, `oneDriveEnsureFolder`, `oneDriveGetFile`,
+    `oneDrivePutFile`, friendly Graph/auth errors, and the folder browser
+    (Up/Refresh/breadcrumb, folders, `<folder>:latest`, JSON files with modified
+    dates, clamped to the configured Directory).
+  - Save: generic timestamped `<prefix>-YYYYMMDDHHMM.json` (creates nested
+    folders); app-owned via `SmdConfig.onFileSyncExport` / `fileSyncExportData` /
+    `fileSyncExportPrefix`, import via `onFileSyncImport(provider, data, key)`
+    with `closeFileSyncImport(provider)` / `showFileSyncAlert(provider, ...)`.
+    Wired: CountMyDays (export wizard gets type "onedrive"; import wizard),
+    ListOfLists (categories payload; import restores), Storyboard (whole-story
+    save under `<dir>/<story>/story-<ts>.json`; same-name overwrite prompt) and
+    PlanMyDay (streams + images default).
+- GOTCHAS (all cost real time):
+  (a) MSAL v5 requires `await instance.initialize()` before `loginPopup` /
+      `handleRedirectPromise`; without it the error is
+      `uninitialized_public_client_application`.
+  (b) `loginPopup` must be called SYNCHRONOUSLY from the click or the browser
+      blocks it after the async MSAL load. `oneDriveReadyInstance()` returns the
+      already-initialised instance; the settings sub-tab and Open page warm it.
+      The cold path shows "OneDrive is preparing sign-in. Click Sign in again."
+  (c) `MINIO_IMPORT_STYLES` used to be GLOBAL (`.smd-page-body .btn` made every
+      button on EVERY smd-page transparent once the MinIO page had opened - the
+      "outline instead of filled" look). Its selectors are now scoped with
+      `:is(#minioImportPage, #oneDriveImportPage) .smd-page-body`. The OneDrive
+      page's own overrides therefore need a DOUBLED page id
+      (`#oneDriveImportPage #oneDriveBody .btn-primary|secondary|.list-group-item:hover`)
+      to outrank the `:is(...)` specificity.
+  (d) The OneDrive list hover must not use `--bs-secondary-bg`/`--bs-tertiary-bg`:
+      both are LIGHT on the always-dark themes (superhero light). It uses a
+      translucent `rgba(var(--bs-body-color-rgb), .14)` overlay.
+  (e) `oneDriveCurrentPath` deliberately has NO leading underscore: inline
+      onclick handlers in the page markup reference the global.
+  (f) Storyboard tests must seed `storyboard_stories` from `/` (Launch) and then
+      navigate to `/Storyboard/` - reloading the Storyboard page overwrites the
+      seeded value via its `pagehide` `sbSaveState()`.
+  (g) MSAL v5 REMOVED `temporaryCacheLocation` and expects a redirect-bridge
+      page. Calling `handleRedirectPromise()` on the callback page fails with
+      `no_token_request_cache_error` (the token request cache belongs to the
+      opener). Use @azure/msal-browser/redirect-bridge
+      (`broadcastResponseToMainFrame`) and set `smd_onedrive_pendingRedirect`
+      before `loginRedirect`, so the app page runs one `oneDriveInit()` on
+      return (the DOMContentLoaded hook at the end of smd-onedrive.js).
+- TESTS: new `tests/onedrive.spec.js` (9, coverage hooks) - settings persistence
+  + menu gating, filled `smd-button` surfaces (no outline/transparent), folder/
+  file/:latest browsing + provider-aware import, PlanMyDay save key/payload,
+  ListOfLists payload + import hook, Storyboard whole-story save, path helpers.
+  A throwaway probe verified the real MSAL authorize URL
+  (`login.microsoftonline.com/common/oauth2/v2.0/authorize`) carries the Client
+  ID, `redirect_uri=<origin>/onedrive-callback.html`, scopes
+  `Files.ReadWrite openid profile offline_access`, PKCE S256 and state, with zero
+  console/page errors; the callback page shows its "No Client ID" state cleanly.
+  Existing MinIO suites re-run green: minio-directory 4/4, storyboard-minio 6/6,
+  cmd Minio 8/8 + Export 13/13, LoL Minio 4/4.
+- TODO / USER ACTION: register the Azure app (SPA platform) with redirect URIs
+  `https://ownimage.github.io/MyApps/onedrive-callback.html`,
+  `http://localhost:8080/onedrive-callback.html` and
+  `http://localhost:8081/PlanMyDay/onedrive-callback.html`; delegated
+  `Files.ReadWrite` (+ admin consent if the tenant requires it); then paste the
+  Client ID into Settings > FileSync > OneDrive. Real sign-in/token exchange and
+  live Graph calls were NOT exercised without that registration.
+- BUILD: bumped after this change (see the build-number note). Screenshots for
+  the four settings pages are stale (FileSync tab).
+
+### 2026-10-25 (e) - FileSync polish: OneDrive first, danger Sign out, top ":latest"
+- REQUEST (user): on Settings > FileSync the OneDrive sub-tab comes FIRST; the
+  OneDrive Sign in / Sign out buttons are filled primary / danger (not
+  secondary/outline); the import browser shows a ":latest" pseudo-file at the
+  TOP of the directory being viewed when that directory holds the app's
+  date-stamped backups.
+- DONE:
+  - `setupFileSyncTabs()` order is now OneDrive, Minio, so FileSync opens on
+    OneDrive. Tests that wanted the MinIO fields after clicking `#filesync-tab`
+    now also click the inner `Minio` sub-tab (pmd-regression 12x, pmd-screenshots
+    "settings - minio", minio-directory, cmd/lol/storyboard MinIO tests).
+  - `#btnOneDriveSignOut` is `variant="danger"` in all four shells (Sign in is
+    already `primary`); `tests/onedrive.spec.js` asserts the variants and the
+    filled `btn-danger` inner button (no outline).
+  - The OneDrive browser renders `od-latest-current` as the first content row
+    (after Up) when the CURRENT directory has the app's date-stamped backups:
+    label `<directory name>:latest`, meta = newest filename. The per-subfolder
+    `od-latest` rows stay. Matching is app-specific:
+    `oneDriveIsAppBackupName()` uses `SmdConfig.fileSyncLatestPattern` when set
+    (Storyboard: `/^story-\d{12}\.json$/i`), else
+    `<fileSyncExportPrefix|minioExportPrefix|planmydays>-<12 digits>.json`.
+    CountMyDays now sets `SmdConfig.fileSyncExportPrefix = "countmydays"` (its
+    files are countmydays-*), ListOfLists keeps "listoflists", PlanMyDay uses
+    the default "planmydays".
+- VERIFIED: onedrive 9/9 (new tab order + variant + top-latest assertions),
+  minio-directory 4/4, storyboard-minio 6/6, cmd MinIO 8/8, LoL MinIO 4/4, pmd
+  MinIO 51/51, pmd screenshot "settings - minio" green. Visual check: the
+  OneDrive root lists `PlanMyDay:latest` above the folder and the two files.
+- BUILD: bumped again after this change.
+
+### 2026-10-25 (f) - FileSync/OneDrive polish: shared buttons, Storyboard split rows, latest stamps
+- REQUEST (user): the OneDrive settings buttons must look like CountMyDays in every
+  app; Storyboard's "Open from OneDrive" must use ONE row per folder (left half
+  navigates, right half opens the latest); append "DD MON YYYY. HH24:MI" to every
+  OneDrive ":latest" file name.
+- BUTTONS: CountMyDays' `CMD_EDITOR_STYLES` already had
+  `.smd-tab-panel smd-button { display:block; width:100% }`, which is why only
+  CMD showed stacked full-width Sign in/out buttons. The shared OneDrive Account
+  markup now uses `d-flex flex-column gap-2` + `<smd-button block ...>` (no
+  `size="small"`) in ALL four shells, so every app matches without a new global
+  rule. `tests/onedrive.spec.js` asserts the block attribute, the `w-100` inner
+  button and the flex-column wrapper in all four apps.
+- STORYBOARD SPLIT: `SmdConfig.oneDriveSplitFolderRows = true` (Storyboard only).
+  `oneDriveRenderList` emits one `.od-folder-split` `<li>` with two
+  `.od-split-half` buttons: `.od-split-nav` (navigate) and `.od-split-latest`
+  (open the newest backup, or a disabled "No backups" half). Other apps keep the
+  folder + folder:latest rows.
+- LATEST STAMPS: `oneDriveLatestMeta()` appends ` / DD MON YYYY. HH24:MI` (LOCAL
+  time; hardcoded English month abbreviations) to the filename in the top
+  `od-latest-current` row, the per-subfolder `od-latest` rows and Storyboard's
+  right half.
+- BUG FIXED (found by the split-row visual): `oneDriveRenderList` sorted folders
+  by name while `latests` was index-aligned to the UNSORTED list, so a
+  multi-folder directory could attach a folder's latest to the wrong folder.
+  `oneDriveLoadFolder` now returns `latests` KEYED BY PATH and the renderer looks
+  up `latests[folder.path]`. The Storyboard test deliberately returns folders in
+  reverse-alphabetical order to guard it.
+- VERIFIED: onedrive 11/11 (4-app button layout + split rows + latest stamps),
+  minio-directory 4/4, storyboard-minio 6/6, cmd/lol/pmd MinIO suites unchanged.
+  Visual check: PMD/CMD/Storyboard settings match; Storyboard shows Holiday
+  ("No backups") and My Board ("story-...json / 25 Oct 2026. 09:00") as one split
+  row each.
+- BUILD: bumped after this change.
+
+### 2026-10-25 (g) - OneDrive page: no toolbar Up, fa:file icons, Storyboard 40/60 split
+- REQUEST (user): remove the toolbar Up button (the directory list already has a
+  "< Up" row); make the Storyboard split 40/60; on its right half replace the
+  clock with an smd-image fa:file and prefix the filename/date with ":latest ";
+  use smd-image fa:file wherever filenames have the file SVG.
+- DONE:
+  - `oneDriveToolbarHtml()` is now Refresh + breadcrumb only. The `.od-up` LIST
+    row remains the ONLY back control (clamped to the configured Directory), in
+    every app. The toolbar Up button (`#btnOneDriveUp`) is gone.
+  - Storyboard: `.od-split-nav` is `flex: 0 0 40%`, `.od-split-latest` is
+    `flex: 1 1 60%`.
+  - The Storyboard right half uses `<smd-image image="fa:file" size="18">` and
+    its label is `:latest <file> / DD MON YYYY. HH24:MI`.
+  - The file rows use `<smd-image image="fa:file" size="18">` instead of the file
+    SVG in every app. The clock icon remains on the top-of-directory and
+    per-subfolder `:latest` rows (only the Storyboard right half was switched to
+    the file icon).
+  - `Storyboard/index.html` now loads `shared/js/components/smd-image.js` (it did
+    not before) because its OneDrive page uses `<smd-image>`; `sw.js` already
+    precached it.
+  - `oneDriveFileIcon(extraClass)` fixes `size="18"` so the glyph does NOT follow
+    the app's Icon size setting (which would be far too large in a row).
+- TESTS: onedrive 11/11 - the browsing test asserts no `#btnOneDriveUp`, an
+  `.od-up` row only when nested (and that it returns to the root), and the
+  fa:file icon in the file row; the Storyboard split test asserts the 40/60
+  ratio, `:latest <file> / stamp`, the fa:file icon and the disabled "No
+  backups" half. A console/pageerror probe confirmed Storyboard boots and
+  renders the icon cleanly.
+- BUILD: bumped after this change.
+
+### 2026-10-25 (h) - OneDrive top ":latest" uses Bootstrap clock-history
+- The top-of-directory `.od-latest-current` icon is now
+  `<smd-image image="bi:clock-history" size="18">` (oneDriveLatestIcon) instead of
+  the inline SVG clock. The per-subfolder `od-latest` rows keep the SVG clock.
+- `Storyboard/index.html` now links `shared/vendor/bootstrap-icons.css` (PMD, CMD
+  and LoL already did) so the `bi:` glyph font is registered; `smd-image` fetches
+  the CSS glyph map itself, but the font comes from that document-level link.
+- TEST: `tests/onedrive.spec.js` asserts the bi:clock-history host on the top row
+  (11/11); a visual probe confirmed the clock-history glyph. BUILD bumped.
+
+### 2026-10-25 (i) - OneDrive test matrix complete + affected regression pass
+- TESTS: `tests/onedrive.spec.js` is now 15 tests. Added CountMyDays' export
+  wizard -> OneDrive upload (title, `countmydays-<ts>.json` key, payload shape),
+  CountMyDays OneDrive import -> import wizard (page closes), friendly 404 page +
+  expired-session -> Sign in (account cleared), sign-out clears the cached
+  account, and 401/429/network/sign-in friendly messages.
+- GOTCHA: the FileSync inner tabs mean
+  `#settingsPage smd-tabs .smd-tab-btn` matches TWO active tabs (outer General +
+  inner OneDrive). The three PMD theme-colour tests that used it now scope to
+  `#settingsTabs > .smd-tab-list .smd-tab-btn...` (8 replacements). Any future
+  settings-tab colour/size assertion must use the outer list, never the
+  descendant selector.
+- REGRESSION (affected set, all green): onedrive 15/15; settings-alignment +
+  display-settings + launch-regression + storybook + minio-directory +
+  storyboard-minio 76/76; cmd + lol full 143/143; pmd-regression FULL 482/482;
+  Storyboard suite (align/groups/pan/stamp/stories/zoom) 55/55; @cache 11/11.
+- No app code changed in this verification pass (test-only), so BUILD stays
+  202610251210. SCREENSHOTS for the four FileSync settings pages are still stale
+  (regenerate before shipping).
+
+### 2026-10-25 (j) - Storyboard flake: a modal confirm closed the Stories panel
+- ROOT CAUSE: the toolbar's document click listener closes the panel for any
+  click outside `#sbToolbar`, but a click on `#smdConfirmModal`'s Delete is
+  outside it. A 150ms `panelClickAt` grace masked it when fast; under load the
+  confirm click landed after the grace, closed the panel, and the confirmed
+  delete re-rendered into a CLOSED panel (0 `.sb-story-row`) -> the intermittent
+  failure at `storyboard-stories.spec.js:197`.
+- FIX: `Storyboard/js/toolbar.js`'s document click handler also ignores
+  `t.closest("smd-modal")`, so a confirm opened from a panel keeps the panel
+  open through its action. (The 150ms guard stays for detached panel buttons.)
+- TDD: new test "a delete confirmation keeps the Stories panel open after the
+  outside-click grace" waits 300ms before confirming (past the grace) and
+  asserts `#sbToolbar[data-open="boards"]` plus the remaining story row.
+  MUTATION-CHECKED: removing the `smd-modal` clause makes it fail with
+  `data-open=""` (panel closed).
+- VERIFIED: storyboard-stories 6/6; the delete + grace pair repeat-each=15 at 4
+  workers 30/30; full Storyboard suite (align/groups/minio/pan/stamp/stories/
+  zoom) 62/62. BUILD bumped.

@@ -631,7 +631,8 @@ test.describe("PlanMyDay - Screenshots", () => {
     await page.locator("#btnMainMenu").click();
     await page.locator("a.dropdown-item").filter({ hasText: "Settings" }).click();
     await page.waitForSelector("#settingsPage:not(.d-none)");
-    await page.locator("#minio-tab").click();
+    await page.locator("#filesync-tab").click();
+    await page.locator("#fileSyncTabs > .smd-tab-list .smd-tab-btn").filter({ hasText: "Minio" }).click();
     await page.waitForTimeout(300);
     await screenshotAllThemes(page, "settings-minio.png");
   });

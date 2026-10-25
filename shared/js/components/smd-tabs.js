@@ -147,7 +147,7 @@ class SmdTabs extends HTMLElement {
       ${bottomLineHtml}
     `;
 
-        this.querySelectorAll('.smd-tab-btn').forEach((btn) => {
+        this.querySelectorAll(':scope > .smd-tab-list .smd-tab-btn').forEach((btn) => {
             btn.addEventListener('click', () => {
                 this._activate(parseInt(btn.dataset.index, 10));
             });
@@ -167,7 +167,10 @@ class SmdTabs extends HTMLElement {
     }
 
     _updateActive() {
-        this.querySelectorAll('.smd-tab-btn').forEach((btn, i) => {
+        // Scope to THIS component's own tab list/panels: nested <smd-tabs>
+        // (e.g. Settings > FileSync > Minio/OneDrive) must not be toggled by
+        // the outer tab's index.
+        this.querySelectorAll(':scope > .smd-tab-list .smd-tab-btn').forEach((btn, i) => {
             const active = i === this._activeIndex;
             btn.classList.toggle('active', active);
             // Bootstrap owns the tab colours: the active tab is a filled
@@ -181,7 +184,7 @@ class SmdTabs extends HTMLElement {
             btn.setAttribute('aria-selected', String(active));
             btn.setAttribute('tabindex', active ? '0' : '-1');
         });
-        this.querySelectorAll('.smd-tab-panel').forEach((panel, i) => {
+        this.querySelectorAll(':scope > .smd-tab-panel').forEach((panel, i) => {
             const active = i === this._activeIndex;
             panel.classList.toggle('active', active);
             panel.classList.toggle('show', active);

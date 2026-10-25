@@ -117,10 +117,52 @@ function sbOverwriteStory(existing, incoming) {
   return existing;
 }
 
-// Shared hook: receives the parsed JSON from the import page (also from the
-// "<directory>:latest" shortcut). Return true when the file is a Storyboard
-// backup; the hook owns closing the page.
-SmdConfig.onMinioImport = function(data, key) {
+// OneDrive save: the SAME whole-story payload and path shape as the MinIO save,
+// under the app's OneDrive Directory (<dir>/<story>/story-<timestamp>.json).
+function sbSaveStoryToOneDrive(config) {
+  var story = sbActiveStory();
+  if (!story) {
+    showOneDriveAlert("There is no story to save.", "error");
+    return;
+  }
+  if (typeof sbCaptureView === "function") sbCaptureView();
+  sbSaveState();
+
+  var key = oneDriveJoinPath(
+    config.directory,
+    sbMinioStoryDirName(story.name),
+    sbMinioStoryFileName(new Date())
+  );
+  var payload = {
+    version: 1,
+    app: "storyboard",
+    exportedAt: new Date().toISOString(),
+    story: story
+  };
+
+  oneDrivePutFile(key, JSON.stringify(payload, null, 2)).then(function () {
+    showOneDriveAlert("Saved " + key + " to OneDrive.", "info");
+  }).catch(function (e) {
+    showOneDriveAlert("OneDrive save failed: " + oneDriveFriendlyError(e), "error");
+  });
+}
+
+// FileSync (Minio/OneDrive) export hook. OneDrive replaces the MinIO upload;
+// the MinIO menu entry keeps using sbSaveStoryToMinio().
+SmdConfig.onFileSyncExport = function (provider, config) {
+  if (provider === "onedrive") sbSaveStoryToOneDrive(config);
+};
+// Storyboard files are <story>/story-YYYYMMDDHHMM.json, so the ":latest"
+// shortcut matches that name rather than a flat <prefix>-<timestamp>.json.
+SmdConfig.fileSyncLatestPattern = /^story-\d{12}\.json$/i;
+// One split row per story folder: left half navigates, right half opens the
+// newest backup (the two-row folder + folder:latest layout is used elsewhere).
+SmdConfig.oneDriveSplitFolderRows = true;
+
+// Shared import: receives the parsed JSON from either import page (also from
+// the "<directory>:latest" shortcut). Returns true for a Storyboard backup; the
+// hook owns closing the page it came from.
+function sbHandleImportedStory(provider, data, key) {
   if (!data || !data.story || typeof data.story !== "object") return false;
   // Whole-story backups only: a story must carry at least one scene. Old
   // single-board files (data.board) are deliberately NOT supported.
@@ -144,8 +186,10 @@ SmdConfig.onMinioImport = function(data, key) {
       onAction: function(detail) {
         if (detail && detail.action === "overwrite") {
           sbOverwriteStory(existing, incoming);
-          closeMinioImport();
-          showMinioAlert("Loaded " + key + " and overwrote story \"" + existing.name + "\".", "info");
+          closeFileSyncImport(provider);
+          showFileSyncAlert(provider, "Loaded " + key + " and overwrote story \"" + existing.name + "\".", "info");
+        } else if (provider === "onedrive") {
+          oneDriveLoadFolder(oneDriveCurrentPath);
         } else {
           var config = getMinioConfig();
           loadMinioBucketFiles(config.bucket, _minioCurrentPrefix);
@@ -157,7 +201,14 @@ SmdConfig.onMinioImport = function(data, key) {
 
   sbState.stories.push(incoming);
   sbActivateLoadedStory(incoming);
-  closeMinioImport();
-  showMinioAlert("Loaded " + key + " as story \"" + incoming.name + "\".", "info");
+  closeFileSyncImport(provider);
+  showFileSyncAlert(provider, "Loaded " + key + " as story \"" + incoming.name + "\".", "info");
   return true;
+}
+
+SmdConfig.onMinioImport = function(data, key) {
+  return sbHandleImportedStory("minio", data, key);
+};
+SmdConfig.onFileSyncImport = function(provider, data, key) {
+  return sbHandleImportedStory(provider, data, key);
 };

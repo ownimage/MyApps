@@ -61,6 +61,9 @@
         <li><hr class="dropdown-divider minio-menu-item" style="display:none"></li>
         <li><a class="dropdown-item minio-menu-item" style="display:none" onclick="exportToMinio()">Export to Minio</a></li>
         <li><a class="dropdown-item minio-menu-item" style="display:none" onclick="importFromMinio()">Import from Minio</a></li>
+        <li><hr class="dropdown-divider onedrive-menu-item" style="display:none"></li>
+        <li><a class="dropdown-item onedrive-menu-item" style="display:none" onclick="saveToOneDrive()">Export to OneDrive</a></li>
+        <li><a class="dropdown-item onedrive-menu-item" style="display:none" onclick="openOneDrivePage()">Import from OneDrive</a></li>
       </ul>
     </div>
 
@@ -91,6 +94,9 @@
 
   <!-- MINIO IMPORT PAGE -->
   <smd-page id="minioImportPage" class="d-none"></smd-page>
+
+  <!-- ONEDRIVE OPEN PAGE -->
+  <smd-page id="oneDriveImportPage" class="d-none"></smd-page>
 
   <!-- IMAGE PICKER PAGE -->
     <smd-page id="imagePickerPage" class="d-none"></smd-page>
@@ -172,8 +178,9 @@
           </div>
         </section>
 
-        <!-- Minio -->
-        <section class="smd-settings-tab" data-tab="Minio" data-tab-id="minio-tab">
+        <!-- FileSync (Minio + OneDrive) -->
+        <section class="smd-settings-tab" data-tab="FileSync" data-tab-id="filesync-tab">
+          <template id="fileSyncMinioTpl">
           <div class="row mb-4 align-items-center col-md-8 mt-3">
             <div class="col-4 text-end"><label class="form-label mb-0">Enable</label></div>
             <div class="col-8">
@@ -220,6 +227,48 @@
               </div>
             </div>
           </div>
+          </template>
+          <template id="fileSyncOneDriveTpl">
+            <div class="row mb-4 align-items-center col-md-8 mt-3">
+              <div class="col-4 text-end"><label class="form-label mb-0">Enable</label></div>
+              <div class="col-8">
+                <smd-checkbox id="oneDriveEnabled" switch onchange="changeOneDriveEnabled(this.checked)"></smd-checkbox>
+              </div>
+            </div>
+            <div class="row mb-4 align-items-center col-md-8">
+              <div class="col-4 text-end"><label class="form-label mb-0">Directory</label></div>
+              <div class="col-8">
+                <input id="oneDriveDirectory" class="form-control" type="text" placeholder="optional, e.g. MyApps/ListOfLists (empty = OneDrive root)" onchange="changeOneDriveDirectory(this.value)">
+              </div>
+            </div>
+            <div class="row mb-4 align-items-center col-md-8">
+              <div class="col-4 text-end"><label class="form-label mb-0">Client ID</label></div>
+              <div class="col-8">
+                <input id="oneDriveClientId" class="form-control" type="text" placeholder="Azure app registration (client) ID" onchange="changeOneDriveClientId(this.value)">
+              </div>
+            </div>
+            <div class="row mb-4 align-items-center col-md-8">
+              <div class="col-4 text-end"><label class="form-label mb-0">Tenant</label></div>
+              <div class="col-8">
+                <input id="oneDriveTenant" class="form-control" type="text" placeholder="common" onchange="changeOneDriveTenant(this.value)">
+              </div>
+            </div>
+            <div class="row mb-4 align-items-center col-md-8">
+              <div class="col-4 text-end"><label class="form-label mb-0">Account</label></div>
+              <div class="col-8">
+                <div class="d-flex flex-column gap-2">
+                  <span id="oneDriveAccount" class="text-secondary">Not signed in</span>
+                  <smd-button id="btnOneDriveSignIn" block variant="primary" onclick="signInToOneDrive()">Sign in</smd-button>
+                  <smd-button id="btnOneDriveSignOut" block variant="danger" onclick="signOutOfOneDrive()">Sign out</smd-button>
+                </div>
+              </div>
+            </div>
+            <div class="row mb-4 col-md-8">
+              <div class="col-4"></div>
+              <div class="col-8"><p class="text-secondary mb-0">OneDrive backups are stored under the Directory above. Sign-in is shared by every MyApps app on this device.</p></div>
+            </div>
+          </template>
+          <smd-tabs id="fileSyncTabs" narrow padding="small" class="mt-2"></smd-tabs>
         </section>
 
         <!-- Danger -->
@@ -356,6 +405,8 @@ document.write('<script src="../shared/js/components/smd-checkbox.js?v=' + BUILD
   document.write('<script src="js/components/lol-list-items.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="../shared/js/smd-app.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="../shared/js/smd-minio.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../shared/js/smd-onedrive.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../shared/js/smd-filesync.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="../shared/js/smd-settings.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="../shared/js/smd-apps.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="../shared/js/smd-images.js?v=' + BUILD_NUMBER + '"><\/script>');

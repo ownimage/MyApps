@@ -118,8 +118,9 @@ test.describe("Storyboard - MinIO", () => {
   test("Settings has a Minio tab with a Directory field and the load/save items sit in the hamburger menu", async ({ page }) => {
     await seed(page);
     await page.evaluate(() => openSettings());
-    await expect(page.locator("#settingsPage .smd-tab-btn")).toHaveText(["Display", "Minio"]);
-    await page.locator("#settingsPage .smd-tab-btn").filter({ hasText: "Minio" }).click();
+    await expect(page.locator("#settingsTabs > .smd-tab-list .smd-tab-btn")).toHaveText(["Display", "FileSync"]);
+    await page.locator("#filesync-tab").click();
+    await page.locator("#fileSyncTabs > .smd-tab-list .smd-tab-btn").filter({ hasText: "Minio" }).click();
     await expect(page.locator("#minioEnabled")).toBeVisible();
     await expect(page.locator("#minioDirectory")).toBeVisible();
     await page.evaluate(() => closeSettings());
@@ -156,7 +157,10 @@ test.describe("Storyboard - MinIO", () => {
       "launch",
       "divider:minio",
       "Save Story to Minio",
-      "Load Story from Minio"
+      "Load Story from Minio",
+      "divider",
+      "Save Story to OneDrive",
+      "Load Story from OneDrive"
     ]);
   });
 
