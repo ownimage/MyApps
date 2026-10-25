@@ -20,7 +20,7 @@
 // comparison. If the two ever DO drift, the page notices at runtime
 // (GET_BUILD) and re-registers, so the drift self-heals instead of pinning
 // users to a build the worker will never replace.
-const BUILD_NUMBER = "202610250914";
+const BUILD_NUMBER = "202610251019";
 
 const CACHE = "myapps-" + BUILD_NUMBER;
 
@@ -83,6 +83,7 @@ const TRANSPARENT_GIF_RESPONSE = new Response(TRANSPARENT_GIF, {
 // ---- Shared library assets (used by every app) ----
 const SHARED_ASSETS = [
   "shared/sampleImages.json",
+  "onedrive-callback.html",
   "shared/css/styles.css",
   "shared/css/vendor-overrides.css",
   "shared/css/themes/bootstrap/bootstrap.min.css",
@@ -398,10 +399,13 @@ const SHARED_ASSETS = [
   "shared/js/smd-gcal.js",
   "shared/js/smd-minio.js",
   "shared/js/smd-onedrive.js",
+  "shared/js/onedrive-callback.js",
   "shared/js/smd-filesync.js",
   "shared/js/smd-settings.js",
   "shared/js/smd-images.js",
   "shared/js/smd-apps.js",
+  "shared/vendor/msal-browser.min.js",
+  "shared/vendor/msal-redirect-bridge.min.js",
   "shared/vendor/chart.umd.min.js",
   "shared/vendor/chartjs-adapter-date-fns.bundle.min.js",
   "shared/sampleImages/Noughts_&_Crosses.svg"

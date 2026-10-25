@@ -522,25 +522,25 @@ function importFromMinio() {
 }
 
 var MINIO_IMPORT_STYLES = `
-  .smd-page-body * { box-sizing: border-box; }
-  .smd-page-body .text-center { text-align: center; }
-  .smd-page-body .text-start { text-align: left; }
-  .smd-page-body .text-secondary { color: var(--bs-secondary, #6c757d); }
-  .smd-page-body .d-flex { display: flex; }
-  .smd-page-body .align-items-center { align-items: center; }
-  .smd-page-body .gap-2 { gap: 0.5rem; }
-  .smd-page-body .mb-0 { margin-bottom: 0; }
-  .smd-page-body .mb-2 { margin-bottom: 0.5rem; }
-  .smd-page-body .mb-3 { margin-bottom: 1rem; }
-  .smd-page-body .mt-2 { margin-top: 0.5rem; }
-  .smd-page-body .me-2 { margin-right: 0.5rem; }
-  .smd-page-body .py-3 { padding-top: 1rem; padding-bottom: 1rem; }
-  .smd-page-body .py-5 { padding-top: 3rem; padding-bottom: 3rem; }
-  .smd-page-body .w-100 { width: 100%; }
-  .smd-page-body h5 { margin: 0 0 0.5rem; }
-  .smd-page-body h6 { margin: 0 0 0.5rem; }
-  .smd-page-body p { margin: 0.5rem 0 0; }
-  .smd-page-body .btn {
+  :is(#minioImportPage, #oneDriveImportPage) .smd-page-body * { box-sizing: border-box; }
+  :is(#minioImportPage, #oneDriveImportPage) .smd-page-body .text-center { text-align: center; }
+  :is(#minioImportPage, #oneDriveImportPage) .smd-page-body .text-start { text-align: left; }
+  :is(#minioImportPage, #oneDriveImportPage) .smd-page-body .text-secondary { color: var(--bs-secondary, #6c757d); }
+  :is(#minioImportPage, #oneDriveImportPage) .smd-page-body .d-flex { display: flex; }
+  :is(#minioImportPage, #oneDriveImportPage) .smd-page-body .align-items-center { align-items: center; }
+  :is(#minioImportPage, #oneDriveImportPage) .smd-page-body .gap-2 { gap: 0.5rem; }
+  :is(#minioImportPage, #oneDriveImportPage) .smd-page-body .mb-0 { margin-bottom: 0; }
+  :is(#minioImportPage, #oneDriveImportPage) .smd-page-body .mb-2 { margin-bottom: 0.5rem; }
+  :is(#minioImportPage, #oneDriveImportPage) .smd-page-body .mb-3 { margin-bottom: 1rem; }
+  :is(#minioImportPage, #oneDriveImportPage) .smd-page-body .mt-2 { margin-top: 0.5rem; }
+  :is(#minioImportPage, #oneDriveImportPage) .smd-page-body .me-2 { margin-right: 0.5rem; }
+  :is(#minioImportPage, #oneDriveImportPage) .smd-page-body .py-3 { padding-top: 1rem; padding-bottom: 1rem; }
+  :is(#minioImportPage, #oneDriveImportPage) .smd-page-body .py-5 { padding-top: 3rem; padding-bottom: 3rem; }
+  :is(#minioImportPage, #oneDriveImportPage) .smd-page-body .w-100 { width: 100%; }
+  :is(#minioImportPage, #oneDriveImportPage) .smd-page-body h5 { margin: 0 0 0.5rem; }
+  :is(#minioImportPage, #oneDriveImportPage) .smd-page-body h6 { margin: 0 0 0.5rem; }
+  :is(#minioImportPage, #oneDriveImportPage) .smd-page-body p { margin: 0.5rem 0 0; }
+  :is(#minioImportPage, #oneDriveImportPage) .smd-page-body .btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -553,12 +553,12 @@ var MINIO_IMPORT_STYLES = `
     border: 1px solid var(--bs-border-color, #444);
     color: var(--bs-body-color, #eee);
   }
-  .smd-page-body .btn:hover { opacity: 0.85; }
-  .smd-page-body .btn-lg { padding: 0.5rem 1rem; font-size: var(--smd-type-h2, 1.25rem); }
-  .smd-page-body .btn-sm { padding: 0.25rem 0.5rem; font-size: var(--smd-type-p, 0.875rem); }
-  .smd-page-body .btn-outline-primary { border-color: var(--smd-primary, #0d6efd); color: var(--smd-primary, #0d6efd); }
-  .smd-page-body .btn-outline-secondary { border-color: var(--bs-secondary, #6c757d); color: var(--bs-secondary, #6c757d); }
-  .smd-page-body .spinner-border {
+  :is(#minioImportPage, #oneDriveImportPage) .smd-page-body .btn:hover { opacity: 0.85; }
+  :is(#minioImportPage, #oneDriveImportPage) .smd-page-body .btn-lg { padding: 0.5rem 1rem; font-size: var(--smd-type-h2, 1.25rem); }
+  :is(#minioImportPage, #oneDriveImportPage) .smd-page-body .btn-sm { padding: 0.25rem 0.5rem; font-size: var(--smd-type-p, 0.875rem); }
+  :is(#minioImportPage, #oneDriveImportPage) .smd-page-body .btn-outline-primary { border-color: var(--smd-primary, #0d6efd); color: var(--smd-primary, #0d6efd); }
+  :is(#minioImportPage, #oneDriveImportPage) .smd-page-body .btn-outline-secondary { border-color: var(--bs-secondary, #6c757d); color: var(--bs-secondary, #6c757d); }
+  :is(#minioImportPage, #oneDriveImportPage) .smd-page-body .spinner-border {
     display: inline-block;
     width: 2rem;
     height: 2rem;
@@ -568,7 +568,7 @@ var MINIO_IMPORT_STYLES = `
     animation: smdSpin 0.75s linear infinite;
   }
   @keyframes smdSpin { to { transform: rotate(360deg); } }
-  .smd-page-body .list-group {
+  :is(#minioImportPage, #oneDriveImportPage) .smd-page-body .list-group {
     display: flex;
     flex-direction: column;
     list-style: none;
@@ -578,7 +578,7 @@ var MINIO_IMPORT_STYLES = `
     border-radius: 0.375rem;
     overflow: hidden;
   }
-  .smd-page-body .list-group-item {
+  :is(#minioImportPage, #oneDriveImportPage) .smd-page-body .list-group-item {
     position: relative;
     display: block;
     padding: 0.75rem 1rem;
@@ -586,8 +586,8 @@ var MINIO_IMPORT_STYLES = `
     border-top: 1px solid var(--bs-border-color, #444);
     cursor: pointer;
   }
-  .smd-page-body .list-group-item:first-child { border-top: 0; }
-  .smd-page-body .list-group-item:hover { background: var(--bs-secondary-bg, rgba(255,255,255,0.05)); }
+  :is(#minioImportPage, #oneDriveImportPage) .smd-page-body .list-group-item:first-child { border-top: 0; }
+  :is(#minioImportPage, #oneDriveImportPage) .smd-page-body .list-group-item:hover { background: var(--bs-secondary-bg, rgba(255,255,255,0.05)); }
 `;
 
 var _minioImportCloseTimer = null;
@@ -830,5 +830,9 @@ function bindMinioSettingsTabBehavior() {
     var onMinioTab = tabId === "filesync-minio-tab" || tabId === "minio-tab";
     if (!onMinioTab) hideMinioPassword();
     if (typeof refreshOneDriveSettingsUi === "function") refreshOneDriveSettingsUi();
+    // Only load MSAL when the user actually opens the OneDrive sub-tab.
+    if (tabId === "filesync-onedrive-tab" && typeof oneDriveInit === "function") {
+      oneDriveInit().catch(function () { /* reflected in the account row */ });
+    }
   });
 }

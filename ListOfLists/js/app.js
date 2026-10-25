@@ -34,6 +34,17 @@ SmdConfig.onMinioImport = function (data, key) {
   return true;
 };
 
+// FileSync (Minio/OneDrive) hooks: same payload, provider-neutral UI.
+SmdConfig.fileSyncExportPrefix = "listoflists";
+SmdConfig.fileSyncExportData = lolExportPayload;
+SmdConfig.onFileSyncImport = function (provider, data, key) {
+  if (!lolImportBackup(data)) return false;
+  closeFileSyncImport(provider);
+  showFileSyncAlert(provider, "Imported " + key + " successfully.", "info");
+  if (typeof regenerateTiles === "function") regenerateTiles();
+  return true;
+};
+
 document.addEventListener("DOMContentLoaded", () => {
   const settingsPage = document.getElementById("settingsPage");
   if (settingsPage) {

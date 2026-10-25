@@ -31,6 +31,21 @@ SmdConfig.onMinioImport = function (data) {
   return true;
 };
 
+// FileSync (Minio/OneDrive): the export wizard knows which provider asked for
+// the file (its title and the upload destination), and an import goes to the
+// same keep/replace wizard.
+SmdConfig.onFileSyncExport = function (provider, config) {
+  if (provider !== "onedrive") return;
+  window.__fileSyncExport = { provider: provider, config: config };
+  startExportWizard("onedrive");
+};
+SmdConfig.onFileSyncImport = function (provider, data) {
+  if (!data || !data.dates || !data.categories || !data.images) return false;
+  closeFileSyncImport(provider);
+  startImportWizard(data);
+  return true;
+};
+
 // All apps on this origin share one image library (`shared-images`), so no
 // per-app image migration is needed here.
 

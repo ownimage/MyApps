@@ -47,6 +47,24 @@ function updateFileSyncMenu() {
   if (typeof updateOneDriveMenu === "function") updateOneDriveMenu();
 }
 
+// Provider-neutral helpers for the app-owned import hooks. A hook receives the
+// provider ("minio" | "onedrive") and must close the page it came from.
+function closeFileSyncImport(provider) {
+  if (provider === "onedrive") {
+    if (typeof closeOneDrivePage === "function") closeOneDrivePage();
+  } else if (typeof closeMinioImport === "function") {
+    closeMinioImport();
+  }
+}
+
+function showFileSyncAlert(provider, message, type) {
+  if (provider === "onedrive") {
+    if (typeof showOneDriveAlert === "function") showOneDriveAlert(message, type);
+  } else if (typeof showMinioAlert === "function") {
+    showMinioAlert(message, type);
+  }
+}
+
 // Activate the FileSync tab (and one of its sub-tabs). Used by the OneDrive
 // page's "Open Settings" shortcut so the user lands on the right fields.
 function focusFileSyncSettingsTab(which) {

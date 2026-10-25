@@ -7502,3 +7502,81 @@ Techniques / gotchas:
   sign-in/refresh/sign-out and the Graph calls (ensure folder, list, get, put,
   ':latest'); phase 3 fills the browser; phase 4 migrates the app hooks
   (CountMyDays wizard, Storyboard story save, LoL/PMD defaults).
+
+### 2026-10-25 (d) - OneDrive phase 2: MSAL auth, Graph and the working browser
+- PHASE 2 COMPLETE (phases 3+4 were folded in because the menu entries could not
+  ship half-wired):
+  - Vendored `shared/vendor/msal-browser.min.js` (v5.26.0 UMD, global `msal`;
+    keep the licence header). Lazy-loaded by `smd-onedrive.js` only when the
+    OneDrive settings tab/page/save is used.
+  - `onedrive-callback.html` (repo root) + `shared/js/onedrive-callback.js`:
+    ONE registered redirect URI for every app. MSAL v5 requires the dedicated
+    redirect bridge here, NOT handleRedirectPromise: the page loads
+    `shared/vendor/msal-redirect-bridge.min.js` (global `msalRedirectBridge`) and
+    calls `broadcastResponseToMainFrame()`, which broadcasts to the opener
+    (popup flow) or caches the response and navigates back to the initiating
+    page (redirect flow).
+  - `smd-onedrive.js` now has: origin-wide Client ID + tenant, per-app
+    enable/directory, sign-in/sign-out, token cache, `oneDriveListFolder`,
+    `oneDriveLatestJson`, `oneDriveEnsureFolder`, `oneDriveGetFile`,
+    `oneDrivePutFile`, friendly Graph/auth errors, and the folder browser
+    (Up/Refresh/breadcrumb, folders, `<folder>:latest`, JSON files with modified
+    dates, clamped to the configured Directory).
+  - Save: generic timestamped `<prefix>-YYYYMMDDHHMM.json` (creates nested
+    folders); app-owned via `SmdConfig.onFileSyncExport` / `fileSyncExportData` /
+    `fileSyncExportPrefix`, import via `onFileSyncImport(provider, data, key)`
+    with `closeFileSyncImport(provider)` / `showFileSyncAlert(provider, ...)`.
+    Wired: CountMyDays (export wizard gets type "onedrive"; import wizard),
+    ListOfLists (categories payload; import restores), Storyboard (whole-story
+    save under `<dir>/<story>/story-<ts>.json`; same-name overwrite prompt) and
+    PlanMyDay (streams + images default).
+- GOTCHAS (all cost real time):
+  (a) MSAL v5 requires `await instance.initialize()` before `loginPopup` /
+      `handleRedirectPromise`; without it the error is
+      `uninitialized_public_client_application`.
+  (b) `loginPopup` must be called SYNCHRONOUSLY from the click or the browser
+      blocks it after the async MSAL load. `oneDriveReadyInstance()` returns the
+      already-initialised instance; the settings sub-tab and Open page warm it.
+      The cold path shows "OneDrive is preparing sign-in. Click Sign in again."
+  (c) `MINIO_IMPORT_STYLES` used to be GLOBAL (`.smd-page-body .btn` made every
+      button on EVERY smd-page transparent once the MinIO page had opened - the
+      "outline instead of filled" look). Its selectors are now scoped with
+      `:is(#minioImportPage, #oneDriveImportPage) .smd-page-body`. The OneDrive
+      page's own overrides therefore need a DOUBLED page id
+      (`#oneDriveImportPage #oneDriveBody .btn-primary|secondary|.list-group-item:hover`)
+      to outrank the `:is(...)` specificity.
+  (d) The OneDrive list hover must not use `--bs-secondary-bg`/`--bs-tertiary-bg`:
+      both are LIGHT on the always-dark themes (superhero light). It uses a
+      translucent `rgba(var(--bs-body-color-rgb), .14)` overlay.
+  (e) `oneDriveCurrentPath` deliberately has NO leading underscore: inline
+      onclick handlers in the page markup reference the global.
+  (f) Storyboard tests must seed `storyboard_stories` from `/` (Launch) and then
+      navigate to `/Storyboard/` - reloading the Storyboard page overwrites the
+      seeded value via its `pagehide` `sbSaveState()`.
+  (g) MSAL v5 REMOVED `temporaryCacheLocation` and expects a redirect-bridge
+      page. Calling `handleRedirectPromise()` on the callback page fails with
+      `no_token_request_cache_error` (the token request cache belongs to the
+      opener). Use @azure/msal-browser/redirect-bridge
+      (`broadcastResponseToMainFrame`) and set `smd_onedrive_pendingRedirect`
+      before `loginRedirect`, so the app page runs one `oneDriveInit()` on
+      return (the DOMContentLoaded hook at the end of smd-onedrive.js).
+- TESTS: new `tests/onedrive.spec.js` (9, coverage hooks) - settings persistence
+  + menu gating, filled `smd-button` surfaces (no outline/transparent), folder/
+  file/:latest browsing + provider-aware import, PlanMyDay save key/payload,
+  ListOfLists payload + import hook, Storyboard whole-story save, path helpers.
+  A throwaway probe verified the real MSAL authorize URL
+  (`login.microsoftonline.com/common/oauth2/v2.0/authorize`) carries the Client
+  ID, `redirect_uri=<origin>/onedrive-callback.html`, scopes
+  `Files.ReadWrite openid profile offline_access`, PKCE S256 and state, with zero
+  console/page errors; the callback page shows its "No Client ID" state cleanly.
+  Existing MinIO suites re-run green: minio-directory 4/4, storyboard-minio 6/6,
+  cmd Minio 8/8 + Export 13/13, LoL Minio 4/4.
+- TODO / USER ACTION: register the Azure app (SPA platform) with redirect URIs
+  `https://ownimage.github.io/MyApps/onedrive-callback.html`,
+  `http://localhost:8080/onedrive-callback.html` and
+  `http://localhost:8081/PlanMyDay/onedrive-callback.html`; delegated
+  `Files.ReadWrite` (+ admin consent if the tenant requires it); then paste the
+  Client ID into Settings > FileSync > OneDrive. Real sign-in/token exchange and
+  live Graph calls were NOT exercised without that registration.
+- BUILD: bumped after this change (see the build-number note). Screenshots for
+  the four settings pages are stale (FileSync tab).
