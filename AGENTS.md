@@ -7684,3 +7684,42 @@ Techniques / gotchas:
   the CSS glyph map itself, but the font comes from that document-level link.
 - TEST: `tests/onedrive.spec.js` asserts the bi:clock-history host on the top row
   (11/11); a visual probe confirmed the clock-history glyph. BUILD bumped.
+
+### 2026-10-25 (i) - OneDrive test matrix complete + affected regression pass
+- TESTS: `tests/onedrive.spec.js` is now 15 tests. Added CountMyDays' export
+  wizard -> OneDrive upload (title, `countmydays-<ts>.json` key, payload shape),
+  CountMyDays OneDrive import -> import wizard (page closes), friendly 404 page +
+  expired-session -> Sign in (account cleared), sign-out clears the cached
+  account, and 401/429/network/sign-in friendly messages.
+- GOTCHA: the FileSync inner tabs mean
+  `#settingsPage smd-tabs .smd-tab-btn` matches TWO active tabs (outer General +
+  inner OneDrive). The three PMD theme-colour tests that used it now scope to
+  `#settingsTabs > .smd-tab-list .smd-tab-btn...` (8 replacements). Any future
+  settings-tab colour/size assertion must use the outer list, never the
+  descendant selector.
+- REGRESSION (affected set, all green): onedrive 15/15; settings-alignment +
+  display-settings + launch-regression + storybook + minio-directory +
+  storyboard-minio 76/76; cmd + lol full 143/143; pmd-regression FULL 482/482;
+  Storyboard suite (align/groups/pan/stamp/stories/zoom) 55/55; @cache 11/11.
+- No app code changed in this verification pass (test-only), so BUILD stays
+  202610251210. SCREENSHOTS for the four FileSync settings pages are still stale
+  (regenerate before shipping).
+
+### 2026-10-25 (j) - Storyboard flake: a modal confirm closed the Stories panel
+- ROOT CAUSE: the toolbar's document click listener closes the panel for any
+  click outside `#sbToolbar`, but a click on `#smdConfirmModal`'s Delete is
+  outside it. A 150ms `panelClickAt` grace masked it when fast; under load the
+  confirm click landed after the grace, closed the panel, and the confirmed
+  delete re-rendered into a CLOSED panel (0 `.sb-story-row`) -> the intermittent
+  failure at `storyboard-stories.spec.js:197`.
+- FIX: `Storyboard/js/toolbar.js`'s document click handler also ignores
+  `t.closest("smd-modal")`, so a confirm opened from a panel keeps the panel
+  open through its action. (The 150ms guard stays for detached panel buttons.)
+- TDD: new test "a delete confirmation keeps the Stories panel open after the
+  outside-click grace" waits 300ms before confirming (past the grace) and
+  asserts `#sbToolbar[data-open="boards"]` plus the remaining story row.
+  MUTATION-CHECKED: removing the `smd-modal` clause makes it fail with
+  `data-open=""` (panel closed).
+- VERIFIED: storyboard-stories 6/6; the delete + grace pair repeat-each=15 at 4
+  workers 30/30; full Storyboard suite (align/groups/minio/pan/stamp/stories/
+  zoom) 62/62. BUILD bumped.

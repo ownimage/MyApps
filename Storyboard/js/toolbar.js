@@ -56,7 +56,12 @@ function sbInitToolbar() {
     // panel's own delegation stamps the time instead.
     if (Date.now() - (sbState.panelClickAt || 0) < 150) return;
     var t = e.target;
-    if (t.closest && (t.closest("#sbToolbar") || t.closest(".sb-selection-bar") || t.closest(".sb-board-chip"))) return;
+    // Clicks inside a modal belong to the dialog flow (e.g. a delete confirm
+    // opened from this panel). Treating them as "outside" closed the panel just
+    // before the confirmed action re-rendered it - the story/scene row then
+    // vanished and the confirm appeared to do nothing.
+    if (t.closest && (t.closest("#sbToolbar") || t.closest(".sb-selection-bar") ||
+      t.closest(".sb-board-chip") || t.closest("smd-modal"))) return;
     sbClosePanel();
   });
 

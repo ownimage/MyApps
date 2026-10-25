@@ -1051,7 +1051,7 @@ test.describe("PlanMyDay - Regression", () => {
       for (const theme of ["brite", "cerulean"]) {
         await setTheme(page, theme);
         await page.evaluate(() => openSettings());
-        await expect(page.locator("#settingsPage smd-tabs .smd-tab-btn.active")).toBeVisible();
+        await expect(page.locator("#settingsTabs > .smd-tab-list .smd-tab-btn.active")).toBeVisible();
         const cmp = await page.evaluate(() => {
           function probe(cls) {
             const el = document.createElement("span");
@@ -1063,8 +1063,8 @@ test.describe("PlanMyDay - Regression", () => {
             el.remove();
             return out;
           }
-          const inactive = document.querySelector("#settingsPage smd-tabs .smd-tab-btn:not(.active)");
-          const active = document.querySelector("#settingsPage smd-tabs .smd-tab-btn.active");
+          const inactive = document.querySelector("#settingsTabs > .smd-tab-list .smd-tab-btn:not(.active)");
+          const active = document.querySelector("#settingsTabs > .smd-tab-list .smd-tab-btn.active");
           const ics = getComputedStyle(inactive);
           const acs = getComputedStyle(active);
           return {
@@ -1110,14 +1110,14 @@ test.describe("PlanMyDay - Regression", () => {
       for (const mode of ["light", "dark"]) {
         await page.evaluate(({ theme, mode }) => applyTheme(theme, mode), { theme: "slate", mode });
         await page.evaluate(() => openSettings());
-        await expect(page.locator("#settingsPage smd-tabs .smd-tab-btn.active")).toBeVisible();
+        await expect(page.locator("#settingsTabs > .smd-tab-list .smd-tab-btn.active")).toBeVisible();
         // Poll the APPLIED style, not the <link>: applyTheme() updates the href
         // synchronously while link.sheet still points at the PREVIOUS sheet, so a
         // wait on href/sheet can pass a tick before the new CSS is applied (the
         // flake seen in a full run). A genuinely wrong or missing override still
         // fails here after the timeout.
-        await expect.poll(async () => norm(await gradient("#settingsPage smd-tabs .smd-tab-btn.active")), { timeout: 15000, message: mode }).toBe(ACTIVE);
-        await expect.poll(async () => norm(await gradient("#settingsPage smd-tabs .smd-tab-btn:not(.active)")), { timeout: 15000 }).toBe(INACTIVE);
+        await expect.poll(async () => norm(await gradient("#settingsTabs > .smd-tab-list .smd-tab-btn.active")), { timeout: 15000, message: mode }).toBe(ACTIVE);
+        await expect.poll(async () => norm(await gradient("#settingsTabs > .smd-tab-list .smd-tab-btn:not(.active)")), { timeout: 15000 }).toBe(INACTIVE);
         await page.evaluate(() => closeSettings());
       }
     });
@@ -1326,11 +1326,11 @@ test.describe("PlanMyDay - Regression", () => {
       for (const mode of ["light", "dark"]) {
         await page.evaluate((mo) => applyTheme("quartz", mo), mode);
         await page.evaluate(() => openSettings());
-        await expect(page.locator("#settingsPage smd-tabs .smd-tab-btn.active")).toBeVisible();
+        await expect(page.locator("#settingsTabs > .smd-tab-list .smd-tab-btn.active")).toBeVisible();
         const label = "quartz/" + mode;
         await expect.poll(async () => {
           const r = await page.evaluate(() => {
-            const a = document.querySelector("#settingsPage smd-tabs .smd-tab-btn.active");
+            const a = document.querySelector("#settingsTabs > .smd-tab-list .smd-tab-btn.active");
             const s = getComputedStyle(a);
             return { color: s.color, bg: s.backgroundColor, img: s.backgroundImage };
           });

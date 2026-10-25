@@ -202,4 +202,20 @@ test.describe("Storyboard - stories and scenes", () => {
     expect(state.stories).toHaveLength(1);
     expect(state.activeStory).toBe(state.stories[0].id);
   });
+
+  test("a delete confirmation keeps the Stories panel open after the outside-click grace", async ({ page }) => {
+    // Regression: the panel's document outside-click handler used to treat a
+    // click inside #smdConfirmModal as "outside" once 150ms had passed, so a
+    // slow confirmation closed the panel before the delete re-rendered it.
+    await page.goto("/Storyboard/");
+    await openStories(page);
+    await page.locator("#sbAddStory").click();
+    await page.locator('.sb-story-row.active .sb-story-act[data-act="delete-story"]').click();
+    await expect(page.locator("#smdConfirmModal")).toContainText("Delete story?");
+    await page.waitForTimeout(300); // exceed the panel's 150ms grace period
+    await page.locator("#smdConfirmModal").getByRole("button", { name: "Delete" }).click();
+    await expect(page.locator("#sbToolbar")).toHaveAttribute("data-open", "boards");
+    await expect(page.locator(".sb-story-row")).toHaveCount(1);
+    await expect(page.locator(".sb-story-row.active")).toContainText("Story 1");
+  });
 });

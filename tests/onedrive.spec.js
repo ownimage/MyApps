@@ -390,6 +390,113 @@ test.describe("OneDrive", () => {
       .toBe("MyApps/Storyboard/Story A/story-202610250900.json");
   });
 
+  test("CountMyDays saves its wizard payload to OneDrive", async ({ page }) => {
+    await seedOneDrive(page, "/CountMyDays/", {
+      countmydays_onedrive_enabled: "true",
+      countmydays_onedrive_directory: "MyApps/CountMyDays",
+      countmydays_dates: JSON.stringify([{
+        id: "date1", name: "Date", category: "cat1", image: "", type: "annual", month: 1, day: 1
+      }]),
+      countmydays_categories: JSON.stringify([{ id: "cat1", name: "Cat", image: null }]),
+      "shared-images": JSON.stringify([{ name: "Img", data: "data:image/svg+xml;base64,PHN2Zy8+" }])
+    });
+    await stubOneDrive(page, { root: "MyApps/CountMyDays" });
+    await page.evaluate(() => saveToOneDrive());
+
+    const wizard = page.locator("#exportWizardPage");
+    await expect(wizard).toHaveAttribute("open", "");
+    await expect(wizard).toContainText("Export to OneDrive");
+    await wizard.getByRole("button", { name: "Next" }).click();
+    await expect(wizard).toContainText("Export Summary");
+    await wizard.getByRole("button", { name: "Export" }).click();
+
+    await expect.poll(async () => page.evaluate(() => window.__put && window.__put.key))
+      .toMatch(/^MyApps\/CountMyDays\/countmydays-\d{12}\.json$/);
+    const payload = await page.evaluate(() => JSON.parse(window.__put.body));
+    expect(Object.keys(payload).sort()).toEqual(["categories", "dates", "images"]);
+    expect(payload.dates).toHaveLength(1);
+    expect(payload.categories).toHaveLength(1);
+    expect(payload.images).toHaveLength(1);
+    await expect(page.locator("#smdConfirmModal")).toContainText("to OneDrive");
+  });
+
+  test("CountMyDays hands a OneDrive backup to its import wizard", async ({ page }) => {
+    await seedOneDrive(page, "/CountMyDays/", {
+      countmydays_onedrive_directory: "MyApps/CountMyDays"
+    });
+    await page.evaluate(() => {
+      window.oneDriveInit = function () { return Promise.resolve({ username: "test@example.com" }); };
+      window.oneDriveListFolder = function (path) {
+        return Promise.resolve({
+          folders: [],
+          files: [{
+            name: "countmydays-202610250900.json",
+            key: (path ? path + "/" : "") + "countmydays-202610250900.json",
+            lastModified: "2026-10-25T09:00:00Z"
+          }]
+        });
+      };
+      window.oneDriveGetFile = function () {
+        return Promise.resolve(JSON.stringify({
+          dates: [{ id: "date1", name: "Imported", category: "cat1", image: "", type: "annual", month: 3, day: 9 }],
+          categories: [{ id: "cat1", name: "Imported Cat", image: null }],
+          images: []
+        }));
+      };
+      openOneDrivePage();
+    });
+    await page.locator("#oneDriveBody .od-file").click();
+    await expect(page.locator("#importWizardPage")).toHaveAttribute("open", "");
+    await expect(page.locator("#oneDriveImportPage")).not.toHaveAttribute("open", "");
+  });
+
+  test("OneDrive errors are friendly and an expired session returns to Sign in", async ({ page }) => {
+    await seedOneDrive(page, "/PlanMyDay/", {
+      planmydays_onedrive_directory: "MyApps/PlanMyDay"
+    });
+    await page.evaluate(() => {
+      window.oneDriveInit = function () { return Promise.resolve({ username: "test@example.com" }); };
+      window.oneDriveListFolder = function () {
+        return Promise.reject({ status: 404 });
+      };
+      openOneDrivePage();
+    });
+    await expect(page.locator("#oneDriveBody .od-status")).toContainText("not found");
+    await expect(page.locator("#oneDriveBody .od-status")).toContainText("Try again");
+
+    await page.evaluate(() => {
+      localStorage.setItem("smd_onedrive_account", "test@example.com");
+      window.oneDriveInit = function () { return Promise.resolve({ username: "test@example.com" }); };
+      window.oneDriveListFolder = function () {
+        var err = new Error("Sign in to OneDrive first.");
+        err.code = "sign_in_required";
+        return Promise.reject(err);
+      };
+      closeOneDrivePage();
+      openOneDrivePage();
+    });
+    await expect(page.locator("#oneDriveBody .od-status")).toContainText("Not signed in to OneDrive");
+    expect(await page.evaluate(() => localStorage.getItem("smd_onedrive_account"))).toBeNull();
+  });
+
+  test("signing out clears the cached OneDrive account", async ({ page }) => {
+    await seedOneDrive(page, "/PlanMyDay/", {
+      planmydays_onedrive_directory: "MyApps/PlanMyDay"
+    });
+    const cleared = await page.evaluate(() => {
+      window.oneDriveReadyInstance = function () { return null; };
+      window.oneDriveMsalInstance = function () {
+        return Promise.resolve({
+          getAllAccounts: function () { return [{ username: "test@example.com" }]; },
+          logoutPopup: function () { return Promise.resolve(); }
+        });
+      };
+      signOutOfOneDrive();
+      return localStorage.getItem("smd_onedrive_account");
+    });
+    expect(cleared).toBeNull();
+  });
+
   test("path helpers encode, clamp and resolve parents predictably", async ({ page }) => {
     await page.goto("/PlanMyDay/");
     const helpers = await page.evaluate(() => {
@@ -403,7 +510,11 @@ test.describe("OneDrive", () => {
         parent: oneDriveParentPath("MyApps/PlanMyDay/Backups/2026"),
         clamp: oneDriveClampPath("SomeOther/Place"),
         friendly404: oneDriveFriendlyError({ status: 404 }),
-        friendly403: oneDriveFriendlyError({ status: 403 })
+        friendly403: oneDriveFriendlyError({ status: 403 }),
+        friendly401: oneDriveFriendlyError({ status: 401 }),
+        friendly429: oneDriveFriendlyError({ status: 429 }),
+        friendlyNetwork: oneDriveFriendlyError(new Error("Failed to fetch")),
+        friendlySignIn: oneDriveFriendlyError({ code: "sign_in_required" })
       };
     });
     expect(helpers.encode).toBe("My%20Apps/Plan%20MyDay/a%20b.json");
@@ -415,5 +526,9 @@ test.describe("OneDrive", () => {
     expect(helpers.clamp).toBe("MyApps/PlanMyDay");
     expect(helpers.friendly404).toContain("not found");
     expect(helpers.friendly403).toContain("Files.ReadWrite");
+    expect(helpers.friendly401).toContain("sign-in");
+    expect(helpers.friendly429).toContain("throttling");
+    expect(helpers.friendlyNetwork).toContain("Cannot reach OneDrive");
+    expect(helpers.friendlySignIn).toContain("sign-in");
   });
 });
