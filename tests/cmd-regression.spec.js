@@ -849,6 +849,7 @@ test.describe("CountMyDays - Regression", () => {
       const tabs = page.locator("#settingsTabs > .smd-tab-list .smd-tab-btn");
       await expect(tabs).toHaveText(["General", "Display", "G Cal", "FileSync", "Danger"]);
       await page.locator("#filesync-tab").click();
+      await page.locator("#fileSyncTabs > .smd-tab-list .smd-tab-btn").filter({ hasText: "Minio" }).click();
       await expect(page.locator("#minioEnabled")).toBeVisible();
       for (const id of ["#minioServer", "#minioUsername", "#minioPassword", "#minioBucket"]) {
         await expect(page.locator(id), id).toBeDisabled();

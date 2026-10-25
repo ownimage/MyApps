@@ -152,6 +152,9 @@ function sbSaveStoryToOneDrive(config) {
 SmdConfig.onFileSyncExport = function (provider, config) {
   if (provider === "onedrive") sbSaveStoryToOneDrive(config);
 };
+// Storyboard files are <story>/story-YYYYMMDDHHMM.json, so the ":latest"
+// shortcut matches that name rather than a flat <prefix>-<timestamp>.json.
+SmdConfig.fileSyncLatestPattern = /^story-\d{12}\.json$/i;
 
 // Shared import: receives the parsed JSON from either import page (also from
 // the "<directory>:latest" shortcut). Returns true for a Storyboard backup; the

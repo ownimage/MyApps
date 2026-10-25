@@ -82,12 +82,17 @@ test.describe("OneDrive", () => {
     }, CLIENT_ID);
     await page.evaluate(() => openSettings());
     await page.locator("#filesync-tab").click();
+    await expect(page.locator("#fileSyncTabs > .smd-tab-list .smd-tab-btn")).toHaveText(["OneDrive", "Minio"]);
     await page.locator("#fileSyncTabs > .smd-tab-list .smd-tab-btn").filter({ hasText: "OneDrive" }).click();
 
     await expect(page.locator("#oneDriveDirectory")).toHaveValue("MyApps/PlanMyDay");
     await expect(page.locator("#oneDriveClientId")).toHaveValue(CLIENT_ID);
     await expect(page.locator("#oneDriveTenant")).toHaveValue("common");
     await expect(page.locator("#oneDriveAccount")).toHaveText("Not signed in");
+    await expect(page.locator("#btnOneDriveSignIn")).toHaveAttribute("variant", "primary");
+    await expect(page.locator("#btnOneDriveSignOut")).toHaveAttribute("variant", "danger");
+    await expect(page.locator("#btnOneDriveSignOut button")).toHaveClass(/btn-danger/);
+    await expect(page.locator("#btnOneDriveSignOut button")).not.toHaveClass(/btn-outline/);
 
     await page.locator("#oneDriveEnabled").check();
     await page.locator("#oneDriveDirectory").fill("Custom/Deep/Path/");
@@ -151,11 +156,14 @@ test.describe("OneDrive", () => {
 
     await expect(page.locator("#oneDriveBody .od-folder")).toHaveText("Backups");
     await expect(page.locator("#oneDriveBody .od-latest")).toContainText("Backups:latest");
+    await expect(page.locator("#oneDriveBody .od-latest-current")).toContainText("PlanMyDay:latest");
+    await expect(page.locator("#oneDriveBody .od-latest-current")).toContainText("planmydays-202610250900.json");
     await expect(page.locator("#oneDriveBody .od-file")).toContainText("planmydays-202610250900.json");
     await expect(page.locator("#oneDriveBody smd-button").first()).toHaveAttribute("disabled", "");
 
     await page.locator("#oneDriveBody .od-folder").click();
     await expect(page.locator("#oneDriveBody .od-crumbs")).toContainText("Backups");
+    await expect(page.locator("#oneDriveBody .od-latest-current")).toContainText("Backups:latest");
     await expect(page.locator("#oneDriveBody smd-button").first()).not.toHaveAttribute("disabled", "");
 
     await page.locator("#oneDriveBody .od-file").first().click();

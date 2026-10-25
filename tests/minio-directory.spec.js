@@ -57,6 +57,7 @@ test.describe("MinIO - directory setting", () => {
     await page.goto("/PlanMyDay/");
     await page.evaluate(() => openSettings());
     await page.locator("#filesync-tab").click();
+    await page.locator("#fileSyncTabs > .smd-tab-list .smd-tab-btn").filter({ hasText: "Minio" }).click();
     await expect(page.locator("#minioDirectory")).toBeVisible();
     await page.locator("#minioEnabled").check();
     await page.locator("#minioDirectory").fill("backups/2026/");

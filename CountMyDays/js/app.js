@@ -39,6 +39,9 @@ SmdConfig.onFileSyncExport = function (provider, config) {
   window.__fileSyncExport = { provider: provider, config: config };
   startExportWizard("onedrive");
 };
+// Files are countmydays-YYYYMMDDHHMM.json (the export wizard names them).
+// This also drives the OneDrive page's ":latest" shortcuts.
+SmdConfig.fileSyncExportPrefix = "countmydays";
 SmdConfig.onFileSyncImport = function (provider, data) {
   if (!data || !data.dates || !data.categories || !data.images) return false;
   closeFileSyncImport(provider);

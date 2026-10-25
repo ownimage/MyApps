@@ -546,16 +546,50 @@ function oneDriveListFolder(path) {
   return fetchPage(url);
 }
 
-// Newest JSON in a folder by FILENAME (backup names carry YYYYMMDDHHMM), which
-// is how the MinIO page's "<dir>:latest" rows work too.
+// The app's own date-stamped backup names ("<prefix>-YYYYMMDDHHMM.json", or a
+// custom SmdConfig.fileSyncLatestPattern for apps that save differently, e.g.
+// Storyboard's story-YYYYMMDDHHMM.json). Used by every ":latest" shortcut.
+function oneDriveAppPrefix() {
+  if (typeof SmdConfig !== "undefined") {
+    return SmdConfig.fileSyncExportPrefix || SmdConfig.minioExportPrefix || "planmydays";
+  }
+  return "planmydays";
+}
+
+function oneDriveIsAppBackupName(name) {
+  var value = String(name == null ? "" : name);
+  var pattern = (typeof SmdConfig !== "undefined" && SmdConfig.fileSyncLatestPattern) || null;
+  if (pattern) {
+    if (pattern instanceof RegExp) return pattern.test(value);
+    if (typeof pattern === "string") {
+      try { return new RegExp(pattern, "i").test(value); } catch (e) { return false; }
+    }
+  }
+  var prefix = oneDriveAppPrefix();
+  return value.indexOf(prefix + "-") === 0 && /-\d{12}\.json$/i.test(value);
+}
+
+// Newest matching file by NAME (the backup names carry YYYYMMDDHHMM).
+function oneDrivePickLatestAppFile(files) {
+  var matches = (files || []).filter(function (file) {
+    return oneDriveIsAppBackupName(file.name);
+  });
+  if (!matches.length) return null;
+  matches.sort(function (a, b) {
+    return a.name < b.name ? 1 : (a.name > b.name ? -1 : 0);
+  });
+  return matches[0];
+}
+
+function oneDriveDirectoryLabel(path) {
+  var parts = oneDriveNormalizeDirectory(path).split("/").filter(Boolean);
+  return parts.length ? parts[parts.length - 1] : "OneDrive";
+}
+
+// Newest JSON in a folder (subfolder ":latest" rows).
 function oneDriveLatestJson(folderPath) {
   return oneDriveListFolder(folderPath).then(function (list) {
-    var json = list.files.filter(function (file) { return /\.json$/i.test(file.name); });
-    if (!json.length) return null;
-    json.sort(function (a, b) {
-      return a.name < b.name ? 1 : (a.name > b.name ? -1 : 0);
-    });
-    return json[0];
+    return oneDrivePickLatestAppFile(list.files);
   });
 }
 
@@ -803,6 +837,17 @@ function oneDriveRenderList(path, list, latests) {
   if (oneDriveNormalizeDirectory(path) !== oneDriveRootPath()) {
     rows.push('<li class="list-group-item list-group-item-action d-flex align-items-center od-up" style="cursor:pointer" onclick="oneDriveNavigate(oneDriveParentPath(oneDriveCurrentPath))">' +
       ONEDRIVE_ICON_UP + 'Up</li>');
+  }
+
+  // A ":latest" shortcut for the DIRECTORY BEING VIEWED (above its folders and
+  // files), when it already holds this app's date-stamped backups. The
+  // per-subfolder ":latest" rows below cover the child folders.
+  var currentLatest = oneDrivePickLatestAppFile(list.files);
+  if (currentLatest) {
+    rows.push('<li class="list-group-item list-group-item-action d-flex align-items-center od-latest-current" style="cursor:pointer" onclick="oneDrivePickFile(\'' +
+      oneDriveInlineArg(currentLatest.key) + '\')">' + ONEDRIVE_ICON_LATEST +
+      escapeHtml(oneDriveDirectoryLabel(path)) +
+      ':latest<span class="od-meta">' + escapeHtml(currentLatest.name) + '</span></li>');
   }
 
   folders.forEach(function (folder, index) {

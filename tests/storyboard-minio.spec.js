@@ -120,6 +120,7 @@ test.describe("Storyboard - MinIO", () => {
     await page.evaluate(() => openSettings());
     await expect(page.locator("#settingsTabs > .smd-tab-list .smd-tab-btn")).toHaveText(["Display", "FileSync"]);
     await page.locator("#filesync-tab").click();
+    await page.locator("#fileSyncTabs > .smd-tab-list .smd-tab-btn").filter({ hasText: "Minio" }).click();
     await expect(page.locator("#minioEnabled")).toBeVisible();
     await expect(page.locator("#minioDirectory")).toBeVisible();
     await page.evaluate(() => closeSettings());

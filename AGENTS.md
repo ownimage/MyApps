@@ -7580,3 +7580,33 @@ Techniques / gotchas:
   live Graph calls were NOT exercised without that registration.
 - BUILD: bumped after this change (see the build-number note). Screenshots for
   the four settings pages are stale (FileSync tab).
+
+### 2026-10-25 (e) - FileSync polish: OneDrive first, danger Sign out, top ":latest"
+- REQUEST (user): on Settings > FileSync the OneDrive sub-tab comes FIRST; the
+  OneDrive Sign in / Sign out buttons are filled primary / danger (not
+  secondary/outline); the import browser shows a ":latest" pseudo-file at the
+  TOP of the directory being viewed when that directory holds the app's
+  date-stamped backups.
+- DONE:
+  - `setupFileSyncTabs()` order is now OneDrive, Minio, so FileSync opens on
+    OneDrive. Tests that wanted the MinIO fields after clicking `#filesync-tab`
+    now also click the inner `Minio` sub-tab (pmd-regression 12x, pmd-screenshots
+    "settings - minio", minio-directory, cmd/lol/storyboard MinIO tests).
+  - `#btnOneDriveSignOut` is `variant="danger"` in all four shells (Sign in is
+    already `primary`); `tests/onedrive.spec.js` asserts the variants and the
+    filled `btn-danger` inner button (no outline).
+  - The OneDrive browser renders `od-latest-current` as the first content row
+    (after Up) when the CURRENT directory has the app's date-stamped backups:
+    label `<directory name>:latest`, meta = newest filename. The per-subfolder
+    `od-latest` rows stay. Matching is app-specific:
+    `oneDriveIsAppBackupName()` uses `SmdConfig.fileSyncLatestPattern` when set
+    (Storyboard: `/^story-\d{12}\.json$/i`), else
+    `<fileSyncExportPrefix|minioExportPrefix|planmydays>-<12 digits>.json`.
+    CountMyDays now sets `SmdConfig.fileSyncExportPrefix = "countmydays"` (its
+    files are countmydays-*), ListOfLists keeps "listoflists", PlanMyDay uses
+    the default "planmydays".
+- VERIFIED: onedrive 9/9 (new tab order + variant + top-latest assertions),
+  minio-directory 4/4, storyboard-minio 6/6, cmd MinIO 8/8, LoL MinIO 4/4, pmd
+  MinIO 51/51, pmd screenshot "settings - minio" green. Visual check: the
+  OneDrive root lists `PlanMyDay:latest` above the folder and the two files.
+- BUILD: bumped again after this change.

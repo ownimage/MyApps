@@ -17,16 +17,17 @@
 //   loadFileSyncSettings()  from its settings `restore()` hook
 //   updateFileSyncMenu()    at boot and whenever either provider is toggled
 
-// Build the Minio/OneDrive sub-tabs from the two <template>s. Safe to call on
-// every settings open: smd-tabs replaces its content each time.
+// Build the OneDrive/Minio sub-tabs from the two <template>s. Safe to call on
+// every settings open: smd-tabs replaces its content each time. OneDrive is
+// first (the newer integration); Minio keeps its existing ids.
 function setupFileSyncTabs() {
   var tabsEl = $id("fileSyncTabs");
   if (!tabsEl) return;
   var minioTpl = document.getElementById("fileSyncMinioTpl");
   var oneDriveTpl = document.getElementById("fileSyncOneDriveTpl");
   tabsEl.tabs = [
-    { title: "Minio", id: "filesync-minio-tab", content: minioTpl ? minioTpl.innerHTML : "" },
-    { title: "OneDrive", id: "filesync-onedrive-tab", content: oneDriveTpl ? oneDriveTpl.innerHTML : "" }
+    { title: "OneDrive", id: "filesync-onedrive-tab", content: oneDriveTpl ? oneDriveTpl.innerHTML : "" },
+    { title: "Minio", id: "filesync-minio-tab", content: minioTpl ? minioTpl.innerHTML : "" }
   ];
 }
 

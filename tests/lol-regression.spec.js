@@ -867,6 +867,7 @@ test.describe("ListOfLists - Regression", () => {
 
       await page.evaluate(() => openSettings());
       await page.locator("#filesync-tab").click();
+      await page.locator("#fileSyncTabs > .smd-tab-list .smd-tab-btn").filter({ hasText: "Minio" }).click();
       await page.locator("#minioEnabled").check();
       await page.locator("#settingsPage .smd-page-footer smd-button").filter({ hasText: "OK" }).click();
       await expect(page.locator("#settingsPage")).toBeHidden();
