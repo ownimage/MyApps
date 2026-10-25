@@ -74,3 +74,10 @@ smd-checkbox input[type="checkbox"] {
   border-color: #000;
 }
 /* smd-contrast:end */
+
+/* INACTIVE controls: morph's LIGHT page is a pale blue (#d9e7f1), where the
+   shared muted grey (--smd-inactive-muted: #6c757d) is only 3.6:1. Darken just
+   the muted label; the rest of the shared light ramp clears its pairs. */
+:root {
+  --smd-inactive-muted: #495057;
+}
