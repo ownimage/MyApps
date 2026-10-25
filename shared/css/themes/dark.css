@@ -37,6 +37,19 @@
   --smd-form-disabled-background: var(--bs-secondary-bg);
   --smd-form-disabled-foreground: var(--bs-secondary-color);
 
+  /* INACTIVE (read-only / disabled) controls - the rules live in styles.css.
+     Dark-mode ramp: a raised neutral surface with muted text, so a field that
+     normally equals the page still reads as "switched off". Same four pairs as
+     light.css. A mid grey box keeps the WHITE tick readable (3.46:1), so no
+     per-theme tick override is needed anywhere. */
+  --smd-inactive-surface: #343a40;
+  --smd-inactive-border: #adb5bd;
+  --smd-inactive-text: #adb5bd;
+  --smd-inactive-muted: #adb5bd;
+  --smd-inactive-box: #868e96;
+  /* Light chevron, for the dark inactive surface. */
+  --smd-inactive-caret: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23ced4da' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m2 5 6 6 6-6'/%3e%3c/svg%3e");
+
   /* Palette for <smd-image-dropdown> (the shared image+name selector). The
      surface/LABEL mirror the form-field palette (see light.css) so the picker
      matches the form controls instead of the lighter --bs-tertiary-bg surface.

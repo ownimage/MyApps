@@ -7373,3 +7373,71 @@ Techniques / gotchas:
   (>=24px) and the 12px restored inset; 4/4 green.
 - GOTCHA: do NOT set `overflow:hidden` on the WCO nav - the hamburger dropdown
   is a child and gets clipped; only the title text ellipsises.
+
+### 2026-10-25 - INACTIVE (read-only / disabled) controls: shared rules + per-mode palette, all themes
+- REQUEST (user, three passes): first a superhero-only visual spike on PlanMyDay
+  View Job, then bootstrap + vapor, then "roll this out to all themes and all
+  modes and all pages on all apps ... add to the contrast tests ... bump the
+  build". This note SUPERSEDES the two per-theme spike notes it replaces.
+- WHERE IT LIVES NOW (do not re-duplicate per theme):
+  - RULES: `shared/css/styles.css`, the "INACTIVE (read-only / disabled)
+    CONTROLS" block right after the FORM CONTROLS section. `#smd-app`-scoped so
+    they beat Bootswatch; they cover `.form-control[readonly]`,
+    `.form-control:disabled`, `.form-select:disabled`,
+    `smd-date-picker[readonly] #smdDatePickerAlt`, `smd-checkbox[disabled]` (+ its
+    input, unchecked and checked), and `.btn:disabled`. Being shared and
+    `#smd-app`-scoped, they apply to every app and every page with no app work.
+  - PALETTE: `shared/css/themes/light.css` and `dark.css` (`--smd-inactive-surface`,
+    `-border`, `-text`, `-muted`, `-box`, `-caret`). Values are NEUTRAL LITERALS,
+    never `--bs-gray-*`: every Bootswatch theme re-declares the gray scale
+    (superhero's gray-600 is #4e5d6c, not #6c757d), so a themed token is not
+    predictable enough for a "switched off" look.
+  - THEME OVERRIDES are VALUES ONLY, and only where a theme's page contradicts
+    its mode: the always-dark themes need the DARK ramp even in Light mode
+    (superhero, cyborg, darkly, slate, solar, vapor - each in its
+    `<theme>.light.css`); morph light darkens just the muted label (its page is
+    pale blue, 3.6:1 there); quartz light gets its own set (its page is a
+    MID-TONE purple gradient where neither shared ramp works - a mid grey is
+    1.02:1 and the dark ramp's #adb5bd is 2.05:1, so boundary/box go dark #212529
+    and the muted label white); sketchy colours its hand-drawn
+    `input[type=checkbox]:disabled::before` because it sets `border: none` on the
+    input.
+- THE FIVE PAIRS THE DESIGN MUST SATISFY (one grey cannot do all of them): field
+  text on the inactive surface (4.5:1), border on the surface the control SITS ON
+  (3:1 - the page OR the `<pmd-tasks>` row, which differ), checkbox box on that
+  same surface (3:1), the tick on the box (3:1), and the muted checkbox label on
+  the page (4.5:1). Hence the light ramp uses a DARK box (#6c757d, white tick) and
+  the dark ramp a MID box (#868e96, white tick) - a LIGHT box would force a
+  per-theme dark-tick override everywhere.
+- VAPOR/MATERIA STYLE GOTCHA: vapor's `.btn` is borderless and draws a coloured
+  `box-shadow` glow per variant, so the disabled rule sets `box-shadow: none` AND
+  `border-width/style`. A grey button otherwise keeps a neon halo AND has no
+  boundary - its fill is only 1.6:1 on the purple page. The forced 1px border is
+  in the SHARED rule for exactly that reason.
+- FIXED ALONG THE WAY (pre-existing, found by the new test): slate/solar/vapor
+  LIGHT mode renders a DARK page but `--bs-tertiary-bg` is Bootstrap's light
+  #f8f9fa, so `<pmd-tasks>` rows were near-white strips carrying the theme's light
+  body colour. Those three `.light.css` files now derive the row surface from the
+  page (`color-mix(in hsl, var(--bs-body-bg) 88%, var(--bs-body-color))`), like
+  superhero/cyborg/darkly already did.
+- TEST: new `tests/contrast.spec.js` test "inactive (read-only / disabled)
+  controls meet AA on every theme and mode" (tag @contrast). It mounts every
+  inactive control kind TWICE - on the page and inside a `<pmd-tasks>` row - then
+  walks all 27 themes x 2 modes and asserts the five pairs (text 4.5, graphics 3,
+  plus "no visible border"). It reads the tick colour from the SVG's
+  `stroke='%23...'` so a dark-tick theme would be measured correctly. GOTCHAS
+  baked in: measure a control's BORDER against the surface it SITS ON (its own
+  background returns 1.0 - comparing a fill to itself produced false failures),
+  only treat a CHECKBOX as having a meaningful "fill" (a text field's fill is its
+  own surface), and fall back to `::before` for sketchy's hand-drawn box (the same
+  fallback the existing form-border test uses).
+- VERIFIED: contrast project 12/12 (incl. contrast-css drift - no regeneration
+  needed - and the new test); settings-alignment + display-settings +
+  native-checkbox-guard 46/46; storybook + cmd 85/85; lol/qrlinks/launch/ffox/
+  solar/phonebuttons/image-edit-preview-size 139/139; pmd-regression
+  "Theme colours|View Job|Job Edit|Tasks|dropdown" 96/96; pmd-touch (iPhone) 6/6.
+  Visually checked View Job in quartz/sketchy/materia/minty/slate/vapor/lux/
+  superhero plus a SolarControlar settings page.
+- BUILD: bumped to 202610250448 via `npm run bump:build`. SCREENSHOTS ARE STALE in
+  every app (disabled/read-only fields, and the three fixed task-row themes) -
+  regenerate before shipping.

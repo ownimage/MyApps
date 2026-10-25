@@ -115,3 +115,16 @@ smd-checkbox input[type="checkbox"] {
   border-color: #fff;
 }
 /* smd-contrast:end */
+
+/* INACTIVE controls: quartz's LIGHT page is a mid-tone purple gradient
+   (#33b7e2 -> #5e62b0 -> #dc307c, serialised as #686dc3), so neither shared ramp
+   works - a mid grey is 1.02:1 on it and the dark ramp's #adb5bd is 2.05:1. The
+   field keeps the shared light surface/text (a light, readable field), but the
+   BOUNDARY, BOX and muted label must be chosen against the purple page: a dark
+   boundary also clears quartz's near-white task rows. Values only - rules live in
+   shared/css/styles.css. */
+:root {
+  --smd-inactive-border: #212529;
+  --smd-inactive-muted: #ffffff;
+  --smd-inactive-box: #212529;
+}
