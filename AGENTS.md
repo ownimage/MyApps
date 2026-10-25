@@ -7674,3 +7674,13 @@ Techniques / gotchas:
   backups" half. A console/pageerror probe confirmed Storyboard boots and
   renders the icon cleanly.
 - BUILD: bumped after this change.
+
+### 2026-10-25 (h) - OneDrive top ":latest" uses Bootstrap clock-history
+- The top-of-directory `.od-latest-current` icon is now
+  `<smd-image image="bi:clock-history" size="18">` (oneDriveLatestIcon) instead of
+  the inline SVG clock. The per-subfolder `od-latest` rows keep the SVG clock.
+- `Storyboard/index.html` now links `shared/vendor/bootstrap-icons.css` (PMD, CMD
+  and LoL already did) so the `bi:` glyph font is registered; `smd-image` fetches
+  the CSS glyph map itself, but the font comes from that document-level link.
+- TEST: `tests/onedrive.spec.js` asserts the bi:clock-history host on the top row
+  (11/11); a visual probe confirmed the clock-history glyph. BUILD bumped.

@@ -175,6 +175,7 @@ test.describe("OneDrive", () => {
     await expect(page.locator("#oneDriveBody .od-latest-current")).toContainText(
       "planmydays-202610250900.json / " + expectedStamp("2026-10-25T09:00:00Z")
     );
+    await expect(page.locator("#oneDriveBody .od-latest-current smd-image[image='bi:clock-history']")).toHaveCount(1);
     await expect(page.locator("#oneDriveBody .od-file")).toContainText("planmydays-202610250900.json");
     await expect(page.locator("#oneDriveBody .od-file smd-image[image='fa:file']")).toHaveCount(1);
     // No toolbar Up control: the directory list owns the "< Up" row.

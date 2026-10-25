@@ -593,6 +593,12 @@ function oneDriveFileIcon(extraClass) {
     ' flex-shrink-0" aria-hidden="true"></smd-image>';
 }
 
+// The top-of-directory ":latest" shortcut uses Bootstrap's clock-history glyph.
+function oneDriveLatestIcon(extraClass) {
+  return '<smd-image image="bi:clock-history" size="18" class="' + (extraClass || "") +
+    ' flex-shrink-0" aria-hidden="true"></smd-image>';
+}
+
 // Newest JSON in a folder (subfolder ":latest" rows).
 function oneDriveLatestJson(folderPath) {
   return oneDriveListFolder(folderPath).then(function (list) {
@@ -914,7 +920,7 @@ function oneDriveRenderList(path, list, latests) {
   var currentLatest = oneDrivePickLatestAppFile(list.files);
   if (currentLatest) {
     rows.push('<li class="list-group-item list-group-item-action d-flex align-items-center od-latest-current" style="cursor:pointer" onclick="oneDrivePickFile(\'' +
-      oneDriveInlineArg(currentLatest.key) + '\')">' + ONEDRIVE_ICON_LATEST +
+      oneDriveInlineArg(currentLatest.key) + '\')">' + oneDriveLatestIcon("me-2") +
       escapeHtml(oneDriveDirectoryLabel(path)) +
       ':latest<span class="od-meta">' + oneDriveLatestMeta(currentLatest) + '</span></li>');
   }
