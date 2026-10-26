@@ -439,6 +439,37 @@ function renderMain() {
   sbRender();
 }
 
+// Paint the active scene's background. `data-background` is PART of the painting,
+// not just a colour hook: the empty-board state carries the dot grid's 24px
+// `background-size`, so an image painted while the element still says "none"
+// renders as ONE tiny tile in the middle of the board (reported as "the
+// background is only a small image in the centre"). Every paint path must go
+// through here - sbRender() and the async OneDrive resolve alike.
+function sbPaintBackground() {
+  if (!sbEls.bg) return;
+  var board = sbActiveBoard();
+  if (!board) return;
+  // The painting is a built-in asset path, a cached object URL, a restored data
+  // URL, or (until the full image lands) a OneDrive thumbnail.
+  var src = board.background && typeof sbBackgroundSrcFor === "function"
+    ? sbBackgroundSrcFor(board.background) : "";
+  if (!src) {
+    // REMOVE the inline property rather than assigning "": an empty inline
+    // background-image would override the CSS dot-grid for the empty board.
+    sbEls.bg.style.removeProperty("background-image");
+    sbEls.bg.dataset.background = "none";
+    return;
+  }
+  sbEls.bg.style.backgroundImage = 'url("' + src + '")';
+  var isOd = typeof sbIsOdBackground === "function" && sbIsOdBackground(board.background);
+  var meta = isOd || typeof sbBackgroundById !== "function" ? null : sbBackgroundById(board.background);
+  // Built-in paintings keep their brand colour; anything else (OneDrive, an id
+  // this build no longer knows) is a plain "custom" painting. NEVER leave the
+  // attribute at "none" while an image is set, and never throw here - an
+  // exception used to abandon the rest of the render.
+  sbEls.bg.dataset.background = meta ? meta.id : "custom";
+}
+
 function sbRender() {
   if (!sbEls.items) sbInitBoard();
   var board = sbActiveBoard();
@@ -451,21 +482,7 @@ function sbRender() {
   var story = typeof sbActiveStory === "function" ? sbActiveStory() : null;
   // Fit = contain (letterboxed over the board colour); stretch = fill the size.
   sbEls.bg.dataset.fit = typeof sbStoryFit === "function" ? sbStoryFit(story) : "fit";
-  // The painting is a built-in asset path, a cached object URL, a restored data
-  // URL, or (until the full image lands) a OneDrive thumbnail.
-  var bgSrc = board.background && typeof sbBackgroundSrcFor === "function"
-    ? sbBackgroundSrcFor(board.background) : "";
-  if (bgSrc) {
-    sbEls.bg.style.backgroundImage = 'url("' + bgSrc + '")';
-    sbEls.bg.dataset.background = typeof sbIsOdBackground === "function" && sbIsOdBackground(board.background)
-      ? "custom"
-      : sbBackgroundById(board.background).id;
-  } else {
-    // REMOVE the inline property rather than assigning "": an empty inline
-    // background-image would override the CSS dot-grid for the empty board.
-    sbEls.bg.style.removeProperty("background-image");
-    sbEls.bg.dataset.background = "none";
-  }
+  sbPaintBackground();
 
   sbEls.items.innerHTML = "";
   if (sbEls.objectObserver) sbEls.objectObserver.disconnect();

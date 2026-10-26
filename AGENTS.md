@@ -149,10 +149,30 @@ Architecture:
   `data-background="custom"` for an OneDrive painting (so no built-in colour/grid
   leaks through - add a `#sbBackground[data-background="custom"]` colour if the
   letterbox bars need one); the JPG export loads the same resolved src.
-  Tests: `tests/storyboard-backgrounds.spec.js` (7: unchanged when OneDrive is
+  BACKGROUND PAINT IS ONE PATH (2026-10-26, bug: "sometimes when I open the app or
+  a story the background is only a small image in the centre of the screen"):
+  `sbPaintBackground()` in `board.js` is the ONLY writer of
+  `#sbBackground`'s inline `background-image` AND its `data-background`
+  attribute, and `sbRender()` + `sbBgOnResolved()` (background-library.js, the
+  async cache/download landing) both call it. WHY it matters: the attribute is
+  part of the painting, not just a colour hook - `[data-background="none"]`
+  carries the EMPTY-BOARD DOT GRID's `background-size: calc(24px * scale)`, so an
+  image painted while the element still says "none" renders as ONE tiny tile in
+  the middle of the board. That is exactly what happened when a scene kept only
+  its `od:` id across a reload: the first render had no bytes yet (dot grid),
+  then `sbBgOnResolved()` swapped only `style.backgroundImage`. `sbPaintBackground()`
+  also treats an unknown non-`od:` id as `custom` instead of `null.id` (that
+  threw and abandoned the rest of `sbRender()`). NEVER set `backgroundImage` on
+  `#sbBackground` from anywhere else. Test:
+  `tests/storyboard-backgrounds.spec.js` "a background whose bytes land AFTER the
+  render still fills the board" (asserts `data-background="custom"` and computed
+  `background-size: contain` after `sbBgApplyFull()`; RED before the fix, where
+  the size was the dot grid's 26.4px).
+  Tests: `tests/storyboard-backgrounds.spec.js` (9: unchanged when OneDrive is
   off, thumbnails-only browsing with names, full download on selection + board
   paint, folder/sign-in tab rules, offline reload from cache, eTag re-save
-  refresh, backup embed-once + restore with an empty cache).
+  refresh, empty-board hint rules, backup embed-once + restore with an empty
+  cache, late bytes still fill the board).
 - STORYBOARD SAVING: SCENE JPG + STORY ZIP (2026-10-26, user request; moved INTO
   THE HAMBURGER MENU the same day): saving is the LAST TWO hamburger-menu items,
   after their own divider - `Download Story` (`sbDownloadStory()`) then
@@ -8501,3 +8521,33 @@ Techniques / gotchas:
   phone (title ellipsises, bar stays one row).
 - SCREENSHOTS: the Storyboard "board" and "main menu dropdown" scenes changed -
   regenerate the gallery before shipping.
+
+### 2026-10-26 (f) - Storyboard: a background that arrives late showed as a tiny tile
+
+- REPORTED (user): "sometimes when I open the app or a story that the background
+  is only a small image in the centre of the screen rather than the right size".
+- CAUSE (proved by a probe + a RED test): `#sbBackground` is painted by TWO
+  writers. `sbRender()` set BOTH the inline `background-image` and
+  `data-background`; the async OneDrive landing (`sbBgApplyFull` /
+  `sbBgApplyThumb` -> `sbBgOnResolved`) set ONLY the inline image. A scene keeps
+  just its `od:<id>`, so the first render after a reload has no bytes yet -> the
+  element stays in the empty-board state `data-background="none"` - and that
+  state carries the DOT GRID's `background-size: calc(24px * --sb-design-scale)`.
+  The arriving artwork was then painted into that state: ONE 26px tile, centred,
+  `no-repeat`. Exactly the reported symptom (it only shows when the bytes land
+  after a render, i.e. "sometimes": cache read on open, a download, or a focus
+  refresh).
+- FIX: new `sbPaintBackground()` in `Storyboard/js/board.js` is the single paint
+  path (image + `data-background` together, and an unknown non-`od:` id paints as
+  `custom` instead of throwing `null.id` mid-render). `sbRender()` calls it, and
+  `sbBgOnResolved()` in `background-library.js` now calls it instead of touching
+  `style.backgroundImage` - so the attribute can never disagree with the image.
+- TDD: new `tests/storyboard-backgrounds.spec.js` test "a background whose bytes
+  land AFTER the render still fills the board" registered an `od:` id with no
+  bytes, asserted the before state (`data-background="none"`, not `contain`),
+  then resolved the bytes with `sbBgApplyFull()` and asserted
+  `data-background="custom"` + computed `background-size: contain` + the board
+  box. RED before the fix (`data-background` stayed "none"), GREEN after.
+- VERIFIED: backgrounds 9/9; the whole Storyboard suite + onedrive 126/126;
+  visually confirmed the late-arriving Space artwork paints the full board (was a
+  centred 26px tile). BUILD -> `202610261431`.

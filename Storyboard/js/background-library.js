@@ -496,6 +496,15 @@ function sbBgOnThumbResolved(id) {
 function sbBgOnResolved(id) {
   var board = typeof sbActiveBoard === "function" ? sbActiveBoard() : null;
   if (!board || board.background !== id) return;
+  // Repaint through the SINGLE paint path rather than only swapping the inline
+  // image: when the bytes arrive AFTER the render the element is still in the
+  // empty-board state (`data-background="none"`, whose dot grid sets a 24px
+  // background-size), so the artwork would show as one small tile in the middle
+  // of the board. board.js owns both halves of that painting.
+  if (typeof sbPaintBackground === "function") {
+    sbPaintBackground();
+    return;
+  }
   var src = typeof sbBackgroundSrcFor === "function" ? sbBackgroundSrcFor(id) : "";
   var el = document.getElementById("sbBackground");
   if (el && src) el.style.backgroundImage = 'url("' + src + '")';

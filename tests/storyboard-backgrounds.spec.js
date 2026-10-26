@@ -262,6 +262,57 @@ test.describe("Storyboard - OneDrive backgrounds", () => {
     await page.evaluate(() => { sbAddSticker("mermaid"); });
     await expect(page.locator("#sbEmptyHint")).toBeHidden();
   });
+  test("a background whose bytes land AFTER the render still fills the board", async ({ page }) => {
+    // Reported: "sometimes when I open the app or a story the background is only a
+    // small image in the centre of the screen". A scene keeps its OneDrive id, but
+    // after a reload the bytes arrive a moment later. The board is painted with no
+    // source yet, so it is in the empty-board (dot grid) state - and that state
+    // carries a 24px `background-size`. If the arriving image is painted into that
+    // state the artwork shows as ONE tiny tile in the middle of the board.
+    await seed(page, {
+      story: story("bg-story", STORY_NAME, [scene("bg-scene-a", "Scene 1", { background: "od:abc123" })])
+    });
+    // Bytes never arrive on their own here - the test resolves them by hand, the
+    // same call the cache/network path makes when a download lands.
+    await page.evaluate(() => {
+      window.oneDriveDownloadBlob = function () { return new Promise(function () {}); };
+      window.oneDriveDownloadThumbnail = function () { return Promise.reject(new Error("no thumb")); };
+      sbRegisterOdBackground({ id: "od:abc123", name: "Night sky", path: "MyApps/Storyboard/Backgrounds/night.png", eTag: "{v1}" });
+      sbRender();
+    });
+
+    // Nothing to paint yet: the empty-board dot grid, so a 24px tile size.
+    const before = await page.evaluate(() => {
+      const bg = document.getElementById("sbBackground");
+      return { state: bg.dataset.background, size: getComputedStyle(bg).backgroundSize };
+    });
+    expect(before.state).toBe("none");
+    expect(before.size).not.toBe("contain");
+
+    // The full painting lands.
+    await page.evaluate((base64) => {
+      const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+      sbBgApplyFull("od:abc123", new Blob([bytes], { type: "image/png" }));
+    }, PNG_FULL);
+
+    const after = await page.evaluate(() => {
+      const bg = document.getElementById("sbBackground");
+      const box = bg.getBoundingClientRect();
+      return {
+        state: bg.dataset.background,
+        size: getComputedStyle(bg).backgroundSize,
+        image: bg.style.backgroundImage || "",
+        box: { w: Math.round(box.width), h: Math.round(box.height) }
+      };
+    });
+    // The painting must fill the board, not sit in it as a 24px tile.
+    expect(after.image).toContain("blob:");
+    expect(after.state).toBe("custom");
+    expect(after.size).toBe("contain");
+    expect(after.box.w).toBeGreaterThan(400);
+    expect(after.box.h).toBeGreaterThan(300);
+  });
+
   test("a story backup embeds each used background once and restores it", async ({ page }) => {
     const twoScenes = story("bg-story", STORY_NAME, [
       scene("bg-scene-a", "Scene 1"),
