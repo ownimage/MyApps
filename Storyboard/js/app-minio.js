@@ -39,6 +39,23 @@ function sbMinioStoryFileName(date) {
   return "story-" + sbMinioTimestamp(date) + ".json";
 }
 
+// One story backup payload, shared by the MinIO and OneDrive saves: the WHOLE
+// story plus the bytes of every OneDrive sticker it uses (one entry per sticker,
+// however many times it is placed) so a backup opens on any device without the
+// sticker cache. Board items only store `od:<hash>` + the file name.
+function sbStoryBackupPayload(story) {
+  return (typeof sbStickerStoryExtra === "function" ? sbStickerStoryExtra(story) : Promise.resolve({}))
+    .then(function (stickers) {
+      return {
+        version: 1,
+        app: "storyboard",
+        exportedAt: new Date().toISOString(),
+        story: story,
+        stickers: stickers || {}
+      };
+    });
+}
+
 function sbSaveStoryToMinio() {
   var config = getMinioConfig();
   if (!config.enabled) return;
@@ -57,14 +74,9 @@ function sbSaveStoryToMinio() {
   sbSaveState();
 
   var key = minioBuildKey(config.directory, sbMinioStoryDirName(story.name), sbMinioStoryFileName(new Date()));
-  var payload = {
-    version: 1,
-    app: "storyboard",
-    exportedAt: new Date().toISOString(),
-    story: story
-  };
-
-  minioPutObject(config.bucket, key, JSON.stringify(payload, null, 2), config).then(function() {
+  sbStoryBackupPayload(story).then(function (payload) {
+    return minioPutObject(config.bucket, key, JSON.stringify(payload, null, 2), config);
+  }).then(function() {
     showMinioAlert("Saved " + key + " to Minio bucket " + config.bucket, "info");
   }).catch(function(e) {
     showMinioAlert("Minio save failed: " + minioFriendlyError(e), "error");
@@ -118,7 +130,8 @@ function sbOverwriteStory(existing, incoming) {
 }
 
 // OneDrive save: the SAME whole-story payload and path shape as the MinIO save,
-// under the app's OneDrive Directory (<dir>/<story>/story-<timestamp>.json).
+// under the app's OneDrive Directory (<dir>/<story>/story-<timestamp>.json),
+// including the bytes of the OneDrive stickers the story uses.
 function sbSaveStoryToOneDrive(config) {
   var story = sbActiveStory();
   if (!story) {
@@ -133,14 +146,10 @@ function sbSaveStoryToOneDrive(config) {
     sbMinioStoryDirName(story.name),
     sbMinioStoryFileName(new Date())
   );
-  var payload = {
-    version: 1,
-    app: "storyboard",
-    exportedAt: new Date().toISOString(),
-    story: story
-  };
 
-  oneDrivePutFile(key, JSON.stringify(payload, null, 2)).then(function () {
+  sbStoryBackupPayload(story).then(function (payload) {
+    return oneDrivePutFile(key, JSON.stringify(payload, null, 2));
+  }).then(function () {
     showOneDriveAlert("Saved " + key + " to OneDrive.", "info");
   }).catch(function (e) {
     showOneDriveAlert("OneDrive save failed: " + oneDriveFriendlyError(e), "error");
@@ -170,6 +179,10 @@ function sbHandleImportedStory(provider, data, key) {
 
   var incoming = sbPrepareImportedStory(data.story);
   if (!incoming) return false;
+  // Restore the sticker bytes the backup carries (one entry per sticker) before
+  // the story is activated, so a library sticker renders immediately - even on a
+  // device that has never listed the OneDrive folder.
+  if (typeof sbStickerRestorePayload === "function") sbStickerRestorePayload(data.stickers);
 
   // A same-named story already exists: ASK before replacing it (smd-modal).
   // Cancel returns to the file list so another backup can be chosen.

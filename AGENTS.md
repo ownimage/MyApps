@@ -85,6 +85,106 @@ Architecture:
 - Shared components are LIGHT DOM. `shared/css/styles.css` now holds ONLY theme colour + spatial-size declarations; every layout MECHANIC (display/flex/position/gap/margin/padding/transform/transition/border-reset/cursor/opacity) lives in the component's own `injectSmdComponentStyle()` block (or, for the app shell, `injectSettingsLayout()` in `shared/js/smd-settings.js`). Do not reintroduce constructable stylesheets or shadow-root styling for these components. `smd-modal`, `smd-page`, `smd-tabs`, and the pmd-* cards expose stable light-DOM classes for shared selectors and tests. `smd-tabs` tab definitions may include `panelClass` (for example `no-padding`) for panel-specific layout.
 - Colour/typography conventions: smd-tabs active = `--bs-primary`, inactive = `--bs-secondary`, with `#smd-app` scoping for priority; the Streams Editor header is `--bs-primary` when expanded and `--bs-info` when collapsed; modal/page headers use theme surfaces (`--bs-body-bg`, `--bs-secondary-bg`, `--bs-border-color`) rather than hardcoded colours. Bootstrap/Bootswatch remains authoritative; the runtime contrast layer is not used.
 - TYPESCALE TOKENS (2026-09-18): one shared ramp in `shared/css/styles.css` — `body { --smd-type-base: 1rem }` plus `body.font-size-xsmall/small/large/xlarge/jumbo` overrides (0.8/0.925/1/1.125/1.3/1.6rem) — drives exactly four tokens `--smd-type-badge` (base×0.75), `--smd-type-p` (base), `--smd-type-h2` (base×1.25), `--smd-type-h1` (base×2), all declared on `body` (NOT `:root`: the ramp must recompute per font-size body class, and body custom props pierce shadow DOM while `:host-context()` doesn't). Tag map: h1→h1; h2/h3/h4→h2; h5/h6→p; text/inputs/tables→p; badges→badge. BUTTONS ARE h2 (one step above text): `<button>`, `.btn`, `.smd-tab-btn` all use `var(--smd-type-h2)`; `.btn-sm` stays at `var(--smd-type-p)`. Light-DOM home is `shared/css/styles.css` (`button, .btn` / `.btn-sm`); the shared `btnBadgeSheet` covers shadow buttons. Scaffold the h2/p rules inline wherever a shadow root does NOT adopt btnBadgeSheet: the 4 apps' `editor-styles.js`, `smd-settings.js`, `smd-minio.js`, `smd-modal.js`, `smd-image-picker.js`, `smd-image-dropdown.js`. Don't re-add per-component `.btn` font-size rules. Every component + app style now uses `var(--smd-type-*, original-value)` (original as fallback so behaviour is unchanged wherever the token is missing). Media-fit sizes are token CALCs (e.g. CM/QR title `calc(var(--smd-type-h1,1.5rem)*0.7667)`, CM count `*0.8333`, CM container h1 `*0.625`, Solar 480px block). Compact density = `--…-title-size: var(--smd-type-p)` overrides. Deliberate non-token exceptions: the 22px hamburger icon in `smd-app.js`, `smd-checkbox` 1.2em/2em + `smd-draghandle` FIXED 1.2rem/1.6rem touch sizes, vendor CSS, storybook chrome. Tests assert heading ELEMENT tags (now `h1` for main-view date/"Today!"/"From …" headings) and pmd-touch.spec.js:119 asserts the NEW pixel values (xlarge 41.6, jumbo 51.2, compact-jumbo 25.6) — update those literals together with any ramp change.
+- STORYBOARD STICKER LIBRARIES (2026-10-26, user request): the Stickers fly-out
+  gains `<Directory>/Stickers` ("Library") and `<Directory>/<story>/Stickers`
+  ("Board") tabs - ONLY when OneDrive is enabled AND signed in AND the folder
+  exists (Graph 404 hides that tab; neither folder and there is no tab UI at all,
+  so the panel is byte-identical to before). Files: `Storyboard/js/sticker-library.js`
+  (the whole feature), `Storyboard/js/components/sb-sticker.js` and
+  `sb-sticker-gallery.js` (light-DOM tiles, the old `.sb-sticker-option`
+  button/`data-sticker` markup lives INSIDE `<sb-sticker>` so storyboard.css and
+  the panel's delegated click handler are unchanged). `sbRenderStickersPanel()`
+  builds them through `<smd-tabs wrap padding="small">`; galleries are DATA-driven
+  (`gallery.stickers = [{id,name,src,source}]`, diffed by id, so one resolving
+  image updates one tile instead of re-rendering ~30).
+  IDS: `od:<fnv1a-x2 hash>` of the Graph item **id** (falling back to the full
+  path), so a rename keeps the reference and the same file keeps the same id,
+  cache key and artwork. `SB_OD_STICKERS` (storage.js) is the RUNTIME registry;
+  `sbStickerById()` returns an entry for ANY `od:` id (placeholder for listed but
+  not downloaded, or an unknown one from an old board) so `sbNormalizeItem` never
+  falls back to the first built-in sticker. Board items store ONLY
+  `{sticker:"od:<hash>", stickerName:"shark.png"}`, and captions are the file name
+  WITHOUT its extension (full name in the tile `title`).
+  CACHING: Cache Storage `myapps-stickers` (sw.js `STICKER_CACHE`, and it MUST
+  stay in the `activate` allow-list or the next activation wipes it), key
+  `/sb-sticker/<id>` written by the page and read by the page (no SW route). The
+  FOLDER LISTING is persisted in localStorage `storyboard_odStickerIndex` keyed by
+  folder path, so tabs + tiles + cached images survive a reload/offline start
+  (`sbStickerHydrateFromIndex`). Only the tab the user opens downloads anything
+  (`SB_STICKER_DOWNLOAD_LIMIT = 4`), `oneDriveListFolder` is guarded to once per
+  5 s, and `sbStickerEnsureStoryImages()` (called from `sbRender`) resolves a
+  scene's stickers from the cache FIRST and only then downloads misses - that is
+  what makes a saved story render offline without opening the tab.
+  BACKUPS: `Storyboard/js/app-minio.js` `sbStoryBackupPayload()` adds
+  `stickers: { "<id>": {name, fileName, dataUrl} }` (one entry per sticker however
+  many times it is placed) to the MinIO and OneDrive story saves, which are now
+  ASYNC (data URL -> PUT); `sbStickerRestorePayload()` registers the bytes (data
+  URL is the immediate `src`, Cache Storage write is background) before the import
+  hook activates the story. `sbStickerDataUrl()` downloads on demand, so a save
+  straight after placing a sticker still embeds its bytes.
+  ARTWORK CHANGES ON DISK (2026-10-26 follow-up, user request): re-saving a PNG in
+  OneDrive keeps the item id but changes its `eTag`, so the cached bytes are stale.
+  `sbStickerFileChanged(previous, next)` compares the NEW listing against the
+  PERSISTED index entry (eTag, falling back to size+lastModified when a server
+  omits eTag) and `sbStickerInvalidate(ids)` then deletes the Cache Storage entry,
+  bumps a per-id GENERATION counter and marks the registry entry `stale`. It
+  deliberately does NOT clear the current image: the board keeps painting the last
+  good artwork until the fresh download lands, so there is no placeholder flash and
+  a refresh that fails offline keeps the old art. `sbStickerNeedsDownload()` (not
+  `sbStickerHasImage()`) is the filter every hydration path must use, and the
+  generation counter stops a cache read or download that started BEFORE the
+  invalidation from painting the old bytes over the new ones.
+  REFRESH TRIGGERS: `sbStickerInitRefresh()` (called from `app.js` after the first
+  `sbRender`) registers a `window` `focus` listener and runs one refresh at boot,
+  so a reload picks up new artwork with the Stickers panel shut;
+  `sbStickerRefreshOnDemand()` is skipped unless OneDrive is enabled+signed in AND
+  the panel is open or the scene uses an `od:` sticker, and is throttled by
+  `SB_STICKER_FOCUS_GUARD_MS` (15s, a `var` so a test can zero it). Opening the
+  Stickers panel also re-lists (5s guard), so editing a PNG and switching back to
+  the app is enough - no reload needed. Uses the user's iteration workflow:
+  layout on the board, artwork in an image editor, merged on focus.
+  FAILURES ARE NEVER SILENT (2026-10-26, user could not see their folders): the
+  panel shows `.sb-sticker-status` with the reason (expired sign-in, 403, network,
+  or "no account is signed in") plus the RESOLVED folder paths it tried and a
+  Retry button (`sbStickerRetry()`); `sbStickerStatusNote()` supplies the text and
+  `sbStickerPanelSignature()` (tabs + status) decides when the panel must repaint,
+  so a failed refresh still updates the message without a render loop.
+  `window.sbStickerDebug()` dumps build/enabled/signedIn/directory/story/paths/
+  tabs/counts/errors/index - ask for that output when a user reports hidden
+  stickers (its ABSENCE also proves the browser is running an OLD build, i.e. the
+  service worker update prompt was not accepted). Diagnostics for a missing tab:
+  `oneDriveListFolder("MyApps/Storyboard/Stickers")` in the console - 404 = wrong
+  Directory/story folder, `sign_in_required`/401 = re-sign in, 403 = the Azure app
+  lacks Files.ReadWrite consent.
+  SIGN IN FROM THE PANEL (2026-10-26, follow-up): the status line also carries a
+  primary **Sign in** button (`sbStickerSignIn`) whenever the cause is auth
+  (`sbStickerStatusKind()` returns "signin" for an expired token or no account);
+  it calls `signInToOneDrive({ silent: true })` - the shared helper now RETURNS a
+  promise for the account name and takes `options.silent` so the panel flow does
+  not stack its success alert over the panel - then `sbStickerRetry()` re-lists.
+  The error text appends Microsoft's own reason code when present
+  (`err.authError.errorCode`, e.g. `consent_required` vs `login_required`), which
+  separates "token went stale" from "the Azure app is missing Files.ReadWrite
+  consent". The Board path is reported in the message, so a story name that does
+  not match the folder (e.g. active story "Story 1" vs folder `DFOS`) is visible
+  immediately.
+  SHARED: `smd-onedrive.js` gained `oneDriveDownloadBlob(key)` (Graph `/content`
+  as a Blob; `oneDriveGraphRequest`'s third arg now takes `"blob"`/`"text"`/true)
+  and its listing `$select` also returns `id`/`eTag` on each file.
+  TESTS: `tests/storyboard-stickers.spec.js` (13; tabs per folder existence,
+  signed-out, only-the-opened-tab-downloads, placement, offline cache reload,
+  board hydration after reload, backup embed-once, backup restore without
+  OneDrive, component registration). GOTCHAS: all three galleries sit in the panel
+  DOM (hidden panels included), so assert through
+  `.smd-tab-panel.active`/`#sbPanelBody > sb-sticker-gallery` union selectors (a
+  comma-joined constant must repeat the full selector per branch); a custom
+  element created by `innerHTML` can be assigned a property BEFORE it upgrades,
+  which shadows the accessor, so `connectedCallback` folds an own `stickers` back
+  into `_stickers`; class methods are strict-mode, so `this` is `undefined` inside
+  a nested `function () {}` (capture `this._grid` first); `atob` is stricter than
+  `Buffer.from(...,"base64")` - a test PNG with a stray `=` silently made every
+  download throw, which is why `sbStickerDownload` promise-wraps the call and the
+  queue catches synchronous throws.
 - THEME TEXT COLOURS (2026-09-12): shadow-DOM buttons/tabs cannot use Bootswatch's `.btn-*` rules (document CSS doesn't cross the boundary, and `--bs-btn-*` is set on the `.btn-*` element, not `:root`). `applySmdVars()` reads a hidden light-DOM `<button class="btn btn-<variant>">` probe (`smdBootstrapColor()`) and publishes `--smd-primary/secondary/success/danger/info/warning-text` + `--smd-tab-text` on `<html>`; every shadow `.btn-*`/variant uses those vars. `applyTheme()` re-runs `applySmdVars` on the theme `<link>`'s `load`. Never hardcode white text for a theme-coloured surface; if Bootswatch's own `.btn-*` rule disagrees with its `--bs-btn-color` var (e.g. cerulean's later `.btn-secondary { color: ... }`), the probe wins — always match the probe.
 - BADGES (2026-09-12): use the shared `<smd-badge variant="primary|secondary|success|danger|warning|info|light|dark" pill?>` component everywhere — never a `<span class="badge bg-*">` (Bootstrap's badge vars live on the `.badge` element and can't reach shadow roots). `applySmdVars()` probes a hidden light-DOM `.badge.text-bg-<variant>` (`smdBootstrapStyle()`) and publishes `--smd-badge-<variant>-{bg,text}`; the component's own sheet consumes them, so text colour follows Bootswatch exactly (white on cerulean's navy info, black on its light secondary, etc.). `btnBadgeSheet` now only carries `.btn*` rules despite its name; `smd-page`'s badge/bg rules were removed.
 - PWA TITLE BAR COLOUR (2026-10-24): Windows 11 paints an installed PWA's
@@ -7963,3 +8063,98 @@ Techniques / gotchas:
   support was TDD (red on the missing imports, green after).
 - No web asset changed, so `BUILD_NUMBER` was NOT bumped; the user restarts
   `remoteHID\PhoneButtonServer.cmd` to pick up the pong.
+
+### 2026-10-26 - Storyboard: Stickers fly-out gains OneDrive Library/Board tabs
+
+- REQUEST (user): change the Stickers fly-out so that, WHEN ONEDRIVE IS ENABLED,
+  it has three tabs - "Standard" (the existing five SVG stickers), "Library"
+  (`<root-directory>/Stickers`) and "Board" (`<root-directory>/<board>/Stickers`).
+  A tab is hidden when its folder does not exist; the new tabs show a grid of
+  images WITH the file name and add the sticker exactly like the standard ones;
+  they should look the same as the old list; expect ~30 per library, so be careful
+  with efficiency and keep it working offline (some caching). The user asked for
+  an `sb-sticker` web component per sticker and an `sb-sticker-gallery` for the
+  grid.
+- DECISIONS (asked first): `<board>` = the STORY folder (same one that holds
+  `story-YYYYMMDDHHMM.json`); a placed sticker stores a CACHE REFERENCE in the
+  scene and the BYTES are embedded ONCE per used sticker in the MinIO/OneDrive
+  story backup; enabled-but-signed-out shows only the Standard list; all common
+  images (png/jpg/gif/webp/svg) are listed.
+- BUILT: `Storyboard/js/sticker-library.js` + `js/components/sb-sticker.js` +
+  `sb-sticker-gallery.js`; `sbRenderStickersPanel()` uses `<smd-tabs wrap
+  padding="small">`; `storage.js` registry/ids/placeholder; `board.js` resolves
+  the image through `sbStickerSrcFor()` and hydrates from `sbRender()`;
+  `app-minio.js` async save + `stickers` payload + restore on import;
+  `smd-onedrive.js` `oneDriveDownloadBlob()` + `id`/`eTag` in listings; `sw.js`
+  `STICKER_CACHE` keep-list + 3 new precache entries; `index.html` script tags;
+  `storyboard.css` gallery/host rules. The full contract is the durable
+  "STORYBOARD STICKER LIBRARIES" note above.
+- TDD: `tests/storyboard-stickers.spec.js` (13) written FIRST and red (no
+  components/tabs), then green. It covers tab rules per folder existence,
+  signed-out, only-the-opened-tab-downloads, placement onto the scene, offline
+  reload of cached tiles, a saved scene rendering library stickers after a reload
+  with the panel never opened, backup embed-once (same sticker placed twice),
+  backup restore without OneDrive, and the two custom-element registrations.
+- WHAT WENT WRONG (worth remembering): (a) `_apply()` used `this._grid` inside a
+  nested `function () {}` - class bodies are strict, so `this` was `undefined`;
+  (b) all three galleries live in the panel DOM, so `#sbPanelBody sb-sticker`
+  counts the hidden panels' tiles too - the spec now uses
+  `.smd-tab-panel.active`/`> sb-sticker-gallery` unions; (c) a comma-joined
+  selector constant must repeat the FULL selector per branch (`TILES + " img"`
+  only applied to the last branch); (d) my hand-copied test PNG had a stray `=`
+  padding character - `Buffer.from(b64,"base64")` accepted it but the browser's
+  `atob` threw, and because the throw was synchronous it killed the whole
+  download queue silently. The app was hardened (`sbStickerDownload` promise-wraps
+  the call; `sbStickerRunQueue` catches synchronous throws), and the spec's PNGs
+  are now validated.
+- VERIFIED (affected set, `--retries=0`): storyboard-stickers 13/13; the full
+  Storyboard suite (align/groups/minio/pan/stamp/stories/zoom) + stickers +
+  onedrive + minio-directory 94/94; launch-regression + settings-alignment +
+  display-settings + storybook-regression 66/66; `@cache` 11/11 (precache has no
+  duplicates); the storyboard screenshot scenes board + stickers panel for
+  superhero. Visually checked the panel with tabs (Standard/Library/Board) and
+  without OneDrive (identical to before).
+- BUILD: `202610261010` via `npm run bump:build`. Screenshots for the Storyboard
+  "stickers panel" scene are stale for the other 26 themes (regenerate before
+  shipping).
+- FOLLOW-UP same day (user): "if I change the png on disk I would like the board
+  to render the new image" (iterating on layouts and artwork separately). Added
+  eTag-based invalidation + refresh triggers (see the durable note above): the
+  cached bytes are dropped when a file's eTag/size changes, the OLD image stays on
+  screen until the fresh download lands, and the libraries re-list at boot and when
+  the window regains focus (15s guard) so switching back from an image editor is
+  enough. Four new tests: change-on-refresh, unchanged-folder-keeps-cache,
+  reload-without-opening-the-panel (stubs via `addInitScript` + a re-install at
+  DOMContentLoaded capture, because later global `function oneDrive*(){}`
+  declarations overwrite init-script stubs), and focus-refresh. 17/17 stickers
+  tests, the full Storyboard suite + onedrive + minio-directory 198/198 at
+  `--repeat-each=2`. One flake fixed in the spec: the "only the opened tab
+  downloads" assertion needed `expect.poll` because the tiles render before their
+  downloads finish. BUILD -> `202610261031`.
+- FOLLOW-UP 2 same day (user could not see the OneDrive folders even though
+  `MyApps\Storyboard\Stickers` and `MyApps\Storyboard\DFOS\Stickers` exist and the
+  app showed a signed-in account): a failing listing was SILENT by design, so an
+  expired Microsoft token looked identical to "no folders". `sbStickerListErrorMessage()`
+  now maps `sign_in_required` / HTTP errors / network failures to actionable text;
+  the panel renders `.sb-sticker-status` with the reason, the resolved folder paths
+  and a Retry button, and `sbStickerPanelSignature()` (tabs + status) makes a
+  failed refresh repaint the panel once without a loop. `window.sbStickerDebug()`
+  reports build/config/story/paths/tabs/counts/errors. `sbStickerRefreshPanel()`
+  no longer honours the 5s listing guard when there are no tabs yet (a boot
+  refresh could otherwise leave them hidden until the panel was reopened), and a
+  signed-out OneDrive now says so instead of showing an unchanged panel.
+  4 new tests (21 total): sign-in-expired message + attempted paths, 404 stays
+  quiet, Retry recovers and reveals the tabs, `sbStickerDebug` contents; the
+  signed-out test now asserts its hint. 21/21 stickers and 103/103 across the
+  Storyboard + onedrive + minio-directory suites. BUILD -> `202610261045`.
+- FOLLOW-UP 3 (same day, from that message): the user's status line confirmed
+  `sign_in_required` for both folders AND showed the Board path as
+  `MyApps/Storyboard/Story 1/Stickers` (their folder is `DFOS`, so the active
+  story is still named "Story 1" - either rename the story or the folder). Added a
+  **Sign in** button to the status line (`sbStickerSignIn` ->
+  `signInToOneDrive({silent:true})` -> `sbStickerRetry()`); `signInToOneDrive` now
+  returns a promise and accepts `options.silent`; the message appends Microsoft's
+  `authError.errorCode` so `consent_required` is distinguishable from
+  `login_required`. 2 new tests (23 total: sign-in button recovers the tabs,
+  reason code shown). 23/23 stickers, 142/142 Storyboard + onedrive +
+  minio-directory + settings-alignment. BUILD -> `202610261050`.

@@ -41,6 +41,12 @@ document.addEventListener("DOMContentLoaded", function () {
   sbInitToolbar();
   sbRender();
 
+  // OneDrive sticker artwork can be edited outside the app: refresh the sticker
+  // libraries at boot (so a reload picks up a re-saved PNG even with the Stickers
+  // panel shut) and whenever the window regains focus. Files whose eTag changed
+  // lose their cached bytes and are re-downloaded.
+  if (typeof sbStickerInitRefresh === "function") sbStickerInitRefresh();
+
   // Show/hide the Minio menu entries (only when MinIO is enabled).
   if (typeof updateFileSyncMenu === "function") updateFileSyncMenu();
   else if (typeof updateMinioMenu === "function") updateMinioMenu();

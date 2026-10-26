@@ -25,6 +25,26 @@ var SB_STICKERS = [
   { id: "spaceship", name: "Spaceship", file: "assets/stickers/spaceship.svg" }
 ];
 
+// OneDrive stickers (the Stickers panel's Library/Board tabs) are not known at
+// parse time: their bytes are downloaded on demand and cached, so they live in a
+// RUNTIME registry keyed by `od:<hash>` (see js/sticker-library.js). A board item
+// only stores that id plus the original file name, which keeps the story JSON
+// small; the byte payloads travel in the story backup instead.
+var SB_OD_STICKERS = {};
+
+// Placeholder shown when a library sticker's bytes are not available yet (first
+// paint before the download lands, or a backup opened on a device that has never
+// seen it). A serialized SVG cannot read CSS variables, so this neutral grey is
+// the one deliberate colour literal in the app: it has to read on a light AND a
+// dark board.
+var SB_STICKER_PLACEHOLDER = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(
+  '<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96">' +
+  '<rect x="3" y="3" width="90" height="90" rx="12" fill="none" stroke="#8a8a8a" stroke-width="3" stroke-dasharray="9 7"/>' +
+  '<path d="M34 34 L62 62 M62 34 L34 62" stroke="#8a8a8a" stroke-width="4" stroke-linecap="round"/>' +
+  "</svg>"
+);
+
+
 var SB_TEXT_BORDERS = [
   { id: "none", name: "None" },
   { id: "fancy", name: "Fancy" },
@@ -82,7 +102,10 @@ var sbState = {
   pointers: new Map(),
   panReady: false,
   pan: null,
-  saveTimer: null
+  saveTimer: null,
+  // Stickers panel: the tab the user last picked and the story folder that tab
+  // list was built for (see js/sticker-library.js).
+  stickerTab: "standard"
 };
 
 function sbUid() {
@@ -122,11 +145,49 @@ function sbBackgroundById(id) {
   return null;
 }
 
+function sbIsOdSticker(id) {
+  return /^od:[a-z0-9]+$/i.test(String(id || ""));
+}
+
+// Register (or merge) one OneDrive sticker. Metadata arrives first from the
+// folder listing (name/path) and later from the download (src/blob), so the
+// registry is merged rather than replaced.
+function sbRegisterOdSticker(meta) {
+  if (!meta || !sbIsOdSticker(meta.id)) return null;
+  var current = SB_OD_STICKERS[meta.id] || {};
+  Object.keys(meta).forEach(function (key) {
+    if (meta[key] !== undefined) current[key] = meta[key];
+  });
+  if (!current.src) current.src = SB_STICKER_PLACEHOLDER;
+  SB_OD_STICKERS[meta.id] = current;
+  return current;
+}
+
+// Every sticker goes through here: the built-in set first, then the OneDrive
+// registry. An unknown `od:` id is registered with the placeholder so a board
+// loaded before the library has been listed keeps its sticker instead of
+// silently falling back to the first built-in one.
 function sbStickerById(id) {
   for (var i = 0; i < SB_STICKERS.length; i++) {
     if (SB_STICKERS[i].id === id) return SB_STICKERS[i];
   }
+  if (sbIsOdSticker(id)) {
+    return SB_OD_STICKERS[id] || sbRegisterOdSticker({ id: id, name: "" });
+  }
   return null;
+}
+
+// Image URL and caption for a sticker item (built-in asset, cached blob URL,
+// restored data URL or the placeholder).
+function sbStickerSrcFor(item) {
+  var meta = item ? sbStickerById(item.sticker) : null;
+  if (!meta) return SB_STICKERS[0].file;
+  return meta.src || meta.file || SB_STICKER_PLACEHOLDER;
+}
+
+function sbStickerNameFor(item) {
+  var meta = item ? sbStickerById(item.sticker) : null;
+  return (meta && meta.name) || (item && item.stickerName) || "";
 }
 
 function sbHasBorder(id) {
@@ -151,6 +212,9 @@ function sbNormalizeItem(raw) {
   };
   if (type === "sticker") {
     item.sticker = sbStickerById(raw.sticker) ? raw.sticker : SB_STICKERS[0].id;
+    // Kept for OneDrive stickers: the display name survives a reload (and a
+    // story backup) before the library has listed the folder again.
+    item.stickerName = raw.stickerName ? String(raw.stickerName) : "";
     item.flipX = raw.flipX === true;
     item.flipY = raw.flipY === true;
   } else {

@@ -265,30 +265,117 @@ function sbRenderBackgroundPanel() {
 
 // ---- Stickers --------------------------------------------------------------
 
-function sbRenderStickersPanel() {
-  var html = '<div class="sb-sticker-grid">';
-  SB_STICKERS.forEach(function (sticker) {
-    html += '<button type="button" class="sb-sticker-option" data-sticker="' + sticker.id + '">' +
-      '<img src="' + sticker.file + '" alt="">' +
-      '<span>' + sticker.name + '</span></button>';
+// The Stickers panel is the Standard gallery plus (when OneDrive is enabled and
+// signed in) a Library and a Board tab listing <Directory>/Stickers and
+// <Directory>/<story>/Stickers. See js/sticker-library.js.
+var SB_STICKER_PANEL_NOTE =
+  "Tap a sticker to place it, then drag it, use the handles, or pinch and twist with two fingers.";
+
+function sbRenderStickersPanel(skipRefresh) {
+  var tabs = typeof sbStickerTabs === "function" ? sbStickerTabs() : [];
+  var note = '<p class="sb-panel-note">' + SB_STICKER_PANEL_NOTE + "</p>";
+  var status = typeof sbStickerStatusNote === "function" ? sbStickerStatusNote() : "";
+  if (status) {
+    // A failed listing must never be invisible: say what went wrong, which
+    // folders were tried, and offer the action that fixes it.
+    var kind = typeof sbStickerStatusKind === "function" ? sbStickerStatusKind() : "";
+    var signIn = kind === "signin"
+      ? '<button type="button" class="btn btn-sm btn-primary sb-sticker-signin">Sign in</button> '
+      : "";
+    note += '<p class="sb-panel-note sb-sticker-status">' + escapeHtml(status) + ' ' + signIn +
+      '<button type="button" class="btn btn-sm btn-secondary sb-sticker-retry">Retry</button></p>';
+  }
+
+  if (!tabs.length) {
+    // No OneDrive (or no library folders): exactly the list the panel had before.
+    sbState.stickerTab = "standard";
+    sbToolbarEls.body.innerHTML = '<sb-sticker-gallery source="standard"></sb-sticker-gallery>' + note;
+    sbApplyStickerGalleries();
+    if (!skipRefresh) sbStickerRefreshPanel();
+    return;
+  }
+
+  sbToolbarEls.body.innerHTML = '<smd-tabs id="sbStickerTabs" wrap padding="small"></smd-tabs>' + note;
+  var tabsEl = document.getElementById("sbStickerTabs");
+  if (!tabsEl) return;
+  var active = sbState.stickerTab || "standard";
+  var index = 0;
+  tabs.forEach(function (tab, i) { if (tab.id === active) index = i; });
+
+  tabsEl.tabs = tabs.map(function (tab) {
+    return {
+      title: tab.title,
+      content: '<sb-sticker-gallery source="' + tab.id + '"></sb-sticker-gallery>'
+    };
   });
-  html += '</div>';
-  html += '<p class="sb-panel-note">Tap a sticker to place it, then drag it, use the handles, or pinch and twist with two fingers.</p>';
-  sbToolbarEls.body.innerHTML = html;
+  tabsEl.activeIndex = index;
+  tabsEl.addEventListener("smd-tabs-change", function (event) {
+    var detail = event.detail || {};
+    var picked = tabs[detail.index] || tabs[0];
+    if (picked) sbSelectStickerTab(picked.id);
+  });
+
+  sbApplyStickerGalleries();
+  sbSelectStickerTab(tabs[index].id);
+  if (!skipRefresh) sbStickerRefreshPanel();
+}
+
+// Remember the open tab and make sure its images are cached/downloaded (only
+// the tab the user actually opens costs any network traffic).
+function sbSelectStickerTab(id) {
+  sbState.stickerTab = id;
+  if (typeof sbStickerEnsureImages !== "function") return;
+  if (id === "library" || id === "board") sbStickerEnsureImages(id);
+}
+
+function sbApplyStickerGalleries() {
+  if (!sbToolbarEls.body || typeof sbStickerGalleryData !== "function") return;
+  var galleries = sbToolbarEls.body.querySelectorAll("sb-sticker-gallery");
+  for (var i = 0; i < galleries.length; i++) {
+    var which = galleries[i].getAttribute("source") || "standard";
+    galleries[i].stickers = sbStickerGalleryData(which);
+  }
+}
+
+// A folder can appear or disappear between visits, and a failed listing adds a
+// status line: rebuild the panel only when what it SHOWS actually changed
+// (`sbStickerPanelSignature`), otherwise just re-apply the gallery data.
+function sbStickerRefreshPanel() {
+  if (typeof sbStickerRefreshFolders !== "function") return;
+  if (typeof sbStickerLibraryEnabled === "function" && !sbStickerLibraryEnabled()) return;
+  var before = typeof sbStickerPanelSignature === "function" ? sbStickerPanelSignature() : "";
+  // Opening the panel always lists once, even inside the 5s guard: otherwise a
+  // refresh that ran at boot (and failed) would leave the tabs hidden until the
+  // panel was closed and reopened.
+  sbStickerRefreshFolders(!sbStickerTabs().length).then(function () {
+    if (sbState.tool !== "stickers") return;
+    var after = typeof sbStickerPanelSignature === "function" ? sbStickerPanelSignature() : "";
+    if (after !== before) {
+      sbRenderStickersPanel(true);
+      return;
+    }
+    sbApplyStickerGalleries();
+    sbSelectStickerTab(sbState.stickerTab || "standard");
+  }).catch(function () { /* offline: cached stickers remain */ });
 }
 
 function sbAddSticker(id) {
   var board = sbActiveBoard();
-  if (!board || !sbStickerById(id)) return;
+  var meta = sbStickerById(id);
+  if (!board || !meta) return;
   var n = board.items.length;
-  sbAddItem({
+  var item = {
     type: "sticker",
     sticker: id,
     x: 50 + (n % 4) * 4,
     y: 50 + (n % 3) * 4,
     scale: 1,
     rotation: 0
-  });
+  };
+  // OneDrive stickers keep their file name in the board data: it is the caption
+  // shown before the library has been listed again (and in a restored backup).
+  if (meta.fileName) item.stickerName = meta.fileName;
+  sbAddItem(item);
   sbRender();
 }
 
@@ -473,6 +560,15 @@ function sbOnPanelClick(e) {
   }
   if (t.closest && t.closest("#sbDoneText")) {
     sbDoneText();
+    return;
+  }
+
+  if (t.closest && t.closest(".sb-sticker-signin")) {
+    if (typeof sbStickerSignIn === "function") sbStickerSignIn();
+    return;
+  }
+  if (t.closest && t.closest(".sb-sticker-retry")) {
+    if (typeof sbStickerRetry === "function") sbStickerRetry();
     return;
   }
 

@@ -503,6 +503,12 @@ function sbRender() {
     sbEls.boardName.title = activeStory ? activeStory.name + " - " + board.name : board.name;
   }
   sbUpdateSelectionUi();
+
+  // OneDrive stickers on this scene may not have their bytes in memory yet (a
+  // reload, or a scene opened before its library tab was ever shown). Resolve
+  // them from the sticker cache (offline-safe), then fetch any misses - guarded
+  // by the id set, so an unchanged board costs one cheap comparison.
+  if (typeof sbStickerEnsureStoryImages === "function") sbStickerEnsureStoryImages();
 }
 
 function sbBuildItem(item) {
@@ -516,12 +522,13 @@ function sbBuildItem(item) {
   el.style.transform = "translate(-50%, -50%) rotate(" + item.rotation + "deg)";
 
   if (item.type === "sticker") {
-    var meta = sbStickerById(item.sticker) || SB_STICKERS[0];
     el.style.setProperty("--sb-scale", item.scale);
     var img = document.createElement("img");
     img.className = "sb-sticker";
-    img.src = meta.file;
-    img.alt = meta.name;
+    // Built-in SVG asset, a cached blob: URL for a OneDrive sticker, a data:
+    // URL restored from a backup, or the placeholder until its bytes arrive.
+    img.src = sbStickerSrcFor(item);
+    img.alt = sbStickerNameFor(item);
     img.draggable = false;
     el.appendChild(img);
     sbApplyStickerFlip(el, item);

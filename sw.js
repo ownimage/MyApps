@@ -20,7 +20,7 @@
 // comparison. If the two ever DO drift, the page notices at runtime
 // (GET_BUILD) and re-registers, so the drift self-heals instead of pinning
 // users to a build the worker will never replace.
-const BUILD_NUMBER = "202610251949";
+const BUILD_NUMBER = "202610261050";
 
 const CACHE = "myapps-" + BUILD_NUMBER;
 
@@ -28,6 +28,11 @@ const CACHE = "myapps-" + BUILD_NUMBER;
 // /smd-img/<hash> URLs written by shared/js/smd-images.js (Cache Storage) must
 // survive app rebuilds, or every read would re-download the bytes.
 const IMAGE_CACHE = "myapps-images";
+
+// Cached OneDrive sticker payloads (Storyboard's Stickers > Library/Board tabs).
+// The page writes /sb-sticker/<id> entries itself and reads them back offline,
+// so - like IMAGE_CACHE - this must survive every activation.
+const STICKER_CACHE = "myapps-stickers";
 
 // ---- "No Cache" mode ----
 // A page can switch the worker to always read the app from disk (PlanMyDay's
@@ -584,11 +589,14 @@ const APPS = {
     "Storyboard/assets/stickers/seaweed.svg",
     "Storyboard/assets/stickers/spaceman.svg",
     "Storyboard/assets/stickers/spaceship.svg",
+    "Storyboard/js/components/sb-sticker.js",
+    "Storyboard/js/components/sb-sticker-gallery.js",
     "Storyboard/js/storage.js",
     "Storyboard/js/board.js",
     "Storyboard/js/toolbar.js",
     "Storyboard/js/app-settings.js",
     "Storyboard/js/app-minio.js",
+    "Storyboard/js/sticker-library.js",
     "Storyboard/js/app.js"
   ]
 };
@@ -642,7 +650,7 @@ self.addEventListener("message", event => {
 self.addEventListener("activate", event => {
   event.waitUntil(
     caches.keys().then(keys => {
-      const activePrefixes = [CACHE, IMAGE_CACHE, FLAG_CACHE];
+      const activePrefixes = [CACHE, IMAGE_CACHE, STICKER_CACHE, FLAG_CACHE];
       return Promise.all(
         keys.filter(k => !activePrefixes.some(p => k === p || k.startsWith(p)))
               .map(k => caches.delete(k))

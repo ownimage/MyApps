@@ -612,6 +612,22 @@ body.smd-wco #sbToolbar {
 
 /* ---- Sticker picker ----------------------------------------------------- */
 
+/* The tiles are <sb-sticker> custom elements inside an <sb-sticker-gallery>;
+   both are light DOM so these app rules style them directly. */
+sb-sticker-gallery {
+  display: block;
+}
+
+sb-sticker {
+  display: block;
+  min-width: 0;
+}
+
+sb-sticker .sb-sticker-option {
+  width: 100%;
+  height: 100%;
+}
+
 .sb-sticker-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -638,13 +654,32 @@ body.smd-wco #sbToolbar {
   object-fit: contain;
 }
 
+.sb-sticker-option .sb-sticker-name {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  text-align: center;
+}
+
 .sb-sticker-option:hover,
 .sb-sticker-option:focus-visible {
   border-color: rgba(var(--bs-primary-rgb), 0.55);
 }
 
-.sb-sticker-option:nth-child(odd):last-child {
+.sb-sticker-grid > sb-sticker:nth-child(odd):last-child {
   grid-column: span 2;
+}
+
+.sb-gallery-empty {
+  margin-top: 0.5rem;
+}
+
+/* The OneDrive tabs sit inside the narrow fly-out panel. */
+#sbPanelBody smd-tabs {
+  margin-bottom: 8px;
+}
+
+#sbPanelBody smd-tabs .smd-tab-btn {
+  font-size: var(--smd-type-badge, 0.8em);
 }
 
 /* ---- Text controls ------------------------------------------------------ */
