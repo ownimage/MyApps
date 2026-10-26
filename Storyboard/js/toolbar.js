@@ -12,7 +12,8 @@ function sbInitToolbar() {
   sbToolbarEls.title = document.getElementById("sbPanelTitle");
   sbToolbarEls.body = document.getElementById("sbPanelBody");
   sbToolbarEls.pin = document.getElementById("sbPinBtn");
-  sbToolbarEls.save = document.getElementById("sbSaveBtn");
+  sbToolbarEls.saveScene = document.getElementById("sbSaveSceneBtn");
+  sbToolbarEls.saveStory = document.getElementById("sbSaveStoryBtn");
   sbToolbarEls.close = document.getElementById("sbPanelClose");
   sbToolbarEls.zoomOut = document.getElementById("sbZoomOut");
   sbToolbarEls.zoomIn = document.getElementById("sbZoomIn");
@@ -30,11 +31,21 @@ function sbInitToolbar() {
   sbToolbarEls.railBtns.forEach(function (btn) {
     btn.addEventListener("click", function () { sbSetTool(btn.dataset.tool); });
   });
-  if (sbToolbarEls.save) {
-    sbToolbarEls.save.addEventListener("click", function () {
+  // Save lives on the BOARD (beside the chip), not in the rail: one JPG per scene
+  // and one ZIP for the whole story (js/board.js).
+  if (sbToolbarEls.saveScene) {
+    sbToolbarEls.saveScene.addEventListener("click", function () {
       sbDownloadJpg().catch(function (err) {
         console.error(err);
         alert("Could not save this board as a JPG.");
+      });
+    });
+  }
+  if (sbToolbarEls.saveStory) {
+    sbToolbarEls.saveStory.addEventListener("click", function () {
+      sbDownloadStoryZip().catch(function (err) {
+        console.error(err);
+        alert("Could not save this story as a ZIP.");
       });
     });
   }

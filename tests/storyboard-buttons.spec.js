@@ -41,7 +41,7 @@ test.describe("Storyboard - smd-button conversion", () => {
     await seed(page);
 
     const railButtons = page.locator("#sbToolbar .sb-rail smd-button.sb-rail-btn");
-    await expect(railButtons).toHaveCount(9); // 4 tools + Save + zoom out/in + Fit + Pin
+    await expect(railButtons).toHaveCount(8); // 4 tools + zoom out/in + Fit + Pin (Save moved to the board)
     for (const button of await railButtons.all()) {
       await isSmdButton(button);
       await expect(button.locator(":scope > button > i")).toHaveCount(1);
@@ -51,7 +51,8 @@ test.describe("Storyboard - smd-button conversion", () => {
     const stories = page.locator('#sbToolbar .sb-rail-btn[data-tool="boards"]');
     await expect(stories.locator("button i")).toHaveClass(/fa-book-open/);
     await expect(stories.locator("button .smd-button-label")).toHaveText("Stories");
-    await expect(page.locator("#sbSaveBtn button i")).toHaveClass(/fa-download/);
+    // Save moved off the rail onto the board chip row (see storyboard-save.spec).
+    await expect(page.locator("#sbSaveSceneBtn button i")).toHaveClass(/fa-download/);
     await expect(page.locator("#sbZoomOut button i")).toHaveClass(/fa-magnifying-glass-minus/);
     await expect(page.locator("#sbPinBtn button i")).toHaveClass(/fa-thumbtack/);
 

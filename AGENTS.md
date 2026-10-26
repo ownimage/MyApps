@@ -153,6 +153,25 @@ Architecture:
   off, thumbnails-only browsing with names, full download on selection + board
   paint, folder/sign-in tab rules, offline reload from cache, eTag re-save
   refresh, backup embed-once + restore with an empty cache).
+- STORYBOARD SAVING: SCENE JPG + STORY ZIP (2026-10-26, user request): the rail's
+  Save action was REMOVED (the rail is 8 actions: 4 tools + zoom out/in + Fit +
+  Pin). Saving now lives on the BOARD in `.sb-board-actions` (top-right, beside
+  `#sbBoardName`): `#sbSaveSceneBtn` (fa-download) downloads the active scene as
+  `<scene slug>.jpg` via `sbDownloadJpg()`, and `#sbSaveStoryBtn` (fa-file-zipper)
+  calls `sbDownloadStoryZip()` -> `<story slug>.zip` with one JPG per scene.
+  `board.js`: `sbDownloadJpg()` was split into `sbBoardJpegBlob()` (draw, returns
+  the blob) + `sbDownloadBlob(blob, name)`; the ZIP is written by `sbZipWrite()`
+  (STORE-only, no dependency: local headers + central directory + EOCD, CRC32
+  table, UTF-8 flag) and `sbZipEntryName(index, total, sceneName)` produces
+  `"01 - Scene 1.jpg"`, padded to the width of the HIGHEST number (10 scenes ->
+  two digits, 3 scenes -> no padding) so entries sort alphabetically. Zipping
+  walks the story's scenes with `sbActivateScene` + two rAFs per scene and RESTORES
+  the scene the user was on in a `finally` (the active scene id is asserted after
+  the download). The click-away deselect handler ignores `.sb-board-actions`, and
+  the save pills are `smd-button`s skinned like the chip (`smd-button.sb-board-save
+  > button`). Tests: `tests/storyboard-save.spec.js` (rail/button shape + row
+  geometry, scene JPG download, 10-scene ZIP read back in Node: names/padding/
+  order/store-method/SOI-EOI/restore, and the 3-scene no-padding case).
 - STORYBOARD STORY PROPERTIES: SIZE + BACKGROUND FIT (2026-10-26, user request):
   each story row in the Stories panel has a **cog** (`data-act="story-props"`)
   that toggles an INLINE form directly under the row (the scene list is a
@@ -8402,3 +8421,30 @@ Techniques / gotchas:
   empty-board hint") covers blank -> visible, OneDrive background -> hidden,
   built-in background -> hidden, "None" -> visible again, item -> hidden. 8/8
   backgrounds, full Storyboard suite 105/105. BUILD -> `202610261350`.
+
+### 2026-10-26 (d) - Storyboard: Save moved to the board; story ZIP export
+
+- REQUEST (user): remove Save from the side panel, put it on an `smd-button` on the
+  scene, and add a Story save that downloads `<story>.zip` of every scene's image
+  with zero-padded scene numbers so the filenames sort alphabetically.
+- BUILT: rail Save removed (8 rail actions now); `.sb-board-actions` (top-right
+  beside the board chip) holds `#sbSaveSceneBtn` (JPG) and `#sbSaveStoryBtn`
+  (ZIP) as `smd-button`s skinned like the chip. `sbDownloadJpg()` split into
+  `sbBoardJpegBlob()` + `sbDownloadBlob()`; `sbZipWrite()` is a dependency-free
+  STORE-only ZIP writer (local headers + central directory + EOCD + CRC32, UTF-8
+  flag) and `sbZipEntryName()` pads to the width of the highest scene number
+  (`01 - Scene 1.jpg` for 10+ scenes, `1 - Part 1.jpg` for 3). Zipping switches
+  scenes internally and restores the user's scene in a `finally`.
+- TDD: `tests/storyboard-save.spec.js` (4) written first and red: rail/button shape
+  + same-row geometry with the chip, scene JPG download (filename + FFD8), a
+  10-scene ZIP READ BACK IN NODE (entry names in order, padding sorts
+  alphabetically, store method, JPEG SOI/EOI, size, scene restored) and the
+  3-scene no-padding case. Updated `storyboard-buttons` (8 rail buttons; the
+  fa-download assertion moved to the scene button) and `storyboard-story-props`
+  (the export capture now clicks `#sbSaveSceneBtn`).
+- VERIFIED: the whole Storyboard suite 109/109. Visually checked the chip row
+  (download, zip, then "Story / Scene"). BUILD -> `202610261402`.
+- NOTE for future work: the ZIP writer is store-only by design (JPEGs are already
+  compressed) and `sbZipEntryName` sanitises Windows-illegal characters; a 50-scene
+  story renders every scene sequentially (2 rAFs each), so a progress indicator may
+  be worth adding if stories get big.

@@ -1511,7 +1511,7 @@ function sbIsInteractiveKeyTarget(t) {
 
 function sbOnCanvasPointerDown(e) {
   var t = e.target;
-  if (t.closest && (t.closest(".sb-object") || t.closest(".sb-connector") || t.closest(".sb-toolbar") || t.closest(".sb-selection-bar") || t.closest(".sb-selection-box") || t.closest(".sb-board-chip"))) return;
+  if (t.closest && (t.closest(".sb-object") || t.closest(".sb-connector") || t.closest(".sb-toolbar") || t.closest(".sb-selection-bar") || t.closest(".sb-selection-box") || t.closest(".sb-board-chip") || t.closest(".sb-board-actions"))) return;
   // A modifier-click on empty space keeps the selection (only a plain click
   // clears it), which is what multi-select users expect.
   if (e.ctrlKey || e.metaKey || e.shiftKey) return;
@@ -2028,12 +2028,14 @@ function sbDrawCanvasText(ctx, item, el, frame, frameImg) {
   ctx.restore();
 }
 
-async function sbDownloadJpg() {
+// Draw the ACTIVE scene to a JPEG blob (the export used by "Save scene" and by
+// the story ZIP). Returns the blob; nothing is downloaded here.
+async function sbBoardJpegBlob() {
   var board = sbActiveBoard();
-  if (!board || !sbEls.canvas) return;
+  if (!board || !sbEls.canvas) return null;
   var visW = sbEls.canvas.clientWidth;
   var visH = sbEls.canvas.clientHeight;
-  if (!visW || !visH) return;
+  if (!visW || !visH) return null;
   var designScale = sbDesignScale();
   if (document.fonts && document.fonts.ready) {
     try { await document.fonts.ready; } catch (e) { /* draw with the fallback */ }
@@ -2221,12 +2223,168 @@ async function sbDownloadJpg() {
     canvas.toBlob(function (b) { resolve(b); }, "image/jpeg", 0.92);
   });
   if (!blob) throw new Error("JPG encoding failed");
+  return blob;
+}
+
+function sbDownloadBlob(blob, filename) {
   var url = URL.createObjectURL(blob);
   var a = document.createElement("a");
   a.href = url;
-  a.download = (sbSlug(board.name) || "storyboard") + ".jpg";
+  a.download = filename;
   document.body.appendChild(a);
   a.click();
   a.remove();
   setTimeout(function () { URL.revokeObjectURL(url); }, 1500);
+}
+
+// "Save scene" (the button beside the board chip, formerly in the rail).
+async function sbDownloadJpg() {
+  var board = sbActiveBoard();
+  var blob = await sbBoardJpegBlob();
+  if (!blob) return;
+  sbDownloadBlob(blob, (sbSlug(board && board.name) || "storyboard") + ".jpg");
+}
+
+// ---- story ZIP -------------------------------------------------------------
+
+// Store-only ZIP (JPEGs are already compressed). `files` = [{name, data:Uint8Array}].
+var sbZipCrcTable = null;
+
+function sbZipCrc32(bytes) {
+  if (!sbZipCrcTable) {
+    sbZipCrcTable = new Uint32Array(256);
+    for (var n = 0; n < 256; n++) {
+      var c = n;
+      for (var k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+      sbZipCrcTable[n] = c >>> 0;
+    }
+  }
+  var crc = 0xFFFFFFFF;
+  for (var i = 0; i < bytes.length; i++) {
+    crc = sbZipCrcTable[(crc ^ bytes[i]) & 0xFF] ^ (crc >>> 8);
+  }
+  return (crc ^ 0xFFFFFFFF) >>> 0;
+}
+
+function sbZipDosTime(date) {
+  var d = date || new Date();
+  var time = ((d.getHours() & 0x1F) << 11) | ((d.getMinutes() & 0x3F) << 5) | ((d.getSeconds() / 2) & 0x1F);
+  var day = (((d.getFullYear() - 1980) & 0x7F) << 9) | (((d.getMonth() + 1) & 0x0F) << 5) | (d.getDate() & 0x1F);
+  return { time: time & 0xFFFF, date: day & 0xFFFF };
+}
+
+function sbZipWrite(files) {
+  var encoder = new TextEncoder();
+  var stamp = sbZipDosTime();
+  var chunks = [];
+  var central = [];
+  var offset = 0;
+
+  (files || []).forEach(function (file) {
+    var name = encoder.encode(file.name);
+    var data = file.data;
+    var crc = sbZipCrc32(data);
+
+    var header = new Uint8Array(30 + name.length);
+    var view = new DataView(header.buffer);
+    view.setUint32(0, 0x04034b50, true);   // local file header
+    view.setUint16(4, 20, true);           // version needed
+    view.setUint16(6, 0x0800, true);       // UTF-8 names
+    view.setUint16(8, 0, true);            // store
+    view.setUint16(10, stamp.time, true);
+    view.setUint16(12, stamp.date, true);
+    view.setUint32(14, crc, true);
+    view.setUint32(18, data.length, true); // compressed size
+    view.setUint32(22, data.length, true); // uncompressed size
+    view.setUint16(26, name.length, true);
+    view.setUint16(28, 0, true);           // extra length
+    header.set(name, 30);
+    chunks.push(header, data);
+
+    var entry = new Uint8Array(46 + name.length);
+    var entryView = new DataView(entry.buffer);
+    entryView.setUint32(0, 0x02014b50, true);  // central directory header
+    entryView.setUint16(4, 20, true);
+    entryView.setUint16(6, 20, true);
+    entryView.setUint16(8, 0x0800, true);
+    entryView.setUint16(10, 0, true);
+    entryView.setUint16(12, stamp.time, true);
+    entryView.setUint16(14, stamp.date, true);
+    entryView.setUint32(16, crc, true);
+    entryView.setUint32(20, data.length, true);
+    entryView.setUint32(24, data.length, true);
+    entryView.setUint16(28, name.length, true);
+    entryView.setUint16(30, 0, true);          // extra length
+    entryView.setUint16(32, 0, true);          // comment length
+    entryView.setUint16(34, 0, true);          // disk number
+    entryView.setUint16(36, 0, true);          // internal attributes
+    entryView.setUint32(38, 0, true);          // external attributes
+    entryView.setUint32(42, offset, true);     // local header offset
+    entry.set(name, 46);
+    central.push(entry);
+
+    offset += header.length + data.length;
+  });
+
+  var centralSize = central.reduce(function (sum, entry) { return sum + entry.length; }, 0);
+  var end = new Uint8Array(22);
+  var endView = new DataView(end.buffer);
+  endView.setUint32(0, 0x06054b50, true);   // end of central directory
+  endView.setUint16(8, central.length, true);
+  endView.setUint16(10, central.length, true);
+  endView.setUint32(12, centralSize, true);
+  endView.setUint32(16, offset, true);       // central directory offset
+
+  return new Blob(chunks.concat(central, [end]), { type: "application/zip" });
+}
+
+// One entry per scene: "<zero-padded number> - <scene name>.jpg", padded to the
+// width of the HIGHEST number so the names sort alphabetically inside the zip.
+function sbZipEntryName(index, total, name) {
+  var width = String(Math.max(1, total)).length;
+  var number = String(index + 1);
+  while (number.length < width) number = "0" + number;
+  var safe = String(name || "Scene").replace(/[\\/:*?"<>|\u0000-\u001f]/g, "-").trim() || "Scene";
+  return number + " - " + safe + ".jpg";
+}
+
+function sbNextFrame() {
+  return new Promise(function (resolve) {
+    requestAnimationFrame(function () { requestAnimationFrame(resolve); });
+  });
+}
+
+// "Save story": render EVERY scene of the active story to a JPG and download them
+// as <story>.zip. The active scene is restored afterwards (and its view/pan too).
+async function sbDownloadStoryZip() {
+  var story = sbActiveStory();
+  if (!story || !story.scenes.length) return null;
+  var original = sbActiveBoard();
+  var entries = [];
+  try {
+    for (var i = 0; i < story.scenes.length; i++) {
+      var scene = story.scenes[i];
+      if (sbActiveBoard() !== scene) {
+        sbActivateScene(story, scene);
+        await sbNextFrame();
+      }
+      var blob = await sbBoardJpegBlob();
+      if (!blob) continue;
+      var buffer = await blob.arrayBuffer();
+      entries.push({
+        name: sbZipEntryName(i, story.scenes.length, scene.name),
+        data: new Uint8Array(buffer)
+      });
+    }
+  } finally {
+    // Put the user back on the scene they were editing.
+    var back = original && story.scenes.indexOf(original) !== -1 ? original : story.scenes[0];
+    if (sbActiveBoard() !== back) {
+      sbActivateScene(story, back);
+      await sbNextFrame();
+    }
+  }
+  if (!entries.length) return null;
+  sbDownloadBlob(sbZipWrite(entries), (sbSlug(story.name) || "storyboard") + ".zip");
+  return entries.length;
 }

@@ -108,7 +108,7 @@ async function captureExport(page) {
 }
 
 async function saveJpg(page) {
-  await page.locator("#sbSaveBtn").click();
+  await page.locator("#sbSaveSceneBtn").click();
   await expect.poll(() => page.evaluate(() => window.__exportCanvases.length)).toBeGreaterThan(0);
   return page.evaluate(() => ({
     canvas: window.__exportCanvases[0],
