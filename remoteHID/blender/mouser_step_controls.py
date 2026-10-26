@@ -12,6 +12,16 @@
 #   Selected Objects - rotate/translate selected objects in object mode.
 #   3D Viewport       - orbit/pan the view (not available in camera view).
 #
+# Three axis spaces for selected objects (preferences > Axis Space):
+#   Global - the world axes.
+#   Local  - each object's own axes.
+#   Smart  - Z stays the world vertical, and the other two axes lie in the XY
+#            plane: X points horizontally away from the camera toward the object
+#            and Y is 90 degrees from it. So X/Y always move "into the screen"
+#            and "left/right on screen" however far the camera has orbited,
+#            while Z is still a turntable spin and a straight up/down move.
+#            The scene camera is used in camera view, otherwise the 3D Viewport.
+#
 # The default mapping matches Mouser's rx/ry/rz + tx/ty/tz defaults:
 #   F13/F14 = rotate X +/-
 #   F15/F16 = rotate Y +/-
@@ -23,7 +33,7 @@
 bl_info = {
     "name": "Mouser Step Controls",
     "author": "MyApps",
-    "version": (1, 1, 0),
+    "version": (1, 2, 0),
     "blender": (4, 4, 0),
     "location": "3D Viewport keymap (F13-F24)",
     "description": "Rotate or translate selected objects or the 3D view by fixed steps from Mouser key taps",
@@ -42,6 +52,20 @@ _AXIS_ITEMS = (
     ("Y", "Y", "Y axis"),
     ("Z", "Z", "Z axis"),
 )
+
+_AXIS_ORDER = ("X", "Y", "Z")
+
+_WORLD_AXES = {
+    "X": Vector((1.0, 0.0, 0.0)),
+    "Y": Vector((0.0, 1.0, 0.0)),
+    "Z": Vector((0.0, 0.0, 1.0)),
+}
+
+_WORLD_UP = Vector((0.0, 0.0, 1.0))
+
+# Below this length a direction has no usable horizontal component (the camera is
+# looking straight down or straight up), so Smart space needs a fallback.
+_SMART_EPSILON = 1e-4
 
 # (key, axis, direction) for the default Mouser F13–F18 rotation layout.
 _ROTATION_BINDINGS = (
@@ -88,6 +112,151 @@ def _has_selected_parent(obj, selected):
             return True
         parent = parent.parent
     return False
+
+
+def _region_3d(context):
+    """The 3D Viewport's RegionView3D, or None outside a 3D View."""
+    space = getattr(context, "space_data", None)
+    return getattr(space, "region_3d", None)
+
+
+def _scene_camera(context):
+    scene = getattr(context, "scene", None)
+    return getattr(scene, "camera", None) if scene is not None else None
+
+
+def _in_camera_view(context):
+    region = _region_3d(context)
+    return region is not None and getattr(region, "view_perspective", "") == "CAMERA"
+
+
+def _camera_location(camera):
+    return camera.matrix_world.translation.copy()
+
+
+def _camera_forward(camera):
+    # Cameras look down their local -Z.
+    return (camera.matrix_world.to_quaternion() @ Vector((0.0, 0.0, -1.0))).normalized()
+
+
+def _view_eye(context):
+    """World-space eye of what the user is looking through, or None.
+
+    Camera view uses the active scene camera (its eye is exact); otherwise the
+    3D Viewport, whose eye comes from its own view matrix.
+    """
+    camera = _scene_camera(context)
+    region = _region_3d(context)
+
+    if _in_camera_view(context) and camera is not None:
+        return _camera_location(camera)
+
+    if region is not None:
+        view_matrix = getattr(region, "view_matrix", None)
+        if view_matrix is not None:
+            try:
+                return view_matrix.inverted().translation.copy()
+            except Exception:
+                pass
+        rotation = getattr(region, "view_rotation", None)
+        location = getattr(region, "view_location", None)
+        distance = getattr(region, "view_distance", None)
+        if rotation is not None and location is not None and distance is not None:
+            return location + (rotation @ Vector((0.0, 0.0, 1.0))) * float(distance)
+
+    if camera is not None:
+        return _camera_location(camera)
+    return None
+
+
+def _view_forward(context):
+    """Unit viewing direction (into the screen), or None when nothing is known."""
+    camera = _scene_camera(context)
+    region = _region_3d(context)
+
+    if _in_camera_view(context) and camera is not None:
+        return _camera_forward(camera)
+
+    rotation = getattr(region, "view_rotation", None) if region is not None else None
+    if rotation is not None:
+        return (rotation @ Vector((0.0, 0.0, -1.0))).normalized()
+
+    if camera is not None:
+        return _camera_forward(camera)
+    return None
+
+
+def _view_right(context):
+    """Unit screen-right direction of the current view, or None."""
+    region = _region_3d(context)
+    rotation = getattr(region, "view_rotation", None) if region is not None else None
+    if rotation is not None:
+        return (rotation @ Vector((1.0, 0.0, 0.0))).normalized()
+    return None
+
+
+def _flat(value):
+    """Project a direction onto the XY plane; None when it has no horizontal part."""
+    if value is None:
+        return None
+    flat = Vector((value.x, value.y, 0.0))
+    return flat if flat.length >= _SMART_EPSILON else None
+
+
+def _smart_horizontal_axis(context, center):
+    """Unit horizontal direction pointing from the camera toward `center`.
+
+    Falls back to the view direction (when only a rotation is known) and then to
+    the viewport's own right axis, so a top-down camera still gets usable axes.
+    """
+    eye = _view_eye(context)
+    if eye is not None:
+        flat = _flat(center - eye)
+        if flat is not None:
+            return flat.normalized()
+
+    flat = _flat(_view_forward(context))
+    if flat is not None:
+        return flat.normalized()
+
+    flat = _flat(_view_right(context))
+    if flat is not None:
+        return flat.normalized()
+
+    return Vector((0.0, 1.0, 0.0))
+
+
+def _smart_basis(context, center):
+    """(X, Y, Z) world axes for Smart space at `center`.
+
+    Z is the world vertical. X points horizontally from the camera toward the
+    object; Y is 90 degrees from it, still inside the XY plane.
+    """
+    x_axis = _smart_horizontal_axis(context, Vector(center))
+    y_axis = x_axis.cross(_WORLD_UP)
+    if y_axis.length < _SMART_EPSILON:
+        # x_axis is horizontal by construction, so this cannot happen; keep the
+        # fallback so a future change can never produce a zero axis.
+        y_axis = Vector((1.0, 0.0, 0.0))
+    return x_axis, y_axis.normalized(), _WORLD_UP.copy()
+
+
+def _world_axis(context, axis, space, center):
+    """World-space unit axis for one axis letter in the given space.
+
+    Smart resolves against `center` (the pivot, or the object's own origin), so
+    callers pass the point the basis must be built from.
+    """
+    if space == "SMART":
+        return _smart_basis(context, center)[_AXIS_ORDER.index(axis)]
+    return _WORLD_AXES.get(axis, _WORLD_AXES["X"]).copy()
+
+
+def _pivot_point(context, objects, pivot_mode):
+    """Shared world-space pivot for a non-individual rotation or Smart basis."""
+    if pivot_mode == "CURSOR":
+        return context.scene.cursor.location.copy()
+    return sum((obj.matrix_world.translation for obj in objects), Vector()) / len(objects)
 
 
 def _selected_root_objects(context):
@@ -163,19 +332,20 @@ class MOUSER_OT_rotate_step(bpy.types.Operator):
         prefs = _prefs()
         space = getattr(prefs, "space", "GLOBAL")
         pivot_mode = getattr(prefs, "pivot", "INDIVIDUAL")
-        axis = Vector((1.0, 0.0, 0.0)) if self.axis == "X" else (
-            Vector((0.0, 1.0, 0.0)) if self.axis == "Y" else Vector((0.0, 0.0, 1.0))
-        )
-        rotation = Matrix.Rotation(angle, 4, axis)
 
         if space == "LOCAL":
             # Local rotation is always around each object's own origin. The
-            # pivot preference only applies to global rotations.
+            # pivot preference only applies to global rotations. Right-
+            # multiplying a WORLD-axis rotation is what makes it local.
+            rotation = Matrix.Rotation(angle, 4, _WORLD_AXES.get(self.axis, _WORLD_AXES["X"]))
             for obj in objects:
                 obj.matrix_world = obj.matrix_world @ rotation
         elif pivot_mode == "INDIVIDUAL":
             for obj in objects:
                 location = obj.matrix_world.translation.copy()
+                rotation = Matrix.Rotation(
+                    angle, 4, _world_axis(context, self.axis, space, location)
+                )
                 around_object = (
                     Matrix.Translation(location)
                     @ rotation
@@ -183,13 +353,10 @@ class MOUSER_OT_rotate_step(bpy.types.Operator):
                 )
                 obj.matrix_world = around_object @ obj.matrix_world
         else:
-            if pivot_mode == "CURSOR":
-                pivot = context.scene.cursor.location.copy()
-            else:
-                pivot = sum(
-                    (obj.matrix_world.translation for obj in objects),
-                    Vector((0.0, 0.0, 0.0)),
-                ) / len(objects)
+            pivot = _pivot_point(context, objects, pivot_mode)
+            rotation = Matrix.Rotation(
+                angle, 4, _world_axis(context, self.axis, space, pivot)
+            )
             around_pivot = (
                 Matrix.Translation(pivot)
                 @ rotation
@@ -278,16 +445,31 @@ class MOUSER_OT_translate_step(bpy.types.Operator):
 
         prefs = _prefs()
         space = getattr(prefs, "space", "GLOBAL")
-        axis = Vector((1.0, 0.0, 0.0)) if self.axis == "X" else (
-            Vector((0.0, 1.0, 0.0)) if self.axis == "Y" else Vector((0.0, 0.0, 1.0))
-        )
-        delta = axis * distance
+        pivot_mode = getattr(prefs, "pivot", "INDIVIDUAL")
 
         if space == "LOCAL":
-            local_delta = Matrix.Translation(delta)
+            axis = _WORLD_AXES.get(self.axis, _WORLD_AXES["X"])
+            local_delta = Matrix.Translation(axis * distance)
             for obj in objects:
                 obj.matrix_world = obj.matrix_world @ local_delta
+        elif space == "SMART" and pivot_mode == "INDIVIDUAL":
+            # Each object moves along its own camera ray, so a ring of objects
+            # around the view centre all travel away from the camera.
+            for obj in objects:
+                center = obj.matrix_world.translation.copy()
+                delta = _world_axis(context, self.axis, space, center) * distance
+                matrix = obj.matrix_world.copy()
+                matrix.translation += delta
+                obj.matrix_world = matrix
         else:
+            # Global, and Smart with a shared pivot, move the whole selection by
+            # one delta. Global ignores the pivot, as it always has.
+            center = (
+                _pivot_point(context, objects, pivot_mode)
+                if space == "SMART"
+                else Vector()
+            )
+            delta = _world_axis(context, self.axis, space, center) * distance
             for obj in objects:
                 matrix = obj.matrix_world.copy()
                 matrix.translation += delta
@@ -366,10 +548,17 @@ class MOUSER_AP_preferences(bpy.types.AddonPreferences):
     )
     space: bpy.props.EnumProperty(
         name="Axis Space",
-        description="Axis space for selected-object rotation",
+        description="Axis space for selected-object rotation and translation",
         items=(
-            ("GLOBAL", "Global", "Rotate around the global axis"),
-            ("LOCAL", "Local", "Rotate around each object's local axis"),
+            ("GLOBAL", "Global", "Rotate and move along the global axes"),
+            ("LOCAL", "Local", "Rotate and move along each object's local axes"),
+            (
+                "SMART",
+                "Smart (Camera + World Z)",
+                "X and Y lie in the XY plane and follow the camera: X points away "
+                "from the camera and Y is 90 degrees from it. Z stays the world "
+                "vertical, so it is still a turntable spin and a straight up/down move",
+            ),
         ),
         default="GLOBAL",
     )
@@ -400,6 +589,9 @@ class MOUSER_AP_preferences(bpy.types.AddonPreferences):
         object_box.prop(self, "pivot")
         if self.space == "LOCAL":
             object_box.label(text="Local rotation uses each object's origin.", icon="INFO")
+        elif self.space == "SMART":
+            object_box.label(text="Smart: X/Y follow the camera, Z stays world up.", icon="INFO")
+            object_box.label(text="Individual Origins gives each object its own ray.", icon="BLANK1")
         layout.separator()
         layout.prop(self, "auto_bind")
         layout.operator("mouser.bind_default_keys", text="Rebind F13-F24", icon="KEYFRAME_HLT")
