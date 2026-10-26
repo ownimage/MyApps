@@ -101,24 +101,33 @@
           }
         }, true);
       }
-      if (this._label === undefined) {
-        this._label = this.textContent.replace(/^\s+|\s+$/g, "");
-        // Element children (icons, spans) are RICH content: keep them, they are
-        // moved into the inner button below. Plain text becomes the label.
-        const elements = Array.prototype.filter.call(this.childNodes, (node) => node.nodeType === 1);
-        this._rich = elements.length ? Array.prototype.slice.call(this.childNodes) : null;
+      // Clone-safe: Sortable's fallback ghost is `cloneNode(true)`, which copies
+      // ATTRIBUTES (including `data-smd-built`) but NOT the `_label` / `_rich` JS
+      // fields. Rebuilding a clone would treat the ALREADY-BUILT inner <button> as
+      // rich content and wrap it in a second one - a filled Bootstrap button
+      // around a row's icons and name (the "drag ghost is not right" bug). A clone
+      // keeps its built markup and only re-applies the attribute-driven styling.
+      if (!this.hasAttribute("data-smd-built")) {
+        this.setAttribute("data-smd-built", "");
+        if (this._label === undefined) {
+          this._label = this.textContent.replace(/^\s+|\s+$/g, "");
+          // Element children (icons, spans) are RICH content: keep them, they are
+          // moved into the inner button below. Plain text becomes the label.
+          const elements = Array.prototype.filter.call(this.childNodes, (node) => node.nodeType === 1);
+          this._rich = elements.length ? Array.prototype.slice.call(this.childNodes) : null;
+        }
+        const rich = this._rich;
+        this.innerHTML = "";
+        const btn = template.content.firstElementChild.cloneNode(true);
+        if (this.id) btn.id = this.id + "-button";
+        this.appendChild(btn);
+        if (rich) rich.forEach((node) => btn.appendChild(node));
+        this._renderContent();
       }
-      const rich = this._rich;
-      this.innerHTML = "";
-      const btn = template.content.firstElementChild.cloneNode(true);
-      if (this.id) btn.id = this.id + "-button";
-      this.appendChild(btn);
-      if (rich) rich.forEach((node) => btn.appendChild(node));
       this._applyVariant();
       this._applySize();
       this._applyBlock();
       this._applyDisabled();
-      this._renderContent();
       this._applyA11y();
     }
 

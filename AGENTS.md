@@ -100,6 +100,17 @@ Architecture:
     icon + a name span), they are MOVED into the inner button untouched instead of
     being flattened to text - that is what keeps Storyboard's story/scene pick rows
     (two icons, expanding chevron) intact.
+  - CLONE-SAFE (2026-10-26, same day): `connectedCallback` builds under a
+    `data-smd-built` ATTRIBUTE guard (attributes survive `cloneNode`; the
+    `_label`/`_rich` JS fields do NOT). Without it a Sortable fallback ghost
+    (`cloneNode(true)`) treated the ALREADY-BUILT inner `<button>` as rich content
+    and wrapped it in a second one - a filled grey Bootstrap button around the
+    row's icons and name, i.e. the reported "scene drag ghost is not right". A
+    clone now keeps its built markup and only re-applies
+    variant/size/block/disabled/a11y (`_renderContent()` also stays inside the
+    build guard, or a clone would be relabelled "Button"). Guarded by
+    `tests/smd-button-icon.spec.js` "a clone is not rebuilt (no button nested
+    inside a button)".
   Storyboard keeps its FLAT look by skinning the inner button in
   `Storyboard/css/storyboard.css` (`smd-button.sb-rail-btn > button`, `.sb-story-pick
   > button`, `.sb-story-act > button`, `.sb-panel-close > button`): the HOST is the
@@ -231,6 +242,47 @@ Architecture:
   `sb-bg-*`/`sb-color-*` class for a token and an INLINE colour for a hex, so a
   theme swap cannot repaint it). `sbResolveColor()` returns a hex unchanged, so
   a text border frame bakes the fixed colour too.
+- STORYBOARD UNDO / REDO + SCENE DUPLICATE / REORDER (2026-10-26, user request):
+  - UNDO/REDO: `storage.js` `sbHistory` is a SNAPSHOT history of the stories
+    content (names, sizes, scenes incl. ORDER, items, connectors, groups) and
+    deliberately NOT each scene's `view` (undo must never move the camera) or
+    `activeSceneId` (switching scenes is not an edit). `sbSaveState()` - the single
+    choke point every mutation already uses - calls `sbHistoryTouch()`; the
+    PREVIOUS snapshot is pushed only when the last change is older than
+    `SB_HISTORY_COALESCE_MS` (500ms), so typing and one whole drag are ONE step.
+    `sbHistoryReset()` runs at the end of boot (app.js) so the first edit can be
+    undone back to the state the app opened with. `sbUndo()`/`sbRedo()` rebuild
+    `sbState.stories` via `sbHistoryApply()` (which re-attaches the CURRENT per
+    scene views, keeps the active scene when it still exists, clears
+    selection/editors) then re-renders. Shortcuts live in `sbOnKeyDown` (Ctrl+Z,
+    Ctrl+Y, Ctrl+Shift+Z) and are skipped for text fields (a focused panel field
+    keeps its own Ctrl+Z), and while an smd-page/modal is open. Rail buttons
+    `#sbUndoBtn`/`#sbRedoBtn` (`fa-rotate-left`/`fa-rotate-right`, above the zoom
+    group) are disabled via `sbHistoryUpdateUi()`. GOTCHA: closing a panel used to
+    leave DOM focus on the DETACHED textarea, which swallowed every board
+    shortcut - `sbClosePanel()` now blurs a focused child of the panel.
+  - SCENE DUPLICATE: `sbDuplicateBoard(id)` (scene row's `data-act="duplicate"`,
+    `fa-copy`, placed BEFORE the rename/edit pen) inserts a copy DIRECTLY BELOW
+    the source via `sbCloneScene()`, which gives the scene, its items, connectors
+    and groups FRESH ids and REMAPS the copied references (group children first,
+    then connector from/to); the name becomes "<name> copy", then "copy 2".
+    The copy does not become active.
+  - SCENE REORDER: Sortable on the ACTIVE story's `.sb-story-scenes`
+    (`sbInitSceneSortable`, `handle: ".drag-handle"`, `draggable: ".sb-board-row"`,
+    `forceFallback`) with a `<smd-draghandle class="drag-handle">` first in each
+    scene row; `sbSceneSortableEnd()` reads the DOM order back into
+    `story.scenes` and re-renders the panel on a `setTimeout` (destroying the list
+    inside Sortable's own callback can throw). NOTE: Sortable + `smd-draghandle`
+    were precached but NOT loaded by the Storyboard shell - both script tags were
+    added. The drag ghost needs `.sb-board-row.sortable-fallback` (panel surface +
+    primary border + its 2px list padding): at body level the row was transparent,
+    so the list showed through it.
+  - STORIES PANEL WIDTH + SPACING: `.sb-panel` is `min(500px, calc(100vw - 92px))`
+    (320px ellipsised every longer story/scene name - a row carries a handle, two
+    icons and three 30px actions), and `#sbAddStory` has `margin-top: 0.75rem` so
+    it is not flush under the last story row. Tests:
+    `tests/storyboard-undo.spec.js` (6) + 4 added to
+    `tests/storyboard-stories.spec.js` (duplicate, reorder, ghost, panel width).
 - STORYBOARD STORY PROPERTIES: SIZE + BACKGROUND FIT (2026-10-26, user request):
   each story row in the Stories panel has a **cog** (`data-act="story-props"`)
   that toggles an INLINE form directly under the row (the scene list is a
@@ -8648,3 +8700,60 @@ Techniques / gotchas:
   and the Text panel's two pickers with fixed colours on the board.
 - SCREENSHOTS: the "text panel" scene (and everything showing the rail) is stale -
   regenerate the Storyboard gallery. BUILD -> `202610261447`.
+
+### 2026-10-26 (h) - Storyboard: undo/redo, scene duplicate + drag reorder, panel width, ghost fix
+
+- REQUEST (user): "Storyboard should support ctrl-z and ctrl-y undo/redo options.
+  With options in the rail too using font awesome icons. Scenes should be drag and
+  drop reorderable in the Story. On the Scene before the edit button there should be
+  a duplicate button that creates a duplicate immediately below itself." Then:
+  "The Stories fly out needs to change width to allow the Story and Scene names be
+  seen in full. Also there needs to be a space above the new story button." Then:
+  "the drag and drop ghost on the scene move is not right."
+- BUILT: snapshot undo/redo (Ctrl+Z / Ctrl+Y / Ctrl+Shift+Z + two rail buttons,
+  coalesced bursts, camera and active scene preserved), `sbDuplicateBoard` with
+  fresh ids + remapped connectors/groups, Sortable scene reordering behind a
+  `smd-draghandle` (Sortable + the handle were precached but never LOADED by this
+  shell - script tags added), a 500px panel so names fit, a 0.75rem gap above
+  New story, and a `.sb-board-row.sortable-fallback` surface. Full contract in the
+  durable "STORYBOARD UNDO / REDO + SCENE DUPLICATE / REORDER" note.
+- ROOT CAUSE OF THE BAD GHOST: `<smd-button>` rebuilt itself in
+  `connectedCallback` from JS-only fields (`_label`/`_rich`) that `cloneNode` does
+  not copy, so Sortable's fallback clone wrapped the already-built inner
+  `<button>` in a SECOND one - a filled grey Bootstrap button around the row's
+  icons and name. Fixed with a `data-smd-built` attribute guard (attribute
+  survives cloning) + `_renderContent()` moved inside the build guard.
+- TDD: `tests/storyboard-undo.spec.js` written first (6 tests, all red): rail
+  buttons + disabled states, Ctrl+Z/Y on an added note, a drag undone in one step
+  with the exact position restored, undoing a scene delete (order + content),
+  Ctrl+Shift+Z, and "a focused panel field keeps its own Ctrl+Z". Added to
+  `storyboard-stories.spec.js` (all red first): duplicate (button order
+  duplicate|rename|delete, inserted directly below, fresh ids + remapped
+  connector/group refs, source untouched, persists), drag reorder (stored order,
+  rendered order, active scene unchanged, persists), the wide panel + New story
+  gap, and "the drag ghost of a scene row is a single, correctly built copy"
+  (`button button` count 0, one inner button per smd-button, pick button stays
+  transparent). `tests/smd-button-icon.spec.js` gained the component-level clone
+  test.
+- WHAT WENT WRONG: (a) after closing the panel, focus stayed on the DETACHED
+  textarea so Ctrl+Z went nowhere - `sbClosePanel()` now blurs it; (b) my first
+  "no truncation" assertions counted the drag handle's glyph `<span>` - scope name
+  assertions to `.sb-board-pick span`; (c) 420px was still 8px short of
+  "The Opening Scene Of It All" (scene rows carry a handle), so the panel is
+  500px, clamped to `calc(100vw - 92px)`.
+- FALLOUT: rail count 9 -> 11 in `storyboard-buttons`, `storyboard-save` and
+  `storyboard-notes`.
+- VERIFIED (targeted only, the user runs the full regression): undo 6/6; stories
+  13/13; smd-button-icon 4/4; buttons/save/notes/stories/undo 37/37;
+  settings-alignment 37/37 (the smd-button change touches every app's Danger
+  buttons). Screenshot-checked the drag ghost (solid row, correct icons/labels).
+  BUILD -> `202610261512`.
+- FOLLOW-UP (same report, re-checked on the fixed build): the grey backgrounds +
+  larger type ARE the pre-fix symptom - a nested `.btn-secondary` (grey) plus the
+  shared `button, .btn` h2 font-size (bigger). Measured on `202610261506`: the
+  ghost's inner buttons compute EXACTLY like the real rows (transparent, no
+  border, 20.8px, `button button` count 0), so that report was a browser still
+  running the old cached shell (check `BUILD_NUMBER` in the console). Defence in
+  depth was added anyway: `.sb-board-row.sortable-fallback button` forces flat /
+  no-border / `--smd-type-p`, so a future component regression cannot paint the
+  ghost grey or oversized.

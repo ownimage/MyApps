@@ -106,6 +106,12 @@
         <smd-button class="sb-rail-btn" variant="secondary" data-tool="text" title="Text" aria-label="Text" icon="fa-solid fa-font">Text</smd-button>
         <smd-button class="sb-rail-btn" variant="secondary" data-tool="note" title="Note" aria-label="Note" icon="fa-solid fa-sticky-note">Note</smd-button>
         <div class="sb-rail-spacer"></div>
+        <div class="sb-history">
+          <div class="sb-history-row" role="group" aria-label="Undo and redo">
+            <smd-button id="sbUndoBtn" class="sb-rail-btn sb-zoom-btn" variant="secondary" title="Undo (Ctrl+Z)" aria-label="Undo" icon="fa-solid fa-rotate-left" disabled></smd-button>
+            <smd-button id="sbRedoBtn" class="sb-rail-btn sb-zoom-btn" variant="secondary" title="Redo (Ctrl+Y)" aria-label="Redo" icon="fa-solid fa-rotate-right" disabled></smd-button>
+          </div>
+        </div>
         <div class="sb-zoom">
           <div class="sb-zoom-row" role="group" aria-label="Board zoom">
             <smd-button id="sbZoomOut" class="sb-rail-btn sb-zoom-btn" variant="secondary" title="Zoom out" aria-label="Zoom out" icon="fa-solid fa-magnifying-glass-minus"></smd-button>
@@ -387,6 +393,8 @@
 
   <!-- BOOTSTRAP JS (hamburger dropdown) -->
   <script>document.write('<script src="../shared/vendor/bootstrap.bundle.min.js?v=' + BUILD_NUMBER + '"><\/script>');</script>
+  <!-- SORTABLE (drag a scene handle to reorder the scenes of a story) -->
+  <script>document.write('<script src="../shared/vendor/sortable.min.js?v=' + BUILD_NUMBER + '"><\/script>');</script>
 
   <script>
   document.write('<script src="../shared/js/library.js?v=' + BUILD_NUMBER + '"><\/script>');
@@ -403,6 +411,7 @@
   document.write('<script src="../shared/js/components/smd-checkbox.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="../shared/js/components/smd-qrcode.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="../shared/js/components/smd-fontawesome-credit.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../shared/js/components/smd-draghandle.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="../shared/js/smd-app.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="../shared/js/smd-settings.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="../shared/js/smd-minio.js?v=' + BUILD_NUMBER + '"><\/script>');

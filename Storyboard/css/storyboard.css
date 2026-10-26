@@ -360,7 +360,20 @@ smd-button.sb-pin-btn.active > button {
 }
 
 /* ---- Zoom controls ------------------------------------------------------ */
-/* Bottom of the rail: magnifier minus/plus side by side, Fit underneath. */
+/* Bottom of the rail: undo/redo, then magnifier minus/plus side by side, Fit
+ * underneath. */
+
+.sb-history {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sb-history-row {
+  display: flex;
+  gap: 4px;
+}
 
 .sb-zoom {
   display: flex;
@@ -406,7 +419,10 @@ smd-button.sb-rail-btn[disabled] > button:hover {
 .sb-panel {
   display: none;
   flex-direction: column;
-  width: min(320px, calc(100vw - 92px));
+  /* Wide enough for a story/scene row's handle + three action buttons + a real
+     name: at 320px every longer name ellipsised. The right-hand clamp keeps the
+     panel inside a narrow window (a phone uses nearly the full width). */
+  width: min(500px, calc(100vw - 92px));
   max-height: 100%;
   overflow: hidden;
   border: 1px solid var(--bs-border-color);
@@ -511,6 +527,29 @@ smd-button.sb-panel-close > button:focus-visible {
   padding: 4px;
   border: 1px solid var(--bs-border-color);
   border-radius: 10px;
+}
+
+/* The dragged scene row travels as a clone appended to <body>, where the
+ * `.sb-story-scenes` padding does not apply. Give it the panel surface (the
+ * rows behind would otherwise show through it) and keep its list padding. */
+.sb-board-row.sortable-fallback {
+  padding: 2px;
+  border-color: var(--bs-primary);
+  background: var(--bs-body-bg);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+}
+
+/* Whatever a cloned row ends up containing, its buttons stay FLAT and at the
+ * row's type size: the row itself is the surface. Defence in depth for the ghost
+ * - if a component ever rebuilds on connect and nests a second <button>, that
+ * inner one would paint Bootstrap `.btn-secondary` grey at the shared
+ * `button, .btn` h2 size (the reported "ghost buttons are grey and bigger"). */
+.sb-board-row.sortable-fallback button {
+  background-color: transparent;
+  background-image: none;
+  border: 0;
+  color: inherit;
+  font-size: var(--smd-type-p, 1em);
 }
 
 .sb-board-row.active,
@@ -657,6 +696,12 @@ smd-button.sb-story-act[disabled] > button {
 .sb-add-scene {
   align-self: flex-start;
   margin: 2px 0 4px;
+}
+
+/* "New story" closes the panel's list: give it the same 0.75rem breathing room
+ * the field labels use instead of sitting flush under the last story row. */
+#sbAddStory {
+  margin-top: 0.75rem;
 }
 
 /* ---- Background picker -------------------------------------------------- */

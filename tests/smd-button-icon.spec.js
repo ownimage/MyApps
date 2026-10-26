@@ -74,4 +74,42 @@ test.describe("<smd-button> icon support", () => {
     expect(result.html).toBe("Delete");
     expect(result.label).toBeNull();
   });
+
+  // A Sortable fallback ghost is `cloneNode(true)`: attributes are copied but the
+  // `_label`/`_rich` JS fields are NOT, so a clone used to rebuild itself around
+  // the ALREADY-BUILT inner button - a `<button>` inside a `<button>` that painted
+  // as a grey Bootstrap button (the reported "drag ghost is not right").
+  test("a clone is not rebuilt (no button nested inside a button)", async ({ page }) => {
+    const result = await page.evaluate(() => {
+      const host = document.createElement("smd-button");
+      host.className = "sb-board-act";
+      host.setAttribute("variant", "secondary");
+      host.setAttribute("size", "small");
+      host.setAttribute("icon", "fa-solid fa-copy");
+      document.body.appendChild(host);
+
+      const clone = host.cloneNode(true);
+      document.body.appendChild(clone);
+
+      const snap = (el) => ({
+        buttons: el.querySelectorAll("button").length,
+        nested: el.querySelectorAll("button button").length,
+        directButton: el.querySelectorAll(":scope > button").length,
+        html: el.innerHTML
+      });
+      const real = snap(host);
+      const copy = snap(clone);
+      host.remove();
+      clone.remove();
+      return { real, copy };
+    });
+
+    expect(result.real.buttons).toBe(1);
+    expect(result.real.nested).toBe(0);
+    // The clone keeps exactly the one inner button it was cloned with.
+    expect(result.copy.buttons).toBe(1);
+    expect(result.copy.nested).toBe(0);
+    expect(result.copy.directButton).toBe(1);
+    expect(result.copy.html).not.toContain("Button");
+  });
 });

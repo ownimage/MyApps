@@ -1902,6 +1902,18 @@ function sbOnKeyDown(e) {
   var t = e.target;
   var tag = (t && t.tagName ? t.tagName : "").toLowerCase();
   if (tag === "input" || tag === "textarea" || tag === "select" || (t && t.isContentEditable)) return;
+  // Undo / redo. A focused text field keeps its own Ctrl+Z (it returned above),
+  // and an open page/modal owns the keyboard.
+  if ((e.ctrlKey || e.metaKey) && !e.altKey) {
+    var key = String(e.key || "").toLowerCase();
+    var redoKey = key === "y" || (key === "z" && e.shiftKey);
+    if ((key === "z" && !e.shiftKey) || redoKey) {
+      if (document.querySelector("smd-page[open], smd-modal[open]")) return;
+      e.preventDefault();
+      if (redoKey) sbRedo(); else sbUndo();
+      return;
+    }
+  }
   if (e.code === "Space" || e.key === " ") {
     // A focused control that uses Space (a button/link/role button) keeps it;
     // the settings page and modals own the keyboard too.

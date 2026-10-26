@@ -40,6 +40,9 @@ document.addEventListener("DOMContentLoaded", function () {
   sbInitBoard();
   sbInitToolbar();
   sbRender();
+  // Seed undo/redo from the state the app OPENED with, so the first edit can be
+  // undone back to it (boot itself is not an undo step).
+  if (typeof sbHistoryReset === "function") sbHistoryReset();
 
   // OneDrive sticker artwork can be edited outside the app: refresh the sticker
   // libraries at boot (so a reload picks up a re-saved PNG even with the Stickers

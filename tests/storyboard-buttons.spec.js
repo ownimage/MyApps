@@ -41,7 +41,7 @@ test.describe("Storyboard - smd-button conversion", () => {
     await seed(page);
 
     const railButtons = page.locator("#sbToolbar .sb-rail smd-button.sb-rail-btn");
-    await expect(railButtons).toHaveCount(9); // 4 tools + Note + zoom out/in + Fit + Pin (no Save: it is in the menu)
+    await expect(railButtons).toHaveCount(11); // 4 tools + Note + undo/redo + zoom out/in + Fit + Pin (no Save: it is in the menu)
     for (const button of await railButtons.all()) {
       await isSmdButton(button);
       await expect(button.locator(":scope > button > i")).toHaveCount(1);

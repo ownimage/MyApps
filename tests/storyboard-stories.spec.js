@@ -281,4 +281,160 @@ test.describe("Storyboard - stories and scenes", () => {
     await expect(page.locator(".sb-story-row")).toHaveCount(1);
     await expect(page.locator(".sb-story-row.active")).toContainText("Story 1");
   });
+
+  test("a scene can be duplicated directly below itself, with fresh ids", async ({ page }) => {
+    const textItem = (id, text, z) => ({
+      id, type: "text", text, bg: "transparent", color: "auto", border: "none", font: "theme",
+      x: 30, y: 40, scale: 1, rotation: 0, z
+    });
+    const source = scene("dup-a", "Scene 1", {
+      background: "space",
+      items: [textItem("ta", "A", 1), textItem("tb", "B", 2), sticker("sa")],
+      connectors: [{ id: "c1", from: "ta", to: "tb" }],
+      groups: [{ id: "g1", children: ["ta", "tb"] }]
+    });
+    await seedStories(page, [story("dup-story", "Dup", [source, scene("dup-b", "Scene 2")])]);
+    await openStories(page);
+    await expect(page.locator(".sb-board-row")).toHaveCount(2);
+
+    // The duplicate button sits BEFORE the rename (edit) action.
+    const acts = await page.locator('.sb-board-row[data-board-id="dup-a"] .sb-board-act').evaluateAll((els) => els.map((e) => e.getAttribute("data-act")));
+    expect(acts).toEqual(["duplicate", "rename", "delete"]);
+
+    await page.locator('.sb-board-row[data-board-id="dup-a"] .sb-board-act[data-act="duplicate"]').click();
+    await expect(page.locator(".sb-board-row")).toHaveCount(3);
+    // Rendered directly under its source.
+    expect(await page.evaluate(() => Array.prototype.map.call(
+      document.querySelectorAll(".sb-board-row .sb-board-pick span"), (n) => n.textContent
+    ))).toEqual(["Scene 1", "Scene 1 copy", "Scene 2"]);
+
+    const scenes = (await stored(page)).stories[0].scenes;
+    expect(scenes.map((s) => s.name)).toEqual(["Scene 1", "Scene 1 copy", "Scene 2"]);
+    const copy = scenes[1];
+    expect(copy.id).not.toBe("dup-a");
+    expect(copy.background).toBe("space");
+    expect(copy.items).toHaveLength(3);
+
+    // Fresh ids, and the copy's connector/group point at the COPY's items.
+    const copyIds = copy.items.map((i) => i.id);
+    expect(copyIds.some((id) => ["ta", "tb", "sa"].includes(id))).toBe(false);
+    expect(new Set(copyIds).size).toBe(3);
+    const copyA = copy.items.find((i) => i.text === "A");
+    const copyB = copy.items.find((i) => i.text === "B");
+    expect(copy.connectors).toHaveLength(1);
+    expect(copy.connectors[0].from).toBe(copyA.id);
+    expect(copy.connectors[0].to).toBe(copyB.id);
+    expect(copy.groups).toHaveLength(1);
+    expect(copy.groups[0].children.slice().sort()).toEqual([copyA.id, copyB.id].sort());
+
+    // The source is untouched and stays the active scene.
+    expect(scenes[0].items.map((i) => i.id)).toEqual(["ta", "tb", "sa"]);
+    expect(await page.evaluate(() => sbActiveBoard().id)).toBe("dup-a");
+
+    await page.reload();
+    await expect(page.locator("#sbCanvas")).toBeVisible();
+    expect((await stored(page)).stories[0].scenes.map((s) => s.name)).toEqual(["Scene 1", "Scene 1 copy", "Scene 2"]);
+  });
+
+  test("the Stories panel is wide enough to show the story and scene names, and New story has a gap above it", async ({ page }) => {
+    const wide = story("wide-story", "A Rather Long Story Name", [
+      scene("w1", "The Opening Scene Of It All"),
+      scene("w2", "Scene 2")
+    ]);
+    await seedStories(page, [wide]);
+    await openStories(page);
+
+    const geom = await page.evaluate(() => {
+      const panel = document.querySelector(".sb-panel");
+      const storySpan = document.querySelector(".sb-story-row .sb-story-pick span");
+      const sceneSpan = document.querySelector(".sb-board-row .sb-board-pick span");
+      const add = document.getElementById("sbAddStory");
+      const list = document.querySelector(".sb-board-list");
+      const truncated = (el) => el.scrollWidth - el.clientWidth > 1;
+      return {
+        panelWidth: Math.round(panel.getBoundingClientRect().width),
+        storyText: storySpan.textContent,
+        sceneText: sceneSpan.textContent,
+        storyTruncated: truncated(storySpan),
+        sceneTruncated: truncated(sceneSpan),
+        gapAbove: Math.round(add.getBoundingClientRect().top - list.getBoundingClientRect().bottom)
+      };
+    });
+
+    expect(geom.storyText).toBe("A Rather Long Story Name");
+    expect(geom.sceneText).toBe("The Opening Scene Of It All");
+    expect(geom.panelWidth).toBeGreaterThanOrEqual(380);
+    expect(geom.storyTruncated).toBe(false);
+    expect(geom.sceneTruncated).toBe(false);
+    // The New story button is separated from the story list.
+    expect(geom.gapAbove).toBeGreaterThan(8);
+  });
+
+  test("the drag ghost of a scene row is a single, correctly built copy", async ({ page }) => {
+    const make = (id, name) => scene(id, name, { background: "space" });
+    await seedStories(page, [story("ghost-story", "Ghost", [make("g1", "Scene 1"), make("g2", "Scene 2"), make("g3", "Scene 3")])]);
+    await openStories(page);
+
+    const handle = await page.locator('.sb-board-row[data-board-id="g3"] .drag-handle').boundingBox();
+    await page.mouse.move(handle.x + handle.width / 2, handle.y + handle.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(handle.x + handle.width / 2, handle.y + handle.height / 2 - 6, { steps: 3 });
+    await page.mouse.move(handle.x + handle.width / 2, handle.y + handle.height / 2 - 70, { steps: 8 });
+    await page.waitForTimeout(250);
+
+    const ghost = await page.evaluate(() => {
+      const el = document.querySelector(".sortable-fallback");
+      if (!el) return null;
+      const btn = el.querySelector(".sb-board-pick > button");
+      const cs = btn ? getComputedStyle(btn) : null;
+      return {
+        buttons: el.querySelectorAll("button").length,
+        nested: el.querySelectorAll("button button").length,
+        smdButtons: el.querySelectorAll("smd-button").length,
+        glyphs: el.querySelectorAll("smd-draghandle .glyph").length,
+        name: el.querySelector(".sb-board-pick span") ? el.querySelector(".sb-board-pick span").textContent : "",
+        // The real row's pick button is a flat, transparent text control; the
+        // nested-button bug made the OUTER one a filled Bootstrap `.btn`.
+        pickBackground: cs ? cs.backgroundColor : "",
+        pickFontSize: cs ? parseFloat(cs.fontSize) : 0
+      };
+    });
+    await page.mouse.up();
+
+    expect(ghost).not.toBeNull();
+    expect(ghost.name).toBe("Scene 3");
+    expect(ghost.nested).toBe(0);
+    // One inner button per smd-button (handle + 3 actions + the pick row).
+    expect(ghost.buttons).toBe(ghost.smdButtons);
+    expect(ghost.smdButtons).toBe(4);
+    expect(ghost.glyphs).toBe(1);
+    expect(ghost.pickBackground).toBe("rgba(0, 0, 0, 0)");
+  });
+
+  test("scenes can be reordered by dragging their handle", async ({ page }) => {
+    const make = (id, name) => scene(id, name, { background: "space" });
+    await seedStories(page, [story("ord-story", "Order", [make("o1", "Scene 1"), make("o2", "Scene 2"), make("o3", "Scene 3")])]);
+    await openStories(page);
+    await expect(page.locator(".sb-board-row")).toHaveCount(3);
+
+    // Drag Scene 3's handle to the TOP of Scene 1's row.
+    const handle = await page.locator('.sb-board-row[data-board-id="o3"] .drag-handle').boundingBox();
+    const first = await page.locator('.sb-board-row[data-board-id="o1"]').boundingBox();
+    await page.mouse.move(handle.x + handle.width / 2, handle.y + handle.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(handle.x + handle.width / 2, handle.y + handle.height / 2 - 4);
+    await page.mouse.move(first.x + 20, first.y + 2, { steps: 14 });
+    await page.mouse.up();
+
+    await expect.poll(async () => (await stored(page)).stories[0].scenes.map((s) => s.id)).toEqual(["o3", "o1", "o2"]);
+    expect(await page.evaluate(() => Array.prototype.map.call(
+      document.querySelectorAll(".sb-board-row .sb-board-pick span"), (n) => n.textContent
+    ))).toEqual(["Scene 3", "Scene 1", "Scene 2"]);
+    // The scene being edited does not change.
+    expect(await page.evaluate(() => sbActiveBoard().id)).toBe("o1");
+
+    await page.reload();
+    await expect(page.locator("#sbCanvas")).toBeVisible();
+    expect((await stored(page)).stories[0].scenes.map((s) => s.id)).toEqual(["o3", "o1", "o2"]);
+  });
 });

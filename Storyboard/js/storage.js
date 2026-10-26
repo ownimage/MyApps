@@ -637,6 +637,9 @@ function sbSaveState() {
     clearTimeout(sbState.saveTimer);
     sbState.saveTimer = null;
   }
+  // Every content mutation funnels through here, so this is the one place that
+  // has to feed undo/redo.
+  sbHistoryTouch();
   var story = sbActiveStory();
   if (story && sbState.activeId) story.activeSceneId = sbState.activeId;
   try {
@@ -654,6 +657,148 @@ function sbSaveSoon() {
     sbState.saveTimer = null;
     sbSaveState();
   }, 150);
+}
+
+// ---- Undo / redo -----------------------------------------------------------
+//
+// Snapshot history over the STORIES content - items, connectors, groups, story
+// names/sizes, scene ORDER and scene names - and deliberately WITHOUT each
+// scene's zoom/pan (undo must never move the camera) or which scene is active
+// (merely switching scenes is not an edit). `sbSaveState()` is the single choke
+// point every mutation already goes through, so it records here. A burst of
+// edits (typing, one whole drag) is ONE step: the PREVIOUS snapshot is pushed
+// only when the last change is older than SB_HISTORY_COALESCE_MS.
+
+var SB_HISTORY_LIMIT = 60;
+var SB_HISTORY_COALESCE_MS = 500;
+var sbHistory = { undo: [], redo: [], current: "", lastChangeAt: 0 };
+
+function sbHistoryContent() {
+  try {
+    var copy = JSON.parse(JSON.stringify(sbState.stories || []));
+    copy.forEach(function (story) {
+      delete story.activeSceneId;
+      (story.scenes || []).forEach(function (board) { delete board.view; });
+    });
+    return JSON.stringify(copy);
+  } catch (e) {
+    return "";
+  }
+}
+
+function sbHistoryCanUndo() { return sbHistory.undo.length > 0; }
+function sbHistoryCanRedo() { return sbHistory.redo.length > 0; }
+
+// Called once boot has finished loading, so the FIRST user edit is undoable back
+// to the state the app opened with.
+function sbHistoryReset() {
+  sbHistory.undo.length = 0;
+  sbHistory.redo.length = 0;
+  sbHistory.current = sbHistoryContent();
+  sbHistory.lastChangeAt = 0;
+  sbHistoryUpdateUi();
+}
+
+function sbHistoryTouch() {
+  var snapshot = sbHistoryContent();
+  if (!snapshot) return;
+  var now = Date.now();
+  if (!sbHistory.current) {
+    sbHistory.current = snapshot;
+    sbHistory.lastChangeAt = now;
+    sbHistoryUpdateUi();
+    return;
+  }
+  if (snapshot === sbHistory.current) return;
+  if (now - sbHistory.lastChangeAt > SB_HISTORY_COALESCE_MS) {
+    sbHistory.undo.push(sbHistory.current);
+    if (sbHistory.undo.length > SB_HISTORY_LIMIT) sbHistory.undo.shift();
+    // A fresh edit invalidates the redo branch.
+    sbHistory.redo.length = 0;
+  }
+  sbHistory.current = snapshot;
+  sbHistory.lastChangeAt = now;
+  sbHistoryUpdateUi();
+}
+
+function sbHistoryUpdateUi() {
+  var undo = document.getElementById("sbUndoBtn");
+  var redo = document.getElementById("sbRedoBtn");
+  // Set the ATTRIBUTE (not the property): <smd-button> mirrors it onto the inner
+  // button and guards its click, and it works before the element has upgraded.
+  if (undo) undo.toggleAttribute("disabled", !sbHistoryCanUndo());
+  if (redo) redo.toggleAttribute("disabled", !sbHistoryCanRedo());
+}
+
+// Rebuild the whole stories tree from a snapshot. The ACTIVE story/scene is kept
+// when it still exists, and every scene keeps its current zoom/pan.
+function sbHistoryApply(snapshot) {
+  var stories;
+  try { stories = JSON.parse(snapshot); } catch (e) { return false; }
+  if (!Array.isArray(stories)) return false;
+
+  var views = {};
+  var activeByStory = {};
+  (sbState.stories || []).forEach(function (story) {
+    activeByStory[story.id] = story.activeSceneId;
+    (story.scenes || []).forEach(function (board) {
+      if (board.view) views[board.id] = board.view;
+    });
+  });
+  stories.forEach(function (story) {
+    (story.scenes || []).forEach(function (board) {
+      board.view = views[board.id] || { zoom: 1, fx: 0.5, fy: 0.5 };
+    });
+    var previous = activeByStory[story.id];
+    var keep = (story.scenes || []).some(function (board) { return board.id === previous; });
+    story.activeSceneId = keep ? previous : (story.scenes[0] ? story.scenes[0].id : "");
+  });
+
+  sbState.stories = stories;
+  if (!sbFindStory(sbState.activeStoryId)) {
+    sbState.activeStoryId = stories.length ? stories[0].id : "";
+  }
+  var story = sbActiveStory();
+  if (!story) {
+    sbState.activeId = "";
+  } else if (!sbFindBoard(sbState.activeId)) {
+    sbState.activeId = story.activeSceneId || (story.scenes[0] ? story.scenes[0].id : "");
+  }
+  if (story) story.activeSceneId = sbState.activeId;
+
+  // Drop anything that pointed at the state we just replaced.
+  if (typeof sbResetSceneSelection === "function") sbResetSceneSelection();
+  sbState.editingTextId = "";
+  sbState.editingNoteId = "";
+  sbState.connectFrom = "";
+  sbState.storyPropsId = "";
+
+  sbSaveState();
+  if (typeof sbRender === "function") sbRender();
+  if (typeof sbRenderPanel === "function") sbRenderPanel();
+  return true;
+}
+
+function sbUndo() {
+  if (!sbHistory.undo.length) return false;
+  var target = sbHistory.undo.pop();
+  sbHistory.redo.push(sbHistory.current);
+  sbHistory.current = target;
+  sbHistory.lastChangeAt = 0;
+  var ok = sbHistoryApply(target);
+  sbHistoryUpdateUi();
+  return ok;
+}
+
+function sbRedo() {
+  if (!sbHistory.redo.length) return false;
+  var target = sbHistory.redo.pop();
+  sbHistory.undo.push(sbHistory.current);
+  sbHistory.current = target;
+  sbHistory.lastChangeAt = 0;
+  var ok = sbHistoryApply(target);
+  sbHistoryUpdateUi();
+  return ok;
 }
 
 // Scene lookup across every story (scene ids are globally unique).
@@ -996,6 +1141,66 @@ function sbAddSceneToStory(storyId) {
   story.scenes.push(board);
   sbActivateScene(story, board);
   return board;
+}
+
+// A copy of a scene with FRESH ids for the scene, its items, connectors and
+// groups (references inside the copy are remapped to the copies, while the source
+// scene keeps its own ids untouched).
+function sbCloneScene(source, name) {
+  var raw = JSON.parse(JSON.stringify(source));
+  var map = {};
+  (raw.items || []).forEach(function (item) {
+    var next = sbUid();
+    map[item.id] = next;
+    item.id = next;
+  });
+  // Group ids first, so a group can be a child of another group.
+  (raw.groups || []).forEach(function (group) {
+    var next = sbUid();
+    map[group.id] = next;
+    group.id = next;
+  });
+  (raw.groups || []).forEach(function (group) {
+    group.children = (group.children || []).map(function (child) { return map[child] || ""; }).filter(Boolean);
+  });
+  (raw.connectors || []).forEach(function (conn) {
+    conn.id = sbUid();
+    conn.from = map[conn.from] || "";
+    conn.to = map[conn.to] || "";
+  });
+  raw.id = sbUid();
+  raw.name = name;
+  return sbNormalizeBoard(raw);
+}
+
+// "Scene 1 copy", then "Scene 1 copy 2", ... (scene names need not be unique, but
+// a distinguishable default is friendlier).
+function sbCopySceneName(name, story) {
+  var base = String(name || "Scene").trim() + " copy";
+  var taken = {};
+  ((story && story.scenes) || []).forEach(function (scene) { taken[scene.name] = true; });
+  if (!taken[base]) return base;
+  var n = 2;
+  while (taken[base + " " + n]) n++;
+  return base + " " + n;
+}
+
+// Duplicate a scene DIRECTLY BELOW itself. The copy does not become active, so
+// the user stays on the scene they were editing.
+function sbDuplicateBoard(id) {
+  var story = sbStoryForScene(id);
+  if (!story) return null;
+  var index = -1;
+  for (var i = 0; i < story.scenes.length; i++) {
+    if (story.scenes[i].id === id) index = i;
+  }
+  if (index < 0) return null;
+  var source = story.scenes[index];
+  var copy = sbCloneScene(source, sbCopySceneName(source.name, story));
+  if (!copy) return null;
+  story.scenes.splice(index + 1, 0, copy);
+  sbSaveState();
+  return copy;
 }
 
 function sbDeleteBoard(id) {

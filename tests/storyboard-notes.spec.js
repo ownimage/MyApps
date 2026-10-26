@@ -77,7 +77,7 @@ test.describe("Storyboard - notes", () => {
   test("the Note tool adds a sticky-note glyph whose text is only a tooltip", async ({ page }) => {
     await seed(page, oneScene([]));
     const rail = page.locator("#sbToolbar .sb-rail smd-button.sb-rail-btn");
-    await expect(rail).toHaveCount(9); // 4 tools + Note + zoom out/in + Fit + Pin
+    await expect(rail).toHaveCount(11); // 4 tools + Note + undo/redo + zoom out/in + Fit + Pin
 
     await openNotePanel(page);
     await expect(page.locator("#sbPanelTitle")).toHaveText("Note");

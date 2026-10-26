@@ -3,6 +3,9 @@
 // slides out beside it. Pin keeps the panel open while the board is used.
 
 var sbToolbarEls = {};
+// The Sortable instance for the ACTIVE story's scene list (destroyed and rebuilt
+// on every panel render).
+var sbSceneSortable = null;
 
 function sbInitToolbar() {
   sbState.textDraft = { bg: "transparent", color: "auto", border: "none", font: "theme" };
@@ -13,6 +16,8 @@ function sbInitToolbar() {
   sbToolbarEls.title = document.getElementById("sbPanelTitle");
   sbToolbarEls.body = document.getElementById("sbPanelBody");
   sbToolbarEls.pin = document.getElementById("sbPinBtn");
+  sbToolbarEls.undo = document.getElementById("sbUndoBtn");
+  sbToolbarEls.redo = document.getElementById("sbRedoBtn");
   sbToolbarEls.close = document.getElementById("sbPanelClose");
   sbToolbarEls.zoomOut = document.getElementById("sbZoomOut");
   sbToolbarEls.zoomIn = document.getElementById("sbZoomIn");
@@ -30,6 +35,9 @@ function sbInitToolbar() {
   sbToolbarEls.railBtns.forEach(function (btn) {
     btn.addEventListener("click", function () { sbSetTool(btn.dataset.tool); });
   });
+  if (sbToolbarEls.undo) sbToolbarEls.undo.addEventListener("click", function () { sbUndo(); });
+  if (sbToolbarEls.redo) sbToolbarEls.redo.addEventListener("click", function () { sbRedo(); });
+  sbHistoryUpdateUi();
   if (sbToolbarEls.zoomOut) sbToolbarEls.zoomOut.addEventListener("click", sbZoomOut);
   if (sbToolbarEls.zoomIn) sbToolbarEls.zoomIn.addEventListener("click", sbZoomIn);
   if (sbToolbarEls.zoomFit) sbToolbarEls.zoomFit.addEventListener("click", sbZoomFit);
@@ -92,6 +100,10 @@ function sbOpenTool(tool) {
 }
 
 function sbClosePanel() {
+  // A closed panel's field keeps DOM focus after its node is detached, which
+  // would swallow the board's keyboard shortcuts (Ctrl+Z, Space, Delete...).
+  var focused = document.activeElement;
+  if (focused && sbToolbarEls.body && sbToolbarEls.body.contains(focused) && focused.blur) focused.blur();
   sbState.tool = "";
   sbState.editingTextId = "";
   sbState.editingNoteId = "";
@@ -153,10 +165,14 @@ function sbRenderBoardsPanel() {
     html += '<div class="sb-story-scenes">';
     story.scenes.forEach(function (board) {
       html += '<div class="sb-board-row' + (active && board.id === active.id ? " active" : "") + '" data-board-id="' + board.id + '">' +
+        // Scenes are reordered by dragging this handle (Sortable, see
+        // sbInitSceneSortable). The class MUST stay on the host element.
+        '<smd-draghandle class="drag-handle" title="Reorder scene"></smd-draghandle>' +
         '<smd-button class="sb-board-pick" variant="secondary" data-act="pick" data-id="' + board.id + '">' +
           '<i class="fa-solid fa-clapperboard" aria-hidden="true"></i>' +
           '<span>' + escapeHtml(board.name) + '</span>' +
         '</smd-button>' +
+        '<smd-button class="sb-board-act" variant="secondary" size="small" data-act="duplicate" data-id="' + board.id + '" title="Duplicate scene" aria-label="Duplicate scene" icon="fa-solid fa-copy"></smd-button>' +
         '<smd-button class="sb-board-act" variant="secondary" size="small" data-act="rename" data-id="' + board.id + '" title="Rename scene" aria-label="Rename scene" icon="fa-solid fa-pen"></smd-button>' +
         '<smd-button class="sb-board-act" variant="secondary" size="small" data-act="delete" data-id="' + board.id + '" title="Delete scene" aria-label="Delete scene" icon="fa-solid fa-trash"' +
           (story.scenes.length < 2 ? " disabled" : "") + '></smd-button>' +
@@ -182,6 +198,51 @@ function sbRenderBoardsPanel() {
     presetEl.setAttribute("value", sbState.storyPropsOther ? "other" : sbStoryPresetId(propsStory));
   }
   if (fitEl && propsStory) fitEl.setAttribute("value", sbStoryFit(propsStory));
+  sbInitSceneSortable();
+}
+
+// Scenes are reordered by dragging the handle in their row; the order lives in
+// `story.scenes` (the array IS the order). Only the ACTIVE story's list is
+// rendered, so this is a within-story reorder.
+function sbInitSceneSortable() {
+  if (sbSceneSortable) {
+    sbSceneSortable.destroy();
+    sbSceneSortable = null;
+  }
+  if (typeof Sortable === "undefined" || !sbToolbarEls.body) return;
+  var list = sbToolbarEls.body.querySelector(".sb-story-scenes");
+  if (!list) return;
+  sbSceneSortable = new Sortable(list, {
+    animation: 150,
+    draggable: ".sb-board-row",
+    handle: ".drag-handle",
+    forceFallback: true,
+    fallbackOnBody: true,
+    ghostClass: "sortable-ghost",
+    fallbackClass: "sortable-fallback",
+    onEnd: sbSceneSortableEnd
+  });
+}
+
+function sbSceneSortableEnd() {
+  var story = sbActiveStory();
+  var list = sbToolbarEls.body ? sbToolbarEls.body.querySelector(".sb-story-scenes") : null;
+  if (!story || !list) return;
+  var byId = {};
+  story.scenes.forEach(function (scene) { byId[scene.id] = scene; });
+  var ordered = [];
+  Array.prototype.slice.call(list.querySelectorAll(".sb-board-row")).forEach(function (row) {
+    var scene = byId[row.dataset.boardId];
+    if (scene && ordered.indexOf(scene) === -1) ordered.push(scene);
+  });
+  // Anything the DOM did not list keeps its relative place at the end.
+  story.scenes.forEach(function (scene) { if (ordered.indexOf(scene) === -1) ordered.push(scene); });
+  if (!ordered.length) return;
+  story.scenes = ordered;
+  sbSaveState();
+  // Re-render OUTSIDE Sortable's callback: destroying the list it is still
+  // finishing with can throw, and the DOM already shows the new order.
+  setTimeout(sbRenderPanel, 0);
 }
 
 // The cog's inline form: canvas SIZE (presets + "Other" with free width/height)
@@ -880,6 +941,10 @@ function sbOnPanelClick(e) {
     else if (act.dataset.act === "story-props") sbToggleStoryProps(id);
     else if (act.dataset.act === "story-props-close") sbToggleStoryProps("", id);
     else if (act.dataset.act === "rename") sbStartRename(id);
+    else if (act.dataset.act === "duplicate") {
+      sbDuplicateBoard(id);
+      sbRenderPanel();
+    }
     else if (act.dataset.act === "rename-story") sbStartRenameStory(id);
     else if (act.dataset.act === "delete") sbConfirmDeleteBoard(id);
     else if (act.dataset.act === "delete-story") sbConfirmDeleteStory(id);
