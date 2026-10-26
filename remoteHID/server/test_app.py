@@ -13,6 +13,7 @@ Run from the repo root:
     py -3.13 -m pytest remoteHID/server/test_app.py --cov=app --cov-report=term-missing
 """
 
+import io
 import json
 import os
 import shutil
@@ -68,6 +69,13 @@ def isolated(tmp_path, monkeypatch):
         server, "_current_app",
         {"name": "Unknown", "icon": "", "layout": None}, raising=False,
     )
+    # The optional local capture is module state too: a test that registers one must
+    # not leak its address into the next test.
+    monkeypatch.setattr(server, "_MOUSER_CAPTURE", {
+        "enabled": False, "state": "off", "url": None, "token": None,
+        "tunnelUrl": None, "build": None, "error": None,
+    }, raising=False)
+    monkeypatch.setattr(server, "_MOUSER_CAPTURE_PROC", None, raising=False)
     return tmp_path
 
 
@@ -1167,3 +1175,135 @@ class TestCacheIcon:
         monkeypatch.setattr(server, "_extract_icon_png_from_hwnd", lambda hwnd: None)
         monkeypatch.setattr(server, "_extract_icon_png", lambda exe: None)
         assert server._cache_icon(r"C:\x\noname.exe", 7, "NoName") == ""
+
+
+# --------------------------------------------------------------------------- #
+# Optional LOCAL mouser-capture (--mouser) + /api/mouser-capture discovery
+# --------------------------------------------------------------------------- #
+
+class FakeCaptureProc:
+    """A stand-in for the capture exe: a scripted banner and a record of how it was
+    started, so the parsing and the autoconfig flags can be asserted without a driver."""
+
+    def __init__(self, lines, exit_code=None):
+        self.stdout = io.StringIO("\n".join(lines) + ("\n" if lines else ""))
+        self.calls = []
+        self.terminated = False
+        self.killed = False
+        self.returncode = exit_code
+
+    def poll(self):
+        return self.returncode
+
+    def terminate(self):
+        self.terminated = True
+        self.returncode = 0
+
+    def wait(self, timeout=None):
+        return self.returncode or 0
+
+    def kill(self):
+        self.killed = True
+
+
+class TestMouserCaptureDiscovery:
+
+    def test_disabled_by_default(self, client):
+        body = client.get("/api/mouser-capture").get_json()
+        assert body["enabled"] is False
+        assert body["state"] == "off"
+        assert body["url"] is None
+        assert body["token"] is None
+
+    def test_reports_a_ready_capture(self, client):
+        server._mouser_capture_set(
+            enabled=True, state="ready", url="http://192.168.1.60:7802/?t=abc123",
+            token="abc123", build="0.4.0+deadbee",
+        )
+        body = client.get("/api/mouser-capture").get_json()
+        assert body == {
+            "enabled": True,
+            "state": "ready",
+            "url": "http://192.168.1.60:7802/?t=abc123",
+            "token": "abc123",
+            "tunnelUrl": None,
+            "build": "0.4.0+deadbee",
+            "error": None,
+        }
+
+    def test_exe_path_points_at_the_mouser_build(self):
+        path = server._mouser_capture_exe()
+        assert os.path.isabs(path)
+        assert path.endswith(os.path.join("Mouser", "out", "mouser-capture.exe"))
+
+    def test_a_missing_exe_explains_how_to_build_it(self, monkeypatch, tmp_path):
+        monkeypatch.setattr(server, "_mouser_capture_exe",
+                            lambda: str(tmp_path / "not-built.exe"))
+        assert server._start_mouser_capture() is None
+        state = server._mouser_capture_public()
+        assert state["state"] == "error"
+        assert state["enabled"] is True
+        assert "build.ps1" in state["error"]
+
+    def test_start_parses_the_panel_line_and_autoconfigures_udp(self, monkeypatch):
+        proc = FakeCaptureProc([
+            "mouser-capture control panel",
+            "  build  : 0.4.0+deadbee",
+            "  bind   : 0.0.0.0:54321",
+            "panel: http://127.0.0.1:54321/?t=deadbeefdeadbeef",
+        ])
+        monkeypatch.setattr(server, "_mouser_capture_exe", lambda: __file__)
+        monkeypatch.setattr(server, "_lan_ip", lambda: "192.168.1.60")
+        monkeypatch.setattr(server.subprocess, "Popen",
+                            lambda *a, **k: (proc.calls.append(list(a[0])), proc)[1])
+
+        assert server._start_mouser_capture() is proc
+
+        state = server._mouser_capture_public()
+        assert state["state"] == "ready"
+        assert state["token"] == "deadbeefdeadbeef"
+        assert state["url"] == "http://192.168.1.60:54321/?t=deadbeefdeadbeef"
+        # The build stamp arrives BEFORE the panel line, so the start reader must
+        # keep it (the follow thread only sees what comes after).
+        assert state["build"] == "0.4.0+deadbee"
+
+        args = proc.calls[0]
+        assert "--ui" in args
+        assert "--bind-lan" in args          # the phone must be able to reach it
+        assert "--no-qr" in args             # nothing to scan on this box
+        assert "--panel-port" in args and "0" in args
+        # Autoconfig: telemetry goes straight to this server's own receiver.
+        udp_index = args.index("--udp")
+        assert args[udp_index + 1] == f"127.0.0.1:{server._mouser_udp.port}"
+
+    def test_start_forwards_the_tunnel_request(self, monkeypatch):
+        proc = FakeCaptureProc(["panel: http://127.0.0.1:1/?t=abc"])
+        monkeypatch.setattr(server, "_mouser_capture_exe", lambda: __file__)
+        monkeypatch.setattr(server, "_lan_ip", lambda: "10.0.0.5")
+        monkeypatch.setattr(server.subprocess, "Popen",
+                            lambda *a, **k: (proc.calls.append(list(a[0])), proc)[1])
+
+        server._start_mouser_capture(tunnel=True)
+        assert "--tunnel" in proc.calls[0]
+
+    def test_follow_reads_the_tunnel_url_and_build(self, monkeypatch):
+        proc = FakeCaptureProc([
+            "  build  : 0.4.0+cafe123",
+            "[cloudflared] |  https://quiet-fox-mouse.trycloudflare.com  |",
+            "  tunnel : up https://quiet-fox-mouse.trycloudflare.com",
+        ])
+        server._mouser_capture_follow(proc)
+        state = server._mouser_capture_public()
+        assert state["tunnelUrl"] == "https://quiet-fox-mouse.trycloudflare.com"
+        assert state["build"] == "0.4.0+cafe123"
+
+    def test_follow_reports_an_exit(self, monkeypatch):
+        proc = FakeCaptureProc(["panel: http://127.0.0.1:1/?t=abc"], exit_code=3)
+        server._mouser_capture_follow(proc)
+        assert server._mouser_capture_public()["state"] == "error"
+
+    def test_stop_terminates_the_child(self, monkeypatch):
+        proc = FakeCaptureProc([])
+        monkeypatch.setattr(server, "_MOUSER_CAPTURE_PROC", proc)
+        server._stop_mouser_capture()
+        assert proc.terminated is True

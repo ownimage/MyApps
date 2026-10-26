@@ -50,6 +50,30 @@ install it finds. Run the checks on their own with:
 ```
 One `PASS`/`FAIL` line per check, exit code 1 on failure.
 
+### Mouser control panel (mouser-capture.exe --ui)
+
+The capture client serves a management API + QR page; the CONFIGURATION UI is in
+PhoneButtons (hamburger -> Manage mouser-capture). Build and run it:
+```bash
+# build (publish + bundle interception.dll); add -NoZip to skip the zip
+powershell -NoProfile -ExecutionPolicy Bypass -File remoteHID\Mouser\build.ps1
+
+# demo/test the panel with NO driver installed (prints a "panel:" URL)
+remoteHID\Mouser\out\mouser-capture.exe --ui --simulate --no-tunnel --panel-port 0
+
+# on the PC with the mouse: tunnel is opt-in
+remoteHID\StartMouserCapture.cmd
+remoteHID\StartMouserCapture.cmd --tunnel
+
+# one box (server + capture), autoconfigured, no QR scan
+remoteHID\StartRemoteHIDServer.cmd --mouser
+```
+Its tests (the panel one spawns the built exe with `--simulate` and SKIPS when
+`out/mouser-capture.exe` is missing):
+```bash
+.\node_modules\.bin\playwright.cmd test tests/mouser-capture-ui.spec.js tests/phonebuttons-mouser.spec.js --workers=3 --retries=0
+```
+
 ### SampleImages
 ```bash
 npx playwright test tests/sample-images.spec.js --workers 1

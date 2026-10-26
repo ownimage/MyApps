@@ -20,7 +20,7 @@
 // comparison. If the two ever DO drift, the page notices at runtime
 // (GET_BUILD) and re-registers, so the drift self-heals instead of pinning
 // users to a build the worker will never replace.
-const BUILD_NUMBER = "202610261523";
+const BUILD_NUMBER = "202610261823";
 
 const CACHE = "myapps-" + BUILD_NUMBER;
 
@@ -534,6 +534,7 @@ const APPS = {
     "remoteHID/PhoneButtons/js/edit-app.js",
     "remoteHID/PhoneButtons/js/edit-layout.js",
     "remoteHID/PhoneButtons/js/mouser-tab.js",
+    "remoteHID/PhoneButtons/js/mouser-capture.js",
     "remoteHID/PhoneButtons/js/components/pb-image-dropdown.js"
   ],
   // The Launch app entry lives at the repo root (index.html); its other files

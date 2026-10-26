@@ -74,6 +74,13 @@ internal sealed class Capture
 
     public bool GateActive => Mode != Wire.ModeOff;
 
+    /// <summary>Cumulative counters, read by the control panel (never by the pump).</summary>
+    public long Strokes => Interlocked.Read(ref _strokeCount);
+
+    public long Gated => Interlocked.Read(ref _gatedCount);
+
+    public long SendErrors => Interlocked.Read(ref _sendErrors);
+
     public static string ModeName(ushort mode) => mode switch
     {
         Wire.ModeRotate => "ROT",
@@ -284,7 +291,7 @@ internal sealed class Capture
         }
     }
 
-    private (double P50, double P99) LatencyPercentiles()
+    public (double P50, double P99) LatencyPercentiles()
     {
         var samples = new List<long>(4096);
         for (int i = 0; i < _latencySamples.Length; i++)

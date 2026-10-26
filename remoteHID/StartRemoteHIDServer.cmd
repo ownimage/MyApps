@@ -8,13 +8,14 @@ REM It STOPS any server already running on port 5000 first (a leftover instance
 REM keeps the port and can be serving stale code, which looks like "This site
 REM can't be reached").
 REM
-REM By default it ALSO publishes the server through a Cloudflare QUICK TUNNEL (a
-REM real, trusted https URL — no certificate to install) and shows that URL as a
-REM QR code to scan. Needs `cloudflared` installed; without it the server still
-REM runs and it tells you what to install.
-REM   PhoneButtonServer.cmd --no-tunnel          (no tunnel, local only)
-REM   PhoneButtonServer.cmd --qr https://host    (QR for an address you already have)
-REM   PhoneButtonServer.cmd --no-qr              (start no browser page at all)
+REM The Cloudflare tunnel is OFF by default - nothing is published unless asked:
+REM   StartRemoteHIDServer.cmd --tunnel           publish this server (QR shown)
+REM   StartRemoteHIDServer.cmd --qr URL           QR for an address you already have
+REM   StartRemoteHIDServer.cmd --no-qr            start no browser page at all
+REM
+REM If the mouse is on THIS PC too, add --mouser: the server then starts
+REM mouser-capture.exe with the local autoconfig (UDP straight to this server) and
+REM the app's "Manage mouser-capture" page picks it up without a QR scan.
 setlocal
 cd /d "%~dp0"
 
@@ -39,10 +40,6 @@ if errorlevel 1 (
   )
 )
 
-REM Tunnel + QR by default, unless the user chose a tunnel/QR option themselves.
-set "TUNNEL=--tunnel"
-echo %* | findstr /i /c:"--tunnel" /c:"--no-tunnel" /c:"--qr" >nul
-if not errorlevel 1 set "TUNNEL="
-
-%PY% "server\app.py" %TUNNEL% %* --debug-keys
+REM The tunnel is opt-in: a plain start is local-only (nothing on the internet).
+%PY% "server\app.py" %* --debug-keys
 endlocal

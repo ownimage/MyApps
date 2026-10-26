@@ -17,11 +17,25 @@ internal sealed class Options
 {
     public string Mode { get; set; } = string.Empty;
     public string? Filter { get; set; }
+    public string? Device { get; set; }
     public IPEndPoint? UdpTarget { get; set; }
     public int Port { get; set; } = 7801;
     public int RotateButton { get; set; } = 4;
     public int TranslateButton { get; set; } = 5;
     public bool PassModeButtons { get; set; }
+
+    // Only meaningful for --ui; a switch that was not given leaves the saved value.
+    public bool RotateGiven { get; set; }
+    public bool TranslateGiven { get; set; }
+    public string? ConfigPath { get; set; }
+    public int? PanelPort { get; set; }
+    public bool? TunnelOverride { get; set; }
+    public string? PublicUrl { get; set; }
+    public bool BindLan { get; set; }
+    public bool Simulate { get; set; }
+    public bool NoDriver { get; set; }
+    public bool NoQr { get; set; }
+    public bool? AutoStartOverride { get; set; }
 
     public static Options Parse(string[] args)
     {
@@ -38,12 +52,17 @@ internal sealed class Options
                 case "--rawdump": options.Mode = "rawdump"; break;
                 case "--recv": options.Mode = "recv"; break;
                 case "--ping": options.Mode = "ping"; break;
+                case "--ui": options.Mode = "ui"; break;
                 case "--version": options.Mode = "version"; break;
                 case "-h":
                 case "--help": options.Mode = "help"; break;
 
                 case "--filter":
                     options.Filter = Value(args, ref i, arg);
+                    break;
+
+                case "--device":
+                    options.Device = Value(args, ref i, arg);
                     break;
 
                 case "--udp":
@@ -54,17 +73,64 @@ internal sealed class Options
                     options.Port = ParseInt(Value(args, ref i, arg), arg);
                     break;
 
+                case "--panel-port":
+                    options.PanelPort = ParseInt(Value(args, ref i, arg), arg);
+                    break;
+
+                case "--config":
+                    options.ConfigPath = Value(args, ref i, arg);
+                    break;
+
+                case "--public-url":
+                    options.PublicUrl = Value(args, ref i, arg);
+                    break;
+
+                case "--tunnel":
+                    options.TunnelOverride = true;
+                    break;
+
+                case "--no-tunnel":
+                    options.TunnelOverride = false;
+                    break;
+
+                case "--bind-lan":
+                    options.BindLan = true;
+                    break;
+
+                case "--simulate":
+                    options.Simulate = true;
+                    break;
+
+                case "--no-driver":
+                    options.NoDriver = true;
+                    break;
+
+                case "--no-qr":
+                    options.NoQr = true;
+                    break;
+
+                case "--auto-start":
+                    options.AutoStartOverride = true;
+                    break;
+
+                case "--no-auto-start":
+                    options.AutoStartOverride = false;
+                    break;
+
                 case "--hold":
                     // Deprecated alias for --rotate-button (Phase-0 command lines).
                     options.RotateButton = ParseButton(Value(args, ref i, arg), arg);
+                    options.RotateGiven = true;
                     break;
 
                 case "--rotate-button":
                     options.RotateButton = ParseButton(Value(args, ref i, arg), arg);
+                    options.RotateGiven = true;
                     break;
 
                 case "--translate-button":
                     options.TranslateButton = ParseButton(Value(args, ref i, arg), arg);
+                    options.TranslateGiven = true;
                     break;
 
                 case "--pass-mode-buttons":
@@ -93,6 +159,9 @@ internal sealed class Options
               mouser-capture --rawdump
               mouser-capture --recv        [--port 7801]
               mouser-capture --ping        --udp host:port
+              mouser-capture --ui          [--config <file>] [--panel-port <n>]
+                                           [--tunnel | --no-tunnel] [--public-url <url>]
+                                           [--bind-lan] [--simulate] [--no-driver] [--no-qr]
               mouser-capture --version
 
             modes:
@@ -102,10 +171,14 @@ internal sealed class Options
                              mode buttons are consumed too, so they do not click through
               --rawdump      independent raw-input reader; proves we sit below raw input
               --recv         UDP receiver for telemetry and ping echo
-              --ping         round-trip probe against --recv
+              --ping         round-trip probe against --recv / the PhoneButtons server
+              --ui           serve the management socket + QR/address page and hold the
+                             capture session (configured from PhoneButtons > Manage
+                             mouser-capture). With a saved config this is also the default.
 
             options:
               --filter <t>   only manage devices whose hardware id contains <t> (case-insensitive)
+              --device <id>  manage exactly this hardware id (wins over --filter)
               --rotate-button <n>     hold mouse button n to rotate (default 4)
               --translate-button <n>  hold mouse button n to translate (default 5)
                                       (0 disables that mode; 3 = middle, 4 = MB4, 5 = MB5)
@@ -114,8 +187,20 @@ internal sealed class Options
               --udp <h:p>    send 32-byte telemetry frames at ~100 Hz to <h:p>
               --port <n>     UDP port for --recv (default 7801)
 
+            ui options:
+              --config <file>      settings file (default: mouser-capture.json next to the exe)
+              --panel-port <n>     management port; 0 picks a free one (default 7802)
+              --bind-lan           listen on the LAN too, not just loopback
+              --tunnel             publish the panel through a Cloudflare quick tunnel
+              --no-tunnel          override a saved "tunnel on" for this run
+              --public-url <url>   advertise an address you already have (a named tunnel)
+              --simulate           fake devices + capture, no driver needed (demos/tests)
+              --no-driver          do not touch the driver at all
+              --no-qr              do not open the QR/address page in a browser
+              --auto-start / --no-auto-start  override the saved replay setting
+
             keys:
-              Q  quit      Ctrl+C  quit
+              Q  quit      Ctrl+C  quit      Ctrl+Alt+Shift+Q  disarm the filter (panic)
 
             Suggested order: --list, then --passthrough, then --gate --filter <your mouse>.
             """);
@@ -148,30 +233,14 @@ internal sealed class Options
 
     private static IPEndPoint ParseEndpoint(string text)
     {
-        if (IPEndPoint.TryParse(text, out IPEndPoint? endpoint)) return endpoint;
-
-        int colon = text.LastIndexOf(':');
-        if (colon <= 0) throw new OptionException($"--udp expects host:port, got '{text}'");
-
-        string host = text[..colon];
-        int port = ParseInt(text[(colon + 1)..], "--udp");
-
         try
         {
-            foreach (IPAddress address in Dns.GetHostAddresses(host))
-            {
-                if (address.AddressFamily == AddressFamily.InterNetwork)
-                {
-                    return new IPEndPoint(address, port);
-                }
-            }
+            return Endpoints.Parse(text);
         }
-        catch (SocketException)
+        catch (ConfigException ex)
         {
-            // reported below
+            throw new OptionException("--udp " + ex.Message);
         }
-
-        throw new OptionException($"--udp: could not resolve '{host}'");
     }
 }
 
@@ -183,7 +252,7 @@ internal static class Program
     /// Printed by --version and in the capture banner. build.ps1 appends the git
     /// commit, so a stale binary on the test machine is obvious at a glance.
     /// </summary>
-    private static string BuildVersion =>
+    internal static string BuildVersion =>
         typeof(Program).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
         ?? typeof(Program).Assembly.GetName().Version?.ToString()
         ?? "unknown";
@@ -210,7 +279,12 @@ internal static class Program
             return 2;
         }
 
-        switch (options.Mode)
+        // Double-clicking the exe on the target machine should open the panel, not
+        // flash a usage page: with a saved config, no mode means --ui.
+        string mode = options.Mode;
+        if (mode.Length == 0 && File.Exists(ConfigStore.DefaultPath())) mode = "ui";
+
+        switch (mode)
         {
             case "":
                 Options.PrintUsage();
@@ -223,9 +297,11 @@ internal static class Program
                 return 0;
             case "rawdump":
                 return RawDump.Run(() => _cancel);
+            case "ui":
+                return RunUi(options);
         }
 
-        if (options.Mode is "list" or "passthrough" or "gate"
+        if (mode is "list" or "passthrough" or "gate"
             && !Interception.TryPreload(out string loadError))
         {
             Console.Error.WriteLine("error: could not load interception.dll");
@@ -238,14 +314,14 @@ internal static class Program
 
         try
         {
-            return options.Mode switch
+            return mode switch
             {
                 "list" => ListDevices(),
                 "passthrough" => RunCapture(options, modesEnabled: false),
                 "gate" => RunCapture(options, modesEnabled: true),
                 "recv" => Receive(options),
                 "ping" => Ping(options),
-                _ => Unknown(options.Mode),
+                _ => Unknown(mode),
             };
         }
         catch (Exception ex)
@@ -310,147 +386,170 @@ internal static class Program
         return 0;
     }
 
-    private static int RunCapture(Options options, bool modesEnabled)
+    /// <summary>
+    /// `--ui`: the management socket (and the capture it drives). Configuration is
+    /// done from the PhoneButtons app; see CaptureApp.
+    /// </summary>
+    private static int RunUi(Options options)
     {
-        IntPtr context = Interception.interception_create_context();
-        if (context == IntPtr.Zero) return DriverUnavailable();
+        ConfigStore store;
+        try
+        {
+            store = ConfigStore.Load(options.ConfigPath);
+        }
+        catch (ConfigException ex)
+        {
+            Console.Error.WriteLine("error: " + ex.Message);
+            return 2;
+        }
 
-        UdpSender? udp = null;
+        CaptureConfig config = store.Config;
+
+        // Command-line overrides live for this run only; they are never saved.
+        if (options.Device is not null) config.Device = options.Device;
+        if (options.Filter is not null) config.Filter = options.Filter;
+        if (options.RotateGiven) config.RotateButton = options.RotateButton;
+        if (options.TranslateGiven) config.TranslateButton = options.TranslateButton;
+        if (options.PassModeButtons) config.PassModeButtons = true;
+        if (options.UdpTarget is not null)
+        {
+            config.Udp = options.UdpTarget.Address + ":" + options.UdpTarget.Port;
+        }
+        if (options.AutoStartOverride is { } autoStart) config.AutoStart = autoStart;
 
         try
         {
-            List<MouseInfo> mice = Interception.EnumerateMice(context);
-            if (mice.Count == 0)
-            {
-                Console.Error.WriteLine("error: the driver reports no mouse devices.");
-                return 5;
-            }
-
-            int target = 0;
-            string targetLabel = "all mice";
-
-            if (!string.IsNullOrEmpty(options.Filter))
-            {
-                MouseInfo? match = mice.FirstOrDefault(m =>
-                    m.HardwareId.Contains(options.Filter, StringComparison.OrdinalIgnoreCase));
-
-                if (match is null)
-                {
-                    Console.Error.WriteLine($"error: no mouse hardware id contains \"{options.Filter}\".");
-                    Console.Error.WriteLine("devices seen:");
-                    foreach (MouseInfo candidate in mice)
-                    {
-                        Console.Error.WriteLine($"  {candidate.Device,3}  {candidate.HardwareId}");
-                    }
-                    return 6;
-                }
-
-                target = match.Device;
-                targetLabel = match.HardwareId;
-            }
-
-            Console.WriteLine("mouser-capture");
-            Console.WriteLine($"  device : {targetLabel}");
-            Console.WriteLine($"  mode   : {(modesEnabled ? "gate (MB4 rotate / MB5 translate)" : "passthrough")}");
-            Console.WriteLine($"  build  : {BuildVersion}");
-
-            if (modesEnabled)
-            {
-                string rotate = options.RotateButton == 0 ? "off" : $"hold MB{options.RotateButton}";
-                string translate = options.TranslateButton == 0 ? "off" : $"hold MB{options.TranslateButton}";
-                Console.WriteLine($"  engage : rotate = {rotate}, translate = {translate}");
-                Console.WriteLine($"  buttons: {(options.PassModeButtons ? "mode buttons click through" : "mode buttons swallowed")}");
-            }
-
-            if (options.UdpTarget is not null)
-            {
-                udp = new UdpSender(options.UdpTarget);
-                Console.WriteLine($"  udp    : {options.UdpTarget}");
-            }
-            else
-            {
-                Console.WriteLine("  udp    : not set - no frames will be sent (add --udp host:port)");
-            }
-
-            // The capture client is UDP-only. The server's Socket.IO/WebSocket
-            // transport is for the browser UI, not for these frames.
-            Console.WriteLine("  websocket: none - capture uses UDP; Socket.IO is browser-only");
-
-            Console.WriteLine("  keys   : Q quit");
-            Console.WriteLine();
-
-            if (modesEnabled && target == 0)
-            {
-                Console.WriteLine("  WARNING: --filter not given, so every mouse will be gated.");
-                Console.WriteLine();
-            }
-
-            if (modesEnabled && options.UdpTarget is null)
-            {
-                Console.WriteLine("  WARNING: --gate without --udp sends nothing to the server.");
-                Console.WriteLine();
-            }
-
-            Interception.SetMouseFilter(context, Interception.FilterMouseAll);
-            Console.WriteLine("  filter armed. Ctrl+C, Q, or killing this process restores the mouse.");
-            Console.WriteLine();
-
-            var capture = new Capture(
-                context,
-                target,
-                modesEnabled,
-                options.RotateButton,
-                options.TranslateButton,
-                options.PassModeButtons);
-
-            var pump = new Thread(capture.Loop)
-            {
-                IsBackground = true,
-                Name = "stroke-pump",
-            };
-
-            var reporter = new Thread(() => capture.Report(udp, () => OnStall(context, capture)))
-            {
-                IsBackground = true,
-                Name = "reporter",
-            };
-
-            pump.Start();
-            reporter.Start();
-
-            WaitForQuit(capture);
-
-            capture.Stop();
-            bool stopped = pump.Join(2000);
-
-            Interception.SetMouseFilter(context, Interception.FilterNone);
-
-            if (!stopped)
-            {
-                Console.Error.WriteLine("warning: stroke pump did not exit; terminating without cleanup.");
-                Console.Out.Flush();
-                Environment.Exit(0);
-            }
-
-            return 0;
+            config.Validate();
         }
-        finally
+        catch (ConfigException ex)
         {
-            udp?.Dispose();
-            Interception.interception_destroy_context(context);
+            Console.Error.WriteLine("error: " + ex.Message);
+            return 2;
+        }
+
+        var appOptions = new CaptureAppOptions
+        {
+            Simulate = options.Simulate,
+            NoDriver = options.NoDriver || options.Simulate,
+            NoQr = options.NoQr,
+            Tunnel = options.TunnelOverride,
+            BindLan = options.BindLan ? true : null,
+            PanelPort = options.PanelPort,
+            PublicUrl = options.PublicUrl,
+        };
+
+        using var app = new CaptureApp(store, appOptions);
+        Console.CancelKeyPress += (_, e) =>
+        {
+            e.Cancel = true;
+            app.RequestQuit();
+        };
+
+        try
+        {
+            return app.Run();
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine("fatal: " + ex);
+            return 1;
         }
     }
 
-    private static void OnStall(IntPtr context, Capture capture)
+    private static CaptureConfig ConfigFrom(Options options, bool modesEnabled)
     {
-        Console.Error.WriteLine();
-        Console.Error.WriteLine("!! stroke pump stalled; disabling the filter so the mouse keeps working.");
-        Interception.SetMouseFilter(context, Interception.FilterNone);
-        capture.Stop();
-        _cancel = true;
+        return new CaptureConfig
+        {
+            Device = options.Device,
+            Filter = options.Filter,
+            RotateButton = modesEnabled ? options.RotateButton : 0,
+            TranslateButton = modesEnabled ? options.TranslateButton : 0,
+            PassModeButtons = options.PassModeButtons,
+            Udp = options.UdpTarget?.ToString(),
+        };
     }
 
-    private static void WaitForQuit(Capture capture)
+    private static int RunCapture(Options options, bool modesEnabled)
+    {
+        CaptureConfig config = ConfigFrom(options, modesEnabled);
+        bool allMice = string.IsNullOrWhiteSpace(config.Device) && string.IsNullOrWhiteSpace(config.Filter);
+
+        Console.WriteLine("mouser-capture");
+        Console.WriteLine($"  mode   : {(modesEnabled ? "gate (MB4 rotate / MB5 translate)" : "passthrough")}");
+        Console.WriteLine($"  build  : {BuildVersion}");
+
+        if (modesEnabled)
+        {
+            string rotate = config.RotateButton == 0 ? "off" : $"hold MB{config.RotateButton}";
+            string translate = config.TranslateButton == 0 ? "off" : $"hold MB{config.TranslateButton}";
+            Console.WriteLine($"  engage : rotate = {rotate}, translate = {translate}");
+            Console.WriteLine($"  buttons: {(config.PassModeButtons ? "mode buttons click through" : "mode buttons swallowed")}");
+        }
+
+        if (options.UdpTarget is not null)
+        {
+            Console.WriteLine($"  udp    : {options.UdpTarget}");
+        }
+        else
+        {
+            Console.WriteLine("  udp    : not set - no frames will be sent (add --udp host:port)");
+        }
+
+        // The capture client is UDP-only. The server's Socket.IO/WebSocket
+        // transport is for the browser UI, not for these frames.
+        Console.WriteLine("  websocket: none - capture uses UDP; Socket.IO is browser-only");
+        Console.WriteLine("  keys   : Q quit");
+        Console.WriteLine();
+
+        if (modesEnabled && allMice)
+        {
+            Console.WriteLine("  WARNING: --filter not given, so every mouse will be gated.");
+            Console.WriteLine();
+        }
+
+        if (modesEnabled && options.UdpTarget is null)
+        {
+            Console.WriteLine("  WARNING: --gate without --udp sends nothing to the server.");
+            Console.WriteLine();
+        }
+
+        RealCaptureSession session;
+        try
+        {
+            session = RealCaptureSession.Start(config, modesEnabled);
+        }
+        catch (ConfigException ex)
+        {
+            Console.Error.WriteLine("error: " + ex.Message);
+            return ex.Message.Contains("no mouse", StringComparison.OrdinalIgnoreCase) ? 6 : 4;
+        }
+
+        Console.WriteLine($"  device : {session.Target}");
+        Console.WriteLine("  filter armed. Ctrl+C, Q, or killing this process restores the mouse.");
+        Console.WriteLine();
+
+        session.Stalled += () =>
+        {
+            Console.Error.WriteLine();
+            Console.Error.WriteLine("!! stroke pump stalled; disabling the filter so the mouse keeps working.");
+            _cancel = true;
+        };
+
+        WaitForQuit();
+
+        session.Stop();
+
+        if (session.FailureReason is not null)
+        {
+            Console.Error.WriteLine("warning: " + session.FailureReason);
+            Console.Out.Flush();
+            Environment.Exit(0);
+        }
+
+        return 0;
+    }
+
+    private static void WaitForQuit()
     {
         while (!_cancel)
         {
@@ -588,44 +687,23 @@ internal static class Program
             return 2;
         }
 
-        using var socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
-        socket.ReceiveTimeout = 1000;
-
         Console.WriteLine($"pinging {options.UdpTarget} (start --recv on the other machine first)");
         Console.WriteLine();
 
-        var buffer = new byte[64];
         var samples = new List<double>(32);
 
         for (int i = 0; i < 20 && !_cancel; i++)
         {
-            var packet = new byte[Wire.PingSize];
-            BinaryPrimitives.WriteUInt32LittleEndian(packet.AsSpan(0), Wire.MagicPing);
-            BinaryPrimitives.WriteUInt32LittleEndian(packet.AsSpan(4), (uint)i);
-            BinaryPrimitives.WriteInt64LittleEndian(packet.AsSpan(8), Stopwatch.GetTimestamp());
+            (int replies, double? rtt, string? error) = UdpPing.Run(options.UdpTarget, 1, 1000);
 
-            long start = Stopwatch.GetTimestamp();
-
-            try
+            if (replies == 0 || rtt is null)
             {
-                socket.SendTo(packet, options.UdpTarget);
-                EndPoint from = new IPEndPoint(IPAddress.Any, 0);
-                int read = socket.ReceiveFrom(buffer, ref from);
-
-                if (read < Wire.PingSize || BinaryPrimitives.ReadUInt32LittleEndian(buffer) != Wire.MagicPong)
-                {
-                    Console.WriteLine($"  seq {i,2}  unexpected reply");
-                }
-                else
-                {
-                    double ms = (Stopwatch.GetTimestamp() - start) * 1000.0 / Stopwatch.Frequency;
-                    samples.Add(ms);
-                    Console.WriteLine(string.Format(CultureInfo.InvariantCulture, "  seq {0,2}  rtt {1,6:F2} ms", i, ms));
-                }
+                Console.WriteLine($"  seq {i,2}  timeout{(error is null ? "" : " (" + error + ")")}");
             }
-            catch (SocketException)
+            else
             {
-                Console.WriteLine($"  seq {i,2}  timeout");
+                samples.Add(rtt.Value);
+                Console.WriteLine(string.Format(CultureInfo.InvariantCulture, "  seq {0,2}  rtt {1,6:F2} ms", i, rtt.Value));
             }
 
             Thread.Sleep(100);

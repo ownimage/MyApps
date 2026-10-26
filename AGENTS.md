@@ -1616,9 +1616,10 @@ Architecture:
     `cloudflared tunnel --url http://127.0.0.1:5000`, echoes its output, REGEXes the
     first `https://<name>.trycloudflare.com`, then prints the Settings values to
     enter), `--no-tunnel` (override) and `--qr <url>` (a QR for an address you already
-    have, e.g. a NAMED tunnel). `PhoneButtonServer.cmd` passes `--tunnel` by DEFAULT
-    (it only adds it when the user gave no `--tunnel`/`--no-tunnel`/`--qr`) and it
-    again KILLS anything on port 5000 first. The QR is served by a new route
+    have, e.g. a NAMED tunnel). `StartRemoteHIDServer.cmd` NO LONGER passes
+    `--tunnel` by default (2026-10-26: the tunnel is OPT-IN on both the server and
+    the capture client - a plain start publishes nothing); it still KILLS anything
+    on port 5000 first. The QR is served by a new route
     `/phonebuttons-qr?value=<url>`, rendered with the SHARED vendored
     `shared/vendor/qrcode.min.js` (global `QRCode`), opened at
     `http://127.0.0.1:5000/phonebuttons-qr?...` via `webbrowser`. `_find_cloudflared()`
@@ -6620,8 +6621,12 @@ Techniques / gotchas:
   lost in the rollback). The QR comes from a new `/phonebuttons-qr?value=<url>` route
   rendered with the shared vendored `qrcode.min.js`, opened at
   `http://127.0.0.1:5000/phonebuttons-qr?...`. `_find_cloudflared()` checks
-  `PB_CLOUDFLARED` -> PATH -> usual install dirs; cloudflared is NOT installed on this
-  box so the server runs anyway and prints `winget install cloudflare.cloudflared`.
+  `PB_CLOUDFLARED` -> PATH -> usual install dirs; when it is missing the server runs
+  anyway and prints `winget install cloudflare.cloudflared`. (2026-10-26: cloudflared
+  IS installed on this box now - a `--tunnel` run really starts a quick tunnel, and a
+  HARD-KILLED parent can leave its `cloudflared.exe` orphaned, so check
+  `Get-CimInstance Win32_Process -Filter "name='cloudflared.exe'"` after killing a
+  tunnelled process by pid.)
   HARDENED: the route escapes its value for html AND js (`json.dumps` +
   `\u003c/\u003e/\u0026`) because a raw `</script>` would break out of the script
   block on a PUBLIC (tunnelled) route — verified all hostile values keep exactly 2
@@ -7353,8 +7358,107 @@ Techniques / gotchas:
   Vite server (it had a truncated cached JS file). Build number bumped to
   `202610231534` (`shared/js/build-number.js` + `sw.js`). Full regression not run.
 - CURRENT USER CONFIG: `remoteHID/server/config.json` is back on the F13-F24
-  defaults; `PhoneButtonServer.cmd` still appends `--debug-keys` (uncommitted user
-  change, left untouched). The add-on's defaults match the config.
+  defaults; `StartRemoteHIDServer.cmd` still appends `--debug-keys` (uncommitted
+  user change, left untouched). The add-on's defaults match the config.
+
+### 2026-10-26 - Mouser control panel: management socket + PhoneButtons config UI
+
+The capture client can now be configured from the phone instead of a command line.
+Everything below is the contract; break it and the app stops talking to the exe.
+
+- SHAPE (user decisions): the CONFIGURATION UI LIVES IN THE APP ONLY
+  (`remoteHID/PhoneButtons/js/mouser-capture.js`, hamburger ->
+  **Manage mouser-capture**). The exe serves a JSON API + a QR/address page, NOT a
+  form - one UI beats two divergent copies. The phone talks DIRECTLY to the panel
+  (Cloudflare tunnel when remote), never through the Flask server, because the
+  capture often runs without the server being reachable.
+- THE SOCKET: `capture/ControlPanel.cs` is a hand-rolled HTTP/1.1 `TcpListener`
+  (NOT `HttpListener`: an HTTP.sys prefix needs a URL ACL/admin, which would make
+  an unelevated start fail obscurely). Loopback by default, `--bind-lan` for LAN,
+  `--panel-port <n>` (0 = free), default 7802. Routes: `GET /` (page),
+  `GET /qrcode.min.js`, `GET /api/state`, `GET|POST /api/devices`,
+  `POST /api/config`, `POST /api/capture/start|stop`, `POST /api/ping`,
+  `POST /api/tunnel/start|stop`.
+- AUTH: one token, generated once into `mouser-capture.json`, accepted as
+  `X-Mouser-Token` OR `?t=` (a `<script src>` cannot send a header). Every route
+  including the page needs it; `OPTIONS` is answered BEFORE the check (a preflight
+  cannot carry a custom header). CORS is `*` + no credentials because the app is
+  served from GitHub Pages/localhost/the tunnel. The API NEVER changes the token
+  (a stale tab must not lock a working phone out) - `SaveConfigRoute` copies the
+  stored one over the incoming body.
+- CONFIG: `mouser-capture.json` next to the exe (falls back to
+  `%LOCALAPPDATA%\Mouser` when that folder is read-only, reported in `warnings`).
+  CLI switches are PER-RUN overrides and are NEVER saved (`--panel-port 0` in the
+  tests does not persist 0). `UnmappedMemberHandling.Disallow`, so a typo is a 400,
+  not a silently dropped field. `autoStart` semantics: Start sets it true, Stop
+  clears it, and the panel replays it at boot only when the driver is available -
+  a stopped session never re-arms itself.
+- BUILD/PAYLOAD: `net8.0-windows` (Windows-only binary; stops the CA1416 warnings
+  about `WindowsIdentity` without adding a framework reference). `ui/index.html`
+  and `../../../shared/vendor/qrcode.min.js` are EMBEDDED resources, so the deploy
+  is still "copy the folder" and the panel adds nothing to the ~70 MB payload.
+  Version 0.4.0.
+- HOTKEY TRAP: `RegisterHotKey` FAILS with "Invalid window; it belongs to other
+  thread" if the window was created elsewhere. `RawWindow.cs` therefore creates
+  the window, registers raw input AND the hotkey on the SAME pump thread (Start()
+  waits on a `ManualResetEventSlim`), and reports a `warnings` entry when the key
+  is already owned. The panic key is Ctrl+Alt+Shift+Q and only DISARMS.
+- IDENTIFY-BY-WIGGLE: raw input is SILENT while the filter is armed (that is the
+  T4 proof), so "move this mouse" only works while stopped. `Devices.cs` matches
+  the three id shapes by taking the FIRST TWO components (enumerator + hardware
+  id) of `HID\VID_...` / instance ids / `\\?\HID#...#{guid}` paths.
+- TUNNEL: `capture/TunnelRunner.cs` mirrors `app.py` (`cloudflared tunnel --url
+  http://127.0.0.1:<panelPort>`, regex the trycloudflare URL, 60 s ceiling, child
+  killed on exit). OFF by default (`--tunnel` opts in; `--public-url` advertises a
+  named tunnel). `--simulate` answers `/api/tunnel/start` with 409 - it must never
+  publish anything.
+- SAME BOX: `app.py --mouser` (and `StartRemoteHIDServer.cmd --mouser`) launches
+  `Mouser\out\mouser-capture.exe --ui --bind-lan --no-qr --panel-port 0
+  --udp 127.0.0.1:<udp port>`, parses the printed `panel:` line and serves it on
+  `GET /api/mouser-capture` (`{enabled,state,url,token,tunnelUrl,build,error}`).
+  The app ADOPTS that automatically when no address is stored. The child is
+  terminated via `atexit`. A missing exe is an `error` state + the build command,
+  never a crash.
+- APP SIDE: `pb_mouserUrl` (base, no trailing slash) + `pb_mouserToken` are
+  SEPARATE keys; `pbParseMouserUrl()` splits `?t=` out and rejects junk. The QR is
+  scanned with `smd-qr-import raw autostart` (same pattern as Settings | Server).
+  The page polls `/api/state` every 1.5 s while open and reuses the SAME panel:
+  the device radio list is rebuilt only when the device signature changes (or it
+  would steal focus), and the UDP input is never overwritten while focused.
+  Buttons: Start/Stop disabled from live state (the stub in the spec is stateful
+  for exactly that reason).
+- 403 DIAGNOSIS (2026-10-26, user hit it): a token mismatch used to read as a bare
+  "rejected the token (403)". Now (a) the panel logs
+  `panel: rejected <method> <path> from <remote> - no token supplied | token
+  mismatch (got N chars, expected M)` to the console, (b) its 403 body carries
+  `tokenHint` = the LAST 4 characters of the expected token, and (c) the app
+  reports BOTH suffixes ("the panel's token ends \"a6f1\" but this app is using
+  \"b1c2\""), which makes a stale QR or a stale saved address obvious. NEVER put
+  the whole token in an error message.
+  TWO UX FIXES that remove the cause: the address field now shows the FULL address
+  (`base + "/?t=" + token`, via `mouserFullAddress()`) so copying it out of the app
+  carries the token (before, copying the field silently dropped it), and a
+  `change` on `#mouserUrlInput` SAVES it (pasting and tapping elsewhere is enough -
+  "typed but never pressed Save" used to leave the app polling with the OLD token,
+  which is exactly how a 403 appears from a correct-looking address).
+  The token only changes if `mouser-capture.json` is lost/unwritable - the banner's
+  `config :` line and `panel.configPath` in `/api/state` name the file to check.
+- TESTS: `tests/mouser-capture-ui.spec.js` (10) spawns the real exe with
+  `--ui --simulate --no-tunnel --no-qr --panel-port 0` and SKIPS when
+  `out/mouser-capture.exe` is missing (like `phonebuttons-server.spec.js`); it
+  covers the QR page, token/`?t=`/403, CORS preflight, config validation + the
+  file on disk, devices, start/stop/409, autoStart replay across a restart, ping
+  timeout, and `--version`/`--help`.
+  `tests/phonebuttons-mouser.spec.js` (9) stubs the panel with `page.route`
+  (INCLUDING the CORS preflight - a stub without ACAO would hide a real
+  cross-origin bug) and covers the menu position, the page shape, address parsing,
+  save, render, config round-trip, start/stop/ping, a 403 message, and the
+  same-box adoption. `test_app.py::TestMouserCaptureDiscovery` (9) covers the
+  route and the launch/parse/stop logic with a fake process.
+- BUILD CYCLE: `powershell -File remoteHID\Mouser\build.ps1 [-NoZip]` (add `-NoZip`
+  while iterating; the zip is ~33 MB). The exe is NOT served by the service
+  worker, so the C# changes need NO `npm run bump:build`; the PhoneButtons shell +
+  new JS DO (they are precached PWA assets).
 
 ### 2026-10-23 - smd-image-dropdown: menu thumbnails match the closed button (no clipped icons)
 
@@ -8891,3 +8995,55 @@ Techniques / gotchas:
   so grepping for a test name finds nothing - decode it (base64 -> zip ->
   `report.json`, shape `{files:[{fileName, tests:[{title, projectName, outcome,
   ok, duration}]}], stats:{...}}`) to inspect it.
+
+### 2026-10-26 (j) - mouser-capture control panel + PhoneButtons "Manage mouser-capture"
+
+- REQUEST (user): "can I get the mouse-capture.exe to run a UI so that I can
+  configure it, e.g. choose the mouse, set up filtering and gating etc." Then:
+  "When it starts up it should create a socket for management. It should wrap that
+  socket with cloudflare as the PhoneButtonsServer does. On the PhoneButtons app
+  there should be a menu option Manage mouser-capture which allows the server
+  config or the scanning of the QR Code then allows for the configuration."
+  Answers to the design questions: PhoneButtons ONLY for the UI; direct tunnel
+  (no Flask proxy); tunnel opt-in on BOTH sides; rescan the QR each start; two
+  launchers; and `--mouser` on the server for the same-box case.
+- BUILT (C#, 7 new files + Program/Capture changes, v0.4.0):
+  `Config.cs` (`mouser-capture.json`, strict validation, token, read-only
+  fallback), `ControlPanel.cs` (TcpListener HTTP: token, CORS preflight, 403s,
+  8 routes), `CaptureApp.cs` (`--ui` supervisor + `/api/state` + the QR page),
+  `CaptureSession.cs` (the CLI capture EXTRACTED into start/stop, plus a
+  `--simulate` session), `Devices.cs` (Interception slot -> Windows friendly name,
+  first-two-components id normalisation), `RawWindow.cs` (hidden Win32 window:
+  per-device raw motion for identify-by-wiggle + the Ctrl+Alt+Shift+Q panic key),
+  `TunnelRunner.cs` (cloudflared child, URL regex, kill on exit), `ui/index.html`
+  (QR + live status, embedded with the shared `qrcode.min.js`).
+- BUILT (web): `remoteHID/PhoneButtons/js/mouser-capture.js` (address/QR, device
+  radios, rotate/translate `<smd-select>`, `<smd-checkbox>`es, UDP + Ping,
+  Start/Stop, telemetry, same-box auto-adoption), the hamburger item after Manage
+  Layout, two `smd-page` hosts, the script tag and the `sw.js` APPS entry.
+- BUILT (server): `--mouser` launches the exe autoconfigured to the local UDP
+  receiver and serves its panel address on `GET /api/mouser-capture`; the child is
+  terminated with the server.
+- LAUNCHERS: `StartRemoteHIDServer.cmd` no longer passes `--tunnel` (opt-in now);
+  new `StartMouserCapture.cmd` (tunnel off, kills a leftover on 7802, build hint).
+- TDD: the C# spec was written FIRST and was red on the old binary (10/10 failed:
+  `--ui` unknown, `--version` 0.3.1); the Flask tests were added before the launch
+  helper worked; the app spec was red on the missing menu item/page.
+- WHAT WENT WRONG (all fixed, now in the durable note): `RegisterHotKey` from a
+  thread that did not create the window ("Invalid window; it belongs to other
+  thread") - the window, raw input and hotkey are now created on the pump thread;
+  `--panel-port 0` is a per-run override, so the SAVED config keeps 7802 (my first
+  test assertion was wrong, not the code); "already running" had to be a 409, not
+  the generic 400; the qrcodejs page renders a canvas AND an img, so an exact
+  `toHaveCount(1)` was wrong; and a `Popen` capture lambda recorded `list(a)`
+  (a list containing the arg list) instead of `list(a[0])`.
+- VERIFIED (targeted, `--retries=0`): mouser-capture-ui 10/10,
+  phonebuttons-mouser 9/9, phonebuttons-regression 18/18, phonebuttons-server
+  (pytest 136 passed, coverage >= 80) 2/2, launch-regression 13/13,
+  native-checkbox-guard 1/1, settings-alignment + display-settings 45/45,
+  menu-legibility 5/5 (@contrast, all 27 themes x both modes). Release build
+  zero warnings; the exe smoke-tested with `--simulate` (state/config/start/stop/
+  ping/403/page/QR).
+- BUILD: `npm run bump:build` after the web changes; `build.ps1` re-published
+  `out/` and the zip. Restart the test servers afterwards (the shell + a new JS
+  file are served from the startup snapshot).
