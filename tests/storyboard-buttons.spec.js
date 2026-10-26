@@ -10,7 +10,7 @@ test.afterEach(async ({ page }) => { await stopCoverage(page); });
 // Done and the sticker-library Sign in / Retry).
 //
 // NOT converted (deliberate): the picture/colour PICKERS - background thumbnails
-// (`.sb-bg-option`), colour swatches (`.sb-swatch`), text border previews
+// (`.sb-bg-option`), the shared colour pickers (`smd-color-picker`), text border previews
 // (`.sb-border-option`) and the sticker tiles inside `<sb-sticker>` - because they
 // are tiles with images/colours, not Bootstrap buttons.
 
@@ -41,7 +41,7 @@ test.describe("Storyboard - smd-button conversion", () => {
     await seed(page);
 
     const railButtons = page.locator("#sbToolbar .sb-rail smd-button.sb-rail-btn");
-    await expect(railButtons).toHaveCount(8); // 4 tools + zoom out/in + Fit + Pin (no Save: it is in the menu)
+    await expect(railButtons).toHaveCount(9); // 4 tools + Note + zoom out/in + Fit + Pin (no Save: it is in the menu)
     for (const button of await railButtons.all()) {
       await isSmdButton(button);
       await expect(button.locator(":scope > button > i")).toHaveCount(1);
@@ -125,7 +125,9 @@ test.describe("Storyboard - smd-button conversion", () => {
     await expect(page.locator("#sbPanelBody .sb-bg-option").first()).toHaveJSProperty("tagName", "BUTTON");
 
     await page.locator('.sb-rail-btn[data-tool="text"]').click();
-    await expect(page.locator("#sbPanelBody .sb-swatch").first()).toHaveJSProperty("tagName", "BUTTON");
+    // Text colours are the shared <smd-color-picker> now (a custom element, not
+    // an smd-button), and the border previews stay bespoke buttons.
+    await expect(page.locator("#sbPanelBody smd-color-picker").first()).toHaveJSProperty("tagName", "SMD-COLOR-PICKER");
     await expect(page.locator("#sbPanelBody .sb-border-option").first()).toHaveJSProperty("tagName", "BUTTON");
   });
 });

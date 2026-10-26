@@ -99,6 +99,9 @@ var SB_TEXT_FONTS = [
 
 var SB_BG_TOKENS = ["transparent", "white", "black", "primary", "secondary", "success", "danger", "warning", "info", "light", "dark"];
 var SB_TEXT_TOKENS = ["auto", "white", "black", "primary", "secondary", "success", "danger", "warning", "info", "light", "dark"];
+// A new note starts on a sticky-note yellow; the colour is a fixed hex (never a
+// theme token) so a note looks the same on every theme.
+var SB_NOTE_DEFAULT_COLOR = "#ffd54f";
 
 // Zoom factors the rail's magnifier buttons step through. 1 = the fitted view
 // (the whole board visible, exactly as before zooming existed).
@@ -256,9 +259,21 @@ function sbHasFont(id) {
   return SB_TEXT_FONTS.some(function (f) { return f.id === id; });
 }
 
+// A fixed colour ("#rrggbb") from the shared <smd-color-picker>. Text and notes
+// can hold one INSTEAD of a theme token, which is what makes a scene look the
+// same on every theme.
+function sbIsHexColor(value) {
+  return /^#[0-9a-f]{6}$/i.test(String(value == null ? "" : value));
+}
+
+function sbNormalizePaint(value, tokens, fallback) {
+  if (sbIsHexColor(value)) return String(value).toLowerCase();
+  return tokens.indexOf(value) >= 0 ? value : fallback;
+}
+
 function sbNormalizeItem(raw) {
   if (!raw || typeof raw !== "object") return null;
-  var type = raw.type === "text" ? "text" : "sticker";
+  var type = raw.type === "text" ? "text" : raw.type === "note" ? "note" : "sticker";
   var item = {
     id: String(raw.id || sbUid()),
     type: type,
@@ -275,10 +290,17 @@ function sbNormalizeItem(raw) {
     item.stickerName = raw.stickerName ? String(raw.stickerName) : "";
     item.flipX = raw.flipX === true;
     item.flipY = raw.flipY === true;
+  } else if (type === "note") {
+    // A NOTE is an editor cue: a coloured sticky-note glyph whose text lives in
+    // the panel (and the tooltip) - never on the artwork or in an export. It
+    // scales like a sticker but NEVER rotates.
+    item.text = String(raw.text == null ? "" : raw.text);
+    item.color = sbIsHexColor(raw.color) ? String(raw.color).toLowerCase() : SB_NOTE_DEFAULT_COLOR;
+    item.rotation = 0;
   } else {
     item.text = String(raw.text == null ? "" : raw.text);
-    item.bg = SB_BG_TOKENS.indexOf(raw.bg) >= 0 ? raw.bg : "transparent";
-    item.color = SB_TEXT_TOKENS.indexOf(raw.color) >= 0 ? raw.color : "auto";
+    item.bg = sbNormalizePaint(raw.bg, SB_BG_TOKENS, "transparent");
+    item.color = sbNormalizePaint(raw.color, SB_TEXT_TOKENS, "auto");
     item.border = sbHasBorder(raw.border) ? raw.border : "none";
     item.font = sbHasFont(raw.font) ? raw.font : "theme";
   }
@@ -1192,6 +1214,8 @@ function sbFlipItem(id, axis) {
 // Resolve a stored colour token to a concrete CSS colour (needed when a token is
 // baked into an SVG border image, which cannot inherit currentColor).
 function sbResolveColor(token) {
+  // A fixed colour from the picker is already a real colour.
+  if (sbIsHexColor(token)) return String(token).toLowerCase();
   if (token === "white") return "#ffffff";
   if (token === "black") return "#000000";
   var vars = {
@@ -1210,14 +1234,6 @@ function sbResolveColor(token) {
   var value = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
   if (!value) value = getComputedStyle(document.body).color || "#111111";
   return value;
-}
-
-function sbTokenCss(token) {
-  if (token === "transparent") return "transparent";
-  if (token === "white") return "#ffffff";
-  if (token === "black") return "#000000";
-  if (token === "auto") return "var(--bs-body-color)";
-  return "var(--bs-" + token + ")";
 }
 
 // 120x120 frame art used with `border-image` (slice 30). The stroke colour is

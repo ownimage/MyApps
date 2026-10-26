@@ -87,7 +87,7 @@ test.describe("Storyboard - download scene / download story", () => {
     await expect(page.locator("#sbSaveSceneBtn")).toHaveCount(0);
     await expect(page.locator("#sbSaveStoryBtn")).toHaveCount(0);
     await expect(page.locator("#sbBoardActions")).toHaveCount(0);
-    await expect(page.locator("#sbToolbar .sb-rail smd-button.sb-rail-btn")).toHaveCount(8);
+    await expect(page.locator("#sbToolbar .sb-rail smd-button.sb-rail-btn")).toHaveCount(9); // 4 tools + Note + zoom out/in + Fit + Pin
 
     // The board chip is gone too: the story/scene readout is the nav bar title.
     await expect(page.locator("#sbBoardName")).toHaveCount(0);

@@ -554,6 +554,16 @@ function sbBuildItem(item) {
     img.draggable = false;
     el.appendChild(img);
     sbApplyStickerFlip(el, item);
+  } else if (item.type === "note") {
+    // A note is an EDITOR CUE: an icon whose text is the tooltip (and the
+    // panel). It is deliberately not drawn on the artwork or in the JPG.
+    el.style.setProperty("--sb-scale", item.scale);
+    var glyph = document.createElement("span");
+    glyph.className = "sb-note";
+    glyph.style.color = item.color;
+    glyph.innerHTML = '<i class="fa-solid fa-sticky-note" aria-hidden="true"></i>';
+    el.appendChild(glyph);
+    el.title = item.text || "Note";
   } else {
     var text = document.createElement("div");
     sbStyleTextElement(text, item);
@@ -566,19 +576,26 @@ function sbBuildItem(item) {
   scaleHandle.setAttribute("aria-hidden", "true");
   el.appendChild(scaleHandle);
 
-  var rotateHandle = document.createElement("span");
-  rotateHandle.className = "sb-handle sb-handle-rotate";
-  rotateHandle.dataset.handle = "rotate";
-  rotateHandle.setAttribute("aria-hidden", "true");
-  rotateHandle.innerHTML = '<i class="fa-solid fa-rotate"></i>';
-  el.appendChild(rotateHandle);
+  // Notes scale but never rotate, so they get NO rotate handle at all.
+  if (item.type !== "note") {
+    var rotateHandle = document.createElement("span");
+    rotateHandle.className = "sb-handle sb-handle-rotate";
+    rotateHandle.dataset.handle = "rotate";
+    rotateHandle.setAttribute("aria-hidden", "true");
+    rotateHandle.innerHTML = '<i class="fa-solid fa-rotate"></i>';
+    el.appendChild(rotateHandle);
+  }
 
   return el;
 }
 
 function sbStyleTextElement(el, item) {
-  el.className = "sb-text sb-bg-" + item.bg + " sb-color-" + item.color + " sb-font-" + item.font;
+  el.className = "sb-text sb-font-" + item.font;
   el.dataset.frame = item.border;
+  // A theme TOKEN keeps a class (legacy scenes); a fixed hex from the colour
+  // picker is an inline declaration, so a swap cannot repaint it.
+  sbApplyTextPaint(el, "bg", item.bg);
+  sbApplyTextPaint(el, "color", item.color);
   var body = el.querySelector(".sb-text-body");
   if (!body) {
     body = document.createElement("span");
@@ -593,6 +610,31 @@ function sbStyleTextElement(el, item) {
   } else {
     el.style.removeProperty("--sb-frame-image");
   }
+}
+
+// Live repaint of ONE note (its colour + tooltip) without rebuilding the board:
+// the panel edits as you type, and a rebuild would steal the textarea focus.
+function sbApplyNoteStyle(item) {
+  var el = sbItemEl(item.id);
+  if (!el) return;
+  var glyph = el.querySelector(".sb-note");
+  if (glyph) glyph.style.color = item.color;
+  el.title = item.text || "Note";
+}
+
+function sbApplyTextPaint(el, field, value) {
+  var prefix = "sb-" + field + "-";
+  Array.prototype.slice.call(el.classList).forEach(function (name) {
+    if (name.indexOf(prefix) === 0) el.classList.remove(name);
+  });
+  var prop = field === "bg" ? "backgroundColor" : "color";
+  if (sbIsHexColor(value)) {
+    el.style[prop] = String(value).toLowerCase();
+    return;
+  }
+  el.style.removeProperty(field === "bg" ? "background-color" : "color");
+  var tokens = field === "bg" ? SB_BG_TOKENS : SB_TEXT_TOKENS;
+  if (tokens.indexOf(value) >= 0) el.classList.add(prefix + value);
 }
 
 // The JPG exporter centres each line on the CSS line box with
@@ -1613,7 +1655,9 @@ function sbApplyDrag(drag, factor, deltaDeg, moveX, moveY) {
     item.x = sbClamp(nx / width * 100, single ? 2 : 0, single ? 98 : 100);
     item.y = sbClamp(ny / height * 100, single ? 2 : 0, single ? 98 : 100);
     item.scale = sbClamp((Number(leaf.scale) || 1) * f, 0.2, 5);
-    item.rotation = (Number(leaf.rotation) || 0) + deltaDeg;
+    // A note NEVER rotates (it has no rotate handle and a group twist skips it),
+    // so it can orbit the selection centre but stays upright.
+    if (item.type !== "note") item.rotation = (Number(leaf.rotation) || 0) + deltaDeg;
     sbWriteItemTransform(item);
   });
 
@@ -1781,6 +1825,8 @@ function sbOnPointerDown(e) {
   var mode = "move";
   if (handle) mode = handle.dataset.handle === "rotate" ? "rotate" : "scale";
   sbBeginDrag(e, mode, rect, centre);
+  // A note's whole point is its text: a plain CLICK (no drag) opens its editor.
+  if (item.type === "note" && mode === "move" && sbState.drag) sbState.drag.tapNote = item.id;
   // A click (no drag) on a member of a multi/group selection collapses to it;
   // a drag moves the whole set. The collapse is applied on pointerup.
   if (sbState.drag && nodes.length > 1 && nodes.indexOf(node) !== -1) {
@@ -1840,6 +1886,8 @@ function sbOnPointerUp(e) {
   if (!sbState.drag) return;
   var drag = sbState.drag;
   var collapse = drag.collapseOnTap && !drag.moved ? drag.collapseOnTap : "";
+  // A plain click on a note (no movement) opens its editor.
+  var tapNote = drag.tapNote && !drag.moved ? drag.tapNote : "";
   sbState.pointers.clear();
   sbState.drag = null;
   sbSaveState();
@@ -1847,6 +1895,7 @@ function sbOnPointerUp(e) {
   sbPositionSelectionBox();
   sbPositionSelectionBar();
   sbRefreshPasteboard();
+  if (tapNote) sbOpenNoteEditor(tapNote);
 }
 
 function sbOnKeyDown(e) {
@@ -2177,6 +2226,8 @@ async function sbBoardJpegBlob() {
   var frameCache = Object.create(null);
   for (var i = 0; i < ordered.length; i++) {
     var item = ordered[i];
+    // A note is an editor cue - it is NEVER drawn into the image.
+    if (item.type === "note") continue;
     var el = sbItemEl(item.id);
     if (!el) continue;
     var art = toArt(item.x / 100 * visW, item.y / 100 * visH);

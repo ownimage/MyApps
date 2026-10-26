@@ -196,6 +196,41 @@ Architecture:
   scene JPG download, 10-scene ZIP read back in Node: names/padding/order/
   store-method/SOI-EOI/restore, and the 3-scene no-padding case). The `minio`
   spec's menu-order assertion includes the download pair at the end.
+- STORYBOARD NOTES (2026-10-26, user request): a scene can carry NOTES - editor
+  cues, not artwork. `data-tool="note"` is the rail's 5th tool (after Text,
+  before the zoom group) whose fly-out has a multi-line `#sbNoteInput`, a
+  `<smd-color-picker id="sbNoteColor">` and `Add note` / `Done`; clicking a NOTE
+  ON THE BOARD (a plain pointerup tap, not a drag - `drag.tapNote`) re-opens it in
+  Edit mode via `sbOpenNoteEditor()`. MODEL: `{ id, type:"note", text, color,
+  x, y, scale, z }` (`sbNormalizeItem` forces `rotation: 0` and a hex colour,
+  default `SB_NOTE_DEFAULT_COLOR` `#ffd54f`). RENDER: `.sb-object-note > span.sb-note`
+  holds `<i class="fa-solid fa-sticky-note">` (Font Awesome 6 defines
+  `fa-sticky-note` as an alias of `fa-note-sticky`), sized by
+  `calc(var(--sb-sticker-base) * 0.55 * var(--sb-scale))` so it scales exactly
+  like a sticker; the TEXT is only the object's `title` tooltip. NO ROTATE: it
+  gets no `.sb-handle-rotate`, and `sbApplyDrag()` skips `item.rotation` for
+  notes, so a group twist orbits the note but leaves it upright. EXPORT: the JPG
+  loop (`sbBoardJpegBlob`, also behind the story ZIP) `continue`s on
+  `item.type === "note"` - notes are NEVER in a downloaded image. STORAGE: they
+  live in the scene JSON like any item, so MinIO / OneDrive story saves carry
+  them for free (`sbStoryBackupPayload`). Live panel edits repaint in place
+  (`sbApplyNoteStyle`) instead of re-rendering the board, or the textarea would
+  lose focus. GOTCHA (cost a red run): the fly-out panel's show rule used to list
+  the tool names - `data-open="boards|background|stickers|text"` - so the NOTE
+  panel silently stayed `display:none`; it is now
+  `.sb-toolbar:not([data-open=""]) .sb-panel`, so a FUTURE rail tool needs no CSS
+  entry. Tests: `tests/storyboard-notes.spec.js` (7).
+- STORYBOARD TEXT COLOURS ARE FIXED COLOURS NOW (2026-10-26, user request: "I
+  need to change the text as I want the scene to be the same regardless of the
+  theme"): the Text panel's Background and Text colour THEME SWATCHES are gone
+  (`.sb-swatch`, `sbSwatchHtml`, `sbTokenCss` deleted) and replaced by the shared
+  `<smd-color-picker>` (`#sbTextBg` with `empty-label="Transparent"`,
+  `#sbTextColor` with `empty-label="Automatic"`). A picked colour is stored as a
+  hex on the item (`bg`/`color`, `sbIsHexColor`); the LEGACY TOKENS still
+  normalise and render (`sbNormalizePaint` + `sbApplyTextPaint`, which adds the
+  `sb-bg-*`/`sb-color-*` class for a token and an INLINE colour for a hex, so a
+  theme swap cannot repaint it). `sbResolveColor()` returns a hex unchanged, so
+  a text border frame bakes the fixed colour too.
 - STORYBOARD STORY PROPERTIES: SIZE + BACKGROUND FIT (2026-10-26, user request):
   each story row in the Stories panel has a **cog** (`data-act="story-props"`)
   that toggles an INLINE form directly under the row (the scene list is a
@@ -387,6 +422,21 @@ Architecture:
   12px rail inset; PlanMyDay shell).
 - IMAGE DROPDOWN (2026-09-18): the shared `<smd-image-dropdown>` (`shared/js/components/smd-image-dropdown.js`) is the generic image+name picker — the old PlanMyDay `pmd-stream-select` was folded into it and deleted. It is DATA-driven, not DOM: host sets `options = [{name, image}]` (image OPTIONAL → text-only rows, e.g. CountMyDays' no-image "All") and `selected` = the chosen option's NAME string; picks dispatch `smd-image-dropdown-change` ({ name }). Listener wiring: CountMyDays `#dateCategoryFilter` (`smd-image-dropdown-change` → `setDateCategoryFilter`, "" for All) in `dates-editor.js`; PlanMyDay `#jobStreamDropdown` (name mapped back via `streamIndexByName` in `editor-common.js`). Stable shadow ids for test locators: `smdImageDropdownBtn`, `smdImageBtnIcon`, `smdImageBtnText`, `smdImageDropdownMenu`. Its colours come from the `--smd-dropdown-*` palette in the shared MODE layer (`shared/css/themes/light.css` + `dark.css`), which since 2026-10-13 mirrors the form-field palette (`--smd-form-*`) for surface/label/border and does NOT change colour on hover (the closed control is field-like); a theme overrides in `shared/css/themes/<theme>/<theme>.<mode>.css` (superhero, cyborg, darkly do) — see the 2026-09-26 (c) and 2026-10-13 (e) session notes. GOTCHA (2026-10-13): the palette only sets `background-color`, so a theme whose stock `.btn` ALSO sets `background-image: var(--bs-gradient)` shows a white sheen over a dark button; materia is the only such theme and clears it with `#smd-app smd-image-dropdown .btn { background-image: none }` (the `#smd-app` scope is needed to beat the theme's `.btn:focus-visible` re-apply).
 - SMD-SELECT (2026-10-13): new shared `shared/js/components/smd-select.js` (`<smd-select>`) — a text-only custom dropdown with a `<select>` SHAPE (its button reuses Bootstrap's `.form-select`, so it inherits the shared `--smd-form-*` repaint) but a THEMED menu, because a native `<select>`'s open list is OS-rendered and cannot be CSS-styled cross-browser. API: `options = [{value,label}]`, `value` (reflected as an attribute for tests), attributes `disabled`/`value`, event `smd-select-change` ({value,label}); stable hooks `.smd-select-btn`, `.smd-select-item[data-value]`, `.smd-select-item.active`. The HOVERED row gets its primary surface from a CSS `:hover`/`:focus-visible` rule on `.smd-select-item` (so it ALWAYS shows), and the SELECTED row gets `.text-bg-primary`; the component ALSO adds `.text-bg-primary` to the hovered row so the theme's primary BUTTON variant supplies the correct contrast text (brite keeps BLACK text; a plain `--bs-primary`+white is unreadable there). Menu `z-index: 1030` (above Bootstrap `sticky-top` 1020, below smd-page 1040 / modal 1050). Rows are `<a>` so they need `text-decoration: none`. `<smd-theme>` now uses it for the Theme / Theme Mode fields (was a native `<select>`). Registered in all 8 shells AFTER `library.js` and BEFORE `smd-theme.js`, plus `sw.js SHARED_ASSETS`; tests drive it with `tests/theme-controls.js` `pickOption(page, control, value)` which clicks `.smd-select-item[data-value="…"]`. MIGRATION ENABLERS (2026-10-13): `<smd-select>` also (a) dispatches a bubbling `change` event so an existing inline `onchange="fn(this.value)"` keeps working after the tag swap, (b) reads declarative `<option>` children into `options` (then removes them), (c) drops a leftover `form-select`/`form-select-sm` class from the HOST (the inner button carries the look), (d) supports `w-auto` (shrink-to-fit) and basic keyboard nav (Arrow/Enter/Escape). So migrating a static `<select>…</select>` is literally two edits: `<select id=` → `<smd-select id=` and `</select>` → `</smd-select>`. PHASE 2 DONE: every appearance-settings select in the 7 shell `index.html`s (font/icon/density/touch size, slide duration, CM format + max countdowns, PMD suffix-start/jan1/monday/start-week, FFox x/o piece style) is now `<smd-select>`. PHASE 3 DONE: SolarControlar `#log-file` (files-tab) + `#graph-date` (graph-tab) and PhoneButtons `#buttonKeyNamed` + `#buttonPressSelect` (edit-layout). GOTCHA: a declarative `<option>` set leaves its inter-tag WHITESPACE text nodes in the host, so `_build()` clears all children (`this.textContent = ""`) and the template string is whitespace-free (otherwise a stray line/space shows in the host). When migrating a select whose OPTIONS ARE REBUILT in place, set `.options` — never `.innerHTML`/`appendChild(<option>)`, which would wipe the component (that is why `graph-tab.js` `loadGraphDates` now assigns `.options`). PHASE 4 DONE: CountMyDays date/category editors (`#dateDaySelect`/`#dateMonthSelect`/`#dateTypeSelect`/`#gcalCategorySelect`) and the export/import wizards (`#imgExistingSelect`/`#catExistingSelect`/`#dateExistingSelect` + the export category filter); `<smd-select>` gained a `disabled` getter/setter (the wizards assign `.disabled`). PHASE 5 DONE: PMD job editor `#jobTimeHour`/`#jobTimeMin` + the dayType/mod selects (tag swap, `<option>` markup kept) and the Schedule MODAL `#schedNInterval`/`#schedNOffset`/`#schedMonthlyDay` (which are JS-POPULATED, so `openScheduleModal`/`onScheduleNDaysChange` now assign `.options`). PHASE 6 DONE: storybook `#ctrl-modal-buttons`/`#ctrl-image-theme`/`#ctrl-image-size` and cardViewer `#cardSelect`/`#themeSelect` (JS-populated → `.options`); `<smd-select>` also maps `form-select-sm` / `size="small"` onto the inner button, and `storybook/cardViewer.html` now loads `smd-select.js`. ROLLOUT COMPLETE — no native `<select>` remains in the app shells or storybook (the dev-only `screenshots/viewer.js` output tool is deliberately untouched).
+- SMD-COLOR-PICKER (2026-10-26): new shared `shared/js/components/smd-color-picker.js`
+  (`<smd-color-picker>`) - a FULL colour picker (native `<input type="color">`
+  styled as a swatch + a hex field) so an app can store an EXACT colour instead
+  of a theme token. Light DOM; template cloned in `connectedCallback` guarded by
+  `data-smd-built` (clone-safe); layout in its own injected sheet
+  (`smd-color-picker-style`, via `injectSmdComponentStyle`). API: `value` (attr +
+  property; `#rgb`/`#rrggbb`/`rgb()`/`color(srgb r g b)` all normalise to
+  lowercase `#rrggbb`), `empty-label` (renders a `.smd-color-empty` button that
+  means "no fixed colour" - the caller maps "" to its own token, e.g.
+  "Automatic"/"Transparent"), `disabled`; event `smd-color-picker-change`
+  `{value}` (value `""` for the empty choice) bubbling + composed. Hooks:
+  `.smd-color-input`, `.smd-color-hex`, `.smd-color-empty(.active)`. FIRST USER:
+  Storyboard (text colour/background + note colour), registered in
+  `Storyboard/index.html` + `sw.js SHARED_ASSETS` only - add it to another shell
+  before using it there.
 - SMD-IMAGE-DROPDOWN CLOSED-STATE LAYOUT (2026-10-04): the closed button
   LEFT-ALIGNS its label right next to the image and sizes itself to the WIDEST
   option. Every option label is stacked in ONE hidden `.sizer` grid cell inside
@@ -8551,3 +8601,50 @@ Techniques / gotchas:
 - VERIFIED: backgrounds 9/9; the whole Storyboard suite + onedrive 126/126;
   visually confirmed the late-arriving Space artwork paints the full board (was a
   centred 26px tile). BUILD -> `202610261431`.
+
+### 2026-10-26 (g) - Storyboard: notes + full colour picker for text and notes
+
+- REQUEST (user): "add the ability to add a note to the board ... a fa:sticky-note
+  ... click on it and I should have an edit panel which allows me to change the
+  colour of the note, and a text box that allows multi line text. The note should
+  be scalable like the stickers or text but it does not need to be rotatable. The
+  note should not appear on the downloaded image, but needs to be stored in the
+  story/scene when saved to OneDrive or MinIO." Answered questions: a NEW RAIL
+  TOOL, the note shows the ICON ONLY (text as a tooltip), a FULL COLOUR PICKER
+  (which must also replace the TEXT colour control), and move/scale/delete/
+  duplicate. Follow-up: the text BACKGROUND uses the picker too.
+- BUILT:
+  - `shared/js/components/smd-color-picker.js` (NEW shared component: native
+    colour input + hex field + optional "empty" choice; `#rgb/#rrggbb/rgb()/
+    color(srgb …)` normalise to `#rrggbb`; emits `smd-color-picker-change`).
+  - Notes: rail `data-tool="note"` + `sbRenderNotePanel`/`sbPlaceNote`/
+    `sbDoneNote`/`sbNoteField`/`sbOpenNoteEditor`, `sbState.editingNoteId` +
+    `noteDraft`; item type `note` (`text`/`color`, rotation forced 0); board
+    renders a `.sb-note` `<i class="fa-solid fa-sticky-note">`; no rotate handle;
+    `sbApplyDrag` skips rotation for notes; the JPG/ZIP loop skips notes; a tap
+    opens the editor (`drag.tapNote`).
+  - Text: Background/Text colour are `#sbTextBg`/`#sbTextColor`
+    `<smd-color-picker>`s storing hex (legacy tokens still work); dead
+    `.sb-swatch`/`sbSwatchHtml`/`sbTokenCss` removed.
+- TDD: `tests/storyboard-notes.spec.js` (7) written FIRST and red: rail tool +
+  icon-only note, click-to-edit multi-line + reload, colour picker + reload,
+  scale-but-never-rotate (including inside a twisted group), never in the
+  exported JPG (a GREEN note vs a GREEN text box as the control, sampling the
+  real exported bitmap), the note in `sbStoryBackupPayload` (what MinIO/OneDrive
+  upload), and fixed text colours surviving a theme swap + the
+  Automatic/Transparent reset.
+- WHAT WENT WRONG: (a) the fly-out panel's show rule ENUMERATED the tool names, so
+  the Note panel stayed hidden - replaced with
+  `.sb-toolbar:not([data-open=""]) .sb-panel`; (b) three test assertions read
+  localStorage in the same tick as the edit - `sbSaveSoon()` is debounced, so
+  they now `expect.poll`; (c) the export control sampled the centre of a text box
+  holding "X", i.e. the GLYPH, not the background - it uses " " now.
+- FALLOUT: rail is 9 buttons now (`storyboard-buttons`, `storyboard-save`
+  counts updated); `storyboard-buttons` also asserts the picker replaces the
+  swatches.
+- VERIFIED: notes 7/7; the whole Storyboard suite + onedrive + launch-regression
+  146/146 (after the count fixes) then notes/buttons/stamp/save 18/18 on the new
+  build; visually checked the Note panel, a placed note with only a scale handle,
+  and the Text panel's two pickers with fixed colours on the board.
+- SCREENSHOTS: the "text panel" scene (and everything showing the rail) is stale -
+  regenerate the Storyboard gallery. BUILD -> `202610261447`.

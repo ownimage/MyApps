@@ -6,6 +6,7 @@ var sbToolbarEls = {};
 
 function sbInitToolbar() {
   sbState.textDraft = { bg: "transparent", color: "auto", border: "none", font: "theme" };
+  sbState.noteDraft = { color: SB_NOTE_DEFAULT_COLOR };
 
   sbToolbarEls.toolbar = document.getElementById("sbToolbar");
   sbToolbarEls.panel = document.getElementById("sbPanel");
@@ -93,6 +94,7 @@ function sbOpenTool(tool) {
 function sbClosePanel() {
   sbState.tool = "";
   sbState.editingTextId = "";
+  sbState.editingNoteId = "";
   if (sbToolbarEls.toolbar) sbToolbarEls.toolbar.dataset.open = "";
   if (sbToolbarEls.body) sbToolbarEls.body.innerHTML = "";
   if (sbToolbarEls.title) sbToolbarEls.title.textContent = "";
@@ -111,11 +113,13 @@ function sbRenderPanel() {
       tool === "boards" ? "Stories" :
       tool === "background" ? "Background" :
       tool === "stickers" ? "Stickers" :
+      tool === "note" ? (sbState.editingNoteId ? "Edit note" : "Note") :
       (sbState.editingTextId ? "Edit text" : "Text");
   }
   if (tool === "boards") sbRenderBoardsPanel();
   else if (tool === "background") sbRenderBackgroundPanel();
   else if (tool === "stickers") sbRenderStickersPanel();
+  else if (tool === "note") sbRenderNotePanel();
   else if (tool === "text") sbRenderTextPanel();
 }
 
@@ -621,17 +625,15 @@ function sbRenderTextPanel() {
   html += '</smd-select>';
   html += '<div id="sbFontPreview" class="sb-font-preview sb-font-' + font + '">The quick brown fox</div>';
 
-  html += '<div class="sb-field-label">Background</div><div class="sb-swatches">';
-  SB_BG_TOKENS.forEach(function (token) { html += sbSwatchHtml("bg", token, bg === token); });
-  html += '</div>';
+  html += '<div class="sb-field-label">Background</div>';
+  html += '<smd-color-picker id="sbTextBg" value="' + escAttr(sbPaintPickerValue(bg, "transparent")) + '" empty-label="Transparent"></smd-color-picker>';
 
   html += '<div class="sb-field-label">Border</div><div class="sb-border-grid">';
   SB_TEXT_BORDERS.forEach(function (b) { html += sbBorderOptionHtml(b, border === b.id); });
   html += '</div>';
 
-  html += '<div class="sb-field-label">Text colour</div><div class="sb-swatches">';
-  SB_TEXT_TOKENS.forEach(function (token) { html += sbSwatchHtml("color", token, color === token); });
-  html += '</div>';
+  html += '<div class="sb-field-label">Text colour</div>';
+  html += '<smd-color-picker id="sbTextColor" value="' + escAttr(sbPaintPickerValue(color, "auto")) + '" empty-label="Automatic"></smd-color-picker>';
 
   if (item) {
     html += '<smd-button id="sbDoneText" variant="primary" block>Done</smd-button>';
@@ -646,6 +648,10 @@ function sbRenderTextPanel() {
     if (fontSel.value !== font) fontSel.value = font;
     fontSel.addEventListener("change", function () { sbTextField("font", fontSel.value); });
   }
+  // The colour pickers replace the old theme swatches: a picked colour is a fixed
+  // hex, so the scene looks the same on every theme. Empty = Transparent/Automatic.
+  sbBindPaintPicker("sbTextBg", function (value) { sbTextField("bg", value || "transparent"); });
+  sbBindPaintPicker("sbTextColor", function (value) { sbTextField("color", value || "auto"); });
   var input = document.getElementById("sbTextInput");
   if (input) {
     sbTogglePlaceButton();
@@ -654,13 +660,6 @@ function sbRenderTextPanel() {
       try { input.setSelectionRange(input.value.length, input.value.length); } catch (e) {}
     }
   }
-}
-
-function sbSwatchHtml(field, token, active) {
-  var label = token === "transparent" ? "Transparent" : token === "auto" ? "Automatic" : token.charAt(0).toUpperCase() + token.slice(1);
-  var cls = "sb-swatch" + (token === "transparent" ? " sb-swatch-transparent" : "") + (active ? " active" : "");
-  return '<button type="button" class="' + cls + '" data-field="' + field + '" data-token="' + token + '" title="' + label +
-    '" aria-label="' + label + '" style="--sb-swatch:' + sbTokenCss(token) + '"></button>';
 }
 
 function sbBorderOptionHtml(border, active) {
@@ -697,14 +696,9 @@ function sbTextField(field, value) {
 }
 
 function sbMarkTextChoice(field, value) {
-  if (field === "border") {
-    sbToolbarEls.body.querySelectorAll(".sb-border-option").forEach(function (btn) {
-      btn.classList.toggle("active", btn.dataset.border === value);
-    });
-    return;
-  }
-  sbToolbarEls.body.querySelectorAll('.sb-swatch[data-field="' + field + '"]').forEach(function (btn) {
-    btn.classList.toggle("active", btn.dataset.token === value);
+  if (field !== "border") return;
+  sbToolbarEls.body.querySelectorAll(".sb-border-option").forEach(function (btn) {
+    btn.classList.toggle("active", btn.dataset.border === value);
   });
 }
 
@@ -753,6 +747,125 @@ function sbOpenTextEditor(id) {
   sbOpenTool("text");
 }
 
+// ---- Notes -----------------------------------------------------------------
+//
+// A note is an EDITOR CUE, not artwork: a coloured fa:sticky-note glyph placed
+// where you want a reminder. Its text lives in this panel (and the object's
+// tooltip), it scales like a sticker, never rotates, and is never drawn into the
+// downloaded JPG (or the story ZIP). It IS part of the scene JSON, so the MinIO
+// and OneDrive story saves carry it.
+
+function sbRenderNotePanel() {
+  if (sbState.editingNoteId && !sbFindItem(sbState.editingNoteId)) sbState.editingNoteId = "";
+  var item = sbState.editingNoteId ? sbFindItem(sbState.editingNoteId) : null;
+  var draft = sbState.noteDraft || { color: SB_NOTE_DEFAULT_COLOR };
+  var colour = item ? item.color : draft.color;
+  var text = item ? item.text : "";
+
+  var html = '<label class="form-label sb-field-label" for="sbNoteInput">Note</label>';
+  html += '<textarea id="sbNoteInput" class="form-control" rows="5" placeholder="Type your note">' + escapeHtml(text) + '</textarea>';
+  html += '<div class="sb-field-label">Colour</div>';
+  html += '<smd-color-picker id="sbNoteColor" value="' + escAttr(colour) + '"></smd-color-picker>';
+  if (item) {
+    html += '<smd-button id="sbDoneNote" variant="primary" block>Done</smd-button>';
+  } else {
+    html += '<smd-button id="sbPlaceNote" variant="primary" block' + (text.trim() ? "" : " disabled") + '>Add note</smd-button>';
+  }
+  html += '<p class="sb-panel-note">Click a note on the board to edit it again. Notes are only reminders - they are never included in the downloaded image.</p>';
+
+  sbToolbarEls.body.innerHTML = html;
+  sbBindPaintPicker("sbNoteColor", function (value) { sbNoteField("color", value || SB_NOTE_DEFAULT_COLOR); });
+  var input = document.getElementById("sbNoteInput");
+  if (input) {
+    sbTogglePlaceNoteButton();
+    if (item) {
+      input.focus();
+      try { input.setSelectionRange(input.value.length, input.value.length); } catch (e) {}
+    }
+  }
+}
+
+function sbTogglePlaceNoteButton() {
+  var btn = document.getElementById("sbPlaceNote");
+  var input = document.getElementById("sbNoteInput");
+  if (!btn || !input || sbState.editingNoteId) return;
+  // The shared component mirrors `disabled` onto its inner button, so setting the
+  // ATTRIBUTE also works before the element has upgraded.
+  if (input.value.trim()) btn.removeAttribute("disabled");
+  else btn.setAttribute("disabled", "");
+}
+
+// Apply one field to the note being edited (live) or to the draft for the next.
+function sbNoteField(field, value) {
+  var item = sbState.editingNoteId ? sbFindItem(sbState.editingNoteId) : null;
+  if (item) {
+    item[field] = value;
+    sbSaveSoon();
+    sbApplyNoteStyle(item);
+    return;
+  }
+  if (!sbState.noteDraft) sbState.noteDraft = { color: SB_NOTE_DEFAULT_COLOR };
+  sbState.noteDraft[field] = value;
+}
+
+function sbPlaceNote() {
+  var input = document.getElementById("sbNoteInput");
+  var text = input ? input.value : "";
+  if (!text.trim()) return;
+  var board = sbActiveBoard();
+  if (!board) return;
+  var draft = sbState.noteDraft || { color: SB_NOTE_DEFAULT_COLOR };
+  var n = board.items.length;
+  var item = sbAddItem({
+    type: "note",
+    text: text,
+    color: draft.color,
+    x: 50 + (n % 4) * 4,
+    y: 50 + (n % 3) * 5,
+    scale: 1,
+    rotation: 0
+  });
+  if (!item) return;
+  sbState.editingNoteId = item.id;
+  sbRender();
+  sbRenderPanel();
+}
+
+function sbDoneNote() {
+  sbState.editingNoteId = "";
+  sbClosePanel();
+}
+
+// A click (not a drag) on a note opens this panel in edit mode. board.js calls
+// this from its pointerup handler.
+function sbOpenNoteEditor(id) {
+  var item = sbFindItem(id);
+  if (!item || item.type !== "note") return;
+  // Same gesture guard as the text editor: the click that follows must not reach
+  // the panel's outside-click handler and close what we just opened.
+  sbState.panelClickAt = Date.now();
+  sbState.editingNoteId = id;
+  sbSelect(id);
+  sbOpenTool("note");
+}
+
+function sbBindPaintPicker(id, apply) {
+  var el = document.getElementById(id);
+  if (!el) return;
+  el.addEventListener("smd-color-picker-change", function (e) {
+    apply(e && e.detail ? e.detail.value : "");
+  });
+}
+
+// What a picker should show for a stored text paint: "" for the theme choice,
+// the fixed hex itself, or the RESOLVED theme colour so the swatch starts on
+// what is actually on screen.
+function sbPaintPickerValue(value, emptyToken) {
+  if (!value || value === emptyToken) return "";
+  if (sbIsHexColor(value)) return value;
+  return sbResolveColor(value);
+}
+
 // ---- Panel event delegation ------------------------------------------------
 
 function sbOnPanelClick(e) {
@@ -786,6 +899,14 @@ function sbOnPanelClick(e) {
     sbDoneText();
     return;
   }
+  if (t.closest && t.closest("#sbPlaceNote")) {
+    sbPlaceNote();
+    return;
+  }
+  if (t.closest && t.closest("#sbDoneNote")) {
+    sbDoneNote();
+    return;
+  }
 
   if (t.closest && t.closest(".sb-bg-signin")) {
     if (typeof sbBgSignIn === "function") sbBgSignIn();
@@ -816,11 +937,6 @@ function sbOnPanelClick(e) {
     return;
   }
 
-  var swatch = t.closest ? t.closest(".sb-swatch") : null;
-  if (swatch) {
-    sbTextField(swatch.dataset.field, swatch.dataset.token);
-    return;
-  }
 
   var borderOpt = t.closest ? t.closest(".sb-border-option") : null;
   if (borderOpt) {
@@ -829,7 +945,18 @@ function sbOnPanelClick(e) {
 }
 
 function sbOnPanelInput(e) {
-  if (!e.target || e.target.id !== "sbTextInput") return;
+  if (!e.target) return;
+  if (e.target.id === "sbNoteInput") {
+    var note = sbState.editingNoteId ? sbFindItem(sbState.editingNoteId) : null;
+    if (note) {
+      note.text = e.target.value;
+      sbSaveSoon();
+      sbApplyNoteStyle(note);
+    }
+    sbTogglePlaceNoteButton();
+    return;
+  }
+  if (e.target.id !== "sbTextInput") return;
   var item = sbState.editingTextId ? sbFindItem(sbState.editingTextId) : null;
   if (item) {
     item.text = e.target.value;
