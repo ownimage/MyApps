@@ -145,6 +145,73 @@ test.describe("Storyboard - stories and scenes", () => {
     expect(state.activeScene).toBe("a1");
   });
 
+  test("story names must be unique (case and surrounding spaces ignored)", async ({ page }) => {
+    await seedStories(page, [
+      story("uniq-a", "Alpha", [scene("uniq-a-scene", "Scene 1")]),
+      story("uniq-b", "Beta", [scene("uniq-b-scene", "Scene 1")])
+    ], "uniq-a");
+    await openStories(page);
+
+    const row = page.locator('.sb-story-row[data-story-id="uniq-b"]');
+    await row.locator('.sb-story-act[data-act="rename-story"]').click();
+    const input = row.locator(".sb-story-pick input");
+    await expect(input).toBeVisible();
+
+    // Beta -> Alpha is rejected: the editor stays open with an explanation and
+    // nothing is saved.
+    await input.fill("Alpha");
+    await input.press("Enter");
+    await expect(page.locator(".sb-rename-error")).toContainText("already called");
+    await expect(input).toBeVisible();
+    expect((await stored(page)).stories.map((s) => s.name)).toEqual(["Alpha", "Beta"]);
+
+    // Case and surrounding spaces do not make it unique either: the name also
+    // becomes the OneDrive folder, which is case-insensitive.
+    await input.fill("  aLpHa  ");
+    await input.press("Enter");
+    await expect(page.locator(".sb-rename-error")).toBeVisible();
+    expect((await stored(page)).stories.map((s) => s.name)).toEqual(["Alpha", "Beta"]);
+
+    // An empty name is refused too.
+    await input.fill("   ");
+    await input.press("Enter");
+    await expect(page.locator(".sb-rename-error")).toContainText("needs a name");
+    expect((await stored(page)).stories.map((s) => s.name)).toEqual(["Alpha", "Beta"]);
+
+    // A name nobody else uses is accepted and persisted.
+    await input.fill("Gamma");
+    await input.press("Enter");
+    await expect(page.locator(".sb-rename-error")).toHaveCount(0);
+    await expect(page.locator('.sb-story-row[data-story-id="uniq-b"]')).toContainText("Gamma");
+    expect((await stored(page)).stories.map((s) => s.name)).toEqual(["Alpha", "Gamma"]);
+  });
+
+  test("a story may keep its own name (and change only its case)", async ({ page }) => {
+    await seedStories(page, [
+      story("own-a", "Alpha", [scene("own-a-scene", "Scene 1")]),
+      story("own-b", "Beta", [scene("own-b-scene", "Scene 1")])
+    ], "own-a");
+    await openStories(page);
+
+    // Re-entering the same name is a no-op, not a clash with itself.
+    let row = page.locator('.sb-story-row[data-story-id="own-a"]');
+    await row.locator('.sb-story-act[data-act="rename-story"]').click();
+    let input = row.locator(".sb-story-pick input");
+    await input.fill("Alpha");
+    await input.press("Enter");
+    await expect(page.locator(".sb-rename-error")).toHaveCount(0);
+    expect((await stored(page)).stories.map((s) => s.name)).toEqual(["Alpha", "Beta"]);
+
+    // Changing only the case of its OWN name is allowed.
+    row = page.locator('.sb-story-row[data-story-id="own-a"]');
+    await row.locator('.sb-story-act[data-act="rename-story"]').click();
+    input = row.locator(".sb-story-pick input");
+    await input.fill("ALPHA");
+    await input.press("Enter");
+    await expect(page.locator(".sb-rename-error")).toHaveCount(0);
+    expect((await stored(page)).stories.map((s) => s.name)).toEqual(["ALPHA", "Beta"]);
+  });
+
   test("story and scene names can be renamed and persist", async ({ page }) => {
     await page.goto("/Storyboard/");
     await openStories(page);

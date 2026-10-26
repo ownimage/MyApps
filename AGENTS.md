@@ -101,6 +101,20 @@ Architecture:
     maps these to `background-size: contain` / `100% 100%`; the letterbox bars are
     the background's own board colour (`[data-background="space"]` etc.), so they
     look deliberate.
+  UNIQUE STORY NAMES (2026-10-26, user request): a story may not take a name that
+  another story already uses - the name also becomes the OneDrive folder for its
+  Board stickers and its backup directory, so `DFOS` and `dfos` MUST be treated as
+  the same name (OneDrive folders are case-insensitive). `sbStoryNameKey()` (trim +
+  lowercase), `sbStoryNameOwner(name, exceptId)` and `sbStoryNameError()` live in
+  `storage.js`; `sbRenameStory()` refuses a duplicate (defence in depth) and
+  `sbUniqueStoryName()` now compares lower-cased keys; `sbBeginInlineRename()` takes
+  an optional `validate(value)` - a rejected value keeps the editor OPEN, marks the
+  input `is-invalid` and inserts `.sb-rename-error` ("Another story is already
+  called \"X\"..."/"A story needs a name.") after the row, cleared as you type.
+  `sbStartRenameStory()` passes `sbStoryNameError`. LOAD does NOT de-duplicate: a
+  hand-edited/merged storage file or a backup with a renamed story could still hold
+  two equal names (the import path already prompts when a name exists). Scene
+  names are deliberately NOT unique-checked (they never name a folder).
   MODEL: the size belongs to the STORY (`width`/`height`/`backgroundFit` on the
   story, normalised by `sbNormalizeStory`, defaults keep 2560x1440 + fit so old
   stories look unchanged): every scene is a slide of that story. Scenes carry NO
@@ -8226,3 +8240,11 @@ Techniques / gotchas:
   stamp/stickers/stories/zoom/props) + onedrive 107/107, and 91/91 again under the
   new build. BUILD -> `202610261136`. Screenshots of the board are unchanged at
   the default size (2560x1440 == the bundled artwork).
+- FOLLOW-UP (same day, user): story names must be UNIQUE. Implemented in the inline
+  rename editor (2 new tests in `storyboard-stories.spec.js`, 8/8): a duplicate is
+  refused case- and space-insensitively, the editor stays open with
+  `.sb-rename-error` ("Another story is already called ..."), an empty name is
+  refused, and keeping/changing the case of its OWN name still works.
+  `sbRenameStory()` also validates so no other entry point can write a duplicate,
+  and `sbUniqueStoryName()` now compares lower-cased keys. Full Storyboard suite +
+  onedrive 109/109. BUILD -> `202610261159`.

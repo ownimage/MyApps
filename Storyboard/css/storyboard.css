@@ -560,6 +560,12 @@ body.smd-wco #sbToolbar {
   margin: 0;
 }
 
+/* Inline validation for the story/scene rename editor (a duplicate story name
+ * keeps the input open with this note under the row). */
+.sb-rename-error {
+  margin: 2px 0 0;
+}
+
 .sb-story-size {
   display: flex;
   align-items: center;

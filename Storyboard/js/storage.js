@@ -792,12 +792,42 @@ function sbCloneNode(nodeId, board, counter, offset) {
   return next.id;
 }
 
+// Story names must be UNIQUE: the name also becomes the OneDrive folder for the
+// story's Board stickers and its backup directory, so two stories whose names
+// differ only in case or surrounding spaces would collide on disk. Compare on a
+// trimmed, lower-cased key.
+function sbStoryNameKey(name) {
+  return String(name == null ? "" : name).trim().toLowerCase();
+}
+
+// The OTHER story that already owns this name (null when the name is free).
+function sbStoryNameOwner(name, exceptStoryId) {
+  var key = sbStoryNameKey(name);
+  if (!key) return null;
+  for (var i = 0; i < sbState.stories.length; i++) {
+    var story = sbState.stories[i];
+    if (story.id === exceptStoryId) continue;
+    if (sbStoryNameKey(story.name) === key) return story;
+  }
+  return null;
+}
+
+// "" when the name is usable, otherwise the message shown by the inline editor.
+function sbStoryNameError(name, storyId) {
+  if (!sbStoryNameKey(name)) return "A story needs a name.";
+  var owner = sbStoryNameOwner(name, storyId);
+  if (owner) {
+    return 'Another story is already called "' + owner.name + '". Story names must be unique.';
+  }
+  return "";
+}
+
 function sbUniqueStoryName() {
   var n = sbState.stories.length + 1;
   var names = {};
-  sbState.stories.forEach(function (s) { names[s.name] = true; });
+  sbState.stories.forEach(function (s) { names[sbStoryNameKey(s.name)] = true; });
   var name = "Story " + n;
-  while (names[name]) {
+  while (names[sbStoryNameKey(name)]) {
     n++;
     name = "Story " + n;
   }
@@ -865,13 +895,16 @@ function sbSetActiveStory(id) {
 
 function sbRenameStory(id, name) {
   var story = sbFindStory(id);
-  if (!story) return;
+  if (!story) return false;
   var trimmed = String(name || "").trim();
-  if (!trimmed) return;
+  // Defence in depth: the inline editor validates first, but nothing may write a
+  // duplicate (this is also called from other entry points).
+  if (sbStoryNameError(trimmed, id)) return false;
   story.name = trimmed;
   sbSaveState();
   sbRender();
   sbRenderPanel();
+  return true;
 }
 
 function sbDeleteStory(id) {

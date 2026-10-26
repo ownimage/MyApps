@@ -276,23 +276,51 @@ function sbOnPanelChange(e) {
 }
 
 // Replace a row's clickable label with an input; Enter/blur saves, Escape cancels.
-function sbBeginInlineRename(row, pickSelector, currentName, onSave) {
+// `validate(value)` returns "" to accept or a message to show; a rejected value
+// keeps the editor open (and the old name intact) so the user can correct it.
+function sbBeginInlineRename(row, pickSelector, currentName, onSave, validate) {
   var pick = row && row.querySelector(pickSelector);
   if (!pick) return;
   pick.innerHTML = '<input class="form-control form-control-sm sb-board-name-input" value="' + escAttr(currentName) + '">';
   var input = pick.querySelector("input");
   var done = false;
-  var finish = function (save) {
+  var errorEl = null;
+
+  function clearError() {
+    if (errorEl && errorEl.parentNode) errorEl.parentNode.removeChild(errorEl);
+    errorEl = null;
+    input.classList.remove("is-invalid");
+  }
+  function showError(message) {
+    clearError();
+    errorEl = document.createElement("p");
+    errorEl.className = "sb-panel-note sb-rename-error text-danger";
+    errorEl.textContent = message;
+    row.parentNode.insertBefore(errorEl, row.nextSibling);
+    input.classList.add("is-invalid");
+  }
+
+  var finish = function (save, refocus) {
     if (done) return;
+    if (save && typeof validate === "function") {
+      var message = validate(input.value);
+      if (message) {
+        showError(message);
+        if (refocus) { input.focus(); input.select(); }
+        return;
+      }
+    }
     done = true;
     if (save) onSave(input.value);
     else sbRenderPanel();
   };
   input.addEventListener("keydown", function (e) {
-    if (e.key === "Enter") { e.preventDefault(); finish(true); }
+    if (e.key === "Enter") { e.preventDefault(); finish(true, true); }
     else if (e.key === "Escape") { e.preventDefault(); finish(false); }
   });
-  input.addEventListener("blur", function () { finish(true); });
+  input.addEventListener("input", clearError);
+  // A blur with an invalid value shows the reason but does not steal focus back.
+  input.addEventListener("blur", function () { if (!done) finish(true, false); });
   input.focus();
   input.select();
 }
@@ -310,8 +338,12 @@ function sbStartRenameStory(id) {
   var story = sbFindStory(id);
   var row = sbToolbarEls.body.querySelector('.sb-story-row[data-story-id="' + id + '"]');
   if (!story || !row) return;
+  // Story names must be unique (they also name the OneDrive folder), so the
+  // editor refuses a duplicate and says which story already has it.
   sbBeginInlineRename(row, ".sb-story-pick", story.name, function (name) {
     sbRenameStory(id, name);
+  }, function (name) {
+    return typeof sbStoryNameError === "function" ? sbStoryNameError(name, id) : "";
   });
 }
 
