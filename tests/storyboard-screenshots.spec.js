@@ -64,6 +64,22 @@ function textBox(id, value, x, y, extra) {
   }, extra || {});
 }
 
+// A NOTE is an editor cue (a coloured sticky-note glyph whose text is the
+// tooltip); it is never drawn into a downloaded JPG.
+function note(id, value, x, y, extra) {
+  return Object.assign({
+    id,
+    type: "note",
+    text: value,
+    color: "#ffd54f",
+    x,
+    y,
+    scale: 1.1,
+    rotation: 0,
+    z: 6
+  }, extra || {});
+}
+
 function scene(id, name, extra) {
   return Object.assign({
     id,
@@ -89,7 +105,9 @@ const SHOWCASE_SCENE = scene("showcase", "Launch", {
     }),
     textBox("tx-launch", "Launch at dawn", 62, 62, {
       bg: "warning", color: "dark", border: "stamp", scale: 1, rotation: 5, z: 5
-    })
+    }),
+    // Notes are editor cues: the glyph is on the board, the text is the tooltip.
+    note("nt-1", "Remember: moon phase at dawn", 16, 16)
   ],
   connectors: [{ id: "cn-1", from: "tx-control", to: "tx-launch" }]
 });
@@ -166,6 +184,12 @@ test.describe("Storyboard - Screenshots", () => {
     await page.waitForSelector(".sb-story-row.active");
     await page.locator(".sb-story-row").nth(1).locator(".sb-story-pick").click();
     await page.locator(".sb-story-row.active + .sb-story-scenes .sb-board-row").first().click();
+    // Show the row actions the panel gained: drag handle, DUPLICATE (fa-copy,
+    // before the edit pen) and delete - and a duplicated scene named "<x> copy".
+    await page.evaluate(() => {
+      sbDuplicateBoard(sbActiveBoard().id);
+      sbRenderPanel();
+    });
     await page.waitForTimeout(250);
     await screenshotAllThemes(page, "stories-panel.png");
   });
@@ -189,6 +213,22 @@ test.describe("Storyboard - Screenshots", () => {
     await page.waitForSelector("#sbTextInput");
     await page.waitForTimeout(250);
     await screenshotAllThemes(page, "text-panel.png");
+  });
+
+  test("note panel", async ({ page }) => {
+    // The Note tool's editor: multi-line text + the shared full colour picker.
+    await page.evaluate(() => sbOpenNoteEditor("nt-1"));
+    await page.waitForSelector("#sbNoteInput");
+    await page.waitForTimeout(250);
+    await screenshotAllThemes(page, "note-panel.png");
+  });
+
+  test("undo redo", async ({ page }) => {
+    // One edit arms Undo, so the rail pair is drawn in its enabled state.
+    await page.evaluate(() => sbAddSticker("shark"));
+    await page.waitForFunction(() => sbHistoryCanUndo());
+    await page.waitForTimeout(250);
+    await screenshotAllThemes(page, "undo-redo.png");
   });
 
   test("selection bar", async ({ page }) => {

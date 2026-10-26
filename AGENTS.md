@@ -85,6 +85,354 @@ Architecture:
 - Shared components are LIGHT DOM. `shared/css/styles.css` now holds ONLY theme colour + spatial-size declarations; every layout MECHANIC (display/flex/position/gap/margin/padding/transform/transition/border-reset/cursor/opacity) lives in the component's own `injectSmdComponentStyle()` block (or, for the app shell, `injectSettingsLayout()` in `shared/js/smd-settings.js`). Do not reintroduce constructable stylesheets or shadow-root styling for these components. `smd-modal`, `smd-page`, `smd-tabs`, and the pmd-* cards expose stable light-DOM classes for shared selectors and tests. `smd-tabs` tab definitions may include `panelClass` (for example `no-padding`) for panel-specific layout.
 - Colour/typography conventions: smd-tabs active = `--bs-primary`, inactive = `--bs-secondary`, with `#smd-app` scoping for priority; the Streams Editor header is `--bs-primary` when expanded and `--bs-info` when collapsed; modal/page headers use theme surfaces (`--bs-body-bg`, `--bs-secondary-bg`, `--bs-border-color`) rather than hardcoded colours. Bootstrap/Bootswatch remains authoritative; the runtime contrast layer is not used.
 - TYPESCALE TOKENS (2026-09-18): one shared ramp in `shared/css/styles.css` — `body { --smd-type-base: 1rem }` plus `body.font-size-xsmall/small/large/xlarge/jumbo` overrides (0.8/0.925/1/1.125/1.3/1.6rem) — drives exactly four tokens `--smd-type-badge` (base×0.75), `--smd-type-p` (base), `--smd-type-h2` (base×1.25), `--smd-type-h1` (base×2), all declared on `body` (NOT `:root`: the ramp must recompute per font-size body class, and body custom props pierce shadow DOM while `:host-context()` doesn't). Tag map: h1→h1; h2/h3/h4→h2; h5/h6→p; text/inputs/tables→p; badges→badge. BUTTONS ARE h2 (one step above text): `<button>`, `.btn`, `.smd-tab-btn` all use `var(--smd-type-h2)`; `.btn-sm` stays at `var(--smd-type-p)`. Light-DOM home is `shared/css/styles.css` (`button, .btn` / `.btn-sm`); the shared `btnBadgeSheet` covers shadow buttons. Scaffold the h2/p rules inline wherever a shadow root does NOT adopt btnBadgeSheet: the 4 apps' `editor-styles.js`, `smd-settings.js`, `smd-minio.js`, `smd-modal.js`, `smd-image-picker.js`, `smd-image-dropdown.js`. Don't re-add per-component `.btn` font-size rules. Every component + app style now uses `var(--smd-type-*, original-value)` (original as fallback so behaviour is unchanged wherever the token is missing). Media-fit sizes are token CALCs (e.g. CM/QR title `calc(var(--smd-type-h1,1.5rem)*0.7667)`, CM count `*0.8333`, CM container h1 `*0.625`, Solar 480px block). Compact density = `--…-title-size: var(--smd-type-p)` overrides. Deliberate non-token exceptions: the 22px hamburger icon in `smd-app.js`, `smd-checkbox` 1.2em/2em + `smd-draghandle` FIXED 1.2rem/1.6rem touch sizes, vendor CSS, storybook chrome. Tests assert heading ELEMENT tags (now `h1` for main-view date/"Today!"/"From …" headings) and pmd-touch.spec.js:119 asserts the NEW pixel values (xlarge 41.6, jumbo 51.2, compact-jumbo 25.6) — update those literals together with any ramp change.
+- SHARED `<smd-button>`: ICONS + RICH CONTENT (2026-10-26): Storyboard's rail and
+  fly-out panels converted every ACTION button to the shared component, which
+  needed two additive features (both backwards compatible):
+  - `icon="fa-solid fa-cog"` renders `<i class="..." aria-hidden="true">` before
+    the label; an icon-only button (no text) gets NO "Button" fallback. With an
+    icon the label goes in `<span class="smd-button-label">` (the component's
+    injected sheet gives it `margin-left: .35em`); without one the inner button is
+    a bare text node as before.
+  - `aria-label` / `aria-pressed` are mirrored onto the INNER `<button>` (the real
+    control), because an icon-only button has no text name. `title` stays on the
+    host.
+  - RICH CONTENT: if the host contains ELEMENT children (e.g. a chevron + a book
+    icon + a name span), they are MOVED into the inner button untouched instead of
+    being flattened to text - that is what keeps Storyboard's story/scene pick rows
+    (two icons, expanding chevron) intact.
+  - CLONE-SAFE (2026-10-26, same day): `connectedCallback` builds under a
+    `data-smd-built` ATTRIBUTE guard (attributes survive `cloneNode`; the
+    `_label`/`_rich` JS fields do NOT). Without it a Sortable fallback ghost
+    (`cloneNode(true)`) treated the ALREADY-BUILT inner `<button>` as rich content
+    and wrapped it in a second one - a filled grey Bootstrap button around the
+    row's icons and name, i.e. the reported "scene drag ghost is not right". A
+    clone now keeps its built markup and only re-applies
+    variant/size/block/disabled/a11y (`_renderContent()` also stays inside the
+    build guard, or a clone would be relabelled "Button"). Guarded by
+    `tests/smd-button-icon.spec.js` "a clone is not rebuilt (no button nested
+    inside a button)".
+  Storyboard keeps its FLAT look by skinning the inner button in
+  `Storyboard/css/storyboard.css` (`smd-button.sb-rail-btn > button`, `.sb-story-pick
+  > button`, `.sb-story-act > button`, `.sb-panel-close > button`): the HOST is the
+  flex item, the inner `.btn` is made transparent/borderless/icon-stacked. Rail
+  active state is `smd-button.sb-rail-btn.active > button`; disabled styling is
+  `smd-button.sb-*.act[disabled] > button` (Bootstrap `.btn:disabled` opacity is
+  overridden). NOT converted on purpose: the picture/colour pickers
+  (`.sb-bg-option`, `.sb-swatch`, `.sb-border-option`) and the sticker tiles.
+  TESTS: `tests/storyboard-buttons.spec.js` (shape/skin/labels/disabled/still-bespoke
+  pickers) + `tests/smd-button-icon.spec.js` (component contract; note it hosts
+  the probes in a real app page rather than the storybook). FALLOUT to remember
+  when converting more native buttons: (a) `toBeDisabled()` / `isDisabled()` and
+  `.focus()` must target the INNER button (`#id button`), they do not work on the
+  host; (b) `sbBeginInlineRename()` now replaces the inner button's content
+  (`pick.querySelector("button")`) or the editor would land beside the label; (c)
+  a `disabled` attribute authored on the host must be set/read as an ATTRIBUTE
+  (`sbTogglePlaceButton`), never as a pre-upgrade JS property.
+- STORYBOARD ONEDRIVE BACKGROUND LIBRARIES (2026-10-26, user request): the
+  Background fly-out mirrors the sticker libraries - Standard (None / Space /
+  Underwater) plus "Library" (`<Directory>/Backgrounds`) and "Board"
+  (`<Directory>/<story>/Backgrounds`) tabs, each shown only when OneDrive is
+  enabled + signed in AND the folder exists. Files: `Storyboard/js/background-library.js`
+  (the whole feature), `oneDriveDownloadThumbnail()` in `shared/js/smd-onedrive.js`,
+  and `sbRenderBackgroundPanel()` in `toolbar.js` (tabs via `<smd-tabs
+  id="sbBgTabs">`, grids of `.sb-bg-option` buttons so the existing delegated
+  `sbSetBackground` click still works).
+  TWO DIFFERENCES from stickers (user decisions): the GRID downloads small Graph
+  THUMBNAILS (`/thumbnails/0/medium/content`) and the FULL image only when a
+  background is chosen (or a scene using one opens); and a story backup embeds the
+  used backgrounds under `backgrounds: { "<id>": {...dataUrl} }` (one entry per
+  background however many scenes use it) alongside `stickers`.
+  MODEL: scene `background` stores only `od:<hash>` (hash of the Graph item id);
+  `SB_OD_BACKGROUNDS` (storage.js) is the runtime registry, `sbBackgroundById()`
+  auto-registers unknown `od:` ids so a saved scene keeps its choice, and
+  `sbBackgroundSrcFor(id)` resolves full image -> thumbnail -> built-in asset path
+  (so choosing a background paints the thumbnail instantly, then sharpens).
+  `sbSetBackground()` calls `sbBgEnsureFull()` after saving.
+  CACHE: Cache Storage `myapps-backgrounds` (sw.js `BACKGROUND_CACHE`, MUST stay in
+  the activate allow-list), keys `/sb-bg/<id>` (full) and `/sb-bg-thumb/<id>`;
+  the listing is persisted in `storyboard_odBgIndex`; eTag changes invalidate BOTH
+  renditions and keep the old artwork on screen until the fresh full image lands;
+  boot + window-focus refresh (`SB_BG_FOCUS_GUARD_MS`, only when the Background
+  panel is open or the scene uses an `od:` background); `.sb-bg-status` shows the
+  reason (same messages as stickers) with `.sb-bg-signin` / `.sb-bg-retry`
+  buttons wired in `sbOnPanelClick`.
+  RENDER/EXPORT: `sbRender()` paints `sbBackgroundSrcFor()` and sets
+  `data-background="custom"` for an OneDrive painting (so no built-in colour/grid
+  leaks through - add a `#sbBackground[data-background="custom"]` colour if the
+  letterbox bars need one); the JPG export loads the same resolved src.
+  BACKGROUND PAINT IS ONE PATH (2026-10-26, bug: "sometimes when I open the app or
+  a story the background is only a small image in the centre of the screen"):
+  `sbPaintBackground()` in `board.js` is the ONLY writer of
+  `#sbBackground`'s inline `background-image` AND its `data-background`
+  attribute, and `sbRender()` + `sbBgOnResolved()` (background-library.js, the
+  async cache/download landing) both call it. WHY it matters: the attribute is
+  part of the painting, not just a colour hook - `[data-background="none"]`
+  carries the EMPTY-BOARD DOT GRID's `background-size: calc(24px * scale)`, so an
+  image painted while the element still says "none" renders as ONE tiny tile in
+  the middle of the board. That is exactly what happened when a scene kept only
+  its `od:` id across a reload: the first render had no bytes yet (dot grid),
+  then `sbBgOnResolved()` swapped only `style.backgroundImage`. `sbPaintBackground()`
+  also treats an unknown non-`od:` id as `custom` instead of `null.id` (that
+  threw and abandoned the rest of `sbRender()`). NEVER set `backgroundImage` on
+  `#sbBackground` from anywhere else. Test:
+  `tests/storyboard-backgrounds.spec.js` "a background whose bytes land AFTER the
+  render still fills the board" (asserts `data-background="custom"` and computed
+  `background-size: contain` after `sbBgApplyFull()`; RED before the fix, where
+  the size was the dot grid's 26.4px).
+  Tests: `tests/storyboard-backgrounds.spec.js` (9: unchanged when OneDrive is
+  off, thumbnails-only browsing with names, full download on selection + board
+  paint, folder/sign-in tab rules, offline reload from cache, eTag re-save
+  refresh, empty-board hint rules, backup embed-once + restore with an empty
+  cache, late bytes still fill the board).
+- STORYBOARD SAVING: SCENE JPG + STORY ZIP (2026-10-26, user request; moved INTO
+  THE HAMBURGER MENU the same day): saving is the LAST TWO hamburger-menu items,
+  after their own divider - `Download Story` (`sbDownloadStory()`) then
+  `Download Scene` (`sbDownloadScene()`). The rail's Save, the floating
+  `.sb-board-actions` pills and the `#sbBoardName` chip were ALL removed; the
+  scene readout is the nav bar title (see the nav-title note). Both wrappers
+  `.catch()` and alert, so a failed export is not silent. `sbDownloadScene()` ->
+  `sbDownloadJpg()` saves the active scene as `<scene slug>.jpg`;
+  `sbDownloadStory()` -> `sbDownloadStoryZip()` builds `<story slug>.zip` with
+  one JPG per scene. `board.js`: `sbDownloadJpg()` was split into
+  `sbBoardJpegBlob()` (draw, returns the blob) + `sbDownloadBlob(blob, name)`;
+  the ZIP is written by `sbZipWrite()` (STORE-only, no dependency: local headers
+  + central directory + EOCD, CRC32 table, UTF-8 flag) and
+  `sbZipEntryName(index, total, sceneName)` produces `"01 - Scene 1.jpg"`,
+  padded to the width of the HIGHEST number (10 scenes -> two digits, 3 scenes
+  -> no padding) so entries sort alphabetically. Zipping walks the story's
+  scenes with `sbActivateScene` + two rAFs per scene and RESTORES the scene the
+  user was on in a `finally` (the active scene id is asserted after the
+  download). Tests: `tests/storyboard-save.spec.js` (menu tail = divider +
+  Download Story + Download Scene and nothing save-shaped on the rail/board,
+  scene JPG download, 10-scene ZIP read back in Node: names/padding/order/
+  store-method/SOI-EOI/restore, and the 3-scene no-padding case). The `minio`
+  spec's menu-order assertion includes the download pair at the end.
+- STORYBOARD NOTES (2026-10-26, user request): a scene can carry NOTES - editor
+  cues, not artwork. `data-tool="note"` is the rail's 5th tool (after Text,
+  before the zoom group) whose fly-out has a multi-line `#sbNoteInput`, a
+  `<smd-color-picker id="sbNoteColor">` and `Add note` / `Done`; clicking a NOTE
+  ON THE BOARD (a plain pointerup tap, not a drag - `drag.tapNote`) re-opens it in
+  Edit mode via `sbOpenNoteEditor()`. MODEL: `{ id, type:"note", text, color,
+  x, y, scale, z }` (`sbNormalizeItem` forces `rotation: 0` and a hex colour,
+  default `SB_NOTE_DEFAULT_COLOR` `#ffd54f`). RENDER: `.sb-object-note > span.sb-note`
+  holds `<i class="fa-solid fa-sticky-note">` (Font Awesome 6 defines
+  `fa-sticky-note` as an alias of `fa-note-sticky`), sized by
+  `calc(var(--sb-sticker-base) * 0.55 * var(--sb-scale))` so it scales exactly
+  like a sticker; the TEXT is only the object's `title` tooltip. NO ROTATE: it
+  gets no `.sb-handle-rotate`, and `sbApplyDrag()` skips `item.rotation` for
+  notes, so a group twist orbits the note but leaves it upright. EXPORT: the JPG
+  loop (`sbBoardJpegBlob`, also behind the story ZIP) `continue`s on
+  `item.type === "note"` - notes are NEVER in a downloaded image. STORAGE: they
+  live in the scene JSON like any item, so MinIO / OneDrive story saves carry
+  them for free (`sbStoryBackupPayload`). Live panel edits repaint in place
+  (`sbApplyNoteStyle`) instead of re-rendering the board, or the textarea would
+  lose focus. GOTCHA (cost a red run): the fly-out panel's show rule used to list
+  the tool names - `data-open="boards|background|stickers|text"` - so the NOTE
+  panel silently stayed `display:none`; it is now
+  `.sb-toolbar:not([data-open=""]) .sb-panel`, so a FUTURE rail tool needs no CSS
+  entry. Tests: `tests/storyboard-notes.spec.js` (7).
+- STORYBOARD TEXT COLOURS ARE FIXED COLOURS NOW (2026-10-26, user request: "I
+  need to change the text as I want the scene to be the same regardless of the
+  theme"): the Text panel's Background and Text colour THEME SWATCHES are gone
+  (`.sb-swatch`, `sbSwatchHtml`, `sbTokenCss` deleted) and replaced by the shared
+  `<smd-color-picker>` (`#sbTextBg` with `empty-label="Transparent"`,
+  `#sbTextColor` with `empty-label="Automatic"`). A picked colour is stored as a
+  hex on the item (`bg`/`color`, `sbIsHexColor`); the LEGACY TOKENS still
+  normalise and render (`sbNormalizePaint` + `sbApplyTextPaint`, which adds the
+  `sb-bg-*`/`sb-color-*` class for a token and an INLINE colour for a hex, so a
+  theme swap cannot repaint it). `sbResolveColor()` returns a hex unchanged, so
+  a text border frame bakes the fixed colour too.
+- STORYBOARD UNDO / REDO + SCENE DUPLICATE / REORDER (2026-10-26, user request):
+  - UNDO/REDO: `storage.js` `sbHistory` is a SNAPSHOT history of the stories
+    content (names, sizes, scenes incl. ORDER, items, connectors, groups) and
+    deliberately NOT each scene's `view` (undo must never move the camera) or
+    `activeSceneId` (switching scenes is not an edit). `sbSaveState()` - the single
+    choke point every mutation already uses - calls `sbHistoryTouch()`; the
+    PREVIOUS snapshot is pushed only when the last change is older than
+    `SB_HISTORY_COALESCE_MS` (500ms), so typing and one whole drag are ONE step.
+    `sbHistoryReset()` runs at the end of boot (app.js) so the first edit can be
+    undone back to the state the app opened with. `sbUndo()`/`sbRedo()` rebuild
+    `sbState.stories` via `sbHistoryApply()` (which re-attaches the CURRENT per
+    scene views, keeps the active scene when it still exists, clears
+    selection/editors) then re-renders. Shortcuts live in `sbOnKeyDown` (Ctrl+Z,
+    Ctrl+Y, Ctrl+Shift+Z) and are skipped for text fields (a focused panel field
+    keeps its own Ctrl+Z), and while an smd-page/modal is open. Rail buttons
+    `#sbUndoBtn`/`#sbRedoBtn` (`fa-rotate-left`/`fa-rotate-right`, above the zoom
+    group) are disabled via `sbHistoryUpdateUi()`. GOTCHA: closing a panel used to
+    leave DOM focus on the DETACHED textarea, which swallowed every board
+    shortcut - `sbClosePanel()` now blurs a focused child of the panel.
+  - SCENE DUPLICATE: `sbDuplicateBoard(id)` (scene row's `data-act="duplicate"`,
+    `fa-copy`, placed BEFORE the rename/edit pen) inserts a copy DIRECTLY BELOW
+    the source via `sbCloneScene()`, which gives the scene, its items, connectors
+    and groups FRESH ids and REMAPS the copied references (group children first,
+    then connector from/to); the name becomes "<name> copy", then "copy 2".
+    The copy does not become active.
+  - SCENE REORDER: Sortable on the ACTIVE story's `.sb-story-scenes`
+    (`sbInitSceneSortable`, `handle: ".drag-handle"`, `draggable: ".sb-board-row"`,
+    `forceFallback`) with a `<smd-draghandle class="drag-handle">` first in each
+    scene row; `sbSceneSortableEnd()` reads the DOM order back into
+    `story.scenes` and re-renders the panel on a `setTimeout` (destroying the list
+    inside Sortable's own callback can throw). NOTE: Sortable + `smd-draghandle`
+    were precached but NOT loaded by the Storyboard shell - both script tags were
+    added. The drag ghost needs `.sb-board-row.sortable-fallback` (panel surface +
+    primary border + its 2px list padding): at body level the row was transparent,
+    so the list showed through it.
+  - STORIES PANEL WIDTH + SPACING: `.sb-panel` is `min(500px, calc(100vw - 92px))`
+    (320px ellipsised every longer story/scene name - a row carries a handle, two
+    icons and three 30px actions), and `#sbAddStory` has `margin-top: 0.75rem` so
+    it is not flush under the last story row. The panels' ACTION buttons
+    (`#sbPlaceText`/`#sbDoneText`, `#sbPlaceNote`/`#sbDoneNote`) carry the same
+    0.75rem top margin - they follow a colour picker, which (unlike the
+    label-margined rows) has no bottom margin. Tests:
+    `tests/storyboard-undo.spec.js` (6) + 4 added to
+    `tests/storyboard-stories.spec.js` (duplicate, reorder, ghost, panel width).
+- STORYBOARD STORY PROPERTIES: SIZE + BACKGROUND FIT (2026-10-26, user request):
+  each story row in the Stories panel has a **cog** (`data-act="story-props"`)
+  that toggles an INLINE form directly under the row (the scene list is a
+  sibling, so the form is another sibling; `sbState.storyPropsId` says which one
+  is open). It edits two things, both applied LIVE (no Apply button) so the board
+  resizes while you try sizes:
+  - SIZE: `<smd-select id="sbStoryPreset">` with `SB_STORY_PRESETS` = HD
+    1280x720, Full HD 1920x1080, QHD 2560x1440 (DEFAULT), UWQHD 3440x1440, 4K UHD
+    3840x2160, plus `other` which reveals free `#sbStoryWidth`/`#sbStoryHeight`
+    number inputs (64..8192). `sbState.storyPropsOther` keeps "Other" selected
+    while the fields are open.
+  - BACKGROUND: `#sbStoryFit` = `fit` (default, whole image, letterboxed) or
+    `stretch` (fills the size). `#sbBackground[data-fit]` (set by `sbRender`)
+    maps these to `background-size: contain` / `100% 100%`; the letterbox bars are
+    the background's own board colour (`[data-background="space"]` etc.), so they
+    look deliberate.
+  UNIQUE STORY NAMES (2026-10-26, user request): a story may not take a name that
+  another story already uses - the name also becomes the OneDrive folder for its
+  Board stickers and its backup directory, so `DFOS` and `dfos` MUST be treated as
+  the same name (OneDrive folders are case-insensitive). `sbStoryNameKey()` (trim +
+  lowercase), `sbStoryNameOwner(name, exceptId)` and `sbStoryNameError()` live in
+  `storage.js`; `sbRenameStory()` refuses a duplicate (defence in depth) and
+  `sbUniqueStoryName()` now compares lower-cased keys; `sbBeginInlineRename()` takes
+  an optional `validate(value)` - a rejected value keeps the editor OPEN, marks the
+  input `is-invalid` and inserts `.sb-rename-error` ("Another story is already
+  called \"X\"..."/"A story needs a name.") after the row, cleared as you type.
+  `sbStartRenameStory()` passes `sbStoryNameError`. LOAD does NOT de-duplicate: a
+  hand-edited/merged storage file or a backup with a renamed story could still hold
+  two equal names (the import path already prompts when a name exists). Scene
+  names are deliberately NOT unique-checked (they never name a folder).
+  MODEL: the size belongs to the STORY (`width`/`height`/`backgroundFit` on the
+  story, normalised by `sbNormalizeStory`, defaults keep 2560x1440 + fit so old
+  stories look unchanged): every scene is a slide of that story. Scenes carry NO
+  width of their own. `sbStoryWidth/Height/Fit/PresetId`, `sbSetStoryProperties`.
+  BOARD: `sbLayoutBoard()` now fits the STORY's aspect (not the background's), so
+  a portrait story is a portrait board and an EMPTY board also has a shape.
+  EXPORT: `sbDownloadJpg()` uses the story size as the canvas (capped at 4096 on
+  the long edge) and draws the background with the same mode (`contain` centred,
+  or full-bleed stretch); the no-background dot grid is scaled by `W / visW` so
+  its density still matches the live board.
+  GOTCHA FOR TESTS: a scene with NO background used to fill the whole window; it
+  now gets a 16:9 (default) board, so items sit closer together and the floating
+  SELECTION BAR can cover a neighbouring object - `storyboard-groups.spec.js`
+  moved its AB seed from 30/70 and updated the scale expectation accordingly.
+  Tests: `tests/storyboard-story-props.spec.js` (6: cog/form toggle, preset +
+  persistence + board ratio, Other + portrait, fit vs stretch background-size,
+  shared by every scene, JPG canvas + letterbox rects).
+- STORYBOARD STICKER LIBRARIES (2026-10-26, user request): the Stickers fly-out
+  gains `<Directory>/Stickers` ("Library") and `<Directory>/<story>/Stickers`
+  ("Board") tabs - ONLY when OneDrive is enabled AND signed in AND the folder
+  exists (Graph 404 hides that tab; neither folder and there is no tab UI at all,
+  so the panel is byte-identical to before). Files: `Storyboard/js/sticker-library.js`
+  (the whole feature), `Storyboard/js/components/sb-sticker.js` and
+  `sb-sticker-gallery.js` (light-DOM tiles, the old `.sb-sticker-option`
+  button/`data-sticker` markup lives INSIDE `<sb-sticker>` so storyboard.css and
+  the panel's delegated click handler are unchanged). `sbRenderStickersPanel()`
+  builds them through `<smd-tabs wrap padding="small">`; galleries are DATA-driven
+  (`gallery.stickers = [{id,name,src,source}]`, diffed by id, so one resolving
+  image updates one tile instead of re-rendering ~30).
+  IDS: `od:<fnv1a-x2 hash>` of the Graph item **id** (falling back to the full
+  path), so a rename keeps the reference and the same file keeps the same id,
+  cache key and artwork. `SB_OD_STICKERS` (storage.js) is the RUNTIME registry;
+  `sbStickerById()` returns an entry for ANY `od:` id (placeholder for listed but
+  not downloaded, or an unknown one from an old board) so `sbNormalizeItem` never
+  falls back to the first built-in sticker. Board items store ONLY
+  `{sticker:"od:<hash>", stickerName:"shark.png"}`, and captions are the file name
+  WITHOUT its extension (full name in the tile `title`).
+  CACHING: Cache Storage `myapps-stickers` (sw.js `STICKER_CACHE`, and it MUST
+  stay in the `activate` allow-list or the next activation wipes it), key
+  `/sb-sticker/<id>` written by the page and read by the page (no SW route). The
+  FOLDER LISTING is persisted in localStorage `storyboard_odStickerIndex` keyed by
+  folder path, so tabs + tiles + cached images survive a reload/offline start
+  (`sbStickerHydrateFromIndex`). Only the tab the user opens downloads anything
+  (`SB_STICKER_DOWNLOAD_LIMIT = 4`), `oneDriveListFolder` is guarded to once per
+  5 s, and `sbStickerEnsureStoryImages()` (called from `sbRender`) resolves a
+  scene's stickers from the cache FIRST and only then downloads misses - that is
+  what makes a saved story render offline without opening the tab.
+  BACKUPS: `Storyboard/js/app-minio.js` `sbStoryBackupPayload()` adds
+  `stickers: { "<id>": {name, fileName, dataUrl} }` (one entry per sticker however
+  many times it is placed) to the MinIO and OneDrive story saves, which are now
+  ASYNC (data URL -> PUT); `sbStickerRestorePayload()` registers the bytes (data
+  URL is the immediate `src`, Cache Storage write is background) before the import
+  hook activates the story. `sbStickerDataUrl()` downloads on demand, so a save
+  straight after placing a sticker still embeds its bytes.
+  ARTWORK CHANGES ON DISK (2026-10-26 follow-up, user request): re-saving a PNG in
+  OneDrive keeps the item id but changes its `eTag`, so the cached bytes are stale.
+  `sbStickerFileChanged(previous, next)` compares the NEW listing against the
+  PERSISTED index entry (eTag, falling back to size+lastModified when a server
+  omits eTag) and `sbStickerInvalidate(ids)` then deletes the Cache Storage entry,
+  bumps a per-id GENERATION counter and marks the registry entry `stale`. It
+  deliberately does NOT clear the current image: the board keeps painting the last
+  good artwork until the fresh download lands, so there is no placeholder flash and
+  a refresh that fails offline keeps the old art. `sbStickerNeedsDownload()` (not
+  `sbStickerHasImage()`) is the filter every hydration path must use, and the
+  generation counter stops a cache read or download that started BEFORE the
+  invalidation from painting the old bytes over the new ones.
+  REFRESH TRIGGERS: `sbStickerInitRefresh()` (called from `app.js` after the first
+  `sbRender`) registers a `window` `focus` listener and runs one refresh at boot,
+  so a reload picks up new artwork with the Stickers panel shut;
+  `sbStickerRefreshOnDemand()` is skipped unless OneDrive is enabled+signed in AND
+  the panel is open or the scene uses an `od:` sticker, and is throttled by
+  `SB_STICKER_FOCUS_GUARD_MS` (15s, a `var` so a test can zero it). Opening the
+  Stickers panel also re-lists (5s guard), so editing a PNG and switching back to
+  the app is enough - no reload needed. Uses the user's iteration workflow:
+  layout on the board, artwork in an image editor, merged on focus.
+  FAILURES ARE NEVER SILENT (2026-10-26, user could not see their folders): the
+  panel shows `.sb-sticker-status` with the reason (expired sign-in, 403, network,
+  or "no account is signed in") plus the RESOLVED folder paths it tried and a
+  Retry button (`sbStickerRetry()`); `sbStickerStatusNote()` supplies the text and
+  `sbStickerPanelSignature()` (tabs + status) decides when the panel must repaint,
+  so a failed refresh still updates the message without a render loop.
+  `window.sbStickerDebug()` dumps build/enabled/signedIn/directory/story/paths/
+  tabs/counts/errors/index - ask for that output when a user reports hidden
+  stickers (its ABSENCE also proves the browser is running an OLD build, i.e. the
+  service worker update prompt was not accepted). Diagnostics for a missing tab:
+  `oneDriveListFolder("MyApps/Storyboard/Stickers")` in the console - 404 = wrong
+  Directory/story folder, `sign_in_required`/401 = re-sign in, 403 = the Azure app
+  lacks Files.ReadWrite consent.
+  SIGN IN FROM THE PANEL (2026-10-26, follow-up): the status line also carries a
+  primary **Sign in** button (`sbStickerSignIn`) whenever the cause is auth
+  (`sbStickerStatusKind()` returns "signin" for an expired token or no account);
+  it calls `signInToOneDrive({ silent: true })` - the shared helper now RETURNS a
+  promise for the account name and takes `options.silent` so the panel flow does
+  not stack its success alert over the panel - then `sbStickerRetry()` re-lists.
+  The error text appends Microsoft's own reason code when present
+  (`err.authError.errorCode`, e.g. `consent_required` vs `login_required`), which
+  separates "token went stale" from "the Azure app is missing Files.ReadWrite
+  consent". The Board path is reported in the message, so a story name that does
+  not match the folder (e.g. active story "Story 1" vs folder `DFOS`) is visible
+  immediately.
+  SHARED: `smd-onedrive.js` gained `oneDriveDownloadBlob(key)` (Graph `/content`
+  as a Blob; `oneDriveGraphRequest`'s third arg now takes `"blob"`/`"text"`/true)
+  and its listing `$select` also returns `id`/`eTag` on each file.
+  TESTS: `tests/storyboard-stickers.spec.js` (13; tabs per folder existence,
+  signed-out, only-the-opened-tab-downloads, placement, offline cache reload,
+  board hydration after reload, backup embed-once, backup restore without
+  OneDrive, component registration). GOTCHAS: all three galleries sit in the panel
+  DOM (hidden panels included), so assert through
+  `.smd-tab-panel.active`/`#sbPanelBody > sb-sticker-gallery` union selectors (a
+  comma-joined constant must repeat the full selector per branch); a custom
+  element created by `innerHTML` can be assigned a property BEFORE it upgrades,
+  which shadows the accessor, so `connectedCallback` folds an own `stickers` back
+  into `_stickers`; class methods are strict-mode, so `this` is `undefined` inside
+  a nested `function () {}` (capture `this._grid` first); `atob` is stricter than
+  `Buffer.from(...,"base64")` - a test PNG with a stray `=` silently made every
+  download throw, which is why `sbStickerDownload` promise-wraps the call and the
+  queue catches synchronous throws.
 - THEME TEXT COLOURS (2026-09-12): shadow-DOM buttons/tabs cannot use Bootswatch's `.btn-*` rules (document CSS doesn't cross the boundary, and `--bs-btn-*` is set on the `.btn-*` element, not `:root`). `applySmdVars()` reads a hidden light-DOM `<button class="btn btn-<variant>">` probe (`smdBootstrapColor()`) and publishes `--smd-primary/secondary/success/danger/info/warning-text` + `--smd-tab-text` on `<html>`; every shadow `.btn-*`/variant uses those vars. `applyTheme()` re-runs `applySmdVars` on the theme `<link>`'s `load`. Never hardcode white text for a theme-coloured surface; if Bootswatch's own `.btn-*` rule disagrees with its `--bs-btn-color` var (e.g. cerulean's later `.btn-secondary { color: ... }`), the probe wins — always match the probe.
 - BADGES (2026-09-12): use the shared `<smd-badge variant="primary|secondary|success|danger|warning|info|light|dark" pill?>` component everywhere — never a `<span class="badge bg-*">` (Bootstrap's badge vars live on the `.badge` element and can't reach shadow roots). `applySmdVars()` probes a hidden light-DOM `.badge.text-bg-<variant>` (`smdBootstrapStyle()`) and publishes `--smd-badge-<variant>-{bg,text}`; the component's own sheet consumes them, so text colour follows Bootswatch exactly (white on cerulean's navy info, black on its light secondary, etc.). `btnBadgeSheet` now only carries `.btn*` rules despite its name; `smd-page`'s badge/bg rules were removed.
 - PWA TITLE BAR COLOUR (2026-10-24): Windows 11 paints an installed PWA's
@@ -129,6 +477,24 @@ Architecture:
   12px rail inset; PlanMyDay shell).
 - IMAGE DROPDOWN (2026-09-18): the shared `<smd-image-dropdown>` (`shared/js/components/smd-image-dropdown.js`) is the generic image+name picker — the old PlanMyDay `pmd-stream-select` was folded into it and deleted. It is DATA-driven, not DOM: host sets `options = [{name, image}]` (image OPTIONAL → text-only rows, e.g. CountMyDays' no-image "All") and `selected` = the chosen option's NAME string; picks dispatch `smd-image-dropdown-change` ({ name }). Listener wiring: CountMyDays `#dateCategoryFilter` (`smd-image-dropdown-change` → `setDateCategoryFilter`, "" for All) in `dates-editor.js`; PlanMyDay `#jobStreamDropdown` (name mapped back via `streamIndexByName` in `editor-common.js`). Stable shadow ids for test locators: `smdImageDropdownBtn`, `smdImageBtnIcon`, `smdImageBtnText`, `smdImageDropdownMenu`. Its colours come from the `--smd-dropdown-*` palette in the shared MODE layer (`shared/css/themes/light.css` + `dark.css`), which since 2026-10-13 mirrors the form-field palette (`--smd-form-*`) for surface/label/border and does NOT change colour on hover (the closed control is field-like); a theme overrides in `shared/css/themes/<theme>/<theme>.<mode>.css` (superhero, cyborg, darkly do) — see the 2026-09-26 (c) and 2026-10-13 (e) session notes. GOTCHA (2026-10-13): the palette only sets `background-color`, so a theme whose stock `.btn` ALSO sets `background-image: var(--bs-gradient)` shows a white sheen over a dark button; materia is the only such theme and clears it with `#smd-app smd-image-dropdown .btn { background-image: none }` (the `#smd-app` scope is needed to beat the theme's `.btn:focus-visible` re-apply).
 - SMD-SELECT (2026-10-13): new shared `shared/js/components/smd-select.js` (`<smd-select>`) — a text-only custom dropdown with a `<select>` SHAPE (its button reuses Bootstrap's `.form-select`, so it inherits the shared `--smd-form-*` repaint) but a THEMED menu, because a native `<select>`'s open list is OS-rendered and cannot be CSS-styled cross-browser. API: `options = [{value,label}]`, `value` (reflected as an attribute for tests), attributes `disabled`/`value`, event `smd-select-change` ({value,label}); stable hooks `.smd-select-btn`, `.smd-select-item[data-value]`, `.smd-select-item.active`. The HOVERED row gets its primary surface from a CSS `:hover`/`:focus-visible` rule on `.smd-select-item` (so it ALWAYS shows), and the SELECTED row gets `.text-bg-primary`; the component ALSO adds `.text-bg-primary` to the hovered row so the theme's primary BUTTON variant supplies the correct contrast text (brite keeps BLACK text; a plain `--bs-primary`+white is unreadable there). Menu `z-index: 1030` (above Bootstrap `sticky-top` 1020, below smd-page 1040 / modal 1050). Rows are `<a>` so they need `text-decoration: none`. `<smd-theme>` now uses it for the Theme / Theme Mode fields (was a native `<select>`). Registered in all 8 shells AFTER `library.js` and BEFORE `smd-theme.js`, plus `sw.js SHARED_ASSETS`; tests drive it with `tests/theme-controls.js` `pickOption(page, control, value)` which clicks `.smd-select-item[data-value="…"]`. MIGRATION ENABLERS (2026-10-13): `<smd-select>` also (a) dispatches a bubbling `change` event so an existing inline `onchange="fn(this.value)"` keeps working after the tag swap, (b) reads declarative `<option>` children into `options` (then removes them), (c) drops a leftover `form-select`/`form-select-sm` class from the HOST (the inner button carries the look), (d) supports `w-auto` (shrink-to-fit) and basic keyboard nav (Arrow/Enter/Escape). So migrating a static `<select>…</select>` is literally two edits: `<select id=` → `<smd-select id=` and `</select>` → `</smd-select>`. PHASE 2 DONE: every appearance-settings select in the 7 shell `index.html`s (font/icon/density/touch size, slide duration, CM format + max countdowns, PMD suffix-start/jan1/monday/start-week, FFox x/o piece style) is now `<smd-select>`. PHASE 3 DONE: SolarControlar `#log-file` (files-tab) + `#graph-date` (graph-tab) and PhoneButtons `#buttonKeyNamed` + `#buttonPressSelect` (edit-layout). GOTCHA: a declarative `<option>` set leaves its inter-tag WHITESPACE text nodes in the host, so `_build()` clears all children (`this.textContent = ""`) and the template string is whitespace-free (otherwise a stray line/space shows in the host). When migrating a select whose OPTIONS ARE REBUILT in place, set `.options` — never `.innerHTML`/`appendChild(<option>)`, which would wipe the component (that is why `graph-tab.js` `loadGraphDates` now assigns `.options`). PHASE 4 DONE: CountMyDays date/category editors (`#dateDaySelect`/`#dateMonthSelect`/`#dateTypeSelect`/`#gcalCategorySelect`) and the export/import wizards (`#imgExistingSelect`/`#catExistingSelect`/`#dateExistingSelect` + the export category filter); `<smd-select>` gained a `disabled` getter/setter (the wizards assign `.disabled`). PHASE 5 DONE: PMD job editor `#jobTimeHour`/`#jobTimeMin` + the dayType/mod selects (tag swap, `<option>` markup kept) and the Schedule MODAL `#schedNInterval`/`#schedNOffset`/`#schedMonthlyDay` (which are JS-POPULATED, so `openScheduleModal`/`onScheduleNDaysChange` now assign `.options`). PHASE 6 DONE: storybook `#ctrl-modal-buttons`/`#ctrl-image-theme`/`#ctrl-image-size` and cardViewer `#cardSelect`/`#themeSelect` (JS-populated → `.options`); `<smd-select>` also maps `form-select-sm` / `size="small"` onto the inner button, and `storybook/cardViewer.html` now loads `smd-select.js`. ROLLOUT COMPLETE — no native `<select>` remains in the app shells or storybook (the dev-only `screenshots/viewer.js` output tool is deliberately untouched).
+- SMD-COLOR-PICKER (2026-10-26): new shared `shared/js/components/smd-color-picker.js`
+  (`<smd-color-picker>`) - a FULL colour picker (native `<input type="color">`
+  styled as a swatch + a hex field) so an app can store an EXACT colour instead
+  of a theme token. Light DOM; template cloned in `connectedCallback` guarded by
+  `data-smd-built` (clone-safe); layout in its own injected sheet
+  (`smd-color-picker-style`, via `injectSmdComponentStyle`). API: `value` (attr +
+  property; `#rgb`/`#rrggbb`/`rgb()`/`color(srgb r g b)` all normalise to
+  lowercase `#rrggbb`), `empty-label` (renders a `.smd-color-empty` button that
+  means "no fixed colour" - the caller maps "" to its own token, e.g.
+  "Automatic"/"Transparent"), `disabled`; event `smd-color-picker-change`
+  `{value}` (value `""` for the empty choice) bubbling + composed. Hooks:
+  `.smd-color-input`, `.smd-color-hex`, `.smd-color-empty(.active)`. FIRST USER:
+  Storyboard (text colour/background + note colour), registered in
+  `Storyboard/index.html` + `sw.js SHARED_ASSETS` only - add it to another shell
+  before using it there. DEMOED in the storybook (`storybook/index.html`
+  `<section id="smd-color-picker">`: fixed colour, an `empty-label="Automatic"`
+  choice and a disabled one, plus an event log) - the storybook nav-link count
+  assertion is therefore 32.
 - SMD-IMAGE-DROPDOWN CLOSED-STATE LAYOUT (2026-10-04): the closed button
   LEFT-ALIGNS its label right next to the image and sizes itself to the WIDEST
   option. Every option label is stacked in ONE hidden `.sizer` grid cell inside
@@ -644,6 +1010,19 @@ Architecture:
   the hamburger" (7 shells: text + same-row/right-of-button geometry + body
   colour, then the PhoneButtons opt-out) and the pmd-regression "hides the main
   menu while a secondary page is open" now also asserts the title hides.
+  STORYBOARD APPENDS ITS LOCATION (2026-10-26, user request): the old floating
+  `#sbBoardName` chip was removed, so Storyboard rewrites the SAME
+  `#appNavTitle` element's text to `Storyboard - <story>/<scene>` (exact format:
+  one space each side of the dash, none around the slash). `sbUpdateNavTitle()`
+  in `Storyboard/js/board.js` (called from `sbRender()`, so every scene switch/
+  add/delete/rename updates it) only sets `textContent` when it changed - the
+  shared show/hide-while-a-page-is-open behaviour is untouched. `storyboard.css`
+  gives `#appNavTitle` `max-width: 55vw` (62vw on the phone breakpoint) +
+  ellipsis so a long name cannot wrap or widen the bar. CONSEQUENCE:
+  `launch-regression` matches Storyboard's title with a REGEX
+  (`/^Storyboard - Story 1\/Scene 1$/` on a fresh visit), while the other shells
+  stay exact strings; any test that read `#sbBoardName` now reads
+  `#mainNav #appNavTitle`.
 - PHONEBUTTONS SERVER TESTS (2026-10-18): `PhoneButtons/server/app.py` (the Flask +
   Socket.IO server) is covered by PYTHON tests in
   `PhoneButtons/server/test_app.py` (pytest, 120 tests, ~90% line coverage) —
@@ -4514,19 +4893,26 @@ Techniques / gotchas:
   PowerShell expands it and Playwright does not glob CLI paths, so
   `test tests/*-screenshots.spec.js` collects 0 tests (verified) - keep the
   explicit list.
-- STORYBOARD GALLERY + ONEDRIVE SCENES (2026-10-25): `tests/storyboard-screenshots.spec.js`
-  captures 11 scenes x 27 themes x both modes into `screenshots/storyboard/`
-  (594 PNGs): board, stories panel, background panel, stickers panel, text panel,
-  selection bar, multi-selection align, main menu dropdown, settings,
-  settings-onedrive, open-from-onedrive. It uses a 1280x800 desktop viewport (the
+- STORYBOARD GALLERY + ONEDRIVE SCENES (2026-10-25; 13 scenes since 2026-10-26):
+  `tests/storyboard-screenshots.spec.js` captures 13 scenes x 27 themes x both
+  modes into `screenshots/storyboard/` (702 PNGs): board, stories panel,
+  background panel, stickers panel, text panel, note panel, undo redo, selection
+  bar, multi-selection align, main menu dropdown, settings, settings-onedrive,
+  open-from-onedrive. It uses a 1280x800 desktop viewport (the
   rail labels hide <=520px and the phone window shrinks the art) and seeds
   `storyboard_stories` from `/` before navigating to `/Storyboard/` (a direct
   reload of the app overwrites the seed via its `pagehide` save). Its
   `afterTheme` re-runs `sbRender()` (text frames bake the resolved colour into an
   SVG data URI) but SKIPS while an `smd-page[open]` is up, because the hidden
   board would measure 0x0; `window.__sbShotAlign` re-opens the align row each
-  theme. PMD/CMD/LoL each gained `settings-onedrive.png`, `open-from-onedrive.png`
-  and `main-menu-filesync.png` (minio + onedrive entries enabled).
+  theme. The showcase scene carries a NOTE (`nt-1`) so every board shot shows the
+  sticky-note glyph; the stories-panel scene also DUPLICATES the open scene
+  (`sbDuplicateBoard`) so its list shows a "<name> copy" row plus the handle and
+  the duplicate/edit/delete actions; `note-panel` captures the Note editor
+  (multi-line text + colour picker) and `undo-redo` adds a sticker first so the
+  rail pair is drawn enabled/disabled. PMD/CMD/LoL each gained
+  `settings-onedrive.png`, `open-from-onedrive.png` and `main-menu-filesync.png`
+  (minio + onedrive entries enabled).
   `tests/screenshot-helpers.js` now exports `seedOneDriveSettings(page, {prefix,
   directory, minio})` (localStorage + a stubbed `oneDriveInit`, because opening
   FileSync > OneDrive asks MSAL and an unregistered client ID would clear the
@@ -7963,3 +8349,441 @@ Techniques / gotchas:
   support was TDD (red on the missing imports, green after).
 - No web asset changed, so `BUILD_NUMBER` was NOT bumped; the user restarts
   `remoteHID\PhoneButtonServer.cmd` to pick up the pong.
+
+### 2026-10-26 - Storyboard: Stickers fly-out gains OneDrive Library/Board tabs
+
+- REQUEST (user): change the Stickers fly-out so that, WHEN ONEDRIVE IS ENABLED,
+  it has three tabs - "Standard" (the existing five SVG stickers), "Library"
+  (`<root-directory>/Stickers`) and "Board" (`<root-directory>/<board>/Stickers`).
+  A tab is hidden when its folder does not exist; the new tabs show a grid of
+  images WITH the file name and add the sticker exactly like the standard ones;
+  they should look the same as the old list; expect ~30 per library, so be careful
+  with efficiency and keep it working offline (some caching). The user asked for
+  an `sb-sticker` web component per sticker and an `sb-sticker-gallery` for the
+  grid.
+- DECISIONS (asked first): `<board>` = the STORY folder (same one that holds
+  `story-YYYYMMDDHHMM.json`); a placed sticker stores a CACHE REFERENCE in the
+  scene and the BYTES are embedded ONCE per used sticker in the MinIO/OneDrive
+  story backup; enabled-but-signed-out shows only the Standard list; all common
+  images (png/jpg/gif/webp/svg) are listed.
+- BUILT: `Storyboard/js/sticker-library.js` + `js/components/sb-sticker.js` +
+  `sb-sticker-gallery.js`; `sbRenderStickersPanel()` uses `<smd-tabs wrap
+  padding="small">`; `storage.js` registry/ids/placeholder; `board.js` resolves
+  the image through `sbStickerSrcFor()` and hydrates from `sbRender()`;
+  `app-minio.js` async save + `stickers` payload + restore on import;
+  `smd-onedrive.js` `oneDriveDownloadBlob()` + `id`/`eTag` in listings; `sw.js`
+  `STICKER_CACHE` keep-list + 3 new precache entries; `index.html` script tags;
+  `storyboard.css` gallery/host rules. The full contract is the durable
+  "STORYBOARD STICKER LIBRARIES" note above.
+- TDD: `tests/storyboard-stickers.spec.js` (13) written FIRST and red (no
+  components/tabs), then green. It covers tab rules per folder existence,
+  signed-out, only-the-opened-tab-downloads, placement onto the scene, offline
+  reload of cached tiles, a saved scene rendering library stickers after a reload
+  with the panel never opened, backup embed-once (same sticker placed twice),
+  backup restore without OneDrive, and the two custom-element registrations.
+- WHAT WENT WRONG (worth remembering): (a) `_apply()` used `this._grid` inside a
+  nested `function () {}` - class bodies are strict, so `this` was `undefined`;
+  (b) all three galleries live in the panel DOM, so `#sbPanelBody sb-sticker`
+  counts the hidden panels' tiles too - the spec now uses
+  `.smd-tab-panel.active`/`> sb-sticker-gallery` unions; (c) a comma-joined
+  selector constant must repeat the FULL selector per branch (`TILES + " img"`
+  only applied to the last branch); (d) my hand-copied test PNG had a stray `=`
+  padding character - `Buffer.from(b64,"base64")` accepted it but the browser's
+  `atob` threw, and because the throw was synchronous it killed the whole
+  download queue silently. The app was hardened (`sbStickerDownload` promise-wraps
+  the call; `sbStickerRunQueue` catches synchronous throws), and the spec's PNGs
+  are now validated.
+- VERIFIED (affected set, `--retries=0`): storyboard-stickers 13/13; the full
+  Storyboard suite (align/groups/minio/pan/stamp/stories/zoom) + stickers +
+  onedrive + minio-directory 94/94; launch-regression + settings-alignment +
+  display-settings + storybook-regression 66/66; `@cache` 11/11 (precache has no
+  duplicates); the storyboard screenshot scenes board + stickers panel for
+  superhero. Visually checked the panel with tabs (Standard/Library/Board) and
+  without OneDrive (identical to before).
+- BUILD: `202610261010` via `npm run bump:build`. Screenshots for the Storyboard
+  "stickers panel" scene are stale for the other 26 themes (regenerate before
+  shipping).
+- FOLLOW-UP same day (user): "if I change the png on disk I would like the board
+  to render the new image" (iterating on layouts and artwork separately). Added
+  eTag-based invalidation + refresh triggers (see the durable note above): the
+  cached bytes are dropped when a file's eTag/size changes, the OLD image stays on
+  screen until the fresh download lands, and the libraries re-list at boot and when
+  the window regains focus (15s guard) so switching back from an image editor is
+  enough. Four new tests: change-on-refresh, unchanged-folder-keeps-cache,
+  reload-without-opening-the-panel (stubs via `addInitScript` + a re-install at
+  DOMContentLoaded capture, because later global `function oneDrive*(){}`
+  declarations overwrite init-script stubs), and focus-refresh. 17/17 stickers
+  tests, the full Storyboard suite + onedrive + minio-directory 198/198 at
+  `--repeat-each=2`. One flake fixed in the spec: the "only the opened tab
+  downloads" assertion needed `expect.poll` because the tiles render before their
+  downloads finish. BUILD -> `202610261031`.
+- FOLLOW-UP 2 same day (user could not see the OneDrive folders even though
+  `MyApps\Storyboard\Stickers` and `MyApps\Storyboard\DFOS\Stickers` exist and the
+  app showed a signed-in account): a failing listing was SILENT by design, so an
+  expired Microsoft token looked identical to "no folders". `sbStickerListErrorMessage()`
+  now maps `sign_in_required` / HTTP errors / network failures to actionable text;
+  the panel renders `.sb-sticker-status` with the reason, the resolved folder paths
+  and a Retry button, and `sbStickerPanelSignature()` (tabs + status) makes a
+  failed refresh repaint the panel once without a loop. `window.sbStickerDebug()`
+  reports build/config/story/paths/tabs/counts/errors. `sbStickerRefreshPanel()`
+  no longer honours the 5s listing guard when there are no tabs yet (a boot
+  refresh could otherwise leave them hidden until the panel was reopened), and a
+  signed-out OneDrive now says so instead of showing an unchanged panel.
+  4 new tests (21 total): sign-in-expired message + attempted paths, 404 stays
+  quiet, Retry recovers and reveals the tabs, `sbStickerDebug` contents; the
+  signed-out test now asserts its hint. 21/21 stickers and 103/103 across the
+  Storyboard + onedrive + minio-directory suites. BUILD -> `202610261045`.
+- FOLLOW-UP 3 (same day, from that message): the user's status line confirmed
+  `sign_in_required` for both folders AND showed the Board path as
+  `MyApps/Storyboard/Story 1/Stickers` (their folder is `DFOS`, so the active
+  story is still named "Story 1" - either rename the story or the folder). Added a
+  **Sign in** button to the status line (`sbStickerSignIn` ->
+  `signInToOneDrive({silent:true})` -> `sbStickerRetry()`); `signInToOneDrive` now
+  returns a promise and accepts `options.silent`; the message appends Microsoft's
+  `authError.errorCode` so `consent_required` is distinguishable from
+  `login_required`. 2 new tests (23 total: sign-in button recovers the tabs,
+  reason code shown). 23/23 stickers, 142/142 Storyboard + onedrive +
+  minio-directory + settings-alignment. BUILD -> `202610261050`.
+
+### 2026-10-26 - Storyboard: story properties (cog: size presets + background fit)
+
+- REQUEST (user): on the Stories fly-out, add a `fa-cog` to each story row (beside
+  rename/delete) to edit properties - for now width/height and a dropdown to Fit
+  or Stretch the background to that size.
+- DECISIONS (asked): the size is PER STORY (every scene is a slide of it); the form
+  is INLINE in the panel; presets are the user's list (HD 1280x720, Full HD
+  1920x1080, QHD 2560x1440, UWQHD 3440x1440, 4K UHD 3840x2160) PLUS "Other" with
+  free width/height; Fit = whole image letterboxed, Stretch = fill; the JPG export
+  follows the story size and mode.
+- BUILT: `SB_STORY_PRESETS`/`SB_STORY_FITS` + `sbStoryWidth/Height/Fit/PresetId`
+  and `sbSetStoryProperties` in `storage.js` (`width`/`height`/`backgroundFit` on
+  the story, normalised, defaults 2560x1440 + fit); `sbRenderBoardsPanel` cog +
+  `sbStoryPropsHtml` inline form + `sbOnPanelChange` (a new panel `change`
+  listener) applying every edit LIVE; `sbLayoutBoard()` fits the STORY aspect;
+  `#sbBackground[data-fit]` + CSS for contain vs 100% 100%; `sbDownloadJpg()` uses
+  the story size and draws the background contain/stretch.
+- TDD: new `tests/storyboard-story-props.spec.js` (6) written first and red (no
+  cog/form at all), then green: cog/form toggle, preset applies + persists + board
+  ratio, Other reveals the fields and accepts a portrait 900x1600, fit/stretch
+  background-size, size shared by every scene of the story, JPG canvas = story
+  size with the right letterbox vs full-bleed background rect. Visually checked
+  the form and a 1080x1920 portrait board.
+- FALLOUT (found by the suite, not by the user): `storyboard-groups.spec.js` used
+  scenes with NO background, which used to make the board fill the window; with a
+  story-owned shape they are 16:9, so the floating selection bar landed on the
+  neighbouring sticker and its clicks were intercepted. Moved that seed from
+  40/60 to 30/70 and updated the scale expectation (offset 20 not 10). Lesson: a
+  board-shape change moves every %-positioned object in PIXELS, so check tests
+  that click or drag near other objects, not just those asserting geometry.
+- VERIFIED: story-props 6/6, the whole Storyboard suite (align/groups/minio/pan/
+  stamp/stickers/stories/zoom/props) + onedrive 107/107, and 91/91 again under the
+  new build. BUILD -> `202610261136`. Screenshots of the board are unchanged at
+  the default size (2560x1440 == the bundled artwork).
+- FOLLOW-UP (same day, user): story names must be UNIQUE. Implemented in the inline
+  rename editor (2 new tests in `storyboard-stories.spec.js`, 8/8): a duplicate is
+  refused case- and space-insensitively, the editor stays open with
+  `.sb-rename-error` ("Another story is already called ..."), an empty name is
+  refused, and keeping/changing the case of its OWN name still works.
+  `sbRenameStory()` also validates so no other entry point can write a duplicate,
+  and `sbUniqueStoryName()` now compares lower-cased keys. Full Storyboard suite +
+  onedrive 109/109. BUILD -> `202610261159`.
+
+### 2026-10-26 (b) - Storyboard: rail + fly-out actions converted to <smd-button>
+
+- REQUEST (user): "For all the buttons on the left panel and fly out panels please
+  change to smd-buttons." Asked first because `<smd-button>` flattens its content
+  to a text label: the answers were (1) extend smd-button with icons, (2) convert
+  ACTION buttons only (not the picture/colour tiles), (3) keep the rail's current
+  transparent icon look rather than adopting Bootstrap's filled buttons.
+- COMPONENT: `shared/js/components/smd-button.js` gained `icon` (renders
+  `<i class="..." aria-hidden>` + `<span class="smd-button-label">`; an icon-only
+  button gets no "Button" fallback), `aria-label`/`aria-pressed` mirroring onto the
+  inner button, and RICH CONTENT (element children are moved into the inner button
+  unchanged). All additive/backwards compatible; the icon/label spacing is one
+  injected rule.
+- CONVERTED: the 9 rail actions (`index.html`), the panel close, the story/scene
+  pick rows (rich content keeps the chevron + book/clapperboard icons + name), the
+  cog/pen/trash row actions, "New scene"/"New story", the properties "Done", the
+  sticker-library "Sign in"/"Retry", and the text panel's "Place text"/"Done".
+  Kept bespoke: `.sb-bg-option`, `.sb-swatch`, `.sb-border-option`, sticker tiles.
+  `storyboard.css` retargets the old `.sb-rail-btn`/row/close skin onto the INNER
+  button (`smd-button.X > button`) so the look is unchanged; the host is the flex
+  item, `.active`/`[disabled]` are styled through the host.
+- TDD: `tests/smd-button-icon.spec.js` (3: icon+label+a11y, icon-only, plain
+  unchanged) and `tests/storyboard-buttons.spec.js` (4: rail shape/icons/labels/
+  a11y, panel rows/adds/disabled, props+text actions, pickers still native) were
+  written FIRST and red (5 failures), then green.
+- FALLOUT (test-side, all legitimate): `toBeDisabled()`/`isDisabled()` and
+  `.focus()` must target the INNER button now - updated `storyboard-zoom.spec.js`
+  (zoom ends + Fit) and `storyboard-pan.spec.js` (focus `#sbZoomIn button` before
+  Space); `storyboard-stories.spec.js` delete guards now assert `... button`. Also
+  `sbBeginInlineRename()` must replace the INNER button's content (it was writing
+  the input into the host, beside the label), and `sbTogglePlaceButton()` sets the
+  disabled ATTRIBUTE (a pre-upgrade `.disabled` property would be shadowed).
+- VERIFIED: storyboard suite + stickers/props/buttons + onedrive + smd-button 116/116;
+  settings-alignment, display-settings, storybook, launch, qrlinks, ffox, solar,
+  phonebuttons, cmd, lol, image-edit-preview-size, shared-helpers, native-checkbox,
+  minio-directory 280/280; pmd-regression 493/493 (the shared component is used by
+  every app's settings/pages). Visually checked the rail and both panels: the rail
+  is pixel-comparable to before, rows keep their flat icons, `New story` stays
+  full width. BUILD -> `202610261245`.
+- FOLLOW-UP (same day, user): button COLOURS - the story-properties "Done" is now
+  `variant="success"`, and "New scene" + "New story" are `variant="primary"`
+  (they were success). Only the markup changed; `tests/storyboard-buttons.spec.js`
+  asserts `/btn-success/` for Done and `/btn-primary/` for the two add buttons
+  (updated first, red, then green). 18/18 buttons/stories/props. BUILD ->
+  `202610261255`.
+
+### 2026-10-26 (c) - Storyboard: OneDrive BACKGROUND libraries (thumbnails, backups)
+
+- REQUEST (user): "In the same way that we had the ability to pull stickers from
+  the Stickers directories, I want to be able to add Background from Background
+  directories. Same options on saving and updates." Asked first: (1) grid uses
+  small Graph THUMBNAILS with the full image fetched on selection (backgrounds are
+  2-8 MB), (2) same three tabs with `Backgrounds` folder names, (3) story backups
+  embed the used background bytes.
+- BUILT: `Storyboard/js/background-library.js` (listing/index/eTag invalidation/
+  cache/thumb+full downloads/refresh triggers/status+retry/signin/backup payloads/
+  `sbBackgroundDebug()`), `oneDriveDownloadThumbnail()` in `smd-onedrive.js`,
+  `SB_OD_BACKGROUNDS` + `sbBackgroundSrcFor()` in `storage.js`, the tabbed
+  `sbRenderBackgroundPanel()` (grids of `.sb-bg-option` so the existing
+  `sbSetBackground` click keeps working), `sbRender()` painting the resolved src
+  with `data-background="custom"` (+ CSS matte), the JPG export reading the same
+  src, `backgrounds` in the backup payload + restore, and `myapps-backgrounds`
+  precache/allow-list entries in `sw.js`.
+- TDD: `tests/storyboard-backgrounds.spec.js` (7) written first and red: unchanged
+  with OneDrive off, thumbnail-only browsing + names, full download on selection +
+  board bytes, tab rules (missing folder / signed out), offline reload from cache,
+  eTag re-save refresh, backup embed-once (two scenes) + restore with an EMPTY
+  cache (proving the bytes came from the payload). Two test-side fixes: the label
+  selector must exclude the preview `<span>`, and the refresh helper is
+  `sbBgRefreshFolders`.
+- VERIFIED: the whole Storyboard suite + backgrounds + buttons + stickers + props +
+  onedrive + smd-button 123/123, then 104/104 again under the new build; the
+  `@cache` sub-path/worker tests and launch-regression + settings-alignment
+  50/50. Visually checked the Background panel's Library tab (3 thumbnail tiles
+  with names).
+- BUILD -> `202610261341`.
+- FOLLOW-UP (same day, user): the empty-board hint ("Choose a background, or add
+  stickers and text from the toolbar") still sat in the middle of a board that HAD
+  a background. `sbRender()` now hides `#sbEmptyHint` when the scene has items OR
+  any background (`board.items.length > 0 || !!board.background`); it comes back
+  only for a genuinely blank scene (e.g. after choosing "None"). TDD: new test in
+  `tests/storyboard-backgrounds.spec.js` ("choosing a background hides the
+  empty-board hint") covers blank -> visible, OneDrive background -> hidden,
+  built-in background -> hidden, "None" -> visible again, item -> hidden. 8/8
+  backgrounds, full Storyboard suite 105/105. BUILD -> `202610261350`.
+
+### 2026-10-26 (d) - Storyboard: Save moved to the board; story ZIP export
+
+- REQUEST (user): remove Save from the side panel, put it on an `smd-button` on the
+  scene, and add a Story save that downloads `<story>.zip` of every scene's image
+  with zero-padded scene numbers so the filenames sort alphabetically.
+- BUILT: rail Save removed (8 rail actions now); `.sb-board-actions` (top-right
+  beside the board chip) holds `#sbSaveSceneBtn` (JPG) and `#sbSaveStoryBtn`
+  (ZIP) as `smd-button`s skinned like the chip. `sbDownloadJpg()` split into
+  `sbBoardJpegBlob()` + `sbDownloadBlob()`; `sbZipWrite()` is a dependency-free
+  STORE-only ZIP writer (local headers + central directory + EOCD + CRC32, UTF-8
+  flag) and `sbZipEntryName()` pads to the width of the highest scene number
+  (`01 - Scene 1.jpg` for 10+ scenes, `1 - Part 1.jpg` for 3). Zipping switches
+  scenes internally and restores the user's scene in a `finally`.
+- TDD: `tests/storyboard-save.spec.js` (4) written first and red: rail/button shape
+  + same-row geometry with the chip, scene JPG download (filename + FFD8), a
+  10-scene ZIP READ BACK IN NODE (entry names in order, padding sorts
+  alphabetically, store method, JPEG SOI/EOI, size, scene restored) and the
+  3-scene no-padding case. Updated `storyboard-buttons` (8 rail buttons; the
+  fa-download assertion moved to the scene button) and `storyboard-story-props`
+  (the export capture now clicks `#sbSaveSceneBtn`).
+- VERIFIED: the whole Storyboard suite 109/109. Visually checked the chip row
+  (download, zip, then "Story / Scene"). BUILD -> `202610261402`.
+- NOTE for future work: the ZIP writer is store-only by design (JPEGs are already
+  compressed) and `sbZipEntryName` sanitises Windows-illegal characters; a 50-scene
+  story renders every scene sequentially (2 rAFs each), so a progress indicator may
+  be worth adding if stories get big.
+
+### 2026-10-26 (e) - Storyboard: downloads in the menu, nav bar shows story/scene
+
+- REQUEST (user): drop the two floating save icons, put "Download Story" and
+  "Download Scene" at the END of the hamburger menu after a separator, delete the
+  `#sbBoardName` div and show "Storyboard - <story>/<scene>" next to the hamburger
+  instead.
+- BUILT: `.sb-board-actions` (both pills + the chip) is GONE from `index.html`,
+  `board.js`, `storyboard.css` and both "click away deselects" guards. The menu
+  now ends `divider | Download Story | Download Scene`, wired to new globals
+  `sbDownloadStory()` / `sbDownloadScene()` (wrappers that `.catch()` + alert, so
+  a failed export is not a silent unhandled rejection). The nav bar title is the
+  only scene readout: `sbUpdateNavTitle()` rewrites the shared `#appNavTitle`
+  text to `Storyboard - <story>/<scene>` (called from `sbRender()`, so switch/
+  add/delete/rename all follow), and `storyboard.css` truncates it (55vw, 62vw
+  under 520px) instead of wrapping the bar.
+- TDD: rewrote `tests/storyboard-save.spec.js` first and confirmed RED (4/4
+  failed): nothing save-shaped on the rail/board, the menu's last three `<li>`s
+  are exactly `divider/Download Story/Download Scene`, scene JPG download,
+  10-scene ZIP read back in Node, 3-scene no-padding. Then retargeted the tests
+  that read the removed chip (`storyboard-stories` 13 assertions,
+  `storyboard-minio`) to `#mainNav #appNavTitle` with the new format, and
+  `launch-regression` now matches Storyboard's title by REGEX (the other shells
+  stay exact). `storyboard-buttons` asserts the two old ids are gone;
+  `storyboard-story-props` calls `sbDownloadJpg()` directly (its toBlob stub
+  returns no blob, so it swallows the rejection).
+- FALLOUT: the `minio` "hamburger menu follows Settings | divider | Launch |
+  divider | app items" assertion failed on the new tail (121 passed / 1 failed);
+  its expected list now ends `divider, Download Story, Download Scene`.
+- VERIFIED: storyboard suite + launch-regression 121/121 + minio 6/6 after the
+  fix; visually checked desktop (nav reads "Storyboard - DFOS/Scene 1", no chip,
+  no pills), the open menu (Settings | divider | Launch | divider | Download
+  Story | Download Scene, no dangling divider with FileSync off) and a 390px
+  phone (title ellipsises, bar stays one row).
+- SCREENSHOTS: the Storyboard "board" and "main menu dropdown" scenes changed -
+  regenerate the gallery before shipping.
+
+### 2026-10-26 (f) - Storyboard: a background that arrives late showed as a tiny tile
+
+- REPORTED (user): "sometimes when I open the app or a story that the background
+  is only a small image in the centre of the screen rather than the right size".
+- CAUSE (proved by a probe + a RED test): `#sbBackground` is painted by TWO
+  writers. `sbRender()` set BOTH the inline `background-image` and
+  `data-background`; the async OneDrive landing (`sbBgApplyFull` /
+  `sbBgApplyThumb` -> `sbBgOnResolved`) set ONLY the inline image. A scene keeps
+  just its `od:<id>`, so the first render after a reload has no bytes yet -> the
+  element stays in the empty-board state `data-background="none"` - and that
+  state carries the DOT GRID's `background-size: calc(24px * --sb-design-scale)`.
+  The arriving artwork was then painted into that state: ONE 26px tile, centred,
+  `no-repeat`. Exactly the reported symptom (it only shows when the bytes land
+  after a render, i.e. "sometimes": cache read on open, a download, or a focus
+  refresh).
+- FIX: new `sbPaintBackground()` in `Storyboard/js/board.js` is the single paint
+  path (image + `data-background` together, and an unknown non-`od:` id paints as
+  `custom` instead of throwing `null.id` mid-render). `sbRender()` calls it, and
+  `sbBgOnResolved()` in `background-library.js` now calls it instead of touching
+  `style.backgroundImage` - so the attribute can never disagree with the image.
+- TDD: new `tests/storyboard-backgrounds.spec.js` test "a background whose bytes
+  land AFTER the render still fills the board" registered an `od:` id with no
+  bytes, asserted the before state (`data-background="none"`, not `contain`),
+  then resolved the bytes with `sbBgApplyFull()` and asserted
+  `data-background="custom"` + computed `background-size: contain` + the board
+  box. RED before the fix (`data-background` stayed "none"), GREEN after.
+- VERIFIED: backgrounds 9/9; the whole Storyboard suite + onedrive 126/126;
+  visually confirmed the late-arriving Space artwork paints the full board (was a
+  centred 26px tile). BUILD -> `202610261431`.
+
+### 2026-10-26 (g) - Storyboard: notes + full colour picker for text and notes
+
+- REQUEST (user): "add the ability to add a note to the board ... a fa:sticky-note
+  ... click on it and I should have an edit panel which allows me to change the
+  colour of the note, and a text box that allows multi line text. The note should
+  be scalable like the stickers or text but it does not need to be rotatable. The
+  note should not appear on the downloaded image, but needs to be stored in the
+  story/scene when saved to OneDrive or MinIO." Answered questions: a NEW RAIL
+  TOOL, the note shows the ICON ONLY (text as a tooltip), a FULL COLOUR PICKER
+  (which must also replace the TEXT colour control), and move/scale/delete/
+  duplicate. Follow-up: the text BACKGROUND uses the picker too.
+- BUILT:
+  - `shared/js/components/smd-color-picker.js` (NEW shared component: native
+    colour input + hex field + optional "empty" choice; `#rgb/#rrggbb/rgb()/
+    color(srgb …)` normalise to `#rrggbb`; emits `smd-color-picker-change`).
+  - Notes: rail `data-tool="note"` + `sbRenderNotePanel`/`sbPlaceNote`/
+    `sbDoneNote`/`sbNoteField`/`sbOpenNoteEditor`, `sbState.editingNoteId` +
+    `noteDraft`; item type `note` (`text`/`color`, rotation forced 0); board
+    renders a `.sb-note` `<i class="fa-solid fa-sticky-note">`; no rotate handle;
+    `sbApplyDrag` skips rotation for notes; the JPG/ZIP loop skips notes; a tap
+    opens the editor (`drag.tapNote`).
+  - Text: Background/Text colour are `#sbTextBg`/`#sbTextColor`
+    `<smd-color-picker>`s storing hex (legacy tokens still work); dead
+    `.sb-swatch`/`sbSwatchHtml`/`sbTokenCss` removed.
+- TDD: `tests/storyboard-notes.spec.js` (7) written FIRST and red: rail tool +
+  icon-only note, click-to-edit multi-line + reload, colour picker + reload,
+  scale-but-never-rotate (including inside a twisted group), never in the
+  exported JPG (a GREEN note vs a GREEN text box as the control, sampling the
+  real exported bitmap), the note in `sbStoryBackupPayload` (what MinIO/OneDrive
+  upload), and fixed text colours surviving a theme swap + the
+  Automatic/Transparent reset.
+- WHAT WENT WRONG: (a) the fly-out panel's show rule ENUMERATED the tool names, so
+  the Note panel stayed hidden - replaced with
+  `.sb-toolbar:not([data-open=""]) .sb-panel`; (b) three test assertions read
+  localStorage in the same tick as the edit - `sbSaveSoon()` is debounced, so
+  they now `expect.poll`; (c) the export control sampled the centre of a text box
+  holding "X", i.e. the GLYPH, not the background - it uses " " now.
+- FALLOUT: rail is 9 buttons now (`storyboard-buttons`, `storyboard-save`
+  counts updated); `storyboard-buttons` also asserts the picker replaces the
+  swatches.
+- VERIFIED: notes 7/7; the whole Storyboard suite + onedrive + launch-regression
+  146/146 (after the count fixes) then notes/buttons/stamp/save 18/18 on the new
+  build; visually checked the Note panel, a placed note with only a scale handle,
+  and the Text panel's two pickers with fixed colours on the board.
+- SCREENSHOTS: the "text panel" scene (and everything showing the rail) is stale -
+  regenerate the Storyboard gallery. BUILD -> `202610261447`.
+
+### 2026-10-26 (h) - Storyboard: undo/redo, scene duplicate + drag reorder, panel width, ghost fix
+
+- REQUEST (user): "Storyboard should support ctrl-z and ctrl-y undo/redo options.
+  With options in the rail too using font awesome icons. Scenes should be drag and
+  drop reorderable in the Story. On the Scene before the edit button there should be
+  a duplicate button that creates a duplicate immediately below itself." Then:
+  "The Stories fly out needs to change width to allow the Story and Scene names be
+  seen in full. Also there needs to be a space above the new story button." Then:
+  "the drag and drop ghost on the scene move is not right."
+- BUILT: snapshot undo/redo (Ctrl+Z / Ctrl+Y / Ctrl+Shift+Z + two rail buttons,
+  coalesced bursts, camera and active scene preserved), `sbDuplicateBoard` with
+  fresh ids + remapped connectors/groups, Sortable scene reordering behind a
+  `smd-draghandle` (Sortable + the handle were precached but never LOADED by this
+  shell - script tags added), a 500px panel so names fit, a 0.75rem gap above
+  New story, and a `.sb-board-row.sortable-fallback` surface. Full contract in the
+  durable "STORYBOARD UNDO / REDO + SCENE DUPLICATE / REORDER" note.
+- ROOT CAUSE OF THE BAD GHOST: `<smd-button>` rebuilt itself in
+  `connectedCallback` from JS-only fields (`_label`/`_rich`) that `cloneNode` does
+  not copy, so Sortable's fallback clone wrapped the already-built inner
+  `<button>` in a SECOND one - a filled grey Bootstrap button around the row's
+  icons and name. Fixed with a `data-smd-built` attribute guard (attribute
+  survives cloning) + `_renderContent()` moved inside the build guard.
+- TDD: `tests/storyboard-undo.spec.js` written first (6 tests, all red): rail
+  buttons + disabled states, Ctrl+Z/Y on an added note, a drag undone in one step
+  with the exact position restored, undoing a scene delete (order + content),
+  Ctrl+Shift+Z, and "a focused panel field keeps its own Ctrl+Z". Added to
+  `storyboard-stories.spec.js` (all red first): duplicate (button order
+  duplicate|rename|delete, inserted directly below, fresh ids + remapped
+  connector/group refs, source untouched, persists), drag reorder (stored order,
+  rendered order, active scene unchanged, persists), the wide panel + New story
+  gap, and "the drag ghost of a scene row is a single, correctly built copy"
+  (`button button` count 0, one inner button per smd-button, pick button stays
+  transparent). `tests/smd-button-icon.spec.js` gained the component-level clone
+  test.
+- WHAT WENT WRONG: (a) after closing the panel, focus stayed on the DETACHED
+  textarea so Ctrl+Z went nowhere - `sbClosePanel()` now blurs it; (b) my first
+  "no truncation" assertions counted the drag handle's glyph `<span>` - scope name
+  assertions to `.sb-board-pick span`; (c) 420px was still 8px short of
+  "The Opening Scene Of It All" (scene rows carry a handle), so the panel is
+  500px, clamped to `calc(100vw - 92px)`.
+- FALLOUT: rail count 9 -> 11 in `storyboard-buttons`, `storyboard-save` and
+  `storyboard-notes`.
+- VERIFIED (targeted only, the user runs the full regression): undo 6/6; stories
+  13/13; smd-button-icon 4/4; buttons/save/notes/stories/undo 37/37;
+  settings-alignment 37/37 (the smd-button change touches every app's Danger
+  buttons). Screenshot-checked the drag ghost (solid row, correct icons/labels).
+  BUILD -> `202610261512`.
+- FOLLOW-UP (same report, re-checked on the fixed build): the grey backgrounds +
+  larger type ARE the pre-fix symptom - a nested `.btn-secondary` (grey) plus the
+  shared `button, .btn` h2 font-size (bigger). Measured on `202610261506`: the
+  ghost's inner buttons compute EXACTLY like the real rows (transparent, no
+  border, 20.8px, `button button` count 0), so that report was a browser still
+  running the old cached shell (check `BUILD_NUMBER` in the console). Defence in
+  depth was added anyway: `.sb-board-row.sortable-fallback button` forces flat /
+  no-border / `--smd-type-p`, so a future component regression cannot paint the
+  ghost grey or oversized.
+- SCREENSHOT GALLERY UPDATED (user question "have you updated the screenshot spec
+  to cover all the new features?"): the Storyboard gallery now has 13 scenes
+  (702 PNGs): the showcase board carries a NOTE so every board shot shows the
+  sticky-note glyph, `stories-panel` also duplicates the open scene (so the list
+  shows the drag handle, duplicate/edit/delete actions and a "<name> copy" row),
+  and two scenes are new - `note-panel.png` (multi-line note text + the shared
+  colour picker) and `undo-redo.png` (a sticker is added first so the rail pair is
+  drawn enabled/disabled). `text-panel.png` already covers the fixed-colour
+  pickers (Background `#20374c` + Transparent, Text colour + Automatic). Validated
+  with `SCREENSHOT_THEME=superhero` (10 PNGs, both modes) and eyeballed; the other
+  26 themes are stale until the gallery is regenerated with `--workers 16`.
+- FOLLOW-UP (user): a 0.75rem gap above the Text panel's `Place text` (and its
+  `Done` state) - the same rule as the Note panel's buttons - and the shared
+  `<smd-color-picker>` now has a STORYBOOK section (nav count 31 -> 32 in
+  `tests/storybook-regression.spec.js`), verified with
+  `storybook-regression` 8/8 and a screenshot of the section (fixed colour,
+  Automatic choice, disabled). BUILD -> `202610261523`.

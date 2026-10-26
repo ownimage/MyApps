@@ -57,6 +57,9 @@
         <li><hr class="dropdown-divider onedrive-menu-item" style="display:none"></li>
         <li><a class="dropdown-item onedrive-menu-item" style="display:none" onclick="saveToOneDrive()">Save Story to OneDrive</a></li>
         <li><a class="dropdown-item onedrive-menu-item" style="display:none" onclick="openOneDrivePage()">Load Story from OneDrive</a></li>
+        <li><hr class="dropdown-divider"></li>
+        <li><a class="dropdown-item" onclick="sbDownloadStory()">Download Story</a></li>
+        <li><a class="dropdown-item" onclick="sbDownloadScene()">Download Scene</a></li>
       </ul>
     </div>
 
@@ -65,7 +68,7 @@
   <!-- BOARD -->
   <main id="storyboardArea">
 
-    <!-- The scroller is the only part that scrolls: the toolbar, board name and
+    <!-- The scroller is the only part that scrolls: the toolbar and the
          selection bar are fixed overlays inside the area, so they never scroll
          away when the board is zoomed in. -->
     <div id="sbScroller" class="sb-scroller">
@@ -94,51 +97,35 @@
       </div>
     </div>
 
-    <div id="sbBoardName" class="sb-board-chip" role="button" tabindex="0" title="Switch board"></div>
-
     <!-- LEFT TOOLBAR: rail + fly-out panel -->
     <aside id="sbToolbar" class="sb-toolbar" data-open="" data-pinned="false" aria-label="Storyboard toolbar">
       <div class="sb-rail">
-        <button type="button" class="sb-rail-btn" data-tool="boards" title="Stories" aria-label="Stories">
-          <i class="fa-solid fa-book-open" aria-hidden="true"></i><span>Stories</span>
-        </button>
-        <button type="button" class="sb-rail-btn" data-tool="background" title="Background" aria-label="Background">
-          <i class="fa-solid fa-image" aria-hidden="true"></i><span>Background</span>
-        </button>
-        <button type="button" class="sb-rail-btn" data-tool="stickers" title="Stickers" aria-label="Stickers">
-          <i class="fa-solid fa-star" aria-hidden="true"></i><span>Stickers</span>
-        </button>
-        <button type="button" class="sb-rail-btn" data-tool="text" title="Text" aria-label="Text">
-          <i class="fa-solid fa-font" aria-hidden="true"></i><span>Text</span>
-        </button>
-        <button type="button" id="sbSaveBtn" class="sb-rail-btn" title="Save scene as JPG" aria-label="Save scene as JPG">
-          <i class="fa-solid fa-download" aria-hidden="true"></i><span>Save</span>
-        </button>
+        <smd-button class="sb-rail-btn" variant="secondary" data-tool="boards" title="Stories" aria-label="Stories" icon="fa-solid fa-book-open">Stories</smd-button>
+        <smd-button class="sb-rail-btn" variant="secondary" data-tool="background" title="Background" aria-label="Background" icon="fa-solid fa-image">Background</smd-button>
+        <smd-button class="sb-rail-btn" variant="secondary" data-tool="stickers" title="Stickers" aria-label="Stickers" icon="fa-solid fa-star">Stickers</smd-button>
+        <smd-button class="sb-rail-btn" variant="secondary" data-tool="text" title="Text" aria-label="Text" icon="fa-solid fa-font">Text</smd-button>
+        <smd-button class="sb-rail-btn" variant="secondary" data-tool="note" title="Note" aria-label="Note" icon="fa-solid fa-sticky-note">Note</smd-button>
         <div class="sb-rail-spacer"></div>
+        <div class="sb-history">
+          <div class="sb-history-row" role="group" aria-label="Undo and redo">
+            <smd-button id="sbUndoBtn" class="sb-rail-btn sb-zoom-btn" variant="secondary" title="Undo (Ctrl+Z)" aria-label="Undo" icon="fa-solid fa-rotate-left" disabled></smd-button>
+            <smd-button id="sbRedoBtn" class="sb-rail-btn sb-zoom-btn" variant="secondary" title="Redo (Ctrl+Y)" aria-label="Redo" icon="fa-solid fa-rotate-right" disabled></smd-button>
+          </div>
+        </div>
         <div class="sb-zoom">
           <div class="sb-zoom-row" role="group" aria-label="Board zoom">
-            <button type="button" id="sbZoomOut" class="sb-rail-btn sb-zoom-btn" title="Zoom out" aria-label="Zoom out">
-              <i class="fa-solid fa-magnifying-glass-minus" aria-hidden="true"></i>
-            </button>
-            <button type="button" id="sbZoomIn" class="sb-rail-btn sb-zoom-btn" title="Zoom in" aria-label="Zoom in">
-              <i class="fa-solid fa-magnifying-glass-plus" aria-hidden="true"></i>
-            </button>
+            <smd-button id="sbZoomOut" class="sb-rail-btn sb-zoom-btn" variant="secondary" title="Zoom out" aria-label="Zoom out" icon="fa-solid fa-magnifying-glass-minus"></smd-button>
+            <smd-button id="sbZoomIn" class="sb-rail-btn sb-zoom-btn" variant="secondary" title="Zoom in" aria-label="Zoom in" icon="fa-solid fa-magnifying-glass-plus"></smd-button>
           </div>
-          <button type="button" id="sbZoomFit" class="sb-rail-btn sb-zoom-fit" title="Fit board to window" aria-label="Fit board to window">
-            <i class="fa-solid fa-expand" aria-hidden="true"></i><span>Fit</span>
-          </button>
+          <smd-button id="sbZoomFit" class="sb-rail-btn sb-zoom-fit" variant="secondary" title="Fit board to window" aria-label="Fit board to window" icon="fa-solid fa-expand">Fit</smd-button>
         </div>
-        <button type="button" id="sbPinBtn" class="sb-rail-btn sb-pin-btn" title="Pin toolbar open" aria-label="Pin toolbar open" aria-pressed="false">
-          <i class="fa-solid fa-thumbtack" aria-hidden="true"></i><span>Pin</span>
-        </button>
+        <smd-button id="sbPinBtn" class="sb-rail-btn sb-pin-btn" variant="secondary" title="Pin toolbar open" aria-label="Pin toolbar open" aria-pressed="false" icon="fa-solid fa-thumbtack">Pin</smd-button>
       </div>
 
       <section class="sb-panel" role="region" aria-label="Tool panel">
         <div class="sb-panel-head">
           <h2 id="sbPanelTitle" class="sb-panel-title"></h2>
-          <button type="button" id="sbPanelClose" class="sb-panel-close" title="Close" aria-label="Close">
-            <i class="fa-solid fa-xmark" aria-hidden="true"></i>
-          </button>
+          <smd-button id="sbPanelClose" class="sb-panel-close" variant="secondary" title="Close" aria-label="Close" icon="fa-solid fa-xmark"></smd-button>
         </div>
         <div id="sbPanelBody" class="sb-panel-body"></div>
       </section>
@@ -406,6 +393,8 @@
 
   <!-- BOOTSTRAP JS (hamburger dropdown) -->
   <script>document.write('<script src="../shared/vendor/bootstrap.bundle.min.js?v=' + BUILD_NUMBER + '"><\/script>');</script>
+  <!-- SORTABLE (drag a scene handle to reorder the scenes of a story) -->
+  <script>document.write('<script src="../shared/vendor/sortable.min.js?v=' + BUILD_NUMBER + '"><\/script>');</script>
 
   <script>
   document.write('<script src="../shared/js/library.js?v=' + BUILD_NUMBER + '"><\/script>');
@@ -417,21 +406,27 @@
   document.write('<script src="../shared/js/components/smd-page.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="../shared/js/components/smd-tabs.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="../shared/js/components/smd-select.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../shared/js/components/smd-color-picker.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="../shared/js/components/smd-theme.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="../shared/js/components/smd-checkbox.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="../shared/js/components/smd-qrcode.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="../shared/js/components/smd-fontawesome-credit.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../shared/js/components/smd-draghandle.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="../shared/js/smd-app.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="../shared/js/smd-settings.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="../shared/js/smd-minio.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="../shared/js/smd-onedrive.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="../shared/js/smd-filesync.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="../shared/js/smd-apps.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="js/components/sb-sticker.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="js/components/sb-sticker-gallery.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="js/storage.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="js/board.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="js/toolbar.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="js/app-settings.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="js/app-minio.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="js/sticker-library.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="js/background-library.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="js/app.js?v=' + BUILD_NUMBER + '"><\/script>');
   </script>
 

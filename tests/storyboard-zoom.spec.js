@@ -196,7 +196,7 @@ test.describe("Storyboard - zoom", () => {
     // No percentage readout anywhere in the rail (user decision).
     const railText = await page.locator("#sbToolbar .sb-rail").innerText();
     expect(railText).not.toMatch(/\d+\s*%/);
-    await expect(page.locator("#sbZoomFit")).toBeDisabled();
+    await expect(page.locator("#sbZoomFit button")).toBeDisabled();
   });
 
   test("zoom in / out scales the board and only then adds scrollbars; Fit restores the fitted view", async ({ page }) => {
@@ -213,7 +213,7 @@ test.describe("Storyboard - zoom", () => {
     let m = await metrics(page);
     expect(Math.abs(m.w - m.fitW * 1.25)).toBeLessThan(2);
     expect(m.scrollW > m.viewW || m.scrollH > m.viewH).toBe(true);
-    await expect(page.locator("#sbZoomFit")).toBeEnabled();
+    await expect(page.locator("#sbZoomFit button")).toBeEnabled();
 
     await page.locator("#sbZoomFit").click();
     await expect.poll(async () => (await metrics(page)).zoom).toBe(1);
@@ -221,7 +221,7 @@ test.describe("Storyboard - zoom", () => {
     expect(Math.abs(m.w - fitted.fitW)).toBeLessThan(2);
     expect(m.scrollW).toBeLessThanOrEqual(m.viewW + 1);
     expect(m.scrollH).toBeLessThanOrEqual(m.viewH + 1);
-    await expect(page.locator("#sbZoomFit")).toBeDisabled();
+    await expect(page.locator("#sbZoomFit button")).toBeDisabled();
 
     await page.locator("#sbZoomOut").click();
     await expect.poll(async () => (await metrics(page)).zoom).toBe(0.75);
@@ -239,22 +239,22 @@ test.describe("Storyboard - zoom", () => {
     await seedBoard(page, PLAIN_BOARD);
 
     const zoomOut = page.locator("#sbZoomOut");
-    for (let i = 0; i < 12 && !(await zoomOut.isDisabled()); i++) {
+    for (let i = 0; i < 12 && !(await page.locator("#sbZoomOut button").isDisabled()); i++) {
       await zoomOut.click();
       await page.waitForTimeout(30);
     }
-    await expect(zoomOut).toBeDisabled();
+    await expect(page.locator("#sbZoomOut button")).toBeDisabled();
     expect((await metrics(page)).zoom).toBe(0.5);
 
     await page.locator("#sbZoomFit").click();
     await expect.poll(async () => (await metrics(page)).zoom).toBe(1);
 
     const zoomIn = page.locator("#sbZoomIn");
-    for (let i = 0; i < 12 && !(await zoomIn.isDisabled()); i++) {
+    for (let i = 0; i < 12 && !(await page.locator("#sbZoomIn button").isDisabled()); i++) {
       await zoomIn.click();
       await page.waitForTimeout(30);
     }
-    await expect(zoomIn).toBeDisabled();
+    await expect(page.locator("#sbZoomIn button")).toBeDisabled();
     expect((await metrics(page)).zoom).toBe(4);
   });
 

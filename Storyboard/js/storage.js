@@ -25,6 +25,50 @@ var SB_STICKERS = [
   { id: "spaceship", name: "Spaceship", file: "assets/stickers/spaceship.svg" }
 ];
 
+// OneDrive stickers (the Stickers panel's Library/Board tabs) are not known at
+// parse time: their bytes are downloaded on demand and cached, so they live in a
+// RUNTIME registry keyed by `od:<hash>` (see js/sticker-library.js). A board item
+// only stores that id plus the original file name, which keeps the story JSON
+// small; the byte payloads travel in the story backup instead.
+var SB_OD_STICKERS = {};
+// OneDrive BACKGROUND paintings, same scheme (`od:<hash>`): the scene stores only
+// the id; bytes/thumbnail come from the background library (js/background-library.js).
+var SB_OD_BACKGROUNDS = {};
+
+// Placeholder shown when a library sticker's bytes are not available yet (first
+// paint before the download lands, or a backup opened on a device that has never
+// seen it). A serialized SVG cannot read CSS variables, so this neutral grey is
+// the one deliberate colour literal in the app: it has to read on a light AND a
+// dark board.
+var SB_STICKER_PLACEHOLDER = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(
+  '<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96">' +
+  '<rect x="3" y="3" width="90" height="90" rx="12" fill="none" stroke="#8a8a8a" stroke-width="3" stroke-dasharray="9 7"/>' +
+  '<path d="M34 34 L62 62 M62 34 L34 62" stroke="#8a8a8a" stroke-width="4" stroke-linecap="round"/>' +
+  "</svg>"
+);
+
+
+// Story SIZE presets (px). A story owns its canvas size, so every scene in it
+// shares the same shape. QHD matches the bundled backgrounds (2560x1440), so a
+// story that never set a size looks exactly as it always did.
+var SB_STORY_PRESETS = [
+  { id: "hd", name: "HD (16:9) 1280×720", width: 1280, height: 720 },
+  { id: "fhd", name: "Full HD (16:9) 1920×1080", width: 1920, height: 1080 },
+  { id: "qhd", name: "QHD / 1440p (16:9) 2560×1440", width: 2560, height: 1440 },
+  { id: "uwqhd", name: "UWQHD (21:9) 3440×1440", width: 3440, height: 1440 },
+  { id: "uhd4k", name: "4K UHD (16:9) 3840×2160", width: 3840, height: 2160 }
+];
+var SB_STORY_DEFAULT_WIDTH = 2560;
+var SB_STORY_DEFAULT_HEIGHT = 1440;
+var SB_STORY_MIN_SIZE = 64;
+var SB_STORY_MAX_SIZE = 8192;
+// "fit" shows the WHOLE background (letterboxed over the board colour);
+// "stretch" fills the story size, distorting when the ratios differ.
+var SB_STORY_FITS = [
+  { id: "fit", name: "Fit (whole image)" },
+  { id: "stretch", name: "Stretch (fill the size)" }
+];
+
 var SB_TEXT_BORDERS = [
   { id: "none", name: "None" },
   { id: "fancy", name: "Fancy" },
@@ -55,6 +99,9 @@ var SB_TEXT_FONTS = [
 
 var SB_BG_TOKENS = ["transparent", "white", "black", "primary", "secondary", "success", "danger", "warning", "info", "light", "dark"];
 var SB_TEXT_TOKENS = ["auto", "white", "black", "primary", "secondary", "success", "danger", "warning", "info", "light", "dark"];
+// A new note starts on a sticky-note yellow; the colour is a fixed hex (never a
+// theme token) so a note looks the same on every theme.
+var SB_NOTE_DEFAULT_COLOR = "#ffd54f";
 
 // Zoom factors the rail's magnifier buttons step through. 1 = the fitted view
 // (the whole board visible, exactly as before zooming existed).
@@ -82,7 +129,16 @@ var sbState = {
   pointers: new Map(),
   panReady: false,
   pan: null,
-  saveTimer: null
+  saveTimer: null,
+  // Which story's properties form is open in the Stories panel ("" = none), and
+  // whether the user picked "Other" (free width/height) rather than a preset.
+  storyPropsId: "",
+  storyPropsOther: false,
+  // Which Background panel tab is open ("standard" | "library" | "board").
+  bgTab: "standard",
+  // Stickers panel: the tab the user last picked and the story folder that tab
+  // list was built for (see js/sticker-library.js).
+  stickerTab: "standard"
 };
 
 function sbUid() {
@@ -115,18 +171,84 @@ function sbNormalizeViewFraction(value) {
   return Math.min(1.25, Math.max(-0.25, v));
 }
 
+function sbIsOdBackground(id) {
+  return /^od:[a-z0-9]+$/i.test(String(id || ""));
+}
+
+function sbRegisterOdBackground(meta) {
+  if (!meta || !sbIsOdBackground(meta.id)) return null;
+  var current = SB_OD_BACKGROUNDS[meta.id] || {};
+  Object.keys(meta).forEach(function (key) {
+    if (meta[key] !== undefined) current[key] = meta[key];
+  });
+  SB_OD_BACKGROUNDS[meta.id] = current;
+  return current;
+}
+
+// Built-in paintings, then the OneDrive registry. An unknown `od:` id is
+// registered empty so a board/scene loaded before the library is listed keeps its
+// background instead of silently falling back to none.
 function sbBackgroundById(id) {
   for (var i = 0; i < SB_BACKGROUNDS.length; i++) {
     if (SB_BACKGROUNDS[i].id === id) return SB_BACKGROUNDS[i];
   }
+  if (sbIsOdBackground(id)) {
+    return SB_OD_BACKGROUNDS[id] || sbRegisterOdBackground({ id: id, name: "" });
+  }
   return null;
 }
 
+// What to paint: the full image when it is available, else its thumbnail (so a
+// freshly chosen background shows instantly), else the built-in asset path.
+function sbBackgroundSrcFor(id) {
+  var meta = id ? sbBackgroundById(id) : null;
+  if (!meta) return "";
+  return meta.src || meta.thumbSrc || meta.file || "";
+}
+
+function sbIsOdSticker(id) {
+  return /^od:[a-z0-9]+$/i.test(String(id || ""));
+}
+
+// Register (or merge) one OneDrive sticker. Metadata arrives first from the
+// folder listing (name/path) and later from the download (src/blob), so the
+// registry is merged rather than replaced.
+function sbRegisterOdSticker(meta) {
+  if (!meta || !sbIsOdSticker(meta.id)) return null;
+  var current = SB_OD_STICKERS[meta.id] || {};
+  Object.keys(meta).forEach(function (key) {
+    if (meta[key] !== undefined) current[key] = meta[key];
+  });
+  if (!current.src) current.src = SB_STICKER_PLACEHOLDER;
+  SB_OD_STICKERS[meta.id] = current;
+  return current;
+}
+
+// Every sticker goes through here: the built-in set first, then the OneDrive
+// registry. An unknown `od:` id is registered with the placeholder so a board
+// loaded before the library has been listed keeps its sticker instead of
+// silently falling back to the first built-in one.
 function sbStickerById(id) {
   for (var i = 0; i < SB_STICKERS.length; i++) {
     if (SB_STICKERS[i].id === id) return SB_STICKERS[i];
   }
+  if (sbIsOdSticker(id)) {
+    return SB_OD_STICKERS[id] || sbRegisterOdSticker({ id: id, name: "" });
+  }
   return null;
+}
+
+// Image URL and caption for a sticker item (built-in asset, cached blob URL,
+// restored data URL or the placeholder).
+function sbStickerSrcFor(item) {
+  var meta = item ? sbStickerById(item.sticker) : null;
+  if (!meta) return SB_STICKERS[0].file;
+  return meta.src || meta.file || SB_STICKER_PLACEHOLDER;
+}
+
+function sbStickerNameFor(item) {
+  var meta = item ? sbStickerById(item.sticker) : null;
+  return (meta && meta.name) || (item && item.stickerName) || "";
 }
 
 function sbHasBorder(id) {
@@ -137,9 +259,21 @@ function sbHasFont(id) {
   return SB_TEXT_FONTS.some(function (f) { return f.id === id; });
 }
 
+// A fixed colour ("#rrggbb") from the shared <smd-color-picker>. Text and notes
+// can hold one INSTEAD of a theme token, which is what makes a scene look the
+// same on every theme.
+function sbIsHexColor(value) {
+  return /^#[0-9a-f]{6}$/i.test(String(value == null ? "" : value));
+}
+
+function sbNormalizePaint(value, tokens, fallback) {
+  if (sbIsHexColor(value)) return String(value).toLowerCase();
+  return tokens.indexOf(value) >= 0 ? value : fallback;
+}
+
 function sbNormalizeItem(raw) {
   if (!raw || typeof raw !== "object") return null;
-  var type = raw.type === "text" ? "text" : "sticker";
+  var type = raw.type === "text" ? "text" : raw.type === "note" ? "note" : "sticker";
   var item = {
     id: String(raw.id || sbUid()),
     type: type,
@@ -151,12 +285,22 @@ function sbNormalizeItem(raw) {
   };
   if (type === "sticker") {
     item.sticker = sbStickerById(raw.sticker) ? raw.sticker : SB_STICKERS[0].id;
+    // Kept for OneDrive stickers: the display name survives a reload (and a
+    // story backup) before the library has listed the folder again.
+    item.stickerName = raw.stickerName ? String(raw.stickerName) : "";
     item.flipX = raw.flipX === true;
     item.flipY = raw.flipY === true;
+  } else if (type === "note") {
+    // A NOTE is an editor cue: a coloured sticky-note glyph whose text lives in
+    // the panel (and the tooltip) - never on the artwork or in an export. It
+    // scales like a sticker but NEVER rotates.
+    item.text = String(raw.text == null ? "" : raw.text);
+    item.color = sbIsHexColor(raw.color) ? String(raw.color).toLowerCase() : SB_NOTE_DEFAULT_COLOR;
+    item.rotation = 0;
   } else {
     item.text = String(raw.text == null ? "" : raw.text);
-    item.bg = SB_BG_TOKENS.indexOf(raw.bg) >= 0 ? raw.bg : "transparent";
-    item.color = SB_TEXT_TOKENS.indexOf(raw.color) >= 0 ? raw.color : "auto";
+    item.bg = sbNormalizePaint(raw.bg, SB_BG_TOKENS, "transparent");
+    item.color = sbNormalizePaint(raw.color, SB_TEXT_TOKENS, "auto");
     item.border = sbHasBorder(raw.border) ? raw.border : "none";
     item.font = sbHasFont(raw.font) ? raw.font : "theme";
   }
@@ -243,7 +387,10 @@ function sbNewStory(name, firstSceneName) {
     id: sbUid(),
     name: String(name || "Story").trim() || "Story",
     scenes: [scene],
-    activeSceneId: scene.id
+    activeSceneId: scene.id,
+    width: SB_STORY_DEFAULT_WIDTH,
+    height: SB_STORY_DEFAULT_HEIGHT,
+    backgroundFit: "fit"
   };
 }
 
@@ -253,7 +400,11 @@ function sbNormalizeStory(raw) {
     id: String(raw.id || sbUid()),
     name: String(raw.name || "Story").trim() || "Story",
     scenes: [],
-    activeSceneId: ""
+    activeSceneId: "",
+    // Older stories have no size: QHD + Fit keeps their previous look.
+    width: sbStorySizeValue(raw.width, SB_STORY_DEFAULT_WIDTH),
+    height: sbStorySizeValue(raw.height, SB_STORY_DEFAULT_HEIGHT),
+    backgroundFit: raw.backgroundFit === "stretch" ? "stretch" : "fit"
   };
   if (Array.isArray(raw.scenes)) {
     raw.scenes.forEach(function (sceneRaw) {
@@ -266,6 +417,67 @@ function sbNormalizeStory(raw) {
   story.activeSceneId = story.scenes.some(function (s) { return s.id === active; })
     ? active
     : story.scenes[0].id;
+  return story;
+}
+
+// ---- story properties (size + background fit) -------------------------------
+//
+// The size belongs to the STORY (every scene is a slide of it) and is stored in
+// "design px"; the board is fitted into the window and the JPG export uses the
+// same numbers, so a portrait story is a portrait board.
+
+function sbStorySizeValue(value, fallback) {
+  var n = Math.round(Number(value));
+  if (!isFinite(n)) return fallback;
+  return Math.min(SB_STORY_MAX_SIZE, Math.max(SB_STORY_MIN_SIZE, n));
+}
+
+function sbStoryWidth(story) {
+  return sbStorySizeValue(story && story.width, SB_STORY_DEFAULT_WIDTH);
+}
+
+function sbStoryHeight(story) {
+  return sbStorySizeValue(story && story.height, SB_STORY_DEFAULT_HEIGHT);
+}
+
+function sbStoryFit(story) {
+  return story && story.backgroundFit === "stretch" ? "stretch" : "fit";
+}
+
+function sbStoryPresetById(id) {
+  for (var i = 0; i < SB_STORY_PRESETS.length; i++) {
+    if (SB_STORY_PRESETS[i].id === id) return SB_STORY_PRESETS[i];
+  }
+  return null;
+}
+
+// The matching preset id, or "other" for a custom size (so the form can show the
+// free width/height fields).
+function sbStoryPresetId(story) {
+  var width = sbStoryWidth(story);
+  var height = sbStoryHeight(story);
+  for (var i = 0; i < SB_STORY_PRESETS.length; i++) {
+    if (SB_STORY_PRESETS[i].width === width && SB_STORY_PRESETS[i].height === height) {
+      return SB_STORY_PRESETS[i].id;
+    }
+  }
+  return "other";
+}
+
+// Apply a partial properties patch. Values are clamped, the story is saved and
+// the board repaints at its new shape (the panel is rebuilt too, so the form and
+// the preset select reflect what was applied).
+function sbSetStoryProperties(id, patch) {
+  var story = sbFindStory(id);
+  if (!story || !patch) return null;
+  if (patch.width != null) story.width = sbStorySizeValue(patch.width, sbStoryWidth(story));
+  if (patch.height != null) story.height = sbStorySizeValue(patch.height, sbStoryHeight(story));
+  if (patch.backgroundFit != null) {
+    story.backgroundFit = patch.backgroundFit === "stretch" ? "stretch" : "fit";
+  }
+  sbSaveState();
+  if (typeof sbRender === "function") sbRender();
+  if (typeof sbRenderPanel === "function") sbRenderPanel();
   return story;
 }
 
@@ -425,6 +637,9 @@ function sbSaveState() {
     clearTimeout(sbState.saveTimer);
     sbState.saveTimer = null;
   }
+  // Every content mutation funnels through here, so this is the one place that
+  // has to feed undo/redo.
+  sbHistoryTouch();
   var story = sbActiveStory();
   if (story && sbState.activeId) story.activeSceneId = sbState.activeId;
   try {
@@ -442,6 +657,148 @@ function sbSaveSoon() {
     sbState.saveTimer = null;
     sbSaveState();
   }, 150);
+}
+
+// ---- Undo / redo -----------------------------------------------------------
+//
+// Snapshot history over the STORIES content - items, connectors, groups, story
+// names/sizes, scene ORDER and scene names - and deliberately WITHOUT each
+// scene's zoom/pan (undo must never move the camera) or which scene is active
+// (merely switching scenes is not an edit). `sbSaveState()` is the single choke
+// point every mutation already goes through, so it records here. A burst of
+// edits (typing, one whole drag) is ONE step: the PREVIOUS snapshot is pushed
+// only when the last change is older than SB_HISTORY_COALESCE_MS.
+
+var SB_HISTORY_LIMIT = 60;
+var SB_HISTORY_COALESCE_MS = 500;
+var sbHistory = { undo: [], redo: [], current: "", lastChangeAt: 0 };
+
+function sbHistoryContent() {
+  try {
+    var copy = JSON.parse(JSON.stringify(sbState.stories || []));
+    copy.forEach(function (story) {
+      delete story.activeSceneId;
+      (story.scenes || []).forEach(function (board) { delete board.view; });
+    });
+    return JSON.stringify(copy);
+  } catch (e) {
+    return "";
+  }
+}
+
+function sbHistoryCanUndo() { return sbHistory.undo.length > 0; }
+function sbHistoryCanRedo() { return sbHistory.redo.length > 0; }
+
+// Called once boot has finished loading, so the FIRST user edit is undoable back
+// to the state the app opened with.
+function sbHistoryReset() {
+  sbHistory.undo.length = 0;
+  sbHistory.redo.length = 0;
+  sbHistory.current = sbHistoryContent();
+  sbHistory.lastChangeAt = 0;
+  sbHistoryUpdateUi();
+}
+
+function sbHistoryTouch() {
+  var snapshot = sbHistoryContent();
+  if (!snapshot) return;
+  var now = Date.now();
+  if (!sbHistory.current) {
+    sbHistory.current = snapshot;
+    sbHistory.lastChangeAt = now;
+    sbHistoryUpdateUi();
+    return;
+  }
+  if (snapshot === sbHistory.current) return;
+  if (now - sbHistory.lastChangeAt > SB_HISTORY_COALESCE_MS) {
+    sbHistory.undo.push(sbHistory.current);
+    if (sbHistory.undo.length > SB_HISTORY_LIMIT) sbHistory.undo.shift();
+    // A fresh edit invalidates the redo branch.
+    sbHistory.redo.length = 0;
+  }
+  sbHistory.current = snapshot;
+  sbHistory.lastChangeAt = now;
+  sbHistoryUpdateUi();
+}
+
+function sbHistoryUpdateUi() {
+  var undo = document.getElementById("sbUndoBtn");
+  var redo = document.getElementById("sbRedoBtn");
+  // Set the ATTRIBUTE (not the property): <smd-button> mirrors it onto the inner
+  // button and guards its click, and it works before the element has upgraded.
+  if (undo) undo.toggleAttribute("disabled", !sbHistoryCanUndo());
+  if (redo) redo.toggleAttribute("disabled", !sbHistoryCanRedo());
+}
+
+// Rebuild the whole stories tree from a snapshot. The ACTIVE story/scene is kept
+// when it still exists, and every scene keeps its current zoom/pan.
+function sbHistoryApply(snapshot) {
+  var stories;
+  try { stories = JSON.parse(snapshot); } catch (e) { return false; }
+  if (!Array.isArray(stories)) return false;
+
+  var views = {};
+  var activeByStory = {};
+  (sbState.stories || []).forEach(function (story) {
+    activeByStory[story.id] = story.activeSceneId;
+    (story.scenes || []).forEach(function (board) {
+      if (board.view) views[board.id] = board.view;
+    });
+  });
+  stories.forEach(function (story) {
+    (story.scenes || []).forEach(function (board) {
+      board.view = views[board.id] || { zoom: 1, fx: 0.5, fy: 0.5 };
+    });
+    var previous = activeByStory[story.id];
+    var keep = (story.scenes || []).some(function (board) { return board.id === previous; });
+    story.activeSceneId = keep ? previous : (story.scenes[0] ? story.scenes[0].id : "");
+  });
+
+  sbState.stories = stories;
+  if (!sbFindStory(sbState.activeStoryId)) {
+    sbState.activeStoryId = stories.length ? stories[0].id : "";
+  }
+  var story = sbActiveStory();
+  if (!story) {
+    sbState.activeId = "";
+  } else if (!sbFindBoard(sbState.activeId)) {
+    sbState.activeId = story.activeSceneId || (story.scenes[0] ? story.scenes[0].id : "");
+  }
+  if (story) story.activeSceneId = sbState.activeId;
+
+  // Drop anything that pointed at the state we just replaced.
+  if (typeof sbResetSceneSelection === "function") sbResetSceneSelection();
+  sbState.editingTextId = "";
+  sbState.editingNoteId = "";
+  sbState.connectFrom = "";
+  sbState.storyPropsId = "";
+
+  sbSaveState();
+  if (typeof sbRender === "function") sbRender();
+  if (typeof sbRenderPanel === "function") sbRenderPanel();
+  return true;
+}
+
+function sbUndo() {
+  if (!sbHistory.undo.length) return false;
+  var target = sbHistory.undo.pop();
+  sbHistory.redo.push(sbHistory.current);
+  sbHistory.current = target;
+  sbHistory.lastChangeAt = 0;
+  var ok = sbHistoryApply(target);
+  sbHistoryUpdateUi();
+  return ok;
+}
+
+function sbRedo() {
+  if (!sbHistory.redo.length) return false;
+  var target = sbHistory.redo.pop();
+  sbHistory.undo.push(sbHistory.current);
+  sbHistory.current = target;
+  sbHistory.lastChangeAt = 0;
+  var ok = sbHistoryApply(target);
+  sbHistoryUpdateUi();
+  return ok;
 }
 
 // Scene lookup across every story (scene ids are globally unique).
@@ -635,12 +992,42 @@ function sbCloneNode(nodeId, board, counter, offset) {
   return next.id;
 }
 
+// Story names must be UNIQUE: the name also becomes the OneDrive folder for the
+// story's Board stickers and its backup directory, so two stories whose names
+// differ only in case or surrounding spaces would collide on disk. Compare on a
+// trimmed, lower-cased key.
+function sbStoryNameKey(name) {
+  return String(name == null ? "" : name).trim().toLowerCase();
+}
+
+// The OTHER story that already owns this name (null when the name is free).
+function sbStoryNameOwner(name, exceptStoryId) {
+  var key = sbStoryNameKey(name);
+  if (!key) return null;
+  for (var i = 0; i < sbState.stories.length; i++) {
+    var story = sbState.stories[i];
+    if (story.id === exceptStoryId) continue;
+    if (sbStoryNameKey(story.name) === key) return story;
+  }
+  return null;
+}
+
+// "" when the name is usable, otherwise the message shown by the inline editor.
+function sbStoryNameError(name, storyId) {
+  if (!sbStoryNameKey(name)) return "A story needs a name.";
+  var owner = sbStoryNameOwner(name, storyId);
+  if (owner) {
+    return 'Another story is already called "' + owner.name + '". Story names must be unique.';
+  }
+  return "";
+}
+
 function sbUniqueStoryName() {
   var n = sbState.stories.length + 1;
   var names = {};
-  sbState.stories.forEach(function (s) { names[s.name] = true; });
+  sbState.stories.forEach(function (s) { names[sbStoryNameKey(s.name)] = true; });
   var name = "Story " + n;
-  while (names[name]) {
+  while (names[sbStoryNameKey(name)]) {
     n++;
     name = "Story " + n;
   }
@@ -708,13 +1095,16 @@ function sbSetActiveStory(id) {
 
 function sbRenameStory(id, name) {
   var story = sbFindStory(id);
-  if (!story) return;
+  if (!story) return false;
   var trimmed = String(name || "").trim();
-  if (!trimmed) return;
+  // Defence in depth: the inline editor validates first, but nothing may write a
+  // duplicate (this is also called from other entry points).
+  if (sbStoryNameError(trimmed, id)) return false;
   story.name = trimmed;
   sbSaveState();
   sbRender();
   sbRenderPanel();
+  return true;
 }
 
 function sbDeleteStory(id) {
@@ -751,6 +1141,66 @@ function sbAddSceneToStory(storyId) {
   story.scenes.push(board);
   sbActivateScene(story, board);
   return board;
+}
+
+// A copy of a scene with FRESH ids for the scene, its items, connectors and
+// groups (references inside the copy are remapped to the copies, while the source
+// scene keeps its own ids untouched).
+function sbCloneScene(source, name) {
+  var raw = JSON.parse(JSON.stringify(source));
+  var map = {};
+  (raw.items || []).forEach(function (item) {
+    var next = sbUid();
+    map[item.id] = next;
+    item.id = next;
+  });
+  // Group ids first, so a group can be a child of another group.
+  (raw.groups || []).forEach(function (group) {
+    var next = sbUid();
+    map[group.id] = next;
+    group.id = next;
+  });
+  (raw.groups || []).forEach(function (group) {
+    group.children = (group.children || []).map(function (child) { return map[child] || ""; }).filter(Boolean);
+  });
+  (raw.connectors || []).forEach(function (conn) {
+    conn.id = sbUid();
+    conn.from = map[conn.from] || "";
+    conn.to = map[conn.to] || "";
+  });
+  raw.id = sbUid();
+  raw.name = name;
+  return sbNormalizeBoard(raw);
+}
+
+// "Scene 1 copy", then "Scene 1 copy 2", ... (scene names need not be unique, but
+// a distinguishable default is friendlier).
+function sbCopySceneName(name, story) {
+  var base = String(name || "Scene").trim() + " copy";
+  var taken = {};
+  ((story && story.scenes) || []).forEach(function (scene) { taken[scene.name] = true; });
+  if (!taken[base]) return base;
+  var n = 2;
+  while (taken[base + " " + n]) n++;
+  return base + " " + n;
+}
+
+// Duplicate a scene DIRECTLY BELOW itself. The copy does not become active, so
+// the user stays on the scene they were editing.
+function sbDuplicateBoard(id) {
+  var story = sbStoryForScene(id);
+  if (!story) return null;
+  var index = -1;
+  for (var i = 0; i < story.scenes.length; i++) {
+    if (story.scenes[i].id === id) index = i;
+  }
+  if (index < 0) return null;
+  var source = story.scenes[index];
+  var copy = sbCloneScene(source, sbCopySceneName(source.name, story));
+  if (!copy) return null;
+  story.scenes.splice(index + 1, 0, copy);
+  sbSaveState();
+  return copy;
 }
 
 function sbDeleteBoard(id) {
@@ -801,6 +1251,9 @@ function sbSetBackground(id) {
   sbSaveState();
   sbRender();
   sbRenderPanel();
+  // A OneDrive painting only has its thumbnail in memory: fetch the full image so
+  // the board sharpens (js/background-library.js repaints when it lands).
+  if (typeof sbBgEnsureFull === "function") sbBgEnsureFull(board.background);
 }
 
 function sbAddItem(raw) {
@@ -966,6 +1419,8 @@ function sbFlipItem(id, axis) {
 // Resolve a stored colour token to a concrete CSS colour (needed when a token is
 // baked into an SVG border image, which cannot inherit currentColor).
 function sbResolveColor(token) {
+  // A fixed colour from the picker is already a real colour.
+  if (sbIsHexColor(token)) return String(token).toLowerCase();
   if (token === "white") return "#ffffff";
   if (token === "black") return "#000000";
   var vars = {
@@ -984,14 +1439,6 @@ function sbResolveColor(token) {
   var value = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
   if (!value) value = getComputedStyle(document.body).color || "#111111";
   return value;
-}
-
-function sbTokenCss(token) {
-  if (token === "transparent") return "transparent";
-  if (token === "white") return "#ffffff";
-  if (token === "black") return "#000000";
-  if (token === "auto") return "var(--bs-body-color)";
-  return "var(--bs-" + token + ")";
 }
 
 // 120x120 frame art used with `border-image` (slice 30). The stroke colour is

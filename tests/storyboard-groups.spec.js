@@ -94,9 +94,12 @@ function dist(a, b) {
   return Math.hypot(a.x - b.x, a.y - b.y);
 }
 
+// The two stickers sit well apart: the floating action bar is positioned beside
+// the selection, and a board fitted to the STORY size (2560x1440 by default) is
+// narrower than the old full-window board, so a 20% gap left the bar over "gb".
 const AB = () => makeBoard("groups-ab", [
-  sticker("ga", 40, 50, { z: 1 }),
-  sticker("gb", 60, 50, { z: 2 })
+  sticker("ga", 30, 50, { z: 1 }),
+  sticker("gb", 70, 50, { z: 2 })
 ]);
 
 const ABC = () => makeBoard("groups-abc", [
@@ -222,9 +225,9 @@ test.describe("Storyboard - multi-select and groups", () => {
     const b = await itemState(page, "gb");
     expect(Math.abs(a.scale - factor)).toBeLessThan(0.08);
     expect(Math.abs(b.scale - factor)).toBeLessThan(0.08);
-    // offsets from the centre (50,50) scale by the same factor: 40/60 -> 35/65
-    expect(Math.abs(a.x - (50 - 10 * factor))).toBeLessThan(0.8);
-    expect(Math.abs(b.x - (50 + 10 * factor))).toBeLessThan(0.8);
+    // offsets from the centre (50,50) scale by the same factor: 30/70 -> 35/65
+    expect(Math.abs(a.x - (50 - 20 * factor))).toBeLessThan(0.8);
+    expect(Math.abs(b.x - (50 + 20 * factor))).toBeLessThan(0.8);
     // the group centre did not drift
     expect(Math.abs((a.y + b.y) / 2 - 50)).toBeLessThan(0.8);
   });

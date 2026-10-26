@@ -346,7 +346,11 @@ function oneDriveLoginWith(instance) {
   });
 }
 
-function signInToOneDrive() {
+// `options.silent` skips the success alert (the Stickers panel re-lists and shows
+// the result itself). Returns a promise for the account name (or null), so a
+// caller can chain a retry after an interactive re-sign-in.
+function signInToOneDrive(options) {
+  var silent = !!(options && options.silent);
   var config = getOneDriveConfig();
   if (!config.clientId) {
     showOneDriveAlert("Add the Azure app registration Client ID in Settings > FileSync > OneDrive first.", "error");
@@ -368,17 +372,19 @@ function signInToOneDrive() {
           throw err;
         });
       });
-  attempt.then(function (result) {
-    if (!result || !result.account) return;
+  return attempt.then(function (result) {
+    if (!result || !result.account) return null;
     var name = oneDriveAccountName(result.account);
     localStorage.setItem(oneDriveGlobalKey("account"), name);
     _oneDriveToken = { token: "", expires: 0 };
     refreshOneDriveSettingsUi();
-    showOneDriveAlert("Signed in to OneDrive as " + name + ".", "info");
+    if (!silent) showOneDriveAlert("Signed in to OneDrive as " + name + ".", "info");
     var page = document.getElementById("oneDriveImportPage");
     if (page && page.hasAttribute("open")) oneDriveRefresh();
+    return name;
   }).catch(function (err) {
     showOneDriveAlert("OneDrive sign-in failed: " + oneDriveAuthError(err), "error");
+    return null;
   });
 }
 
@@ -479,7 +485,7 @@ function oneDriveGraphError(status, text, path) {
   return err;
 }
 
-function oneDriveGraphRequest(path, options, asText) {
+function oneDriveGraphRequest(path, options, responseType) {
   var config = getOneDriveConfig();
   return oneDriveGetToken(config).then(function (token) {
     function run(accessToken) {
@@ -504,7 +510,9 @@ function oneDriveGraphRequest(path, options, asText) {
         throw oneDriveGraphError(response.status, text, path);
       });
     }
-    return asText ? response.text() : response.json();
+    // "blob" is used for sticker images; `true` is the legacy text flag.
+    if (responseType === "blob") return response.blob();
+    return responseType === true || responseType === "text" ? response.text() : response.json();
   });
 }
 
@@ -528,6 +536,8 @@ function oneDriveListFolder(path) {
           files.push({
             name: item.name,
             key: oneDriveJoinPath(path, item.name),
+            id: item.id || "",
+            eTag: item.eTag || "",
             lastModified: item.lastModifiedDateTime || "",
             size: item.size || 0
           });
@@ -542,7 +552,7 @@ function oneDriveListFolder(path) {
     });
   }
   var url = oneDriveItemPath(path, "/children") +
-    "?$select=name,folder,file,lastModifiedDateTime,size&$top=200";
+    "?$select=id,name,folder,file,eTag,lastModifiedDateTime,size&$top=200";
   return fetchPage(url);
 }
 
@@ -644,6 +654,23 @@ function oneDriveEnsureFolder(path) {
 
 function oneDriveGetFile(key) {
   return oneDriveGraphText(oneDriveItemPath(key, "/content"));
+}
+
+// Small preview used by the Background library's grid (Graph renders the
+// thumbnail itself, so browsing 2-8 MB paintings costs a few hundred KB).
+function oneDriveDownloadThumbnail(key, size) {
+  var which = size || "medium";
+  return oneDriveGraphRequest(
+    oneDriveItemPath(key, "/thumbnails/0/" + which + "/content"),
+    { cache: "no-store" },
+    "blob"
+  );
+}
+
+// Binary download (sticker images). Follows Graph's /content redirect to the
+// pre-authenticated download URL; the same 401-once retry as every Graph call.
+function oneDriveDownloadBlob(key) {
+  return oneDriveGraphRequest(oneDriveItemPath(key, "/content"), { cache: "no-store" }, "blob");
 }
 
 function oneDrivePutFile(key, text) {

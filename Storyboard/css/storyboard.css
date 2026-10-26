@@ -106,9 +106,20 @@ body#smd-app {
   inset: 0;
   background-position: center;
   background-repeat: no-repeat;
-  /* The board's aspect already equals the image's, so 100% 100% shows the WHOLE
-     image (cover would crop on a sub-pixel aspect mismatch). */
+  /* The story owns the board shape. Fit shows the WHOLE artwork (letterboxed over
+     the board colour); Stretch fills the size and distorts when the ratios differ.
+     data-fit is set by sbRender() from the active story. */
+  background-size: contain;
+}
+
+#sbBackground[data-fit="stretch"] {
   background-size: 100% 100%;
+}
+
+/* An OneDrive painting: no built-in brand colour, and the letterbox bars (Fit)
+ * use the page surface so they read as matte around the artwork. */
+#sbBackground[data-background="custom"] {
+  background-color: var(--bs-body-bg);
 }
 
 #sbBackground[data-background="none"] {
@@ -218,28 +229,16 @@ body#smd-app {
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.16);
 }
 
-.sb-board-chip {
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  z-index: 1015;
-  max-width: 45%;
+/* The old floating board chip is gone (config + downloads moved into the
+ * hamburger menu). The nav bar title is the only readout of where you are:
+ * "Storyboard - <story>/<scene>". Keep it on one line and let it ellipsise so a
+ * long name cannot wrap the bar or push the menu around. */
+#appNavTitle {
+  min-width: 0;
+  max-width: 55vw;
   overflow: hidden;
-  padding: 0.35rem 0.8rem;
-  border: 1px solid var(--bs-border-color);
-  border-radius: 999px;
-  background: var(--bs-body-bg);
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.16);
-  color: var(--bs-body-color);
-  font-size: var(--smd-type-badge, 0.78em);
-  font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
-  cursor: pointer;
-}
-
-.sb-board-chip:hover {
-  border-color: var(--bs-primary);
 }
 
 /* The hamburger menu drops over the board (and over an open tool panel), so it
@@ -302,13 +301,22 @@ body.smd-wco #sbToolbar {
   min-height: 12px;
 }
 
-.sb-rail-btn {
-  display: flex;
+/* Rail actions are shared <smd-button>s (2026-10-26). The HOST is the flex item;
+ * the inner native button carries the rail look (transparent, icon over label),
+ * because <smd-button> renders a Bootstrap `.btn` we skin here rather than using
+ * its filled variant look. */
+smd-button.sb-rail-btn {
   flex: 0 0 auto;
+  width: 100%;
+}
+
+smd-button.sb-rail-btn > button {
+  display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 2px;
+  width: 100%;
   min-height: 52px;
   padding: 6px 2px;
   border: 0;
@@ -318,36 +326,54 @@ body.smd-wco #sbToolbar {
   font-size: 10px;
   line-height: 1.15;
   cursor: pointer;
+  box-shadow: none;
 }
 
-.sb-rail-btn i {
+smd-button.sb-rail-btn > button i {
   font-size: 1.15rem;
 }
 
-.sb-rail-btn span {
+smd-button.sb-rail-btn > button .smd-button-label,
+smd-button.sb-rail-btn > button span {
   display: block;
   width: 100%;
+  margin: 0;
   overflow: hidden;
   text-align: center;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.sb-rail-btn:hover {
+smd-button.sb-rail-btn > button:hover,
+smd-button.sb-rail-btn > button:focus-visible {
   background: rgba(var(--bs-body-color-rgb), 0.1);
+  color: var(--bs-body-color);
 }
 
-.sb-rail-btn.active {
+smd-button.sb-rail-btn.active > button {
   background: rgba(var(--bs-primary-rgb), 0.16);
   color: var(--bs-primary);
 }
 
-.sb-pin-btn.active {
+smd-button.sb-pin-btn.active > button {
   color: var(--bs-primary);
 }
 
 /* ---- Zoom controls ------------------------------------------------------ */
-/* Bottom of the rail: magnifier minus/plus side by side, Fit underneath. */
+/* Bottom of the rail: undo/redo, then magnifier minus/plus side by side, Fit
+ * underneath. */
+
+.sb-history {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sb-history-row {
+  display: flex;
+  gap: 4px;
+}
 
 .sb-zoom {
   display: flex;
@@ -361,27 +387,30 @@ body.smd-wco #sbToolbar {
   gap: 4px;
 }
 
-.sb-zoom-btn {
+smd-button.sb-zoom-btn {
   flex: 1 1 0;
   min-width: 0;
+}
+
+smd-button.sb-zoom-btn > button {
   min-height: 36px;
   padding: 4px 0;
 }
 
-.sb-zoom-btn i {
+smd-button.sb-zoom-btn > button i {
   font-size: 0.95rem;
 }
 
-.sb-zoom-fit {
+smd-button.sb-zoom-fit > button {
   min-height: 40px;
 }
 
-.sb-rail-btn:disabled {
+smd-button.sb-rail-btn[disabled] > button {
   opacity: 0.35;
   cursor: default;
 }
 
-.sb-rail-btn:disabled:hover {
+smd-button.sb-rail-btn[disabled] > button:hover {
   background: transparent;
 }
 
@@ -390,7 +419,10 @@ body.smd-wco #sbToolbar {
 .sb-panel {
   display: none;
   flex-direction: column;
-  width: min(320px, calc(100vw - 92px));
+  /* Wide enough for a story/scene row's handle + three action buttons + a real
+     name: at 320px every longer name ellipsised. The right-hand clamp keeps the
+     panel inside a narrow window (a phone uses nearly the full width). */
+  width: min(500px, calc(100vw - 92px));
   max-height: 100%;
   overflow: hidden;
   border: 1px solid var(--bs-border-color);
@@ -400,10 +432,9 @@ body.smd-wco #sbToolbar {
   pointer-events: auto;
 }
 
-.sb-toolbar[data-open="boards"] .sb-panel,
-.sb-toolbar[data-open="background"] .sb-panel,
-.sb-toolbar[data-open="stickers"] .sb-panel,
-.sb-toolbar[data-open="text"] .sb-panel {
+/* ANY open tool shows its panel - keyed on "not closed" so a new rail tool can
+   never be forgotten here (the Note tool was, and its panel stayed hidden). */
+.sb-toolbar:not([data-open=""]) .sb-panel {
   display: flex;
 }
 
@@ -422,24 +453,45 @@ body.smd-wco #sbToolbar {
   font-size: var(--smd-type-h2, 1.1em);
 }
 
-.sb-panel-close {
+smd-button.sb-panel-close {
   flex: 0 0 auto;
+}
+
+smd-button.sb-panel-close > button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   width: 32px;
   height: 32px;
+  padding: 0;
   border: 0;
   border-radius: 8px;
   background: transparent;
   color: var(--bs-body-color);
   cursor: pointer;
+  box-shadow: none;
 }
 
-.sb-panel-close:hover {
+smd-button.sb-panel-close > button:hover,
+smd-button.sb-panel-close > button:focus-visible {
   background: rgba(var(--bs-body-color-rgb), 0.12);
+  color: var(--bs-body-color);
 }
 
 .sb-panel-body {
   overflow: auto;
   padding: 0.8rem;
+}
+
+/* Each panel's action button follows a colour picker, which (unlike the
+ * label-margined rows above it) carries no bottom margin - give the button the
+ * same 0.75rem breathing room the other rows have.
+ * `#sbPlaceText`/`#sbDoneText` are the Text panel's Place-text / Done states. */
+#sbDoneNote,
+#sbPlaceNote,
+#sbDoneText,
+#sbPlaceText {
+  margin-top: 0.75rem;
 }
 
 .sb-panel-note {
@@ -480,18 +532,47 @@ body.smd-wco #sbToolbar {
   border-radius: 10px;
 }
 
+/* The dragged scene row travels as a clone appended to <body>, where the
+ * `.sb-story-scenes` padding does not apply. Give it the panel surface (the
+ * rows behind would otherwise show through it) and keep its list padding. */
+.sb-board-row.sortable-fallback {
+  padding: 2px;
+  border-color: var(--bs-primary);
+  background: var(--bs-body-bg);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+}
+
+/* Whatever a cloned row ends up containing, its buttons stay FLAT and at the
+ * row's type size: the row itself is the surface. Defence in depth for the ghost
+ * - if a component ever rebuilds on connect and nests a second <button>, that
+ * inner one would paint Bootstrap `.btn-secondary` grey at the shared
+ * `button, .btn` h2 size (the reported "ghost buttons are grey and bigger"). */
+.sb-board-row.sortable-fallback button {
+  background-color: transparent;
+  background-image: none;
+  border: 0;
+  color: inherit;
+  font-size: var(--smd-type-p, 1em);
+}
+
 .sb-board-row.active,
 .sb-story-row.active {
   border-color: var(--bs-primary);
   background: rgba(var(--bs-primary-rgb), 0.1);
 }
 
-.sb-board-pick,
-.sb-story-pick {
-  display: flex;
+smd-button.sb-board-pick,
+smd-button.sb-story-pick {
   flex: 1 1 auto;
+  min-width: 0;
+}
+
+smd-button.sb-board-pick > button,
+smd-button.sb-story-pick > button {
+  display: flex;
   align-items: center;
   gap: 0.5rem;
+  width: 100%;
   min-width: 0;
   padding: 0.35rem 0.4rem;
   border: 0;
@@ -501,18 +582,20 @@ body.smd-wco #sbToolbar {
   font-size: var(--smd-type-p, 0.95em);
   text-align: left;
   cursor: pointer;
+  box-shadow: none;
 }
 
-.sb-board-pick span,
-.sb-story-pick span {
+smd-button.sb-board-pick > button span,
+smd-button.sb-story-pick > button span {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.sb-board-pick:hover,
-.sb-story-pick:hover {
+smd-button.sb-board-pick > button:hover,
+smd-button.sb-story-pick > button:hover {
   background: rgba(var(--bs-body-color-rgb), 0.08);
+  color: inherit;
 }
 
 .sb-story-chevron {
@@ -521,25 +604,77 @@ body.smd-wco #sbToolbar {
   opacity: 0.7;
 }
 
-.sb-board-act,
-.sb-story-act {
+smd-button.sb-board-act,
+smd-button.sb-story-act {
   flex: none;
   width: 30px;
   height: 30px;
+}
+
+smd-button.sb-board-act > button,
+smd-button.sb-story-act > button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
   border: 0;
   border-radius: 8px;
   background: transparent;
   color: inherit;
   cursor: pointer;
+  box-shadow: none;
 }
 
-.sb-board-act:hover,
-.sb-story-act:hover {
+smd-button.sb-board-act > button:hover,
+smd-button.sb-story-act > button:hover {
   background: rgba(var(--bs-body-color-rgb), 0.12);
+  color: inherit;
 }
 
-.sb-board-act:disabled,
-.sb-story-act:disabled {
+/* Story properties (the cog's inline form under the story row): canvas size and
+ * how the background fills it. */
+.sb-story-props {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 4px 0 2px;
+  padding: 8px;
+  border: 1px solid var(--bs-border-color);
+  border-radius: 10px;
+  background: rgba(var(--bs-body-color-rgb), 0.05);
+}
+
+.sb-story-props .sb-field-label {
+  margin: 0;
+}
+
+/* Inline validation for the story/scene rename editor (a duplicate story name
+ * keeps the input open with this note under the row). */
+.sb-rename-error {
+  margin: 2px 0 0;
+}
+
+.sb-story-size {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.sb-story-size input {
+  flex: 1 1 auto;
+  width: 0;
+  min-width: 0;
+}
+
+.sb-story-size-x {
+  flex: none;
+  opacity: 0.7;
+}
+
+smd-button.sb-board-act[disabled] > button,
+smd-button.sb-story-act[disabled] > button {
   opacity: 0.35;
   cursor: default;
 }
@@ -564,6 +699,12 @@ body.smd-wco #sbToolbar {
 .sb-add-scene {
   align-self: flex-start;
   margin: 2px 0 4px;
+}
+
+/* "New story" closes the panel's list: give it the same 0.75rem breathing room
+ * the field labels use instead of sitting flush under the last story row. */
+#sbAddStory {
+  margin-top: 0.75rem;
 }
 
 /* ---- Background picker -------------------------------------------------- */
@@ -612,6 +753,22 @@ body.smd-wco #sbToolbar {
 
 /* ---- Sticker picker ----------------------------------------------------- */
 
+/* The tiles are <sb-sticker> custom elements inside an <sb-sticker-gallery>;
+   both are light DOM so these app rules style them directly. */
+sb-sticker-gallery {
+  display: block;
+}
+
+sb-sticker {
+  display: block;
+  min-width: 0;
+}
+
+sb-sticker .sb-sticker-option {
+  width: 100%;
+  height: 100%;
+}
+
 .sb-sticker-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -638,46 +795,35 @@ body.smd-wco #sbToolbar {
   object-fit: contain;
 }
 
+.sb-sticker-option .sb-sticker-name {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  text-align: center;
+}
+
 .sb-sticker-option:hover,
 .sb-sticker-option:focus-visible {
   border-color: rgba(var(--bs-primary-rgb), 0.55);
 }
 
-.sb-sticker-option:nth-child(odd):last-child {
+.sb-sticker-grid > sb-sticker:nth-child(odd):last-child {
   grid-column: span 2;
 }
 
+.sb-gallery-empty {
+  margin-top: 0.5rem;
+}
+
+/* The OneDrive tabs sit inside the narrow fly-out panel. */
+#sbPanelBody smd-tabs {
+  margin-bottom: 8px;
+}
+
+#sbPanelBody smd-tabs .smd-tab-btn {
+  font-size: var(--smd-type-badge, 0.8em);
+}
+
 /* ---- Text controls ------------------------------------------------------ */
-
-.sb-swatches {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.sb-swatch {
-  position: relative;
-  width: 28px;
-  height: 28px;
-  padding: 0;
-  border: 1px solid var(--bs-border-color);
-  border-radius: 8px;
-  background-color: var(--sb-swatch);
-  cursor: pointer;
-}
-
-.sb-swatch.active {
-  outline: 2px solid var(--bs-primary);
-  outline-offset: 2px;
-}
-
-.sb-swatch-transparent {
-  background-image:
-    linear-gradient(45deg, rgba(var(--bs-body-color-rgb), 0.18) 25%, transparent 25%, transparent 75%, rgba(var(--bs-body-color-rgb), 0.18) 75%),
-    linear-gradient(45deg, rgba(var(--bs-body-color-rgb), 0.18) 25%, transparent 25%, transparent 75%, rgba(var(--bs-body-color-rgb), 0.18) 75%);
-  background-position: 0 0, 5px 5px;
-  background-size: 10px 10px;
-}
 
 .sb-border-grid {
   display: grid;
@@ -822,6 +968,20 @@ body.smd-wco #sbToolbar {
   /* flipX/flipY set these on the object; mirroring the IMAGE keeps the object's
      box, handles, outline and connectors exactly where they were. */
   transform: scaleX(var(--sb-flip-x, 1)) scaleY(var(--sb-flip-y, 1));
+}
+
+/* A NOTE renders as a coloured sticky-note glyph: an editor cue sized like a
+   sticker (board-relative base x the item's own scale) and never rotated. */
+.sb-note {
+  display: block;
+  line-height: 1;
+  font-size: calc(var(--sb-sticker-base, 96px) * 0.55 * var(--sb-scale, 1));
+  filter: drop-shadow(0 3px 7px rgba(0, 0, 0, 0.3));
+  pointer-events: none;
+}
+
+.sb-note i {
+  color: inherit;
 }
 
 .sb-text {
@@ -1168,11 +1328,12 @@ html[data-smd-touch-size="large"] .sb-handle-rotate {
     width: 50px;
   }
 
-  .sb-rail-btn {
+  smd-button.sb-rail-btn > button {
     min-height: 46px;
   }
 
-  .sb-rail-btn span {
+  smd-button.sb-rail-btn > button .smd-button-label,
+  smd-button.sb-rail-btn > button span {
     display: none;
   }
 
@@ -1189,7 +1350,8 @@ html[data-smd-touch-size="large"] .sb-handle-rotate {
     height: 58px;
   }
 
-  .sb-board-chip {
-    max-width: 38%;
+  /* Leave room for the hamburger: the title ellipsises instead of wrapping. */
+  #appNavTitle {
+    max-width: 62vw;
   }
 }

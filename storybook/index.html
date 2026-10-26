@@ -134,6 +134,7 @@
   <script src="../shared/js/components/smd-image-dropdown.js"></script>
   <script src="../shared/js/components/smd-image-picker.js"></script>
   <script src="../shared/js/components/smd-search.js"></script>
+  <script src="../shared/js/components/smd-color-picker.js"></script>
   <script src="../shared/vendor/flatpickr.min.js"></script>
   <script src="../shared/js/components/smd-date-picker.js"></script>
   <script src="../PlanMyDay/js/components/pmd-stream-header.js"></script>
@@ -1042,6 +1043,39 @@
         const el = document.getElementById("sb-search");
         el.addEventListener("smd-search-input", (e) => log("smd-search", "input \"" + e.detail.value + "\""));
         el.addEventListener("smd-search-clear", () => log("smd-search", "clear"));
+      }
+    });
+
+    // ---- smd-color-picker ----
+    sections.push({
+      id: "smd-color-picker",
+      name: "smd-color-picker",
+      tag: "<smd-color-picker>",
+      desc: "Shared FULL colour picker: a native colour swatch plus a hex field, so an app can store an exact colour instead of a theme token (a scene built with fixed colours looks the same on every theme). Attributes: <code>value</code> (<code>#rgb</code>/<code>#rrggbb</code>/<code>rgb()</code> all normalise to lowercase <code>#rrggbb</code>), <code>empty-label</code> (optional choice for \"no fixed colour\" - e.g. Automatic / Transparent), <code>disabled</code>. Dispatches <code>smd-color-picker-change</code> ({ value }, value <code>\"\"</code> for the empty choice).",
+      html: () => `
+        <div class="sb-canvas d-flex flex-column flex-wrap align-items-start gap-3 p-3 w-100 border rounded bg-body">
+          <div class="d-flex flex-wrap align-items-center gap-3">
+            <span class="text-secondary small" style="min-width:11rem">Fixed colour</span>
+            <smd-color-picker id="sb-color-fixed" value="#0d6efd"></smd-color-picker>
+          </div>
+          <div class="d-flex flex-wrap align-items-center gap-3">
+            <span class="text-secondary small" style="min-width:11rem">With an empty choice</span>
+            <smd-color-picker id="sb-color-empty" value="" empty-label="Automatic"></smd-color-picker>
+          </div>
+          <div class="d-flex flex-wrap align-items-center gap-3">
+            <span class="text-secondary small" style="min-width:11rem">Disabled</span>
+            <smd-color-picker id="sb-color-disabled" value="#ffd54f" disabled></smd-color-picker>
+          </div>
+        </div>
+        <div class="sb-log mt-3 small font-monospace text-success border rounded bg-body px-2 py-1" id="log-smd-color-picker">events: none yet</div>
+      `,
+      init: () => {
+        ["sb-color-fixed", "sb-color-empty"].forEach((id) => {
+          const el = document.getElementById(id);
+          el.addEventListener("smd-color-picker-change", (e) => {
+            log("smd-color-picker", id + " -> " + (e.detail.value || "(empty)"));
+          });
+        });
       }
     });
 

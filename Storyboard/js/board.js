@@ -45,15 +45,14 @@ function sbLayoutBoard(anchor) {
   var vw = view.clientWidth;
   var vh = view.clientHeight;
   if (!vw || !vh) return;
-  var board = sbActiveBoard();
-  var meta = board && board.background ? sbBackgroundById(board.background) : null;
-  var fitW = vw;
-  var fitH = vh;
-  if (meta && meta.width && meta.height) {
-    var fit = Math.min(vw / meta.width, vh / meta.height);
-    fitW = meta.width * fit;
-    fitH = meta.height * fit;
-  }
+  var story = typeof sbActiveStory === "function" ? sbActiveStory() : null;
+  // The STORY owns the canvas shape (not the background image), so a portrait
+  // story is a portrait board and the background is fitted INSIDE it.
+  var boardW = typeof sbStoryWidth === "function" ? sbStoryWidth(story) : 2560;
+  var boardH = typeof sbStoryHeight === "function" ? sbStoryHeight(story) : 1440;
+  var fit = Math.min(vw / boardW, vh / boardH);
+  var fitW = boardW * fit;
+  var fitH = boardH * fit;
   var zoom = sbZoom();
   var w = fitW * zoom;
   var h = fitH * zoom;
@@ -311,7 +310,6 @@ function sbInitBoard() {
   sbEls.items = document.getElementById("sbItems");
   sbEls.hint = document.getElementById("sbEmptyHint");
   sbEls.selBar = document.getElementById("sbSelectionBar");
-  sbEls.boardName = document.getElementById("sbBoardName");
   sbEls.connectors = document.getElementById("sbConnectors");
   sbEls.connectorPaths = document.getElementById("sbConnectorPaths");
   sbEls.connectHint = document.getElementById("sbConnectHint");
@@ -342,14 +340,6 @@ function sbInitBoard() {
   }
   if (sbEls.items) sbEls.items.addEventListener("dblclick", sbOnDoubleClick);
   if (sbEls.connectors) sbEls.connectors.addEventListener("pointerdown", sbOnConnectorPointerDown);
-  if (sbEls.boardName) {
-    sbEls.boardName.addEventListener("click", function () { sbOpenTool("boards"); });
-    sbEls.boardName.addEventListener("keydown", function (e) {
-      if (e.key !== "Enter" && e.key !== " ") return;
-      e.preventDefault();
-      sbOpenTool("boards");
-    });
-  }
 
   var connect = document.getElementById("sbSelConnect");
   var front = document.getElementById("sbSelFront");
@@ -449,6 +439,37 @@ function renderMain() {
   sbRender();
 }
 
+// Paint the active scene's background. `data-background` is PART of the painting,
+// not just a colour hook: the empty-board state carries the dot grid's 24px
+// `background-size`, so an image painted while the element still says "none"
+// renders as ONE tiny tile in the middle of the board (reported as "the
+// background is only a small image in the centre"). Every paint path must go
+// through here - sbRender() and the async OneDrive resolve alike.
+function sbPaintBackground() {
+  if (!sbEls.bg) return;
+  var board = sbActiveBoard();
+  if (!board) return;
+  // The painting is a built-in asset path, a cached object URL, a restored data
+  // URL, or (until the full image lands) a OneDrive thumbnail.
+  var src = board.background && typeof sbBackgroundSrcFor === "function"
+    ? sbBackgroundSrcFor(board.background) : "";
+  if (!src) {
+    // REMOVE the inline property rather than assigning "": an empty inline
+    // background-image would override the CSS dot-grid for the empty board.
+    sbEls.bg.style.removeProperty("background-image");
+    sbEls.bg.dataset.background = "none";
+    return;
+  }
+  sbEls.bg.style.backgroundImage = 'url("' + src + '")';
+  var isOd = typeof sbIsOdBackground === "function" && sbIsOdBackground(board.background);
+  var meta = isOd || typeof sbBackgroundById !== "function" ? null : sbBackgroundById(board.background);
+  // Built-in paintings keep their brand colour; anything else (OneDrive, an id
+  // this build no longer knows) is a plain "custom" painting. NEVER leave the
+  // attribute at "none" while an image is set, and never throw here - an
+  // exception used to abandon the rest of the render.
+  sbEls.bg.dataset.background = meta ? meta.id : "custom";
+}
+
 function sbRender() {
   if (!sbEls.items) sbInitBoard();
   var board = sbActiveBoard();
@@ -458,16 +479,10 @@ function sbRender() {
   // board-relative and the item % positions live in this box.
   sbLayoutBoard();
 
-  var meta = sbBackgroundById(board.background);
-  if (meta) {
-    sbEls.bg.style.backgroundImage = 'url("' + meta.file + '")';
-    sbEls.bg.dataset.background = meta.id;
-  } else {
-    // REMOVE the inline property rather than assigning "": an empty inline
-    // background-image would override the CSS dot-grid for the empty board.
-    sbEls.bg.style.removeProperty("background-image");
-    sbEls.bg.dataset.background = "none";
-  }
+  var story = typeof sbActiveStory === "function" ? sbActiveStory() : null;
+  // Fit = contain (letterboxed over the board colour); stretch = fill the size.
+  sbEls.bg.dataset.fit = typeof sbStoryFit === "function" ? sbStoryFit(story) : "fit";
+  sbPaintBackground();
 
   sbEls.items.innerHTML = "";
   if (sbEls.objectObserver) sbEls.objectObserver.disconnect();
@@ -496,13 +511,26 @@ function sbRender() {
   sbRenderConnectors();
   sbApplyConnectClasses();
 
-  if (sbEls.hint) sbEls.hint.classList.toggle("d-none", board.items.length > 0);
-  if (sbEls.boardName) {
-    var activeStory = typeof sbActiveStory === "function" ? sbActiveStory() : null;
-    sbEls.boardName.textContent = activeStory ? activeStory.name + " / " + board.name : board.name;
-    sbEls.boardName.title = activeStory ? activeStory.name + " - " + board.name : board.name;
+  // The hint coaches a BLANK board. A chosen background already makes it a board,
+  // so it must not sit over the artwork ("Choose a background..." in the middle of
+  // a painting was reported).
+  if (sbEls.hint) {
+    sbEls.hint.classList.toggle("d-none", board.items.length > 0 || !!board.background);
   }
+  // The nav bar carries the only "where am I" readout now that the floating
+  // board chip is gone: "Storyboard - <story>/<scene>".
+  sbUpdateNavTitle();
   sbUpdateSelectionUi();
+
+  // The OneDrive background (if any) may need its bytes after a reload: resolve
+  // from the sticker-style cache first, then the network.
+  if (typeof sbBgEnsureStoryBackground === "function") sbBgEnsureStoryBackground();
+
+  // OneDrive stickers on this scene may not have their bytes in memory yet (a
+  // reload, or a scene opened before its library tab was ever shown). Resolve
+  // them from the sticker cache (offline-safe), then fetch any misses - guarded
+  // by the id set, so an unchanged board costs one cheap comparison.
+  if (typeof sbStickerEnsureStoryImages === "function") sbStickerEnsureStoryImages();
 }
 
 function sbBuildItem(item) {
@@ -516,15 +544,26 @@ function sbBuildItem(item) {
   el.style.transform = "translate(-50%, -50%) rotate(" + item.rotation + "deg)";
 
   if (item.type === "sticker") {
-    var meta = sbStickerById(item.sticker) || SB_STICKERS[0];
     el.style.setProperty("--sb-scale", item.scale);
     var img = document.createElement("img");
     img.className = "sb-sticker";
-    img.src = meta.file;
-    img.alt = meta.name;
+    // Built-in SVG asset, a cached blob: URL for a OneDrive sticker, a data:
+    // URL restored from a backup, or the placeholder until its bytes arrive.
+    img.src = sbStickerSrcFor(item);
+    img.alt = sbStickerNameFor(item);
     img.draggable = false;
     el.appendChild(img);
     sbApplyStickerFlip(el, item);
+  } else if (item.type === "note") {
+    // A note is an EDITOR CUE: an icon whose text is the tooltip (and the
+    // panel). It is deliberately not drawn on the artwork or in the JPG.
+    el.style.setProperty("--sb-scale", item.scale);
+    var glyph = document.createElement("span");
+    glyph.className = "sb-note";
+    glyph.style.color = item.color;
+    glyph.innerHTML = '<i class="fa-solid fa-sticky-note" aria-hidden="true"></i>';
+    el.appendChild(glyph);
+    el.title = item.text || "Note";
   } else {
     var text = document.createElement("div");
     sbStyleTextElement(text, item);
@@ -537,19 +576,26 @@ function sbBuildItem(item) {
   scaleHandle.setAttribute("aria-hidden", "true");
   el.appendChild(scaleHandle);
 
-  var rotateHandle = document.createElement("span");
-  rotateHandle.className = "sb-handle sb-handle-rotate";
-  rotateHandle.dataset.handle = "rotate";
-  rotateHandle.setAttribute("aria-hidden", "true");
-  rotateHandle.innerHTML = '<i class="fa-solid fa-rotate"></i>';
-  el.appendChild(rotateHandle);
+  // Notes scale but never rotate, so they get NO rotate handle at all.
+  if (item.type !== "note") {
+    var rotateHandle = document.createElement("span");
+    rotateHandle.className = "sb-handle sb-handle-rotate";
+    rotateHandle.dataset.handle = "rotate";
+    rotateHandle.setAttribute("aria-hidden", "true");
+    rotateHandle.innerHTML = '<i class="fa-solid fa-rotate"></i>';
+    el.appendChild(rotateHandle);
+  }
 
   return el;
 }
 
 function sbStyleTextElement(el, item) {
-  el.className = "sb-text sb-bg-" + item.bg + " sb-color-" + item.color + " sb-font-" + item.font;
+  el.className = "sb-text sb-font-" + item.font;
   el.dataset.frame = item.border;
+  // A theme TOKEN keeps a class (legacy scenes); a fixed hex from the colour
+  // picker is an inline declaration, so a swap cannot repaint it.
+  sbApplyTextPaint(el, "bg", item.bg);
+  sbApplyTextPaint(el, "color", item.color);
   var body = el.querySelector(".sb-text-body");
   if (!body) {
     body = document.createElement("span");
@@ -564,6 +610,31 @@ function sbStyleTextElement(el, item) {
   } else {
     el.style.removeProperty("--sb-frame-image");
   }
+}
+
+// Live repaint of ONE note (its colour + tooltip) without rebuilding the board:
+// the panel edits as you type, and a rebuild would steal the textarea focus.
+function sbApplyNoteStyle(item) {
+  var el = sbItemEl(item.id);
+  if (!el) return;
+  var glyph = el.querySelector(".sb-note");
+  if (glyph) glyph.style.color = item.color;
+  el.title = item.text || "Note";
+}
+
+function sbApplyTextPaint(el, field, value) {
+  var prefix = "sb-" + field + "-";
+  Array.prototype.slice.call(el.classList).forEach(function (name) {
+    if (name.indexOf(prefix) === 0) el.classList.remove(name);
+  });
+  var prop = field === "bg" ? "backgroundColor" : "color";
+  if (sbIsHexColor(value)) {
+    el.style[prop] = String(value).toLowerCase();
+    return;
+  }
+  el.style.removeProperty(field === "bg" ? "background-color" : "color");
+  var tokens = field === "bg" ? SB_BG_TOKENS : SB_TEXT_TOKENS;
+  if (tokens.indexOf(value) >= 0) el.classList.add(prefix + value);
 }
 
 // The JPG exporter centres each line on the CSS line box with
@@ -1488,7 +1559,7 @@ function sbIsInteractiveKeyTarget(t) {
 
 function sbOnCanvasPointerDown(e) {
   var t = e.target;
-  if (t.closest && (t.closest(".sb-object") || t.closest(".sb-connector") || t.closest(".sb-toolbar") || t.closest(".sb-selection-bar") || t.closest(".sb-selection-box") || t.closest(".sb-board-chip"))) return;
+  if (t.closest && (t.closest(".sb-object") || t.closest(".sb-connector") || t.closest(".sb-toolbar") || t.closest(".sb-selection-bar") || t.closest(".sb-selection-box"))) return;
   // A modifier-click on empty space keeps the selection (only a plain click
   // clears it), which is what multi-select users expect.
   if (e.ctrlKey || e.metaKey || e.shiftKey) return;
@@ -1584,7 +1655,9 @@ function sbApplyDrag(drag, factor, deltaDeg, moveX, moveY) {
     item.x = sbClamp(nx / width * 100, single ? 2 : 0, single ? 98 : 100);
     item.y = sbClamp(ny / height * 100, single ? 2 : 0, single ? 98 : 100);
     item.scale = sbClamp((Number(leaf.scale) || 1) * f, 0.2, 5);
-    item.rotation = (Number(leaf.rotation) || 0) + deltaDeg;
+    // A note NEVER rotates (it has no rotate handle and a group twist skips it),
+    // so it can orbit the selection centre but stays upright.
+    if (item.type !== "note") item.rotation = (Number(leaf.rotation) || 0) + deltaDeg;
     sbWriteItemTransform(item);
   });
 
@@ -1752,6 +1825,8 @@ function sbOnPointerDown(e) {
   var mode = "move";
   if (handle) mode = handle.dataset.handle === "rotate" ? "rotate" : "scale";
   sbBeginDrag(e, mode, rect, centre);
+  // A note's whole point is its text: a plain CLICK (no drag) opens its editor.
+  if (item.type === "note" && mode === "move" && sbState.drag) sbState.drag.tapNote = item.id;
   // A click (no drag) on a member of a multi/group selection collapses to it;
   // a drag moves the whole set. The collapse is applied on pointerup.
   if (sbState.drag && nodes.length > 1 && nodes.indexOf(node) !== -1) {
@@ -1811,6 +1886,8 @@ function sbOnPointerUp(e) {
   if (!sbState.drag) return;
   var drag = sbState.drag;
   var collapse = drag.collapseOnTap && !drag.moved ? drag.collapseOnTap : "";
+  // A plain click on a note (no movement) opens its editor.
+  var tapNote = drag.tapNote && !drag.moved ? drag.tapNote : "";
   sbState.pointers.clear();
   sbState.drag = null;
   sbSaveState();
@@ -1818,12 +1895,25 @@ function sbOnPointerUp(e) {
   sbPositionSelectionBox();
   sbPositionSelectionBar();
   sbRefreshPasteboard();
+  if (tapNote) sbOpenNoteEditor(tapNote);
 }
 
 function sbOnKeyDown(e) {
   var t = e.target;
   var tag = (t && t.tagName ? t.tagName : "").toLowerCase();
   if (tag === "input" || tag === "textarea" || tag === "select" || (t && t.isContentEditable)) return;
+  // Undo / redo. A focused text field keeps its own Ctrl+Z (it returned above),
+  // and an open page/modal owns the keyboard.
+  if ((e.ctrlKey || e.metaKey) && !e.altKey) {
+    var key = String(e.key || "").toLowerCase();
+    var redoKey = key === "y" || (key === "z" && e.shiftKey);
+    if ((key === "z" && !e.shiftKey) || redoKey) {
+      if (document.querySelector("smd-page[open], smd-modal[open]")) return;
+      e.preventDefault();
+      if (redoKey) sbRedo(); else sbUndo();
+      return;
+    }
+  }
   if (e.code === "Space" || e.key === " ") {
     // A focused control that uses Space (a button/link/role button) keeps it;
     // the settings page and modals own the keyboard too.
@@ -2005,12 +2095,14 @@ function sbDrawCanvasText(ctx, item, el, frame, frameImg) {
   ctx.restore();
 }
 
-async function sbDownloadJpg() {
+// Draw the ACTIVE scene to a JPEG blob (the export used by "Save scene" and by
+// the story ZIP). Returns the blob; nothing is downloaded here.
+async function sbBoardJpegBlob() {
   var board = sbActiveBoard();
-  if (!board || !sbEls.canvas) return;
+  if (!board || !sbEls.canvas) return null;
   var visW = sbEls.canvas.clientWidth;
   var visH = sbEls.canvas.clientHeight;
-  if (!visW || !visH) return;
+  if (!visW || !visH) return null;
   var designScale = sbDesignScale();
   if (document.fonts && document.fonts.ready) {
     try { await document.fonts.ready; } catch (e) { /* draw with the fallback */ }
@@ -2020,26 +2112,28 @@ async function sbDownloadJpg() {
   // `cover` crop. The canvas is the image's natural size (capped at 4096px);
   // items are mapped from screen space back into the artwork's coordinates so
   // they stay on the same part of the picture as on screen.
+  // OneDrive backgrounds resolve to a cached blob URL / restored data URL; the
+  // built-ins keep their asset path.
   var bgMeta = board.background ? sbBackgroundById(board.background) : null;
-  var bgImg = bgMeta ? await sbLoadCanvasImage(bgMeta.file).catch(function () { return null; }) : null;
+  var bgSrc = board.background && typeof sbBackgroundSrcFor === "function"
+    ? sbBackgroundSrcFor(board.background)
+    : (bgMeta ? bgMeta.file : "");
+  var bgImg = bgSrc ? await sbLoadCanvasImage(bgSrc).catch(function () { return null; }) : null;
   var hasBg = !!(bgImg && bgImg.naturalWidth && bgImg.naturalHeight);
 
-  var W, H, outScale;
-  if (hasBg) {
-    W = bgImg.naturalWidth;
-    H = bgImg.naturalHeight;
-    outScale = Math.min(1, 4096 / Math.max(W, H));
-  } else {
-    W = visW;
-    H = visH;
-    outScale = Math.max(1, Math.min(2, 4096 / Math.max(W, H)));
-  }
+  // The export IS the story's canvas: the same width/height the user set, so
+  // what they lay out is what they get (capped on the long edge so a huge story
+  // stays encodable).
+  var story = typeof sbActiveStory === "function" ? sbActiveStory() : null;
+  var W = typeof sbStoryWidth === "function" ? sbStoryWidth(story) : (hasBg ? bgImg.naturalWidth : visW);
+  var H = typeof sbStoryHeight === "function" ? sbStoryHeight(story) : (hasBg ? bgImg.naturalHeight : visH);
+  var outScale = Math.min(1, 4096 / Math.max(W, H));
 
-  // `cover` on the live board: how many CSS px one artwork px occupies, and the
-  // (negative) offset of the artwork inside the visible window.
-  var coverScale = hasBg ? Math.max(visW / W, visH / H) : 1;
-  var offsetX = hasBg ? (visW - W * coverScale) / 2 : 0;
-  var offsetY = hasBg ? (visH - H * coverScale) / 2 : 0;
+  // The live board is fitted to the same aspect, so cover is uniform and the
+  // offsets are ~0; keeping them makes the mapping robust to rounding.
+  var coverScale = Math.max(visW / W, visH / H);
+  var offsetX = (visW - W * coverScale) / 2;
+  var offsetY = (visH - H * coverScale) / 2;
   var artScale = 1 / coverScale;
   var toArt = function (px, py) {
     return { x: (px - offsetX) / coverScale, y: (py - offsetY) / coverScale };
@@ -2062,11 +2156,22 @@ async function sbDownloadJpg() {
       ctx.fillStyle = bgStyle.backgroundColor;
       ctx.fillRect(0, 0, W, H);
     }
-    ctx.drawImage(bgImg, 0, 0, W, H);
+    // Fit letterboxes the artwork inside the story size (the bars keep the
+    // board colour painted above); stretch fills it, distorting if needed.
+    var stretch = typeof sbStoryFit === "function" ? sbStoryFit(story) === "stretch" : true;
+    if (stretch) {
+      ctx.drawImage(bgImg, 0, 0, W, H);
+    } else {
+      var bgScale = Math.min(W / bgImg.naturalWidth, H / bgImg.naturalHeight);
+      var dw = bgImg.naturalWidth * bgScale;
+      var dh = bgImg.naturalHeight * bgScale;
+      ctx.drawImage(bgImg, (W - dw) / 2, (H - dh) / 2, dw, dh);
+    }
   } else {
     // The empty board's dot grid, at the same artwork scale as the live board.
-    var dotGap = 24 * designScale;
-    var dotR = 1 * designScale;
+    var artPerCss = W / visW;
+    var dotGap = 24 * designScale * artPerCss;
+    var dotR = 1 * designScale * artPerCss;
     ctx.save();
     ctx.globalAlpha = 0.22;
     ctx.fillStyle = bodyColor;
@@ -2133,6 +2238,8 @@ async function sbDownloadJpg() {
   var frameCache = Object.create(null);
   for (var i = 0; i < ordered.length; i++) {
     var item = ordered[i];
+    // A note is an editor cue - it is NEVER drawn into the image.
+    if (item.type === "note") continue;
     var el = sbItemEl(item.id);
     if (!el) continue;
     var art = toArt(item.x / 100 * visW, item.y / 100 * visH);
@@ -2185,12 +2292,204 @@ async function sbDownloadJpg() {
     canvas.toBlob(function (b) { resolve(b); }, "image/jpeg", 0.92);
   });
   if (!blob) throw new Error("JPG encoding failed");
+  return blob;
+}
+
+function sbDownloadBlob(blob, filename) {
   var url = URL.createObjectURL(blob);
   var a = document.createElement("a");
   a.href = url;
-  a.download = (sbSlug(board.name) || "storyboard") + ".jpg";
+  a.download = filename;
   document.body.appendChild(a);
   a.click();
   a.remove();
   setTimeout(function () { URL.revokeObjectURL(url); }, 1500);
+}
+
+// "Download Scene": the hamburger menu action that saves the ACTIVE scene.
+async function sbDownloadJpg() {
+  var board = sbActiveBoard();
+  var blob = await sbBoardJpegBlob();
+  if (!blob) return;
+  sbDownloadBlob(blob, (sbSlug(board && board.name) || "storyboard") + ".jpg");
+}
+
+// ---- story ZIP -------------------------------------------------------------
+
+// Store-only ZIP (JPEGs are already compressed). `files` = [{name, data:Uint8Array}].
+var sbZipCrcTable = null;
+
+function sbZipCrc32(bytes) {
+  if (!sbZipCrcTable) {
+    sbZipCrcTable = new Uint32Array(256);
+    for (var n = 0; n < 256; n++) {
+      var c = n;
+      for (var k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+      sbZipCrcTable[n] = c >>> 0;
+    }
+  }
+  var crc = 0xFFFFFFFF;
+  for (var i = 0; i < bytes.length; i++) {
+    crc = sbZipCrcTable[(crc ^ bytes[i]) & 0xFF] ^ (crc >>> 8);
+  }
+  return (crc ^ 0xFFFFFFFF) >>> 0;
+}
+
+function sbZipDosTime(date) {
+  var d = date || new Date();
+  var time = ((d.getHours() & 0x1F) << 11) | ((d.getMinutes() & 0x3F) << 5) | ((d.getSeconds() / 2) & 0x1F);
+  var day = (((d.getFullYear() - 1980) & 0x7F) << 9) | (((d.getMonth() + 1) & 0x0F) << 5) | (d.getDate() & 0x1F);
+  return { time: time & 0xFFFF, date: day & 0xFFFF };
+}
+
+function sbZipWrite(files) {
+  var encoder = new TextEncoder();
+  var stamp = sbZipDosTime();
+  var chunks = [];
+  var central = [];
+  var offset = 0;
+
+  (files || []).forEach(function (file) {
+    var name = encoder.encode(file.name);
+    var data = file.data;
+    var crc = sbZipCrc32(data);
+
+    var header = new Uint8Array(30 + name.length);
+    var view = new DataView(header.buffer);
+    view.setUint32(0, 0x04034b50, true);   // local file header
+    view.setUint16(4, 20, true);           // version needed
+    view.setUint16(6, 0x0800, true);       // UTF-8 names
+    view.setUint16(8, 0, true);            // store
+    view.setUint16(10, stamp.time, true);
+    view.setUint16(12, stamp.date, true);
+    view.setUint32(14, crc, true);
+    view.setUint32(18, data.length, true); // compressed size
+    view.setUint32(22, data.length, true); // uncompressed size
+    view.setUint16(26, name.length, true);
+    view.setUint16(28, 0, true);           // extra length
+    header.set(name, 30);
+    chunks.push(header, data);
+
+    var entry = new Uint8Array(46 + name.length);
+    var entryView = new DataView(entry.buffer);
+    entryView.setUint32(0, 0x02014b50, true);  // central directory header
+    entryView.setUint16(4, 20, true);
+    entryView.setUint16(6, 20, true);
+    entryView.setUint16(8, 0x0800, true);
+    entryView.setUint16(10, 0, true);
+    entryView.setUint16(12, stamp.time, true);
+    entryView.setUint16(14, stamp.date, true);
+    entryView.setUint32(16, crc, true);
+    entryView.setUint32(20, data.length, true);
+    entryView.setUint32(24, data.length, true);
+    entryView.setUint16(28, name.length, true);
+    entryView.setUint16(30, 0, true);          // extra length
+    entryView.setUint16(32, 0, true);          // comment length
+    entryView.setUint16(34, 0, true);          // disk number
+    entryView.setUint16(36, 0, true);          // internal attributes
+    entryView.setUint32(38, 0, true);          // external attributes
+    entryView.setUint32(42, offset, true);     // local header offset
+    entry.set(name, 46);
+    central.push(entry);
+
+    offset += header.length + data.length;
+  });
+
+  var centralSize = central.reduce(function (sum, entry) { return sum + entry.length; }, 0);
+  var end = new Uint8Array(22);
+  var endView = new DataView(end.buffer);
+  endView.setUint32(0, 0x06054b50, true);   // end of central directory
+  endView.setUint16(8, central.length, true);
+  endView.setUint16(10, central.length, true);
+  endView.setUint32(12, centralSize, true);
+  endView.setUint32(16, offset, true);       // central directory offset
+
+  return new Blob(chunks.concat(central, [end]), { type: "application/zip" });
+}
+
+// One entry per scene: "<zero-padded number> - <scene name>.jpg", padded to the
+// width of the HIGHEST number so the names sort alphabetically inside the zip.
+function sbZipEntryName(index, total, name) {
+  var width = String(Math.max(1, total)).length;
+  var number = String(index + 1);
+  while (number.length < width) number = "0" + number;
+  var safe = String(name || "Scene").replace(/[\\/:*?"<>|\u0000-\u001f]/g, "-").trim() || "Scene";
+  return number + " - " + safe + ".jpg";
+}
+
+function sbNextFrame() {
+  return new Promise(function (resolve) {
+    requestAnimationFrame(function () { requestAnimationFrame(resolve); });
+  });
+}
+
+// "Save story": render EVERY scene of the active story to a JPG and download them
+// as <story>.zip. The active scene is restored afterwards (and its view/pan too).
+async function sbDownloadStoryZip() {
+  var story = sbActiveStory();
+  if (!story || !story.scenes.length) return null;
+  var original = sbActiveBoard();
+  var entries = [];
+  try {
+    for (var i = 0; i < story.scenes.length; i++) {
+      var scene = story.scenes[i];
+      if (sbActiveBoard() !== scene) {
+        sbActivateScene(story, scene);
+        await sbNextFrame();
+      }
+      var blob = await sbBoardJpegBlob();
+      if (!blob) continue;
+      var buffer = await blob.arrayBuffer();
+      entries.push({
+        name: sbZipEntryName(i, story.scenes.length, scene.name),
+        data: new Uint8Array(buffer)
+      });
+    }
+  } finally {
+    // Put the user back on the scene they were editing.
+    var back = original && story.scenes.indexOf(original) !== -1 ? original : story.scenes[0];
+    if (sbActiveBoard() !== back) {
+      sbActivateScene(story, back);
+      await sbNextFrame();
+    }
+  }
+  if (!entries.length) return null;
+  sbDownloadBlob(sbZipWrite(entries), (sbSlug(story.name) || "storyboard") + ".zip");
+  return entries.length;
+}
+
+// ---- nav bar readout + menu entry points -----------------------------------
+
+// The floating board chip was removed, so the nav bar is the only readout of
+// where you are: "Storyboard - <story>/<scene>". The shared SmdApps.mountAppTitle()
+// puts the plain app name there first; this only rewrites its TEXT (its
+// show/hide while a page is open stays shared).
+function sbNavTitleText() {
+  var story = typeof sbActiveStory === "function" ? sbActiveStory() : null;
+  var scene = typeof sbActiveBoard === "function" ? sbActiveBoard() : null;
+  if (!story || !scene) return "Storyboard";
+  return "Storyboard - " + story.name + "/" + scene.name;
+}
+
+function sbUpdateNavTitle() {
+  var el = document.getElementById("appNavTitle");
+  if (!el) return;
+  var text = sbNavTitleText();
+  if (el.textContent !== text) el.textContent = text;
+}
+
+// Menu wrappers keep the friendly failure message the rail button used to have
+// (an inline onclick cannot catch a rejected promise).
+function sbDownloadScene() {
+  return sbDownloadJpg().catch(function (err) {
+    console.error(err);
+    alert("Could not download this scene as a JPG.");
+  });
+}
+
+function sbDownloadStory() {
+  return sbDownloadStoryZip().catch(function (err) {
+    console.error(err);
+    alert("Could not download this story as a ZIP.");
+  });
 }

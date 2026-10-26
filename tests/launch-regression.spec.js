@@ -74,7 +74,8 @@ test.describe("Launch - Regression", () => {
       ["/SolarControlar/", "Solar Controlar"],
       ["/FreeFormOX/", "FreeFormOX"],
       ["/ListOfLists/", "List of Lists"],
-      ["/Storyboard/", "Storyboard"]
+      // Storyboard appends its live story/scene to the app name ("Storyboard -\n      // <story>/<scene>"), so match the prefix + a default fresh-visit readout.
+      ["/Storyboard/", /^Storyboard - Story 1\/Scene 1$/]
     ];
     for (const [shell, name] of EXPECTED) {
       await page.goto(shell);

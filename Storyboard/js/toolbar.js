@@ -3,16 +3,21 @@
 // slides out beside it. Pin keeps the panel open while the board is used.
 
 var sbToolbarEls = {};
+// The Sortable instance for the ACTIVE story's scene list (destroyed and rebuilt
+// on every panel render).
+var sbSceneSortable = null;
 
 function sbInitToolbar() {
   sbState.textDraft = { bg: "transparent", color: "auto", border: "none", font: "theme" };
+  sbState.noteDraft = { color: SB_NOTE_DEFAULT_COLOR };
 
   sbToolbarEls.toolbar = document.getElementById("sbToolbar");
   sbToolbarEls.panel = document.getElementById("sbPanel");
   sbToolbarEls.title = document.getElementById("sbPanelTitle");
   sbToolbarEls.body = document.getElementById("sbPanelBody");
   sbToolbarEls.pin = document.getElementById("sbPinBtn");
-  sbToolbarEls.save = document.getElementById("sbSaveBtn");
+  sbToolbarEls.undo = document.getElementById("sbUndoBtn");
+  sbToolbarEls.redo = document.getElementById("sbRedoBtn");
   sbToolbarEls.close = document.getElementById("sbPanelClose");
   sbToolbarEls.zoomOut = document.getElementById("sbZoomOut");
   sbToolbarEls.zoomIn = document.getElementById("sbZoomIn");
@@ -30,14 +35,9 @@ function sbInitToolbar() {
   sbToolbarEls.railBtns.forEach(function (btn) {
     btn.addEventListener("click", function () { sbSetTool(btn.dataset.tool); });
   });
-  if (sbToolbarEls.save) {
-    sbToolbarEls.save.addEventListener("click", function () {
-      sbDownloadJpg().catch(function (err) {
-        console.error(err);
-        alert("Could not save this board as a JPG.");
-      });
-    });
-  }
+  if (sbToolbarEls.undo) sbToolbarEls.undo.addEventListener("click", function () { sbUndo(); });
+  if (sbToolbarEls.redo) sbToolbarEls.redo.addEventListener("click", function () { sbRedo(); });
+  sbHistoryUpdateUi();
   if (sbToolbarEls.zoomOut) sbToolbarEls.zoomOut.addEventListener("click", sbZoomOut);
   if (sbToolbarEls.zoomIn) sbToolbarEls.zoomIn.addEventListener("click", sbZoomIn);
   if (sbToolbarEls.zoomFit) sbToolbarEls.zoomFit.addEventListener("click", sbZoomFit);
@@ -46,6 +46,9 @@ function sbInitToolbar() {
   if (sbToolbarEls.body) {
     sbToolbarEls.body.addEventListener("click", sbOnPanelClick);
     sbToolbarEls.body.addEventListener("input", sbOnPanelInput);
+    // <smd-select> dispatches a bubbling `change`; number inputs fire it on
+    // blur/Enter. That is what applies a story property change.
+    sbToolbarEls.body.addEventListener("change", sbOnPanelChange);
   }
 
   document.addEventListener("click", function (e) {
@@ -61,7 +64,7 @@ function sbInitToolbar() {
     // before the confirmed action re-rendered it - the story/scene row then
     // vanished and the confirm appeared to do nothing.
     if (t.closest && (t.closest("#sbToolbar") || t.closest(".sb-selection-bar") ||
-      t.closest(".sb-board-chip") || t.closest("smd-modal"))) return;
+      t.closest("smd-modal"))) return;
     sbClosePanel();
   });
 
@@ -97,8 +100,13 @@ function sbOpenTool(tool) {
 }
 
 function sbClosePanel() {
+  // A closed panel's field keeps DOM focus after its node is detached, which
+  // would swallow the board's keyboard shortcuts (Ctrl+Z, Space, Delete...).
+  var focused = document.activeElement;
+  if (focused && sbToolbarEls.body && sbToolbarEls.body.contains(focused) && focused.blur) focused.blur();
   sbState.tool = "";
   sbState.editingTextId = "";
+  sbState.editingNoteId = "";
   if (sbToolbarEls.toolbar) sbToolbarEls.toolbar.dataset.open = "";
   if (sbToolbarEls.body) sbToolbarEls.body.innerHTML = "";
   if (sbToolbarEls.title) sbToolbarEls.title.textContent = "";
@@ -117,11 +125,13 @@ function sbRenderPanel() {
       tool === "boards" ? "Stories" :
       tool === "background" ? "Background" :
       tool === "stickers" ? "Stickers" :
+      tool === "note" ? (sbState.editingNoteId ? "Edit note" : "Note") :
       (sbState.editingTextId ? "Edit text" : "Text");
   }
   if (tool === "boards") sbRenderBoardsPanel();
   else if (tool === "background") sbRenderBackgroundPanel();
   else if (tool === "stickers") sbRenderStickersPanel();
+  else if (tool === "note") sbRenderNotePanel();
   else if (tool === "text") sbRenderTextPanel();
 }
 
@@ -138,56 +148,238 @@ function sbRenderBoardsPanel() {
   sbState.stories.forEach(function (story) {
     var expanded = !!activeStory && story.id === activeStory.id;
     html += '<div class="sb-story-row' + (expanded ? " active" : "") + '" data-story-id="' + story.id + '">' +
-      '<button type="button" class="sb-story-pick" data-act="pick-story" data-id="' + story.id + '">' +
+      '<smd-button class="sb-story-pick" variant="secondary" data-act="pick-story" data-id="' + story.id + '">' +
         '<i class="fa-solid ' + (expanded ? "fa-chevron-down" : "fa-chevron-right") + ' sb-story-chevron" aria-hidden="true"></i>' +
         '<i class="fa-solid fa-book-open" aria-hidden="true"></i>' +
         '<span>' + escapeHtml(story.name) + '</span>' +
-      '</button>' +
-      '<button type="button" class="sb-story-act" data-act="rename-story" data-id="' + story.id + '" title="Rename story" aria-label="Rename story"><i class="fa-solid fa-pen"></i></button>' +
-      '<button type="button" class="sb-story-act" data-act="delete-story" data-id="' + story.id + '" title="Delete story" aria-label="Delete story"' +
-        (sbState.stories.length < 2 ? " disabled" : "") + '><i class="fa-solid fa-trash"></i></button>' +
+      '</smd-button>' +
+      '<smd-button class="sb-story-act" variant="secondary" size="small" data-act="story-props" data-id="' + story.id + '" title="Story properties" aria-label="Story properties" icon="fa-solid fa-cog"></smd-button>' +
+      '<smd-button class="sb-story-act" variant="secondary" size="small" data-act="rename-story" data-id="' + story.id + '" title="Rename story" aria-label="Rename story" icon="fa-solid fa-pen"></smd-button>' +
+      '<smd-button class="sb-story-act" variant="secondary" size="small" data-act="delete-story" data-id="' + story.id + '" title="Delete story" aria-label="Delete story" icon="fa-solid fa-trash"' +
+        (sbState.stories.length < 2 ? " disabled" : "") + '></smd-button>' +
     '</div>';
+    // The cog's inline form sits directly under its row (the scene list is a
+    // SIBLING of the row, so this block is another sibling).
+    if (sbState.storyPropsId === story.id) html += sbStoryPropsHtml(story);
     if (!expanded) return;
     html += '<div class="sb-story-scenes">';
     story.scenes.forEach(function (board) {
       html += '<div class="sb-board-row' + (active && board.id === active.id ? " active" : "") + '" data-board-id="' + board.id + '">' +
-        '<button type="button" class="sb-board-pick" data-act="pick" data-id="' + board.id + '">' +
+        // Scenes are reordered by dragging this handle (Sortable, see
+        // sbInitSceneSortable). The class MUST stay on the host element.
+        '<smd-draghandle class="drag-handle" title="Reorder scene"></smd-draghandle>' +
+        '<smd-button class="sb-board-pick" variant="secondary" data-act="pick" data-id="' + board.id + '">' +
           '<i class="fa-solid fa-clapperboard" aria-hidden="true"></i>' +
           '<span>' + escapeHtml(board.name) + '</span>' +
-        '</button>' +
-        '<button type="button" class="sb-board-act" data-act="rename" data-id="' + board.id + '" title="Rename scene" aria-label="Rename scene"><i class="fa-solid fa-pen"></i></button>' +
-        '<button type="button" class="sb-board-act" data-act="delete" data-id="' + board.id + '" title="Delete scene" aria-label="Delete scene"' +
-          (story.scenes.length < 2 ? " disabled" : "") + '><i class="fa-solid fa-trash"></i></button>' +
+        '</smd-button>' +
+        '<smd-button class="sb-board-act" variant="secondary" size="small" data-act="duplicate" data-id="' + board.id + '" title="Duplicate scene" aria-label="Duplicate scene" icon="fa-solid fa-copy"></smd-button>' +
+        '<smd-button class="sb-board-act" variant="secondary" size="small" data-act="rename" data-id="' + board.id + '" title="Rename scene" aria-label="Rename scene" icon="fa-solid fa-pen"></smd-button>' +
+        '<smd-button class="sb-board-act" variant="secondary" size="small" data-act="delete" data-id="' + board.id + '" title="Delete scene" aria-label="Delete scene" icon="fa-solid fa-trash"' +
+          (story.scenes.length < 2 ? " disabled" : "") + '></smd-button>' +
       '</div>';
     });
-    html += '<button type="button" class="btn btn-sm btn-success sb-add-scene" data-act="add-scene" data-id="' + story.id + '">' +
-      '<i class="fa-solid fa-plus me-1"></i>New scene</button>';
+    html += '<smd-button class="sb-add-scene" variant="primary" size="small" data-act="add-scene" data-id="' + story.id + '" icon="fa-solid fa-plus">New scene</smd-button>';
     html += '</div>';
   });
   html += '</div>';
-  html += '<button type="button" id="sbAddStory" class="btn btn-success w-100"><i class="fa-solid fa-plus me-1"></i>New story</button>';
+  html += '<smd-button id="sbAddStory" variant="primary" block icon="fa-solid fa-plus">New story</smd-button>';
   html += '<p class="sb-panel-note">A story contains scenes. Each scene is its own board with a background, stickers and text.</p>';
   sbToolbarEls.body.innerHTML = html;
+
+  // The declarative <option>s are read by <smd-select> on connect; set the
+  // current values explicitly so the selects match the stored properties.
+  var presetEl = document.getElementById("sbStoryPreset");
+  var fitEl = document.getElementById("sbStoryFit");
+  var propsStory = sbState.storyPropsId ? sbFindStory(sbState.storyPropsId) : null;
+  // Set the ATTRIBUTE (not the property): if the element is still upgrading, the
+  // attribute is applied on connect, whereas a pre-upgrade property assignment
+  // would shadow the accessor.
+  if (presetEl && propsStory) {
+    presetEl.setAttribute("value", sbState.storyPropsOther ? "other" : sbStoryPresetId(propsStory));
+  }
+  if (fitEl && propsStory) fitEl.setAttribute("value", sbStoryFit(propsStory));
+  sbInitSceneSortable();
+}
+
+// Scenes are reordered by dragging the handle in their row; the order lives in
+// `story.scenes` (the array IS the order). Only the ACTIVE story's list is
+// rendered, so this is a within-story reorder.
+function sbInitSceneSortable() {
+  if (sbSceneSortable) {
+    sbSceneSortable.destroy();
+    sbSceneSortable = null;
+  }
+  if (typeof Sortable === "undefined" || !sbToolbarEls.body) return;
+  var list = sbToolbarEls.body.querySelector(".sb-story-scenes");
+  if (!list) return;
+  sbSceneSortable = new Sortable(list, {
+    animation: 150,
+    draggable: ".sb-board-row",
+    handle: ".drag-handle",
+    forceFallback: true,
+    fallbackOnBody: true,
+    ghostClass: "sortable-ghost",
+    fallbackClass: "sortable-fallback",
+    onEnd: sbSceneSortableEnd
+  });
+}
+
+function sbSceneSortableEnd() {
+  var story = sbActiveStory();
+  var list = sbToolbarEls.body ? sbToolbarEls.body.querySelector(".sb-story-scenes") : null;
+  if (!story || !list) return;
+  var byId = {};
+  story.scenes.forEach(function (scene) { byId[scene.id] = scene; });
+  var ordered = [];
+  Array.prototype.slice.call(list.querySelectorAll(".sb-board-row")).forEach(function (row) {
+    var scene = byId[row.dataset.boardId];
+    if (scene && ordered.indexOf(scene) === -1) ordered.push(scene);
+  });
+  // Anything the DOM did not list keeps its relative place at the end.
+  story.scenes.forEach(function (scene) { if (ordered.indexOf(scene) === -1) ordered.push(scene); });
+  if (!ordered.length) return;
+  story.scenes = ordered;
+  sbSaveState();
+  // Re-render OUTSIDE Sortable's callback: destroying the list it is still
+  // finishing with can throw, and the DOM already shows the new order.
+  setTimeout(sbRenderPanel, 0);
+}
+
+// The cog's inline form: canvas SIZE (presets + "Other" with free width/height)
+// and how the background fills it. Every change applies immediately (the board
+// resizes live), so this is the layout iteration loop.
+function sbStoryPropsHtml(story) {
+  var width = sbStoryWidth(story);
+  var height = sbStoryHeight(story);
+  var preset = sbState.storyPropsOther ? "other" : sbStoryPresetId(story);
+  var html = '<div class="sb-story-props" data-story-id="' + story.id + '">';
+  html += '<div class="sb-field-label">Size</div>';
+  html += '<smd-select id="sbStoryPreset" class="form-select form-select-sm">';
+  SB_STORY_PRESETS.forEach(function (item) {
+    html += '<option value="' + item.id + '">' + item.name + '</option>';
+  });
+  html += '<option value="other">Other...</option></smd-select>';
+  if (preset === "other") {
+    html += '<div class="sb-story-size">' +
+      '<input id="sbStoryWidth" class="form-control form-control-sm" type="number" inputmode="numeric" ' +
+        'min="' + SB_STORY_MIN_SIZE + '" max="' + SB_STORY_MAX_SIZE + '" step="1" value="' + width + '" aria-label="Width">' +
+      '<span class="sb-story-size-x">x</span>' +
+      '<input id="sbStoryHeight" class="form-control form-control-sm" type="number" inputmode="numeric" ' +
+        'min="' + SB_STORY_MIN_SIZE + '" max="' + SB_STORY_MAX_SIZE + '" step="1" value="' + height + '" aria-label="Height">' +
+      '</div>';
+  }
+  html += '<div class="sb-field-label">Background</div>';
+  html += '<smd-select id="sbStoryFit" class="form-select form-select-sm">';
+  SB_STORY_FITS.forEach(function (item) {
+    html += '<option value="' + item.id + '">' + item.name + '</option>';
+  });
+  html += '</smd-select>';
+  html += '<smd-button class="w-100" variant="success" size="small" block data-act="story-props-close" data-id="' + story.id + '">Done</smd-button>';
+  html += '</div>';
+  return html;
+}
+
+// Open/close a story''s inline properties form. `id` of "" closes whatever is
+// open; passing a different story moves the form to that row.
+function sbToggleStoryProps(id, closeId) {
+  if (closeId) sbState.storyPropsId = "";
+  else sbState.storyPropsId = sbState.storyPropsId === id ? "" : id;
+  // Reopening always starts from the story's real size (a preset when it matches
+  // one), so a previous "Other" entry never hides the free fields unexpectedly.
+  sbState.storyPropsOther = false;
+  sbRenderPanel();
+}
+
+// Story-properties form changes (all apply LIVE so the board resizes as you try
+// sizes out). A preset sets width+height; Other reveals the free fields.
+function sbOnPanelChange(e) {
+  var t = e.target;
+  if (!t || !t.id) return;
+  var story = sbState.storyPropsId ? sbFindStory(sbState.storyPropsId) : null;
+  if (!story) return;
+
+  if (t.id === "sbStoryPreset") {
+    if (t.value === "other") {
+      // Reveal the free width/height fields (no size change until they are set).
+      sbState.storyPropsOther = true;
+      sbRenderPanel();
+      var widthEl = document.getElementById("sbStoryWidth");
+      if (widthEl) widthEl.focus();
+      return;
+    }
+    var preset = sbStoryPresetById(t.value);
+    if (preset) {
+      sbState.storyPropsOther = false;
+      sbSetStoryProperties(story.id, { width: preset.width, height: preset.height });
+    }
+    return;
+  }
+
+  if (t.id === "sbStoryWidth" || t.id === "sbStoryHeight") {
+    var widthEl = document.getElementById("sbStoryWidth");
+    var heightEl = document.getElementById("sbStoryHeight");
+    sbSetStoryProperties(story.id, {
+      width: widthEl ? widthEl.value : sbStoryWidth(story),
+      height: heightEl ? heightEl.value : sbStoryHeight(story)
+    });
+    return;
+  }
+
+  if (t.id === "sbStoryFit") {
+    sbSetStoryProperties(story.id, { backgroundFit: t.value });
+  }
 }
 
 // Replace a row's clickable label with an input; Enter/blur saves, Escape cancels.
-function sbBeginInlineRename(row, pickSelector, currentName, onSave) {
+// `validate(value)` returns "" to accept or a message to show; a rejected value
+// keeps the editor open (and the old name intact) so the user can correct it.
+function sbBeginInlineRename(row, pickSelector, currentName, onSave, validate) {
   var pick = row && row.querySelector(pickSelector);
   if (!pick) return;
-  pick.innerHTML = '<input class="form-control form-control-sm sb-board-name-input" value="' + escAttr(currentName) + '">';
-  var input = pick.querySelector("input");
+  // The pick is an <smd-button> host now: replace the INNER button's content so
+  // the editor takes the same place the label had (the host itself must keep its
+  // real <button>).
+  var field = pick.querySelector("button") || pick;
+  field.innerHTML = '<input class="form-control form-control-sm sb-board-name-input" value="' + escAttr(currentName) + '">';
+  var input = field.querySelector("input");
   var done = false;
-  var finish = function (save) {
+  var errorEl = null;
+
+  function clearError() {
+    if (errorEl && errorEl.parentNode) errorEl.parentNode.removeChild(errorEl);
+    errorEl = null;
+    input.classList.remove("is-invalid");
+  }
+  function showError(message) {
+    clearError();
+    errorEl = document.createElement("p");
+    errorEl.className = "sb-panel-note sb-rename-error text-danger";
+    errorEl.textContent = message;
+    row.parentNode.insertBefore(errorEl, row.nextSibling);
+    input.classList.add("is-invalid");
+  }
+
+  var finish = function (save, refocus) {
     if (done) return;
+    if (save && typeof validate === "function") {
+      var message = validate(input.value);
+      if (message) {
+        showError(message);
+        if (refocus) { input.focus(); input.select(); }
+        return;
+      }
+    }
     done = true;
     if (save) onSave(input.value);
     else sbRenderPanel();
   };
   input.addEventListener("keydown", function (e) {
-    if (e.key === "Enter") { e.preventDefault(); finish(true); }
+    if (e.key === "Enter") { e.preventDefault(); finish(true, true); }
     else if (e.key === "Escape") { e.preventDefault(); finish(false); }
   });
-  input.addEventListener("blur", function () { finish(true); });
+  input.addEventListener("input", clearError);
+  // A blur with an invalid value shows the reason but does not steal focus back.
+  input.addEventListener("blur", function () { if (!done) finish(true, false); });
   input.focus();
   input.select();
 }
@@ -205,8 +397,12 @@ function sbStartRenameStory(id) {
   var story = sbFindStory(id);
   var row = sbToolbarEls.body.querySelector('.sb-story-row[data-story-id="' + id + '"]');
   if (!story || !row) return;
+  // Story names must be unique (they also name the OneDrive folder), so the
+  // editor refuses a duplicate and says which story already has it.
   sbBeginInlineRename(row, ".sb-story-pick", story.name, function (name) {
     sbRenameStory(id, name);
+  }, function (name) {
+    return typeof sbStoryNameError === "function" ? sbStoryNameError(name, id) : "";
   });
 }
 
@@ -246,49 +442,224 @@ function sbConfirmDeleteStory(id) {
 
 // ---- Background ------------------------------------------------------------
 
-function sbRenderBackgroundPanel() {
-  var board = sbActiveBoard();
-  var current = board ? board.background : "";
+// The Background panel is the Standard grid (None / Space / Underwater) plus,
+// when OneDrive is enabled and signed in, Library (<Directory>/Backgrounds) and
+// Board (<Directory>/<story>/Backgrounds) tabs. Their grids use small Graph
+// thumbnails; the full painting is fetched when one is chosen. See
+// js/background-library.js.
+var SB_BG_PANEL_NOTE = "Backgrounds cover the whole board. Items keep their place when you switch.";
+
+function sbBgTileHtml(bg, current) {
+  return '<button type="button" class="sb-bg-option' + (current === bg.id ? " active" : "") + '" data-bg="' + bg.id + '">' +
+    '<img class="sb-bg-preview" src="' + bg.img + '" alt="">' +
+    '<span>' + escapeHtml(bg.name) + '</span></button>';
+}
+
+function sbBgStandardGridHtml(current) {
   var html = '<div class="sb-bg-grid">';
   html += '<button type="button" class="sb-bg-option' + (current === "" ? " active" : "") + '" data-bg="">' +
     '<span class="sb-bg-preview sb-bg-preview-none"><i class="fa-solid fa-border-none"></i></span>' +
     '<span>None</span></button>';
   SB_BACKGROUNDS.forEach(function (bg) {
-    html += '<button type="button" class="sb-bg-option' + (current === bg.id ? " active" : "") + '" data-bg="' + bg.id + '">' +
-      '<img class="sb-bg-preview" src="' + bg.file + '" alt="">' +
-      '<span>' + bg.name + '</span></button>';
+    html += sbBgTileHtml({ id: bg.id, name: bg.name, img: bg.file }, current);
   });
   html += '</div>';
-  html += '<p class="sb-panel-note">Backgrounds cover the whole board. Items keep their place when you switch.</p>';
-  sbToolbarEls.body.innerHTML = html;
+  return html;
+}
+
+function sbBgLibraryGridHtml(which, current) {
+  var tiles = typeof sbBgPanelTiles === "function" ? sbBgPanelTiles(which) : [];
+  var html = '<div class="sb-bg-grid">';
+  tiles.forEach(function (bg) { html += sbBgTileHtml(bg, current); });
+  html += '</div>';
+  if (!tiles.length) html += '<p class="sb-panel-note">No images in this folder yet.</p>';
+  return html;
+}
+
+function sbRenderBackgroundPanel(skipRefresh) {
+  var board = sbActiveBoard();
+  var current = board ? board.background : "";
+  var tabs = typeof sbBgTabs === "function" ? sbBgTabs() : [];
+  var note = '<p class="sb-panel-note">' + SB_BG_PANEL_NOTE + '</p>';
+  var status = typeof sbBgStatusNote === "function" ? sbBgStatusNote() : "";
+  if (status) {
+    var kind = typeof sbBgStatusKind === "function" ? sbBgStatusKind() : "";
+    var signIn = kind === "signin"
+      ? '<smd-button class="sb-bg-signin" variant="primary" size="small" icon="fa-solid fa-right-to-bracket">Sign in</smd-button> '
+      : "";
+    note += '<p class="sb-panel-note sb-bg-status">' + escapeHtml(status) + ' ' + signIn +
+      '<smd-button class="sb-bg-retry" variant="secondary" size="small">Retry</smd-button></p>';
+  }
+
+  if (!tabs.length) {
+    sbState.bgTab = "standard";
+    sbToolbarEls.body.innerHTML = sbBgStandardGridHtml(current) + note;
+    if (!skipRefresh) sbBgRefreshPanel();
+    return;
+  }
+
+  sbToolbarEls.body.innerHTML = '<smd-tabs id="sbBgTabs" wrap padding="small"></smd-tabs>' + note;
+  var tabsEl = document.getElementById("sbBgTabs");
+  if (!tabsEl) return;
+  var active = sbState.bgTab || "standard";
+  var index = 0;
+  tabs.forEach(function (tab, i) { if (tab.id === active) index = i; });
+
+  tabsEl.tabs = tabs.map(function (tab) {
+    var content = tab.id === "standard"
+      ? sbBgStandardGridHtml(current)
+      : sbBgLibraryGridHtml(tab.id, current);
+    return { title: tab.title, content: content };
+  });
+  tabsEl.activeIndex = index;
+  tabsEl.addEventListener("smd-tabs-change", function (event) {
+    var detail = event.detail || {};
+    var picked = tabs[detail.index] || tabs[0];
+    if (picked) sbSelectBgTab(picked.id);
+  });
+
+  sbSelectBgTab(tabs[index].id);
+  if (!skipRefresh) sbBgRefreshPanel();
+}
+
+// Remember the open tab and fetch that folder's thumbnails (only the visible tab
+// costs any traffic).
+function sbSelectBgTab(id) {
+  sbState.bgTab = id;
+  if (typeof sbBgEnsureThumbs !== "function") return;
+  if (id === "library" || id === "board") sbBgEnsureThumbs(id);
+}
+
+// Rebuild the panel only when what it SHOWS changed (tab set or status); a plain
+// listing change just refreshes the open tab's thumbnails.
+function sbBgRefreshPanel() {
+  if (typeof sbBgRefreshFolders !== "function") return;
+  if (typeof sbBgLibraryEnabled === "function" && !sbBgLibraryEnabled()) return;
+  var before = typeof sbBgPanelSignature === "function" ? sbBgPanelSignature() : "";
+  sbBgRefreshFolders(!sbBgTabs().length).then(function () {
+    if (sbState.tool !== "background") return;
+    var after = typeof sbBgPanelSignature === "function" ? sbBgPanelSignature() : "";
+    if (after !== before) {
+      sbRenderBackgroundPanel(true);
+      return;
+    }
+    sbSelectBgTab(sbState.bgTab || "standard");
+  }).catch(function () { /* offline: cached artwork remains */ });
 }
 
 // ---- Stickers --------------------------------------------------------------
 
-function sbRenderStickersPanel() {
-  var html = '<div class="sb-sticker-grid">';
-  SB_STICKERS.forEach(function (sticker) {
-    html += '<button type="button" class="sb-sticker-option" data-sticker="' + sticker.id + '">' +
-      '<img src="' + sticker.file + '" alt="">' +
-      '<span>' + sticker.name + '</span></button>';
+// The Stickers panel is the Standard gallery plus (when OneDrive is enabled and
+// signed in) a Library and a Board tab listing <Directory>/Stickers and
+// <Directory>/<story>/Stickers. See js/sticker-library.js.
+var SB_STICKER_PANEL_NOTE =
+  "Tap a sticker to place it, then drag it, use the handles, or pinch and twist with two fingers.";
+
+function sbRenderStickersPanel(skipRefresh) {
+  var tabs = typeof sbStickerTabs === "function" ? sbStickerTabs() : [];
+  var note = '<p class="sb-panel-note">' + SB_STICKER_PANEL_NOTE + "</p>";
+  var status = typeof sbStickerStatusNote === "function" ? sbStickerStatusNote() : "";
+  if (status) {
+    // A failed listing must never be invisible: say what went wrong, which
+    // folders were tried, and offer the action that fixes it.
+    var kind = typeof sbStickerStatusKind === "function" ? sbStickerStatusKind() : "";
+    var signIn = kind === "signin"
+      ? '<smd-button class="sb-sticker-signin" variant="primary" size="small" icon="fa-solid fa-right-to-bracket">Sign in</smd-button> '
+      : "";
+    note += '<p class="sb-panel-note sb-sticker-status">' + escapeHtml(status) + ' ' + signIn +
+      '<smd-button class="sb-sticker-retry" variant="secondary" size="small">Retry</smd-button></p>';
+  }
+
+  if (!tabs.length) {
+    // No OneDrive (or no library folders): exactly the list the panel had before.
+    sbState.stickerTab = "standard";
+    sbToolbarEls.body.innerHTML = '<sb-sticker-gallery source="standard"></sb-sticker-gallery>' + note;
+    sbApplyStickerGalleries();
+    if (!skipRefresh) sbStickerRefreshPanel();
+    return;
+  }
+
+  sbToolbarEls.body.innerHTML = '<smd-tabs id="sbStickerTabs" wrap padding="small"></smd-tabs>' + note;
+  var tabsEl = document.getElementById("sbStickerTabs");
+  if (!tabsEl) return;
+  var active = sbState.stickerTab || "standard";
+  var index = 0;
+  tabs.forEach(function (tab, i) { if (tab.id === active) index = i; });
+
+  tabsEl.tabs = tabs.map(function (tab) {
+    return {
+      title: tab.title,
+      content: '<sb-sticker-gallery source="' + tab.id + '"></sb-sticker-gallery>'
+    };
   });
-  html += '</div>';
-  html += '<p class="sb-panel-note">Tap a sticker to place it, then drag it, use the handles, or pinch and twist with two fingers.</p>';
-  sbToolbarEls.body.innerHTML = html;
+  tabsEl.activeIndex = index;
+  tabsEl.addEventListener("smd-tabs-change", function (event) {
+    var detail = event.detail || {};
+    var picked = tabs[detail.index] || tabs[0];
+    if (picked) sbSelectStickerTab(picked.id);
+  });
+
+  sbApplyStickerGalleries();
+  sbSelectStickerTab(tabs[index].id);
+  if (!skipRefresh) sbStickerRefreshPanel();
+}
+
+// Remember the open tab and make sure its images are cached/downloaded (only
+// the tab the user actually opens costs any network traffic).
+function sbSelectStickerTab(id) {
+  sbState.stickerTab = id;
+  if (typeof sbStickerEnsureImages !== "function") return;
+  if (id === "library" || id === "board") sbStickerEnsureImages(id);
+}
+
+function sbApplyStickerGalleries() {
+  if (!sbToolbarEls.body || typeof sbStickerGalleryData !== "function") return;
+  var galleries = sbToolbarEls.body.querySelectorAll("sb-sticker-gallery");
+  for (var i = 0; i < galleries.length; i++) {
+    var which = galleries[i].getAttribute("source") || "standard";
+    galleries[i].stickers = sbStickerGalleryData(which);
+  }
+}
+
+// A folder can appear or disappear between visits, and a failed listing adds a
+// status line: rebuild the panel only when what it SHOWS actually changed
+// (`sbStickerPanelSignature`), otherwise just re-apply the gallery data.
+function sbStickerRefreshPanel() {
+  if (typeof sbStickerRefreshFolders !== "function") return;
+  if (typeof sbStickerLibraryEnabled === "function" && !sbStickerLibraryEnabled()) return;
+  var before = typeof sbStickerPanelSignature === "function" ? sbStickerPanelSignature() : "";
+  // Opening the panel always lists once, even inside the 5s guard: otherwise a
+  // refresh that ran at boot (and failed) would leave the tabs hidden until the
+  // panel was closed and reopened.
+  sbStickerRefreshFolders(!sbStickerTabs().length).then(function () {
+    if (sbState.tool !== "stickers") return;
+    var after = typeof sbStickerPanelSignature === "function" ? sbStickerPanelSignature() : "";
+    if (after !== before) {
+      sbRenderStickersPanel(true);
+      return;
+    }
+    sbApplyStickerGalleries();
+    sbSelectStickerTab(sbState.stickerTab || "standard");
+  }).catch(function () { /* offline: cached stickers remain */ });
 }
 
 function sbAddSticker(id) {
   var board = sbActiveBoard();
-  if (!board || !sbStickerById(id)) return;
+  var meta = sbStickerById(id);
+  if (!board || !meta) return;
   var n = board.items.length;
-  sbAddItem({
+  var item = {
     type: "sticker",
     sticker: id,
     x: 50 + (n % 4) * 4,
     y: 50 + (n % 3) * 4,
     scale: 1,
     rotation: 0
-  });
+  };
+  // OneDrive stickers keep their file name in the board data: it is the caption
+  // shown before the library has been listed again (and in a restored backup).
+  if (meta.fileName) item.stickerName = meta.fileName;
+  sbAddItem(item);
   sbRender();
 }
 
@@ -315,22 +686,20 @@ function sbRenderTextPanel() {
   html += '</smd-select>';
   html += '<div id="sbFontPreview" class="sb-font-preview sb-font-' + font + '">The quick brown fox</div>';
 
-  html += '<div class="sb-field-label">Background</div><div class="sb-swatches">';
-  SB_BG_TOKENS.forEach(function (token) { html += sbSwatchHtml("bg", token, bg === token); });
-  html += '</div>';
+  html += '<div class="sb-field-label">Background</div>';
+  html += '<smd-color-picker id="sbTextBg" value="' + escAttr(sbPaintPickerValue(bg, "transparent")) + '" empty-label="Transparent"></smd-color-picker>';
 
   html += '<div class="sb-field-label">Border</div><div class="sb-border-grid">';
   SB_TEXT_BORDERS.forEach(function (b) { html += sbBorderOptionHtml(b, border === b.id); });
   html += '</div>';
 
-  html += '<div class="sb-field-label">Text colour</div><div class="sb-swatches">';
-  SB_TEXT_TOKENS.forEach(function (token) { html += sbSwatchHtml("color", token, color === token); });
-  html += '</div>';
+  html += '<div class="sb-field-label">Text colour</div>';
+  html += '<smd-color-picker id="sbTextColor" value="' + escAttr(sbPaintPickerValue(color, "auto")) + '" empty-label="Automatic"></smd-color-picker>';
 
   if (item) {
-    html += '<button type="button" id="sbDoneText" class="btn btn-primary w-100">Done</button>';
+    html += '<smd-button id="sbDoneText" variant="primary" block>Done</smd-button>';
   } else {
-    html += '<button type="button" id="sbPlaceText" class="btn btn-primary w-100"' + (text.trim() ? "" : " disabled") + '>Place text</button>';
+    html += '<smd-button id="sbPlaceText" variant="primary" block' + (text.trim() ? "" : " disabled") + '>Place text</smd-button>';
   }
   html += '<p class="sb-panel-note">Double-click or double-tap a text box on the board to edit it again.</p>';
 
@@ -340,6 +709,10 @@ function sbRenderTextPanel() {
     if (fontSel.value !== font) fontSel.value = font;
     fontSel.addEventListener("change", function () { sbTextField("font", fontSel.value); });
   }
+  // The colour pickers replace the old theme swatches: a picked colour is a fixed
+  // hex, so the scene looks the same on every theme. Empty = Transparent/Automatic.
+  sbBindPaintPicker("sbTextBg", function (value) { sbTextField("bg", value || "transparent"); });
+  sbBindPaintPicker("sbTextColor", function (value) { sbTextField("color", value || "auto"); });
   var input = document.getElementById("sbTextInput");
   if (input) {
     sbTogglePlaceButton();
@@ -348,13 +721,6 @@ function sbRenderTextPanel() {
       try { input.setSelectionRange(input.value.length, input.value.length); } catch (e) {}
     }
   }
-}
-
-function sbSwatchHtml(field, token, active) {
-  var label = token === "transparent" ? "Transparent" : token === "auto" ? "Automatic" : token.charAt(0).toUpperCase() + token.slice(1);
-  var cls = "sb-swatch" + (token === "transparent" ? " sb-swatch-transparent" : "") + (active ? " active" : "");
-  return '<button type="button" class="' + cls + '" data-field="' + field + '" data-token="' + token + '" title="' + label +
-    '" aria-label="' + label + '" style="--sb-swatch:' + sbTokenCss(token) + '"></button>';
 }
 
 function sbBorderOptionHtml(border, active) {
@@ -367,7 +733,10 @@ function sbTogglePlaceButton() {
   var btn = document.getElementById("sbPlaceText");
   var input = document.getElementById("sbTextInput");
   if (!btn || !input || sbState.editingTextId) return;
-  btn.disabled = !input.value.trim();
+  // The shared component mirrors `disabled` onto its inner button; set the
+  // ATTRIBUTE so it also works before the element has upgraded.
+  if (input.value.trim()) btn.removeAttribute("disabled");
+  else btn.setAttribute("disabled", "");
 }
 
 function sbTextField(field, value) {
@@ -388,14 +757,9 @@ function sbTextField(field, value) {
 }
 
 function sbMarkTextChoice(field, value) {
-  if (field === "border") {
-    sbToolbarEls.body.querySelectorAll(".sb-border-option").forEach(function (btn) {
-      btn.classList.toggle("active", btn.dataset.border === value);
-    });
-    return;
-  }
-  sbToolbarEls.body.querySelectorAll('.sb-swatch[data-field="' + field + '"]').forEach(function (btn) {
-    btn.classList.toggle("active", btn.dataset.token === value);
+  if (field !== "border") return;
+  sbToolbarEls.body.querySelectorAll(".sb-border-option").forEach(function (btn) {
+    btn.classList.toggle("active", btn.dataset.border === value);
   });
 }
 
@@ -444,6 +808,125 @@ function sbOpenTextEditor(id) {
   sbOpenTool("text");
 }
 
+// ---- Notes -----------------------------------------------------------------
+//
+// A note is an EDITOR CUE, not artwork: a coloured fa:sticky-note glyph placed
+// where you want a reminder. Its text lives in this panel (and the object's
+// tooltip), it scales like a sticker, never rotates, and is never drawn into the
+// downloaded JPG (or the story ZIP). It IS part of the scene JSON, so the MinIO
+// and OneDrive story saves carry it.
+
+function sbRenderNotePanel() {
+  if (sbState.editingNoteId && !sbFindItem(sbState.editingNoteId)) sbState.editingNoteId = "";
+  var item = sbState.editingNoteId ? sbFindItem(sbState.editingNoteId) : null;
+  var draft = sbState.noteDraft || { color: SB_NOTE_DEFAULT_COLOR };
+  var colour = item ? item.color : draft.color;
+  var text = item ? item.text : "";
+
+  var html = '<label class="form-label sb-field-label" for="sbNoteInput">Note</label>';
+  html += '<textarea id="sbNoteInput" class="form-control" rows="5" placeholder="Type your note">' + escapeHtml(text) + '</textarea>';
+  html += '<div class="sb-field-label">Colour</div>';
+  html += '<smd-color-picker id="sbNoteColor" value="' + escAttr(colour) + '"></smd-color-picker>';
+  if (item) {
+    html += '<smd-button id="sbDoneNote" variant="primary" block>Done</smd-button>';
+  } else {
+    html += '<smd-button id="sbPlaceNote" variant="primary" block' + (text.trim() ? "" : " disabled") + '>Add note</smd-button>';
+  }
+  html += '<p class="sb-panel-note">Click a note on the board to edit it again. Notes are only reminders - they are never included in the downloaded image.</p>';
+
+  sbToolbarEls.body.innerHTML = html;
+  sbBindPaintPicker("sbNoteColor", function (value) { sbNoteField("color", value || SB_NOTE_DEFAULT_COLOR); });
+  var input = document.getElementById("sbNoteInput");
+  if (input) {
+    sbTogglePlaceNoteButton();
+    if (item) {
+      input.focus();
+      try { input.setSelectionRange(input.value.length, input.value.length); } catch (e) {}
+    }
+  }
+}
+
+function sbTogglePlaceNoteButton() {
+  var btn = document.getElementById("sbPlaceNote");
+  var input = document.getElementById("sbNoteInput");
+  if (!btn || !input || sbState.editingNoteId) return;
+  // The shared component mirrors `disabled` onto its inner button, so setting the
+  // ATTRIBUTE also works before the element has upgraded.
+  if (input.value.trim()) btn.removeAttribute("disabled");
+  else btn.setAttribute("disabled", "");
+}
+
+// Apply one field to the note being edited (live) or to the draft for the next.
+function sbNoteField(field, value) {
+  var item = sbState.editingNoteId ? sbFindItem(sbState.editingNoteId) : null;
+  if (item) {
+    item[field] = value;
+    sbSaveSoon();
+    sbApplyNoteStyle(item);
+    return;
+  }
+  if (!sbState.noteDraft) sbState.noteDraft = { color: SB_NOTE_DEFAULT_COLOR };
+  sbState.noteDraft[field] = value;
+}
+
+function sbPlaceNote() {
+  var input = document.getElementById("sbNoteInput");
+  var text = input ? input.value : "";
+  if (!text.trim()) return;
+  var board = sbActiveBoard();
+  if (!board) return;
+  var draft = sbState.noteDraft || { color: SB_NOTE_DEFAULT_COLOR };
+  var n = board.items.length;
+  var item = sbAddItem({
+    type: "note",
+    text: text,
+    color: draft.color,
+    x: 50 + (n % 4) * 4,
+    y: 50 + (n % 3) * 5,
+    scale: 1,
+    rotation: 0
+  });
+  if (!item) return;
+  sbState.editingNoteId = item.id;
+  sbRender();
+  sbRenderPanel();
+}
+
+function sbDoneNote() {
+  sbState.editingNoteId = "";
+  sbClosePanel();
+}
+
+// A click (not a drag) on a note opens this panel in edit mode. board.js calls
+// this from its pointerup handler.
+function sbOpenNoteEditor(id) {
+  var item = sbFindItem(id);
+  if (!item || item.type !== "note") return;
+  // Same gesture guard as the text editor: the click that follows must not reach
+  // the panel's outside-click handler and close what we just opened.
+  sbState.panelClickAt = Date.now();
+  sbState.editingNoteId = id;
+  sbSelect(id);
+  sbOpenTool("note");
+}
+
+function sbBindPaintPicker(id, apply) {
+  var el = document.getElementById(id);
+  if (!el) return;
+  el.addEventListener("smd-color-picker-change", function (e) {
+    apply(e && e.detail ? e.detail.value : "");
+  });
+}
+
+// What a picker should show for a stored text paint: "" for the theme choice,
+// the fixed hex itself, or the RESOLVED theme colour so the swatch starts on
+// what is actually on screen.
+function sbPaintPickerValue(value, emptyToken) {
+  if (!value || value === emptyToken) return "";
+  if (sbIsHexColor(value)) return value;
+  return sbResolveColor(value);
+}
+
 // ---- Panel event delegation ------------------------------------------------
 
 function sbOnPanelClick(e) {
@@ -455,7 +938,13 @@ function sbOnPanelClick(e) {
     var id = act.dataset.id;
     if (act.dataset.act === "pick") sbSetActiveBoard(id);
     else if (act.dataset.act === "pick-story") sbSetActiveStory(id);
+    else if (act.dataset.act === "story-props") sbToggleStoryProps(id);
+    else if (act.dataset.act === "story-props-close") sbToggleStoryProps("", id);
     else if (act.dataset.act === "rename") sbStartRename(id);
+    else if (act.dataset.act === "duplicate") {
+      sbDuplicateBoard(id);
+      sbRenderPanel();
+    }
     else if (act.dataset.act === "rename-story") sbStartRenameStory(id);
     else if (act.dataset.act === "delete") sbConfirmDeleteBoard(id);
     else if (act.dataset.act === "delete-story") sbConfirmDeleteStory(id);
@@ -475,6 +964,31 @@ function sbOnPanelClick(e) {
     sbDoneText();
     return;
   }
+  if (t.closest && t.closest("#sbPlaceNote")) {
+    sbPlaceNote();
+    return;
+  }
+  if (t.closest && t.closest("#sbDoneNote")) {
+    sbDoneNote();
+    return;
+  }
+
+  if (t.closest && t.closest(".sb-bg-signin")) {
+    if (typeof sbBgSignIn === "function") sbBgSignIn();
+    return;
+  }
+  if (t.closest && t.closest(".sb-bg-retry")) {
+    if (typeof sbBgRetry === "function") sbBgRetry();
+    return;
+  }
+  if (t.closest && t.closest(".sb-sticker-signin")) {
+    if (typeof sbStickerSignIn === "function") sbStickerSignIn();
+    return;
+  }
+  if (t.closest && t.closest(".sb-sticker-retry")) {
+    if (typeof sbStickerRetry === "function") sbStickerRetry();
+    return;
+  }
 
   var bgOpt = t.closest ? t.closest(".sb-bg-option") : null;
   if (bgOpt) {
@@ -488,11 +1002,6 @@ function sbOnPanelClick(e) {
     return;
   }
 
-  var swatch = t.closest ? t.closest(".sb-swatch") : null;
-  if (swatch) {
-    sbTextField(swatch.dataset.field, swatch.dataset.token);
-    return;
-  }
 
   var borderOpt = t.closest ? t.closest(".sb-border-option") : null;
   if (borderOpt) {
@@ -501,7 +1010,18 @@ function sbOnPanelClick(e) {
 }
 
 function sbOnPanelInput(e) {
-  if (!e.target || e.target.id !== "sbTextInput") return;
+  if (!e.target) return;
+  if (e.target.id === "sbNoteInput") {
+    var note = sbState.editingNoteId ? sbFindItem(sbState.editingNoteId) : null;
+    if (note) {
+      note.text = e.target.value;
+      sbSaveSoon();
+      sbApplyNoteStyle(note);
+    }
+    sbTogglePlaceNoteButton();
+    return;
+  }
+  if (e.target.id !== "sbTextInput") return;
   var item = sbState.editingTextId ? sbFindItem(sbState.editingTextId) : null;
   if (item) {
     item.text = e.target.value;
