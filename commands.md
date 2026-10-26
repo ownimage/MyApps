@@ -39,6 +39,17 @@ Then visit: <http://localhost:8080/storybook/index.html>
 
 The chosen theme is remembered in `localStorage` (`storybook_theme`). Each section shows live demo instances; interactive bits (modal/page open, tab switching, stream-header expand, active toggles, card buttons) emit their normal composed events into the section's event log.
 
+### Blender add-on tests (Mouser Step Controls)
+The add-on is Blender Python (`bpy`), so it is NOT collected by Playwright
+directly - `tests/blender-addon.spec.js` runs it inside Blender from the JS suite,
+so `npm test` (any shard included) covers it automatically. That wrapper SKIPS
+with a clear reason when Blender is not installed; `BLENDER_EXE` overrides the
+install it finds. Run the checks on their own with:
+```bash
+"C:\Program Files\Blender Foundation\Blender 4.4\blender.exe" -b --python remoteHID\blender\test_step_controls.py
+```
+One `PASS`/`FAIL` line per check, exit code 1 on failure.
+
 ### SampleImages
 ```bash
 npx playwright test tests/sample-images.spec.js --workers 1

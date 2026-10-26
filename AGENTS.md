@@ -8787,3 +8787,107 @@ Techniques / gotchas:
   `tests/storybook-regression.spec.js`), verified with
   `storybook-regression` 8/8 and a screenshot of the section (fixed colour,
   Automatic choice, disabled). BUILD -> `202610261523`.
+
+### 2026-10-26 (i) - Blender add-on: Smart axis space (camera X/Y, world Z)
+
+- REQUEST (user): an extra axis option called "Smart" where one axis is the
+  traditional Z, and the other two lie in the XY plane: the first is the
+  projection of the camera-to-object-centre ray, the other 90 degrees from it.
+  Answers: camera view uses the SCENE CAMERA, otherwise the 3D VIEWPORT; X = away
+  from the camera, Y = 90 degrees, Z = world up; the shared/per-object rule
+  follows the Pivot preference; add a headless Blender test + docs.
+- BUILT (`remoteHID/blender/mouser_step_controls.py`, add-on version 1.2.0):
+  `space` gained `SMART` ("Smart (Camera + World Z)"). New module helpers:
+  `_view_eye` (camera view -> `scene.camera.matrix_world.translation`; otherwise
+  `region_3d.view_matrix.inverted().translation`, falling back to
+  `view_location + (view_rotation @ (0,0,1)) * view_distance`),
+  `_view_forward` (`view_rotation @ (0,0,-1)`, or the camera's own -Z),
+  `_view_right` (`view_rotation @ (1,0,0)`), `_flat` (project onto XY, None when
+  shorter than `_SMART_EPSILON` = 1e-4), `_smart_horizontal_axis`
+  (ray -> view forward -> viewport right -> world +Y),
+  `_smart_basis` -> `(x, x.cross(UP).normalized(), world up)`, `_world_axis`
+  (resolves one AXIS letter for GLOBAL/SMART), and `_pivot_point` (cursor or the
+  median, shared by both operators). Both operators now take the axis per
+  object/basis: rotation builds the matrix inside the loop (LOCAL still
+  right-multiplies a WORLD axis exactly as before), translation adds
+  `_world_axis(...) * distance` (SMART + Individual Origins = each object's own
+  ray, otherwise one shared delta). Existing saved preferences stay valid (the
+  enum only gained a value) and the F13-F24 bindings are untouched.
+- WHY IT FEELS RIGHT: the Z pair is unchanged (turntable spin about world Z /
+  straight up-down), while the X/Y pair tracks the camera's horizontal bearing,
+  so "into the screen" and "left/right" stay true however far the view orbited.
+  Rotation about X is a roll about the horizontal line of sight, about Y a
+  tilt/nod, about Z the old turntable spin. Any direction that feels reversed is
+  a one-key fix in the PhoneButtons Mouser layout.
+- TESTS: NEW `remoteHID/blender/test_step_controls.py` (21 checks, run with
+  `"C:\Program Files\Blender Foundation\Blender 4.4\blender.exe" -b --python
+  remoteHID\blender\test_step_controls.py`, exits non-zero on failure). TDD:
+  written FIRST and red (15/21 failed: no `_smart_basis`, Smart ignored).
+  Covers the basis (unit length, perpendicular, `z == 0` on both in-plane axes,
+  world-Z vertical, elevation sweep 5..88 and -35 degrees, each object's own ray),
+  the top-down fallback (world +Y without a view, the viewport right axis with
+  one), camera-view vs viewport source, every operator path (rotate Z/Y, translate
+  X/Y/Z, turned camera, Individual vs Median basis, rotation about the median
+  pivot), and GLOBAL/LOCAL regressions. MUTATION-CHECKED: returning the world
+  axes from `_smart_basis` fails 9 checks; ignoring the camera in camera view
+  fails exactly the camera-source check. Also smoke-tested the REAL add-on
+  lifecycle (enable -> `space` enum contains `['GLOBAL','LOCAL','SMART']` ->
+  select SMART -> version (1,2,0) -> disable) using throwaway
+  `BLENDER_USER_SCRIPTS` / `BLENDER_USER_CONFIG` env vars.
+- GOTCHAS (all cost a debugging round):
+  (a) `camera.matrix_world` is CACHED - a freshly created/moved camera still
+  reports the IDENTITY transform until a depsgraph update, so several early
+  checks passed by ACCIDENT through the fallback chain. Any Blender test must
+  `bpy.context.view_layer.update()` before reading `matrix_world`.
+  (b) `AddonPreferences` CANNOT be registered outside a real add-on module
+  (`bpy.utils.register_class` fails, so `bpy.types.<Class>` is missing). To check
+  a property definition without enabling anything, read
+  `Class.__annotations__["space"].keywords["items"]`. To enable for real, point
+  `BLENDER_USER_SCRIPTS` at a temp dir holding `addons/<file>.py` (plus a temp
+  `BLENDER_USER_CONFIG`); `preferences.filepaths.script_directories` is NOT
+  addable at runtime (`attribute "add" not found`).
+  (c) `bpy.ops.wm.read_factory_settings` inside a test reloads add-ons and prints
+  an `addon_utils` traceback about `unregister_class`; empty the scene by hand
+  instead.
+  (d) In `blender -b` there is no `context.space_data`, so the viewport branch
+  needs a small stub context (`space_data.region_3d` with
+  `view_perspective`/`view_matrix`/`view_rotation`); the camera branch works via
+  `scene.camera`.
+  (e) The importlib load writes `remoteHID/blender/__pycache__`; the test sets
+  `sys.dont_write_bytecode = True` and `.gitignore` now ignores `__pycache__/` +
+  `*.pyc`.
+- DOCS: `remoteHID/blender/README.md` (Axis Space list, a Smart section incl. the
+  top-down fallback and how to flip a direction, plus a Tests section) and a
+  "Blender add-on tests" command in `commands.md`. No web asset changed, so
+  `BUILD_NUMBER` was NOT bumped (nothing Blender-related is precached).
+- WIRED INTO THE PLAYWRIGHT SUITE (2026-10-26, user question): the `.py` test file
+  is NOT collected by Playwright (its `testDir` only picks `*.spec.js`/`*.test.ts`,
+  and the projects select by `@contrast`/`@cache`/`pmd-touch`), so a manual command
+  was the only way to run it. NEW `tests/blender-addon.spec.js` (same pattern as
+  `tests/phonebuttons-server.spec.js`): finds `blender.exe` from `BLENDER_EXE`,
+  then the newest `%ProgramFiles%\Blender Foundation\Blender <ver>\`, then PATH,
+  and SKIPS with a reason when none is found (an explicitly set but missing
+  `BLENDER_EXE` FAILS instead); runs
+  `blender -b --factory-startup --python remoteHID/blender/test_step_controls.py`
+  with a 180s ceiling (`describe` timeout 240s), fails with the `FAIL`/`FAILED:`
+  lines plus the last 6000 chars of output, and asserts the `N checks, N failed`
+  summary has 0 failed AND `N >= MIN_CHECKS` (20) so a truncated test file cannot
+  pass silently. `--factory-startup` keeps the user's startup file/preferences/
+  enabled add-ons out of it. Runs in the chromium project (1.2s), so every
+  suite/shard covers it; no coverage hooks (no browser page).
+  MUTATION-CHECKED: flipping `y_axis = x_axis.cross(_WORLD_UP)` to `-UP` makes the
+  spec fail with `exit 1` + the three FAIL lines + the CheckFailed details;
+  restored and green again.
+- HOW TO CHECK A SPEC IS IN THE SUITE WITHOUT RUNNING IT (2026-10-26): a BARE
+  `playwright test --list` prints one line per collected test plus
+  `Total: N tests in M files`, but it ALSO rewrites `playwright-report/` with a
+  listing report in which EVERY test is recorded `skipped` (`stats: {total: N,
+  skipped: N}`) - it destroys the report from the last real run. Use
+  `playwright test --list --reporter=list` instead (verified: the report's mtime
+  and bytes are untouched). Cross-check a run with the arithmetic: the `--list`
+  total must equal the reported `N passed` for "everything ran" (a skip shows as
+  `N-1 passed, 1 skipped`). The HTML report is ONE `index.html` whose data is
+  `<template id="playwrightReportBase64">data:application/zip;base64,...</template>`,
+  so grepping for a test name finds nothing - decode it (base64 -> zip ->
+  `report.json`, shape `{files:[{fileName, tests:[{title, projectName, outcome,
+  ok, duration}]}], stats:{...}}`) to inspect it.
