@@ -8320,3 +8320,9 @@ Techniques / gotchas:
   every app's settings/pages). Visually checked the rail and both panels: the rail
   is pixel-comparable to before, rows keep their flat icons, `New story` stays
   full width. BUILD -> `202610261245`.
+- FOLLOW-UP (same day, user): button COLOURS - the story-properties "Done" is now
+  `variant="success"`, and "New scene" + "New story" are `variant="primary"`
+  (they were success). Only the markup changed; `tests/storyboard-buttons.spec.js`
+  asserts `/btn-success/` for Done and `/btn-primary/` for the two add buttons
+  (updated first, red, then green). 18/18 buttons/stories/props. BUILD ->
+  `202610261255`.

@@ -167,11 +167,11 @@ function sbRenderBoardsPanel() {
           (story.scenes.length < 2 ? " disabled" : "") + '></smd-button>' +
       '</div>';
     });
-    html += '<smd-button class="sb-add-scene" variant="success" size="small" data-act="add-scene" data-id="' + story.id + '" icon="fa-solid fa-plus">New scene</smd-button>';
+    html += '<smd-button class="sb-add-scene" variant="primary" size="small" data-act="add-scene" data-id="' + story.id + '" icon="fa-solid fa-plus">New scene</smd-button>';
     html += '</div>';
   });
   html += '</div>';
-  html += '<smd-button id="sbAddStory" variant="success" block icon="fa-solid fa-plus">New story</smd-button>';
+  html += '<smd-button id="sbAddStory" variant="primary" block icon="fa-solid fa-plus">New story</smd-button>';
   html += '<p class="sb-panel-note">A story contains scenes. Each scene is its own board with a background, stickers and text.</p>';
   sbToolbarEls.body.innerHTML = html;
 
@@ -218,7 +218,7 @@ function sbStoryPropsHtml(story) {
     html += '<option value="' + item.id + '">' + item.name + '</option>';
   });
   html += '</smd-select>';
-  html += '<smd-button class="w-100" variant="secondary" size="small" block data-act="story-props-close" data-id="' + story.id + '">Done</smd-button>';
+  html += '<smd-button class="w-100" variant="success" size="small" block data-act="story-props-close" data-id="' + story.id + '">Done</smd-button>';
   html += '</div>';
   return html;
 }

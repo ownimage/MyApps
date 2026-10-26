@@ -88,9 +88,9 @@ test.describe("Storyboard - smd-button conversion", () => {
     await isSmdButton(sceneRow.locator('.sb-board-act[data-act="delete"]'));
 
     await isSmdButton(page.locator(".sb-add-scene"));
-    await expect(page.locator(".sb-add-scene button")).toHaveClass(/btn-success/);
+    await expect(page.locator(".sb-add-scene button")).toHaveClass(/btn-primary/);
     await isSmdButton(page.locator("#sbAddStory"));
-    await expect(page.locator("#sbAddStory button")).toHaveClass(/btn-success/);
+    await expect(page.locator("#sbAddStory button")).toHaveClass(/btn-primary/);
     // The shared component's block mode keeps "New story" full width.
     await expect(page.locator("#sbAddStory")).toHaveAttribute("block", "");
   });
@@ -101,7 +101,7 @@ test.describe("Storyboard - smd-button conversion", () => {
     await page.locator('.sb-story-row[data-story-id="btn-story"] .sb-story-act[data-act="story-props"]').click();
 
     await isSmdButton(page.locator('.sb-story-props [data-act="story-props-close"]'));
-    await expect(page.locator('.sb-story-props [data-act="story-props-close"] button')).toHaveClass(/btn-secondary/);
+    await expect(page.locator('.sb-story-props [data-act="story-props-close"] button')).toHaveClass(/btn-success/);
 
     await page.locator('.sb-rail-btn[data-tool="text"]').click();
     const place = page.locator("#sbPlaceText");
