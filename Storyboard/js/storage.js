@@ -31,6 +31,9 @@ var SB_STICKERS = [
 // only stores that id plus the original file name, which keeps the story JSON
 // small; the byte payloads travel in the story backup instead.
 var SB_OD_STICKERS = {};
+// OneDrive BACKGROUND paintings, same scheme (`od:<hash>`): the scene stores only
+// the id; bytes/thumbnail come from the background library (js/background-library.js).
+var SB_OD_BACKGROUNDS = {};
 
 // Placeholder shown when a library sticker's bytes are not available yet (first
 // paint before the download lands, or a backup opened on a device that has never
@@ -128,6 +131,8 @@ var sbState = {
   // whether the user picked "Other" (free width/height) rather than a preset.
   storyPropsId: "",
   storyPropsOther: false,
+  // Which Background panel tab is open ("standard" | "library" | "board").
+  bgTab: "standard",
   // Stickers panel: the tab the user last picked and the story folder that tab
   // list was built for (see js/sticker-library.js).
   stickerTab: "standard"
@@ -163,11 +168,39 @@ function sbNormalizeViewFraction(value) {
   return Math.min(1.25, Math.max(-0.25, v));
 }
 
+function sbIsOdBackground(id) {
+  return /^od:[a-z0-9]+$/i.test(String(id || ""));
+}
+
+function sbRegisterOdBackground(meta) {
+  if (!meta || !sbIsOdBackground(meta.id)) return null;
+  var current = SB_OD_BACKGROUNDS[meta.id] || {};
+  Object.keys(meta).forEach(function (key) {
+    if (meta[key] !== undefined) current[key] = meta[key];
+  });
+  SB_OD_BACKGROUNDS[meta.id] = current;
+  return current;
+}
+
+// Built-in paintings, then the OneDrive registry. An unknown `od:` id is
+// registered empty so a board/scene loaded before the library is listed keeps its
+// background instead of silently falling back to none.
 function sbBackgroundById(id) {
   for (var i = 0; i < SB_BACKGROUNDS.length; i++) {
     if (SB_BACKGROUNDS[i].id === id) return SB_BACKGROUNDS[i];
   }
+  if (sbIsOdBackground(id)) {
+    return SB_OD_BACKGROUNDS[id] || sbRegisterOdBackground({ id: id, name: "" });
+  }
   return null;
+}
+
+// What to paint: the full image when it is available, else its thumbnail (so a
+// freshly chosen background shows instantly), else the built-in asset path.
+function sbBackgroundSrcFor(id) {
+  var meta = id ? sbBackgroundById(id) : null;
+  if (!meta) return "";
+  return meta.src || meta.thumbSrc || meta.file || "";
 }
 
 function sbIsOdSticker(id) {
@@ -991,6 +1024,9 @@ function sbSetBackground(id) {
   sbSaveState();
   sbRender();
   sbRenderPanel();
+  // A OneDrive painting only has its thumbnail in memory: fetch the full image so
+  // the board sharpens (js/background-library.js repaints when it lands).
+  if (typeof sbBgEnsureFull === "function") sbBgEnsureFull(board.background);
 }
 
 function sbAddItem(raw) {

@@ -117,6 +117,42 @@ Architecture:
   (`pick.querySelector("button")`) or the editor would land beside the label; (c)
   a `disabled` attribute authored on the host must be set/read as an ATTRIBUTE
   (`sbTogglePlaceButton`), never as a pre-upgrade JS property.
+- STORYBOARD ONEDRIVE BACKGROUND LIBRARIES (2026-10-26, user request): the
+  Background fly-out mirrors the sticker libraries - Standard (None / Space /
+  Underwater) plus "Library" (`<Directory>/Backgrounds`) and "Board"
+  (`<Directory>/<story>/Backgrounds`) tabs, each shown only when OneDrive is
+  enabled + signed in AND the folder exists. Files: `Storyboard/js/background-library.js`
+  (the whole feature), `oneDriveDownloadThumbnail()` in `shared/js/smd-onedrive.js`,
+  and `sbRenderBackgroundPanel()` in `toolbar.js` (tabs via `<smd-tabs
+  id="sbBgTabs">`, grids of `.sb-bg-option` buttons so the existing delegated
+  `sbSetBackground` click still works).
+  TWO DIFFERENCES from stickers (user decisions): the GRID downloads small Graph
+  THUMBNAILS (`/thumbnails/0/medium/content`) and the FULL image only when a
+  background is chosen (or a scene using one opens); and a story backup embeds the
+  used backgrounds under `backgrounds: { "<id>": {...dataUrl} }` (one entry per
+  background however many scenes use it) alongside `stickers`.
+  MODEL: scene `background` stores only `od:<hash>` (hash of the Graph item id);
+  `SB_OD_BACKGROUNDS` (storage.js) is the runtime registry, `sbBackgroundById()`
+  auto-registers unknown `od:` ids so a saved scene keeps its choice, and
+  `sbBackgroundSrcFor(id)` resolves full image -> thumbnail -> built-in asset path
+  (so choosing a background paints the thumbnail instantly, then sharpens).
+  `sbSetBackground()` calls `sbBgEnsureFull()` after saving.
+  CACHE: Cache Storage `myapps-backgrounds` (sw.js `BACKGROUND_CACHE`, MUST stay in
+  the activate allow-list), keys `/sb-bg/<id>` (full) and `/sb-bg-thumb/<id>`;
+  the listing is persisted in `storyboard_odBgIndex`; eTag changes invalidate BOTH
+  renditions and keep the old artwork on screen until the fresh full image lands;
+  boot + window-focus refresh (`SB_BG_FOCUS_GUARD_MS`, only when the Background
+  panel is open or the scene uses an `od:` background); `.sb-bg-status` shows the
+  reason (same messages as stickers) with `.sb-bg-signin` / `.sb-bg-retry`
+  buttons wired in `sbOnPanelClick`.
+  RENDER/EXPORT: `sbRender()` paints `sbBackgroundSrcFor()` and sets
+  `data-background="custom"` for an OneDrive painting (so no built-in colour/grid
+  leaks through - add a `#sbBackground[data-background="custom"]` colour if the
+  letterbox bars need one); the JPG export loads the same resolved src.
+  Tests: `tests/storyboard-backgrounds.spec.js` (7: unchanged when OneDrive is
+  off, thumbnails-only browsing with names, full download on selection + board
+  paint, folder/sign-in tab rules, offline reload from cache, eTag re-save
+  refresh, backup embed-once + restore with an empty cache).
 - STORYBOARD STORY PROPERTIES: SIZE + BACKGROUND FIT (2026-10-26, user request):
   each story row in the Stories panel has a **cog** (`data-act="story-props"`)
   that toggles an INLINE form directly under the row (the scene list is a
@@ -8326,3 +8362,43 @@ Techniques / gotchas:
   asserts `/btn-success/` for Done and `/btn-primary/` for the two add buttons
   (updated first, red, then green). 18/18 buttons/stories/props. BUILD ->
   `202610261255`.
+
+### 2026-10-26 (c) - Storyboard: OneDrive BACKGROUND libraries (thumbnails, backups)
+
+- REQUEST (user): "In the same way that we had the ability to pull stickers from
+  the Stickers directories, I want to be able to add Background from Background
+  directories. Same options on saving and updates." Asked first: (1) grid uses
+  small Graph THUMBNAILS with the full image fetched on selection (backgrounds are
+  2-8 MB), (2) same three tabs with `Backgrounds` folder names, (3) story backups
+  embed the used background bytes.
+- BUILT: `Storyboard/js/background-library.js` (listing/index/eTag invalidation/
+  cache/thumb+full downloads/refresh triggers/status+retry/signin/backup payloads/
+  `sbBackgroundDebug()`), `oneDriveDownloadThumbnail()` in `smd-onedrive.js`,
+  `SB_OD_BACKGROUNDS` + `sbBackgroundSrcFor()` in `storage.js`, the tabbed
+  `sbRenderBackgroundPanel()` (grids of `.sb-bg-option` so the existing
+  `sbSetBackground` click keeps working), `sbRender()` painting the resolved src
+  with `data-background="custom"` (+ CSS matte), the JPG export reading the same
+  src, `backgrounds` in the backup payload + restore, and `myapps-backgrounds`
+  precache/allow-list entries in `sw.js`.
+- TDD: `tests/storyboard-backgrounds.spec.js` (7) written first and red: unchanged
+  with OneDrive off, thumbnail-only browsing + names, full download on selection +
+  board bytes, tab rules (missing folder / signed out), offline reload from cache,
+  eTag re-save refresh, backup embed-once (two scenes) + restore with an EMPTY
+  cache (proving the bytes came from the payload). Two test-side fixes: the label
+  selector must exclude the preview `<span>`, and the refresh helper is
+  `sbBgRefreshFolders`.
+- VERIFIED: the whole Storyboard suite + backgrounds + buttons + stickers + props +
+  onedrive + smd-button 123/123, then 104/104 again under the new build; the
+  `@cache` sub-path/worker tests and launch-regression + settings-alignment
+  50/50. Visually checked the Background panel's Library tab (3 thumbnail tiles
+  with names).
+- BUILD -> `202610261341`.
+- FOLLOW-UP (same day, user): the empty-board hint ("Choose a background, or add
+  stickers and text from the toolbar") still sat in the middle of a board that HAD
+  a background. `sbRender()` now hides `#sbEmptyHint` when the scene has items OR
+  any background (`board.items.length > 0 || !!board.background`); it comes back
+  only for a genuinely blank scene (e.g. after choosing "None"). TDD: new test in
+  `tests/storyboard-backgrounds.spec.js` ("choosing a background hides the
+  empty-board hint") covers blank -> visible, OneDrive background -> hidden,
+  built-in background -> hidden, "None" -> visible again, item -> hidden. 8/8
+  backgrounds, full Storyboard suite 105/105. BUILD -> `202610261350`.

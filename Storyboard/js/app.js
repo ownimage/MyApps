@@ -46,6 +46,7 @@ document.addEventListener("DOMContentLoaded", function () {
   // panel shut) and whenever the window regains focus. Files whose eTag changed
   // lose their cached bytes and are re-downloaded.
   if (typeof sbStickerInitRefresh === "function") sbStickerInitRefresh();
+  if (typeof sbBgInitRefresh === "function") sbBgInitRefresh();
 
   // Show/hide the Minio menu entries (only when MinIO is enabled).
   if (typeof updateFileSyncMenu === "function") updateFileSyncMenu();

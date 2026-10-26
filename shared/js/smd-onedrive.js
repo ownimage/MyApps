@@ -656,6 +656,17 @@ function oneDriveGetFile(key) {
   return oneDriveGraphText(oneDriveItemPath(key, "/content"));
 }
 
+// Small preview used by the Background library's grid (Graph renders the
+// thumbnail itself, so browsing 2-8 MB paintings costs a few hundred KB).
+function oneDriveDownloadThumbnail(key, size) {
+  var which = size || "medium";
+  return oneDriveGraphRequest(
+    oneDriveItemPath(key, "/thumbnails/0/" + which + "/content"),
+    { cache: "no-store" },
+    "blob"
+  );
+}
+
 // Binary download (sticker images). Follows Graph's /content redirect to the
 // pre-authenticated download URL; the same 401-once retry as every Graph call.
 function oneDriveDownloadBlob(key) {

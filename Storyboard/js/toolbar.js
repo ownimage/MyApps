@@ -386,21 +386,109 @@ function sbConfirmDeleteStory(id) {
 
 // ---- Background ------------------------------------------------------------
 
-function sbRenderBackgroundPanel() {
-  var board = sbActiveBoard();
-  var current = board ? board.background : "";
+// The Background panel is the Standard grid (None / Space / Underwater) plus,
+// when OneDrive is enabled and signed in, Library (<Directory>/Backgrounds) and
+// Board (<Directory>/<story>/Backgrounds) tabs. Their grids use small Graph
+// thumbnails; the full painting is fetched when one is chosen. See
+// js/background-library.js.
+var SB_BG_PANEL_NOTE = "Backgrounds cover the whole board. Items keep their place when you switch.";
+
+function sbBgTileHtml(bg, current) {
+  return '<button type="button" class="sb-bg-option' + (current === bg.id ? " active" : "") + '" data-bg="' + bg.id + '">' +
+    '<img class="sb-bg-preview" src="' + bg.img + '" alt="">' +
+    '<span>' + escapeHtml(bg.name) + '</span></button>';
+}
+
+function sbBgStandardGridHtml(current) {
   var html = '<div class="sb-bg-grid">';
   html += '<button type="button" class="sb-bg-option' + (current === "" ? " active" : "") + '" data-bg="">' +
     '<span class="sb-bg-preview sb-bg-preview-none"><i class="fa-solid fa-border-none"></i></span>' +
     '<span>None</span></button>';
   SB_BACKGROUNDS.forEach(function (bg) {
-    html += '<button type="button" class="sb-bg-option' + (current === bg.id ? " active" : "") + '" data-bg="' + bg.id + '">' +
-      '<img class="sb-bg-preview" src="' + bg.file + '" alt="">' +
-      '<span>' + bg.name + '</span></button>';
+    html += sbBgTileHtml({ id: bg.id, name: bg.name, img: bg.file }, current);
   });
   html += '</div>';
-  html += '<p class="sb-panel-note">Backgrounds cover the whole board. Items keep their place when you switch.</p>';
-  sbToolbarEls.body.innerHTML = html;
+  return html;
+}
+
+function sbBgLibraryGridHtml(which, current) {
+  var tiles = typeof sbBgPanelTiles === "function" ? sbBgPanelTiles(which) : [];
+  var html = '<div class="sb-bg-grid">';
+  tiles.forEach(function (bg) { html += sbBgTileHtml(bg, current); });
+  html += '</div>';
+  if (!tiles.length) html += '<p class="sb-panel-note">No images in this folder yet.</p>';
+  return html;
+}
+
+function sbRenderBackgroundPanel(skipRefresh) {
+  var board = sbActiveBoard();
+  var current = board ? board.background : "";
+  var tabs = typeof sbBgTabs === "function" ? sbBgTabs() : [];
+  var note = '<p class="sb-panel-note">' + SB_BG_PANEL_NOTE + '</p>';
+  var status = typeof sbBgStatusNote === "function" ? sbBgStatusNote() : "";
+  if (status) {
+    var kind = typeof sbBgStatusKind === "function" ? sbBgStatusKind() : "";
+    var signIn = kind === "signin"
+      ? '<smd-button class="sb-bg-signin" variant="primary" size="small" icon="fa-solid fa-right-to-bracket">Sign in</smd-button> '
+      : "";
+    note += '<p class="sb-panel-note sb-bg-status">' + escapeHtml(status) + ' ' + signIn +
+      '<smd-button class="sb-bg-retry" variant="secondary" size="small">Retry</smd-button></p>';
+  }
+
+  if (!tabs.length) {
+    sbState.bgTab = "standard";
+    sbToolbarEls.body.innerHTML = sbBgStandardGridHtml(current) + note;
+    if (!skipRefresh) sbBgRefreshPanel();
+    return;
+  }
+
+  sbToolbarEls.body.innerHTML = '<smd-tabs id="sbBgTabs" wrap padding="small"></smd-tabs>' + note;
+  var tabsEl = document.getElementById("sbBgTabs");
+  if (!tabsEl) return;
+  var active = sbState.bgTab || "standard";
+  var index = 0;
+  tabs.forEach(function (tab, i) { if (tab.id === active) index = i; });
+
+  tabsEl.tabs = tabs.map(function (tab) {
+    var content = tab.id === "standard"
+      ? sbBgStandardGridHtml(current)
+      : sbBgLibraryGridHtml(tab.id, current);
+    return { title: tab.title, content: content };
+  });
+  tabsEl.activeIndex = index;
+  tabsEl.addEventListener("smd-tabs-change", function (event) {
+    var detail = event.detail || {};
+    var picked = tabs[detail.index] || tabs[0];
+    if (picked) sbSelectBgTab(picked.id);
+  });
+
+  sbSelectBgTab(tabs[index].id);
+  if (!skipRefresh) sbBgRefreshPanel();
+}
+
+// Remember the open tab and fetch that folder's thumbnails (only the visible tab
+// costs any traffic).
+function sbSelectBgTab(id) {
+  sbState.bgTab = id;
+  if (typeof sbBgEnsureThumbs !== "function") return;
+  if (id === "library" || id === "board") sbBgEnsureThumbs(id);
+}
+
+// Rebuild the panel only when what it SHOWS changed (tab set or status); a plain
+// listing change just refreshes the open tab's thumbnails.
+function sbBgRefreshPanel() {
+  if (typeof sbBgRefreshFolders !== "function") return;
+  if (typeof sbBgLibraryEnabled === "function" && !sbBgLibraryEnabled()) return;
+  var before = typeof sbBgPanelSignature === "function" ? sbBgPanelSignature() : "";
+  sbBgRefreshFolders(!sbBgTabs().length).then(function () {
+    if (sbState.tool !== "background") return;
+    var after = typeof sbBgPanelSignature === "function" ? sbBgPanelSignature() : "";
+    if (after !== before) {
+      sbRenderBackgroundPanel(true);
+      return;
+    }
+    sbSelectBgTab(sbState.bgTab || "standard");
+  }).catch(function () { /* offline: cached artwork remains */ });
 }
 
 // ---- Stickers --------------------------------------------------------------
@@ -708,6 +796,14 @@ function sbOnPanelClick(e) {
     return;
   }
 
+  if (t.closest && t.closest(".sb-bg-signin")) {
+    if (typeof sbBgSignIn === "function") sbBgSignIn();
+    return;
+  }
+  if (t.closest && t.closest(".sb-bg-retry")) {
+    if (typeof sbBgRetry === "function") sbBgRetry();
+    return;
+  }
   if (t.closest && t.closest(".sb-sticker-signin")) {
     if (typeof sbStickerSignIn === "function") sbStickerSignIn();
     return;

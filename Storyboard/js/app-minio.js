@@ -44,16 +44,21 @@ function sbMinioStoryFileName(date) {
 // however many times it is placed) so a backup opens on any device without the
 // sticker cache. Board items only store `od:<hash>` + the file name.
 function sbStoryBackupPayload(story) {
-  return (typeof sbStickerStoryExtra === "function" ? sbStickerStoryExtra(story) : Promise.resolve({}))
-    .then(function (stickers) {
-      return {
-        version: 1,
-        app: "storyboard",
-        exportedAt: new Date().toISOString(),
-        story: story,
-        stickers: stickers || {}
-      };
-    });
+  // Both asset payloads are maps keyed by id: one entry per sticker/background
+  // however many items/scenes use it.
+  return Promise.all([
+    typeof sbStickerStoryExtra === "function" ? sbStickerStoryExtra(story) : Promise.resolve({}),
+    typeof sbBgStoryExtra === "function" ? sbBgStoryExtra(story) : Promise.resolve({})
+  ]).then(function (both) {
+    return {
+      version: 1,
+      app: "storyboard",
+      exportedAt: new Date().toISOString(),
+      story: story,
+      stickers: both[0] || {},
+      backgrounds: both[1] || {}
+    };
+  });
 }
 
 function sbSaveStoryToMinio() {
@@ -183,6 +188,7 @@ function sbHandleImportedStory(provider, data, key) {
   // the story is activated, so a library sticker renders immediately - even on a
   // device that has never listed the OneDrive folder.
   if (typeof sbStickerRestorePayload === "function") sbStickerRestorePayload(data.stickers);
+  if (typeof sbBgRestorePayload === "function") sbBgRestorePayload(data.backgrounds);
 
   // A same-named story already exists: ASK before replacing it (smd-modal).
   // Cancel returns to the file list so another backup can be chosen.

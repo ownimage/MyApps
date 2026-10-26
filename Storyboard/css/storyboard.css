@@ -116,6 +116,12 @@ body#smd-app {
   background-size: 100% 100%;
 }
 
+/* An OneDrive painting: no built-in brand colour, and the letterbox bars (Fit)
+ * use the page surface so they read as matte around the artwork. */
+#sbBackground[data-background="custom"] {
+  background-color: var(--bs-body-bg);
+}
+
 #sbBackground[data-background="none"] {
   background-color: var(--bs-body-bg);
   background-image: radial-gradient(circle,

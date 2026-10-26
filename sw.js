@@ -20,7 +20,7 @@
 // comparison. If the two ever DO drift, the page notices at runtime
 // (GET_BUILD) and re-registers, so the drift self-heals instead of pinning
 // users to a build the worker will never replace.
-const BUILD_NUMBER = "202610261255";
+const BUILD_NUMBER = "202610261350";
 
 const CACHE = "myapps-" + BUILD_NUMBER;
 
@@ -33,6 +33,10 @@ const IMAGE_CACHE = "myapps-images";
 // The page writes /sb-sticker/<id> entries itself and reads them back offline,
 // so - like IMAGE_CACHE - this must survive every activation.
 const STICKER_CACHE = "myapps-stickers";
+
+// Cached OneDrive BACKGROUND images + thumbnails (Storyboard's Background
+// Library/Board tabs), written and read by the page. Kept like IMAGE_CACHE.
+const BACKGROUND_CACHE = "myapps-backgrounds";
 
 // ---- "No Cache" mode ----
 // A page can switch the worker to always read the app from disk (PlanMyDay's
@@ -597,6 +601,7 @@ const APPS = {
     "Storyboard/js/app-settings.js",
     "Storyboard/js/app-minio.js",
     "Storyboard/js/sticker-library.js",
+    "Storyboard/js/background-library.js",
     "Storyboard/js/app.js"
   ]
 };
@@ -650,7 +655,7 @@ self.addEventListener("message", event => {
 self.addEventListener("activate", event => {
   event.waitUntil(
     caches.keys().then(keys => {
-      const activePrefixes = [CACHE, IMAGE_CACHE, STICKER_CACHE, FLAG_CACHE];
+      const activePrefixes = [CACHE, IMAGE_CACHE, STICKER_CACHE, BACKGROUND_CACHE, FLAG_CACHE];
       return Promise.all(
         keys.filter(k => !activePrefixes.some(p => k === p || k.startsWith(p)))
               .map(k => caches.delete(k))

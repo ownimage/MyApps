@@ -457,13 +457,18 @@ function sbRender() {
   // board-relative and the item % positions live in this box.
   sbLayoutBoard();
 
-  var meta = sbBackgroundById(board.background);
   var story = typeof sbActiveStory === "function" ? sbActiveStory() : null;
   // Fit = contain (letterboxed over the board colour); stretch = fill the size.
   sbEls.bg.dataset.fit = typeof sbStoryFit === "function" ? sbStoryFit(story) : "fit";
-  if (meta) {
-    sbEls.bg.style.backgroundImage = 'url("' + meta.file + '")';
-    sbEls.bg.dataset.background = meta.id;
+  // The painting is a built-in asset path, a cached object URL, a restored data
+  // URL, or (until the full image lands) a OneDrive thumbnail.
+  var bgSrc = board.background && typeof sbBackgroundSrcFor === "function"
+    ? sbBackgroundSrcFor(board.background) : "";
+  if (bgSrc) {
+    sbEls.bg.style.backgroundImage = 'url("' + bgSrc + '")';
+    sbEls.bg.dataset.background = typeof sbIsOdBackground === "function" && sbIsOdBackground(board.background)
+      ? "custom"
+      : sbBackgroundById(board.background).id;
   } else {
     // REMOVE the inline property rather than assigning "": an empty inline
     // background-image would override the CSS dot-grid for the empty board.
@@ -498,13 +503,22 @@ function sbRender() {
   sbRenderConnectors();
   sbApplyConnectClasses();
 
-  if (sbEls.hint) sbEls.hint.classList.toggle("d-none", board.items.length > 0);
+  // The hint coaches a BLANK board. A chosen background already makes it a board,
+  // so it must not sit over the artwork ("Choose a background..." in the middle of
+  // a painting was reported).
+  if (sbEls.hint) {
+    sbEls.hint.classList.toggle("d-none", board.items.length > 0 || !!board.background);
+  }
   if (sbEls.boardName) {
     var activeStory = typeof sbActiveStory === "function" ? sbActiveStory() : null;
     sbEls.boardName.textContent = activeStory ? activeStory.name + " / " + board.name : board.name;
     sbEls.boardName.title = activeStory ? activeStory.name + " - " + board.name : board.name;
   }
   sbUpdateSelectionUi();
+
+  // The OneDrive background (if any) may need its bytes after a reload: resolve
+  // from the sticker-style cache first, then the network.
+  if (typeof sbBgEnsureStoryBackground === "function") sbBgEnsureStoryBackground();
 
   // OneDrive stickers on this scene may not have their bytes in memory yet (a
   // reload, or a scene opened before its library tab was ever shown). Resolve
@@ -2029,8 +2043,13 @@ async function sbDownloadJpg() {
   // `cover` crop. The canvas is the image's natural size (capped at 4096px);
   // items are mapped from screen space back into the artwork's coordinates so
   // they stay on the same part of the picture as on screen.
+  // OneDrive backgrounds resolve to a cached blob URL / restored data URL; the
+  // built-ins keep their asset path.
   var bgMeta = board.background ? sbBackgroundById(board.background) : null;
-  var bgImg = bgMeta ? await sbLoadCanvasImage(bgMeta.file).catch(function () { return null; }) : null;
+  var bgSrc = board.background && typeof sbBackgroundSrcFor === "function"
+    ? sbBackgroundSrcFor(board.background)
+    : (bgMeta ? bgMeta.file : "");
+  var bgImg = bgSrc ? await sbLoadCanvasImage(bgSrc).catch(function () { return null; }) : null;
   var hasBg = !!(bgImg && bgImg.naturalWidth && bgImg.naturalHeight);
 
   // The export IS the story's canvas: the same width/height the user set, so
