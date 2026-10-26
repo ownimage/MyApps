@@ -45,15 +45,14 @@ function sbLayoutBoard(anchor) {
   var vw = view.clientWidth;
   var vh = view.clientHeight;
   if (!vw || !vh) return;
-  var board = sbActiveBoard();
-  var meta = board && board.background ? sbBackgroundById(board.background) : null;
-  var fitW = vw;
-  var fitH = vh;
-  if (meta && meta.width && meta.height) {
-    var fit = Math.min(vw / meta.width, vh / meta.height);
-    fitW = meta.width * fit;
-    fitH = meta.height * fit;
-  }
+  var story = typeof sbActiveStory === "function" ? sbActiveStory() : null;
+  // The STORY owns the canvas shape (not the background image), so a portrait
+  // story is a portrait board and the background is fitted INSIDE it.
+  var boardW = typeof sbStoryWidth === "function" ? sbStoryWidth(story) : 2560;
+  var boardH = typeof sbStoryHeight === "function" ? sbStoryHeight(story) : 1440;
+  var fit = Math.min(vw / boardW, vh / boardH);
+  var fitW = boardW * fit;
+  var fitH = boardH * fit;
   var zoom = sbZoom();
   var w = fitW * zoom;
   var h = fitH * zoom;
@@ -459,6 +458,9 @@ function sbRender() {
   sbLayoutBoard();
 
   var meta = sbBackgroundById(board.background);
+  var story = typeof sbActiveStory === "function" ? sbActiveStory() : null;
+  // Fit = contain (letterboxed over the board colour); stretch = fill the size.
+  sbEls.bg.dataset.fit = typeof sbStoryFit === "function" ? sbStoryFit(story) : "fit";
   if (meta) {
     sbEls.bg.style.backgroundImage = 'url("' + meta.file + '")';
     sbEls.bg.dataset.background = meta.id;
@@ -2031,22 +2033,19 @@ async function sbDownloadJpg() {
   var bgImg = bgMeta ? await sbLoadCanvasImage(bgMeta.file).catch(function () { return null; }) : null;
   var hasBg = !!(bgImg && bgImg.naturalWidth && bgImg.naturalHeight);
 
-  var W, H, outScale;
-  if (hasBg) {
-    W = bgImg.naturalWidth;
-    H = bgImg.naturalHeight;
-    outScale = Math.min(1, 4096 / Math.max(W, H));
-  } else {
-    W = visW;
-    H = visH;
-    outScale = Math.max(1, Math.min(2, 4096 / Math.max(W, H)));
-  }
+  // The export IS the story's canvas: the same width/height the user set, so
+  // what they lay out is what they get (capped on the long edge so a huge story
+  // stays encodable).
+  var story = typeof sbActiveStory === "function" ? sbActiveStory() : null;
+  var W = typeof sbStoryWidth === "function" ? sbStoryWidth(story) : (hasBg ? bgImg.naturalWidth : visW);
+  var H = typeof sbStoryHeight === "function" ? sbStoryHeight(story) : (hasBg ? bgImg.naturalHeight : visH);
+  var outScale = Math.min(1, 4096 / Math.max(W, H));
 
-  // `cover` on the live board: how many CSS px one artwork px occupies, and the
-  // (negative) offset of the artwork inside the visible window.
-  var coverScale = hasBg ? Math.max(visW / W, visH / H) : 1;
-  var offsetX = hasBg ? (visW - W * coverScale) / 2 : 0;
-  var offsetY = hasBg ? (visH - H * coverScale) / 2 : 0;
+  // The live board is fitted to the same aspect, so cover is uniform and the
+  // offsets are ~0; keeping them makes the mapping robust to rounding.
+  var coverScale = Math.max(visW / W, visH / H);
+  var offsetX = (visW - W * coverScale) / 2;
+  var offsetY = (visH - H * coverScale) / 2;
   var artScale = 1 / coverScale;
   var toArt = function (px, py) {
     return { x: (px - offsetX) / coverScale, y: (py - offsetY) / coverScale };
@@ -2069,11 +2068,22 @@ async function sbDownloadJpg() {
       ctx.fillStyle = bgStyle.backgroundColor;
       ctx.fillRect(0, 0, W, H);
     }
-    ctx.drawImage(bgImg, 0, 0, W, H);
+    // Fit letterboxes the artwork inside the story size (the bars keep the
+    // board colour painted above); stretch fills it, distorting if needed.
+    var stretch = typeof sbStoryFit === "function" ? sbStoryFit(story) === "stretch" : true;
+    if (stretch) {
+      ctx.drawImage(bgImg, 0, 0, W, H);
+    } else {
+      var bgScale = Math.min(W / bgImg.naturalWidth, H / bgImg.naturalHeight);
+      var dw = bgImg.naturalWidth * bgScale;
+      var dh = bgImg.naturalHeight * bgScale;
+      ctx.drawImage(bgImg, (W - dw) / 2, (H - dh) / 2, dw, dh);
+    }
   } else {
     // The empty board's dot grid, at the same artwork scale as the live board.
-    var dotGap = 24 * designScale;
-    var dotR = 1 * designScale;
+    var artPerCss = W / visW;
+    var dotGap = 24 * designScale * artPerCss;
+    var dotR = 1 * designScale * artPerCss;
     ctx.save();
     ctx.globalAlpha = 0.22;
     ctx.fillStyle = bodyColor;

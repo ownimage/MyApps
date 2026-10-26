@@ -46,6 +46,9 @@ function sbInitToolbar() {
   if (sbToolbarEls.body) {
     sbToolbarEls.body.addEventListener("click", sbOnPanelClick);
     sbToolbarEls.body.addEventListener("input", sbOnPanelInput);
+    // <smd-select> dispatches a bubbling `change`; number inputs fire it on
+    // blur/Enter. That is what applies a story property change.
+    sbToolbarEls.body.addEventListener("change", sbOnPanelChange);
   }
 
   document.addEventListener("click", function (e) {
@@ -143,10 +146,14 @@ function sbRenderBoardsPanel() {
         '<i class="fa-solid fa-book-open" aria-hidden="true"></i>' +
         '<span>' + escapeHtml(story.name) + '</span>' +
       '</button>' +
+      '<button type="button" class="sb-story-act" data-act="story-props" data-id="' + story.id + '" title="Story properties" aria-label="Story properties"><i class="fa-solid fa-cog"></i></button>' +
       '<button type="button" class="sb-story-act" data-act="rename-story" data-id="' + story.id + '" title="Rename story" aria-label="Rename story"><i class="fa-solid fa-pen"></i></button>' +
       '<button type="button" class="sb-story-act" data-act="delete-story" data-id="' + story.id + '" title="Delete story" aria-label="Delete story"' +
         (sbState.stories.length < 2 ? " disabled" : "") + '><i class="fa-solid fa-trash"></i></button>' +
     '</div>';
+    // The cog's inline form sits directly under its row (the scene list is a
+    // SIBLING of the row, so this block is another sibling).
+    if (sbState.storyPropsId === story.id) html += sbStoryPropsHtml(story);
     if (!expanded) return;
     html += '<div class="sb-story-scenes">';
     story.scenes.forEach(function (board) {
@@ -168,6 +175,104 @@ function sbRenderBoardsPanel() {
   html += '<button type="button" id="sbAddStory" class="btn btn-success w-100"><i class="fa-solid fa-plus me-1"></i>New story</button>';
   html += '<p class="sb-panel-note">A story contains scenes. Each scene is its own board with a background, stickers and text.</p>';
   sbToolbarEls.body.innerHTML = html;
+
+  // The declarative <option>s are read by <smd-select> on connect; set the
+  // current values explicitly so the selects match the stored properties.
+  var presetEl = document.getElementById("sbStoryPreset");
+  var fitEl = document.getElementById("sbStoryFit");
+  var propsStory = sbState.storyPropsId ? sbFindStory(sbState.storyPropsId) : null;
+  // Set the ATTRIBUTE (not the property): if the element is still upgrading, the
+  // attribute is applied on connect, whereas a pre-upgrade property assignment
+  // would shadow the accessor.
+  if (presetEl && propsStory) {
+    presetEl.setAttribute("value", sbState.storyPropsOther ? "other" : sbStoryPresetId(propsStory));
+  }
+  if (fitEl && propsStory) fitEl.setAttribute("value", sbStoryFit(propsStory));
+}
+
+// The cog's inline form: canvas SIZE (presets + "Other" with free width/height)
+// and how the background fills it. Every change applies immediately (the board
+// resizes live), so this is the layout iteration loop.
+function sbStoryPropsHtml(story) {
+  var width = sbStoryWidth(story);
+  var height = sbStoryHeight(story);
+  var preset = sbState.storyPropsOther ? "other" : sbStoryPresetId(story);
+  var html = '<div class="sb-story-props" data-story-id="' + story.id + '">';
+  html += '<div class="sb-field-label">Size</div>';
+  html += '<smd-select id="sbStoryPreset" class="form-select form-select-sm">';
+  SB_STORY_PRESETS.forEach(function (item) {
+    html += '<option value="' + item.id + '">' + item.name + '</option>';
+  });
+  html += '<option value="other">Other...</option></smd-select>';
+  if (preset === "other") {
+    html += '<div class="sb-story-size">' +
+      '<input id="sbStoryWidth" class="form-control form-control-sm" type="number" inputmode="numeric" ' +
+        'min="' + SB_STORY_MIN_SIZE + '" max="' + SB_STORY_MAX_SIZE + '" step="1" value="' + width + '" aria-label="Width">' +
+      '<span class="sb-story-size-x">x</span>' +
+      '<input id="sbStoryHeight" class="form-control form-control-sm" type="number" inputmode="numeric" ' +
+        'min="' + SB_STORY_MIN_SIZE + '" max="' + SB_STORY_MAX_SIZE + '" step="1" value="' + height + '" aria-label="Height">' +
+      '</div>';
+  }
+  html += '<div class="sb-field-label">Background</div>';
+  html += '<smd-select id="sbStoryFit" class="form-select form-select-sm">';
+  SB_STORY_FITS.forEach(function (item) {
+    html += '<option value="' + item.id + '">' + item.name + '</option>';
+  });
+  html += '</smd-select>';
+  html += '<button type="button" class="btn btn-sm btn-secondary w-100" data-act="story-props-close" data-id="' + story.id + '">Done</button>';
+  html += '</div>';
+  return html;
+}
+
+// Open/close a story''s inline properties form. `id` of "" closes whatever is
+// open; passing a different story moves the form to that row.
+function sbToggleStoryProps(id, closeId) {
+  if (closeId) sbState.storyPropsId = "";
+  else sbState.storyPropsId = sbState.storyPropsId === id ? "" : id;
+  // Reopening always starts from the story's real size (a preset when it matches
+  // one), so a previous "Other" entry never hides the free fields unexpectedly.
+  sbState.storyPropsOther = false;
+  sbRenderPanel();
+}
+
+// Story-properties form changes (all apply LIVE so the board resizes as you try
+// sizes out). A preset sets width+height; Other reveals the free fields.
+function sbOnPanelChange(e) {
+  var t = e.target;
+  if (!t || !t.id) return;
+  var story = sbState.storyPropsId ? sbFindStory(sbState.storyPropsId) : null;
+  if (!story) return;
+
+  if (t.id === "sbStoryPreset") {
+    if (t.value === "other") {
+      // Reveal the free width/height fields (no size change until they are set).
+      sbState.storyPropsOther = true;
+      sbRenderPanel();
+      var widthEl = document.getElementById("sbStoryWidth");
+      if (widthEl) widthEl.focus();
+      return;
+    }
+    var preset = sbStoryPresetById(t.value);
+    if (preset) {
+      sbState.storyPropsOther = false;
+      sbSetStoryProperties(story.id, { width: preset.width, height: preset.height });
+    }
+    return;
+  }
+
+  if (t.id === "sbStoryWidth" || t.id === "sbStoryHeight") {
+    var widthEl = document.getElementById("sbStoryWidth");
+    var heightEl = document.getElementById("sbStoryHeight");
+    sbSetStoryProperties(story.id, {
+      width: widthEl ? widthEl.value : sbStoryWidth(story),
+      height: heightEl ? heightEl.value : sbStoryHeight(story)
+    });
+    return;
+  }
+
+  if (t.id === "sbStoryFit") {
+    sbSetStoryProperties(story.id, { backgroundFit: t.value });
+  }
 }
 
 // Replace a row's clickable label with an input; Enter/blur saves, Escape cancels.
@@ -542,6 +647,8 @@ function sbOnPanelClick(e) {
     var id = act.dataset.id;
     if (act.dataset.act === "pick") sbSetActiveBoard(id);
     else if (act.dataset.act === "pick-story") sbSetActiveStory(id);
+    else if (act.dataset.act === "story-props") sbToggleStoryProps(id);
+    else if (act.dataset.act === "story-props-close") sbToggleStoryProps("", id);
     else if (act.dataset.act === "rename") sbStartRename(id);
     else if (act.dataset.act === "rename-story") sbStartRenameStory(id);
     else if (act.dataset.act === "delete") sbConfirmDeleteBoard(id);

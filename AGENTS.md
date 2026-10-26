@@ -85,6 +85,39 @@ Architecture:
 - Shared components are LIGHT DOM. `shared/css/styles.css` now holds ONLY theme colour + spatial-size declarations; every layout MECHANIC (display/flex/position/gap/margin/padding/transform/transition/border-reset/cursor/opacity) lives in the component's own `injectSmdComponentStyle()` block (or, for the app shell, `injectSettingsLayout()` in `shared/js/smd-settings.js`). Do not reintroduce constructable stylesheets or shadow-root styling for these components. `smd-modal`, `smd-page`, `smd-tabs`, and the pmd-* cards expose stable light-DOM classes for shared selectors and tests. `smd-tabs` tab definitions may include `panelClass` (for example `no-padding`) for panel-specific layout.
 - Colour/typography conventions: smd-tabs active = `--bs-primary`, inactive = `--bs-secondary`, with `#smd-app` scoping for priority; the Streams Editor header is `--bs-primary` when expanded and `--bs-info` when collapsed; modal/page headers use theme surfaces (`--bs-body-bg`, `--bs-secondary-bg`, `--bs-border-color`) rather than hardcoded colours. Bootstrap/Bootswatch remains authoritative; the runtime contrast layer is not used.
 - TYPESCALE TOKENS (2026-09-18): one shared ramp in `shared/css/styles.css` — `body { --smd-type-base: 1rem }` plus `body.font-size-xsmall/small/large/xlarge/jumbo` overrides (0.8/0.925/1/1.125/1.3/1.6rem) — drives exactly four tokens `--smd-type-badge` (base×0.75), `--smd-type-p` (base), `--smd-type-h2` (base×1.25), `--smd-type-h1` (base×2), all declared on `body` (NOT `:root`: the ramp must recompute per font-size body class, and body custom props pierce shadow DOM while `:host-context()` doesn't). Tag map: h1→h1; h2/h3/h4→h2; h5/h6→p; text/inputs/tables→p; badges→badge. BUTTONS ARE h2 (one step above text): `<button>`, `.btn`, `.smd-tab-btn` all use `var(--smd-type-h2)`; `.btn-sm` stays at `var(--smd-type-p)`. Light-DOM home is `shared/css/styles.css` (`button, .btn` / `.btn-sm`); the shared `btnBadgeSheet` covers shadow buttons. Scaffold the h2/p rules inline wherever a shadow root does NOT adopt btnBadgeSheet: the 4 apps' `editor-styles.js`, `smd-settings.js`, `smd-minio.js`, `smd-modal.js`, `smd-image-picker.js`, `smd-image-dropdown.js`. Don't re-add per-component `.btn` font-size rules. Every component + app style now uses `var(--smd-type-*, original-value)` (original as fallback so behaviour is unchanged wherever the token is missing). Media-fit sizes are token CALCs (e.g. CM/QR title `calc(var(--smd-type-h1,1.5rem)*0.7667)`, CM count `*0.8333`, CM container h1 `*0.625`, Solar 480px block). Compact density = `--…-title-size: var(--smd-type-p)` overrides. Deliberate non-token exceptions: the 22px hamburger icon in `smd-app.js`, `smd-checkbox` 1.2em/2em + `smd-draghandle` FIXED 1.2rem/1.6rem touch sizes, vendor CSS, storybook chrome. Tests assert heading ELEMENT tags (now `h1` for main-view date/"Today!"/"From …" headings) and pmd-touch.spec.js:119 asserts the NEW pixel values (xlarge 41.6, jumbo 51.2, compact-jumbo 25.6) — update those literals together with any ramp change.
+- STORYBOARD STORY PROPERTIES: SIZE + BACKGROUND FIT (2026-10-26, user request):
+  each story row in the Stories panel has a **cog** (`data-act="story-props"`)
+  that toggles an INLINE form directly under the row (the scene list is a
+  sibling, so the form is another sibling; `sbState.storyPropsId` says which one
+  is open). It edits two things, both applied LIVE (no Apply button) so the board
+  resizes while you try sizes:
+  - SIZE: `<smd-select id="sbStoryPreset">` with `SB_STORY_PRESETS` = HD
+    1280x720, Full HD 1920x1080, QHD 2560x1440 (DEFAULT), UWQHD 3440x1440, 4K UHD
+    3840x2160, plus `other` which reveals free `#sbStoryWidth`/`#sbStoryHeight`
+    number inputs (64..8192). `sbState.storyPropsOther` keeps "Other" selected
+    while the fields are open.
+  - BACKGROUND: `#sbStoryFit` = `fit` (default, whole image, letterboxed) or
+    `stretch` (fills the size). `#sbBackground[data-fit]` (set by `sbRender`)
+    maps these to `background-size: contain` / `100% 100%`; the letterbox bars are
+    the background's own board colour (`[data-background="space"]` etc.), so they
+    look deliberate.
+  MODEL: the size belongs to the STORY (`width`/`height`/`backgroundFit` on the
+  story, normalised by `sbNormalizeStory`, defaults keep 2560x1440 + fit so old
+  stories look unchanged): every scene is a slide of that story. Scenes carry NO
+  width of their own. `sbStoryWidth/Height/Fit/PresetId`, `sbSetStoryProperties`.
+  BOARD: `sbLayoutBoard()` now fits the STORY's aspect (not the background's), so
+  a portrait story is a portrait board and an EMPTY board also has a shape.
+  EXPORT: `sbDownloadJpg()` uses the story size as the canvas (capped at 4096 on
+  the long edge) and draws the background with the same mode (`contain` centred,
+  or full-bleed stretch); the no-background dot grid is scaled by `W / visW` so
+  its density still matches the live board.
+  GOTCHA FOR TESTS: a scene with NO background used to fill the whole window; it
+  now gets a 16:9 (default) board, so items sit closer together and the floating
+  SELECTION BAR can cover a neighbouring object - `storyboard-groups.spec.js`
+  moved its AB seed from 30/70 and updated the scale expectation accordingly.
+  Tests: `tests/storyboard-story-props.spec.js` (6: cog/form toggle, preset +
+  persistence + board ratio, Other + portrait, fit vs stretch background-size,
+  shared by every scene, JPG canvas + letterbox rects).
 - STORYBOARD STICKER LIBRARIES (2026-10-26, user request): the Stickers fly-out
   gains `<Directory>/Stickers` ("Library") and `<Directory>/<story>/Stickers`
   ("Board") tabs - ONLY when OneDrive is enabled AND signed in AND the folder
@@ -8158,3 +8191,38 @@ Techniques / gotchas:
   `login_required`. 2 new tests (23 total: sign-in button recovers the tabs,
   reason code shown). 23/23 stickers, 142/142 Storyboard + onedrive +
   minio-directory + settings-alignment. BUILD -> `202610261050`.
+
+### 2026-10-26 - Storyboard: story properties (cog: size presets + background fit)
+
+- REQUEST (user): on the Stories fly-out, add a `fa-cog` to each story row (beside
+  rename/delete) to edit properties - for now width/height and a dropdown to Fit
+  or Stretch the background to that size.
+- DECISIONS (asked): the size is PER STORY (every scene is a slide of it); the form
+  is INLINE in the panel; presets are the user's list (HD 1280x720, Full HD
+  1920x1080, QHD 2560x1440, UWQHD 3440x1440, 4K UHD 3840x2160) PLUS "Other" with
+  free width/height; Fit = whole image letterboxed, Stretch = fill; the JPG export
+  follows the story size and mode.
+- BUILT: `SB_STORY_PRESETS`/`SB_STORY_FITS` + `sbStoryWidth/Height/Fit/PresetId`
+  and `sbSetStoryProperties` in `storage.js` (`width`/`height`/`backgroundFit` on
+  the story, normalised, defaults 2560x1440 + fit); `sbRenderBoardsPanel` cog +
+  `sbStoryPropsHtml` inline form + `sbOnPanelChange` (a new panel `change`
+  listener) applying every edit LIVE; `sbLayoutBoard()` fits the STORY aspect;
+  `#sbBackground[data-fit]` + CSS for contain vs 100% 100%; `sbDownloadJpg()` uses
+  the story size and draws the background contain/stretch.
+- TDD: new `tests/storyboard-story-props.spec.js` (6) written first and red (no
+  cog/form at all), then green: cog/form toggle, preset applies + persists + board
+  ratio, Other reveals the fields and accepts a portrait 900x1600, fit/stretch
+  background-size, size shared by every scene of the story, JPG canvas = story
+  size with the right letterbox vs full-bleed background rect. Visually checked
+  the form and a 1080x1920 portrait board.
+- FALLOUT (found by the suite, not by the user): `storyboard-groups.spec.js` used
+  scenes with NO background, which used to make the board fill the window; with a
+  story-owned shape they are 16:9, so the floating selection bar landed on the
+  neighbouring sticker and its clicks were intercepted. Moved that seed from
+  40/60 to 30/70 and updated the scale expectation (offset 20 not 10). Lesson: a
+  board-shape change moves every %-positioned object in PIXELS, so check tests
+  that click or drag near other objects, not just those asserting geometry.
+- VERIFIED: story-props 6/6, the whole Storyboard suite (align/groups/minio/pan/
+  stamp/stickers/stories/zoom/props) + onedrive 107/107, and 91/91 again under the
+  new build. BUILD -> `202610261136`. Screenshots of the board are unchanged at
+  the default size (2560x1440 == the bundled artwork).

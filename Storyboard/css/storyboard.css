@@ -106,8 +106,13 @@ body#smd-app {
   inset: 0;
   background-position: center;
   background-repeat: no-repeat;
-  /* The board's aspect already equals the image's, so 100% 100% shows the WHOLE
-     image (cover would crop on a sub-pixel aspect mismatch). */
+  /* The story owns the board shape. Fit shows the WHOLE artwork (letterboxed over
+     the board colour); Stretch fills the size and distorts when the ratios differ.
+     data-fit is set by sbRender() from the active story. */
+  background-size: contain;
+}
+
+#sbBackground[data-fit="stretch"] {
   background-size: 100% 100%;
 }
 
@@ -536,6 +541,40 @@ body.smd-wco #sbToolbar {
 .sb-board-act:hover,
 .sb-story-act:hover {
   background: rgba(var(--bs-body-color-rgb), 0.12);
+}
+
+/* Story properties (the cog's inline form under the story row): canvas size and
+ * how the background fills it. */
+.sb-story-props {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 4px 0 2px;
+  padding: 8px;
+  border: 1px solid var(--bs-border-color);
+  border-radius: 10px;
+  background: rgba(var(--bs-body-color-rgb), 0.05);
+}
+
+.sb-story-props .sb-field-label {
+  margin: 0;
+}
+
+.sb-story-size {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.sb-story-size input {
+  flex: 1 1 auto;
+  width: 0;
+  min-width: 0;
+}
+
+.sb-story-size-x {
+  flex: none;
+  opacity: 0.7;
 }
 
 .sb-board-act:disabled,

@@ -45,6 +45,27 @@ var SB_STICKER_PLACEHOLDER = "data:image/svg+xml;charset=utf-8," + encodeURIComp
 );
 
 
+// Story SIZE presets (px). A story owns its canvas size, so every scene in it
+// shares the same shape. QHD matches the bundled backgrounds (2560x1440), so a
+// story that never set a size looks exactly as it always did.
+var SB_STORY_PRESETS = [
+  { id: "hd", name: "HD (16:9) 1280×720", width: 1280, height: 720 },
+  { id: "fhd", name: "Full HD (16:9) 1920×1080", width: 1920, height: 1080 },
+  { id: "qhd", name: "QHD / 1440p (16:9) 2560×1440", width: 2560, height: 1440 },
+  { id: "uwqhd", name: "UWQHD (21:9) 3440×1440", width: 3440, height: 1440 },
+  { id: "uhd4k", name: "4K UHD (16:9) 3840×2160", width: 3840, height: 2160 }
+];
+var SB_STORY_DEFAULT_WIDTH = 2560;
+var SB_STORY_DEFAULT_HEIGHT = 1440;
+var SB_STORY_MIN_SIZE = 64;
+var SB_STORY_MAX_SIZE = 8192;
+// "fit" shows the WHOLE background (letterboxed over the board colour);
+// "stretch" fills the story size, distorting when the ratios differ.
+var SB_STORY_FITS = [
+  { id: "fit", name: "Fit (whole image)" },
+  { id: "stretch", name: "Stretch (fill the size)" }
+];
+
 var SB_TEXT_BORDERS = [
   { id: "none", name: "None" },
   { id: "fancy", name: "Fancy" },
@@ -103,6 +124,10 @@ var sbState = {
   panReady: false,
   pan: null,
   saveTimer: null,
+  // Which story's properties form is open in the Stories panel ("" = none), and
+  // whether the user picked "Other" (free width/height) rather than a preset.
+  storyPropsId: "",
+  storyPropsOther: false,
   // Stickers panel: the tab the user last picked and the story folder that tab
   // list was built for (see js/sticker-library.js).
   stickerTab: "standard"
@@ -307,7 +332,10 @@ function sbNewStory(name, firstSceneName) {
     id: sbUid(),
     name: String(name || "Story").trim() || "Story",
     scenes: [scene],
-    activeSceneId: scene.id
+    activeSceneId: scene.id,
+    width: SB_STORY_DEFAULT_WIDTH,
+    height: SB_STORY_DEFAULT_HEIGHT,
+    backgroundFit: "fit"
   };
 }
 
@@ -317,7 +345,11 @@ function sbNormalizeStory(raw) {
     id: String(raw.id || sbUid()),
     name: String(raw.name || "Story").trim() || "Story",
     scenes: [],
-    activeSceneId: ""
+    activeSceneId: "",
+    // Older stories have no size: QHD + Fit keeps their previous look.
+    width: sbStorySizeValue(raw.width, SB_STORY_DEFAULT_WIDTH),
+    height: sbStorySizeValue(raw.height, SB_STORY_DEFAULT_HEIGHT),
+    backgroundFit: raw.backgroundFit === "stretch" ? "stretch" : "fit"
   };
   if (Array.isArray(raw.scenes)) {
     raw.scenes.forEach(function (sceneRaw) {
@@ -330,6 +362,67 @@ function sbNormalizeStory(raw) {
   story.activeSceneId = story.scenes.some(function (s) { return s.id === active; })
     ? active
     : story.scenes[0].id;
+  return story;
+}
+
+// ---- story properties (size + background fit) -------------------------------
+//
+// The size belongs to the STORY (every scene is a slide of it) and is stored in
+// "design px"; the board is fitted into the window and the JPG export uses the
+// same numbers, so a portrait story is a portrait board.
+
+function sbStorySizeValue(value, fallback) {
+  var n = Math.round(Number(value));
+  if (!isFinite(n)) return fallback;
+  return Math.min(SB_STORY_MAX_SIZE, Math.max(SB_STORY_MIN_SIZE, n));
+}
+
+function sbStoryWidth(story) {
+  return sbStorySizeValue(story && story.width, SB_STORY_DEFAULT_WIDTH);
+}
+
+function sbStoryHeight(story) {
+  return sbStorySizeValue(story && story.height, SB_STORY_DEFAULT_HEIGHT);
+}
+
+function sbStoryFit(story) {
+  return story && story.backgroundFit === "stretch" ? "stretch" : "fit";
+}
+
+function sbStoryPresetById(id) {
+  for (var i = 0; i < SB_STORY_PRESETS.length; i++) {
+    if (SB_STORY_PRESETS[i].id === id) return SB_STORY_PRESETS[i];
+  }
+  return null;
+}
+
+// The matching preset id, or "other" for a custom size (so the form can show the
+// free width/height fields).
+function sbStoryPresetId(story) {
+  var width = sbStoryWidth(story);
+  var height = sbStoryHeight(story);
+  for (var i = 0; i < SB_STORY_PRESETS.length; i++) {
+    if (SB_STORY_PRESETS[i].width === width && SB_STORY_PRESETS[i].height === height) {
+      return SB_STORY_PRESETS[i].id;
+    }
+  }
+  return "other";
+}
+
+// Apply a partial properties patch. Values are clamped, the story is saved and
+// the board repaints at its new shape (the panel is rebuilt too, so the form and
+// the preset select reflect what was applied).
+function sbSetStoryProperties(id, patch) {
+  var story = sbFindStory(id);
+  if (!story || !patch) return null;
+  if (patch.width != null) story.width = sbStorySizeValue(patch.width, sbStoryWidth(story));
+  if (patch.height != null) story.height = sbStorySizeValue(patch.height, sbStoryHeight(story));
+  if (patch.backgroundFit != null) {
+    story.backgroundFit = patch.backgroundFit === "stretch" ? "stretch" : "fit";
+  }
+  sbSaveState();
+  if (typeof sbRender === "function") sbRender();
+  if (typeof sbRenderPanel === "function") sbRenderPanel();
   return story;
 }
 
