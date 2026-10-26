@@ -67,8 +67,7 @@ test.describe("Storyboard - stories and scenes", () => {
   test("a fresh app starts with Story 1 containing Scene 1", async ({ page }) => {
     await page.goto("/Storyboard/");
     await expect(page.locator("#sbCanvas")).toBeVisible();
-    await expect(page.locator("#sbBoardName")).toContainText("Story 1");
-    await expect(page.locator("#sbBoardName")).toContainText("Scene 1");
+    await expect(page.locator("#mainNav #appNavTitle")).toHaveText("Storyboard - Story 1/Scene 1");
     await expect(page.locator('.sb-rail-btn[data-tool="boards"]')).toContainText("Stories");
 
     const state = await stored(page);
@@ -89,12 +88,10 @@ test.describe("Storyboard - stories and scenes", () => {
 
     await page.locator("#sbAddStory").click();
     await expect(page.locator(".sb-story-row")).toHaveCount(2);
-    await expect(page.locator("#sbBoardName")).toContainText("Story 2");
-    await expect(page.locator("#sbBoardName")).toContainText("Scene 1");
+    await expect(page.locator("#mainNav #appNavTitle")).toHaveText("Storyboard - Story 2/Scene 1");
 
     await page.locator(".sb-story-scenes .sb-add-scene").click();
-    await expect(page.locator("#sbBoardName")).toContainText("Story 2");
-    await expect(page.locator("#sbBoardName")).toContainText("Scene 2");
+    await expect(page.locator("#mainNav #appNavTitle")).toHaveText("Storyboard - Story 2/Scene 2");
     await expect(page.locator(".sb-story-row.active + .sb-story-scenes .sb-board-row")).toHaveCount(2);
 
     let state = await stored(page);
@@ -125,13 +122,12 @@ test.describe("Storyboard - stories and scenes", () => {
     await page.locator('.sb-story-pick:has-text("Story B")').click();
     await expect(page.locator(".sb-story-row.active")).toContainText("Story B");
     await expect(page.locator(".sb-story-row.active + .sb-story-scenes .sb-board-row")).toHaveCount(2);
-    await expect(page.locator("#sbBoardName")).toContainText("Story B");
-    await expect(page.locator("#sbBoardName")).toContainText("Opening");
+    await expect(page.locator("#mainNav #appNavTitle")).toHaveText("Storyboard - Story B/Opening");
     await expect(page.locator('.sb-object[data-id="b2-item"]')).toBeVisible();
 
     // Selecting Scene 1 edits that scene.
     await page.locator('.sb-board-pick:has-text("Scene 1")').click();
-    await expect(page.locator("#sbBoardName")).toContainText("Story B / Scene 1");
+    await expect(page.locator("#mainNav #appNavTitle")).toHaveText("Storyboard - Story B/Scene 1");
     await expect(page.locator('.sb-object[data-id="b1-item"]')).toBeVisible();
     await expect(page.locator('.sb-object[data-id="b2-item"]')).toHaveCount(0);
     await expect(page.locator("#sbBackground")).toHaveAttribute("data-background", "underwater");
@@ -221,7 +217,7 @@ test.describe("Storyboard - stories and scenes", () => {
     await expect(storyInput).toBeVisible();
     await storyInput.fill("My Story");
     await storyInput.press("Enter");
-    await expect(page.locator("#sbBoardName")).toContainText("My Story");
+    await expect(page.locator("#mainNav #appNavTitle")).toHaveText("Storyboard - My Story/Scene 1");
     await expect(page.locator(".sb-story-row.active")).toContainText("My Story");
 
     await page.locator('.sb-story-scenes .sb-board-act[data-act="rename"]').click();
@@ -229,11 +225,11 @@ test.describe("Storyboard - stories and scenes", () => {
     await expect(sceneInput).toBeVisible();
     await sceneInput.fill("Opening");
     await sceneInput.press("Enter");
-    await expect(page.locator("#sbBoardName")).toContainText("My Story / Opening");
+    await expect(page.locator("#mainNav #appNavTitle")).toHaveText("Storyboard - My Story/Opening");
 
     await page.reload();
     await expect(page.locator("#sbCanvas")).toBeVisible();
-    await expect(page.locator("#sbBoardName")).toContainText("My Story / Opening");
+    await expect(page.locator("#mainNav #appNavTitle")).toHaveText("Storyboard - My Story/Opening");
     const state = await stored(page);
     expect(state.stories[0].name).toBe("My Story");
     expect(state.stories[0].scenes[0].name).toBe("Opening");
@@ -263,7 +259,7 @@ test.describe("Storyboard - stories and scenes", () => {
     await page.locator("#smdConfirmModal").getByRole("button", { name: "Delete" }).click();
     await expect(page.locator(".sb-story-row")).toHaveCount(1);
     await expect(page.locator(".sb-story-row.active")).toContainText("Story 1");
-    await expect(page.locator("#sbBoardName")).toContainText("Story 1");
+    await expect(page.locator("#mainNav #appNavTitle")).toHaveText("Storyboard - Story 1/Scene 1");
 
     const state = await stored(page);
     expect(state.stories).toHaveLength(1);

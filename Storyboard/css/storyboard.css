@@ -229,64 +229,16 @@ body#smd-app {
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.16);
 }
 
-/* Board name + the SAVE actions: one pill row pinned top-right of the board.
- * The scene's JPG and the story's ZIP live here (the rail's Save was removed). */
-.sb-board-actions {
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  z-index: 1015;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  max-width: calc(100% - 24px);
-}
-
-.sb-board-chip {
+/* The old floating board chip is gone (config + downloads moved into the
+ * hamburger menu). The nav bar title is the only readout of where you are:
+ * "Storyboard - <story>/<scene>". Keep it on one line and let it ellipsise so a
+ * long name cannot wrap the bar or push the menu around. */
+#appNavTitle {
   min-width: 0;
-  max-width: 100%;
+  max-width: 55vw;
   overflow: hidden;
-  padding: 0.35rem 0.8rem;
-  border: 1px solid var(--bs-border-color);
-  border-radius: 999px;
-  background: var(--bs-body-bg);
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.16);
-  color: var(--bs-body-color);
-  font-size: var(--smd-type-badge, 0.78em);
-  font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
-  cursor: pointer;
-}
-
-.sb-board-chip:hover {
-  border-color: var(--bs-primary);
-}
-
-/* Shared-component save buttons, skinned like the chip (not filled Bootstrap). */
-smd-button.sb-board-save {
-  flex: none;
-}
-
-smd-button.sb-board-save > button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  padding: 0;
-  border: 1px solid var(--bs-border-color);
-  border-radius: 999px;
-  background: var(--bs-body-bg);
-  color: var(--bs-body-color);
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.16);
-  cursor: pointer;
-}
-
-smd-button.sb-board-save > button:hover,
-smd-button.sb-board-save > button:focus-visible {
-  border-color: var(--bs-primary);
-  color: var(--bs-primary);
 }
 
 /* The hamburger menu drops over the board (and over an open tool panel), so it
@@ -1359,8 +1311,8 @@ html[data-smd-touch-size="large"] .sb-handle-rotate {
     height: 58px;
   }
 
-  /* The chip truncates; the save pills keep their size. */
-  .sb-board-actions {
-    gap: 4px;
+  /* Leave room for the hamburger: the title ellipsises instead of wrapping. */
+  #appNavTitle {
+    max-width: 62vw;
   }
 }

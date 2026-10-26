@@ -310,7 +310,6 @@ function sbInitBoard() {
   sbEls.items = document.getElementById("sbItems");
   sbEls.hint = document.getElementById("sbEmptyHint");
   sbEls.selBar = document.getElementById("sbSelectionBar");
-  sbEls.boardName = document.getElementById("sbBoardName");
   sbEls.connectors = document.getElementById("sbConnectors");
   sbEls.connectorPaths = document.getElementById("sbConnectorPaths");
   sbEls.connectHint = document.getElementById("sbConnectHint");
@@ -341,14 +340,6 @@ function sbInitBoard() {
   }
   if (sbEls.items) sbEls.items.addEventListener("dblclick", sbOnDoubleClick);
   if (sbEls.connectors) sbEls.connectors.addEventListener("pointerdown", sbOnConnectorPointerDown);
-  if (sbEls.boardName) {
-    sbEls.boardName.addEventListener("click", function () { sbOpenTool("boards"); });
-    sbEls.boardName.addEventListener("keydown", function (e) {
-      if (e.key !== "Enter" && e.key !== " ") return;
-      e.preventDefault();
-      sbOpenTool("boards");
-    });
-  }
 
   var connect = document.getElementById("sbSelConnect");
   var front = document.getElementById("sbSelFront");
@@ -509,11 +500,9 @@ function sbRender() {
   if (sbEls.hint) {
     sbEls.hint.classList.toggle("d-none", board.items.length > 0 || !!board.background);
   }
-  if (sbEls.boardName) {
-    var activeStory = typeof sbActiveStory === "function" ? sbActiveStory() : null;
-    sbEls.boardName.textContent = activeStory ? activeStory.name + " / " + board.name : board.name;
-    sbEls.boardName.title = activeStory ? activeStory.name + " - " + board.name : board.name;
-  }
+  // The nav bar carries the only "where am I" readout now that the floating
+  // board chip is gone: "Storyboard - <story>/<scene>".
+  sbUpdateNavTitle();
   sbUpdateSelectionUi();
 
   // The OneDrive background (if any) may need its bytes after a reload: resolve
@@ -1511,7 +1500,7 @@ function sbIsInteractiveKeyTarget(t) {
 
 function sbOnCanvasPointerDown(e) {
   var t = e.target;
-  if (t.closest && (t.closest(".sb-object") || t.closest(".sb-connector") || t.closest(".sb-toolbar") || t.closest(".sb-selection-bar") || t.closest(".sb-selection-box") || t.closest(".sb-board-chip") || t.closest(".sb-board-actions"))) return;
+  if (t.closest && (t.closest(".sb-object") || t.closest(".sb-connector") || t.closest(".sb-toolbar") || t.closest(".sb-selection-bar") || t.closest(".sb-selection-box"))) return;
   // A modifier-click on empty space keeps the selection (only a plain click
   // clears it), which is what multi-select users expect.
   if (e.ctrlKey || e.metaKey || e.shiftKey) return;
@@ -2237,7 +2226,7 @@ function sbDownloadBlob(blob, filename) {
   setTimeout(function () { URL.revokeObjectURL(url); }, 1500);
 }
 
-// "Save scene" (the button beside the board chip, formerly in the rail).
+// "Download Scene": the hamburger menu action that saves the ACTIVE scene.
 async function sbDownloadJpg() {
   var board = sbActiveBoard();
   var blob = await sbBoardJpegBlob();
@@ -2387,4 +2376,40 @@ async function sbDownloadStoryZip() {
   if (!entries.length) return null;
   sbDownloadBlob(sbZipWrite(entries), (sbSlug(story.name) || "storyboard") + ".zip");
   return entries.length;
+}
+
+// ---- nav bar readout + menu entry points -----------------------------------
+
+// The floating board chip was removed, so the nav bar is the only readout of
+// where you are: "Storyboard - <story>/<scene>". The shared SmdApps.mountAppTitle()
+// puts the plain app name there first; this only rewrites its TEXT (its
+// show/hide while a page is open stays shared).
+function sbNavTitleText() {
+  var story = typeof sbActiveStory === "function" ? sbActiveStory() : null;
+  var scene = typeof sbActiveBoard === "function" ? sbActiveBoard() : null;
+  if (!story || !scene) return "Storyboard";
+  return "Storyboard - " + story.name + "/" + scene.name;
+}
+
+function sbUpdateNavTitle() {
+  var el = document.getElementById("appNavTitle");
+  if (!el) return;
+  var text = sbNavTitleText();
+  if (el.textContent !== text) el.textContent = text;
+}
+
+// Menu wrappers keep the friendly failure message the rail button used to have
+// (an inline onclick cannot catch a rejected promise).
+function sbDownloadScene() {
+  return sbDownloadJpg().catch(function (err) {
+    console.error(err);
+    alert("Could not download this scene as a JPG.");
+  });
+}
+
+function sbDownloadStory() {
+  return sbDownloadStoryZip().catch(function (err) {
+    console.error(err);
+    alert("Could not download this story as a ZIP.");
+  });
 }

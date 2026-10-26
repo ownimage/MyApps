@@ -153,25 +153,29 @@ Architecture:
   off, thumbnails-only browsing with names, full download on selection + board
   paint, folder/sign-in tab rules, offline reload from cache, eTag re-save
   refresh, backup embed-once + restore with an empty cache).
-- STORYBOARD SAVING: SCENE JPG + STORY ZIP (2026-10-26, user request): the rail's
-  Save action was REMOVED (the rail is 8 actions: 4 tools + zoom out/in + Fit +
-  Pin). Saving now lives on the BOARD in `.sb-board-actions` (top-right, beside
-  `#sbBoardName`): `#sbSaveSceneBtn` (fa-download) downloads the active scene as
-  `<scene slug>.jpg` via `sbDownloadJpg()`, and `#sbSaveStoryBtn` (fa-file-zipper)
-  calls `sbDownloadStoryZip()` -> `<story slug>.zip` with one JPG per scene.
-  `board.js`: `sbDownloadJpg()` was split into `sbBoardJpegBlob()` (draw, returns
-  the blob) + `sbDownloadBlob(blob, name)`; the ZIP is written by `sbZipWrite()`
-  (STORE-only, no dependency: local headers + central directory + EOCD, CRC32
-  table, UTF-8 flag) and `sbZipEntryName(index, total, sceneName)` produces
-  `"01 - Scene 1.jpg"`, padded to the width of the HIGHEST number (10 scenes ->
-  two digits, 3 scenes -> no padding) so entries sort alphabetically. Zipping
-  walks the story's scenes with `sbActivateScene` + two rAFs per scene and RESTORES
-  the scene the user was on in a `finally` (the active scene id is asserted after
-  the download). The click-away deselect handler ignores `.sb-board-actions`, and
-  the save pills are `smd-button`s skinned like the chip (`smd-button.sb-board-save
-  > button`). Tests: `tests/storyboard-save.spec.js` (rail/button shape + row
-  geometry, scene JPG download, 10-scene ZIP read back in Node: names/padding/
-  order/store-method/SOI-EOI/restore, and the 3-scene no-padding case).
+- STORYBOARD SAVING: SCENE JPG + STORY ZIP (2026-10-26, user request; moved INTO
+  THE HAMBURGER MENU the same day): saving is the LAST TWO hamburger-menu items,
+  after their own divider - `Download Story` (`sbDownloadStory()`) then
+  `Download Scene` (`sbDownloadScene()`). The rail's Save, the floating
+  `.sb-board-actions` pills and the `#sbBoardName` chip were ALL removed; the
+  scene readout is the nav bar title (see the nav-title note). Both wrappers
+  `.catch()` and alert, so a failed export is not silent. `sbDownloadScene()` ->
+  `sbDownloadJpg()` saves the active scene as `<scene slug>.jpg`;
+  `sbDownloadStory()` -> `sbDownloadStoryZip()` builds `<story slug>.zip` with
+  one JPG per scene. `board.js`: `sbDownloadJpg()` was split into
+  `sbBoardJpegBlob()` (draw, returns the blob) + `sbDownloadBlob(blob, name)`;
+  the ZIP is written by `sbZipWrite()` (STORE-only, no dependency: local headers
+  + central directory + EOCD, CRC32 table, UTF-8 flag) and
+  `sbZipEntryName(index, total, sceneName)` produces `"01 - Scene 1.jpg"`,
+  padded to the width of the HIGHEST number (10 scenes -> two digits, 3 scenes
+  -> no padding) so entries sort alphabetically. Zipping walks the story's
+  scenes with `sbActivateScene` + two rAFs per scene and RESTORES the scene the
+  user was on in a `finally` (the active scene id is asserted after the
+  download). Tests: `tests/storyboard-save.spec.js` (menu tail = divider +
+  Download Story + Download Scene and nothing save-shaped on the rail/board,
+  scene JPG download, 10-scene ZIP read back in Node: names/padding/order/
+  store-method/SOI-EOI/restore, and the 3-scene no-padding case). The `minio`
+  spec's menu-order assertion includes the download pair at the end.
 - STORYBOARD STORY PROPERTIES: SIZE + BACKGROUND FIT (2026-10-26, user request):
   each story row in the Stories panel has a **cog** (`data-act="story-props"`)
   that toggles an INLINE form directly under the row (the scene list is a
@@ -878,6 +882,19 @@ Architecture:
   the hamburger" (7 shells: text + same-row/right-of-button geometry + body
   colour, then the PhoneButtons opt-out) and the pmd-regression "hides the main
   menu while a secondary page is open" now also asserts the title hides.
+  STORYBOARD APPENDS ITS LOCATION (2026-10-26, user request): the old floating
+  `#sbBoardName` chip was removed, so Storyboard rewrites the SAME
+  `#appNavTitle` element's text to `Storyboard - <story>/<scene>` (exact format:
+  one space each side of the dash, none around the slash). `sbUpdateNavTitle()`
+  in `Storyboard/js/board.js` (called from `sbRender()`, so every scene switch/
+  add/delete/rename updates it) only sets `textContent` when it changed - the
+  shared show/hide-while-a-page-is-open behaviour is untouched. `storyboard.css`
+  gives `#appNavTitle` `max-width: 55vw` (62vw on the phone breakpoint) +
+  ellipsis so a long name cannot wrap or widen the bar. CONSEQUENCE:
+  `launch-regression` matches Storyboard's title with a REGEX
+  (`/^Storyboard - Story 1\/Scene 1$/` on a fresh visit), while the other shells
+  stay exact strings; any test that read `#sbBoardName` now reads
+  `#mainNav #appNavTitle`.
 - PHONEBUTTONS SERVER TESTS (2026-10-18): `PhoneButtons/server/app.py` (the Flask +
   Socket.IO server) is covered by PYTHON tests in
   `PhoneButtons/server/test_app.py` (pytest, 120 tests, ~90% line coverage) —
@@ -8448,3 +8465,39 @@ Techniques / gotchas:
   compressed) and `sbZipEntryName` sanitises Windows-illegal characters; a 50-scene
   story renders every scene sequentially (2 rAFs each), so a progress indicator may
   be worth adding if stories get big.
+
+### 2026-10-26 (e) - Storyboard: downloads in the menu, nav bar shows story/scene
+
+- REQUEST (user): drop the two floating save icons, put "Download Story" and
+  "Download Scene" at the END of the hamburger menu after a separator, delete the
+  `#sbBoardName` div and show "Storyboard - <story>/<scene>" next to the hamburger
+  instead.
+- BUILT: `.sb-board-actions` (both pills + the chip) is GONE from `index.html`,
+  `board.js`, `storyboard.css` and both "click away deselects" guards. The menu
+  now ends `divider | Download Story | Download Scene`, wired to new globals
+  `sbDownloadStory()` / `sbDownloadScene()` (wrappers that `.catch()` + alert, so
+  a failed export is not a silent unhandled rejection). The nav bar title is the
+  only scene readout: `sbUpdateNavTitle()` rewrites the shared `#appNavTitle`
+  text to `Storyboard - <story>/<scene>` (called from `sbRender()`, so switch/
+  add/delete/rename all follow), and `storyboard.css` truncates it (55vw, 62vw
+  under 520px) instead of wrapping the bar.
+- TDD: rewrote `tests/storyboard-save.spec.js` first and confirmed RED (4/4
+  failed): nothing save-shaped on the rail/board, the menu's last three `<li>`s
+  are exactly `divider/Download Story/Download Scene`, scene JPG download,
+  10-scene ZIP read back in Node, 3-scene no-padding. Then retargeted the tests
+  that read the removed chip (`storyboard-stories` 13 assertions,
+  `storyboard-minio`) to `#mainNav #appNavTitle` with the new format, and
+  `launch-regression` now matches Storyboard's title by REGEX (the other shells
+  stay exact). `storyboard-buttons` asserts the two old ids are gone;
+  `storyboard-story-props` calls `sbDownloadJpg()` directly (its toBlob stub
+  returns no blob, so it swallows the rejection).
+- FALLOUT: the `minio` "hamburger menu follows Settings | divider | Launch |
+  divider | app items" assertion failed on the new tail (121 passed / 1 failed);
+  its expected list now ends `divider, Download Story, Download Scene`.
+- VERIFIED: storyboard suite + launch-regression 121/121 + minio 6/6 after the
+  fix; visually checked desktop (nav reads "Storyboard - DFOS/Scene 1", no chip,
+  no pills), the open menu (Settings | divider | Launch | divider | Download
+  Story | Download Scene, no dangling divider with FileSync off) and a 390px
+  phone (title ellipsises, bar stays one row).
+- SCREENSHOTS: the Storyboard "board" and "main menu dropdown" scenes changed -
+  regenerate the gallery before shipping.

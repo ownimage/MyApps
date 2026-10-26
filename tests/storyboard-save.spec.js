@@ -9,9 +9,10 @@ test.afterEach(async ({ page }) => { await stopCoverage(page); });
 
 // Storyboard - saving.
 //
-// The rail's Save action moved onto the SCENE (a button beside the board chip),
-// and the STORY gained its own button that downloads <story>.zip containing one
-// JPG per scene, numbered and zero padded so the entries sort alphabetically.
+// Saving lives at the END of the hamburger menu ("Download Story" then
+// "Download Scene"): the rail's Save action and the floating board pills were
+// both removed. "Download Story" writes <story>.zip with one JPG per scene,
+// numbered and zero padded so the entries sort alphabetically.
 
 function scene(id, name, extra) {
   return Object.assign({
@@ -59,60 +60,66 @@ function readZip(buffer) {
   return entries;
 }
 
-async function saveDownload(page, selector) {
+function menu(page) {
+  return page.locator("#mainNav > .dropdown > .dropdown-menu");
+}
+
+async function downloadFromMenu(page, label) {
+  await page.locator("#btnMainMenu").click();
+  await expect(menu(page)).toBeVisible();
+  const item = menu(page).locator(".dropdown-item").filter({ hasText: label });
+  await expect(item).toHaveCount(1);
   const [download] = await Promise.all([
     page.waitForEvent("download"),
-    page.locator(selector).click()
+    item.click()
   ]);
   const file = path.join(os.tmpdir(), "sb-save-" + Date.now() + "-" + download.suggestedFilename());
   await download.saveAs(file);
   return { download, file, name: download.suggestedFilename() };
 }
 
-test.describe("Storyboard - save scene / save story", () => {
-  test("the rail no longer has Save; the scene and story buttons sit by the board chip", async ({ page }) => {
-    await seed(page, story("save-story", "Save Me", [scene("save-scene", "Scene 1")]));
-
-    await expect(page.locator("#sbSaveBtn")).toHaveCount(0);
-    await expect(page.locator("#sbToolbar .sb-rail smd-button.sb-rail-btn")).toHaveCount(8);
-
-    const sceneBtn = page.locator("#sbSaveSceneBtn");
-    const storyBtn = page.locator("#sbSaveStoryBtn");
-    await expect(sceneBtn).toBeVisible();
-    await expect(storyBtn).toBeVisible();
-    expect(await sceneBtn.evaluate((el) => el.tagName)).toBe("SMD-BUTTON");
-    expect(await storyBtn.evaluate((el) => el.tagName)).toBe("SMD-BUTTON");
-    await expect(sceneBtn.locator("button i")).toHaveClass(/fa-download/);
-    await expect(storyBtn.locator("button i")).toHaveClass(/fa-file-zipper/);
-    await expect(sceneBtn.locator("button")).toHaveAttribute("aria-label", "Save scene as JPG");
-    await expect(storyBtn.locator("button")).toHaveAttribute("aria-label", "Save story as ZIP");
-
-    // They sit on the same row as the board chip (to its left).
-    const chip = await page.locator("#sbBoardName").boundingBox();
-    const sceneBox = await sceneBtn.boundingBox();
-    const storyBox = await storyBtn.boundingBox();
-    expect(Math.abs(sceneBox.y + sceneBox.height / 2 - (chip.y + chip.height / 2))).toBeLessThan(4);
-    expect(sceneBox.x + sceneBox.width).toBeLessThanOrEqual(storyBox.x + 1);
-    expect(storyBox.x + storyBox.width).toBeLessThanOrEqual(chip.x + 1);
-  });
-
-  test("Save scene downloads a JPG of the current scene", async ({ page }) => {
+test.describe("Storyboard - download scene / download story", () => {
+  test("no save controls on the rail or board; both downloads end the hamburger menu", async ({ page }) => {
     await seed(page, story("save-story", "Save Me", [scene("save-scene", "My Scene")]));
 
-    const saved = await saveDownload(page, "#sbSaveSceneBtn");
+    // Nothing save-shaped left on the rail, and the floating pills are gone.
+    await expect(page.locator("#sbSaveBtn")).toHaveCount(0);
+    await expect(page.locator("#sbSaveSceneBtn")).toHaveCount(0);
+    await expect(page.locator("#sbSaveStoryBtn")).toHaveCount(0);
+    await expect(page.locator("#sbBoardActions")).toHaveCount(0);
+    await expect(page.locator("#sbToolbar .sb-rail smd-button.sb-rail-btn")).toHaveCount(8);
+
+    // The board chip is gone too: the story/scene readout is the nav bar title.
+    await expect(page.locator("#sbBoardName")).toHaveCount(0);
+    await expect(page.locator("#mainNav #appNavTitle")).toHaveText("Storyboard - Save Me/My Scene");
+
+    // Two menu items at the very end, after their own separator.
+    await page.locator("#btnMainMenu").click();
+    await expect(menu(page)).toBeVisible();
+    const tail = await menu(page).evaluate((el) => Array.prototype.slice.call(el.children).slice(-3).map((li) => {
+      if (li.querySelector(".dropdown-divider")) return "---";
+      return (li.textContent || "").trim();
+    }));
+    expect(tail).toEqual(["---", "Download Story", "Download Scene"]);
+  });
+
+  test("Download Scene downloads a JPG of the current scene", async ({ page }) => {
+    await seed(page, story("save-story", "Save Me", [scene("save-scene", "My Scene")]));
+
+    const saved = await downloadFromMenu(page, "Download Scene");
     expect(saved.name).toBe("my-scene.jpg");
     const head = fs.readFileSync(saved.file).subarray(0, 2).toString("hex");
     expect(head).toBe("ffd8");
   });
 
-  test("Save story downloads one JPG per scene, zero padded and in order", async ({ page }) => {
+  test("Download Story downloads one JPG per scene, zero padded and in order", async ({ page }) => {
     // Ten scenes so the padding is two digits ("01" .. "10").
     const scenes = [];
     for (let i = 1; i <= 10; i++) scenes.push(scene("zip-scene-" + i, i === 3 ? "Middle Part" : "Scene " + i));
     const activeId = "zip-scene-4";
     await seed(page, story("zip-story", "Zip Story", scenes, { activeSceneId: activeId }));
 
-    const saved = await saveDownload(page, "#sbSaveStoryBtn");
+    const saved = await downloadFromMenu(page, "Download Story");
     expect(saved.name).toBe("zip-story.zip");
 
     const entries = readZip(fs.readFileSync(saved.file));
@@ -149,7 +156,7 @@ test.describe("Storyboard - save scene / save story", () => {
     const scenes = [1, 2, 3].map((i) => scene("tiny-scene-" + i, "Part " + i));
     await seed(page, story("tiny-story", "Tiny", scenes));
 
-    const saved = await saveDownload(page, "#sbSaveStoryBtn");
+    const saved = await downloadFromMenu(page, "Download Story");
     const entries = readZip(fs.readFileSync(saved.file));
     expect(entries.map((entry) => entry.name)).toEqual([
       "1 - Part 1.jpg",

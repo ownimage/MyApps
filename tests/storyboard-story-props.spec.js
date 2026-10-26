@@ -108,7 +108,10 @@ async function captureExport(page) {
 }
 
 async function saveJpg(page) {
-  await page.locator("#sbSaveSceneBtn").click();
+  // The export action lives in the hamburger menu now; call it directly so this
+  // test stays about the exported geometry (the click path is covered by
+  // storyboard-save.spec.js). The toBlob stub returns no blob, so swallow that.
+  await page.evaluate(() => { sbDownloadJpg().catch(function () {}); });
   await expect.poll(() => page.evaluate(() => window.__exportCanvases.length)).toBeGreaterThan(0);
   return page.evaluate(() => ({
     canvas: window.__exportCanvases[0],

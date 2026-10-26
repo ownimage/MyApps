@@ -160,7 +160,11 @@ test.describe("Storyboard - MinIO", () => {
       "Load Story from Minio",
       "divider",
       "Save Story to OneDrive",
-      "Load Story from OneDrive"
+      "Load Story from OneDrive",
+      // The download pair always ends the menu (they are not FileSync gated).
+      "divider",
+      "Download Story",
+      "Download Scene"
     ]);
   });
 
@@ -252,7 +256,7 @@ test.describe("Storyboard - MinIO", () => {
     expect(loaded.scenes[0].items.map((i) => i.id)).toEqual(["loaded-sticker"]);
     expect(state.activeStory).toBe(loaded.id);
     expect(state.activeScene).toBe(loaded.scenes[0].id);
-    await expect(page.locator("#sbBoardName")).toContainText("Holiday Plan");
+    await expect(page.locator("#mainNav #appNavTitle")).toHaveText("Storyboard - Holiday Plan/Scene 1");
     await expect(page.locator('.sb-object[data-id="loaded-sticker"]')).toBeVisible();
     await expect(page.locator("#minioImportPage")).not.toHaveAttribute("open", "");
     await expect(page.locator("#smdConfirmModal")).toContainText("Loaded");

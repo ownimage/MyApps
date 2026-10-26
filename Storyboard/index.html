@@ -57,6 +57,9 @@
         <li><hr class="dropdown-divider onedrive-menu-item" style="display:none"></li>
         <li><a class="dropdown-item onedrive-menu-item" style="display:none" onclick="saveToOneDrive()">Save Story to OneDrive</a></li>
         <li><a class="dropdown-item onedrive-menu-item" style="display:none" onclick="openOneDrivePage()">Load Story from OneDrive</a></li>
+        <li><hr class="dropdown-divider"></li>
+        <li><a class="dropdown-item" onclick="sbDownloadStory()">Download Story</a></li>
+        <li><a class="dropdown-item" onclick="sbDownloadScene()">Download Scene</a></li>
       </ul>
     </div>
 
@@ -65,7 +68,7 @@
   <!-- BOARD -->
   <main id="storyboardArea">
 
-    <!-- The scroller is the only part that scrolls: the toolbar, board name and
+    <!-- The scroller is the only part that scrolls: the toolbar and the
          selection bar are fixed overlays inside the area, so they never scroll
          away when the board is zoomed in. -->
     <div id="sbScroller" class="sb-scroller">
@@ -92,14 +95,6 @@
           </div>
         </div>
       </div>
-    </div>
-
-    <!-- BOARD NAME + SAVE ACTIONS (the rail no longer carries Save: the scene's
-         JPG and the story's ZIP live here, beside the chip). -->
-    <div id="sbBoardActions" class="sb-board-actions">
-      <smd-button id="sbSaveSceneBtn" class="sb-board-save" variant="secondary" size="small" title="Save scene as JPG" aria-label="Save scene as JPG" icon="fa-solid fa-download"></smd-button>
-      <smd-button id="sbSaveStoryBtn" class="sb-board-save" variant="secondary" size="small" title="Save story as ZIP" aria-label="Save story as ZIP" icon="fa-solid fa-file-zipper"></smd-button>
-      <div id="sbBoardName" class="sb-board-chip" role="button" tabindex="0" title="Switch board"></div>
     </div>
 
     <!-- LEFT TOOLBAR: rail + fly-out panel -->
