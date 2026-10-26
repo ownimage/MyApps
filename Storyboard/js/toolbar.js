@@ -141,15 +141,15 @@ function sbRenderBoardsPanel() {
   sbState.stories.forEach(function (story) {
     var expanded = !!activeStory && story.id === activeStory.id;
     html += '<div class="sb-story-row' + (expanded ? " active" : "") + '" data-story-id="' + story.id + '">' +
-      '<button type="button" class="sb-story-pick" data-act="pick-story" data-id="' + story.id + '">' +
+      '<smd-button class="sb-story-pick" variant="secondary" data-act="pick-story" data-id="' + story.id + '">' +
         '<i class="fa-solid ' + (expanded ? "fa-chevron-down" : "fa-chevron-right") + ' sb-story-chevron" aria-hidden="true"></i>' +
         '<i class="fa-solid fa-book-open" aria-hidden="true"></i>' +
         '<span>' + escapeHtml(story.name) + '</span>' +
-      '</button>' +
-      '<button type="button" class="sb-story-act" data-act="story-props" data-id="' + story.id + '" title="Story properties" aria-label="Story properties"><i class="fa-solid fa-cog"></i></button>' +
-      '<button type="button" class="sb-story-act" data-act="rename-story" data-id="' + story.id + '" title="Rename story" aria-label="Rename story"><i class="fa-solid fa-pen"></i></button>' +
-      '<button type="button" class="sb-story-act" data-act="delete-story" data-id="' + story.id + '" title="Delete story" aria-label="Delete story"' +
-        (sbState.stories.length < 2 ? " disabled" : "") + '><i class="fa-solid fa-trash"></i></button>' +
+      '</smd-button>' +
+      '<smd-button class="sb-story-act" variant="secondary" size="small" data-act="story-props" data-id="' + story.id + '" title="Story properties" aria-label="Story properties" icon="fa-solid fa-cog"></smd-button>' +
+      '<smd-button class="sb-story-act" variant="secondary" size="small" data-act="rename-story" data-id="' + story.id + '" title="Rename story" aria-label="Rename story" icon="fa-solid fa-pen"></smd-button>' +
+      '<smd-button class="sb-story-act" variant="secondary" size="small" data-act="delete-story" data-id="' + story.id + '" title="Delete story" aria-label="Delete story" icon="fa-solid fa-trash"' +
+        (sbState.stories.length < 2 ? " disabled" : "") + '></smd-button>' +
     '</div>';
     // The cog's inline form sits directly under its row (the scene list is a
     // SIBLING of the row, so this block is another sibling).
@@ -158,21 +158,20 @@ function sbRenderBoardsPanel() {
     html += '<div class="sb-story-scenes">';
     story.scenes.forEach(function (board) {
       html += '<div class="sb-board-row' + (active && board.id === active.id ? " active" : "") + '" data-board-id="' + board.id + '">' +
-        '<button type="button" class="sb-board-pick" data-act="pick" data-id="' + board.id + '">' +
+        '<smd-button class="sb-board-pick" variant="secondary" data-act="pick" data-id="' + board.id + '">' +
           '<i class="fa-solid fa-clapperboard" aria-hidden="true"></i>' +
           '<span>' + escapeHtml(board.name) + '</span>' +
-        '</button>' +
-        '<button type="button" class="sb-board-act" data-act="rename" data-id="' + board.id + '" title="Rename scene" aria-label="Rename scene"><i class="fa-solid fa-pen"></i></button>' +
-        '<button type="button" class="sb-board-act" data-act="delete" data-id="' + board.id + '" title="Delete scene" aria-label="Delete scene"' +
-          (story.scenes.length < 2 ? " disabled" : "") + '><i class="fa-solid fa-trash"></i></button>' +
+        '</smd-button>' +
+        '<smd-button class="sb-board-act" variant="secondary" size="small" data-act="rename" data-id="' + board.id + '" title="Rename scene" aria-label="Rename scene" icon="fa-solid fa-pen"></smd-button>' +
+        '<smd-button class="sb-board-act" variant="secondary" size="small" data-act="delete" data-id="' + board.id + '" title="Delete scene" aria-label="Delete scene" icon="fa-solid fa-trash"' +
+          (story.scenes.length < 2 ? " disabled" : "") + '></smd-button>' +
       '</div>';
     });
-    html += '<button type="button" class="btn btn-sm btn-success sb-add-scene" data-act="add-scene" data-id="' + story.id + '">' +
-      '<i class="fa-solid fa-plus me-1"></i>New scene</button>';
+    html += '<smd-button class="sb-add-scene" variant="success" size="small" data-act="add-scene" data-id="' + story.id + '" icon="fa-solid fa-plus">New scene</smd-button>';
     html += '</div>';
   });
   html += '</div>';
-  html += '<button type="button" id="sbAddStory" class="btn btn-success w-100"><i class="fa-solid fa-plus me-1"></i>New story</button>';
+  html += '<smd-button id="sbAddStory" variant="success" block icon="fa-solid fa-plus">New story</smd-button>';
   html += '<p class="sb-panel-note">A story contains scenes. Each scene is its own board with a background, stickers and text.</p>';
   sbToolbarEls.body.innerHTML = html;
 
@@ -219,7 +218,7 @@ function sbStoryPropsHtml(story) {
     html += '<option value="' + item.id + '">' + item.name + '</option>';
   });
   html += '</smd-select>';
-  html += '<button type="button" class="btn btn-sm btn-secondary w-100" data-act="story-props-close" data-id="' + story.id + '">Done</button>';
+  html += '<smd-button class="w-100" variant="secondary" size="small" block data-act="story-props-close" data-id="' + story.id + '">Done</smd-button>';
   html += '</div>';
   return html;
 }
@@ -281,8 +280,12 @@ function sbOnPanelChange(e) {
 function sbBeginInlineRename(row, pickSelector, currentName, onSave, validate) {
   var pick = row && row.querySelector(pickSelector);
   if (!pick) return;
-  pick.innerHTML = '<input class="form-control form-control-sm sb-board-name-input" value="' + escAttr(currentName) + '">';
-  var input = pick.querySelector("input");
+  // The pick is an <smd-button> host now: replace the INNER button's content so
+  // the editor takes the same place the label had (the host itself must keep its
+  // real <button>).
+  var field = pick.querySelector("button") || pick;
+  field.innerHTML = '<input class="form-control form-control-sm sb-board-name-input" value="' + escAttr(currentName) + '">';
+  var input = field.querySelector("input");
   var done = false;
   var errorEl = null;
 
@@ -417,10 +420,10 @@ function sbRenderStickersPanel(skipRefresh) {
     // folders were tried, and offer the action that fixes it.
     var kind = typeof sbStickerStatusKind === "function" ? sbStickerStatusKind() : "";
     var signIn = kind === "signin"
-      ? '<button type="button" class="btn btn-sm btn-primary sb-sticker-signin">Sign in</button> '
+      ? '<smd-button class="sb-sticker-signin" variant="primary" size="small" icon="fa-solid fa-right-to-bracket">Sign in</smd-button> '
       : "";
     note += '<p class="sb-panel-note sb-sticker-status">' + escapeHtml(status) + ' ' + signIn +
-      '<button type="button" class="btn btn-sm btn-secondary sb-sticker-retry">Retry</button></p>';
+      '<smd-button class="sb-sticker-retry" variant="secondary" size="small">Retry</smd-button></p>';
   }
 
   if (!tabs.length) {
@@ -552,9 +555,9 @@ function sbRenderTextPanel() {
   html += '</div>';
 
   if (item) {
-    html += '<button type="button" id="sbDoneText" class="btn btn-primary w-100">Done</button>';
+    html += '<smd-button id="sbDoneText" variant="primary" block>Done</smd-button>';
   } else {
-    html += '<button type="button" id="sbPlaceText" class="btn btn-primary w-100"' + (text.trim() ? "" : " disabled") + '>Place text</button>';
+    html += '<smd-button id="sbPlaceText" variant="primary" block' + (text.trim() ? "" : " disabled") + '>Place text</smd-button>';
   }
   html += '<p class="sb-panel-note">Double-click or double-tap a text box on the board to edit it again.</p>';
 
@@ -591,7 +594,10 @@ function sbTogglePlaceButton() {
   var btn = document.getElementById("sbPlaceText");
   var input = document.getElementById("sbTextInput");
   if (!btn || !input || sbState.editingTextId) return;
-  btn.disabled = !input.value.trim();
+  // The shared component mirrors `disabled` onto its inner button; set the
+  // ATTRIBUTE so it also works before the element has upgraded.
+  if (input.value.trim()) btn.removeAttribute("disabled");
+  else btn.setAttribute("disabled", "");
 }
 
 function sbTextField(field, value) {

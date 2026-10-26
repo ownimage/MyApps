@@ -85,6 +85,38 @@ Architecture:
 - Shared components are LIGHT DOM. `shared/css/styles.css` now holds ONLY theme colour + spatial-size declarations; every layout MECHANIC (display/flex/position/gap/margin/padding/transform/transition/border-reset/cursor/opacity) lives in the component's own `injectSmdComponentStyle()` block (or, for the app shell, `injectSettingsLayout()` in `shared/js/smd-settings.js`). Do not reintroduce constructable stylesheets or shadow-root styling for these components. `smd-modal`, `smd-page`, `smd-tabs`, and the pmd-* cards expose stable light-DOM classes for shared selectors and tests. `smd-tabs` tab definitions may include `panelClass` (for example `no-padding`) for panel-specific layout.
 - Colour/typography conventions: smd-tabs active = `--bs-primary`, inactive = `--bs-secondary`, with `#smd-app` scoping for priority; the Streams Editor header is `--bs-primary` when expanded and `--bs-info` when collapsed; modal/page headers use theme surfaces (`--bs-body-bg`, `--bs-secondary-bg`, `--bs-border-color`) rather than hardcoded colours. Bootstrap/Bootswatch remains authoritative; the runtime contrast layer is not used.
 - TYPESCALE TOKENS (2026-09-18): one shared ramp in `shared/css/styles.css` — `body { --smd-type-base: 1rem }` plus `body.font-size-xsmall/small/large/xlarge/jumbo` overrides (0.8/0.925/1/1.125/1.3/1.6rem) — drives exactly four tokens `--smd-type-badge` (base×0.75), `--smd-type-p` (base), `--smd-type-h2` (base×1.25), `--smd-type-h1` (base×2), all declared on `body` (NOT `:root`: the ramp must recompute per font-size body class, and body custom props pierce shadow DOM while `:host-context()` doesn't). Tag map: h1→h1; h2/h3/h4→h2; h5/h6→p; text/inputs/tables→p; badges→badge. BUTTONS ARE h2 (one step above text): `<button>`, `.btn`, `.smd-tab-btn` all use `var(--smd-type-h2)`; `.btn-sm` stays at `var(--smd-type-p)`. Light-DOM home is `shared/css/styles.css` (`button, .btn` / `.btn-sm`); the shared `btnBadgeSheet` covers shadow buttons. Scaffold the h2/p rules inline wherever a shadow root does NOT adopt btnBadgeSheet: the 4 apps' `editor-styles.js`, `smd-settings.js`, `smd-minio.js`, `smd-modal.js`, `smd-image-picker.js`, `smd-image-dropdown.js`. Don't re-add per-component `.btn` font-size rules. Every component + app style now uses `var(--smd-type-*, original-value)` (original as fallback so behaviour is unchanged wherever the token is missing). Media-fit sizes are token CALCs (e.g. CM/QR title `calc(var(--smd-type-h1,1.5rem)*0.7667)`, CM count `*0.8333`, CM container h1 `*0.625`, Solar 480px block). Compact density = `--…-title-size: var(--smd-type-p)` overrides. Deliberate non-token exceptions: the 22px hamburger icon in `smd-app.js`, `smd-checkbox` 1.2em/2em + `smd-draghandle` FIXED 1.2rem/1.6rem touch sizes, vendor CSS, storybook chrome. Tests assert heading ELEMENT tags (now `h1` for main-view date/"Today!"/"From …" headings) and pmd-touch.spec.js:119 asserts the NEW pixel values (xlarge 41.6, jumbo 51.2, compact-jumbo 25.6) — update those literals together with any ramp change.
+- SHARED `<smd-button>`: ICONS + RICH CONTENT (2026-10-26): Storyboard's rail and
+  fly-out panels converted every ACTION button to the shared component, which
+  needed two additive features (both backwards compatible):
+  - `icon="fa-solid fa-cog"` renders `<i class="..." aria-hidden="true">` before
+    the label; an icon-only button (no text) gets NO "Button" fallback. With an
+    icon the label goes in `<span class="smd-button-label">` (the component's
+    injected sheet gives it `margin-left: .35em`); without one the inner button is
+    a bare text node as before.
+  - `aria-label` / `aria-pressed` are mirrored onto the INNER `<button>` (the real
+    control), because an icon-only button has no text name. `title` stays on the
+    host.
+  - RICH CONTENT: if the host contains ELEMENT children (e.g. a chevron + a book
+    icon + a name span), they are MOVED into the inner button untouched instead of
+    being flattened to text - that is what keeps Storyboard's story/scene pick rows
+    (two icons, expanding chevron) intact.
+  Storyboard keeps its FLAT look by skinning the inner button in
+  `Storyboard/css/storyboard.css` (`smd-button.sb-rail-btn > button`, `.sb-story-pick
+  > button`, `.sb-story-act > button`, `.sb-panel-close > button`): the HOST is the
+  flex item, the inner `.btn` is made transparent/borderless/icon-stacked. Rail
+  active state is `smd-button.sb-rail-btn.active > button`; disabled styling is
+  `smd-button.sb-*.act[disabled] > button` (Bootstrap `.btn:disabled` opacity is
+  overridden). NOT converted on purpose: the picture/colour pickers
+  (`.sb-bg-option`, `.sb-swatch`, `.sb-border-option`) and the sticker tiles.
+  TESTS: `tests/storyboard-buttons.spec.js` (shape/skin/labels/disabled/still-bespoke
+  pickers) + `tests/smd-button-icon.spec.js` (component contract; note it hosts
+  the probes in a real app page rather than the storybook). FALLOUT to remember
+  when converting more native buttons: (a) `toBeDisabled()` / `isDisabled()` and
+  `.focus()` must target the INNER button (`#id button`), they do not work on the
+  host; (b) `sbBeginInlineRename()` now replaces the inner button's content
+  (`pick.querySelector("button")`) or the editor would land beside the label; (c)
+  a `disabled` attribute authored on the host must be set/read as an ATTRIBUTE
+  (`sbTogglePlaceButton`), never as a pre-upgrade JS property.
 - STORYBOARD STORY PROPERTIES: SIZE + BACKGROUND FIT (2026-10-26, user request):
   each story row in the Stories panel has a **cog** (`data-act="story-props"`)
   that toggles an INLINE form directly under the row (the scene list is a
@@ -8248,3 +8280,43 @@ Techniques / gotchas:
   `sbRenameStory()` also validates so no other entry point can write a duplicate,
   and `sbUniqueStoryName()` now compares lower-cased keys. Full Storyboard suite +
   onedrive 109/109. BUILD -> `202610261159`.
+
+### 2026-10-26 (b) - Storyboard: rail + fly-out actions converted to <smd-button>
+
+- REQUEST (user): "For all the buttons on the left panel and fly out panels please
+  change to smd-buttons." Asked first because `<smd-button>` flattens its content
+  to a text label: the answers were (1) extend smd-button with icons, (2) convert
+  ACTION buttons only (not the picture/colour tiles), (3) keep the rail's current
+  transparent icon look rather than adopting Bootstrap's filled buttons.
+- COMPONENT: `shared/js/components/smd-button.js` gained `icon` (renders
+  `<i class="..." aria-hidden>` + `<span class="smd-button-label">`; an icon-only
+  button gets no "Button" fallback), `aria-label`/`aria-pressed` mirroring onto the
+  inner button, and RICH CONTENT (element children are moved into the inner button
+  unchanged). All additive/backwards compatible; the icon/label spacing is one
+  injected rule.
+- CONVERTED: the 9 rail actions (`index.html`), the panel close, the story/scene
+  pick rows (rich content keeps the chevron + book/clapperboard icons + name), the
+  cog/pen/trash row actions, "New scene"/"New story", the properties "Done", the
+  sticker-library "Sign in"/"Retry", and the text panel's "Place text"/"Done".
+  Kept bespoke: `.sb-bg-option`, `.sb-swatch`, `.sb-border-option`, sticker tiles.
+  `storyboard.css` retargets the old `.sb-rail-btn`/row/close skin onto the INNER
+  button (`smd-button.X > button`) so the look is unchanged; the host is the flex
+  item, `.active`/`[disabled]` are styled through the host.
+- TDD: `tests/smd-button-icon.spec.js` (3: icon+label+a11y, icon-only, plain
+  unchanged) and `tests/storyboard-buttons.spec.js` (4: rail shape/icons/labels/
+  a11y, panel rows/adds/disabled, props+text actions, pickers still native) were
+  written FIRST and red (5 failures), then green.
+- FALLOUT (test-side, all legitimate): `toBeDisabled()`/`isDisabled()` and
+  `.focus()` must target the INNER button now - updated `storyboard-zoom.spec.js`
+  (zoom ends + Fit) and `storyboard-pan.spec.js` (focus `#sbZoomIn button` before
+  Space); `storyboard-stories.spec.js` delete guards now assert `... button`. Also
+  `sbBeginInlineRename()` must replace the INNER button's content (it was writing
+  the input into the host, beside the label), and `sbTogglePlaceButton()` sets the
+  disabled ATTRIBUTE (a pre-upgrade `.disabled` property would be shadowed).
+- VERIFIED: storyboard suite + stickers/props/buttons + onedrive + smd-button 116/116;
+  settings-alignment, display-settings, storybook, launch, qrlinks, ffox, solar,
+  phonebuttons, cmd, lol, image-edit-preview-size, shared-helpers, native-checkbox,
+  minio-directory 280/280; pmd-regression 493/493 (the shared component is used by
+  every app's settings/pages). Visually checked the rail and both panels: the rail
+  is pixel-comparable to before, rows keep their flat icons, `New story` stays
+  full width. BUILD -> `202610261245`.

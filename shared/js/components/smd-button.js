@@ -13,6 +13,14 @@
 //   block    — boolean; the host becomes `d-block` and the inner button `w-100`, giving
 //              a FULL-WIDTH action button (settings Danger rows, page bodies)
 //   disabled — boolean
+//   icon     — OPTIONAL Font Awesome class list, e.g. `icon="fa-solid fa-cog"`. Renders
+//              `<i class="fa-solid fa-cog" aria-hidden="true">` before the label, so an
+//              icon-only button is possible (no "Button" fallback then).
+//   aria-label / aria-pressed — mirrored onto the inner button (the real control).
+//
+// RICH CONTENT: if the host contains ELEMENT children (e.g. two icons, or an icon
+// and a `<span>`), they are MOVED into the inner button untouched instead of being
+// flattened to text. That keeps composed rows (a chevron plus a badge) intact.
 (function (global) {
   "use strict";
 
@@ -35,12 +43,13 @@
 
   class SmdButton extends HTMLElement {
     static get observedAttributes() {
-      return ["variant", "disabled", "size", "block"];
+      return ["variant", "disabled", "size", "block", "icon", "aria-label", "aria-pressed"];
     }
 
     constructor() {
       super();
       this._label = undefined;
+      this._rich = null;
     }
 
     get variant() {
@@ -68,6 +77,8 @@
         this._applySize();
       }
       if (name === "block") this._applyBlock();
+      if (name === "icon") this._renderContent();
+      if (name === "aria-label" || name === "aria-pressed") this._applyA11y();
     }
 
     connectedCallback() {
@@ -92,20 +103,65 @@
       }
       if (this._label === undefined) {
         this._label = this.textContent.replace(/^\s+|\s+$/g, "");
+        // Element children (icons, spans) are RICH content: keep them, they are
+        // moved into the inner button below. Plain text becomes the label.
+        const elements = Array.prototype.filter.call(this.childNodes, (node) => node.nodeType === 1);
+        this._rich = elements.length ? Array.prototype.slice.call(this.childNodes) : null;
       }
+      const rich = this._rich;
       this.innerHTML = "";
       const btn = template.content.firstElementChild.cloneNode(true);
-      btn.textContent = this._label || "Button";
       if (this.id) btn.id = this.id + "-button";
       this.appendChild(btn);
+      if (rich) rich.forEach((node) => btn.appendChild(node));
       this._applyVariant();
       this._applySize();
       this._applyBlock();
       this._applyDisabled();
+      this._renderContent();
+      this._applyA11y();
     }
 
     _btn() {
       return this.querySelector("button");
+    }
+
+    // The inner button's contents: rich authored children (already moved in), or
+    // an optional `<i class="icon">` plus the captured text label.
+    _renderContent() {
+      const btn = this._btn();
+      if (!btn || this._rich) return;
+      btn.textContent = "";
+      const icon = (this.getAttribute("icon") || "").trim();
+      if (icon) {
+        const i = document.createElement("i");
+        icon.split(/\s+/).forEach((cls) => { if (cls) i.classList.add(cls); });
+        i.setAttribute("aria-hidden", "true");
+        btn.appendChild(i);
+      }
+      const label = this._label || "";
+      if (icon) {
+        if (label) {
+          const span = document.createElement("span");
+          span.className = "smd-button-label";
+          span.textContent = label;
+          btn.appendChild(span);
+        }
+      } else {
+        // Unchanged legacy behaviour: a text button (or the "Button" fallback).
+        btn.textContent = label || "Button";
+      }
+    }
+
+    // The inner <button> is the focusable control, so the accessible name and
+    // pressed state must live there, not only on the host.
+    _applyA11y() {
+      const btn = this._btn();
+      if (!btn) return;
+      ["aria-label", "aria-pressed"].forEach((name) => {
+        if (this.hasAttribute(name)) btn.setAttribute(name, this.getAttribute(name));
+        else btn.removeAttribute(name);
+      });
     }
 
     _applyVariant() {
@@ -137,6 +193,11 @@
       if (btn) btn.disabled = this.disabled;
     }
   }
+
+  // Icon + label spacing for the `icon` attribute (apps may override, e.g.
+  // Storyboard's rail stacks the icon above the label instead).
+  global.injectSmdComponentStyle("smd-button-icon",
+    "smd-button > button > i + .smd-button-label { margin-left: 0.35em; }");
 
   if (!global.customElements.get("smd-button")) {
     global.customElements.define("smd-button", SmdButton);

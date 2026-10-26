@@ -307,13 +307,22 @@ body.smd-wco #sbToolbar {
   min-height: 12px;
 }
 
-.sb-rail-btn {
-  display: flex;
+/* Rail actions are shared <smd-button>s (2026-10-26). The HOST is the flex item;
+ * the inner native button carries the rail look (transparent, icon over label),
+ * because <smd-button> renders a Bootstrap `.btn` we skin here rather than using
+ * its filled variant look. */
+smd-button.sb-rail-btn {
   flex: 0 0 auto;
+  width: 100%;
+}
+
+smd-button.sb-rail-btn > button {
+  display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 2px;
+  width: 100%;
   min-height: 52px;
   padding: 6px 2px;
   border: 0;
@@ -323,31 +332,36 @@ body.smd-wco #sbToolbar {
   font-size: 10px;
   line-height: 1.15;
   cursor: pointer;
+  box-shadow: none;
 }
 
-.sb-rail-btn i {
+smd-button.sb-rail-btn > button i {
   font-size: 1.15rem;
 }
 
-.sb-rail-btn span {
+smd-button.sb-rail-btn > button .smd-button-label,
+smd-button.sb-rail-btn > button span {
   display: block;
   width: 100%;
+  margin: 0;
   overflow: hidden;
   text-align: center;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.sb-rail-btn:hover {
+smd-button.sb-rail-btn > button:hover,
+smd-button.sb-rail-btn > button:focus-visible {
   background: rgba(var(--bs-body-color-rgb), 0.1);
+  color: var(--bs-body-color);
 }
 
-.sb-rail-btn.active {
+smd-button.sb-rail-btn.active > button {
   background: rgba(var(--bs-primary-rgb), 0.16);
   color: var(--bs-primary);
 }
 
-.sb-pin-btn.active {
+smd-button.sb-pin-btn.active > button {
   color: var(--bs-primary);
 }
 
@@ -366,27 +380,30 @@ body.smd-wco #sbToolbar {
   gap: 4px;
 }
 
-.sb-zoom-btn {
+smd-button.sb-zoom-btn {
   flex: 1 1 0;
   min-width: 0;
+}
+
+smd-button.sb-zoom-btn > button {
   min-height: 36px;
   padding: 4px 0;
 }
 
-.sb-zoom-btn i {
+smd-button.sb-zoom-btn > button i {
   font-size: 0.95rem;
 }
 
-.sb-zoom-fit {
+smd-button.sb-zoom-fit > button {
   min-height: 40px;
 }
 
-.sb-rail-btn:disabled {
+smd-button.sb-rail-btn[disabled] > button {
   opacity: 0.35;
   cursor: default;
 }
 
-.sb-rail-btn:disabled:hover {
+smd-button.sb-rail-btn[disabled] > button:hover {
   background: transparent;
 }
 
@@ -427,19 +444,29 @@ body.smd-wco #sbToolbar {
   font-size: var(--smd-type-h2, 1.1em);
 }
 
-.sb-panel-close {
+smd-button.sb-panel-close {
   flex: 0 0 auto;
+}
+
+smd-button.sb-panel-close > button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   width: 32px;
   height: 32px;
+  padding: 0;
   border: 0;
   border-radius: 8px;
   background: transparent;
   color: var(--bs-body-color);
   cursor: pointer;
+  box-shadow: none;
 }
 
-.sb-panel-close:hover {
+smd-button.sb-panel-close > button:hover,
+smd-button.sb-panel-close > button:focus-visible {
   background: rgba(var(--bs-body-color-rgb), 0.12);
+  color: var(--bs-body-color);
 }
 
 .sb-panel-body {
@@ -491,12 +518,18 @@ body.smd-wco #sbToolbar {
   background: rgba(var(--bs-primary-rgb), 0.1);
 }
 
-.sb-board-pick,
-.sb-story-pick {
-  display: flex;
+smd-button.sb-board-pick,
+smd-button.sb-story-pick {
   flex: 1 1 auto;
+  min-width: 0;
+}
+
+smd-button.sb-board-pick > button,
+smd-button.sb-story-pick > button {
+  display: flex;
   align-items: center;
   gap: 0.5rem;
+  width: 100%;
   min-width: 0;
   padding: 0.35rem 0.4rem;
   border: 0;
@@ -506,18 +539,20 @@ body.smd-wco #sbToolbar {
   font-size: var(--smd-type-p, 0.95em);
   text-align: left;
   cursor: pointer;
+  box-shadow: none;
 }
 
-.sb-board-pick span,
-.sb-story-pick span {
+smd-button.sb-board-pick > button span,
+smd-button.sb-story-pick > button span {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.sb-board-pick:hover,
-.sb-story-pick:hover {
+smd-button.sb-board-pick > button:hover,
+smd-button.sb-story-pick > button:hover {
   background: rgba(var(--bs-body-color-rgb), 0.08);
+  color: inherit;
 }
 
 .sb-story-chevron {
@@ -526,21 +561,33 @@ body.smd-wco #sbToolbar {
   opacity: 0.7;
 }
 
-.sb-board-act,
-.sb-story-act {
+smd-button.sb-board-act,
+smd-button.sb-story-act {
   flex: none;
   width: 30px;
   height: 30px;
+}
+
+smd-button.sb-board-act > button,
+smd-button.sb-story-act > button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
   border: 0;
   border-radius: 8px;
   background: transparent;
   color: inherit;
   cursor: pointer;
+  box-shadow: none;
 }
 
-.sb-board-act:hover,
-.sb-story-act:hover {
+smd-button.sb-board-act > button:hover,
+smd-button.sb-story-act > button:hover {
   background: rgba(var(--bs-body-color-rgb), 0.12);
+  color: inherit;
 }
 
 /* Story properties (the cog's inline form under the story row): canvas size and
@@ -583,8 +630,8 @@ body.smd-wco #sbToolbar {
   opacity: 0.7;
 }
 
-.sb-board-act:disabled,
-.sb-story-act:disabled {
+smd-button.sb-board-act[disabled] > button,
+smd-button.sb-story-act[disabled] > button {
   opacity: 0.35;
   cursor: default;
 }
@@ -1248,11 +1295,12 @@ html[data-smd-touch-size="large"] .sb-handle-rotate {
     width: 50px;
   }
 
-  .sb-rail-btn {
+  smd-button.sb-rail-btn > button {
     min-height: 46px;
   }
 
-  .sb-rail-btn span {
+  smd-button.sb-rail-btn > button .smd-button-label,
+  smd-button.sb-rail-btn > button span {
     display: none;
   }
 

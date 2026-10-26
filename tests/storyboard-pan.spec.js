@@ -292,7 +292,7 @@ test.describe("Storyboard - space pan", () => {
 
   test("Space on a focused button activates the button, not pan mode", async ({ page }) => {
     await seedBoard(page);
-    await page.locator("#sbZoomIn").focus();
+    await page.locator("#sbZoomIn button").focus();
     await page.keyboard.press("Space");
 
     await expect.poll(() => page.evaluate(() => window.sbState.zoom)).toBe(1.25);

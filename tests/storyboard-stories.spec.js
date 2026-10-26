@@ -1,4 +1,4 @@
-﻿const { test, expect } = require("@playwright/test");
+const { test, expect } = require("@playwright/test");
 
 // Storyboard - Stories contain Scenes.
 //
@@ -244,8 +244,8 @@ test.describe("Storyboard - stories and scenes", () => {
     await openStories(page);
 
     // The only scene of the only story: Delete is disabled.
-    await expect(page.locator('.sb-board-act[data-act="delete"]')).toBeDisabled();
-    await expect(page.locator('.sb-story-act[data-act="delete-story"]')).toBeDisabled();
+    await expect(page.locator('.sb-board-act[data-act="delete"] button')).toBeDisabled();
+    await expect(page.locator('.sb-story-act[data-act="delete-story"] button')).toBeDisabled();
 
     // Two scenes -> the active one can be deleted and the other becomes active.
     await page.locator(".sb-add-scene").click();
@@ -254,7 +254,7 @@ test.describe("Storyboard - stories and scenes", () => {
     await expect(page.locator("#smdConfirmModal")).toContainText("Delete scene?");
     await page.locator("#smdConfirmModal").getByRole("button", { name: "Delete" }).click();
     await expect(page.locator(".sb-story-row.active + .sb-story-scenes .sb-board-row")).toHaveCount(1);
-    await expect(page.locator('.sb-board-act[data-act="delete"]')).toBeDisabled();
+    await expect(page.locator('.sb-board-act[data-act="delete"] button')).toBeDisabled();
 
     // A second story lets the active story be deleted; Story 1 remains.
     await page.locator("#sbAddStory").click();
