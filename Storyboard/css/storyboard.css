@@ -483,11 +483,14 @@ smd-button.sb-panel-close > button:focus-visible {
   padding: 0.8rem;
 }
 
-/* The Note panel's action button follows the colour picker, which (unlike the
+/* Each panel's action button follows a colour picker, which (unlike the
  * label-margined rows above it) carries no bottom margin - give the button the
- * same 0.75rem breathing room the other rows have. */
+ * same 0.75rem breathing room the other rows have.
+ * `#sbPlaceText`/`#sbDoneText` are the Text panel's Place-text / Done states. */
 #sbDoneNote,
-#sbPlaceNote {
+#sbPlaceNote,
+#sbDoneText,
+#sbPlaceText {
   margin-top: 0.75rem;
 }
 

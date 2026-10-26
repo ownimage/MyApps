@@ -280,7 +280,10 @@ Architecture:
   - STORIES PANEL WIDTH + SPACING: `.sb-panel` is `min(500px, calc(100vw - 92px))`
     (320px ellipsised every longer story/scene name - a row carries a handle, two
     icons and three 30px actions), and `#sbAddStory` has `margin-top: 0.75rem` so
-    it is not flush under the last story row. Tests:
+    it is not flush under the last story row. The panels' ACTION buttons
+    (`#sbPlaceText`/`#sbDoneText`, `#sbPlaceNote`/`#sbDoneNote`) carry the same
+    0.75rem top margin - they follow a colour picker, which (unlike the
+    label-margined rows) has no bottom margin. Tests:
     `tests/storyboard-undo.spec.js` (6) + 4 added to
     `tests/storyboard-stories.spec.js` (duplicate, reorder, ghost, panel width).
 - STORYBOARD STORY PROPERTIES: SIZE + BACKGROUND FIT (2026-10-26, user request):
@@ -488,7 +491,10 @@ Architecture:
   `.smd-color-input`, `.smd-color-hex`, `.smd-color-empty(.active)`. FIRST USER:
   Storyboard (text colour/background + note colour), registered in
   `Storyboard/index.html` + `sw.js SHARED_ASSETS` only - add it to another shell
-  before using it there.
+  before using it there. DEMOED in the storybook (`storybook/index.html`
+  `<section id="smd-color-picker">`: fixed colour, an `empty-label="Automatic"`
+  choice and a disabled one, plus an event log) - the storybook nav-link count
+  assertion is therefore 32.
 - SMD-IMAGE-DROPDOWN CLOSED-STATE LAYOUT (2026-10-04): the closed button
   LEFT-ALIGNS its label right next to the image and sizes itself to the WIDEST
   option. Every option label is stacked in ONE hidden `.sizer` grid cell inside
@@ -4887,19 +4893,26 @@ Techniques / gotchas:
   PowerShell expands it and Playwright does not glob CLI paths, so
   `test tests/*-screenshots.spec.js` collects 0 tests (verified) - keep the
   explicit list.
-- STORYBOARD GALLERY + ONEDRIVE SCENES (2026-10-25): `tests/storyboard-screenshots.spec.js`
-  captures 11 scenes x 27 themes x both modes into `screenshots/storyboard/`
-  (594 PNGs): board, stories panel, background panel, stickers panel, text panel,
-  selection bar, multi-selection align, main menu dropdown, settings,
-  settings-onedrive, open-from-onedrive. It uses a 1280x800 desktop viewport (the
+- STORYBOARD GALLERY + ONEDRIVE SCENES (2026-10-25; 13 scenes since 2026-10-26):
+  `tests/storyboard-screenshots.spec.js` captures 13 scenes x 27 themes x both
+  modes into `screenshots/storyboard/` (702 PNGs): board, stories panel,
+  background panel, stickers panel, text panel, note panel, undo redo, selection
+  bar, multi-selection align, main menu dropdown, settings, settings-onedrive,
+  open-from-onedrive. It uses a 1280x800 desktop viewport (the
   rail labels hide <=520px and the phone window shrinks the art) and seeds
   `storyboard_stories` from `/` before navigating to `/Storyboard/` (a direct
   reload of the app overwrites the seed via its `pagehide` save). Its
   `afterTheme` re-runs `sbRender()` (text frames bake the resolved colour into an
   SVG data URI) but SKIPS while an `smd-page[open]` is up, because the hidden
   board would measure 0x0; `window.__sbShotAlign` re-opens the align row each
-  theme. PMD/CMD/LoL each gained `settings-onedrive.png`, `open-from-onedrive.png`
-  and `main-menu-filesync.png` (minio + onedrive entries enabled).
+  theme. The showcase scene carries a NOTE (`nt-1`) so every board shot shows the
+  sticky-note glyph; the stories-panel scene also DUPLICATES the open scene
+  (`sbDuplicateBoard`) so its list shows a "<name> copy" row plus the handle and
+  the duplicate/edit/delete actions; `note-panel` captures the Note editor
+  (multi-line text + colour picker) and `undo-redo` adds a sticker first so the
+  rail pair is drawn enabled/disabled. PMD/CMD/LoL each gained
+  `settings-onedrive.png`, `open-from-onedrive.png` and `main-menu-filesync.png`
+  (minio + onedrive entries enabled).
   `tests/screenshot-helpers.js` now exports `seedOneDriveSettings(page, {prefix,
   directory, minio})` (localStorage + a stubbed `oneDriveInit`, because opening
   FileSync > OneDrive asks MSAL and an unregistered client ID would clear the
@@ -8757,3 +8770,20 @@ Techniques / gotchas:
   depth was added anyway: `.sb-board-row.sortable-fallback button` forces flat /
   no-border / `--smd-type-p`, so a future component regression cannot paint the
   ghost grey or oversized.
+- SCREENSHOT GALLERY UPDATED (user question "have you updated the screenshot spec
+  to cover all the new features?"): the Storyboard gallery now has 13 scenes
+  (702 PNGs): the showcase board carries a NOTE so every board shot shows the
+  sticky-note glyph, `stories-panel` also duplicates the open scene (so the list
+  shows the drag handle, duplicate/edit/delete actions and a "<name> copy" row),
+  and two scenes are new - `note-panel.png` (multi-line note text + the shared
+  colour picker) and `undo-redo.png` (a sticker is added first so the rail pair is
+  drawn enabled/disabled). `text-panel.png` already covers the fixed-colour
+  pickers (Background `#20374c` + Transparent, Text colour + Automatic). Validated
+  with `SCREENSHOT_THEME=superhero` (10 PNGs, both modes) and eyeballed; the other
+  26 themes are stale until the gallery is regenerated with `--workers 16`.
+- FOLLOW-UP (user): a 0.75rem gap above the Text panel's `Place text` (and its
+  `Done` state) - the same rule as the Note panel's buttons - and the shared
+  `<smd-color-picker>` now has a STORYBOOK section (nav count 31 -> 32 in
+  `tests/storybook-regression.spec.js`), verified with
+  `storybook-regression` 8/8 and a screenshot of the section (fixed colour,
+  Automatic choice, disabled). BUILD -> `202610261523`.
