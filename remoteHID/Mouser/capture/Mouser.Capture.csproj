@@ -12,9 +12,9 @@
     <LangVersion>latest</LangVersion>
     <DebugType>embedded</DebugType>
     <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
-    <Version>0.4.0</Version>
+    <Version>0.4.3</Version>
     <!-- Prints in the banner and via the version switch; build.ps1 appends +git-sha. -->
-    <InformationalVersion>0.4.0</InformationalVersion>
+    <InformationalVersion>0.4.3</InformationalVersion>
     <!-- build.ps1 supplies its own +sha-dirty suffix; stop SourceLink duplicating it. -->
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
   </PropertyGroup>

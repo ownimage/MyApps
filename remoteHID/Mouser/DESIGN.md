@@ -197,6 +197,19 @@ socket into the stroke pump.
    The filter is a `unsigned short`; passing it where the predicate belongs makes the
    DLL call `0xFFFF` as a function pointer and the process dies with an
    `AccessViolationException`. Always go through `Interception.SetMouseFilter`.
+10. **Learn mode lives in the PUMP, never in raw input.** "Which button did I press?"
+    must be answered where the stroke can also be SWALLOWED: MB4/MB5 are Back/Forward
+    in a browser, so a raw-input listener would navigate the page away mid-learn.
+    `Capture.BeginLearn()` is a volatile flag; the pump records the first button-down
+    in an `Interlocked` field and drops the stroke, and motion is never gated while
+    learning. `BeginLearn`/`EndLearn` CLEAR the held-mode flags, because the swallow
+    means the pump never sees those buttons go up and the mouse must not stay gated.
+    Learning therefore requires a RUNNING capture (an armed filter); a stopped one is
+    a 409, not a silent no-op.
+11. **Device motion is CUMULATIVE, not drained.** `RawWindow.SnapshotMotion()` never
+    resets; the panel keeps the per-device baseline and reports `moving` (delta > 0)
+    plus `motion` (total). A drained counter let two consumers (the 1.5 s poll and the
+    Refresh button) steal each other's motion, which broke identify-by-moving.
 
 ---
 

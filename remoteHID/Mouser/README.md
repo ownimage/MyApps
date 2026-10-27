@@ -690,10 +690,44 @@ program already owns it). Quit with Q / Ctrl+C (or `StartMouserCapture.cmd`'s
 window) so the `cloudflared` child is killed too - a hard kill of the exe can
 leave a tunnel process behind.
 
+### Identify the mouse, learn a button
+
+Both shortcuts in **Manage mouser-capture** are **stopped-only**: while a capture is
+running they are disabled ("Stop the capture first"), because a held mode button
+gates motion (Identify would see nothing) and the pump swallows the mode buttons
+(Learn could not see them). The panel enforces it too - `/api/learn-button` answers
+`409` when a session is running.
+
+- **Identify** — stop the capture, press Identify, then move the mouse you want. The
+  panel reports *cumulative* motion per device (`/api/state.devices[].motion`); the
+  app diffs two polls and selects whichever moved most (8 s window, then it saves).
+- **Learn** (beside Rotate / Translate) — stop the capture, press Learn, then click
+  the mouse button. The panel arms a **short-lived session** just for the learn, so
+  the click is read by the stroke pump and **swallowed** (MB4/MB5 cannot navigate
+  your browser), and your own capture stays stopped afterwards. Accepted: middle (3),
+  MB4, MB5; left/right are refused with a message, and a save the panel rejects (e.g.
+  both modes on the same button) is reported instead of claiming success. Stop and
+  start the capture to apply the new button.
+
+**Server (UDP) default:** when the capture has never been given a target, the field
+defaults to the **Settings | Server** host on port **7801** (the port the
+PhoneButtons server receives telemetry on) and is saved once - the capture starts
+sending there without an extra step.
+
+If Identify ever says "no movement detected" while you are moving a mouse, the panel
+now says why it cannot match: `/api/state` carries `panel.motion.total` (has raw
+input delivered anything at all?) and `panel.motion.keys` (the canonical
+`VIDPID:046D:C52B:MI01:C01` keys it saw), next to `devices[].motionKey`. A mismatch
+between those is a device-id problem, not a mouse problem.
+
+Limits worth knowing: two **identical** mice share a hardware id (and a motion key),
+so they cannot be told apart - both rows light up.
+
 ### Panel API (what the app calls)
 
 `GET /api/state` · `GET|POST /api/devices` · `POST /api/config` ·
-`POST /api/capture/start|stop` · `POST /api/ping` · `POST /api/tunnel/start|stop` ·
+`POST /api/capture/start|stop` · `POST /api/ping` · `POST /api/learn-button` ·
+`POST /api/tunnel/start|stop` ·
 `GET /` (QR page) · `GET /qrcode.min.js`. Every route needs
 `X-Mouser-Token` (or `?t=`) and answers CORS preflights, because the app is served
 from a different origin.

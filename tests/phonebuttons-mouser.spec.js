@@ -89,8 +89,12 @@ function captureState(overrides = {}) {
 
 // Stub the capture panel. Returns the recorded calls so the test can assert what
 // the app sent (route, method, body, token header).
-async function stubCapture(page, state) {
+//   options.onState(state, callIndex)  mutate the payload before each /api/state
+//   options.learn                      what /api/learn-button answers
+async function stubCapture(page, state, options = {}) {
   const seen = { calls: [], tokens: [] };
+  let stateCalls = 0;
+  const learn = options.learn || { ok: true, button: 4, ms: 300 };
 
   await page.route(CAPTURE_ORIGIN + "/**", async (route) => {
     const request = route.request();
@@ -119,9 +123,20 @@ async function stubCapture(page, state) {
     });
 
     switch (url.pathname) {
-      case "/api/state": return json(state);
+      case "/api/state":
+        if (options.onState) options.onState(state, stateCalls++);
+        return json(state);
       case "/api/devices": return json({ devices: state.devices });
-      case "/api/config": return json({ ok: true, config: JSON.parse(request.postData() || "{}") });
+      case "/api/config": {
+        if (options.saveError) {
+          return json({ ok: false, error: options.saveError }, 400);
+        }
+        // Persist like the real panel: the next poll must return the NEW config, or
+        // the app would render the old value straight back over the change.
+        const body = JSON.parse(request.postData() || "{}");
+        Object.assign(state.config, body);
+        return json({ ok: true, config: state.config });
+      }
       // Stateful, like the real panel: the app's Stop button is disabled while the
       // capture is stopped, so a stub that never starts would never let it click.
       case "/api/capture/start":
@@ -130,6 +145,7 @@ async function stubCapture(page, state) {
       case "/api/capture/stop":
         state.capture.running = false;
         return json({ ok: true });
+      case "/api/learn-button": return json(learn);
       case "/api/ping": return json({ ok: true, target: "192.168.1.50:7801", attempts: 5, replies: 5, rttMs: 12.4, message: null });
       default: return json({ ok: false, error: "no such route" }, 404);
     }
@@ -175,6 +191,9 @@ test.describe("PhoneButtons - Manage mouser-capture", () => {
     await expect(page.locator("#mouserUrlInput")).toHaveValue(ADDRESS);
     await expect(page.locator("#btnMouserScan")).toBeVisible();
     await expect(page.locator("#btnMouserSave")).toBeVisible();
+    await expect(page.locator("#btnMouserIdentify")).toBeVisible();
+    await expect(page.locator("#btnMouserLearnRotate")).toBeVisible();
+    await expect(page.locator("#btnMouserLearnTranslate")).toBeVisible();
     await expect(page.locator("#mouserRotate")).toHaveCount(1);
     await expect(page.locator("#mouserTranslate")).toHaveCount(1);
     await expect(page.locator("#mouserPassMode")).toHaveCount(1);
@@ -299,6 +318,194 @@ test.describe("PhoneButtons - Manage mouser-capture", () => {
     const ping = seen.calls.find((call) => call.path === "/api/ping");
     expect(ping.body.udp).toBe("192.168.1.50:7801");
     await expect(page.locator("#mouserPingResult")).toContainText("12");
+  });
+
+  test("Identify selects the mouse that is being moved", async ({ page }) => {
+    await seedAddress(page);
+    let call = 0;
+    const seen = await stubCapture(page, captureState(), {
+      onState: (state) => {
+        call++;
+        // Only the FIRST mouse moves; the second stays still.
+        state.devices[0].motion = call * 25;
+        state.devices[1].motion = 0;
+      },
+    });
+
+    await page.goto("/remoteHID/PhoneButtons/");
+    await page.evaluate(() => openMouserCapture());
+    await expect(page.locator('#mouserDevices input[name="pbMouserDevice"]')).toHaveCount(2);
+
+    await page.locator("#btnMouserIdentify").click();
+
+    await expect(page.locator("#mouserAddressHint")).toContainText("Selected", { timeout: 15000 });
+    await expect(page.locator("#mouserAddressHint")).toContainText("Logitech Receiver");
+    await expect.poll(() => seen.calls.filter((call) => call.path === "/api/config").length).toBeGreaterThan(0);
+    const save = seen.calls.filter((call) => call.path === "/api/config").pop();
+    expect(save.body.device).toBe("HID\\VID_046D&PID_C52B&MI_01&Col01");
+  });
+
+  test("Learn fills the mode button from the clicked mouse button", async ({ page }) => {
+    await seedAddress(page);
+    const state = captureState();
+    // Identify/Learn are stopped-only, so the capture must NOT be running.
+    const seen = await stubCapture(page, state, { learn: { ok: true, button: 3, ms: 420 } });
+
+    await page.goto("/remoteHID/PhoneButtons/");
+    await page.evaluate(() => openMouserCapture());
+    // The first poll has to land before the page has a state to learn from.
+    await expect(page.locator('#mouserDevices input[name="pbMouserDevice"]')).toHaveCount(2);
+
+    await page.locator("#btnMouserLearnRotate").click();
+
+    await expect(page.locator("#mouserAddressHint")).toContainText("MB3");
+    const save = seen.calls.filter((call) => call.path === "/api/config").pop();
+    expect(save.body.rotateButton).toBe(3);
+    await expect(page.locator("#mouserRotate")).toHaveAttribute("value", "3");
+  });
+
+  test("Learn refuses the left/right button instead of saving something invalid", async ({ page }) => {
+    await seedAddress(page);
+    const state = captureState();
+    const seen = await stubCapture(page, state, { learn: { ok: true, button: 1, ms: 200 } });
+
+    await page.goto("/remoteHID/PhoneButtons/");
+    await page.evaluate(() => openMouserCapture());
+    await expect(page.locator('#mouserDevices input[name="pbMouserDevice"]')).toHaveCount(2);
+
+    await page.locator("#btnMouserLearnRotate").click();
+
+    await expect(page.locator("#mouserAddressHint")).toContainText("left");
+    // Nothing saved, and the select still shows the previous button.
+    expect(seen.calls.some((call) => call.path === "/api/config")).toBe(false);
+    await expect(page.locator("#mouserRotate")).toHaveAttribute("value", "4");
+  });
+
+  test("Identify and Learn are disabled while the capture is running", async ({ page }) => {
+    await seedAddress(page);
+    const state = captureState();
+    state.capture.running = true;
+    const seen = await stubCapture(page, state);
+
+    await page.goto("/remoteHID/PhoneButtons/");
+    await page.evaluate(() => openMouserCapture());
+    await expect(page.locator('#mouserDevices input[name="pbMouserDevice"]')).toHaveCount(2);
+
+    // The inner <button> is the real control, so assert there.
+    await expect(page.locator("#btnMouserIdentify button")).toBeDisabled();
+    await expect(page.locator("#btnMouserLearnRotate button")).toBeDisabled();
+    await expect(page.locator("#btnMouserLearnTranslate button")).toBeDisabled();
+    await expect(page.locator("#btnMouserIdentify")).toHaveAttribute("title", "Stop the capture first");
+
+    // Calling the handlers directly is guarded too, and says why.
+    await page.evaluate(() => mouserToggleIdentify());
+    await expect(page.locator("#mouserAddressHint")).toContainText("Stop the capture first");
+    await page.evaluate(() => mouserLearnButton("rotate"));
+    await expect(page.locator("#mouserAddressHint")).toContainText("Stop the capture first");
+
+    expect(seen.calls.some((call) => call.path === "/api/learn-button")).toBe(false);
+  });
+
+  test("the moving badge sits at the left of the hardware-id line", async ({ page }) => {
+    await seedAddress(page);
+    await stubCapture(page, captureState());
+    await page.goto("/remoteHID/PhoneButtons/");
+    await page.evaluate(() => openMouserCapture());
+
+    const row = page.locator("#mouserDevices label").first();
+    const nameLine = row.locator(".fw-semibold").first();
+    const idLine = row.locator(".text-body-secondary").first();
+    const badge = row.locator("smd-badge").first();
+
+    const nameBox = await nameLine.boundingBox();
+    const idBox = await idLine.boundingBox();
+    const badgeBox = await badge.boundingBox();
+
+    // The id is the SECOND line, under the name.
+    expect(idBox.y).toBeGreaterThan(nameBox.y + nameBox.height - 3);
+
+    // The badge is vertically inside that second line...
+    const badgeCentre = badgeBox.y + badgeBox.height / 2;
+    expect(badgeCentre).toBeGreaterThan(idBox.y);
+    expect(badgeCentre).toBeLessThan(idBox.y + idBox.height);
+
+    // ...and at its LEFT edge, before the id text (it used to sit on the name line
+    // and push itself onto a line of its own).
+    expect(badgeBox.x - idBox.x).toBeLessThan(4);
+    expect(badgeBox.y).toBeGreaterThanOrEqual(idBox.y - 2);
+  });
+
+  test("the moving badge does not move the layout when the mouse moves", async ({ page }) => {
+    await seedAddress(page);
+    const flag = { moving: false };
+    await stubCapture(page, captureState(), {
+      onState: (state) => { state.devices[0].moving = flag.moving; },
+    });
+
+    await page.goto("/remoteHID/PhoneButtons/");
+    await page.evaluate(() => openMouserCapture());
+    await expect(page.locator('#mouserDevices input[name="pbMouserDevice"]')).toHaveCount(2);
+
+    const row = page.locator("#mouserDevices label").first();
+    const idText = row.locator(".pb-mouser-id");
+    const badge = row.locator(".pb-mouser-moving");
+
+    // The badge is always in the DOM (reserving its space) - just invisible.
+    await expect(badge).toHaveCount(1);
+    await expect(badge).toHaveCSS("visibility", "hidden");
+
+    const before = { id: await idText.boundingBox(), row: await row.boundingBox() };
+
+    // The mouse starts moving: the badge appears, and NOTHING re-flows.
+    flag.moving = true;
+    await expect(badge).toHaveCSS("visibility", "visible");
+
+    const after = { id: await idText.boundingBox(), row: await row.boundingBox() };
+    expect(Math.abs(after.id.x - before.id.x)).toBeLessThan(1);
+    expect(Math.abs(after.id.y - before.id.y)).toBeLessThan(1);
+    expect(Math.abs(after.row.height - before.row.height)).toBeLessThan(1);
+  });
+
+  test("a rejected save is reported instead of a false success", async ({ page }) => {
+    await seedAddress(page);
+    const seen = await stubCapture(page, captureState(), {
+      learn: { ok: true, button: 5, ms: 200 },
+      saveError: "rotateButton and translateButton cannot be the same button",
+    });
+
+    await page.goto("/remoteHID/PhoneButtons/");
+    await page.evaluate(() => openMouserCapture());
+    await expect(page.locator('#mouserDevices input[name="pbMouserDevice"]')).toHaveCount(2);
+
+    await page.locator("#btnMouserLearnRotate").click();
+
+    // The panel's reason wins over the "learned MB5" message, which used to mask it.
+    await expect(page.locator("#mouserAddressHint")).toContainText("cannot be the same button");
+    await expect(page.locator("#mouserAddressHint")).not.toContainText("MB5");
+    await expect(page.locator("#mouserRotate")).toHaveAttribute("value", "4");
+    expect(seen.calls.some((call) => call.path === "/api/config")).toBe(true);
+  });
+
+  test("Server (UDP) defaults to the Settings | Server address", async ({ page }) => {
+    await seedAddress(page);
+    await page.addInitScript(() => {
+      localStorage.setItem("pb_serverAddress", "192.168.1.50");
+      localStorage.setItem("pb_serverPort", "5000");
+      localStorage.setItem("pb_serverHttps", "false");
+    });
+
+    const state = captureState();
+    state.config.udp = null;   // the capture has never been given a target
+    const seen = await stubCapture(page, state);
+
+    await page.goto("/remoteHID/PhoneButtons/");
+    await page.evaluate(() => openMouserCapture());
+
+    // Telemetry always goes to the server's UDP receiver (7801), not its HTTP port.
+    await expect(page.locator("#mouserUdp")).toHaveValue("192.168.1.50:7801");
+    // ...and it is SAVED, or the field would look configured while nothing is sent.
+    await expect.poll(() => seen.calls.some((call) =>
+      call.path === "/api/config" && call.body && call.body.udp === "192.168.1.50:7801")).toBe(true);
   });
 
   test("a rejected token is explained instead of showing a blank panel", async ({ page }) => {

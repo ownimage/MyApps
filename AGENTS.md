@@ -7443,6 +7443,72 @@ Everything below is the contract; break it and the app stops talking to the exe.
   which is exactly how a 403 appears from a correct-looking address).
   The token only changes if `mouser-capture.json` is lost/unwritable - the banner's
   `config :` line and `panel.configPath` in `/api/state` name the file to check.
+- IDENTIFY + LEARN (2026-10-26, user request; STOPPED-ONLY since 2026-10-27): "select
+  the mouse by moving it" and "select the mode buttons by clicking them". NEITHER is
+  possible from the Flask server: its only mouse input is the 32-byte UDP frame (no
+  device id, no button bits, and dx/dy are zero unless a mode is held).
+  - BOTH ARE STOPPED-ONLY (user decision): while a capture runs a held mode button
+    gates motion (Identify sees nothing) and the pump swallows the mode buttons
+    (Learn could not see them). The app DISABLES the buttons while running
+    (`mouserSetDisabled` + `title="Stop the capture first"`) and the handlers guard
+    too; `/api/learn-button` answers 409 when a session is running.
+  - IDENTIFY needs NO capture change: `/api/state.devices[]` reports `motion` as a
+    CUMULATIVE count (`RawWindow.SnapshotMotion()`, never reset) and the panel diffs
+    its own baseline for `moving`. Do NOT go back to a drained counter - two
+    consumers (the 1.5 s poll and the Refresh button) stole each other's motion.
+    The app diffs two polls and selects the biggest delta (>= 5 counts, 8 s window).
+  - MOTION KEYS ARE CANONICAL, NOT RAW IDS (2026-10-27 bug: identify always said "no
+    movement detected"): Interception's hardware id
+    (`HID\VID_046D&PID_C52B&REV_1210&MI_01&Col01`) and raw input's device path
+    (`\\?\HID#VID_046D&PID_C52B&MI_01&Col01#7&...#{guid}`) can differ in the REV_
+    segment and the collection suffix, and a mismatch is INVISIBLE - every device
+    just reports zero motion. `DeviceCatalog.MotionKey()` reduces both sides to
+    `VIDPID:046D:C52B:MI01:C01` (VID/PID required, MI/Col when present) with a
+    VID/PID-only `MotionKeyLoose()` fallback that `DeviceRows()` also matches by
+    prefix. `/api/state` exposes `devices[].motionKey` plus `panel.motion.{total,keys}`
+    so a real-machine mismatch is diagnosable instead of guessable.
+  - LEARN is `POST /api/learn-button {timeoutMs}` -> `{ok,button:1..5,ms}` /
+    `{ok:false,timeout:true}`; 409 when a capture is RUNNING or another learn is in
+    flight. Because it must stay stopped-only AND still swallow the click, the panel
+    arms a SHORT-LIVED session itself (`_controller.Start` … `Stop("button learned")`
+    in a finally) and releases it - the user's own capture is never started. The
+    click is read by the STROKE PUMP (`Capture.BeginLearn/EndLearn/
+    TryTakeLearnedButton`): a volatile flag + an Interlocked field, the pump records
+    the first button-down and SWALLOWS the edge (so MB4/MB5 cannot navigate the
+    browser mid-learn) and disables gating while learning. `BeginLearn`/`EndLearn`
+    clear the held-mode flags - the swallow means the pump never sees those ups, so
+    without it the mouse could stay gated. `--simulate` answers button 4 after
+    300 ms so the route and its timeout are testable with no driver.
+  - APP: `#btnMouserIdentify` (variant turns `warning` while listening - a
+    `smd-button` LABEL is captured once and cannot be changed post-build, so colour
+    is the state signal), and `#btnMouserLearnRotate`/`#btnMouserLearnTranslate`
+    beside each select; 3/4/5 are saved, 1/2 are refused with "that's the
+    left/right button". `mouserSaveConfig` RESOLVES TRUE/FALSE and callers only claim
+    success on true: a rejected save (the panel refuses both modes on one button)
+    used to be masked by "Rotate = MB5", which looked exactly like "learned but the
+    dropdown did not change".
+  - SERVER (UDP) DEFAULT: with no target configured, the field defaults to
+    `pbServerAddress():7801` (the server's UDP receiver port, NOT its HTTP port) and
+    is saved once (`mouserApplyUdpDefault`, silent) so the capture really sends there.
+  - LIMIT: two identical mice share a hardware id and a motion key, so they cannot be
+    distinguished (both rows light up).
+  - MOUSE ROW LAYOUT (2026-10-27, user request): line 1 = the Windows name, line 2 =
+    a SMALL "moving" badge AT THE LEFT, then the hardware id (wrapped in
+    `.pb-mouser-id`). The badge used to follow the name, so a long name/id wrapped it
+    onto a line of its own. **The badge is ALWAYS rendered and hidden with
+    `visibility: hidden`** (`pb-mouser-moving-off`), never removed and never
+    `display:none`: "moving" flips constantly while the mouse is moved, and anything
+    that changes the line's width/height re-flows the id under the cursor. For the
+    same reason `moving` is NOT part of the device-list rebuild signature - the badge
+    is toggled in place by `mouserSyncMovingBadges()` (row N is device N; the list is
+    rebuilt only when the device SET changes). Badge sizing is injected with
+    `injectSmdComponentStyle("pb-mouser-devices", …)` (0.62em, tight padding) - the
+    page's only styling. The name comes from
+    `GUID_DEVCLASS_MOUSE` (a SETUP class - enumerating `GUID_DEVINTERFACE_MOUSE` and
+    calling `SetupDiEnumDeviceInfo` returns NOTHING, which silently degraded every
+    name to the hardware id: the "same ids twice" list) plus `SHLoadIndirectString`
+    for the `@%SystemRoot%\...,-123` descriptions. `FriendlyName` is usually absent
+    on mouse nodes (error 13) - `DeviceDesc` is the one that resolves.
 - TESTS: `tests/mouser-capture-ui.spec.js` (10) spawns the real exe with
   `--ui --simulate --no-tunnel --no-qr --panel-port 0` and SKIPS when
   `out/mouser-capture.exe` is missing (like `phonebuttons-server.spec.js`); it
@@ -9047,3 +9113,127 @@ Everything below is the contract; break it and the app stops talking to the exe.
 - BUILD: `npm run bump:build` after the web changes; `build.ps1` re-published
   `out/` and the zip. Restart the test servers afterwards (the shell + a new JS
   file are served from the startup snapshot).
+
+### 2026-10-26 (k) - Mouser: identify the mouse by moving it, learn a button by clicking it
+
+- REQUEST (user): "I want to be able to select the mouse by moving it. I want to be
+  able to select the Rotate and translate buttons by clicking them. Can I do this
+  from the remoteHID/server only?" Answer: NO for both - the server only ever sees
+  the 32-byte UDP frame (no device id, no button bits, and zero deltas unless a mode
+  is held). Identify needed no capture change at all; Learn needed the pump.
+- BUILT (C#, 0.4.1): `Capture.BeginLearn/EndLearn/TryTakeLearnedButton` (volatile
+  flag + Interlocked slot; the pump records the first button-down, SWALLOWS it and
+  disables gating while learning; begin/end clear the held-mode flags so the mouse
+  cannot stay gated), `RawWindow.SnapshotMotion()` (cumulative, no reset) with a
+  panel-side baseline for `moving` + the new `motion` field, and
+  `POST /api/learn-button` (409 when stopped / already learning, timeout path,
+  aborts if the session dies). `--simulate` learns button 4 after 300 ms.
+- BUILT (app): Identify (8 s window, 500 ms poll, biggest `motion` delta >= 5 wins,
+  auto-saves) and Learn buttons beside each `<smd-select>` (auto-starts the capture,
+  accepts 3/4/5, refuses 1/2 with a message).
+- TDD: 4 new C# tests (button, timeout + concurrent 409, stopped 409, cumulative
+  motion) were RED first; 4 new app tests (identify selects, learn fills, learn
+  refuses 1/2, learn starts the capture first) were RED first.
+- WHAT WENT WRONG: (a) the test server snapshotted `mouser-capture.js` MID-WRITE, so
+  it served a truncated file and 13 app tests failed with a broken page - restart the
+  server after the LAST edit, and compare the served length to the file (the same
+  gotcha as ever); (b) `mouserSaveConfig` sets its own "Saved." hint, so the
+  Identify confirmation was overwritten - set the message AFTER the save; (c) the
+  app stub returned the OLD config on the next poll, which repainted the select back
+  to 4 - the stub now persists like the real panel; (d) a `smd-button` label is
+  captured once and cannot be changed post-build, so the Identify button signals
+  "listening" via its `variant` (colour), not its text.
+- VERIFIED: mouser-capture-ui 14/14, phonebuttons-mouser 14/14,
+  phonebuttons-regression 19/19, `@cache` 11/11, Release build zero warnings.
+- BUILD: exe 0.4.1 + `build.ps1` zip; `npm run bump:build` -> `202610262100`;
+  servers restarted after the last JS edit.
+
+### 2026-10-27 - Mouser: stopped-only identify/learn, motion-key fix, UDP default
+
+- REPORTED (user): "the Server UDP can be defaulted with the Server address from the
+  Settings | Server page"; "the mouse identification does not seem to work - No
+  movement detected"; "when I learn a button it detects the button and sends a
+  message but does not update the dropdowns"; "I think I should only be able to
+  identify/learn when the capture is not running ... do not make any UI layout
+  changes". (No markup/layout changes were made.)
+- ROOT CAUSES:
+  (a) IDENTIFY: motion was keyed by `NormaliseHardwareKey` (first two path
+      components), but Interception's hardware id carries `&REV_1210` while a raw
+      input device path can omit it, so the keys never met and every device reported
+      zero motion - which is indistinguishable from "the mouse did not move".
+  (b) LEARN: the app reported success unconditionally. The panel REFUSES
+      `rotateButton == translateButton`, so learning MB5 while translate was MB5
+      saved nothing and the "Rotate = MB5" message hid the 400 - exactly "detected,
+      messaged, dropdown unchanged". Reproduced against the real panel (400 body
+      `rotateButton and translateButton cannot be the same button`).
+  (c) The UDP field had no default, so a fresh capture sent nothing.
+- BUILT:
+  - `DeviceCatalog.MotionKey()` / `MotionKeyLoose()` (canonical `VIDPID:...:MI..:C..`,
+    VID/PID fallback matched by prefix in `DeviceRows`), `devices[].motionKey` and
+    `panel.motion.{total,keys}` for diagnosis.
+  - Learn is now STOPPED-ONLY: 409 while running; when stopped the panel arms a
+    short-lived session for the learn (still swallowing the click) and releases it.
+  - App: Identify/Learn disabled while running (+ title), handlers guard,
+    `mouserSaveConfig` resolves true/false so success is only claimed on true,
+    `Server (UDP)` defaults to `pbServerAddress():7801` and is saved once.
+- TDD: the C# spec was updated first and red (learn-while-stopped was 409, the
+  running case was 200, `motionKey`/`panel.motion` missing); the app spec likewise
+  (disabled state, masked save error, UDP default).
+- VERIFIED: mouser-capture-ui 14/14, phonebuttons-mouser 16/16,
+  phonebuttons-regression 19/19, `@cache` 11/11; a throwaway probe against the REAL
+  panel confirmed learn-while-stopped returns 200 + button 4, the capture stays
+  stopped, the dropdown becomes MB4, and starting disables both buttons.
+- BUILD: exe 0.4.2 + zip; `npm run bump:build`; servers restarted after the last edit.
+
+### 2026-10-27 (b) - Mouser: badge on the id line, and why every row showed the id twice
+
+- REPORTED (user): "on the mouse options list there is a list of ids as headers,
+  underneath is the same list of ids, then the moving badge is on a different line.
+  Can the moving badge be on the same line as the second line of text at the left
+  hand side".
+- TWO THINGS, one asked for and one implied:
+  (a) BADGE POSITION: the moving/simulated badges sat after the NAME, so a long name
+      or hardware id wrapped them onto a line of their own above the id. They now sit
+      at the LEFT of the SECOND line, in front of the hardware id
+      (`mouserRenderDevices`, `smd-badge` + `me-1`). Guarded by
+      "the moving badge sits at the left of the hardware-id line", which asserts the
+      badge's vertical centre is inside the id line's box and its x is within 4px of
+      that line's left edge (geometry, not markup).
+  (b) THE DUPLICATED IDS WERE A BUG: `DeviceCatalog.FriendlyNames()` enumerated
+      `GUID_DEVINTERFACE_MOUSE` and then called `SetupDiEnumDeviceInfo` - but that
+      call is for a SETUP-class set, so it returned nothing and every name silently
+      fell back to the hardware id ("the same ids underneath"). Now it enumerates
+      `GUID_DEVCLASS_MOUSE` ({4D36E96F-E325-11CE-BFC1-08002BE10318}, DIGCF_PRESENT)
+      and resolves the INDIRECT `@%SystemRoot%\...,-123` descriptions with
+      `SHLoadIndirectString` (shlwapi) instead of discarding them. VERIFIED with a
+      throwaway console app on this box: `sizeof(SP_DEVINFO_DATA)` = 32, three mouse
+      nodes found, and `DeviceDesc` resolved to "HID-Compliant Mouse" /
+      "Remote Desktop Mouse Device" (FriendlyName is usually absent on mouse nodes -
+      error 13 - so DeviceDesc is the one that matters).
+- VERIFIED: mouser-capture-ui 14/14, phonebuttons-mouser 17/17,
+  phonebuttons-regression 19/19, `@cache` 11/11, Release build zero warnings.
+- BUILD: exe 0.4.3 + zip; `npm run bump:build` -> `202610271000`; servers restarted.
+
+### 2026-10-27 (c) - Mouser: small "moving" badge that never re-flows the row
+
+- REQUEST (user): "Just update the Manage mouse-capture page and change it so the
+  moving badge is on the same line as the second row of text. Make it a small badge,
+  I dont want the layout moving as I move the mouse." (App-only change; the exe is
+  untouched.)
+- BUILT: the "moving" badge is ALWAYS in the DOM on the id line (small: 0.62em via
+  `injectSmdComponentStyle("pb-mouser-devices", …)`) and only its VISIBILITY changes
+  (`pb-mouser-moving-off` -> `visibility: hidden`), so its width is reserved and the
+  hardware id never shifts. The hardware id is wrapped in `.pb-mouser-id` so a test
+  can measure the TEXT position, and `moving` was removed from the device-list
+  rebuild signature - the badge is toggled in place by `mouserSyncMovingBadges()`
+  instead of re-rendering the list every time motion starts or stops (which also
+  stole the radio focus).
+- TDD: "the moving badge does not move the layout when the mouse moves" was RED
+  first (no `.pb-mouser-id`, badge absent while still). It flips `moving` through the
+  stub's `onState`, waits for `visibility: visible`, and asserts the id text's x/y and
+  the row height are unchanged (< 1px).
+- VERIFIED: mouser-capture-ui 14/14, phonebuttons-mouser 18/18,
+  phonebuttons-regression 19/19, `@cache` 11/11.
+- NOTE: two tests failed once immediately after the server restart (cold start, ~44 s
+  run) and passed on the warm re-run - the usual post-restart slowness, not the code.
+- BUILD: `npm run bump:build` -> `202610271011`; servers restarted after the last edit.

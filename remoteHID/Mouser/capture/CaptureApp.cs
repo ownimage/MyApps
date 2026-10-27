@@ -42,6 +42,13 @@ internal sealed class CaptureApp : IDisposable
     private bool _driverAvailable;
     private volatile bool _quit;
 
+    /// <summary>0/1 - only one button can be learned at a time.</summary>
+    private int _learnInFlight;
+
+    /// <summary>Per-device motion at the previous snapshot (the counters are cumulative).</summary>
+    private readonly Dictionary<string, long> _motionBaseline = new(StringComparer.OrdinalIgnoreCase);
+    private long _simulatedMotion;
+
     public CaptureApp(ConfigStore store, CaptureAppOptions options)
     {
         _store = store;
@@ -253,6 +260,7 @@ internal sealed class CaptureApp : IDisposable
         if (request.Method == "POST" && path == "/api/capture/start") return StartRoute();
         if (request.Method == "POST" && path == "/api/capture/stop") return StopRoute();
         if (request.Method == "POST" && path == "/api/ping") return PingRoute(request);
+        if (request.Method == "POST" && path == "/api/learn-button") return LearnButtonRoute(request);
         if (request.Method == "POST" && path == "/api/tunnel/start") return TunnelStartRoute();
         if (request.Method == "POST" && path == "/api/tunnel/stop") return TunnelStopRoute();
 
@@ -367,6 +375,90 @@ internal sealed class CaptureApp : IDisposable
         public int TimeoutMs { get; set; } = 500;
     }
 
+    private sealed class LearnBody
+    {
+        public int TimeoutMs { get; set; } = 10000;
+    }
+
+    /// <summary>
+    /// "Which button did I press?" - the panel waits for the PUMP to report a button
+    /// edge, and the pump swallows it, so MB4/MB5 cannot navigate the foreground app
+    /// while the user is being asked to click. Only an armed filter can do that, so a
+    /// stopped capture is a conflict, not a silent no-op.
+    /// </summary>
+    private PanelResponse LearnButtonRoute(PanelRequest request)
+    {
+        LearnBody body = new();
+        if (!string.IsNullOrWhiteSpace(request.Body))
+        {
+            try
+            {
+                body = JsonSerializer.Deserialize<LearnBody>(request.Body, PanelJson.Options) ?? body;
+            }
+            catch (JsonException ex)
+            {
+                return PanelResponse.Error(400, "invalid JSON: " + ex.Message);
+            }
+        }
+
+        int timeout = Math.Clamp(body.TimeoutMs <= 0 ? 10000 : body.TimeoutMs, 100, 15000);
+
+        if (_controller.Running)
+        {
+            return PanelResponse.Error(409,
+                "stop the capture first - identify and learn only work while it is stopped");
+        }
+
+        if (Interlocked.CompareExchange(ref _learnInFlight, 1, 0) != 0)
+        {
+            return PanelResponse.Error(409, "a mouse button is already being learned");
+        }
+
+        bool temporary = false;
+
+        try
+        {
+            // Arm a SHORT-LIVED session just for the learn. The pump is the only
+            // component that can both SEE the click and SWALLOW it (MB4/MB5 are
+            // Back/Forward in a browser), and the user's own capture must stay
+            // stopped - that is the point of stopped-only identify/learn.
+            if (!_controller.Start(Config, out string? startError))
+            {
+                return PanelResponse.Json(new { ok = false, error = startError }, 400);
+            }
+            temporary = true;
+
+            if (!_controller.BeginLearn())
+            {
+                return PanelResponse.Error(409, "the capture could not enter learn mode");
+            }
+
+            var clock = Stopwatch.StartNew();
+            while (clock.ElapsedMilliseconds < timeout)
+            {
+                if (_controller.TryTakeLearnedButton(out int button))
+                {
+                    return PanelResponse.Json(new { ok = true, button, ms = clock.ElapsedMilliseconds });
+                }
+
+                if (!_controller.Running)
+                {
+                    return PanelResponse.Json(new { ok = false, error = "the capture stopped while learning" }, 409);
+                }
+
+                Thread.Sleep(20);
+            }
+
+            return PanelResponse.Json(new { ok = false, timeout = true, message = "no mouse button was pressed" });
+        }
+        finally
+        {
+            _controller.EndLearn();
+            if (temporary) _controller.Stop("button learned");
+            Interlocked.Exchange(ref _learnInFlight, 0);
+        }
+    }
+
     private PanelResponse PingRoute(PanelRequest request)
     {
         PingBody body = new();
@@ -469,7 +561,27 @@ internal sealed class CaptureApp : IDisposable
             publicUrl = PublicUrl(),
             configPath = _store.Path,
             configWarning = _store.Warning,
+            // Diagnostics: if identify ever "sees nothing", this says whether raw input
+            // is delivering at all, and under which keys.
+            motion = MotionState(),
         };
+    }
+
+    private object MotionState()
+    {
+        Dictionary<string, long> totals = _raw.SnapshotMotion();
+        long total = 0;
+        var keys = new List<string>(totals.Count);
+
+        foreach (KeyValuePair<string, long> entry in totals)
+        {
+            if (entry.Value <= 0) continue;
+            total += entry.Value;
+            keys.Add(entry.Key);
+        }
+
+        keys.Sort(StringComparer.OrdinalIgnoreCase);
+        return new { total, keys };
     }
 
     /// <summary>The address to encode in the QR: the tunnel when up, else LAN, else loopback.</summary>
@@ -485,17 +597,51 @@ internal sealed class CaptureApp : IDisposable
 
     private object[] DeviceRows()
     {
-        Dictionary<string, long> motion = _raw.DrainMotion();
+        Dictionary<string, long> totals = _raw.SnapshotMotion();
 
         return _devices.Select(device =>
         {
-            string key = DeviceCatalog.NormaliseHardwareKey(device.HardwareId);
+            string exact = DeviceCatalog.MotionKey(device.HardwareId);
+            string loose = DeviceCatalog.MotionKeyLoose(device.HardwareId);
+
+            // Exact key first, then the VID/PID prefix: one side can omit the MI/Col
+            // collection segment, and a silent mismatch looks like "the mouse did not
+            // move" - the one failure that is impossible to diagnose from the UI.
+            long total = 0;
+            foreach (KeyValuePair<string, long> entry in totals)
+            {
+                if (string.Equals(entry.Key, exact, StringComparison.OrdinalIgnoreCase)
+                    || (loose.Length > 0 && entry.Key.StartsWith(loose, StringComparison.OrdinalIgnoreCase)))
+                {
+                    total += entry.Value;
+                }
+            }
+
+            _motionBaseline.TryGetValue(device.HardwareId, out long last);
+            long delta = Math.Max(0, total - last);
+            _motionBaseline[device.HardwareId] = total;
+
+            // A simulated device has no raw input behind it, so grow a fake total:
+            // identify-by-moving stays demonstrable (and testable) with no driver.
+            if (device.Simulated && device.Moving)
+            {
+                _simulatedMotion += 40;
+                total = _simulatedMotion;
+                delta = 40;
+            }
+
             return (object)new
             {
                 slot = device.Slot,
                 hardwareId = device.HardwareId,
                 name = device.Name,
-                moving = device.Simulated ? device.Moving : motion.ContainsKey(key),
+                moving = delta > 0,
+                // Cumulative: the app diffs two polls, so another consumer polling
+                // /api/devices cannot steal the motion it is watching for.
+                motion = total,
+                // The key raw input is matched by - exposed so a real-machine mismatch
+                // can be seen instead of guessed.
+                motionKey = exact,
                 simulated = device.Simulated,
             };
         }).ToArray();

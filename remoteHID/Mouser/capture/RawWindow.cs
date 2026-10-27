@@ -233,7 +233,7 @@ internal sealed class RawMouseWindow : IDisposable
             if (written == 0 || written == uint.MaxValue) return string.Empty;
 
             string? name = Marshal.PtrToStringUni(memory);
-            return string.IsNullOrEmpty(name) ? string.Empty : DeviceCatalog.NormaliseHardwareKey(name);
+            return string.IsNullOrEmpty(name) ? string.Empty : DeviceCatalog.MotionKey(name);
         }
         finally
         {
@@ -241,14 +241,17 @@ internal sealed class RawMouseWindow : IDisposable
         }
     }
 
-    /// <summary>Motion since the last call, keyed by hardware id. Resets the counters.</summary>
-    public Dictionary<string, long> DrainMotion()
+    /// <summary>
+    /// Motion per device since the process started (never reset). The panel diffs two
+    /// snapshots, so two consumers polling cannot steal each other's motion - which is
+    /// what "identify the mouse by moving it" depends on.
+    /// </summary>
+    public Dictionary<string, long> SnapshotMotion()
     {
         var result = new Dictionary<string, long>(StringComparer.OrdinalIgnoreCase);
         foreach (KeyValuePair<string, MotionCounter> entry in _motion)
         {
-            long value = Interlocked.Exchange(ref entry.Value.Value, 0);
-            if (value > 0) result[entry.Key] = value;
+            result[entry.Key] = Interlocked.Read(ref entry.Value.Value);
         }
         return result;
     }

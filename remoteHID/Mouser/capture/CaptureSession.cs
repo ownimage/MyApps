@@ -12,6 +12,15 @@ internal interface ICaptureSession : IDisposable
     long Gated { get; }
     long SendErrors { get; }
     (double P50, double P99) Latency();
+
+    /// <summary>Arms "which button did I press?" (the pump swallows the click).</summary>
+    bool BeginLearn();
+
+    void EndLearn();
+
+    /// <summary>Takes the learned button number (1..5); false when none arrived yet.</summary>
+    bool TryTakeLearnedButton(out int button);
+
     void Stop();
 }
 
@@ -62,6 +71,12 @@ internal sealed class RealCaptureSession : ICaptureSession
     public long Gated => _capture.Gated;
     public long SendErrors => _capture.SendErrors;
     public (double P50, double P99) Latency() => _capture.LatencyPercentiles();
+
+    public bool BeginLearn() => Running && _capture.BeginLearn();
+
+    public void EndLearn() => _capture.EndLearn();
+
+    public bool TryTakeLearnedButton(out int button) => _capture.TryTakeLearnedButton(out button);
 
     public static RealCaptureSession Start(CaptureConfig config, bool modesEnabled)
     {
@@ -233,6 +248,40 @@ internal sealed class SimulatedCaptureSession : ICaptureSession
 
     public (double P50, double P99) Latency() => (0.08, 0.31);
 
+    // --simulate: a canned "you clicked MB4" 300 ms after the panel asks, so the
+    // learn route and its timeout path stay testable with no driver and no mouse.
+    private readonly object _learnGate = new();
+    private Timer? _learnTimer;
+    private int _learnButton;
+
+    public bool BeginLearn()
+    {
+        if (_stopped) return false;
+
+        Interlocked.Exchange(ref _learnButton, 0);
+        lock (_learnGate)
+        {
+            _learnTimer?.Dispose();
+            _learnTimer = new Timer(_ => Interlocked.Exchange(ref _learnButton, 4), null, 300, Timeout.Infinite);
+        }
+        return true;
+    }
+
+    public void EndLearn()
+    {
+        lock (_learnGate)
+        {
+            _learnTimer?.Dispose();
+            _learnTimer = null;
+        }
+    }
+
+    public bool TryTakeLearnedButton(out int button)
+    {
+        button = Interlocked.Exchange(ref _learnButton, 0);
+        return button != 0;
+    }
+
     private void Tick()
     {
         // ~300 strokes/s, matching a busy mouse, so the panel shows live numbers.
@@ -244,6 +293,7 @@ internal sealed class SimulatedCaptureSession : ICaptureSession
     {
         if (_stopped) return;
         _stopped = true;
+        EndLearn();
         _timer.Dispose();
     }
 
@@ -292,6 +342,27 @@ internal sealed class CaptureController : IDisposable
     public long TotalGated => Current?.Gated ?? 0;
 
     public (double P50, double P99) Latency() => Current?.Latency() ?? (0, 0);
+
+    /// <summary>Arms learn mode on the running session (false when stopped).</summary>
+    public bool BeginLearn()
+    {
+        ICaptureSession? session = Current;
+        return session is { Running: true } && session.BeginLearn();
+    }
+
+    public void EndLearn() => Current?.EndLearn();
+
+    public bool TryTakeLearnedButton(out int button)
+    {
+        ICaptureSession? session = Current;
+        if (session is null)
+        {
+            button = 0;
+            return false;
+        }
+
+        return session.TryTakeLearnedButton(out button);
+    }
 
     private ICaptureSession? Current
     {

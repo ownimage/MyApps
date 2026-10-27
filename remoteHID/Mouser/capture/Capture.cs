@@ -81,6 +81,67 @@ internal sealed class Capture
 
     public long SendErrors => Interlocked.Read(ref _sendErrors);
 
+    // ---- learn mode -------------------------------------------------------
+    //
+    // "Which button did I just press?" has to be answered by the PUMP, not by raw
+    // input: the pump is the only place that sees a stroke AND can swallow it, and
+    // swallowing matters because MB4/MB5 are Back/Forward in a browser - a naive
+    // listener would navigate the page away mid-learn.
+    //
+    // The pump may not allocate or lock, so this is a volatile flag plus two
+    // Interlocked fields, exactly like the mode state above.
+
+    private volatile bool _learnActive;
+    private int _learnButton;
+
+    public bool LearnActive => _learnActive;
+
+    /// <summary>Arms learn mode. False when the pump has already stopped.</summary>
+    public bool BeginLearn()
+    {
+        if (_stop) return false;
+
+        Interlocked.Exchange(ref _learnButton, 0);
+
+        // A mode held when learning starts must not leave the gate armed after it.
+        _rotateHeld = false;
+        _translateHeld = false;
+        _rotateDownSwallowed = false;
+        _translateDownSwallowed = false;
+
+        _learnActive = true;
+        return true;
+    }
+
+    public void EndLearn()
+    {
+        _learnActive = false;
+        // The learn branch swallowed the button edges, so the pump never saw them
+        // go up: clear the held flags or the mouse could stay gated afterwards.
+        _rotateHeld = false;
+        _translateHeld = false;
+        _rotateDownSwallowed = false;
+        _translateDownSwallowed = false;
+    }
+
+    /// <summary>Takes the learned button number (0 = nothing yet).</summary>
+    public bool TryTakeLearnedButton(out int button)
+    {
+        button = Interlocked.Exchange(ref _learnButton, 0);
+        return button != 0;
+    }
+
+    /// <summary>1 = left, 2 = right, 3 = middle, 4/5 = the side buttons; 0 = not a press.</summary>
+    private static int DownButton(ushort state)
+    {
+        if ((state & Interception.MouseLeftDown) != 0) return 1;
+        if ((state & Interception.MouseRightDown) != 0) return 2;
+        if ((state & Interception.MouseMiddleDown) != 0) return 3;
+        if ((state & Interception.MouseButton4Down) != 0) return 4;
+        if ((state & Interception.MouseButton5Down) != 0) return 5;
+        return 0;
+    }
+
     public static string ModeName(ushort mode) => mode switch
     {
         Wire.ModeRotate => "ROT",
@@ -124,6 +185,22 @@ internal sealed class Capture
                 // reaches the OS while gated.
                 bool motion = mouse.state == 0
                     && (mouse.flags & Interception.FlagAttributesChanged) == 0;
+
+                // Learn mode: report the first button press and SWALLOW it, so MB4/MB5
+                // cannot navigate the foreground app while the panel asks "click a
+                // mouse button". Motion still passes - nothing is gated while learning.
+                if (target && _learnActive)
+                {
+                    if ((mouse.state & Interception.ButtonMask) != 0)
+                    {
+                        int pressed = DownButton(mouse.state);
+                        if (pressed != 0) Interlocked.Exchange(ref _learnButton, pressed);
+                        continue;
+                    }
+
+                    _outgoing[keep++] = mouse;
+                    continue;
+                }
 
                 bool rotateSwallowed = false;
                 bool translateSwallowed = false;
@@ -174,7 +251,7 @@ internal sealed class Capture
 
                 // The mode changes on this stroke, so a press takes effect
                 // immediately and a release restores normal motion immediately.
-                bool gating = target && GateActive;
+                bool gating = target && !_learnActive && GateActive;
 
                 if (gating && motion)
                 {

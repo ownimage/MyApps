@@ -125,8 +125,12 @@ function buildMouserCapturePage(page) {
 }
 
 function mouserConfigHtml() {
-  function buttonRow(id, label) {
-    return '<div class="col-8"><smd-select id="' + id + '"></smd-select></div>';
+  function buttonRow(id, learnId) {
+    return '<div class="col-8 d-flex gap-2 align-items-stretch flex-wrap">' +
+      '<smd-select id="' + id + '"></smd-select>' +
+      '<smd-button id="' + learnId + '" variant="secondary" size="small" ' +
+        'icon="fa-solid fa-crosshairs">Learn</smd-button>' +
+      '</div>';
   }
 
   return '' +
@@ -134,16 +138,20 @@ function mouserConfigHtml() {
       '<div class="col-4 text-end pt-2"><label class="form-label mb-0">Mouse</label></div>' +
       '<div class="col-8">' +
         '<div id="mouserDevices" class="mb-2"><span class="text-body-secondary small">Loading mice&hellip;</span></div>' +
-        '<smd-button id="btnMouserRefresh" variant="secondary" size="small" icon="fa-solid fa-rotate">Refresh</smd-button>' +
+        '<div class="d-flex gap-2 flex-wrap">' +
+          '<smd-button id="btnMouserRefresh" variant="secondary" size="small" icon="fa-solid fa-rotate">Refresh</smd-button>' +
+          '<smd-button id="btnMouserIdentify" variant="primary" size="small" ' +
+            'icon="fa-solid fa-bullseye">Identify</smd-button>' +
+        '</div>' +
       '</div>' +
     '</div>' +
     '<div class="row mb-4 align-items-center col-md-8">' +
       '<div class="col-4 text-end"><label class="form-label mb-0">Rotate button</label></div>' +
-      buttonRow("mouserRotate") +
+      buttonRow("mouserRotate", "btnMouserLearnRotate") +
     '</div>' +
     '<div class="row mb-4 align-items-center col-md-8">' +
       '<div class="col-4 text-end"><label class="form-label mb-0">Translate button</label></div>' +
-      buttonRow("mouserTranslate") +
+      buttonRow("mouserTranslate", "btnMouserLearnTranslate") +
     '</div>' +
     '<div class="row mb-4 align-items-center col-md-8">' +
       '<div class="col-4 text-end"><label class="form-label mb-0">Mode buttons</label></div>' +
@@ -175,6 +183,17 @@ function openMouserCapture() {
   var page = document.getElementById("mouserCapturePage");
   if (!page) return;
 
+  // A SMALL badge whose space is RESERVED while the mouse is still: "moving" flips
+  // constantly, and a badge that appears/disappears re-flows the hardware-id line
+  // (and the whole list, if the rows are rebuilt). This is the app's only styling.
+  if (typeof injectSmdComponentStyle === "function") {
+    injectSmdComponentStyle("pb-mouser-devices", [
+      "#mouserDevices .pb-mouser-badge { font-size: 0.62em; line-height: 1;",
+      "  padding: 0.2em 0.45em; vertical-align: 0.1em; margin-right: 0.4em; }",
+      "#mouserDevices .pb-mouser-moving-off { visibility: hidden; }"
+    ].join(""));
+  }
+
   if (!page.__mouserBound) {
     page.__mouserBound = true;
 
@@ -201,6 +220,10 @@ function openMouserCapture() {
   restoreMouserAddress();
   _mouserState = null;
   _mouserDeviceSignature = "";
+  _mouserIdentify = null;
+  _mouserPollMs = 1500;
+  _mouserUdpDefaultDone = false;
+  mouserSetButtonVariant("btnMouserIdentify", "primary");
   mouserSetHint("");
 
   // A same-box capture is picked up without a scan; a remote one needs the address
@@ -211,11 +234,12 @@ function openMouserCapture() {
   });
 
   clearInterval(_mouserTimer);
-  _mouserTimer = setInterval(mouserRefresh, 1500);
+  _mouserTimer = setInterval(mouserRefresh, _mouserPollMs);
 }
 
 function hideMouserCapture() {
   var page = document.getElementById("mouserCapturePage");
+  if (_mouserIdentify) mouserStopIdentify(null);
   clearInterval(_mouserTimer);
   _mouserTimer = null;
   if (page) _hideWizardPage(page);
@@ -261,6 +285,15 @@ function mouserOnClick(event) {
       break;
     case "btnMouserPing":
       mouserPing();
+      break;
+    case "btnMouserIdentify":
+      mouserToggleIdentify();
+      break;
+    case "btnMouserLearnRotate":
+      mouserLearnButton("rotate");
+      break;
+    case "btnMouserLearnTranslate":
+      mouserLearnButton("translate");
       break;
   }
 }
@@ -330,11 +363,12 @@ function mouserSaveAddress() {
   mouserRefresh();
 }
 
-function mouserSaveConfig(patch) {
+function mouserSaveConfig(patch, options) {
+  var silent = !!(options && options.silent);
   var current = (_mouserState && _mouserState.config) || null;
   if (!current) {
-    mouserSetHint("No state from the capture panel yet.", true);
-    return Promise.resolve();
+    if (!silent) mouserSetHint("No state from the capture panel yet.", true);
+    return Promise.resolve(false);
   }
 
   var merged = {
@@ -354,15 +388,24 @@ function mouserSaveConfig(patch) {
   var needsRestart = patch.device !== undefined || patch.rotateButton !== undefined
     || patch.translateButton !== undefined || patch.passModeButtons !== undefined;
 
+  // Resolves TRUE only when the panel accepted it: a caller that reports success
+  // must not claim it after a rejected save (that masked a real 400 - "learned MB5"
+  // with the dropdown unchanged).
   return pbMouserApi("/api/config", { method: "POST", body: merged })
     .then(function (res) {
       if (_mouserState) _mouserState.config = res.config;
-      mouserSetHint(needsRestart && _mouserState && _mouserState.capture.running
-        ? "Saved. Stop and start the capture to apply it."
-        : "Saved.");
+      if (!silent) {
+        mouserSetHint(needsRestart && _mouserState && _mouserState.capture.running
+          ? "Saved. Stop and start the capture to apply it."
+          : "Saved.");
+      }
       mouserRenderStatus();
+      return true;
     })
-    .catch(function (err) { mouserSetHint(err.message, true); });
+    .catch(function (err) {
+      if (!silent) mouserSetHint(err.message, true);
+      return false;
+    });
 }
 
 function mouserStart() {
@@ -401,6 +444,191 @@ function mouserPing() {
   });
 }
 
+// ---- identify the mouse by moving it ---------------------------------------
+//
+// The panel reports CUMULATIVE motion per device, so two polls give a delta. The
+// mouse that moves most while Identify is listening is the one that gets selected.
+
+var _mouserIdentify = null;    // { until, baseline: {hardwareId: motion} }
+var _mouserPollMs = 1500;
+
+function mouserSetButtonVariant(id, variant) {
+  var el = document.getElementById(id);
+  // <smd-button> re-applies variant/size/disabled after build; only its LABEL is
+  // captured once, so colour is the safe "this is armed" signal.
+  if (el) el.setAttribute("variant", variant);
+}
+
+function mouserSetDisabled(id, disabled) {
+  var el = document.getElementById(id);
+  if (!el) return;
+  if (disabled) el.setAttribute("disabled", "");
+  else el.removeAttribute("disabled");
+  // A disabled control explains itself on hover (the host's title reaches the
+  // inner button, which is the real hover target).
+  el.title = disabled ? "Stop the capture first" : "";
+}
+
+// The PhoneButtons server receives telemetry on UDP 7801; Settings | Server holds the
+// host, so an unset capture target defaults to <that host>:7801.
+var _mouserUdpDefaultDone = false;
+
+function mouserDefaultUdp() {
+  var host = typeof pbServerAddress === "function" ? pbServerAddress() : "";
+  var complete = typeof pbHostComplete === "function" ? pbHostComplete(host) : !!host;
+  return complete ? host + ":7801" : "";
+}
+
+function mouserApplyUdpDefault(config) {
+  if (_mouserUdpDefaultDone) return;
+  if (config && config.udp) {
+    _mouserUdpDefaultDone = true;
+    return;
+  }
+
+  var fallback = mouserDefaultUdp();
+  if (!fallback) return;
+
+  _mouserUdpDefaultDone = true;
+  // SAVE it, not just show it: a field that looks configured while the capture sends
+  // nowhere is worse than an empty one.
+  mouserSaveConfig({ udp: fallback }, { silent: true });
+}
+
+function mouserSetPollInterval(ms) {
+  _mouserPollMs = ms;
+  if (!_mouserTimer) return;
+  clearInterval(_mouserTimer);
+  _mouserTimer = setInterval(mouserRefresh, ms);
+}
+
+function mouserToggleIdentify() {
+  if (_mouserIdentify) {
+    mouserStopIdentify("Identify cancelled.");
+    return;
+  }
+
+  if (!_mouserState) {
+    mouserSetHint("No state from the capture panel yet.", true);
+    return;
+  }
+
+  if (_mouserState.capture && _mouserState.capture.running) {
+    mouserSetHint("Stop the capture first - identify and learn only work while it is stopped.", true);
+    return;
+  }
+
+  var baseline = {};
+  (_mouserState.devices || []).forEach(function (device) {
+    baseline[device.hardwareId] = device.motion || 0;
+  });
+
+  _mouserIdentify = { until: Date.now() + 8000, baseline: baseline };
+  mouserSetButtonVariant("btnMouserIdentify", "warning");
+
+  var gated = _mouserState.capture && _mouserState.capture.running
+    ? " (do not hold a mode button while it listens)"
+    : "";
+  mouserSetHint("Listening for 8 seconds - move the mouse you want to use" + gated + " ...");
+  mouserSetPollInterval(500);
+}
+
+function mouserStopIdentify(message) {
+  if (!_mouserIdentify) return;
+  _mouserIdentify = null;
+  mouserSetButtonVariant("btnMouserIdentify", "primary");
+  mouserSetPollInterval(1500);
+  if (message) mouserSetHint(message);
+}
+
+function mouserIdentifyStep(state) {
+  if (!_mouserIdentify) return;
+
+  var best = null;
+  var bestDelta = 0;
+
+  (state.devices || []).forEach(function (device) {
+    var key = device.hardwareId;
+    var previous = _mouserIdentify.baseline[key];
+    _mouserIdentify.baseline[key] = device.motion || 0;
+    if (previous === undefined) return;   // the first sample has no delta yet
+
+    var delta = (device.motion || 0) - previous;
+    if (delta > bestDelta) {
+      bestDelta = delta;
+      best = device;
+    }
+  });
+
+  // A few counts filters out the jitter of a resting mouse.
+  if (best && bestDelta >= 5) {
+    var name = best.name || best.hardwareId;
+    // Save FIRST: mouserSaveConfig sets its own "Saved." hint, so the confirmation
+    // has to come after it or it would be overwritten immediately.
+    mouserStopIdentify(null);
+    mouserSaveConfig({ device: best.hardwareId }).then(function () {
+      mouserSetHint("Selected " + name + ".");
+    });
+    return;
+  }
+
+  if (Date.now() > _mouserIdentify.until) {
+    mouserStopIdentify("No movement detected - try again and move the mouse while it listens.");
+  }
+}
+
+// ---- learn a mode button ---------------------------------------------------
+
+function mouserLearnButton(which) {
+  if (!_mouserState) {
+    mouserSetHint("No state from the capture panel yet.", true);
+    return;
+  }
+
+  if (_mouserState.capture && _mouserState.capture.running) {
+    mouserSetHint("Stop the capture first - identify and learn only work while it is stopped.", true);
+    return;
+  }
+
+  var buttonId = which === "rotate" ? "btnMouserLearnRotate" : "btnMouserLearnTranslate";
+  var label = which === "rotate" ? "Rotate" : "Translate";
+
+  mouserSetButtonVariant(buttonId, "warning");
+  mouserSetHint("Learning the " + label.toLowerCase() + " button: click a mouse button now ...");
+
+  // The panel arms a short-lived session for the learn (so the click is swallowed);
+  // the user's own capture stays stopped, which is why no start happens here.
+  pbMouserApi("/api/learn-button", { method: "POST", body: { timeoutMs: 10000 } })
+    .then(function (result) {
+      if (!result || result.ok !== true) {
+        mouserSetHint(result && result.message ? result.message : "no button was pressed - try again", true);
+        return null;
+      }
+
+      var button = Number(result.button);
+      if (button !== 3 && button !== 4 && button !== 5) {
+        mouserSetHint("That is the " + (button === 1 ? "left" : button === 2 ? "right" : "extra") +
+          " button - use the middle (3) or a side button (4/5).", true);
+        return null;
+      }
+
+      var patch = which === "rotate" ? { rotateButton: button } : { translateButton: button };
+      return mouserSaveConfig(patch).then(function (saved) {
+        // Only claim success when the panel ACCEPTED it. A rejected save (e.g. both
+        // modes on the same button) used to be masked by this message, which looked
+        // exactly like "the button was learned but the dropdown did not change".
+        if (saved) mouserSetHint(label + " = MB" + button + ". Stop and start the capture to apply it.");
+      });
+    })
+    .catch(function (err) {
+      mouserSetHint(err && err.message ? err.message : "could not learn a button", true);
+    })
+    .then(function () {
+      mouserSetButtonVariant(buttonId, "secondary");
+      mouserRefresh();
+    });
+}
+
 // ---- server-side discovery (--mouser on this box) --------------------------
 
 function mouserAdoptFromServer() {
@@ -429,6 +657,7 @@ function mouserRefresh() {
     .then(function (state) {
       _mouserState = state;
       mouserRenderState(state);
+      mouserIdentifyStep(state);
     })
     .catch(function (err) {
       _mouserState = null;
@@ -496,7 +725,18 @@ function mouserRenderState(state) {
   mouserSetSelect("mouserTranslate", config.translateButton);
   mouserSetChecked("mouserPassMode", config.passModeButtons);
   mouserSetChecked("mouserAutoStart", config.autoStart);
-  mouserSetValue("mouserUdp", config.udp || "");
+  // An unset capture target defaults to the Settings | Server host on UDP 7801 (the
+  // port the PhoneButtons server receives telemetry on), and is saved once so the
+  // field showing it is not a lie.
+  mouserSetValue("mouserUdp", config.udp || mouserDefaultUdp());
+  mouserApplyUdpDefault(config);
+
+  // Identify/Learn are STOPPED-ONLY: while a capture runs, a held mode button gates
+  // motion (Identify sees nothing) and the pump swallows the mode buttons (Learn
+  // could not see them), so both would silently do nothing.
+  mouserSetDisabled("btnMouserIdentify", !!capture.running);
+  mouserSetDisabled("btnMouserLearnRotate", !!capture.running);
+  mouserSetDisabled("btnMouserLearnTranslate", !!capture.running);
 
   var start = document.getElementById("btnMouserStart");
   if (start) start.disabled = !!capture.running || state.canStart === false;
@@ -521,7 +761,10 @@ function mouserRenderDevices(devices) {
   if (!container) return;
 
   var selected = (_mouserState && _mouserState.config && _mouserState.config.device) || "";
-  var signature = devices.map(function (d) { return d.hardwareId + ":" + (d.moving ? 1 : 0); }).join("|");
+  // Rebuild only when the DEVICE SET changes. "moving" is deliberately NOT part of
+  // the signature: it flips as the mouse moves, and rebuilding then re-flows the list
+  // (and steals the radio focus). The badge is toggled in place instead.
+  var signature = devices.map(function (d) { return d.hardwareId; }).join("|");
 
   // Rebuild only when the list (or who is moving) changes: rebuilding while the
   // user is picking would steal the focus of the radio they just tapped.
@@ -530,6 +773,7 @@ function mouserRenderDevices(devices) {
     for (var i = 0; i < radios.length; i++) {
       if (selected && radios[i].value === selected && !radios[i].checked) radios[i].checked = true;
     }
+    mouserSyncMovingBadges(container, devices);
     return;
   }
   _mouserDeviceSignature = signature;
@@ -541,17 +785,42 @@ function mouserRenderDevices(devices) {
 
   container.innerHTML = devices.map(function (device) {
     var checked = device.hardwareId === selected ? " checked" : "";
-    var moving = device.moving ? ' <smd-badge variant="success" pill>moving</smd-badge>' : "";
-    var simulated = device.simulated ? ' <smd-badge variant="secondary" pill>simulated</smd-badge>' : "";
+
+    // The badges belong on the SECOND line, at its left edge, in front of the id.
+    // "moving" is ALWAYS rendered (hidden when still) so its space is reserved and
+    // the id never shifts while the mouse moves.
+    var badges = '<smd-badge variant="success" pill class="pb-mouser-badge pb-mouser-moving' +
+      (device.moving ? "" : " pb-mouser-moving-off") + '">moving</smd-badge>';
+    if (device.simulated) {
+      badges += '<smd-badge variant="secondary" pill class="pb-mouser-badge">simulated</smd-badge>';
+    }
+
     return '<label class="d-flex align-items-start gap-2 mb-1">' +
         '<input class="form-check-input mt-1" type="radio" name="pbMouserDevice" value="' +
           escAttr(device.hardwareId) + '"' + checked + '>' +
         '<span class="flex-grow-1">' +
-          '<span class="fw-semibold d-block">' + escapeHtml(device.name || device.hardwareId) + moving + simulated + '</span>' +
-          '<span class="small text-body-secondary d-block text-break">' + escapeHtml(device.hardwareId) + '</span>' +
+          '<span class="fw-semibold d-block">' + escapeHtml(device.name || device.hardwareId) + '</span>' +
+          '<span class="small text-body-secondary d-block text-break">' + badges +
+            '<span class="pb-mouser-id">' + escapeHtml(device.hardwareId) + '</span></span>' +
         '</span>' +
       '</label>';
   }).join("");
+
+  mouserSyncMovingBadges(container, devices);
+}
+
+// Shows/hides the "moving" badge WITHOUT touching the layout (visibility, not
+// display), keyed by row order - the list is only rebuilt when the device set
+// changes, so row N is always device N.
+function mouserSyncMovingBadges(container, devices) {
+  var radios = container.querySelectorAll('input[name="pbMouserDevice"]');
+
+  for (var i = 0; i < radios.length && i < devices.length; i++) {
+    var label = radios[i].closest ? radios[i].closest("label") : null;
+    var badge = label && label.querySelector(".pb-mouser-moving");
+    if (!badge) continue;
+    badge.classList.toggle("pb-mouser-moving-off", !devices[i].moving);
+  }
 }
 
 function mouserSetSelect(id, value) {

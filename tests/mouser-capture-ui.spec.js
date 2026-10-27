@@ -312,6 +312,70 @@ test.describe("mouser-capture control panel", () => {
     expect(third.json.capture.running).toBe(false);
   });
 
+  test("learn-button reports the clicked button while the capture is STOPPED", async () => {
+    const panel = await startPanel(tempConfig());
+
+    // No capture start: the panel arms a SHORT-LIVED session for the learn (so the
+    // click is still swallowed) and releases it afterwards. The user's own capture
+    // must not be running - identify/learn are stopped-only.
+    const learned = await api(panel, "/api/learn-button", { method: "POST", body: { timeoutMs: 5000 } });
+    expect(learned.status).toBe(200);
+    expect(learned.json.ok).toBe(true);
+    expect(learned.json.button).toBe(4);
+    expect(learned.json.ms).toBeLessThan(5000);
+
+    // The temporary session is gone again.
+    const state = await api(panel, "/api/state");
+    expect(state.json.capture.running).toBe(false);
+  });
+
+  test("learn-button times out, and a second concurrent learn is a conflict", async () => {
+    const panel = await startPanel(tempConfig());
+
+    // Shorter than the simulated click (300 ms), so nothing is learned in time.
+    const timeout = await api(panel, "/api/learn-button", { method: "POST", body: { timeoutMs: 150 } });
+    expect(timeout.status).toBe(200);
+    expect(timeout.json).toMatchObject({ ok: false, timeout: true });
+
+    const [first, second] = await Promise.all([
+      api(panel, "/api/learn-button", { method: "POST", body: { timeoutMs: 1500 } }),
+      api(panel, "/api/learn-button", { method: "POST", body: { timeoutMs: 1500 } }),
+    ]);
+    expect([first.status, second.status].sort()).toEqual([200, 409]);
+  });
+
+  test("identify/learn are stopped-only: a running capture is a conflict", async () => {
+    const panel = await startPanel(tempConfig());
+    await api(panel, "/api/capture/start", { method: "POST" });
+
+    const refused = await api(panel, "/api/learn-button", { method: "POST", body: { timeoutMs: 200 } });
+    expect(refused.status).toBe(409);
+    expect(refused.json.error.toLowerCase()).toContain("stop");
+  });
+
+  test("devices report cumulative motion and the key raw input is matched by", async () => {
+    const panel = await startPanel(tempConfig());
+
+    const first = await api(panel, "/api/state");
+    const second = await api(panel, "/api/state");
+
+    const moving = first.json.devices.find((device) => device.moving) || first.json.devices[0];
+    expect(typeof moving.motion).toBe("number");
+    // The canonical motion key (VID/PID/MI/Col) is what raw input is matched by -
+    // exposed so a mismatch on a real machine is diagnosable.
+    expect(typeof moving.motionKey).toBe("string");
+    expect(moving.motionKey.length).toBeGreaterThan(0);
+
+    // Diagnostics: what raw input has actually seen, and its total.
+    expect(typeof first.json.panel.motion.total).toBe("number");
+    expect(Array.isArray(first.json.panel.motion.keys)).toBe(true);
+
+    const later = second.json.devices.find((device) => device.hardwareId === moving.hardwareId);
+    // Cumulative, not drained: the app diffs two polls, so another consumer cannot
+    // steal the motion it is watching for.
+    expect(later.motion).toBeGreaterThan(moving.motion);
+  });
+
   test("ping reports a timeout instead of hanging", async () => {
     const configFile = tempConfig();
     const panel = await startPanel(configFile);
