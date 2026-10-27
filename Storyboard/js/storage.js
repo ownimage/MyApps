@@ -79,8 +79,10 @@ var SB_TEXT_BORDERS = [
 // Families declared in shared/css/fonts/fonts.css (loaded by the theme sheet's
 // @import), plus the theme stack and two system fallbacks. The CSS owns the
 // actual font stacks (`.sb-font-<id>` in storyboard.css).
+// NO theme font: a story must look the same on every theme, so text always
+// names a concrete family (a legacy `theme` value normalises to the default).
+var SB_TEXT_DEFAULT_FONT = "lato";
 var SB_TEXT_FONTS = [
-  { id: "theme", name: "Theme font" },
   { id: "serif", name: "Serif" },
   { id: "mono", name: "Monospace" },
   { id: "roboto", name: "Roboto" },
@@ -102,6 +104,28 @@ var SB_TEXT_TOKENS = ["auto", "white", "black", "primary", "secondary", "success
 // A new note starts on a sticky-note yellow; the colour is a fixed hex (never a
 // theme token) so a note looks the same on every theme.
 var SB_NOTE_DEFAULT_COLOR = "#ffd54f";
+
+// ---- Speech bubbles --------------------------------------------------------
+//
+// A TEXT box can become a speech bubble: the fill is the box's `bg`, the outline
+// is a generated path (body + tail) so the line flows round the tail, and the
+// tail tip can be dragged anywhere. `lineGap` is the space between the LINE and
+// the bubble's outer fill edge (0 = the line sits on the edge).
+var SB_BUBBLE_TYPES = ["none", "round", "oval"];
+var SB_BUBBLE_DEFAULT_FILL = "white";
+var SB_BUBBLE_DEFAULT_STROKE = "#000000";
+var SB_BUBBLE_DEFAULT_LINE_WIDTH = 2;
+var SB_BUBBLE_OVAL_LINE_GAP = 5;
+// A border FRAME's default thickness (design-scaled px) - the same "Line width"
+// control drives a bubble's line and a frame's border.
+var SB_FRAME_DEFAULT_WIDTH = 18;
+// A new bubble's tail points down-left, a short stub rather than a long pointer.
+var SB_BUBBLE_DEFAULT_TAIL = { dx: -6, dy: 8 };
+// The style fields "Set as default" and Copy/Paste style carry (never the text,
+// position, rotation, scale or the tail direction).
+var SB_TEXT_STYLE_FIELDS = ["font", "bg", "color", "border", "bubble", "stroke", "lineWidth", "lineGap", "radius"];
+// The background's corner radius (design-scaled px); 10 is the old box look.
+var SB_TEXT_DEFAULT_RADIUS = 10;
 
 // Zoom factors the rail's magnifier buttons step through. 1 = the fitted view
 // (the whole board visible, exactly as before zooming existed).
@@ -271,6 +295,87 @@ function sbNormalizePaint(value, tokens, fallback) {
   return tokens.indexOf(value) >= 0 ? value : fallback;
 }
 
+function sbHasBubble(type) {
+  return type === "round" || type === "oval";
+}
+
+// A clamped number, falling back when the value is not usable.
+function sbClampNumber(value, min, max, fallback) {
+  var n = Number(value);
+  if (!isFinite(n)) return fallback;
+  return Math.min(max, Math.max(min, n));
+}
+
+// The LINE colour: a fixed hex, a theme token, or the default black.
+function sbNormalizeStroke(value) {
+  if (sbIsHexColor(value)) return String(value).toLowerCase();
+  return SB_TEXT_TOKENS.indexOf(value) >= 0 ? value : SB_BUBBLE_DEFAULT_STROKE;
+}
+
+// The eight STYLE fields of a text box, normalised. Shared by item loading,
+// "Set as default" and Copy/Paste style so they can never drift apart.
+function sbNormalizeTextStyle(raw) {
+  var src = raw && typeof raw === "object" ? raw : {};
+  var bubble = SB_BUBBLE_TYPES.indexOf(src.bubble) >= 0 ? src.bubble : "none";
+  // A bubble and a border style are mutually exclusive: the bubble wins.
+  var border = sbHasBorder(src.border) ? src.border : "none";
+  if (sbHasBubble(bubble)) border = "none";
+  return {
+    font: sbHasFont(src.font) ? src.font : SB_TEXT_DEFAULT_FONT,
+    bg: sbNormalizePaint(src.bg, SB_BG_TOKENS, "transparent"),
+    color: sbNormalizePaint(src.color, SB_TEXT_TOKENS, "auto"),
+    border: border,
+    bubble: bubble,
+    stroke: sbNormalizeStroke(src.stroke),
+    // 0..40: a bubble line is thin, a frame's border is ~18.
+    lineWidth: sbClampNumber(src.lineWidth, 0, 40, SB_BUBBLE_DEFAULT_LINE_WIDTH),
+    lineGap: sbClampNumber(src.lineGap, 0, 40, bubble === "oval" ? SB_BUBBLE_OVAL_LINE_GAP : 0),
+    radius: sbClampNumber(src.radius, 0, 120, SB_TEXT_DEFAULT_RADIUS)
+  };
+}
+
+function sbTextStyleOf(item) {
+  var style = {};
+  SB_TEXT_STYLE_FIELDS.forEach(function (field) { style[field] = item ? item[field] : undefined; });
+  return sbNormalizeTextStyle(style);
+}
+
+function sbApplyTextStyleFields(target, style) {
+  var next = sbNormalizeTextStyle(style);
+  SB_TEXT_STYLE_FIELDS.forEach(function (field) { target[field] = next[field]; });
+  return target;
+}
+
+// ---- Text style defaults (Settings-free: a per-app stored preset) -----------
+
+function sbTextDefaultsKey() {
+  return smdKey("textStyleDefaults");
+}
+
+function sbLoadTextDefaults() {
+  try {
+    var raw = JSON.parse(localStorage.getItem(sbTextDefaultsKey()) || "null");
+    return raw && typeof raw === "object" ? sbNormalizeTextStyle(raw) : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+function sbSaveTextDefaults(style) {
+  try {
+    localStorage.setItem(sbTextDefaultsKey(), JSON.stringify(sbNormalizeTextStyle(style)));
+  } catch (e) { /* storage unavailable: the session still uses the draft */ }
+}
+
+function sbClearTextDefaults() {
+  try { localStorage.removeItem(sbTextDefaultsKey()); } catch (e) { /* ignore */ }
+}
+
+// The draft a NEW text box starts from: the stored defaults, else the built-ins.
+function sbNewTextDraft() {
+  return sbNormalizeTextStyle(sbLoadTextDefaults() || {});
+}
+
 function sbNormalizeItem(raw) {
   if (!raw || typeof raw !== "object") return null;
   var type = raw.type === "text" ? "text" : raw.type === "note" ? "note" : "sticker";
@@ -299,10 +404,14 @@ function sbNormalizeItem(raw) {
     item.rotation = 0;
   } else {
     item.text = String(raw.text == null ? "" : raw.text);
-    item.bg = sbNormalizePaint(raw.bg, SB_BG_TOKENS, "transparent");
-    item.color = sbNormalizePaint(raw.color, SB_TEXT_TOKENS, "auto");
-    item.border = sbHasBorder(raw.border) ? raw.border : "none";
-    item.font = sbHasFont(raw.font) ? raw.font : "theme";
+    // The eight style fields (incl. the speech-bubble ones) share ONE normaliser
+    // with "Set as default"/Copy style.
+    sbApplyTextStyleFields(item, raw);
+    var rawTail = raw.tail && typeof raw.tail === "object" ? raw.tail : null;
+    item.tail = {
+      dx: sbClampNumber(rawTail ? rawTail.dx : SB_BUBBLE_DEFAULT_TAIL.dx, -80, 80, SB_BUBBLE_DEFAULT_TAIL.dx),
+      dy: sbClampNumber(rawTail ? rawTail.dy : SB_BUBBLE_DEFAULT_TAIL.dy, -80, 80, SB_BUBBLE_DEFAULT_TAIL.dy)
+    };
   }
   return item;
 }

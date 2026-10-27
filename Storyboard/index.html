@@ -138,6 +138,14 @@
       <button type="button" id="sbConnectCancel" class="btn btn-sm btn-secondary">Cancel</button>
     </div>
 
+    <!-- SPEECH BUBBLE: the tail was dropped on a sticker. Ignorable; it expires
+         after a few seconds (board.js owns the timer). -->
+    <div id="sbGroupPrompt" class="sb-group-prompt d-none" role="status">
+      <span id="sbGroupPromptText"></span>
+      <smd-button id="sbGroupPromptYes" variant="primary" size="small">Group</smd-button>
+      <smd-button id="sbGroupPromptNo" variant="secondary" size="small" icon="fa-solid fa-xmark" aria-label="Dismiss" title="Dismiss"></smd-button>
+    </div>
+
     <!-- SELECTED ITEM ACTIONS -->
     <div id="sbSelectionBar" class="sb-selection-bar d-none" role="toolbar" aria-label="Selected item">
       <div class="sb-sel-row">
@@ -173,6 +181,17 @@
         </button>
         <button type="button" id="sbConnDelete" class="sb-sel-btn d-none" title="Delete connector" aria-label="Delete connector">
           <i class="fa-solid fa-trash" aria-hidden="true"></i>
+        </button>
+      </div>
+      <div id="sbSelStyleRow" class="sb-sel-row d-none">
+        <button type="button" id="sbSelCopyStyle" class="sb-sel-btn" title="Copy this text box's style" aria-label="Copy style">
+          <i class="fa-solid fa-brush" aria-hidden="true"></i>
+        </button>
+        <button type="button" id="sbSelPasteStyle" class="sb-sel-btn" title="Paste the copied style" aria-label="Paste style">
+          <i class="fa-solid fa-paste" aria-hidden="true"></i>
+        </button>
+        <button type="button" id="sbSelSetDefault" class="sb-sel-btn" title="Use this style for new text boxes" aria-label="Set as default style">
+          <i class="fa-solid fa-star" aria-hidden="true"></i>
         </button>
       </div>
       <div id="sbSelAlignRow" class="sb-sel-row sb-sel-align-row d-none">

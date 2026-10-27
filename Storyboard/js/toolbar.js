@@ -8,7 +8,8 @@ var sbToolbarEls = {};
 var sbSceneSortable = null;
 
 function sbInitToolbar() {
-  sbState.textDraft = { bg: "transparent", color: "auto", border: "none", font: "theme" };
+  sbState.textDraft = sbNewTextDraft();
+  sbState.styleClipboard = sbState.styleClipboard || null;
   sbState.noteDraft = { color: SB_NOTE_DEFAULT_COLOR };
 
   sbToolbarEls.toolbar = document.getElementById("sbToolbar");
@@ -107,6 +108,7 @@ function sbClosePanel() {
   sbState.tool = "";
   sbState.editingTextId = "";
   sbState.editingNoteId = "";
+  sbState.textDraftText = "";
   if (sbToolbarEls.toolbar) sbToolbarEls.toolbar.dataset.open = "";
   if (sbToolbarEls.body) sbToolbarEls.body.innerHTML = "";
   if (sbToolbarEls.title) sbToolbarEls.title.textContent = "";
@@ -669,11 +671,17 @@ function sbRenderTextPanel() {
   if (sbState.editingTextId && !sbFindItem(sbState.editingTextId)) sbState.editingTextId = "";
   var item = sbState.editingTextId ? sbFindItem(sbState.editingTextId) : null;
   var draft = sbState.textDraft || { bg: "transparent", color: "auto", border: "none", font: "theme" };
-  var text = item ? item.text : "";
+  var text = item ? item.text : (sbState.textDraftText || "");
   var bg = item ? item.bg : draft.bg;
   var color = item ? item.color : draft.color;
   var border = item ? item.border : draft.border;
   var font = item ? item.font : draft.font;
+  var bubble = item ? item.bubble : draft.bubble;
+  var stroke = item ? item.stroke : draft.stroke;
+  var lineWidth = item ? item.lineWidth : draft.lineWidth;
+  var lineGap = item ? item.lineGap : draft.lineGap;
+  var radius = item ? item.radius : draft.radius;
+  var hasBubble = sbHasBubble(bubble);
 
   var html = '<label class="form-label sb-field-label" for="sbTextInput">Text</label>';
   html += '<textarea id="sbTextInput" class="form-control" rows="3" placeholder="Type your text">' + escapeHtml(text) + '</textarea>';
@@ -686,21 +694,59 @@ function sbRenderTextPanel() {
   html += '</smd-select>';
   html += '<div id="sbFontPreview" class="sb-font-preview sb-font-' + font + '">The quick brown fox</div>';
 
-  html += '<div class="sb-field-label">Background</div>';
+  // A CHECKBOX turns the bubble on; its parameters replace the Border styles.
+  html += '<div class="sb-field-label">Bubble</div>';
+  html += '<smd-checkbox id="sbBubbleToggle"' + (hasBubble ? " checked" : "") + '>Speech bubble</smd-checkbox>';
+  if (hasBubble) {
+    html += '<smd-select id="sbBubbleType" class="form-select">';
+    html += '<option value="round">Rectangle</option>';
+    html += '<option value="oval">Oval</option>';
+    html += '</smd-select>';
+  }
+
+  html += '<div class="sb-field-label">' + (hasBubble ? "Fill" : "Background") + '</div>';
   html += '<smd-color-picker id="sbTextBg" value="' + escAttr(sbPaintPickerValue(bg, "transparent")) + '" empty-label="Transparent"></smd-color-picker>';
 
-  html += '<div class="sb-field-label">Border</div><div class="sb-border-grid">';
-  SB_TEXT_BORDERS.forEach(function (b) { html += sbBorderOptionHtml(b, border === b.id); });
-  html += '</div>';
+  // The bubble and the border styles are alternatives.
+  if (!hasBubble) {
+    html += '<div class="sb-field-label">Border</div><div class="sb-border-grid">';
+    SB_TEXT_BORDERS.forEach(function (b) { html += sbBorderOptionHtml(b, border === b.id); });
+    html += '</div>';
+  }
 
   html += '<div class="sb-field-label">Text colour</div>';
   html += '<smd-color-picker id="sbTextColor" value="' + escAttr(sbPaintPickerValue(color, "auto")) + '" empty-label="Automatic"></smd-color-picker>';
+
+  var hasFrame = border && border !== "none";
+  if (hasBubble) {
+    html += '<div class="sb-field-label">Line</div>';
+    html += '<smd-color-picker id="sbTextLine" value="' + escAttr(sbPaintPickerValue(stroke, "")) + '"></smd-color-picker>';
+  }
+  // The width/space controls drive a bubble's line AND a frame's border.
+  if (hasBubble || hasFrame) {
+    html += '<div class="sb-field-label">' + (hasBubble ? "Line width and space" : "Frame width and space") + '</div>';
+    html += '<div class="sb-number-row">';
+    html += '<input id="sbLineWidth" class="form-control form-control-sm" type="number" min="0" max="40" step="0.5" value="' + lineWidth + '" aria-label="Line width">';
+    html += '<input id="sbLineGap" class="form-control form-control-sm" type="number" min="0" max="40" step="1" value="' + lineGap + '" aria-label="Space outside the line">';
+    html += '</div>';
+    if (hasBubble) html += '<p class="sb-panel-note">Drag the dot at the tail tip to point it at a mouth.</p>';
+  }
+  // The background's corner radius (it extends UNDER a frame, so it needs one).
+  html += '<div class="sb-field-label">Corner radius</div>';
+  html += '<input id="sbTextRadius" class="form-control form-control-sm" type="number" min="0" max="120" step="1" value="' + radius + '" aria-label="Corner radius">';
 
   if (item) {
     html += '<smd-button id="sbDoneText" variant="primary" block>Done</smd-button>';
   } else {
     html += '<smd-button id="sbPlaceText" variant="primary" block' + (text.trim() ? "" : " disabled") + '>Place text</smd-button>';
   }
+
+  // Copy/Paste/Set-as-default live in the floating selection bar now; only the
+  // "forget the saved default" action stays on the panel.
+  html += '<div class="sb-style-actions">';
+  html += '<smd-button id="sbResetTextDefault" variant="secondary" size="small" icon="fa-solid fa-rotate-left" title="Forget the saved default">Reset default style</smd-button>';
+  html += '</div>';
+
   html += '<p class="sb-panel-note">Double-click or double-tap a text box on the board to edit it again.</p>';
 
   sbToolbarEls.body.innerHTML = html;
@@ -713,6 +759,16 @@ function sbRenderTextPanel() {
   // hex, so the scene looks the same on every theme. Empty = Transparent/Automatic.
   sbBindPaintPicker("sbTextBg", function (value) { sbTextField("bg", value || "transparent"); });
   sbBindPaintPicker("sbTextColor", function (value) { sbTextField("color", value || "auto"); });
+  sbBindPaintPicker("sbTextLine", function (value) { sbTextField("stroke", value || SB_BUBBLE_DEFAULT_STROKE); });
+  var bubbleToggle = document.getElementById("sbBubbleToggle");
+  if (bubbleToggle) {
+    bubbleToggle.addEventListener("change", function () { sbTextBubbleToggle(!!bubbleToggle.checked); });
+  }
+  var bubbleType = document.getElementById("sbBubbleType");
+  if (bubbleType) {
+    bubbleType.setAttribute("value", bubble === "oval" ? "oval" : "round");
+    bubbleType.addEventListener("change", function () { sbTextBubbleType(bubbleType.value); });
+  }
   var input = document.getElementById("sbTextInput");
   if (input) {
     sbTogglePlaceButton();
@@ -741,6 +797,20 @@ function sbTogglePlaceButton() {
 
 function sbTextField(field, value) {
   var item = sbState.editingTextId ? sbFindItem(sbState.editingTextId) : null;
+  // Picking a BORDER style switches the bubble off and seeds the frame's default
+  // thickness (a bubble's 2px line would be far too thin for a frame).
+  if (field === "border") {
+    var borderTarget = item || sbState.textDraft;
+    if (borderTarget) {
+      var wasNone = !borderTarget.border || borderTarget.border === "none";
+      if (value !== "none") {
+        borderTarget.bubble = "none";
+        if (wasNone || Number(borderTarget.lineWidth) <= SB_BUBBLE_DEFAULT_LINE_WIDTH * 2) {
+          borderTarget.lineWidth = SB_FRAME_DEFAULT_WIDTH;
+        }
+      }
+    }
+  }
   if (item) {
     item[field] = value;
     sbSaveSoon();
@@ -769,7 +839,7 @@ function sbPlaceText() {
   if (!text) return;
   var board = sbActiveBoard();
   if (!board) return;
-  var draft = sbState.textDraft || { bg: "transparent", color: "auto", border: "none", font: "theme" };
+  var draft = sbState.textDraft || sbNewTextDraft();
   var n = board.items.length;
   var item = sbAddItem({
     type: "text",
@@ -778,12 +848,18 @@ function sbPlaceText() {
     color: draft.color,
     border: draft.border,
     font: draft.font,
+    bubble: draft.bubble,
+    stroke: draft.stroke,
+    lineWidth: draft.lineWidth,
+    lineGap: draft.lineGap,
+    tail: { dx: SB_BUBBLE_DEFAULT_TAIL.dx, dy: SB_BUBBLE_DEFAULT_TAIL.dy },
     x: 50 + (n % 4) * 4,
     y: 50 + (n % 3) * 5,
     scale: 1,
     rotation: 0
   });
   if (!item) return;
+  sbState.textDraftText = "";
   sbState.editingTextId = item.id;
   sbRender();
   sbRenderPanel();
@@ -792,6 +868,132 @@ function sbPlaceText() {
 function sbDoneText() {
   sbState.editingTextId = "";
   sbClosePanel();
+}
+
+// ---- Speech bubble + text style actions ------------------------------------
+
+// The text item being edited, else the draft for the NEXT box.
+function sbTextStyleTarget() {
+  var item = sbState.editingTextId ? sbFindItem(sbState.editingTextId) : null;
+  return item || sbState.textDraft || null;
+}
+
+// The "Speech bubble" CHECKBOX. Turning one on for the first time seeds a visible
+// bubble (white fill, black line, the default width) and drops the border style.
+function sbTextBubbleToggle(on) {
+  var item = sbState.editingTextId ? sbFindItem(sbState.editingTextId) : null;
+  var target = item || sbState.textDraft;
+  if (!target) return;
+  var wasBubble = sbHasBubble(target.bubble);
+  target.bubble = on ? (target.bubble === "oval" ? "oval" : "round") : "none";
+  if (on && !wasBubble) {
+    target.border = "none";
+    if (!target.bg || target.bg === "transparent") target.bg = SB_BUBBLE_DEFAULT_FILL;
+    if (!target.stroke) target.stroke = SB_BUBBLE_DEFAULT_STROKE;
+    target.lineWidth = SB_BUBBLE_DEFAULT_LINE_WIDTH;
+    if (!target.lineGap) target.lineGap = target.bubble === "oval" ? SB_BUBBLE_OVAL_LINE_GAP : 0;
+  }
+  if (item) {
+    sbSaveSoon();
+    sbApplyTextStyle(item);
+  }
+  sbRenderPanel();
+}
+
+function sbTextBubbleType(value) {
+  var item = sbState.editingTextId ? sbFindItem(sbState.editingTextId) : null;
+  var target = item || sbState.textDraft;
+  if (!target) return;
+  var type = value === "oval" ? "oval" : "round";
+  if (target.bubble === type) return;
+  var hadGap = Number(target.lineGap) > 0;
+  target.bubble = type;
+  if (!hadGap) target.lineGap = type === "oval" ? SB_BUBBLE_OVAL_LINE_GAP : 0;
+  if (item) {
+    sbSaveSoon();
+    sbApplyTextStyle(item);
+  }
+  sbRenderPanel();
+}
+
+// Line width / the space between the line and the bubble's outer edge.
+function sbTextNumber(field, raw) {
+  var n = parseFloat(String(raw == null ? "" : raw).replace(",", "."));
+  if (!isFinite(n)) return;
+  var item = sbState.editingTextId ? sbFindItem(sbState.editingTextId) : null;
+  var target = item || sbState.textDraft;
+  if (!target) return;
+  target[field] = Math.min(field === "radius" ? 120 : 40, Math.max(0, n));
+  if (item) {
+    sbSaveSoon();
+    sbApplyTextStyle(item);
+  }
+}
+
+// Copy/Paste/Set-as-default for the text box selected on the BOARD (the floating
+// bar), as opposed to the one open in the panel.
+function sbSelectedTextItem() {
+  var nodes = sbSelectionNodes();
+  if (nodes.length !== 1) return null;
+  var item = sbFindItem(nodes[0]);
+  return item && item.type === "text" ? item : null;
+}
+
+function sbCopySelectedTextStyle() {
+  var item = sbSelectedTextItem();
+  if (!item) return;
+  sbState.styleClipboard = sbTextStyleOf(item);
+  sbRenderPanel();
+  sbUpdateSelectionUi();
+}
+
+function sbPasteSelectedTextStyle() {
+  var item = sbSelectedTextItem();
+  if (!item || !sbState.styleClipboard) return;
+  sbApplyTextStyleFields(item, sbState.styleClipboard);
+  sbSaveState();
+  sbApplyTextStyle(item);
+  sbRenderPanel();
+}
+
+function sbSetSelectedTextDefault() {
+  var item = sbSelectedTextItem();
+  if (!item) return;
+  sbSaveTextDefaults(sbTextStyleOf(item));
+  sbRenderPanel();
+}
+
+function sbCopyTextStyle() {
+  var target = sbTextStyleTarget();
+  if (!target) return;
+  sbState.styleClipboard = sbTextStyleOf(target);
+  sbRenderPanel();
+}
+
+function sbPasteTextStyle() {
+  if (!sbState.styleClipboard) return;
+  var item = sbState.editingTextId ? sbFindItem(sbState.editingTextId) : null;
+  if (item) {
+    sbApplyTextStyleFields(item, sbState.styleClipboard);
+    sbSaveState();
+    sbApplyTextStyle(item);
+  } else if (sbState.textDraft) {
+    sbApplyTextStyleFields(sbState.textDraft, sbState.styleClipboard);
+  }
+  sbRenderPanel();
+}
+
+function sbSetTextDefaults() {
+  var target = sbTextStyleTarget();
+  if (!target) return;
+  sbSaveTextDefaults(sbTextStyleOf(target));
+  sbRenderPanel();
+}
+
+function sbResetTextDefaults() {
+  sbClearTextDefaults();
+  sbState.textDraft = sbNewTextDraft();
+  sbRenderPanel();
 }
 
 // Double-click / double-tap a text object: open the panel in edit mode.
@@ -964,6 +1166,22 @@ function sbOnPanelClick(e) {
     sbDoneText();
     return;
   }
+  if (t.closest && t.closest("#sbCopyStyle")) {
+    sbCopyTextStyle();
+    return;
+  }
+  if (t.closest && t.closest("#sbPasteStyle")) {
+    sbPasteTextStyle();
+    return;
+  }
+  if (t.closest && t.closest("#sbSetTextDefault")) {
+    sbSetTextDefaults();
+    return;
+  }
+  if (t.closest && t.closest("#sbResetTextDefault")) {
+    sbResetTextDefaults();
+    return;
+  }
   if (t.closest && t.closest("#sbPlaceNote")) {
     sbPlaceNote();
     return;
@@ -1011,6 +1229,12 @@ function sbOnPanelClick(e) {
 
 function sbOnPanelInput(e) {
   if (!e.target) return;
+  if (e.target.id === "sbLineWidth" || e.target.id === "sbLineGap" || e.target.id === "sbTextRadius") {
+    var field = e.target.id === "sbLineWidth" ? "lineWidth"
+      : e.target.id === "sbLineGap" ? "lineGap" : "radius";
+    sbTextNumber(field, e.target.value);
+    return;
+  }
   if (e.target.id === "sbNoteInput") {
     var note = sbState.editingNoteId ? sbFindItem(sbState.editingNoteId) : null;
     if (note) {
@@ -1027,6 +1251,8 @@ function sbOnPanelInput(e) {
     item.text = e.target.value;
     sbSaveSoon();
     sbApplyTextStyle(item);
+  } else {
+    sbState.textDraftText = e.target.value;
   }
   sbTogglePlaceButton();
 }

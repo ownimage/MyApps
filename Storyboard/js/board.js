@@ -360,10 +360,22 @@ function sbInitBoard() {
   if (del) del.addEventListener("click", sbDeleteSelected);
   if (groupBtn) groupBtn.addEventListener("click", sbGroupSelected);
   if (ungroupBtn) ungroupBtn.addEventListener("click", sbUngroupSelected);
+  // Copy/Paste/Set-default act on the SELECTED text box.
+  var copyStyle = document.getElementById("sbSelCopyStyle");
+  var pasteStyle = document.getElementById("sbSelPasteStyle");
+  var setDefault = document.getElementById("sbSelSetDefault");
+  if (copyStyle) copyStyle.addEventListener("click", sbCopySelectedTextStyle);
+  if (pasteStyle) pasteStyle.addEventListener("click", sbPasteSelectedTextStyle);
+  if (setDefault) setDefault.addEventListener("click", sbSetSelectedTextDefault);
   if (connReverse) connReverse.addEventListener("click", sbReverseSelectedConnector);
   if (connDelete) connDelete.addEventListener("click", sbDeleteSelectedConnector);
   if (connectCancel) connectCancel.addEventListener("click", sbCancelConnect);
   if (sbEls.selectionBox) sbEls.selectionBox.addEventListener("pointerdown", sbOnSelectionPointerDown);
+  // "Group with <sticker>?" after a tail drop (ignorable; it expires by itself).
+  var promptYes = document.getElementById("sbGroupPromptYes");
+  var promptNo = document.getElementById("sbGroupPromptNo");
+  if (promptYes) promptYes.addEventListener("click", sbGroupTailWith);
+  if (promptNo) promptNo.addEventListener("click", function () { sbHideTailGroupPrompt(); });
 
   // One Align button; its option row expands on hover (mouse) or tap (touch).
   var alignBtn = document.getElementById("sbSelAlign");
@@ -431,6 +443,8 @@ function sbInitBoard() {
     sbEls.objectObserver = new ResizeObserver(function () {
       sbRenderConnectors();
       sbPositionSelectionBar();
+      // The text box resized (text/font/scale): re-measure the bubbles.
+      sbUpdateAllBubbles();
     });
   }
 }
@@ -494,6 +508,8 @@ function sbRender() {
     sbEls.items.appendChild(el);
     if (sbEls.objectObserver) sbEls.objectObserver.observe(el);
   });
+  // A bubble needs the BUILT, laid-out text box to measure its body and tail.
+  sbUpdateAllBubbles();
 
   sbApplyAllTextNudges();
   // Re-run the layout now the items exist: the pasteboard must cover the
@@ -594,7 +610,9 @@ function sbStyleTextElement(el, item) {
   el.dataset.frame = item.border;
   // A theme TOKEN keeps a class (legacy scenes); a fixed hex from the colour
   // picker is an inline declaration, so a swap cannot repaint it.
-  sbApplyTextPaint(el, "bg", item.bg);
+  // A BUBBLE paints its fill on the generated shape instead, so the box itself
+  // must stay transparent (otherwise a rectangle shows inside the bubble).
+  sbApplyTextPaint(el, "bg", sbHasBubble(item.bubble) ? "transparent" : item.bg);
   sbApplyTextPaint(el, "color", item.color);
   var body = el.querySelector(".sb-text-body");
   if (!body) {
@@ -605,6 +623,12 @@ function sbStyleTextElement(el, item) {
   }
   body.textContent = item.text || " ";
   el.style.setProperty("--sb-text-scale", item.scale);
+  // The background's corner radius (the CSS multiplies it by the design scale).
+  el.style.setProperty("--sb-text-radius", (Number(item.radius) || 0) + "px");
+  // A frame's thickness/space come from the shared Line controls (the CSS
+  // multiplies these by --sb-design-scale, so a resize keeps them right).
+  el.style.setProperty("--sb-frame-width", (Number(item.lineWidth) || SB_FRAME_DEFAULT_WIDTH) + "px");
+  el.style.setProperty("--sb-frame-gap", (Number(item.lineGap) || 0) + "px");
   if (item.border && item.border !== "none") {
     el.style.setProperty("--sb-frame-image", 'url("' + sbFrameDataUri(item.border, sbResolveColor(item.color)) + '")');
   } else {
@@ -622,6 +646,17 @@ function sbApplyNoteStyle(item) {
   el.title = item.text || "Note";
 }
 
+// ---- Speech bubbles ---------------------------------------------------------
+//
+// The bubble is ONE generated SVG path (body + tail) in the text box's local
+// pixels, centred on the box: the FILL and the LINE use the same path (the line
+// inset by lineGap + lineWidth/2), which is what makes the border flow round the
+// tail. The exporter builds the identical path, so the JPG matches the board.
+
+var SB_BUBBLE_PAD = 10;        // design-scaled gap between the text box and the body
+var SB_BUBBLE_MIN_TAIL = 16;   // design-scaled minimum body edge -> tip distance
+var SB_TAIL_PROMPT_MS = 5000;  // how long "Group with ..." waits before expiring
+
 function sbApplyTextPaint(el, field, value) {
   var prefix = "sb-" + field + "-";
   Array.prototype.slice.call(el.classList).forEach(function (name) {
@@ -637,40 +672,487 @@ function sbApplyTextPaint(el, field, value) {
   if (tokens.indexOf(value) >= 0) el.classList.add(prefix + value);
 }
 
-// The JPG exporter centres each line on the CSS line box with
-// textBaseline="middle". CSS itself positions the glyphs from the font's
-// ascent/descent, which leaves the live text a little lower than the export.
-// Keep only the text (not the frame/background/handles) on the exported
-// baseline by nudging the inner span. The nudge is stored in em so it follows
-// text scale and board resizes without recalculating.
+// Local px metrics for one bubble, centred on the text box (w/h = the text box's
+// offsetWidth/Height, cw/ch = the canvas size used to turn the stored tail % into
+// px). The exporter passes the live values, so both paths are identical.
+function sbBubbleMetrics(item, w, h, cw, ch) {
+  var scale = sbDesignScale();
+  var pad = SB_BUBBLE_PAD * scale;
+  var tail = item.tail || { dx: 0, dy: 14 };
+  return {
+    shape: item.bubble === "oval" ? "oval" : "round",
+    scale: scale,
+    stroke: Math.max(0, Number(item.lineWidth) || 0) * scale,
+    gap: Math.max(0, Number(item.lineGap) || 0) * scale,
+    minTail: SB_BUBBLE_MIN_TAIL * scale,
+    body: {
+      x: -w / 2 - pad,
+      y: -h / 2 - pad,
+      w: w + pad * 2,
+      h: h + pad * 2,
+      // The bubble body follows the same corner radius as the box.
+      r: Math.min((Number(item.radius) || 0) * scale, (Math.min(w, h) + pad * 2) / 2)
+    },
+    // The user's tip is in BOARD % of the item's centre; the drawn tip is pushed
+    // outside a body the user dragged it into (a tail that points inward would
+    // self-intersect the fill).
+    rawTip: {
+      x: (Number(tail.dx) || 0) / 100 * (cw || w),
+      y: (Number(tail.dy) || 0) / 100 * (ch || h)
+    }
+  };
+}
+
+function sbBubbleTipPoint(m, inset) {
+  var b = m.body;
+  var x = b.x + inset, y = b.y + inset;
+  var w = Math.max(2, b.w - inset * 2), h = Math.max(2, b.h - inset * 2);
+  var tip = { x: m.rawTip.x, y: m.rawTip.y };
+  var minTail = m.minTail + inset;
+  var cx = x + w / 2, cy = y + h / 2;
+  var px, py;
+  if (m.shape === "oval") {
+    var rx = Math.max(1, w / 2), ry = Math.max(1, h / 2);
+    var ang = Math.atan2((tip.y - cy) / ry, (tip.x - cx) / rx);
+    px = cx + rx * Math.cos(ang);
+    py = cy + ry * Math.sin(ang);
+  } else {
+    px = Math.min(Math.max(tip.x, x), x + w);
+    py = Math.min(Math.max(tip.y, y), y + h);
+    if (px === tip.x && py === tip.y) {
+      // Inside the body: push out through the nearest edge.
+      var dl = tip.x - x, dr = x + w - tip.x, dt = tip.y - y, db = y + h - tip.y;
+      var best = Math.min(dl, dr, dt, db);
+      if (best === dl) px = x;
+      else if (best === dr) px = x + w;
+      else if (best === dt) py = y;
+      else py = y + h;
+    }
+  }
+  // Enforce a minimum tail length by pushing the tip along ITS OWN direction: a
+  // tip that is only slightly past a CORNER must not be dragged onto the corner
+  // (that diagonal pull is what used to shorten the tail there).
+  var dxp = tip.x - px, dyp = tip.y - py;
+  var lenp = Math.hypot(dxp, dyp);
+  if (lenp < 0.001) {
+    var ox = px - cx, oy = py - cy;
+    var olen = Math.hypot(ox, oy) || 1;
+    tip.x = px + ox / olen * minTail;
+    tip.y = py + oy / olen * minTail;
+  } else if (lenp < minTail) {
+    tip.x = px + dxp / lenp * minTail;
+    tip.y = py + dyp / lenp * minTail;
+  }
+  return tip;
+}
+
+// The base width of the tail: wider for a longer tail, clamped to a sane range.
+function sbTailBaseWidth(m, tip, base) {
+  var dist = Math.hypot(tip.x - base.x, tip.y - base.y);
+  return Math.min(64 * m.scale, Math.max(14 * m.scale, dist * 0.5));
+}
+
+function sbTailCurve(p0, p1, bow) {
+  var dx = p1.x - p0.x, dy = p1.y - p0.y;
+  var len = Math.hypot(dx, dy) || 1;
+  var k = Math.max(1, Number(bow) || 0);
+  var nx = -dy / len, ny = dx / len;
+  var mx = (p0.x + p1.x) / 2 + nx * k;
+  var my = (p0.y + p1.y) / 2 + ny * k;
+  return " Q " + mx + " " + my + " " + p1.x + " " + p1.y;
+}
+
+function sbPt(p) {
+  return p.x + " " + p.y;
+}
+
+// The bubble outline (body + tail) as one closed path. `inset` contracts the
+// whole shape, which is how the LINE is drawn just inside the fill.
+function sbBubblePathD(m, inset) {
+  // A NEGATIVE inset grows the shape: that is the selection ring around a bubble
+  // (the object's own dashed outline hides under the generated fill).
+  var g = Number(inset) || 0;
+  var b = m.body;
+  var x = b.x + g, y = b.y + g;
+  var w = Math.max(2, b.w - g * 2), h = Math.max(2, b.h - g * 2);
+  var tip = sbBubbleTipPoint(m, g);
+  if (m.shape === "oval") return sbOvalBubbleD(x, y, w, h, tip, m);
+  return sbRoundBubbleD(x, y, w, h, Math.max(0.5, Math.min(b.r - g, Math.min(w, h) / 2)), tip, m);
+}
+
+// Rounded rect + tail. The walk starts mid-way along the edge nearest the tip and
+// goes CLOCKWISE (screen coords) around the body, so the stroke never crosses the
+// tail opening.
+function sbRoundBubbleD(x, y, w, h, r, tip, m) {
+  var innerW = Math.max(0.5, w - r * 2);
+  var innerH = Math.max(0.5, h - r * 2);
+  var edges = [
+    { len: innerW, at: function (t) { return { x: x + r + t, y: y }; } },                 // top
+    { len: innerH, at: function (t) { return { x: x + w, y: y + r + t }; } },             // right
+    { len: innerW, at: function (t) { return { x: x + w - r - t, y: y + h }; } },         // bottom
+    { len: innerH, at: function (t) { return { x: x, y: y + h - r - t }; } }              // left
+  ];
+  function edgeStart(k) { return edges[k].at(0); }
+  function edgeEnd(k) { return edges[k].at(edges[k].len); }
+  function corner(k) {
+    // End of edge k -> start of edge k+1 (clockwise, so sweep=1).
+    return " A " + r + " " + r + " 0 0 1 " + sbPt(edgeStart((k + 1) % 4));
+  }
+
+  // Which edge does the tip point at? Use the RAY from the body centre, not the
+  // perpendicular distance: for a tip diagonally past a corner the latter picks a
+  // sideways edge and the tail then folds over that corner.
+  var cx = x + w / 2, cy = y + h / 2;
+  var dxr = tip.x - cx, dyr = tip.y - cy;
+  var pick = { e: 2, t: 0 };
+  if (Math.abs(dyr) * (w / 2 || 1) >= Math.abs(dxr) * (h / 2 || 1)) {
+    // Exits through the top/bottom edge.
+    var yEdge = dyr >= 0 ? y + h : y;
+    var crossX = cy === yEdge ? cx : cx + dxr * ((yEdge - cy) / (dyr || 1));
+    pick.e = dyr >= 0 ? 2 : 0;
+    pick.t = pick.e === 2 ? (x + w - r) - crossX : crossX - (x + r);
+  } else {
+    var xEdge = dxr >= 0 ? x + w : x;
+    var crossY = cx === xEdge ? cy : cy + dyr * ((xEdge - cx) / (dxr || 1));
+    pick.e = dxr >= 0 ? 1 : 3;
+    pick.t = pick.e === 1 ? crossY - (y + r) : (y + h - r) - crossY;
+  }
+
+  var e = pick.e;
+  var len = edges[e].len;
+  var tRaw = Math.min(Math.max(pick.t, 0), len);
+  var baseW = sbTailBaseWidth(m, tip, edges[e].at(tRaw));
+  var half = Math.min(baseW / 2, len / 2);
+  var t = Math.min(Math.max(tRaw, half), Math.max(len - half, half));
+  var baseStart = edges[e].at(t - half);
+  var baseEnd = edges[e].at(t + half);
+
+  var d = "M " + sbPt(baseEnd);
+  d += " L " + sbPt(edgeEnd(e));
+  for (var k = 1; k <= 3; k++) {
+    d += corner((e + k - 1) % 4);
+    d += " L " + sbPt(edgeEnd((e + k) % 4));
+  }
+  d += corner((e + 3) % 4);
+  d += " L " + sbPt(baseStart);
+  var tailBow = baseW * 0.22;
+  d += sbTailCurve(baseStart, tip, tailBow);
+  d += sbTailCurve(tip, baseEnd, tailBow);
+  d += " Z";
+  return d;
+}
+
+// Ellipse body + tail: the arc goes the LONG way round (large-arc) from one tail
+// base point to the other.
+function sbOvalBubbleD(x, y, w, h, tip, m) {
+  var cx = x + w / 2, cy = y + h / 2;
+  var rx = Math.max(1, w / 2), ry = Math.max(1, h / 2);
+  var ang = Math.atan2((tip.y - cy) / ry, (tip.x - cx) / rx);
+  var base = { x: cx + rx * Math.cos(ang), y: cy + ry * Math.sin(ang) };
+  var baseW = sbTailBaseWidth(m, tip, base);
+  var dAng = Math.min(0.6, Math.max(0.12, (baseW / 2) / Math.max(rx, ry, 1)));
+  function at(a) { return { x: cx + rx * Math.cos(a), y: cy + ry * Math.sin(a) }; }
+  var baseStart = at(ang - dAng);
+  var baseEnd = at(ang + dAng);
+  var d = "M " + sbPt(baseEnd);
+  d += " A " + rx + " " + ry + " 0 1 1 " + sbPt(baseStart);
+  var tailBow = baseW * 0.22;
+  d += sbTailCurve(baseStart, tip, tailBow);
+  d += sbTailCurve(tip, baseEnd, tailBow);
+  d += " Z";
+  return d;
+}
+
+function sbEnsureBubbleSvg(textEl) {
+  var svg = textEl.querySelector(":scope > .sb-bubble");
+  if (svg) return svg;
+  svg = document.createElementNS(SB_SVG_NS, "svg");
+  svg.setAttribute("class", "sb-bubble");
+  svg.setAttribute("aria-hidden", "true");
+  // fill -> line -> selection ring (the ring is CSS-hidden unless selected).
+  ["sb-bubble-fill", "sb-bubble-line", "sb-bubble-outline"].forEach(function (cls) {
+    var path = document.createElementNS(SB_SVG_NS, "path");
+    path.setAttribute("class", cls);
+    svg.appendChild(path);
+  });
+  textEl.insertBefore(svg, textEl.firstChild);
+  return svg;
+}
+
+// Paint (or clear) one bubble: the generated shape, its line and the tail handle.
+function sbUpdateBubble(item) {
+  if (!sbEls.items) return;
+  var obj = sbEls.items.querySelector('.sb-object[data-id="' + item.id + '"]');
+  if (!obj) return;
+  var textEl = obj.querySelector(".sb-text");
+  if (!textEl) return;
+  if (!sbHasBubble(item.bubble)) {
+    var stale = textEl.querySelector(":scope > .sb-bubble");
+    if (stale) stale.remove();
+    var staleHandle = obj.querySelector(".sb-handle-tail");
+    if (staleHandle) staleHandle.remove();
+    return;
+  }
+  var cw = sbEls.canvas ? sbEls.canvas.clientWidth : textEl.offsetWidth;
+  var ch = sbEls.canvas ? sbEls.canvas.clientHeight : textEl.offsetHeight;
+  var m = sbBubbleMetrics(item, textEl.offsetWidth, textEl.offsetHeight, cw, ch);
+  var tip = sbBubbleTipPoint(m, m.gap + m.stroke / 2);
+  var svg = sbEnsureBubbleSvg(textEl);
+  var fill = svg.querySelector(".sb-bubble-fill");
+  var line = svg.querySelector(".sb-bubble-line");
+
+  fill.setAttribute("d", sbBubblePathD(m, 0));
+  fill.setAttribute("stroke", "none");
+  fill.setAttribute("fill", item.bg === "transparent" ? "none" : sbResolveColor(item.bg));
+  line.setAttribute("d", sbBubblePathD(m, m.gap + m.stroke / 2));
+  line.setAttribute("fill", "none");
+  line.setAttribute("stroke", sbResolveColor(item.stroke) || SB_BUBBLE_DEFAULT_STROKE);
+  line.setAttribute("stroke-width", String(m.stroke));
+  line.setAttribute("stroke-linejoin", "round");
+  line.setAttribute("stroke-linecap", "round");
+  var ring = svg.querySelector(".sb-bubble-outline");
+  if (ring) ring.setAttribute("d", sbBubblePathD(m, -(2 + 4 * m.scale)));
+
+  // The SVG is centred on the text box, then shifted by the view centre so the
+  // local coordinates map 1:1 (the tail may hang outside the box).
+  var margin = m.stroke + 2 + 8 * m.scale;
+  var minX = Math.min(m.body.x, tip.x) - margin;
+  var minY = Math.min(m.body.y, tip.y) - margin;
+  var maxX = Math.max(m.body.x + m.body.w, tip.x) + margin;
+  var maxY = Math.max(m.body.y + m.body.h, tip.y) + margin;
+  var vw = Math.max(1, maxX - minX);
+  var vh = Math.max(1, maxY - minY);
+  svg.setAttribute("viewBox", minX + " " + minY + " " + vw + " " + vh);
+  svg.style.width = vw + "px";
+  svg.style.height = vh + "px";
+  svg.style.left = "50%";
+  svg.style.top = "50%";
+  svg.style.transform = "translate(-50%, -50%) translate(" + (minX + vw / 2) + "px," + (minY + vh / 2) + "px)";
+
+  sbPositionTailHandle(obj, tip);
+}
+
+function sbPositionTailHandle(obj, tip) {
+  var handle = obj.querySelector(".sb-handle-tail");
+  if (!handle) {
+    handle = document.createElement("span");
+    handle.className = "sb-handle sb-handle-tail";
+    handle.dataset.handle = "tail";
+    handle.setAttribute("aria-hidden", "true");
+    handle.title = "Drag to point the tail";
+    obj.appendChild(handle);
+  }
+  handle.style.left = "calc(50% + " + tip.x + "px)";
+  handle.style.top = "calc(50% + " + tip.y + "px)";
+}
+
+function sbUpdateAllBubbles() {
+  if (!sbEls.items) return;
+  sbEls.items.querySelectorAll(".sb-object-text").forEach(function (obj) {
+    var item = sbFindItem(obj.dataset.id);
+    if (item && sbHasBubble(item.bubble)) sbUpdateBubble(item);
+  });
+}
+
+// Where the tail tip is, on screen (used by the drop hit-test and the prompt).
+function sbTailClientPoint(item) {
+  var obj = sbItemEl(item.id);
+  var textEl = obj ? obj.querySelector(".sb-text") : null;
+  if (!textEl) return null;
+  var rect = textEl.getBoundingClientRect();
+  var cw = sbEls.canvas ? sbEls.canvas.clientWidth : 0;
+  var ch = sbEls.canvas ? sbEls.canvas.clientHeight : 0;
+  var m = sbBubbleMetrics(item, textEl.offsetWidth, textEl.offsetHeight, cw, ch);
+  var tip = sbBubbleTipPoint(m, m.gap + m.stroke / 2);
+  var rad = (Number(item.rotation) || 0) * Math.PI / 180;
+  return {
+    x: rect.left + rect.width / 2 + tip.x * Math.cos(rad) - tip.y * Math.sin(rad),
+    y: rect.top + rect.height / 2 + tip.x * Math.sin(rad) + tip.y * Math.cos(rad)
+  };
+}
+
+// The tail tip in BOARD % (what the drag saves), i.e. the DRAWN tip so a clamped
+// tail never jumps when it is grabbed.
+function sbBubbleTipPct(item) {
+  var obj = sbItemEl(item.id);
+  var textEl = obj ? obj.querySelector(".sb-text") : null;
+  var cw = sbEls.canvas ? sbEls.canvas.clientWidth : 0;
+  var ch = sbEls.canvas ? sbEls.canvas.clientHeight : 0;
+  if (!textEl || !cw || !ch) return item.tail || { dx: 0, dy: 14 };
+  var m = sbBubbleMetrics(item, textEl.offsetWidth, textEl.offsetHeight, cw, ch);
+  var tip = sbBubbleTipPoint(m, m.gap + m.stroke / 2);
+  return { dx: tip.x / cw * 100, dy: tip.y / ch * 100 };
+}
+
+// ---- "Group with this sticker?" (the tail was dropped on a sticker) ---------
+
+function sbHideTailGroupPrompt() {
+  if (sbState.tailPromptTimer) {
+    clearTimeout(sbState.tailPromptTimer);
+    sbState.tailPromptTimer = 0;
+  }
+  var box = document.getElementById("sbGroupPrompt");
+  if (!box || box.classList.contains("d-none")) return;
+  box.classList.add("d-none");
+  box.dataset.textId = "";
+  box.dataset.stickerId = "";
+}
+
+function sbShowTailGroupPrompt(item, other) {
+  var box = document.getElementById("sbGroupPrompt");
+  var label = document.getElementById("sbGroupPromptText");
+  if (!box || !label) return;
+  sbHideTailGroupPrompt();
+  var name = (typeof sbStickerNameFor === "function" ? sbStickerNameFor(other) : "") || "sticker";
+  label.textContent = 'Group with "' + name + '"?';
+  box.dataset.textId = item.id;
+  box.dataset.stickerId = other.id;
+  box.classList.remove("d-none");
+  sbPositionTailGroupPrompt(item);
+  sbState.tailPromptTimer = setTimeout(sbHideTailGroupPrompt, SB_TAIL_PROMPT_MS);
+}
+
+function sbPositionTailGroupPrompt(item) {
+  var box = document.getElementById("sbGroupPrompt");
+  if (!box || !sbEls.area) return;
+  var tip = sbTailClientPoint(item);
+  if (!tip) return;
+  var area = sbEls.area.getBoundingClientRect();
+  var w = box.offsetWidth || 240;
+  var h = box.offsetHeight || 40;
+  var left = Math.min(Math.max(tip.x - area.left - w / 2, 8), Math.max(8, area.width - w - 8));
+  var top = tip.y - area.top + 18;
+  if (top + h > area.height - 8) top = Math.max(8, tip.y - area.top - h - 18);
+  box.style.left = left + "px";
+  box.style.top = top + "px";
+}
+
+// The topmost STICKER under the tail tip (the handle itself is ignored, or the
+// hit-test would always find the bubble).
+function sbStickerUnderTail(item) {
+  var tip = sbTailClientPoint(item);
+  if (!tip) return null;
+  var stack = document.elementsFromPoint(tip.x, tip.y) || [];
+  for (var i = 0; i < stack.length; i++) {
+    var el = stack[i];
+    if (!el || !el.closest) continue;
+    if (el.closest(".sb-handle") || el.closest("#sbGroupPrompt")) continue;
+    var obj = el.closest(".sb-object");
+    if (!obj) continue;
+    var other = sbFindItem(obj.dataset.id);
+    if (other && other.type === "sticker" && other.id !== item.id) return other;
+  }
+  return null;
+}
+
+function sbTailDrop(textId) {
+  var item = sbFindItem(textId);
+  if (!item || !sbHasBubble(item.bubble)) return;
+  var other = sbStickerUnderTail(item);
+  if (!other) return;
+  // Already together? Then there is nothing to offer.
+  var group = sbTopGroupId(item.id);
+  if (group === sbTopGroupId(other.id)) return;
+  sbShowTailGroupPrompt(item, other);
+}
+
+function sbGroupTailWith() {
+  var box = document.getElementById("sbGroupPrompt");
+  if (!box) return;
+  var textId = box.dataset.textId;
+  var stickerId = box.dataset.stickerId;
+  sbHideTailGroupPrompt();
+  if (!textId || !stickerId || !sbFindItem(textId) || !sbFindItem(stickerId)) return;
+  sbSetSelection([textId, stickerId]);
+  sbGroupSelected();
+}
+
+// One shared canvas for text metrics (created lazily: the exporter and the
+// live board both measure through here, so they can never disagree).
+var sbTextMetricsCanvas = null;
+
+function sbTextMeasureCtx() {
+  if (!sbTextMetricsCanvas) {
+    sbTextMetricsCanvas = document.createElement("canvas");
+  }
+  return sbTextMetricsCanvas.getContext("2d");
+}
+
+// Everything needed to place a text box's INK: how much of the line box is empty
+// above/below the glyphs (so the box can hug the text instead of reserving space
+// for descenders it does not have), plus where the FIRST BASELINE sits inside the
+// trimmed box - the JPG exporter draws from that, so live and export agree.
+//
+// The trim is applied as an equal pair of negative margins on the inner span, and
+// the top/bottom PADDING is equal, so the glyphs end up exactly centred in the box.
+function sbTextInkMetrics(el, item) {
+  if (!el) return null;
+  var cs = getComputedStyle(el);
+  var size = parseFloat(cs.fontSize);
+  if (!size) return null;
+  var lineH = parseFloat(cs.lineHeight);
+  if (!isFinite(lineH) || lineH <= 0) lineH = size * 1.22;
+  var ctx = sbTextMeasureCtx();
+  if (!ctx) return null;
+  ctx.font = cs.fontStyle + " " + cs.fontWeight + " " + cs.fontSize + " " + cs.fontFamily;
+  var text = String((item && item.text) || "");
+  var lines = text.split("\n");
+  var firstLine = lines[0] || "";
+  var lastLine = lines[lines.length - 1] || "";
+  ctx.textBaseline = "alphabetic";
+  var first = ctx.measureText(firstLine);
+  var last = ctx.measureText(lastLine);
+  var ascent = first.fontBoundingBoxAscent;
+  var descent = first.fontBoundingBoxDescent;
+  var inkTop = first.actualBoundingBoxAscent;
+  var inkBottom = last.actualBoundingBoxDescent;
+  if (!isFinite(ascent) || !isFinite(descent) || !isFinite(inkTop) || !isFinite(inkBottom)) return null;
+  var leading = (lineH - (ascent + descent)) / 2;
+  var trimTop = Math.max(0, leading + (ascent - inkTop));
+  var trimBottom = Math.max(0, leading + (descent - inkBottom));
+  // Keep the box from collapsing around a glyph with almost no ink (a space, a
+  // dot): leave at least ~0.6em of text height.
+  var keep = lines.length * lineH - trimTop - trimBottom;
+  var minKeep = size * 0.6;
+  if (keep < minKeep) {
+    var give = Math.min(trimTop, trimBottom, (minKeep - keep) / 2);
+    trimTop -= give;
+    trimBottom -= give;
+  }
+  return {
+    size: size,
+    lineH: lineH,
+    trimTop: trimTop,
+    trimBottom: trimBottom,
+    // Distance from the top of the TRIMMED content box down to line 1's baseline
+    // (the line box starts trimTop ABOVE that point).
+    firstBaseline: leading + ascent - trimTop,
+    inkHeight: lines.length * lineH - trimTop - trimBottom
+  };
+}
+
+// Hug the glyphs: trim the unused line-box space on each side. The margins are
+// equal on a centred box, which is what vertically centres the text.
 function sbApplyTextNudge(el) {
   var body = el && el.querySelector(".sb-text-body");
   if (!body) return;
-  var cs = getComputedStyle(el);
-  var ctx = document.createElement("canvas").getContext("2d");
-  if (!ctx) return;
-  ctx.font = cs.fontStyle + " " + cs.fontWeight + " " + cs.fontSize + " " + cs.fontFamily;
-  ctx.textBaseline = "alphabetic";
-  var alpha = ctx.measureText("Mg");
-  ctx.textBaseline = "middle";
-  var middle = ctx.measureText("Mg");
-  var ascent = alpha.fontBoundingBoxAscent;
-  var descent = alpha.fontBoundingBoxDescent;
-  var middleAscent = middle.fontBoundingBoxAscent;
-  if (!isFinite(ascent) || !isFinite(descent) || !isFinite(middleAscent)) {
-    body.style.removeProperty("top");
+  var obj = el.closest ? el.closest(".sb-object") : null;
+  var item = obj ? sbFindItem(obj.dataset.id) : null;
+  var m = sbTextInkMetrics(el, item);
+  if (!m) {
+    body.style.removeProperty("margin-top");
+    body.style.removeProperty("margin-bottom");
     return;
   }
-  var size = parseFloat(cs.fontSize);
-  if (!size) return;
-  var shift = ((ascent - middleAscent) - (ascent - descent) / 2) / size;
-  if (Math.abs(shift) < 0.0001) body.style.removeProperty("top");
-  else body.style.top = shift.toFixed(4) + "em";
+  body.style.marginTop = (-m.trimTop).toFixed(2) + "px";
+  body.style.marginBottom = (-m.trimBottom).toFixed(2) + "px";
 }
 
 function sbApplyAllTextNudges() {
   if (!sbEls.items) return;
   sbEls.items.querySelectorAll(".sb-text").forEach(sbApplyTextNudge);
+  // A font load changes the box size, which moves the bubble body + tail.
+  sbUpdateAllBubbles();
 }
 
 function sbApplyItemTransform(item) {
@@ -710,6 +1192,8 @@ function sbApplyTextStyle(item) {
     sbStyleTextElement(el, item);
     sbApplyTextNudge(el);
   }
+  // The bubble follows the text style (fill, line, size and type).
+  sbUpdateBubble(item);
   sbRenderConnectors();
   sbPositionSelectionBar();
 }
@@ -863,6 +1347,7 @@ function sbSetSelection(ids) {
 }
 
 function sbSelect(id) {
+  sbHideTailGroupPrompt();
   sbSetSelection(id ? [sbTopGroupId(id)] : []);
 }
 
@@ -1023,6 +1508,13 @@ function sbUpdateSelectionUi() {
   sbSetBarButton("sbSelDuplicate", true);
   sbSetBarButton("sbSelDelete", true);
   sbSetBarButton("sbSelConnect", !!singleLeaf && singleLeaf.type === "text");
+  // Style actions live here now (next to connect/front/duplicate/delete) and only
+  // make sense for ONE selected text box.
+  var textSel = !!singleLeaf && singleLeaf.type === "text";
+  var styleRow = document.getElementById("sbSelStyleRow");
+  if (styleRow) styleRow.classList.toggle("d-none", !textSel);
+  var pasteBtn = document.getElementById("sbSelPasteStyle");
+  if (pasteBtn) pasteBtn.toggleAttribute("disabled", !sbState.styleClipboard);
   // Flip only makes sense for sticker artwork; the pressed state shows which
   // mirrors are currently on.
   var sticker = !!singleLeaf && singleLeaf.type === "sticker";
@@ -1559,7 +2051,8 @@ function sbIsInteractiveKeyTarget(t) {
 
 function sbOnCanvasPointerDown(e) {
   var t = e.target;
-  if (t.closest && (t.closest(".sb-object") || t.closest(".sb-connector") || t.closest(".sb-toolbar") || t.closest(".sb-selection-bar") || t.closest(".sb-selection-box"))) return;
+  if (t.closest && (t.closest(".sb-object") || t.closest(".sb-connector") || t.closest(".sb-toolbar") ||
+      t.closest(".sb-selection-bar") || t.closest(".sb-selection-box") || t.closest(".sb-group-prompt"))) return;
   // A modifier-click on empty space keeps the selection (only a plain click
   // clears it), which is what multi-select users expect.
   if (e.ctrlKey || e.metaKey || e.shiftKey) return;
@@ -1615,6 +2108,23 @@ function sbApplyDrag(drag, factor, deltaDeg, moveX, moveY) {
   if (!drag || !drag.leaves || !drag.rect) return;
   var width = drag.canvasW;
   var height = drag.canvasH;
+
+  // The TAIL handle only moves the tip: no rotation, no scale, no body move. The
+  // stored offset is in the item's local frame, so inverse-rotate the delta.
+  if (drag.mode === "tail") {
+    var tailItem = sbFindItem(drag.leaves[0].id);
+    if (!tailItem || !drag.tail) return;
+    var tRad = -(Number(tailItem.rotation) || 0) * Math.PI / 180;
+    var tlx = moveX * Math.cos(tRad) - moveY * Math.sin(tRad);
+    var tly = moveX * Math.sin(tRad) + moveY * Math.cos(tRad);
+    tailItem.tail = {
+      dx: sbClampNumber(drag.tail.dx + tlx / width * 100, -80, 80, drag.tail.dx),
+      dy: sbClampNumber(drag.tail.dy + tly / height * 100, -80, 80, drag.tail.dy)
+    };
+    sbUpdateBubble(tailItem);
+    sbPositionSelectionBar();
+    return;
+  }
   var rect = drag.rect;
   var single = drag.leaves.length === 1;
 
@@ -1671,8 +2181,14 @@ function sbBeginDrag(e, mode, rect, centre) {
   var leaves = sbSelectionSnapshot(nodes);
   if (!leaves.length || !rect) return false;
   sbCancelLongPress();
+  var tailStart = null;
+  if (mode === "tail" && leaves.length === 1) {
+    var tailItem = sbFindItem(leaves[0].id);
+    if (tailItem) tailStart = sbBubbleTipPct(tailItem);
+  }
   sbState.drag = {
     itemId: "",
+    tail: tailStart,
     mode: mode,
     leaves: leaves,
     rect: rect,
@@ -1777,7 +2293,8 @@ function sbOnPointerDown(e) {
   }
 
   var now = Date.now();
-  if (item.type === "text" && sbTap && sbTap.id === item.id && now - sbTap.time < 340) {
+  var handleEl = e.target.closest ? e.target.closest(".sb-handle") : null;
+  if (!handleEl && item.type === "text" && sbTap && sbTap.id === item.id && now - sbTap.time < 340) {
     sbTap = null;
     sbSelect(item.id);
     sbOpenTextEditor(item.id);
@@ -1809,7 +2326,7 @@ function sbOnPointerDown(e) {
     sbUpdateSelectionUi();
   }
 
-  var handle = e.target.closest(".sb-handle");
+  var handle = handleEl;
   try { objEl.setPointerCapture(e.pointerId); } catch (err) { /* synthetic pointers */ }
   sbState.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
 
@@ -1823,7 +2340,10 @@ function sbOnPointerDown(e) {
   if (!rect) return;
   var centre = { x: rect.canvasLeft + rect.centreX, y: rect.canvasTop + rect.centreY };
   var mode = "move";
-  if (handle) mode = handle.dataset.handle === "rotate" ? "rotate" : "scale";
+  if (handle) {
+    var which = handle.dataset.handle;
+    mode = which === "rotate" ? "rotate" : which === "tail" ? "tail" : "scale";
+  }
   sbBeginDrag(e, mode, rect, centre);
   // A note's whole point is its text: a plain CLICK (no drag) opens its editor.
   if (item.type === "note" && mode === "move" && sbState.drag) sbState.drag.tapNote = item.id;
@@ -1888,6 +2408,8 @@ function sbOnPointerUp(e) {
   var collapse = drag.collapseOnTap && !drag.moved ? drag.collapseOnTap : "";
   // A plain click on a note (no movement) opens its editor.
   var tapNote = drag.tapNote && !drag.moved ? drag.tapNote : "";
+  // A dropped tail offers to group the bubble with the sticker it points at.
+  var tailId = drag.mode === "tail" && drag.leaves[0] ? drag.leaves[0].id : "";
   sbState.pointers.clear();
   sbState.drag = null;
   sbSaveState();
@@ -1896,6 +2418,7 @@ function sbOnPointerUp(e) {
   sbPositionSelectionBar();
   sbRefreshPasteboard();
   if (tapNote) sbOpenNoteEditor(tapNote);
+  if (tailId) sbTailDrop(tailId);
 }
 
 function sbOnKeyDown(e) {
@@ -2028,7 +2551,7 @@ function sbDrawCanvasFrameEdge(ctx, img, sx, sy, sw, sh, dx, dy, dw, dh, vertica
   }
 }
 
-function sbDrawCanvasText(ctx, item, el, frame, frameImg) {
+function sbDrawCanvasText(ctx, item, el, frame, frameImg, geom) {
   var cs = getComputedStyle(el);
   var w = el.offsetWidth;
   var h = el.offsetHeight;
@@ -2036,13 +2559,35 @@ function sbDrawCanvasText(ctx, item, el, frame, frameImg) {
   var x = -w / 2;
   var y = -h / 2;
 
-  // Surface first (the live rule is background-clip: padding-box, so a framed
-  // box paints only inside the 18px border).
-  var bg = cs.backgroundColor;
-  if (bg && bg !== "rgba(0, 0, 0, 0)" && bg !== "transparent") {
-    ctx.fillStyle = bg;
-    sbCanvasRoundRect(ctx, x + frame, y + frame, w - frame * 2, h - frame * 2, frame ? 8 : 10);
-    ctx.fill();
+  if (geom) {
+    // SPEECH BUBBLE: the same generated shape as the board, filled and then
+    // stroked with the line inset by lineGap + lineWidth/2.
+    var fillColour = item.bg === "transparent" ? null : sbResolveColor(item.bg);
+    if (fillColour) {
+      ctx.save();
+      ctx.fillStyle = fillColour;
+      ctx.fill(new Path2D(sbBubblePathD(geom, 0)));
+      ctx.restore();
+    }
+    if (geom.stroke > 0) {
+      ctx.save();
+      ctx.strokeStyle = sbResolveColor(item.stroke) || SB_BUBBLE_DEFAULT_STROKE;
+      ctx.lineWidth = geom.stroke;
+      ctx.lineJoin = "round";
+      ctx.lineCap = "round";
+      ctx.stroke(new Path2D(sbBubblePathD(geom, geom.gap + geom.stroke / 2)));
+      ctx.restore();
+    }
+  } else {
+    // Surface FIRST and over the WHOLE box: a frame is drawn ON it (the live
+    // rule keeps the default background-clip: border-box), with the text's own
+    // corner radius.
+    var bg = cs.backgroundColor;
+    if (bg && bg !== "rgba(0, 0, 0, 0)" && bg !== "transparent") {
+      ctx.fillStyle = bg;
+      sbCanvasRoundRect(ctx, x, y, w, h, (Number(item.radius) || 0) * sbDesignScale());
+      ctx.fill();
+    }
   }
 
   // The SVG frame as a 9-slice (source slice 30 of 120).
@@ -2084,13 +2629,17 @@ function sbDrawCanvasText(ctx, item, el, frame, frameImg) {
   ctx.font = cs.fontStyle + " " + cs.fontWeight + " " + cs.fontSize + " " + cs.fontFamily;
   ctx.fillStyle = cs.color;
   ctx.textAlign = align;
-  ctx.textBaseline = "middle";
+  // Alphabetic + the LIVE first baseline: no leading/middle-baseline guessing.
+  ctx.textBaseline = "alphabetic";
   // offsetWidth/offsetHeight are rounded integers, while the browser lays the
   // text out on fractional pixels - without the small tolerance a line that fits
   // on screen (e.g. by 0.42px) would wrap in the canvas and lose its second line
   // to the box height. No clip: the live box is already sized to its content.
+  var ink = sbTextInkMetrics(el, item);
   var lines = sbCanvasWrapText(ctx, item.text || " ", contentW + 1.5);
-  var ty = contentTop + lineH / 2;
+  // The live box trims the empty line-box space, so line 1's baseline sits
+  // firstBaseline below the top of the TRIMMED content box.
+  var ty = ink ? contentTop + ink.firstBaseline : contentTop + lineH / 2;
   lines.forEach(function (line, i) { ctx.fillText(line, tx, ty + i * lineH); });
   ctx.restore();
 }
@@ -2282,7 +2831,10 @@ async function sbBoardJpegBlob() {
           }
           frameImg = frameCache[uri];
         }
-        sbDrawCanvasText(ctx, item, textEl, frame, frameImg);
+        var geom = sbHasBubble(item.bubble)
+          ? sbBubbleMetrics(item, textEl.offsetWidth, textEl.offsetHeight, visW, visH)
+          : null;
+        sbDrawCanvasText(ctx, item, textEl, frame, frameImg, geom);
       }
     }
     ctx.restore();

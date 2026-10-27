@@ -900,6 +900,10 @@ sb-sticker .sb-sticker-option {
   outline: 1.5px dashed var(--bs-body-color);
   outline-offset: 6px;
   box-shadow: 0 0 0 8px rgba(var(--bs-body-bg-rgb), 0.55);
+  /* Lift the SELECTED object above the artwork: its handles must stay grabbable
+   * even when a sticker (a higher z) sits under them - a speech-bubble tail
+   * dropped on a sticker is exactly that case. */
+  z-index: 1000 !important;
 }
 
 /* Part of a multi/group selection: the same outline, but NO per-object handles -
@@ -991,7 +995,8 @@ sb-sticker .sb-sticker-option {
      text box keeps the same size relative to the artwork when the board fits a
      different window or the browser zooms. The handles stay UI-sized. */
   padding: calc(10px * var(--sb-design-scale, 1)) calc(16px * var(--sb-design-scale, 1));
-  border-radius: calc(10px * var(--sb-design-scale, 1));
+  /* The corner radius is a per-box STYLE value (board.js sets the raw px). */
+  border-radius: calc(var(--sb-text-radius, 10px) * var(--sb-design-scale, 1));
   font-size: calc(var(--smd-type-h2, 1.25em) * 1.15 * var(--sb-text-scale, 1) * var(--sb-design-scale, 1));
   line-height: 1.22;
   overflow-wrap: break-word;
@@ -1006,16 +1011,20 @@ sb-sticker .sb-sticker-option {
   position: relative;
 }
 
+/* A frame's THICKNESS and SPACE come from the same Line width / Space controls a
+ * bubble uses (board.js sets the raw px, the design scale keeps them relative). */
 .sb-text[data-frame="fancy"],
 .sb-text[data-frame="hand"],
 .sb-text[data-frame="stamp"] {
-  padding: calc(8px * var(--sb-design-scale, 1)) calc(14px * var(--sb-design-scale, 1));
-  border: calc(18px * var(--sb-design-scale, 1)) solid transparent;
+  padding: calc(8px * var(--sb-design-scale, 1) + var(--sb-frame-gap, 0px) * var(--sb-design-scale, 1))
+           calc(14px * var(--sb-design-scale, 1) + var(--sb-frame-gap, 0px) * var(--sb-design-scale, 1));
+  border: calc(var(--sb-frame-width, 18px) * var(--sb-design-scale, 1)) solid transparent;
   border-image-repeat: round;
   border-image-slice: 30;
   border-image-source: var(--sb-frame-image);
-  border-image-width: calc(18px * var(--sb-design-scale, 1));
-  background-clip: padding-box;
+  border-image-width: calc(var(--sb-frame-width, 18px) * var(--sb-design-scale, 1));
+  /* NO background-clip: the background runs UNDER the frame, so the border sits
+   * on the text's background instead of on a hole cut out of it. */
 }
 
 .sb-bg-transparent {
@@ -1107,11 +1116,8 @@ sb-sticker .sb-sticker-option {
 }
 
 /* Text fonts. These families are declared in shared/css/fonts/fonts.css, which
- * the theme sheet loads with @import; the last two are display faces. */
-.sb-font-theme {
-  font-family: var(--bs-body-font-family);
-}
-
+ * the theme sheet loads with @import; the last two are display faces. There is NO
+ * theme font: a story must look the same on every theme. */
 .sb-font-serif {
   font-family: Georgia, "Times New Roman", serif;
 }
@@ -1180,6 +1186,78 @@ sb-sticker .sb-sticker-option {
   font-size: var(--smd-type-p, 1em);
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* ---- Speech bubbles ----------------------------------------------------- */
+
+/* The generated shape (body + tail) sits BEHIND the text and may reach outside
+ * the box (the tail), so it never catches pointer events. */
+.sb-bubble {
+  position: absolute;
+  z-index: 0;
+  overflow: visible;
+  pointer-events: none;
+}
+
+/* The object's dashed selection outline is hidden under the generated fill, so a
+ * bubble draws its OWN dashed ring around the whole shape (body + tail). */
+.sb-bubble .sb-bubble-outline {
+  display: none;
+  fill: none;
+  stroke: var(--bs-body-color);
+  stroke-width: 1.5;
+  stroke-dasharray: 5 4;
+}
+
+.sb-object.selected .sb-bubble .sb-bubble-outline {
+  display: block;
+}
+
+/* The tail's drag handle: a ringed dot ON the tip. board.js sets its left/top. */
+.sb-handle-tail {
+  z-index: 6;
+  transform: translate(-50%, -50%);
+  border-color: var(--bs-primary);
+  background: var(--bs-body-bg);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4), 0 0 0 2px var(--bs-primary);
+  cursor: move;
+}
+
+/* Line width + the space outside the line, side by side. */
+.sb-number-row {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.sb-number-row input {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+/* Copy style / Paste style / Set as default / Reset. */
+.sb-style-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 0.75rem;
+}
+
+/* "Group with <sticker>?" - the ignorable prompt after a tail drop. */
+.sb-group-prompt {
+  position: absolute;
+  z-index: 1032;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px 4px 12px;
+  border: 1px solid var(--bs-border-color);
+  border-radius: 999px;
+  background: var(--bs-body-bg);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+  color: var(--bs-body-color);
+  font-size: var(--smd-type-badge, 0.8em);
+  white-space: nowrap;
+  pointer-events: auto;
 }
 
 /* ---- Selection handles + action bar ------------------------------------- */
@@ -1305,6 +1383,16 @@ html[data-smd-touch-size="large"] .sb-handle-rotate {
 
 .sb-sel-btn:hover {
   background: rgba(var(--bs-body-color-rgb), 0.12);
+}
+
+/* Paste style stays disabled until a style has been copied. */
+.sb-sel-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.sb-sel-btn:disabled:hover {
+  background: transparent;
 }
 
 /* A flip toggle stays highlighted while that mirror is on. */
