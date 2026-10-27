@@ -246,10 +246,13 @@ test.describe("Storyboard - text frames", () => {
         visH: canvas.clientHeight,
         padLeft: parseFloat(cs.paddingLeft),
         padTop: parseFloat(cs.paddingTop),
-        bodyTop: el.querySelector(".sb-text-body").style.top
+        bodyMarginTop: parseFloat(getComputedStyle(el.querySelector(".sb-text-body")).marginTop),
+        bodyMarginBottom: parseFloat(getComputedStyle(el.querySelector(".sb-text-body")).marginBottom)
       };
     });
-    expect(parseFloat(geom.bodyTop)).toBeLessThan(0);
+    // Both sides are trimmed, so the box hugs the glyphs and stays centred.
+    expect(geom.bodyMarginTop).toBeLessThan(0);
+    expect(geom.bodyMarginBottom).toBeLessThan(0);
 
     const screen = await text.screenshot();
     const downloadPromise = page.waitForEvent("download");

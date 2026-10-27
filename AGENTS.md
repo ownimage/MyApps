@@ -242,6 +242,187 @@ Architecture:
   `sb-bg-*`/`sb-color-*` class for a token and an INLINE colour for a hex, so a
   theme swap cannot repaint it). `sbResolveColor()` returns a hex unchanged, so
   a text border frame bakes the fixed colour too.
+- STORYBOARD SPEECH BUBBLES + TEXT STYLE TOOLS (2026-10-27, user request): a TEXT box
+  can be a speech bubble. Item fields (all optional; `bubble` absent = today's
+  plain box, so old scenes render unchanged): `bubble` ("round" | "oval"), `tail`
+  ({dx,dy} in BOARD % of the item centre, clamped +-80), `stroke` (LINE colour,
+  hex or theme token), `lineWidth` (0-10 design-scaled px) and `lineGap` (0-20 px,
+  the space between the LINE and the bubble's outer fill edge; round starts at 0,
+  oval at `SB_BUBBLE_OVAL_LINE_GAP` 5). The FILL reuses the box's `bg` (the panel's
+  Background row is relabelled "Fill" while a bubble is on), so a bubble and a
+  fancy/hand/stamp BORDER can be used together (the frame draws inside the body).
+  GEOMETRY/RENDER: `sbBubbleMetrics()` + `sbBubblePathD()` in `board.js` generate
+  ONE closed path (body + tail) in the text box's local px centred on the box; the
+  fill uses it as-is and the LINE uses the SAME generator with
+  `inset = lineGap + lineWidth/2`, which is what makes the border flow round the
+  tail with no seam. `round` walks the rounded-rect outline CLOCKWISE from the tail
+  base (quadratic tail sides, base width `clamp(0.5*len, 14, 64) * scale`, bow =
+  base*0.22); `oval` draws the ellipse arc the LONG way round. `sbBubbleTipPoint()`
+  pushes a tip the user dragged INSIDE the body out to `SB_BUBBLE_MIN_TAIL`, so the
+  path can never self-intersect. The shape is an inline `<svg class="sb-bubble">`
+  (fill + line + `.sb-bubble-outline` selection ring) behind the text, positioned
+  with viewBox/transform so local px map 1:1; the TEXT BOX ITSELF IS TRANSPARENT
+  when a bubble is on (`sbStyleTextElement`). Re-rendered from `sbUpdateBubble()`
+  on build, style change, ResizeObserver (text/font/scale) and `sbApplyAllTextNudges`.
+  SELECTION RING: a bubble's generated fill hides the object's own dashed outline,
+  so the SVG carries a third path (the same geometry with a NEGATIVE inset) shown
+  only for `.sb-object.selected`. `.sb-object.selected` is also `z-index: 1000` so
+  its handles stay grabbable when a higher-z sticker sits under them (a tail
+  dropped on a sticker is exactly that case).
+  TAIL DRAG: a third handle `.sb-handle-tail` (ringed dot, `data-handle="tail"`)
+  sits ON the tip; `sbApplyDrag` handles `mode === "tail"` first - it inverse-rotates
+  the pointer delta into the item's local frame and only rewrites `tail` (no
+  rotation/scale/move). `sbBeginDrag` seeds `drag.tail` from `sbBubbleTipPct()`
+  (the DRAWN, clamped tip) so a clamped tail never jumps when grabbed. A press
+  that starts on a HANDLE is excluded from the text double-tap shortcut
+  (`handleEl`), or grabbing a handle right after selecting opened the editor.
+  GROUP PROMPT: on tail release `sbTailDrop()` hit-tests the tip with
+  `elementsFromPoint` (skipping `.sb-handle`/the prompt) and, when it lands on a
+  sticker that is not already in the same group, shows `#sbGroupPrompt`
+  ("Group with \"<name>\"?" + Group/×). It auto-dismisses after
+  `SB_TAIL_PROMPT_MS` (5 s) and on any selection change; Group runs
+  `sbSetSelection([text, sticker])` + `sbGroupSelected()`. GOTCHA: the click-away
+  deselect handler must ignore `.sb-group-prompt` (it used to fire on pointerdown,
+  deselect and thereby clear the prompt's ids before the click reached Group).
+  PANEL: a `Bubble` `<smd-select>` (None/Round/Oval) + `Line` colour picker +
+  `Line width`/`Space` NUMBER inputs (`#sbLineWidth`/`#sbLineGap`, applied on
+  `input` without re-rendering the panel) appear only while a bubble is on, plus a
+  hint. Turning a bubble on the first time seeds fill `white`, line `#000000`,
+  width 2 and the oval's gap.
+  STYLE TOOLS: `Set as default` stores the EIGHT style fields
+  (`SB_TEXT_STYLE_FIELDS` = font/bg/color/border/bubble/stroke/lineWidth/lineGap)
+  in `storyboard_textStyleDefaults`; `sbNewTextDraft()` (used by `sbInitToolbar`)
+  starts every new box and panel draft from it, and `Reset` clears it. `Copy style`
+  / `Paste style` carry the same set through `sbState.styleClipboard` (SESSION
+  only) - never the text, position, rotation, scale or the tail. `sbTextStyleOf()`
+  / `sbApplyTextStyleFields()` / `sbNormalizeTextStyle()` are shared with item
+  normalisation so the three paths cannot drift. The panel keeps the typed but not
+  yet placed text in `sbState.textDraftText` (choosing a bubble or pasting used to
+  re-render the panel and lose it). Type/hint/panel order: Bubble after Font,
+  Fill/Line/width/space, then Copy/Paste/Set-default/Reset under the action button.
+  EXPORT/PAYLOAD: `sbDrawCanvasText(ctx, item, el, frame, frameImg, geom)` fills and
+  strokes the same `Path2D` (inset line), so the scene JPG and the story ZIP match
+  the board; the fields live in the scene JSON, so MinIO/OneDrive backups carry
+  them.
+  FOLLOW-UP (2026-10-27, user): (a) NO "Theme font": `SB_TEXT_FONTS` starts at
+  Serif and `SB_TEXT_DEFAULT_FONT` is "lato" - a legacy `theme` font (and any
+  unknown id) normalises to it, so a story never inherits the Bootswatch stack and
+  `.sb-font-theme` is gone; (b) the panel control is an `<smd-checkbox
+  id="sbBubbleToggle">Speech bubble</smd-checkbox>` plus an `<smd-select
+  id="sbBubbleType">` (Round/Oval) shown while it is checked, and the Border tiles
+  are HIDDEN while a bubble is on - `sbNormalizeTextStyle()` enforces the
+  exclusion (`border: "none"` whenever `bubble !== "none"`), so a stored pair can
+  never render both; turning a toggle off brings the tiles back, and picking a
+  border style switches the bubble off and seeds `SB_FRAME_DEFAULT_WIDTH` (18)
+  because a bubble's 2px line is far too thin for a frame; (c) LINE WIDTH and
+  SPACE now drive a BORDER FRAME too: `sbStyleTextElement()` sets
+  `--sb-frame-width`/`--sb-frame-gap` (raw px) on the text element and the frame
+  CSS multiplies them by `--sb-design-scale` (border + border-image width, and the
+  gap adds to the frame's inner padding), the fields clamp 0..40, and the second
+  row is labelled "Frame width and space" when no bubble is on (the Line COLOUR
+  stays bubble-only - a frame keeps following the text colour); (d) CORNER FOLD:
+  `sbRoundBubbleD()` picked the base edge by PERPENDICULAR distance, so a tail
+  just past a corner (e.g. 4px right, 22px below) came out of the SIDE edge and
+  folded over the corner. It now uses the RAY from the body centre (compare
+  `|dy|*(w/2)` vs `|dx|*(h/2)`) and clamps the base into the straight run.
+  `sbBubbleTipPoint()` also keeps its minimum length by pushing the tip along ITS
+  OWN direction instead of the corner/edge normal (that normal dragged a
+  near-corner tip onto the corner and shortened the tail).
+  FOLLOW-UP 2 (2026-10-27, user): (a) TEXT IS VERTICALLY CENTRED IN ITS BOX,
+  with no space reserved for descenders: `sbTextInkMetrics()` (board.js) measures
+  the first/last line's `actualBoundingBox` and returns `trimTop`/`trimBottom`
+  (the empty part of the line box); the inner `.sb-text-body` gets equal negative
+  margins, so the box height is the GLYPH INK + 2 x padding and the ink sits
+  exactly between the paddings (measured 10/10px, 9/11px with a descender). The
+  SAME metrics drive the JPG: the exporter draws `textBaseline="alphabetic"` at
+  `contentTop + firstBaseline` (the old `middle` baseline + nudge pair is gone),
+  and a `keep >= 0.6em` guard stops a dot/space collapsing the box. Do NOT
+  reintroduce a body `top` nudge - it pushed the ink off centre again.
+  (b) `radius` is a TEXT STYLE FIELD (0..120 design px, `SB_TEXT_DEFAULT_RADIUS`
+  10, carried by `SB_TEXT_STYLE_FIELDS` so Copy/Paste/Set-default move it);
+  board.js sets `--sb-text-radius` on the text element, `.sb-text`'s
+  `border-radius` multiplies it by `--sb-design-scale`, and `sbBubbleMetrics()`
+  uses it for the bubble BODY corner radius (the old fixed `SB_BUBBLE_RADIUS` 16
+  is gone). The panel has a "Corner radius" number input (`#sbTextRadius`).
+  (c) A FRAME'S BACKGROUND IS NO LONGER CLIPPED: `background-clip: padding-box`
+  was removed from the frame rule, so the background paints the WHOLE box (soft
+  rounded rectangle, radius above) and the border-image sits ON it instead of on
+  a hole onto the board; the exporter fills `x,y,w,h` with the same radius
+  before drawing the 9-slice.
+  (d) `round` is LABELLED "Rectangle" (the stored id is still `round`, so old
+  scenes are unchanged).
+  (e) COPY STYLE / PASTE STYLE / SET AS DEFAULT moved from the Text panel to the
+  floating SELECTION BAR, on their OWN ROW (`#sbSelStyleRow`, toggled with a
+  single-text selection; `#sbCopyStyle`/`#sbPasteStyle`/`#sbSetTextDefault` no
+  longer exist, only `#sbResetTextDefault` in the panel). WHY a second row:
+  three extra 32px buttons in the main row made the bar wide enough to cover a
+  NEIGHBOURING object, so a Ctrl-click on it was intercepted (it broke
+  `storyboard-groups`' mixed group test). Paste stays `disabled` until a style
+  is copied; `sbCopySelectedTextStyle` / `sbPasteSelectedTextStyle` /
+  `sbSetSelectedTextDefault` act on `sbSelectedTextItem()` (the ONE selected
+  text leaf).
+  FOLLOW-UP 3 (2026-10-27, user): "the tail goes wrong when pulled directly out
+  diagonally from the corner" + "the tail does not respect the space parameter".
+  (a) SLIVER: each tail side bowed perpendicular to its OWN chord, and that
+  normal FLIPS side when the mouth is pinched against a corner, so the two Q
+  curves crossed and the fill collapsed to an empty sliver (a short corner tail
+  was hollow at 50% of its length). `sbTailSides()` now offsets both control
+  points from the tail's AXIS with OPPOSITE signs, so the sides can never cross.
+  (b) SPACE AT THE TAIL: `sbBubbleMouthSpec()` decides the mouth ONCE on the
+  OUTER body (round: edge index + centre point + base width; oval: angle) and
+  every inset copy reuses it. Before, the LINE recomputed the mouth on the
+  smaller inset body, landed on a different point of the edge (often the corner)
+  and cut diagonally across the fill's tail. The inset mouth keeps the same
+  normal line, its width scales by `(axisLen - inset) / axisLen`, and
+  `sbTailShrinkTip()` pulls the tip in along the axis by the inset - that is what
+  makes the "space" reach the tip instead of stopping at the body. The drag
+  handle, the drop hit-test and the SVG viewBox use the FILL tip (inset 0), never
+  the line tip.
+  FOLLOW-UP 4 (2026-10-27, user): "the tail is breaking near the text box ... and
+  there is not a white margin round it all the way". Generating a separate inset
+  PATH can never give a uniform margin (where the tail meets the body the offset
+  drifts and pinches on one side), so the LINE is now an INNER RING of the fill
+  shape: `sb-bubble-line` uses the SAME `d` as the fill,
+  `stroke-width = 2 * (lineGap + lineWidth)`, `clip-path` to the shape and a
+  `<mask>` whose black stroke (`stroke-width = 2 * lineGap`) carves the inner
+  band away. The visible band is therefore `[lineGap, lineGap + lineWidth]`
+  inside the edge EVERYWHERE - body, corners and BOTH sides of the tail - and it
+  tapers out where the tail gets thinner than the margin (correct for an offset).
+  THREE GOTCHAS: (a) a stroke is CENTRED, so the width must be 2x what should be
+  visible inside; (b) a `<mask maskUnits="userSpaceOnUse">` with no explicit
+  x/y/width/height defaults to -10%/120% resolved against the VIEWPORT ORIGIN, so
+  everything left of/above that is silently clipped away (that hid the whole left
+  half of the ring and made it look asymmetric) - set the mask REGION (the
+  viewBox) as well as the inner rect; (c) the ring's ids are per item
+  (`sbb-<itemId>-clip/-mask`). The EXPORTER does the same on canvas via
+  `sbCanvasBubbleRing()`: a transparent tile with clip + stroke, then
+  `destination-out` for the inner band, blitted in local coords - that keeps a
+  TRANSPARENT fill working (nothing to repaint over).
+  FOLLOW-UP 5 (2026-10-27, user): "as I move the tail round ... the two points
+  where the tail emerges are always on the same side ... it would be more natural
+  if they could be on adjacent sides". `sbRoundOutline()` now models the body as
+  8 CLOCKWISE segments (the 4 straight edges + the 4 corner ARCS) addressed by
+  ARC LENGTH, and `sbOutlineWalk()` emits the path pieces. The mouth is placed by
+  ARC LENGTH from the point the ray picks: that position may fall OUTSIDE the
+  straight run (negative or past its end), which simply continues into the
+  neighbouring corner arc - so one mouth point can sit on the bottom edge and the
+  other on the right edge, straddling the corner instead of being squashed against
+  it. DIRECTION GOTCHA: `baseStart` is the SMALLER arc length and `baseEnd` the
+  larger; the body walk is `baseEnd` -> clockwise -> `baseStart`, i.e.
+  `total - 2*half`. Swapping them traces the whole outline AND the mouth (the
+  mouth region got drawn twice, doubling the corner and leaving a beak).
+  Follow-up (same day, user: "the dotted line round the outside ... takes a path
+  through the box"): the arc-length lookup must treat a position EXACTLY on a
+  segment boundary - above all the outline SEAM at arc length 0/total - as the
+  segment that STARTS there. Floating point could land a hair PAST the end, which
+  matched no segment and returned the LAST one's end; `sbOutlineWalk()` then saw
+  `take === 0` and bailed out, so the path jumped straight from mid-outline to the
+  other mouth point (a dashed line across the box). `sbOutlineSegmentAt()` snaps
+  `t >= total - 1e-6` to 0 and the walk NUDGES past a degenerate boundary instead
+  of abandoning the rest of the outline. Purely geometric, so it showed up only
+  when the mouth happened to span the seam ("sometimes").
+  Tests: `tests/storyboard-bubbles.spec.js` (22) + a `speech-bubbles.png`
+  scene in the gallery.
 - STORYBOARD UNDO / REDO + SCENE DUPLICATE / REORDER (2026-10-26, user request):
   - UNDO/REDO: `storage.js` `sbHistory` is a SNAPSHOT history of the stories
     content (names, sizes, scenes incl. ORDER, items, connectors, groups) and
@@ -4894,12 +5075,12 @@ Techniques / gotchas:
   PowerShell expands it and Playwright does not glob CLI paths, so
   `test tests/*-screenshots.spec.js` collects 0 tests (verified) - keep the
   explicit list.
-- STORYBOARD GALLERY + ONEDRIVE SCENES (2026-10-25; 13 scenes since 2026-10-26):
-  `tests/storyboard-screenshots.spec.js` captures 13 scenes x 27 themes x both
-  modes into `screenshots/storyboard/` (702 PNGs): board, stories panel,
-  background panel, stickers panel, text panel, note panel, undo redo, selection
-  bar, multi-selection align, main menu dropdown, settings, settings-onedrive,
-  open-from-onedrive. It uses a 1280x800 desktop viewport (the
+- STORYBOARD GALLERY + ONEDRIVE SCENES (2026-10-25; 14 scenes since 2026-10-27):
+  `tests/storyboard-screenshots.spec.js` captures 14 scenes x 27 themes x both
+  modes into `screenshots/storyboard/` (756 PNGs): board, stories panel,
+  background panel, stickers panel, text panel, note panel, speech bubbles,
+  undo redo, selection bar, multi-selection align, main menu dropdown, settings,
+  settings-onedrive, open-from-onedrive. It uses a 1280x800 desktop viewport (the
   rail labels hide <=520px and the phone window shrinks the art) and seeds
   `storyboard_stories` from `/` before navigating to `/Storyboard/` (a direct
   reload of the app overwrites the seed via its `pagehide` save). Its
@@ -9237,3 +9418,141 @@ Everything below is the contract; break it and the app stops talking to the exe.
 - NOTE: two tests failed once immediately after the server restart (cold start, ~44 s
   run) and passed on the warm re-run - the usual post-restart slowness, not the code.
 - BUILD: `npm run bump:build` -> `202610271011`; servers restarted after the last edit.
+
+### 2026-10-27 (d) - Storyboard: speech bubbles, text style defaults, copy/paste style
+
+- REQUEST (user): text boxes become SPEECH BUBBLES with a movable tail that points
+  at a character's mouth and a border that flows round it; a popup offering to
+  GROUP the bubble with the sticker when the tail is dropped on one (ignorable,
+  disappears after a few seconds); an OVAL bubble with a single line just inside
+  the bubble colour; fill and line configurable. Follow-ups: the line THICKNESS and
+  the SPACE OUTSIDE THE LINE are configurable too; "Set as default" while editing
+  text; and Copy/Paste style between text boxes. Answers: oval has the same tail,
+  gaps are number inputs, defaults persist, copy/paste carries the same style set,
+  border styles may be used ALONGSIDE a bubble, prompt on drop, white fill + black
+  line defaults.
+- BUILT: `bubble`/`tail`/`stroke`/`lineWidth`/`lineGap` on text items, ONE generated
+  path for fill+line (line inset by `lineGap + lineWidth/2`), a `.sb-handle-tail`
+  drag mode, the `#sbGroupPrompt` drop offer, an SVG selection ring, the panel
+  rows (Bubble/Line/Line width/Space) and the three style tools. Full contract in
+  the durable "STORYBOARD SPEECH BUBBLES + TEXT STYLE TOOLS" note.
+- TDD: `tests/storyboard-bubbles.spec.js` written FIRST (10 tests, all red): panel
+  makes a round bubble (one closed path, fill white + line black, box transparent),
+  dragging the tail moves the point and both paths, line width/space/colour apply
+  and persist, the oval's line sits INSIDE the fill on every side, a bubble and a
+  stamp border coexist, drop-on-sticker prompt (name, 5 s expiry, Group creates the
+  group), "Set as default" survives a reload and styles the next box, Copy/Paste
+  style movers the look but not the text/position, the exported JPG has green fill
+  on the body row AND the tail row, and the payload carries all five fields.
+- WHAT WENT WRONG (all fixed, all now documented): (a) a press on a HANDLE within
+  340 ms of selecting a text box was treated as a double-tap and opened the editor
+  instead of dragging - the shortcut now ignores `.sb-handle`; (b) choosing a
+  bubble (or pasting a style) re-rendered the panel and LOST the typed-but-not-
+  placed text - it now lives in `sbState.textDraftText`; (c) the click-away
+  deselect fired on the prompt's pointerdown, cleared its ids and made "Group" a
+  no-op - `.sb-group-prompt` is now in the ignore list; (d) a tail dropped on a
+  sticker put the handle UNDER that sticker (higher z) so it could not be grabbed -
+  `.sb-object.selected` is now `z-index: 1000`; (e) the first tail geometry read as
+  a thin spike (base capped at 26 px) - base is now `clamp(0.5*len, 14, 64)` with
+  the bow proportional to it.
+- ALSO: added a `speech-bubbles.png` gallery scene (round bubble pointing at the
+  spaceman + an oval one, round selected so the tail handle and ring show).
+- VERIFIED: bubbles 10/10; the WHOLE Storyboard suite (align/backgrounds/bubbles/
+  buttons/groups/minio/notes/pan/save/stamp/stickers/stories/story-props/undo/zoom)
+  137/137, then bubbles+notes+stamp+save+buttons+undo 34/34 after the taper change;
+  the new screenshot scene for `SCREENSHOT_THEME=superhero` (rounded tail base and
+  the tail pointing at the spaceman confirmed visually).
+- BUILD -> `202610271045`.
+- FOLLOW-UP (same day, user): (1) removed the "Theme font" option - text now always
+  names a concrete family (`SB_TEXT_DEFAULT_FONT` "lato"), so a story looks the
+  same on every theme; (2) the bubble control is an `smd-checkbox` ("Speech
+  bubble") + a Round/Oval select, and it HIDES the Border tiles (a bubble and a
+  frame are mutually exclusive, enforced in `sbNormalizeTextStyle`); (3) the Line
+  width and Space parameters now drive the fancy/hand/stamp FRAMES as well
+  (`--sb-frame-width`/`--sb-frame-gap`, 0..40); (4) fixed the RECTANGULAR bubble
+  folding over itself when the tail points just past a corner - the base edge is
+  now chosen by the ray from the body centre and the minimum-length guard pushes
+  the tip along its own direction. TDD: 3 new/updated tests (frame width+space,
+  no Theme font, corner tail) written first and red. Storyboard suite 140/140.
+- FOLLOW-UP 2 (2026-10-27, user): "The text does not seem to be vertically
+  centered in the box ... it seems to leave space for descenders"; "Rename the
+  round speech bubble rectangle"; "Put the copy/paste/set default style on the
+  fly out panel with connect/bring to front/duplicate/delete"; "With the borders
+  I want the background to be a soft rectangle (add a radius control somewhere)
+  and to extend to outside the border, so the border is on the text background".
+  DONE: the text box now trims the empty part of the line box on both sides
+  (`sbTextInkMetrics` + equal negative margins on `.sb-text-body`) so the ink is
+  centred (measured 10/10px, and 9/11 with a descender); the JPG exporter switched
+  to `textBaseline="alphabetic"` + `firstBaseline` so it matches without the old
+  nudge; "Round" -> "Rectangle" (id unchanged); `radius` became a text style
+  field (0..120, default 10) driving `--sb-text-radius`, the panel has a "Corner
+  radius" input and the BUBBLE body uses the same radius; the frame no longer
+  `background-clip: padding-box`, so the background is a soft rounded rectangle
+  that runs UNDER the border (live + export); Copy/Paste/Set-default moved to the
+  selection bar on their own row (three more buttons in the main row made the bar
+  wide enough to cover a neighbouring object - it broke the groups test).
+  TDD: 4 new tests (ink centred live + in the JPG, Rectangle + radius, style
+  actions on the bar / gone from the panel, background under the border) written
+  first and mutation-checked (re-adding `padding-box`, or zeroing the trim,
+  fails them). Storyboard suite 144/144.
+- FOLLOW-UP 3 (2026-10-27, user): "The tail of the speech bubble goes wrong when
+  pulled directly out diagonally from the corner. Also the tail of the speech
+  bubble does not respect the space parameter." Reproduced with a probe: a tip on
+  the bottom-right CORNER ray (40px and 120px out) left the tail HOLLOW - the two
+  Q sides crossed (the per-chord bow normal flips when the mouth is clamped against
+  a corner), and the LINE path's tail tip was byte-identical to the fill's, so the
+  space stopped at the body. FIX: `sbTailSides()` bows from the tail's AXIS with
+  opposite signs (cannot cross); `sbBubbleMouthSpec()` decides the mouth once on
+  the OUTER body and every inset reuses it (same normal line, width scaled by
+  `(axisLen - inset)/axisLen`); `sbTailShrinkTip()` pulls the tip in along the
+  axis by the inset. TDD: 2 new tests (filled at 50%/70% of the tail's own axis for
+  three diagonal tips; line tip inset by gap + stroke/2 with a bright/dark pixel
+  pair) - red on the old code (hollow at 0.5, tip separation 0), green after, and
+  re-checked red by mutating the bow + shrink back. Storyboard suite 146/146.
+- FOLLOW-UP 4 (2026-10-27, user): "Here the tail is breaking near the text box in
+  terms of coming away from the line. Also there is not a white margin round it
+  all the way." The inset-PATH approach cannot be uniform (the tail's mouth
+  drifts, so the margin pinched to ~1px on one side and the line came away from
+  the body's line). Replaced it with an INNER RING: the line now paints the SAME
+  path as the fill, stroked `2*(gap+lineWidth)`, clipped to the shape and masked
+  back by `2*gap` - the band is `[gap, gap+lineWidth]` from the edge
+  everywhere. Canvas export mirrors it (`sbCanvasBubbleRing`, offscreen tile +
+  destination-out so a transparent fill still works). Two real traps found while
+  building it: the stroke is centred (width must be 2x), and a
+  `<mask maskUnits="userSpaceOnUse">` defaults its REGION to -10%/120% of the
+  VIEWPORT ORIGIN, which silently clipped the whole left half of the ring (looked
+  like a broken mask on one side only). TDD: a new rendered-margin test (red line
+  so the dark board cannot be confused with it) measures the margin and band on
+  BOTH sides of the tail and on the body; two older tests were updated to the new
+  contract (the line shares the fill's `d`; its stroke-width is the ring's full
+  width). Storyboard suite 146/146, JPG export checked visually.
+- FOLLOW-UP 5 (2026-10-27, user): "as I move the tail round the rectangle text
+  speech bubble the two points where the tail emerges from the shape are always on
+  the same side ... it would be more natural if they could be on adjacent sides
+  when needed". The mouth was clamped into one straight edge, so near a corner it
+  was squashed. The body is now modelled as 8 clockwise segments (4 lines + 4
+  corner arcs) addressed by ARC LENGTH (`sbRoundOutline`/`sbOutlineWalk`) and the
+  mouth is placed by arc length from the ray crossing, so an out-of-range crossing
+  continues into the corner arc and the two mouth points land on ADJACENT sides.
+  One real bug on the way: `baseStart`/`baseEnd` were swapped, so the walk traced
+  the outline twice and the mouth region was drawn twice (a doubled corner and a
+  "beak"); `baseStart` is the smaller arc length, `baseEnd` the larger.
+  TDD: new test "the tail's mouth straddles a corner instead of squashing into it"
+  (one point within 2px of the bottom edge, the other of the right edge, plus the
+  corner mouth being no narrower than a straight-down one) - red when the mouth is
+  clamped (mutation-checked), green now. Storyboard suite 147/147.
+- FOLLOW-UP 6 (2026-10-27, user): "the dotted line round the outside of the text
+  box to show the selection gets corrupted sometimes and takes a path through the
+  box". Root cause was the arc-length outline walk: `sbOutlineSegmentAt()` used
+  `t = s % total` and matched the first segment with `t < end - 1e-9`; when the
+  walk reached the outline SEAM (arc length 0/total, the top-left corner) the
+  modulo could come back a hair BELOW total, no segment matched, and it returned
+  the last segment's END - so `take === 0`, the walk stopped, and the path jumped
+  straight to the other mouth point. That is why it was intermittent: it only
+  happens when the mouth spans the seam. FIX: snap `t >= total - 1e-6` to 0, and
+  make the walk nudge past a degenerate boundary rather than break. TDD: a
+  geometric sweep test (4 body shapes x 240 seam positions x 4 mouth widths, the
+  walk must END where the far mouth point is) was red with 866 failures and is
+  green now; the rendered guard sweeps the tail right round a SELECTED bubble
+  (chrome hidden, white text) and requires no ink inside the box. Storyboard suite
+  149/149.

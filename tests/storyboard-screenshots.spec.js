@@ -223,6 +223,29 @@ test.describe("Storyboard - Screenshots", () => {
     await screenshotAllThemes(page, "note-panel.png");
   });
 
+  test("speech bubbles", async ({ page }) => {
+    // The new TEXT bubble styles: a round bubble with its tail pointing at the
+    // spaceman, and an oval one (fill + the line just inside it). The round one is
+    // selected so the tail handle and the dashed ring are visible.
+    await page.evaluate(() => {
+      const board = sbActiveBoard();
+      const make = (id, text, extra) => Object.assign({
+        id, type: "text", text, color: "black", bg: "white", border: "none", font: "theme",
+        bubble: "round", stroke: "#000000", lineWidth: 2.5, lineGap: 0,
+        x: 40, y: 30, scale: 1, rotation: 0, z: 6, tail: { dx: -13, dy: 6 }
+      }, extra || {});
+      board.items.push(make("sb-b1", "Take me to the moon!", {}));
+      board.items.push(make("sb-b2", "Oval bubble", {
+        bubble: "oval", bg: "#ffe066", color: "#222222", stroke: "#333333",
+        lineGap: 8, x: 70, y: 64, tail: { dx: -5, dy: 12 }
+      }));
+      sbRender();
+      sbSelect("sb-b1");
+    });
+    await page.waitForTimeout(300);
+    await screenshotAllThemes(page, "speech-bubbles.png");
+  });
+
   test("undo redo", async ({ page }) => {
     // One edit arms Undo, so the rail pair is drawn in its enabled state.
     await page.evaluate(() => sbAddSticker("shark"));
