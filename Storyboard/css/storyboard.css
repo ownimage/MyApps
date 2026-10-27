@@ -1205,8 +1205,13 @@ sb-sticker .sb-sticker-option {
   display: none;
   fill: none;
   stroke: var(--bs-body-color);
-  stroke-width: 1.5;
+  /* The SAME path as the fill, stroked and masked to the OUTSIDE (see
+   * sbUpdateBubble), so the ring can never drift from the bubble's silhouette -
+   * a separately generated "grown" outline used to double up or leave a gap at
+   * the tail. Only the outer half of this stroke is visible. */
+  stroke-width: 3;
   stroke-dasharray: 5 4;
+  stroke-linecap: round;
 }
 
 .sb-object.selected .sb-bubble .sb-bubble-outline {

@@ -710,17 +710,20 @@ function sbBubbleTipPoint(m, inset) {
   var tip = { x: m.rawTip.x, y: m.rawTip.y };
   var minTail = m.minTail + inset;
   var cx = x + w / 2, cy = y + h / 2;
-  var px, py;
+  var px, py, inside = false;
   if (m.shape === "oval") {
     var rx = Math.max(1, w / 2), ry = Math.max(1, h / 2);
     var ang = Math.atan2((tip.y - cy) / ry, (tip.x - cx) / rx);
     px = cx + rx * Math.cos(ang);
     py = cy + ry * Math.sin(ang);
+    var ex = (tip.x - cx) / rx, ey = (tip.y - cy) / ry;
+    inside = ex * ex + ey * ey < 1;
   } else {
     px = Math.min(Math.max(tip.x, x), x + w);
     py = Math.min(Math.max(tip.y, y), y + h);
     if (px === tip.x && py === tip.y) {
       // Inside the body: push out through the nearest edge.
+      inside = true;
       var dl = tip.x - x, dr = x + w - tip.x, dt = tip.y - y, db = y + h - tip.y;
       var best = Math.min(dl, dr, dt, db);
       if (best === dl) px = x;
@@ -728,6 +731,15 @@ function sbBubbleTipPoint(m, inset) {
       else if (best === dt) py = y;
       else py = y + h;
     }
+  }
+  // A tail dragged INSIDE the body (e.g. a sideways drag that never left a wide
+  // box) must come OUT of the nearest edge. Pushing it "along its own direction"
+  // there pointed back INTO the body, so the tail was drawn inwards and its mouth
+  // no longer lined up with it.
+  if (inside) {
+    var ox0 = px - cx, oy0 = py - cy;
+    var olen0 = Math.hypot(ox0, oy0) || 1;
+    return { x: px + ox0 / olen0 * minTail, y: py + oy0 / olen0 * minTail };
   }
   // Enforce a minimum tail length by pushing the tip along ITS OWN direction: a
   // tip that is only slightly past a CORNER must not be dragged onto the corner
@@ -752,27 +764,14 @@ function sbTailBaseWidth(m, tip, base) {
   return Math.min(64 * m.scale, Math.max(14 * m.scale, dist * 0.5));
 }
 
-// One side of the tail as a quadratic bowing AWAY from the tail's AXIS: the
-// control point is offset perpendicular to the axis, and the two sides take
-// opposite signs. The old version offset perpendicular to each side's OWN chord,
-// which flipped sides whenever the mouth was pinched against a corner - the two
-// curves then crossed and a diagonal tail collapsed to an empty sliver.
-function sbTailSideCurve(p0, tip, nx, ny, bow) {
-  var mx = (p0.x + tip.x) / 2 + nx * bow;
-  var my = (p0.y + tip.y) / 2 + ny * bow;
-  return " Q " + mx + " " + my + " " + tip.x + " " + tip.y;
-}
-
-// Both tail sides for one mouth (the axis runs from the mouth centre to the tip).
-function sbTailSides(base, tip, baseStart, baseEnd, bow) {
-  var dx = tip.x - base.x, dy = tip.y - base.y;
-  var len = Math.hypot(dx, dy) || 1;
-  var nx = -dy / len, ny = dx / len;
-  var s1 = ((baseStart.x - base.x) * nx + (baseStart.y - base.y) * ny) >= 0 ? 1 : -1;
-  var s2 = ((baseEnd.x - base.x) * nx + (baseEnd.y - base.y) * ny) >= 0 ? 1 : -1;
+// Both tail sides for one mouth: STRAIGHT lines from the two mouth points to the
+// tip. Straight sides are the only ones that can be inset uniformly - a bowed side's
+// inner copy drifts away from it and, in a thin tail, the two insets cross inside
+// the fill (the line "shooting through" the bubble).
+function sbTailSides(tip, baseStart, baseEnd) {
   return {
-    fromStart: sbTailSideCurve(baseStart, tip, nx * s1, ny * s1, bow),
-    toEnd: sbTailSideCurve(tip, baseEnd, nx * s2, ny * s2, bow)
+    fromStart: " L " + sbPt(tip),
+    toEnd: " L " + sbPt(baseEnd)
   };
 }
 
@@ -924,11 +923,33 @@ function sbRoundBubbleD(x, y, w, h, r, tip, m, shrink) {
   var baseEnd = sbOutlinePointAt(outline, s0 + half);
   var d = "M " + sbPt(baseEnd);
   d += sbOutlineWalk(outline, s0 + half, s0 - half + total);
-  var sides = sbTailSides(mouth, tip, baseStart, baseEnd, baseW * 0.22);
+  var sides = sbTailSides(tip, baseStart, baseEnd);
   d += sides.fromStart;
   d += sides.toEnd;
   d += " Z";
   return d;
+}
+
+// The two points where the ellipse meets lines PARALLEL to the tail's axis at
+// +/- half. Placing the mouth by the ellipse PARAMETER angle (the old way) put the
+// points at unequal distances from the axis - on a wide ellipse one side of the
+// tail started further out than the other, so both sides bowed the same way and one
+// cut right across the bubble. Offsetting the axis itself keeps the tail symmetric.
+function sbOvalMouthPoints(rx, ry, ang, nx, ny, half) {
+  var R = Math.hypot(rx * nx, ry * ny) || 1;
+  var phi = Math.atan2(ry * ny, rx * nx);
+  function wrap(v) { return Math.atan2(Math.sin(v), Math.cos(v)); }
+  function nearest(list) {
+    return list.slice().sort(function (p, q) {
+      return Math.abs(wrap(p - ang)) - Math.abs(wrap(q - ang));
+    })[0];
+  }
+  var t = Math.min(0.98, Math.max(0, half / R));
+  var alpha = Math.acos(t);
+  return {
+    plus: nearest([phi + alpha, phi - alpha]),
+    minus: nearest([phi + Math.PI + alpha, phi + Math.PI - alpha])
+  };
 }
 
 // Ellipse body + tail: the arc goes the LONG way round from one base point to the
@@ -936,17 +957,23 @@ function sbRoundBubbleD(x, y, w, h, r, tip, m, shrink) {
 function sbOvalBubbleD(x, y, w, h, tip, m, shrink) {
   var cx = x + w / 2, cy = y + h / 2;
   var rx = Math.max(1, w / 2), ry = Math.max(1, h / 2);
-  var ang = Math.atan2((tip.y - cy) / ry, (tip.x - cx) / rx);
+  // The tail's axis, in PIXEL space, through the centre.
+  var ax = tip.x - cx, ay = tip.y - cy;
+  var alen = Math.hypot(ax, ay) || 1;
+  var ux = ax / alen, uy = ay / alen;
+  var nx = -uy, ny = ux;
+  var ang = Math.atan2(uy / ry, ux / rx);
   var base = { x: cx + rx * Math.cos(ang), y: cy + ry * Math.sin(ang) };
-  tip = sbTailShrinkTip(base, tip, shrink);
   var baseW = sbTailBaseWidth(m, tip, base);
-  var dAng = Math.min(0.6, Math.max(0.06, (baseW / 2) / Math.max(rx, ry, 1)));
+  var mouthAngles = sbOvalMouthPoints(rx, ry, ang, nx, ny, baseW / 2);
   function at(a) { return { x: cx + rx * Math.cos(a), y: cy + ry * Math.sin(a) }; }
-  var baseStart = at(ang - dAng);
-  var baseEnd = at(ang + dAng);
+  var baseStart = at(mouthAngles.minus);
+  var baseEnd = at(mouthAngles.plus);
+  var mouth = { x: (baseStart.x + baseEnd.x) / 2, y: (baseStart.y + baseEnd.y) / 2 };
+  tip = sbTailShrinkTip(mouth, tip, shrink);
   var d = "M " + sbPt(baseEnd);
   d += " A " + rx + " " + ry + " 0 1 1 " + sbPt(baseStart);
-  var sides = sbTailSides(base, tip, baseStart, baseEnd, baseW * 0.22);
+  var sides = sbTailSides(tip, baseStart, baseEnd);
   d += sides.fromStart;
   d += sides.toEnd;
   d += " Z";
@@ -978,8 +1005,21 @@ function sbEnsureBubbleSvg(textEl) {
   maskPath.setAttribute("stroke", "#000000");
   mask.appendChild(maskRect);
   mask.appendChild(maskPath);
+  // Selection ring: the same shape filled BLACK hides everything inside it, so
+  // only the OUTER half of the dashed stroke shows.
+  var selMask = document.createElementNS(SB_SVG_NS, "mask");
+  selMask.setAttribute("class", "sb-bubble-sel-mask");
+  selMask.setAttribute("maskUnits", "userSpaceOnUse");
+  var selRect = document.createElementNS(SB_SVG_NS, "rect");
+  selRect.setAttribute("fill", "#ffffff");
+  var selShape = document.createElementNS(SB_SVG_NS, "path");
+  selShape.setAttribute("fill", "#000000");
+  selShape.setAttribute("stroke", "none");
+  selMask.appendChild(selRect);
+  selMask.appendChild(selShape);
   defs.appendChild(clip);
   defs.appendChild(mask);
+  defs.appendChild(selMask);
   svg.appendChild(defs);
   // fill -> line -> selection ring (the ring is CSS-hidden unless selected).
   ["sb-bubble-fill", "sb-bubble-line", "sb-bubble-outline"].forEach(function (cls) {
@@ -1047,7 +1087,16 @@ function sbUpdateBubble(item) {
   line.setAttribute("clip-path", "url(#" + uid + "-clip)");
   line.setAttribute("mask", "url(#" + uid + "-mask)");
   var ring = svg.querySelector(".sb-bubble-outline");
-  if (ring) ring.setAttribute("d", sbBubblePathD(m, -(2 + 4 * m.scale)));
+  var selMaskEl = svg.querySelector(".sb-bubble-sel-mask");
+  if (ring) {
+    ring.setAttribute("d", shapeD);
+    ring.setAttribute("mask", "url(#" + uid + "-sel)");
+  }
+  if (selMaskEl) {
+    selMaskEl.setAttribute("id", uid + "-sel");
+    var selShapeEl = selMaskEl.querySelector("path");
+    if (selShapeEl) selShapeEl.setAttribute("d", shapeD);
+  }
 
   // The SVG is centred on the text box, then shifted by the view centre so the
   // local coordinates map 1:1 (the tail may hang outside the box).
@@ -1068,6 +1117,19 @@ function sbUpdateBubble(item) {
     maskEl.setAttribute("y", String(minY));
     maskEl.setAttribute("width", String(vw));
     maskEl.setAttribute("height", String(vh));
+    if (selMaskEl) {
+      selMaskEl.setAttribute("x", String(minX));
+      selMaskEl.setAttribute("y", String(minY));
+      selMaskEl.setAttribute("width", String(vw));
+      selMaskEl.setAttribute("height", String(vh));
+      var selRectEl = selMaskEl.querySelector("rect");
+      if (selRectEl) {
+        selRectEl.setAttribute("x", String(minX));
+        selRectEl.setAttribute("y", String(minY));
+        selRectEl.setAttribute("width", String(vw));
+        selRectEl.setAttribute("height", String(vh));
+      }
+    }
     var mrect = maskEl.querySelector("rect");
     if (mrect) {
       mrect.setAttribute("x", String(minX));

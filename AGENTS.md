@@ -421,7 +421,38 @@ Architecture:
   `t >= total - 1e-6` to 0 and the walk NUDGES past a degenerate boundary instead
   of abandoning the rest of the outline. Purely geometric, so it showed up only
   when the mouth happened to span the seam ("sometimes").
-  Tests: `tests/storyboard-bubbles.spec.js` (22) + a `speech-bubbles.png`
+  Follow-up 2 (same day, user: "sometimes the outline does not join, sometimes it
+  is doubled up"): the SELECTION RING is no longer a separately generated GROWN
+  path - that could never track the tail (the grown tail's mouth and width drifted,
+  so the dashes doubled up on one side or left a gap on the other). The ring is now
+  the FILL's own `d`, stroked (`stroke-width: 3`, dasharray 5 4) and masked to the
+  OUTSIDE by `sb-bubble-sel-mask` (a white rect + the shape filled BLACK), so only
+  the outer half of the stroke shows and the dashes follow the silhouette exactly,
+  whatever the tail does. The mask REGION must be set explicitly (same
+  `userSpaceOnUse` gotcha as the line ring). `sbBubblePathD(m, inset)` still
+  supports a grown/inset shape but nothing uses it now.
+  Follow-up 3 (same day, user: the OVAL tail "seems to be at 45 degrees from the
+  centre" and broke): an ellipse's PARAMETER angle is nowhere near the tail's pixel
+  direction, so "half width / radius" made the mouth a NEEDLE on a wide oval, and
+  the tail's sides were measured from the point on the CURVE instead of the mouth's
+  CENTRE. `sbOvalMouthPoints()` now intersects the ellipse with the two lines
+  PARALLEL to the tail's axis at +/- baseW/2 (solved analytically: R cos(theta-phi) =
+  +/-half), so the mouth is a true chord centred on the tail, and `sbTailSides()`
+  gets the CHORD MIDPOINT as its base. `sbBubbleTipPoint()` also pushes a tip dragged
+  INSIDE the body OUT through the nearest edge - pushing "along its own direction"
+  there pointed back in, so the tail was drawn inwards (both shapes; the ellipse
+  check is `ex^2+ey^2 < 1`). Test: "an oval tail's mouth is a real chord, not a
+  needle" compares the oval's mouth chord with the ROUND bubble's for the same tail
+  (red at 90 degrees: 5.3 vs 14 before, equal now).
+  Follow-up 4 (same day, user: "Make the tail lines straight"): the tail's two sides
+  are STRAIGHT (`sbTailSides()` emits `L`s, no quadratic bow). A bowed side cannot
+  be inset uniformly - its inner copy drifts and, in a thin tail, the two insets
+  cross INSIDE the fill, which is the line "shooting through" the bubble that kept
+  coming back. Straight sides inset cleanly and meet in a tidy point. GOTCHA: the
+  path is now "M baseEnd ... baseStart L tip L baseEnd Z" - there is NO " Q "
+  anymore, so the TESTS must take the mouth/tip from the path VERTICES (first, third
+  from last, second from last) rather than splitting on " Q ".
+  Tests: `tests/storyboard-bubbles.spec.js` (23) + a `speech-bubbles.png`
   scene in the gallery.
 - STORYBOARD UNDO / REDO + SCENE DUPLICATE / REORDER (2026-10-26, user request):
   - UNDO/REDO: `storage.js` `sbHistory` is a SNAPSHOT history of the stories
@@ -9587,6 +9618,47 @@ Everything below is the contract; break it and the app stops talking to the exe.
   green now; the rendered guard sweeps the tail right round a SELECTED bubble
   (chrome hidden, white text) and requires no ink inside the box. Storyboard suite
   149/149.
+- FOLLOW-UP 7 (2026-10-27, user): "sometimes the outline does not join, sometimes it
+  is doubled up ... I'm open to having straight lines if it makes it easier". The
+  selection ring was a SEPARATELY generated grow-by-6px path, and a grown path can
+  never track the tail (its mouth and base width are recomputed on the grown body,
+  so the dashes drifted - doubling up on one side, a gap on the other). Replaced it
+  with the FILL path stroked and MASKED TO THE OUTSIDE (`sb-bubble-sel-mask`: white
+  rect + the shape filled black), so the dashes are always exactly on the silhouette
+  - no second geometry to disagree. Kept the curved tail sides (no need to
+  straighten them). Test extended with STRUCTURAL assertions (ring `d` === fill
+  `d`, mask present, the mask's shape === the fill path and filled black), which is
+  what makes the class of bug impossible rather than merely unobserved. Storyboard
+  suite 149/149.
+- FOLLOW-UP 8 (2026-10-27, user): "similar problems with the oval speech bubbles ...
+  it seems to be at 45 degrees from the center". TWO geometry bugs on the ellipse:
+  (a) the mouth was placed at "+/- half width / max(rx,ry)" in PARAMETER space, which
+  on a wide oval (rx >> ry) is nowhere near the tail - the mouth collapsed to a
+  needle (5.3 units wide against the round bubble's 14 at the same tail) and the
+  inner line crossed itself; (b) `sbTailSides()` was given the point on the CURVE
+  rather than the mouth's CENTRE, so the two sides were skewed. FIX: the mouth is
+  now the ellipse's intersection with the two lines PARALLEL to the tail's axis at
+  +/- baseW/2 (analytic: R cos(theta - phi) = +/-half, pick the solution nearest the
+  tail), the sides use the chord midpoint, and a tip dragged INSIDE the body is
+  pushed OUT through the nearest edge (it used to be pushed INWARD along its own
+  direction, so the whole tail was drawn inside out - that affected the round shape
+  too, e.g. a short sideways tail on a wide box). TDD: "an oval tail's mouth is a
+  real chord, not a needle" (oval chord vs the round bubble's) - red at 90 degrees
+  before (5.3 vs 14), green now; mutation-checked by restoring the old placement.
+  Also fixed the TEST parsing: path coordinates can be written as "-6.4e-15" and the
+  old digit patterns truncated that to "-6.4", silently skewing measurements by 6px
+  (all coordinate regexes now accept an exponent). Storyboard suite 150/150.
+- FOLLOW-UP 9 (2026-10-27, user): "Still not right. Make the tail lines straight."
+  The bowed sides were the last source of the crossing line: a quadratic side's inset
+  copy does not stay parallel to it, so in a thin tail the two insets crossed inside
+  the fill. The tail is now a plain TRIANGLE - `sbTailSides()` emits straight `L`
+  segments from the two mouth points to the tip (the `bow` parameter and
+  `sbTailSideCurve` are gone). Straight sides inset exactly, so the line and the
+  selection ring follow the tail cleanly. The path no longer contains " Q " at all,
+  which broke every test that parsed "M ... L <baseStart> Q <tip>": they now take the
+  mouth points and tip from the path VERTICES (first, third-from-last and
+  second-from-last). The diagonal-tail sampling moved to 35%/55% of the tail (a
+  straight tail is only a pixel or two wide at 70%). Storyboard suite 150/150.
 
 ### 2026-10-27 (e) - remoteHID/PhoneButtons -> MyHID: folder, names, prefix, exe
 
