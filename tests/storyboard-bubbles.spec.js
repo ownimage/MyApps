@@ -89,6 +89,56 @@ async function setNumber(page, id, value) {
   await input.blur();
 }
 
+// Sample the rendered colour at local-centred px of a text box (the paths are
+// drawn in those coordinates, so this hits exactly what the shape paints).
+async function colourAt(page, itemId, local) {
+  const box = await page.locator('.sb-object-text[data-id="' + itemId + '"] .sb-text').boundingBox();
+  const buf = await page.screenshot({
+    clip: { x: Math.round(box.x + box.width / 2 + local.x), y: Math.round(box.y + box.height / 2 + local.y), width: 1, height: 1 }
+  });
+  const { data, info } = await sharp(buf).raw().toBuffer({ resolveWithObject: true });
+  return { r: data[0], g: data[1], b: data[2], ch: info.channels };
+}
+
+// Rasterise a bubble once (its SVG box, which covers the tail) and return a
+// sampler taking the text box's LOCAL CENTRED coordinates.
+async function bubbleSampler(page, itemId) {
+  const locator = page.locator('.sb-object-text[data-id="' + itemId + '"] .sb-bubble');
+  const rect = await locator.boundingBox();
+  // Map through the SVG's OWN viewBox: the element may be scaled by the design
+  // scale/touch size, so local px are not page px.
+  const vb = await locator.evaluate((n) => {
+    const v = n.viewBox.baseVal;
+    return { x: v.x, y: v.y, w: v.width, h: v.height };
+  });
+  const clip = {
+    x: Math.round(rect.x), y: Math.round(rect.y),
+    width: Math.max(1, Math.round(rect.width)), height: Math.max(1, Math.round(rect.height))
+  };
+  const buf = await page.screenshot({ clip });
+  const { data, info } = await sharp(buf).raw().toBuffer({ resolveWithObject: true });
+  const sx = rect.width / vb.w, sy = rect.height / vb.h;
+  const ch = info.channels;
+  return function sample(local) {
+    const px = Math.round((local.x - vb.x) * sx);
+    const py = Math.round((local.y - vb.y) * sy);
+    if (px < 0 || py < 0 || px >= info.width || py >= info.height) return null;
+    const i = (py * info.width + px) * ch;
+    return { r: data[i], g: data[i + 1], b: data[i + 2] };
+  };
+}
+
+const isWhite = (c) => !!c && c.r > 200 && c.g > 200 && c.b > 200;
+// The line is drawn RED in these tests: the board behind a bubble is nearly the
+// same colour as a black line, so the two cannot be told apart by brightness.
+const isLine = (c) => !!c && c.r > 140 && c.g < 110 && c.b < 110;
+
+// The tail tip of a path: the end point of its FIRST quadratic curve.
+function pathTip(d) {
+  const m = String(d).match(/Q\s+[-\d.]+\s+[-\d.]+\s+([-\d.]+)\s+([-\d.]+)/);
+  return m ? { x: Number(m[1]), y: Number(m[2]) } : null;
+}
+
 // Screenshot one text box and return the bright-pixel rows (white glyphs).
 async function inkRows(page, itemId) {
   const buf = await page.locator('.sb-object-text[data-id="' + itemId + '"] .sb-text').screenshot();
@@ -127,6 +177,8 @@ async function bubbleInfo(page, itemId) {
       fillColour: getComputedStyle(fill).fill,
       lineColour: cs.stroke,
       lineWidth: parseFloat(cs.strokeWidth),
+      lineClip: line.getAttribute("clip-path"),
+      lineMask: line.getAttribute("mask"),
       fillBox: { w: Math.round(fb.width), h: Math.round(fb.height), x: Math.round(fb.x), y: Math.round(fb.y) },
       lineBox: { w: Math.round(lb.width), h: Math.round(lb.height), x: Math.round(lb.x), y: Math.round(lb.y) },
       textBackground: getComputedStyle(el).backgroundColor
@@ -192,8 +244,12 @@ test.describe("Storyboard - speech bubbles", () => {
 
     const info = await bubbleInfo(page, "b1");
     const scale = await page.evaluate(() => parseFloat(sbEls.canvas.style.getPropertyValue("--sb-design-scale")));
-    expect(info.lineWidth).toBeCloseTo(6 * scale, 0);
+    // The ring stroke spans 2 x (space + width); the clip/mask carve the visible
+    // band out of it (the band itself is measured in the margin test).
+    expect(info.lineWidth).toBeCloseTo((10 + 6) * 2 * scale, 0);
     expect(info.lineColour).toBe("rgb(255, 0, 0)");
+    expect(info.lineClip).toContain("url(#");
+    expect(info.lineMask).toContain("url(#");
     await expect.poll(async () => (await storedScene(page)).items[0].lineWidth).toBe(6);
     await expect.poll(async () => (await storedScene(page)).items[0].lineGap).toBe(10);
     await expect.poll(async () => (await storedScene(page)).items[0].stroke).toBe("#ff0000");
@@ -203,11 +259,15 @@ test.describe("Storyboard - speech bubbles", () => {
     await seed(page, [bubble("b1", "Oval", 45, 40, { bubble: "oval", lineWidth: 2, lineGap: 6 })]);
     const info = await bubbleInfo(page, "b1");
     expect(info.bubble).toBe(true);
-    // The line sits INSIDE the fill: its box is smaller on every side.
-    expect(info.lineBox.w).toBeLessThan(info.fillBox.w);
-    expect(info.lineBox.h).toBeLessThan(info.fillBox.h);
-    expect(info.lineBox.x).toBeGreaterThan(info.fillBox.x);
-    expect(info.lineBox.y).toBeGreaterThan(info.fillBox.y);
+    // ONE shape: the fill and the line share the same path, and the line is an
+    // inner ring (clipped to the shape, masked back by the space) rather than a
+    // separately generated inset outline that would drift at the tail.
+    expect(info.lineD).toBe(info.fillD);
+    expect(info.lineClip).toContain("url(#");
+    expect(info.lineMask).toContain("url(#");
+    // The ring's stroke reaches space + width in from the edge on BOTH sides.
+    expect(info.lineWidth).toBeGreaterThan(2 * 6);
+    expect(info.lineColour).toBe("rgb(0, 0, 0)");
   });
 
   test("a speech bubble and a border style are mutually exclusive", async ({ page }) => {
@@ -588,6 +648,211 @@ test.describe("Storyboard - speech bubbles", () => {
     });
     // The very corner pixel is OUTSIDE the rounded background, so it is not white.
     expect(corner.r < 250 || corner.g < 250 || corner.b < 250).toBe(true);
+  });
+
+  test("a tail pulled diagonally past a corner stays a solid tail", async ({ page }) => {
+    await seed(page, [
+      bubble("d1", "Corner", 20, 22),
+      bubble("d2", "Far", 50, 22),
+      bubble("d3", "Lean", 80, 22)
+    ]);
+    // Put the tips on the CORNER ray (and one plain 45-degree pull): that is the
+    // direction that used to make the two sides cross and the fill collapse to a
+    // sliver at the corner.
+    const geom = await page.evaluate(() => {
+      const cw = sbEls.canvas.clientWidth, ch = sbEls.canvas.clientHeight;
+      const bodyOf = (id) => {
+        const el = document.querySelector('.sb-object-text[data-id="' + id + '"] .sb-text');
+        return sbBubbleMetrics(sbFindItem(id), el.offsetWidth, el.offsetHeight, cw, ch);
+      };
+      const put = (id, tipPx) => {
+        const item = sbFindItem(id);
+        item.tail = { dx: tipPx.x / cw * 100, dy: tipPx.y / ch * 100 };
+        sbUpdateBubble(item);
+      };
+      const alongCorner = (id, dist) => {
+        const m = bodyOf(id);
+        const c = { x: m.body.x + m.body.w, y: m.body.y + m.body.h };
+        const d = { x: m.body.w / 2, y: m.body.h / 2 };
+        const L = Math.hypot(d.x, d.y);
+        put(id, { x: c.x + d.x / L * dist, y: c.y + d.y / L * dist });
+      };
+      alongCorner("d1", 40);
+      alongCorner("d2", 120);
+      const m3 = bodyOf("d3");
+      put("d3", { x: m3.body.x + m3.body.w + 50, y: m3.body.y + m3.body.h + 50 });
+
+      const out = {};
+      ["d1", "d2", "d3"].forEach((id) => {
+        const el = document.querySelector('.sb-object-text[data-id="' + id + '"] .sb-text');
+        const d = String(el.querySelector(".sb-bubble-fill").getAttribute("d"));
+        // "M <baseEnd> ... <baseStart> Q <tip> ...": the mouth's two points are the
+        // first pair and the LAST pair before the tail curve (that end can be an
+        // arc endpoint now, so no assumption about L vs A).
+        const head = d.split(" Q ")[0];
+        const nums = (head.match(/-?\d+(?:\.\d+)?/g) || []).map(Number);
+        const hit = d.match(/Q\s+[-\d.]+\s+[-\d.]+\s+([-\d.]+)\s+([-\d.]+)/);
+        out[id] = {
+          tip: hit ? { x: Number(hit[1]), y: Number(hit[2]) } : null,
+          mouth: nums.length >= 4
+            ? { x: (nums[0] + nums[nums.length - 2]) / 2, y: (nums[1] + nums[nums.length - 1]) / 2 }
+            : null
+        };
+      });
+      return out;
+    });
+
+    expect(geom.d1.mouth).not.toBeNull();
+    for (const id of ["d1", "d2", "d3"]) {
+      const g = geom[id];
+      // Walk the tail's OWN axis and check it is FILLED at 50% and 70% of the way
+      // out (a self-intersecting path leaves it hollow there).
+      const base = g.mouth;
+      expect(Math.hypot(g.tip.x - base.x, g.tip.y - base.y)).toBeGreaterThan(20);
+      for (const f of [0.5, 0.7]) {
+        const px = { x: base.x + (g.tip.x - base.x) * f, y: base.y + (g.tip.y - base.y) * f };
+        const c = await colourAt(page, id, px);
+        expect(c.r, id + " tail filled at " + f).toBeGreaterThan(220);
+        expect(c.g, id + " tail filled at " + f).toBeGreaterThan(220);
+        expect(c.b, id + " tail filled at " + f).toBeGreaterThan(220);
+      }
+    }
+  });
+
+  test("the tail's mouth straddles a corner instead of squashing into it", async ({ page }) => {
+    await seed(page, [
+      bubble("c1", "Straight", 45, 25),
+      bubble("c2", "Corner", 45, 70)
+    ]);
+    const geom = await page.evaluate(() => {
+      const cw = sbEls.canvas.clientWidth, ch = sbEls.canvas.clientHeight;
+      const bodyOf = (id) => {
+        const el = document.querySelector('.sb-object-text[data-id="' + id + '"] .sb-text');
+        return sbBubbleMetrics(sbFindItem(id), el.offsetWidth, el.offsetHeight, cw, ch);
+      };
+      const put = (id, tipPx) => {
+        const item = sbFindItem(id);
+        item.tail = { dx: tipPx.x / cw * 100, dy: tipPx.y / ch * 100 };
+        sbUpdateBubble(item);
+      };
+      // c1: straight down from the bottom edge (no corner involved).
+      let m = bodyOf("c1");
+      put("c1", { x: 0, y: m.body.y + m.body.h + 100 });
+      // c2: the same length, but along the BOTTOM-RIGHT corner ray.
+      m = bodyOf("c2");
+      const corner = { x: m.body.x + m.body.w, y: m.body.y + m.body.h };
+      const dir = { x: m.body.w / 2, y: m.body.h / 2 };
+      const dl = Math.hypot(dir.x, dir.y);
+      put("c2", { x: corner.x + dir.x / dl * 100, y: corner.y + dir.y / dl * 100 });
+
+      const out = {};
+      ["c1", "c2"].forEach((id) => {
+        const el = document.querySelector('.sb-object-text[data-id="' + id + '"] .sb-text');
+        const mm = sbBubbleMetrics(sbFindItem(id), el.offsetWidth, el.offsetHeight, cw, ch);
+        const d = String(el.querySelector(".sb-bubble-fill").getAttribute("d"));
+        // The path is "M <baseEnd> ... <baseStart> Q <tip> ...", so the mouth's
+        // two points are the first pair and the LAST pair before the tail curve.
+        const head = d.split(" Q ")[0];
+        const nums = (head.match(/-?\d+(?:\.\d+)?/g) || []).map(Number);
+        out[id] = {
+          body: mm.body,
+          end: { x: nums[0], y: nums[1] },
+          start: { x: nums[nums.length - 2], y: nums[nums.length - 1] }
+        };
+      });
+      return out;
+    });
+
+    const near = (a, b) => Math.abs(a - b) <= 2;
+    const b = geom.c2.body;
+    const right = b.x + b.w, bottom = b.y + b.h;
+    const pts = [geom.c2.start, geom.c2.end];
+    // ONE mouth point on the bottom edge, the OTHER on the right edge: the mouth
+    // wraps the corner. Both on one edge means the mouth was squashed there.
+    expect(pts.filter((p) => near(p.y, bottom) && p.x < right - 2).length, "one point on the bottom").toBe(1);
+    expect(pts.filter((p) => near(p.x, right) && p.y < bottom - 2).length, "one point on the right").toBe(1);
+
+    // And the mouth is as wide at the corner as it is for a straight-down tail of
+    // the same length (it used to be squeezed against the corner).
+    const chord = (g) => Math.hypot(g.start.x - g.end.x, g.start.y - g.end.y);
+    expect(chord(geom.c2)).toBeGreaterThan(chord(geom.c1) * 0.7);
+  });
+
+  test("the white margin round the line is the same everywhere, the tail included", async ({ page }) => {
+    const GAP = 9, LINE = 3;
+    await seed(page, [bubble("b1", "Hello 2", 40, 40, {
+      bubble: "round", bg: "#ffffff", stroke: "#ff0000",
+      lineWidth: LINE, lineGap: GAP, tail: { dx: 0, dy: 34 }
+    })]);
+    const geom = await page.evaluate(() => {
+      const el = document.querySelector('.sb-object-text[data-id="b1"] .sb-text');
+      const d = el.querySelector(".sb-bubble-fill").getAttribute("d");
+      const start = String(d).match(/^M\s+([-\d.]+)\s+([-\d.]+)/);
+      const before = String(d).match(/L\s+([-\d.]+)\s+([-\d.]+)\s+Q/);
+      const hit = String(d).match(/Q\s+[-\d.]+\s+[-\d.]+\s+([-\d.]+)\s+([-\d.]+)/);
+      const m = sbBubbleMetrics(sbFindItem("b1"), el.offsetWidth, el.offsetHeight,
+        sbEls.canvas.clientWidth, sbEls.canvas.clientHeight);
+      return {
+        mouth: { x: (Number(start[1]) + Number(before[1])) / 2, y: (Number(start[2]) + Number(before[2])) / 2 },
+        tip: { x: Number(hit[1]), y: Number(hit[2]) },
+        body: m.body
+      };
+    });
+
+    // Walk a ray from the middle of the tail (and from the middle of the body's
+    // left side) outwards and describe the paint: fill, then the LINE, then the
+    // margin, then the board. The margin must be lineGap on BOTH sides of the tail
+    // and the band must be lineWidth - a shape-hugging line has no margin where it
+    // meets the corner.
+    const sample = await bubbleSampler(page, "b1");
+    async function profile(from, dir, reach) {
+      const flags = [];
+      for (let i = 0; i <= reach; i++) {
+        const c = sample({ x: from.x + dir.x * i, y: from.y + dir.y * i });
+        flags.push(isLine(c) ? "r" : isWhite(c) ? "w" : ".");
+      }
+      // Walking OUT of the shape: fill/nothing, then the red line, then the white
+      // margin, then the board. `edge` is the outermost white pixel (the shape's
+      // own edge - the margin is white too).
+      let edge = -1;
+      for (let i = flags.length - 1; i >= 0; i--) if (flags[i] === "w") { edge = i; break; }
+      let b1 = -1;
+      for (let i = edge; i >= 0; i--) if (flags[i] === "r") { b1 = i; break; }
+      let b0 = b1;
+      while (b0 - 1 >= 0 && flags[b0 - 1] === "r") b0--;
+      return { flags: flags.join(""), edge, margin: b1 < 0 ? -1 : edge - b1, width: b1 < 0 ? 0 : b1 - b0 + 1 };
+    }
+
+    const ax = { x: geom.tip.x - geom.mouth.x, y: geom.tip.y - geom.mouth.y };
+    const len = Math.hypot(ax.x, ax.y);
+    const u = { x: ax.x / len, y: ax.y / len };
+    const n = { x: -u.y, y: u.x };
+    const mid = { x: geom.mouth.x + ax.x * 0.5, y: geom.mouth.y + ax.y * 0.5 };
+    const sides = [];
+    for (const sign of [1, -1]) {
+      sides.push(await profile(mid, { x: n.x * sign, y: n.y * sign }, 40));
+    }
+    for (const p of sides) {
+      expect(p.margin, "tail margin (" + p.flags + ")").toBeGreaterThan(GAP - 2.5);
+      expect(p.margin, "tail margin (" + p.flags + ")").toBeLessThan(GAP + 2.5);
+      expect(p.width, "line width (" + p.flags + ")").toBeGreaterThan(LINE - 2);
+      expect(p.width, "line width (" + p.flags + ")").toBeLessThan(LINE + 2);
+    }
+    // Both sides of the tail have the SAME margin (the line is parallel to the
+    // bubble's edge, not pinched against it on one side).
+    expect(Math.abs(sides[0].margin - sides[1].margin)).toBeLessThanOrEqual(1.5);
+
+    // The body's left side keeps the same margin, so the ring is uniform.
+    const bodyMidY = (geom.body.y + geom.body.y + geom.body.h) / 2;
+    const body = await profile(
+      { x: geom.body.x + 12, y: bodyMidY },
+      { x: -1, y: 0 },
+      40
+    );
+    expect(body.margin, "body margin (" + body.flags + ")").toBeGreaterThan(GAP - 2.5);
+    expect(body.margin, "body margin (" + body.flags + ")").toBeLessThan(GAP + 2.5);
+    expect(body.width, "body line width (" + body.flags + ")").toBeGreaterThan(LINE - 2);
+    expect(body.width, "body line width (" + body.flags + ")").toBeLessThan(LINE + 2);
   });
 
   test("the bubble fields travel with the scene (MinIO / OneDrive payload)", async ({ page }) => {

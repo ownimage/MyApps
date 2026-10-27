@@ -361,7 +361,57 @@ Architecture:
   is copied; `sbCopySelectedTextStyle` / `sbPasteSelectedTextStyle` /
   `sbSetSelectedTextDefault` act on `sbSelectedTextItem()` (the ONE selected
   text leaf).
-  Tests: `tests/storyboard-bubbles.spec.js` (17) + a `speech-bubbles.png`
+  FOLLOW-UP 3 (2026-10-27, user): "the tail goes wrong when pulled directly out
+  diagonally from the corner" + "the tail does not respect the space parameter".
+  (a) SLIVER: each tail side bowed perpendicular to its OWN chord, and that
+  normal FLIPS side when the mouth is pinched against a corner, so the two Q
+  curves crossed and the fill collapsed to an empty sliver (a short corner tail
+  was hollow at 50% of its length). `sbTailSides()` now offsets both control
+  points from the tail's AXIS with OPPOSITE signs, so the sides can never cross.
+  (b) SPACE AT THE TAIL: `sbBubbleMouthSpec()` decides the mouth ONCE on the
+  OUTER body (round: edge index + centre point + base width; oval: angle) and
+  every inset copy reuses it. Before, the LINE recomputed the mouth on the
+  smaller inset body, landed on a different point of the edge (often the corner)
+  and cut diagonally across the fill's tail. The inset mouth keeps the same
+  normal line, its width scales by `(axisLen - inset) / axisLen`, and
+  `sbTailShrinkTip()` pulls the tip in along the axis by the inset - that is what
+  makes the "space" reach the tip instead of stopping at the body. The drag
+  handle, the drop hit-test and the SVG viewBox use the FILL tip (inset 0), never
+  the line tip.
+  FOLLOW-UP 4 (2026-10-27, user): "the tail is breaking near the text box ... and
+  there is not a white margin round it all the way". Generating a separate inset
+  PATH can never give a uniform margin (where the tail meets the body the offset
+  drifts and pinches on one side), so the LINE is now an INNER RING of the fill
+  shape: `sb-bubble-line` uses the SAME `d` as the fill,
+  `stroke-width = 2 * (lineGap + lineWidth)`, `clip-path` to the shape and a
+  `<mask>` whose black stroke (`stroke-width = 2 * lineGap`) carves the inner
+  band away. The visible band is therefore `[lineGap, lineGap + lineWidth]`
+  inside the edge EVERYWHERE - body, corners and BOTH sides of the tail - and it
+  tapers out where the tail gets thinner than the margin (correct for an offset).
+  THREE GOTCHAS: (a) a stroke is CENTRED, so the width must be 2x what should be
+  visible inside; (b) a `<mask maskUnits="userSpaceOnUse">` with no explicit
+  x/y/width/height defaults to -10%/120% resolved against the VIEWPORT ORIGIN, so
+  everything left of/above that is silently clipped away (that hid the whole left
+  half of the ring and made it look asymmetric) - set the mask REGION (the
+  viewBox) as well as the inner rect; (c) the ring's ids are per item
+  (`sbb-<itemId>-clip/-mask`). The EXPORTER does the same on canvas via
+  `sbCanvasBubbleRing()`: a transparent tile with clip + stroke, then
+  `destination-out` for the inner band, blitted in local coords - that keeps a
+  TRANSPARENT fill working (nothing to repaint over).
+  FOLLOW-UP 5 (2026-10-27, user): "as I move the tail round ... the two points
+  where the tail emerges are always on the same side ... it would be more natural
+  if they could be on adjacent sides". `sbRoundOutline()` now models the body as
+  8 CLOCKWISE segments (the 4 straight edges + the 4 corner ARCS) addressed by
+  ARC LENGTH, and `sbOutlineWalk()` emits the path pieces. The mouth is placed by
+  ARC LENGTH from the point the ray picks: that position may fall OUTSIDE the
+  straight run (negative or past its end), which simply continues into the
+  neighbouring corner arc - so one mouth point can sit on the bottom edge and the
+  other on the right edge, straddling the corner instead of being squashed against
+  it. DIRECTION GOTCHA: `baseStart` is the SMALLER arc length and `baseEnd` the
+  larger; the body walk is `baseEnd` -> clockwise -> `baseStart`, i.e.
+  `total - 2*half`. Swapping them traces the whole outline AND the mouth (the
+  mouth region got drawn twice, doubling the corner and leaving a beak).
+  Tests: `tests/storyboard-bubbles.spec.js` (20) + a `speech-bubbles.png`
   scene in the gallery.
 - STORYBOARD UNDO / REDO + SCENE DUPLICATE / REORDER (2026-10-26, user request):
   - UNDO/REDO: `storage.js` `sbHistory` is a SNAPSHOT history of the stories
@@ -9435,3 +9485,49 @@ Everything below is the contract; break it and the app stops talking to the exe.
   actions on the bar / gone from the panel, background under the border) written
   first and mutation-checked (re-adding `padding-box`, or zeroing the trim,
   fails them). Storyboard suite 144/144.
+- FOLLOW-UP 3 (2026-10-27, user): "The tail of the speech bubble goes wrong when
+  pulled directly out diagonally from the corner. Also the tail of the speech
+  bubble does not respect the space parameter." Reproduced with a probe: a tip on
+  the bottom-right CORNER ray (40px and 120px out) left the tail HOLLOW - the two
+  Q sides crossed (the per-chord bow normal flips when the mouth is clamped against
+  a corner), and the LINE path's tail tip was byte-identical to the fill's, so the
+  space stopped at the body. FIX: `sbTailSides()` bows from the tail's AXIS with
+  opposite signs (cannot cross); `sbBubbleMouthSpec()` decides the mouth once on
+  the OUTER body and every inset reuses it (same normal line, width scaled by
+  `(axisLen - inset)/axisLen`); `sbTailShrinkTip()` pulls the tip in along the
+  axis by the inset. TDD: 2 new tests (filled at 50%/70% of the tail's own axis for
+  three diagonal tips; line tip inset by gap + stroke/2 with a bright/dark pixel
+  pair) - red on the old code (hollow at 0.5, tip separation 0), green after, and
+  re-checked red by mutating the bow + shrink back. Storyboard suite 146/146.
+- FOLLOW-UP 4 (2026-10-27, user): "Here the tail is breaking near the text box in
+  terms of coming away from the line. Also there is not a white margin round it
+  all the way." The inset-PATH approach cannot be uniform (the tail's mouth
+  drifts, so the margin pinched to ~1px on one side and the line came away from
+  the body's line). Replaced it with an INNER RING: the line now paints the SAME
+  path as the fill, stroked `2*(gap+lineWidth)`, clipped to the shape and masked
+  back by `2*gap` - the band is `[gap, gap+lineWidth]` from the edge
+  everywhere. Canvas export mirrors it (`sbCanvasBubbleRing`, offscreen tile +
+  destination-out so a transparent fill still works). Two real traps found while
+  building it: the stroke is centred (width must be 2x), and a
+  `<mask maskUnits="userSpaceOnUse">` defaults its REGION to -10%/120% of the
+  VIEWPORT ORIGIN, which silently clipped the whole left half of the ring (looked
+  like a broken mask on one side only). TDD: a new rendered-margin test (red line
+  so the dark board cannot be confused with it) measures the margin and band on
+  BOTH sides of the tail and on the body; two older tests were updated to the new
+  contract (the line shares the fill's `d`; its stroke-width is the ring's full
+  width). Storyboard suite 146/146, JPG export checked visually.
+- FOLLOW-UP 5 (2026-10-27, user): "as I move the tail round the rectangle text
+  speech bubble the two points where the tail emerges from the shape are always on
+  the same side ... it would be more natural if they could be on adjacent sides
+  when needed". The mouth was clamped into one straight edge, so near a corner it
+  was squashed. The body is now modelled as 8 clockwise segments (4 lines + 4
+  corner arcs) addressed by ARC LENGTH (`sbRoundOutline`/`sbOutlineWalk`) and the
+  mouth is placed by arc length from the ray crossing, so an out-of-range crossing
+  continues into the corner arc and the two mouth points land on ADJACENT sides.
+  One real bug on the way: `baseStart`/`baseEnd` were swapped, so the walk traced
+  the outline twice and the mouth region was drawn twice (a doubled corner and a
+  "beak"); `baseStart` is the smaller arc length, `baseEnd` the larger.
+  TDD: new test "the tail's mouth straddles a corner instead of squashing into it"
+  (one point within 2px of the bottom edge, the other of the right edge, plus the
+  corner mouth being no narrower than a straight-down one) - red when the mouth is
+  clamped (mutation-checked), green now. Storyboard suite 147/147.

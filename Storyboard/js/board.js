@@ -752,113 +752,191 @@ function sbTailBaseWidth(m, tip, base) {
   return Math.min(64 * m.scale, Math.max(14 * m.scale, dist * 0.5));
 }
 
-function sbTailCurve(p0, p1, bow) {
-  var dx = p1.x - p0.x, dy = p1.y - p0.y;
+// One side of the tail as a quadratic bowing AWAY from the tail's AXIS: the
+// control point is offset perpendicular to the axis, and the two sides take
+// opposite signs. The old version offset perpendicular to each side's OWN chord,
+// which flipped sides whenever the mouth was pinched against a corner - the two
+// curves then crossed and a diagonal tail collapsed to an empty sliver.
+function sbTailSideCurve(p0, tip, nx, ny, bow) {
+  var mx = (p0.x + tip.x) / 2 + nx * bow;
+  var my = (p0.y + tip.y) / 2 + ny * bow;
+  return " Q " + mx + " " + my + " " + tip.x + " " + tip.y;
+}
+
+// Both tail sides for one mouth (the axis runs from the mouth centre to the tip).
+function sbTailSides(base, tip, baseStart, baseEnd, bow) {
+  var dx = tip.x - base.x, dy = tip.y - base.y;
   var len = Math.hypot(dx, dy) || 1;
-  var k = Math.max(1, Number(bow) || 0);
   var nx = -dy / len, ny = dx / len;
-  var mx = (p0.x + p1.x) / 2 + nx * k;
-  var my = (p0.y + p1.y) / 2 + ny * k;
-  return " Q " + mx + " " + my + " " + p1.x + " " + p1.y;
+  var s1 = ((baseStart.x - base.x) * nx + (baseStart.y - base.y) * ny) >= 0 ? 1 : -1;
+  var s2 = ((baseEnd.x - base.x) * nx + (baseEnd.y - base.y) * ny) >= 0 ? 1 : -1;
+  return {
+    fromStart: sbTailSideCurve(baseStart, tip, nx * s1, ny * s1, bow),
+    toEnd: sbTailSideCurve(tip, baseEnd, nx * s2, ny * s2, bow)
+  };
+}
+
+// Move the tail tip along its OWN axis: the LINE and the selection ring are the
+// same shape pulled in (or pushed out) by the inset, so the "space" parameter has
+// to reach the tip as well - otherwise the line runs into the fill's tip.
+function sbTailShrinkTip(base, tip, shrink) {
+  if (!shrink) return tip;
+  var dx = tip.x - base.x, dy = tip.y - base.y;
+  var len = Math.hypot(dx, dy) || 1;
+  var next = Math.max(1, len - shrink);
+  return { x: base.x + dx / len * next, y: base.y + dy / len * next };
 }
 
 function sbPt(p) {
   return p.x + " " + p.y;
 }
 
-// The bubble outline (body + tail) as one closed path. `inset` contracts the
-// whole shape, which is how the LINE is drawn just inside the fill.
+// The rounded body's outline as 8 CLOCKWISE segments (the 4 straight edges and
+// the 4 corner arcs) addressed by ARC LENGTH. The tail's mouth is placed by arc
+// length from the point the tail points at, so it can straddle a CORNER - one
+// mouth point on each of two adjacent sides. Clamping both onto one straight run
+// squashed the mouth against the corner as the tail went round the box.
+function sbRoundOutline(x, y, w, h, r) {
+  var segs = [];
+  function addLine(x0, y0, x1, y1) {
+    var len = Math.hypot(x1 - x0, y1 - y0);
+    segs.push({
+      type: "line", len: len,
+      at: function (u) {
+        var k = len ? Math.min(Math.max(u / len, 0), 1) : 0;
+        return { x: x0 + (x1 - x0) * k, y: y0 + (y1 - y0) * k };
+      }
+    });
+  }
+  function addArc(cx, cy, a0, a1) {
+    var len = Math.abs(a1 - a0) * r;
+    segs.push({
+      type: "arc", len: len, r: r,
+      at: function (u) {
+        var k = len ? Math.min(Math.max(u / len, 0), 1) : 0;
+        var ang = a0 + (a1 - a0) * k;
+        return { x: cx + r * Math.cos(ang), y: cy + r * Math.sin(ang) };
+      }
+    });
+  }
+  var q = Math.PI / 2;
+  // top edge (left -> right), then clockwise: TR arc, right, BR arc, bottom,
+  // BL arc, left, TL arc.
+  addLine(x + r, y, x + w - r, y);
+  addArc(x + w - r, y + r, -q, 0);
+  addLine(x + w, y + r, x + w, y + h - r);
+  addArc(x + w - r, y + h - r, 0, q);
+  addLine(x + w - r, y + h, x + r, y + h);
+  addArc(x + r, y + h - r, q, Math.PI);
+  addLine(x, y + h - r, x, y + r);
+  addArc(x + r, y + r, Math.PI, Math.PI * 1.5);
+  var total = 0;
+  for (var i = 0; i < segs.length; i++) { segs[i].s0 = total; total += segs[i].len; }
+  return { segs: segs, total: Math.max(4, total) };
+}
+
+function sbOutlineSegmentAt(outline, s) {
+  var segs = outline.segs;
+  var t = ((s % outline.total) + outline.total) % outline.total;
+  for (var i = 0; i < segs.length; i++) {
+    if (t < segs[i].s0 + segs[i].len - 1e-9) return { seg: segs[i], u: Math.max(0, t - segs[i].s0) };
+  }
+  return { seg: segs[segs.length - 1], u: segs[segs.length - 1].len };
+}
+
+function sbOutlinePointAt(outline, s) {
+  var hit = sbOutlineSegmentAt(outline, s);
+  return hit.seg.at(hit.u);
+}
+
+// Walk CLOCKWISE from arc length `from` to `to` (to > from), emitting path pieces.
+function sbOutlineWalk(outline, from, to) {
+  var out = "";
+  var s = from;
+  var guard = 0;
+  while (to - s > 0.001 && guard++ < 64) {
+    var hit = sbOutlineSegmentAt(outline, s);
+    var seg = hit.seg;
+    var take = Math.min(seg.len - hit.u, to - s);
+    if (!(take > 0)) break;
+    s += take;
+    var pt = seg.at(hit.u + take);
+    out += seg.type === "arc"
+      ? " A " + seg.r + " " + seg.r + " 0 0 1 " + pt.x + " " + pt.y
+      : " L " + pt.x + " " + pt.y;
+  }
+  return out;
+}
+
+// The bubble outline (body + tail) as one closed path. `inset` contracts the whole
+// shape - a NEGATIVE inset grows it, which is the selection ring.
 function sbBubblePathD(m, inset) {
-  // A NEGATIVE inset grows the shape: that is the selection ring around a bubble
-  // (the object's own dashed outline hides under the generated fill).
   var g = Number(inset) || 0;
   var b = m.body;
   var x = b.x + g, y = b.y + g;
   var w = Math.max(2, b.w - g * 2), h = Math.max(2, b.h - g * 2);
   var tip = sbBubbleTipPoint(m, g);
-  if (m.shape === "oval") return sbOvalBubbleD(x, y, w, h, tip, m);
-  return sbRoundBubbleD(x, y, w, h, Math.max(0.5, Math.min(b.r - g, Math.min(w, h) / 2)), tip, m);
+  if (m.shape === "oval") return sbOvalBubbleD(x, y, w, h, tip, m, g);
+  return sbRoundBubbleD(x, y, w, h, Math.max(0.5, Math.min(b.r - g, Math.min(w, h) / 2)), tip, m, g);
 }
 
-// Rounded rect + tail. The walk starts mid-way along the edge nearest the tip and
-// goes CLOCKWISE (screen coords) around the body, so the stroke never crosses the
-// tail opening.
-function sbRoundBubbleD(x, y, w, h, r, tip, m) {
-  var innerW = Math.max(0.5, w - r * 2);
-  var innerH = Math.max(0.5, h - r * 2);
-  var edges = [
-    { len: innerW, at: function (t) { return { x: x + r + t, y: y }; } },                 // top
-    { len: innerH, at: function (t) { return { x: x + w, y: y + r + t }; } },             // right
-    { len: innerW, at: function (t) { return { x: x + w - r - t, y: y + h }; } },         // bottom
-    { len: innerH, at: function (t) { return { x: x, y: y + h - r - t }; } }              // left
-  ];
-  function edgeStart(k) { return edges[k].at(0); }
-  function edgeEnd(k) { return edges[k].at(edges[k].len); }
-  function corner(k) {
-    // End of edge k -> start of edge k+1 (clockwise, so sweep=1).
-    return " A " + r + " " + r + " 0 0 1 " + sbPt(edgeStart((k + 1) % 4));
-  }
-
-  // Which edge does the tip point at? Use the RAY from the body centre, not the
-  // perpendicular distance: for a tip diagonally past a corner the latter picks a
-  // sideways edge and the tail then folds over that corner.
+// Rounded rect + tail. The body is walked CLOCKWISE from one mouth point round to
+// the other, so the outline never crosses the tail's opening.
+function sbRoundBubbleD(x, y, w, h, r, tip, m, shrink) {
+  var outline = sbRoundOutline(x, y, w, h, r);
+  var total = outline.total;
   var cx = x + w / 2, cy = y + h / 2;
   var dxr = tip.x - cx, dyr = tip.y - cy;
-  var pick = { e: 2, t: 0 };
+  var e, t;
+  // Which edge does the tip point at? The RAY from the body centre (a tip past a
+  // corner must leave through the edge it points at).
   if (Math.abs(dyr) * (w / 2 || 1) >= Math.abs(dxr) * (h / 2 || 1)) {
-    // Exits through the top/bottom edge.
     var yEdge = dyr >= 0 ? y + h : y;
     var crossX = cy === yEdge ? cx : cx + dxr * ((yEdge - cy) / (dyr || 1));
-    pick.e = dyr >= 0 ? 2 : 0;
-    pick.t = pick.e === 2 ? (x + w - r) - crossX : crossX - (x + r);
+    e = dyr >= 0 ? 2 : 0;
+    t = e === 2 ? (x + w - r) - crossX : crossX - (x + r);
   } else {
     var xEdge = dxr >= 0 ? x + w : x;
     var crossY = cx === xEdge ? cy : cy + dyr * ((xEdge - cx) / (dxr || 1));
-    pick.e = dxr >= 0 ? 1 : 3;
-    pick.t = pick.e === 1 ? crossY - (y + r) : (y + h - r) - crossY;
+    e = dxr >= 0 ? 1 : 3;
+    t = e === 1 ? crossY - (y + r) : (y + h - r) - crossY;
   }
-
-  var e = pick.e;
-  var len = edges[e].len;
-  var tRaw = Math.min(Math.max(pick.t, 0), len);
-  var baseW = sbTailBaseWidth(m, tip, edges[e].at(tRaw));
-  var half = Math.min(baseW / 2, len / 2);
-  var t = Math.min(Math.max(tRaw, half), Math.max(len - half, half));
-  var baseStart = edges[e].at(t - half);
-  var baseEnd = edges[e].at(t + half);
-
+  // The straight edges are segments 0/2/4/6; an out-of-range t simply continues
+  // into the neighbouring corner ARC - that is what lets the mouth wrap a corner.
+  var s0 = outline.segs[e * 2].s0 + t;
+  var mouth = sbOutlinePointAt(outline, s0);
+  tip = sbTailShrinkTip(mouth, tip, shrink);
+  var baseW = sbTailBaseWidth(m, tip, mouth);
+  var half = Math.min(baseW / 2, total * 0.45);
+  var baseStart = sbOutlinePointAt(outline, s0 - half);
+  var baseEnd = sbOutlinePointAt(outline, s0 + half);
   var d = "M " + sbPt(baseEnd);
-  d += " L " + sbPt(edgeEnd(e));
-  for (var k = 1; k <= 3; k++) {
-    d += corner((e + k - 1) % 4);
-    d += " L " + sbPt(edgeEnd((e + k) % 4));
-  }
-  d += corner((e + 3) % 4);
-  d += " L " + sbPt(baseStart);
-  var tailBow = baseW * 0.22;
-  d += sbTailCurve(baseStart, tip, tailBow);
-  d += sbTailCurve(tip, baseEnd, tailBow);
+  d += sbOutlineWalk(outline, s0 + half, s0 - half + total);
+  var sides = sbTailSides(mouth, tip, baseStart, baseEnd, baseW * 0.22);
+  d += sides.fromStart;
+  d += sides.toEnd;
   d += " Z";
   return d;
 }
 
-// Ellipse body + tail: the arc goes the LONG way round (large-arc) from one tail
-// base point to the other.
-function sbOvalBubbleD(x, y, w, h, tip, m) {
+// Ellipse body + tail: the arc goes the LONG way round from one base point to the
+// other.
+function sbOvalBubbleD(x, y, w, h, tip, m, shrink) {
   var cx = x + w / 2, cy = y + h / 2;
   var rx = Math.max(1, w / 2), ry = Math.max(1, h / 2);
   var ang = Math.atan2((tip.y - cy) / ry, (tip.x - cx) / rx);
   var base = { x: cx + rx * Math.cos(ang), y: cy + ry * Math.sin(ang) };
+  tip = sbTailShrinkTip(base, tip, shrink);
   var baseW = sbTailBaseWidth(m, tip, base);
-  var dAng = Math.min(0.6, Math.max(0.12, (baseW / 2) / Math.max(rx, ry, 1)));
+  var dAng = Math.min(0.6, Math.max(0.06, (baseW / 2) / Math.max(rx, ry, 1)));
   function at(a) { return { x: cx + rx * Math.cos(a), y: cy + ry * Math.sin(a) }; }
   var baseStart = at(ang - dAng);
   var baseEnd = at(ang + dAng);
   var d = "M " + sbPt(baseEnd);
   d += " A " + rx + " " + ry + " 0 1 1 " + sbPt(baseStart);
-  var tailBow = baseW * 0.22;
-  d += sbTailCurve(baseStart, tip, tailBow);
-  d += sbTailCurve(tip, baseEnd, tailBow);
+  var sides = sbTailSides(base, tip, baseStart, baseEnd, baseW * 0.22);
+  d += sides.fromStart;
+  d += sides.toEnd;
   d += " Z";
   return d;
 }
@@ -869,6 +947,28 @@ function sbEnsureBubbleSvg(textEl) {
   svg = document.createElementNS(SB_SVG_NS, "svg");
   svg.setAttribute("class", "sb-bubble");
   svg.setAttribute("aria-hidden", "true");
+  // The LINE is the fill shape stroked WIDE, clipped to the shape and masked back
+  // by the space (see sbUpdateBubble). That is the only way to keep the margin
+  // uniform all the way round - a separately generated "inset path" drifts where
+  // the tail meets the body and pinches on one side.
+  var defs = document.createElementNS(SB_SVG_NS, "defs");
+  var clip = document.createElementNS(SB_SVG_NS, "clipPath");
+  clip.setAttribute("class", "sb-bubble-clip");
+  clip.setAttribute("clipPathUnits", "userSpaceOnUse");
+  clip.appendChild(document.createElementNS(SB_SVG_NS, "path"));
+  var mask = document.createElementNS(SB_SVG_NS, "mask");
+  mask.setAttribute("class", "sb-bubble-mask");
+  mask.setAttribute("maskUnits", "userSpaceOnUse");
+  var maskRect = document.createElementNS(SB_SVG_NS, "rect");
+  maskRect.setAttribute("fill", "#ffffff");
+  var maskPath = document.createElementNS(SB_SVG_NS, "path");
+  maskPath.setAttribute("fill", "none");
+  maskPath.setAttribute("stroke", "#000000");
+  mask.appendChild(maskRect);
+  mask.appendChild(maskPath);
+  defs.appendChild(clip);
+  defs.appendChild(mask);
+  svg.appendChild(defs);
   // fill -> line -> selection ring (the ring is CSS-hidden unless selected).
   ["sb-bubble-fill", "sb-bubble-line", "sb-bubble-outline"].forEach(function (cls) {
     var path = document.createElementNS(SB_SVG_NS, "path");
@@ -896,20 +996,44 @@ function sbUpdateBubble(item) {
   var cw = sbEls.canvas ? sbEls.canvas.clientWidth : textEl.offsetWidth;
   var ch = sbEls.canvas ? sbEls.canvas.clientHeight : textEl.offsetHeight;
   var m = sbBubbleMetrics(item, textEl.offsetWidth, textEl.offsetHeight, cw, ch);
-  var tip = sbBubbleTipPoint(m, m.gap + m.stroke / 2);
+  // The FILL tip is the extreme point (the line stops lineGap short of it).
+  var tip = sbBubbleTipPoint(m, 0);
   var svg = sbEnsureBubbleSvg(textEl);
   var fill = svg.querySelector(".sb-bubble-fill");
   var line = svg.querySelector(".sb-bubble-line");
 
-  fill.setAttribute("d", sbBubblePathD(m, 0));
+  var shapeD = sbBubblePathD(m, 0);
+  var uid = "sbb-" + String(item.id).replace(/[^A-Za-z0-9_-]/g, "_");
+  fill.setAttribute("d", shapeD);
   fill.setAttribute("stroke", "none");
   fill.setAttribute("fill", item.bg === "transparent" ? "none" : sbResolveColor(item.bg));
-  line.setAttribute("d", sbBubblePathD(m, m.gap + m.stroke / 2));
+
+  // The ring: stroke the SAME path wide enough to reach lineGap + lineWidth in
+  // from the edge, clip it to the shape (nothing outside) and mask the inner
+  // lineGap away. The visible band is therefore [lineGap, lineGap + lineWidth]
+  // from the edge EVERYWHERE - body, corners and both sides of the tail.
+  var clipEl = svg.querySelector(".sb-bubble-clip");
+  var maskEl = svg.querySelector(".sb-bubble-mask");
+  if (clipEl) {
+    clipEl.setAttribute("id", uid + "-clip");
+    clipEl.firstChild.setAttribute("d", shapeD);
+  }
+  if (maskEl) {
+    maskEl.setAttribute("id", uid + "-mask");
+    var maskStroke = maskEl.querySelector("path");
+    if (maskStroke) {
+      maskStroke.setAttribute("d", shapeD);
+      maskStroke.setAttribute("stroke-width", String(m.gap * 2));
+    }
+  }
+  line.setAttribute("d", shapeD);
   line.setAttribute("fill", "none");
   line.setAttribute("stroke", sbResolveColor(item.stroke) || SB_BUBBLE_DEFAULT_STROKE);
-  line.setAttribute("stroke-width", String(m.stroke));
+  line.setAttribute("stroke-width", String((m.gap + m.stroke) * 2));
   line.setAttribute("stroke-linejoin", "round");
   line.setAttribute("stroke-linecap", "round");
+  line.setAttribute("clip-path", "url(#" + uid + "-clip)");
+  line.setAttribute("mask", "url(#" + uid + "-mask)");
   var ring = svg.querySelector(".sb-bubble-outline");
   if (ring) ring.setAttribute("d", sbBubblePathD(m, -(2 + 4 * m.scale)));
 
@@ -923,6 +1047,23 @@ function sbUpdateBubble(item) {
   var vw = Math.max(1, maxX - minX);
   var vh = Math.max(1, maxY - minY);
   svg.setAttribute("viewBox", minX + " " + minY + " " + vw + " " + vh);
+  if (maskEl) {
+    // The mask's REGION must be set explicitly: with maskUnits="userSpaceOnUse"
+    // its -10%..120% default resolves against the viewport ORIGIN, so anything
+    // left of/above that is clipped away (that hid the whole left side of the
+    // line and made the ring look asymmetric).
+    maskEl.setAttribute("x", String(minX));
+    maskEl.setAttribute("y", String(minY));
+    maskEl.setAttribute("width", String(vw));
+    maskEl.setAttribute("height", String(vh));
+    var mrect = maskEl.querySelector("rect");
+    if (mrect) {
+      mrect.setAttribute("x", String(minX));
+      mrect.setAttribute("y", String(minY));
+      mrect.setAttribute("width", String(vw));
+      mrect.setAttribute("height", String(vh));
+    }
+  }
   svg.style.width = vw + "px";
   svg.style.height = vh + "px";
   svg.style.left = "50%";
@@ -963,7 +1104,7 @@ function sbTailClientPoint(item) {
   var cw = sbEls.canvas ? sbEls.canvas.clientWidth : 0;
   var ch = sbEls.canvas ? sbEls.canvas.clientHeight : 0;
   var m = sbBubbleMetrics(item, textEl.offsetWidth, textEl.offsetHeight, cw, ch);
-  var tip = sbBubbleTipPoint(m, m.gap + m.stroke / 2);
+  var tip = sbBubbleTipPoint(m, 0);
   var rad = (Number(item.rotation) || 0) * Math.PI / 180;
   return {
     x: rect.left + rect.width / 2 + tip.x * Math.cos(rad) - tip.y * Math.sin(rad),
@@ -980,7 +1121,7 @@ function sbBubbleTipPct(item) {
   var ch = sbEls.canvas ? sbEls.canvas.clientHeight : 0;
   if (!textEl || !cw || !ch) return item.tail || { dx: 0, dy: 14 };
   var m = sbBubbleMetrics(item, textEl.offsetWidth, textEl.offsetHeight, cw, ch);
-  var tip = sbBubbleTipPoint(m, m.gap + m.stroke / 2);
+  var tip = sbBubbleTipPoint(m, 0);
   return { dx: tip.x / cw * 100, dy: tip.y / ch * 100 };
 }
 
@@ -2551,6 +2692,41 @@ function sbDrawCanvasFrameEdge(ctx, img, sx, sy, sw, sh, dx, dy, dw, dh, vertica
   }
 }
 
+// The bubble's line as an INNER RING, drawn on a transparent tile so it also
+// works over a transparent fill: stroke the shape wide and clipped, then erase
+// the inner band with destination-out. `box` is the shape's local bbox.
+function sbCanvasBubbleRing(ctx, d, box, gap, lineWidth, colour) {
+  if (!(lineWidth > 0) || !(box.w > 0) || !(box.h > 0)) return;
+  var pad = Math.ceil(lineWidth + gap + 2);
+  var w = Math.ceil(box.w) + pad * 2;
+  var h = Math.ceil(box.h) + pad * 2;
+  var tf = ctx.getTransform ? ctx.getTransform() : null;
+  var scale = tf ? Math.hypot(tf.a, tf.b) || 1 : 1;
+  scale = Math.max(0.5, Math.min(4, scale));
+  var tile = document.createElement("canvas");
+  tile.width = Math.max(1, Math.round(w * scale));
+  tile.height = Math.max(1, Math.round(h * scale));
+  var tctx = tile.getContext("2d");
+  if (!tctx) return;
+  tctx.scale(scale, scale);
+  tctx.translate(-(box.x - pad), -(box.y - pad));
+  var path = new Path2D(d);
+  tctx.save();
+  tctx.clip(path);
+  tctx.strokeStyle = colour;
+  tctx.lineJoin = "round";
+  tctx.lineCap = "round";
+  tctx.lineWidth = (gap + lineWidth) * 2;
+  tctx.stroke(path);
+  if (gap > 0) {
+    tctx.globalCompositeOperation = "destination-out";
+    tctx.lineWidth = gap * 2;
+    tctx.stroke(path);
+  }
+  tctx.restore();
+  ctx.drawImage(tile, box.x - pad, box.y - pad, w, h);
+}
+
 function sbDrawCanvasText(ctx, item, el, frame, frameImg, geom) {
   var cs = getComputedStyle(el);
   var w = el.offsetWidth;
@@ -2570,12 +2746,16 @@ function sbDrawCanvasText(ctx, item, el, frame, frameImg, geom) {
       ctx.restore();
     }
     if (geom.stroke > 0) {
+      var shapeD = sbBubblePathD(geom, 0);
+      var tipPt = sbBubbleTipPoint(geom, 0);
+      var bx0 = Math.min(geom.body.x, tipPt.x), by0 = Math.min(geom.body.y, tipPt.y);
+      var bx1 = Math.max(geom.body.x + geom.body.w, tipPt.x);
+      var by1 = Math.max(geom.body.y + geom.body.h, tipPt.y);
       ctx.save();
-      ctx.strokeStyle = sbResolveColor(item.stroke) || SB_BUBBLE_DEFAULT_STROKE;
-      ctx.lineWidth = geom.stroke;
-      ctx.lineJoin = "round";
-      ctx.lineCap = "round";
-      ctx.stroke(new Path2D(sbBubblePathD(geom, geom.gap + geom.stroke / 2)));
+      sbCanvasBubbleRing(ctx, shapeD,
+        { x: bx0, y: by0, w: bx1 - bx0, h: by1 - by0 },
+        geom.gap, geom.stroke,
+        sbResolveColor(item.stroke) || SB_BUBBLE_DEFAULT_STROKE);
       ctx.restore();
     }
   } else {
