@@ -59,8 +59,8 @@ function setManageAppHint(msg) {
 function openManageApp() {
   var page = document.getElementById("manageAppPage");
   if (!page) return;
-  if (!page.__pbBound) {
-    page.__pbBound = true;
+  if (!page.__myhidBound) {
+    page.__myhidBound = true;
     page.addEventListener("myhid-image-dropdown-change", function (e) {
       var id = e.target && e.target.id;
       var value = (e.detail && e.detail.value) || "";
@@ -120,7 +120,7 @@ function renderManageAppOptions() {
   });
   var pick = apps.filter(function (a) { return a.name === _manageAppName; })[0];
   if (!pick) {
-    var current = _pbCurrentApp && _pbCurrentApp.name;
+    var current = _myhidCurrentApp && _myhidCurrentApp.name;
     pick = apps.filter(function (a) { return a.name === current; })[0] || apps[0];
   }
   if (pick) {

@@ -83,6 +83,17 @@ smd-tabs .smd-tab-btn.text-bg-secondary:hover,
 smd-tabs .smd-tab-btn.text-bg-secondary:focus-visible {
   color: #212529 !important;
 }
+.alert-secondary,
+.alert-warning,
+.alert-success,
+.alert-info {
+  --bs-alert-color: #212529;
+  color: #212529 !important;
+}
+.alert-danger {
+  --bs-alert-color: #000;
+  color: #000 !important;
+}
 smd-checkbox input[type="checkbox"] {
   border-color: #fff;
 }

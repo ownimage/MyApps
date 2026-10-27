@@ -70,6 +70,17 @@ smd-tabs .smd-tab-btn.text-bg-secondary:focus-visible {
 cmd-countdown-card .text-secondary {
   color: #343a40 !important;
 }
+.alert-secondary,
+.alert-warning {
+  --bs-alert-color: #343a40;
+  color: #343a40 !important;
+}
+.alert-danger,
+.alert-success,
+.alert-info {
+  --bs-alert-color: #000;
+  color: #000 !important;
+}
 .form-control,
 .form-select,
 .form-check-input {

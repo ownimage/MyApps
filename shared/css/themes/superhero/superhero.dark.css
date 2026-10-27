@@ -130,6 +130,16 @@ smd-tabs .smd-tab-btn.text-bg-primary:focus-visible {
 #mainNav .dropdown-menu {
   border-color: #fff;
 }
+.alert-warning,
+.alert-success,
+.alert-info {
+  --bs-alert-color: #212529;
+  color: #212529 !important;
+}
+.alert-danger {
+  --bs-alert-color: #000;
+  color: #000 !important;
+}
 .form-control,
 .form-select,
 .form-check-input {

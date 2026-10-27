@@ -120,7 +120,7 @@ function manageButtonsTabHTML() {
         '<input type="number" id="manageLayoutRows" class="form-control" min="1" max="12" value="2" oninput="onManageGridInput()">' +
       '</div>' +
     '</div>' +
-    '<div id="manageLayoutGrid" class="pb-layout-grid mb-3"></div>';
+    '<div id="manageLayoutGrid" class="myhid-layout-grid mb-3"></div>';
 }
 
 function setManageHint(msg) {
@@ -131,8 +131,8 @@ function setManageHint(msg) {
 function openManageLayout(preselect) {
   var page = document.getElementById("manageLayoutPage");
   if (!page) return;
-  if (!page.__pbWizardBound) {
-    page.__pbWizardBound = true;
+  if (!page.__myhidWizardBound) {
+    page.__myhidWizardBound = true;
     page.addEventListener("myhid-image-dropdown-change", function (e) {
       var id = e.target && e.target.id;
       var value = (e.detail && e.detail.value) || "";
@@ -293,15 +293,23 @@ function onManageGridInput() {
   renderManageGrid();
 }
 
-// Render the layout's rows x cols grid of equal cells (sized from the Image-size
-// display setting). Clicking a cell edits that button.
+// Render the layout's rows x cols grid of equal cells, filling the page the same
+// way the main page does (equal cells, stretched to the space). Clicking a cell
+// edits that button.
 function renderManageGrid() {
   var grid = document.getElementById("manageLayoutGrid");
   if (!grid) return;
   var cols = clampInt((document.getElementById("manageLayoutCols") || {}).value, 1, 12, 3);
   var rows = clampInt((document.getElementById("manageLayoutRows") || {}).value, 1, 12, 2);
-  var px = getIconSizePx();
-  grid.style.gridTemplateColumns = "repeat(" + cols + ", " + px + "px)";
+  var rect = grid.getBoundingClientRect ? grid.getBoundingClientRect() : { top: 0 };
+  // Leave room for the page FOOTER: it sits on top of the body, so a grid sized to
+  // the window bottom would have its last row hidden behind it.
+  var page = grid.closest ? grid.closest("smd-page") : null;
+  var footer = page && page.querySelector ? page.querySelector(".smd-page-footer") : null;
+  var footerH = footer ? footer.offsetHeight : 0;
+  var budget = Math.max(160, window.innerHeight - Math.max(0, rect.top) - footerH - 24);
+  var fitted = myhidFitGrid(grid, rows, cols, 6, budget);
+  var px = fitted.fit;
   var layout = _layoutsByKey[_selectedLayoutKey] || {};
   var buttons = layout.buttons || [];
   var html = "";
@@ -309,13 +317,13 @@ function renderManageGrid() {
     var b = buttons[i];
     var real = myhidButtonHasContent(b);
     html += '<button type="button" id="layoutButton' + (i + 1) + '" data-index="' + i +
-      '" class="pb-grid-cell' + (real ? "" : " empty") + '" ' +
-      'style="width:' + px + "px;height:" + px + "px;font-size:" + myhidCellFontPx(px) + 'px">' +
-      (real ? myhidButtonThumbsHtml(b, px) + (b.name ? '<span class="pb-cell-name">' + escapeHtml(b.name) + '</span>' : "") : "") +
+      '" class="myhid-grid-cell' + (real ? "" : " empty") + '" ' +
+      'style="font-size:' + fitted.fontPx + 'px">' +
+      (real ? myhidButtonThumbsHtml(b, px) + (b.name ? '<span class="myhid-cell-name">' + escapeHtml(b.name) + '</span>' : "") : "") +
       '</button>';
   }
   grid.innerHTML = html;
-  grid.querySelectorAll(".pb-grid-cell").forEach(function (el) {
+  grid.querySelectorAll(".myhid-grid-cell").forEach(function (el) {
     el.addEventListener("pointerdown", function (e) {
       startGridDrag(e, parseInt(el.getAttribute("data-index"), 10));
     });
@@ -341,7 +349,7 @@ function moveGridDrag(e) {
     if (startEl) startEl.classList.add("dragging");
   }
   var el = document.elementFromPoint(e.clientX, e.clientY);
-  var cell = el && el.closest ? el.closest(".pb-grid-cell") : null;
+  var cell = el && el.closest ? el.closest(".myhid-grid-cell") : null;
   var over = cell ? parseInt(cell.getAttribute("data-index"), 10) : -1;
   if (over !== _gridDrag.overIndex) {
     document.querySelectorAll("#manageLayoutGrid .drag-over").forEach(function (c) { c.classList.remove("drag-over"); });
@@ -636,8 +644,8 @@ function openButtonEditor(index) {
   _editingButtonIndex = index;
   var page = buildButtonEditPage();
   if (!page) return;
-  if (!page.__pbBound) {
-    page.__pbBound = true;
+  if (!page.__myhidBound) {
+    page.__myhidBound = true;
     page.addEventListener("smd-page-action", function (e) {
       var action = e.detail && e.detail.action;
       if (action === "ok") saveButtonEditor();

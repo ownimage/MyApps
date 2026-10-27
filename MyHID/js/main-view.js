@@ -13,7 +13,7 @@ var _pbCommLogMax = 200;
 
 // Last foreground app pushed by the server (`{ name, icon, layout }`); the Edit
 // App wizard shows it and the main view renders its layout buttons.
-var _pbCurrentApp = null;
+var _myhidCurrentApp = null;
 
 function _commLine(text, kind) {
   var ts = new Date().toTimeString().slice(0, 8);
@@ -80,7 +80,7 @@ function _renderConnStatus(status, detail) {
 function renderMain() {
   var state = myhidSocket.getStatus();
   _renderConnStatus(state.status, state.detail);
-  renderLayoutButtons(_pbCurrentApp && _pbCurrentApp.layout);
+  renderLayoutButtons(_myhidCurrentApp && _myhidCurrentApp.layout);
 }
 
 // ---- Shared grid helpers (also used by the Manage Layout grid) ----
@@ -101,14 +101,52 @@ function clampInt(value, min, max, fallback) {
 function myhidButtonThumbsHtml(btn, cellPx) {
   var imgs = [btn.image1 || btn.image || "", btn.image2 || ""].filter(Boolean);
   if (!imgs.length) return "";
-  var imgPx = Math.max(12, Math.round(cellPx * (imgs.length > 1 ? 0.42 : 0.6)));
-  return '<span class="pb-cell-thumbs">' + imgs.map(function (img) {
+  // Follows the Image-size display setting, but never overflows the cell (two
+  // images side by side have to share it).
+  var ratio = imgs.length > 1 ? 0.42 : 0.6;
+  var imgPx = Math.max(12, Math.min(Math.round(cellPx * ratio), getIconSizePx()));
+  return '<span class="myhid-cell-thumbs">' + imgs.map(function (img) {
     return '<smd-image size="' + imgPx + '" key-prefix="shared-" image="' + escAttr(img) + '"></smd-image>';
   }).join("") + '</span>';
 }
 
 function myhidCellFontPx(cellPx) {
   return Math.max(9, Math.round(cellPx * 0.16));
+}
+
+// Fit a rows x cols grid of EQUAL cells into `host`'s box, filling it in BOTH
+// directions. A square cell sized from min(width, height) never fills a phone
+// screen: a 4x2 layout on a tall screen left half the height empty and a 2x6 one
+// left the width short. The grid itself is given the whole box and its tracks are
+// 1fr, so the cells are exactly equal and stretch to the edges; only the CONTENT
+// (image + font size) is scaled from the smaller cell side so it always fits.
+//
+// The width comes from the PARENT's content box, not host.clientWidth: the host
+// carries the width this function sets, so measuring it would freeze the grid at
+// its first size and it could never shrink again on a resize.
+function myhidFitGrid(host, rows, cols, gap, heightBudget) {
+  var parent = host && host.parentElement;
+  var availW = window.innerWidth - 16;
+  if (parent) {
+    var pcs = getComputedStyle(parent);
+    availW = parent.clientWidth - (parseFloat(pcs.paddingLeft) || 0) - (parseFloat(pcs.paddingRight) || 0);
+  }
+  var rect = host && host.getBoundingClientRect ? host.getBoundingClientRect() : { top: 0 };
+  var availH = heightBudget || (window.innerHeight - Math.max(0, rect.top) - 16);
+  // A hidden tab measures 0; fall back to something sane and let the tab-change
+  // handler re-render when it becomes visible.
+  if (!(availW > 40)) availW = Math.max(320, window.innerWidth - 16);
+  if (!(availH > 40)) availH = Math.max(320, window.innerHeight - 16);
+
+  host.style.width = availW + "px";
+  host.style.height = availH + "px";
+  host.style.gridTemplateColumns = "repeat(" + cols + ", minmax(0, 1fr))";
+  host.style.gridTemplateRows = "repeat(" + rows + ", minmax(0, 1fr))";
+
+  var cellW = (availW - (cols - 1) * gap) / cols;
+  var cellH = (availH - (rows - 1) * gap) / rows;
+  var fit = Math.max(24, Math.min(cellW, cellH));
+  return { cellW: cellW, cellH: cellH, fit: fit, fontPx: myhidCellFontPx(fit) };
 }
 
 function myhidButtonHasContent(b) {
@@ -134,26 +172,22 @@ function renderLayoutButtons(layout) {
   container.classList.remove("d-none");
 
   var gap = 8;
-  var nav = document.getElementById("mainNav");
-  var navH = nav ? nav.offsetHeight : 0;
-  var availW = container.clientWidth || window.innerWidth;
-  var availH = window.innerHeight - navH - 24;
-  var cellW = (availW - (cols - 1) * gap) / cols;
-  var cellH = (availH - (rows - 1) * gap) / rows;
-  var px = Math.max(40, Math.floor(Math.min(cellW, cellH)));
+  // The grid fills from its own top to the bottom of the viewport (rect.top already
+  // accounts for the nav, however it is positioned).
+  var fitted = myhidFitGrid(container, rows, cols, gap);
+  var px = fitted.fit;
 
-  container.style.gridTemplateColumns = "repeat(" + cols + ", " + px + "px)";
   var html = "";
   for (var i = 0; i < rows * cols; i++) {
     var b = buttons[i];
     var real = myhidButtonHasContent(b);
-    html += '<button type="button" data-index="' + i + '" data-key="' + escAttr((b && b.key) || "") + '" data-press="' + escAttr((b && b.press) || "regular") + '" class="pb-grid-cell' + (real ? "" : " pb-grid-spacer") + '" ' +
-      'style="width:' + px + "px;height:" + px + "px;font-size:" + myhidCellFontPx(px) + 'px">' +
-      (real ? myhidButtonThumbsHtml(b, px) + (b.name ? '<span class="pb-cell-name">' + escapeHtml(b.name) + '</span>' : "") : "") +
+    html += '<button type="button" data-index="' + i + '" data-key="' + escAttr((b && b.key) || "") + '" data-press="' + escAttr((b && b.press) || "regular") + '" class="myhid-grid-cell' + (real ? "" : " myhid-grid-spacer") + '" ' +
+      'style="font-size:' + fitted.fontPx + 'px">' +
+      (real ? myhidButtonThumbsHtml(b, px) + (b.name ? '<span class="myhid-cell-name">' + escapeHtml(b.name) + '</span>' : "") : "") +
       '</button>';
   }
   container.innerHTML = html;
-  container.querySelectorAll(".pb-grid-cell:not(.pb-grid-spacer)").forEach(function (el) {
+  container.querySelectorAll(".myhid-grid-cell:not(.myhid-grid-spacer)").forEach(function (el) {
     if (el.getAttribute("data-press") === "extended") {
       // Press-and-hold: key_down while held, key_up on release.
       el.addEventListener("pointerdown", function (e) {
@@ -198,8 +232,8 @@ function releaseMainCell(el) {
 
 // Wire the socket callbacks into the UI exactly once.
 function bindSocketUi() {
-  if (window.__pbSocketUiBound) return;
-  window.__pbSocketUiBound = true;
+  if (window.__myhidSocketUiBound) return;
+  window.__myhidSocketUiBound = true;
 
   myhidSocket.onStatus(function (status, detail) {
     _renderConnStatus(status, detail);
@@ -217,7 +251,7 @@ function bindSocketUi() {
 
   myhidSocket.on("app_change", function (data) {
     data = data || {};
-    _pbCurrentApp = data;
+    _myhidCurrentApp = data;
     var nameEl = document.getElementById("serverAppName");
     if (nameEl) nameEl.textContent = data.name || "Unknown";
     var iconEl = document.getElementById("serverAppIcon");
@@ -243,7 +277,7 @@ function bindSocketUi() {
 
   // Re-fit the main-page grid when the viewport changes.
   window.addEventListener("resize", function () {
-    renderLayoutButtons(_pbCurrentApp && _pbCurrentApp.layout);
+    renderLayoutButtons(_myhidCurrentApp && _myhidCurrentApp.layout);
   });
 }
 

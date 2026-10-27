@@ -48,6 +48,17 @@ smd-tabs .smd-tab-btn.text-bg-primary:hover,
 smd-tabs .smd-tab-btn.text-bg-primary:focus-visible {
   color: #212529 !important;
 }
+.alert-secondary,
+.alert-warning,
+.alert-success {
+  --bs-alert-color: #212529;
+  color: #212529 !important;
+}
+.alert-danger,
+.alert-info {
+  --bs-alert-color: #dee2e6;
+  color: #dee2e6 !important;
+}
 .form-control,
 .form-select,
 .form-check-input {

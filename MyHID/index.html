@@ -39,9 +39,9 @@
        content (one or two images + a name) is centred and clipped, so every cell
        is the same size. A custom class (not .btn) avoids a Bootstrap .btn's
        sticky :hover/:focus fill after a touch tap. */
-    .pb-layout-grid { display: grid; gap: 6px; justify-content: center; }
+    .myhid-layout-grid { display: grid; gap: 6px; justify-content: center; }
     #layoutButtons { justify-content: center; }
-    .pb-grid-cell {
+    .myhid-grid-cell {
       display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
       gap: 2px; overflow: hidden; padding: 2px; box-sizing: border-box;
       /* Page surface, NOT --bs-tertiary-bg (which is light in superhero in BOTH
@@ -54,22 +54,22 @@
       -webkit-tap-highlight-color: transparent;
       transition: transform 0.05s ease, opacity 0.05s ease;
     }
-    .pb-grid-cell:active, .pb-grid-cell.pressed { transform: scale(0.96); opacity: 0.85; }
-    .pb-grid-cell:focus, .pb-grid-cell:focus-visible { outline: none; box-shadow: none; }
+    .myhid-grid-cell:active, .myhid-grid-cell.pressed { transform: scale(0.96); opacity: 0.85; }
+    .myhid-grid-cell:focus, .myhid-grid-cell:focus-visible { outline: none; box-shadow: none; }
     /* Thumbs fill the space ABOVE the name, so the name sits at a fixed distance
        from the bottom whether the button shows one image or two. */
-    .pb-grid-cell .pb-cell-thumbs { flex: 1 1 auto; min-height: 0; display: flex; gap: 2px; align-items: center; justify-content: center; overflow: hidden; }
-    .pb-grid-cell .pb-cell-name { flex: 0 0 auto; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 1.1; }
-    .pb-grid-cell.empty { border-style: dashed; opacity: 0.55; }
-    .pb-grid-cell.pb-grid-spacer { visibility: hidden; }
-    .pb-grid-cell smd-image { pointer-events: none; }
+    .myhid-grid-cell .myhid-cell-thumbs { flex: 1 1 auto; min-height: 0; display: flex; gap: 2px; align-items: center; justify-content: center; overflow: hidden; }
+    .myhid-grid-cell .myhid-cell-name { flex: 0 0 auto; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 1.1; }
+    .myhid-grid-cell.empty { border-style: dashed; opacity: 0.55; }
+    .myhid-grid-cell.myhid-grid-spacer { visibility: hidden; }
+    .myhid-grid-cell smd-image { pointer-events: none; }
 
     /* Manage Layout grid: drag one cell onto another to swap them. The dragged
        cell dims and gets a DANGER border (it is leaving its slot); the drop
        target gets a SUCCESS border. Both use the same ring thickness. */
-    .pb-layout-grid .pb-grid-cell { cursor: grab; touch-action: none; }
-    .pb-layout-grid .pb-grid-cell.dragging { cursor: grabbing; opacity: 0.6; border-color: var(--bs-danger); box-shadow: 0 0 0 2px var(--bs-danger); }
-    .pb-layout-grid .pb-grid-cell.drag-over { border-color: var(--bs-success); box-shadow: 0 0 0 2px var(--bs-success); }
+    .myhid-layout-grid .myhid-grid-cell { cursor: grab; touch-action: none; }
+    .myhid-layout-grid .myhid-grid-cell.dragging { cursor: grabbing; opacity: 0.6; border-color: var(--bs-danger); box-shadow: 0 0 0 2px var(--bs-danger); }
+    .myhid-layout-grid .myhid-grid-cell.drag-over { border-color: var(--bs-success); box-shadow: 0 0 0 2px var(--bs-success); }
   </style>
 </head>
 

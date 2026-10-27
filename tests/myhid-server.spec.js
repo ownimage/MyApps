@@ -61,7 +61,7 @@ test.describe("MyHID server (Python)", () => {
     //   htmlcov/        the browsable HTML report (open htmlcov/index.html)
     const textReport = path.join(REPO_ROOT, "MyHID", "server", "coverage.txt");
     const htmlReport = path.join(REPO_ROOT, "MyHID", "server", "htmlcov");
-    const coverageFile = path.join(os.tmpdir(), "myapps-pb-app.coverage");
+    const coverageFile = path.join(os.tmpdir(), "myapps-myhid-app.coverage");
     let output;
     try {
       output = plain(run([
