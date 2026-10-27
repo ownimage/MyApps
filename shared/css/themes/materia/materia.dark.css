@@ -58,6 +58,11 @@ smd-tabs .smd-tab-btn.text-bg-primary:focus-visible {
 #mainNav .dropdown-menu {
   border-color: #fff;
 }
+.alert-warning,
+.alert-success {
+  --bs-alert-color: #212121;
+  color: #212121 !important;
+}
 .form-control,
 .form-select {
   border-color: #fff;

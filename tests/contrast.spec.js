@@ -107,6 +107,19 @@ const RENDER_CMD = () => {
   const nativeCb = document.createElement("smd-checkbox");
   nativeCb.id = "nativeCheckboxProbe";
   host.appendChild(nativeCb);
+
+  // Alert bars (MyHID's capture status, hid-tab, the main view, SolarControlar).
+  // Rendered exactly like the app does, so the measured pair is the real one.
+  const alerts = document.createElement("div");
+  alerts.id = "alertContrastProbe";
+  alerts.style.cssText = "position:absolute;left:-9999px;top:0";
+  ["secondary", "warning", "danger", "success", "info"].forEach((variant) => {
+    const el = document.createElement("div");
+    el.className = "alert alert-" + variant + " py-2 px-3 mb-3";
+    el.textContent = "Contrast Probe";
+    alerts.appendChild(el);
+  });
+  document.body.appendChild(alerts);
   document.body.appendChild(host);
 };
 
@@ -298,7 +311,27 @@ const MEASURE_CMD = () => {
     const pseudo = border("smd-checkbox input", "::before");
     if (pseudo && pseudo.style !== "none" && pseudo.width >= 1) borders.nativeCheckbox = pseudo;
   }
-  return { text, borders };
+
+  // Alert bars: the text against the bar's OWN surface (the theme's alert tint,
+  // which can carry a gradient - judged on its darkest extent like a button).
+  const alertHost = document.getElementById("alertContrastProbe");
+  const alerts = {};
+  if (alertHost) {
+    alertHost.querySelectorAll(".alert").forEach((el) => {
+      const variant = Array.from(el.classList)
+        .filter((c) => c.indexOf("alert-") === 0)[0];
+      if (!variant) return;
+      const cs = getComputedStyle(el);
+      const surface = darkestSurface(cs, over(parse(cs.backgroundColor), pageBg));
+      const col = parse(cs.color);
+      alerts[variant] = {
+        color: rgb(col),
+        bg: rgb(surface),
+        ratio: ratio(col, surface)
+      };
+    });
+  }
+  return { text, borders, alerts };
 };
 
 function buttonFailures(m, label) {
@@ -441,6 +474,27 @@ test.describe("Contrast (WCAG AA)", { tag: "@contrast" }, () => {
         for (const [cls, found] of Object.entries(measured.text)) {
           if (found.ratio < AA) {
             failures.push(`${label}  .${cls}: ${found.ratio.toFixed(2)}:1 (${found.color} on ${found.bg})`);
+          }
+        }
+      }
+    }
+    expect(failures.join("\n")).toBe("");
+  });
+
+  test("alert bars meet AA on every theme and mode", async ({ page }) => {
+    test.setTimeout(5 * 60 * 1000);
+    await page.goto("/CountMyDays/");
+    await page.evaluate(RENDER_CMD);
+    await page.evaluate(RENDER, VARIANTS);
+    const failures = [];
+    for (const theme of THEMES) {
+      for (const mode of MODES) {
+        const label = theme + "/" + mode;
+        await setTheme(page, theme, mode);
+        const measured = await page.evaluate(MEASURE_CMD);
+        for (const [name, found] of Object.entries(measured.alerts || {})) {
+          if (found.ratio < AA) {
+            failures.push(`${label}  ${name}: ${found.ratio.toFixed(2)}:1 (${found.color} on ${found.bg})`);
           }
         }
       }

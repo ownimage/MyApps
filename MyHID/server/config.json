@@ -32,21 +32,21 @@
             "positive": "F13",
             "negative": "F14",
             "gain": 0.05,
-            "step": 5,
+            "step": 1,
             "deadband": 0
           },
           "ry": {
             "positive": "F15",
             "negative": "F16",
             "gain": 0.05,
-            "step": 5,
+            "step": 1,
             "deadband": 0
           },
           "rz": {
             "positive": "F17",
             "negative": "F18",
             "gain": 0.05,
-            "step": 5,
+            "step": 1,
             "deadband": 0
           },
           "tx": {
@@ -265,21 +265,21 @@
           "rx": {
             "positive": "F15",
             "negative": "F16",
-            "gain": 0.05,
+            "gain": 0.25,
             "step": 5,
             "deadband": 0
           },
           "ry": {
             "positive": "F13",
             "negative": "F14",
-            "gain": 0.05,
+            "gain": 0.25,
             "step": 5,
             "deadband": 0
           },
           "rz": {
             "positive": "F17",
             "negative": "F18",
-            "gain": 0.05,
+            "gain": 0.25,
             "step": 5,
             "deadband": 0
           },

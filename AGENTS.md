@@ -2468,12 +2468,14 @@ Techniques / gotchas:
   The registry row is `{ name: "My HID", path: "MyHID/", icon: "My HID" }` and the
   shared sample image is `My HID` (`shared/sampleImages/My_HID.svg`). Nothing is
   grouped any more.
-  STORAGE PREFIX `pb_` -> `myhid_`. `MyHID/js/app.js` carries a TEMPORARY
-  `pb_*` -> `myhid_*` migration (target wins, old copies deleted) plus a one-time
-  "Settings moved" `smd-modal`; delete both next round. Two keys were also RENAMED:
-  `pb_mouserUrl`/`pb_mouserToken` -> `myhid_mouseCaptureUrl`/`myhid_mouseCaptureToken`.
-  Guard: `tests/myhid-regression.spec.js` "Phone Buttons settings migrate to the
-  myhid_ prefix and show a one-time notice" (mutation-checked).
+  STORAGE PREFIX `pb_` -> `myhid_`. The temporary `pb_*` -> `myhid_*` migration
+  and its "Settings moved" popup have been REMOVED again (2026-10-27, user: "there
+  needs to be no further migration"), so the app reads only `myhid_*`; a browser
+  that still holds `pb_*` keys must have its Settings | Server address re-entered.
+  There is no `pb` prefix left anywhere: the grid CSS classes are
+  `myhid-layout-grid` / `myhid-grid-cell` / `myhid-grid-spacer` /
+  `myhid-cell-thumbs` / `myhid-cell-name`, and the guards are `__myhidBound` /
+  `__myhidWizardBound` / `__myhidSocketUiBound` / `_myhidCurrentApp`.
   LAUNCHERS are at the REPO ROOT now: `StartMyHIDServer.cmd` (runs
   `MyHID\server\app.py`) and `StartMouseCapture.cmd` (runs
   `MyHID\mouse-capture\out\mouse-capture.exe`). Their internal paths are relative to
@@ -2489,6 +2491,62 @@ Techniques / gotchas:
   `tests/myhid-server.spec.js` (pytest wrapper), `tests/mouse-capture-ui.spec.js`.
   GOTCHA: a process holding a directory handle on the old `remoteHID/Mouser/out`
   leaves an EMPTY `remoteHID/` behind (untracked) — delete it once released.
+
+- ALERT BAR CONTRAST IS BAKED (2026-10-27, user: "the alert bar has poor contrast,
+  please create a test for this and put baked in fixes into <theme>.<mode>.css"):
+  Bootstrap paints `.alert-<variant>` from `--bs-alert-color` on the theme's own
+  tint, and several themes ship WHITE on a saturated surface (cyborg warning 2.39:1,
+  darkly 2.19:1, flatly secondary 2.56:1, litera warning 1.95:1). Fixed the same way
+  as every other contrast problem: `tests/contrast.spec.js` gained "alert bars meet
+  AA on every theme and mode" (mounts `.alert.alert-{secondary,warning,danger,
+  success,info}` exactly as MyHID's status bar does, and measures the text against
+  the bar's OWN surface, gradient-aware), and `tests/contrast-css.spec.js` now
+  measures + emits `.alert-<variant> { --bs-alert-color: X; color: X !important; }`
+  grouped by colour, only where the theme's own pair fails. The rules are GENERIC
+  (not page-scoped), so MyHID's status bar, `hid-tab`, the main view and
+  SolarControlar all benefit. Regenerate with
+  `SMD_CONTRAST_FIX=1 npx playwright test --project=contrast --workers=1`.
+- MYHID BUTTON GRIDS FILL THE SPACE (2026-10-27, user: "the buttons are still all
+  different sizes ... they have not resized to fill the space"): BOTH grids (main
+  view `#layoutButtons` and Manage Layout `#manageLayoutGrid`) now use ONE helper,
+  `myhidFitGrid(host, rows, cols, gap, heightBudget)` in `MyHID/js/main-view.js`:
+  it gives the grid an explicit box and `repeat(N, minmax(0, 1fr))` tracks, so the
+  cells are exactly EQUAL and stretch to the edges in both directions. The old code
+  sized a SQUARE cell from `min(cellW, cellH)`, so a 4x2 layout on a tall phone left
+  half the height empty and a 2x6 one left the width short. Only the CONTENT (image
+  + font size) is scaled from the smaller cell side.
+  TWO TRAPS: (a) measure the width from the PARENT's content box, never
+  `host.clientWidth` - the host carries the width this function sets, so it would
+  freeze at its first size and never shrink on a resize; (b) leave room for the page
+  FOOTER in the Manage grid's height budget, or its last row hides behind it.
+  `myhidButtonThumbsHtml()` now caps the artwork at the Image-size setting
+  (`getIconSizePx()`) so that Display row is not dead, while still fitting the cell.
+- MYHID MANAGE-MOUSE-CAPTURE PAGE (2026-10-27, user requests):
+  - Learn buttons are `variant="primary"` at rest (they went `warning` while
+    listening and used to return to `secondary`), and a learn is DEBOUNCED by
+    `_mouseCaptureLearnBusy`: a second click returns with a hint, and Identify + both
+    Learn buttons are disabled for the duration (the panel answers 409 to a
+    concurrent learn, which used to surface as a red error for a normal click).
+  - Ping + Start capture are `primary`; Stop stays `danger`.
+  - Start/Stop are MUTUALLY EXCLUSIVE in every state: `mouseCaptureSetDisabled(id,
+    disabled, reason)` sets the attribute + an explanatory `title`, and
+    `mouseCaptureDisableActions()` disables BOTH when the panel is unreachable or no
+    address is configured (they used to stay enabled). `_mouseCaptureBusy` disables
+    the pair while a start/stop POST is in flight, so a double click cannot post
+    twice.
+  - WIDTHS: every form button is `flex: 0 0 25%` of its row
+    (`.myhid-capture-row`), with `min-width: fit-content` so a phone does not clip
+    the label (a flat 25% is 97px at 390px wide and truncated "Scan QR"). Start/Stop
+    are one row of equal halves (`.myhid-capture-actions`, `flex: 1 1 0`, gap +
+    `padding-inline`). GOTCHA: `<smd-button>` is a HOST wrapping the real `<button>`
+    - sizing the host alone leaves the visible button content-sized in the middle of
+    its slot, so the page also sets `smd-button > button { flex: 1 1 auto;
+    width: 100% }` and `display: flex !important` on the host (the component adds
+    Bootstrap's `d-inline-block`, which is `!important`).
+  - The ALERT BAR contrast is fixed globally, not per page (see the contrast note):
+    the generator now emits `.alert-<variant>` rules.
+  Tests: `tests/myhid-mouse-capture.spec.js` (19: the Learn/Start-Stop behaviour
+  above) and `tests/contrast.spec.js` "alert bars meet AA on every theme and mode".
 
 ## Session log
 
@@ -9726,3 +9784,57 @@ Everything below is the contract; break it and the app stops talking to the exe.
   the folder once released. The user's live `MyHID/server/config.json` was rewritten
   to `hid` blocks (legacy `mouser` blocks are still accepted on read).
 - BUILD: `npm run bump:build` -> `202610271611`.
+
+### 2026-10-27 (f) - MyHID capture page + grids + alert contrast; the rename migration is gone
+
+- WHAT (user, in order): Learn buttons primary + debounced; Ping and Start capture
+  primary; only one of Start/Stop active; a contrast test for the alert bar with the
+  fixes baked into `<theme>.<mode>.css`; "explain why Refresh is only on the mouse"
+  (answered: it re-enumerates the hardware list; Rotate/Translate are a fixed 4-option
+  select already re-synced by the 1.5s `/api/state` poll, so their equivalent is
+  Learn); every form button 1/4 of its container with Start/Stop 50/50; rename the
+  remaining `pb-` CSS classes; "no further migration, it can all go"; and "the button
+  layouts have changed but the buttons are still all different sizes - they have not
+  resized to fill the space".
+- DONE: `MyHID/js/mouse-capture.js` (variants, `_mouseCaptureLearnBusy` debounce,
+  `mouseCaptureSetDisabled(id, disabled, reason)` + `mouseCaptureDisableActions()` +
+  `_mouseCaptureBusy` for Start/Stop, the 25%/50% width CSS); `MyHID/js/main-view.js`
+  + `MyHID/js/edit-layout.js` (`myhidFitGrid`, both grids fill); `MyHID/index.html`
+  (grid CSS); the `pb` -> `myhid` class/flag rename; the `pb_*` migration block and
+  its test DELETED from `MyHID/js/app.js` + `tests/myhid-regression.spec.js`;
+  `tests/contrast.spec.js` + `tests/contrast-css.spec.js` for alerts; the theme
+  sheets regenerated.
+- TDD: three new `myhid-mouse-capture` tests written RED first - "exactly one of
+  Start capture and Stop is enabled, and Start posts once" (red: Stop was enabled
+  while starting), "Start and Stop are both disabled when there is nothing to
+  control" (red: both enabled with no address / an unreachable panel) and "the Learn
+  buttons are primary and a double click only asks the panel once" (red: secondary,
+  and 2 POSTs). The debounce was MUTATION-CHECKED by deleting the guard (test fails
+  with 2 calls). The alert test was red on 20+ theme/mode pairs (cyborg warning
+  2.39:1, darkly 2.19:1, litera 1.95:1) before the generator learned `.alert-*`.
+- WHAT WENT WRONG / TRAPS (all now in the durable notes):
+  (a) my first width rule sized the `<smd-button>` HOST only - the inner `<button>`
+  stays content-sized, which is exactly the "buttons have not resized" report; the
+  fix also needs `smd-button > button { width: 100% }` and `display: flex
+  !important` on the host (the component adds Bootstrap's `!important`
+  `d-inline-block`). A flat 25% also clipped labels at 390px ("Scan QR" wrapped and
+  truncated), so the host is `min-width: fit-content`.
+  (b) `myhidFitGrid` must measure the PARENT's content box: `host.clientWidth`
+  returns the width the function itself just set, so the grid froze at its first
+  size and never shrank on a resize.
+  (c) the Manage grid's height budget must subtract the page FOOTER or the last row
+  hides behind it.
+  (d) the STALE TEST SERVER bit three times (a 13-test wall of "waitForFunction
+  timed out", then "openMouseCapture is not defined", then
+  "renderLayoutButtons is not defined"). Restart it after the LAST edit.
+  (e) editing AGENTS.md with a script and then re-editing the same region moved the
+  new alert note into a 2026-10-16 session-log entry; it was moved back to the
+  durable notes.
+- VERIFIED (`EXTERNAL_SERVERS=1`, `--retries=0`): myhid-regression + myhid-mouse-
+  capture + mouse-capture-ui + myhid-server 56/56; launch-regression +
+  settings-alignment + display-settings + native-checkbox-guard 59/59; `@contrast`
+  13/13 (incl. the new alert test and zero CSS drift); `@cache` 11/11. Probes (deleted)
+  measured both grids filling their box with EQUAL cells (main 398x763 -> 8 cells of
+  195x185, last right/bottom == grid edge; Manage 6 cells 134x162) and the buttons at
+  25% / 50% with the inner `<button>` matching the host, at 1400px and 390px.
+- BUILD: `npm run bump:build` -> `202610271937`.

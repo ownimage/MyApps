@@ -95,6 +95,7 @@ async function stubCapture(page, state, options = {}) {
   const seen = { calls: [], tokens: [] };
   let stateCalls = 0;
   const learn = options.learn || { ok: true, button: 4, ms: 300 };
+  const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms || 0));
 
   await page.route(CAPTURE_ORIGIN + "/**", async (route) => {
     const request = route.request();
@@ -140,12 +141,18 @@ async function stubCapture(page, state, options = {}) {
       // Stateful, like the real panel: the app's Stop button is disabled while the
       // capture is stopped, so a stub that never starts would never let it click.
       case "/api/capture/start":
+        if (options.startDelayMs) await delay(options.startDelayMs);
         state.capture.running = true;
         return json({ ok: true });
       case "/api/capture/stop":
+        if (options.stopDelayMs) await delay(options.stopDelayMs);
         state.capture.running = false;
         return json({ ok: true });
-      case "/api/learn-button": return json(learn);
+      case "/api/learn-button":
+        // The real panel WAITS for a click (up to 10 s), which is the window a
+        // double click lands in.
+        if (options.learnDelayMs) await delay(options.learnDelayMs);
+        return json(learn);
       case "/api/ping": return json({ ok: true, target: "192.168.1.50:7801", attempts: 5, replies: 5, rttMs: 12.4, message: null });
       default: return json({ ok: false, error: "no such route" }, 404);
     }
@@ -318,6 +325,79 @@ test.describe("MyHID - Manage mouse-capture", () => {
     const ping = seen.calls.find((call) => call.path === "/api/ping");
     expect(ping.body.udp).toBe("192.168.1.50:7801");
     await expect(page.locator("#mouseCapturePingResult")).toContainText("12");
+  });
+
+  test("exactly one of Start capture and Stop is enabled, and Start posts once", async ({ page }) => {
+    await seedAddress(page);
+    const state = captureState();
+    const seen = await stubCapture(page, state, { startDelayMs: 600 });
+
+    await page.goto("/MyHID/");
+    await page.evaluate(() => openMouseCapture());
+    await expect(page.locator('#mouseCaptureDevices input[name="myhidCaptureDevice"]')).toHaveCount(2);
+
+    // Stopped: Start is the only usable one.
+    await expect(page.locator("#btnHidStart button")).toBeEnabled();
+    await expect(page.locator("#btnHidStop button")).toBeDisabled();
+
+    await page.locator("#btnHidStart").click();
+    // Still starting: neither may be pressed, so a second Start cannot post twice.
+    await expect(page.locator("#btnHidStart button")).toBeDisabled();
+    await expect(page.locator("#btnHidStop button")).toBeDisabled();
+    await page.locator("#btnHidStart").click({ force: true });
+
+    // Running: the pair swaps over.
+    await expect(page.locator("#btnHidStart button")).toBeDisabled({ timeout: 15000 });
+    await expect(page.locator("#btnHidStop button")).toBeEnabled({ timeout: 15000 });
+    expect(seen.calls.filter((call) => call.path === "/api/capture/start")).toHaveLength(1);
+  });
+
+  test("Start and Stop are both disabled when there is nothing to control", async ({ page }) => {
+    // No address configured yet: there is no panel to start or stop.
+    await page.goto("/MyHID/");
+    await page.evaluate(() => openMouseCapture());
+    await expect(page.locator("#mouseCaptureStatus")).toContainText("No capture address");
+    await expect(page.locator("#btnHidStart button")).toBeDisabled();
+    await expect(page.locator("#btnHidStop button")).toBeDisabled();
+
+    // Configured but unreachable: same, so neither button pretends to work.
+    await seedAddress(page);
+    await page.route(CAPTURE_ORIGIN + "/**", (route) => route.abort());
+    await page.reload();
+    await page.evaluate(() => openMouseCapture());
+    await expect(page.locator("#mouseCaptureStatus")).toContainText("cannot reach", { timeout: 15000 });
+    await expect(page.locator("#btnHidStart button")).toBeDisabled();
+    await expect(page.locator("#btnHidStop button")).toBeDisabled();
+  });
+
+  test("the Learn buttons are primary and a double click only asks the panel once", async ({ page }) => {
+    await seedAddress(page);
+    const state = captureState();
+    const seen = await stubCapture(page, state, {
+      learn: { ok: true, button: 3, ms: 420 },
+      learnDelayMs: 700,
+    });
+
+    await page.goto("/MyHID/");
+    await page.evaluate(() => openMouseCapture());
+    await expect(page.locator('#mouseCaptureDevices input[name="myhidCaptureDevice"]')).toHaveCount(2);
+
+    // At rest both Learn buttons are the PRIMARY variant.
+    await expect(page.locator("#btnHidLearnRotate button")).toHaveClass(/btn-primary/);
+    await expect(page.locator("#btnHidLearnTranslate button")).toHaveClass(/btn-primary/);
+
+    await page.locator("#btnHidLearnRotate").click();
+    // While it listens, neither Learn button may start another learn (the panel
+    // answers 409 to a concurrent one, which used to surface as a red error).
+    await expect(page.locator("#btnHidLearnTranslate button")).toBeDisabled();
+    await page.locator("#btnHidLearnRotate").click({ force: true });
+
+    await expect(page.locator("#mouseCaptureAddressHint")).toContainText("MB3", { timeout: 15000 });
+    expect(seen.calls.filter((call) => call.path === "/api/learn-button")).toHaveLength(1);
+
+    // Back to primary, both usable again.
+    await expect(page.locator("#btnHidLearnRotate button")).toHaveClass(/btn-primary/);
+    await expect(page.locator("#btnHidLearnTranslate button")).toBeEnabled();
   });
 
   test("Identify selects the mouse that is being moved", async ({ page }) => {

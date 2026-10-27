@@ -76,61 +76,6 @@ test.describe("MyHID - Regression", () => {
     expect(errors).toEqual([]);
   });
 
-  // TEMPORARY (2026-10-27): the app was "Phone Buttons" with the `pb_` storage
-  // prefix. Remove this test with the migration block in js/app.js.
-  test("Phone Buttons settings migrate to the myhid_ prefix and show a one-time notice", async ({ page }) => {
-    await page.goto("/MyHID/");
-    // Seed the OLD keys only; the app has never seen this browser before.
-    await page.evaluate(() => {
-      Object.keys(localStorage)
-        .filter((k) => k.indexOf("myhid_") === 0 || k.indexOf("pb_") === 0)
-        .forEach((k) => localStorage.removeItem(k));
-      localStorage.setItem("pb_theme", "brite");
-      localStorage.setItem("pb_fontSize", "large");
-      localStorage.setItem("pb_serverAddress", "192.168.1.50");
-      localStorage.setItem("pb_mouserUrl", "http://192.168.1.60:7802");
-      localStorage.setItem("pb_mouserToken", "tok-abc");
-      localStorage.setItem("pb_probeKey", "x");
-    });
-
-    await page.reload();
-
-    // Every key moved, including the two that were also RENAMED.
-    const moved = await page.evaluate(() => ({
-      theme: localStorage.getItem("myhid_theme"),
-      fontSize: localStorage.getItem("myhid_fontSize"),
-      address: localStorage.getItem("myhid_serverAddress"),
-      url: localStorage.getItem("myhid_mouseCaptureUrl"),
-      token: localStorage.getItem("myhid_mouseCaptureToken"),
-      probe: localStorage.getItem("myhid_probeKey"),
-      old: Object.keys(localStorage).filter((k) => k.indexOf("pb_") === 0)
-    }));
-    expect(moved).toEqual({
-      theme: "brite",
-      fontSize: "large",
-      address: "192.168.1.50",
-      url: "http://192.168.1.60:7802",
-      token: "tok-abc",
-      probe: "x",
-      old: []
-    });
-    // The migrated theme is actually applied, not just copied.
-    await expect(page.locator("html")).toHaveAttribute("data-theme", "brite");
-
-    // The one-time notice explains what happened.
-    const modal = page.locator("#smdConfirmModal");
-    await expect(modal.locator(".smd-header h3")).toHaveText("Settings moved");
-    await expect(modal).toContainText("My HID");
-    await expect(modal).toContainText("6 settings moved");
-    await modal.locator("button").filter({ hasText: "OK" }).click();
-    await expect(modal).toBeHidden();
-
-    // Reloading does not repeat it: the old keys are gone, so nothing moves.
-    await page.reload();
-    await expect(page.locator("#smdConfirmModal")).toBeHidden();
-    expect(await page.evaluate(() => localStorage.getItem("myhid_theme"))).toBe("brite");
-  });
-
   test("connect, app_change push, ping, test key and disconnect", async ({ page }) => {
     await page.goto("/MyHID/");
 
@@ -182,10 +127,10 @@ test.describe("MyHID - Regression", () => {
 
     // A 2 x 3 grid of equal cells: 2 filled + 4 spacers.
     await expect(page.locator("#layoutButtons")).toBeVisible();
-    await expect(page.locator("#layoutButtons .pb-grid-cell")).toHaveCount(6);
-    await expect(page.locator("#layoutButtons .pb-grid-cell:not(.pb-grid-spacer)")).toHaveCount(2);
+    await expect(page.locator("#layoutButtons .myhid-grid-cell")).toHaveCount(6);
+    await expect(page.locator("#layoutButtons .myhid-grid-cell:not(.myhid-grid-spacer)")).toHaveCount(2);
     await expect(page.locator("#layoutButtons")).toContainText("Next Slide");
-    await page.locator("#layoutButtons .pb-grid-cell", { hasText: "Next Slide" }).click();
+    await page.locator("#layoutButtons .myhid-grid-cell", { hasText: "Next Slide" }).click();
     const emitted = await page.evaluate(() => window.__ioState.emitted);
     expect(emitted).toContainEqual({ event: "button_press", data: { key: "right" } });
 
@@ -549,7 +494,7 @@ test.describe("MyHID - Regression", () => {
       layout: { key: "l", rows: 1, cols: 1, buttons: [{ name: "Ctrl", image1: "", image2: "", key: "ctrl", press: "extended" }] }
     }));
 
-    const cell = page.locator("#layoutButtons .pb-grid-cell").first();
+    const cell = page.locator("#layoutButtons .myhid-grid-cell").first();
     const box = await cell.boundingBox();
     await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
     await page.mouse.down();

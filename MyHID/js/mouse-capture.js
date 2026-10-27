@@ -18,6 +18,8 @@ var _mouseCaptureState = null;        // last /api/state payload
 var _mouseCaptureTimer = null;        // polling while the page is open
 var _mouseCaptureDeviceSignature = ""; // hardware ids, so the radio list is only rebuilt on change
 var _mouseCaptureScanCloseTimer = null;
+var _mouseCaptureLearnBusy = false;   // a /api/learn-button call is in flight
+var _mouseCaptureBusy = false;        // a start/stop POST is in flight
 
 // ---- stored address --------------------------------------------------------
 
@@ -105,7 +107,7 @@ function buildMouseCapturePage(page) {
   page.content =
     '<div class="mb-3">' +
       '<label class="form-label" for="mouseCaptureUrlInput">Capture panel address</label>' +
-      '<div class="d-flex gap-2 align-items-stretch flex-wrap">' +
+      '<div class="d-flex gap-2 align-items-stretch flex-wrap myhid-capture-row">' +
         '<input type="text" id="mouseCaptureUrlInput" class="form-control flex-grow-1" ' +
           'placeholder="https://something.trycloudflare.com/?t=..." ' +
           'autocapitalize="off" autocomplete="off" spellcheck="false">' +
@@ -126,9 +128,9 @@ function buildMouseCapturePage(page) {
 
 function mouseCaptureConfigHtml() {
   function buttonRow(id, learnId) {
-    return '<div class="col-8 d-flex gap-2 align-items-stretch flex-wrap">' +
+    return '<div class="col-8 d-flex gap-2 align-items-stretch flex-wrap myhid-capture-row">' +
       '<smd-select id="' + id + '"></smd-select>' +
-      '<smd-button id="' + learnId + '" variant="secondary" size="small" ' +
+      '<smd-button id="' + learnId + '" variant="primary" size="small" ' +
         'icon="fa-solid fa-crosshairs">Learn</smd-button>' +
       '</div>';
   }
@@ -138,7 +140,7 @@ function mouseCaptureConfigHtml() {
       '<div class="col-4 text-end pt-2"><label class="form-label mb-0">Mouse</label></div>' +
       '<div class="col-8">' +
         '<div id="mouseCaptureDevices" class="mb-2"><span class="text-body-secondary small">Loading mice&hellip;</span></div>' +
-        '<div class="d-flex gap-2 flex-wrap">' +
+        '<div class="d-flex gap-2 flex-wrap myhid-capture-row">' +
           '<smd-button id="btnHidRefresh" variant="secondary" size="small" icon="fa-solid fa-rotate">Refresh</smd-button>' +
           '<smd-button id="btnHidIdentify" variant="primary" size="small" ' +
             'icon="fa-solid fa-bullseye">Identify</smd-button>' +
@@ -164,16 +166,16 @@ function mouseCaptureConfigHtml() {
     '<div class="row mb-4 align-items-start col-md-8">' +
       '<div class="col-4 text-end pt-2"><label class="form-label mb-0" for="mouseCaptureUdp">Server (UDP)</label></div>' +
       '<div class="col-8">' +
-        '<div class="d-flex gap-2 align-items-stretch flex-wrap">' +
+        '<div class="d-flex gap-2 align-items-stretch flex-wrap myhid-capture-row">' +
           '<input type="text" id="mouseCaptureUdp" class="form-control flex-grow-1" placeholder="192.168.1.50:7801" ' +
             'autocapitalize="off" autocomplete="off" spellcheck="false">' +
-          '<smd-button id="btnHidPing" variant="secondary" size="small">Ping</smd-button>' +
+          '<smd-button id="btnHidPing" variant="primary" size="small">Ping</smd-button>' +
         '</div>' +
         '<div id="mouseCapturePingResult" class="form-text"></div>' +
       '</div>' +
     '</div>' +
-    '<div class="d-flex gap-2 mb-3 flex-wrap">' +
-      '<smd-button id="btnHidStart" variant="success" icon="fa-solid fa-play">Start capture</smd-button>' +
+    '<div class="myhid-capture-actions d-flex mb-3">' +
+      '<smd-button id="btnHidStart" variant="primary" icon="fa-solid fa-play">Start capture</smd-button>' +
       '<smd-button id="btnHidStop" variant="danger" icon="fa-solid fa-stop">Stop</smd-button>' +
     '</div>' +
     '<div id="mouseCaptureTelemetry" class="small text-body-secondary"></div>';
@@ -190,7 +192,28 @@ function openMouseCapture() {
     injectSmdComponentStyle("myhid-devices", [
       "#mouseCaptureDevices .myhid-badge { font-size: 0.62em; line-height: 1;",
       "  padding: 0.2em 0.45em; vertical-align: 0.1em; margin-right: 0.4em; }",
-      "#mouseCaptureDevices .myhid-moving-off { visibility: hidden; }"
+      "#mouseCaptureDevices .myhid-moving-off { visibility: hidden; }",
+      // Every FORM button takes a quarter of its row, so the rows line up whatever
+      // the labels say; the input/select beside it takes the rest. The Start/Stop
+      // pair is the exception (see .myhid-capture-actions).
+      //
+      // A flat 25% clips the labels on a phone (97px for "Scan QR"), so the host is
+      // a flex container whose min-width is its own content: it is a quarter while
+      // that fits and grows to fit the label when it does not (the input shrinks /
+      // the row wraps instead of truncating).
+      "#mouseCapturePage .smd-page-body .myhid-capture-row smd-button { display: flex !important; flex: 0 0 25%; min-width: fit-content; }",
+      "#mouseCapturePage .smd-page-body .myhid-capture-row smd-select { flex: 1 1 auto; min-width: 0; }",
+      // <smd-button> is a HOST wrapping a real <button>: sizing the host alone leaves
+      // the visible button content-sized in the middle of its slot, so let the inner
+      // button fill the host.
+      "#mouseCapturePage .smd-page-body smd-button > button { flex: 1 1 auto; width: 100%; }",
+      // .form-control is width:100%, so without this its basis fills the row and the
+      // button wraps onto its own line.
+      "#mouseCapturePage .smd-page-body .myhid-capture-row .form-control { flex: 1 1 0; width: auto; min-width: 0; }",
+      // Start/Stop: equal halves of the space left after the gaps, inset from both
+      // ends (flex:1 1 0 rather than width:50%, which a gap would overflow).
+      "#mouseCapturePage .smd-page-body .myhid-capture-actions { gap: 0.5rem; padding-inline: 0.5rem; }",
+      "#mouseCapturePage .smd-page-body .myhid-capture-actions smd-button { flex: 1 1 0; }"
     ].join(""));
   }
 
@@ -221,10 +244,13 @@ function openMouseCapture() {
   _mouseCaptureState = null;
   _mouseCaptureDeviceSignature = "";
   _mouseCaptureIdentify = null;
+  _mouseCaptureLearnBusy = false;
+  _mouseCaptureBusy = false;
   _mouseCapturePollMs = 1500;
   _mouseCaptureUdpDefaultDone = false;
   mouseCaptureSetButtonVariant("btnHidIdentify", "primary");
   mouseCaptureSetHint("");
+  mouseCaptureDisableActions("There is no capture to control yet");
 
   // A same-box capture is picked up without a scan; a remote one needs the address
   // the user pasted/scanned, so only discover when nothing is stored.
@@ -409,17 +435,31 @@ function mouseCaptureSaveConfig(patch, options) {
 }
 
 function mouseCaptureStart() {
+  if (_mouseCaptureBusy) return;
   mouseCaptureSetHint("");
+  mouseCaptureSetBusy(true);
   myhidCaptureApi("/api/capture/start", { method: "POST" })
-    .then(function () { mouseCaptureRefresh(); })
-    .catch(function (err) { mouseCaptureSetHint(err.message, true); });
+    .then(function () { return mouseCaptureRefresh(); })
+    .catch(function (err) { mouseCaptureSetHint(err.message, true); })
+    .then(function () {
+      mouseCaptureSetBusy(false);
+      // Re-render from the state the panel just gave us: that is what flips the
+      // pair over (Start disabled, Stop enabled).
+      mouseCaptureRenderStatus();
+    });
 }
 
 function mouseCaptureStop() {
+  if (_mouseCaptureBusy) return;
   mouseCaptureSetHint("");
+  mouseCaptureSetBusy(true);
   myhidCaptureApi("/api/capture/stop", { method: "POST" })
-    .then(function () { mouseCaptureRefresh(); })
-    .catch(function (err) { mouseCaptureSetHint(err.message, true); });
+    .then(function () { return mouseCaptureRefresh(); })
+    .catch(function (err) { mouseCaptureSetHint(err.message, true); })
+    .then(function () {
+      mouseCaptureSetBusy(false);
+      mouseCaptureRenderStatus();
+    });
 }
 
 function mouseCapturePing() {
@@ -459,14 +499,26 @@ function mouseCaptureSetButtonVariant(id, variant) {
   if (el) el.setAttribute("variant", variant);
 }
 
-function mouseCaptureSetDisabled(id, disabled) {
+function mouseCaptureSetDisabled(id, disabled, reason) {
   var el = document.getElementById(id);
   if (!el) return;
   if (disabled) el.setAttribute("disabled", "");
   else el.removeAttribute("disabled");
   // A disabled control explains itself on hover (the host's title reaches the
   // inner button, which is the real hover target).
-  el.title = disabled ? "Stop the capture first" : "";
+  el.title = disabled ? (reason || "Stop the capture first") : "";
+}
+
+// Start/Stop are the ONLY pair that must never both be usable: whichever one
+// cannot act is disabled, and while a start/stop POST is in flight neither can.
+function mouseCaptureDisableActions(reason) {
+  mouseCaptureSetDisabled("btnHidStart", true, reason || "There is no capture to control");
+  mouseCaptureSetDisabled("btnHidStop", true, reason || "There is no capture to control");
+}
+
+function mouseCaptureSetBusy(busy) {
+  _mouseCaptureBusy = !!busy;
+  if (_mouseCaptureBusy) mouseCaptureDisableActions("Waiting for the capture panel");
 }
 
 // The MyHID server receives telemetry on UDP 7801; Settings | Server holds the
@@ -503,6 +555,10 @@ function mouseCaptureSetPollInterval(ms) {
 }
 
 function mouseCaptureToggleIdentify() {
+  if (_mouseCaptureLearnBusy) {
+    mouseCaptureSetHint("Already listening for a button - finish that first.");
+    return;
+  }
   if (_mouseCaptureIdentify) {
     mouseCaptureStopIdentify("Identify cancelled.");
     return;
@@ -580,6 +636,14 @@ function mouseCaptureIdentifyStep(state) {
 // ---- learn a mode button ---------------------------------------------------
 
 function mouseCaptureLearnButton(which) {
+  // One learn at a time: a second click while the panel is still waiting would
+  // POST again and the panel answers 409 ("already learning"), which used to show
+  // up as a red error for what looked like a normal click.
+  if (_mouseCaptureLearnBusy) {
+    mouseCaptureSetHint("Already listening - click the mouse button now, or wait for the timeout.");
+    return;
+  }
+
   if (!_mouseCaptureState) {
     mouseCaptureSetHint("No state from the capture panel yet.", true);
     return;
@@ -593,7 +657,12 @@ function mouseCaptureLearnButton(which) {
   var buttonId = which === "rotate" ? "btnHidLearnRotate" : "btnHidLearnTranslate";
   var label = which === "rotate" ? "Rotate" : "Translate";
 
+  _mouseCaptureLearnBusy = true;
   mouseCaptureSetButtonVariant(buttonId, "warning");
+  // Lock the whole group (Identify + both Learn buttons) for the duration.
+  mouseCaptureSetDisabled("btnHidIdentify", true, "Already listening for a button");
+  mouseCaptureSetDisabled("btnHidLearnRotate", true, "Already listening for a button");
+  mouseCaptureSetDisabled("btnHidLearnTranslate", true, "Already listening for a button");
   mouseCaptureSetHint("Learning the " + label.toLowerCase() + " button: click a mouse button now ...");
 
   // The panel arms a short-lived session for the learn (so the click is swallowed);
@@ -624,8 +693,10 @@ function mouseCaptureLearnButton(which) {
       mouseCaptureSetHint(err && err.message ? err.message : "could not learn a button", true);
     })
     .then(function () {
-      mouseCaptureSetButtonVariant(buttonId, "secondary");
-      mouseCaptureRefresh();
+      _mouseCaptureLearnBusy = false;
+      mouseCaptureSetButtonVariant(buttonId, "primary");
+      // The refresh re-renders the disabled states from the panel's own state.
+      return mouseCaptureRefresh();
     });
 }
 
@@ -676,6 +747,8 @@ function mouseCaptureRenderUnconfigured() {
   var devices = document.getElementById("mouseCaptureDevices");
   if (devices) devices.innerHTML = '<span class="text-body-secondary small">Not connected.</span>';
 
+  mouseCaptureDisableActions("No capture panel to control yet");
+
   var telemetry = document.getElementById("mouseCaptureTelemetry");
   if (telemetry) telemetry.textContent = "";
 }
@@ -686,6 +759,9 @@ function mouseCaptureRenderError(err) {
     status.className = "alert alert-danger py-2 px-3 mb-3";
     status.textContent = err && err.message ? err.message : "cannot reach the capture panel";
   }
+  // Nothing to start or stop while the panel is unreachable, so neither button
+  // may pretend it would work.
+  mouseCaptureDisableActions("The capture panel is unreachable");
 }
 
 function mouseCaptureRenderStatus() {
@@ -733,15 +809,19 @@ function mouseCaptureRenderState(state) {
 
   // Identify/Learn are STOPPED-ONLY: while a capture runs, a held mode button gates
   // motion (Identify sees nothing) and the pump swallows the mode buttons (Learn
-  // could not see them), so both would silently do nothing.
-  mouseCaptureSetDisabled("btnHidIdentify", !!capture.running);
-  mouseCaptureSetDisabled("btnHidLearnRotate", !!capture.running);
-  mouseCaptureSetDisabled("btnHidLearnTranslate", !!capture.running);
+  // could not see them), so both would silently do nothing. A learn in flight locks
+  // the whole group too - the panel refuses a concurrent one (409).
+  var locked = !!capture.running || _mouseCaptureLearnBusy;
+  var lockReason = _mouseCaptureLearnBusy ? "Already listening for a button" : "Stop the capture first";
+  mouseCaptureSetDisabled("btnHidIdentify", locked, lockReason);
+  mouseCaptureSetDisabled("btnHidLearnRotate", locked, lockReason);
+  mouseCaptureSetDisabled("btnHidLearnTranslate", locked, lockReason);
 
-  var start = document.getElementById("btnHidStart");
-  if (start) start.disabled = !!capture.running || state.canStart === false;
-  var stop = document.getElementById("btnHidStop");
-  if (stop) stop.disabled = !capture.running;
+  // Exactly one of Start/Stop is usable: the other one has nothing to do.
+  mouseCaptureSetDisabled("btnHidStart", _mouseCaptureBusy || !!capture.running || state.canStart === false,
+    capture.running ? "The capture is already running" : (state.blockReason || "Start the capture"));
+  mouseCaptureSetDisabled("btnHidStop", _mouseCaptureBusy || !capture.running,
+    "The capture is already stopped");
 
   var telemetry = document.getElementById("mouseCaptureTelemetry");
   if (telemetry) {

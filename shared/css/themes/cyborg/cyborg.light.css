@@ -97,6 +97,11 @@ smd-tabs .smd-tab-btn.text-bg-primary:focus-visible {
 cmd-countdown-card .text-secondary {
   color: #adafae !important;
 }
+.alert-warning,
+.alert-success {
+  --bs-alert-color: #060606;
+  color: #060606 !important;
+}
 .form-control,
 .form-select,
 .form-check-input {
@@ -108,7 +113,6 @@ smd-checkbox input[type="checkbox"] {
   border-color: #adafae;
 }
 /* smd-contrast:end */
-
 /* This theme's LIGHT mode renders a DARK page (it is one of the always-dark
    Bootswatch themes), so the inactive-control ramp has to be the DARK one even
    though the shared mode layer loaded light.css. Values only - the rules live in

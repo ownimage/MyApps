@@ -217,6 +217,20 @@ const MEASURE = (variants) => {
     bhost.appendChild(nativeCb);
     document.body.appendChild(bhost);
   }
+  // Alert bars (MyHID's capture status, hid-tab, the main view, SolarControlar),
+  // created once so every theme measures the same elements.
+  if (!document.getElementById("contrastCssAlerts")) {
+    const ahost = document.createElement("div");
+    ahost.id = "contrastCssAlerts";
+    ahost.style.cssText = "position:absolute;left:-9999px;top:0";
+    ["secondary", "warning", "danger", "success", "info"].forEach((variant) => {
+      const el = document.createElement("div");
+      el.className = "alert alert-" + variant + " py-2 px-3 mb-3";
+      el.textContent = "Contrast Probe";
+      ahost.appendChild(el);
+    });
+    document.body.appendChild(ahost);
+  }
 
   const bodyCs = getComputedStyle(document.body);
   const pageBg = over(parse(bodyCs.backgroundColor), WHITE);
@@ -251,6 +265,25 @@ const MEASURE = (variants) => {
   };
 
   const out = { buttons: {}, tabs: {}, menu: null };
+
+  // Alert bars: text against the bar's own surface (the theme's alert tint, judged
+  // on its darkest extent when it carries a gradient).
+  const alertHost = document.getElementById("contrastCssAlerts");
+  if (alertHost) {
+    out.alerts = {};
+    alertHost.querySelectorAll(".alert").forEach((el) => {
+      const variant = Array.from(el.classList).filter((c) => c.indexOf("alert-") === 0)[0];
+      if (!variant) return;
+      const cs = getComputedStyle(el);
+      const surface = darkestSurface(cs, over(parse(cs.backgroundColor), pageBg));
+      const col = parse(cs.color);
+      out.alerts[variant.replace("alert-", "")] = {
+        current: col ? rgb(col) : null,
+        surface: rgb(surface),
+        picked: pickCss(col, surface)
+      };
+    });
+  }
 
   document.querySelectorAll("#contrastCssProbe .btn").forEach((el) => {
     const v = (el.className.match(/btn-([a-z]+)/) || [])[1];
@@ -474,6 +507,27 @@ function formatBlock(measured) {
   // body colour when the theme's secondary palette is too close to the surface.
   if (measured.cardText && measured.cardText.picked) {
     rules.push("cmd-countdown-card .text-secondary {\n  color: " + hex(measured.cardText.picked) + " !important;\n}");
+  }
+
+  // Alert bars: Bootstrap paints `.alert-<variant>` from `--bs-alert-color`, and
+  // several themes ship white on a saturated tint (cyborg warning 2.39:1, darkly
+  // 2.19:1). One rule per distinct colour, covering the variants that share it.
+  if (measured.alerts) {
+    const byColour = new Map();
+    Object.keys(measured.alerts).forEach((variant) => {
+      const found = measured.alerts[variant];
+      if (!found || !found.picked) return;
+      const colour = hex(found.picked);
+      if (!byColour.has(colour)) byColour.set(colour, []);
+      byColour.get(colour).push(".alert-" + variant);
+    });
+    byColour.forEach((selectors, colour) => {
+      rules.push(
+        selectors.join(",\n") + " {\n" +
+        "  --bs-alert-color: " + colour + ";\n" +
+        "  color: " + colour + " !important;\n}"
+      );
+    });
   }
 
   // Form-entry and checkbox/radio boundaries: 3:1 against the page (WCAG 1.4.11).
