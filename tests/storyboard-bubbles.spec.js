@@ -133,10 +133,19 @@ const isWhite = (c) => !!c && c.r > 200 && c.g > 200 && c.b > 200;
 // same colour as a black line, so the two cannot be told apart by brightness.
 const isLine = (c) => !!c && c.r > 140 && c.g < 110 && c.b < 110;
 
-// The tail tip of a path: the end point of its FIRST quadratic curve.
+// Every vertex of a path, in order. A bubble path is
+// "M <baseEnd> ... <baseStart> L <tip> L <baseEnd> Z", so the LAST vertex repeats the
+// first and the tail's tip is the one before it.
+function pathVertices(d) {
+  return (String(d).match(/[MLAZ][^MLAZ]*/gi) || []).map((tok) => {
+    const n = (tok.match(/-?\d+(?:\.\d+)?(?:[eE][-+]?\d+)?/g) || []).map(Number);
+    return n.length >= 2 ? { x: n[n.length - 2], y: n[n.length - 1] } : null;
+  }).filter(Boolean);
+}
+
 function pathTip(d) {
-  const m = String(d).match(/Q\s+[-\d.]+\s+[-\d.]+\s+([-\d.]+)\s+([-\d.]+)/);
-  return m ? { x: Number(m[1]), y: Number(m[2]) } : null;
+  const v = pathVertices(d);
+  return v.length >= 2 ? v[v.length - 2] : null;
 }
 
 // Screenshot one text box and return the bright-pixel rows (white glyphs).
@@ -342,7 +351,7 @@ test.describe("Storyboard - speech bubbles", () => {
     const geom = await page.evaluate(() => {
       const el = document.querySelector('.sb-object-text[data-id="b1"] .sb-text');
       const fill = el.querySelector(".sb-bubble-fill");
-      const nums = (fill.getAttribute("d").match(/-?\d+(?:\.\d+)?/g) || []).map(Number);
+      const nums = (fill.getAttribute("d").match(/-?\d+(?:\.\d+)?(?:[eE][-+]?\d+)?/g) || []).map(Number);
       const item = sbFindItem("b1");
       const m = sbBubbleMetrics(item, el.offsetWidth, el.offsetHeight,
         sbEls.canvas.clientWidth, sbEls.canvas.clientHeight);
@@ -686,16 +695,16 @@ test.describe("Storyboard - speech bubbles", () => {
       ["d1", "d2", "d3"].forEach((id) => {
         const el = document.querySelector('.sb-object-text[data-id="' + id + '"] .sb-text');
         const d = String(el.querySelector(".sb-bubble-fill").getAttribute("d"));
-        // "M <baseEnd> ... <baseStart> Q <tip> ...": the mouth's two points are the
-        // first pair and the LAST pair before the tail curve (that end can be an
-        // arc endpoint now, so no assumption about L vs A).
-        const head = d.split(" Q ")[0];
-        const nums = (head.match(/-?\d+(?:\.\d+)?/g) || []).map(Number);
-        const hit = d.match(/Q\s+[-\d.]+\s+[-\d.]+\s+([-\d.]+)\s+([-\d.]+)/);
+        // "M <baseEnd> ... <baseStart> L <tip> L <baseEnd>": the last three
+        // vertices are the mouth's second point, the tip and the first point.
+        const verts = (String(d).match(/[MLAZ][^MLAZ]*/gi) || []).map(function (tok) {
+          const n = (tok.match(/-?\d+(?:\.\d+)?(?:[eE][-+]?\d+)?/g) || []).map(Number);
+          return n.length >= 2 ? { x: n[n.length - 2], y: n[n.length - 1] } : null;
+        }).filter(Boolean);
         out[id] = {
-          tip: hit ? { x: Number(hit[1]), y: Number(hit[2]) } : null,
-          mouth: nums.length >= 4
-            ? { x: (nums[0] + nums[nums.length - 2]) / 2, y: (nums[1] + nums[nums.length - 1]) / 2 }
+          tip: verts.length >= 2 ? verts[verts.length - 2] : null,
+          mouth: verts.length >= 3
+            ? { x: (verts[0].x + verts[verts.length - 3].x) / 2, y: (verts[0].y + verts[verts.length - 3].y) / 2 }
             : null
         };
       });
@@ -709,7 +718,7 @@ test.describe("Storyboard - speech bubbles", () => {
       // out (a self-intersecting path leaves it hollow there).
       const base = g.mouth;
       expect(Math.hypot(g.tip.x - base.x, g.tip.y - base.y)).toBeGreaterThan(20);
-      for (const f of [0.5, 0.7]) {
+      for (const f of [0.35, 0.55]) {
         const px = { x: base.x + (g.tip.x - base.x) * f, y: base.y + (g.tip.y - base.y) * f };
         const c = await colourAt(page, id, px);
         expect(c.r, id + " tail filled at " + f).toBeGreaterThan(220);
@@ -738,7 +747,7 @@ test.describe("Storyboard - speech bubbles", () => {
             const from = s0 + half;
             const to = s0 - half + total;
             const walk = sbOutlineWalk(outline, from, to);
-            const nums = (walk.match(/-?\d+(?:\.\d+)?/g) || []).map(Number);
+            const nums = (walk.match(/-?\d+(?:\.\d+)?(?:[eE][-+]?\d+)?/g) || []).map(Number);
             const last = { x: nums[nums.length - 2], y: nums[nums.length - 1] };
             const want = sbOutlinePointAt(outline, to);
             const err = Math.hypot(last.x - want.x, last.y - want.y);
@@ -763,6 +772,30 @@ test.describe("Storyboard - speech bubbles", () => {
     await page.addStyleTag({
       content: ".sb-object.selected { outline: none !important; } .sb-handle, #sbSelectionBar { display: none !important; }"
     });
+
+    // STRUCTURE: the ring is the FILL's own silhouette stroked and masked to the
+    // OUTSIDE. A separately generated "grown" path used to drift from the tail -
+    // doubling up on one side or leaving a gap on the other.
+    const struct = await page.evaluate(() => {
+      sbSetSelection(["b1"]);
+      const svg = document.querySelector('.sb-object-text[data-id="b1"] .sb-bubble');
+      const ring = svg.querySelector(".sb-bubble-outline");
+      const fill = svg.querySelector(".sb-bubble-fill");
+      const selMask = svg.querySelector(".sb-bubble-sel-mask");
+      return {
+        samePath: ring.getAttribute("d") === fill.getAttribute("d"),
+        fillD: fill.getAttribute("d"),
+        ringMask: ring.getAttribute("mask"),
+        maskShape: selMask && selMask.querySelector("path").getAttribute("d"),
+        maskFill: selMask && selMask.querySelector("path").getAttribute("fill"),
+        strokeWidth: parseFloat(getComputedStyle(ring).strokeWidth)
+      };
+    });
+    expect(struct.samePath, "the ring is the fill's silhouette").toBe(true);
+    expect(struct.ringMask).toContain("url(#");
+    expect(struct.maskShape).toBe(struct.fillD);
+    expect(struct.maskFill).toBe("#000000");
+    expect(struct.strokeWidth).toBeGreaterThan(0);
 
     const failures = [];
     for (const angle of [0, 45, 90, 135, 180, 200, 225, 270, 315, 340]) {
@@ -841,14 +874,16 @@ test.describe("Storyboard - speech bubbles", () => {
         const el = document.querySelector('.sb-object-text[data-id="' + id + '"] .sb-text');
         const mm = sbBubbleMetrics(sbFindItem(id), el.offsetWidth, el.offsetHeight, cw, ch);
         const d = String(el.querySelector(".sb-bubble-fill").getAttribute("d"));
-        // The path is "M <baseEnd> ... <baseStart> Q <tip> ...", so the mouth's
-        // two points are the first pair and the LAST pair before the tail curve.
-        const head = d.split(" Q ")[0];
-        const nums = (head.match(/-?\d+(?:\.\d+)?/g) || []).map(Number);
+        // "M <baseEnd> ... <baseStart> L <tip> L <baseEnd>": the mouth's points are
+        // the first vertex and the third from the end.
+        const verts = (String(d).match(/[MLAZ][^MLAZ]*/gi) || []).map(function (tok) {
+          const n = (tok.match(/-?\d+(?:\.\d+)?(?:[eE][-+]?\d+)?/g) || []).map(Number);
+          return n.length >= 2 ? { x: n[n.length - 2], y: n[n.length - 1] } : null;
+        }).filter(Boolean);
         out[id] = {
           body: mm.body,
-          end: { x: nums[0], y: nums[1] },
-          start: { x: nums[nums.length - 2], y: nums[nums.length - 1] }
+          end: verts[0],
+          start: verts[verts.length - 3]
         };
       });
       return out;
@@ -869,6 +904,44 @@ test.describe("Storyboard - speech bubbles", () => {
     expect(chord(geom.c2)).toBeGreaterThan(chord(geom.c1) * 0.7);
   });
 
+  test("an oval tail's mouth is a real chord, not a needle", async ({ page }) => {
+    // The mouth used to be placed by the ellipse PARAMETER angle ("width / radius"),
+    // which on a WIDE oval is nowhere near the tail: the mouth collapsed to a
+    // needle and the inner line crossed itself inside the tail. Measured as a
+    // comparison with the ROUND bubble, whose mouth is a plain chord.
+    await seed(page, [
+      bubble("o1", "Hello 2", 45, 30, { bubble: "oval", lineWidth: 2, lineGap: 6, scale: 1.5 }),
+      bubble("r1", "Hello 2", 45, 78, { bubble: "round", lineWidth: 2, lineGap: 6, scale: 1.5 })
+    ]);
+    const fails = [];
+    for (const angle of [0, 45, 90, 135, 200, 300]) {
+      const res = await page.evaluate((angle) => {
+        const cw = sbEls.canvas.clientWidth, ch = sbEls.canvas.clientHeight;
+        const rad = angle * Math.PI / 180;
+        const out = {};
+        ["o1", "r1"].forEach((id) => {
+          const item = sbFindItem(id);
+          item.tail = { dx: (Math.sin(rad) * 90) / cw * 100, dy: (-Math.cos(rad) * 90) / ch * 100 };
+          sbUpdateBubble(item);
+          const el = document.querySelector('.sb-object-text[data-id="' + id + '"] .sb-text');
+          const d = String(el.querySelector(".sb-bubble-fill").getAttribute("d"));
+          const verts = (String(d).match(/[MLAZ][^MLAZ]*/gi) || []).map(function (tok) {
+          const n = (tok.match(/-?\d+(?:\.\d+)?(?:[eE][-+]?\d+)?/g) || []).map(Number);
+          return n.length >= 2 ? { x: n[n.length - 2], y: n[n.length - 1] } : null;
+        }).filter(Boolean);
+          const p1 = verts[0];
+          const p2 = verts[verts.length - 3];
+          out[id] = Math.hypot(p1.x - p2.x, p1.y - p2.y);
+        });
+        return out;
+      }, angle);
+      if (res.o1 < res.r1 * 0.8) {
+        fails.push({ angle, oval: Math.round(res.o1 * 10) / 10, round: Math.round(res.r1 * 10) / 10 });
+      }
+    }
+    expect(fails, JSON.stringify(fails)).toEqual([]);
+  });
+
   test("the white margin round the line is the same everywhere, the tail included", async ({ page }) => {
     const GAP = 9, LINE = 3;
     await seed(page, [bubble("b1", "Hello 2", 40, 40, {
@@ -878,14 +951,17 @@ test.describe("Storyboard - speech bubbles", () => {
     const geom = await page.evaluate(() => {
       const el = document.querySelector('.sb-object-text[data-id="b1"] .sb-text');
       const d = el.querySelector(".sb-bubble-fill").getAttribute("d");
-      const start = String(d).match(/^M\s+([-\d.]+)\s+([-\d.]+)/);
-      const before = String(d).match(/L\s+([-\d.]+)\s+([-\d.]+)\s+Q/);
-      const hit = String(d).match(/Q\s+[-\d.]+\s+[-\d.]+\s+([-\d.]+)\s+([-\d.]+)/);
+      const verts = (String(d).match(/[MLAZ][^MLAZ]*/gi) || []).map(function (tok) {
+          const n = (tok.match(/-?\d+(?:\.\d+)?(?:[eE][-+]?\d+)?/g) || []).map(Number);
+          return n.length >= 2 ? { x: n[n.length - 2], y: n[n.length - 1] } : null;
+        }).filter(Boolean);
       const m = sbBubbleMetrics(sbFindItem("b1"), el.offsetWidth, el.offsetHeight,
         sbEls.canvas.clientWidth, sbEls.canvas.clientHeight);
+      const p1 = verts[0];
+      const p2 = verts[verts.length - 3];
       return {
-        mouth: { x: (Number(start[1]) + Number(before[1])) / 2, y: (Number(start[2]) + Number(before[2])) / 2 },
-        tip: { x: Number(hit[1]), y: Number(hit[2]) },
+        mouth: { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 },
+        tip: verts[verts.length - 2],
         body: m.body
       };
     });
