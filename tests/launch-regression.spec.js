@@ -19,7 +19,7 @@ test.describe("Launch - Regression", () => {
     "/SolarControlar/",
     "/FreeFormOX/",
     "/ListOfLists/",
-    "/remoteHID/PhoneButtons/",
+    "/MyHID/",
     "/Storyboard/",
     "/storybook/",
     "/storybook/cardViewer.html"
@@ -63,7 +63,7 @@ test.describe("Launch - Regression", () => {
   // Every app shows its FULL NAME in the toolbar, next to the hamburger button.
   // The label comes from the shared registry (`SmdApps.APPS[].navTitle || name`)
   // keyed off the app's own path, so the nav and the Launch submenu can never
-  // disagree. Phone Buttons opts OUT (`navTitle: false`): its nav already shows
+  // disagree. My HID opts OUT (`navTitle: false`): its nav already shows
   // the name of the app running on the server.
   test("each app's nav shows the app name next to the hamburger", async ({ page }) => {
     const EXPECTED = [
@@ -100,8 +100,8 @@ test.describe("Launch - Regression", () => {
       expect(geom.toTheRight, shell).toBe(true);
       expect(geom.bodyColour, shell).toBe(true);
     }
-    // Phone Buttons opts out of the nav title.
-    await page.goto("/remoteHID/PhoneButtons/");
+    // My HID opts out of the nav title.
+    await page.goto("/MyHID/");
     await expect(page.locator("#appNavTitle")).toHaveCount(0);
   });
 
@@ -120,7 +120,7 @@ test.describe("Launch - Regression", () => {
       ["Solar Controlar", "SolarControlar/"],
       ["FreeFormOX", "FreeFormOX/"],
       ["List of Lists", "ListOfLists/"],
-      ["Phone Buttons", "remoteHID/PhoneButtons/"],
+      ["My HID", "MyHID/"],
       ["Storyboard", "Storyboard/"],
       ["Launch", "./"]
     ];
@@ -197,7 +197,7 @@ test.describe("Launch - Regression", () => {
       ["Solar Controlar", "SolarControlar/"],
       ["FreeFormOX", "FreeFormOX/"],
       ["List of Lists", "ListOfLists/"],
-      ["Phone Buttons", "remoteHID/PhoneButtons/"],
+      ["My HID", "MyHID/"],
       ["Storyboard", "Storyboard/"],
       ["Launch", ""]
     ];
@@ -207,7 +207,7 @@ test.describe("Launch - Regression", () => {
     // The ROOT (Launch itself) is included: its menu carries the same flyout, so
     // every app jumps to any other app from one place.
     for (const [shell, prefix] of [["/", ""], ["/PlanMyDay/", "../"], ["/CountMyDays/", "../"],
-      ["/QRLinks/", "../"], ["/FreeFormOX/", "../"], ["/ListOfLists/", "../"], ["/remoteHID/PhoneButtons/", "../../"],
+      ["/QRLinks/", "../"], ["/FreeFormOX/", "../"], ["/ListOfLists/", "../"], ["/MyHID/", "../"],
       ["/Storyboard/", "../"]]) {
       await page.goto(shell);
       await page.locator("#btnMainMenu").click();
@@ -275,7 +275,7 @@ test.describe("Launch - Regression", () => {
 
   test.describe("Launch Menu tab", () => {
 
-    const ALL_APPS = ["Plan My Day", "Count My Days", "QR Links", "Solar Controlar", "FreeFormOX", "List of Lists", "Phone Buttons", "Storyboard", "Launch"];
+    const ALL_APPS = ["Plan My Day", "Count My Days", "QR Links", "Solar Controlar", "FreeFormOX", "List of Lists", "My HID", "Storyboard", "Launch"];
 
     async function openMenuTab(page) {
       await page.goto("/");
@@ -302,13 +302,13 @@ test.describe("Launch - Regression", () => {
 
     test("the Show on Launch tick hides an app from the grid and persists", async ({ page }) => {
       await openMenuTab(page);
-      await page.locator('#appMenuList launch-app-menu[path="remoteHID/PhoneButtons/"] smd-checkbox.launch-toggle input').click();
+      await page.locator('#appMenuList launch-app-menu[path="MyHID/"] smd-checkbox.launch-toggle input').click();
       await expect.poll(() => page.evaluate(() =>
-        JSON.parse(localStorage.getItem("launch_appMenu")).find(c => c.path === "remoteHID/PhoneButtons/").onLaunch
+        JSON.parse(localStorage.getItem("launch_appMenu")).find(c => c.path === "MyHID/").onLaunch
       )).toBe(false);
       await page.evaluate(() => closeSettings());
       await expect(page.locator("#appGrid .app-tile")).toHaveCount(ALL_APPS.length - 1);
-      await expect(page.locator("#appGrid")).not.toContainText("Phone Buttons");
+      await expect(page.locator("#appGrid")).not.toContainText("My HID");
     });
 
     test("the Show in Menu tick removes an app from another app's Launch submenu", async ({ page }) => {

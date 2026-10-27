@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>mouse-capture</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: #10151c;
+    color: #e7edf5;
+    font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  main {
+    width: min(560px, 100%);
+    background: #161d27;
+    border: 1px solid #263243;
+    border-radius: 14px;
+    padding: 24px;
+    box-shadow: 0 18px 50px rgba(0, 0, 0, .45);
+    text-align: center;
+  }
+  h1 { font-size: 1.35rem; margin: 0 0 4px; letter-spacing: .2px; }
+  .sub { margin: 0 0 18px; color: #9fb0c6; font-size: .92rem; }
+  .sub strong { color: #e7edf5; }
+  #qr {
+    display: inline-flex;
+    padding: 12px;
+    background: #fff;
+    border-radius: 10px;
+    min-width: 320px;
+    min-height: 320px;
+    align-items: center;
+    justify-content: center;
+  }
+  #qr img, #qr canvas, #qr table { display: block; max-width: 100%; height: auto; }
+  #address {
+    display: block;
+    margin: 16px auto 0;
+    padding: 10px 12px;
+    background: #0c1117;
+    border: 1px solid #263243;
+    border-radius: 8px;
+    font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+    font-size: .82rem;
+    color: #9fe6b8;
+    word-break: break-all;
+    user-select: all;
+  }
+  .status {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin: 16px 0 6px;
+    font-weight: 600;
+  }
+  .dot { width: 10px; height: 10px; border-radius: 50%; background: #6c757d; flex: none; }
+  .dot.up { background: #35c07a; box-shadow: 0 0 10px #35c07a88; }
+  .dot.warn { background: #e0a12a; }
+  .dot.bad { background: #e05a5a; }
+  dl {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 4px 12px;
+    margin: 16px 0 0;
+    text-align: left;
+    font-size: .88rem;
+  }
+  dt { color: #8fa2ba; }
+  dd { margin: 0; color: #dbe5f1; word-break: break-word; }
+  .hint { margin: 18px 0 0; color: #8fa2ba; font-size: .82rem; }
+  .warn { color: #e0a12a; }
+  kbd {
+    background: #0c1117;
+    border: 1px solid #263243;
+    border-bottom-width: 2px;
+    border-radius: 5px;
+    padding: 0 5px;
+    font: inherit;
+    font-size: .8rem;
+  }
+</style>
+</head>
+<body>
+<main>
+  <h1>mouse-capture</h1>
+  <p class="sub">Scan with MyHID &rarr; <strong>Manage mouse-capture</strong></p>
+  <div id="qr"></div>
+  <code id="address">{{ADDRESS}}</code>
+  <div class="status"><span id="dot" class="dot"></span><span id="statusText">connecting&hellip;</span></div>
+  <dl>
+    <dt>Build</dt><dd id="build">{{BUILD}}</dd>
+    <dt>Capture</dt><dd id="capture">stopped</dd>
+    <dt>Driver</dt><dd id="driver">&mdash;</dd>
+    <dt>Tunnel</dt><dd id="tunnel">off</dd>
+  </dl>
+  <p class="hint">
+    Closing this tab does not stop the capture &mdash; use the app, or press
+    <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>Q</kbd> to disarm it immediately.
+  </p>
+</main>
+<script src="/qrcode.min.js?t={{TOKEN}}"></script>
+<script>
+(function () {
+  "use strict";
+
+  var TOKEN = "{{TOKEN}}";
+  var qrText = "";
+  var qrEl = document.getElementById("qr");
+
+  function setText(id, text) {
+    var el = document.getElementById(id);
+    if (el && el.textContent !== text) el.textContent = text;
+  }
+
+  function setDot(kind) {
+    var dot = document.getElementById("dot");
+    if (dot) dot.className = "dot" + (kind ? " " + kind : "");
+  }
+
+  function drawQr(text) {
+    if (!text || text === qrText) return;
+    qrText = text;
+
+    // qrcodejs renders a canvas (and an img fallback); clear first so a tunnel
+    // address that changes on every start replaces the old code.
+    qrEl.innerHTML = "";
+    if (typeof QRCode === "undefined") {
+      qrEl.textContent = "QR library unavailable - type the address below";
+      return;
+    }
+
+    new QRCode(qrEl, {
+      text: text,
+      width: 320,
+      height: 320,
+      correctLevel: QRCode.CorrectLevel.M
+    });
+  }
+
+  function render(state) {
+    var url = (state.panel && state.panel.publicUrl) || "";
+    if (url) setText("address", url);
+    drawQr(url);
+
+    setText("build", state.build || "unknown");
+
+    var capture = state.capture || {};
+    var mode = capture.modeName && capture.modeName !== "off" ? " (" + capture.modeName + ")" : "";
+    setText("capture", capture.running ? "running" + mode : "stopped");
+
+    var driver = state.driver || {};
+    if (driver.simulated) setText("driver", "simulated (no driver needed)");
+    else if (driver.available) setText("driver", state.elevated ? "ready" : "ready (not elevated)");
+    else setText("driver", driver.error || "not available");
+
+    var tunnel = state.tunnel || {};
+    setText("tunnel", tunnel.state === "up"
+      ? "up - " + tunnel.url
+      : tunnel.error || tunnel.state || "off");
+
+    if (state.canStart === false) {
+      setDot("warn");
+      setText("statusText", state.blockReason || "capture unavailable");
+    } else if (capture.error) {
+      setDot("bad");
+      setText("statusText", capture.error);
+    } else {
+      setDot("up");
+      setText("statusText", "panel ready");
+    }
+  }
+
+  function poll() {
+    fetch("/api/state", { headers: { "X-HID-Token": TOKEN }, cache: "no-store" })
+      .then(function (resp) {
+        if (!resp.ok) throw new Error("HTTP " + resp.status);
+        return resp.json();
+      })
+      .then(render)
+      .catch(function (err) {
+        setDot("bad");
+        setText("statusText", "panel not reachable: " + err.message);
+      });
+  }
+
+  poll();
+  setInterval(poll, 1500);
+})();
+</script>
+</body>
+</html>

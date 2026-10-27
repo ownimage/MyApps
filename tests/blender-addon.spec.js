@@ -1,9 +1,9 @@
 // Runs the Blender add-on test suite from the JS suite, so a plain
-// `playwright test` covers `remoteHID/blender/mouser_step_controls.py` too - the
-// same pattern as tests/phonebuttons-server.spec.js does for the Python server.
+// `playwright test` covers `MyHID/blender/hid_step_controls.py` too - the
+// same pattern as tests/myhid-server.spec.js does for the Python server.
 //
 // The add-on is Blender Python (it needs `bpy`), so it cannot run in Node: this
-// spec shells out to `blender -b --python remoteHID/blender/test_step_controls.py`,
+// spec shells out to `blender -b --python MyHID/blender/test_step_controls.py`,
 // which prints one PASS/FAIL line per check and exits non-zero on failure.
 //
 // It SKIPS (with the reason) when Blender is not installed, so the JS suite still
@@ -19,7 +19,7 @@ const fs = require("fs");
 const path = require("path");
 
 const REPO_ROOT = path.resolve(__dirname, "..");
-const SCRIPT = path.join("remoteHID", "blender", "test_step_controls.py");
+const SCRIPT = path.join("MyHID", "blender", "test_step_controls.py");
 // Floor so a truncated/emptied test file cannot pass silently (it currently
 // reports 21 checks).
 const MIN_CHECKS = 20;
@@ -75,7 +75,7 @@ function run(exe, args) {
   });
 }
 
-test.describe("Blender add-on (Mouser Step Controls)", () => {
+test.describe("Blender add-on (My HID Step Controls)", () => {
 
   test.describe.configure({ timeout: 240000 });
 
@@ -83,7 +83,7 @@ test.describe("Blender add-on (Mouser Step Controls)", () => {
     const exe = findBlender();
     if (!exe) {
       test.skip(true, "Blender was not found (install it or set BLENDER_EXE); "
-        + "the Mouser Step Controls add-on tests need Blender's bundled Python");
+        + "the My HID Step Controls add-on tests need Blender's bundled Python");
     }
     expect(fs.existsSync(exe), `BLENDER_EXE points at a missing file: ${exe}`).toBeTruthy();
     expect(fs.existsSync(path.join(REPO_ROOT, SCRIPT)), `${SCRIPT} is missing`).toBeTruthy();

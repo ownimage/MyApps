@@ -12,7 +12,7 @@ This repo is set up to host **multiple PWAs off one origin** (GitHub Pages
 - `CountMyDays/` — countdown app, served at `/<project>/CountMyDays/` (same structure; own `manifest.json` + icons).
 - `QRLinks/` — link/QR app, served at `/<project>/QRLinks/` (same structure; own `manifest.json` + icons).
 - `SolarControlar/` — solar energy monitoring dashboard (front-end for the Flask server), served at `/<project>/SolarControlar/` (same structure; own `manifest.json` + icons).
-- `remoteHID/` — grouped remote-input apps: `remoteHID/PhoneButtons/` (the PWA, served at `/<project>/remoteHID/PhoneButtons/`), `remoteHID/server/` (its Flask + Socket.IO + Mouser UDP server) and `remoteHID/Mouser/` (the C# capture client for the mouse machine).
+- `MyHID/` — grouped remote-input apps: `MyHID/` (the PWA, served at `/<project>/MyHID/`), `MyHID/server/` (its Flask + Socket.IO + HID UDP server) and `MyHID/mouse-capture/` (the C# capture client for the mouse machine).
 - `FreeFormOX/` — free-form noughts & crosses app, served at `/<project>/FreeFormOX/` (same structure; own `manifest.json` + icons).
 - `Storyboard/` — stickers, text and backgrounds on named boards, served at `/<project>/Storyboard/` (same structure; own `manifest.json` + icons + `assets/`).
 - `Launch/` + the repo-root `index.html` — the launcher (grid of the available apps), served at `/<project>/`. Its support files live in `Launch/`; the entry is the root `index.html`.
@@ -85,18 +85,18 @@ npx playwright test tests/qrlinks-regression.spec.js
 npx playwright test tests/ffox-regression.spec.js
 npx playwright test tests/launch-regression.spec.js
 npx playwright test tests/solarcontrolar-regression.spec.js
-npx playwright test tests/phonebuttons-regression.spec.js
+npx playwright test tests/myhid-regression.spec.js
 npx playwright test tests/lol-regression.spec.js
 ```
 
-`tests/phonebuttons-server.spec.js` runs the PhoneButtons **server** suite
-(`remoteHID/server/test_app.py` + `remoteHID/server/test_mouser.py`, pytest) from
+`tests/myhid-server.spec.js` runs the MyHID **server** suite
+(`MyHID/server/test_app.py` + `MyHID/server/test_hid.py`, pytest) from
 the same run; it skips itself
 when Python 3.13 with Flask/pywin32/pytest is not available. To run the server
 tests on their own, with a coverage report for `app.py`:
 
 ```bash
-py -3.13 -m pytest remoteHID/server/test_app.py remoteHID/server/test_mouser.py --cov=app --cov-report=term-missing
+py -3.13 -m pytest MyHID/server/test_app.py MyHID/server/test_hid.py --cov=app --cov-report=term-missing
 ```
 
 ### Run a single test
