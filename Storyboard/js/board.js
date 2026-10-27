@@ -837,7 +837,14 @@ function sbRoundOutline(x, y, w, h, r) {
 
 function sbOutlineSegmentAt(outline, s) {
   var segs = outline.segs;
-  var t = ((s % outline.total) + outline.total) % outline.total;
+  var total = outline.total;
+  var t = ((s % total) + total) % total;
+  // A position exactly on a SEGMENT BOUNDARY (most importantly the outline's
+  // SEAM at arc length 0/total) must belong to the segment that STARTS there.
+  // Floating point could land a hair past the end, which matched no segment and
+  // returned the last one's END - sbOutlineWalk then broke out of its loop and the
+  // path jumped straight across the box.
+  if (t >= total - 1e-6) t = 0;
   for (var i = 0; i < segs.length; i++) {
     if (t < segs[i].s0 + segs[i].len - 1e-9) return { seg: segs[i], u: Math.max(0, t - segs[i].s0) };
   }
@@ -858,7 +865,12 @@ function sbOutlineWalk(outline, from, to) {
     var hit = sbOutlineSegmentAt(outline, s);
     var seg = hit.seg;
     var take = Math.min(seg.len - hit.u, to - s);
-    if (!(take > 0)) break;
+    if (!(take > 0)) {
+      // Nudge past a degenerate boundary rather than abandoning the rest of the
+      // outline (that left the path with a straight jump to the other mouth point).
+      s += 1e-4;
+      continue;
+    }
     s += take;
     var pt = seg.at(hit.u + take);
     out += seg.type === "arc"

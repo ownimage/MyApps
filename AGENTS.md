@@ -411,7 +411,17 @@ Architecture:
   larger; the body walk is `baseEnd` -> clockwise -> `baseStart`, i.e.
   `total - 2*half`. Swapping them traces the whole outline AND the mouth (the
   mouth region got drawn twice, doubling the corner and leaving a beak).
-  Tests: `tests/storyboard-bubbles.spec.js` (20) + a `speech-bubbles.png`
+  Follow-up (same day, user: "the dotted line round the outside ... takes a path
+  through the box"): the arc-length lookup must treat a position EXACTLY on a
+  segment boundary - above all the outline SEAM at arc length 0/total - as the
+  segment that STARTS there. Floating point could land a hair PAST the end, which
+  matched no segment and returned the LAST one's end; `sbOutlineWalk()` then saw
+  `take === 0` and bailed out, so the path jumped straight from mid-outline to the
+  other mouth point (a dashed line across the box). `sbOutlineSegmentAt()` snaps
+  `t >= total - 1e-6` to 0 and the walk NUDGES past a degenerate boundary instead
+  of abandoning the rest of the outline. Purely geometric, so it showed up only
+  when the mouth happened to span the seam ("sometimes").
+  Tests: `tests/storyboard-bubbles.spec.js` (22) + a `speech-bubbles.png`
   scene in the gallery.
 - STORYBOARD UNDO / REDO + SCENE DUPLICATE / REORDER (2026-10-26, user request):
   - UNDO/REDO: `storage.js` `sbHistory` is a SNAPSHOT history of the stories
@@ -9531,3 +9541,18 @@ Everything below is the contract; break it and the app stops talking to the exe.
   (one point within 2px of the bottom edge, the other of the right edge, plus the
   corner mouth being no narrower than a straight-down one) - red when the mouth is
   clamped (mutation-checked), green now. Storyboard suite 147/147.
+- FOLLOW-UP 6 (2026-10-27, user): "the dotted line round the outside of the text
+  box to show the selection gets corrupted sometimes and takes a path through the
+  box". Root cause was the arc-length outline walk: `sbOutlineSegmentAt()` used
+  `t = s % total` and matched the first segment with `t < end - 1e-9`; when the
+  walk reached the outline SEAM (arc length 0/total, the top-left corner) the
+  modulo could come back a hair BELOW total, no segment matched, and it returned
+  the last segment's END - so `take === 0`, the walk stopped, and the path jumped
+  straight to the other mouth point. That is why it was intermittent: it only
+  happens when the mouth spans the seam. FIX: snap `t >= total - 1e-6` to 0, and
+  make the walk nudge past a degenerate boundary rather than break. TDD: a
+  geometric sweep test (4 body shapes x 240 seam positions x 4 mouth widths, the
+  walk must END where the far mouth point is) was red with 866 failures and is
+  green now; the rendered guard sweeps the tail right round a SELECTED bubble
+  (chrome hidden, white text) and requires no ink inside the box. Storyboard suite
+  149/149.

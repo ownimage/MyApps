@@ -719,6 +719,97 @@ test.describe("Storyboard - speech bubbles", () => {
     }
   });
 
+  test("the outline walk always reaches the far side of the mouth (no jump across the box)", async ({ page }) => {
+    await seed(page, []);
+    // The walk is what draws the body between the two mouth points. It used to
+    // STOP at the outline's SEAM (the top-left corner) when the mouth spanned it,
+    // and the path then jumped straight to the other mouth point - a dashed line
+    // cutting across the box.
+    const bad = await page.evaluate(() => {
+      const fails = [];
+      const sizes = [[120, 60, 10], [400, 90, 12], [300, 80, 60], [80, 40, 4]];
+      sizes.forEach(function (size) {
+        const outline = sbRoundOutline(-size[0] / 2, -size[1] / 2, size[0], size[1], Math.min(size[2], Math.min(size[0], size[1]) / 2));
+        const total = outline.total;
+        for (let i = 0; i < 240; i++) {
+          const s0 = (i / 240) * total;
+          [8, 20, 35, 60].forEach(function (half) {
+            if (half > total * 0.45) return;
+            const from = s0 + half;
+            const to = s0 - half + total;
+            const walk = sbOutlineWalk(outline, from, to);
+            const nums = (walk.match(/-?\d+(?:\.\d+)?/g) || []).map(Number);
+            const last = { x: nums[nums.length - 2], y: nums[nums.length - 1] };
+            const want = sbOutlinePointAt(outline, to);
+            const err = Math.hypot(last.x - want.x, last.y - want.y);
+            if (!(err < 1.5)) fails.push({ size: size.join("x"), s0: Math.round(s0), half: half, err: Math.round(err) });
+          });
+        }
+      });
+      return { count: fails.length, sample: fails.slice(0, 5) };
+    });
+    expect(bad.count, JSON.stringify(bad.sample)).toBe(0);
+  });
+
+  test("a selected bubble's dashed outline never crosses the box", async ({ page }) => {
+    // The dashed ring is the bubble's outline GROWN slightly (a separately generated
+    // path). Whatever the tail does, no part of it may paint INSIDE the box: sweep
+    // the tail right round and require a clean interior every time. (The geometric
+    // guard for the outline SEAM is the walk test above.)
+    await seed(page, [bubble("b1", "Hello 2", 45, 40, {
+      bubble: "round", bg: "#ffffff", color: "#ffffff", stroke: "#000000",
+      lineWidth: 3, lineGap: 8, scale: 1.4
+    })]);
+    await page.addStyleTag({
+      content: ".sb-object.selected { outline: none !important; } .sb-handle, #sbSelectionBar { display: none !important; }"
+    });
+
+    const failures = [];
+    for (const angle of [0, 45, 90, 135, 180, 200, 225, 270, 315, 340]) {
+      const geom = await page.evaluate((angle) => {
+        const cw = sbEls.canvas.clientWidth, ch = sbEls.canvas.clientHeight;
+        const el = document.querySelector('.sb-object-text[data-id="b1"] .sb-text');
+        const m = sbBubbleMetrics(sbFindItem("b1"), el.offsetWidth, el.offsetHeight, cw, ch);
+        const rad = angle * Math.PI / 180;
+        // Aim the tail at the corners/edges from the body centre.
+        const dir = { x: Math.sin(rad) * (m.body.w / 2 + 24), y: Math.cos(rad) * (m.body.h / 2 + 24) };
+        const item = sbFindItem("b1");
+        item.tail = { dx: dir.x / cw * 100, dy: dir.y / ch * 100 };
+        sbUpdateBubble(item);
+        sbSetSelection(["b1"]);
+        const svg = document.querySelector('.sb-object-text[data-id="b1"] .sb-bubble');
+        const r = svg.getBoundingClientRect();
+        const vb = svg.viewBox.baseVal;
+        return {
+          angle,
+          rect: { x: r.x, y: r.y, w: r.width, h: r.height },
+          vb: { x: vb.x, y: vb.y, w: vb.width, h: vb.height },
+          body: m.body
+        };
+      }, angle);
+
+      const clip = {
+        x: Math.round(geom.rect.x), y: Math.round(geom.rect.y),
+        width: Math.max(1, Math.round(geom.rect.w)), height: Math.max(1, Math.round(geom.rect.h))
+      };
+      const buf = await page.screenshot({ clip });
+      const { data, info } = await sharp(buf).raw().toBuffer({ resolveWithObject: true });
+      const sx = geom.rect.w / geom.vb.w, sy = geom.rect.h / geom.vb.h;
+      const b = geom.body;
+      const x0 = Math.round((b.x + 16 - geom.vb.x) * sx), x1 = Math.round((b.x + b.w - 16 - geom.vb.x) * sx);
+      const y0 = Math.round((b.y + 16 - geom.vb.y) * sy), y1 = Math.round((b.y + b.h - 16 - geom.vb.y) * sy);
+      let dark = 0;
+      for (let y = Math.max(0, y0); y < Math.min(info.height, y1); y++) {
+        for (let x = Math.max(0, x0); x < Math.min(info.width, x1); x++) {
+          const i = (y * info.width + x) * info.channels;
+          if (data[i] < 120 && data[i + 1] < 120 && data[i + 2] < 120) dark++;
+        }
+      }
+      if (dark > 0) failures.push({ angle, dark });
+    }
+    expect(failures, "dashes inside the box: " + JSON.stringify(failures)).toEqual([]);
+  });
+
   test("the tail's mouth straddles a corner instead of squashing into it", async ({ page }) => {
     await seed(page, [
       bubble("c1", "Straight", 45, 25),
