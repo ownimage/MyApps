@@ -186,12 +186,15 @@ function openMouseCapture() {
   if (!page) return;
 
   // A SMALL badge whose space is RESERVED while the mouse is still: "moving" flips
-  // constantly, and a badge that appears/disappears re-flows the hardware-id line
-  // (and the whole list, if the rows are rebuilt). This is the app's only styling.
+  // constantly, and a badge that appears/disappears re-flows the row (and the whole
+  // list, if the rows are rebuilt). This is the app's only styling. The badge LEADS
+  // the row, just BEFORE the radio button, and is ALWAYS in the DOM - hidden via
+  // .myhid-moving-off while the mouse is still - so its space is reserved either way
+  // and the layout never moves.
   if (typeof injectSmdComponentStyle === "function") {
     injectSmdComponentStyle("myhid-devices", [
       "#mouseCaptureDevices .myhid-badge { font-size: 0.62em; line-height: 1;",
-      "  padding: 0.2em 0.45em; vertical-align: 0.1em; margin-right: 0.4em; }",
+      "  padding: 0.2em 0.45em; vertical-align: 0.1em; margin-right: 0.4em; margin-top: 0.25rem; }",
       "#mouseCaptureDevices .myhid-moving-off { visibility: hidden; }",
       // Every FORM button takes a quarter of its row, so the rows line up whatever
       // the labels say; the input/select beside it takes the rest. The Start/Stop
@@ -866,9 +869,10 @@ function mouseCaptureRenderDevices(devices) {
   container.innerHTML = devices.map(function (device) {
     var checked = device.hardwareId === selected ? " checked" : "";
 
-    // The badges belong on the SECOND line, at its left edge, in front of the id.
-    // "moving" is ALWAYS rendered (hidden when still) so its space is reserved and
-    // the id never shifts while the mouse moves.
+    // The badges LEAD the row, just BEFORE the radio button. "moving" is ALWAYS
+    // rendered (hidden when still) so its space is reserved and the row never
+    // re-flows while the mouse moves; the hardware id now lives only in the radio's
+    // own value, so the old second text line (badge + id again) is gone.
     var badges = '<smd-badge variant="success" pill class="myhid-badge myhid-moving' +
       (device.moving ? "" : " myhid-moving-off") + '">moving</smd-badge>';
     if (device.simulated) {
@@ -876,12 +880,11 @@ function mouseCaptureRenderDevices(devices) {
     }
 
     return '<label class="d-flex align-items-start gap-2 mb-1">' +
+        badges +
         '<input class="form-check-input mt-1" type="radio" name="myhidCaptureDevice" value="' +
           escAttr(device.hardwareId) + '"' + checked + '>' +
         '<span class="flex-grow-1">' +
           '<span class="fw-semibold d-block">' + escapeHtml(device.name || device.hardwareId) + '</span>' +
-          '<span class="small text-body-secondary d-block text-break">' + badges +
-            '<span class="myhid-id">' + escapeHtml(device.hardwareId) + '</span></span>' +
         '</span>' +
       '</label>';
   }).join("");

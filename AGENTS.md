@@ -7793,18 +7793,11 @@ Everything below is the contract; break it and the app stops talking to the exe.
     is saved once (`mouseCaptureApplyUdpDefault`, silent) so the capture really sends there.
   - LIMIT: two identical mice share a hardware id and a motion key, so they cannot be
     distinguished (both rows light up).
-  - MOUSE ROW LAYOUT (2026-10-27, user request): line 1 = the Windows name, line 2 =
-    a SMALL "moving" badge AT THE LEFT, then the hardware id (wrapped in
-    `.myhid-id`). The badge used to follow the name, so a long name/id wrapped it
-    onto a line of its own. **The badge is ALWAYS rendered and hidden with
-    `visibility: hidden`** (`myhid-moving-off`), never removed and never
-    `display:none`: "moving" flips constantly while the mouse is moved, and anything
-    that changes the line's width/height re-flows the id under the cursor. For the
-    same reason `moving` is NOT part of the device-list rebuild signature - the badge
-    is toggled in place by `mouseCaptureSyncMovingBadges()` (row N is device N; the list is
-    rebuilt only when the device SET changes). Badge sizing is injected with
-    `injectSmdComponentStyle("myhid-devices", …)` (0.62em, tight padding) - the
-    page's only styling. The name comes from
+  - MOUSE ROW LAYOUT (2026-10-27, user request; UPDATED later the same day): line 1 = the
+    Windows name with a SMALL "moving" badge just BEFORE the radio button. The badge used
+    to sit on a second line at the left of the hardware id, and that second line (badge +
+    the id again, wrapped in `.myhid-id`) is now GONE - the id lives in the radio's own
+    value. **The badge is ALWAYS rendered and hidden with `visibility: hidden`** (`myhid-moving-off`), never removed and never `display:none`: "moving" flips constantly while the mouse is moved, and anything that changes the row's width/height re-flows it, so even with NO badge (mouse still) its space is reserved and the layout does not move. For the same reason `moving` is NOT part of the device-list rebuild signature - the badge is toggled in place by `mouseCaptureSyncMovingBadges()` (row N is device N; the list is rebuilt only when the device SET changes). Badge sizing is injected with `injectSmdComponentStyle("myhid-devices", …)` (0.62em, tight padding, `margin-top: 0.25rem` so it sits on the radio's optical line) - the page's only styling. The name comes from
     `GUID_DEVCLASS_MOUSE` (a SETUP class - enumerating `GUID_DEVINTERFACE_MOUSE` and
     calling `SetupDiEnumDeviceInfo` returns NOTHING, which silently degraded every
     name to the hardware id: the "same ids twice" list) plus `SHLoadIndirectString`
@@ -9838,3 +9831,31 @@ Everything below is the contract; break it and the app stops talking to the exe.
   195x185, last right/bottom == grid edge; Manage 6 cells 134x162) and the buttons at
   25% / 50% with the inner `<button>` matching the host, at 1400px and 390px.
 - BUILD: `npm run bump:build` -> `202610271937`.
+
+### 2026-10-27 (g) - HID: moving badge moved before the radio button, duplicate id line gone
+
+- REQUEST (user): the Manage mouse-capture device list - the "moving" smd-badge should go
+  JUST BEFORE the radio button, and the span underneath that repeats the hardware id again
+  (with the badge) should be removed; if there is no badge then space needs to be left so
+  the layout does not move.
+- DONE (app-only change; the exe is untouched): `mouseCaptureRenderDevices`
+  (`MyHID/js/mouse-capture.js`) now emits the badges (moving ALWAYS + simulated if) BEFORE
+  the radio input in the row label, and drops the second text line (badges + `.myhid-id`).
+  The badge stays ALWAYS in the DOM and hidden via `visibility: hidden`
+  (`myhid-moving-off`) while the mouse is still, so a missing badge means NO reflow (space
+  reserved). Injected badge CSS gained `margin-top: 0.25rem` (the radio's own `mt-1` no longer
+  aligns a preceding flex item).
+- TDD: `tests/myhid-mouse-capture.spec.js` - "the moving badge sits just before the radio
+  button and the id line is gone" written RED first (failed: badge still on the second line,
+  id line present), then GREEN after the render change; "the moving badge does not move the
+  layout when the mouse moves" updated to assert badge-before-radio geometry + badge/radio
+  stability across the moving flip (green - reserved space via visibility).
+- VERIFIED: `tests/myhid-mouse-capture.spec.js` full file 21/21 green (`--grep "moving
+  badge"` subset first, then the whole file, `--retries=0`).
+- TRAP (re-bit, matches entry (f) (d)): after the LAST edit the STALE TEST SERVER served a
+  TRUNCATED `mouse-capture.js` (served copy ended mid-token at `clearTimeout(_mou`,
+  page error "missing ) after argument list" -> `openMouseCapture is not defined`, then
+  `myhidParseHidUrl is not defined`). Restarted `node tests/serve-tests.mjs`; the fresh server
+  serves the current file byte-identical and parses clean. ALWAYS restart the test server
+  after the LAST edit.
+- BUILD: none (app-only JS change; no exe / `npm run bump:build` needed).
