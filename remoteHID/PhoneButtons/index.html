@@ -89,6 +89,7 @@
         <li><hr class="dropdown-divider"></li>
         <li><a class="dropdown-item" onclick="openManageApp()">Manage App</a></li>
         <li><a class="dropdown-item" onclick="openManageLayout()">Manage Layout</a></li>
+        <li><a class="dropdown-item" onclick="openMouserCapture()">Manage mouser-capture</a></li>
         <li><hr class="dropdown-divider"></li>
         <li><a class="dropdown-item" onclick="connectServer()">Connect</a></li>
         <li><a class="dropdown-item" onclick="disconnectServer()">Disconnect</a></li>
@@ -120,6 +121,10 @@
     <smd-page id="buttonEditPage" class="d-none"></smd-page>
     <smd-page id="imagePickerPage" class="d-none"></smd-page>
     <smd-page id="serverScanPage" class="d-none"></smd-page>
+
+    <!-- MANAGE MOUSER-CAPTURE + its QR scanner (smd-pages) -->
+    <smd-page id="mouserCapturePage" class="d-none"></smd-page>
+    <smd-page id="mouserScanPage" class="d-none"></smd-page>
 
     <template id="settingsTemplate">
       <div class="smd-settings">
@@ -324,6 +329,7 @@
   document.write('<script src="js/edit-app.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="js/mouser-tab.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="js/edit-layout.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="js/mouser-capture.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="js/app.js?v=' + BUILD_NUMBER + '"><\/script>');
   </script>
 

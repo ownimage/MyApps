@@ -1616,9 +1616,10 @@ Architecture:
     `cloudflared tunnel --url http://127.0.0.1:5000`, echoes its output, REGEXes the
     first `https://<name>.trycloudflare.com`, then prints the Settings values to
     enter), `--no-tunnel` (override) and `--qr <url>` (a QR for an address you already
-    have, e.g. a NAMED tunnel). `PhoneButtonServer.cmd` passes `--tunnel` by DEFAULT
-    (it only adds it when the user gave no `--tunnel`/`--no-tunnel`/`--qr`) and it
-    again KILLS anything on port 5000 first. The QR is served by a new route
+    have, e.g. a NAMED tunnel). `StartRemoteHIDServer.cmd` NO LONGER passes
+    `--tunnel` by default (2026-10-26: the tunnel is OPT-IN on both the server and
+    the capture client - a plain start publishes nothing); it still KILLS anything
+    on port 5000 first. The QR is served by a new route
     `/phonebuttons-qr?value=<url>`, rendered with the SHARED vendored
     `shared/vendor/qrcode.min.js` (global `QRCode`), opened at
     `http://127.0.0.1:5000/phonebuttons-qr?...` via `webbrowser`. `_find_cloudflared()`
@@ -6620,8 +6621,12 @@ Techniques / gotchas:
   lost in the rollback). The QR comes from a new `/phonebuttons-qr?value=<url>` route
   rendered with the shared vendored `qrcode.min.js`, opened at
   `http://127.0.0.1:5000/phonebuttons-qr?...`. `_find_cloudflared()` checks
-  `PB_CLOUDFLARED` -> PATH -> usual install dirs; cloudflared is NOT installed on this
-  box so the server runs anyway and prints `winget install cloudflare.cloudflared`.
+  `PB_CLOUDFLARED` -> PATH -> usual install dirs; when it is missing the server runs
+  anyway and prints `winget install cloudflare.cloudflared`. (2026-10-26: cloudflared
+  IS installed on this box now - a `--tunnel` run really starts a quick tunnel, and a
+  HARD-KILLED parent can leave its `cloudflared.exe` orphaned, so check
+  `Get-CimInstance Win32_Process -Filter "name='cloudflared.exe'"` after killing a
+  tunnelled process by pid.)
   HARDENED: the route escapes its value for html AND js (`json.dumps` +
   `\u003c/\u003e/\u0026`) because a raw `</script>` would break out of the script
   block on a PUBLIC (tunnelled) route — verified all hostile values keep exactly 2
@@ -7353,8 +7358,173 @@ Techniques / gotchas:
   Vite server (it had a truncated cached JS file). Build number bumped to
   `202610231534` (`shared/js/build-number.js` + `sw.js`). Full regression not run.
 - CURRENT USER CONFIG: `remoteHID/server/config.json` is back on the F13-F24
-  defaults; `PhoneButtonServer.cmd` still appends `--debug-keys` (uncommitted user
-  change, left untouched). The add-on's defaults match the config.
+  defaults; `StartRemoteHIDServer.cmd` still appends `--debug-keys` (uncommitted
+  user change, left untouched). The add-on's defaults match the config.
+
+### 2026-10-26 - Mouser control panel: management socket + PhoneButtons config UI
+
+The capture client can now be configured from the phone instead of a command line.
+Everything below is the contract; break it and the app stops talking to the exe.
+
+- SHAPE (user decisions): the CONFIGURATION UI LIVES IN THE APP ONLY
+  (`remoteHID/PhoneButtons/js/mouser-capture.js`, hamburger ->
+  **Manage mouser-capture**). The exe serves a JSON API + a QR/address page, NOT a
+  form - one UI beats two divergent copies. The phone talks DIRECTLY to the panel
+  (Cloudflare tunnel when remote), never through the Flask server, because the
+  capture often runs without the server being reachable.
+- THE SOCKET: `capture/ControlPanel.cs` is a hand-rolled HTTP/1.1 `TcpListener`
+  (NOT `HttpListener`: an HTTP.sys prefix needs a URL ACL/admin, which would make
+  an unelevated start fail obscurely). Loopback by default, `--bind-lan` for LAN,
+  `--panel-port <n>` (0 = free), default 7802. Routes: `GET /` (page),
+  `GET /qrcode.min.js`, `GET /api/state`, `GET|POST /api/devices`,
+  `POST /api/config`, `POST /api/capture/start|stop`, `POST /api/ping`,
+  `POST /api/tunnel/start|stop`.
+- AUTH: one token, generated once into `mouser-capture.json`, accepted as
+  `X-Mouser-Token` OR `?t=` (a `<script src>` cannot send a header). Every route
+  including the page needs it; `OPTIONS` is answered BEFORE the check (a preflight
+  cannot carry a custom header). CORS is `*` + no credentials because the app is
+  served from GitHub Pages/localhost/the tunnel. The API NEVER changes the token
+  (a stale tab must not lock a working phone out) - `SaveConfigRoute` copies the
+  stored one over the incoming body.
+- CONFIG: `mouser-capture.json` next to the exe (falls back to
+  `%LOCALAPPDATA%\Mouser` when that folder is read-only, reported in `warnings`).
+  CLI switches are PER-RUN overrides and are NEVER saved (`--panel-port 0` in the
+  tests does not persist 0). `UnmappedMemberHandling.Disallow`, so a typo is a 400,
+  not a silently dropped field. `autoStart` semantics: Start sets it true, Stop
+  clears it, and the panel replays it at boot only when the driver is available -
+  a stopped session never re-arms itself.
+- BUILD/PAYLOAD: `net8.0-windows` (Windows-only binary; stops the CA1416 warnings
+  about `WindowsIdentity` without adding a framework reference). `ui/index.html`
+  and `../../../shared/vendor/qrcode.min.js` are EMBEDDED resources, so the deploy
+  is still "copy the folder" and the panel adds nothing to the ~70 MB payload.
+  Version 0.4.0.
+- HOTKEY TRAP: `RegisterHotKey` FAILS with "Invalid window; it belongs to other
+  thread" if the window was created elsewhere. `RawWindow.cs` therefore creates
+  the window, registers raw input AND the hotkey on the SAME pump thread (Start()
+  waits on a `ManualResetEventSlim`), and reports a `warnings` entry when the key
+  is already owned. The panic key is Ctrl+Alt+Shift+Q and only DISARMS.
+- IDENTIFY-BY-WIGGLE: raw input is SILENT while the filter is armed (that is the
+  T4 proof), so "move this mouse" only works while stopped. `Devices.cs` matches
+  the three id shapes by taking the FIRST TWO components (enumerator + hardware
+  id) of `HID\VID_...` / instance ids / `\\?\HID#...#{guid}` paths.
+- TUNNEL: `capture/TunnelRunner.cs` mirrors `app.py` (`cloudflared tunnel --url
+  http://127.0.0.1:<panelPort>`, regex the trycloudflare URL, 60 s ceiling, child
+  killed on exit). OFF by default (`--tunnel` opts in; `--public-url` advertises a
+  named tunnel). `--simulate` answers `/api/tunnel/start` with 409 - it must never
+  publish anything.
+- SAME BOX: `app.py --mouser` (and `StartRemoteHIDServer.cmd --mouser`) launches
+  `Mouser\out\mouser-capture.exe --ui --bind-lan --no-qr --panel-port 0
+  --udp 127.0.0.1:<udp port>`, parses the printed `panel:` line and serves it on
+  `GET /api/mouser-capture` (`{enabled,state,url,token,tunnelUrl,build,error}`).
+  The app ADOPTS that automatically when no address is stored. The child is
+  terminated via `atexit`. A missing exe is an `error` state + the build command,
+  never a crash.
+- APP SIDE: `pb_mouserUrl` (base, no trailing slash) + `pb_mouserToken` are
+  SEPARATE keys; `pbParseMouserUrl()` splits `?t=` out and rejects junk. The QR is
+  scanned with `smd-qr-import raw autostart` (same pattern as Settings | Server).
+  The page polls `/api/state` every 1.5 s while open and reuses the SAME panel:
+  the device radio list is rebuilt only when the device signature changes (or it
+  would steal focus), and the UDP input is never overwritten while focused.
+  Buttons: Start/Stop disabled from live state (the stub in the spec is stateful
+  for exactly that reason).
+- 403 DIAGNOSIS (2026-10-26, user hit it): a token mismatch used to read as a bare
+  "rejected the token (403)". Now (a) the panel logs
+  `panel: rejected <method> <path> from <remote> - no token supplied | token
+  mismatch (got N chars, expected M)` to the console, (b) its 403 body carries
+  `tokenHint` = the LAST 4 characters of the expected token, and (c) the app
+  reports BOTH suffixes ("the panel's token ends \"a6f1\" but this app is using
+  \"b1c2\""), which makes a stale QR or a stale saved address obvious. NEVER put
+  the whole token in an error message.
+  TWO UX FIXES that remove the cause: the address field now shows the FULL address
+  (`base + "/?t=" + token`, via `mouserFullAddress()`) so copying it out of the app
+  carries the token (before, copying the field silently dropped it), and a
+  `change` on `#mouserUrlInput` SAVES it (pasting and tapping elsewhere is enough -
+  "typed but never pressed Save" used to leave the app polling with the OLD token,
+  which is exactly how a 403 appears from a correct-looking address).
+  The token only changes if `mouser-capture.json` is lost/unwritable - the banner's
+  `config :` line and `panel.configPath` in `/api/state` name the file to check.
+- IDENTIFY + LEARN (2026-10-26, user request; STOPPED-ONLY since 2026-10-27): "select
+  the mouse by moving it" and "select the mode buttons by clicking them". NEITHER is
+  possible from the Flask server: its only mouse input is the 32-byte UDP frame (no
+  device id, no button bits, and dx/dy are zero unless a mode is held).
+  - BOTH ARE STOPPED-ONLY (user decision): while a capture runs a held mode button
+    gates motion (Identify sees nothing) and the pump swallows the mode buttons
+    (Learn could not see them). The app DISABLES the buttons while running
+    (`mouserSetDisabled` + `title="Stop the capture first"`) and the handlers guard
+    too; `/api/learn-button` answers 409 when a session is running.
+  - IDENTIFY needs NO capture change: `/api/state.devices[]` reports `motion` as a
+    CUMULATIVE count (`RawWindow.SnapshotMotion()`, never reset) and the panel diffs
+    its own baseline for `moving`. Do NOT go back to a drained counter - two
+    consumers (the 1.5 s poll and the Refresh button) stole each other's motion.
+    The app diffs two polls and selects the biggest delta (>= 5 counts, 8 s window).
+  - MOTION KEYS ARE CANONICAL, NOT RAW IDS (2026-10-27 bug: identify always said "no
+    movement detected"): Interception's hardware id
+    (`HID\VID_046D&PID_C52B&REV_1210&MI_01&Col01`) and raw input's device path
+    (`\\?\HID#VID_046D&PID_C52B&MI_01&Col01#7&...#{guid}`) can differ in the REV_
+    segment and the collection suffix, and a mismatch is INVISIBLE - every device
+    just reports zero motion. `DeviceCatalog.MotionKey()` reduces both sides to
+    `VIDPID:046D:C52B:MI01:C01` (VID/PID required, MI/Col when present) with a
+    VID/PID-only `MotionKeyLoose()` fallback that `DeviceRows()` also matches by
+    prefix. `/api/state` exposes `devices[].motionKey` plus `panel.motion.{total,keys}`
+    so a real-machine mismatch is diagnosable instead of guessable.
+  - LEARN is `POST /api/learn-button {timeoutMs}` -> `{ok,button:1..5,ms}` /
+    `{ok:false,timeout:true}`; 409 when a capture is RUNNING or another learn is in
+    flight. Because it must stay stopped-only AND still swallow the click, the panel
+    arms a SHORT-LIVED session itself (`_controller.Start` … `Stop("button learned")`
+    in a finally) and releases it - the user's own capture is never started. The
+    click is read by the STROKE PUMP (`Capture.BeginLearn/EndLearn/
+    TryTakeLearnedButton`): a volatile flag + an Interlocked field, the pump records
+    the first button-down and SWALLOWS the edge (so MB4/MB5 cannot navigate the
+    browser mid-learn) and disables gating while learning. `BeginLearn`/`EndLearn`
+    clear the held-mode flags - the swallow means the pump never sees those ups, so
+    without it the mouse could stay gated. `--simulate` answers button 4 after
+    300 ms so the route and its timeout are testable with no driver.
+  - APP: `#btnMouserIdentify` (variant turns `warning` while listening - a
+    `smd-button` LABEL is captured once and cannot be changed post-build, so colour
+    is the state signal), and `#btnMouserLearnRotate`/`#btnMouserLearnTranslate`
+    beside each select; 3/4/5 are saved, 1/2 are refused with "that's the
+    left/right button". `mouserSaveConfig` RESOLVES TRUE/FALSE and callers only claim
+    success on true: a rejected save (the panel refuses both modes on one button)
+    used to be masked by "Rotate = MB5", which looked exactly like "learned but the
+    dropdown did not change".
+  - SERVER (UDP) DEFAULT: with no target configured, the field defaults to
+    `pbServerAddress():7801` (the server's UDP receiver port, NOT its HTTP port) and
+    is saved once (`mouserApplyUdpDefault`, silent) so the capture really sends there.
+  - LIMIT: two identical mice share a hardware id and a motion key, so they cannot be
+    distinguished (both rows light up).
+  - MOUSE ROW LAYOUT (2026-10-27, user request): line 1 = the Windows name, line 2 =
+    a SMALL "moving" badge AT THE LEFT, then the hardware id (wrapped in
+    `.pb-mouser-id`). The badge used to follow the name, so a long name/id wrapped it
+    onto a line of its own. **The badge is ALWAYS rendered and hidden with
+    `visibility: hidden`** (`pb-mouser-moving-off`), never removed and never
+    `display:none`: "moving" flips constantly while the mouse is moved, and anything
+    that changes the line's width/height re-flows the id under the cursor. For the
+    same reason `moving` is NOT part of the device-list rebuild signature - the badge
+    is toggled in place by `mouserSyncMovingBadges()` (row N is device N; the list is
+    rebuilt only when the device SET changes). Badge sizing is injected with
+    `injectSmdComponentStyle("pb-mouser-devices", …)` (0.62em, tight padding) - the
+    page's only styling. The name comes from
+    `GUID_DEVCLASS_MOUSE` (a SETUP class - enumerating `GUID_DEVINTERFACE_MOUSE` and
+    calling `SetupDiEnumDeviceInfo` returns NOTHING, which silently degraded every
+    name to the hardware id: the "same ids twice" list) plus `SHLoadIndirectString`
+    for the `@%SystemRoot%\...,-123` descriptions. `FriendlyName` is usually absent
+    on mouse nodes (error 13) - `DeviceDesc` is the one that resolves.
+- TESTS: `tests/mouser-capture-ui.spec.js` (10) spawns the real exe with
+  `--ui --simulate --no-tunnel --no-qr --panel-port 0` and SKIPS when
+  `out/mouser-capture.exe` is missing (like `phonebuttons-server.spec.js`); it
+  covers the QR page, token/`?t=`/403, CORS preflight, config validation + the
+  file on disk, devices, start/stop/409, autoStart replay across a restart, ping
+  timeout, and `--version`/`--help`.
+  `tests/phonebuttons-mouser.spec.js` (9) stubs the panel with `page.route`
+  (INCLUDING the CORS preflight - a stub without ACAO would hide a real
+  cross-origin bug) and covers the menu position, the page shape, address parsing,
+  save, render, config round-trip, start/stop/ping, a 403 message, and the
+  same-box adoption. `test_app.py::TestMouserCaptureDiscovery` (9) covers the
+  route and the launch/parse/stop logic with a fake process.
+- BUILD CYCLE: `powershell -File remoteHID\Mouser\build.ps1 [-NoZip]` (add `-NoZip`
+  while iterating; the zip is ~33 MB). The exe is NOT served by the service
+  worker, so the C# changes need NO `npm run bump:build`; the PhoneButtons shell +
+  new JS DO (they are precached PWA assets).
 
 ### 2026-10-23 - smd-image-dropdown: menu thumbnails match the closed button (no clipped icons)
 
@@ -8891,3 +9061,179 @@ Techniques / gotchas:
   so grepping for a test name finds nothing - decode it (base64 -> zip ->
   `report.json`, shape `{files:[{fileName, tests:[{title, projectName, outcome,
   ok, duration}]}], stats:{...}}`) to inspect it.
+
+### 2026-10-26 (j) - mouser-capture control panel + PhoneButtons "Manage mouser-capture"
+
+- REQUEST (user): "can I get the mouse-capture.exe to run a UI so that I can
+  configure it, e.g. choose the mouse, set up filtering and gating etc." Then:
+  "When it starts up it should create a socket for management. It should wrap that
+  socket with cloudflare as the PhoneButtonsServer does. On the PhoneButtons app
+  there should be a menu option Manage mouser-capture which allows the server
+  config or the scanning of the QR Code then allows for the configuration."
+  Answers to the design questions: PhoneButtons ONLY for the UI; direct tunnel
+  (no Flask proxy); tunnel opt-in on BOTH sides; rescan the QR each start; two
+  launchers; and `--mouser` on the server for the same-box case.
+- BUILT (C#, 7 new files + Program/Capture changes, v0.4.0):
+  `Config.cs` (`mouser-capture.json`, strict validation, token, read-only
+  fallback), `ControlPanel.cs` (TcpListener HTTP: token, CORS preflight, 403s,
+  8 routes), `CaptureApp.cs` (`--ui` supervisor + `/api/state` + the QR page),
+  `CaptureSession.cs` (the CLI capture EXTRACTED into start/stop, plus a
+  `--simulate` session), `Devices.cs` (Interception slot -> Windows friendly name,
+  first-two-components id normalisation), `RawWindow.cs` (hidden Win32 window:
+  per-device raw motion for identify-by-wiggle + the Ctrl+Alt+Shift+Q panic key),
+  `TunnelRunner.cs` (cloudflared child, URL regex, kill on exit), `ui/index.html`
+  (QR + live status, embedded with the shared `qrcode.min.js`).
+- BUILT (web): `remoteHID/PhoneButtons/js/mouser-capture.js` (address/QR, device
+  radios, rotate/translate `<smd-select>`, `<smd-checkbox>`es, UDP + Ping,
+  Start/Stop, telemetry, same-box auto-adoption), the hamburger item after Manage
+  Layout, two `smd-page` hosts, the script tag and the `sw.js` APPS entry.
+- BUILT (server): `--mouser` launches the exe autoconfigured to the local UDP
+  receiver and serves its panel address on `GET /api/mouser-capture`; the child is
+  terminated with the server.
+- LAUNCHERS: `StartRemoteHIDServer.cmd` no longer passes `--tunnel` (opt-in now);
+  new `StartMouserCapture.cmd` (tunnel off, kills a leftover on 7802, build hint).
+- TDD: the C# spec was written FIRST and was red on the old binary (10/10 failed:
+  `--ui` unknown, `--version` 0.3.1); the Flask tests were added before the launch
+  helper worked; the app spec was red on the missing menu item/page.
+- WHAT WENT WRONG (all fixed, now in the durable note): `RegisterHotKey` from a
+  thread that did not create the window ("Invalid window; it belongs to other
+  thread") - the window, raw input and hotkey are now created on the pump thread;
+  `--panel-port 0` is a per-run override, so the SAVED config keeps 7802 (my first
+  test assertion was wrong, not the code); "already running" had to be a 409, not
+  the generic 400; the qrcodejs page renders a canvas AND an img, so an exact
+  `toHaveCount(1)` was wrong; and a `Popen` capture lambda recorded `list(a)`
+  (a list containing the arg list) instead of `list(a[0])`.
+- VERIFIED (targeted, `--retries=0`): mouser-capture-ui 10/10,
+  phonebuttons-mouser 9/9, phonebuttons-regression 18/18, phonebuttons-server
+  (pytest 136 passed, coverage >= 80) 2/2, launch-regression 13/13,
+  native-checkbox-guard 1/1, settings-alignment + display-settings 45/45,
+  menu-legibility 5/5 (@contrast, all 27 themes x both modes). Release build
+  zero warnings; the exe smoke-tested with `--simulate` (state/config/start/stop/
+  ping/403/page/QR).
+- BUILD: `npm run bump:build` after the web changes; `build.ps1` re-published
+  `out/` and the zip. Restart the test servers afterwards (the shell + a new JS
+  file are served from the startup snapshot).
+
+### 2026-10-26 (k) - Mouser: identify the mouse by moving it, learn a button by clicking it
+
+- REQUEST (user): "I want to be able to select the mouse by moving it. I want to be
+  able to select the Rotate and translate buttons by clicking them. Can I do this
+  from the remoteHID/server only?" Answer: NO for both - the server only ever sees
+  the 32-byte UDP frame (no device id, no button bits, and zero deltas unless a mode
+  is held). Identify needed no capture change at all; Learn needed the pump.
+- BUILT (C#, 0.4.1): `Capture.BeginLearn/EndLearn/TryTakeLearnedButton` (volatile
+  flag + Interlocked slot; the pump records the first button-down, SWALLOWS it and
+  disables gating while learning; begin/end clear the held-mode flags so the mouse
+  cannot stay gated), `RawWindow.SnapshotMotion()` (cumulative, no reset) with a
+  panel-side baseline for `moving` + the new `motion` field, and
+  `POST /api/learn-button` (409 when stopped / already learning, timeout path,
+  aborts if the session dies). `--simulate` learns button 4 after 300 ms.
+- BUILT (app): Identify (8 s window, 500 ms poll, biggest `motion` delta >= 5 wins,
+  auto-saves) and Learn buttons beside each `<smd-select>` (auto-starts the capture,
+  accepts 3/4/5, refuses 1/2 with a message).
+- TDD: 4 new C# tests (button, timeout + concurrent 409, stopped 409, cumulative
+  motion) were RED first; 4 new app tests (identify selects, learn fills, learn
+  refuses 1/2, learn starts the capture first) were RED first.
+- WHAT WENT WRONG: (a) the test server snapshotted `mouser-capture.js` MID-WRITE, so
+  it served a truncated file and 13 app tests failed with a broken page - restart the
+  server after the LAST edit, and compare the served length to the file (the same
+  gotcha as ever); (b) `mouserSaveConfig` sets its own "Saved." hint, so the
+  Identify confirmation was overwritten - set the message AFTER the save; (c) the
+  app stub returned the OLD config on the next poll, which repainted the select back
+  to 4 - the stub now persists like the real panel; (d) a `smd-button` label is
+  captured once and cannot be changed post-build, so the Identify button signals
+  "listening" via its `variant` (colour), not its text.
+- VERIFIED: mouser-capture-ui 14/14, phonebuttons-mouser 14/14,
+  phonebuttons-regression 19/19, `@cache` 11/11, Release build zero warnings.
+- BUILD: exe 0.4.1 + `build.ps1` zip; `npm run bump:build` -> `202610262100`;
+  servers restarted after the last JS edit.
+
+### 2026-10-27 - Mouser: stopped-only identify/learn, motion-key fix, UDP default
+
+- REPORTED (user): "the Server UDP can be defaulted with the Server address from the
+  Settings | Server page"; "the mouse identification does not seem to work - No
+  movement detected"; "when I learn a button it detects the button and sends a
+  message but does not update the dropdowns"; "I think I should only be able to
+  identify/learn when the capture is not running ... do not make any UI layout
+  changes". (No markup/layout changes were made.)
+- ROOT CAUSES:
+  (a) IDENTIFY: motion was keyed by `NormaliseHardwareKey` (first two path
+      components), but Interception's hardware id carries `&REV_1210` while a raw
+      input device path can omit it, so the keys never met and every device reported
+      zero motion - which is indistinguishable from "the mouse did not move".
+  (b) LEARN: the app reported success unconditionally. The panel REFUSES
+      `rotateButton == translateButton`, so learning MB5 while translate was MB5
+      saved nothing and the "Rotate = MB5" message hid the 400 - exactly "detected,
+      messaged, dropdown unchanged". Reproduced against the real panel (400 body
+      `rotateButton and translateButton cannot be the same button`).
+  (c) The UDP field had no default, so a fresh capture sent nothing.
+- BUILT:
+  - `DeviceCatalog.MotionKey()` / `MotionKeyLoose()` (canonical `VIDPID:...:MI..:C..`,
+    VID/PID fallback matched by prefix in `DeviceRows`), `devices[].motionKey` and
+    `panel.motion.{total,keys}` for diagnosis.
+  - Learn is now STOPPED-ONLY: 409 while running; when stopped the panel arms a
+    short-lived session for the learn (still swallowing the click) and releases it.
+  - App: Identify/Learn disabled while running (+ title), handlers guard,
+    `mouserSaveConfig` resolves true/false so success is only claimed on true,
+    `Server (UDP)` defaults to `pbServerAddress():7801` and is saved once.
+- TDD: the C# spec was updated first and red (learn-while-stopped was 409, the
+  running case was 200, `motionKey`/`panel.motion` missing); the app spec likewise
+  (disabled state, masked save error, UDP default).
+- VERIFIED: mouser-capture-ui 14/14, phonebuttons-mouser 16/16,
+  phonebuttons-regression 19/19, `@cache` 11/11; a throwaway probe against the REAL
+  panel confirmed learn-while-stopped returns 200 + button 4, the capture stays
+  stopped, the dropdown becomes MB4, and starting disables both buttons.
+- BUILD: exe 0.4.2 + zip; `npm run bump:build`; servers restarted after the last edit.
+
+### 2026-10-27 (b) - Mouser: badge on the id line, and why every row showed the id twice
+
+- REPORTED (user): "on the mouse options list there is a list of ids as headers,
+  underneath is the same list of ids, then the moving badge is on a different line.
+  Can the moving badge be on the same line as the second line of text at the left
+  hand side".
+- TWO THINGS, one asked for and one implied:
+  (a) BADGE POSITION: the moving/simulated badges sat after the NAME, so a long name
+      or hardware id wrapped them onto a line of their own above the id. They now sit
+      at the LEFT of the SECOND line, in front of the hardware id
+      (`mouserRenderDevices`, `smd-badge` + `me-1`). Guarded by
+      "the moving badge sits at the left of the hardware-id line", which asserts the
+      badge's vertical centre is inside the id line's box and its x is within 4px of
+      that line's left edge (geometry, not markup).
+  (b) THE DUPLICATED IDS WERE A BUG: `DeviceCatalog.FriendlyNames()` enumerated
+      `GUID_DEVINTERFACE_MOUSE` and then called `SetupDiEnumDeviceInfo` - but that
+      call is for a SETUP-class set, so it returned nothing and every name silently
+      fell back to the hardware id ("the same ids underneath"). Now it enumerates
+      `GUID_DEVCLASS_MOUSE` ({4D36E96F-E325-11CE-BFC1-08002BE10318}, DIGCF_PRESENT)
+      and resolves the INDIRECT `@%SystemRoot%\...,-123` descriptions with
+      `SHLoadIndirectString` (shlwapi) instead of discarding them. VERIFIED with a
+      throwaway console app on this box: `sizeof(SP_DEVINFO_DATA)` = 32, three mouse
+      nodes found, and `DeviceDesc` resolved to "HID-Compliant Mouse" /
+      "Remote Desktop Mouse Device" (FriendlyName is usually absent on mouse nodes -
+      error 13 - so DeviceDesc is the one that matters).
+- VERIFIED: mouser-capture-ui 14/14, phonebuttons-mouser 17/17,
+  phonebuttons-regression 19/19, `@cache` 11/11, Release build zero warnings.
+- BUILD: exe 0.4.3 + zip; `npm run bump:build` -> `202610271000`; servers restarted.
+
+### 2026-10-27 (c) - Mouser: small "moving" badge that never re-flows the row
+
+- REQUEST (user): "Just update the Manage mouse-capture page and change it so the
+  moving badge is on the same line as the second row of text. Make it a small badge,
+  I dont want the layout moving as I move the mouse." (App-only change; the exe is
+  untouched.)
+- BUILT: the "moving" badge is ALWAYS in the DOM on the id line (small: 0.62em via
+  `injectSmdComponentStyle("pb-mouser-devices", …)`) and only its VISIBILITY changes
+  (`pb-mouser-moving-off` -> `visibility: hidden`), so its width is reserved and the
+  hardware id never shifts. The hardware id is wrapped in `.pb-mouser-id` so a test
+  can measure the TEXT position, and `moving` was removed from the device-list
+  rebuild signature - the badge is toggled in place by `mouserSyncMovingBadges()`
+  instead of re-rendering the list every time motion starts or stops (which also
+  stole the radio focus).
+- TDD: "the moving badge does not move the layout when the mouse moves" was RED
+  first (no `.pb-mouser-id`, badge absent while still). It flips `moving` through the
+  stub's `onState`, waits for `visibility: visible`, and asserts the id text's x/y and
+  the row height are unchanged (< 1px).
+- VERIFIED: mouser-capture-ui 14/14, phonebuttons-mouser 18/18,
+  phonebuttons-regression 19/19, `@cache` 11/11.
+- NOTE: two tests failed once immediately after the server restart (cold start, ~44 s
+  run) and passed on the warm re-run - the usual post-restart slowness, not the code.
+- BUILD: `npm run bump:build` -> `202610271011`; servers restarted after the last edit.

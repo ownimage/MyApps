@@ -53,7 +53,7 @@ $arguments = @(
 
 # Stamp the git commit into the banner. The first hardware test ran against a
 # stale copy of the exe for exactly this reason.
-$stamp = '0.3.1'
+$stamp = '0.4.3'
 try {
     $sha = & git -C $PSScriptRoot rev-parse --short HEAD 2>$null
     if ($LASTEXITCODE -eq 0 -and $sha) {

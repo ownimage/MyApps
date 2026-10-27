@@ -4,11 +4,11 @@ Context for a fresh session. Read this before changing anything. It records the
 decisions that were expensive to reach and the invariants that keep the tool safe
 to run on a machine with only one mouse.
 
-Repo: `P:\git\MyApps`, nested app `remoteHID/Mouser`. Current state: **v0.3.1
-capture client** with two momentary modes; the driver path is verified and the
-Python server injects F13–F24 keystrokes. See `README.md` for the current usage.
-Parts of this document are the original Phase-0 design record and are marked
-accordingly.
+Repo: `P:\git\MyApps`, nested app `remoteHID/Mouser`. Current state: **v0.4.0
+capture client** with two momentary modes and a control panel; the driver path is
+verified and the Python server injects F13–F24 keystrokes. See `README.md` for the
+current usage. Parts of this document are the original Phase-0 design record and
+are marked accordingly.
 
 ---
 
@@ -124,6 +124,21 @@ socket into the stroke pump.
   the window with hand-rolled Win32 P/Invoke.
 - A user-local SDK was installed on the dev host at `C:\Users\Keith\.dotnet`
   (no admin, no machine-wide change). `build.ps1` finds it automatically.
+- **v0.4 amendment - the control panel is a WEB PAGE, not a window.** The client
+  needs configuration (which mouse, which mode buttons, where telemetry goes,
+  start/stop, live state). Adding WinForms for that would re-open the payload
+  problem above, and a desktop form cannot be driven from a phone.
+  Instead `--ui` serves a tiny HTTP API plus a QR/address page on a `TcpListener`
+  (`ControlPanel.cs`), and the CONFIGURATION UI lives in the PhoneButtons app
+  (`Manage mouser-capture`), which already has the shared smd-* components, the
+  theme engine and Playwright tests. `System.Net.Sockets` and `System.Text.Json`
+  are part of the self-contained runtime, so the panel adds NOTHING to the ~70 MB
+  payload (the QR page and the vendored `qrcode.min.js` are embedded resources).
+  Deliberately NOT `HttpListener`: an HTTP.sys prefix needs a URL ACL (admin) on
+  Windows, which would turn an unelevated start into an obscure failure.
+  The target framework moved to `net8.0-windows` (this is a Windows-only binary:
+  Win32 P/Invoke throughout) so the platform analyser stops warning about
+  `WindowsIdentity`, with no framework reference added.
 
 ---
 
@@ -133,8 +148,16 @@ socket into the stroke pump.
 |---|---|
 | `capture/Interception.cs` | P/Invoke surface, stroke/mouse structs, hardware-id enumeration |
 | `capture/Capture.cs` | stroke pump, gate state, telemetry, UDP framing hand-off, watchdog |
+| `capture/CaptureSession.cs` | the session the panel starts/stops: real (pump + reporter + filter) and `--simulate` |
+| `capture/CaptureApp.cs` | `--ui` supervisor: routes, `/api/state`, QR page rendering |
+| `capture/Config.cs` | `mouser-capture.json` (validate, load, save, token) |
+| `capture/ControlPanel.cs` | the management socket: HTTP/1.1 on loopback/LAN, token + CORS |
+| `capture/Devices.cs` | Interception slots to Windows friendly names (SetupAPI) |
+| `capture/RawWindow.cs` | hidden Win32 window: identify-by-wiggle + the panic hotkey |
+| `capture/TunnelRunner.cs` | Cloudflare quick tunnel (cloudflared child, URL parse, kill on exit) |
 | `capture/RawInput.cs` | hidden Win32 window, `RIDEV_INPUTSINK`, the raw-input witness |
-| `capture/Net.cs` | wire constants and the UDP sender |
+| `capture/Net.cs` | wire constants, the UDP sender and the ping probe |
+| `capture/ui/index.html` | the QR/address page (embedded resource) |
 | `capture/Program.cs` | CLI parsing, modes, driver lifecycle, receiver and ping |
 | `build.ps1` | publish, bundle `interception.dll`, zip |
 | `README.md` | build, deploy, the T1–T8 acceptance procedure, troubleshooting |
@@ -174,6 +197,19 @@ socket into the stroke pump.
    The filter is a `unsigned short`; passing it where the predicate belongs makes the
    DLL call `0xFFFF` as a function pointer and the process dies with an
    `AccessViolationException`. Always go through `Interception.SetMouseFilter`.
+10. **Learn mode lives in the PUMP, never in raw input.** "Which button did I press?"
+    must be answered where the stroke can also be SWALLOWED: MB4/MB5 are Back/Forward
+    in a browser, so a raw-input listener would navigate the page away mid-learn.
+    `Capture.BeginLearn()` is a volatile flag; the pump records the first button-down
+    in an `Interlocked` field and drops the stroke, and motion is never gated while
+    learning. `BeginLearn`/`EndLearn` CLEAR the held-mode flags, because the swallow
+    means the pump never sees those buttons go up and the mouse must not stay gated.
+    Learning therefore requires a RUNNING capture (an armed filter); a stopped one is
+    a 409, not a silent no-op.
+11. **Device motion is CUMULATIVE, not drained.** `RawWindow.SnapshotMotion()` never
+    resets; the panel keeps the per-device baseline and reports `moving` (delta > 0)
+    plus `motion` (total). A drained counter let two consumers (the 1.5 s poll and the
+    Refresh button) steal each other's motion, which broke identify-by-moving.
 
 ---
 

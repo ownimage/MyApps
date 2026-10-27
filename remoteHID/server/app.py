@@ -5,6 +5,7 @@ import json
 import sys
 import html
 import time
+import atexit
 import socket
 import argparse
 import datetime
@@ -1136,6 +1137,164 @@ def _tunnel_and_qr():
     _show_qr(url)
 
 
+# ---- optional LOCAL mouser-capture (same box) --------------------------------
+# The capture client normally runs on the machine WITH THE MOUSE, which is often
+# not this one - then the phone scans its QR (Manage mouser-capture). When both
+# DO run here, `--mouser` starts the exe with the local autoconfig (UDP straight
+# to this server's 7801 receiver, panel on the LAN) and this route hands the app
+# the panel address, so nothing has to be scanned or typed.
+#
+# SECURITY: the capture panel still requires its own token; that token is returned
+# by this route, i.e. only to a caller that can already drive this server
+# (which can inject keystrokes anyway).
+
+_MOUSER_CAPTURE = {
+    "enabled": False,
+    "state": "off",        # off | starting | ready | error
+    "url": None,           # LAN address of the panel, WITH the token
+    "token": None,
+    "tunnelUrl": None,     # public address when the capture got its own tunnel
+    "build": None,
+    "error": None,
+}
+_MOUSER_CAPTURE_PROC = None
+_MOUSER_CAPTURE_LOCK = threading.Lock()
+
+
+def _mouser_capture_exe():
+    """remoteHID/Mouser/out/mouser-capture.exe (built by Mouser/build.ps1)."""
+    return os.path.abspath(os.path.join(SERVER_DIR, "..", "Mouser", "out", "mouser-capture.exe"))
+
+
+def _mouser_capture_public():
+    with _MOUSER_CAPTURE_LOCK:
+        return dict(_MOUSER_CAPTURE)
+
+
+def _mouser_capture_set(**fields):
+    with _MOUSER_CAPTURE_LOCK:
+        _MOUSER_CAPTURE.update(fields)
+
+
+def _mouser_capture_follow(proc):
+    """Keep reading the panel's output: the tunnel URL and build arrive after the
+    `panel:` line, and an exit means the app's address just went stale."""
+    for line in proc.stdout:
+        print("[mouser-capture] " + line.rstrip())
+        m = re.search(r"tunnel\s*:\s*up\s+(https://[a-z0-9][a-z0-9-]*\.trycloudflare\.com)", line, re.I)
+        if m:
+            _mouser_capture_set(tunnelUrl=m.group(1))
+        m = re.search(r"build\s*:\s*(\S+)", line)
+        if m:
+            _mouser_capture_set(build=m.group(1))
+    if proc.poll() is not None:
+        _mouser_capture_set(state="error", error="the mouser-capture process exited")
+
+
+def _start_mouser_capture(tunnel=False):
+    """Launch the local capture client and wait for it to report its panel."""
+    global _MOUSER_CAPTURE_PROC
+
+    exe = _mouser_capture_exe()
+    _mouser_capture_set(enabled=True, state="starting", error=None, url=None, token=None, tunnelUrl=None)
+
+    if not os.path.exists(exe):
+        msg = ("mouser-capture.exe is not built: " + exe
+               + " (run: powershell -File remoteHID\\Mouser\\build.ps1)")
+        print("mouser-capture: " + msg)
+        _mouser_capture_set(state="error", error=msg)
+        return None
+
+    args = [
+        exe, "--ui", "--bind-lan", "--no-qr", "--panel-port", "0",
+        # Autoconfig: this server already listens for telemetry on 7801 here, so the
+        # capture talks straight to it (CLI overrides are never written to the file).
+        "--udp", f"127.0.0.1:{_mouser_udp.port}",
+    ]
+    if tunnel:
+        args.append("--tunnel")
+
+    print("Starting mouser-capture (same box): " + " ".join(args))
+    try:
+        proc = subprocess.Popen(
+            args,
+            stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+            text=True, bufsize=1, encoding="utf-8", errors="replace",
+            cwd=os.path.dirname(exe),
+        )
+    except Exception as e:
+        msg = f"could not start mouser-capture: {e}"
+        print(msg)
+        _mouser_capture_set(state="error", error=msg)
+        return None
+
+    _MOUSER_CAPTURE_PROC = proc
+    lan = _lan_ip()
+    deadline = time.time() + 30
+
+    while time.time() < deadline:
+        line = proc.stdout.readline()
+        if not line:
+            if proc.poll() is not None:
+                break
+            continue
+        print("[mouser-capture] " + line.rstrip(), flush=True)
+
+        # The banner's build stamp arrives before the panel line; keep it, or the
+        # app would show "unknown" until the next process start.
+        m = re.search(r"build\s*:\s*(\S+)", line)
+        if m:
+            _mouser_capture_set(build=m.group(1))
+
+        m = re.search(r"panel:\s+http://127\.0\.0\.1:(\d+)/\?t=([0-9a-f]+)", line)
+        if m:
+            port, token = int(m.group(1)), m.group(2)
+            _mouser_capture_set(
+                state="ready",
+                token=token,
+                url=f"http://{lan}:{port}/?t={token}",
+            )
+            print("=" * 62, flush=True)
+            print(f"  mouser-capture panel : {_MOUSER_CAPTURE['url']}", flush=True)
+            print("  In PhoneButtons, Manage mouser-capture picks this up automatically.", flush=True)
+            print("=" * 62, flush=True)
+            threading.Thread(target=_mouser_capture_follow, args=(proc,), daemon=True).start()
+            return proc
+
+    msg = "mouser-capture did not report its panel within 30 s"
+    if proc.poll() is not None:
+        msg = f"mouser-capture exited with code {proc.returncode}"
+    print(msg)
+    _mouser_capture_set(state="error", error=msg)
+    return None
+
+
+def _stop_mouser_capture():
+    """Never leave a capture process behind: an orphaned panel holds a port and a
+    settings file, and the next start would report a confusing conflict."""
+    proc = _MOUSER_CAPTURE_PROC
+    if proc is None:
+        return
+    try:
+        if proc.poll() is None:
+            proc.terminate()
+            try:
+                proc.wait(timeout=3)
+            except Exception:
+                proc.kill()
+    except Exception:
+        pass
+
+
+atexit.register(_stop_mouser_capture)
+
+
+@app.route("/api/mouser-capture")
+def api_mouser_capture():
+    """Where the LOCAL capture panel is, so the app needs no QR on a single box."""
+    return jsonify(_mouser_capture_public())
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="PhoneButtons server")
     parser.add_argument(
@@ -1157,6 +1316,19 @@ if __name__ == "__main__":
         "--qr",
         metavar="URL",
         help="Show a QR code for URL (e.g. a named tunnel you started yourself) and skip the tunnel",
+    )
+    parser.add_argument(
+        "--mouser",
+        dest="mouser",
+        action="store_true",
+        help="Also start a LOCAL mouser-capture on this machine (autoconfigured to this server) "
+             "and publish its panel address on /api/mouser-capture",
+    )
+    parser.add_argument(
+        "--no-mouser",
+        dest="mouser",
+        action="store_false",
+        help="Do not start a local mouser-capture (the default; it usually runs on the PC with the mouse)",
     )
     parser.add_argument(
         "--debug",
@@ -1182,7 +1354,7 @@ if __name__ == "__main__":
         action="store_false",
         help="Disable key-send logging (the default)",
     )
-    parser.set_defaults(debug=DEBUG, debug_keys=DEBUG_KEYS)
+    parser.set_defaults(debug=DEBUG, debug_keys=DEBUG_KEYS, mouser=False)
     args = parser.parse_args()
 
     DEBUG = args.debug
@@ -1209,6 +1381,15 @@ if __name__ == "__main__":
         print(f"Mouser UDP disabled: {e}")
     print(f"Key-send debug: {'on' if DEBUG_KEYS else 'off'} (toggle with --debug-keys / --no-debug-keys)")
     threading.Thread(target=_mouser_state_loop, daemon=True).start()
+
+    # Optional same-box capture. Started before the browser/QR step so the app can
+    # discover it immediately; a failure is reported in the log and on the route.
+    if args.mouser:
+        threading.Thread(
+            target=_start_mouser_capture,
+            kwargs={"tunnel": bool(args.tunnel and not args.no_tunnel)},
+            daemon=True,
+        ).start()
     # Open a browser once the server is listening, showing the Share QR so it can
     # be scanned with a phone straight away (skip with --no-qr).
     if args.tunnel and not args.no_tunnel:

@@ -71,8 +71,11 @@ GitHub-Pages copy cannot talk to an http server):
 
 ```powershell
 py -3.13 remoteHID\server\app.py --tunnel
-# or simply:  remoteHID\PhoneButtonServer.cmd        (passes --tunnel by default)
+# or simply:  remoteHID\StartRemoteHIDServer.cmd --tunnel
 ```
+
+The tunnel is **opt-in**: a plain start is local-only, so nothing is published
+unless you ask for it.
 
 It runs `cloudflared tunnel --url http://127.0.0.1:5000`, echoes cloudflared's
 output, parses the `https://<name>.trycloudflare.com` URL, prints the Settings
@@ -90,6 +93,32 @@ Turn the tunnel off with **`--no-tunnel`**.
 **SECURITY:** a quick tunnel is on the public internet — anyone with the (random)
 URL can drive this machine's keyboard. Keep `PB_CORS_ORIGINS` tight and stop the
 tunnel when you are done.
+
+### Same-box capture (`--mouser`)
+
+The capture client normally runs on the PC with the mouse, and the phone reaches it
+through its OWN tunnel/QR (PhoneButtons → **Manage mouser-capture**). When both run
+on this machine, `--mouser` wires them together:
+
+```powershell
+remoteHID\StartRemoteHIDServer.cmd --mouser
+```
+
+It starts `Mouser\out\mouser-capture.exe --ui --bind-lan --no-qr --panel-port 0
+--udp 127.0.0.1:<this server's UDP port>` (command-line overrides, so the capture's
+saved settings file is not touched), reads the `panel:` line it prints, and serves
+that address on **`GET /api/mouser-capture`**:
+
+```json
+{ "enabled": true, "state": "ready", "url": "http://192.168.1.60:7802/?t=…",
+  "token": "…", "tunnelUrl": null, "build": "0.4.0+…", "error": null }
+```
+
+The app's Manage mouser-capture page adopts that automatically when no address is
+stored, so there is no QR to scan. The child is terminated when the server exits.
+Add `--tunnel` as well and the capture gets its own quick tunnel (`tunnelUrl`),
+which is the address a phone off the LAN should use. If the exe has not been built
+the server still runs and reports how to build it.
 
 The next three sections are for the PC with the mouse, not the server host.
 
@@ -211,6 +240,9 @@ Integrity / HVCI first; it is the most common reason the driver refuses to load
   (`pbServerUrl()`).
 - `GET /phonebuttons-qr?value=<url>` — a big QR page (shared vendored
   `qrcode.min.js`), used by `--tunnel` / `--qr`.
+- `GET /api/mouser-capture` — where the LOCAL capture panel is when the server was
+  started with `--mouser` (`{enabled, state, url, token, tunnelUrl, build, error}`),
+  so Manage mouser-capture needs no QR scan on a single-box setup.
 - Socket.IO: the server emits `app_change` on connect and on foreground change;
   the client sends `button_press { key }` (a full press), `key_down { key }` /
   `key_up { key }` (press-and-hold — a modifiers-only key such as `"ctrl+shift"`

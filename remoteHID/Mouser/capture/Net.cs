@@ -30,6 +30,60 @@ internal static class Wire
 }
 
 /// <summary>
+/// The ping probe shared by the CLI's `--ping` and the panel's /api/ping route.
+/// A timeout is a RESULT, not an exception: the app shows "no reply" far more often
+/// than it shows a failure, usually because the server is not started yet.
+/// </summary>
+internal static class UdpPing
+{
+    public static (int Replies, double? MedianMs, string? Error) Run(IPEndPoint target, int attempts, int timeoutMs)
+    {
+        using var socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+        socket.ReceiveTimeout = Math.Clamp(timeoutMs, 50, 5000);
+
+        var buffer = new byte[64];
+        var samples = new List<double>(attempts);
+
+        for (int i = 0; i < Math.Clamp(attempts, 1, 20); i++)
+        {
+            var packet = new byte[Wire.PingSize];
+            BinaryPrimitives.WriteUInt32LittleEndian(packet.AsSpan(0), Wire.MagicPing);
+            BinaryPrimitives.WriteUInt32LittleEndian(packet.AsSpan(4), (uint)i);
+            BinaryPrimitives.WriteInt64LittleEndian(packet.AsSpan(8), Stopwatch.GetTimestamp());
+
+            long start = Stopwatch.GetTimestamp();
+
+            try
+            {
+                socket.SendTo(packet, target);
+                EndPoint from = new IPEndPoint(IPAddress.Any, 0);
+                int read = socket.ReceiveFrom(buffer, ref from);
+                if (read >= Wire.PingSize && BinaryPrimitives.ReadUInt32LittleEndian(buffer) == Wire.MagicPong)
+                {
+                    samples.Add((Stopwatch.GetTimestamp() - start) * 1000.0 / Stopwatch.Frequency);
+                }
+            }
+            catch (SocketException)
+            {
+                // counted as no reply
+            }
+
+            Thread.Sleep(50);
+        }
+
+        if (samples.Count == 0)
+        {
+            return (0, null,
+                $"timeout - no reply from {target} in {attempts} attempts. Is the PhoneButtons server running "
+                + "and is UDP open on this network? (UDP is not tunnelled, so a Cloudflare hostname cannot deliver it.)");
+        }
+
+        samples.Sort();
+        return (samples.Count, samples[samples.Count / 2], null);
+    }
+}
+
+/// <summary>
 /// Frame-oriented UDP sender. The capture side accumulates stroke deltas and
 /// flushes them at ~100 Hz, which is what a 6DOF consumer actually wants; sending
 /// one datagram per 1 kHz stroke would be pointless.

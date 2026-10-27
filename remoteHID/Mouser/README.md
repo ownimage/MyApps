@@ -2,12 +2,16 @@
 
 Turning an ordinary mouse into a 6DOF input device for Windows 11.
 
-This is the **capture client** (v0.3.1). It reads the mouse through the
+This is the **capture client** (v0.4.0). It reads the mouse through the
 Interception driver — below raw input — and, while MB4 or MB5 is held, turns
 motion into a 100 Hz UDP stream instead of letting it reach the OS. A companion
 Python server (`remoteHID/server`) converts that stream into real F13–F24 key
 presses in the focused app (Blender, Unity, anything). The Phase-0 gate proof
 below is the foundation; the 6DOF part is now live.
+
+v0.4 adds a **control panel**: a management socket + QR page on the capture PC,
+configured from the PhoneButtons app (Manage mouser-capture) — see
+[Control panel](#control-panel). The console modes below are unchanged.
 
 | Hold | Mode | UDP `mode` |
 |---|---|---|
@@ -560,7 +564,9 @@ still distinguishes devices.
 - **No WebSocket client.** Capture telemetry is UDP 7801. The server's
   Socket.IO/WebSocket transport is for the browser, not for the capture client.
 - **No tray UI or global hotkey.** Modes are MB4/MB5, configured on the capture
-  command line; bindings are configured in the PhoneButtons web app.
+  command line or in the control panel (below); the axis bindings live in the
+  PhoneButtons web app. The one hotkey is the PANIC key
+  (Ctrl+Alt+Shift+Q), which only disarms the filter.
 - **Mode buttons are consumed while `--gate` is active.** That is what stops MB4
   from also clicking through. Use `--pass-mode-buttons` for the old behaviour.
 - **Latency is processing + UDP time**, not perceived input-to-photon latency
@@ -577,12 +583,154 @@ Mouser/
     Mouser.Capture.csproj
     Interception.cs         P/Invoke for the filter driver
     Capture.cs              stroke pump, two-mode gating, telemetry, watchdog
-    RawInput.cs             hidden Win32 window + WM_INPUT witness
-    Net.cs                  UDP framing
+    CaptureSession.cs       the session the panel starts/stops (real + simulated)
+    CaptureApp.cs           --ui supervisor: routes, state, QR page
+    Config.cs               mouser-capture.json (validate/load/save)
+    ControlPanel.cs         the management socket (HTTP on loopback/LAN)
+    Devices.cs              Interception slots -> Windows friendly names
+    RawWindow.cs            hidden Win32 window: identify-by-wiggle + panic hotkey
+    TunnelRunner.cs         Cloudflare quick tunnel (cloudflared child process)
+    Net.cs                  UDP framing + the ping probe
     Program.cs              CLI, modes, driver lifecycle
+    ui/index.html           the QR/address page (embedded resource)
   blender/                  Blender 4.4.3 fixed-step add-on
   out/                      published, self-contained, ready to copy
 ```
+
+## Control panel
+
+`mouser-capture --ui` (also the default when a saved config exists, so
+double-clicking the exe works) starts a small management socket and prints:
+
+```
+mouser-capture control panel
+  build  : 0.4.0+<sha>
+  config : ...\mouser-capture.json
+  bind   : 127.0.0.1:7802
+panel: http://127.0.0.1:7802/?t=<token>
+  driver : ready
+  hotkey : Ctrl+Alt+Shift+Q disarms the filter
+  tunnel : off (pass --tunnel to publish the panel through Cloudflare)
+```
+
+Open that `panel:` address to see a QR code and live status. **The configuration
+UI is in the PhoneButtons app** — hamburger → **Manage mouser-capture** — so there
+is one form rather than two: paste the panel address (or scan the QR) and you get
+the mouse list (with "moving" identification), the rotate/translate buttons, the
+mode-button behaviour, the auto-start switch, the UDP target with a Ping, and
+Start/Stop with live telemetry.
+
+Why a page and not a window: `DESIGN.md` decision 5 (no UI framework — WinForms
+took the payload from 70 MB to 144 MB). The socket server and JSON are already in
+the self-contained runtime, so this adds **nothing** to the deployment.
+
+Options that matter:
+
+| Switch | Meaning |
+|---|---|
+| `--panel-port <n>` | management port; `0` picks a free one (default 7802) |
+| `--bind-lan` | also listen on the LAN, not just loopback (needed when the phone is on the same Wi-Fi and there is no tunnel) |
+| `--tunnel` | publish the panel through a Cloudflare QUICK TUNNEL and put that URL in the QR |
+| `--public-url <url>` | advertise an address you already have (a named tunnel) |
+| `--config <file>` | use a specific settings file (default `mouser-capture.json` next to the exe) |
+| `--simulate` | fake devices + capture, no driver: demos the panel and runs its tests |
+| `--no-qr` | do not open the panel page in a browser |
+| `--no-tunnel` | override a saved "tunnel on" for one run |
+
+**Tunnel is off unless you ask.** A quick tunnel is on the public internet: the
+panel still demands its token on every route (and the QR carries it), but stop the
+tunnel when you are done. The token is generated once and kept in the config; the
+quick-tunnel URL changes on every start, so re-scan the QR after a restart.
+
+### "The capture panel rejected the token (403)"
+
+The token lives in `mouser-capture.json` next to the exe, is printed on the
+`panel:` line and shown on the panel page. The app keeps the address and the token
+as separate values, but its address field always shows the FULL address
+(`…:7802/?t=<token>`) so copying it out of the app carries the token too.
+
+If the app reports a 403 it names both sides, e.g.
+
+```
+the capture panel rejected the token (403): the panel's token ends "a6f1"
+but this app is using "b1c2" - scan the panel's QR again, or paste its full address
+```
+
+and the capture console logs the attempt:
+
+```
+panel: rejected GET /api/state from 192.168.1.232:61234 - token mismatch (got 32 chars, expected 32)
+```
+
+Causes, most common first:
+
+1. an address copied from an **older run** (the token only changes if the config
+   file was lost or the folder is read-only - check the `config :` line in the
+   banner, and `panel.configPath` in `/api/state`);
+2. an address saved **without** `?t=` (the app warns about this when you save it);
+3. the panel was restarted with a different `--config`, so it is a different token;
+4. you are talking to a **different instance** than the one that printed the
+   address (two panels, or a stale one holding port 7802 - `StartMouserCapture.cmd`
+   kills a leftover on 7802 first).
+
+Fix: open the panel page (the `panel:` URL) and scan its QR, or copy the full
+address from it - not from memory or a screenshot.
+
+
+**Same box?** If the mouse is on the machine that runs the server, start the server
+with `--mouser` (`StartRemoteHIDServer.cmd --mouser`). It launches this exe with
+`--bind-lan --udp 127.0.0.1:7801`, reads the printed panel address, and serves it on
+`GET /api/mouser-capture`, so Manage mouser-capture picks it up with no scan at all.
+
+**Safety.** `Stop` always disarms the filter; the watchdog disarms it if the stroke
+pump stalls; closing the browser tab changes nothing (the capture keeps running);
+and Ctrl+Alt+Shift+Q on the capture PC disarms it from anywhere. The panel's
+`warnings` in `/api/state` say so if the hotkey could not be registered (another
+program already owns it). Quit with Q / Ctrl+C (or `StartMouserCapture.cmd`'s
+window) so the `cloudflared` child is killed too - a hard kill of the exe can
+leave a tunnel process behind.
+
+### Identify the mouse, learn a button
+
+Both shortcuts in **Manage mouser-capture** are **stopped-only**: while a capture is
+running they are disabled ("Stop the capture first"), because a held mode button
+gates motion (Identify would see nothing) and the pump swallows the mode buttons
+(Learn could not see them). The panel enforces it too - `/api/learn-button` answers
+`409` when a session is running.
+
+- **Identify** — stop the capture, press Identify, then move the mouse you want. The
+  panel reports *cumulative* motion per device (`/api/state.devices[].motion`); the
+  app diffs two polls and selects whichever moved most (8 s window, then it saves).
+- **Learn** (beside Rotate / Translate) — stop the capture, press Learn, then click
+  the mouse button. The panel arms a **short-lived session** just for the learn, so
+  the click is read by the stroke pump and **swallowed** (MB4/MB5 cannot navigate
+  your browser), and your own capture stays stopped afterwards. Accepted: middle (3),
+  MB4, MB5; left/right are refused with a message, and a save the panel rejects (e.g.
+  both modes on the same button) is reported instead of claiming success. Stop and
+  start the capture to apply the new button.
+
+**Server (UDP) default:** when the capture has never been given a target, the field
+defaults to the **Settings | Server** host on port **7801** (the port the
+PhoneButtons server receives telemetry on) and is saved once - the capture starts
+sending there without an extra step.
+
+If Identify ever says "no movement detected" while you are moving a mouse, the panel
+now says why it cannot match: `/api/state` carries `panel.motion.total` (has raw
+input delivered anything at all?) and `panel.motion.keys` (the canonical
+`VIDPID:046D:C52B:MI01:C01` keys it saw), next to `devices[].motionKey`. A mismatch
+between those is a device-id problem, not a mouse problem.
+
+Limits worth knowing: two **identical** mice share a hardware id (and a motion key),
+so they cannot be told apart - both rows light up.
+
+### Panel API (what the app calls)
+
+`GET /api/state` · `GET|POST /api/devices` · `POST /api/config` ·
+`POST /api/capture/start|stop` · `POST /api/ping` · `POST /api/learn-button` ·
+`POST /api/tunnel/start|stop` ·
+`GET /` (QR page) · `GET /qrcode.min.js`. Every route needs
+`X-Mouser-Token` (or `?t=`) and answers CORS preflights, because the app is served
+from a different origin.
 
 ## Using it with the server
 
@@ -639,6 +787,18 @@ it with `--debug-keys` (and optionally `--no-debug` to suppress everything else)
 The server injects real keystrokes into the focused app. It and the target app
 must run at the same integrity level: Windows UIPI blocks injection from a
 normal process into an elevated one.
+
+### Configuring it from the phone
+
+Start the capture with `--ui` (or `StartMouserCapture.cmd`). Its `panel:` line is
+the address the PhoneButtons app needs; scan the QR it opens, or paste the address
+into **Manage mouser-capture**, and set the mouse, the mode buttons and the UDP
+target there instead of on a command line. The panel remembers everything in
+`mouser-capture.json`, and `Auto-start` replays the last session when the panel
+opens (an explicit Stop clears it, so a stopped session never re-arms itself).
+
+On one box you do not even need the QR: `StartRemoteHIDServer.cmd --mouser` starts
+both and hands the address to the app automatically.
 
 ### Blender 4.4.3 step controls
 
