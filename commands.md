@@ -1,11 +1,11 @@
 ### 1. Run full regression tests (main + contrast; contrast starts first, in parallel)
 ```bash
-.\CleanTestServerStart.cmd && set "EXTERNAL_SERVERS=1" && set "SCREENSHOT_THEME=superhero" && npm test -- --retries=0 --workers=32 && type remoteHID\server\coverage.txt && echo %date% %time%
+.\CleanTestServerStart.cmd && set "EXTERNAL_SERVERS=1" && set "SCREENSHOT_THEME=superhero" && npm test -- --retries=0 --workers=32 && type MyHID\server\coverage.txt && echo %date% %time%
 ```
 
 ### 2. Run full regression tests without the contrast suite
 ```bash
-.\CleanTestServerStart.cmd && set "EXTERNAL_SERVERS=1" && set "SCREENSHOT_THEME=superhero" && npm run test:main -- --retries=0 --workers=32 && type remoteHID\server\coverage.txt && echo %date% %time%
+.\CleanTestServerStart.cmd && set "EXTERNAL_SERVERS=1" && set "SCREENSHOT_THEME=superhero" && npm run test:main -- --retries=0 --workers=32 && type MyHID\server\coverage.txt && echo %date% %time%
 ```
 
 ### 3. Run the contrast tests only
@@ -39,39 +39,39 @@ Then visit: <http://localhost:8080/storybook/index.html>
 
 The chosen theme is remembered in `localStorage` (`storybook_theme`). Each section shows live demo instances; interactive bits (modal/page open, tab switching, stream-header expand, active toggles, card buttons) emit their normal composed events into the section's event log.
 
-### Blender add-on tests (Mouser Step Controls)
+### Blender add-on tests (My HID Step Controls)
 The add-on is Blender Python (`bpy`), so it is NOT collected by Playwright
 directly - `tests/blender-addon.spec.js` runs it inside Blender from the JS suite,
 so `npm test` (any shard included) covers it automatically. That wrapper SKIPS
 with a clear reason when Blender is not installed; `BLENDER_EXE` overrides the
 install it finds. Run the checks on their own with:
 ```bash
-"C:\Program Files\Blender Foundation\Blender 4.4\blender.exe" -b --python remoteHID\blender\test_step_controls.py
+"C:\Program Files\Blender Foundation\Blender 4.4\blender.exe" -b --python MyHID\blender\test_step_controls.py
 ```
 One `PASS`/`FAIL` line per check, exit code 1 on failure.
 
-### Mouser control panel (mouser-capture.exe --ui)
+### HID control panel (mouse-capture.exe --ui)
 
 The capture client serves a management API + QR page; the CONFIGURATION UI is in
-PhoneButtons (hamburger -> Manage mouser-capture). Build and run it:
+MyHID (hamburger -> Manage mouse-capture). Build and run it:
 ```bash
 # build (publish + bundle interception.dll); add -NoZip to skip the zip
-powershell -NoProfile -ExecutionPolicy Bypass -File remoteHID\Mouser\build.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File MyHID\mouse-capture\build.ps1
 
 # demo/test the panel with NO driver installed (prints a "panel:" URL)
-remoteHID\Mouser\out\mouser-capture.exe --ui --simulate --no-tunnel --panel-port 0
+MyHID\mouse-capture\out\mouse-capture.exe --ui --simulate --no-tunnel --panel-port 0
 
 # on the PC with the mouse: tunnel is opt-in
-remoteHID\StartMouserCapture.cmd
-remoteHID\StartMouserCapture.cmd --tunnel
+StartMouseCapture.cmd
+StartMouseCapture.cmd --tunnel
 
 # one box (server + capture), autoconfigured, no QR scan
-remoteHID\StartRemoteHIDServer.cmd --mouser
+StartMyHIDServer.cmd --mouse-capture
 ```
 Its tests (the panel one spawns the built exe with `--simulate` and SKIPS when
-`out/mouser-capture.exe` is missing):
+`out/mouse-capture.exe` is missing):
 ```bash
-.\node_modules\.bin\playwright.cmd test tests/mouser-capture-ui.spec.js tests/phonebuttons-mouser.spec.js --workers=3 --retries=0
+.\node_modules\.bin\playwright.cmd test tests/mouse-capture-ui.spec.js tests/myhid-mouse-capture.spec.js --workers=3 --retries=0
 ```
 
 ### SampleImages
@@ -94,7 +94,7 @@ npm run extract:images
 ```
 ### Screenshots
 Regenerate every gallery that EXISTS (all seven suites, in alphabetical order - the
-apps without a gallery yet are SolarControlar, PhoneButtons and the storybook).
+apps without a gallery yet are SolarControlar, MyHID and the storybook).
 ALWAYS pass `--workers 16`; add a new `tests/<app>-screenshots.spec.js` here, in
 alphabetical position, when an app gains one:
 ```bash

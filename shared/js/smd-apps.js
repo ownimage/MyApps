@@ -25,9 +25,9 @@
     { name: "List of Lists", description: "Organise anything into categories, lists and list items", path: "ListOfLists/", icon: "List of Lists" },
     // `navTitle` overrides the name shown in the nav bar (see mountAppTitle):
     //   - a string replaces `name` (Launch's page is titled "My Apps"),
-    //   - `false` opts OUT of a nav title entirely (Phone Buttons already shows
+    //   - `false` opts OUT of a nav title entirely (My HID already shows
     //     the running server app's name next to the hamburger).
-    { name: "Phone Buttons", description: "Remote control buttons for this computer", path: "remoteHID/PhoneButtons/", icon: "Phone Buttons", navTitle: false },
+    { name: "My HID", description: "Remote control buttons for this computer", path: "MyHID/", icon: "My HID", navTitle: false },
     { name: "Storyboard", description: "Place stickers and text anywhere on a storyboard", path: "Storyboard/", icon: "Storyboard" },
     { name: "Launch", description: "Open the app launcher", path: "", icon: "Launch", navTitle: "My Apps" }
   ];
@@ -127,8 +127,8 @@
       var here = location.href.split(/[?#]/)[0];
       if (here.indexOf(root) !== 0) return null;
       var rel = here.slice(root.length);
-      // Longest registered prefix wins, so a nested app folder
-      // ("remoteHID/PhoneButtons/") is not mistaken for its group ("remoteHID/").
+      // Longest registered prefix wins, so an app nested inside a group folder
+      // matches its own (longer) path rather than the group folder's.
       var best = "";
       APPS.forEach(function (a) {
         if (!a.path) return;
@@ -232,7 +232,7 @@
   // Put the app's FULL NAME in the toolbar, right next to the hamburger button.
   // The name comes from the registry above (so the nav and the Launch submenu
   // can never disagree), resolved from the CURRENT page's path. An app whose
-  // entry sets `navTitle: false` (Phone Buttons) gets no title. Idempotent, and
+  // entry sets `navTitle: false` (My HID) gets no title. Idempotent, and
   // a no-op on pages without a #mainNav (the Storybook, the card viewer frames).
   function mountAppTitle() {
     var nav = document.getElementById("mainNav");

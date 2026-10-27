@@ -20,7 +20,7 @@
 // comparison. If the two ever DO drift, the page notices at runtime
 // (GET_BUILD) and re-registers, so the drift self-heals instead of pinning
 // users to a build the worker will never replace.
-const BUILD_NUMBER = "202610271532";
+const BUILD_NUMBER = "202610271611";
 
 const CACHE = "myapps-" + BUILD_NUMBER;
 
@@ -519,23 +519,23 @@ const APPS = {
     "SolarControlar/js/graph-tab.js",
     "SolarControlar/js/components/solar-top-tiles.js"
   ],
-  "remoteHID/PhoneButtons/": [
-    "remoteHID/PhoneButtons/",
-    "remoteHID/PhoneButtons/index.html",
-    "remoteHID/PhoneButtons/manifest.json",
-    "remoteHID/PhoneButtons/icon.svg",
-    "remoteHID/PhoneButtons/icon-192.png",
-    "remoteHID/PhoneButtons/icon-512.png",
-    "remoteHID/PhoneButtons/js/app.js",
-    "remoteHID/PhoneButtons/js/main-view.js",
-    "remoteHID/PhoneButtons/js/api.js",
-    "remoteHID/PhoneButtons/js/socket.js",
-    "remoteHID/PhoneButtons/js/settings-tab.js",
-    "remoteHID/PhoneButtons/js/edit-app.js",
-    "remoteHID/PhoneButtons/js/edit-layout.js",
-    "remoteHID/PhoneButtons/js/mouser-tab.js",
-    "remoteHID/PhoneButtons/js/mouser-capture.js",
-    "remoteHID/PhoneButtons/js/components/pb-image-dropdown.js"
+  "MyHID/": [
+    "MyHID/",
+    "MyHID/index.html",
+    "MyHID/manifest.json",
+    "MyHID/icon.svg",
+    "MyHID/icon-192.png",
+    "MyHID/icon-512.png",
+    "MyHID/js/app.js",
+    "MyHID/js/main-view.js",
+    "MyHID/js/api.js",
+    "MyHID/js/socket.js",
+    "MyHID/js/settings-tab.js",
+    "MyHID/js/edit-app.js",
+    "MyHID/js/edit-layout.js",
+    "MyHID/js/hid-tab.js",
+    "MyHID/js/mouse-capture.js",
+    "MyHID/js/components/myhid-image-dropdown.js"
   ],
   // The Launch app entry lives at the repo root (index.html); its other files
   // live in Launch/ (manifest, icons, css, js).

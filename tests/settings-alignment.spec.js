@@ -34,7 +34,7 @@ const ALL_APPS = [
   { name: "QRLinks", path: "/QRLinks/" },
   { name: "SolarControlar", path: "/SolarControlar/" },
   { name: "ListOfLists", path: "/ListOfLists/" },
-  { name: "PhoneButtons", path: "/remoteHID/PhoneButtons/" },
+  { name: "MyHID", path: "/MyHID/" },
   { name: "Launch", path: "/" }
 ];
 
@@ -212,7 +212,7 @@ test.describe("Danger tab shape is consistent across apps", () => {
         "Clear local storage LoL", "Upload Standard Images"],
     },
     {
-      app: "PhoneButtons", path: "/remoteHID/PhoneButtons/",
+      app: "MyHID", path: "/MyHID/",
       rows: ["Show danger", "No Cache", "Refresh App", "Clear local storage PB"],
     },
     {
@@ -322,7 +322,7 @@ test.describe("Danger tab shape is consistent across apps", () => {
       const modal = page.locator("#smdConfirmModal");
 
       // Clear local storage <APP> - asks first, and Cancel leaves the data alone.
-      // PhoneButtons' row keeps its own id (#btnClearStorage).
+      // MyHID' row keeps its own id (#btnClearStorage).
       const clearButton = page.locator("#btnClearAllData, #btnClearStorage");
       await clearButton.click();
       await expect(modal, spec.app + ": Clear local storage opens a confirm").toBeVisible();
@@ -379,7 +379,7 @@ test.describe("Settings page shape is consistent across apps", () => {
         "Auto-hide menu", "Screen resolution"],
     },
     {
-      app: "PhoneButtons", path: "/remoteHID/PhoneButtons/", tabs: ["Display", "Server", "Danger"],
+      app: "MyHID", path: "/MyHID/", tabs: ["Display", "Server", "Danger"],
       display: ["Theme", "Theme Mode", "Font size", "Icon size", "Touch size", "Slide speed", "Auto-hide menu"],
     },
   ];

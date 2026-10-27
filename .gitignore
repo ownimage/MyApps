@@ -7,19 +7,19 @@ node_modules/
 /screenshots/
 /temp/
 
-# Python artefacts (the PhoneButtons server tests): coverage.py data files and
+# Python artefacts (the MyHID server tests): coverage.py data files and
 # pytest's cache, if a run is ever started without redirecting them.
 .coverage
 .coverage.*
 .pytest_cache/
 htmlcov/
-/remoteHID/server/coverage.txt
+/MyHID/server/coverage.txt
 
 # Python bytecode (the Blender add-on test imports the add-on by path).
 __pycache__/
 *.pyc
 
-# PhoneButtons server TLS certs (generated locally by --gen-cert: a local CA +
+# MyHID server TLS certs (generated locally by --gen-cert: a local CA +
 # the server leaf). NEVER commit the private keys.
-/remoteHID/server/*.crt
-/remoteHID/server/*.key
+/MyHID/server/*.crt
+/MyHID/server/*.key

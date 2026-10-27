@@ -657,7 +657,7 @@ Architecture:
   opens + `hideNav()` cannot slide it; transition off restores the row and the
   12px rail inset; PlanMyDay shell).
 - IMAGE DROPDOWN (2026-09-18): the shared `<smd-image-dropdown>` (`shared/js/components/smd-image-dropdown.js`) is the generic image+name picker — the old PlanMyDay `pmd-stream-select` was folded into it and deleted. It is DATA-driven, not DOM: host sets `options = [{name, image}]` (image OPTIONAL → text-only rows, e.g. CountMyDays' no-image "All") and `selected` = the chosen option's NAME string; picks dispatch `smd-image-dropdown-change` ({ name }). Listener wiring: CountMyDays `#dateCategoryFilter` (`smd-image-dropdown-change` → `setDateCategoryFilter`, "" for All) in `dates-editor.js`; PlanMyDay `#jobStreamDropdown` (name mapped back via `streamIndexByName` in `editor-common.js`). Stable shadow ids for test locators: `smdImageDropdownBtn`, `smdImageBtnIcon`, `smdImageBtnText`, `smdImageDropdownMenu`. Its colours come from the `--smd-dropdown-*` palette in the shared MODE layer (`shared/css/themes/light.css` + `dark.css`), which since 2026-10-13 mirrors the form-field palette (`--smd-form-*`) for surface/label/border and does NOT change colour on hover (the closed control is field-like); a theme overrides in `shared/css/themes/<theme>/<theme>.<mode>.css` (superhero, cyborg, darkly do) — see the 2026-09-26 (c) and 2026-10-13 (e) session notes. GOTCHA (2026-10-13): the palette only sets `background-color`, so a theme whose stock `.btn` ALSO sets `background-image: var(--bs-gradient)` shows a white sheen over a dark button; materia is the only such theme and clears it with `#smd-app smd-image-dropdown .btn { background-image: none }` (the `#smd-app` scope is needed to beat the theme's `.btn:focus-visible` re-apply).
-- SMD-SELECT (2026-10-13): new shared `shared/js/components/smd-select.js` (`<smd-select>`) — a text-only custom dropdown with a `<select>` SHAPE (its button reuses Bootstrap's `.form-select`, so it inherits the shared `--smd-form-*` repaint) but a THEMED menu, because a native `<select>`'s open list is OS-rendered and cannot be CSS-styled cross-browser. API: `options = [{value,label}]`, `value` (reflected as an attribute for tests), attributes `disabled`/`value`, event `smd-select-change` ({value,label}); stable hooks `.smd-select-btn`, `.smd-select-item[data-value]`, `.smd-select-item.active`. The HOVERED row gets its primary surface from a CSS `:hover`/`:focus-visible` rule on `.smd-select-item` (so it ALWAYS shows), and the SELECTED row gets `.text-bg-primary`; the component ALSO adds `.text-bg-primary` to the hovered row so the theme's primary BUTTON variant supplies the correct contrast text (brite keeps BLACK text; a plain `--bs-primary`+white is unreadable there). Menu `z-index: 1030` (above Bootstrap `sticky-top` 1020, below smd-page 1040 / modal 1050). Rows are `<a>` so they need `text-decoration: none`. `<smd-theme>` now uses it for the Theme / Theme Mode fields (was a native `<select>`). Registered in all 8 shells AFTER `library.js` and BEFORE `smd-theme.js`, plus `sw.js SHARED_ASSETS`; tests drive it with `tests/theme-controls.js` `pickOption(page, control, value)` which clicks `.smd-select-item[data-value="…"]`. MIGRATION ENABLERS (2026-10-13): `<smd-select>` also (a) dispatches a bubbling `change` event so an existing inline `onchange="fn(this.value)"` keeps working after the tag swap, (b) reads declarative `<option>` children into `options` (then removes them), (c) drops a leftover `form-select`/`form-select-sm` class from the HOST (the inner button carries the look), (d) supports `w-auto` (shrink-to-fit) and basic keyboard nav (Arrow/Enter/Escape). So migrating a static `<select>…</select>` is literally two edits: `<select id=` → `<smd-select id=` and `</select>` → `</smd-select>`. PHASE 2 DONE: every appearance-settings select in the 7 shell `index.html`s (font/icon/density/touch size, slide duration, CM format + max countdowns, PMD suffix-start/jan1/monday/start-week, FFox x/o piece style) is now `<smd-select>`. PHASE 3 DONE: SolarControlar `#log-file` (files-tab) + `#graph-date` (graph-tab) and PhoneButtons `#buttonKeyNamed` + `#buttonPressSelect` (edit-layout). GOTCHA: a declarative `<option>` set leaves its inter-tag WHITESPACE text nodes in the host, so `_build()` clears all children (`this.textContent = ""`) and the template string is whitespace-free (otherwise a stray line/space shows in the host). When migrating a select whose OPTIONS ARE REBUILT in place, set `.options` — never `.innerHTML`/`appendChild(<option>)`, which would wipe the component (that is why `graph-tab.js` `loadGraphDates` now assigns `.options`). PHASE 4 DONE: CountMyDays date/category editors (`#dateDaySelect`/`#dateMonthSelect`/`#dateTypeSelect`/`#gcalCategorySelect`) and the export/import wizards (`#imgExistingSelect`/`#catExistingSelect`/`#dateExistingSelect` + the export category filter); `<smd-select>` gained a `disabled` getter/setter (the wizards assign `.disabled`). PHASE 5 DONE: PMD job editor `#jobTimeHour`/`#jobTimeMin` + the dayType/mod selects (tag swap, `<option>` markup kept) and the Schedule MODAL `#schedNInterval`/`#schedNOffset`/`#schedMonthlyDay` (which are JS-POPULATED, so `openScheduleModal`/`onScheduleNDaysChange` now assign `.options`). PHASE 6 DONE: storybook `#ctrl-modal-buttons`/`#ctrl-image-theme`/`#ctrl-image-size` and cardViewer `#cardSelect`/`#themeSelect` (JS-populated → `.options`); `<smd-select>` also maps `form-select-sm` / `size="small"` onto the inner button, and `storybook/cardViewer.html` now loads `smd-select.js`. ROLLOUT COMPLETE — no native `<select>` remains in the app shells or storybook (the dev-only `screenshots/viewer.js` output tool is deliberately untouched).
+- SMD-SELECT (2026-10-13): new shared `shared/js/components/smd-select.js` (`<smd-select>`) — a text-only custom dropdown with a `<select>` SHAPE (its button reuses Bootstrap's `.form-select`, so it inherits the shared `--smd-form-*` repaint) but a THEMED menu, because a native `<select>`'s open list is OS-rendered and cannot be CSS-styled cross-browser. API: `options = [{value,label}]`, `value` (reflected as an attribute for tests), attributes `disabled`/`value`, event `smd-select-change` ({value,label}); stable hooks `.smd-select-btn`, `.smd-select-item[data-value]`, `.smd-select-item.active`. The HOVERED row gets its primary surface from a CSS `:hover`/`:focus-visible` rule on `.smd-select-item` (so it ALWAYS shows), and the SELECTED row gets `.text-bg-primary`; the component ALSO adds `.text-bg-primary` to the hovered row so the theme's primary BUTTON variant supplies the correct contrast text (brite keeps BLACK text; a plain `--bs-primary`+white is unreadable there). Menu `z-index: 1030` (above Bootstrap `sticky-top` 1020, below smd-page 1040 / modal 1050). Rows are `<a>` so they need `text-decoration: none`. `<smd-theme>` now uses it for the Theme / Theme Mode fields (was a native `<select>`). Registered in all 8 shells AFTER `library.js` and BEFORE `smd-theme.js`, plus `sw.js SHARED_ASSETS`; tests drive it with `tests/theme-controls.js` `pickOption(page, control, value)` which clicks `.smd-select-item[data-value="…"]`. MIGRATION ENABLERS (2026-10-13): `<smd-select>` also (a) dispatches a bubbling `change` event so an existing inline `onchange="fn(this.value)"` keeps working after the tag swap, (b) reads declarative `<option>` children into `options` (then removes them), (c) drops a leftover `form-select`/`form-select-sm` class from the HOST (the inner button carries the look), (d) supports `w-auto` (shrink-to-fit) and basic keyboard nav (Arrow/Enter/Escape). So migrating a static `<select>…</select>` is literally two edits: `<select id=` → `<smd-select id=` and `</select>` → `</smd-select>`. PHASE 2 DONE: every appearance-settings select in the 7 shell `index.html`s (font/icon/density/touch size, slide duration, CM format + max countdowns, PMD suffix-start/jan1/monday/start-week, FFox x/o piece style) is now `<smd-select>`. PHASE 3 DONE: SolarControlar `#log-file` (files-tab) + `#graph-date` (graph-tab) and MyHID `#buttonKeyNamed` + `#buttonPressSelect` (edit-layout). GOTCHA: a declarative `<option>` set leaves its inter-tag WHITESPACE text nodes in the host, so `_build()` clears all children (`this.textContent = ""`) and the template string is whitespace-free (otherwise a stray line/space shows in the host). When migrating a select whose OPTIONS ARE REBUILT in place, set `.options` — never `.innerHTML`/`appendChild(<option>)`, which would wipe the component (that is why `graph-tab.js` `loadGraphDates` now assigns `.options`). PHASE 4 DONE: CountMyDays date/category editors (`#dateDaySelect`/`#dateMonthSelect`/`#dateTypeSelect`/`#gcalCategorySelect`) and the export/import wizards (`#imgExistingSelect`/`#catExistingSelect`/`#dateExistingSelect` + the export category filter); `<smd-select>` gained a `disabled` getter/setter (the wizards assign `.disabled`). PHASE 5 DONE: PMD job editor `#jobTimeHour`/`#jobTimeMin` + the dayType/mod selects (tag swap, `<option>` markup kept) and the Schedule MODAL `#schedNInterval`/`#schedNOffset`/`#schedMonthlyDay` (which are JS-POPULATED, so `openScheduleModal`/`onScheduleNDaysChange` now assign `.options`). PHASE 6 DONE: storybook `#ctrl-modal-buttons`/`#ctrl-image-theme`/`#ctrl-image-size` and cardViewer `#cardSelect`/`#themeSelect` (JS-populated → `.options`); `<smd-select>` also maps `form-select-sm` / `size="small"` onto the inner button, and `storybook/cardViewer.html` now loads `smd-select.js`. ROLLOUT COMPLETE — no native `<select>` remains in the app shells or storybook (the dev-only `screenshots/viewer.js` output tool is deliberately untouched).
 - SMD-COLOR-PICKER (2026-10-26): new shared `shared/js/components/smd-color-picker.js`
   (`<smd-color-picker>`) - a FULL colour picker (native `<input type="color">`
   styled as a swatch + a hex field) so an app can store an EXACT colour instead
@@ -714,14 +714,15 @@ Architecture:
   adding an app = add an `APPS` entry. Fetch handler caches by PATHNAME with
   `ignoreSearch`; offline navigate fallback is APP-AWARE (`appIndexFor(pathname)`
   → that app's `index.html`). Cache name is `myapps-<BUILD_NUMBER>`.
-  APPS MAY BE GROUPED (2026-10-22): an app folder can sit under a group folder —
-  `remoteHID/PhoneButtons/` is the first (its Flask server is `remoteHID/server/`).
+  APPS MAY BE GROUPED (2026-10-22): an app folder can sit under a group folder
+  (MyHID was the only one until 2026-10-27, when it was hoisted to `MyHID/` and
+  nothing is grouped today; its Flask server is still `MyHID/server/`).
   The registry `path` and `APPS` key are still REPO-ROOT-relative, and
   `SmdApps.href()` derives the page depth, so the launcher and every Launch flyout
   reach a grouped app without special cases. `SmdApps.currentPath()` matches the
   LONGEST registered `APPS[].path` prefix, not the first URL segment, so a nested
   app is not mistaken for its group folder. Add a grouped app to `sw.js APPS` with
-  its full `remoteHID/<App>/` prefix (the `cache.addAll` list must exist in full).
+  its full `<Group>/<App>/` prefix (the `cache.addAll` list must exist in full).
   Activation is USER-DRIVEN (no `skipWaiting()` on install; page shows an
   "Update available" `smd-modal`; `window.__pmdSwUpdater.showUpdatePrompt` test
   hook; `controllerchange` only reloads after the user chose to update).
@@ -816,7 +817,7 @@ Architecture:
   header built from the shared config.
   TILE ICONS (2026-09-17): each registry entry's `icon` is a **shared sample-image
   NAME** ("Plan My Day"/"Count My Days"/"QR Links"/"Solar Controlar"/"Noughts &
-  Crosses"/"List of Lists"/"Phone Buttons"/"Launch"), rendered with
+  Crosses"/"List of Lists"/"My HID"/"Launch"), rendered with
   `<smd-image key-prefix="shared-">` (NOT a raw file path). The Launch page loads
   `shared/js/smd-images.js` and calls
   `seedSampleImages()` at boot; `renderAppGrid()` sets a `setInterval` that
@@ -856,13 +857,13 @@ Architecture:
   longer navigates) plus a right flyout `.launch-submenu-menu` of `menuApps()`.
   Flyout CSS is injected via `injectSmdComponentStyle("smd-launch-submenu", …)`
   (hover on desktop, click/`.submenu-open` on touch; the toggle's click stops
-  propagation so the parent menu stays open). PhoneButtons gained a Launch `<li>`
+  propagation so the parent menu stays open). MyHID gained a Launch `<li>`
   so it gets the submenu too. Tests: launch-regression (grid = 8 tiles incl. Launch
   `./`; "every app's menu shows the Launch submenu of ticked apps" across 6
   shells; the "Launch Menu tab" describe), launch-screenshots "settings menu tab",
   and `pmd-screenshots` "main menu dropdown" now hovers
   `#mainNav .launch-submenu-toggle` (the old `hasText: "Launch"` matched 2 nodes
-  and would strict-mode-fail). Sample images "Launch" and "Phone Buttons" were
+  and would strict-mode-fail). Sample images "Launch" and "My HID" were
   added (native SVG + SURGICAL JSON append — a full `regen` rewrites 22
   pre-existing entries whose SVG files drifted from the JSON).
 - STANDARD HAMBURGER MENU ORDER (2026-10-24, user request): EVERY app's
@@ -1178,7 +1179,7 @@ Architecture:
   from the page's own path (`SmdApps.currentPath()`, the same module-URL trick as
   `href()`), so the nav and the Launch submenu can never disagree. `navTitle`
   overrides the entry's `name`: Launch's page is titled "My Apps" (its content
-  `<h1>My Apps</h1>` was REMOVED as a duplicate), and PhoneButtons sets
+  `<h1>My Apps</h1>` was REMOVED as a duplicate), and MyHID sets
   `navTitle: false` to opt OUT because its nav already shows the running server
   app's name (`#serverAppName`). It is mounted from `boot()` (with
   `buildLaunchSubmenu`), idempotent, and a no-op where there is no `#mainNav`
@@ -1189,7 +1190,7 @@ Architecture:
   navbar surface). To add a new app's title nothing is needed — it comes from its
   `APPS` row. Tests: launch-regression "each app's nav shows the app name next to
   the hamburger" (7 shells: text + same-row/right-of-button geometry + body
-  colour, then the PhoneButtons opt-out) and the pmd-regression "hides the main
+  colour, then the MyHID opt-out) and the pmd-regression "hides the main
   menu while a secondary page is open" now also asserts the title hides.
   STORYBOARD APPENDS ITS LOCATION (2026-10-26, user request): the old floating
   `#sbBoardName` chip was removed, so Storyboard rewrites the SAME
@@ -1204,14 +1205,14 @@ Architecture:
   (`/^Storyboard - Story 1\/Scene 1$/` on a fresh visit), while the other shells
   stay exact strings; any test that read `#sbBoardName` now reads
   `#mainNav #appNavTitle`.
-- PHONEBUTTONS SERVER TESTS (2026-10-18): `PhoneButtons/server/app.py` (the Flask +
+- MYHID SERVER TESTS (2026-10-18): `MyHID/server/app.py` (the Flask +
   Socket.IO server) is covered by PYTHON tests in
-  `PhoneButtons/server/test_app.py` (pytest, 120 tests, ~90% line coverage) —
-  run them with `py -3.13 -m pytest PhoneButtons/server/test_app.py --cov=app
-  --cov-report=term-missing`. `tests/phonebuttons-server.spec.js` wraps that suite
+  `MyHID/server/test_app.py` (pytest, 120 tests, ~90% line coverage) —
+  run them with `py -3.13 -m pytest MyHID/server/test_app.py --cov=app
+  --cov-report=term-missing`. `tests/myhid-server.spec.js` wraps that suite
   in the Playwright run (fails the suite if pytest fails, asserts the coverage
   floor `MIN_COVERAGE = 80`, and SKIPS when `py -3.13` lacks the deps). The
-  wrapper writes its artefacts into the gitignored `PhoneButtons/server/`:
+  wrapper writes its artefacts into the gitignored `MyHID/server/`:
   `coverage.txt` (the full pytest output incl. the `app.py` table, PLAIN TEXT —
   pytest colours its output even when piped, so the wrapper passes `--color=no`
   plus `NO_COLOR=1`/`PY_COLORS=0`/`TERM=dumb` and strips any ANSI escapes before
@@ -1222,7 +1223,7 @@ Architecture:
   annotations). The deps
   (Flask/Flask-SocketIO/python-socketio/pywin32/psutil/Pillow) are installed ONLY
   for the `py -3.13` interpreter on this box (+ `pytest`/`pytest-cov`, installed
-  2026-10-18); the default `python` (3.14) has none. `PB_PYTHON` overrides the
+  2026-10-18); the default `python` (3.14) has none. `MYHID_PYTHON` overrides the
   interpreter. Flask's `test_client()` drives the routes, `socketio.test_client()`
   the events, and the Windows parts (GDI icon extraction, the foreground hook,
   keystroke injection) are MOCKED — the tests must never press keys or touch the
@@ -1268,7 +1269,7 @@ Architecture:
     FreeFormOX     Display, Game, Danger                   (Game = X/O names+styles,
                    Show undo/redo, Swap)
     ListOfLists    Display, Minio, Danger
-    PhoneButtons   Display, Server, Danger
+    MyHID   Display, Server, Danger
     Storyboard     Display
   NO DEAD CONTROLS (user): a row is only present where the setting does something.
   `Icon size` is therefore ABSENT in SolarControlar and FreeFormOX (no
@@ -1284,7 +1285,7 @@ Architecture:
   `applyTouchSize()` hook for the control to work (PlanMyDay/ListOfLists still
   have one; it is now redundant but harmless, and ListOfLists' `restore` keeps its
   "large" default because it runs after the shared restore).
-  LABELS were aligned too: Launch + PhoneButtons said "Image size" for the same
+  LABELS were aligned too: Launch + MyHID said "Image size" for the same
   `#iconSizeSelector` -> now "Icon size" everywhere.
   TEST: `tests/settings-alignment.spec.js` "Settings page shape is consistent
   across apps" iterates ALL 8 shells and asserts the exact tab list + the exact
@@ -1351,7 +1352,7 @@ Architecture:
     FFOX     Show danger, No Cache, Refresh App, Clear local storage FFOX,
              Upload Standard Images
   Each app clears ONLY ITS OWN DATA: `smdConfirmClearAllData()` removes just the
-  keys under `SmdConfig.storagePrefix` (PhoneButtons is uniform now - its old
+  keys under `SmdConfig.storagePrefix` (MyHID is uniform now - its old
   theme/font/images keep-list is gone), so other apps' keys and the shared
   `shared-images` library always survive; PMD/LoL no longer wipe all of
   localStorage. Launch/FreeFormOX were ADDED a Danger tab on user request
@@ -1377,7 +1378,7 @@ Architecture:
   calling `showSmdModal()` with no `shared/js/components/smd-modal.js` loaded, so
   both died with `modal.show is not a function` and no confirm ever appeared. The
   shell now loads smd-modal.js, and a new settings-alignment test clicks "Clear
-  local storage <APP>" (id `#btnClearAllData`, or PhoneButtons' `#btnClearStorage`)
+  local storage <APP>" (id `#btnClearAllData`, or MyHID' `#btnClearStorage`)
   and the uploader in ALL 8 apps and asserts `#smdConfirmModal` opens with its
   buttons - then Cancels.
   WIRING: `changeNoCache` now lives ONCE in `shared/js/smd-settings.js` (it was
@@ -1753,29 +1754,29 @@ Architecture:
   `lol-list-items` to `storybook/index.html` (script tags + sections + the
   nav-link count) and recipes to `storybook/cardViewer.html`, seeded with a
   neutral image prefix. Not done yet.
-- PHONEBUTTONS SERVER ADDRESS (2026-10-16): the app can run served BY the Flask
+- MYHID SERVER ADDRESS (2026-10-16): the app can run served BY the Flask
   server (same origin) or from elsewhere (GitHub Pages, or the SAME server
   published through a CLOUDFLARE TUNNEL, which gives a fully-signed https URL) and
   be pointed at it via Settings | Server: an `https` checkbox, a **Server address**
   (IP OR DNS name) and an optional **Port**, plus a **Scan QR** button. Storage:
-  `pb_serverHttps` / `pb_serverAddress` / `pb_serverPort` (address default
+  `myhid_serverHttps` / `myhid_serverAddress` / `myhid_serverPort` (address default
   `192.168.1.` = an incomplete prefix meaning "not configured"; port default EMPTY).
-  `pbServerBase()` (`PhoneButtons/js/api.js`) resolves them to `""` when the address
+  `myhidServerBase()` (`MyHID/js/api.js`) resolves them to `""` when the address
   is incomplete or IS the page origin (relative paths then), else
   `<scheme>://<host>[:<port>]` — an EMPTY PORT omits it (scheme default 80/443),
-  which is exactly what a tunnel URL needs since its port is 443. `pbApi._fetch`
-  prefixes the base; `pbSocket.connect()` calls `io(base || undefined, …)` and the
+  which is exactly what a tunnel URL needs since its port is 443. `myhidApi._fetch`
+  prefixes the base; `myhidSocket.connect()` calls `io(base || undefined, …)` and the
   socket TRACKS `socketUrl`, REBUILDING when the base changes (otherwise Connect
-  keeps hitting the old server); `pbSocket.isActive()` lets the address fields tear
-  down a stale socket. `pbParseServerUrl()` accepts `https://host`,
+  keeps hitting the old server); `myhidSocket.isActive()` lets the address fields tear
+  down a stale socket. `myhidParseServerUrl()` accepts `https://host`,
   `http://host:port`, `host:port` or a bare host (port left "" when absent). Scan QR
   reuses the shared `<smd-qr-import>` with its `raw` attribute — the Share QR is a
   plain URL, so the JSON/lz-string envelope must be skipped (and lz-string is not
   even loaded).
   SERVER: `app.py` enables CORS (`SocketIO(app, cors_allowed_origins=_CORS_ORIGINS)`
-  + an `@app.after_request` ACAO block; `PB_CORS_ORIGINS` env, default `*`) because
+  + an `@app.after_request` ACAO block; `MYHID_CORS_ORIGINS` env, default `*`) because
   the app may be a DIFFERENT origin. SECURITY: this server injects keystrokes, so
-  restrict `PB_CORS_ORIGINS` on an untrusted network. Tunnel: point it at
+  restrict `MYHID_CORS_ORIGINS` on an untrusted network. Tunnel: point it at
   `http://127.0.0.1:5000` and leave the app's Port EMPTY + https ticked.
   GOTCHA: `inputmode="decimal"` on the address field gives iOS a digits-and-dot-only
   keypad, which makes DNS impossible — it is `inputmode="url"` with
@@ -1787,24 +1788,24 @@ Architecture:
     one from a NAME. A root-relative URL is only correct when the app is served BY
     that server; from another origin the browser resolves it against the APP's host
     (the reported `ownimage.github.io/app-icon-cache/Windows%20Terminal%20Host.png`
-    instead of the tunnel URL). FIX: new `pbServerUrl(path)` in api.js prefixes
-    server-relative paths with `pbServerBase()` (absolute and protocol-relative paths,
+    instead of the tunnel URL). FIX: new `myhidServerUrl(path)` in api.js prefixes
+    server-relative paths with `myhidServerBase()` (absolute and protocol-relative paths,
     and an empty base, pass through), used by `main-view.js` (the `app_change` icon),
     `edit-app.js` (the Manage App dropdown's `imageUrl`) and `edit-layout.js`
     (`iconCacheUrl`). RULE: ANY url the SERVER supplies must go through
-    `pbServerUrl()` before it reaches a `src`.
+    `myhidServerUrl()` before it reaches a `src`.
   - CLOUDFLARE TUNNEL + QR (2026-10-16): `app.py` gained `--tunnel` (starts
     `cloudflared tunnel --url http://127.0.0.1:5000`, echoes its output, REGEXes the
     first `https://<name>.trycloudflare.com`, then prints the Settings values to
     enter), `--no-tunnel` (override) and `--qr <url>` (a QR for an address you already
-    have, e.g. a NAMED tunnel). `StartRemoteHIDServer.cmd` NO LONGER passes
+    have, e.g. a NAMED tunnel). `StartMyHIDServer.cmd` NO LONGER passes
     `--tunnel` by default (2026-10-26: the tunnel is OPT-IN on both the server and
     the capture client - a plain start publishes nothing); it still KILLS anything
     on port 5000 first. The QR is served by a new route
-    `/phonebuttons-qr?value=<url>`, rendered with the SHARED vendored
+    `/myhid-qr?value=<url>`, rendered with the SHARED vendored
     `shared/vendor/qrcode.min.js` (global `QRCode`), opened at
-    `http://127.0.0.1:5000/phonebuttons-qr?...` via `webbrowser`. `_find_cloudflared()`
-    checks `PB_CLOUDFLARED`, then PATH, then the usual install dirs; cloudflared is NOT
+    `http://127.0.0.1:5000/myhid-qr?...` via `webbrowser`. `_find_cloudflared()`
+    checks `MYHID_CLOUDFLARED`, then PATH, then the usual install dirs; cloudflared is NOT
     installed on this box, so without it the server still runs and prints an install
     hint (`winget install cloudflare.cloudflared`). SECURITY: a quick tunnel is
     PUBLIC (anyone with the random URL can drive the keyboard), and the QR route must
@@ -2359,7 +2360,7 @@ Techniques / gotchas:
   **`page.goto()` NEVER reaches `load`** (a 30s timeout where no assertion ever
   runs) - while a PowerShell `Invoke-WebRequest` of the same URL can still return
   the full, correct bytes, so checking the served size does NOT rule it out. Two
-  of my own edits reproduced it: `PhoneButtons/index.html` shortened by one line
+  of my own edits reproduced it: `MyHID/index.html` shortened by one line
   (the other file edited in the same pass, `FreeFormOX/index.html`, survived
   because `mb-3` -> `mb-4` keeps the byte count identical). RULE: after editing
   ANY served file (`.html`, `.js`, `.css` are all in the snapshot) RESTART the
@@ -2428,6 +2429,35 @@ Techniques / gotchas:
   `zlib.inflateRawSync(Buffer.from(b64,"base64"))`) and list functions with
   `count === 0`; many are tiny `forEach`/`filter`/`.then` callbacks that only run
   when an array is non-empty or a branch is taken.
+
+- MYHID RENAME (2026-10-27): `remoteHID/` -> `MyHID/` and the PhoneButtons app was
+  HOISTED to `MyHID/` (it used to be `remoteHID/PhoneButtons/`, i.e. a GROUPED app),
+  so asset paths lost one level: `MyHID/index.html` uses `../shared/…` and
+  `MyHID/js/socket.js`'s `vendorUrl()` is `../../shared/vendor/socket.io.min.js`.
+  The registry row is `{ name: "My HID", path: "MyHID/", icon: "My HID" }` and the
+  shared sample image is `My HID` (`shared/sampleImages/My_HID.svg`). Nothing is
+  grouped any more.
+  STORAGE PREFIX `pb_` -> `myhid_`. `MyHID/js/app.js` carries a TEMPORARY
+  `pb_*` -> `myhid_*` migration (target wins, old copies deleted) plus a one-time
+  "Settings moved" `smd-modal`; delete both next round. Two keys were also RENAMED:
+  `pb_mouserUrl`/`pb_mouserToken` -> `myhid_mouseCaptureUrl`/`myhid_mouseCaptureToken`.
+  Guard: `tests/myhid-regression.spec.js` "Phone Buttons settings migrate to the
+  myhid_ prefix and show a one-time notice" (mutation-checked).
+  LAUNCHERS are at the REPO ROOT now: `StartMyHIDServer.cmd` (runs
+  `MyHID\server\app.py`) and `StartMouseCapture.cmd` (runs
+  `MyHID\mouse-capture\out\mouse-capture.exe`). Their internal paths are relative to
+  the repo root, NOT to the app folder.
+  CAPTURE CLIENT: `MyHID/mouse-capture/` — `Mouse.Capture.csproj`, namespace
+  `Mouse.Capture`, `mouse-capture.exe`, `mouse-capture.json`, `mouse-capture.zip`,
+  v0.5.0. `--hold` was REMOVED (use `--rotate-button`/`--translate-button`).
+  SERVER ENGINE: `MyHID/server/hid/` (`HidEngine`, `HidUdpReceiver`, `hid_state`
+  socket event, `hid` layout/config block, `X-HID-Token`). A legacy `mouser` block
+  is still ACCEPTED on read (`_hid_global_config` + `hid/engine.py`), so an old
+  config.json keeps working. Manage Layout tabs are General | Buttons | HID.
+  SPECS: `tests/myhid-regression.spec.js`, `tests/myhid-mouse-capture.spec.js`,
+  `tests/myhid-server.spec.js` (pytest wrapper), `tests/mouse-capture-ui.spec.js`.
+  GOTCHA: a process holding a directory handle on the old `remoteHID/Mouser/out`
+  leaves an EMPTY `remoteHID/` behind (untracked) — delete it once released.
 
 ## Session log
 
@@ -2634,7 +2664,7 @@ Techniques / gotchas:
   `shared/js/components/smd-modal.js`, so it threw `modal.show is not a function`
   and no confirm appeared - a pre-existing bug in the clear action too. Added the
   script, plus a settings-alignment test that CLICKS both Danger actions in all 8
-  apps and asserts the modal opens (PhoneButtons uses `#btnClearStorage`).
+  apps and asserts the modal opens (MyHID uses `#btnClearStorage`).
   Also added `SmdConfig.imagePrefix = "shared-"` to FFOX: without it the upload
   would have written `ffox_images` instead of the shared library. Verified: Launch
   and FFOX both open the 4-way modal and write 168 images into `shared-images`.
@@ -2765,7 +2795,7 @@ Techniques / gotchas:
   (base `btn` dropped), which the conversion to the component removed.
 - CLEAR SEMANTICS: `smdConfirmClearAllData()` removes only keys under
   `SmdConfig.storagePrefix`, so other apps' keys and `shared-images` survive.
-  PMD/LoL dropped their all-keys wipe, PhoneButtons dropped its
+  PMD/LoL dropped their all-keys wipe, MyHID dropped its
   theme/font/images keep-list (now uniform - clears all `pb_*`), and the modal
   copy is per-app (`Clear ALL <App> data?`). Solar kept its own wrapper.
 - SUPERHERO WARNING BUTTONS: `shared/css/themes/superhero/superhero.{light,dark}.css`
@@ -2779,15 +2809,15 @@ Techniques / gotchas:
   cascade fight.
 - TESTS TOUCHED: `settings-alignment` (tabs/Danger table/size), `launch-regression`
   (tab list), `pmd-regression` (clear is prefix-scoped; new superhero test),
-  `phonebuttons-regression` (clear now uniform; the assert moved BEFORE the
+  `myhid-regression` (clear now uniform; the assert moved BEFORE the
   self-reload), `lol-regression` (per-app modal copy). Verified: settings-alignment
-  36/36, launch/ffox/qrlinks/solar 45/45, phonebuttons 18/18, cmd 67/67,
+  36/36, launch/ffox/qrlinks/solar 45/45, myhid 18/18, cmd 67/67,
   pmd+lol greps, and the whole "Theme colours" block - 24/24.
 - GOTCHA (recorded so it is not repeated): two test assumptions were wrong, not
   the app - (1) the legacy unprefixed `images` key is dropped by
   `migrateImagesToShared()` at boot, so it cannot evidence "other keys survive";
-  (2) PhoneButtons re-persists its DEFAULT theme on boot, so after a clear+reload
-  `pb_theme` is never null - assert a neutral probe key instead. Set the build to
+  (2) MyHID re-persists its DEFAULT theme on boot, so after a clear+reload
+  `myhid_theme` is never null - assert a neutral probe key instead. Set the build to
   `202610182244` (`npm run bump:build`) and restarted the snapshotted test servers
   after the HTML/JS/CSS edits.
 
@@ -5065,7 +5095,7 @@ Techniques / gotchas:
 - Chosen output structure: `screenshots/<app>/<theme>/<light|dark>/<scene>.png`. There is no `default` output directory for generated images. Scene filenames remain stable. The full matrix is 26 themes × 2 modes × 56 existing scene names = 2,912 gallery images, plus the separate root `sample-images.png` gallery.
 - Screenshot generation ran with `--workers 16`: all 53 screenshot tests passed. Output audit found 2,912 files: pmd 1,872 (936 light + 936 dark), cmd 364, qrlinks 260, ffox 260, launch 156; every app had 26 themes and zero legacy direct PNGs. ALWAYS generate screenshots with `--workers 16`; this is the documented standard for every `tests/*-screenshots.spec.js` command.
 - SCREENSHOT GALLERY COVERAGE (2026-10-25): SEVEN suites exist - `cmd`, `ffox`,
-  `launch`, `lol`, `pmd`, `qrlinks`, `storyboard`. **SolarControlar, PhoneButtons
+  `launch`, `lol`, `pmd`, `qrlinks`, `storyboard`. **SolarControlar, MyHID
   and the storybook have NO gallery** (user: "we haven't written screenshots for
   the other apps yet"). The Screenshots command in `commands.md` lists exactly
   those seven, in alphabetical order; when an app gains a
@@ -6136,7 +6166,7 @@ Techniques / gotchas:
   row is `.active.text-bg-primary`; `text-decoration: none` (rows are `<a>`); menu
   `z-index: 1030`.
 - WIRED: `smd-theme.js` uses it for the Theme / Theme Mode fields. Registered in
-  all 8 shells BEFORE `smd-theme.js` and in `sw.js SHARED_ASSETS`. (PhoneButtons was
+  all 8 shells BEFORE `smd-theme.js` and in `sw.js SHARED_ASSETS`. (MyHID was
   initially missed -> its settings theme control stayed an unupgraded empty element
   and one test failed with "hidden"; ALWAYS grep EVERY shell when adding a shared
   component.)
@@ -6147,9 +6177,9 @@ Techniques / gotchas:
   jan1/monday/start-week, FFox x/o piece style). Tests: new
   `tests/theme-controls.js` `pickOption` (clicks `[data-value]`); `.selectOption` ->
   `pickOption`, `option` count -> `.smd-select-item`, `toHaveValue` ->
-  `toHaveAttribute("value")` across pmd/cmd/launch/ffox/phonebuttons.
+  `toHaveAttribute("value")` across pmd/cmd/launch/ffox/myhid.
 - Verified: storybook 8/8, settings-alignment 13/13, launch 7/7, qrlinks 9/9,
-  cmd 58/58, ffox 11/11, solarcontrolar 12/12, phonebuttons 18/18, pmd `Setting`
+  cmd 58/58, ffox 11/11, solarcontrolar 12/12, myhid 18/18, pmd `Setting`
   48/48, pmd `theme and mode` 2/2. Full regression left to the user.
 - TOUCH: there is no hover on touch (expected); the selected row stays highlighted
   and a tap picks.
@@ -6168,14 +6198,14 @@ Techniques / gotchas:
   (font/icon/density/touch size, slide duration, CM format + max countdowns, PMD
   suffix-start/jan1/monday/start-week, FFox x/o piece style).
 - PHASE 3: SolarControlar `#log-file`/`#graph-date` (graph-tab's `loadGraphDates`
-  now assigns `.options`, NOT `innerHTML`), PhoneButtons `#buttonKeyNamed`/
+  now assigns `.options`, NOT `innerHTML`), MyHID `#buttonKeyNamed`/
   `#buttonPressSelect`.
 - TESTS: `tests/theme-controls.js` `pickOption` clicks `.smd-select-item[data-value]`;
   `.selectOption` → `pickOption`, `option` count → `.smd-select-item`, `toHaveValue`
   → `toHaveAttribute("value")`. Also fixed a strict-mode locator: solar's
   `.log-controls button` now matches the select's inner button too → use
   `.log-controls .btn-primary`.
-- Verified: cmd 58/58, launch 7/7, ffox 11/11, phonebuttons 13/13, solarcontrolar
+- Verified: cmd 58/58, launch 7/7, ffox 11/11, myhid 13/13, solarcontrolar
   12/12, qrlinks 9/9, storybook 8/8, settings-alignment 13/13, pmd `Setting` 48/48,
   pmd `theme and mode` 2/2. Full regression left to the user.
 - `BUILD_NUMBER` NOT bumped — bump before shipping.
@@ -6229,8 +6259,8 @@ Techniques / gotchas:
   is untouched.
 - `BUILD_NUMBER` NOT bumped — bump before shipping.
 
-### 2026-10-13 (m) - PhoneButtons server: icon filename + bracket keys
-- Two `PhoneButtons/server/app.py` bugs (app names come from
+### 2026-10-13 (m) - MyHID server: icon filename + bracket keys
+- Two `MyHID/server/app.py` bugs (app names come from
   `_get_friendly_name(exe)` and can contain odd characters):
   1. `_cache_icon` used the raw app name as the icon FILENAME, so "Intel(R)
      PROSet/Wireless Event Log Service" (a `/`) made `open()` look for a
@@ -6270,7 +6300,7 @@ Techniques / gotchas:
   them). NOTE the earlier per-theme `--smd-form-background: var(--bs-body-bg)`
   overrides (superhero/cyborg/darkly) are now inert for fields.
 - KNOCK-ON: the `smd-image-dropdown` (#streamTabDropdown/#jobStreamDropdown/
-  #dateCategorySelect/...) and PhoneButtons `pb-image-dropdown` buttons were
+  #dateCategorySelect/...) and MyHID `myhid-image-dropdown` buttons were
   `.btn` on the `--smd-dropdown-*` palette, so they no longer matched the (now
   Bootswatch) fields. BOTH components' buttons are now `class="form-select"`
   (Bootswatch surface + text, no `.btn` gradient), with the shared flex layout,
@@ -6302,7 +6332,7 @@ Techniques / gotchas:
   assertion; for transparent-field themes it requires the base theme sheet to have
   loaded). "Stream dropdown layout" selectors `.btn` -> `.form-select`.
 - Verified: pmd Theme colours 15/15, pmd `dropdown` 13/13, cmd-regression 58/58,
-  phonebuttons 13/13. Full regression left to the user.
+  myhid 13/13. Full regression left to the user.
 - `BUILD_NUMBER` NOT bumped.
 
 ### 2026-10-13 (o) - Bootswatch borders restored, ALL themes re-vendored to 5.3.8, no hardcoded hex in app code
@@ -6352,7 +6382,7 @@ Techniques / gotchas:
   a color-mix() stop. GOTCHA: a computed `color-mix()` serialises as
   `color(srgb r g b)` with 0..1 channels, NOT `rgb()` - parse, don't string-compare.
 - Verified: pmd Theme colours 15/15, pmd `dropdown` 13/13, Image Editing UI 23/23,
-  pmd-gantt 130/130, cmd 58/58, phonebuttons 13/13,
+  pmd-gantt 130/130, cmd 58/58, myhid 13/13,
   storybook+launch+ffox+qrlinks+solar 47/47. The user's full regression found exactly
   one failure (the image-editor preview panels) which is now fixed.
 
@@ -6675,8 +6705,8 @@ Techniques / gotchas:
   `#settingsTemplate`. Launch `js/app.js`: grid from `SmdApps.launchApps()`,
   `renderAppMenuTab()` + Sortable + `onAppMenuChange`, and `openSettings()` passes
   `{ restore: renderAppMenuTab }`. Every other shell: one `smd-apps.js` script tag;
-  PhoneButtons also gained the static Launch `<li>`.
-- SAMPLE IMAGES: added "Launch" + "Phone Buttons" (native SVG in
+  MyHID also gained the static Launch `<li>`.
+- SAMPLE IMAGES: added "Launch" + "My HID" (native SVG in
   `shared/sampleImages/` + a SURGICAL append to `sampleImages.json` — a full
   `regen` rewrites 22 pre-existing entries whose source SVG drifted from the JSON).
   The append initially broke the JSON because the marker swallowed the last entry's
@@ -6684,7 +6714,7 @@ Techniques / gotchas:
 - TESTS: launch-regression grid test -> 8 tiles (names + hrefs incl. Launch `./`),
   the menu test -> the submenu across 6 shells, plus a new "Launch Menu tab"
   describe (tile controls + stacked-layout geometry, the two tick behaviours, the
-  Sortable reorder -> grid order). `SHELL_CASCADE` gained `/PhoneButtons/`.
+  Sortable reorder -> grid order). `SHELL_CASCADE` gained `/MyHID/`.
   launch-screenshots gained "settings menu tab"; pmd-screenshots "main menu
   dropdown" hovers `#mainNav .launch-submenu-toggle`.
 - GOTCHA (cost a debugging round): the FIRST reorder test dragged the LAST tile,
@@ -6692,7 +6722,7 @@ Techniques / gotchas:
   FOOTER and the mousedown landed on the OK button (`elementFromPoint` proved it;
   the container saw only `mousemove`, no `mousedown`). Drag a VISIBLE tile (the
   first) in tests.
-- VERIFIED: launch-regression 12/12, cmd 58/58, qrlinks+ffox+phonebuttons+solar
+- VERIFIED: launch-regression 12/12, cmd 58/58, qrlinks+ffox+myhid+solar
   45/45, pmd Navigation + gcal-last-item 10/10, launch-screenshots (superhero)
   green, pmd-screenshots "main menu dropdown" (superhero) green. sw.js precache:
   409 URLs, 0 duplicates. Visual check of the superhero screenshots confirms the
@@ -6736,7 +6766,7 @@ Techniques / gotchas:
   fails with "superhero/dark timelineLabel contrast 1.36 (color rgba(0, 0, 0, 0) on
   rgb(33, 37, 41))". Full `pmd-gantt` 59/59 after reverting the mutation.
 - ALSO: `.gitignore` had been REVERTED, so the `--gen-cert` CA/key were trackable
-  again; `/PhoneButtons/server/*.crt` + `*.key` re-added (`git check-ignore`
+  again; `/MyHID/server/*.crt` + `*.key` re-added (`git check-ignore`
   confirms). NEVER commit those private keys.
 - FOLLOW-UP (2026-10-16): FULL DATE AUDIT of every spec, after the user asked
   whether the relative-date rule already existed (it did - the 2026-10-05 note).
@@ -6754,23 +6784,23 @@ Techniques / gotchas:
   at the top of this file, with the concrete layout-drift failure and an audit
   recipe.
 
-### 2026-10-16 (b) - PhoneButtons: Settings | Server address + Scan QR + server CORS
-- REQUEST (user): put the server ADDRESS config back on PhoneButtons Settings |
+### 2026-10-16 (b) - MyHID: Settings | Server address + Scan QR + server CORS
+- REQUEST (user): put the server ADDRESS config back on MyHID Settings |
   Server — the https checkbox, the server address and port, and a camera Scan QR
   button — because they will publish the local http server through CLOUDFLARE to
-  get a fully-signed https URL. See the durable PHONEBUTTONS SERVER ADDRESS note
+  get a fully-signed https URL. See the durable MYHID SERVER ADDRESS note
   above for the full shape.
-- FILES: `PhoneButtons/js/api.js` (address helpers `pbServerHttps`/
-  `pbServerAddress`/`pbServerPort`/`pbHostComplete`/`pbServerBase`/
-  `pbParseServerUrl`; `_fetch` prefixes the base); `PhoneButtons/js/socket.js`
-  (`socketUrl` + `isActive()`; `connect()` uses `pbServerBase()` and REBUILDS when
-  the address changed); `PhoneButtons/js/settings-tab.js`
+- FILES: `MyHID/js/api.js` (address helpers `myhidServerHttps`/
+  `myhidServerAddress`/`myhidServerPort`/`myhidHostComplete`/`myhidServerBase`/
+  `myhidParseServerUrl`; `_fetch` prefixes the base); `MyHID/js/socket.js`
+  (`socketUrl` + `isActive()`; `connect()` uses `myhidServerBase()` and REBUILDS when
+  the address changed); `MyHID/js/settings-tab.js`
   (`serverAddressChanged`/`restoreServerAddress` + `openServerScan`/`hideServerScan`
   and the raw-QR handler; restored in `restoreServerTab`);
-  `PhoneButtons/index.html` (the Server-tab fields + `#serverScanPage` + the
+  `MyHID/index.html` (the Server-tab fields + `#serverScanPage` + the
   `smd-qr.js`/`smd-qr-import.js` script tags);
   `shared/js/components/smd-qr-import.js` (+`raw`);
-  `PhoneButtons/server/app.py` (+CORS); `PhoneButtons/server/README.md`.
+  `MyHID/server/app.py` (+CORS); `MyHID/server/README.md`.
 - DESIGN NOTES: the PORT is OPTIONAL (empty = scheme default 80/443) so a tunnel
   URL (port 443, no explicit port) works; the address accepts an IP or a DNS name;
   the socket must be able to RE-TARGET (see `socketUrl`) or a changed address is
@@ -6781,28 +6811,28 @@ Techniques / gotchas:
   wiring; Connect re-targets; `raw` mode). 17/17 pass.
 - `BUILD_NUMBER` -> `202610161321` via `npm run bump:build`.
 
-### 2026-10-16 (c) - PhoneButtons: server-relative icons prefixed; cloudflared + QR
+### 2026-10-16 (c) - MyHID: server-relative icons prefixed; cloudflared + QR
 - BUG (user): the GitHub-Pages copy requested app icons from ITS OWN host —
   `https://ownimage.github.io/app-icon-cache/Windows%20Terminal%20Host.png` instead
   of the configured tunnel server. CAUSE: the server answers with ROOT-RELATIVE icon
   paths (`_cache_icon()` -> `/app-icon-cache/<name>.png`, used by `/api/apps` AND the
   `app_change` socket push) and `edit-layout.js` built one from a NAME; a
   root-relative URL resolves against the APP's origin, not the server's. FIX:
-  `pbServerUrl(path)` (api.js) prefixes server-relative paths with `pbServerBase()`
+  `myhidServerUrl(path)` (api.js) prefixes server-relative paths with `myhidServerBase()`
   (absolute / protocol-relative / empty-base pass through), applied in `main-view.js`
   (app_change icon), `edit-app.js` (Manage App dropdown `imageUrl`) and
   `edit-layout.js` (`iconCacheUrl`). Test added (asserts the prefixed src + that
   absolute/protocol-relative URLs are untouched).
-- FEATURE (user): `PhoneButtonServer.cmd` should parse the Cloudflare response and
+- FEATURE (user): `StartMyHIDServer.cmd` should parse the Cloudflare response and
   show a QR to scan. `app.py` gained `--tunnel` (starts `cloudflared tunnel --url
   http://127.0.0.1:5000`, echoes its output, regexes the first
   `https://<name>.trycloudflare.com`, prints the Settings values), `--no-tunnel`, and
   `--qr <url>`; the launcher passes `--tunnel` BY DEFAULT (only when the user gave no
   tunnel/QR choice) and AGAIN kills anything on port 5000 first (that step had been
-  lost in the rollback). The QR comes from a new `/phonebuttons-qr?value=<url>` route
+  lost in the rollback). The QR comes from a new `/myhid-qr?value=<url>` route
   rendered with the shared vendored `qrcode.min.js`, opened at
-  `http://127.0.0.1:5000/phonebuttons-qr?...`. `_find_cloudflared()` checks
-  `PB_CLOUDFLARED` -> PATH -> usual install dirs; when it is missing the server runs
+  `http://127.0.0.1:5000/myhid-qr?...`. `_find_cloudflared()` checks
+  `MYHID_CLOUDFLARED` -> PATH -> usual install dirs; when it is missing the server runs
   anyway and prints `winget install cloudflare.cloudflared`. (2026-10-26: cloudflared
   IS installed on this box now - a `--tunnel` run really starts a quick tunnel, and a
   HARD-KILLED parent can leave its `cloudflared.exe` orphaned, so check
@@ -6814,7 +6844,7 @@ Techniques / gotchas:
   `<script` tags.
 - VERIFIED: `node --check` + `py_compile` clean; the QR route via Flask's test client
   (200 + text/html, vendored lib, value passed, missing value 400, hostile values
-  escaped); `phonebuttons-regression` 18/18.
+  escaped); `myhid-regression` 18/18.
 - `BUILD_NUMBER` -> `202610161801` via `npm run bump:build`.
 
 ### 2026-10-18 - app full name next to the hamburger in every nav bar
@@ -6825,7 +6855,7 @@ Techniques / gotchas:
   script URL like `href()`) and inserts
   `<span id="appNavTitle" class="navbar-text fw-semibold mb-0">NAME</span>`
   directly after the hamburger's `.dropdown` wrapper. `APPS[].navTitle`
-  overrides `name`: `"My Apps"` for Launch, `false` (opt out) for Phone Buttons,
+  overrides `name`: `"My Apps"` for Launch, `false` (opt out) for My HID,
   which already shows the running server app's name there. Called from `boot()`
   next to `buildLaunchSubmenu()`; idempotent; a no-op without a `#mainNav`
   (Storybook / card-viewer frames).
@@ -6838,19 +6868,19 @@ Techniques / gotchas:
   cannot make the title illegible - the same reason `#btnMainMenu` is pinned.
 - TDD: new `launch-regression` "each app's nav shows the app name next to the
   hamburger" (7 shells: exactly one `#appNavTitle` with the registry name,
-  same-row + right-of-the-button geometry + body colour; then PhoneButtons must
+  same-row + right-of-the-button geometry + body colour; then MyHID must
   have none) and the pmd-regression "hides the main menu while a secondary page
   is open" test extended to assert the title hides and returns.
   MUTATION-CHECKED: disabling the `mountAppTitle()` call in `boot()` fails the
   new test with `Expected: 1, Received: 0`.
-- VERIFIED: launch-regression 13/13, phonebuttons-regression 18/18,
+- VERIFIED: launch-regression 13/13, myhid-regression 18/18,
   pmd-regression + pmd-touch `Main View|Auto-Hide Nav` 171/171,
   settings-alignment 13/13, cmd/qrlinks/ffox/solar boot tests 7/7.
 - SCREENSHOTS ARE NOW STALE in every app (the nav text changed) and the Launch
   grid moved up (the removed h1): regenerate with `--workers 16` before shipping.
 - `BUILD_NUMBER` -> `202610180853` via `npm run bump:build`.
 
-### 2026-10-18 (b) - ListOfLists regression + screenshot suites; PhoneButtons server (app.py) tests
+### 2026-10-18 (b) - ListOfLists regression + screenshot suites; MyHID server (app.py) tests
 - LISTOFLISTS TESTS (user request - the app had NONE): NEW
   `tests/lol-regression.spec.js` = 63 tests over boot/namespace, the main view
   (cards, order, empty state, swipe-left delete + cancel), View List read-only
@@ -6869,16 +6899,16 @@ Techniques / gotchas:
   NEW `tests/lol-screenshots.spec.js` = 7 scenes x 27 themes x light/dark
   (`screenshots/lol/`), verified for superhero in both modes.
 - WHY THERE WAS NO COVERAGE: `tests/coverage.js` only merges `/<app>/js/` paths it
-  LISTS, and `/ListOfLists/js/` + `/PhoneButtons/js/` were missing, so those apps
+  LISTS, and `/ListOfLists/js/` + `/MyHID/js/` were missing, so those apps
   read as 0% no matter how well they were tested. Both are now in the filter.
-- PHONEBUTTONS SERVER: NEW `PhoneButtons/server/test_app.py` (pytest, 120 tests,
+- MYHID SERVER: NEW `MyHID/server/test_app.py` (pytest, 120 tests,
   ~90% of app.py): icon-filename sanitising, the config helpers, friendly-name
   resolution, foreground info, the key parser (brackets must go through
   `VkKeyScanW` - `ord("[")` is VK_LWIN), every HTTP route incl. traversal refusal
   and the QR route's escaping, the socket events (key press ordering, pong,
   set_default_icon), the running-apps scan and the focus hook (both mocked), the
   tunnel URL parse/timeout branches, and a real-GDI smoke test of the icon
-  pipeline against notepad.exe. NEW `tests/phonebuttons-server.spec.js` runs that
+  pipeline against notepad.exe. NEW `tests/myhid-server.spec.js` runs that
   pytest suite from the Playwright run (skip when the deps are absent, fail below
   80% coverage). `pytest`/`pytest-cov` were installed for `py -3.13` (the only
   interpreter here with Flask/pywin32); the default `python` is 3.14 and has none.
@@ -6898,8 +6928,8 @@ Techniques / gotchas:
   the access violation above was printed by faulthandler while pytest still exited
   0 - check for "Windows fatal exception" in the output, not only the exit code.
 - VERIFIED: lol-regression 63/63, lol-screenshots 7/7 (superhero, both modes),
-  phonebuttons-server 2/2 (wrapping 120 pytest tests at 90% app.py coverage),
-  launch-regression 13/13 + phonebuttons-regression 18/18 (unchanged), and the
+  myhid-server 2/2 (wrapping 120 pytest tests at 90% app.py coverage),
+  launch-regression 13/13 + myhid-regression 18/18 (unchanged), and the
   full app.py `pytest` run. No app/web asset changed, so `BUILD_NUMBER` was NOT
   bumped.
 
@@ -6924,12 +6954,12 @@ Techniques / gotchas:
   the polled test still fails with `activeBg rgb(223,105,25)` vs `rgb(78,93,108)`,
   so it is not vacuous. VERIFIED: the two tests `--repeat-each=5` 10/10, then the
   whole `pmd-gantt` spec 59/59.
-- app.py COVERAGE IS NOT IN THE TERMINAL: `tests/phonebuttons-server.spec.js` passes
+- app.py COVERAGE IS NOT IN THE TERMINAL: `tests/myhid-server.spec.js` passes
   `--cov-report=term-missing` to pytest but the list/line reporter does NOT replay a
   PASSING test's stdout (neither `console.log` nor `process.stdout.write` in the test
   shows up), so the table only ever appeared in the captured output. The wrapper now
-  ALSO writes `PhoneButtons/server/coverage.txt` (full pytest output + the table) and
-  `PhoneButtons/server/htmlcov/index.html` (browsable, per line; both gitignored) and
+  ALSO writes `MyHID/server/coverage.txt` (full pytest output + the table) and
+  `MyHID/server/htmlcov/index.html` (browsable, per line; both gitignored) and
   adds them as test annotations. Embedding the whole output in a FAILING assertion
   message stays, so a real failure still prints the table in the terminal.
 - FOLLOW-UP (user): `coverage.txt` was full of control characters - pytest colours
@@ -7024,7 +7054,7 @@ Techniques / gotchas:
 - SHAPE APPLIED (8 shells): Launch [Display, Menu]; PlanMyDay [General, Display,
   Schedule, Minio, Danger]; CountMyDays [General, Display, G Cal, Minio, Danger];
   QRLinks [Display, Danger]; SolarControlar [General, Display, Danger];
-  FreeFormOX [Display, Game]; ListOfLists [Display, Minio, Danger]; PhoneButtons
+  FreeFormOX [Display, Game]; ListOfLists [Display, Minio, Danger]; MyHID
   [Display, Server, Danger]. QRLinks + ListOfLists General tabs were left EMPTY, so
   they were deleted (QRLinks' Display reuses nothing from the old id - it is
   `appearance-tab`). CountMyDays' General keeps Countdown display + Max
@@ -7037,7 +7067,7 @@ Techniques / gotchas:
   added to the six apps missing them because every app uses `<smd-checkbox>` /
   `<smd-draghandle>` (Launch's tick-boxes and handles live inside
   `launch-app-menu`, so a source grep for the tag undercounts them), `<smd-page>`
-  and the shared nav respectively. Labels aligned: Launch + PhoneButtons "Image
+  and the shared nav respectively. Labels aligned: Launch + MyHID "Image
   size" -> "Icon size".
 - SHARED ENGINE so a moved row works without per-app code:
   `smdSetupSettingsPage()` restores touch + slide too, and `changeTouchSize()` +
@@ -7058,7 +7088,7 @@ Techniques / gotchas:
   ffox names/styles tests (Game is the second tab now); solar's Flask steps moved
   before the Display click.
 - VERIFIED: settings-alignment 21/21, launch 13/13, qrlinks 9/9, ffox 11/11,
-  solar 12/12, phonebuttons 18/18, cmd 67/67, and pmd+lol `--grep Settings` 50/50.
+  solar 12/12, myhid 18/18, cmd 67/67, and pmd+lol `--grep Settings` 50/50.
   Spot-checked the restructured pages visually (Solar General+Display, FFOX
   Display, CountMyDays Display); probes deleted.
 - SCREENSHOTS: every app's settings scene changed (new rows/tabs) - regenerate.
@@ -7105,13 +7135,13 @@ Techniques / gotchas:
   "../" in the sub-apps; the Launch entry resolves to "./" at the root).
 - STALE-SERVER LESSON (cost three debugging runs): restarting is needed for HTML
   too. See the LENGTH-CHANGE VARIANT note above - shortening
-  `PhoneButtons/index.html` by one line made the long-running server send a
+  `MyHID/index.html` by one line made the long-running server send a
   mismatched Content-Length, the page died with
   `net::ERR_CONTENT_LENGTH_MISMATCH` and `page.goto` never reached `load`, which
-  looked exactly like a broken PhoneButtons app (console errors absent,
-  `Invoke-WebRequest` fine). A restart fixed all 18 phonebuttons tests instantly.
+  looked exactly like a broken MyHID app (console errors absent,
+  `Invoke-WebRequest` fine). A restart fixed all 18 myhid tests instantly.
 - VERIFIED: settings-alignment 28/28 (12 alignment + 8 rhythm + 8 shape),
-  launch-regression 13/13, ffox-regression 11/11, phonebuttons-regression 18/18.
+  launch-regression 13/13, ffox-regression 11/11, myhid-regression 18/18.
 - `BUILD_NUMBER` -> `202610182146` via `npm run bump:build`; the test servers were
   restarted afterwards and verified serving that build.
 - FALLOUT (user's full run: exactly 1 failure): `pmd-gantt` "Show Gantt is the last
@@ -7156,7 +7186,7 @@ Techniques / gotchas:
   test now asserts the two split Google rows + "Load Sample Data"/"Clear Google
   cache".
 - VERIFIED: settings-alignment 34/34 (12 alignment + 8 rhythm + 6 Danger + 8
-  shape), cmd+qrlinks+solar+phonebuttons 106/106, pmd
+  shape), cmd+qrlinks+solar+myhid 106/106, pmd
   `--grep 'No Cache|danger|Regenerate|Sort Jobs|clear all data|Settings'` 58/58,
   lol `--grep Settings` 10/10.
 - `BUILD_NUMBER` -> `202610182214` via `npm run bump:build`; the servers were
@@ -7457,45 +7487,46 @@ Techniques / gotchas:
   as a double-click. Wait ~400ms or click once, then drag. Not a connector bug.
 - BUILD: `202610211957` via `npm run bump:build`.
 
-### 2026-10-22 - remoteHID group + Mouser 6DOF capture/server
-- MOVED: `PhoneButtons/` -> `remoteHID/PhoneButtons/`; `PhoneButtons/server/` ->
-  `remoteHID/server/`; `PhoneButtonServer.cmd` -> `remoteHID/PhoneButtonServer.cmd`.
-  Registry path is `remoteHID/PhoneButtons/`; `SmdApps.currentPath()` matches the
+### 2026-10-22 - MyHID group + HID 6DOF capture/server
+- MOVED: `MyHID/` -> `MyHID/`; `MyHID/server/` ->
+  `MyHID/server/`; `StartMyHIDServer.cmd` -> `MyHID/StartMyHIDServer.cmd`.
+  Registry path is `MyHID/`; `SmdApps.currentPath()` matches the
   LONGEST `APPS[].path` prefix (durable note above), `sw.js` APPS carries the nested
-  key, and `cache.addAll` therefore precaches `mouser-tab.js` with the shell.
-  Public URL is `/MyApps/remoteHID/PhoneButtons/`: installed PWAs must be
+  key, and `cache.addAll` therefore precaches `hid-tab.js` with the shell.
+  Public URL is `/MyApps/MyHID/`: installed PWAs must be
   reinstalled; no redirect shim at the old URL.
-- MOUSER (new, `remoteHID/Mouser/`): C# .NET 8 capture client copied from
-  `P:\git\Mouser`; `phase0/` -> `capture/`, assembly `mouser-capture`, v0.3.
+- HID (new, `MyHID/mouse-capture/`): C# .NET 8 capture client copied from
+  `P:\git\Mouser`; `phase0/` -> `capture/`, assembly `mouse-capture`, v0.3.
   MB4 held = rotate, MB5 held = translate; while held, motion + wheel are dropped
   below raw input, buttons still pass in v0.3.0 (v0.3.1 consumes the configured
   mode buttons; see the 2026-10-23 entry). `--rotate-button`/`--translate-button`
-  default 4/5; `--hold` is a deprecated alias.
+  default 4/5 (`--hold` was a deprecated alias until it was removed on
+  2026-10-27).
 - WIRE: 32-byte UDP frames at ~100 Hz, magic `0x4D365331`, `mode u16` (0/1/2,
   replaced the old `gate`). One wheel notch is +/-120 counts, not +/-1.
-- SERVER `remoteHID/server/mouser/`: `protocol.py` strict v2 parse, `axes.py` six
+- SERVER `MyHID/server/hid/`: `protocol.py` strict v2 parse, `axes.py` six
   ratchets (deadband, per-frame cap, min press interval keeps deferred steps in
   `acc`), `engine.py` fixed v1 map (rotate dx->ry, dy->rx, wheel->rz; translate
   dx->tx, dy->tz, wheel->ty), `udp.py`. `app.py` injects real keys; F13-F24 added
-  to `_KEY_MAP`. `_send_key_string_fast` is the Mouser path - `button_press` sleeps
+  to `_KEY_MAP`. `_send_key_string_fast` is the HID path - `button_press` sleeps
   10 ms twice and must never be used for a ratchet burst. Startup binds UDP 7801
-  and emits `mouser_state` at 10 Hz.
-- LAYOUT: layouts may carry `mouser: {enabled, axes:{rx,ry,rz,tx,ty,tz}}`;
+  and emits `hid_state` at 10 Hz.
+- LAYOUT: layouts may carry `hid: {enabled, axes:{rx,ry,rz,tx,ty,tz}}`;
   `/api/layouts` passes it and also returns `usedBy`. New layouts default
-  `enabled: false`; a save that omits `mouser` keeps the stored block.
+  `enabled: false`; a save that omits `HID` keeps the stored block.
 - UI: Manage Layout is three `<smd-tabs>`: General (name/icon/key/usedBy),
-  PhoneButtons (rows/cols + grid), Mouser (six axis cards with key `<smd-select>`s,
+  MyHID (rows/cols + grid), HID (six axis cards with key `<smd-select>`s,
   gain/step/deadband, live readout). Assign `tabs.tabs` once AFTER the page is
   attached - the setter re-renders and resets `activeIndex`. Finish saves all three
   tabs in one POST. The grid tab is re-rendered when activated.
 - TESTS: targeted only (the user owns the full regression): 151 pytest
-  (`test_mouser.py` + `test_app.py`), 5 Manage Layout Playwright tests (including
-  the new Mouser tab), 3 launch/nav tests; `node --check` on changed JS.
+  (`test_hid.py` + `test_app.py`), 5 Manage Layout Playwright tests (including
+  the new HID tab), 3 launch/nav tests; `node --check` on changed JS.
 - GOTCHA (v0.3.0, superseded 2026-10-23): mode buttons still click through, so
   engaging MB4 could navigate a browser back. Blender/Unity and the server must run
   at the same integrity level (UIPI).
 
-### 2026-10-23 - Mouser v0.3.1: consume the mode buttons
+### 2026-10-23 - HID v0.3.1: consume the mode buttons
 - `--gate` now swallows the configured rotate/translate button down/up pair, so
   MB4/MB5 no longer click through to the focused app. This supersedes the v0.3.0
   click-through gotcha above. Motion + wheel are still dropped while held; every
@@ -7511,8 +7542,8 @@ Techniques / gotchas:
   zero warnings; `--version` and `--help` verified. No server/web changes, so the
   build number is unchanged. This is the new default for hardware acceptance A3.
 
-### 2026-10-23 (b) - Mouser arbitrary keys, key debug, Blender 4.4 add-on
-- MOUSER UI: each axis direction is now a text input + datalist plus Ctrl/Alt/
+### 2026-10-23 (b) - HID arbitrary keys, key debug, Blender 4.4 add-on
+- HID UI: each axis direction is now a text input + datalist plus Ctrl/Alt/
   Shift checkboxes, not an F13-F24-only `<smd-select>`. Accepts `A`, `LEFT`,
   `PAGEUP`, `ctrl+shift+K`, or any single character; blank = unbound. Stored
   strings canonicalise to lowercase modifiers + uppercase key. `HOME`, `END`,
@@ -7520,13 +7551,13 @@ Techniques / gotchas:
   button editor's named-key list.
 - SERVER DEBUG: `--debug-keys` / `--no-debug-keys` (default off) logs each
   injected key via `_debug_key`; `--debug` / `--no-debug` controls the rest of
-  the verbose log. Fast Mouser sends log `Mouser key sent: '...' (VK=..., mods=...)`.
+  the verbose log. Fast HID sends log `HID key sent: '...' (VK=..., mods=...)`.
   Startup prints `Key-send debug: on|off`.
 - CAPTURE BANNER: `udp` line now says `not set` when no `--udp`; warns when
   `--gate` has no target; prints `websocket: none - capture uses UDP; Socket.IO
   is browser-only` (the capture has no WebSocket transport).
-- BLENDER 4.4.3: new `remoteHID/Mouser/blender/mouser_step_controls.py` add-on
-  auto-binds F13-F24 to `mouser.rotate_step` and `mouser.translate_step`; fixed
+- BLENDER 4.4.3: new `MyHID/blender/hid_step_controls.py` add-on
+  auto-binds F13-F24 to `hid.rotate_step` and `hid.translate_step`; fixed
   rotation step (default 5°) and translation step (default 0.1), target Selected
   Objects or 3D Viewport, global/local axis, individual/median/cursor pivot.
   F13-F24 keymap UI is bypassed via Python keymap registration. Object
@@ -7535,21 +7566,21 @@ Techniques / gotchas:
 - VERIFIED: 154 pytest passed; Blender 4.4.3 background tests for 12-key
   auto-bind, object global/local/median rotation, global/local translation,
   viewport rotation/translation math, add-on install in a temp config, and rebind
-  idempotency. Targeted Playwright Mouser test passed after restarting the stale
+  idempotency. Targeted Playwright HID test passed after restarting the stale
   Vite server (it had a truncated cached JS file). Build number bumped to
   `202610231534` (`shared/js/build-number.js` + `sw.js`). Full regression not run.
-- CURRENT USER CONFIG: `remoteHID/server/config.json` is back on the F13-F24
-  defaults; `StartRemoteHIDServer.cmd` still appends `--debug-keys` (uncommitted
+- CURRENT USER CONFIG: `MyHID/server/config.json` is back on the F13-F24
+  defaults; `StartMyHIDServer.cmd` still appends `--debug-keys` (uncommitted
   user change, left untouched). The add-on's defaults match the config.
 
-### 2026-10-26 - Mouser control panel: management socket + PhoneButtons config UI
+### 2026-10-26 - HID control panel: management socket + MyHID config UI
 
 The capture client can now be configured from the phone instead of a command line.
 Everything below is the contract; break it and the app stops talking to the exe.
 
 - SHAPE (user decisions): the CONFIGURATION UI LIVES IN THE APP ONLY
-  (`remoteHID/PhoneButtons/js/mouser-capture.js`, hamburger ->
-  **Manage mouser-capture**). The exe serves a JSON API + a QR/address page, NOT a
+  (`MyHID/js/mouse-capture.js`, hamburger ->
+  **Manage mouse-capture**). The exe serves a JSON API + a QR/address page, NOT a
   form - one UI beats two divergent copies. The phone talks DIRECTLY to the panel
   (Cloudflare tunnel when remote), never through the Flask server, because the
   capture often runs without the server being reachable.
@@ -7560,15 +7591,15 @@ Everything below is the contract; break it and the app stops talking to the exe.
   `GET /qrcode.min.js`, `GET /api/state`, `GET|POST /api/devices`,
   `POST /api/config`, `POST /api/capture/start|stop`, `POST /api/ping`,
   `POST /api/tunnel/start|stop`.
-- AUTH: one token, generated once into `mouser-capture.json`, accepted as
-  `X-Mouser-Token` OR `?t=` (a `<script src>` cannot send a header). Every route
+- AUTH: one token, generated once into `mouse-capture.json`, accepted as
+  `X-HID-Token` OR `?t=` (a `<script src>` cannot send a header). Every route
   including the page needs it; `OPTIONS` is answered BEFORE the check (a preflight
   cannot carry a custom header). CORS is `*` + no credentials because the app is
   served from GitHub Pages/localhost/the tunnel. The API NEVER changes the token
   (a stale tab must not lock a working phone out) - `SaveConfigRoute` copies the
   stored one over the incoming body.
-- CONFIG: `mouser-capture.json` next to the exe (falls back to
-  `%LOCALAPPDATA%\Mouser` when that folder is read-only, reported in `warnings`).
+- CONFIG: `mouse-capture.json` next to the exe (falls back to
+  `%LOCALAPPDATA%\MyHID` when that folder is read-only, reported in `warnings`).
   CLI switches are PER-RUN overrides and are NEVER saved (`--panel-port 0` in the
   tests does not persist 0). `UnmappedMemberHandling.Disallow`, so a typo is a 400,
   not a silently dropped field. `autoStart` semantics: Start sets it true, Stop
@@ -7593,15 +7624,15 @@ Everything below is the contract; break it and the app stops talking to the exe.
   killed on exit). OFF by default (`--tunnel` opts in; `--public-url` advertises a
   named tunnel). `--simulate` answers `/api/tunnel/start` with 409 - it must never
   publish anything.
-- SAME BOX: `app.py --mouser` (and `StartRemoteHIDServer.cmd --mouser`) launches
-  `Mouser\out\mouser-capture.exe --ui --bind-lan --no-qr --panel-port 0
+- SAME BOX: `app.py --mouse-capture` (and `StartMyHIDServer.cmd --mouse-capture`) launches
+  `MyHID\mouse-capture\out\mouse-capture.exe --ui --bind-lan --no-qr --panel-port 0
   --udp 127.0.0.1:<udp port>`, parses the printed `panel:` line and serves it on
-  `GET /api/mouser-capture` (`{enabled,state,url,token,tunnelUrl,build,error}`).
+  `GET /api/mouse-capture` (`{enabled,state,url,token,tunnelUrl,build,error}`).
   The app ADOPTS that automatically when no address is stored. The child is
   terminated via `atexit`. A missing exe is an `error` state + the build command,
   never a crash.
-- APP SIDE: `pb_mouserUrl` (base, no trailing slash) + `pb_mouserToken` are
-  SEPARATE keys; `pbParseMouserUrl()` splits `?t=` out and rejects junk. The QR is
+- APP SIDE: `myhid_mouseCaptureUrl` (base, no trailing slash) + `myhid_mouseCaptureToken` are
+  SEPARATE keys; `myhidParseHidUrl()` splits `?t=` out and rejects junk. The QR is
   scanned with `smd-qr-import raw autostart` (same pattern as Settings | Server).
   The page polls `/api/state` every 1.5 s while open and reuses the SAME panel:
   the device radio list is rebuilt only when the device signature changes (or it
@@ -7617,12 +7648,12 @@ Everything below is the contract; break it and the app stops talking to the exe.
   \"b1c2\""), which makes a stale QR or a stale saved address obvious. NEVER put
   the whole token in an error message.
   TWO UX FIXES that remove the cause: the address field now shows the FULL address
-  (`base + "/?t=" + token`, via `mouserFullAddress()`) so copying it out of the app
+  (`base + "/?t=" + token`, via `mouseCaptureFullAddress()`) so copying it out of the app
   carries the token (before, copying the field silently dropped it), and a
-  `change` on `#mouserUrlInput` SAVES it (pasting and tapping elsewhere is enough -
+  `change` on `#mouseCaptureUrlInput` SAVES it (pasting and tapping elsewhere is enough -
   "typed but never pressed Save" used to leave the app polling with the OLD token,
   which is exactly how a 403 appears from a correct-looking address).
-  The token only changes if `mouser-capture.json` is lost/unwritable - the banner's
+  The token only changes if `mouse-capture.json` is lost/unwritable - the banner's
   `config :` line and `panel.configPath` in `/api/state` name the file to check.
 - IDENTIFY + LEARN (2026-10-26, user request; STOPPED-ONLY since 2026-10-27): "select
   the mouse by moving it" and "select the mode buttons by clicking them". NEITHER is
@@ -7631,7 +7662,7 @@ Everything below is the contract; break it and the app stops talking to the exe.
   - BOTH ARE STOPPED-ONLY (user decision): while a capture runs a held mode button
     gates motion (Identify sees nothing) and the pump swallows the mode buttons
     (Learn could not see them). The app DISABLES the buttons while running
-    (`mouserSetDisabled` + `title="Stop the capture first"`) and the handlers guard
+    (`mouseCaptureSetDisabled` + `title="Stop the capture first"`) and the handlers guard
     too; `/api/learn-button` answers 409 when a session is running.
   - IDENTIFY needs NO capture change: `/api/state.devices[]` reports `motion` as a
     CUMULATIVE count (`RawWindow.SnapshotMotion()`, never reset) and the panel diffs
@@ -7660,51 +7691,51 @@ Everything below is the contract; break it and the app stops talking to the exe.
     clear the held-mode flags - the swallow means the pump never sees those ups, so
     without it the mouse could stay gated. `--simulate` answers button 4 after
     300 ms so the route and its timeout are testable with no driver.
-  - APP: `#btnMouserIdentify` (variant turns `warning` while listening - a
+  - APP: `#btnHidIdentify` (variant turns `warning` while listening - a
     `smd-button` LABEL is captured once and cannot be changed post-build, so colour
-    is the state signal), and `#btnMouserLearnRotate`/`#btnMouserLearnTranslate`
+    is the state signal), and `#btnHidLearnRotate`/`#btnHidLearnTranslate`
     beside each select; 3/4/5 are saved, 1/2 are refused with "that's the
-    left/right button". `mouserSaveConfig` RESOLVES TRUE/FALSE and callers only claim
+    left/right button". `mouseCaptureSaveConfig` RESOLVES TRUE/FALSE and callers only claim
     success on true: a rejected save (the panel refuses both modes on one button)
     used to be masked by "Rotate = MB5", which looked exactly like "learned but the
     dropdown did not change".
   - SERVER (UDP) DEFAULT: with no target configured, the field defaults to
-    `pbServerAddress():7801` (the server's UDP receiver port, NOT its HTTP port) and
-    is saved once (`mouserApplyUdpDefault`, silent) so the capture really sends there.
+    `myhidServerAddress():7801` (the server's UDP receiver port, NOT its HTTP port) and
+    is saved once (`mouseCaptureApplyUdpDefault`, silent) so the capture really sends there.
   - LIMIT: two identical mice share a hardware id and a motion key, so they cannot be
     distinguished (both rows light up).
   - MOUSE ROW LAYOUT (2026-10-27, user request): line 1 = the Windows name, line 2 =
     a SMALL "moving" badge AT THE LEFT, then the hardware id (wrapped in
-    `.pb-mouser-id`). The badge used to follow the name, so a long name/id wrapped it
+    `.myhid-id`). The badge used to follow the name, so a long name/id wrapped it
     onto a line of its own. **The badge is ALWAYS rendered and hidden with
-    `visibility: hidden`** (`pb-mouser-moving-off`), never removed and never
+    `visibility: hidden`** (`myhid-moving-off`), never removed and never
     `display:none`: "moving" flips constantly while the mouse is moved, and anything
     that changes the line's width/height re-flows the id under the cursor. For the
     same reason `moving` is NOT part of the device-list rebuild signature - the badge
-    is toggled in place by `mouserSyncMovingBadges()` (row N is device N; the list is
+    is toggled in place by `mouseCaptureSyncMovingBadges()` (row N is device N; the list is
     rebuilt only when the device SET changes). Badge sizing is injected with
-    `injectSmdComponentStyle("pb-mouser-devices", …)` (0.62em, tight padding) - the
+    `injectSmdComponentStyle("myhid-devices", …)` (0.62em, tight padding) - the
     page's only styling. The name comes from
     `GUID_DEVCLASS_MOUSE` (a SETUP class - enumerating `GUID_DEVINTERFACE_MOUSE` and
     calling `SetupDiEnumDeviceInfo` returns NOTHING, which silently degraded every
     name to the hardware id: the "same ids twice" list) plus `SHLoadIndirectString`
     for the `@%SystemRoot%\...,-123` descriptions. `FriendlyName` is usually absent
     on mouse nodes (error 13) - `DeviceDesc` is the one that resolves.
-- TESTS: `tests/mouser-capture-ui.spec.js` (10) spawns the real exe with
+- TESTS: `tests/mouse-capture-ui.spec.js` (10) spawns the real exe with
   `--ui --simulate --no-tunnel --no-qr --panel-port 0` and SKIPS when
-  `out/mouser-capture.exe` is missing (like `phonebuttons-server.spec.js`); it
+  `out/mouse-capture.exe` is missing (like `myhid-server.spec.js`); it
   covers the QR page, token/`?t=`/403, CORS preflight, config validation + the
   file on disk, devices, start/stop/409, autoStart replay across a restart, ping
   timeout, and `--version`/`--help`.
-  `tests/phonebuttons-mouser.spec.js` (9) stubs the panel with `page.route`
+  `tests/myhid-mouse-capture.spec.js` (9) stubs the panel with `page.route`
   (INCLUDING the CORS preflight - a stub without ACAO would hide a real
   cross-origin bug) and covers the menu position, the page shape, address parsing,
   save, render, config round-trip, start/stop/ping, a 403 message, and the
-  same-box adoption. `test_app.py::TestMouserCaptureDiscovery` (9) covers the
+  same-box adoption. `test_app.py::TestMouseCaptureDiscovery` (9) covers the
   route and the launch/parse/stop logic with a fake process.
-- BUILD CYCLE: `powershell -File remoteHID\Mouser\build.ps1 [-NoZip]` (add `-NoZip`
+- BUILD CYCLE: `powershell -File MyHID\mouse-capture\build.ps1 [-NoZip]` (add `-NoZip`
   while iterating; the zip is ~33 MB). The exe is NOT served by the service
-  worker, so the C# changes need NO `npm run bump:build`; the PhoneButtons shell +
+  worker, so the C# changes need NO `npm run bump:build`; the MyHID shell +
   new JS DO (they are precached PWA assets).
 
 ### 2026-10-23 - smd-image-dropdown: menu thumbnails match the closed button (no clipped icons)
@@ -8284,7 +8315,7 @@ Everything below is the contract; break it and the app stops talking to the exe.
 - VERIFIED: contrast project 12/12 (incl. contrast-css drift - no regeneration
   needed - and the new test); settings-alignment + display-settings +
   native-checkbox-guard 46/46; storybook + cmd 85/85; lol/qrlinks/launch/ffox/
-  solar/phonebuttons/image-edit-preview-size 139/139; pmd-regression
+  solar/myhid/image-edit-preview-size 139/139; pmd-regression
   "Theme colours|View Job|Job Edit|Tasks|dropdown" 96/96; pmd-touch (iPhone) 6/6.
   Visually checked View Job in quartz/sketchy/materia/minty/slate/vapor/lux/
   superhero plus a SolarControlar settings page.
@@ -8614,92 +8645,92 @@ Everything below is the contract; break it and the app stops talking to the exe.
   bootstrap light shots.
 - BUILD bumped (shared asset changed).
 
-### 2026-10-25 (l) - merge main into remoteHID: conflicts resolved
-- MERGED `main` into `remoteHID`. Four files conflicted; resolutions:
-  - `shared/js/smd-apps.js`: the registry keeps BOTH sides - Phone Buttons at the
-    GROUPED path `remoteHID/PhoneButtons/` (HEAD) AND the `Storyboard/` entry
-    (main), in menu order Phone Buttons -> Storyboard -> Launch.
+### 2026-10-25 (l) - merge main into MyHID: conflicts resolved
+- MERGED `main` into `MyHID`. Four files conflicted; resolutions:
+  - `shared/js/smd-apps.js`: the registry keeps BOTH sides - My HID at the
+    GROUPED path `MyHID/` (HEAD) AND the `Storyboard/` entry
+    (main), in menu order My HID -> Storyboard -> Launch.
   - `sw.js`: build number taken from main (`202610251421`) so the two build files
     agree; both were then bumped to `202610251616` (`npm run bump:build`).
   - `tests/launch-regression.spec.js`: every list keeps the grouped
-    `/remoteHID/PhoneButtons/` shell (prefix `../../`) and adds `/Storyboard/`
-    (`../`); the grid + submenu tables list Phone Buttons (grouped href) then
+    `/MyHID/` shell (prefix `../../`) and adds `/Storyboard/`
+    (`../`); the grid + submenu tables list My HID (grouped href) then
     Storyboard. `toHaveCount(9)` still holds (8 apps + Launch).
-  - `AGENTS.md`: both session logs kept. The remoteHID 2026-10-22 / 2026-10-23
-    Mouser entries were moved from the top of the conflict to their chronological
+  - `AGENTS.md`: both session logs kept. The MyHID 2026-10-22 / 2026-10-23
+    HID entries were moved from the top of the conflict to their chronological
     spot (after 2026-10-21 (g), before the 2026-10-23 image-dropdown entry); main's
     2026-10-21 (e) .. 2026-10-25 (k) entries are unchanged.
 - NOT a conflict but worth knowing: `shared/js/build-number.js` merged to main's
-  value automatically because remoteHID's own bump (`202610231534`) is an ancestor
+  value automatically because MyHID's own bump (`202610231534`) is an ancestor
   of main's later bumps.
 - VERIFIED at `--workers=16 --retries=0`: launch-regression + settings-alignment +
-  display-settings + native-checkbox-guard + phonebuttons-regression +
-  phonebuttons-server 80/80; storyboard (align/groups/pan/stamp/stories/zoom/
+  display-settings + native-checkbox-guard + myhid-regression +
+  myhid-server 80/80; storyboard (align/groups/pan/stamp/stories/zoom/
   minio) + onedrive + minio-directory + storybook 90/90; `@cache` 11/11 (mirror +
   precache: 462 URLs, 0 duplicates). The user runs the full regression.
 - POST-MERGE PATH AUDIT (found by the user's full run): `tests/wco.spec.js`'s
-  `APPS` list still named `PhoneButtons` (it reads each `manifest.json` straight
-  off disk), so it threw ENOENT. Fixed to `remoteHID/PhoneButtons`; `wco.spec.js`
-  then 4/4. A repo-wide grep (`git grep PhoneButtons`, excluding docs and
-  `remoteHID/`) shows NO other stale folder path - the remaining hits are UI
-  labels ("PhoneButtons" tab), a sample URL and comments. When a future app moves
+  `APPS` list still named `MyHID` (it reads each `manifest.json` straight
+  off disk), so it threw ENOENT. Fixed to `MyHID`; `wco.spec.js`
+  then 4/4. A repo-wide grep (`git grep MyHID`, excluding docs and
+  `MyHID/`) shows NO other stale folder path - the remaining hits are UI
+  labels ("MyHID" tab), a sample URL and comments. When a future app moves
   under a group folder, grep for BARE folder names in tests, not just `/App/`
   URLs.
 - MERGE IS STAGED, NOT COMMITTED: commit it after the full run passes.
 
 
-### 2026-10-25 (m) - Mouser: server answers `--ping`; the cmd.exe `&` trap that silently drops `--udp`
+### 2026-10-25 (m) - HID: server answers `--ping`; the cmd.exe `&` trap that silently drops `--udp`
 
-- REPORTED: "mouser-capture.exe is running on a remote machine, pointed at the udp
+- REPORTED: "mouse-capture.exe is running on a remote machine, pointed at the udp
   server port, but mouse events are not generating key clicks. It was working
   before and there was a merge conflict."
-- THE MERGE LOST NOTHING: `git diff 5db39ec 1bfdb02 -- remoteHID/` is ONE line
-  (`remoteHID/PhoneButtons/manifest.json`, main's `display_override`). Every
-  `remoteHID/` file in the merge result is byte-identical to the `remoteHID`
-  parent; the tree is clean apart from the pre-move generated `PhoneButtons/`
+- THE MERGE LOST NOTHING: `git diff 5db39ec 1bfdb02 -- MyHID/` is ONE line
+  (`MyHID/manifest.json`, main's `display_override`). Every
+  `MyHID/` file in the merge result is byte-identical to the `MyHID`
+  parent; the tree is clean apart from the pre-move generated `MyHID/`
   folder at the repo root (htmlcov/__pycache__/icons, no source).
 - THE SERVER CODE IS INTACT: 154 pytest pass, and a throwaway probe that sends the
   EXACT `Net.cs` frame (`<IIqfffHH`, magic `0x4D365331`) to a real
-  `MouserUdpReceiver` produced 80x F15 (mode 1 + dx), 24x F21 (mode 2 + wheel),
+  `HidUdpReceiver` produced 80x F15 (mode 1 + dx), 24x F21 (mode 2 + wheel),
   0 presses for mode 0, and rejected a v1-magic frame. So socket -> parse ->
   ratchet -> `press_key` is proven; the fault is at the boundary.
 - ROOT CAUSE (almost certainly): the hardware id contains `&`, and `cmd.exe`
   treats `&` as a COMMAND SEPARATOR even inside an argument. So
   `--gate --filter HID\VID_046D&PID_C52B&REV_1210&MI_01&Col01 --udp 192.168.1.69:7801`
-  runs `mouser-capture.exe --gate --filter HID\VID_046D` and then tries
+  runs `mouse-capture.exe --gate --filter HID\VID_046D` and then tries
   `PID_C52B`, `REV_1210`, ... as separate commands - **`--udp` is never passed**,
   so the mouse IS gated and streaming but nothing is sent (the banner says
   `udp : not set - no frames will be sent` + `WARNING: --gate without --udp`).
   ALWAYS QUOTE the filter value (cmd.exe AND PowerShell):
   `--filter "HID\VID_046D&PID_C52B&REV_1210&MI_01&Col01"`.
-- FEATURE (user request): the Flask server now ANSWERS `mouser-capture --ping`.
-  `mouser/protocol.py` gained `MAGIC_PING`/`MAGIC_PONG`/`PING_SIZE`, `is_ping`,
+- FEATURE (user request): the Flask server now ANSWERS `mouse-capture --ping`.
+  `hid/protocol.py` gained `MAGIC_PING`/`MAGIC_PONG`/`PING_SIZE`, `is_ping`,
   `is_pong`, `pong_reply` (echo the 16 bytes, swap the magic);
-  `mouser/udp.py` replies `PONG` to the SENDER before any engine work (so a ping
+  `hid/udp.py` replies `PONG` to the SENDER before any engine work (so a ping
   works with no layout/enabled state) and ignores an incoming PONG so two
   listeners cannot ping-pong; counters `pings`/`pongs_sent` sit next to
-  `bad_packets`. `remoteHID/server/README.md` + `remoteHID/Mouser/README.md`
-  document the ping recipe and the quoting trap. NB `mouser-capture --recv` binds
+  `bad_packets`. `MyHID/server/README.md` + `MyHID/mouse-capture/README.md`
+  document the ping recipe and the quoting trap. NB `mouse-capture --recv` binds
   UDP 7801, so it cannot run alongside the server - ping the running server
   instead.
 - STARTUP now names the exact capture target, because the docs' `192.168.1.50`
   is only an example and this PC is on DHCP (it was `192.168.1.69`):
-  `capture target: --udp <lan-ip>:7801 (check it with: mouser-capture --ping --udp <lan-ip>:7801)`.
+  `capture target: --udp <lan-ip>:7801 (check it with: mouse-capture --ping --udp <lan-ip>:7801)`.
   Also remember UDP is NOT tunnelled (a Cloudflare hostname can never deliver).
 - DIAGNOSIS ORDER for "no keys" (fastest first): (1) capture banner - is `udp`
   set, and does it print `mode=ROT` + `gated > 0` while MB4 is held? (2)
-  `mouser-capture --ping --udp <server-ip>:7801` - RTT vs timeout proves the hop;
-  (3) PhoneButtons -> Manage Layout -> Mouser live readout - it shows
+  `mouse-capture --ping --udp <server-ip>:7801` - RTT vs timeout proves the hop;
+  (3) MyHID -> Manage Layout -> HID live readout - it shows
   `enabled|disabled`, mode, app/layout and presses/s (the engine is DISABLED
-  unless the FOREGROUND app has a layout with `mouser.enabled`; the shipped
+  unless the FOREGROUND app has a layout with `hid.enabled`; the shipped
   config enables only `notepad` (Notepad++) and `blender`); (4) server console
-  `--debug-keys` lines (`Mouser key sent: 'F13' ...`).
-- TESTS: `test_mouser.py` +5 (`TestPingReply`): ping/pong detection, `pong_reply`
+  `--debug-keys` lines (`HID key sent: 'F13' ...`).
+- TESTS: `test_hid.py` +5 (`TestPingReply`): ping/pong detection, `pong_reply`
   echo, the receiver answers a ping with the engine disabled, and a PONG gets no
-  answer. `python -m pytest test_app.py test_mouser.py` -> 159 passed. PONG
+  answer. `python -m pytest test_app.py test_hid.py` -> 159 passed. PONG
   support was TDD (red on the missing imports, green after).
 - No web asset changed, so `BUILD_NUMBER` was NOT bumped; the user restarts
-  `remoteHID\PhoneButtonServer.cmd` to pick up the pong.
+  `MyHID\StartMyHIDServer.cmd` to pick up the pong.
 
 ### 2026-10-26 - Storyboard: Stickers fly-out gains OneDrive Library/Board tabs
 
@@ -8873,7 +8904,7 @@ Everything below is the contract; break it and the app stops talking to the exe.
   disabled ATTRIBUTE (a pre-upgrade `.disabled` property would be shadowed).
 - VERIFIED: storyboard suite + stickers/props/buttons + onedrive + smd-button 116/116;
   settings-alignment, display-settings, storybook, launch, qrlinks, ffox, solar,
-  phonebuttons, cmd, lol, image-edit-preview-size, shared-helpers, native-checkbox,
+  myhid, cmd, lol, image-edit-preview-size, shared-helpers, native-checkbox,
   minio-directory 280/280; pmd-regression 493/493 (the shared component is used by
   every app's settings/pages). Visually checked the rail and both panels: the rail
   is pixel-comparable to before, rows keep their flat icons, `New story` stays
@@ -9147,7 +9178,7 @@ Everything below is the contract; break it and the app stops talking to the exe.
   Answers: camera view uses the SCENE CAMERA, otherwise the 3D VIEWPORT; X = away
   from the camera, Y = 90 degrees, Z = world up; the shared/per-object rule
   follows the Pivot preference; add a headless Blender test + docs.
-- BUILT (`remoteHID/blender/mouser_step_controls.py`, add-on version 1.2.0):
+- BUILT (`MyHID/blender/hid_step_controls.py`, add-on version 1.2.0):
   `space` gained `SMART` ("Smart (Camera + World Z)"). New module helpers:
   `_view_eye` (camera view -> `scene.camera.matrix_world.translation`; otherwise
   `region_3d.view_matrix.inverted().translation`, falling back to
@@ -9169,10 +9200,10 @@ Everything below is the contract; break it and the app stops talking to the exe.
   so "into the screen" and "left/right" stay true however far the view orbited.
   Rotation about X is a roll about the horizontal line of sight, about Y a
   tilt/nod, about Z the old turntable spin. Any direction that feels reversed is
-  a one-key fix in the PhoneButtons Mouser layout.
-- TESTS: NEW `remoteHID/blender/test_step_controls.py` (21 checks, run with
+  a one-key fix in the MyHID HID layout.
+- TESTS: NEW `MyHID/blender/test_step_controls.py` (21 checks, run with
   `"C:\Program Files\Blender Foundation\Blender 4.4\blender.exe" -b --python
-  remoteHID\blender\test_step_controls.py`, exits non-zero on failure). TDD:
+  MyHID\blender\test_step_controls.py`, exits non-zero on failure). TDD:
   written FIRST and red (15/21 failed: no `_smart_basis`, Smart ignored).
   Covers the basis (unit length, perpendicular, `z == 0` on both in-plane axes,
   world-Z vertical, elevation sweep 5..88 and -35 degrees, each object's own ray),
@@ -9204,10 +9235,10 @@ Everything below is the contract; break it and the app stops talking to the exe.
   needs a small stub context (`space_data.region_3d` with
   `view_perspective`/`view_matrix`/`view_rotation`); the camera branch works via
   `scene.camera`.
-  (e) The importlib load writes `remoteHID/blender/__pycache__`; the test sets
+  (e) The importlib load writes `MyHID/blender/__pycache__`; the test sets
   `sys.dont_write_bytecode = True` and `.gitignore` now ignores `__pycache__/` +
   `*.pyc`.
-- DOCS: `remoteHID/blender/README.md` (Axis Space list, a Smart section incl. the
+- DOCS: `MyHID/blender/README.md` (Axis Space list, a Smart section incl. the
   top-down fallback and how to flip a direction, plus a Tests section) and a
   "Blender add-on tests" command in `commands.md`. No web asset changed, so
   `BUILD_NUMBER` was NOT bumped (nothing Blender-related is precached).
@@ -9215,11 +9246,11 @@ Everything below is the contract; break it and the app stops talking to the exe.
   is NOT collected by Playwright (its `testDir` only picks `*.spec.js`/`*.test.ts`,
   and the projects select by `@contrast`/`@cache`/`pmd-touch`), so a manual command
   was the only way to run it. NEW `tests/blender-addon.spec.js` (same pattern as
-  `tests/phonebuttons-server.spec.js`): finds `blender.exe` from `BLENDER_EXE`,
+  `tests/myhid-server.spec.js`): finds `blender.exe` from `BLENDER_EXE`,
   then the newest `%ProgramFiles%\Blender Foundation\Blender <ver>\`, then PATH,
   and SKIPS with a reason when none is found (an explicitly set but missing
   `BLENDER_EXE` FAILS instead); runs
-  `blender -b --factory-startup --python remoteHID/blender/test_step_controls.py`
+  `blender -b --factory-startup --python MyHID/blender/test_step_controls.py`
   with a 180s ceiling (`describe` timeout 240s), fails with the `FAIL`/`FAILED:`
   lines plus the last 6000 chars of output, and asserts the `N checks, N failed`
   summary has 0 failed AND `N >= MIN_CHECKS` (20) so a truncated test file cannot
@@ -9243,19 +9274,19 @@ Everything below is the contract; break it and the app stops talking to the exe.
   `report.json`, shape `{files:[{fileName, tests:[{title, projectName, outcome,
   ok, duration}]}], stats:{...}}`) to inspect it.
 
-### 2026-10-26 (j) - mouser-capture control panel + PhoneButtons "Manage mouser-capture"
+### 2026-10-26 (j) - mouse-capture control panel + MyHID "Manage mouse-capture"
 
 - REQUEST (user): "can I get the mouse-capture.exe to run a UI so that I can
   configure it, e.g. choose the mouse, set up filtering and gating etc." Then:
   "When it starts up it should create a socket for management. It should wrap that
-  socket with cloudflare as the PhoneButtonsServer does. On the PhoneButtons app
-  there should be a menu option Manage mouser-capture which allows the server
+  socket with cloudflare as the MyHIDServer does. On the MyHID app
+  there should be a menu option Manage mouse-capture which allows the server
   config or the scanning of the QR Code then allows for the configuration."
-  Answers to the design questions: PhoneButtons ONLY for the UI; direct tunnel
+  Answers to the design questions: MyHID ONLY for the UI; direct tunnel
   (no Flask proxy); tunnel opt-in on BOTH sides; rescan the QR each start; two
-  launchers; and `--mouser` on the server for the same-box case.
+  launchers; and `--mouse-capture` on the server for the same-box case.
 - BUILT (C#, 7 new files + Program/Capture changes, v0.4.0):
-  `Config.cs` (`mouser-capture.json`, strict validation, token, read-only
+  `Config.cs` (`mouse-capture.json`, strict validation, token, read-only
   fallback), `ControlPanel.cs` (TcpListener HTTP: token, CORS preflight, 403s,
   8 routes), `CaptureApp.cs` (`--ui` supervisor + `/api/state` + the QR page),
   `CaptureSession.cs` (the CLI capture EXTRACTED into start/stop, plus a
@@ -9264,15 +9295,15 @@ Everything below is the contract; break it and the app stops talking to the exe.
   per-device raw motion for identify-by-wiggle + the Ctrl+Alt+Shift+Q panic key),
   `TunnelRunner.cs` (cloudflared child, URL regex, kill on exit), `ui/index.html`
   (QR + live status, embedded with the shared `qrcode.min.js`).
-- BUILT (web): `remoteHID/PhoneButtons/js/mouser-capture.js` (address/QR, device
+- BUILT (web): `MyHID/js/mouse-capture.js` (address/QR, device
   radios, rotate/translate `<smd-select>`, `<smd-checkbox>`es, UDP + Ping,
   Start/Stop, telemetry, same-box auto-adoption), the hamburger item after Manage
   Layout, two `smd-page` hosts, the script tag and the `sw.js` APPS entry.
-- BUILT (server): `--mouser` launches the exe autoconfigured to the local UDP
-  receiver and serves its panel address on `GET /api/mouser-capture`; the child is
+- BUILT (server): `--mouse-capture` launches the exe autoconfigured to the local UDP
+  receiver and serves its panel address on `GET /api/mouse-capture`; the child is
   terminated with the server.
-- LAUNCHERS: `StartRemoteHIDServer.cmd` no longer passes `--tunnel` (opt-in now);
-  new `StartMouserCapture.cmd` (tunnel off, kills a leftover on 7802, build hint).
+- LAUNCHERS: `StartMyHIDServer.cmd` no longer passes `--tunnel` (opt-in now);
+  new `StartMouseCapture.cmd` (tunnel off, kills a leftover on 7802, build hint).
 - TDD: the C# spec was written FIRST and was red on the old binary (10/10 failed:
   `--ui` unknown, `--version` 0.3.1); the Flask tests were added before the launch
   helper worked; the app spec was red on the missing menu item/page.
@@ -9284,8 +9315,8 @@ Everything below is the contract; break it and the app stops talking to the exe.
   the generic 400; the qrcodejs page renders a canvas AND an img, so an exact
   `toHaveCount(1)` was wrong; and a `Popen` capture lambda recorded `list(a)`
   (a list containing the arg list) instead of `list(a[0])`.
-- VERIFIED (targeted, `--retries=0`): mouser-capture-ui 10/10,
-  phonebuttons-mouser 9/9, phonebuttons-regression 18/18, phonebuttons-server
+- VERIFIED (targeted, `--retries=0`): mouse-capture-ui 10/10,
+  myhid-mouse-capture 9/9, myhid-regression 18/18, myhid-server
   (pytest 136 passed, coverage >= 80) 2/2, launch-regression 13/13,
   native-checkbox-guard 1/1, settings-alignment + display-settings 45/45,
   menu-legibility 5/5 (@contrast, all 27 themes x both modes). Release build
@@ -9295,11 +9326,11 @@ Everything below is the contract; break it and the app stops talking to the exe.
   `out/` and the zip. Restart the test servers afterwards (the shell + a new JS
   file are served from the startup snapshot).
 
-### 2026-10-26 (k) - Mouser: identify the mouse by moving it, learn a button by clicking it
+### 2026-10-26 (k) - HID: identify the mouse by moving it, learn a button by clicking it
 
 - REQUEST (user): "I want to be able to select the mouse by moving it. I want to be
   able to select the Rotate and translate buttons by clicking them. Can I do this
-  from the remoteHID/server only?" Answer: NO for both - the server only ever sees
+  from the MyHID/server only?" Answer: NO for both - the server only ever sees
   the 32-byte UDP frame (no device id, no button bits, and zero deltas unless a mode
   is held). Identify needed no capture change at all; Learn needed the pump.
 - BUILT (C#, 0.4.1): `Capture.BeginLearn/EndLearn/TryTakeLearnedButton` (volatile
@@ -9315,21 +9346,21 @@ Everything below is the contract; break it and the app stops talking to the exe.
 - TDD: 4 new C# tests (button, timeout + concurrent 409, stopped 409, cumulative
   motion) were RED first; 4 new app tests (identify selects, learn fills, learn
   refuses 1/2, learn starts the capture first) were RED first.
-- WHAT WENT WRONG: (a) the test server snapshotted `mouser-capture.js` MID-WRITE, so
+- WHAT WENT WRONG: (a) the test server snapshotted `mouse-capture.js` MID-WRITE, so
   it served a truncated file and 13 app tests failed with a broken page - restart the
   server after the LAST edit, and compare the served length to the file (the same
-  gotcha as ever); (b) `mouserSaveConfig` sets its own "Saved." hint, so the
+  gotcha as ever); (b) `mouseCaptureSaveConfig` sets its own "Saved." hint, so the
   Identify confirmation was overwritten - set the message AFTER the save; (c) the
   app stub returned the OLD config on the next poll, which repainted the select back
   to 4 - the stub now persists like the real panel; (d) a `smd-button` label is
   captured once and cannot be changed post-build, so the Identify button signals
   "listening" via its `variant` (colour), not its text.
-- VERIFIED: mouser-capture-ui 14/14, phonebuttons-mouser 14/14,
-  phonebuttons-regression 19/19, `@cache` 11/11, Release build zero warnings.
+- VERIFIED: mouse-capture-ui 14/14, myhid-mouse-capture 14/14,
+  myhid-regression 19/19, `@cache` 11/11, Release build zero warnings.
 - BUILD: exe 0.4.1 + `build.ps1` zip; `npm run bump:build` -> `202610262100`;
   servers restarted after the last JS edit.
 
-### 2026-10-27 - Mouser: stopped-only identify/learn, motion-key fix, UDP default
+### 2026-10-27 - HID: stopped-only identify/learn, motion-key fix, UDP default
 
 - REPORTED (user): "the Server UDP can be defaulted with the Server address from the
   Settings | Server page"; "the mouse identification does not seem to work - No
@@ -9355,18 +9386,18 @@ Everything below is the contract; break it and the app stops talking to the exe.
   - Learn is now STOPPED-ONLY: 409 while running; when stopped the panel arms a
     short-lived session for the learn (still swallowing the click) and releases it.
   - App: Identify/Learn disabled while running (+ title), handlers guard,
-    `mouserSaveConfig` resolves true/false so success is only claimed on true,
-    `Server (UDP)` defaults to `pbServerAddress():7801` and is saved once.
+    `mouseCaptureSaveConfig` resolves true/false so success is only claimed on true,
+    `Server (UDP)` defaults to `myhidServerAddress():7801` and is saved once.
 - TDD: the C# spec was updated first and red (learn-while-stopped was 409, the
   running case was 200, `motionKey`/`panel.motion` missing); the app spec likewise
   (disabled state, masked save error, UDP default).
-- VERIFIED: mouser-capture-ui 14/14, phonebuttons-mouser 16/16,
-  phonebuttons-regression 19/19, `@cache` 11/11; a throwaway probe against the REAL
+- VERIFIED: mouse-capture-ui 14/14, myhid-mouse-capture 16/16,
+  myhid-regression 19/19, `@cache` 11/11; a throwaway probe against the REAL
   panel confirmed learn-while-stopped returns 200 + button 4, the capture stays
   stopped, the dropdown becomes MB4, and starting disables both buttons.
 - BUILD: exe 0.4.2 + zip; `npm run bump:build`; servers restarted after the last edit.
 
-### 2026-10-27 (b) - Mouser: badge on the id line, and why every row showed the id twice
+### 2026-10-27 (b) - HID: badge on the id line, and why every row showed the id twice
 
 - REPORTED (user): "on the mouse options list there is a list of ids as headers,
   underneath is the same list of ids, then the moving badge is on a different line.
@@ -9376,7 +9407,7 @@ Everything below is the contract; break it and the app stops talking to the exe.
   (a) BADGE POSITION: the moving/simulated badges sat after the NAME, so a long name
       or hardware id wrapped them onto a line of their own above the id. They now sit
       at the LEFT of the SECOND line, in front of the hardware id
-      (`mouserRenderDevices`, `smd-badge` + `me-1`). Guarded by
+      (`mouseCaptureRenderDevices`, `smd-badge` + `me-1`). Guarded by
       "the moving badge sits at the left of the hardware-id line", which asserts the
       badge's vertical centre is inside the id line's box and its x is within 4px of
       that line's left edge (geometry, not markup).
@@ -9391,30 +9422,30 @@ Everything below is the contract; break it and the app stops talking to the exe.
       nodes found, and `DeviceDesc` resolved to "HID-Compliant Mouse" /
       "Remote Desktop Mouse Device" (FriendlyName is usually absent on mouse nodes -
       error 13 - so DeviceDesc is the one that matters).
-- VERIFIED: mouser-capture-ui 14/14, phonebuttons-mouser 17/17,
-  phonebuttons-regression 19/19, `@cache` 11/11, Release build zero warnings.
+- VERIFIED: mouse-capture-ui 14/14, myhid-mouse-capture 17/17,
+  myhid-regression 19/19, `@cache` 11/11, Release build zero warnings.
 - BUILD: exe 0.4.3 + zip; `npm run bump:build` -> `202610271000`; servers restarted.
 
-### 2026-10-27 (c) - Mouser: small "moving" badge that never re-flows the row
+### 2026-10-27 (c) - HID: small "moving" badge that never re-flows the row
 
 - REQUEST (user): "Just update the Manage mouse-capture page and change it so the
   moving badge is on the same line as the second row of text. Make it a small badge,
   I dont want the layout moving as I move the mouse." (App-only change; the exe is
   untouched.)
 - BUILT: the "moving" badge is ALWAYS in the DOM on the id line (small: 0.62em via
-  `injectSmdComponentStyle("pb-mouser-devices", …)`) and only its VISIBILITY changes
-  (`pb-mouser-moving-off` -> `visibility: hidden`), so its width is reserved and the
-  hardware id never shifts. The hardware id is wrapped in `.pb-mouser-id` so a test
+  `injectSmdComponentStyle("myhid-devices", …)`) and only its VISIBILITY changes
+  (`myhid-moving-off` -> `visibility: hidden`), so its width is reserved and the
+  hardware id never shifts. The hardware id is wrapped in `.myhid-id` so a test
   can measure the TEXT position, and `moving` was removed from the device-list
-  rebuild signature - the badge is toggled in place by `mouserSyncMovingBadges()`
+  rebuild signature - the badge is toggled in place by `mouseCaptureSyncMovingBadges()`
   instead of re-rendering the list every time motion starts or stops (which also
   stole the radio focus).
 - TDD: "the moving badge does not move the layout when the mouse moves" was RED
-  first (no `.pb-mouser-id`, badge absent while still). It flips `moving` through the
+  first (no `.myhid-id`, badge absent while still). It flips `moving` through the
   stub's `onState`, waits for `visibility: visible`, and asserts the id text's x/y and
   the row height are unchanged (< 1px).
-- VERIFIED: mouser-capture-ui 14/14, phonebuttons-mouser 18/18,
-  phonebuttons-regression 19/19, `@cache` 11/11.
+- VERIFIED: mouse-capture-ui 14/14, myhid-mouse-capture 18/18,
+  myhid-regression 19/19, `@cache` 11/11.
 - NOTE: two tests failed once immediately after the server restart (cold start, ~44 s
   run) and passed on the warm re-run - the usual post-restart slowness, not the code.
 - BUILD: `npm run bump:build` -> `202610271011`; servers restarted after the last edit.
@@ -9556,3 +9587,70 @@ Everything below is the contract; break it and the app stops talking to the exe.
   green now; the rendered guard sweeps the tail right round a SELECTED bubble
   (chrome hidden, white text) and requires no ink inside the box. Storyboard suite
   149/149.
+
+### 2026-10-27 (e) - remoteHID/PhoneButtons -> MyHID: folder, names, prefix, exe
+
+- WHAT (user): rename `remoteHID` -> `MyHID`; move the two `.cmd` launchers to the
+  repo root and rename them (`StartMouserCapture.cmd` -> `StartMouseCapture.cmd`,
+  `StartRemoteHIDServer.cmd` -> `StartMyHIDServer.cmd`); hoist the PhoneButtons app
+  into `MyHID/` like every other app and rename PhoneButtons -> MyHID everywhere
+  (Launch tile, registry, labels); migrate the localStorage keys and show a popup
+  warning (temporary, to be removed next round); rename `Mouser/` -> `mouse-capture/`
+  and the zip -> `mouse-capture.zip`; drop `--hold`; rename all comments/notes in
+  AGENTS.md and the design docs. Answered questions: rename the ENGINE too
+  (`server/mouser/` -> `server/hid/`, `MouserEngine` -> `HidEngine`), app name
+  "My HID" with the `myhid_` prefix, and rename the shared sample image as well.
+- DONE: `git mv` for every file (history preserved) + a one-shot scripted identifier
+  pass (`pb*` -> `myhid*`, `PB_*` -> `MYHID_*`, `pb_` -> `myhid_`, `Mouser*` ->
+  `Hid*`/`mouseCapture*`, paths, `X-Mouser-Token` -> `X-HID-Token`, `mouser_state`
+  -> `hid_state`, the `hid` config block, `/myhid-qr`). New `Mouse.Capture.csproj`
+  (assembly `mouse-capture`, v0.5.0), rebuilt `out/` + `mouse-capture.zip`.
+  `MyHID/index.html` paths lost a level (`../shared/…`), `js/socket.js`'s vendor URL
+  too. Manage Layout tabs renamed General | Buttons | HID (the old "MyHID" tab name
+  collided with the app name in role-name lookups).
+- MIGRATION (temporary): `MyHID/js/app.js` copies `pb_*` -> `myhid_*` at PARSE time
+  (last script in the shell, so every later restore sees the new keys), then deletes
+  the old copies and shows a one-time "Settings moved" modal. `pb_mouserUrl`/
+  `pb_mouserToken` map to `myhid_mouseCaptureUrl`/`myhid_mouseCaptureToken`.
+- TDD: new `myhid-regression` test "Phone Buttons settings migrate to the myhid_
+  prefix and show a one-time notice" (seeds `pb_*`, reloads, asserts every moved
+  value + no `pb_` left + the modal copy + that a reload does not repeat it).
+  MUTATION-CHECKED: stubbing the migration call fails it with 14 received keys.
+- WHAT WENT WRONG (worth remembering):
+  (a) my blanket regexes ran over `shared/sampleImages.json` and CORRUPTED two
+  base64 entries (`pbX` matched inside the base64 payload, +3 chars). Symptom: the
+  sample-images gallery hung on one image that never loaded. FIX: restore the file
+  from HEAD and re-apply ONLY the two intended edits (entry name + the SVG's
+  aria-label). LESSON: never run a word-regex pass over a file that embeds base64
+  or any opaque blob.
+  (b) the scripted rename produced `layout.get("mouseCapture")` and
+  `_mouseCapture_capture_exe`-style identifiers in `app.py` and broke
+  `hid/engine.py` (`bool(hid.get(...))` on an undefined name) - 15 pytest failures.
+  Fixed to `layout.get("hid")`, `_mouse_capture_*`, `api_mouse_capture`,
+  `hid_engine`, `_hid_settings`; 169 pytest pass at 86% coverage.
+  (b2) AND the `__main__` block still read `args.hid` while argparse sets
+  `args.mouse_capture` - the server died on startup (`AttributeError`) even though
+  every pytest test passed, because the tests IMPORT the module and never execute
+  `__main__`. Guard added: `test_app.py::TestCommandLineArguments` extracts the
+  `args.<name>` uses from the `__main__` block and asserts each is a real parser
+  dest (explicit `dest="x"` or an implicit `--flag` -> `flag`). Mutation-checked.
+  LESSON: for a script whose behaviour lives under `if __name__ == "__main__":`,
+  add a static/structural check or a subprocess smoke run - importing it tests
+  nothing about that block.
+  (c) `startMouseCapture.cmd`'s `set "EXE=…"` had been rewritten to `Hid\out\…`;
+  both launchers now use repo-root paths.
+  (d) two stale-server rounds: after the moves the Vite server served pre-move
+  files (a 13-test wall of "waitForFunction timed out"); restart it after the LAST
+  edit.
+- VERIFIED (`EXTERNAL_SERVERS=1`, `--retries=0`): myhid-regression 20/20,
+  myhid-mouse-capture 16/16, mouse-capture-ui 15/15, myhid-server 2/2 (169 pytest,
+  86% app.py), launch-regression 13/13, wco 4/4, settings-alignment 36/36,
+  display-settings 8/8, native-checkbox-guard 1/1, blender-addon 1/1,
+  sample-images 1/1, storybook-regression 7/7, `@cache` 11/11.
+  `node --check` on every `MyHID/**/*.js`; `py_compile` on the server; the exe
+  prints `0.5.0+<sha>` and `--hold` is now "unknown argument".
+- LEFT FOR THE USER: an EMPTY untracked `remoteHID/` remains because a process held
+  a directory handle on the old `remoteHID/Mouser/out` (all files are gone); delete
+  the folder once released. The user's live `MyHID/server/config.json` was rewritten
+  to `hid` blocks (legacy `mouser` blocks are still accepted on read).
+- BUILD: `npm run bump:build` -> `202610271611`.
