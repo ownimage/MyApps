@@ -23,11 +23,11 @@
 #            The scene camera is used in camera view, otherwise the 3D Viewport.
 #
 # The default mapping matches Hid's rx/ry/rz + tx/ty/tz defaults:
-#   F13/F14 = rotate X +/-
-#   F15/F16 = rotate Y +/-
+#   F13/F14 = rotate Y +/-
+#   F15/F16 = rotate X +/-
 #   F17/F18 = rotate Z +/-
-#   F19/F20 = translate X +/-
-#   F21/F22 = translate Y +/-
+#   F19/F20 = translate Y +/-
+#   F21/F22 = translate X +/-
 #   F23/F24 = translate Z +/-
 
 bl_info = {
@@ -69,20 +69,20 @@ _SMART_EPSILON = 1e-4
 
 # (key, axis, direction) for the default My HID F13–F18 rotation layout.
 _ROTATION_BINDINGS = (
-    ("F13", "X", 1),
-    ("F14", "X", -1),
-    ("F15", "Y", 1),
-    ("F16", "Y", -1),
+    ("F13", "Y", 1),
+    ("F14", "Y", -1),
+    ("F15", "X", 1),
+    ("F16", "X", -1),
     ("F17", "Z", 1),
     ("F18", "Z", -1),
 )
 
 # (key, axis, direction) for the default My HID F19–F24 translation layout.
 _TRANSLATION_BINDINGS = (
-    ("F19", "X", 1),
-    ("F20", "X", -1),
-    ("F21", "Y", 1),
-    ("F22", "Y", -1),
+    ("F19", "Y", 1),
+    ("F20", "Y", -1),
+    ("F21", "X", 1),
+    ("F22", "X", -1),
     ("F23", "Z", 1),
     ("F24", "Z", -1),
 )
