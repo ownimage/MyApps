@@ -19,8 +19,9 @@ REM Keys: Q or Ctrl+C quits. Ctrl+Alt+Shift+Q disarms the filter immediately.
 setlocal
 cd /d "%~dp0"
 
-set "EXE=MyHID\mouse-capture\out\mouse-capture.exe"
-if not exist "%EXE%" (
+set "MOUSE_CAPTURE_DIR=MyHID\mouse-capture\out\"
+set "EXE=mouse-capture.exe"
+if not exist "%MOUSE_CAPTURE_DIR%%EXE%" (
   echo mouse-capture.exe is not built yet.
   echo.
   echo   powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0MyHID\mouse-capture\build.ps1"
@@ -35,5 +36,6 @@ echo Stopping any existing mouse-capture panel on port 7802 ...
 powershell -NoProfile -ExecutionPolicy Bypass -Command "$pids = (Get-NetTCPConnection -LocalPort 7802 -State Listen -ErrorAction SilentlyContinue).OwningProcess | Sort-Object -Unique; if ($pids) { foreach ($p in $pids) { Write-Host ('        killing PID ' + $p); Stop-Process -Id $p -Force -ErrorAction SilentlyContinue } } else { Write-Host '        nothing was listening' }"
 ping -n 2 127.0.0.1 >nul
 
-"%EXE%" --ui %*
+cd "%MOUSE_CAPTURE_DIR%"
+"%EXE%" --ui --bind-lan %*
 endlocal
