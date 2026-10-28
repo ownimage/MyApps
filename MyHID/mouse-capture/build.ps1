@@ -3,7 +3,7 @@ param(
     [string] $Configuration = 'Release',
     [string] $Runtime = 'win-x64',
     [string] $Output,
-    [string] $InterceptionDir,
+    [string] $InterceptionDir = ".",
     [switch] $FrameworkDependent,
     [switch] $NoZip
 )
