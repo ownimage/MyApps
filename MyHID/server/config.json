@@ -26,10 +26,10 @@
         }
       ],
       "hid": {
-        "enabled": false,
+        "enabled": true,
         "axes": {
           "rx": {
-            "positive": "F13",
+            "positive": "F13T",
             "negative": "F14",
             "gain": 0.05,
             "step": 1,
@@ -252,7 +252,13 @@
       "rows": 2,
       "cols": 3,
       "buttons": [
-        {},
+        {
+          "name": "",
+          "image1": "",
+          "image2": "",
+          "key": "",
+          "press": "regular"
+        },
         {},
         {},
         {},

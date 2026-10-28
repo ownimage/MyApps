@@ -9859,3 +9859,42 @@ Everything below is the contract; break it and the app stops talking to the exe.
   serves the current file byte-identical and parses clean. ALWAYS restart the test server
   after the LAST edit.
 - BUILD: none (app-only JS change; no exe / `npm run bump:build` needed).
+
+### 2026-10-27 (h) - HID: Learn button before the mode-button dropdown, same line
+
+- REQUEST (user): for the Rotate button row and the Translate button row, put the Learn
+  button on the same line as, and before, the dropdown list of buttons; make sure there is
+  the appropriate gap between them.
+- DONE (app-only change; the exe is untouched): `mouseCaptureConfigHtml`'s `buttonRow(id,
+  learnId)` now emits `<smd-button ...>Learn</smd-button>` BEFORE the `<smd-select>` in the
+  same flex row, and drops `flex-wrap` from that row div so the button (flex 0 0 25%) and the
+  select (flex 1 1 auto, min-width 0) always stay on ONE line; the `gap-2` class keeps the
+  appropriate gap between them.
+- TDD: new `tests/myhid-mouse-capture.spec.js` test "the Learn buttons sit on the same line
+  before their dropdown" written RED first (failed: the Learn button landed on its own line
+  below the dropdown), then GREEN after dropping `flex-wrap`.
+- VERIFIED: `tests/myhid-mouse-capture.spec.js` full file 22/22 green
+  (`--grep "Learn buttons sit on the same line"` subset first, then the whole file,
+  `--retries=0`).
+- BUILD: none (app-only JS change; no exe / `npm run bump:build` needed).
+
+### 2026-10-27 (i) - HID: Learn/Refresh/Identify/Ping buttons made the same size
+
+- REQUEST (user): "Make the Learn, refresh, identify and ping buttons the same size."
+- REALITY CHECK (via debug measurement): the four action buttons all carry
+  `size="small"`, but the rendered heights differed - Learn x2 / Ping ~45.19px vs
+  Refresh / Identify ~41.19px (Start/Stop are normal ~53px). The user first suspected
+  widths, then corrected: the HEIGHTS were the problem, and asked that all of them be
+  the Learn button's height too.
+- DONE (app-only change; the exe is untouched): the `openMouseCapture` injected
+  `myhid-devices` style gained
+  `#mouseCapturePage .smd-page-body .myhid-capture-row smd-button { height: 2.82rem; }`
+  so the Learn / Refresh / Identify / Ping buttons render at ONE shared height (the
+  Learn button's).
+- TDD: new `tests/myhid-mouse-capture.spec.js` test "the Learn, Refresh, Identify and
+  Ping buttons share one size" written RED first (heights differed: 45.19 vs 41.19),
+  then GREEN after the injected-style height.
+- VERIFIED: `tests/myhid-mouse-capture.spec.js` full file 23/23 green
+  (`--grep "the Learn, Refresh, Identify and Ping buttons share one size"` subset first,
+  then the whole file, `--retries=0`).
+- BUILD: none (app-only JS change; no exe / `npm run bump:build` needed).

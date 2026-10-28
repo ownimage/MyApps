@@ -128,10 +128,13 @@ function buildMouseCapturePage(page) {
 
 function mouseCaptureConfigHtml() {
   function buttonRow(id, learnId) {
-    return '<div class="col-8 d-flex gap-2 align-items-stretch flex-wrap myhid-capture-row">' +
-      '<smd-select id="' + id + '"></smd-select>' +
+    // The Learn button leads the row, just BEFORE the dropdown of buttons, on the
+    // same line (the row is a flex container with a gap between them - no wrap, so
+    // the button and the dropdown stay on one line).
+    return '<div class="col-8 d-flex gap-2 align-items-stretch myhid-capture-row">' +
       '<smd-button id="' + learnId + '" variant="primary" size="small" ' +
         'icon="fa-solid fa-crosshairs">Learn</smd-button>' +
+      '<smd-select id="' + id + '"></smd-select>' +
       '</div>';
   }
 
@@ -216,7 +219,21 @@ function openMouseCapture() {
       // Start/Stop: equal halves of the space left after the gaps, inset from both
       // ends (flex:1 1 0 rather than width:50%, which a gap would overflow).
       "#mouseCapturePage .smd-page-body .myhid-capture-actions { gap: 0.5rem; padding-inline: 0.5rem; }",
-      "#mouseCapturePage .smd-page-body .myhid-capture-actions smd-button { flex: 1 1 0; }"
+      "#mouseCapturePage .smd-page-body .myhid-capture-actions smd-button { flex: 1 1 0; }",
+      // The Learn / Refresh / Identify / Ping action buttons share ONE size - the Learn
+      // button's height (2.82rem) - so an explicit height keeps the row-level stretch
+      // from inflating the ones rendered beside a taller control.
+      "#mouseCapturePage .smd-page-body .myhid-capture-row smd-button { height: 2.82rem; }",
+      // ...AND ONE width: the 25% flex share above must hold for the action buttons.
+      // min-width: fit-content lets a longer label stretch its button past that share
+      // (it beat the flex basis on narrow screens - at 498px the Learn/Refresh/Ping rows
+      // came out at 97.8px / 117px / 78px instead of one shared width), so the action
+      // buttons are pinned to their share and the label wraps rather than stretching.
+      "#mouseCapturePage .smd-page-body .myhid-capture-row #btnHidRefresh { min-width: 0; }",
+      "#mouseCapturePage .smd-page-body .myhid-capture-row #btnHidIdentify { min-width: 0; }",
+      "#mouseCapturePage .smd-page-body .myhid-capture-row #btnHidLearnRotate { min-width: 0; }",
+      "#mouseCapturePage .smd-page-body .myhid-capture-row #btnHidLearnTranslate { min-width: 0; }",
+      "#mouseCapturePage .smd-page-body .myhid-capture-row #btnHidPing { min-width: 0; }"
     ].join(""));
   }
 

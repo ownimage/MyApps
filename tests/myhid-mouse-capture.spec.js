@@ -545,6 +545,61 @@ test.describe("MyHID - Manage mouse-capture", () => {
     expect(Math.abs(after.badge.x - before.badge.x)).toBeLessThan(1);
   });
 
+  test("the Learn buttons sit on the same line before their dropdown", async ({ page }) => {
+    await seedAddress(page);
+    await stubCapture(page, captureState());
+    await page.goto("/MyHID/");
+    await page.evaluate(() => openMouseCapture());
+
+    const pairs = [
+      { learn: "#btnHidLearnRotate", select: "#mouseCaptureRotate" },
+      { learn: "#btnHidLearnTranslate", select: "#mouseCaptureTranslate" },
+    ];
+
+    for (const { learn, select } of pairs) {
+      const learnBox = await page.locator(learn).boundingBox();
+      const selectBox = await page.locator(select).boundingBox();
+
+      // The Learn button is on the SAME line as the dropdown, BEFORE it.
+      expect(learnBox.y).toBeLessThan(selectBox.y + selectBox.height);
+      expect(selectBox.y).toBeLessThan(learnBox.y + learnBox.height);
+      expect(learnBox.x + learnBox.width).toBeLessThanOrEqual(selectBox.x + 1);
+    }
+  });
+
+  test("the Learn, Refresh, Identify and Ping buttons share one size", async ({ page }) => {
+    await seedAddress(page);
+    await stubCapture(page, captureState());
+    await page.goto("/MyHID/");
+    await page.evaluate(() => openMouseCapture());
+
+    const boxes = await page.evaluate(() => {
+      const ids = ["btnHidLearnRotate", "btnHidLearnTranslate", "btnHidRefresh", "btnHidIdentify", "btnHidPing"];
+      const out = {};
+      for (const id of ids) {
+        const host = document.getElementById(id);
+        const btn = host ? host.querySelector("button") : null;
+        const hb = host ? host.getBoundingClientRect() : null;
+        const bb = btn ? btn.getBoundingClientRect() : null;
+        out[id] = { w: hb ? hb.width : 0, h: hb ? hb.height : 0, btnH: bb ? bb.height : 0 };
+      }
+      return out;
+    });
+
+    const heights = Object.keys(boxes).map((id) => boxes[id].h);
+    const widths = Object.keys(boxes).map((id) => boxes[id].w);
+    // The four action buttons must render at the SAME size (the Learn button's) -
+    // same height AND same width.
+    const first = heights[0];
+    for (const h of heights) {
+      expect(h).toBeCloseTo(first, 0);
+    }
+    const w = widths[0];
+    for (const width of widths) {
+      expect(width).toBeCloseTo(w, 0);
+    }
+  });
+
   test("a rejected save is reported instead of a false success", async ({ page }) => {
     await seedAddress(page);
     const seen = await stubCapture(page, captureState(), {
