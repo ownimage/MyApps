@@ -486,33 +486,30 @@ test.describe("MyHID - Manage mouse-capture", () => {
     expect(seen.calls.some((call) => call.path === "/api/learn-button")).toBe(false);
   });
 
-  test("the moving badge sits at the left of the hardware-id line", async ({ page }) => {
+  test("the moving badge sits just before the radio button and the id line is gone", async ({ page }) => {
     await seedAddress(page);
     await stubCapture(page, captureState());
     await page.goto("/MyHID/");
     await page.evaluate(() => openMouseCapture());
 
     const row = page.locator("#mouseCaptureDevices label").first();
-    const nameLine = row.locator(".fw-semibold").first();
-    const idLine = row.locator(".text-body-secondary").first();
     const badge = row.locator("smd-badge").first();
+    const radio = row.locator('input[name="myhidCaptureDevice"]').first();
+    const nameLine = row.locator(".fw-semibold").first();
 
-    const nameBox = await nameLine.boundingBox();
-    const idBox = await idLine.boundingBox();
     const badgeBox = await badge.boundingBox();
+    const radioBox = await radio.boundingBox();
+    const nameBox = await nameLine.boundingBox();
 
-    // The id is the SECOND line, under the name.
-    expect(idBox.y).toBeGreaterThan(nameBox.y + nameBox.height - 3);
-
-    // The badge is vertically inside that second line...
+    // The badge leads the row, immediately BEFORE the radio button, on the name line.
     const badgeCentre = badgeBox.y + badgeBox.height / 2;
-    expect(badgeCentre).toBeGreaterThan(idBox.y);
-    expect(badgeCentre).toBeLessThan(idBox.y + idBox.height);
+    expect(badgeCentre).toBeGreaterThanOrEqual(nameBox.y);
+    expect(badgeCentre).toBeLessThanOrEqual(nameBox.y + nameBox.height);
+    expect(badgeBox.x + badgeBox.width).toBeLessThan(radioBox.x);
 
-    // ...and at its LEFT edge, before the id text (it used to sit on the name line
-    // and push itself onto a line of its own).
-    expect(badgeBox.x - idBox.x).toBeLessThan(4);
-    expect(badgeBox.y).toBeGreaterThanOrEqual(idBox.y - 2);
+    // The second line (badge + hardware id) is gone - the id lives in the radio value.
+    await expect(row.locator(".myhid-id")).toHaveCount(0);
+    await expect(page.locator("#mouseCaptureDevices")).not.toContainText("HID\\VID_046D&PID_C52B&MI_01&Col01");
   });
 
   test("the moving badge does not move the layout when the mouse moves", async ({ page }) => {
@@ -527,23 +524,80 @@ test.describe("MyHID - Manage mouse-capture", () => {
     await expect(page.locator('#mouseCaptureDevices input[name="myhidCaptureDevice"]')).toHaveCount(2);
 
     const row = page.locator("#mouseCaptureDevices label").first();
-    const idText = row.locator(".myhid-id");
-    const badge = row.locator(".myhid-moving");
+    const badge = row.locator("smd-badge").first();
+    const radio = row.locator('input[name="myhidCaptureDevice"]').first();
 
     // The badge is always in the DOM (reserving its space) - just invisible.
     await expect(badge).toHaveCount(1);
     await expect(badge).toHaveCSS("visibility", "hidden");
 
-    const before = { id: await idText.boundingBox(), row: await row.boundingBox() };
+    const before = { badge: await badge.boundingBox(), radio: await radio.boundingBox(), row: await row.boundingBox() };
 
     // The mouse starts moving: the badge appears, and NOTHING re-flows.
     flag.moving = true;
     await expect(badge).toHaveCSS("visibility", "visible");
 
-    const after = { id: await idText.boundingBox(), row: await row.boundingBox() };
-    expect(Math.abs(after.id.x - before.id.x)).toBeLessThan(1);
-    expect(Math.abs(after.id.y - before.id.y)).toBeLessThan(1);
+    const after = { badge: await badge.boundingBox(), radio: await radio.boundingBox(), row: await row.boundingBox() };
     expect(Math.abs(after.row.height - before.row.height)).toBeLessThan(1);
+    expect(Math.abs(after.radio.x - before.radio.x)).toBeLessThan(1);
+    expect(Math.abs(after.radio.y - before.radio.y)).toBeLessThan(1);
+    expect(Math.abs(after.badge.y - before.badge.y)).toBeLessThan(1);
+    expect(Math.abs(after.badge.x - before.badge.x)).toBeLessThan(1);
+  });
+
+  test("the Learn buttons sit on the same line before their dropdown", async ({ page }) => {
+    await seedAddress(page);
+    await stubCapture(page, captureState());
+    await page.goto("/MyHID/");
+    await page.evaluate(() => openMouseCapture());
+
+    const pairs = [
+      { learn: "#btnHidLearnRotate", select: "#mouseCaptureRotate" },
+      { learn: "#btnHidLearnTranslate", select: "#mouseCaptureTranslate" },
+    ];
+
+    for (const { learn, select } of pairs) {
+      const learnBox = await page.locator(learn).boundingBox();
+      const selectBox = await page.locator(select).boundingBox();
+
+      // The Learn button is on the SAME line as the dropdown, BEFORE it.
+      expect(learnBox.y).toBeLessThan(selectBox.y + selectBox.height);
+      expect(selectBox.y).toBeLessThan(learnBox.y + learnBox.height);
+      expect(learnBox.x + learnBox.width).toBeLessThanOrEqual(selectBox.x + 1);
+    }
+  });
+
+  test("the Learn, Refresh, Identify and Ping buttons share one size", async ({ page }) => {
+    await seedAddress(page);
+    await stubCapture(page, captureState());
+    await page.goto("/MyHID/");
+    await page.evaluate(() => openMouseCapture());
+
+    const boxes = await page.evaluate(() => {
+      const ids = ["btnHidLearnRotate", "btnHidLearnTranslate", "btnHidRefresh", "btnHidIdentify", "btnHidPing"];
+      const out = {};
+      for (const id of ids) {
+        const host = document.getElementById(id);
+        const btn = host ? host.querySelector("button") : null;
+        const hb = host ? host.getBoundingClientRect() : null;
+        const bb = btn ? btn.getBoundingClientRect() : null;
+        out[id] = { w: hb ? hb.width : 0, h: hb ? hb.height : 0, btnH: bb ? bb.height : 0 };
+      }
+      return out;
+    });
+
+    const heights = Object.keys(boxes).map((id) => boxes[id].h);
+    const widths = Object.keys(boxes).map((id) => boxes[id].w);
+    // The four action buttons must render at the SAME size (the Learn button's) -
+    // same height AND same width.
+    const first = heights[0];
+    for (const h of heights) {
+      expect(h).toBeCloseTo(first, 0);
+    }
+    const w = widths[0];
+    for (const width of widths) {
+      expect(width).toBeCloseTo(w, 0);
+    }
   });
 
   test("a rejected save is reported instead of a false success", async ({ page }) => {

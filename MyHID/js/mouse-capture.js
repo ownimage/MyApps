@@ -128,10 +128,13 @@ function buildMouseCapturePage(page) {
 
 function mouseCaptureConfigHtml() {
   function buttonRow(id, learnId) {
-    return '<div class="col-8 d-flex gap-2 align-items-stretch flex-wrap myhid-capture-row">' +
-      '<smd-select id="' + id + '"></smd-select>' +
+    // The Learn button leads the row, just BEFORE the dropdown of buttons, on the
+    // same line (the row is a flex container with a gap between them - no wrap, so
+    // the button and the dropdown stay on one line).
+    return '<div class="col-8 d-flex gap-2 align-items-stretch myhid-capture-row">' +
       '<smd-button id="' + learnId + '" variant="primary" size="small" ' +
         'icon="fa-solid fa-crosshairs">Learn</smd-button>' +
+      '<smd-select id="' + id + '"></smd-select>' +
       '</div>';
   }
 
@@ -186,12 +189,15 @@ function openMouseCapture() {
   if (!page) return;
 
   // A SMALL badge whose space is RESERVED while the mouse is still: "moving" flips
-  // constantly, and a badge that appears/disappears re-flows the hardware-id line
-  // (and the whole list, if the rows are rebuilt). This is the app's only styling.
+  // constantly, and a badge that appears/disappears re-flows the row (and the whole
+  // list, if the rows are rebuilt). This is the app's only styling. The badge LEADS
+  // the row, just BEFORE the radio button, and is ALWAYS in the DOM - hidden via
+  // .myhid-moving-off while the mouse is still - so its space is reserved either way
+  // and the layout never moves.
   if (typeof injectSmdComponentStyle === "function") {
     injectSmdComponentStyle("myhid-devices", [
       "#mouseCaptureDevices .myhid-badge { font-size: 0.62em; line-height: 1;",
-      "  padding: 0.2em 0.45em; vertical-align: 0.1em; margin-right: 0.4em; }",
+      "  padding: 0.2em 0.45em; vertical-align: 0.1em; margin-right: 0.4em; margin-top: 0.25rem; }",
       "#mouseCaptureDevices .myhid-moving-off { visibility: hidden; }",
       // Every FORM button takes a quarter of its row, so the rows line up whatever
       // the labels say; the input/select beside it takes the rest. The Start/Stop
@@ -213,7 +219,21 @@ function openMouseCapture() {
       // Start/Stop: equal halves of the space left after the gaps, inset from both
       // ends (flex:1 1 0 rather than width:50%, which a gap would overflow).
       "#mouseCapturePage .smd-page-body .myhid-capture-actions { gap: 0.5rem; padding-inline: 0.5rem; }",
-      "#mouseCapturePage .smd-page-body .myhid-capture-actions smd-button { flex: 1 1 0; }"
+      "#mouseCapturePage .smd-page-body .myhid-capture-actions smd-button { flex: 1 1 0; }",
+      // The Learn / Refresh / Identify / Ping action buttons share ONE size - the Learn
+      // button's height (2.82rem) - so an explicit height keeps the row-level stretch
+      // from inflating the ones rendered beside a taller control.
+      "#mouseCapturePage .smd-page-body .myhid-capture-row smd-button { height: 2.82rem; }",
+      // ...AND ONE width: the 25% flex share above must hold for the action buttons.
+      // min-width: fit-content lets a longer label stretch its button past that share
+      // (it beat the flex basis on narrow screens - at 498px the Learn/Refresh/Ping rows
+      // came out at 97.8px / 117px / 78px instead of one shared width), so the action
+      // buttons are pinned to their share and the label wraps rather than stretching.
+      "#mouseCapturePage .smd-page-body .myhid-capture-row #btnHidRefresh { min-width: 0; }",
+      "#mouseCapturePage .smd-page-body .myhid-capture-row #btnHidIdentify { min-width: 0; }",
+      "#mouseCapturePage .smd-page-body .myhid-capture-row #btnHidLearnRotate { min-width: 0; }",
+      "#mouseCapturePage .smd-page-body .myhid-capture-row #btnHidLearnTranslate { min-width: 0; }",
+      "#mouseCapturePage .smd-page-body .myhid-capture-row #btnHidPing { min-width: 0; }"
     ].join(""));
   }
 
@@ -866,9 +886,10 @@ function mouseCaptureRenderDevices(devices) {
   container.innerHTML = devices.map(function (device) {
     var checked = device.hardwareId === selected ? " checked" : "";
 
-    // The badges belong on the SECOND line, at its left edge, in front of the id.
-    // "moving" is ALWAYS rendered (hidden when still) so its space is reserved and
-    // the id never shifts while the mouse moves.
+    // The badges LEAD the row, just BEFORE the radio button. "moving" is ALWAYS
+    // rendered (hidden when still) so its space is reserved and the row never
+    // re-flows while the mouse moves; the hardware id now lives only in the radio's
+    // own value, so the old second text line (badge + id again) is gone.
     var badges = '<smd-badge variant="success" pill class="myhid-badge myhid-moving' +
       (device.moving ? "" : " myhid-moving-off") + '">moving</smd-badge>';
     if (device.simulated) {
@@ -876,12 +897,11 @@ function mouseCaptureRenderDevices(devices) {
     }
 
     return '<label class="d-flex align-items-start gap-2 mb-1">' +
+        badges +
         '<input class="form-check-input mt-1" type="radio" name="myhidCaptureDevice" value="' +
           escAttr(device.hardwareId) + '"' + checked + '>' +
         '<span class="flex-grow-1">' +
           '<span class="fw-semibold d-block">' + escapeHtml(device.name || device.hardwareId) + '</span>' +
-          '<span class="small text-body-secondary d-block text-break">' + badges +
-            '<span class="myhid-id">' + escapeHtml(device.hardwareId) + '</span></span>' +
         '</span>' +
       '</label>';
   }).join("");
