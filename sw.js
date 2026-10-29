@@ -20,7 +20,7 @@
 // comparison. If the two ever DO drift, the page notices at runtime
 // (GET_BUILD) and re-registers, so the drift self-heals instead of pinning
 // users to a build the worker will never replace.
-const BUILD_NUMBER = "202610272048";
+const BUILD_NUMBER = "202610291118";
 
 const CACHE = "myapps-" + BUILD_NUMBER;
 
@@ -241,6 +241,9 @@ const SHARED_ASSETS = [
   "shared/vendor/fontawesome/webfonts/fa-regular-400.woff2",
   "shared/vendor/fontawesome/webfonts/fa-brands-400.woff2",
   "shared/vendor/fontawesome-icons.json",
+  "shared/vendor/openmoji/openmoji.css",
+  "shared/vendor/openmoji/OpenMoji-color-glyf_colr_0.woff2",
+  "shared/vendor/openmoji-icons.json",
   "shared/css/fonts/fonts.css",
   "shared/css/fonts/4iCs6KVjbNBYlgoKcQ72j00.woff2",
   "shared/css/fonts/4iCs6KVjbNBYlgoKcg72j00.woff2",
@@ -399,6 +402,7 @@ const SHARED_ASSETS = [
   "shared/js/components/smd-date-picker.js",
   "shared/js/components/smd-buymeacoffee.js",
   "shared/js/components/smd-fontawesome-credit.js",
+  "shared/js/components/smd-openmoji-credit.js",
   "shared/js/components/smd-page.js",
   "shared/js/components/smd-tabs.js",
   "shared/js/components/smd-qrcode.js",

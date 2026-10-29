@@ -11,6 +11,7 @@
   <link rel="stylesheet" href="../shared/vendor/fontawesome/css/solid.min.css">
   <link rel="stylesheet" href="../shared/vendor/fontawesome/css/regular.min.css">
   <link rel="stylesheet" href="../shared/vendor/fontawesome/css/brands.min.css">
+  <link rel="stylesheet" href="../shared/vendor/openmoji/openmoji.css">
   <link id="bootstrap-theme-css" href="../shared/css/themes/superhero/bootstrap.min.css" rel="stylesheet">
   <link id="smd-shared-css" rel="stylesheet" href="../shared/css/styles.css">
   <link id="theme-override-mode" rel="stylesheet" href="../shared/css/themes/light.css">
@@ -123,6 +124,7 @@
   <script src="../shared/js/components/smd-qr-import.js"></script>
   <script src="../shared/js/components/smd-buymeacoffee.js"></script>
   <script src="../shared/js/components/smd-fontawesome-credit.js"></script>
+  <script src="../shared/js/components/smd-openmoji-credit.js"></script>
   <script src="../shared/js/components/smd-image-card.js"></script>
   <script src="../shared/js/components/smd-image-select.js"></script>
   <script src="../shared/js/components/smd-image-editor.js"></script>
@@ -487,7 +489,7 @@
       id: "smd-image",
       name: "smd-image",
       tag: "<smd-image>",
-      desc: "Displays an image from a localStorage images list. Attribute <code>key-prefix</code> sets the storage key prefix (list key = <code>keyPrefix + \"images\"</code>), <code>image</code> is the image name, <code>theme</code> is <code>auto</code>/<code>light</code>/<code>dark</code> for SVG recolouring, <code>size</code> sets the rendered box in px (the component adopts its own sized stylesheet), and <code>alt</code> is passed to the inner <code>&lt;img&gt;</code>. Missing names hide the image. When <code>data</code> is absent it falls back to <code>data&lt;size&gt;</code> (data64/80/100). An <code>image</code> of <code>bi:&lt;name&gt;</code> (Bootstrap), <code>fa:&lt;name&gt;</code> (Font Awesome) or <code>fab:&lt;name&gt;</code> (FA Brands) renders that set's icon glyph (require the matching vendor css <code>&lt;link&gt;</code>s). Re-renders on attribute change; call <code>refresh()</code> after the store changes.",
+      desc: "Displays an image from a localStorage images list. Attribute <code>key-prefix</code> sets the storage key prefix (list key = <code>keyPrefix + \"images\"</code>), <code>image</code> is the image name, <code>theme</code> is <code>auto</code>/<code>light</code>/<code>dark</code> for SVG recolouring, <code>size</code> sets the rendered box in px (the component adopts its own sized stylesheet), and <code>alt</code> is passed to the inner <code>&lt;img&gt;</code>. Missing names hide the image. When <code>data</code> is absent it falls back to <code>data&lt;size&gt;</code> (data64/80/100). An <code>image</code> of <code>bi:&lt;name&gt;</code> (Bootstrap), <code>fa:&lt;name&gt;</code> (Font Awesome), <code>fab:&lt;name&gt;</code> (FA Brands) or <code>om:&lt;name&gt;</code> (OpenMoji colour emoji) renders that set's icon glyph (require the matching vendor css <code>&lt;link&gt;</code>s). Re-renders on attribute change; call <code>refresh()</code> after the store changes.",
       html: () => `
         <div class="sb-canvas d-flex flex-wrap align-items-start gap-3 p-3 w-100 border rounded bg-body" id="sb-image-canvas" style="min-height:120px">
           <smd-image id="sb-image" key-prefix="sb_" image="Star" size="80"></smd-image>
@@ -648,6 +650,21 @@
           <smd-fontawesome-credit></smd-fontawesome-credit>
         </div>
         <div class="sb-log mt-3 small font-monospace text-success border rounded bg-body px-2 py-1" id="log-smd-fontawesome-credit">events: none</div>
+      `,
+      init: () => {}
+    });
+
+    // ---- smd-openmoji-credit ----
+    sections.push({
+      id: "smd-openmoji-credit",
+      name: "smd-openmoji-credit",
+      tag: "<smd-openmoji-credit>",
+      desc: "The OpenMoji attribution line (the vendored colour emoji font is licensed CC BY-SA 4.0 and requires credit to the OpenMoji project). Shown in the settings footer directly beneath <code>smd-fontawesome-credit</code>. No attributes.",
+      html: () => `
+        <div class="sb-canvas d-flex flex-wrap align-items-start gap-3 p-3 w-100 border rounded bg-body">
+          <smd-openmoji-credit></smd-openmoji-credit>
+        </div>
+        <div class="sb-log mt-3 small font-monospace text-success border rounded bg-body px-2 py-1" id="log-smd-openmoji-credit">events: none</div>
       `,
       init: () => {}
     });
@@ -1133,7 +1150,7 @@
       id: "smd-image-picker",
       name: "smd-image-picker",
       tag: "<smd-image-picker>",
-      desc: "Self-contained image + icon picker. Shows the app's localStorage images (list key = <code>key-prefix + \"images\"</code>) plus Bootstrap / Font Awesome / FA Brands icon tabs. Attributes: <code>key-prefix</code>, <code>searchable</code>. Dispatches <code>smd-image-picker-select</code> ({ name }) and <code>smd-image-picker-close</code>.",
+      desc: "Self-contained image + icon picker. Shows the app's localStorage images (list key = <code>key-prefix + \"images\"</code>) plus Bootstrap / Font Awesome / FA Brands / OpenMoji icon tabs. Attributes: <code>key-prefix</code>, <code>searchable</code>. Dispatches <code>smd-image-picker-select</code> ({ name }) and <code>smd-image-picker-close</code>.",
       html: () => `
         <div class="sb-canvas d-flex flex-column flex-wrap align-items-start gap-3 p-3 w-100 border rounded bg-body">
           <div class="w-100"><smd-image-picker class="d-block w-100" id="sb-picker" key-prefix="sbip_"></smd-image-picker></div>

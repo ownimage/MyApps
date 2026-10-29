@@ -17,7 +17,7 @@ test.describe("Storybook - Regression", () => {
     page.on("requestfailed", (req) => failed.push(req.url()));
 
     await page.goto("/storybook/");
-    await expect(page.locator("nav.sb-nav a")).toHaveCount(32);
+    await expect(page.locator("nav.sb-nav a")).toHaveCount(33);
 
     // Settle window (section init code runs synchronously after renderAll).
     await page.waitForTimeout(1000);
@@ -42,6 +42,11 @@ test.describe("Storybook - Regression", () => {
     // pmd-tasks demo renders one row per seeded task (+ its note row).
     await expect(page.locator("#sb-pmd-tasks .task-row")).toHaveCount(2);
     await expect(page.locator("#sb-pmd-tasks .task-note-row")).toHaveCount(2);
+
+    // The icon-library credits (Font Awesome + OpenMoji) both render, with links.
+    await expect(page.locator("#smd-fontawesome-credit smd-fontawesome-credit a")).toHaveAttribute("href", "https://fontawesome.com");
+    await expect(page.locator("#smd-openmoji-credit smd-openmoji-credit")).toContainText("OpenMoji");
+    await expect(page.locator("#smd-openmoji-credit smd-openmoji-credit a").first()).toHaveAttribute("href", "https://openmoji.org/");
 
     // Theme selector reflects the saved theme and mode.
     await expect(page.locator("#storybookThemeSelector .smd-theme-select .smd-select-item")).toHaveCount(27);

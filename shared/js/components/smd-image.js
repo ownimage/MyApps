@@ -20,8 +20,23 @@
   const ICON_SETS = {
     bi: { css: "vendor/bootstrap-icons.css", family: "bootstrap-icons", mode: "codepoint" },
     fa: { json: "vendor/fontawesome-icons.json", slot: "fa", family: "Font Awesome 6 Free", mode: "codepoint" },
-    fab: { json: "vendor/fontawesome-icons.json", slot: "fab", family: "Font Awesome 6 Brands", mode: "codepoint" }
+    fab: { json: "vendor/fontawesome-icons.json", slot: "fab", family: "Font Awesome 6 Brands", mode: "codepoint" },
+    // OpenMoji 17.0 colour emoji font (CC BY-SA 4.0). `h` is a hexcode that may
+    // be a multi-codepoint sequence ("1F1FA-1F1F8" = a flag); the font's single
+    // `ccmp` ligature lookup joins the parts into ONE glyph.
+    om: { json: "vendor/openmoji-icons.json", slot: "om", family: "OpenMoji", mode: "sequence" }
   };
+
+  // "1F600" -> the emoji character; "1F1FA-1F1F8" -> BOTH code points.
+  function hexChars(hex) {
+    return String(hex)
+      .split("-")
+      .map(function (h) {
+        const code = parseInt(h, 16);
+        return isNaN(code) ? "" : String.fromCodePoint(code);
+      })
+      .join("");
+  }
 
   const iconDataBySet = Object.create(null);
   const iconLoadPromises = Object.create(null);
@@ -318,7 +333,9 @@
       let span = this.querySelector(".smd-bi");
       const cfg = ICON_SETS[set];
       const entry = iconEntry(set, iconName);
-      const glyph = entry && entry.hex ? String.fromCodePoint(parseInt(entry.hex, 16)) : (iconName || "");
+      const glyph = entry && entry.hex
+        ? (cfg.mode === "sequence" ? hexChars(entry.hex) : String.fromCodePoint(parseInt(entry.hex, 16)))
+        : (iconName || "");
       const ready = !!iconDataBySet[set];
       if (!entry || !cfg) {
         if (span) span.hidden = true;

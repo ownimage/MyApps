@@ -2825,21 +2825,28 @@ test.describe("PlanMyDay - Regression", () => {
     });
 
     test("picker has its icon tabs, Local active by default", async ({ page }) => {
-      for (const label of ["Local", "Bootstrap", "FontAwesome", "FABrands"]) {
+      for (const label of ["Local", "Bootstrap", "FontAwesome", "FABrands", "OpenMoji"]) {
         await expect(page.locator("#imagePickerPage smd-image-picker .smd-tab-btn").filter({ hasText: label })).toBeVisible();
       }
       await expect(page.locator("#imagePickerPage smd-image-picker .smd-tab-btn[active]")).toHaveText(/Local/);
       await expect(page.locator("#imagePickerPage smd-image-picker .item").first()).toBeVisible();
     });
 
-    test("picker tabs fit on one line at a small width", async ({ page }) => {
+    test("picker tabs wrap instead of overflowing at a small width", async ({ page }) => {
       await page.setViewportSize({ width: 360, height: 640 });
       await page.waitForTimeout(300);
-      const rows = await page.locator("#imagePickerPage smd-image-picker .smd-tab-btn").evaluateAll((btns) => {
-        const tops = btns.map((b) => Math.round(b.getBoundingClientRect().top));
-        return new Set(tops).size;
+      const box = await page.evaluate(() => {
+        const list = document.querySelector("#imagePickerPage smd-image-picker .smd-tab-list");
+        const btns = Array.from(document.querySelectorAll("#imagePickerPage smd-image-picker .smd-tab-btn"));
+        return {
+          scrollWidth: list.scrollWidth,
+          clientWidth: list.clientWidth,
+          rows: new Set(btns.map((b) => Math.round(b.getBoundingClientRect().top))).size
+        };
       });
-      expect(rows).toBe(1);
+      // Every tab stays reachable: the list wraps rather than clipping the last one.
+      expect(box.scrollWidth).toBeLessThanOrEqual(box.clientWidth + 1);
+      expect(box.rows).toBeGreaterThan(1);
     });
 
     test("bootstrap tab shows all bootstrap icons with the icon font", async ({ page }) => {
@@ -2856,7 +2863,8 @@ test.describe("PlanMyDay - Regression", () => {
       const sets = [
         { label: "Bootstrap", family: "bootstrap-icons" },
         { label: "FontAwesome", family: "Font Awesome 6 Free" },
-        { label: "FABrands", family: "Font Awesome 6 Brands" }
+        { label: "FABrands", family: "Font Awesome 6 Brands" },
+        { label: "OpenMoji", family: "OpenMoji" }
       ];
       for (const set of sets) {
         await page.locator("#imagePickerPage smd-image-picker .smd-tab-btn").filter({ hasText: set.label }).click();
@@ -2887,7 +2895,8 @@ test.describe("PlanMyDay - Regression", () => {
       const sets = [
         { label: "Bootstrap", prefix: "bi" },
         { label: "FontAwesome", prefix: "fa" },
-        { label: "FABrands", prefix: "fab" }
+        { label: "FABrands", prefix: "fab" },
+        { label: "OpenMoji", prefix: "om" }
       ];
       for (const set of sets) {
         await page.locator("#imagePickerPage smd-image-picker .smd-tab-btn").filter({ hasText: set.label }).click();

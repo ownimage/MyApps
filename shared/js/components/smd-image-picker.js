@@ -3,21 +3,23 @@
 // shared/css/styles.css.
 //
 // Displays the app's localStorage images (list key = key-prefix + "images")
-// plus reusable icon sets (Bootstrap, Font Awesome, FA Brands). It owns all of
-// its state, DOM and styles, so it is reusable in its entirety: host it on an
-// <smd-page>, in a modal, or inline, and just listen for the
+// plus reusable icon sets (Bootstrap, Font Awesome, FA Brands, OpenMoji). It owns
+// all of its state, DOM and styles, so it is reusable in its entirety: host it on
+// an <smd-page>, in a modal, or inline, and just listen for the
 // `smd-image-picker-select` event (detail = { name }) / `smd-image-picker-close`.
 //
 // The tabs use the shared <smd-tabs> component (padding="small"); each tab's panel
-// holds its own `.grid` (all in the light DOM).
+// holds its own `.grid` (all in the light DOM). The tab bar WRAPS: five sets no
+// longer fit one row on a phone, and clipping the last tab made it unreachable.
 //
 // It needs the vendored icon-font stylesheets loaded document-wide (the app
 // declares them in its styles config) so glyphs actually render.
 //
 // Icon-set glyph data is fetched and parsed from each set's OWN vendored
-// source (bootstrap-icons.css / fontawesome-icons.json) when its tab is first
-// activated. No pre-generated metadata file is needed; the sets are small and
-// fetch/parse fast enough to do on demand (one per set, cached thereafter).
+// source (bootstrap-icons.css / fontawesome-icons.json / openmoji-icons.json)
+// when its tab is first activated. No pre-generated metadata file is needed;
+// the sets are small and fetch/parse fast enough to do on demand (one per set,
+// cached thereafter).
 //
 // Attributes:
 //   key-prefix  — localStorage prefix for the images list (default "")
@@ -45,8 +47,22 @@
   const ICON_SETS = [
     { key: "bi", title: "Bootstrap", css: "vendor/bootstrap-icons.css", family: "bootstrap-icons" },
     { key: "fa", title: "FontAwesome", json: "vendor/fontawesome-icons.json", slot: "fa", family: "Font Awesome 6 Free" },
-    { key: "fab", title: "FABrands", json: "vendor/fontawesome-icons.json", slot: "fab", family: "Font Awesome 6 Brands" }
+    { key: "fab", title: "FABrands", json: "vendor/fontawesome-icons.json", slot: "fab", family: "Font Awesome 6 Brands" },
+    { key: "om", title: "OpenMoji", json: "vendor/openmoji-icons.json", slot: "om", family: "OpenMoji", mode: "sequence" }
   ];
+
+  // "1F600" -> the emoji character; "1F1FA-1F1F8" -> BOTH code points, which the
+  // OpenMoji font's `ccmp` ligature lookup joins into the single emoji glyph.
+  function hexToChars(hex) {
+    if (!hex) return "";
+    return String(hex)
+      .split("-")
+      .map((h) => {
+        const code = parseInt(h, 16);
+        return isNaN(code) ? "" : String.fromCodePoint(code);
+      })
+      .join("");
+  }
 
   const loadedIcons = Object.create(null);
   const loadingIcons = Object.create(null);
@@ -55,7 +71,8 @@
 
   // Fetch + parse ONE icon set from its own source and cache the result.
   // bi parses bootstrap-icons.css for `.bi-<name>::before{content:"\fXXX"}`;
-  // fa/fab read the { name: {h,w} } maps from fontawesome-icons.json.
+  // fa/fab/om read the { name: {h,w} } maps from their json (om's `h` may be a
+  // multi-codepoint sequence such as "1F1FA-1F1F8").
   function loadIconSet(cfg) {
     if (loadedIcons[cfg.key]) return Promise.resolve(loadedIcons[cfg.key]);
     if (!loadingIcons[cfg.key]) {
@@ -133,7 +150,7 @@
             <div class="search" hidden>
               <smd-search input-id="pickerSearchInput" placeholder="Search images or icons..."></smd-search>
             </div>
-            <smd-tabs padding="small" narrow></smd-tabs>
+            <smd-tabs padding="small" narrow wrap></smd-tabs>
           </div>
         `;
       }
@@ -261,7 +278,9 @@
       }
       filtered.forEach((name) => {
         const entry = data.byName[name] || {};
-        const glyph = entry.hex ? String.fromCodePoint(parseInt(entry.hex, 16)) : "";
+        const glyph = entry.hex
+          ? (cfg.mode === "sequence" ? hexToChars(entry.hex) : String.fromCodePoint(parseInt(entry.hex, 16)))
+          : "";
         const el = document.createElement("div");
         el.className = "item";
         const glyphEl = document.createElement("span");

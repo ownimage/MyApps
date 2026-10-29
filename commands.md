@@ -92,6 +92,17 @@ Extract `sampleImages.json` back into native files in `sampleImages/`:
 node shared/regen_sample_images.js extract
 npm run extract:images
 ```
+
+### Icon libraries
+Font Awesome metadata (names -> codepoints/weights) and the OpenMoji emoji
+metadata (names -> hexcodes, group-ordered) are generated, never hand-edited:
+```bash
+npm run regen:icons      # shared/vendor/fontawesome-icons.json (needs network)
+npm run regen:openmoji   # shared/vendor/openmoji-icons.json (needs network)
+```
+The OpenMoji font binary is vendored as-is: see `shared/vendor/openmoji/README.md`
+for the exact source URL, version, licence and why the entries are ordered by
+OpenMoji group.
 ### Screenshots
 Regenerate every gallery that EXISTS (all seven suites, in alphabetical order - the
 apps without a gallery yet are SolarControlar, MyHID and the storybook).
