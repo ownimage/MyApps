@@ -8,10 +8,26 @@ internal static class MidiMonitor
 {
     /// <summary>
     /// How often to look for the device while capturing. winmm removes an unplugged
-    /// device from its list and gives no close notification through NAudio, so the
-    /// list is the only signal that the handle has died.
+    /// device from its list and gives no close notification through NAudio (its
+    /// callback explicitly ignores MIM_CLOSE), so the list is the only signal that
+    /// the handle has died.
     /// </summary>
     private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(1);
+
+    /// <summary>A single missed poll is not an unplug; require two in a row.</summary>
+    private const int AbsentPollsBeforeLost = 2;
+
+    /// <summary>
+    /// A session that ran this long was healthy, so the next reconnect starts from a
+    /// short wait again instead of the backoff.
+    /// </summary>
+    private static readonly TimeSpan StableSession = TimeSpan.FromSeconds(5);
+
+    /// <summary>
+    /// Reopening a wedged USB MIDI driver in a tight loop can keep it wedged, so the
+    /// wait before each reopen doubles (1, 2, 4, 5, 5 ... s).
+    /// </summary>
+    private static readonly TimeSpan MaxReconnectDelay = TimeSpan.FromSeconds(5);
 
     private enum SessionEnd
     {
@@ -48,14 +64,22 @@ internal static class MidiMonitor
             MidiDevice current = device;
             bool firstAttempt = true;
             bool openFailureReported = false;
+            TimeSpan reconnectDelay = PollInterval;
 
             while (true)
             {
-                SessionEnd end = RunSession(current, stop, clock, showRaw, out bool started);
+                TimeSpan sessionStart = clock.Elapsed;
+                SessionEnd end = RunSession(current, stop, clock, showRaw, out bool started, out MmException? failure);
 
                 if (started && !firstAttempt)
                 {
-                    WriteLine($"  reconnected: [{current.Index}] {current.Name}");
+                    Notice(clock, $"reconnected: [{current.Index}] {current.Name}");
+                }
+
+                // A session that ran for a while was healthy; forget the backoff.
+                if (started && clock.Elapsed - sessionStart >= StableSession)
+                {
+                    reconnectDelay = PollInterval;
                 }
 
                 firstAttempt = false;
@@ -68,25 +92,36 @@ internal static class MidiMonitor
 
                 if (end == SessionEnd.Lost)
                 {
-                    WriteLine($"  device lost: {current.Name} (waiting for it to come back)");
+                    Notice(clock, $"device lost: {current.Name}");
+
+                    // Says whether the device left the list or is still listed under
+                    // another name, which is the difference between "unplugged" and
+                    // "our lookup is wrong".
+                    Notice(clock, $"inputs now: {MidiDevices.Signature()}");
                 }
                 else if (!openFailureReported)
                 {
                     // Once per outage: a device held open by another application must
                     // not fill the log with a line every second.
-                    WriteLine($"  cannot open [{current.Index}] {current.Name} (retrying)");
+                    string reason = failure is null ? string.Empty : $" ({failure.Result})";
+                    string hint = failure?.Result == MmResult.AlreadyAllocated
+                        ? " - the port is still held, close the other MIDI application"
+                        : string.Empty;
+                    Notice(clock, $"cannot open [{current.Index}] {current.Name}{reason}{hint}");
                     openFailureReported = true;
                 }
 
                 // Devices are renumbered when anything is plugged in or out, so the
                 // index from the old session is not reusable; find it by name.
-                MidiDevice? back = WaitForDevice(current.Name, stop);
+                MidiDevice? back = WaitForDevice(current.Name, stop, reconnectDelay);
                 if (back is null)
                 {
                     break;
                 }
 
                 current = back;
+                reconnectDelay = TimeSpan.FromSeconds(
+                    Math.Min(reconnectDelay.TotalSeconds * 2, MaxReconnectDelay.TotalSeconds));
             }
         }
         finally
@@ -108,9 +143,11 @@ internal static class MidiMonitor
         ManualResetEventSlim stop,
         Stopwatch clock,
         bool showRaw,
-        out bool started)
+        out bool started,
+        out MmException? failure)
     {
         started = false;
+        failure = null;
         MidiIn? midiIn = null;
 
         try
@@ -127,9 +164,11 @@ internal static class MidiMonitor
             midiIn.Start();
             started = true;
 
+            int missing = 0;
             while (!stop.Wait(PollInterval))
             {
-                if (!MidiDevices.IsPresent(device.Name))
+                missing = MidiDevices.IsPresent(device.Name) ? 0 : missing + 1;
+                if (missing >= AbsentPollsBeforeLost)
                 {
                     return SessionEnd.Lost;
                 }
@@ -137,37 +176,63 @@ internal static class MidiMonitor
 
             return SessionEnd.Cancelled;
         }
-        catch (MmException)
+        catch (MmException ex)
         {
+            failure = ex;
             return started ? SessionEnd.Lost : SessionEnd.CannotOpen;
         }
         finally
         {
             // A handle that died with the device throws on stop/close; there is
-            // nothing left to clean up in that case.
-            try { midiIn?.Stop(); } catch (MmException) { }
-            try { midiIn?.Dispose(); } catch (MmException) { }
+            // nothing left to clean up in that case. The result is reported rather
+            // than swallowed: AlreadyAllocated here means something else still holds
+            // the port.
+            try
+            {
+                midiIn?.Stop();
+            }
+            catch (MmException ex)
+            {
+                Console.Error.WriteLine($"  ! stop failed: {ex.Result}");
+            }
+
+            try
+            {
+                midiIn?.Dispose();
+            }
+            catch (MmException ex)
+            {
+                Console.Error.WriteLine($"  ! close failed: {ex.Result}");
+            }
         }
     }
 
     /// <summary>
-    /// Waits for an input with this name to be listed again. The wait comes first so a
-    /// device that is present but held by another application is retried once a
-    /// second instead of spinning.
+    /// Waits for an input with this name to be listed again. The first wait uses the
+    /// reconnect delay (so a wedged driver is not hammered) and later polls are one
+    /// second apart.
     /// </summary>
-    private static MidiDevice? WaitForDevice(string name, ManualResetEventSlim stop)
+    private static MidiDevice? WaitForDevice(string name, ManualResetEventSlim stop, TimeSpan firstDelay)
     {
-        while (!stop.Wait(PollInterval))
+        TimeSpan delay = firstDelay;
+
+        while (!stop.Wait(delay))
         {
             MidiDevice? found = MidiDevices.Find(name);
             if (found is not null)
             {
                 return found;
             }
+
+            delay = PollInterval;
         }
 
         return null;
     }
+
+    /// <summary>A lifecycle line, timestamped like the events so a gap is readable.</summary>
+    private static void Notice(Stopwatch clock, string message) =>
+        WriteLine($"{clock.Elapsed.TotalSeconds,8:F3}s  -- {message}");
 
     /// <summary>
     /// Prints a fixed burst covering every message shape, without opening a device.

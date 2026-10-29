@@ -10,11 +10,23 @@ internal static class MidiDevices
 {
     public static IReadOnlyList<MidiDevice> Inputs()
     {
-        var devices = new List<MidiDevice>(MidiIn.NumberOfDevices);
+        int count = MidiIn.NumberOfDevices;
+        var devices = new List<MidiDevice>(count);
 
-        for (int i = 0; i < MidiIn.NumberOfDevices; i++)
+        for (int i = 0; i < count; i++)
         {
-            MidiInCapabilities caps = MidiIn.DeviceInfo(i);
+            MidiInCapabilities caps;
+
+            try
+            {
+                caps = MidiIn.DeviceInfo(i);
+            }
+            catch (MmException)
+            {
+                // The device went away between the count and this query. Skipping it
+                // keeps a hot-plug from throwing out of the presence poll.
+                continue;
+            }
 
             // ProductName is the driver's description; some drivers leave it empty.
             string name = string.IsNullOrWhiteSpace(caps.ProductName)
@@ -31,6 +43,15 @@ internal static class MidiDevices
         }
 
         return devices;
+    }
+
+    /// <summary>The input list as one line, for the diagnostic printed when a device is lost.</summary>
+    public static string Signature()
+    {
+        IReadOnlyList<MidiDevice> inputs = Inputs();
+        return inputs.Count == 0
+            ? "(none)"
+            : string.Join(", ", inputs.Select(device => $"[{device.Index}] {device.Name}"));
     }
 
     public static void PrintAll()

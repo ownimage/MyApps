@@ -71,18 +71,28 @@ and reopens it:
 
 ```text
    1.240s  Control Change   ch 1  CC 1 = 64
-  device lost: USB MIDI Interface (waiting for it to come back)
-  reconnected: [1] USB MIDI Interface
-   9.870s  Note On          ch 1  C4 (60) velocity 100
+   4.708s  -- device lost: USB MIDI Interface
+   4.708s  -- inputs now: (none)
+   9.870s  -- reconnected: [1] USB MIDI Interface
+   9.902s  Note On          ch 1  C4 (60) velocity 100
 ```
 
 - Timestamps keep counting through the outage, so the gap is visible.
 - The device is found again by **name**, not index: winmm renumbers device ids
   whenever anything is plugged in or out, so the old index is not reusable.
-- Presence is polled once a second. winmm has no close notification that NAudio
-  exposes, and an unplugged device leaves the device list, so the list is the
-  signal. A device that is present but held open by another application is
-  reported once and retried every second rather than spamming the log.
+- Presence is polled once a second, and a device must be missing for two polls
+  before it counts as lost (one missed poll is not an unplug). winmm gives no
+  close notification through NAudio - its callback explicitly ignores
+  `MIM_CLOSE` - so the device list is the only signal.
+- On loss, `inputs now:` prints what winmm currently lists, which separates "it
+  is gone" (`(none)`) from "it is listed under a different name".
+- Reopening backs off (1, 2, 4 then 5 s) so a wedged USB driver is not hammered
+  by a reopen loop; the backoff resets after a session that ran for 5 s.
+- If the open fails, the winmm result is shown:
+  `cannot open [0] X (AlreadyAllocated) - the port is still held, close the
+  other MIDI application`. `BadDeviceId` means the device is not there.
+- Stop/close failures are logged as `! stop failed: ...` / `! close failed: ...`
+  instead of being swallowed, so a handle that will not release is visible.
 - Ctrl+C works while waiting for the device to come back.
 - Limitation: if the device is replugged so quickly that it never leaves the
   list, the dead handle cannot be detected through NAudio and capture stays
