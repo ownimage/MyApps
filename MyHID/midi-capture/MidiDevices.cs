@@ -73,6 +73,16 @@ internal static class MidiDevices
     }
 
     /// <summary>
+    /// First input whose product name matches exactly. Used to find the device again
+    /// after a reconnect, when winmm may have given it a different index.
+    /// </summary>
+    public static MidiDevice? Find(string name) =>
+        Inputs().FirstOrDefault(device =>
+            string.Equals(device.Name, name, StringComparison.OrdinalIgnoreCase));
+
+    public static bool IsPresent(string name) => Find(name) is not null;
+
+    /// <summary>
     /// Turns --filter/--index into one input device, or explains why it cannot.
     /// An exact name beats a substring match; anything still ambiguous is refused
     /// rather than guessing which device the user meant.

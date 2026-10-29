@@ -63,6 +63,31 @@ Notes:
 - MIDI does not declare whether a control is a rotary, a slider or a button;
   only the message kind is reliable. A type has to be observed or declared.
 
+## Reconnecting
+
+If the device disappears mid-capture (unplugged, powered off, driver restart),
+the tool reports it, waits for an input with the same name to be listed again,
+and reopens it:
+
+```text
+   1.240s  Control Change   ch 1  CC 1 = 64
+  device lost: USB MIDI Interface (waiting for it to come back)
+  reconnected: [1] USB MIDI Interface
+   9.870s  Note On          ch 1  C4 (60) velocity 100
+```
+
+- Timestamps keep counting through the outage, so the gap is visible.
+- The device is found again by **name**, not index: winmm renumbers device ids
+  whenever anything is plugged in or out, so the old index is not reusable.
+- Presence is polled once a second. winmm has no close notification that NAudio
+  exposes, and an unplugged device leaves the device list, so the list is the
+  signal. A device that is present but held open by another application is
+  reported once and retried every second rather than spamming the log.
+- Ctrl+C works while waiting for the device to come back.
+- Limitation: if the device is replugged so quickly that it never leaves the
+  list, the dead handle cannot be detected through NAudio and capture stays
+  silent. Unplugging a USB device normally takes long enough to be seen.
+
 ## Layout
 
 | File | Purpose |
@@ -72,3 +97,16 @@ Notes:
 | `MidiMonitor.cs` | open the device, print events; `--simulate` burst |
 | `Midi.Capture.csproj` | net8.0-windows, x64, `NAudio.Midi` only |
 | `build.ps1` | publish self-contained + zip |
+
+## Note 
+
+The device can be very sensitive to disconnects when swapping to RDP due to USB power management
+Windows sometimes powers down USB devices when the active session changes.
+For every USB Root Hub:
+
+Device Manager
+  Universal Serial Bus controllers
+    USB Root Hub (and Generic USB Hub)
+      Properties
+        Power Management
+          Untick: Allow the computer to turn off this device to save power

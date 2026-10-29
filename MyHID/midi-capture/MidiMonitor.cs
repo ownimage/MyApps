@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using NAudio;
 using NAudio.Midi;
 
 namespace Midi.Capture;
@@ -6,7 +7,23 @@ namespace Midi.Capture;
 internal static class MidiMonitor
 {
     /// <summary>
-    /// Opens the device and prints every message it sends until Ctrl+C.
+    /// How often to look for the device while capturing. winmm removes an unplugged
+    /// device from its list and gives no close notification through NAudio, so the
+    /// list is the only signal that the handle has died.
+    /// </summary>
+    private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(1);
+
+    private enum SessionEnd
+    {
+        Cancelled,
+        Lost,
+        CannotOpen,
+    }
+
+    /// <summary>
+    /// Opens the device and prints every message it sends until Ctrl+C. If the device
+    /// disappears (unplugged, powered off, driver restart) the session ends, the tool
+    /// waits for an input with the same name to be listed again and reopens it.
     /// Returns 0 on a clean stop.
     /// </summary>
     public static int Run(MidiDevice device, bool showRaw)
@@ -25,19 +42,52 @@ internal static class MidiMonitor
 
         try
         {
-            // The constructor opens the device, so this is where "in use" shows up.
-            using var midiIn = new MidiIn(device.Index);
+            // One clock across every session, so a gap in the timestamps shows the
+            // outage rather than restarting at zero.
             var clock = Stopwatch.StartNew();
+            MidiDevice current = device;
+            bool firstAttempt = true;
+            bool openFailureReported = false;
 
-            midiIn.MessageReceived += (_, e) =>
-                WriteLine(Describe(e.MidiEvent, e.RawMessage, clock.Elapsed, showRaw));
+            while (true)
+            {
+                SessionEnd end = RunSession(current, stop, clock, showRaw, out bool started);
 
-            midiIn.ErrorReceived += (_, e) =>
-                Console.Error.WriteLine($"  ! driver error 0x{e.RawMessage:X8}");
+                if (started && !firstAttempt)
+                {
+                    WriteLine($"  reconnected: [{current.Index}] {current.Name}");
+                }
 
-            midiIn.Start();
-            stop.Wait();
-            midiIn.Stop();
+                firstAttempt = false;
+                openFailureReported = openFailureReported && !started;
+
+                if (end == SessionEnd.Cancelled)
+                {
+                    break;
+                }
+
+                if (end == SessionEnd.Lost)
+                {
+                    WriteLine($"  device lost: {current.Name} (waiting for it to come back)");
+                }
+                else if (!openFailureReported)
+                {
+                    // Once per outage: a device held open by another application must
+                    // not fill the log with a line every second.
+                    WriteLine($"  cannot open [{current.Index}] {current.Name} (retrying)");
+                    openFailureReported = true;
+                }
+
+                // Devices are renumbered when anything is plugged in or out, so the
+                // index from the old session is not reusable; find it by name.
+                MidiDevice? back = WaitForDevice(current.Name, stop);
+                if (back is null)
+                {
+                    break;
+                }
+
+                current = back;
+            }
         }
         finally
         {
@@ -47,6 +97,76 @@ internal static class MidiMonitor
         Console.WriteLine();
         Console.WriteLine("Stopped.");
         return 0;
+    }
+
+    /// <summary>
+    /// One open-device session. Returns when Ctrl+C is pressed, the device leaves the
+    /// device list, or the driver refuses to open it.
+    /// </summary>
+    private static SessionEnd RunSession(
+        MidiDevice device,
+        ManualResetEventSlim stop,
+        Stopwatch clock,
+        bool showRaw,
+        out bool started)
+    {
+        started = false;
+        MidiIn? midiIn = null;
+
+        try
+        {
+            // The constructor opens the device, so this is where "in use" shows up.
+            midiIn = new MidiIn(device.Index);
+
+            midiIn.MessageReceived += (_, e) =>
+                WriteLine(Describe(e.MidiEvent, e.RawMessage, clock.Elapsed, showRaw));
+
+            midiIn.ErrorReceived += (_, e) =>
+                Console.Error.WriteLine($"  ! driver error 0x{e.RawMessage:X8}");
+
+            midiIn.Start();
+            started = true;
+
+            while (!stop.Wait(PollInterval))
+            {
+                if (!MidiDevices.IsPresent(device.Name))
+                {
+                    return SessionEnd.Lost;
+                }
+            }
+
+            return SessionEnd.Cancelled;
+        }
+        catch (MmException)
+        {
+            return started ? SessionEnd.Lost : SessionEnd.CannotOpen;
+        }
+        finally
+        {
+            // A handle that died with the device throws on stop/close; there is
+            // nothing left to clean up in that case.
+            try { midiIn?.Stop(); } catch (MmException) { }
+            try { midiIn?.Dispose(); } catch (MmException) { }
+        }
+    }
+
+    /// <summary>
+    /// Waits for an input with this name to be listed again. The wait comes first so a
+    /// device that is present but held by another application is retried once a
+    /// second instead of spinning.
+    /// </summary>
+    private static MidiDevice? WaitForDevice(string name, ManualResetEventSlim stop)
+    {
+        while (!stop.Wait(PollInterval))
+        {
+            MidiDevice? found = MidiDevices.Find(name);
+            if (found is not null)
+            {
+                return found;
+            }
+        }
+
+        return null;
     }
 
     /// <summary>
