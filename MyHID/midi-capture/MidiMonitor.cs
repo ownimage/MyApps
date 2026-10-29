@@ -125,7 +125,7 @@ internal static class MidiMonitor
             case ControlChangeEvent control:
                 name = "Control Change";
                 channel = control.Channel;
-                detail = $"{MidiNames.Controller((int)control.Controller)} value {control.ControllerValue}";
+                detail = $"CC {(int)control.Controller} = {control.ControllerValue}";
                 break;
 
             case PatchChangeEvent patch:
@@ -251,74 +251,4 @@ internal static class MidiNames
 
         return $"{value} ({(offset > 0 ? "+" : string.Empty)}{offset})";
     }
-
-    /// <summary>
-    /// Names the common controllers; everything else keeps its number so an unusual
-    /// knob still prints something usable.
-    /// </summary>
-    public static string Controller(int controller) => controller switch
-    {
-        0 => "Bank Select (CC0)",
-        1 => "Modulation (CC1)",
-        2 => "Breath (CC2)",
-        4 => "Foot Controller (CC4)",
-        5 => "Portamento Time (CC5)",
-        6 => "Data Entry (CC6)",
-        7 => "Volume (CC7)",
-        8 => "Balance (CC8)",
-        10 => "Pan (CC10)",
-        11 => "Expression (CC11)",
-        12 => "Effect Control 1 (CC12)",
-        13 => "Effect Control 2 (CC13)",
-        16 => "General Purpose 1 (CC16)",
-        17 => "General Purpose 2 (CC17)",
-        18 => "General Purpose 3 (CC18)",
-        19 => "General Purpose 4 (CC19)",
-        32 => "Bank Select LSB (CC32)",
-        33 => "Modulation LSB (CC33)",
-        38 => "Data Entry LSB (CC38)",
-        39 => "Volume LSB (CC39)",
-        42 => "Pan LSB (CC42)",
-        43 => "Expression LSB (CC43)",
-        64 => "Sustain Pedal (CC64)",
-        65 => "Portamento On/Off (CC65)",
-        66 => "Sostenuto (CC66)",
-        67 => "Soft Pedal (CC67)",
-        68 => "Legato Footswitch (CC68)",
-        69 => "Hold 2 (CC69)",
-        70 => "Sound Controller 1 (CC70)",
-        71 => "Sound Controller 2 (CC71)",
-        72 => "Sound Controller 3 (CC72)",
-        73 => "Sound Controller 4 (CC73)",
-        74 => "Sound Controller 5 (CC74)",
-        75 => "Sound Controller 6 (CC75)",
-        76 => "Sound Controller 7 (CC76)",
-        77 => "Sound Controller 8 (CC77)",
-        78 => "Sound Controller 9 (CC78)",
-        79 => "Sound Controller 10 (CC79)",
-        80 => "General Purpose Button 1 (CC80)",
-        81 => "General Purpose Button 2 (CC81)",
-        82 => "General Purpose Button 3 (CC82)",
-        83 => "General Purpose Button 4 (CC83)",
-        91 => "Reverb Send (CC91)",
-        92 => "Tremolo (CC92)",
-        93 => "Chorus Send (CC93)",
-        94 => "Detune (CC94)",
-        95 => "Phaser (CC95)",
-        96 => "Data Increment (CC96)",
-        97 => "Data Decrement (CC97)",
-        98 => "NRPN LSB (CC98)",
-        99 => "NRPN MSB (CC99)",
-        100 => "RPN LSB (CC100)",
-        101 => "RPN MSB (CC101)",
-        120 => "All Sound Off (CC120)",
-        121 => "Reset All Controllers (CC121)",
-        122 => "Local Control (CC122)",
-        123 => "All Notes Off (CC123)",
-        124 => "Omni Off (CC124)",
-        125 => "Omni On (CC125)",
-        126 => "Mono Mode (CC126)",
-        127 => "Poly Mode (CC127)",
-        _ => $"CC {controller}",
-    };
 }

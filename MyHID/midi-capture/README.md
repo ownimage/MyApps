@@ -36,9 +36,9 @@ picks one directly.
 
 ```text
    0.000s  Note On          ch 1  C4 (60) velocity 100
-   0.250s  Control Change   ch 1  Modulation (CC1) value 64
+   0.250s  Control Change   ch 1  CC 1 = 64
    0.500s  Note Off         ch 1  C4 (60) velocity 64
-   0.750s  Control Change   ch 1  Sustain Pedal (CC64) value 127
+   0.750s  Control Change   ch 1  CC 64 = 127
    1.000s  Program Change   ch 1  5 (Electric Piano 2)
    1.250s  Pitch Bend       ch 1  8192 (centre)
    1.500s  After Touch      ch 1  pressure 64
@@ -48,6 +48,11 @@ picks one directly.
 
 Notes:
 
+- The channel comes from the low nibble of the status byte, so it is exact.
+  System messages (clock, start/stop, active sensing, sysex) have no channel.
+- Control Change prints the CC number and its value, `CC <n> = <value>`. No
+  controller *names* are shown on purpose: the GM names (CC 7 = Volume, ...) are
+  a convention a device is free to ignore, so a knob can sit on CC 7.
 - Note numbers use scientific pitch notation, so MIDI 60 is **C4** (NAudio's own
   `NoteName` calls it C5).
 - A note-on with velocity 0 is printed as Note Off, which is what it means.
@@ -55,6 +60,8 @@ Notes:
   print their name and bytes.
 - `--simulate` exists because the dev box has no MIDI input, so the formatting
   can still be checked (and tested) without hardware.
+- MIDI does not declare whether a control is a rotary, a slider or a button;
+  only the message kind is reliable. A type has to be observed or declared.
 
 ## Layout
 
