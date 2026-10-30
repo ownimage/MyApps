@@ -126,6 +126,10 @@ smd-checkbox input[type="checkbox"] {
   --smd-inactive-muted: #adb5bd;
   --smd-inactive-box: #868e96;
   --smd-inactive-caret: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23ced4da' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m2 5 6 6 6-6'/%3e%3c/svg%3e");
+  /* Tick for a disabled CHECKED checkbox. This LIGHT mode uses the dark inactive
+     palette (its page is dark), so it needs the light tick - the shared light
+     default (#495057) is only 1.4:1 on #343a40. Mirrors shared/css/themes/dark.css. */
+  --smd-inactive-tick: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3e%3cpath fill='none' stroke='%23adb5bd' stroke-linecap='round' stroke-linejoin='round' stroke-width='3' d='m6 10 3 3 6-6'/%3e%3c/svg%3e");
 }
 
 /* INACTIVE controls (and the list-item rows): this theme's LIGHT mode still

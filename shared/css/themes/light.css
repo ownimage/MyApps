@@ -39,14 +39,26 @@
      #6c757d), so a themed token is not predictable enough for a "switched off"
      look. These values satisfy all four pairs the contrast test checks: text on
      the surface (4.5:1), border on the page/task-row (3:1), box on the
-     page/row (3:1) and the tick on the box (3:1). */
-  --smd-inactive-surface: #e9ecef;
+     page/row (3:1) and the tick on the box (3:1).
+     2026-10-30 (user: active vs inactive fields barely differ): #e9ecef was only
+     ~33 RGB levels off the white field most Bootswatch light themes paint, so a
+     read-only field still looked editable (litera/light was the reported case).
+     #ced4da is ~75 levels off #fff (and 50+ off the off-white fields of lux,
+     morph and simplex) while keeping #495057 text at 5.45:1, so the pair stays
+     AA. tests/form-field-states.spec.js is the guard for the fill step. */
+  --smd-inactive-surface: #ced4da;
   --smd-inactive-border: #6c757d;
   --smd-inactive-text: #495057;
   --smd-inactive-muted: #6c757d;
   --smd-inactive-box: #6c757d;
   /* Dark chevron, for the light inactive surface. */
   --smd-inactive-caret: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23495057' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m2 5 6 6 6-6'/%3e%3c/svg%3e");
+  /* Tick for a disabled CHECKED checkbox. The box is painted with
+     --smd-inactive-surface (same background as every other inactive control),
+     so the tick is drawn in the inactive TEXT colour - a white tick would be
+     invisible on #ced4da. 5.45:1 on the surface, the same pair contrast.spec.js
+     already asserts for inactive text. */
+  --smd-inactive-tick: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3e%3cpath fill='none' stroke='%23495057' stroke-linecap='round' stroke-linejoin='round' stroke-width='3' d='m6 10 3 3 6-6'/%3e%3c/svg%3e");
 
   /* Palette for <smd-image-dropdown> (the shared image+name selector). The
      surface/LABEL mirror the form-field palette so the picker reads as one of

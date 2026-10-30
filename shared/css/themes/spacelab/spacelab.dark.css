@@ -3,6 +3,15 @@
    here. This sheet is only ever loaded in this mode, so selectors do not need a
    `[data-bs-theme="dark"]` qualifier. */
 
+/* INACTIVE FIELD SURFACE (2026-10-30): spacelab's dark field is #2d2d2d, so the
+   shared dark default #3b4249 is only ~38 RGB levels away - too close to read as
+   "switched off" (tests/form-field-states.spec.js wants 40+). This theme
+   overrides the VALUE only: #101010 is ~50 levels off #2d2d2d and --smd-inactive-
+   text #adb5bd still clears 9:1 on it. */
+:root {
+  --smd-inactive-surface: #101010;
+}
+
 /* smd-contrast:start */
 .btn-secondary, .btn-success {
   --bs-btn-color: #000;

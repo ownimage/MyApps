@@ -3,6 +3,11 @@
 .\CleanTestServerStart.cmd && set "EXTERNAL_SERVERS=1" && set "SCREENSHOT_THEME=superhero" && npm test -- --retries=0 --workers=32 && type MyHID\server\coverage.txt && echo %date% %time%
 ```
 
+### 1a. Run specific regression test
+```bash
+.\CleanTestServerStart.cmd && set "EXTERNAL_SERVERS=1" && set "SCREENSHOT_THEME=" && npx playwright test tests/form-field-states.spec.js --retries=0 --workers=32 && echo %date% %time%
+```
+
 ### 2. Run full regression tests without the contrast suite
 ```bash
 .\CleanTestServerStart.cmd && set "EXTERNAL_SERVERS=1" && set "SCREENSHOT_THEME=superhero" && npm run test:main -- --retries=0 --workers=32 && type MyHID\server\coverage.txt && echo %date% %time%
@@ -98,7 +103,7 @@ apps without a gallery yet are SolarControlar, MyHID and the storybook).
 ALWAYS pass `--workers 16`; add a new `tests/<app>-screenshots.spec.js` here, in
 alphabetical position, when an app gains one:
 ```bash
-set SCREENSHOT_THEME=&& .\node_modules\.bin\playwright.cmd test tests/cmd-screenshots.spec.js tests/ffox-screenshots.spec.js tests/launch-screenshots.spec.js tests/lol-screenshots.spec.js tests/pmd-screenshots.spec.js tests/qrlinks-screenshots.spec.js tests/storyboard-screenshots.spec.js --workers 16
+.\CleanTestServerStart.cmd && set "EXTERNAL_SERVERS=1" && set SCREENSHOT_THEME=&& .\node_modules\.bin\playwright.cmd test tests/cmd-screenshots.spec.js tests/ffox-screenshots.spec.js tests/launch-screenshots.spec.js tests/lol-screenshots.spec.js tests/pmd-screenshots.spec.js tests/qrlinks-screenshots.spec.js tests/storyboard-screenshots.spec.js --workers 16
 ```
 NOTE: do NOT "tidy" the list into a glob (`tests/*-screenshots.spec.js`) - neither
 cmd.exe nor PowerShell expands it and Playwright does not glob CLI paths, so the run
@@ -107,7 +112,7 @@ Screenshots use `screenshots/<app>/<theme>/<light|dark>/<scene>.png`; the viewer
 Run for ONE theme only (defaults to all 27 when the env var is unset; works for every screenshot spec above):
 
 ```bash
-set SCREENSHOT_THEME=superhero&& .\node_modules\.bin\playwright.cmd test tests/cmd-screenshots.spec.js tests/ffox-screenshots.spec.js tests/launch-screenshots.spec.js tests/lol-screenshots.spec.js tests/pmd-screenshots.spec.js tests/qrlinks-screenshots.spec.js tests/storyboard-screenshots.spec.js --workers 16
+.\CleanTestServerStart.cmd && set SCREENSHOT_THEME=superhero&& .\node_modules\.bin\playwright.cmd test tests/cmd-screenshots.spec.js tests/ffox-screenshots.spec.js tests/launch-screenshots.spec.js tests/lol-screenshots.spec.js tests/pmd-screenshots.spec.js tests/qrlinks-screenshots.spec.js tests/storyboard-screenshots.spec.js --workers 16
 ```
 
 ### Screenshot viewer
