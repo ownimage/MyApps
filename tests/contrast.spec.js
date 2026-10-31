@@ -686,13 +686,17 @@ test.describe("Contrast (WCAG AA)", { tag: "@contrast" }, () => {
         style,
         detail: "border " + rgb(bc) + " on " + rgb(bg)
       };
-      // Only a CHECKBOX BOX has a meaningful "fill": for a text field the fill is
-      // its own surface, which is deliberately close to the page.
-      if (el.matches('input[type="checkbox"]')) {
+      // A disabled checkbox paints --smd-inactive-surface, the SAME background as
+      // every other inactive control (user: "they should have the same background
+      // as the other inactive fields"), so its fill sits as close to the page as a
+      // disabled input's does and is deliberately NOT asserted here - the
+      // consistency is guarded by tests/form-field-states.spec.js. What has to
+      // read is the box boundary (asserted above) and, on a ticked box, the TICK
+      // drawn on that fill.
+      if (el.matches('input[type="checkbox"]:checked')) {
         const fillRaw = parse(cs.backgroundColor);
         const fill = fillRaw && fillRaw.a > 0 ? over(fillRaw, bg) : null;
         if (fill) {
-          r.fill = ratio(fill, bg);
           // The tick is an SVG background image; read the colour it was drawn with.
           const img = String(cs.backgroundImage || "");
           const m = img.match(/stroke='%23([0-9a-f]{6})'/i) || img.match(/stroke='#([0-9a-f]{6})'/i);
@@ -756,9 +760,6 @@ test.describe("Contrast (WCAG AA)", { tag: "@contrast" }, () => {
           }
           if (r.got < r.needs) {
             failures.push(`${label}  ${r.label}: ${r.got.toFixed(2)}:1 (needs ${r.needs}) - ${r.detail}`);
-          }
-          if (r.fill !== undefined && r.fill < 3) {
-            failures.push(`${label}  ${r.label}: fill ${r.fill.toFixed(2)}:1 (needs 3) - ${r.detail}`);
           }
           if (r.tick !== undefined && r.tick < 3) {
             failures.push(`${label}  ${r.label}: tick ${r.tick.toFixed(2)}:1 (needs 3) - ${r.tickDetail}`);

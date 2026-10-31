@@ -41,14 +41,22 @@
      Dark-mode ramp: a raised neutral surface with muted text, so a field that
      normally equals the page still reads as "switched off". Same four pairs as
      light.css. A mid grey box keeps the WHITE tick readable (3.46:1), so no
-     per-theme tick override is needed anywhere. */
-  --smd-inactive-surface: #343a40;
+     per-theme tick override is needed anywhere.
+     2026-10-30 (user: active vs inactive fields barely differ): #343a40 was
+     only ~36 RGB levels off the #212529 field most Bootswatch dark themes paint,
+     which reads as the SAME box. #3b4249 is ~50 levels off it and still clears
+     4.9:1 for --smd-inactive-text (#adb5bd), so the text pair stays AA.
+     tests/form-field-states.spec.js is the guard for the fill step. */
+  --smd-inactive-surface: #3b4249;
   --smd-inactive-border: #adb5bd;
   --smd-inactive-text: #adb5bd;
   --smd-inactive-muted: #adb5bd;
   --smd-inactive-box: #868e96;
   /* Light chevron, for the dark inactive surface. */
   --smd-inactive-caret: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23ced4da' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m2 5 6 6 6-6'/%3e%3c/svg%3e");
+  /* Tick for a disabled CHECKED checkbox, drawn in the inactive TEXT colour so
+     it reads on --smd-inactive-surface (4.9:1) - see light.css. */
+  --smd-inactive-tick: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3e%3cpath fill='none' stroke='%23adb5bd' stroke-linecap='round' stroke-linejoin='round' stroke-width='3' d='m6 10 3 3 6-6'/%3e%3c/svg%3e");
 
   /* Palette for <smd-image-dropdown> (the shared image+name selector). The
      surface/LABEL mirror the form-field palette (see light.css) so the picker

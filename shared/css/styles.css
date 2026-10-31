@@ -134,13 +134,28 @@ input {
 
 #smd-app smd-checkbox input[type="checkbox"]:disabled {
   opacity: 1;
-  background-color: transparent;
+  /* 2026-10-31 (user: "the background colour of the checkboxes is not changing
+     colour when inactive"): an ENABLED unchecked box is transparent on purpose -
+     it shows the page/row behind it - so leaving the disabled one transparent
+     too made the two states identical and only the border hinted at it.
+     2026-10-31 (user: "they should have the same background as the other inactive
+     fields"): the box is painted with --smd-inactive-surface, the SAME value the
+     disabled/read-only inputs, selects and buttons use, so an inactive checkbox
+     sits on the inactive-control surface instead of a colour of its own. The
+     CHECKED state is still readable because the tick is recoloured to
+     --smd-inactive-tick (see the rule below). tests/form-field-states.spec.js
+     guards both the step from the LIVE field surface and this exact match. */
+  background-color: var(--smd-inactive-surface);
   border-color: var(--smd-inactive-box);
 }
 
+/* The checked state keeps the shared inactive surface and draws the tick in the
+   inactive TEXT colour: white would vanish on #ced4da, and a darker fill would
+   put the checked box back on a background no other inactive control uses. */
 #smd-app smd-checkbox input[type="checkbox"]:disabled:checked {
-  background-color: var(--smd-inactive-box);
+  background-color: var(--smd-inactive-surface);
   border-color: var(--smd-inactive-box);
+  background-image: var(--smd-inactive-tick);
 }
 
 /* Buttons (<smd-button>, the smd-image-select Edit button and the apps' raw

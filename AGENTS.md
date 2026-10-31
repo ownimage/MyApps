@@ -5181,7 +5181,8 @@ Techniques / gotchas:
 
 - `screenshots/` is OUTPUT ONLY (and ignored by Git). The source of screenshot generation is `tests/<app>-screenshots.spec.js`; do not add generation logic or product UI to the output directory. The viewer and generated PNGs live under `screenshots/`, but scene setup/capture belongs in the tests.
 - All five existing screenshot suites (`pmd`, `cmd`, `qrlinks`, `ffox`, `launch`) now import `tests/screenshot-helpers.js`. The helper reads the live 26-theme `themeConfig`, iterates explicit modes `light` then `dark`, calls `applyTheme(theme, mode)`, emulates the requested media colour scheme, waits for all three stylesheet links, fonts, visible image decode, and two animation frames, and preserves app-specific `afterTheme` refresh callbacks.
-- Chosen output structure: `screenshots/<app>/<theme>/<light|dark>/<scene>.png`. There is no `default` output directory for generated images. Scene filenames remain stable. The full matrix is 26 themes × 2 modes × 56 existing scene names = 2,912 gallery images, plus the separate root `sample-images.png` gallery.
+- SCENE NAMING (2026-10-31; user: "the pngs are named inconsistently ... the pattern should be consistent in all apps"): `<noun>-<verb>-<detail>` - the OBJECT first, then the ACTION, then the qualifier. A verb never leads. Examples: `job-view-general`, `job-edit-tasks`, `stream-add`, `minio-import`, `onedrive-open`, `jobs-search`, `images-edit`. Screens of the same object must pair up, so `job-view-*` sits beside `job-edit-*` (never `view-job-*` or `edit-job`), `list-view` beside `list-edit`, and every editor screen is `<noun>-edit` (`dates-edit`, `categories-edit`, `links-edit`, `images-edit`, `streams-edit`) rather than `<noun>-editor`. Scenes with no action keep `<area>-<detail>` (`settings-danger`, `main-view-large`, `main-menu-dropdown`, `stream-job-list`). Renaming a scene is a test-only change: `screenshots/` is generated output and the test title should use the same noun-first wording.
+- Chosen output structure: `screenshots/<app>/<theme>/<light|dark>/<scene>.png`. There is no `default` output directory for generated images. Scene filenames follow the naming rule above. The full matrix is 27 themes × 2 modes × every scene name = the gallery image set, plus the separate root `sample-images.png` gallery.
 - Screenshot generation ran with `--workers 16`: all 53 screenshot tests passed. Output audit found 2,912 files: pmd 1,872 (936 light + 936 dark), cmd 364, qrlinks 260, ffox 260, launch 156; every app had 26 themes and zero legacy direct PNGs. ALWAYS generate screenshots with `--workers 16`; this is the documented standard for every `tests/*-screenshots.spec.js` command.
 - SCREENSHOT GALLERY COVERAGE (2026-10-25): SEVEN suites exist - `cmd`, `ffox`,
   `launch`, `lol`, `pmd`, `qrlinks`, `storyboard`. **SolarControlar, MyHID
@@ -5199,7 +5200,7 @@ Techniques / gotchas:
   modes into `screenshots/storyboard/` (756 PNGs): board, stories panel,
   background panel, stickers panel, text panel, note panel, speech bubbles,
   undo redo, selection bar, multi-selection align, main menu dropdown, settings,
-  settings-onedrive, open-from-onedrive. It uses a 1280x800 desktop viewport (the
+  settings-onedrive, onedrive-open. It uses a 1280x800 desktop viewport (the
   rail labels hide <=520px and the phone window shrinks the art) and seeds
   `storyboard_stories` from `/` before navigating to `/Storyboard/` (a direct
   reload of the app overwrites the seed via its `pagehide` save). Its
@@ -5212,7 +5213,7 @@ Techniques / gotchas:
   the duplicate/edit/delete actions; `note-panel` captures the Note editor
   (multi-line text + colour picker) and `undo-redo` adds a sticker first so the
   rail pair is drawn enabled/disabled. PMD/CMD/LoL each gained
-  `settings-onedrive.png`, `open-from-onedrive.png` and `main-menu-filesync.png`
+  `settings-onedrive.png`, `onedrive-open.png` and `main-menu-filesync.png`
   (minio + onedrive entries enabled).
   `tests/screenshot-helpers.js` now exports `seedOneDriveSettings(page, {prefix,
   directory, minio})` (localStorage + a stubbed `oneDriveInit`, because opening
@@ -8698,7 +8699,7 @@ Everything below is the contract; break it and the app stops talking to the exe.
   stamp text, directional connector), stories panel, background panel, stickers
   panel, text panel (font/border/colour controls), selection bar, multi-selection
   align (align row expanded), main menu dropdown (MinIO + OneDrive entries),
-  settings, settings-onedrive, open-from-onedrive (split folder rows, one with
+  settings, settings-onedrive, onedrive-open (split folder rows, one with
   "No backups").
 - SHARED HELPERS (`tests/screenshot-helpers.js`): `seedOneDriveSettings()` writes
   the client ID / signed-in account / per-app Enable+Directory AND stubs
@@ -8706,7 +8707,7 @@ Everything below is the contract; break it and the app stops talking to the exe.
   returns no account and the app clears the seeded name, so the settings shot
   would read "Not signed in"); `stubOneDriveBrowser()` stubs the Graph list/latest
   calls (the suites must never reach Microsoft).
-- PMD/CMD/LoL each gained `settings-onedrive.png`, `open-from-onedrive.png` and
+- PMD/CMD/LoL each gained `settings-onedrive.png`, `onedrive-open.png` and
   `main-menu-filesync.png` (both providers enabled so every hamburger entry
   shows).
 - BUG SURFACED BY THE PHONE-WIDTH SHOT: the `:latest` rows put the right-aligned

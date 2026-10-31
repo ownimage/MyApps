@@ -112,13 +112,13 @@ test.describe("ListOfLists - Screenshots", () => {
     await page.locator("#categoryEditorList lol-category-header").first().locator(".category-header-main").click();
     await page.locator("#categoryCollapse_0").waitFor({ state: "visible" });
     await page.waitForTimeout(300);
-    await screenshotAllThemes(page, "categories-editor.png");
+    await screenshotAllThemes(page, "categories-edit.png");
   });
 
-  test("search lists", async ({ page }) => {
+  test("lists search", async ({ page }) => {
     await page.evaluate(() => openSearchLists());
     await page.waitForTimeout(300);
-    await screenshotAllThemes(page, "search-lists.png");
+    await screenshotAllThemes(page, "lists-search.png");
   });
 
   test("settings", async ({ page }) => {
@@ -155,6 +155,6 @@ test.describe("ListOfLists - Screenshots", () => {
     await page.evaluate(() => openOneDrivePage());
     await page.waitForSelector("#oneDriveBody .od-latest-current");
     await page.waitForTimeout(400);
-    await screenshotAllThemes(page, "open-from-onedrive.png");
+    await screenshotAllThemes(page, "onedrive-open.png");
   });
 });
