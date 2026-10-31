@@ -5,7 +5,7 @@ const { startCoverage, stopCoverage } = require("./coverage");
 test.beforeEach(async ({ page }) => { await startCoverage(page); });
 test.afterEach(async ({ page }) => { await stopCoverage(page); });
 
-// The Gantt page (Settings -> Display -> Show Gantt, then the Gantt menu item)
+// The Gantt page (Settings -> General -> Show Gantt, then the Gantt menu item)
 // is a READ-ONLY projection of the stream/job tree, now drawn by the vendored
 // MIT @revolist/gantt plugin on @revolist/revogrid (shared/vendor/revolist).
 // PlanMyDay jobs have no start/end dates — only a recurrence rule, an optional
@@ -71,21 +71,21 @@ const SAMPLE = [
 ];
 
 test.describe("Gantt page", () => {
-  test("Show Gantt is the last setting on the Display tab and defaults to off", async ({ page }) => {
+  test("Show Gantt is the last setting on the General tab and defaults to off", async ({ page }) => {
     await page.goto("/PlanMyDay/");
     await page.locator("#btnMainMenu").click();
     await page.locator("a.dropdown-item").filter({ hasText: "Settings" }).click();
-    await page.locator("#appearance-tab").click();
+    await page.locator("#general-tab").click();
 
     await expect(page.locator("#showGantt")).not.toBeChecked();
-    // It must be the LAST app SETTING in the Display panel. Since 2026-10-18 the
-    // shared settings shape puts the informational "Screen resolution" row last on
-    // every app, so Show Gantt sits directly ABOVE it (it used to be last overall).
+    // Since 2026-10-31 Show Gantt is the LAST app setting on the GENERAL tab
+    // (it moved off Display, after Auto Ad Hoc); it stays the final row.
     const order = await page.evaluate(() => {
-      const panel = document.getElementById("appearance-tab-panel") || document.getElementById("themeSelector").closest(".smd-tab-panel");
+      const panel = document.getElementById("general-tab-panel") || document.getElementById("splitList").closest(".smd-tab-panel");
       return Array.from(panel.querySelectorAll("label")).map((l) => l.textContent.trim()).filter(Boolean);
     });
-    expect(order.slice(-2)).toEqual(["Show Gantt", "Screen resolution"]);
+    expect(order[order.length - 1]).toEqual("Show Gantt");
+    expect(order.slice(-2)).toEqual(["Auto Ad Hoc", "Show Gantt"]);
   });
 
   test("the Gantt menu item is hidden until the setting is on, and persists", async ({ page }) => {

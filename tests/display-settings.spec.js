@@ -80,10 +80,10 @@ const labelFontSize = () => {
   const label = document.querySelector("#settingsTabs > .smd-tab-panel.active .form-label");
   return label ? parseFloat(getComputedStyle(label).fontSize) : null;
 };
-// The Display tab's own switch (the first checkbox in ANOTHER tab would be
-// display:none and measure 0).
-const checkboxWidth = () => {
-  const input = document.querySelector("#autoHideMenu input");
+// A switch must be measured in the ACTIVE panel (a checkbox in another tab is
+// display:none and measures 0), so the caller activates the right tab first.
+const checkboxWidth = (selector) => {
+  const input = document.querySelector(selector + " input");
   return input ? Math.round(input.getBoundingClientRect().width * 100) / 100 : null;
 };
 const slideDuration = () => {
@@ -98,7 +98,8 @@ test.describe("Display settings are wired up in every app", () => {
       await page.goto(spec.path);
       await openDisplayTab(page);
 
-      for (const [name, selector] of UNIVERSAL) {
+      const universal = UNIVERSAL;
+      for (const [name, selector] of universal) {
         await expect(page.locator(selector), `${spec.app}: ${name} control`).toBeVisible();
       }
 
@@ -126,10 +127,10 @@ test.describe("Display settings are wired up in every app", () => {
       // `dragSize` key first), so drive through both values rather than assuming
       // the starting point.
       await pickOption(page, "#touchSizeSelector", "normal");
-      const cbNormal = await page.evaluate(checkboxWidth);
+      const cbNormal = await page.evaluate(checkboxWidth, "#autoHideMenu");
       await pickOption(page, "#touchSizeSelector", "large");
       await expect(page.locator("html")).toHaveAttribute("data-smd-touch-size", "large");
-      const cbLarge = await page.evaluate(checkboxWidth);
+      const cbLarge = await page.evaluate(checkboxWidth, "#autoHideMenu");
       expect(cbLarge, `${spec.app}: the Touch size setting resizes checkboxes`).toBeGreaterThan(cbNormal);
 
       // TILE DENSITY (only where the app has the row) -------------------------
