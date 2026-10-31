@@ -140,7 +140,9 @@ test.describe("Settings theme control alignment", () => {
 //   * the Display tab holds the appearance rows in a fixed order:
 //       Theme, Theme Mode, Font size, Icon size [where the app renders images],
 //       Tile density [where supported], Touch size, Slide speed, Auto-hide menu,
-//     followed by any app-specific extras (Screen resolution, Show Gantt).
+//     followed by any app-specific extras (Screen resolution).
+//   * PlanMyDay's Auto-hide menu was moved to just ABOVE Slide speed on Display
+//     (2026-10-31), and its Show Gantt sits at the end of the General tab.
 // The row labels are read from the DOM so the markup is validated, not a copy of
 // it; a control moved to the wrong tab (or an extra row inserted) fails.
 // ---------------------------------------------------------------------------
@@ -350,8 +352,10 @@ test.describe("Settings page shape is consistent across apps", () => {
     },
     {
       app: "PlanMyDay", path: "/PlanMyDay/", tabs: ["General", "Display", "Schedule", "FileSync", "Danger"],
-      display: ["Theme", "Theme Mode", "Font size", "Icon size", "Touch size", "Tile density", "Slide speed",
-        "Auto-hide menu", "Show Gantt", "Screen resolution"],
+      // Auto-hide menu sits just above Slide speed here; Show Gantt ends General.
+      display: ["Theme", "Theme Mode", "Font size", "Icon size", "Touch size", "Tile density",
+        "Auto-hide menu", "Slide speed", "Screen resolution"],
+      general: ["Split list", "Hide done", "Auto Ad Hoc", "Show Gantt"],
     },
     {
       app: "CountMyDays", path: "/CountMyDays/", tabs: ["General", "Display", "G Cal", "FileSync", "Danger"],
@@ -413,6 +417,20 @@ test.describe("Settings page shape is consistent across apps", () => {
           .filter(Boolean);
       });
       expect(labels).toEqual(spec.display);
+
+      // An app may declare its General rows too (PlanMyDay moved Auto-hide menu
+      // and Show Gantt there, so the exact General order must be pinned).
+      if (spec.general) {
+        await page.locator("#settingsPage .smd-tab-btn").filter({ hasText: "General" }).click();
+        await expect(page.locator("#settingsTabs > .smd-tab-panel.active")).toHaveCount(1);
+        const generalLabels = await page.evaluate(() => {
+          const panel = document.querySelector("#settingsTabs > .smd-tab-panel.active");
+          return Array.from(panel.querySelectorAll("label"))
+            .map((l) => l.textContent.trim())
+            .filter(Boolean);
+        });
+        expect(generalLabels).toEqual(spec.general);
+      }
     });
   }
 });

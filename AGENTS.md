@@ -1287,8 +1287,13 @@ Architecture:
   exact order: `Theme`, `Theme Mode` (both from `<smd-theme>`, one component),
   `Font size`, `Icon size`, `Touch size`, `Tile density`, `Slide speed`,
   `Auto-hide menu`, then any app-specific extras - and **`Screen resolution` is
-  always the LAST row** (PlanMyDay's "Show Gantt" sits before it; ListOfLists has
-  no extras, so there it simply follows Auto-hide).
+  always the LAST row** (ListOfLists has no extras, so there it simply follows
+  Auto-hide).
+  PLANMYDAY EXCEPTION (2026-10-31, user request): PlanMyDay's `Show Gantt`
+  switch sits at the END of its **General** tab (General order: Split list,
+  Hide done, Auto Ad Hoc, Show Gantt), and its `Auto-hide menu` switch sits on
+  the Display tab just ABOVE `Slide speed`. The settings-alignment table carries
+  a `general:` list for PlanMyDay so the General order is pinned too.
   Current shape:
     Launch         Display, Menu, Danger
     PlanMyDay      General, Display, Schedule, Minio, Danger
@@ -9899,3 +9904,51 @@ Everything below is the contract; break it and the app stops talking to the exe.
   (`--grep "the Learn, Refresh, Identify and Ping buttons share one size"` subset first,
   then the whole file, `--retries=0`).
 - BUILD: none (app-only JS change; no exe / `npm run bump:build` needed).
+
+### 2026-10-31 - PlanMyDay: Auto-hide menu + Show Gantt moved to the end of General
+
+- REQUEST (user): on PlanMyDay, move Settings -> Display's "Auto-hide menu" and
+  "Show Gantt" to the END of the General tab. TDD, then run the tests.
+- DONE: `PlanMyDay/index.html` - both `<smd-checkbox>` rows removed from the
+  Display section (`#appearance-tab`) and appended to the General section after
+  "Auto Ad Hoc". General now reads Split list, Hide done, Auto Ad Hoc,
+  Auto-hide menu, Show Gantt; Display ends with Screen resolution. Ids and
+  handlers are unchanged (`#autoHideMenu`/changeAutoHideMenu from
+  `shared/js/smd-settings.js`, `#showGantt`/changeShowGantt in
+  `PlanMyDay/js/gantt.js`), so persistence/restore needed no code change.
+- TESTS UPDATED (they pinned the OLD location):
+  - `tests/settings-alignment.spec.js`: PlanMyDay `display` list loses both rows;
+    the LAYOUT table gained an optional `general:` list, and the shape test now
+    asserts it for apps that declare one.
+  - `tests/pmd-gantt.spec.js`: "Show Gantt is the last setting on the General tab
+    and defaults to off" (was Display; order now ends
+    ["Auto-hide menu", "Show Gantt"]).
+  - `tests/pmd-regression.spec.js`: "shows all main settings controls" asserts both
+    switches on General AND not visible on Display; the three auto-hide tests
+    click `#general-tab` instead of `#appearance-tab`.
+  - `tests/display-settings.spec.js`: `AUTOHIDE_ON_GENERAL` set; PlanMyDay checks
+    the switch on General and measures the General switch for the Touch size
+    assertion (Display has no checkbox left). The other seven apps are untouched.
+- VERIFIED (`EXTERNAL_SERVERS=1`, `--retries=0`): display-settings 8/8,
+  settings-alignment 34/34, pmd-gantt 67/67, pmd-regression 493/493;
+  pmd-screenshots 37/37 with `SCREENSHOT_THEME=superhero` (settings +
+  settings-appearance regenerated). The first display-settings run right after
+  the server restart timed out in `page.goto` for all 8 apps (cold start); the
+  warm re-run was 8/8 - restart the server after the LAST edit, then let it warm.
+- BUILD -> `202610311922`.
+
+### 2026-10-31 (b) - PlanMyDay: Auto-hide menu back to Display above Slide speed
+
+- REQUEST (user): keep Show Gantt at the end of General, but PUT Auto-hide menu
+  back on the Display tab, positioned JUST ABOVE Slide speed.
+- DONE: `PlanMyDay/index.html` - the `#autoHideMenu` row moved out of General into
+  Display between "Tile density" and "Slide speed". General now reads Split list,
+  Hide done, Auto Ad Hoc, Show Gantt; Display reads ... Touch size, Tile density,
+  Auto-hide menu, Slide speed, Screen resolution.
+- TESTS UPDATED (TDD - red first, then green): settings-alignment PlanMyDay
+  display/general lists, pmd-gantt "Show Gantt is the last setting on the General
+  tab" (order now ends `["Auto Ad Hoc", "Show Gantt"]`), pmd-regression "shows all
+  main settings controls" + the three auto-hide tests (now `#appearance-tab`), and
+  display-settings dropped its `AUTOHIDE_ON_GENERAL` special case (Auto-hide is on
+  Display again everywhere).
+- BUILD -> `202610311940` (bump).

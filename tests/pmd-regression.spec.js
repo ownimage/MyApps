@@ -1447,6 +1447,10 @@ test.describe("PlanMyDay - Regression", () => {
       await page.locator("a.dropdown-item").filter({ hasText: "Settings" }).click();
       await expect(page.locator("#splitList")).toBeVisible();
       await expect(page.locator("#hideDone")).toBeVisible();
+      // Show Gantt moved to the END of General (2026-10-31); Auto-hide menu sits
+      // just above Slide speed on Display.
+      await expect(page.locator("#showGantt")).toBeVisible();
+      await expect(page.locator("#autoHideMenu")).not.toBeVisible();
       await page.locator("#appearance-tab").click();
       await expect(page.locator("#themeSelector")).toBeVisible();
       await expect(page.locator("#fontSizeSelector")).toBeVisible();
@@ -1454,6 +1458,7 @@ test.describe("PlanMyDay - Regression", () => {
       await expect(page.locator("#densitySelector")).toBeVisible();
       await expect(page.locator("#touchSizeSelector")).toBeVisible();
       await expect(page.locator("#autoHideMenu")).toBeVisible();
+      await expect(page.locator("#showGantt")).not.toBeVisible();
       await page.locator("#schedule-tab").click();
       await expect(page.locator("#jan1Selector")).toBeVisible();
       await expect(page.locator("#mondaySelector")).toBeVisible();
