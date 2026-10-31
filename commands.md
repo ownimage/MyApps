@@ -109,6 +109,7 @@ NOTE: do NOT "tidy" the list into a glob (`tests/*-screenshots.spec.js`) - neith
 cmd.exe nor PowerShell expands it and Playwright does not glob CLI paths, so the run
 silently collects **0 tests** (verified).
 Screenshots use `screenshots/<app>/<theme>/<light|dark>/<scene>.png`; the viewer also reads legacy `screenshots/<app>/<theme>/<scene>.png` files as `Default` mode.
+Scene filenames follow `<noun>-<verb>-<detail>` (`job-view-general`, `stream-add`, `minio-import`, `onedrive-open`); see AGENTS.md, Screenshots.
 Run for ONE theme only (defaults to all 27 when the env var is unset; works for every screenshot spec above):
 
 ```bash

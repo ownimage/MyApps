@@ -311,6 +311,6 @@ test.describe("Storyboard - Screenshots", () => {
     await page.evaluate(() => openOneDrivePage());
     await page.waitForSelector("#oneDriveBody .od-folder-split");
     await page.waitForTimeout(300);
-    await screenshotAllThemes(page, "open-from-onedrive.png");
+    await screenshotAllThemes(page, "onedrive-open.png");
   });
 });

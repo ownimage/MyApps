@@ -344,13 +344,13 @@ test.describe("PlanMyDay - Screenshots", () => {
     await page.locator("#streamEditorList .accordion-collapse.show").waitFor({ state: "visible", timeout: 5000 });
     await page.waitForSelector("#streamEditorList smd-badge[variant=info]", { state: "attached" });
     await expect(page.locator("#streamEditorList .accordion-collapse.show smd-badge[variant=primary]").filter({ hasText: "Weekdays" })).toHaveCount(1);
-    await screenshotAllThemes(page, "edit-streams.png");
+    await screenshotAllThemes(page, "streams-edit.png");
     await page.evaluate(() => changeTouchSize("large"));
     await page.waitForFunction(() => window.SmdDragHandle && SmdDragHandle.defaultSize === "large");
-    await screenshotAllThemes(page, "edit-streams-large.png");
+    await screenshotAllThemes(page, "streams-edit-large.png");
   });
 
-  test("add stream modal", async ({ page }) => {
+  test("stream add modal", async ({ page }) => {
     await page.evaluate((data) => {
       localStorage.setItem("planmydays_streams", JSON.stringify(data));
     }, TEST_STREAMS);
@@ -361,7 +361,7 @@ test.describe("PlanMyDay - Screenshots", () => {
     await page.getByRole("button", { name: "Add Stream" }).click();
     await page.locator("#streamEditPage").waitFor({ state: "visible" });
     await page.waitForTimeout(400);
-    await screenshotAllThemes(page, "add-stream.png");
+    await screenshotAllThemes(page, "stream-add.png");
   });
 
   test("jobs editor", async ({ page }) => {
@@ -394,7 +394,7 @@ test.describe("PlanMyDay - Screenshots", () => {
     await screenshotAllThemes(page, "stream-add-job.png");
   });
 
-  test("search jobs", async ({ page }) => {
+  test("jobs search", async ({ page }) => {
     const streamsWithSleepWait = JSON.parse(JSON.stringify(TEST_STREAMS));
     streamsWithSleepWait[0].jobs[0].sleepUntil = futureDateStr(30);
     streamsWithSleepWait[0].jobs[0].time = "09:00";
@@ -407,10 +407,10 @@ test.describe("PlanMyDay - Screenshots", () => {
     await page.locator("a.dropdown-item").filter({ hasText: "Search Jobs" }).click();
     await page.waitForSelector("#jobSearchEditor:not(.d-none)");
     await page.waitForSelector("#jobSearchList pmd-job-summary-card");
-    await screenshotAllThemes(page, "search-jobs.png");
+    await screenshotAllThemes(page, "jobs-search.png");
   });
 
-  test("search jobs - filtered", async ({ page }) => {
+  test("jobs search - filtered", async ({ page }) => {
     await page.evaluate((data) => {
       localStorage.setItem("planmydays_streams", JSON.stringify(data));
     }, TEST_STREAMS);
@@ -421,7 +421,7 @@ test.describe("PlanMyDay - Screenshots", () => {
     await page.waitForSelector("#jobSearchList pmd-job-summary-card");
     await page.locator("#jobSearchInput").fill("meet");
     await page.waitForTimeout(200);
-    await screenshotAllThemes(page, "search-jobs-filtered.png");
+    await screenshotAllThemes(page, "jobs-search-filtered.png");
   });
 
   async function openViewJobWithData(page) {
@@ -450,26 +450,26 @@ test.describe("PlanMyDay - Screenshots", () => {
     await page.waitForTimeout(400);
   }
 
-  test("view job modal - general tab", async ({ page }) => {
+  test("job view modal - general tab", async ({ page }) => {
     await openViewJobWithData(page);
-    await screenshotAllThemes(page, "view-job-general.png");
+    await screenshotAllThemes(page, "job-view-general.png");
   });
 
-  test("view job modal - schedule tab", async ({ page }) => {
+  test("job view modal - schedule tab", async ({ page }) => {
     await openViewJobWithData(page);
     await page.locator("#jobSchedule-tab").click();
     await page.waitForTimeout(300);
-    await screenshotAllThemes(page, "view-job-schedule.png");
+    await screenshotAllThemes(page, "job-view-schedule.png");
   });
 
-  test("view job modal - tasks tab", async ({ page }) => {
+  test("job view modal - tasks tab", async ({ page }) => {
     await openViewJobWithData(page);
     await page.locator("#jobTasks-tab").click();
     await page.waitForTimeout(300);
-    await screenshotAllThemes(page, "view-job-tasks.png");
+    await screenshotAllThemes(page, "job-view-tasks.png");
   });
 
-  test("edit job modal", async ({ page }) => {
+  test("job edit modal", async ({ page }) => {
     await page.evaluate((data) => {
       localStorage.setItem("planmydays_streams", JSON.stringify(data));
     }, TEST_STREAMS);
@@ -482,7 +482,7 @@ test.describe("PlanMyDay - Screenshots", () => {
     await page.locator("#streamEditorList .accordion-body .job-drag-card").first().getByRole("button", { name: "Edit" }).click();
     await page.locator("#jobEditPage").waitFor({ state: "visible" });
     await page.waitForTimeout(400);
-    await screenshotAllThemes(page, "edit-job.png");
+    await screenshotAllThemes(page, "job-edit.png");
   });
 
   async function openScheduleModalFromJobEdit(page) {
@@ -557,7 +557,7 @@ test.describe("PlanMyDay - Screenshots", () => {
     await page.locator("a.dropdown-item").filter({ hasText: "Images" }).click();
     await page.locator("#imagesList").waitFor({ state: "visible", timeout: 10000 });
     await page.waitForTimeout(400);
-    await screenshotAllThemes(page, "edit-images.png");
+    await screenshotAllThemes(page, "images-edit.png");
   });
 
   test("sample images upload confirmation", async ({ page }) => {
@@ -570,7 +570,7 @@ test.describe("PlanMyDay - Screenshots", () => {
     await page.locator("#btnUploadImages").click();
     await page.locator("#smdConfirmModal").waitFor({ state: "visible", timeout: 15000 });
     await page.waitForTimeout(400);
-    await screenshotAllThemes(page, "upload-images-confirm.png");
+    await screenshotAllThemes(page, "images-upload-confirm.png");
   });
 
   async function openJobEditWithTasks(page) {
@@ -637,7 +637,7 @@ test.describe("PlanMyDay - Screenshots", () => {
     await screenshotAllThemes(page, "settings-minio.png");
   });
 
-  test("import from minio", async ({ page }) => {
+  test("minio import", async ({ page }) => {
     await page.route(function(url) { return url.hostname === "minio.local" && url.port === "9000"; }, async function(route) {
       var body = ['<?xml version="1.0" encoding="UTF-8"?>',
         '<ListBucketResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/">',
@@ -660,7 +660,7 @@ test.describe("PlanMyDay - Screenshots", () => {
     await page.waitForSelector("#minioImportPage");
     await page.waitForSelector("#minioImportBody .list-group-item");
     await page.waitForTimeout(400);
-    await screenshotAllThemes(page, "import-minio.png");
+    await screenshotAllThemes(page, "minio-import.png");
   });
 
   test("settings - onedrive", async ({ page }) => {
@@ -691,6 +691,6 @@ test.describe("PlanMyDay - Screenshots", () => {
     await page.evaluate(() => openOneDrivePage());
     await page.waitForSelector("#oneDriveBody .od-latest-current");
     await page.waitForTimeout(400);
-    await screenshotAllThemes(page, "open-from-onedrive.png");
+    await screenshotAllThemes(page, "onedrive-open.png");
   });
 });

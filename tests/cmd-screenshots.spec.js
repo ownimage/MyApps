@@ -55,7 +55,7 @@ test.describe("CountMyDays - Screenshots", () => {
   test("dates editor", async ({ page }) => {
     await page.evaluate(() => openDatesEditor());
     await page.waitForTimeout(300);
-    await screenshotAllThemes(page, "dates-editor.png");
+    await screenshotAllThemes(page, "dates-edit.png");
   });
 
   test("settings", async ({ page }) => {
@@ -118,6 +118,6 @@ test.describe("CountMyDays - Screenshots", () => {
     await page.evaluate(() => openOneDrivePage());
     await page.waitForSelector("#oneDriveBody .od-latest-current");
     await page.waitForTimeout(400);
-    await screenshotAllThemes(page, "open-from-onedrive.png");
+    await screenshotAllThemes(page, "onedrive-open.png");
   });
 });

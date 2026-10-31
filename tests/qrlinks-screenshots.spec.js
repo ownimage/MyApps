@@ -51,7 +51,7 @@ test.describe("QRLinks - Screenshots", () => {
   test("links editor", async ({ page }) => {
     await page.evaluate(() => openLinksEditor());
     await page.waitForTimeout(400);
-    await screenshotAllThemes(page, "links-editor.png");
+    await screenshotAllThemes(page, "links-edit.png");
   });
 
   test("settings", async ({ page }) => {
