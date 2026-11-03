@@ -60,6 +60,28 @@ test.describe("Clock - Regression", () => {
     await expect(page.locator("body")).not.toHaveCSS("background-color", "rgb(0, 0, 0)");
   });
 
+  test("flip centre band matches the body background including pure black", async ({ page }, testInfo) => {
+    for (const [theme, mode] of [["flatly", "light"], ["darkly", "dark"]]) {
+      await page.evaluate(({theme, mode}) => {
+        localStorage.setItem("clock_themeMode", mode);
+        applyTheme(theme);
+        changeClockGlow(0);
+      }, {theme, mode});
+      for (const black of [false, true]) {
+        await page.evaluate(black => changeClockPureBlack(black), black);
+        for (const boxes of [true, false]) {
+          await page.evaluate(boxes => changeClockShowBoxes(boxes), boxes);
+          await expect.poll(() => page.evaluate(() => {
+            const background = getComputedStyle(document.body).backgroundColor;
+            return Array.from(document.querySelectorAll(".split-flap-seam, .split-flap-surface"))
+              .every(el => getComputedStyle(el).backgroundColor === background);
+          })).toBe(true);
+        }
+      }
+    }
+    await page.screenshot({path: testInfo.outputPath("flip-band-pure-black.png")});
+  });
+
   test("renders a flip-style clock with six digit cards", async ({ page }) => {
     await expect(page.locator("#clockDisplay")).toBeVisible();
     await expect(page.locator("#clockDisplay .flip-digit")).toHaveCount(6);
@@ -150,6 +172,59 @@ test.describe("Clock - Regression", () => {
         }
       }
     }
+  });
+
+  test("alarm, time and date scale together to fill the available width or height", async ({ page }, testInfo) => {
+    for (const font of ["flip", "seven", "arial", "courier", "mondaine"]) {
+      let ratio;
+      for (const viewport of [{width:1280,height:720},{width:844,height:390},{width:390,height:844}]) {
+        await page.setViewportSize(viewport);
+        await page.evaluate(async font => {
+          changeClockFont(font); changeClockAlarmEnabled(true);
+          await document.fonts.ready; renderClock();
+        }, font);
+        const metrics = await page.evaluate(() => {
+          const box = id => { const r=document.getElementById(id).getBoundingClientRect(); return {left:r.left,right:r.right,top:r.top,bottom:r.bottom,width:r.width,height:r.height}; };
+          const main=document.querySelector("main"), style=getComputedStyle(main), r=main.getBoundingClientRect();
+          const alarm=box("clockAlarmIndicator"), time=box("clockDisplay"), date=box("clockDate");
+          return {alarm,time,date, ratio:alarm.height/time.height,
+            width:main.clientWidth-parseFloat(style.paddingLeft)-parseFloat(style.paddingRight),
+            height:innerHeight-r.top-parseFloat(style.paddingTop)-parseFloat(style.paddingBottom)};
+        });
+        expect(metrics.alarm.top, font).toBeGreaterThanOrEqual(0);
+        expect(metrics.date.bottom, font).toBeLessThanOrEqual(viewport.height+1);
+        expect(metrics.time.left, font).toBeGreaterThanOrEqual(0);
+        expect(metrics.time.right, font).toBeLessThanOrEqual(viewport.width+1);
+        expect(metrics.alarm.bottom, font).toBeLessThanOrEqual(metrics.time.top+1);
+        expect(metrics.time.bottom, font).toBeLessThanOrEqual(metrics.date.top+1);
+        expect(Math.abs(metrics.date.left-metrics.time.left), font).toBeLessThan(2);
+        expect(Math.abs(metrics.date.right-metrics.time.right), font).toBeLessThan(2);
+        expect(Math.min(Math.abs(metrics.time.width-metrics.width), Math.abs(metrics.date.bottom-metrics.alarm.top-metrics.height)), font).toBeLessThan(2);
+        if (ratio !== undefined) expect(Math.abs(metrics.ratio-ratio), font).toBeLessThan(.005);
+        ratio=metrics.ratio;
+        await page.screenshot({path:testInfo.outputPath(`fit-${font}-${viewport.width}.png`)});
+      }
+    }
+  });
+
+  test("layout refits when the menu, alarm, date and seconds are hidden", async ({ page }) => {
+    await page.setViewportSize({width:844,height:390});
+    const errors=[]; page.on("pageerror", error => errors.push(error.message));
+    await page.evaluate(() => { changeClockAlarmEnabled(true); changeAutoHideMenu(true); document.getElementById("mainNav").classList.add("nav-hidden"); });
+    for (const showDate of [true, false]) {
+      for (const enabled of [true, false]) {
+        await page.evaluate(({showDate, enabled}) => { changeClockShowDate(showDate); changeClockAlarmEnabled(enabled); changeClockShowSeconds(false); }, {showDate, enabled});
+        await expect.poll(() => page.evaluate(() => {
+          fitClockLayout();
+          const surface=document.getElementById("clockMain").getBoundingClientRect();
+          const main=document.querySelector("main"), style=getComputedStyle(main), bounds=main.getBoundingClientRect();
+          const width=main.clientWidth-parseFloat(style.paddingLeft)-parseFloat(style.paddingRight);
+          const height=main.clientHeight-parseFloat(style.paddingTop)-parseFloat(style.paddingBottom);
+          return surface.top >= bounds.top && surface.bottom <= innerHeight+1 && Math.min(Math.abs(width-surface.width), Math.abs(height-surface.height)) < 2;
+        })).toBe(true);
+      }
+    }
+    expect(errors).toEqual([]);
   });
 
   test("date uses uniform responsive scaling", async ({ page }) => {

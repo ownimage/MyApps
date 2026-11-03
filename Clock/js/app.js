@@ -16,47 +16,40 @@ function clockSetting(name, fallback) {
   return localStorage.getItem(smdKey(name)) || fallback;
 }
 
-function fitClockDate() {
-  var date = document.getElementById("clockDate");
-  var display = document.getElementById("clockDisplay");
-  if (!date || !display) return;
-  if (date.classList.contains("d-none")) {
-    date.style.setProperty("--clock-date-scale", "1");
-    return;
-  }
-  date.style.setProperty("--clock-date-scale", "1");
-  var naturalWidth = date.getBoundingClientRect().width;
-  var availableWidth = display.getBoundingClientRect().width;
-  if (!naturalWidth || !availableWidth) return;
-  var scale = availableWidth / naturalWidth;
-  date.style.setProperty("--clock-date-scale", String(scale));
-  date.style.marginBottom = clockSetting("font", "flip") === "mondaine" ? Math.max(0, date.offsetHeight * (scale - 1)) + "px" : "";
-}
-
-function fitClockDisplay() {
+// Measure one natural layout, then apply a single scale to the whole clock.
+function fitClockLayout() {
   var display = document.getElementById("clockDisplay");
   var surface = document.getElementById("clockMain");
-  if (!display || !surface) return;
-  if (clockSetting("font", "flip") === "mondaine") {
-    var date = document.getElementById("clockDate");
-    var label = document.getElementById("clockAlarmIndicator");
-    var showDate = clockSetting("showDate", "true") !== "false";
-    var dateRatio = showDate && date.offsetWidth ? date.offsetHeight / date.offsetWidth : 0;
-    var labelHeight = clockAlarmEnabled() ? (parseFloat(getComputedStyle(label).fontSize) * 1.3 + 8) : 0;
-    var dateGap = showDate ? parseFloat(getComputedStyle(date).marginTop) : 0;
-    var availableHeight = window.innerHeight - surface.getBoundingClientRect().top - 16 - labelHeight - dateGap - 16;
-    var size = Math.max(60, Math.min(surface.clientWidth, availableHeight / (1 + dateRatio)));
-    display.style.setProperty("--clock-scale", "1");
-    surface.style.setProperty("--mondaine-size", size + "px");
-    return;
+  var group = document.getElementById("clockFaceGroup");
+  var date = document.getElementById("clockDate");
+  var main = surface && surface.parentElement;
+  if (!display || !surface || !group || !date || !main) return;
+  group.style.setProperty("--clock-group-scale", "1");
+  var width = display.getBoundingClientRect().width;
+  if (!width) return;
+  group.style.width = width + "px";
+  date.style.setProperty("--clock-date-scale", "1");
+  date.style.marginBottom = "0px";
+  if (!date.classList.contains("d-none") && date.offsetWidth) {
+    var dateBounds = date.getBoundingClientRect();
+    var dateScale = width / dateBounds.width;
+    date.style.setProperty("--clock-date-scale", String(dateScale));
+    date.style.marginBottom = (dateBounds.height * (dateScale - 1)) + "px";
   }
-  var availableWidth = surface.clientWidth;
-  if (!availableWidth) return;
-  display.style.setProperty("--clock-scale", "1");
-  var naturalWidth = display.getBoundingClientRect().width;
-  if (!naturalWidth || !availableWidth) return;
-  display.style.setProperty("--clock-scale", String(availableWidth / naturalWidth));
+  var top = Math.max(0, main.getBoundingClientRect().top);
+  main.style.height = Math.max(0, window.innerHeight - top) + "px";
+  var style = getComputedStyle(main);
+  var availableWidth = main.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+  var availableHeight = main.clientHeight - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom);
+  var height = group.getBoundingClientRect().height;
+  if (!height || availableWidth <= 0 || availableHeight <= 0) return;
+  var scale = Math.min(availableWidth / width, availableHeight / height);
+  group.style.setProperty("--clock-group-scale", String(scale));
+  surface.style.width = (width * scale) + "px";
+  surface.style.height = (height * scale) + "px";
 }
+function fitClockDate() { fitClockLayout(); }
+function fitClockDisplay() { fitClockLayout(); }
 
 function formatClockTime(date) {
   var mode = clockSetting("format", "24");
@@ -313,6 +306,13 @@ document.addEventListener("DOMContentLoaded", function () {
     fitClockDate();
     updateClockAlarmIndicator();
   });
+  if (typeof ResizeObserver !== "undefined") {
+    var layoutObserver = new ResizeObserver(fitClockLayout);
+    layoutObserver.observe(document.querySelector("main"));
+    layoutObserver.observe(document.getElementById("mainNav"));
+  }
+  var navObserver = new MutationObserver(function () { requestAnimationFrame(fitClockLayout); });
+  navObserver.observe(document.getElementById("mainNav"), { attributes: true, attributeFilter: ["class"] });
   clockTimer = setInterval(renderClock, 1000);
   setInterval(updateClockColon, 100);
 });

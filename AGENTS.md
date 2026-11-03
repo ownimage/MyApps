@@ -10257,3 +10257,40 @@ Everything below is the contract; break it and the app stops talking to the exe.
   workspace work/mouse-test-temp before Playwright. Focused 2/2 then full panel
   spec 14/14 passed with --simulate, 2 workers, no retries; no driver/hardware
   capture was started. The real hardware capture path remains untested here.
+
+### 2026-11-03 - Flip clock centre-band surface
+
+- Flip seam and the exposed split-flap-surface backing use the shared local
+  --clock-surface-background variable: theme body background normally, #000
+  under body.clock-pure-black. The old direct --bs-body-bg lookup ignored the
+  pure-black override. Removed seam box-shadow so a light body does not get an
+  extra dark stripe, and keep surface backing even with Show boxes disabled.
+- Regression checks seam/backing against computed body colour under light/dark
+  themes, Pure black on/off, and Show boxes on/off. Confirmed red first, focused
+  2/2 green, then full Clock/alarm/Mondaine 24/24 passed without retries.
+  Screenshot captured for visual verification; diff check passed. Build 202611032112.
+
+### 2026-11-03 - Unified Clock group fit
+
+- #clockFaceGroup wraps alarm/time/date and receives ONE uniform transform.
+  fitClockLayout() first measures a natural digital (100px digit) or analogue
+  (600px SVG) layout, fits date to time width, reserves its scaled height, and
+  applies min(available width/natural width, available height/natural height).
+  #clockMain reserves the resulting width/height in the main flex layout.
+  This supersedes separate digital width-only and Mondaine sizing routines.
+- Alarm is in normal group flow with a relative natural font size (20px digital,
+  36px analogue), so it scales with the rest. Date stays single-line and aligned
+  under time. Main height follows remaining viewport space below the nav; its
+  padding, including auto-hide inset, is subtracted. A bottom 16px inset leaves
+  room for glow. ResizeObservers on main/nav plus nav-class MutationObserver
+  refit after resize, menu visibility, and font/theme geometry changes.
+- Use fractional getBoundingClientRect measurements, not rounded offsetWidth:
+  rounding a natural text width can become a visible 3px alignment error when
+  enlarged on a large display. Fit wrappers retain fitClockDate/fitClockDisplay
+  for existing callers, both delegate to fitClockLayout now.
+- New regression confirms group containment, matching date/time edges, constant
+  alarm/time ratio across sizes, and saturation of width OR height across all
+  five faces. Additional checks cover hidden menu/alarm/date/seconds and no page
+  errors. Confirmed red first, then full Clock/Mondaine/alarm 26/26 passed;
+  final bottom-inset adjustment passed focused fit checks and full Clock spec.
+  Visually inspected desktop flip, landscape seven-segment, portrait Mondaine.
