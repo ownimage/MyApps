@@ -265,6 +265,7 @@ test.describe("PlanMyDay - Screenshots", () => {
     // whose item rect moves away from the fixed pointer.
     const hoverLaunch = async (p) => {
       await p.locator("#mainNav .launch-submenu-toggle").hover();
+      await expect(p.locator('#mainNav .launch-submenu-menu .dropdown-item').filter({ hasText: /^Clock$/ })).toBeVisible();
       await p.waitForTimeout(100);
     };
     await hoverLaunch(page);

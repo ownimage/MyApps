@@ -20,7 +20,7 @@
 // comparison. If the two ever DO drift, the page notices at runtime
 // (GET_BUILD) and re-registers, so the drift self-heals instead of pinning
 // users to a build the worker will never replace.
-const BUILD_NUMBER = "202611031633";
+const BUILD_NUMBER = "202611032052";
 
 const CACHE = "myapps-" + BUILD_NUMBER;
 
@@ -390,6 +390,7 @@ const SHARED_ASSETS = [
   "shared/js/components/smd-image-picker.js",
   "shared/js/components/smd-select.js",
   "shared/js/components/smd-color-picker.js",
+  "shared/js/components/smd-slider.js",
   "shared/js/components/smd-theme.js",
     "shared/js/components/smd-checkbox.js",
   "shared/js/components/smd-draghandle.js",
@@ -605,6 +606,24 @@ const APPS = {
     "Storyboard/js/sticker-library.js",
     "Storyboard/js/background-library.js",
     "Storyboard/js/app.js"
+  ],
+  "Clock/": [
+    "Clock/",
+    "Clock/index.html",
+    "Clock/manifest.json",
+    "Clock/icon.svg",
+    "Clock/css/clock.css",
+    "Clock/fonts/DSEG7Modern-Regular.woff2",
+    "Clock/fonts/DSEG-LICENSE.txt",
+    "Clock/vendor/SPLITFLAP-MIT.txt",
+    "Clock/js/app.js",
+    "Clock/js/mondaine.js",
+    "Clock/fonts/Inter.ttf",
+    "Clock/fonts/Inter-OFL.txt",
+    "Clock/fonts/LondonTube.ttf",
+    "Clock/fonts/LondonTube-LICENSE.txt",
+    "Clock/js/alarm.js",
+    "Clock/audio/alarm.wav"
   ]
 };
 

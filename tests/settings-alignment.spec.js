@@ -19,7 +19,8 @@ const APPS = [
   { name: "FreeFormOX", path: "/FreeFormOX/" },
   { name: "QRLinks", path: "/QRLinks/" },
   { name: "SolarControlar", path: "/SolarControlar/" },
-  { name: "Launch", path: "/" }
+  { name: "Launch", path: "/" },
+  { name: "Clock", path: "/Clock/" }
 ];
 
 // 832 is the reported window (>=md, so the column is sized); 700 is below the md
@@ -35,7 +36,8 @@ const ALL_APPS = [
   { name: "SolarControlar", path: "/SolarControlar/" },
   { name: "ListOfLists", path: "/ListOfLists/" },
   { name: "MyHID", path: "/MyHID/" },
-  { name: "Launch", path: "/" }
+  { name: "Launch", path: "/" },
+  { name: "Clock", path: "/Clock/" }
 ];
 
 async function openSettingsOnThemeTab(page) {
@@ -225,6 +227,10 @@ test.describe("Danger tab shape is consistent across apps", () => {
       app: "FreeFormOX", path: "/FreeFormOX/",
       rows: ["Show danger", "No Cache", "Refresh App", "Clear local storage FFOX", "Upload Standard Images"],
     },
+    {
+      app: "Clock", path: "/Clock/",
+      rows: ["Show danger", "No Cache", "Refresh App", "Clear local storage Clock"],
+    },
   ];
 
   // Colours (user rule, 2026-10-18): destructive = danger; bulk maintenance
@@ -349,6 +355,10 @@ test.describe("Settings page shape is consistent across apps", () => {
     {
       app: "Launch", path: "/", tabs: ["Display", "Menu", "Danger"],
       display: ["Theme", "Theme Mode", "Font size", "Icon size", "Touch size", "Slide speed", "Auto-hide menu"],
+    },
+    {
+      app: "Clock", path: "/Clock/", tabs: ["Display", "Alarm", "Credits", "Danger"],
+      display: ["Theme", "Theme Mode", "Time format", "Clock font", "Text font", "Colon", "Show seconds", "Show date", "Clock colour", "Brightness", "Outer glow", "Show boxes", "Pure black background", "Auto-hide menu"],
     },
     {
       app: "PlanMyDay", path: "/PlanMyDay/", tabs: ["General", "Display", "Schedule", "FileSync", "Danger"],

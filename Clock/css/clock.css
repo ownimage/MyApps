@@ -1,0 +1,296 @@
+/*
+ * The split-flap geometry and falling-flap treatment are adapted from
+ * splitflap.org by Mohd Mahmodi (MIT). See Clock/vendor/SPLITFLAP-MIT.txt and
+ * the Credits settings tab for attribution.
+ */
+@font-face {
+  font-family: "DSEG7 Modern";
+  src: url("../fonts/DSEG7Modern-Regular.woff2") format("woff2");
+  font-display: swap;
+}
+
+:root { --clock-font: Arial, sans-serif; }
+
+#smd-app > .container-fluid {
+  min-height: calc(100vh - 4.5rem);
+}
+
+body#smd-app.clock-pure-black,
+body#smd-app.clock-pure-black > main {
+  background-color: #000 !important;
+  background-image: none !important;
+}
+
+#clockMain {
+  width: 94vw;
+  min-width: 0;
+  max-width: 100%;
+  text-align: center;
+  touch-action: none;
+  cursor: move;
+}
+
+.flip-clock {
+  position: relative;
+  left: 50%;
+  display: flex;
+  width: max-content;
+  margin-left: 0;
+  margin-right: 0;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(.2rem, 1.2vw, .75rem);
+  font-family: var(--clock-font);
+  font-variant-numeric: tabular-nums;
+  font-size: clamp(3rem, 15vw, 18rem);
+  font-weight: 700;
+  line-height: 1;
+  user-select: none;
+  filter: brightness(var(--clock-brightness, 1));
+  transform: translateX(-50%) scale(var(--clock-scale, 1));
+  transform-origin: center center;
+}
+
+.flip-digit {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.02em;
+  aspect-ratio: .72;
+  overflow: visible;
+  border: 1px solid var(--bs-border-color, #555);
+  border-radius: .08em;
+  color: var(--clock-color, var(--bs-body-color, #f5f5f5));
+  background: linear-gradient(145deg, var(--bs-secondary-bg, #3b3b3b), var(--bs-body-bg, #171717));
+  text-shadow: var(--clock-glow, none);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.12), 0 .08em .14em rgba(0,0,0,.45);
+}
+
+.clock-style-flip .flip-digit {
+  padding: .055em;
+  background: linear-gradient(145deg, var(--bs-secondary-bg, #444), var(--bs-body-bg, #171717));
+  border-radius: .12em;
+  perspective: 4em;
+}
+
+.split-flap-surface {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  border-radius: .06em;
+  background: var(--bs-body-bg, #111);
+  transform-style: preserve-3d;
+}
+
+.split-flap-half {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  height: 50%;
+  overflow: hidden;
+  color: var(--clock-color, var(--bs-body-color, #f5f5f5));
+  background: linear-gradient(to bottom, var(--bs-secondary-bg, #444), var(--bs-body-bg, #171717));
+  text-shadow: var(--clock-glow, none);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+.split-flap-top {
+  top: 0;
+  clip-path: polygon(0 0, 100% 0, 100% 72%, 94% 100%, 6% 100%, 0 72%);
+}
+
+.split-flap-bottom {
+  bottom: 0;
+  clip-path: polygon(6% 0, 94% 0, 100% 28%, 100% 100%, 0 100%, 0 28%);
+  background: linear-gradient(to bottom, var(--bs-body-bg, #171717), var(--bs-secondary-bg, #333));
+}
+
+.split-flap-glyph {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  height: 200%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: "Arial Black", Arial, sans-serif;
+  letter-spacing: -.06em;
+  line-height: 1;
+  text-shadow: var(--clock-glow, none), 0 .018em 0 rgba(0,0,0,.55);
+  transform: scaleY(1.08);
+}
+
+.split-flap-top .split-flap-glyph,
+.split-flap-falling .split-flap-glyph {
+  top: 0;
+}
+
+.split-flap-bottom .split-flap-glyph {
+  bottom: 0;
+}
+
+.split-flap-top::after,
+.split-flap-bottom::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(to bottom, rgba(255,255,255,.09), transparent 45%, rgba(0,0,0,.12));
+}
+
+.split-flap-seam {
+  position: absolute;
+  z-index: 20;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: .035em;
+  background: var(--bs-body-bg, #111);
+  box-shadow: 0 -.02em .035em rgba(0,0,0,.9), 0 .02em .035em rgba(0,0,0,.9);
+  pointer-events: none;
+}
+
+.split-flap-falling {
+  z-index: 10;
+  transform-origin: bottom center;
+  transform-style: preserve-3d;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.split-flap-changing .split-flap-falling {
+  animation: split-flap-fall .28s cubic-bezier(.4, 0, .2, 1) both;
+}
+
+@keyframes split-flap-fall {
+  from { opacity: 1; transform: rotateX(0deg); }
+  to { opacity: 0; transform: rotateX(-90deg); }
+}
+
+.clock-style-seven .flip-digit {
+  position: relative;
+  border: 1px solid var(--bs-border-color, #555);
+  background: var(--bs-body-bg, #111);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 .08em .14em rgba(0,0,0,.35);
+  font-family: "DSEG7 Modern", monospace;
+  font-weight: 400;
+  color: var(--seven-color);
+  text-shadow: var(--seven-glow);
+}
+
+.clock-no-boxes .flip-digit {
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+}
+
+.clock-no-boxes .split-flap-surface,
+.clock-no-boxes .split-flap-half {
+  background: transparent;
+}
+
+.clock-style-arial .flip-digit {
+  font-family: Arial, sans-serif;
+}
+
+.clock-style-courier .flip-digit {
+  font-family: "Courier New", monospace;
+}
+
+.flip-separator {
+  color: var(--clock-color, var(--bs-body-color));
+  text-shadow: var(--clock-glow, none);
+  transform: translateY(-.02em);
+}
+
+.seven-colon {
+  width: .35em;
+  font-family: "DSEG7 Modern", monospace;
+  font-weight: 400;
+  color: var(--seven-color);
+  text-shadow: var(--seven-glow);
+}
+
+.clock-date {
+  margin-top: clamp(1rem, 3vw, 2rem);
+  margin-left: auto;
+  margin-right: auto;
+  display: block;
+  width: max-content;
+  max-width: none;
+  white-space: nowrap;
+  transform: scale(var(--clock-date-scale, 1));
+  transform-origin: center top;
+  font-family: var(--clock-font);
+  color: var(--clock-color, var(--bs-body-color));
+  text-shadow: var(--clock-glow, none);
+  font-size: 1rem;
+  line-height: 1.2;
+  filter: brightness(var(--clock-brightness, 1));
+}
+
+.clock-date-seven {
+  font-family: "DSEG7 Modern", monospace;
+  font-weight: 400;
+  color: var(--clock-color);
+  text-shadow: var(--seven-glow);
+}
+
+#clockMain { position: relative; }
+.clock-alarm-indicator {
+  position: absolute;
+  left: 0;
+  transform: translateY(-100%);
+  font-family: var(--clock-font);
+  font-size: clamp(1rem, 3vw, 3rem);
+  line-height: 1.3;
+  color: var(--clock-color, var(--bs-body-color));
+  text-shadow: var(--clock-glow, none);
+  filter: brightness(var(--clock-brightness, 1));
+}
+.clock-alarm-indicator.clock-alarm-seven { font-family: "DSEG7 Modern", monospace; font-weight: 400; }
+.clock-alarm-time { display: flex; align-items: center; gap: .5rem; }
+.clock-alarm-time smd-select { width: 6rem; min-width: 0; }
+
+@font-face {
+  font-family: "Clock Inter";
+  src: url("../fonts/Inter.ttf") format("truetype");
+  font-weight: 100 900;
+  font-display: swap;
+}
+#smd-app > main:has(.clock-mondaine-layout) { min-height: 0; }
+.clock-mondaine-layout { display: flex; flex-direction: column; align-items: center; padding-top: 1rem; }
+.clock-mondaine-layout .clock-style-mondaine {
+  position: static;
+  width: var(--mondaine-size);
+  height: var(--mondaine-size);
+  flex: none;
+  transform: none;
+}
+.mondaine-face { display: block; width: 100%; height: 100%; overflow: visible; }
+.mondaine-dial { fill: var(--bs-body-bg, #fff); }
+.mondaine-tick, .mondaine-hands { fill: var(--bs-body-color, #000); }
+.mondaine-hands { filter: drop-shadow(4px 4px 2px rgb(0 0 0 / .4)); }
+.mondaine-second, .mondaine-center { fill: #ff0000; filter: drop-shadow(3px 3px 2px rgb(0 0 0 / .4)); }
+body.clock-pure-black .mondaine-dial { fill: #000; }
+body.clock-pure-black .mondaine-tick, body.clock-pure-black .mondaine-hands { fill: #f5f5f5; }
+.clock-mondaine-layout .clock-alarm-indicator {
+  position: static;
+  width: var(--mondaine-size);
+  transform: none;
+  margin-bottom: .5rem;
+  text-align: left;
+  font-family: var(--clock-font);
+}
+.clock-mondaine-layout .clock-date { font-family: var(--clock-font); }
+
+@font-face {
+  font-family: "Clock London Tube";
+  src: url("../fonts/LondonTube.ttf") format("truetype");
+  font-weight: 400;
+  font-display: swap;
+}

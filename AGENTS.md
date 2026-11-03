@@ -10001,3 +10001,259 @@ Everything below is the contract; break it and the app stops talking to the exe.
   diagnosing failures. A `page.goto` timeout can therefore indicate that the
   background test server disappeared, not an application failure. The script
   output `READY` and an HTTP 200 probe are useful before blaming the test.
+
+### 2026-11-03 - Clock app
+
+- Added the Clock app at `Clock/`, registered in `shared/js/smd-apps.js` and
+  `sw.js`. Its focused test is `tests/clock-regression.spec.js`.
+- In this sandbox, an existing hidden process retained port 8080 even after
+  `CleanTestServerStart.cmd` reported no listener; the resulting test server
+  served older content and made the new `/Clock/` route look like a 404. When
+  validating a newly added app, probe `/Clock/index.html` in the same command
+  session as the server startup and test, and treat a stale 404 as an
+  infrastructure/server-lifecycle problem before debugging the app.
+- Clock-specific loader lesson: inline `document.write` script loaders must use
+  the repository form `<\/script>` in the HTML source. Over-escaping it as
+  `<\\/script>` prevents all shared and app scripts from loading, leaving
+  the clock blank and `openSettings` undefined. A fresh-server browser test is
+  needed to catch this; a stale server can hide the source-level failure.
+- Clock now includes the shared Auto-hide menu switch, a persisted Show date
+  switch, and clock-face choices: Flip style, 7-segment, Arial, and Courier New.
+  All faces retain bordered digit cards and intentionally omit the
+  old horizontal centre rule.
+- The Clock font list was subsequently narrowed to Flip style, 7-segment, Arial,
+  and Courier New; System was removed. The Show boxes switch persists under
+  `clock_showBoxes` and removes card borders/backgrounds without removing the
+  seven-segment elements themselves.
+- Seven-segment mode now renders all seven segments per digit, marking inactive
+  segments with a very dim colour. Its Segment colour and Outer glow controls
+  are only visible while 7-segment is selected; the colon uses the same colour
+  and glow as the active segments.
+- Clock colour is now shared by all font faces, while the seven-segment-only
+  Outer glow switch controls the segment and custom colon-dot glow. Clock card
+  backgrounds, borders, separators, and dates use Bootstrap theme variables so
+  theme/mode changes are visible on the main screen.
+- Clock's 7-segment face now vendors `Clock/fonts/DSEG7Modern-Regular.woff2`
+  from Keshikan's DSEG v0.46. It is SIL Open Font License 1.1; keep
+  `Clock/fonts/DSEG-LICENSE.txt`, the settings-page attribution, and the
+  service-worker precache entry together if the font is changed.
+- DSEG must be rendered once per digit. An all-on `8` underlay made the active
+  glyph look double-struck, so the underlay was removed; the DSEG font itself is
+  the single source for digits and colon. Digit cards use `overflow: visible`
+  so the configured glow is not clipped at the card edge.
+- DSEG is distributed as a regular face. The main clock inherits the shared
+  bold display weight unless `.clock-style-seven .flip-digit`, `.seven-colon`,
+  and `.clock-date-seven` explicitly set `font-weight: 400`; otherwise large
+  glyphs become synthetically bold and their segment joins distort.
+- Shared Clock controls: `shared/js/components/smd-slider.js` exposes a numeric
+  range and `smd-slider-change`; Clock uses it for a 0..1 glow value across all
+  font faces. `smd-color-picker` supplies the shared clock colour and its
+  `smd-color-picker-change` event updates the display.
+- Clock also uses a second shared slider for brightness. Pointer events on
+  `#clockMain` provide direct manipulation: dragging right increases glow,
+  dragging left decreases it, dragging up increases brightness, and dragging
+  down decreases it. Slider changes are persisted under `clock_glow` and
+  `clock_brightness`.
+- Clock listens for `smd-theme-change` and reapplies its appearance after the
+  shared theme/mode stylesheet updates. Drag move/up/cancel handlers are on
+  `document` after pointer capture starts on `#clockMain`, which is more robust
+  for touch and mouse drags than tracking only the surface element.
+- Clock must call `applyTheme(getStoredTheme())` on boot, like the other app
+  shells; the static theme links only provide the initial fallback and do not
+  restore the persisted Clock theme/mode by themselves.
+- Clock must also call `smdBindThemeChange()` during boot. Listening for the
+  event only repaints Clock; the shared binding is what actually swaps the
+  selected theme and mode stylesheets.
+- Clock's flip style uses the split-flap geometry/falling-flap treatment
+  adapted from Mohd Mahmodi's `splitflap.org`. Keep the MIT notice in
+  `Clock/vendor/SPLITFLAP-MIT.txt`, the CSS attribution, and the Credits tab
+  together if that treatment changes.
+- Clock's `showSeconds` setting defaults to true so the existing six-digit
+  layout is preserved; when false, `formatClockTime()` must omit the seconds
+  pair and the render should reduce to four digits and one colon.
+- Clock's date is measured at its natural single-line width and given one
+  uniform CSS scale so it fills the available clock surface without different
+  horizontal and vertical stretching. Re-run that fit after render, resize,
+  and font readiness changes.
+- The Clock date target is the rendered `#clockDisplay` width (not the full
+  `#clockMain` container), so it follows the four- versus six-digit layout.
+  Keep the short `Tue, 3 Nov, 2026`-style format when changing date rendering.
+- The time itself is also uniformly scaled to the available `#clockMain`
+  width; do not reintroduce the old `56rem`/`9rem` caps, or large displays will
+  show a small clock with excess empty space.
+- Clock's Pure black background switch is persisted as `clock_pureBlack` and
+  applies to the Clock body and main background (`body.clock-pure-black`); keep the
+  settings page and shared theme chrome theme-controlled.
+
+### 2026-11-03 - Clock colon flashing and pure-black override
+
+- Seven-segment Colon setting uses `clock_colonMode`: `always` (default) or
+  `flashing`. `updateClockColon()` sets both colons' opacity from the wall-clock
+  one-second on/off phase every 100 ms and after rendering; opacity preserves layout.
+  The setting row is visible only for the seven-segment face.
+- Pure black must target `body#smd-app.clock-pure-black` and its DIRECT main
+  child. The old `body.clock-pure-black #smd-app > main` selector never matched
+  because the body itself is #smd-app. Override background colour/image without
+  changing Bootstrap variables so the navbar and settings keep their theme.
+- Clock regression tests must use `.smd-select-btn` / `.smd-select-item` for
+  custom dropdowns and the inner checkbox input; native selectOption and host
+  checkbox assertions do not work on the shared custom elements.
+- Verified TDD failures for both requested behaviours, then 9/9 Clock tests
+  passed with Chromium, two workers, no retries. JS syntax checks passed.
+- Sandbox browser installs in the default AppData path disappear between
+  command sessions. Use an explicit persistent `PLAYWRIGHT_BROWSERS_PATH` under
+  the writable workspace (this run: lo/work/playwright-browsers), then run
+  `.\node_modules\.bin\playwright.cmd install chromium`. Network permission
+  is required to download. An existing stale 8080 server returned Clock 404;
+  a temporary Python static server on 8090 and temporary Playwright config with
+  that baseURL validated the current files successfully.
+
+### 2026-11-03 - Clock colon duration
+
+- Flashing colon now stays on for one second, then off for one second, based
+  on wall-clock seconds modulo two. Regression uses runtime-derived even-second
+  time and checks both half-second samples in each phase. Red/green verified;
+  full Clock spec passed 9/9 with no retries using the persistent browser path
+  and temporary port-8090 server described above.
+
+### 2026-11-03 - Clock scaled time alignment
+
+- A max-content clock wider than its parent cannot be centred with auto
+  margins: they resolve to zero before transform scaling, shifting the scaled
+  result right and clipping seconds. `.flip-clock` now uses relative left:50%
+  and translateX(-50%) before its uniform scale, with zero horizontal margins.
+  `#clockMain` also has min-width:0 and max-width:100% for flex containment.
+- Test rendered left/right edges, not widths alone: the old width-only date
+  test missed the offset. New regression checks matching time/date/surface
+  edges and viewport containment at 2636, 1280, and 390 pixels, all four faces,
+  with seconds both enabled and disabled. Confirmed red before CSS fix;
+  focused tests passed, then full Clock spec passed 10/10 without retries.
+- Build bumped through shared/bump-build.js to 202611031949.
+
+### 2026-11-03 - Clock daily alarm
+
+- Clock/js/alarm.js implements the daily local-time alarm. Settings tab order:
+  Display, Alarm, Credits, Danger. Alarm controls: Alarm on, Time format,
+  Alarm time (hour/minute plus AM/PM in 12-hour mode), Sleep time (5/10/15).
+  Format is independent of the main clock; stored alarmTime is canonical HH:mm.
+- clock_alarmNext is the next daily timestamp; calculate the next occurrence
+  with local setHours/setDate (not +24 hours, which breaks across DST).
+  clock_alarmSnooze overrides the daily trigger until it rings. alarmRinging
+  survives reload. Turn off stops this occurrence, preserving daily enable;
+  switching Alarm on off cancels ringing and snooze entirely.
+- The smaller alarm label uses the selected face/colour/glow/brightness. Its
+  absolute top is measured against the TRANSFORMED display bounds, so it stays
+  just above the clock even when scaled. Reposition after render/resize/fonts.
+- Clock/audio/alarm.wav is an original bundled 2-second PCM alarm tone, with
+  provenance in audio/README.txt; sw.js precaches the WAV and alarm.js. Media is
+  primed during trusted interaction for mobile autoplay restrictions. Clock
+  must stay open/device awake; this is not a background OS alarm service.
+- While ringing, document click opens #clockAlarmModal; the clock drag handler
+  is skipped. Turn off and Sleep stop audio; Sleep persists the chosen delay.
+- tests/clock-alarm.spec.js covers settings, midnight/noon, actual WAV decode and
+  playback/stop, each snooze duration, repeat next day, and snooze persistence.
+  Confirmed initial red failures; then all 23 Clock/alarm/Clock-settings tests
+  passed (2 workers, retries=0) using the temporary 8090 server. Visually checked
+  settings and indicator screenshots. JS checks and git diff --check passed.
+- On Windows always specify encoding='utf-8' for Python source-file reads AND
+  writes; default read_text() can decode UTF-8 punctuation as cp1252 and create
+  unrelated mojibake on rewrite. Build is 202611032004.
+
+### 2026-11-03 - Alarm time dropdowns
+
+- Alarm hour/minute use smd-select instead of number spinners. Restore builds
+  hour options 01..12 or 00..23 and minute options 00..59; all values are padded
+  strings, while stored alarmTime stays HH:mm. AM/PM conversion is unchanged.
+  Validate values against dropdown options rather than native checkValidity().
+- Updated alarm UI tests to use the dropdown buttons/items and assert option
+  counts and persistence. TDD red confirmed missing dropdown options, then
+  focused tests passed; full alarm + Clock specs passed 18/18, retries=0.
+
+### 2026-11-03 - Mondaine analogue clock face
+
+- Added Mondaine to Clock font options, adapted from the user's
+  ownimage/display/display/src/app/mondaine_clock (not Mondrian artwork).
+  Clock/js/mondaine.js retains hand/tick polygon geometry and the seconds
+  hand's 58-second sweep followed by a 2-second pause at twelve. Use scoped
+  Mondaine IDs/classes; never rebuild the SVG on every timer tick. A 200ms
+  update timer moves its hands; Show seconds hides the red seconds group.
+- Dial/ticks/hands use Bootstrap body background/foreground, red seconds stay
+  red. Pure black forces a black dial and light hands independently of theme.
+- Mondaine uses a height-constrained square layout, unlike width-filling digital
+  faces. fitClockDisplay measures room for alarm/date and the date aspect ratio;
+  fitClockDate reserves transformed date height using marginBottom. Reset that
+  margin when leaving analogue. updateClockAlarmIndicator refits this layout
+  when the alarm label is toggled. Keep digital centring/scaling unchanged.
+- No clear redistribution licence was found for SBB's actual corporate font.
+  Open Sans is bundled for Mondaine's date/alarm only under SIL OFL 1.1:
+  Clock/fonts/OpenSans.ttf and OpenSans-OFL.txt, sourced from google/fonts/ofl/
+  opensans. Preserve its Credits attribution and service-worker precache entries.
+- tests/clock-mondaine.spec.js covers selecting/persisting/switching face, hand
+  positions and seconds pause, show-seconds, light/dark/pure-black appearance,
+  bundled font readiness, and date/alarm viewport fit on desktop/portrait/landscape.
+  Confirmed red before implementation, then all 22 Clock/alarm/Mondaine tests
+  passed with 2 workers and retries=0. Visually inspected all three sizes.
+  JS syntax checks and git diff --check passed. New scripts/font/licence are
+  precached by sw.js; build bumped with shared/bump-build.js.
+
+### 2026-11-03 - Mondaine text font choices
+
+- Mondaine-only Display -> Text font offers Inter (default) and London Tube;
+  persists as clock_mondaineTextFont = inter/london. Both alarm and date consume
+  --clock-font. Changing text face or switching clock faces must refit again
+  after document.fonts.ready, otherwise first-use fallback metrics can clip text.
+- Inter.ttf / Inter-OFL.txt are from google/fonts/ofl/inter, SIL OFL 1.1.
+  LondonTube.ttf is the unmodified LondonTube-MABx.ttf from FontSpace family
+  g841; preserve LondonTube-LICENSE.txt (the package's original info.txt).
+  Source: https://www.fontspace.com/london-tube-font-f2717 ; Jonathan Paterson;
+  FontSpace lists Freeware / 100% Free. Credits and service-worker assets updated.
+  These choices supersede the initial Open Sans implementation described above.
+- Regression confirmed red before the selector existed, then all 28 Clock,
+  alarm, Mondaine and Clock-settings tests passed with 2 workers/retries=0.
+  Layout checks cover BOTH fonts on desktop, portrait and landscape; visually
+  inspected both desktop renderings. JS syntax and diff checks passed.
+  Build bumped through shared/bump-build.js to 202611032034.
+
+### 2026-11-03 - Remove unused Clock assets and test artifacts
+
+- Removed unused Clock/fonts/OpenSans.ttf, OpenSans-OFL.txt, and
+  DSEG7Classic-Regular.woff2. Keep DSEG7Modern and DSEG-LICENSE.txt, Inter and
+  its OFL, and London Tube and its licence; those are active font assets.
+- Cleared generated work/, test-results/, and playwright-report/ from the repo,
+  including error-context.md and .last-run.json. /work/ is now gitignored;
+  Playwright's standard result/report directories were already ignored.
+- Recursive deletion was blocked by automatic approval review. Used reversible
+  removal instead: artifacts moved outside the repo to this session workspace's
+  work/removed-myapps-artifacts. Checked every resolved source stayed in MyApps.
+- Confirmed deleted font names have no runtime references and every Clock CSS
+  asset and service-worker entry still exists. No browser run was needed for
+  unused-file removal (it would recreate the artifacts just cleaned up).
+
+### 2026-11-03 - Launch expectations and mouse-capture build
+
+- Adding Clock made the launcher registry 10 entries. Updated launch-regression
+  expected grid/menu rows (including Show on Launch and Show in Menu counts),
+  and included Clock in nav-title, cascade and cross-app menu coverage.
+  Clock's Danger Clear button now has the standard btnClearAllData ID expected
+  by the shared confirm-action regression. Both defects reproduced before fixes.
+- Full launch-regression + settings-alignment passed 55/55, retries=0; the two
+  PMD main-menu screenshot scenarios passed with SCREENSHOT_THEME=superhero,
+  including an explicit visible Clock menu-entry assertion. Build 202611032052.
+- mouse-capture-ui.spec.js intentionally skips when MyHID/mouse-capture/out/
+  mouse-capture.exe is absent. Built via build.ps1 -InterceptionDir pointing at
+  MyHID/mouse-capture (its existing interception.dll), -NoZip. Self-contained
+  win-x64 output is in out/, version 0.5.0+ac26181. Packaged full output folder
+  separately as this session's outputs/mouse-capture-win-x64.zip.
+- PATH dotnet was runtime-only; C:/Users/Keith/.dotnet has SDK 8.0.426. Prepend
+  that directory to PATH and set DOTNET_ROOT. In sandbox set DOTNET_CLI_HOME
+  and NUGET_PACKAGES to writable work directories. NuGet restore could not reach
+  its service index from dotnet although Invoke-WebRequest could. Copy cached
+  microsoft.netcore.app.runtime.win-x64, microsoft.aspnetcore.app.runtime.win-x64
+  AND microsoft.windowsdesktop.app.runtime.win-x64 (8.0.32) from the user's
+  .nuget/packages into the writable package cache; set NuGetAudit=false and
+  RestoreIgnoreFailedSources=true. Build then restored offline and succeeded.
+- Panel tests initially failed on ConfigStore.Write atomic file moves under the
+  sandbox's default temp directory. Set TEMP and TMP to an explicit writable
+  workspace work/mouse-test-temp before Playwright. Focused 2/2 then full panel
+  spec 14/14 passed with --simulate, 2 workers, no retries; no driver/hardware
+  capture was started. The real hardware capture path remains untested here.
