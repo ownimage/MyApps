@@ -10001,3 +10001,131 @@ Everything below is the contract; break it and the app stops talking to the exe.
   diagnosing failures. A `page.goto` timeout can therefore indicate that the
   background test server disappeared, not an application failure. The script
   output `READY` and an HTTP 200 probe are useful before blaming the test.
+
+### 2026-11-03 - Clock app
+
+- Added the Clock app at `Clock/`, registered in `shared/js/smd-apps.js` and
+  `sw.js`. Its focused test is `tests/clock-regression.spec.js`.
+- In this sandbox, an existing hidden process retained port 8080 even after
+  `CleanTestServerStart.cmd` reported no listener; the resulting test server
+  served older content and made the new `/Clock/` route look like a 404. When
+  validating a newly added app, probe `/Clock/index.html` in the same command
+  session as the server startup and test, and treat a stale 404 as an
+  infrastructure/server-lifecycle problem before debugging the app.
+- Clock-specific loader lesson: inline `document.write` script loaders must use
+  the repository form `<\/script>` in the HTML source. Over-escaping it as
+  `<\\/script>` prevents all shared and app scripts from loading, leaving
+  the clock blank and `openSettings` undefined. A fresh-server browser test is
+  needed to catch this; a stale server can hide the source-level failure.
+- Clock now includes the shared Auto-hide menu switch, a persisted Show date
+  switch, and clock-face choices: Flip style, 7-segment, Arial, and Courier New.
+  All faces retain bordered digit cards and intentionally omit the
+  old horizontal centre rule.
+- The Clock font list was subsequently narrowed to Flip style, 7-segment, Arial,
+  and Courier New; System was removed. The Show boxes switch persists under
+  `clock_showBoxes` and removes card borders/backgrounds without removing the
+  seven-segment elements themselves.
+- Seven-segment mode now renders all seven segments per digit, marking inactive
+  segments with a very dim colour. Its Segment colour and Outer glow controls
+  are only visible while 7-segment is selected; the colon uses the same colour
+  and glow as the active segments.
+- Clock colour is now shared by all font faces, while the seven-segment-only
+  Outer glow switch controls the segment and custom colon-dot glow. Clock card
+  backgrounds, borders, separators, and dates use Bootstrap theme variables so
+  theme/mode changes are visible on the main screen.
+- Clock's 7-segment face now vendors `Clock/fonts/DSEG7Modern-Regular.woff2`
+  from Keshikan's DSEG v0.46. It is SIL Open Font License 1.1; keep
+  `Clock/fonts/DSEG-LICENSE.txt`, the settings-page attribution, and the
+  service-worker precache entry together if the font is changed.
+- DSEG must be rendered once per digit. An all-on `8` underlay made the active
+  glyph look double-struck, so the underlay was removed; the DSEG font itself is
+  the single source for digits and colon. Digit cards use `overflow: visible`
+  so the configured glow is not clipped at the card edge.
+- DSEG is distributed as a regular face. The main clock inherits the shared
+  bold display weight unless `.clock-style-seven .flip-digit`, `.seven-colon`,
+  and `.clock-date-seven` explicitly set `font-weight: 400`; otherwise large
+  glyphs become synthetically bold and their segment joins distort.
+- Shared Clock controls: `shared/js/components/smd-slider.js` exposes a numeric
+  range and `smd-slider-change`; Clock uses it for a 0..1 glow value across all
+  font faces. `smd-color-picker` supplies the shared clock colour and its
+  `smd-color-picker-change` event updates the display.
+- Clock also uses a second shared slider for brightness. Pointer events on
+  `#clockMain` provide direct manipulation: dragging right increases glow,
+  dragging left decreases it, dragging up increases brightness, and dragging
+  down decreases it. Slider changes are persisted under `clock_glow` and
+  `clock_brightness`.
+- Clock listens for `smd-theme-change` and reapplies its appearance after the
+  shared theme/mode stylesheet updates. Drag move/up/cancel handlers are on
+  `document` after pointer capture starts on `#clockMain`, which is more robust
+  for touch and mouse drags than tracking only the surface element.
+- Clock must call `applyTheme(getStoredTheme())` on boot, like the other app
+  shells; the static theme links only provide the initial fallback and do not
+  restore the persisted Clock theme/mode by themselves.
+- Clock must also call `smdBindThemeChange()` during boot. Listening for the
+  event only repaints Clock; the shared binding is what actually swaps the
+  selected theme and mode stylesheets.
+- Clock's flip style uses the split-flap geometry/falling-flap treatment
+  adapted from Mohd Mahmodi's `splitflap.org`. Keep the MIT notice in
+  `Clock/vendor/SPLITFLAP-MIT.txt`, the CSS attribution, and the Credits tab
+  together if that treatment changes.
+- Clock's `showSeconds` setting defaults to true so the existing six-digit
+  layout is preserved; when false, `formatClockTime()` must omit the seconds
+  pair and the render should reduce to four digits and one colon.
+- Clock's date is measured at its natural single-line width and given one
+  uniform CSS scale so it fills the available clock surface without different
+  horizontal and vertical stretching. Re-run that fit after render, resize,
+  and font readiness changes.
+- The Clock date target is the rendered `#clockDisplay` width (not the full
+  `#clockMain` container), so it follows the four- versus six-digit layout.
+  Keep the short `Tue, 3 Nov, 2026`-style format when changing date rendering.
+- The time itself is also uniformly scaled to the available `#clockMain`
+  width; do not reintroduce the old `56rem`/`9rem` caps, or large displays will
+  show a small clock with excess empty space.
+- Clock's Pure black background switch is persisted as `clock_pureBlack` and
+  applies to the Clock body and main background (`body.clock-pure-black`); keep the
+  settings page and shared theme chrome theme-controlled.
+
+### 2026-11-03 - Clock colon flashing and pure-black override
+
+- Seven-segment Colon setting uses `clock_colonMode`: `always` (default) or
+  `flashing`. `updateClockColon()` sets both colons' opacity from the wall-clock
+  one-second on/off phase every 100 ms and after rendering; opacity preserves layout.
+  The setting row is visible only for the seven-segment face.
+- Pure black must target `body#smd-app.clock-pure-black` and its DIRECT main
+  child. The old `body.clock-pure-black #smd-app > main` selector never matched
+  because the body itself is #smd-app. Override background colour/image without
+  changing Bootstrap variables so the navbar and settings keep their theme.
+- Clock regression tests must use `.smd-select-btn` / `.smd-select-item` for
+  custom dropdowns and the inner checkbox input; native selectOption and host
+  checkbox assertions do not work on the shared custom elements.
+- Verified TDD failures for both requested behaviours, then 9/9 Clock tests
+  passed with Chromium, two workers, no retries. JS syntax checks passed.
+- Sandbox browser installs in the default AppData path disappear between
+  command sessions. Use an explicit persistent `PLAYWRIGHT_BROWSERS_PATH` under
+  the writable workspace (this run: lo/work/playwright-browsers), then run
+  `.\node_modules\.bin\playwright.cmd install chromium`. Network permission
+  is required to download. An existing stale 8080 server returned Clock 404;
+  a temporary Python static server on 8090 and temporary Playwright config with
+  that baseURL validated the current files successfully.
+
+### 2026-11-03 - Clock colon duration
+
+- Flashing colon now stays on for one second, then off for one second, based
+  on wall-clock seconds modulo two. Regression uses runtime-derived even-second
+  time and checks both half-second samples in each phase. Red/green verified;
+  full Clock spec passed 9/9 with no retries using the persistent browser path
+  and temporary port-8090 server described above.
+
+### 2026-11-03 - Clock scaled time alignment
+
+- A max-content clock wider than its parent cannot be centred with auto
+  margins: they resolve to zero before transform scaling, shifting the scaled
+  result right and clipping seconds. `.flip-clock` now uses relative left:50%
+  and translateX(-50%) before its uniform scale, with zero horizontal margins.
+  `#clockMain` also has min-width:0 and max-width:100% for flex containment.
+- Test rendered left/right edges, not widths alone: the old width-only date
+  test missed the offset. New regression checks matching time/date/surface
+  edges and viewport containment at 2636, 1280, and 390 pixels, all four faces,
+  with seconds both enabled and disabled. Confirmed red before CSS fix;
+  focused tests passed, then full Clock spec passed 10/10 without retries.
+- Build bumped through shared/bump-build.js to 202611031949.

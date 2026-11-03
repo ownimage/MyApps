@@ -1,6 +1,12 @@
 {
   "images": [
     {
+        "name": "Clock",
+        "data": "data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20128%20128%22%3E%3Crect%20width%3D%22128%22%20height%3D%22128%22%20rx%3D%2220%22%20fill%3D%22%23111%22%2F%3E%3Crect%20x%3D%2215%22%20y%3D%2227%22%20width%3D%2298%22%20height%3D%2274%22%20rx%3D%229%22%20fill%3D%22%23292929%22%20stroke%3D%22%23777%22%20stroke-width%3D%224%22%2F%3E%3Ctext%20x%3D%2264%22%20y%3D%2276%22%20text-anchor%3D%22middle%22%20font-family%3D%22Arial%22%20font-size%3D%2230%22%20font-weight%3D%22700%22%20fill%3D%22%23f7f7f7%22%3E12%3A34%3C%2Ftext%3E%3C%2Fsvg%3E",
+        "lineColor": "#777",
+        "fillColor": "#292929"
+    },
+    {
         "name": "Person 1",
         "data": "data:image/svg+xml,%3Csvg%20fill%3D%22%23f7f7f7%22%20stroke%3D%22%238f8f8f%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22512%22%20height%3D%22512%22%20viewBox%3D%220%200%201664%201664%22%3E%3Cpath%20fill%3D%22%23f7f7f7%22%20d%3D%22M832%200Q673%200%20560.5%20112.5T448%20384t112.5%20271.5T832%20768t271.5-112.5T1216%20384t-112.5-271.5T832%200zm0%20896q112%200%20227%2022t224%2069.5t193.5%20114t136%20162.5t51.5%20208q0%2075-57%20133.5t-135%2058.5H192q-78%200-135-58.5T0%201472q0-112%2051.5-208t136-162.5t193.5-114T605%20918t227-22z%22%2F%3E%3C%2Fsvg%3E",
         "lineColor": "#8f8f8f",

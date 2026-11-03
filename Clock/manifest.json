@@ -1,0 +1,17 @@
+{
+  "name": "Clock",
+  "short_name": "Clock",
+  "description": "A simple flip-style clock",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay"],
+  "background_color": "#111111",
+  "theme_color": "#111111",
+  "icons": [{
+    "src": "icon.svg",
+    "sizes": "any",
+    "type": "image/svg+xml",
+    "purpose": "any"
+  }]
+}

@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#111111">
+  <meta name="mobile-web-app-capable" content="yes">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <title>Clock</title>
+  <link rel="stylesheet" href="../shared/vendor/fontawesome/css/fontawesome.min.css">
+  <link rel="stylesheet" href="../shared/vendor/fontawesome/css/solid.min.css">
+  <link id="bootstrap-theme-css" href="../shared/css/themes/superhero/bootstrap.min.css" rel="stylesheet">
+  <link id="smd-shared-css" rel="stylesheet" href="../shared/css/styles.css">
+  <link id="theme-override-mode" rel="stylesheet" href="../shared/css/themes/light.css">
+  <link id="theme-override-specific" rel="stylesheet" href="../shared/css/themes/superhero/superhero.light.css">
+  <link rel="stylesheet" href="css/clock.css">
+  <script src="../shared/js/build-number.js"></script>
+  <script>
+    (function () {
+      if (typeof BUILD_NUMBER === "undefined") return;
+      document.querySelectorAll("link[href]").forEach(function (link) {
+        var href = link.getAttribute("href") || "";
+        if (href && href.indexOf("v=") === -1) link.setAttribute("href", href + "?v=" + BUILD_NUMBER);
+      });
+    })();
+  </script>
+</head>
+<body id="smd-app">
+  <nav id="mainNav" class="navbar navbar-expand px-3 py-2 gap-1 flex-wrap">
+    <div class="dropdown">
+      <button id="btnMainMenu" class="btn p-1" data-bs-toggle="dropdown" title="Menu" aria-label="Menu">
+        <i class="fa-solid fa-bars fs-5" aria-hidden="true"></i>
+      </button>
+      <ul class="dropdown-menu">
+        <li><a class="dropdown-item" onclick="openSettings()">Settings</a></li>
+        <li><hr class="dropdown-divider"></li>
+        <li><a class="dropdown-item" href="../">Launch</a></li>
+      </ul>
+    </div>
+    <span id="appNavTitle" class="navbar-brand mb-0 h1">Clock</span>
+  </nav>
+
+  <main class="container-fluid px-3 d-flex justify-content-center align-items-center">
+    <section id="clockMain" aria-label="Current time">
+      <div id="clockDisplay" class="flip-clock" aria-live="off"></div>
+      <div id="clockDate" class="clock-date text-center"></div>
+    </section>
+  </main>
+
+  <smd-page id="settingsPage" class="d-none"></smd-page>
+  <template id="settingsTemplate">
+    <div class="smd-settings">
+      <section class="smd-settings-tab" data-tab="Display" data-tab-id="display-tab">
+        <smd-theme id="themeSelector" class="col-md-8 mt-3"></smd-theme>
+        <div class="row mb-4 align-items-center col-md-8">
+          <div class="col-4 text-end"><label class="form-label mb-0" for="clockFormatSelector">Time format</label></div>
+          <div class="col-8">
+            <smd-select id="clockFormatSelector" class="form-select" onchange="changeClockFormat(this.value)">
+              <option value="12">12 hour</option>
+              <option value="24">24 hour</option>
+            </smd-select>
+          </div>
+        </div>
+        <div class="row mb-4 align-items-center col-md-8">
+          <div class="col-4 text-end"><label class="form-label mb-0" for="clockFontSelector">Clock font</label></div>
+          <div class="col-8">
+            <smd-select id="clockFontSelector" class="form-select" onchange="changeClockFont(this.value)">
+              <option value="flip">Flip style</option>
+              <option value="seven">7-segment</option>
+              <option value="arial">Arial</option>
+              <option value="courier">Courier New</option>
+            </smd-select>
+          </div>
+        </div>
+        <div id="clockColonModeRow" class="row mb-4 align-items-center col-md-8 d-none">
+          <div class="col-4 text-end"><label class="form-label mb-0" for="clockColonModeSelector">Colon</label></div>
+          <div class="col-8">
+            <smd-select id="clockColonModeSelector" class="form-select" onchange="changeClockColonMode(this.value)">
+              <option value="always">Always on</option>
+              <option value="flashing">Flashing</option>
+            </smd-select>
+          </div>
+        </div>
+        <div class="row mb-4 align-items-center col-md-8">
+          <div class="col-4 text-end"><label class="form-label mb-0">Show seconds</label></div>
+          <div class="col-8"><smd-checkbox id="clockShowSeconds" switch onchange="changeClockShowSeconds(this.checked)"></smd-checkbox></div>
+        </div>
+        <div class="row mb-4 align-items-center col-md-8">
+          <div class="col-4 text-end"><label class="form-label mb-0">Show date</label></div>
+          <div class="col-8"><smd-checkbox id="clockShowDate" switch onchange="changeClockShowDate(this.checked)"></smd-checkbox></div>
+        </div>
+        <div class="row mb-4 align-items-center col-md-8">
+          <div class="col-4 text-end"><label class="form-label mb-0" for="clockColorPicker">Clock colour</label></div>
+          <div class="col-8">
+            <smd-color-picker id="clockColorPicker" value="#b6ffbd"></smd-color-picker>
+          </div>
+        </div>
+        <div class="row mb-4 align-items-center col-md-8">
+          <div class="col-4 text-end"><label class="form-label mb-0">Brightness</label></div>
+          <div class="col-8"><smd-slider id="clockBrightnessSlider" min="0" max="1" step="0.01" value="1"></smd-slider></div>
+        </div>
+        <div class="row mb-4 align-items-center col-md-8">
+          <div class="col-4 text-end"><label class="form-label mb-0">Outer glow</label></div>
+          <div class="col-8"><smd-slider id="clockGlowSlider" min="0" max="1" step="0.01" value="0.35"></smd-slider></div>
+        </div>
+        <div class="row mb-4 align-items-center col-md-8">
+          <div class="col-4 text-end"><label class="form-label mb-0">Show boxes</label></div>
+          <div class="col-8"><smd-checkbox id="clockShowBoxes" switch onchange="changeClockShowBoxes(this.checked)"></smd-checkbox></div>
+        </div>
+        <div class="row mb-4 align-items-center col-md-8">
+          <div class="col-4 text-end"><label class="form-label mb-0">Pure black background</label></div>
+          <div class="col-8"><smd-checkbox id="clockPureBlack" switch onchange="changeClockPureBlack(this.checked)"></smd-checkbox></div>
+        </div>
+        <div class="row mb-4 align-items-center col-md-8">
+          <div class="col-4 text-end"><label class="form-label mb-0">Auto-hide menu</label></div>
+          <div class="col-8"><smd-checkbox id="autoHideMenu" switch onchange="changeAutoHideMenu(this.checked)"></smd-checkbox></div>
+        </div>
+      </section>
+      <section class="smd-settings-tab" data-tab="Credits" data-tab-id="credits-tab">
+        <div class="row mb-4 col-md-8">
+          <div class="col-12">
+            <h2 class="h5">Credits</h2>
+            <p class="small mb-3">The split-flap display treatment is adapted from
+              <a href="https://github.com/MohdYahyaMahmodi/splitflap.org" target="_blank" rel="noopener">splitflap.org</a>
+              by Mohd Mahmodi and is used under the MIT License.</p>
+            <p class="small mb-0">The 7-segment display uses DSEG by Keshikan,
+              licensed under the SIL Open Font License 1.1.</p>
+          </div>
+        </div>
+      </section>
+      <section class="smd-settings-tab" data-tab="Danger" data-tab-id="danger-tab">
+        <div class="row mb-4 align-items-center col-md-8">
+          <div class="col-4 text-end"><label class="form-label mb-0">Show danger</label></div>
+          <div class="col-8"><smd-checkbox id="showDanger" switch onchange="changeShowDanger(this.checked)"></smd-checkbox></div>
+        </div>
+        <div id="noCacheRow" class="row mb-4 align-items-center col-md-8 d-none">
+          <div class="col-4 text-end"><label class="form-label mb-0">No Cache</label></div>
+          <div class="col-8"><smd-checkbox id="noCache" switch onchange="changeNoCache(this.checked)"></smd-checkbox></div>
+        </div>
+        <div id="refreshAppRow" class="row mb-4 mt-4 align-items-center d-none">
+          <div class="col-4 text-end"></div><div class="col-8"><smd-button block variant="warning" onclick="location.reload()">Refresh App</smd-button></div>
+        </div>
+        <div id="clearAllDataRow" class="row mb-4 align-items-center d-none">
+          <div class="col-4 text-end"></div><div class="col-8"><smd-button block variant="danger" onclick="confirmClearAllData()">Clear local storage Clock</smd-button></div>
+        </div>
+      </section>
+      <div id="settingsFooter" class="mt-3">
+        <div class="mt-5 small build-number">Build <span id="buildNumber"></span></div>
+      </div>
+    </div>
+  </template>
+
+  <script>document.write('<script src="../shared/vendor/bootstrap.bundle.min.js?v=' + BUILD_NUMBER + '"><\/script>');</script>
+  <script>document.write('<script src="../shared/js/library.js?v=' + BUILD_NUMBER + '"><\/script>');</script>
+  <script>document.write('<script src="../shared/js/components/smd-button.js?v=' + BUILD_NUMBER + '"><\/script>');</script>
+  <script>document.write('<script src="../shared/js/components/smd-modal.js?v=' + BUILD_NUMBER + '"><\/script>');</script>
+  <script>document.write('<script src="../shared/js/components/smd-page.js?v=' + BUILD_NUMBER + '"><\/script>');</script>
+  <script>document.write('<script src="../shared/js/components/smd-tabs.js?v=' + BUILD_NUMBER + '"><\/script>');</script>
+  <script>document.write('<script src="../shared/js/components/smd-select.js?v=' + BUILD_NUMBER + '"><\/script>');</script>
+  <script>document.write('<script src="../shared/js/components/smd-theme.js?v=' + BUILD_NUMBER + '"><\/script>');</script>
+  <script>document.write('<script src="../shared/js/components/smd-checkbox.js?v=' + BUILD_NUMBER + '"><\/script>');</script>
+  <script>document.write('<script src="../shared/js/components/smd-color-picker.js?v=' + BUILD_NUMBER + '"><\/script>');</script>
+  <script>document.write('<script src="../shared/js/components/smd-slider.js?v=' + BUILD_NUMBER + '"><\/script>');</script>
+  <script>document.write('<script src="../shared/js/smd-app.js?v=' + BUILD_NUMBER + '"><\/script>');</script>
+  <script>document.write('<script src="../shared/js/smd-settings.js?v=' + BUILD_NUMBER + '"><\/script>');</script>
+  <script>document.write('<script src="../shared/js/smd-apps.js?v=' + BUILD_NUMBER + '"><\/script>');</script>
+  <script>document.write('<script src="js/app.js?v=' + BUILD_NUMBER + '"><\/script>');</script>
+  <script>
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("../sw.js", { updateViaCache: "none" }).catch(function () {});
+    }
+  </script>
+</body>
+</html>
