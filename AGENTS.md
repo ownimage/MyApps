@@ -10228,3 +10228,32 @@ Everything below is the contract; break it and the app stops talking to the exe.
 - Confirmed deleted font names have no runtime references and every Clock CSS
   asset and service-worker entry still exists. No browser run was needed for
   unused-file removal (it would recreate the artifacts just cleaned up).
+
+### 2026-11-03 - Launch expectations and mouse-capture build
+
+- Adding Clock made the launcher registry 10 entries. Updated launch-regression
+  expected grid/menu rows (including Show on Launch and Show in Menu counts),
+  and included Clock in nav-title, cascade and cross-app menu coverage.
+  Clock's Danger Clear button now has the standard btnClearAllData ID expected
+  by the shared confirm-action regression. Both defects reproduced before fixes.
+- Full launch-regression + settings-alignment passed 55/55, retries=0; the two
+  PMD main-menu screenshot scenarios passed with SCREENSHOT_THEME=superhero,
+  including an explicit visible Clock menu-entry assertion. Build 202611032052.
+- mouse-capture-ui.spec.js intentionally skips when MyHID/mouse-capture/out/
+  mouse-capture.exe is absent. Built via build.ps1 -InterceptionDir pointing at
+  MyHID/mouse-capture (its existing interception.dll), -NoZip. Self-contained
+  win-x64 output is in out/, version 0.5.0+ac26181. Packaged full output folder
+  separately as this session's outputs/mouse-capture-win-x64.zip.
+- PATH dotnet was runtime-only; C:/Users/Keith/.dotnet has SDK 8.0.426. Prepend
+  that directory to PATH and set DOTNET_ROOT. In sandbox set DOTNET_CLI_HOME
+  and NUGET_PACKAGES to writable work directories. NuGet restore could not reach
+  its service index from dotnet although Invoke-WebRequest could. Copy cached
+  microsoft.netcore.app.runtime.win-x64, microsoft.aspnetcore.app.runtime.win-x64
+  AND microsoft.windowsdesktop.app.runtime.win-x64 (8.0.32) from the user's
+  .nuget/packages into the writable package cache; set NuGetAudit=false and
+  RestoreIgnoreFailedSources=true. Build then restored offline and succeeded.
+- Panel tests initially failed on ConfigStore.Write atomic file moves under the
+  sandbox's default temp directory. Set TEMP and TMP to an explicit writable
+  workspace work/mouse-test-temp before Playwright. Focused 2/2 then full panel
+  spec 14/14 passed with --simulate, 2 workers, no retries; no driver/hardware
+  capture was started. The real hardware capture path remains untested here.

@@ -21,6 +21,7 @@ test.describe("Launch - Regression", () => {
     "/ListOfLists/",
     "/MyHID/",
     "/Storyboard/",
+    "/Clock/",
     "/storybook/",
     "/storybook/cardViewer.html"
   ];
@@ -74,6 +75,7 @@ test.describe("Launch - Regression", () => {
       ["/SolarControlar/", "Solar Controlar"],
       ["/FreeFormOX/", "FreeFormOX"],
       ["/ListOfLists/", "List of Lists"],
+      ["/Clock/", "Clock"],
       // Storyboard appends its live story/scene to the app name ("Storyboard -\n      // <story>/<scene>"), so match the prefix + a default fresh-visit readout.
       ["/Storyboard/", /^Storyboard - Story 1\/Scene 1$/]
     ];
@@ -110,7 +112,6 @@ test.describe("Launch - Regression", () => {
     page.on("console", m => { if (m.type() === "error") errors.push(m.text()); });
 
     await page.goto("/");
-    await expect(page.locator("#appGrid .app-tile")).toHaveCount(9);
 
     const tiles = page.locator("#appGrid .app-tile");
     const EXPECTED_TILES = [
@@ -122,8 +123,10 @@ test.describe("Launch - Regression", () => {
       ["List of Lists", "ListOfLists/"],
       ["My HID", "MyHID/"],
       ["Storyboard", "Storyboard/"],
+      ["Clock", "Clock/"],
       ["Launch", "./"]
     ];
+    await expect(tiles).toHaveCount(EXPECTED_TILES.length);
     for (let i = 0; i < EXPECTED_TILES.length; i++) {
       await expect(tiles.nth(i)).toContainText(EXPECTED_TILES[i][0]);
       await expect(tiles.nth(i)).toHaveAttribute("href", EXPECTED_TILES[i][1]);
@@ -199,6 +202,7 @@ test.describe("Launch - Regression", () => {
       ["List of Lists", "ListOfLists/"],
       ["My HID", "MyHID/"],
       ["Storyboard", "Storyboard/"],
+      ["Clock", "Clock/"],
       ["Launch", ""]
     ];
     // SolarControlar is intentionally skipped: it needs its own power-data
@@ -208,7 +212,7 @@ test.describe("Launch - Regression", () => {
     // every app jumps to any other app from one place.
     for (const [shell, prefix] of [["/", ""], ["/PlanMyDay/", "../"], ["/CountMyDays/", "../"],
       ["/QRLinks/", "../"], ["/FreeFormOX/", "../"], ["/ListOfLists/", "../"], ["/MyHID/", "../"],
-      ["/Storyboard/", "../"]]) {
+      ["/Storyboard/", "../"], ["/Clock/", "../"]]) {
       await page.goto(shell);
       await page.locator("#btnMainMenu").click();
       const toggle = page.locator("#mainNav .launch-submenu-toggle");
@@ -275,7 +279,7 @@ test.describe("Launch - Regression", () => {
 
   test.describe("Launch Menu tab", () => {
 
-    const ALL_APPS = ["Plan My Day", "Count My Days", "QR Links", "Solar Controlar", "FreeFormOX", "List of Lists", "My HID", "Storyboard", "Launch"];
+    const ALL_APPS = ["Plan My Day", "Count My Days", "QR Links", "Solar Controlar", "FreeFormOX", "List of Lists", "My HID", "Storyboard", "Clock", "Launch"];
 
     async function openMenuTab(page) {
       await page.goto("/");
