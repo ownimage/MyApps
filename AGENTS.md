@@ -10257,3 +10257,99 @@ Everything below is the contract; break it and the app stops talking to the exe.
   workspace work/mouse-test-temp before Playwright. Focused 2/2 then full panel
   spec 14/14 passed with --simulate, 2 workers, no retries; no driver/hardware
   capture was started. The real hardware capture path remains untested here.
+
+### 2026-11-03 - Flip clock centre-band surface
+
+- Flip seam and the exposed split-flap-surface backing use the shared local
+  --clock-surface-background variable: theme body background normally, #000
+  under body.clock-pure-black. The old direct --bs-body-bg lookup ignored the
+  pure-black override. Removed seam box-shadow so a light body does not get an
+  extra dark stripe, and keep surface backing even with Show boxes disabled.
+- Regression checks seam/backing against computed body colour under light/dark
+  themes, Pure black on/off, and Show boxes on/off. Confirmed red first, focused
+  2/2 green, then full Clock/alarm/Mondaine 24/24 passed without retries.
+  Screenshot captured for visual verification; diff check passed. Build 202611032112.
+
+### 2026-11-03 - Unified Clock group fit
+
+- #clockFaceGroup wraps alarm/time/date and receives ONE uniform transform.
+  fitClockLayout() first measures a natural digital (100px digit) or analogue
+  (600px SVG) layout, fits date to time width, reserves its scaled height, and
+  applies min(available width/natural width, available height/natural height).
+  #clockMain reserves the resulting width/height in the main flex layout.
+  This supersedes separate digital width-only and Mondaine sizing routines.
+- Alarm is in normal group flow with a relative natural font size (20px digital,
+  36px analogue), so it scales with the rest. Date stays single-line and aligned
+  under time. Main height follows remaining viewport space below the nav; its
+  padding, including auto-hide inset, is subtracted. A bottom 16px inset leaves
+  room for glow. ResizeObservers on main/nav plus nav-class MutationObserver
+  refit after resize, menu visibility, and font/theme geometry changes.
+- Use fractional getBoundingClientRect measurements, not rounded offsetWidth:
+  rounding a natural text width can become a visible 3px alignment error when
+  enlarged on a large display. Fit wrappers retain fitClockDate/fitClockDisplay
+  for existing callers, both delegate to fitClockLayout now.
+- New regression confirms group containment, matching date/time edges, constant
+  alarm/time ratio across sizes, and saturation of width OR height across all
+  five faces. Additional checks cover hidden menu/alarm/date/seconds and no page
+  errors. Confirmed red first, then full Clock/Mondaine/alarm 26/26 passed;
+  final bottom-inset adjustment passed focused fit checks and full Clock spec.
+  Visually inspected desktop flip, landscape seven-segment, portrait Mondaine.
+
+### 2026-11-03 - Original Nixie tube face
+
+- Clock/js/nixie.js defines ten ORIGINAL wire paths (NIXIE_WIRE_PATHS) and SVG
+  tubes: stacked inactive cathodes, hexagonal anode mesh, support rods/leads,
+  subtle grain, glass dome/reflections/rim, ceramic socket, and metal pins.
+  createNixieDigit() namespaces SVG definitions with nixieSerial so IDs never
+  collide between tubes. updateNixieDigit() updates active use hrefs/aria labels;
+  renderNixieClock() only rebuilds when the digit count changes (seconds toggle).
+  Do not rebuild the detailed SVG every second or it flickers and wastes work.
+- Nixie tubes option persists as clock_font=nixie. Clock/css/nixie.css uses
+  --clock-color/currentColor for luminous wires, bloom, and the colon; physical
+  materials are neutral. --clock-glow-amount (0..1) drives luminous layers. The
+  shared display brightness filter dims the tubes. Show boxes does not remove
+  the glass/mesh: those define the face, not an optional rectangular digit card.
+- Nixie shares Mondaine's Text font selector and clock_mondaineTextFont setting
+  (Inter or London Tube) for date and alarm. Keep both faces in the selector's
+  visibility and applyClockFont conditions. Existing unified fit handles Nixie
+  at its natural 108x180 tube size, then scales alarm/time/date as one group.
+- Added both new files to sw.js. No external images/font/service are needed for
+  tube artwork. tests/clock-nixie.spec.js checks all ten distinct paths/active
+  numerals, colour/glow changes, stable tube DOM, persistence, seconds/boxes,
+  shared text font and the 0..9 preview. Common layout tests now include Nixie.
+- Confirmed red before renderer existed; focused tests then passed and all 34
+  Clock/alarm/Mondaine/Nixie/Clock-settings tests passed, 2 workers/retries=0.
+  Visually checked amber 0..9 preview plus full green Clock and responsive fit.
+  JS syntax, precache existence, and git diff --check passed.
+
+### 2026-11-03 - Nixie enclosure controls and light backgrounds
+
+- Nixie-only Show glass / Show pins switches default on and persist under
+  clock_nixieGlass / clock_nixiePins. syncClockNixieSettings restores controls;
+  renderNixieClock reapplies nixie-no-glass/nixie-no-pins after each render.
+- Glass visibility covers the digit envelope/backing, reflections, rim/grain,
+  and the colon enclosure. Pins visibility covers pins/socket/ground shadow.
+  The internal cathodes and mesh stay visible. SVG viewBoxes and natural height
+  crop hidden space for each combination; the unified group fit then resizes.
+- Nixie interior gradients and rims now use theme surface/foreground variables.
+  --nixie-material-ink follows --bs-body-color, with a light override on pure
+  black. A thin contrasting wire edge and Nixie-only text stroke keep pale
+  selected colours readable on light backgrounds without changing their fill.
+  Colon housing also follows the surface. No runtime colour repaint layer.
+- Added TDD red/green for switches, persistence, colon enclosure, independent
+  combinations and mobile fit. Light/dark screenshots and an edge-contrast
+  assertion verify default pale-green digits stay legible, glass on/off.
+  Full Clock/alarm/Mondaine/Nixie/Clock-settings passed 36/36, workers=2,
+  retries=0. Visually inspected light glass, light bare and dark glass renders.
+  Syntax checks and git diff --check passed; bumped via shared/bump-build.js.
+
+### 2026-11-03 - Quieter Nixie side uprights
+
+- The two full-height side rods now have .nixie-uprights and blend 88% of the
+  Clock surface with a neutral dark metal. This makes them pale grey on light
+  pages, while dark surfaces retain dark supports. Pure black uses #242a2d.
+  The pins, mesh, selected numeral colour and glow are unaffected.
+- Added regression for pale upright stroke on white and dark stroke under Pure
+  black; confirmed red, then green. All 6 Nixie tests passed, workers=2,
+  retries=0. Visually checked the light-background screenshot; diff check passed.
+  Build bumped through shared/bump-build.js.
