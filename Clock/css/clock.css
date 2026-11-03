@@ -239,3 +239,19 @@ body#smd-app.clock-pure-black > main {
   color: var(--clock-color);
   text-shadow: var(--seven-glow);
 }
+
+#clockMain { position: relative; }
+.clock-alarm-indicator {
+  position: absolute;
+  left: 0;
+  transform: translateY(-100%);
+  font-family: var(--clock-font);
+  font-size: clamp(1rem, 3vw, 3rem);
+  line-height: 1.3;
+  color: var(--clock-color, var(--bs-body-color));
+  text-shadow: var(--clock-glow, none);
+  filter: brightness(var(--clock-brightness, 1));
+}
+.clock-alarm-indicator.clock-alarm-seven { font-family: "DSEG7 Modern", monospace; font-weight: 400; }
+.clock-alarm-time { display: flex; align-items: center; gap: .5rem; }
+.clock-alarm-time smd-select { width: 6rem; min-width: 0; }

@@ -142,6 +142,7 @@ function renderClock() {
     date.classList.toggle("d-none", clockSetting("showDate", "true") === "false");
     fitClockDate();
   }
+  if (typeof updateClockAlarmIndicator === "function") updateClockAlarmIndicator();
 }
 
 function applyClockFont() {
@@ -221,6 +222,7 @@ function openSettings() {
   smdSetupSettingsPage({
     dangerIds: ["noCacheRow", "refreshAppRow", "clearAllDataRow"],
     restore: function () {
+      restoreClockAlarmSettings();
       var format = document.getElementById("clockFormatSelector");
       var showSeconds = document.getElementById("clockShowSeconds");
       var font = document.getElementById("clockFontSelector");
@@ -268,10 +270,12 @@ document.addEventListener("DOMContentLoaded", function () {
   window.addEventListener("resize", function () {
     fitClockDisplay();
     fitClockDate();
+    updateClockAlarmIndicator();
   });
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(function () {
     fitClockDisplay();
     fitClockDate();
+    updateClockAlarmIndicator();
   });
   clockTimer = setInterval(renderClock, 1000);
   setInterval(updateClockColon, 100);
@@ -297,6 +301,7 @@ document.addEventListener("DOMContentLoaded", function () {
   var surface = document.getElementById("clockMain");
   if (!surface) return;
   surface.addEventListener("pointerdown", function (event) {
+    if (clockAlarmRinging) return;
     if (event.target.closest && event.target.closest("smd-slider, smd-color-picker")) return;
     clockDrag = { id: event.pointerId, x: event.clientX, y: event.clientY, glow: Number(clockSetting("glow", "0.35")), brightness: Number(clockSetting("brightness", "1")) };
     surface.setPointerCapture(event.pointerId);

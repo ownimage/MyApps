@@ -43,11 +43,14 @@
 
   <main class="container-fluid px-3 d-flex justify-content-center align-items-center">
     <section id="clockMain" aria-label="Current time">
+      <div id="clockAlarmIndicator" class="clock-alarm-indicator d-none">alarm</div>
       <div id="clockDisplay" class="flip-clock" aria-live="off"></div>
       <div id="clockDate" class="clock-date text-center"></div>
     </section>
   </main>
 
+  <audio id="clockAlarmAudio" src="audio/alarm.wav" preload="auto" loop></audio>
+  <smd-modal id="clockAlarmModal"></smd-modal>
   <smd-page id="settingsPage" class="d-none"></smd-page>
   <template id="settingsTemplate">
     <div class="smd-settings">
@@ -117,6 +120,34 @@
           <div class="col-8"><smd-checkbox id="autoHideMenu" switch onchange="changeAutoHideMenu(this.checked)"></smd-checkbox></div>
         </div>
       </section>
+      <section class="smd-settings-tab" data-tab="Alarm" data-tab-id="alarm-tab">
+        <div class="row mb-4 align-items-center col-md-8 mt-3">
+          <div class="col-4 text-end"><label class="form-label mb-0">Alarm on</label></div>
+          <div class="col-8"><smd-checkbox id="clockAlarmEnabled" switch onchange="changeClockAlarmEnabled(this.checked)"></smd-checkbox></div>
+        </div>
+        <div class="row mb-4 align-items-center col-md-8">
+          <div class="col-4 text-end"><label class="form-label mb-0" for="clockAlarmFormat">Time format</label></div>
+          <div class="col-8"><smd-select id="clockAlarmFormat" onchange="changeClockAlarmFormat(this.value)">
+            <option value="12">12 hour</option><option value="24">24 hour</option>
+          </smd-select></div>
+        </div>
+        <div class="row mb-4 align-items-center col-md-8">
+          <div class="col-4 text-end"><label class="form-label mb-0" for="clockAlarmHour">Alarm time</label></div>
+          <div class="col-8 clock-alarm-time">
+            <smd-select id="clockAlarmHour" aria-label="Alarm hour" onchange="changeClockAlarmTime()"></smd-select>
+            <span aria-hidden="true">:</span>
+            <smd-select id="clockAlarmMinute" aria-label="Alarm minute" onchange="changeClockAlarmTime()"></smd-select>
+            <smd-select id="clockAlarmPeriod" aria-label="AM or PM" onchange="changeClockAlarmTime()"><option value="AM">AM</option><option value="PM">PM</option></smd-select>
+          </div>
+        </div>
+        <div class="row mb-4 align-items-center col-md-8">
+          <div class="col-4 text-end"><label class="form-label mb-0" for="clockAlarmSleep">Sleep time</label></div>
+          <div class="col-8"><smd-select id="clockAlarmSleep" onchange="changeClockAlarmSleep(this.value)">
+            <option value="5">5 minutes</option><option value="10">10 minutes</option><option value="15">15 minutes</option>
+          </smd-select></div>
+        </div>
+        <p class="small col-md-8">Repeats every day. Keep Clock open and your device awake for the alarm to sound. Touch the screen while it rings to turn it off or sleep.</p>
+      </section>
       <section class="smd-settings-tab" data-tab="Credits" data-tab-id="credits-tab">
         <div class="row mb-4 col-md-8">
           <div class="col-12">
@@ -166,6 +197,7 @@
   <script>document.write('<script src="../shared/js/smd-settings.js?v=' + BUILD_NUMBER + '"><\/script>');</script>
   <script>document.write('<script src="../shared/js/smd-apps.js?v=' + BUILD_NUMBER + '"><\/script>');</script>
   <script>document.write('<script src="js/app.js?v=' + BUILD_NUMBER + '"><\/script>');</script>
+  <script>document.write('<script src="js/alarm.js?v=' + BUILD_NUMBER + '"><\/script>');</script>
   <script>
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker.register("../sw.js", { updateViaCache: "none" }).catch(function () {});

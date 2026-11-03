@@ -10129,3 +10129,42 @@ Everything below is the contract; break it and the app stops talking to the exe.
   with seconds both enabled and disabled. Confirmed red before CSS fix;
   focused tests passed, then full Clock spec passed 10/10 without retries.
 - Build bumped through shared/bump-build.js to 202611031949.
+
+### 2026-11-03 - Clock daily alarm
+
+- Clock/js/alarm.js implements the daily local-time alarm. Settings tab order:
+  Display, Alarm, Credits, Danger. Alarm controls: Alarm on, Time format,
+  Alarm time (hour/minute plus AM/PM in 12-hour mode), Sleep time (5/10/15).
+  Format is independent of the main clock; stored alarmTime is canonical HH:mm.
+- clock_alarmNext is the next daily timestamp; calculate the next occurrence
+  with local setHours/setDate (not +24 hours, which breaks across DST).
+  clock_alarmSnooze overrides the daily trigger until it rings. alarmRinging
+  survives reload. Turn off stops this occurrence, preserving daily enable;
+  switching Alarm on off cancels ringing and snooze entirely.
+- The smaller alarm label uses the selected face/colour/glow/brightness. Its
+  absolute top is measured against the TRANSFORMED display bounds, so it stays
+  just above the clock even when scaled. Reposition after render/resize/fonts.
+- Clock/audio/alarm.wav is an original bundled 2-second PCM alarm tone, with
+  provenance in audio/README.txt; sw.js precaches the WAV and alarm.js. Media is
+  primed during trusted interaction for mobile autoplay restrictions. Clock
+  must stay open/device awake; this is not a background OS alarm service.
+- While ringing, document click opens #clockAlarmModal; the clock drag handler
+  is skipped. Turn off and Sleep stop audio; Sleep persists the chosen delay.
+- tests/clock-alarm.spec.js covers settings, midnight/noon, actual WAV decode and
+  playback/stop, each snooze duration, repeat next day, and snooze persistence.
+  Confirmed initial red failures; then all 23 Clock/alarm/Clock-settings tests
+  passed (2 workers, retries=0) using the temporary 8090 server. Visually checked
+  settings and indicator screenshots. JS checks and git diff --check passed.
+- On Windows always specify encoding='utf-8' for Python source-file reads AND
+  writes; default read_text() can decode UTF-8 punctuation as cp1252 and create
+  unrelated mojibake on rewrite. Build is 202611032004.
+
+### 2026-11-03 - Alarm time dropdowns
+
+- Alarm hour/minute use smd-select instead of number spinners. Restore builds
+  hour options 01..12 or 00..23 and minute options 00..59; all values are padded
+  strings, while stored alarmTime stays HH:mm. AM/PM conversion is unchanged.
+  Validate values against dropdown options rather than native checkValidity().
+- Updated alarm UI tests to use the dropdown buttons/items and assert option
+  counts and persistence. TDD red confirmed missing dropdown options, then
+  focused tests passed; full alarm + Clock specs passed 18/18, retries=0.
