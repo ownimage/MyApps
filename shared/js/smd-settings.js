@@ -345,7 +345,7 @@ function injectSettingsLayout() {
     #mainNav { padding-top: env(safe-area-inset-top, 0); }
     body.auto-hide-menu #mainNav { position: fixed; top: 0; left: 0; right: 0; z-index: 1030; transition: transform 0.3s ease; }
     body.auto-hide-menu #mainNav.nav-hidden { transform: translateY(-100%); }
-    body.auto-hide-menu .container-fluid { padding-top: calc(60px + env(safe-area-inset-top, 0)); transition: padding-top 0.3s ease; }
+    body.auto-hide-menu .container-fluid { padding-top: calc(60px + var(--smd-nav-content-gap, 1rem) + env(safe-area-inset-top, 0)); transition: padding-top 0.3s ease; }
     body.auto-hide-menu #mainNav.nav-hidden ~ .container-fluid { padding-top: calc(0.5rem + env(safe-area-inset-top, 0)); }
     #mainNav.nav-inactive { pointer-events: none; }
     #settingsPage .smd-page-body { scrollbar-width: none; -ms-overflow-style: none; }

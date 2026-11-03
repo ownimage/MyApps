@@ -6,6 +6,7 @@ const now = new Date();
 const TODAY_MONTH = now.getMonth() + 1;
 const TODAY_DAY = now.getDate();
 const FUTURE_YEAR = now.getFullYear() + 2;
+const TRIP_DATE = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 2);
 
 const SEED_IMAGES = [
   {
@@ -31,7 +32,7 @@ const SEED_DATES = [
   { name: "Today Event", category: "", image: "", type: "annual", month: TODAY_MONTH, day: TODAY_DAY },
   { name: "Anniversary", category: "Birthday", image: "imgB", type: "annual", month: 7, day: 14 },
   { name: "Project Deadline", category: "Work", image: "imgC", type: "once", month: 12, day: 25, year: FUTURE_YEAR },
-  { name: "Trip", category: "Birthday", image: "", type: "annual", month: 11, day: 3 }
+  { name: "Trip", category: "Birthday", image: "", type: "annual", month: TRIP_DATE.getMonth() + 1, day: TRIP_DATE.getDate() }
 ];
 
 async function seed(page, overrides = {}) {
@@ -338,7 +339,7 @@ test.describe("CountMyDays - Regression", () => {
 
       await expect(dateText("Today Event")).toHaveText(annual(TODAY_MONTH, TODAY_DAY));
       await expect(dateText("Anniversary")).toHaveText(annual(7, 14));
-      await expect(dateText("Trip")).toHaveText(annual(11, 3));
+      await expect(dateText("Trip")).toHaveText(annual(TRIP_DATE.getMonth() + 1, TRIP_DATE.getDate()));
       await expect(dateText("Project Deadline"))
         .toHaveText(`${DAYS[new Date(FUTURE_YEAR, 11, 25).getDay()]} 25 Dec ${FUTURE_YEAR}`);
     });

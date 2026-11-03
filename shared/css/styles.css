@@ -189,6 +189,10 @@ input {
    shows through it while it is fixed (auto-hide menu) or scrolled behind it. */
 #mainNav {
   background-color: var(--bs-body-bg);
+  /* Keep content clear of the navbar's theme accent border. In auto-hide mode
+     the nav is fixed, so smd-settings-layout adds the same gap to the content
+     inset and removes it again when the nav is hidden. */
+  margin-bottom: var(--smd-nav-content-gap, 1rem);
 }
 
 /* The HAMBURGER button must not draw a border/ring while focused or while its

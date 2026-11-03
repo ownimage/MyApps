@@ -9952,3 +9952,32 @@ Everything below is the contract; break it and the app stops talking to the exe.
   display-settings dropped its `AUTOHIDE_ON_GENERAL` special case (Auto-hide is on
   Display again everywhere).
 - BUILD -> `202610311940` (bump).
+
+### 2026-11-03 - Shared navbar/content spacing
+
+- Added the shared `--smd-nav-content-gap` contract: `#mainNav` gets a bottom
+  gap in normal flow, while `smd-settings-layout` adds the same gap to the
+  fixed auto-hide content inset and removes it for `.nav-hidden`.
+- Removed duplicate `pt-3` main-view padding from PlanMyDay, ListOfLists, and
+  MyHID so CountMyDays and the other app shells share one spacing rule.
+- Added `tests/nav-spacing.spec.js`. Static JS checks passed; Playwright with
+  `--workers=32` could not start because the repository's Vite/test-output
+  directories were locked (`EPERM`) in this environment.
+- Follow-up: `tests/cmd-regression.spec.js` had a stale fixed `Trip` date that
+  became today's date on 2026-11-03; it now derives that annual fixture from
+  runtime today plus two days. The navbar test now clears any persisted
+  auto-hide class before measuring normal-flow spacing.
+- The weekday assertion for `Trip` now derives its expected text from the same
+  runtime-relative fixture; focused Playwright reruns remain blocked here by
+  the Vite web-server startup `EPERM`.
+- `CleanTestServerStart.cmd` is the supported recovery path: it stops listeners
+  on ports 8080/8081, clears `node_modules\\.vite`, starts
+  `tests/serve-tests.mjs` in the background, and waits for both ports. On
+  2026-11-03 the script correctly reported no enumerable listener and cleared
+  the cache, but Node still received `EADDRINUSE` for 127.0.0.1:8080; this
+  environment has a hidden/reserved port state that `Get-NetTCPConnection` did
+  not expose.
+- `tests/nav-spacing.spec.js` must wait for the auto-hide padding transition
+  to settle before sampling the visible inset; otherwise it can capture the
+  old zero padding and falsely fail the hidden-state comparison.
+- BUILD -> `202611031027`.
