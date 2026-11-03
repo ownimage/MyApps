@@ -39,6 +39,20 @@ function todayStr() {
   return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
 }
 
+function dateOffsetStr(offset) {
+  const d = new Date();
+  d.setDate(d.getDate() + offset);
+  return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+}
+
+function datedCategories() {
+  const categories = JSON.parse(JSON.stringify(CATEGORIES));
+  categories[0].lists[0].dated = true;
+  delete categories[0].lists[0].items[0].date;
+  categories[0].lists[0].items[1].date = dateOffsetStr(20);
+  return categories;
+}
+
 async function seed(page, categories = CATEGORIES) {
   await page.evaluate((cats) => {
     localStorage.setItem("lol_categories", JSON.stringify(cats));
@@ -263,6 +277,15 @@ test.describe("ListOfLists - Regression", () => {
       await expect(page.locator("#listTitleInput")).toHaveValue("Report");
       await expect(page.locator("#listItemsList .item-row")).toHaveCount(2);
     });
+
+    test("dated items show YYYY-MM-DD before the title", async ({ page }) => {
+      await seed(page, datedCategories());
+      await openListEditorFromMain(page, "Report");
+      const first = page.locator("#listItemsList .item-desc-input").first();
+      await expect(first).toHaveValue(todayStr() + " Gather data");
+      await expect(page.locator("#listItemsList .item-date-picker")).toHaveCount(0);
+      await expect(page.locator("#listItemsList .item-row").first()).toHaveClass(/flex-nowrap/);
+    });
   });
 
   // ── Edit List ───────────────────────────────────────────────────────────
@@ -290,6 +313,40 @@ test.describe("ListOfLists - Regression", () => {
       await expect(page.locator("#listDescriptionWrap")).toBeHidden();
       await page.locator("#listShowDescription").check();
       await expect(page.locator("#listDescriptionWrap")).toBeVisible();
+    });
+
+    test("dated lists persist and date item editors default to today", async ({ page }) => {
+      await seed(page, datedCategories());
+      await openListEditorFromMain(page, "Report");
+      await switchViewToEdit(page);
+
+      await expect(page.locator("#listDatedCb")).toBeChecked();
+      await expect(page.locator("#listShowDescription").locator(".."))
+        .toHaveClass(/list-edit-options/);
+      await expect(page.locator("#listCategoryDropdown").locator(".."))
+        .toHaveClass(/list-category-picker/);
+      await expect(page.locator("#listItemsList .item-date-picker").first()).toHaveAttribute("value", todayStr());
+      await expect(page.locator("#listItemsList .item-title-row").first()).toBeVisible();
+      const datedRow = page.locator("#listItemsList .item-row").first();
+      await expect(datedRow).toHaveClass(/dated-item-row/);
+      await expect(datedRow.locator(".item-date-picker")).toHaveCSS("order", "0");
+      await expect(datedRow.locator(".item-note-btn")).toHaveCSS("order", "1");
+      await expect(datedRow.locator(".item-title-row")).toHaveCSS("order", "2");
+
+      const pickedDate = await page.evaluate(() => {
+        const d = new Date();
+        d.setDate(d.getDate() + 7);
+        return d.toISOString().slice(0, 10);
+      });
+      await page.evaluate((value) => {
+        document.querySelector("#listItemsList .item-date-picker").value = value;
+      }, pickedDate);
+      await page.locator("#listEditOkBtn").click();
+      await expect(page.locator("#listEditPage")).toBeHidden();
+      const cats = await readCategories(page);
+      expect(cats[0].lists[0].dated).toBe(true);
+      expect(cats[0].lists[0].items[0].date).toBe(pickedDate);
+      expect(cats[0].lists[0].items[1].date).toBe(dateOffsetStr(20));
     });
 
     test("OK is disabled while the title is empty", async ({ page }) => {

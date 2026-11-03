@@ -6,6 +6,16 @@ var LISTS_EDITOR_STYLES = `
   .item-desc-input {
     min-width: 0;
   }
+  .item-title-row {
+    flex-basis: 100%;
+  }
+  .dated-item-row .item-title-row {
+    order: 2;
+  }
+  .dated-item-row .item-note-btn,
+  .dated-item-row .btn-danger {
+    order: 1;
+  }
   .item-note-btn {
     transition: none;
   }
