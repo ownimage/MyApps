@@ -10321,3 +10321,24 @@ Everything below is the contract; break it and the app stops talking to the exe.
   Clock/alarm/Mondaine/Nixie/Clock-settings tests passed, 2 workers/retries=0.
   Visually checked amber 0..9 preview plus full green Clock and responsive fit.
   JS syntax, precache existence, and git diff --check passed.
+
+### 2026-11-03 - Nixie enclosure controls and light backgrounds
+
+- Nixie-only Show glass / Show pins switches default on and persist under
+  clock_nixieGlass / clock_nixiePins. syncClockNixieSettings restores controls;
+  renderNixieClock reapplies nixie-no-glass/nixie-no-pins after each render.
+- Glass visibility covers the digit envelope/backing, reflections, rim/grain,
+  and the colon enclosure. Pins visibility covers pins/socket/ground shadow.
+  The internal cathodes and mesh stay visible. SVG viewBoxes and natural height
+  crop hidden space for each combination; the unified group fit then resizes.
+- Nixie interior gradients and rims now use theme surface/foreground variables.
+  --nixie-material-ink follows --bs-body-color, with a light override on pure
+  black. A thin contrasting wire edge and Nixie-only text stroke keep pale
+  selected colours readable on light backgrounds without changing their fill.
+  Colon housing also follows the surface. No runtime colour repaint layer.
+- Added TDD red/green for switches, persistence, colon enclosure, independent
+  combinations and mobile fit. Light/dark screenshots and an edge-contrast
+  assertion verify default pale-green digits stay legible, glass on/off.
+  Full Clock/alarm/Mondaine/Nixie/Clock-settings passed 36/36, workers=2,
+  retries=0. Visually inspected light glass, light bare and dark glass renders.
+  Syntax checks and git diff --check passed; bumped via shared/bump-build.js.

@@ -71,6 +71,7 @@ function updateClockColon() {
 }
 
 function syncClockColonSetting() {
+  syncClockNixieSettings();
   var row = document.getElementById("clockColonModeRow");
   if (row) row.classList.toggle("d-none", clockSetting("font", "flip") !== "seven");
   var textRow = document.getElementById("clockMondaineTextFontRow");
@@ -93,6 +94,7 @@ function renderClock() {
   var text = formatClockTime(new Date());
   var previousText = clockLastStyle === style ? clockLastText : null;
   document.getElementById("clockMain").classList.toggle("clock-mondaine-layout", style === "mondaine");
+  document.getElementById("clockMain").classList.toggle("clock-nixie-layout", style === "nixie");
   if (style === "mondaine") {
     renderMondaineClock(display);
   } else if (style === "nixie") {

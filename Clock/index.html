@@ -87,6 +87,14 @@
             <option value="inter">Inter</option><option value="london">London Tube</option>
           </smd-select></div>
         </div>
+        <div id="clockNixieGlassRow" class="row mb-4 align-items-center col-md-8 d-none">
+          <div class="col-4 text-end"><label class="form-label mb-0">Show glass</label></div>
+          <div class="col-8"><smd-checkbox id="clockNixieGlass" switch onchange="changeClockNixieGlass(this.checked)"></smd-checkbox></div>
+        </div>
+        <div id="clockNixiePinsRow" class="row mb-4 align-items-center col-md-8 d-none">
+          <div class="col-4 text-end"><label class="form-label mb-0">Show pins</label></div>
+          <div class="col-8"><smd-checkbox id="clockNixiePins" switch onchange="changeClockNixiePins(this.checked)"></smd-checkbox></div>
+        </div>
         <div id="clockColonModeRow" class="row mb-4 align-items-center col-md-8 d-none">
           <div class="col-4 text-end"><label class="form-label mb-0" for="clockColonModeSelector">Colon</label></div>
           <div class="col-8">

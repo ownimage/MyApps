@@ -1,0 +1,52 @@
+body#smd-app { --nixie-material-ink: var(--bs-body-color, #e9ecef); }
+body#smd-app.clock-pure-black { --nixie-material-ink: #e9ecef; }
+/* Original Nixie tube materials remain neutral; only gas/cathodes emit colour. */
+.nixie-digit.flip-digit {
+  display: block;
+  width: 108px;
+  height: 180px;
+  flex: none;
+  aspect-ratio: auto;
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+  text-shadow: none;
+}
+.nixie-tube { display: block; width: 100%; height: 100%; overflow: visible; color: var(--clock-color); }
+.nixie-tube use { fill: none; stroke-linecap: round; stroke-linejoin: round; }
+.nixie-inactive { stroke: var(--nixie-material-ink, #8c8371); stroke-width: .9; opacity: .15; }
+.nixie-halo { stroke: currentColor; stroke-width: 8; opacity: var(--clock-glow-amount, .35); }
+.nixie-gas { stroke: currentColor; stroke-width: 4; opacity: calc(var(--clock-glow-amount, .35) * .75); }
+.nixie-lit-wire { stroke: currentColor; stroke-width: 1.9; }
+.nixie-core { stroke: color-mix(in srgb, var(--clock-color) 45%, white); stroke-width: .6; opacity: .95; }
+.nixie-bloom { fill: currentColor; opacity: calc(var(--clock-glow-amount, .35) * .18); }
+.nixie-separator { display: block; width: 24px; height: 180px; flex: none; color: var(--clock-color); }
+.nixie-separator svg { display: block; width: 100%; height: 100%; overflow: visible; }
+.nixie-colon-glow { fill: currentColor; filter: drop-shadow(0 0 calc(var(--clock-glow-amount, .35) * 6px) currentColor); }
+.nixie-colon-core { fill: color-mix(in srgb, var(--clock-color) 45%, white); }
+
+/* Keep the glass tinted by its surroundings, rather than painting a black
+   silhouette on a light page. The lit wire still uses the selected hue. */
+.nixie-interior-top { stop-color: color-mix(in srgb, var(--clock-surface-background) 88%, var(--nixie-material-ink)); }
+.nixie-interior-middle { stop-color: color-mix(in srgb, var(--clock-surface-background) 97%, var(--nixie-material-ink)); }
+.nixie-interior-bottom { stop-color: color-mix(in srgb, var(--clock-surface-background) 92%, var(--nixie-material-ink)); }
+.nixie-envelope { stroke: color-mix(in srgb, var(--nixie-material-ink) 25%, transparent); }
+.nixie-rim { stroke: color-mix(in srgb, var(--nixie-material-ink) 45%, transparent); }
+.nixie-wire-edge { stroke: color-mix(in srgb, var(--clock-color) 15%, var(--nixie-material-ink)); stroke-width: 3.1; }
+.nixie-colon-glow { stroke: color-mix(in srgb, var(--clock-color) 15%, var(--nixie-material-ink)); stroke-width: .8; }
+.nixie-no-glass .nixie-envelope,
+.nixie-no-glass .nixie-glazing,
+.nixie-no-glass .nixie-colon-enclosure,
+.nixie-no-pins .nixie-pins { display: none; }
+
+.nixie-colon-enclosure rect {
+  fill: color-mix(in srgb, var(--clock-surface-background) 97%, var(--nixie-material-ink));
+  stroke: color-mix(in srgb, var(--nixie-material-ink) 35%, transparent);
+  stroke-opacity: 1;
+}
+.clock-nixie-layout .clock-date,
+.clock-nixie-layout .clock-alarm-indicator {
+  -webkit-text-stroke: .025em color-mix(in srgb, var(--clock-color) 15%, var(--nixie-material-ink));
+  paint-order: stroke fill;
+}
