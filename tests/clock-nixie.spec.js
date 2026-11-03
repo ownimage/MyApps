@@ -122,3 +122,17 @@ test("Nixie remains legible on light and dark backgrounds, with and without glas
     }
   }
 });
+
+test("Nixie side uprights are pale on a light background", async ({page}, testInfo) => {
+  await page.evaluate(() => { localStorage.setItem("clock_themeMode","light"); applyTheme("flatly"); changeClockFont("nixie"); });
+  await expect(page.locator("body")).toHaveCSS("background-color","rgb(255, 255, 255)");
+  const brightness = () => page.locator('.nixie-tube path[d="M35 54V198M109 54V198"]').first().evaluate(el => {
+    const ctx=document.createElement("canvas").getContext("2d");
+    ctx.fillStyle=getComputedStyle(el).stroke; ctx.fillRect(0,0,1,1);
+    return Array.from(ctx.getImageData(0,0,1,1).data).slice(0,3).reduce((a,b)=>a+b,0)/3;
+  });
+  expect(await brightness()).toBeGreaterThan(200);
+  await page.screenshot({path:testInfo.outputPath("nixie-light-uprights.png")});
+  await page.evaluate(() => changeClockPureBlack(true));
+  expect(await brightness()).toBeLessThan(65);
+});

@@ -51,7 +51,7 @@ function createNixieDigit() {
       <rect class="nixie-envelope" x="18" y="13" width="108" height="200" filter="url(#${id}-grain)" opacity=".6"/>
       <ellipse class="nixie-bloom" cx="72" cy="133" rx="39" ry="60" filter="url(#${id}-bloom)"/>
       <path d="M33 55H111V194H33Z" fill="url(#${id}-mesh)" opacity=".36"/>
-      <path d="M35 54V198M109 54V198" stroke="url(#${id}-metal)" stroke-width="2.2"/>
+      <path class="nixie-uprights" d="M35 54V198M109 54V198" stroke="url(#${id}-metal)" stroke-width="2.2"/>
       <path d="M31 61Q72 53 113 61M29 193Q72 201 115 193" fill="none" stroke="#8e8c78" stroke-opacity=".42" stroke-width="2.4"/>
       <g class="nixie-inactive">${unlit}</g>
       <path d="M47 199L49 176M58 199L60 177M69 199V178M80 199L78 178M92 199L94 176" stroke="#797467" stroke-opacity=".6" stroke-width="1" fill="none"/>

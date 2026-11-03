@@ -10342,3 +10342,14 @@ Everything below is the contract; break it and the app stops talking to the exe.
   Full Clock/alarm/Mondaine/Nixie/Clock-settings passed 36/36, workers=2,
   retries=0. Visually inspected light glass, light bare and dark glass renders.
   Syntax checks and git diff --check passed; bumped via shared/bump-build.js.
+
+### 2026-11-03 - Quieter Nixie side uprights
+
+- The two full-height side rods now have .nixie-uprights and blend 88% of the
+  Clock surface with a neutral dark metal. This makes them pale grey on light
+  pages, while dark surfaces retain dark supports. Pure black uses #242a2d.
+  The pins, mesh, selected numeral colour and glow are unaffected.
+- Added regression for pale upright stroke on white and dark stroke under Pure
+  black; confirmed red, then green. All 6 Nixie tests passed, workers=2,
+  retries=0. Visually checked the light-background screenshot; diff check passed.
+  Build bumped through shared/bump-build.js.

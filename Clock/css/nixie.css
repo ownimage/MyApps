@@ -50,3 +50,7 @@ body#smd-app.clock-pure-black { --nixie-material-ink: #e9ecef; }
   -webkit-text-stroke: .025em color-mix(in srgb, var(--clock-color) 15%, var(--nixie-material-ink));
   paint-order: stroke fill;
 }
+
+/* Recede into the surrounding surface instead of framing the numeral in black. */
+.nixie-uprights { stroke: color-mix(in srgb, var(--clock-surface-background) 88%, #20262a); }
+body.clock-pure-black .nixie-uprights { stroke: #242a2d; }
