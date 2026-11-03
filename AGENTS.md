@@ -10168,3 +10168,63 @@ Everything below is the contract; break it and the app stops talking to the exe.
 - Updated alarm UI tests to use the dropdown buttons/items and assert option
   counts and persistence. TDD red confirmed missing dropdown options, then
   focused tests passed; full alarm + Clock specs passed 18/18, retries=0.
+
+### 2026-11-03 - Mondaine analogue clock face
+
+- Added Mondaine to Clock font options, adapted from the user's
+  ownimage/display/display/src/app/mondaine_clock (not Mondrian artwork).
+  Clock/js/mondaine.js retains hand/tick polygon geometry and the seconds
+  hand's 58-second sweep followed by a 2-second pause at twelve. Use scoped
+  Mondaine IDs/classes; never rebuild the SVG on every timer tick. A 200ms
+  update timer moves its hands; Show seconds hides the red seconds group.
+- Dial/ticks/hands use Bootstrap body background/foreground, red seconds stay
+  red. Pure black forces a black dial and light hands independently of theme.
+- Mondaine uses a height-constrained square layout, unlike width-filling digital
+  faces. fitClockDisplay measures room for alarm/date and the date aspect ratio;
+  fitClockDate reserves transformed date height using marginBottom. Reset that
+  margin when leaving analogue. updateClockAlarmIndicator refits this layout
+  when the alarm label is toggled. Keep digital centring/scaling unchanged.
+- No clear redistribution licence was found for SBB's actual corporate font.
+  Open Sans is bundled for Mondaine's date/alarm only under SIL OFL 1.1:
+  Clock/fonts/OpenSans.ttf and OpenSans-OFL.txt, sourced from google/fonts/ofl/
+  opensans. Preserve its Credits attribution and service-worker precache entries.
+- tests/clock-mondaine.spec.js covers selecting/persisting/switching face, hand
+  positions and seconds pause, show-seconds, light/dark/pure-black appearance,
+  bundled font readiness, and date/alarm viewport fit on desktop/portrait/landscape.
+  Confirmed red before implementation, then all 22 Clock/alarm/Mondaine tests
+  passed with 2 workers and retries=0. Visually inspected all three sizes.
+  JS syntax checks and git diff --check passed. New scripts/font/licence are
+  precached by sw.js; build bumped with shared/bump-build.js.
+
+### 2026-11-03 - Mondaine text font choices
+
+- Mondaine-only Display -> Text font offers Inter (default) and London Tube;
+  persists as clock_mondaineTextFont = inter/london. Both alarm and date consume
+  --clock-font. Changing text face or switching clock faces must refit again
+  after document.fonts.ready, otherwise first-use fallback metrics can clip text.
+- Inter.ttf / Inter-OFL.txt are from google/fonts/ofl/inter, SIL OFL 1.1.
+  LondonTube.ttf is the unmodified LondonTube-MABx.ttf from FontSpace family
+  g841; preserve LondonTube-LICENSE.txt (the package's original info.txt).
+  Source: https://www.fontspace.com/london-tube-font-f2717 ; Jonathan Paterson;
+  FontSpace lists Freeware / 100% Free. Credits and service-worker assets updated.
+  These choices supersede the initial Open Sans implementation described above.
+- Regression confirmed red before the selector existed, then all 28 Clock,
+  alarm, Mondaine and Clock-settings tests passed with 2 workers/retries=0.
+  Layout checks cover BOTH fonts on desktop, portrait and landscape; visually
+  inspected both desktop renderings. JS syntax and diff checks passed.
+  Build bumped through shared/bump-build.js to 202611032034.
+
+### 2026-11-03 - Remove unused Clock assets and test artifacts
+
+- Removed unused Clock/fonts/OpenSans.ttf, OpenSans-OFL.txt, and
+  DSEG7Classic-Regular.woff2. Keep DSEG7Modern and DSEG-LICENSE.txt, Inter and
+  its OFL, and London Tube and its licence; those are active font assets.
+- Cleared generated work/, test-results/, and playwright-report/ from the repo,
+  including error-context.md and .last-run.json. /work/ is now gitignored;
+  Playwright's standard result/report directories were already ignored.
+- Recursive deletion was blocked by automatic approval review. Used reversible
+  removal instead: artifacts moved outside the repo to this session workspace's
+  work/removed-myapps-artifacts. Checked every resolved source stayed in MyApps.
+- Confirmed deleted font names have no runtime references and every Clock CSS
+  asset and service-worker entry still exists. No browser run was needed for
+  unused-file removal (it would recreate the artifacts just cleaned up).

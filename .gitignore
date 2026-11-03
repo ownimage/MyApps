@@ -23,3 +23,6 @@ __pycache__/
 # the server leaf). NEVER commit the private keys.
 /MyHID/server/*.crt
 /MyHID/server/*.key
+
+# Local scratch files and temporary test runs.
+/work/

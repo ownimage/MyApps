@@ -73,8 +73,15 @@
               <option value="seven">7-segment</option>
               <option value="arial">Arial</option>
               <option value="courier">Courier New</option>
+              <option value="mondaine">Mondaine</option>
             </smd-select>
           </div>
+        </div>
+        <div id="clockMondaineTextFontRow" class="row mb-4 align-items-center col-md-8 d-none">
+          <div class="col-4 text-end"><label class="form-label mb-0" for="clockMondaineTextFont">Text font</label></div>
+          <div class="col-8"><smd-select id="clockMondaineTextFont" onchange="changeClockMondaineTextFont(this.value)">
+            <option value="inter">Inter</option><option value="london">London Tube</option>
+          </smd-select></div>
         </div>
         <div id="clockColonModeRow" class="row mb-4 align-items-center col-md-8 d-none">
           <div class="col-4 text-end"><label class="form-label mb-0" for="clockColonModeSelector">Colon</label></div>
@@ -152,6 +159,11 @@
         <div class="row mb-4 col-md-8">
           <div class="col-12">
             <h2 class="h5">Credits</h2>
+            <p class="small mb-3">The Mondaine face is adapted from
+              <a href="https://github.com/ownimage/display/tree/main/display/src/app/mondaine_clock" target="_blank" rel="noopener">ownimage/display</a>.
+              Its date and alarm can use Inter, licensed under the SIL Open Font License 1.1,
+              or <a href="https://www.fontspace.com/london-tube-font-f2717" target="_blank" rel="noopener">London Tube</a>
+              by Jonathan Paterson, distributed as freeware.</p>
             <p class="small mb-3">The split-flap display treatment is adapted from
               <a href="https://github.com/MohdYahyaMahmodi/splitflap.org" target="_blank" rel="noopener">splitflap.org</a>
               by Mohd Mahmodi and is used under the MIT License.</p>
@@ -196,6 +208,7 @@
   <script>document.write('<script src="../shared/js/smd-app.js?v=' + BUILD_NUMBER + '"><\/script>');</script>
   <script>document.write('<script src="../shared/js/smd-settings.js?v=' + BUILD_NUMBER + '"><\/script>');</script>
   <script>document.write('<script src="../shared/js/smd-apps.js?v=' + BUILD_NUMBER + '"><\/script>');</script>
+  <script>document.write('<script src="js/mondaine.js?v=' + BUILD_NUMBER + '"><\/script>');</script>
   <script>document.write('<script src="js/app.js?v=' + BUILD_NUMBER + '"><\/script>');</script>
   <script>document.write('<script src="js/alarm.js?v=' + BUILD_NUMBER + '"><\/script>');</script>
   <script>

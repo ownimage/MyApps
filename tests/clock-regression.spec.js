@@ -72,7 +72,7 @@ test.describe("Clock - Regression", () => {
     await expect(page.locator("#settingsPage")).toHaveAttribute("open", "");
     await expect(page.locator("#settingsTabs > .smd-tab-list .smd-tab-btn")).toHaveText(["Display", "Alarm", "Credits", "Danger"]);
     await expect(page.locator("#clockFormatSelector .smd-select-item")).toHaveText(["12 hour", "24 hour"]);
-    await expect(page.locator("#clockFontSelector .smd-select-item")).toHaveText(["Flip style", "7-segment", "Arial", "Courier New"]);
+    await expect(page.locator("#clockFontSelector .smd-select-item")).toHaveText(["Flip style", "7-segment", "Arial", "Courier New", "Mondaine"]);
     await expect(page.locator("#autoHideMenu")).toBeVisible();
     await expect(page.locator("#clockShowSeconds input")).toBeChecked();
     await expect(page.locator("#clockShowDate input")).toBeChecked();

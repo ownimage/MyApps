@@ -19,6 +19,7 @@ function updateClockAlarmIndicator() {
   if (!label) return;
   label.classList.toggle("d-none", !clockAlarmEnabled());
   label.classList.toggle("clock-alarm-seven", clockSetting("font", "flip") === "seven");
+  if (clockSetting("font", "flip") === "mondaine") { label.style.top = ""; fitClockDisplay(); fitClockDate(); return; }
   var display = document.getElementById("clockDisplay");
   var surface = document.getElementById("clockMain");
   label.style.top = (display.getBoundingClientRect().top - surface.getBoundingClientRect().top - 12) + "px";

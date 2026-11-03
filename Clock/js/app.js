@@ -4,7 +4,8 @@ var CLOCK_FONT_FAMILIES = {
   flip: "Arial Black, Arial, sans-serif",
   seven: "'Courier New', monospace",
   arial: "Arial, sans-serif",
-  courier: "'Courier New', monospace"
+  courier: "'Courier New', monospace",
+  mondaine: "'Clock Inter', Arial, sans-serif"
 };
 var clockTimer = null;
 var clockDrag = null;
@@ -27,13 +28,28 @@ function fitClockDate() {
   var naturalWidth = date.getBoundingClientRect().width;
   var availableWidth = display.getBoundingClientRect().width;
   if (!naturalWidth || !availableWidth) return;
-  date.style.setProperty("--clock-date-scale", String(availableWidth / naturalWidth));
+  var scale = availableWidth / naturalWidth;
+  date.style.setProperty("--clock-date-scale", String(scale));
+  date.style.marginBottom = clockSetting("font", "flip") === "mondaine" ? Math.max(0, date.offsetHeight * (scale - 1)) + "px" : "";
 }
 
 function fitClockDisplay() {
   var display = document.getElementById("clockDisplay");
   var surface = document.getElementById("clockMain");
   if (!display || !surface) return;
+  if (clockSetting("font", "flip") === "mondaine") {
+    var date = document.getElementById("clockDate");
+    var label = document.getElementById("clockAlarmIndicator");
+    var showDate = clockSetting("showDate", "true") !== "false";
+    var dateRatio = showDate && date.offsetWidth ? date.offsetHeight / date.offsetWidth : 0;
+    var labelHeight = clockAlarmEnabled() ? (parseFloat(getComputedStyle(label).fontSize) * 1.3 + 8) : 0;
+    var dateGap = showDate ? parseFloat(getComputedStyle(date).marginTop) : 0;
+    var availableHeight = window.innerHeight - surface.getBoundingClientRect().top - 16 - labelHeight - dateGap - 16;
+    var size = Math.max(60, Math.min(surface.clientWidth, availableHeight / (1 + dateRatio)));
+    display.style.setProperty("--clock-scale", "1");
+    surface.style.setProperty("--mondaine-size", size + "px");
+    return;
+  }
   var availableWidth = surface.clientWidth;
   if (!availableWidth) return;
   display.style.setProperty("--clock-scale", "1");
@@ -63,6 +79,10 @@ function updateClockColon() {
 function syncClockColonSetting() {
   var row = document.getElementById("clockColonModeRow");
   if (row) row.classList.toggle("d-none", clockSetting("font", "flip") !== "seven");
+  var textRow = document.getElementById("clockMondaineTextFontRow");
+  if (textRow) textRow.classList.toggle("d-none", clockSetting("font", "flip") !== "mondaine");
+  var selector = document.getElementById("clockMondaineTextFont");
+  if (selector) selector.value = clockSetting("mondaineTextFont", "inter");
 }
 
 function changeClockColonMode(value) {
@@ -78,6 +98,10 @@ function renderClock() {
   display.className = "flip-clock clock-style-" + style + (clockSetting("showBoxes", "true") === "false" ? " clock-no-boxes" : "");
   var text = formatClockTime(new Date());
   var previousText = clockLastStyle === style ? clockLastText : null;
+  document.getElementById("clockMain").classList.toggle("clock-mondaine-layout", style === "mondaine");
+  if (style === "mondaine") {
+    renderMondaineClock(display);
+  } else {
   display.innerHTML = "";
   text.split("").forEach(function (character, index) {
     if (character === ":") {
@@ -126,6 +150,7 @@ function renderClock() {
     }
     display.appendChild(digit);
   });
+  }
   updateClockColon();
   clockLastText = text;
   clockLastStyle = style;
@@ -140,6 +165,7 @@ function renderClock() {
     var year = now.toLocaleDateString(undefined, { year: "numeric" });
     date.textContent = weekday + ", " + day + " " + month + ", " + year;
     date.classList.toggle("d-none", clockSetting("showDate", "true") === "false");
+    if (style === "mondaine") fitClockDisplay();
     fitClockDate();
   }
   if (typeof updateClockAlarmIndicator === "function") updateClockAlarmIndicator();
@@ -147,7 +173,9 @@ function renderClock() {
 
 function applyClockFont() {
   var font = clockSetting("font", "flip");
-  document.documentElement.style.setProperty("--clock-font", CLOCK_FONT_FAMILIES[font] || CLOCK_FONT_FAMILIES.flip);
+  var family = CLOCK_FONT_FAMILIES[font] || CLOCK_FONT_FAMILIES.flip;
+  if (font === "mondaine" && clockSetting("mondaineTextFont", "inter") === "london") family = "'Clock London Tube', Arial, sans-serif";
+  document.documentElement.style.setProperty("--clock-font", family);
 }
 
 function applyClockBackground() {
@@ -182,6 +210,14 @@ function changeClockFont(value) {
   applyClockFont();
   syncClockColonSetting();
   renderClock();
+  if (document.fonts) document.fonts.ready.then(renderClock);
+}
+
+function changeClockMondaineTextFont(value) {
+  localStorage.setItem(smdKey("mondaineTextFont"), value === "london" ? "london" : "inter");
+  applyClockFont();
+  renderClock();
+  if (document.fonts) document.fonts.ready.then(renderClock);
 }
 
 function changeClockColor(value) {
