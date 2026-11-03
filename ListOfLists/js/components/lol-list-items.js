@@ -1,7 +1,7 @@
 // <lol-list-items> — the ListOfLists list-edit Items list (light DOM).
 //
 // Data-driven: the host sets
-//   items    = [{ description, done, note, noteOpen }, ...]
+//   items    = [{ description, done, note, noteOpen, date }, ...]
 //   viewOnly = boolean (or the `view-only` attribute) — view mode: no drag handle
 //              and NO delete button, the description input is READONLY, but the
 //              done checkbox and the note (pencil) button/text stay LIVE.
@@ -24,7 +24,7 @@ function lolListItemsEscape(str) {
 
 class LolListItems extends HTMLElement {
   static get observedAttributes() {
-    return ['view-only'];
+    return ['view-only', 'dated'];
   }
 
   constructor() {
@@ -46,6 +46,10 @@ class LolListItems extends HTMLElement {
     return this.hasAttribute('view-only');
   }
 
+  get dated() {
+    return this.hasAttribute('dated');
+  }
+
   set viewOnly(value) {
     if (value) this.setAttribute('view-only', '');
     else this.removeAttribute('view-only');
@@ -58,6 +62,7 @@ class LolListItems extends HTMLElement {
       this.addEventListener('change', (e) => this._onChange(e));
       this.addEventListener('input', (e) => this._onInput(e));
       this.addEventListener('click', (e) => this._onClick(e));
+      this.addEventListener('smd-date-picker-change', (e) => this._onDateChange(e));
     }
     this._render();
   }
@@ -88,6 +93,12 @@ class LolListItems extends HTMLElement {
     const index = this._indexFrom(target);
     if (index < 0) return;
     this._dispatch('lol-list-item-change', { index: index, field: 'done', value: !!target.checked });
+  }
+
+  _onDateChange(e) {
+    const picker = e.target && e.target.closest ? e.target.closest('smd-date-picker') : null;
+    const index = this._indexFrom(picker);
+    if (index >= 0) this._dispatch('lol-list-item-change', { index: index, field: 'date', value: picker.value || '' });
   }
 
   _onInput(e) {
@@ -130,6 +141,7 @@ class LolListItems extends HTMLElement {
 
   _render() {
     const viewOnly = this.viewOnly;
+    const dated = this.dated;
     // In view mode only the DESCRIPTION input is locked: the done checkbox and
     // the note button/text stay live so lists can be ticked/annotated while
     // viewing. The drag handle and the delete button are dropped entirely.
@@ -140,11 +152,19 @@ class LolListItems extends HTMLElement {
       const note = item.note || '';
       const handle = viewOnly ? '' : '<smd-draghandle class="drag-handle"></smd-draghandle>';
       const del = viewOnly ? '' : '<button type="button" class="btn btn-sm btn-danger d-flex align-items-center justify-content-center p-2 flex-shrink-0" title="Delete">' + LOL_LIST_ITEMS_DELETE_SVG + '</button>';
+      const date = item.date || (dated && typeof getTodayStr === 'function' ? getTodayStr() : '');
+      const datePicker = dated && !viewOnly
+        ? '<smd-date-picker class="item-date-picker flex-grow-1" value="' + lolListItemsEscape(date) + '" format="Y-m-d" alt-format="Y-m-d" no-clear></smd-date-picker>'
+        : '';
+      const title = dated && viewOnly ? (date + (item.description ? ' ' + item.description : '')) : (item.description || '');
+      const titleClass = dated && !viewOnly ? ' item-title-row w-100' : '';
+      const rowClass = dated && !viewOnly ? ' dated-item-row flex-wrap' : ' flex-nowrap';
       html +=
-        '<div class="d-flex align-items-center gap-2 mb-1 item-row item-drag-card user-select-none rounded px-2 py-1" data-item-index="' + i + '">' +
+        '<div class="d-flex align-items-center gap-2 mb-1 item-row item-drag-card user-select-none rounded px-2 py-1' + rowClass + '" data-item-index="' + i + '">' +
           handle +
           '<smd-checkbox class="item-done-cb" id="itemDone' + i + '" ' + (item.done ? 'checked' : '') + '></smd-checkbox>' +
-          '<input class="form-control item-desc-input flex-grow-1" value="' + lolListItemsEscape(item.description || '') + '" ' + ro + ' placeholder="Item description">' +
+          datePicker +
+          '<input class="form-control item-desc-input flex-grow-1' + titleClass + '" value="' + lolListItemsEscape(title) + '" ' + ro + ' placeholder="Item description">' +
           '<button type="button" class="btn btn-sm ' + (note ? 'btn-outline-info' : 'btn-info') + ' item-note-btn" title="Note">' + LOL_LIST_ITEMS_NOTE_SVG + '</button>' +
           del +
         '</div>' +

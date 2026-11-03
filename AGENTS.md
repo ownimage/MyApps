@@ -9981,3 +9981,23 @@ Everything below is the contract; break it and the app stops talking to the exe.
   to settle before sampling the visible inset; otherwise it can capture the
   old zero padding and falsely fail the hidden-state comparison.
 - BUILD -> `202611031027`.
+
+### 2026-11-03 - ListOfLists dated lists
+
+- Added persisted `dated` state to lists and persisted `date` values on list
+  items. Existing dated items without a date receive today's local date when
+  the editor is built; new dated items do the same.
+- The Edit List page now places a Dated list checkbox after Description and
+  shows a date picker plus full-width title row for dated items. The View List
+  page renders dated items as `YYYY-MM-DD <title>`.
+- Added dated-list regression coverage. The focused Playwright run passed 2/2
+  with `--workers=32`; `CleanTestServerStart.cmd` was needed in the same
+  process as the test because background servers do not survive this sandbox's
+  separate command sessions.
+- Test-running lessons: install Chromium in the same sandbox/process that runs
+  Playwright; a browser installation from a previous command may not be
+  visible later. Run `CleanTestServerStart.cmd` and the test command in one
+  command session, set `EXTERNAL_SERVERS=1`, and use `--retries=0` when
+  diagnosing failures. A `page.goto` timeout can therefore indicate that the
+  background test server disappeared, not an application failure. The script
+  output `READY` and an HTTP 200 probe are useful before blaming the test.

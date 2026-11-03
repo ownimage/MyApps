@@ -18,10 +18,18 @@ function updateListEditOkBtn() {
   const title = $id("listTitleInput");
   okBtn.disabled = !title || !title.value.trim();
 }
+function ensureListItemDates() {
+  if (!listsBuffer || !listsBuffer.dated) return;
+  if (!listsBuffer.items) listsBuffer.items = [];
+  var today = typeof getTodayStr === "function" ? getTodayStr() : new Date().toISOString().slice(0, 10);
+  listsBuffer.items.forEach(function(item) {
+    if (!item.date) item.date = today;
+  });
+}
 function listAddItem() {
   if (!listsBuffer) return;
   if (!listsBuffer.items) listsBuffer.items = [];
-  listsBuffer.items.push({ description: "", done: false, note: "" });
+  listsBuffer.items.push({ description: "", done: false, note: "", ...(listsBuffer.dated ? { date: getTodayStr() } : {}) });
   renderListItems();
   var listEl = $id("listItemsList");
   var inputs = listEl ? listEl.querySelectorAll(".item-desc-input") : [];
@@ -35,7 +43,7 @@ function listAddItem() {
 function listAddItemTop() {
   if (!listsBuffer) return;
   if (!listsBuffer.items) listsBuffer.items = [];
-  listsBuffer.items.unshift({ description: "", done: false, note: "" });
+  listsBuffer.items.unshift({ description: "", done: false, note: "", ...(listsBuffer.dated ? { date: getTodayStr() } : {}) });
   renderListItems();
   var first = $id("listItemsList");
   first = first ? first.querySelector(".item-desc-input") : null;
@@ -86,6 +94,8 @@ function renderListItems() {
   var el = $id("listItemsList");
   if (!el || !listsBuffer) return;
   var items = listsBuffer.items || [];
+  ensureListItemDates();
+  el.toggleAttribute("dated", !!listsBuffer.dated);
   el.items = items;
   var topBtn = $id("listAddItemBtn");
   if (topBtn) {
@@ -129,7 +139,7 @@ function getListEditPageContent(data, readOnly) {
   if (readOnly) {
     return `
       <div>
-        <lol-list-items id="listItemsList" view-only></lol-list-items>
+        <lol-list-items id="listItemsList" view-only${data.dated ? " dated" : ""}></lol-list-items>
       </div>
     `;
   }
@@ -148,12 +158,15 @@ function getListEditPageContent(data, readOnly) {
     <div class="mb-2">
       <input class="form-control" id="listTitleInput" value="${escapeHtml(data.title || "")}" ${ro} oninput="listField('title', this.value);updateListEditOkBtn()" ${readOnly ? "" : "onkeydown=\"if(event.key==='Enter') listEditOk()\""}>
     </div>
-    <div class="d-flex align-items-center flex-wrap gap-2 mb-2">
+    <div class="d-flex align-items-center flex-wrap gap-2 mb-2 list-edit-selectors">
       <div class="list-category-picker">
         <smd-image-dropdown id="listCategoryDropdown" key-prefix="${escAttr(smdImagePrefix())}" ${readOnly ? "disabled" : ""}></smd-image-dropdown>
       </div>
       <smd-image-select id="listImageSelect" key-prefix="${escAttr(smdImagePrefix())}" image="${escapeHtml(data.image || "")}" label-id="listImageName" button-id="btnListImageChange" ${readOnly ? "disabled" : ""}></smd-image-select>
+    </div>
+    <div class="d-flex align-items-center flex-wrap gap-2 mb-2 list-edit-options">
       <smd-checkbox id="listShowDescription" ${showDescription ? "checked" : ""} onchange="toggleListDescription(this.checked)">Description</smd-checkbox>
+      <smd-checkbox id="listDatedCb" ${data.dated ? "checked" : ""} onchange="listField('dated', this.checked);ensureListItemDates();renderListItems()">Dated list</smd-checkbox>
     </div>
     <div id="listDescriptionWrap" class="mb-2${showDescription ? "" : " d-none"}">
       <textarea class="form-control" rows="3" ${readOnly ? "readonly" : ""} oninput="listField('description', this.value)">${escapeHtml(data.description || "")}</textarea>
@@ -215,6 +228,7 @@ function restoreListEditBackground() {
 function buildListEditPage(readOnly) {
   if (!listsBuffer) return;
   const data = listsBuffer;
+  if (!readOnly) ensureListItemDates();
   const title = readOnly ? (data.title || "No Title") : (isNewList ? "Add List" : "Edit List");
   const page = document.getElementById("listEditPage");
   if (!page) return;
@@ -443,7 +457,7 @@ function addNewList() {
   var categories = loadCategories();
   var lists = categories[listsCategoryIndex].lists || [];
   var seq = lists.length + 1;
-  var newList = { id: "list_" + Date.now(), title: "", sequence: seq, description: "", active: true, items: [] };
+  var newList = { id: "list_" + Date.now(), title: "", sequence: seq, description: "", active: true, dated: false, items: [] };
   lists.push(newList);
   categories[listsCategoryIndex].lists = lists;
   saveCategories(categories);

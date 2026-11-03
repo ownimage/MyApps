@@ -178,7 +178,7 @@ function addMainCardWithModal() {
   const categoryIdx = categories.indexOf(category);
   listsCategoryIndex = categoryIdx;
   const seq = lists.length + 1;
-  const newList = { id: "list_" + Date.now(), title: "", sequence: seq, description: "", active: true };
+  const newList = { id: "list_" + Date.now(), title: "", sequence: seq, description: "", active: true, dated: false };
   lists.push(newList);
   category.lists = lists;
   saveCategories(categories);
