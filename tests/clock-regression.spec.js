@@ -94,7 +94,7 @@ test.describe("Clock - Regression", () => {
     await expect(page.locator("#settingsPage")).toHaveAttribute("open", "");
     await expect(page.locator("#settingsTabs > .smd-tab-list .smd-tab-btn")).toHaveText(["Display", "Alarm", "Credits", "Danger"]);
     await expect(page.locator("#clockFormatSelector .smd-select-item")).toHaveText(["12 hour", "24 hour"]);
-    await expect(page.locator("#clockFontSelector .smd-select-item")).toHaveText(["Flip style", "7-segment", "Arial", "Courier New", "Mondaine"]);
+    await expect(page.locator("#clockFontSelector .smd-select-item")).toHaveText(["Flip style", "7-segment", "Arial", "Courier New", "Mondaine", "Nixie tubes"]);
     await expect(page.locator("#autoHideMenu")).toBeVisible();
     await expect(page.locator("#clockShowSeconds input")).toBeChecked();
     await expect(page.locator("#clockShowDate input")).toBeChecked();
@@ -175,7 +175,7 @@ test.describe("Clock - Regression", () => {
   });
 
   test("alarm, time and date scale together to fill the available width or height", async ({ page }, testInfo) => {
-    for (const font of ["flip", "seven", "arial", "courier", "mondaine"]) {
+    for (const font of ["flip", "seven", "arial", "courier", "mondaine", "nixie"]) {
       let ratio;
       for (const viewport of [{width:1280,height:720},{width:844,height:390},{width:390,height:844}]) {
         await page.setViewportSize(viewport);

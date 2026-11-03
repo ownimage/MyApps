@@ -10294,3 +10294,30 @@ Everything below is the contract; break it and the app stops talking to the exe.
   errors. Confirmed red first, then full Clock/Mondaine/alarm 26/26 passed;
   final bottom-inset adjustment passed focused fit checks and full Clock spec.
   Visually inspected desktop flip, landscape seven-segment, portrait Mondaine.
+
+### 2026-11-03 - Original Nixie tube face
+
+- Clock/js/nixie.js defines ten ORIGINAL wire paths (NIXIE_WIRE_PATHS) and SVG
+  tubes: stacked inactive cathodes, hexagonal anode mesh, support rods/leads,
+  subtle grain, glass dome/reflections/rim, ceramic socket, and metal pins.
+  createNixieDigit() namespaces SVG definitions with nixieSerial so IDs never
+  collide between tubes. updateNixieDigit() updates active use hrefs/aria labels;
+  renderNixieClock() only rebuilds when the digit count changes (seconds toggle).
+  Do not rebuild the detailed SVG every second or it flickers and wastes work.
+- Nixie tubes option persists as clock_font=nixie. Clock/css/nixie.css uses
+  --clock-color/currentColor for luminous wires, bloom, and the colon; physical
+  materials are neutral. --clock-glow-amount (0..1) drives luminous layers. The
+  shared display brightness filter dims the tubes. Show boxes does not remove
+  the glass/mesh: those define the face, not an optional rectangular digit card.
+- Nixie shares Mondaine's Text font selector and clock_mondaineTextFont setting
+  (Inter or London Tube) for date and alarm. Keep both faces in the selector's
+  visibility and applyClockFont conditions. Existing unified fit handles Nixie
+  at its natural 108x180 tube size, then scales alarm/time/date as one group.
+- Added both new files to sw.js. No external images/font/service are needed for
+  tube artwork. tests/clock-nixie.spec.js checks all ten distinct paths/active
+  numerals, colour/glow changes, stable tube DOM, persistence, seconds/boxes,
+  shared text font and the 0..9 preview. Common layout tests now include Nixie.
+- Confirmed red before renderer existed; focused tests then passed and all 34
+  Clock/alarm/Mondaine/Nixie/Clock-settings tests passed, 2 workers/retries=0.
+  Visually checked amber 0..9 preview plus full green Clock and responsive fit.
+  JS syntax, precache existence, and git diff --check passed.

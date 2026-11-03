@@ -5,7 +5,8 @@ var CLOCK_FONT_FAMILIES = {
   seven: "'Courier New', monospace",
   arial: "Arial, sans-serif",
   courier: "'Courier New', monospace",
-  mondaine: "'Clock Inter', Arial, sans-serif"
+  mondaine: "'Clock Inter', Arial, sans-serif",
+  nixie: "'Clock Inter', Arial, sans-serif"
 };
 var clockTimer = null;
 var clockDrag = null;
@@ -73,7 +74,7 @@ function syncClockColonSetting() {
   var row = document.getElementById("clockColonModeRow");
   if (row) row.classList.toggle("d-none", clockSetting("font", "flip") !== "seven");
   var textRow = document.getElementById("clockMondaineTextFontRow");
-  if (textRow) textRow.classList.toggle("d-none", clockSetting("font", "flip") !== "mondaine");
+  if (textRow) textRow.classList.toggle("d-none", !["mondaine", "nixie"].includes(clockSetting("font", "flip")));
   var selector = document.getElementById("clockMondaineTextFont");
   if (selector) selector.value = clockSetting("mondaineTextFont", "inter");
 }
@@ -94,6 +95,8 @@ function renderClock() {
   document.getElementById("clockMain").classList.toggle("clock-mondaine-layout", style === "mondaine");
   if (style === "mondaine") {
     renderMondaineClock(display);
+  } else if (style === "nixie") {
+    renderNixieClock(display, text);
   } else {
   display.innerHTML = "";
   text.split("").forEach(function (character, index) {
@@ -167,7 +170,7 @@ function renderClock() {
 function applyClockFont() {
   var font = clockSetting("font", "flip");
   var family = CLOCK_FONT_FAMILIES[font] || CLOCK_FONT_FAMILIES.flip;
-  if (font === "mondaine" && clockSetting("mondaineTextFont", "inter") === "london") family = "'Clock London Tube', Arial, sans-serif";
+  if (["mondaine", "nixie"].includes(font) && clockSetting("mondaineTextFont", "inter") === "london") family = "'Clock London Tube', Arial, sans-serif";
   document.documentElement.style.setProperty("--clock-font", family);
 }
 
@@ -181,6 +184,7 @@ function applyClockAppearance() {
   var amount = Math.max(0, Math.min(1, Number(clockSetting("glow", "0.35")) || 0));
   var brightness = Math.max(0, Math.min(1, Number(clockSetting("brightness", "1")) || 0));
   var glowShadow = amount ? "0 0 " + (amount * 0.08).toFixed(3) + "em " + color + ", 0 0 " + (amount * 0.35).toFixed(3) + "em " + color : "none";
+  document.documentElement.style.setProperty("--clock-glow-amount", String(amount));
   document.documentElement.style.setProperty("--clock-color", color);
   document.documentElement.style.setProperty("--seven-color", color);
   document.documentElement.style.setProperty("--seven-glow", glowShadow);
