@@ -62,17 +62,16 @@ body#smd-app.clock-pure-black > main {
   width: 1.02em;
   aspect-ratio: .72;
   overflow: visible;
-  border: 1px solid var(--bs-border-color, #555);
+  border: 0;
   border-radius: .08em;
   color: var(--clock-color, var(--bs-body-color, #f5f5f5));
-  background: linear-gradient(145deg, var(--bs-secondary-bg, #3b3b3b), var(--bs-body-bg, #171717));
+  background: transparent;
   text-shadow: var(--clock-glow, none);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.12), 0 .08em .14em rgba(0,0,0,.45);
+  box-shadow: none;
 }
 
 .clock-style-flip .flip-digit {
   padding: .055em;
-  background: linear-gradient(145deg, var(--bs-secondary-bg, #444), var(--bs-body-bg, #171717));
   border-radius: .12em;
   perspective: 4em;
 }
@@ -95,7 +94,7 @@ body#smd-app.clock-pure-black > main {
   height: 50%;
   overflow: hidden;
   color: var(--clock-color, var(--bs-body-color, #f5f5f5));
-  background: linear-gradient(to bottom, var(--bs-secondary-bg, #444), var(--bs-body-bg, #171717));
+  background: transparent;
   text-shadow: var(--clock-glow, none);
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
@@ -109,7 +108,6 @@ body#smd-app.clock-pure-black > main {
 .split-flap-bottom {
   bottom: 0;
   clip-path: polygon(6% 0, 94% 0, 100% 28%, 100% 100%, 0 100%, 0 28%);
-  background: linear-gradient(to bottom, var(--bs-body-bg, #171717), var(--bs-secondary-bg, #333));
 }
 
 .split-flap-glyph {
@@ -134,15 +132,6 @@ body#smd-app.clock-pure-black > main {
 
 .split-flap-bottom .split-flap-glyph {
   bottom: 0;
-}
-
-.split-flap-top::after,
-.split-flap-bottom::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background: linear-gradient(to bottom, rgba(255,255,255,.09), transparent 45%, rgba(0,0,0,.12));
 }
 
 .split-flap-seam {
@@ -176,23 +165,10 @@ body#smd-app.clock-pure-black > main {
 
 .clock-style-seven .flip-digit {
   position: relative;
-  border: 1px solid var(--bs-border-color, #555);
-  background: var(--bs-body-bg, #111);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 .08em .14em rgba(0,0,0,.35);
   font-family: "DSEG7 Modern", monospace;
   font-weight: 400;
   color: var(--seven-color);
   text-shadow: var(--seven-glow);
-}
-
-.clock-no-boxes .flip-digit {
-  border-color: transparent;
-  background: transparent;
-  box-shadow: none;
-}
-
-.clock-no-boxes .split-flap-half {
-  background: transparent;
 }
 
 .clock-style-arial .flip-digit {

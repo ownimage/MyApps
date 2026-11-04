@@ -26,7 +26,7 @@ body#smd-app.clock-pure-black { --nixie-material-ink: #e9ecef; }
 .nixie-colon-glow { fill: currentColor; filter: drop-shadow(0 0 calc(var(--clock-glow-amount, .35) * 6px) currentColor); }
 .nixie-colon-core { fill: color-mix(in srgb, var(--clock-color) 45%, white); }
 
-/* Keep the glass tinted by its surroundings, rather than painting a black
+/* Keep the enclosure tinted by its surroundings, rather than painting a black
    silhouette on a light page. The lit wire still uses the selected hue. */
 .nixie-interior-top { stop-color: color-mix(in srgb, var(--clock-surface-background) 88%, var(--nixie-material-ink)); }
 .nixie-interior-middle { stop-color: color-mix(in srgb, var(--clock-surface-background) 97%, var(--nixie-material-ink)); }
@@ -35,10 +35,10 @@ body#smd-app.clock-pure-black { --nixie-material-ink: #e9ecef; }
 .nixie-rim { stroke: color-mix(in srgb, var(--nixie-material-ink) 45%, transparent); }
 .nixie-wire-edge { stroke: color-mix(in srgb, var(--clock-color) 15%, var(--nixie-material-ink)); stroke-width: 3.1; }
 .nixie-colon-glow { stroke: color-mix(in srgb, var(--clock-color) 15%, var(--nixie-material-ink)); stroke-width: .8; }
-.nixie-no-glass .nixie-envelope,
-.nixie-no-glass .nixie-glazing,
-.nixie-no-glass .nixie-colon-enclosure,
-.nixie-no-pins .nixie-pins { display: none; }
+.nixie-no-details .nixie-envelope,
+.nixie-no-details .nixie-reflections,
+.nixie-no-details .nixie-colon-enclosure,
+.nixie-no-details .nixie-base { display: none; }
 
 .nixie-colon-enclosure rect {
   fill: color-mix(in srgb, var(--clock-surface-background) 97%, var(--nixie-material-ink));

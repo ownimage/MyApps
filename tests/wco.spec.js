@@ -85,8 +85,14 @@ test.describe("Window Controls Overlay", () => {
     await page.locator("#btnMainMenu").click();
     await expect(page.locator("#mainNav .dropdown-menu").first()).toBeVisible();
 
-    // Auto-hide is irrelevant in the title bar: hideNav may add the class, but
-    // the WCO rule pins the transform so the nav cannot slide away.
+    // An expanded hamburger prevents auto-hide, including in the title bar.
+    await page.evaluate(() => hideNav());
+    await expect(page.locator("#mainNav")).not.toHaveClass(/nav-hidden/);
+    await expect(page.locator("#mainNav .dropdown-menu").first()).toBeVisible();
+
+    // Once closed, hideNav can add the class; WCO still pins the nav in place.
+    await page.locator("#btnMainMenu").click();
+    await expect(page.locator("#mainNav .dropdown-menu").first()).toBeHidden();
     await page.evaluate(() => hideNav());
     await expect(page.locator("#mainNav")).toHaveClass(/nav-hidden/);
     expect(await page.evaluate(() =>

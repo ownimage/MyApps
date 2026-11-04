@@ -57,50 +57,13 @@
   <smd-page id="settingsPage" class="d-none"></smd-page>
   <template id="settingsTemplate">
     <div class="smd-settings">
-      <section class="smd-settings-tab" data-tab="Display" data-tab-id="display-tab">
-        <smd-theme id="themeSelector" class="col-md-8 mt-3"></smd-theme>
+      <section class="smd-settings-tab" data-tab="General" data-tab-id="general-tab">
         <div class="row mb-4 align-items-center col-md-8">
           <div class="col-4 text-end"><label class="form-label mb-0" for="clockFormatSelector">Time format</label></div>
           <div class="col-8">
             <smd-select id="clockFormatSelector" class="form-select" onchange="changeClockFormat(this.value)">
               <option value="12">12 hour</option>
               <option value="24">24 hour</option>
-            </smd-select>
-          </div>
-        </div>
-        <div class="row mb-4 align-items-center col-md-8">
-          <div class="col-4 text-end"><label class="form-label mb-0" for="clockFontSelector">Clock font</label></div>
-          <div class="col-8">
-            <smd-select id="clockFontSelector" class="form-select" onchange="changeClockFont(this.value)">
-              <option value="flip">Flip style</option>
-              <option value="seven">7-segment</option>
-              <option value="arial">Arial</option>
-              <option value="courier">Courier New</option>
-              <option value="mondaine">Mondaine</option>
-              <option value="nixie">Nixie tubes</option>
-            </smd-select>
-          </div>
-        </div>
-        <div id="clockMondaineTextFontRow" class="row mb-4 align-items-center col-md-8 d-none">
-          <div class="col-4 text-end"><label class="form-label mb-0" for="clockMondaineTextFont">Text font</label></div>
-          <div class="col-8"><smd-select id="clockMondaineTextFont" onchange="changeClockMondaineTextFont(this.value)">
-            <option value="inter">Inter</option><option value="london">London Tube</option>
-          </smd-select></div>
-        </div>
-        <div id="clockNixieGlassRow" class="row mb-4 align-items-center col-md-8 d-none">
-          <div class="col-4 text-end"><label class="form-label mb-0">Show glass</label></div>
-          <div class="col-8"><smd-checkbox id="clockNixieGlass" switch onchange="changeClockNixieGlass(this.checked)"></smd-checkbox></div>
-        </div>
-        <div id="clockNixiePinsRow" class="row mb-4 align-items-center col-md-8 d-none">
-          <div class="col-4 text-end"><label class="form-label mb-0">Show pins</label></div>
-          <div class="col-8"><smd-checkbox id="clockNixiePins" switch onchange="changeClockNixiePins(this.checked)"></smd-checkbox></div>
-        </div>
-        <div id="clockColonModeRow" class="row mb-4 align-items-center col-md-8 d-none">
-          <div class="col-4 text-end"><label class="form-label mb-0" for="clockColonModeSelector">Colon</label></div>
-          <div class="col-8">
-            <smd-select id="clockColonModeSelector" class="form-select" onchange="changeClockColonMode(this.value)">
-              <option value="always">Always on</option>
-              <option value="flashing">Flashing</option>
             </smd-select>
           </div>
         </div>
@@ -127,13 +90,58 @@
           <div class="col-8"><smd-slider id="clockGlowSlider" min="0" max="1" step="0.01" value="0.35"></smd-slider></div>
         </div>
         <div class="row mb-4 align-items-center col-md-8">
-          <div class="col-4 text-end"><label class="form-label mb-0">Show boxes</label></div>
-          <div class="col-8"><smd-checkbox id="clockShowBoxes" switch onchange="changeClockShowBoxes(this.checked)"></smd-checkbox></div>
-        </div>
-        <div class="row mb-4 align-items-center col-md-8">
-          <div class="col-4 text-end"><label class="form-label mb-0">Pure black background</label></div>
+          <div class="col-4 text-end"><label class="form-label mb-0">Black background</label></div>
           <div class="col-8"><smd-checkbox id="clockPureBlack" switch onchange="changeClockPureBlack(this.checked)"></smd-checkbox></div>
         </div>
+        <div class="row mb-4 align-items-center col-md-8">
+          <div class="col-4 text-end"><label class="form-label mb-0" for="clockFontSelector">Clock font</label></div>
+          <div class="col-8">
+            <smd-select id="clockFontSelector" class="form-select" onchange="changeClockFont(this.value)">
+              <option value="flip">Flip style</option>
+              <option value="seven">7-segment</option>
+              <option value="arial">Arial</option>
+              <option value="courier">Courier New</option>
+              <option value="mondaine">Mondaine</option>
+              <option value="nixie">Nixie tubes</option>
+            </smd-select>
+          </div>
+        </div>
+        <div id="clockMondaineTextFontRow" class="row mb-4 align-items-center col-md-8 d-none">
+          <div class="col-4 text-end"><label class="form-label mb-0" for="clockMondaineTextFont">Text font</label></div>
+          <div class="col-8"><smd-select id="clockMondaineTextFont" onchange="changeClockMondaineTextFont(this.value)">
+            <option value="inter">Inter</option><option value="london">London Tube</option>
+          </smd-select></div>
+        </div>
+        <div id="clockNixieDetailsRow" class="row mb-4 align-items-center col-md-8 d-none">
+          <div class="col-4 text-end"><label class="form-label mb-0">Show details</label></div>
+          <div class="col-8"><smd-checkbox id="clockNixieDetails" switch onchange="changeClockNixieDetails(this.checked)"></smd-checkbox></div>
+        </div>
+        <div id="clockColonModeRow" class="row mb-4 align-items-center col-md-8 d-none">
+          <div class="col-4 text-end"><label class="form-label mb-0" for="clockColonModeSelector">Colon</label></div>
+          <div class="col-8">
+            <smd-select id="clockColonModeSelector" class="form-select" onchange="changeClockColonMode(this.value)">
+              <option value="always">Always on</option>
+              <option value="flashing">Flashing</option>
+            </smd-select>
+          </div>
+        </div>
+      </section>
+      <section class="smd-settings-tab" data-tab="Display" data-tab-id="display-tab">
+        <smd-theme id="themeSelector" class="col-md-8 mt-3"></smd-theme>
+          <div class="row mb-4 align-items-center col-md-8">
+            <div class="col-4 text-end"><label class="form-label mb-0">Font size</label></div>
+            <div class="col-8">
+              <smd-select id="fontSizeSelector" class="form-select" onchange="changeFontSize(this.value)">
+                <option value="xsmall">Extra small</option>
+                <option value="small">Small</option>
+                <option value="normal">Normal</option>
+                <option value="large">Large</option>
+                <option value="xlarge">Extra large</option>
+                <option value="jumbo">Jumbo</option>
+              </smd-select>
+            </div>
+          </div>
+
         <div class="row mb-4 align-items-center col-md-8">
           <div class="col-4 text-end"><label class="form-label mb-0">Auto-hide menu</label></div>
           <div class="col-8"><smd-checkbox id="autoHideMenu" switch onchange="changeAutoHideMenu(this.checked)"></smd-checkbox></div>

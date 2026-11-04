@@ -10,7 +10,7 @@ test.beforeEach(async ({page}) => {
 });
 test("Alarm tab saves enabled, time format, time and sleep duration", async ({page}, testInfo) => {
   await page.evaluate(() => openSettings());
-  await expect(page.locator("#settingsTabs > .smd-tab-list .smd-tab-btn")).toHaveText(["Display", "Alarm", "Credits", "Danger"]);
+  await expect(page.locator("#settingsTabs > .smd-tab-list .smd-tab-btn")).toHaveText(["General", "Display", "Alarm", "Credits", "Danger"]);
   await page.locator("#alarm-tab").click();
   await expect(page.locator("#clockAlarmEnabled input")).not.toBeChecked();
   await choose(page, "clockAlarmFormat", "12");

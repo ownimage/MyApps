@@ -19,10 +19,10 @@ test("Nixie face persists and shares Mondaine's text font choices", async ({page
   await page.reload();
   await expect(page.locator(".nixie-digit")).toHaveCount(6);
   await expect(page.locator("#clockDate")).toHaveCSS("font-family", /Clock London Tube/);
-  await page.evaluate(() => { changeClockMondaineTextFont("inter"); changeClockShowSeconds(false); changeClockShowBoxes(false); });
+  await page.evaluate(() => { changeClockMondaineTextFont("inter"); changeClockShowSeconds(false); });
   await expect(page.locator(".nixie-digit")).toHaveCount(4);
   await expect(page.locator(".nixie-separator")).toHaveCount(1);
-  await expect(page.locator(".nixie-glass")).toHaveCount(4);
+  await expect(page.locator(".nixie-cover")).toHaveCount(4);
   await expect(page.locator("#clockDate")).toHaveCSS("font-family", /Clock Inter/);
   await page.evaluate(() => { changeClockFont("mondaine"); changeClockMondaineTextFont("london"); changeClockFont("nixie"); });
   await expect(page.locator("#clockDate")).toHaveCSS("font-family", /Clock London Tube/);
@@ -62,50 +62,36 @@ test("Nixie 0-9 detail preview", async ({page}, testInfo) => {
   await expect(page.locator("#nixiePreview .nixie-digit")).toHaveCount(10);
 });
 
-test("Nixie glass and pins can be hidden separately, including the colon, and persist", async ({page}) => {
+test("one Show details switch controls the enclosure and base and persists", async ({page}) => {
   await page.evaluate(() => openSettings());
-  await expect(page.locator("#clockNixieGlassRow")).toBeHidden();
-  await expect(page.locator("#clockNixiePinsRow")).toBeHidden();
+  await expect(page.locator("#clockNixieDetailsRow")).toBeHidden();
   await pick(page,"clockFontSelector","nixie");
-  await expect(page.locator("#clockNixieGlass input")).toBeChecked();
-  await expect(page.locator("#clockNixiePins input")).toBeChecked();
-  await page.locator("#clockNixieGlass input").uncheck();
+  await expect(page.locator("#clockNixieDetails input")).toBeChecked();
+  await page.locator("#clockNixieDetails input").uncheck();
   await page.evaluate(() => closeSettings());
-  await expect(page.locator(".nixie-glass").first()).toBeHidden();
-  await expect(page.locator(".nixie-colon-enclosure").first()).toBeHidden();
-  await expect(page.locator(".nixie-pins").first()).toBeVisible();
+  for (const selector of [".nixie-cover", ".nixie-base", ".nixie-colon-enclosure"]) {
+    await expect(page.locator(selector).first()).toBeHidden();
+  }
   await expect(page.locator(".nixie-active").first()).toBeVisible();
   await expect(page.locator(".nixie-colon-glow").first()).toBeVisible();
-  await page.evaluate(() => openSettings());
-  await page.locator("#clockNixiePins input").uncheck();
   await page.reload();
   await page.evaluate(() => openSettings());
-  await expect(page.locator("#clockNixieGlass input")).not.toBeChecked();
-  await expect(page.locator("#clockNixiePins input")).not.toBeChecked();
-  await page.locator("#clockNixieGlass input").check();
+  await expect(page.locator("#clockNixieDetails input")).not.toBeChecked();
+  await page.locator("#clockNixieDetails input").check();
   await page.evaluate(() => closeSettings());
-  await expect(page.locator(".nixie-glass").first()).toBeVisible();
-  await expect(page.locator(".nixie-pins").first()).toBeHidden();
-  await expect(page.locator(".nixie-colon-enclosure").first()).toBeVisible();
-  await page.evaluate(() => { changeClockNixiePins(true); });
-  await expect(page.locator(".nixie-pins").first()).toBeVisible();
-  await page.setViewportSize({width:390,height:844});
-  for (const glass of [true,false]) for (const pins of [true,false]) {
-    await page.evaluate(({glass,pins}) => { changeClockNixieGlass(glass); changeClockNixiePins(pins); }, {glass,pins});
-    const fits=await page.evaluate(() => {
-      const group=document.getElementById("clockFaceGroup").getBoundingClientRect();
-      return group.left>=0 && group.right<=innerWidth+1 && group.top>=0 && group.bottom<=innerHeight+1;
-    });
-    expect(fits).toBe(true);
+  for (const selector of [".nixie-cover", ".nixie-base", ".nixie-colon-enclosure"]) {
+    await expect(page.locator(selector).first()).toBeVisible();
   }
+  expect(await page.evaluate(() => Object.fromEntries(Object.entries(localStorage).filter(([k])=>k.includes("nixie"))))).toEqual({clock_nixieDetails:"true"});
 });
-test("Nixie remains legible on light and dark backgrounds, with and without glass", async ({page}, testInfo) => {
+
+test("Nixie remains legible on light and dark backgrounds, with and without details", async ({page}, testInfo) => {
   await page.evaluate(() => { changeClockFont("nixie"); changeClockColor("#b6ffbd"); });
   for (const [theme,mode] of [["flatly","light"],["darkly","dark"]]) {
     await page.evaluate(({theme,mode}) => { localStorage.setItem("clock_themeMode",mode); applyTheme(theme); }, {theme,mode});
     await expect(page.locator("html")).toHaveAttribute("data-theme",theme);
-    for (const glass of [true,false]) {
-      await page.evaluate(glass => { changeClockNixieGlass(glass); changeClockNixiePins(glass); },glass);
+    for (const details of [true,false]) {
+      await page.evaluate(details => changeClockNixieDetails(details),details);
       const contrast = await page.locator(".nixie-wire-edge").first().evaluate(el => {
         const ctx=document.createElement("canvas").getContext("2d");
         function luminance(color) {
@@ -118,7 +104,7 @@ test("Nixie remains legible on light and dark backgrounds, with and without glas
       expect(contrast).toBeGreaterThan(3);
       await expect(page.locator(".nixie-lit-wire").first()).toHaveCSS("stroke","rgb(182, 255, 189)");
       expect(await page.locator("#clockDate").evaluate(el => parseFloat(getComputedStyle(el).webkitTextStrokeWidth))).toBeGreaterThan(0);
-      await page.screenshot({path:testInfo.outputPath(`nixie-${mode}-${glass?"glass":"bare"}.png`)});
+      await page.screenshot({path:testInfo.outputPath(`nixie-${mode}-${details?"details":"bare"}.png`)});
     }
   }
 });
