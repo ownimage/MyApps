@@ -239,6 +239,7 @@ function ganttPaintZoomButtons() {
   const active = ganttZoom();
   document.querySelectorAll("#ganttPage [data-gantt-zoom]").forEach((btn) => {
     const on = btn.getAttribute("data-gantt-zoom") === active;
+    btn.variant = on ? "primary" : "secondary";
     btn.classList.toggle("active", on);
     btn.setAttribute("aria-pressed", on ? "true" : "false");
   });
@@ -246,13 +247,13 @@ function ganttPaintZoomButtons() {
 
 function ganttZoomHtml() {
   return (
-    '<div class="gantt-zoom btn-group btn-group-sm" role="group" aria-label="Timeline zoom">' +
+    '<div class="gantt-zoom d-flex" role="group" aria-label="Timeline zoom">' +
     ganttZoomPresets.map((p, i) => (
       // Every preset except the LAST carries `me-1` (margin-end), so the Day and
       // Week buttons get right-margin and the presets read as evenly-spaced
       // controls instead of a fused segment group.
-      '<button type="button" class="btn btn-sm' + (i < ganttZoomPresets.length - 1 ? " me-1" : "") + '" data-gantt-zoom="' + p.id + '"' +
-      ' aria-pressed="false" onclick="ganttSetZoom(\'' + p.id + '\')">' + p.label + "</button>"
+      '<smd-button variant="secondary" size="small" class="' + (i < ganttZoomPresets.length - 1 ? " me-1" : "") + '" data-gantt-zoom="' + p.id + '"' +
+      ' aria-pressed="false" onclick="ganttSetZoom(\'' + p.id + '\')">' + p.label + "</smd-button>"
     )).join("") +
     "</div>"
   );
@@ -286,14 +287,15 @@ function ganttPaintDatesToggle() {
   const btn = document.querySelector("#ganttPage .gantt-dates-toggle");
   if (!btn) return;
   const on = ganttShowDates();
+  btn.variant = on ? "primary" : "secondary";
   btn.classList.toggle("active", on);
   btn.setAttribute("aria-pressed", on ? "true" : "false");
 }
 
 function ganttDatesToggleHtml() {
   return (
-    '<button type="button" class="btn btn-sm gantt-dates-toggle" aria-pressed="true" ' +
-    'title="Show or hide the Start and End date columns" onclick="ganttToggleShowDates()">Start/End</button>'
+    '<smd-button variant="secondary" size="small" class="gantt-dates-toggle" aria-pressed="true" ' +
+    'title="Show or hide the Start and End date columns" onclick="ganttToggleShowDates()">Start/End</smd-button>'
   );
 }
 
@@ -327,14 +329,15 @@ function ganttPaintActiveToggle() {
   const btn = document.querySelector("#ganttPage .gantt-active-toggle");
   if (!btn) return;
   const on = ganttActiveOnly();
+  btn.variant = on ? "primary" : "secondary";
   btn.classList.toggle("active", on);
   btn.setAttribute("aria-pressed", on ? "true" : "false");
 }
 
 function ganttActiveToggleHtml() {
   return (
-    '<button type="button" class="btn btn-sm gantt-active-toggle" aria-pressed="false" ' +
-    'title="Show only active jobs (hide inactive jobs)" onclick="ganttToggleActiveOnly()">Active only</button>'
+    '<smd-button variant="secondary" size="small" class="gantt-active-toggle" aria-pressed="false" ' +
+    'title="Show only active jobs (hide inactive jobs)" onclick="ganttToggleActiveOnly()">Active only</smd-button>'
   );
 }
 
@@ -350,11 +353,11 @@ function ganttHeaderHtml() {
 // state is re-asserted by ganttPaintUndoButtons() on every render.
 function ganttUndoRedoHtml() {
   return (
-    '<div class="gantt-undo-redo btn-group btn-group-sm ms-2" role="group" aria-label="Undo and redo">' +
-      '<button type="button" class="btn btn-sm gantt-undo-btn" title="Undo (Ctrl+Z)" aria-label="Undo" disabled ' +
-        'onclick="ganttUndo()">&#8630;</button>' +
-      '<button type="button" class="btn btn-sm gantt-redo-btn" title="Redo (Ctrl+Y)" aria-label="Redo" disabled ' +
-        'onclick="ganttRedo()">&#8631;</button>' +
+    '<div class="gantt-undo-redo d-flex gap-1 ms-2" role="group" aria-label="Undo and redo">' +
+      '<smd-button variant="secondary" size="small" class="gantt-undo-btn" title="Undo (Ctrl+Z)" aria-label="Undo" disabled ' +
+        'onclick="ganttUndo()">&#8630;</smd-button>' +
+      '<smd-button variant="secondary" size="small" class="gantt-redo-btn" title="Redo (Ctrl+Y)" aria-label="Redo" disabled ' +
+        'onclick="ganttRedo()">&#8631;</smd-button>' +
     "</div>"
   );
 }
@@ -459,10 +462,10 @@ function ganttStreamFilterHtml() {
 
   return (
     '<div class="dropdown gantt-stream-filter">' +
-      '<button type="button" class="btn btn-sm dropdown-toggle gantt-stream-toggle" ' +
+      '<smd-button variant="secondary" size="small" class="gantt-stream-toggle" ' +
         'id="ganttStreamMenuBtn" aria-expanded="false" onclick="ganttToggleStreamMenu()">' +
-        "Streams (" + shown.length + "/" + ordered.length + ")" +
-      "</button>" +
+        '<span class="gantt-stream-count">Streams (' + shown.length + "/" + ordered.length + ")</span>" +
+      "</smd-button>" +
       '<div class="dropdown-menu dropdown-menu-end p-0 gantt-stream-menu" id="ganttStreamMenu" role="list">' +
         '<div class="gantt-stream-all px-2 py-1 border-bottom">' +
           '<label class="d-flex align-items-center gap-2" for="ganttStreamAll">' +
@@ -491,6 +494,17 @@ function ganttToggleStreamMenu(force) {
   const show = typeof force === "boolean" ? force : !menu.classList.contains("show");
   menu.classList.toggle("show", show);
   btn.setAttribute("aria-expanded", show ? "true" : "false");
+  ganttPaintStreamToggle();
+}
+
+// The shared component owns the real button; dropdown semantics belong there.
+function ganttPaintStreamToggle() {
+  const host = document.getElementById("ganttStreamMenuBtn");
+  const button = host && host.querySelector("button");
+  if (!button) return;
+  button.classList.add("dropdown-toggle");
+  button.setAttribute("aria-expanded", host.getAttribute("aria-expanded") || "false");
+  button.setAttribute("aria-controls", "ganttStreamMenu");
 }
 
 // One change handler for every checkbox in the dropdown. Delegated on the menu
@@ -531,7 +545,7 @@ function ganttRefreshStreamFilter() {
     const streams = (typeof loadStreams === "function" ? loadStreams() : []) || [];
     const total = streams.length;
     const shown = streams.filter((s) => !hidden.has(s.title || "Untitled stream")).length;
-    btn.textContent = "Streams (" + shown + "/" + total + ")";
+    btn.querySelector(".gantt-stream-count").textContent = "Streams (" + shown + "/" + total + ")";
   }
   if (menu) {
     menu.querySelectorAll("smd-checkbox[data-stream]").forEach((box) => {
@@ -741,6 +755,7 @@ function renderGantt() {
   ganttPaintUndoButtons();
   ganttPaintDatesToggle();
   ganttPaintActiveToggle();
+  ganttPaintStreamToggle();
   ganttLibReady().then(function (lib) {
     // Bail if a newer render started, or if the page was closed/rebuilt while we
     // were waiting — the element we captured may no longer be the one on screen.
@@ -1343,8 +1358,8 @@ function ganttStoredStreamIndexForTask(taskId) {
 //   - cursor in the BOTTOM half of a job -> insert after it -> top border on the
 //     NEXT row below (the same line as "before the next job"); if there is no
 //     next row, the bottom border on the current row marks the stream's end;
-//   - a SUMMARY band row means "append to the stream above" and keeps its own
-//     top border (the boundary is just below that stream's jobs).
+//   - a SUMMARY uses the same halves: before it joins the previous stream;
+//     after it joins this stream (appending when its jobs are collapsed).
 function ganttRowDragHighlight(grid, clientX, clientY) {
   if (_ganttRowDrag.kind === "stream") {
     ganttStreamDragHighlight(grid, clientX, clientY);
@@ -1535,24 +1550,10 @@ function ganttRowBelowEl(grid, rowEl) {
   return null;
 }
 
-// The row that the insertion line (dropY) anchors on. The line is resolved by
-// the vertical band it falls in across ALL rows (summary included). A JOB row is
-// always a valid anchor (insert before/after it by the midpoint). A SUMMARY row
-// is NEVER a target for its own stream's top; it always resolves to the stream
-// ABOVE the line, appended to its bottom:
-//   - COLLAPSED stream -> the header is the visible target for that (hidden)
-//     stream, so it is returned as-is and ganttRowDropTarget appends to it.
-//   - EXPANDED stream -> if the dragged job BELONGS to that header's stream,
-//     dropping on its own header means "top of my stream" (before the first job
-//     below it) - which is a no-op when that job is already first, and moves it
-//     up otherwise. For a job from ANOTHER stream the row directly above the
-//     header is the anchor: a job above means "after that job" (the previous
-//     stream's bottom), and a header above means "append to that stream" (e.g.
-//     dropping between two streams appends to the TOP one's bottom). "Above
-//     C's header" is never part of C.
-//   - the very first header with nothing above it -> rejected.
-// When the line is below every row, the last JOB row anchors the drop (lands
-// after it). Excludes the dragged job's own row.
+// Resolve the same before/after boundary drawn by ganttRowDragHighlight.
+// Above a header belongs to the previous stream. Below it starts this stream,
+// or appends to its hidden jobs when collapsed. Own-header drops retain their
+// existing first-slot/no-op behavior. Exclude the dragged job from anchors.
 function ganttRowAnchor(grid, dropY, jobId) {
   var seen = {};
   var rows = [];
@@ -1572,15 +1573,15 @@ function ganttRowAnchor(grid, dropY, jobId) {
   for (var i = 0; i < rows.length; i++) {
     if (dropY < rows[i].bottom) {
       if (rows[i].row.type === "task") return rows[i];
-      // Summary band.
-      if (ganttRowIsCollapsedStream(rows[i].row)) return rows[i]; // into this (hidden) stream
-      // Expanded stream: if the dragged job is IN this stream, dropping on its
-      // own header means "top of my stream" - anchor on the first job below.
+      // The header's lower half draws a boundary AFTER the header, so it
+      // belongs to this stream regardless of the preceding stream's state.
       var sidx = ganttStoredStreamIndexForId(rows[i].row.id);
       var dragStream = ganttStoredStreamIndexForTask("j" + jobId);
-      if (sidx === dragStream) {
+      if (dropY >= rows[i].mid || sidx === dragStream) {
+        if (ganttRowIsCollapsedStream(rows[i].row)) return rows[i];
         var first = i + 1 < rows.length ? rows[i + 1] : null;
-        return (first && first.row.type === "task") ? first : null;
+        if (first && first.row.type === "task") return { ...first, before: true };
+        return rows[i]; // empty expanded stream
       }
       // Otherwise: the stream ABOVE the line, never this stream.
       var prev = i > 0 ? rows[i - 1] : null;
@@ -1707,17 +1708,15 @@ function ganttRowDropTarget(grid, dropY, jobId) {
   var anchor = ganttRowAnchor(grid, dropY, jobId);
   if (!anchor) return null;
   if (anchor.row.type === "summary") {
-    // The line sits on a stream header; the drop joins the stream ABOVE it by
-    // appending to that stream's jobs (the anchor row IS that upper summary row,
-    // or the job above resolves to its stream with after=true). Append to the
-    // anchor stream's bottom.
+    // A summary anchor denotes a collapsed or empty destination stream.
+    // Append to its stored jobs, including jobs hidden by collapse.
     var sidx = ganttStoredStreamIndexForId(anchor.row.id);
     if (sidx < 0) return null;
     return { streamIdx: sidx, anchorJobId: null, after: true };
   }
   var jidx = ganttStoredStreamIndexForTask(anchor.row.id);
   if (jidx < 0) return null;
-  var after = dropY >= anchor.mid;
+  var after = !anchor.before && dropY >= anchor.mid;
   return { streamIdx: jidx, anchorJobId: anchor.row.id.slice(1), after: after };
 }
 
@@ -2336,92 +2335,13 @@ function changeShowGantt(enabled) {
     "#ganttPage .rg-gantt-bar--summary {",
     "  background: var(--bs-danger);",
     "}",
-    "/* Zoom buttons: the active preset is the theme PRIMARY button colour, the rest",
-    "   are SECONDARY. Button text follows the theme's own filled `.btn-primary`/",
-    "   `.btn-secondary` text via the probe-published `--smd-<variant>-text` vars",
-    "   (white on most themes; the probe wins where Bootswatch differs). The buttons",
-    "   no longer carry `btn-outline-secondary` (that class sets `--bs-btn-color` to",
-    "   the grey secondary, which would paint the text grey) - the colours are fully",
-    "   owned here. */",
-    "#ganttPage .gantt-zoom > .btn {",
-    "  background-color: var(--bs-secondary);",
-    "  color: var(--smd-secondary-text, var(--bs-white));",
-    "  border: 1px solid var(--bs-secondary);",
-    "}",
-    "#ganttPage .gantt-zoom > .btn:hover,",
-    "#ganttPage .gantt-zoom > .btn:focus {",
-    "  background-color: var(--bs-secondary);",
-    "  color: var(--smd-secondary-text, var(--bs-white));",
-    "  border-color: var(--bs-secondary);",
-    "}",
-    "#ganttPage .gantt-zoom > .btn.active {",
-    "  background-color: var(--bs-primary);",
-    "  color: var(--smd-primary-text, var(--bs-white));",
-    "  border-color: var(--bs-primary);",
-    "  font-weight: 600;",
-    "}",
-    "/* Start/End columns toggle: same solid secondary/primary treatment as the",
-    "   zoom buttons (active = columns shown). */",
+    "/* Shared smd-button variants own all header button colors. */",
     "#ganttPage .gantt-dates-toggle {",
-    "  /* Float right, just before the Streams filter (which no longer auto-pushes).",
-    "     `margin-left: auto` takes the free space so this button + Streams sit",
-    "     together on the right; the right margin is the gap between them. */",
     "  margin-left: auto;",
     "  margin-right: 0.5rem;",
-    "  background-color: var(--bs-secondary);",
-    "  color: var(--smd-secondary-text, var(--bs-white));",
-    "  border: 1px solid var(--bs-secondary);",
     "}",
-    "#ganttPage .gantt-dates-toggle:hover,",
-    "#ganttPage .gantt-dates-toggle:focus {",
-    "  background-color: var(--bs-secondary);",
-    "  color: var(--smd-secondary-text, var(--bs-white));",
-    "  border-color: var(--bs-secondary);",
-    "}",
-    "#ganttPage .gantt-dates-toggle.active {",
-    "  background-color: var(--bs-primary);",
-    "  color: var(--smd-primary-text, var(--bs-white));",
-    "  border-color: var(--bs-primary);",
-    "  font-weight: 600;",
-    "}",
-    "/* Active-only toggle: same solid secondary/primary treatment as the Start/End",
-    "   toggle (active = only active jobs shown). It sits just after Start/End and",
-    "   before the Streams filter. */",
     "#ganttPage .gantt-active-toggle {",
     "  margin-right: 0.5rem;",
-    "  background-color: var(--bs-secondary);",
-    "  color: var(--smd-secondary-text, var(--bs-white));",
-    "  border: 1px solid var(--bs-secondary);",
-    "}",
-    "#ganttPage .gantt-active-toggle:hover,",
-    "#ganttPage .gantt-active-toggle:focus {",
-    "  background-color: var(--bs-secondary);",
-    "  color: var(--smd-secondary-text, var(--bs-white));",
-    "  border-color: var(--bs-secondary);",
-    "}",
-    "#ganttPage .gantt-active-toggle.active {",
-    "  background-color: var(--bs-primary);",
-    "  color: var(--smd-primary-text, var(--bs-white));",
-    "  border-color: var(--bs-primary);",
-    "  font-weight: 600;",
-    "}",
-    "/* Undo/Redo buttons: the same solid secondary fill + white text as the zoom",
-    "   buttons. Disabled buttons get a muted, non-interactive treatment so an",
-    "   empty history reads as inactive rather than looking clickable. */",
-    "#ganttPage .gantt-undo-redo > .btn {",
-    "  background-color: var(--bs-secondary);",
-    "  color: var(--smd-secondary-text, var(--bs-white));",
-    "  border: 1px solid var(--bs-secondary);",
-    "}",
-    "#ganttPage .gantt-undo-redo > .btn:hover:not(:disabled),",
-    "#ganttPage .gantt-undo-redo > .btn:focus:not(:disabled) {",
-    "  background-color: var(--bs-secondary);",
-    "  color: var(--smd-secondary-text, var(--bs-white));",
-    "  border-color: var(--bs-secondary);",
-    "}",
-    "#ganttPage .gantt-undo-redo > .btn:disabled {",
-    "  opacity: 0.4;",
-    "  cursor: default;",
     "}",
     "/* Streams filter dropdown. `.dropdown-menu` is absolutely positioned by",
     "   Bootstrap, but the smd-page header is a flex row with no positioning",
@@ -2431,22 +2351,6 @@ function changeShowGantt(enabled) {
     "   data-bs-toggle, so no Bootstrap dropdown instance is required. */",
     "#ganttPage .gantt-stream-filter {",
     "  position: relative;",
-    "}",
-    "/* The toggle matches the zoom buttons: a SOLID secondary fill with white",
-    "   text (the old `btn-outline-secondary` was a dull grey outline that",
-    "   vanished on dark themes like superhero light). `.show` state keeps the",
-    "   same fill so the button reads as pressed while the menu is open. */",
-    "#ganttPage .gantt-stream-toggle {",
-    "  background-color: var(--bs-secondary);",
-    "  color: var(--smd-secondary-text, var(--bs-white));",
-    "  border: 1px solid var(--bs-secondary);",
-    "}",
-    "#ganttPage .gantt-stream-toggle:hover,",
-    "#ganttPage .gantt-stream-toggle:focus,",
-    "#ganttPage .gantt-stream-toggle.show {",
-    "  background-color: var(--bs-secondary);",
-    "  color: var(--smd-secondary-text, var(--bs-white));",
-    "  border-color: var(--bs-secondary);",
     "}",
     "#ganttPage .gantt-stream-menu {",
     "  position: absolute;",

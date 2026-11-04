@@ -242,6 +242,43 @@ test.describe("PlanMyDay - Screenshots", () => {
     // would be an empty grid), so this scene uses a wide viewport instead.
     test.use({ viewport: { width: 1280, height: 900 }, deviceScaleFactor: 1, hasTouch: false, isMobile: false });
 
+    test("empty stream edit footer", async ({ page }) => {
+      await seedMainView(page);
+      await page.evaluate(() => {
+        const streams = loadStreams();
+        streams.push({ title: "Empty stream", sequence: streams.length + 1, jobs: [] });
+        saveStreams(streams);
+        openStreamsEditor();
+        editStream(streams.length - 1);
+      });
+      await expect(page.locator("#streamEditPage .smd-page-footer smd-button#btnStreamEditDelete button")).toBeVisible();
+      await expect(page.locator("#streamEditPage .smd-page-footer smd-button")).toHaveText(["Cancel", "Delete", "OK"]);
+      await screenshotAllThemes(page, "empty-stream-edit.png");
+    });
+
+    test("gantt stream drop boundary", async ({ page }) => {
+      await seedMainView(page);
+      await page.evaluate(() => localStorage.setItem("planmydays_showGantt", "true"));
+      await page.reload();
+      await page.evaluate(() => openGantt());
+      const showBoundary = async () => {
+        await page.evaluate(() => document.dispatchEvent(new PointerEvent("pointercancel", { bubbles: true })));
+        await page.mouse.up();
+        const source = page.locator(".pmd-gantt-job-name").filter({ hasText: /^Report/ });
+        await expect(source).toBeVisible();
+        const header = page.locator(".pmd-gantt-stream-title").filter({ hasText: /^Chores$/ });
+        const sr = await source.boundingBox();
+        const hr = await header.locator("xpath=ancestor::*[contains(@class,'rgRow')]").boundingBox();
+        await page.mouse.move(sr.x + sr.width / 2, sr.y + sr.height / 2);
+        await page.mouse.down();
+        await page.mouse.move(sr.x + sr.width / 2, hr.y + hr.height * .75, { steps: 6 });
+        await expect(page.locator(".pmd-gantt-drop-target")).toHaveCount(1);
+      };
+      await screenshotAllThemes(page, "gantt-stream-drop.png", { beforeCapture: showBoundary });
+      await page.mouse.up();
+      await expect.poll(() => page.evaluate(() => loadStreams().find(s => s.title === "Chores").jobs[0].title)).toBe("Report");
+    });
+
     test("gantt", async ({ page }) => {
       // The Gantt page only exists once the "Show Gantt" setting is on, and the
       // chart needs seeded streams to draw bars (see TEST_STREAMS).
@@ -252,6 +289,7 @@ test.describe("PlanMyDay - Screenshots", () => {
       await page.waitForLoadState("domcontentloaded");
       await page.evaluate(() => openGantt());
       await page.waitForFunction(() => document.querySelectorAll(".rg-gantt-bar").length > 0, null, { timeout: 30000 });
+      await expect(page.locator("#ganttPage .smd-page-header smd-button")).toHaveCount(8);
       await screenshotAllThemes(page, "gantt.png");
     });
   });

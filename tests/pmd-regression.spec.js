@@ -1342,7 +1342,11 @@ test.describe("PlanMyDay - Regression", () => {
 
     test("modal secondary buttons match the Bootswatch button colours", async ({ page }) => {
       await setTheme(page, "cerulean");
-      await page.evaluate(() => { openStreamsEditor(); confirmDeleteStream(0); });
+      await page.evaluate(() => {
+        saveStreams([{ title: "Empty stream", sequence: 1, jobs: [] }]);
+        openStreamsEditor();
+        confirmDeleteStream(0);
+      });
       const color = await page.evaluate(() => {
         const host = document.getElementById("smdConfirmModal");
         const btn = Array.from(host.querySelectorAll(".smd-footer button"))

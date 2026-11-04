@@ -10419,3 +10419,57 @@ Everything below is the contract; break it and the app stops talking to the exe.
 - Reproduced the reported failure before changing expectations; full WCO spec
   passed 4/4 with workers=2/retries=0. Diff check passed. Test-only correction;
   runtime code and build number unchanged.
+
+### 2026-11-04 - Focused PlanMyDay/Gantt guide
+
+- Added AGENTS-gantt.md as a focused companion for PlanMyDay and its current RevoGrid Gantt. Consolidates projection/inclusive dates, drag/drop, filters, undo, scroll anchoring, themes/assets and test recipes.
+- Cross-checking gantt.js, gantt-lib.js and pmd-gantt.spec.js resolved historical contradictions: jsgantt guidance is obsolete, summary bars now move, and Show Gantt belongs last on General. Some source-header comments also lag implemented behavior; check implementation and current tests.
+- Documentation-only change; no runtime tests or build bump. Readable bounded excerpts worked; one full-file tool read exceeded the output limit, so use focused sections for this large playbook.
+
+
+### 2026-11-04 - Stream editor deletion and Gantt header drop boundaries
+
+- Existing empty streams expose a danger smd-button in the edit-page footer.
+  Keep that page open while confirming (close:false); cancel preserves edits.
+  confirmDeleteStream checks stored jobs again on confirmation, closes the
+  editor only after deletion and refreshes the active view including Gantt.
+  Modal theme fixtures must use an empty stream to reach this confirmation.
+- ganttRowAnchor must follow the same header midpoint as the drop highlight:
+  upper half joins the previous stream; lower half starts this expanded stream
+  or appends to its collapsed jobs. Do not resolve the whole expanded header
+  to the previous stream. Preserve own-header and original-slot no-ops.
+- New pointer regressions cover all four previous/target collapse combinations,
+  rendered insertion lines/order, ownership, sequences and undo. Gantt spec
+  passed 64/64; empty-editor and drag-boundary screenshot scenes passed in
+  Superhero light/dark and were visually inspected. Red confirmed both defects.
+- An existing 8080 sirv server can serve changed files with cached old lengths,
+  truncating scripts (openGantt becomes undefined). A temporary server/config
+  on 8090/8091 avoids disturbing it; PLAYWRIGHT_BROWSERS_PATH must point to
+  C:/Users/Keith/AppData/Local/ms-playwright in this sandbox. Initial parallel
+  navigations briefly timed out; repeating after server warm-up passed.
+- Related Streams Editor/modal regressions passed 31/31; JS syntax and diff
+  checks passed. Build bumped together through npm run bump:build to
+  202611041548. Existing user documentation changes were preserved.
+
+
+### 2026-11-04 - Shared Gantt header buttons and Stream footer order
+
+- Edit Stream footer order is Cancel, Delete (existing empty streams only), OK.
+- All eight Gantt page-header controls use smd-button size=small. Paint active
+  controls with variant=primary and inactive controls with variant=secondary.
+  Removed old injected button color rules: --smd-*-text variables are obsolete
+  and made Simplex dark secondary buttons white-on-white (contrast 1:1).
+- Keep classes/data attributes on hosts, but inspect their real child buttons
+  for disabled state and computed colors. Streams count updates its rich-content
+  span rather than replacing host textContent (which destroys the inner button).
+  ganttPaintStreamToggle applies the caret and aria-expanded/controls to the
+  actual button after construction and whenever the dropdown changes.
+- Red confirmed footer ordering and Simplex contrast. New regression checks
+  enabled normal/hover/focus colors, zoom/toggle states and undo/redo. Compare
+  palette foregrounds against standard shared button probes, not hardcoded white:
+  Superhero primary correctly uses dark text under baked-in contrast rules.
+- Three screenshot scenes passed in Simplex light/dark; inspected the dark Gantt.
+  Dev-mode sirv (temporary work/serve-gantt.mjs) avoids cached file-length errors
+  during edits; use PLAYWRIGHT_BROWSERS_PATH for the persistent browser install.
+- Final full Gantt spec passed 65/65 without retries. JS syntax/diff checks
+  passed; build 202611041555 was generated through npm run bump:build.

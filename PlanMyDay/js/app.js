@@ -65,6 +65,8 @@ document.addEventListener("DOMContentLoaded", () => {
         cancelEdit();
       } else if (action === "done") {
         doneEdit();
+      } else if (action === "delete" && !isNew) {
+        confirmDeleteStream(editingIndex);
       }
     });
   }
