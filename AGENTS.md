@@ -10322,26 +10322,12 @@ Everything below is the contract; break it and the app stops talking to the exe.
   Visually checked amber 0..9 preview plus full green Clock and responsive fit.
   JS syntax, precache existence, and git diff --check passed.
 
-### 2026-11-03 - Nixie enclosure controls and light backgrounds
+### 2026-11-03 - Nixie light backgrounds
 
-- Nixie-only Show glass / Show pins switches default on and persist under
-  clock_nixieGlass / clock_nixiePins. syncClockNixieSettings restores controls;
-  renderNixieClock reapplies nixie-no-glass/nixie-no-pins after each render.
-- Glass visibility covers the digit envelope/backing, reflections, rim/grain,
-  and the colon enclosure. Pins visibility covers pins/socket/ground shadow.
-  The internal cathodes and mesh stay visible. SVG viewBoxes and natural height
-  crop hidden space for each combination; the unified group fit then resizes.
-- Nixie interior gradients and rims now use theme surface/foreground variables.
-  --nixie-material-ink follows --bs-body-color, with a light override on pure
-  black. A thin contrasting wire edge and Nixie-only text stroke keep pale
-  selected colours readable on light backgrounds without changing their fill.
-  Colon housing also follows the surface. No runtime colour repaint layer.
-- Added TDD red/green for switches, persistence, colon enclosure, independent
-  combinations and mobile fit. Light/dark screenshots and an edge-contrast
-  assertion verify default pale-green digits stay legible, glass on/off.
-  Full Clock/alarm/Mondaine/Nixie/Clock-settings passed 36/36, workers=2,
-  retries=0. Visually inspected light glass, light bare and dark glass renders.
-  Syntax checks and git diff --check passed; bumped via shared/bump-build.js.
+- Nixie interior gradients/rims follow theme surface/foreground. Material ink
+  uses body foreground, overridden light on pure black. Contrasting numeral
+  edges and Nixie text outlines keep pale colours readable without changing
+  their selected fill. Current visibility control is documented below.
 
 ### 2026-11-03 - Quieter Nixie side uprights
 
@@ -10353,3 +10339,37 @@ Everything below is the contract; break it and the app stops talking to the exe.
   black; confirmed red, then green. All 6 Nixie tests passed, workers=2,
   retries=0. Visually checked the light-background screenshot; diff check passed.
   Build bumped through shared/bump-build.js.
+
+### 2026-11-04 - Clock General/Display settings split
+
+- Settings order is General, Display, Alarm, Credits, Danger. General starts
+  with Time format and contains all following former Display rows, including
+  clock face, face options, seconds/date, colour/brightness/glow, boxes and
+  Black background. Display holds Theme/Theme Mode, Font size and Auto-hide menu.
+- Font size uses the standard fontSizeSelector/changeFontSize controls; shared
+  smdSetupSettingsPage restores its saved clock_fontSize. This changes menu
+  typography while clock group fitting remains independent. Icon size is for
+  smd-image and Touch size for checkboxes/drag handles; neither controls the
+  hamburger, so no ineffective hamburger sizing options were added.
+- Updated expected tab/row order and theme test to click Display. New regression
+  verifies menu text shrinks with Font size, persists after reload, and clock
+  controls live on General. Shape test confirmed red before markup change;
+  all 38 Clock/alarm/Mondaine/Nixie/Clock-settings tests passed, retries=0.
+  Diff check passed. Build bumped to 202611040824.
+
+### 2026-11-04 - Clock control order and unified Nixie details
+
+- General order: Time format, Show seconds, Show date, Clock colour, Brightness,
+  Outer glow, Black background, Clock font, conditional Text font / Show details /
+  Colon, Show boxes. Auto-hide menu belongs after Font size on Display.
+- Nixie has ONE Show details switch: clockNixieDetails/changeClockNixieDetails,
+  persisted as clock_nixieDetails (defaults true). It controls the enclosure,
+  reflections, base contacts and colon surround together; numerals and mesh
+  stay visible. Renderer has just full-detail and bare viewBoxes now.
+- Removed the former independent settings, handlers, selectors, SVG names and
+  branches throughout active code/tests. No old-key reads, migration, cleanup
+  or compatibility step. No matching JSON references were found in the repo.
+- Updated ordered-row and persistence tests. Confirmed both new tests red first,
+  focused green, then all 38 Clock/alarm/Mondaine/Nixie/Clock-settings tests
+  passed (workers=2, retries=0). JS syntax and diff checks passed.
+  Build bumped with shared/bump-build.js to 202611040832.

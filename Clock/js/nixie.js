@@ -1,5 +1,5 @@
 // Original scalable Nixie artwork: ten shaped wire cathodes, anode mesh,
-// mica supports, ceramic socket, metal pins and a reflective glass envelope.
+// mica supports, ceramic socket, metal contacts and a reflective envelope.
 // Every luminous layer takes its hue from --clock-color; no baked-in glow.
 var NIXIE_WIRE_PATHS = [
   "M72 68C49 68 44 88 44 122C44 156 49 177 72 177C95 177 100 156 100 122C100 88 95 68 72 68Z",
@@ -18,7 +18,7 @@ function createNixieDigit() {
   var tube = document.createElement("span");
   tube.className = "flip-digit nixie-digit";
   var id = "nixie-" + (++nixieSerial);
-  var glass = "M16 200V67C16 31 37 11 72 11C107 11 128 31 128 67V200C128 211 112 216 72 216C32 216 16 211 16 200Z";
+  var envelopePath = "M16 200V67C16 31 37 11 72 11C107 11 128 31 128 67V200C128 211 112 216 72 216C32 216 16 211 16 200Z";
   var wires = NIXIE_WIRE_PATHS.map(function (path, digit) {
     return '<path class="nixie-numeral" id="' + id + '-wire-' + digit + '" d="' + path + '"/>';
   }).join("");
@@ -26,7 +26,7 @@ function createNixieDigit() {
   var unlit = NIXIE_WIRE_PATHS.map(function (_, digit) {
     return '<use href="#' + id + '-wire-' + digit + '" transform="translate(' + ((digit - 4.5) * .28) + ',' + ((digit - 4.5) * .38) + ')"/>';
   }).join("");
-  var pins = [37, 51, 65, 79, 93, 107].map(function (x) {
+  var contacts = [37, 51, 65, 79, 93, 107].map(function (x) {
     return '<rect x="' + x + '" y="216" width="3.8" height="20" rx="1.2" fill="url(#' + id + '-metal)"/><path d="M' + (x + 1) + ' 219v14" stroke="#e7e4ce" stroke-opacity=".26" stroke-width=".65"/>';
   }).join("");
   tube.innerHTML = `<svg class="nixie-tube" viewBox="0 0 144 240" role="img" aria-label="0">
@@ -34,19 +34,19 @@ function createNixieDigit() {
       ${wires}
       <linearGradient id="${id}-metal"><stop stop-color="#181d20"/><stop offset=".22" stop-color="#b7b3a2"/><stop offset=".42" stop-color="#555c5b"/><stop offset=".66" stop-color="#dfdbcb"/><stop offset="1" stop-color="#292e30"/></linearGradient>
       <linearGradient id="${id}-interior" x2="0" y2="1"><stop class="nixie-interior-top"/><stop class="nixie-interior-middle" offset=".35"/><stop class="nixie-interior-bottom" offset="1"/></linearGradient>
-      <linearGradient id="${id}-glass"><stop stop-color="#abc6d3" stop-opacity=".18"/><stop offset=".12" stop-color="#d4e5ed" stop-opacity=".025"/><stop offset=".55" stop-color="#fff" stop-opacity=".005"/><stop offset=".88" stop-color="#d3e3e6" stop-opacity=".035"/><stop offset="1" stop-color="#c7d9e0" stop-opacity=".24"/></linearGradient>
+      <linearGradient id="${id}-cover-shading"><stop stop-color="#abc6d3" stop-opacity=".18"/><stop offset=".12" stop-color="#d4e5ed" stop-opacity=".025"/><stop offset=".55" stop-color="#fff" stop-opacity=".005"/><stop offset=".88" stop-color="#d3e3e6" stop-opacity=".035"/><stop offset="1" stop-color="#c7d9e0" stop-opacity=".24"/></linearGradient>
       <linearGradient id="${id}-rim"><stop stop-color="#e4f3f6" stop-opacity=".45"/><stop offset=".24" stop-color="#a1bdc7" stop-opacity=".11"/><stop offset=".76" stop-color="#9cb8c5" stop-opacity=".11"/><stop offset="1" stop-color="#dceff3" stop-opacity=".5"/></linearGradient>
       <linearGradient id="${id}-reflection" x2="0" y2="1"><stop stop-color="#fff" stop-opacity=".56"/><stop offset=".25" stop-color="#e6f3ff" stop-opacity=".25"/><stop offset=".73" stop-color="#e6f3ff" stop-opacity=".035"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
       <linearGradient id="${id}-base" x2="0" y2="1"><stop stop-color="#555350"/><stop offset=".15" stop-color="#171b1d"/><stop offset=".63" stop-color="#292d2e"/><stop offset="1" stop-color="#090b0c"/></linearGradient>
       <pattern id="${id}-mesh" width="7" height="12" patternUnits="userSpaceOnUse"><path d="M3.5 0L7 2V6L3.5 8L0 6V2ZM0 6V10L3.5 12L7 10V6" fill="none" stroke="#78807c" stroke-width=".5"/></pattern>
-      <clipPath id="${id}-inside"><path d="${glass}"/></clipPath>
+      <clipPath id="${id}-inside"><path d="${envelopePath}"/></clipPath>
       <filter id="${id}-grain"><feTurbulence baseFrequency=".82" numOctaves="3" seed="8" stitchTiles="stitch"/><feColorMatrix type="saturate" values="0"/><feComponentTransfer><feFuncA type="linear" slope=".065"/></feComponentTransfer></filter>
       <filter id="${id}-soft" x="-60%" y="-40%" width="220%" height="180%"><feGaussianBlur stdDeviation="1.8"/></filter>
       <filter id="${id}-bloom" x="-90%" y="-50%" width="280%" height="200%"><feGaussianBlur stdDeviation="7"/></filter>
     </defs>
-    <g class="nixie-pins"><ellipse cx="72" cy="231" rx="62" ry="7" fill="#000" opacity=".35"/>
-    ${pins}</g>
-    <path class="nixie-envelope" d="${glass}" fill="url(#${id}-interior)" stroke="#151c20" stroke-width="2"/>
+    <g class="nixie-base"><ellipse cx="72" cy="231" rx="62" ry="7" fill="#000" opacity=".35"/>
+    ${contacts}</g>
+    <path class="nixie-envelope" d="${envelopePath}" fill="url(#${id}-interior)" stroke="#151c20" stroke-width="2"/>
     <g clip-path="url(#${id}-inside)">
       <rect class="nixie-envelope" x="18" y="13" width="108" height="200" filter="url(#${id}-grain)" opacity=".6"/>
       <ellipse class="nixie-bloom" cx="72" cy="133" rx="39" ry="60" filter="url(#${id}-bloom)"/>
@@ -63,7 +63,7 @@ function createNixieDigit() {
         <use class="nixie-core" href="#${id}-wire-0"/>
       </g>
       <path d="M31 62H113V191H31Z" fill="url(#${id}-mesh)" opacity=".12"/>
-      <g class="nixie-glazing"><path class="nixie-glass" d="${glass}" fill="url(#${id}-glass)"/>
+      <g class="nixie-reflections"><path class="nixie-cover" d="${envelopePath}" fill="url(#${id}-cover-shading)"/>
       <path d="M23 170V67C23 39 37 22 58 19C40 29 34 42 34 69V174Z" fill="url(#${id}-reflection)"/>
       <path d="M116 62C114 43 103 26 84 22C108 26 122 43 122 65V180L117 187Z" fill="#d6eaff" opacity=".065"/>
       <path d="M43 26Q72 14 96 28" fill="none" stroke="#f4fcff" stroke-width="1.6" opacity=".22"/>
@@ -72,8 +72,8 @@ function createNixieDigit() {
       <path d="M28 201Q72 212 116 202" fill="none" stroke="#e7f0ed" stroke-opacity=".18" stroke-width="2.3"/>
       <path d="M22 196Q71 207 122 197" fill="none" stroke="#d3e2d9" stroke-width=".8" opacity=".16"/></g>
     </g>
-    <path class="nixie-envelope nixie-rim" d="${glass}" fill="none" stroke="url(#${id}-rim)" stroke-width="1.1"/>
-    <g class="nixie-pins"><ellipse cx="72" cy="205" rx="51" ry="7" fill="#090c0c" stroke="#78786b" stroke-opacity=".38"/>
+    <path class="nixie-envelope nixie-rim" d="${envelopePath}" fill="none" stroke="url(#${id}-rim)" stroke-width="1.1"/>
+    <g class="nixie-base"><ellipse cx="72" cy="205" rx="51" ry="7" fill="#090c0c" stroke="#78786b" stroke-opacity=".38"/>
     <path d="M24 205Q72 216 120 205V217Q72 231 24 217Z" fill="url(#${id}-base)" stroke="#111719" stroke-width=".8"/>
     <path d="M26 213Q72 225 118 213" fill="none" stroke="#a0a29a" stroke-opacity=".25" stroke-width=".8"/>
     <path d="M33 210v8M111 210v8" stroke="#0a0c0d" stroke-width="2"/>
@@ -99,10 +99,8 @@ function createNixieSeparator() {
   return colon;
 }
 function renderNixieClock(display, text) {
-  var glass = clockSetting("nixieGlass", "true") !== "false";
-  var pins = clockSetting("nixiePins", "true") !== "false";
-  display.classList.toggle("nixie-no-glass", !glass);
-  display.classList.toggle("nixie-no-pins", !pins);
+  var details = clockSetting("nixieDetails", "true") !== "false";
+  display.classList.toggle("nixie-no-details", !details);
   var digits = text.replace(/:/g, "");
   if (display.querySelectorAll(".nixie-digit").length !== digits.length) {
     display.replaceChildren();
@@ -110,7 +108,7 @@ function renderNixieClock(display, text) {
       display.appendChild(character === ":" ? createNixieSeparator() : createNixieDigit());
     });
   }
-  var box = glass ? [0, 0, 144, pins ? 240 : 219] : pins ? [14, 53, 116, 187] : [24, 53, 96, 151];
+  var box = details ? [0, 0, 144, 240] : [24, 53, 96, 151];
   var height = 108 * box[3] / box[2];
   display.querySelectorAll(".nixie-digit").forEach(function (tube, index) {
     tube.querySelector("svg").setAttribute("viewBox", box.join(" "));
@@ -124,18 +122,12 @@ function renderNixieClock(display, text) {
 }
 
 function syncClockNixieSettings() {
-  ["Glass", "Pins"].forEach(function (name) {
-    var row = document.getElementById("clockNixie" + name + "Row");
-    if (row) row.classList.toggle("d-none", clockSetting("font", "flip") !== "nixie");
-    var control = document.getElementById("clockNixie" + name);
-    if (control) control.checked = clockSetting("nixie" + name, "true") !== "false";
-  });
+  var row = document.getElementById("clockNixieDetailsRow");
+  if (row) row.classList.toggle("d-none", clockSetting("font", "flip") !== "nixie");
+  var control = document.getElementById("clockNixieDetails");
+  if (control) control.checked = clockSetting("nixieDetails", "true") !== "false";
 }
-function changeClockNixieGlass(checked) {
-  localStorage.setItem(smdKey("nixieGlass"), checked ? "true" : "false");
-  renderClock();
-}
-function changeClockNixiePins(checked) {
-  localStorage.setItem(smdKey("nixiePins"), checked ? "true" : "false");
+function changeClockNixieDetails(checked) {
+  localStorage.setItem(smdKey("nixieDetails"), checked ? "true" : "false");
   renderClock();
 }

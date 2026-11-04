@@ -92,10 +92,13 @@ test.describe("Clock - Regression", () => {
   test("settings persist 12/24-hour mode and font choice", async ({ page }) => {
     await page.evaluate(() => openSettings());
     await expect(page.locator("#settingsPage")).toHaveAttribute("open", "");
-    await expect(page.locator("#settingsTabs > .smd-tab-list .smd-tab-btn")).toHaveText(["Display", "Alarm", "Credits", "Danger"]);
+    await expect(page.locator("#settingsTabs > .smd-tab-list .smd-tab-btn")).toHaveText(["General", "Display", "Alarm", "Credits", "Danger"]);
     await expect(page.locator("#clockFormatSelector .smd-select-item")).toHaveText(["12 hour", "24 hour"]);
     await expect(page.locator("#clockFontSelector .smd-select-item")).toHaveText(["Flip style", "7-segment", "Arial", "Courier New", "Mondaine", "Nixie tubes"]);
+    await expect(page.locator("#autoHideMenu")).toBeHidden();
+    await page.locator("#display-tab").click();
     await expect(page.locator("#autoHideMenu")).toBeVisible();
+    await page.locator("#general-tab").click();
     await expect(page.locator("#clockShowSeconds input")).toBeChecked();
     await expect(page.locator("#clockShowDate input")).toBeChecked();
     await expect(page.locator("#clockShowBoxes input")).toBeChecked();
@@ -276,6 +279,7 @@ test.describe("Clock - Regression", () => {
 
   test("theme controls apply the selected theme and mode", async ({ page }) => {
     await page.evaluate(() => openSettings());
+    await page.locator("#display-tab").click();
     const theme = page.locator("#themeSelector .smd-theme-select");
     await theme.locator(".smd-select-btn").click();
     await theme.locator('.smd-select-item[data-value="darkly"]').click();
@@ -288,4 +292,22 @@ test.describe("Clock - Regression", () => {
     await expect(page.locator("#bootstrap-theme-css")).toHaveAttribute("href", /darkly\/bootstrap\.min\.css/);
     await expect(page.locator("#theme-override-specific")).toHaveAttribute("href", /darkly\/darkly\.dark\.css/);
   });
+});
+
+test("Clock Display font size changes menu text and persists", async ({page}) => {
+  await page.goto("/Clock/");
+  await page.evaluate(() => openSettings());
+  await page.locator("#display-tab").click();
+  const size = () => page.locator("#mainNav .dropdown-item").first().evaluate(el => parseFloat(getComputedStyle(el).fontSize));
+  const before=await size();
+  await page.locator("#fontSizeSelector .smd-select-btn").click();
+  await page.locator('#fontSizeSelector .smd-select-item[data-value="small"]').click();
+  expect(await size()).toBeLessThan(before);
+  await page.reload();
+  await page.evaluate(() => openSettings());
+  await page.locator("#display-tab").click();
+  await expect(page.locator("#fontSizeSelector")).toHaveAttribute("value","small");
+  await expect(page.locator("#clockFormatSelector")).toBeHidden();
+  await page.locator("#general-tab").click();
+  await expect(page.locator("#clockFormatSelector")).toBeVisible();
 });
