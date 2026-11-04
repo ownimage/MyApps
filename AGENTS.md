@@ -10409,3 +10409,13 @@ Everything below is the contract; break it and the app stops talking to the exe.
   assertions across all five digital faces. Confirmed red then green; all 43
   Clock/alarm/Mondaine/Nixie/Clock-settings tests passed with no retries.
   JS syntax/diff checks passed; build 202611040852.
+
+### 2026-11-04 - WCO test and expanded-menu guard
+
+- wco.spec.js originally opened the hamburger and expected hideNav to add
+  nav-hidden. The expanded-menu guard intentionally prevents that now. Test
+  first asserts the open menu/nav remain visible, then closes the menu and
+  separately verifies nav-hidden cannot move the nav under WCO (transform none).
+- Reproduced the reported failure before changing expectations; full WCO spec
+  passed 4/4 with workers=2/retries=0. Diff check passed. Test-only correction;
+  runtime code and build number unchanged.
