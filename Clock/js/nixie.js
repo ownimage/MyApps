@@ -95,7 +95,7 @@ function createNixieSeparator() {
   var colon = document.createElement("span");
   colon.className = "nixie-separator";
   colon.setAttribute("aria-hidden", "true");
-  colon.innerHTML = '<svg viewBox="0 0 28 240"><g class="nixie-colon-enclosure"><rect x="5" y="80" width="18" height="96" rx="9" fill="#0b1014" stroke="#a9c4d3" stroke-opacity=".22"/><path d="M10 90V164" stroke="#e4f2ff" stroke-opacity=".12" stroke-width="2"/><path d="M12 108V150M16 108V150" stroke="#5e6664" stroke-width="1"/></g><circle class="nixie-colon-glow" cx="14" cy="105" r="4"/><circle class="nixie-colon-glow" cx="14" cy="151" r="4"/><circle class="nixie-colon-core" cx="14" cy="105" r="1.3"/><circle class="nixie-colon-core" cx="14" cy="151" r="1.3"/></svg>';
+  colon.innerHTML = '<svg viewBox="0 0 28 240"><g class="nixie-colon-enclosure"><rect x="5" y="80" width="18" height="96" rx="9" fill="#0b1014" stroke="#a9c4d3" stroke-opacity=".22"/><path d="M10 90V164" stroke="#e4f2ff" stroke-opacity=".12" stroke-width="2"/><path d="M12 108V150M16 108V150" stroke="#5e6664" stroke-width="1"/></g><g class="nixie-colon-lights"><circle class="nixie-colon-glow" cx="14" cy="105" r="4"/><circle class="nixie-colon-glow" cx="14" cy="151" r="4"/><circle class="nixie-colon-core" cx="14" cy="105" r="1.3"/><circle class="nixie-colon-core" cx="14" cy="151" r="1.3"/></g></svg>';
   return colon;
 }
 function renderNixieClock(display, text) {

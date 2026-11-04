@@ -65,7 +65,7 @@ function formatClockTime(date) {
 
 function updateClockColon() {
   var hidden = clockSetting("colonMode", "always") === "flashing" && Math.floor(Date.now() / 1000) % 2 === 1;
-  document.querySelectorAll("#clockDisplay .seven-colon").forEach(function (colon) {
+  document.querySelectorAll("#clockDisplay .seven-colon, #clockDisplay .flip-separator, #clockDisplay .nixie-colon-lights").forEach(function (colon) {
     colon.style.opacity = hidden ? "0" : "1";
   });
 }
@@ -73,7 +73,7 @@ function updateClockColon() {
 function syncClockColonSetting() {
   syncClockNixieSettings();
   var row = document.getElementById("clockColonModeRow");
-  if (row) row.classList.toggle("d-none", clockSetting("font", "flip") !== "seven");
+  if (row) row.classList.toggle("d-none", clockSetting("font", "flip") === "mondaine");
   var textRow = document.getElementById("clockMondaineTextFontRow");
   if (textRow) textRow.classList.toggle("d-none", !["mondaine", "nixie"].includes(clockSetting("font", "flip")));
   var selector = document.getElementById("clockMondaineTextFont");

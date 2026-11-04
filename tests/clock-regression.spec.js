@@ -11,7 +11,7 @@ test.describe("Clock - Regression", () => {
     const now = new Date();
     now.setSeconds(Math.floor(now.getSeconds() / 2) * 2, 0);
     await page.evaluate(() => openSettings());
-    await expect(page.locator("#clockColonModeRow")).toBeHidden();
+    await expect(page.locator("#clockColonModeRow")).toBeVisible();
     await page.locator("#clockFontSelector .smd-select-btn").click();
     await page.locator('#clockFontSelector .smd-select-item[data-value="seven"]').click();
     await expect(page.locator("#clockColonModeRow")).toBeVisible();
@@ -42,7 +42,7 @@ test.describe("Clock - Regression", () => {
     await expect(colons.first()).toHaveCSS("opacity", "1");
     await page.evaluate(() => { changeClockColonMode("flashing"); changeClockFont("arial"); });
     await page.clock.runFor(1000);
-    await expect(page.locator(".flip-separator").first()).toHaveCSS("opacity", "1");
+    await expect(page.locator(".flip-separator").first()).toHaveCSS("opacity", "0");
   });
 
   test("pure black overrides the main page while menu and settings keep their theme", async ({ page }) => {
@@ -311,3 +311,18 @@ test("Clock Display font size changes menu text and persists", async ({page}) =>
   await page.locator("#general-tab").click();
   await expect(page.locator("#clockFormatSelector")).toBeVisible();
 });
+
+for (const face of ["flip","arial","courier","nixie"]) {
+ test(`${face} colon flashes for one second and stays on when selected`,async({page})=>{
+  await page.goto("/Clock/");
+  const now=new Date();now.setSeconds(Math.floor(now.getSeconds()/2)*2,0);
+  await page.clock.install({time:now});await page.clock.pauseAt(new Date(now.getTime()+2000));
+  await page.evaluate(face=>{changeClockFont(face);changeClockColonMode("flashing");},face);
+  const colon=page.locator(".flip-separator,.nixie-colon-lights").first();
+  await expect(colon).toHaveCSS("opacity","1");
+  await page.clock.runFor(1000);await expect(colon).toHaveCSS("opacity","0");
+  await page.clock.runFor(1000);await expect(colon).toHaveCSS("opacity","1");
+  await page.evaluate(()=>changeClockColonMode("always"));
+  await page.clock.runFor(1000);await expect(colon).toHaveCSS("opacity","1");
+ });
+}

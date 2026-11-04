@@ -6159,7 +6159,7 @@ test.describe("PlanMyDay - Regression", () => {
       expect(navHidden3).toBe(false);
     });
 
-    test("nav auto-hide also closes an open hamburger dropdown", async ({ page }) => {
+    test("nav auto-hide keeps an expanded hamburger dropdown visible", async ({ page }) => {
       await page.evaluate(() => localStorage.setItem("planmydays_autoHideMenu", "true"));
       await page.reload();
       await page.locator("#btnMainMenu").click();
@@ -6167,8 +6167,8 @@ test.describe("PlanMyDay - Regression", () => {
       const topMenu = page.locator("#mainNav > .dropdown > .dropdown-menu");
       await expect(topMenu).toBeVisible();
       await page.evaluate(() => hideNav());
-      expect(await page.evaluate(() => document.getElementById("mainNav").classList.contains("nav-hidden"))).toBe(true);
-      await expect(topMenu).not.toBeVisible();
+      expect(await page.evaluate(() => document.getElementById("mainNav").classList.contains("nav-hidden"))).toBe(false);
+      await expect(topMenu).toBeVisible();
     });
   });
 
