@@ -19,7 +19,7 @@ test("Nixie face persists and shares Mondaine's text font choices", async ({page
   await page.reload();
   await expect(page.locator(".nixie-digit")).toHaveCount(6);
   await expect(page.locator("#clockDate")).toHaveCSS("font-family", /Clock London Tube/);
-  await page.evaluate(() => { changeClockMondaineTextFont("inter"); changeClockShowSeconds(false); changeClockShowBoxes(false); });
+  await page.evaluate(() => { changeClockMondaineTextFont("inter"); changeClockShowSeconds(false); });
   await expect(page.locator(".nixie-digit")).toHaveCount(4);
   await expect(page.locator(".nixie-separator")).toHaveCount(1);
   await expect(page.locator(".nixie-cover")).toHaveCount(4);

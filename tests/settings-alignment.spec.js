@@ -359,7 +359,7 @@ test.describe("Settings page shape is consistent across apps", () => {
     {
       app: "Clock", path: "/Clock/", tabs: ["General", "Display", "Alarm", "Credits", "Danger"],
       display: ["Theme", "Theme Mode", "Font size", "Auto-hide menu"],
-      general: ["Time format", "Show seconds", "Show date", "Clock colour", "Brightness", "Outer glow", "Black background", "Clock font", "Text font", "Show details", "Colon", "Show boxes"],
+      general: ["Time format", "Show seconds", "Show date", "Clock colour", "Brightness", "Outer glow", "Black background", "Clock font", "Text font", "Show details", "Colon"],
     },
     {
       app: "PlanMyDay", path: "/PlanMyDay/", tabs: ["General", "Display", "Schedule", "FileSync", "Danger"],

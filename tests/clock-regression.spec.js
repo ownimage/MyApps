@@ -69,20 +69,17 @@ test.describe("Clock - Regression", () => {
       }, {theme, mode});
       for (const black of [false, true]) {
         await page.evaluate(black => changeClockPureBlack(black), black);
-        for (const boxes of [true, false]) {
-          await page.evaluate(boxes => changeClockShowBoxes(boxes), boxes);
           await expect.poll(() => page.evaluate(() => {
             const background = getComputedStyle(document.body).backgroundColor;
             return Array.from(document.querySelectorAll(".split-flap-seam, .split-flap-surface"))
               .every(el => getComputedStyle(el).backgroundColor === background);
           })).toBe(true);
-        }
       }
     }
     await page.screenshot({path: testInfo.outputPath("flip-band-pure-black.png")});
   });
 
-  test("renders a flip-style clock with six digit cards", async ({ page }) => {
+  test("renders a flip-style clock with six split-flap digits", async ({ page }) => {
     await expect(page.locator("#clockDisplay")).toBeVisible();
     await expect(page.locator("#clockDisplay .flip-digit")).toHaveCount(6);
     await expect(page.locator("#clockDisplay .flip-separator")).toHaveCount(2);
@@ -101,7 +98,6 @@ test.describe("Clock - Regression", () => {
     await page.locator("#general-tab").click();
     await expect(page.locator("#clockShowSeconds input")).toBeChecked();
     await expect(page.locator("#clockShowDate input")).toBeChecked();
-    await expect(page.locator("#clockShowBoxes input")).toBeChecked();
     await expect(page.locator("#clockPureBlack input")).not.toBeChecked();
     await expect(page.locator("#clockColorPicker")).toBeVisible();
     await expect(page.locator("#clockGlowSlider")).toBeVisible();
@@ -118,20 +114,17 @@ test.describe("Clock - Regression", () => {
     await page.locator("#clockBrightnessSlider .smd-slider-input").fill("0.6");
     await page.locator("#clockShowSeconds input").uncheck();
     await page.locator("#clockShowDate input").uncheck();
-    await page.locator("#clockShowBoxes input").uncheck();
     await page.locator("#clockPureBlack input").check();
     await expect.poll(() => page.evaluate(() => localStorage.getItem("clock_format"))).toBe("12");
     await expect.poll(() => page.evaluate(() => localStorage.getItem("clock_font"))).toBe("seven");
     await expect.poll(() => page.evaluate(() => localStorage.getItem("clock_showSeconds"))).toBe("false");
     await expect.poll(() => page.evaluate(() => localStorage.getItem("clock_showDate"))).toBe("false");
-    await expect.poll(() => page.evaluate(() => localStorage.getItem("clock_showBoxes"))).toBe("false");
     await expect.poll(() => page.evaluate(() => localStorage.getItem("clock_pureBlack"))).toBe("true");
     await expect(page.locator("body")).toHaveClass(/clock-pure-black/);
     await expect.poll(() => page.evaluate(() => localStorage.getItem("clock_color"))).toBe("#ffd36a");
     await expect.poll(() => page.evaluate(() => localStorage.getItem("clock_glow"))).toBe("0.8");
     await expect.poll(() => page.evaluate(() => localStorage.getItem("clock_brightness"))).toBe("0.6");
     await expect(page.locator("#clockDisplay")).toHaveClass(/clock-style-seven/);
-    await expect(page.locator("#clockDisplay")).toHaveClass(/clock-no-boxes/);
     await expect(page.locator("#clockDisplay .seven-digit")).toHaveCount(4);
     await expect(page.locator("#clockDisplay .seven-colon")).toHaveCount(1);
     await expect(page.locator("#clockDisplay .seven-digit").first()).toHaveCSS("overflow", "visible");
@@ -156,7 +149,6 @@ test.describe("Clock - Regression", () => {
         for (const seconds of [true, false]) {
           await page.evaluate(async ({ font, seconds }) => {
             changeClockFont(font);
-            changeClockShowBoxes(false);
             changeClockShowSeconds(seconds);
             await document.fonts.ready;
             fitClockDisplay();
@@ -326,3 +318,15 @@ for (const face of ["flip","arial","courier","nixie"]) {
   await page.clock.runFor(1000);await expect(colon).toHaveCSS("opacity","1");
  });
 }
+
+test("digital faces render without digit card borders or backgrounds",async({page})=>{
+ await page.goto("/Clock/");
+ for (const face of ["flip","seven","arial","courier","nixie"]) {
+  await page.evaluate(face=>changeClockFont(face),face);
+  const digit=page.locator(".flip-digit").first();
+  await expect(digit).toHaveCSS("background-image","none");
+  await expect(digit).toHaveCSS("background-color","rgba(0, 0, 0, 0)");
+  await expect(digit).toHaveCSS("box-shadow","none");
+  await expect(digit).toHaveCSS("border-top-width","0px");
+ }
+});

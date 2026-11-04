@@ -10373,3 +10373,39 @@ Everything below is the contract; break it and the app stops talking to the exe.
   focused green, then all 38 Clock/alarm/Mondaine/Nixie/Clock-settings tests
   passed (workers=2, retries=0). JS syntax and diff checks passed.
   Build bumped with shared/bump-build.js to 202611040832.
+
+### 2026-11-04 - All digital colons and expanded-menu auto-hide guard
+
+- Clock colonMode applies to Flip, Arial, Courier, 7-segment and Nixie, keeping
+  the one-second on/off wall-clock phase. updateClockColon targets each digital
+  separator; Nixie groups only luminous dots in .nixie-colon-lights so the
+  physical colon enclosure stays visible. Hide the setting only for Mondaine,
+  which is analogue and has no colon. Opacity preserves layout while blinking.
+- Shared hideNav returns while #mainNav has an expanded .dropdown-menu.show.
+  It never closes an expanded hamburger as part of auto-hide now. Removed the
+  old closeMainNavDropdown helper (no remaining callers). shown.bs.dropdown /
+  hidden.bs.dropdown handlers for btnMainMenu restart the shared timer, including
+  programmatic and Escape-key dismissal. Bind/unbind them with auto-hide events.
+- tests/nav-menu-autohide.spec.js checks all 10 apps: menu remains expanded past
+  the timeout, then closing starts a fresh 4 seconds. Fake clocks must be PAUSED
+  before exact-boundary timer assertions or real elapsed action time adds drift.
+  Clock variant uses actual Escape dismissal. PMD's former close-on-hide test
+  now asserts the menu remains visible, and PMD screenshot helper verifies it.
+- Confirmed red for both defects. Clock spec + shared all-app nav spec passed
+  28/28; post-cleanup all-app nav passed 10/10; PMD auto-hide tests passed 6/6;
+  main-menu screenshots passed 2/2 with SCREENSHOT_THEME=superhero. No retries.
+  JS syntax and diff checks passed. Build 202611040850.
+
+### 2026-11-04 - Permanently unboxed Clock digits
+
+- Removed the digit-card setting, handler, storage lookup, dynamic class,
+  settings control and conditional CSS. Digital digits always have transparent
+  backgrounds, no border and no box shadow. Flip halves are transparent and
+  their decorative background overlay is removed; split-flap animation and
+  body-coloured seam/backing remain. Nixie artwork uses its separate details
+  setting and is not a digit card.
+- No migration, old-key reads or storage deletion. Source/JSON scan found no
+  obsolete setting references. Replaced toggle tests with rendered invariant
+  assertions across all five digital faces. Confirmed red then green; all 43
+  Clock/alarm/Mondaine/Nixie/Clock-settings tests passed with no retries.
+  JS syntax/diff checks passed; build 202611040852.

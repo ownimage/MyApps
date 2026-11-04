@@ -90,7 +90,7 @@ function renderClock() {
   if (!display) return;
   var font = clockSetting("font", "flip");
   var style = CLOCK_FONT_FAMILIES[font] ? font : "flip";
-  display.className = "flip-clock clock-style-" + style + (clockSetting("showBoxes", "true") === "false" ? " clock-no-boxes" : "");
+  display.className = "flip-clock clock-style-" + style;
   var text = formatClockTime(new Date());
   var previousText = clockLastStyle === style ? clockLastText : null;
   document.getElementById("clockMain").classList.toggle("clock-mondaine-layout", style === "mondaine");
@@ -243,11 +243,6 @@ function changeClockShowDate(checked) {
   renderClock();
 }
 
-function changeClockShowBoxes(checked) {
-  localStorage.setItem(smdKey("showBoxes"), checked ? "true" : "false");
-  renderClock();
-}
-
 function changeClockPureBlack(checked) {
   localStorage.setItem(smdKey("pureBlack"), checked ? "true" : "false");
   applyClockBackground();
@@ -262,7 +257,6 @@ function openSettings() {
       var showSeconds = document.getElementById("clockShowSeconds");
       var font = document.getElementById("clockFontSelector");
       var showDate = document.getElementById("clockShowDate");
-      var showBoxes = document.getElementById("clockShowBoxes");
       var pureBlack = document.getElementById("clockPureBlack");
       var color = document.getElementById("clockColorPicker");
       var glow = document.getElementById("clockGlowSlider");
@@ -274,7 +268,6 @@ function openSettings() {
       if (showSeconds) showSeconds.checked = clockSetting("showSeconds", "true") !== "false";
       if (font) font.value = clockSetting("font", "flip");
       if (showDate) showDate.checked = clockSetting("showDate", "true") !== "false";
-      if (showBoxes) showBoxes.checked = clockSetting("showBoxes", "true") !== "false";
       if (pureBlack) pureBlack.checked = clockSetting("pureBlack", "false") === "true";
       if (color) color.value = clockSetting("color", "#b6ffbd");
       if (glow) glow.value = clockSetting("glow", "0.35");
