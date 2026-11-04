@@ -45,11 +45,13 @@ function openStreamEditPage() {
   const data = editBuffer || t;
   const page = document.getElementById("streamEditPage");
   if (!page) return;
+  clearTimeout(_streamEditCloseTimer);
   page.classList.remove("d-none");
   page.title = isNew ? "Add Stream" : "Edit Stream";
   page.content = getStreamEditFormHTML(data);
   page.buttons = [
     { text: "Cancel", variant: "secondary", action: "cancel", id: "btnStreamEditCancel" },
+    ...(!isNew && t && !(t.jobs || []).length ? [{ text: "Delete", variant: "danger", action: "delete", id: "btnStreamEditDelete", close: false }] : []),
     { text: "OK", variant: "success", action: "done", id: "btnStreamEditOk" }
   ];
   page.show();
@@ -463,7 +465,8 @@ function doneEdit() {
 function confirmDeleteStream(index) {
   editingIndex = index;
   var streams = loadStreams();
-  var stream = streams[index] || {};
+  var stream = streams[index];
+  if (!stream || (stream.jobs || []).length) return;
   showSmdModal({
     title: "Delete Stream?",
     content: 'Delete stream "' + escapeHtml(stream.title || "") + '"?',
@@ -474,11 +477,13 @@ function confirmDeleteStream(index) {
     onAction: function(detail) {
       if (detail.action !== "delete") return;
       var s = loadStreams();
+      if (!s[index] || (s[index].jobs || []).length) return;
       s.splice(index, 1);
       s.forEach(function(t, i) { t.sequence = i + 1; });
       saveStreams(s);
+      hideStreamEditPage();
       editingIndex = -1; editBuffer = null; isNew = false;
-      renderStreamsEditor();
+      refreshActiveView();
     }
   });
 }

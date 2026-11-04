@@ -71,6 +71,116 @@ const SAMPLE = [
 ];
 
 test.describe("Gantt page", () => {
+
+  test("empty stream editor has a shared Delete footer with confirmation and returns to Gantt", async ({ page }) => {
+    await page.goto("/PlanMyDay/");
+    await seedStreams(page, SAMPLE);
+    await enableGantt(page);
+    await openChart(page);
+    await page.locator("#ganttChart .pmd-gantt-edit-btn").last().click();
+    const del = page.locator("#streamEditPage .smd-page-footer smd-button#btnStreamEditDelete");
+    await expect(del).toBeVisible();
+    await expect(page.locator("#streamEditPage .smd-page-footer smd-button")).toHaveText(["Cancel", "Delete", "OK"]);
+    await expect(del.locator("button")).toHaveClass(/btn-danger/);
+    await del.click();
+    await page.locator('smd-modal[open] .smd-footer button').filter({ hasText: "Cancel" }).click();
+    await expect(page.locator("#streamEditPage")).toHaveAttribute("open", "");
+    expect(await page.evaluate(() => loadStreams().length)).toBe(2);
+    await del.click();
+    await page.locator('smd-modal[open] .smd-footer button').filter({ hasText: "Delete" }).click();
+    await expect(page.locator("#streamEditPage")).not.toHaveAttribute("open", "");
+    await expect(page.locator("#ganttPage")).not.toHaveClass(/smd-page-suspended/);
+    await expect(page.locator(".pmd-gantt-stream-title")).toHaveText(["Work"]);
+    expect(await page.evaluate(() => loadStreams().map(s => [s.title, s.sequence]))).toEqual([["Work", 1]]);
+    await page.locator("#ganttChart .pmd-gantt-edit-btn").first().click();
+    await expect(del).toHaveCount(0); // jobs, even jobs with no subtasks, prevent stream deletion
+    await page.locator("#btnStreamEditCancel").click();
+    await page.evaluate(() => addNewStream());
+    await expect(del).toHaveCount(0);
+    await page.locator("#btnStreamEditCancel").click();
+  });
+
+  for (const previousClosed of [false, true]) {
+    for (const targetClosed of [false, true]) {
+      test(`job drop just after stream header: previous ${previousClosed ? "closed" : "open"}, target ${targetClosed ? "closed" : "open"}`, async ({ page }) => {
+        const streams = ["A", "B", "C"].map((title, i) => ({
+          title, sequence: i + 1,
+          jobs: [1, 2].map(n => ({ id: title + n, title: title + n, sequence: n, active: true, schedule: { type: "daily" } }))
+        }));
+        await page.goto("/PlanMyDay/");
+        await seedStreams(page, streams);
+        await page.evaluate(closed => localStorage.setItem("planmydays_ganttCollapsedStreams", JSON.stringify(closed)),
+          [...(previousClosed ? ["A"] : []), ...(targetClosed ? ["B"] : [])]);
+        await enableGantt(page);
+        await openChart(page);
+        const source = page.locator(".pmd-gantt-job-name").filter({ hasText: /^C1$/ });
+        const header = page.locator(".pmd-gantt-stream-title").filter({ hasText: /^B$/ });
+        const sr = await source.boundingBox();
+        const hr = await header.locator("xpath=ancestor::*[contains(@class,'rgRow')]").boundingBox();
+        await page.mouse.move(sr.x + sr.width / 2, sr.y + sr.height / 2);
+        await page.mouse.down();
+        await page.mouse.move(sr.x + sr.width / 2, hr.y + hr.height * .75, { steps: 6 });
+        const line = page.locator(".pmd-gantt-drop-target, .pmd-gantt-drop-target--after");
+        await expect(line).toHaveCount(1);
+        const lr = await line.boundingBox();
+        expect(Math.abs(lr.y - (hr.y + hr.height))).toBeLessThan(2);
+        await page.mouse.up();
+        const expectedB = targetClosed ? ["B1", "B2", "C1"] : ["C1", "B1", "B2"];
+        await expect.poll(() => page.evaluate(() => loadStreams().map(s => s.jobs.map(j => j.id))))
+          .toEqual([["A1", "A2"], expectedB, ["C2"]]);
+        expect(await page.evaluate(() => loadStreams().map(s => s.jobs.map(j => j.sequence))))
+          .toEqual([[1, 2], [1, 2, 3], [1]]);
+        await page.evaluate(() => { localStorage.setItem("planmydays_ganttCollapsedStreams", "[]"); ganttCollapsedStreams = null; renderGantt(); });
+        await expect(page.locator(".pmd-gantt-job-name")).toHaveText(["A1", "A2", ...expectedB, "C2"]);
+        await page.keyboard.press("Control+z");
+        await expect.poll(() => page.evaluate(() => loadStreams().map(s => s.jobs.map(j => j.id))))
+          .toEqual([["A1", "A2"], ["B1", "B2"], ["C1", "C2"]]);
+      });
+    }
+  }
+  test("Simplex dark Gantt header uses readable shared buttons through all control states", async ({ page }) => {
+    await page.goto("/PlanMyDay/");
+    await seedStreams(page, SAMPLE);
+    await enableGantt(page);
+    await page.evaluate(() => applyTheme("simplex", "dark"));
+    await openChart(page);
+    const contrast = async (button) => button.evaluate(el => {
+      const cs = getComputedStyle(el);
+      const lum = color => {
+        const channels = color.match(/[\d.]+/g).slice(0, 3).map(Number).map(v => {
+          v /= 255; return v <= .04045 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4;
+        });
+        return channels[0] * .2126 + channels[1] * .7152 + channels[2] * .0722;
+      };
+      const a = lum(cs.color), b = lum(cs.backgroundColor);
+      return (Math.max(a, b) + .05) / (Math.min(a, b) + .05);
+    });
+    const check = async () => {
+      const buttons = page.locator("#ganttPage .smd-page-header button:enabled");
+      for (const button of await buttons.all()) {
+        await expect.poll(() => contrast(button), { message: await button.innerText() }).toBeGreaterThanOrEqual(4.5);
+        await button.hover();
+        await expect.poll(() => contrast(button)).toBeGreaterThanOrEqual(4.5);
+        await button.focus();
+        await expect.poll(() => contrast(button)).toBeGreaterThanOrEqual(4.5);
+      }
+    };
+    await check();
+    await expect(page.locator("#ganttPage .smd-page-header smd-button")).toHaveCount(8);
+    await page.locator('[data-gantt-zoom="week-month"]').click();
+    await page.locator(".gantt-dates-toggle").click();
+    await page.locator(".gantt-active-toggle").click();
+    await check();
+    await page.evaluate(() => { const s = loadStreams(); s[0].jobs[0].duration = 4; ganttCommitStreams(s); });
+    await check(); // enabled Undo
+    await page.getByRole("button", { name: "Undo", exact: true }).click();
+    await check(); // enabled Redo
+    await page.getByRole("button", { name: "Redo", exact: true }).click();
+    await page.getByRole("button", { name: /^Streams/ }).click();
+    await expect(page.locator("#ganttStreamMenu")).toHaveClass(/show/);
+    await expect(page.getByRole("button", { name: /^Streams/ })).toHaveAttribute("aria-expanded", "true");
+  });
+
   test("Show Gantt is the last setting on the General tab and defaults to off", async ({ page }) => {
     await page.goto("/PlanMyDay/");
     await page.locator("#btnMainMenu").click();
@@ -951,7 +1061,17 @@ test.describe("Gantt page", () => {
 
       const expected = await page.evaluate(() => {
         const root = getComputedStyle(document.documentElement);
+        const textColor = variant => {
+          const host = document.createElement("smd-button");
+          host.variant = variant;
+          document.getElementById("smd-app").appendChild(host);
+          const color = getComputedStyle(host.querySelector("button")).color;
+          host.remove();
+          return color;
+        };
         return {
+          primaryText: textColor("primary"),
+          secondaryText: textColor("secondary"),
           primary: root.getPropertyValue("--bs-primary").trim(),
           secondary: root.getPropertyValue("--bs-secondary").trim(),
           success: root.getPropertyValue("--bs-success").trim(),
@@ -975,8 +1095,8 @@ test.describe("Gantt page", () => {
       // until it settles: a genuinely wrong colour never arrives and still fails,
       // with the mismatching key named in the diff.
       await expect.poll(async () => page.evaluate(() => {
-        const active = document.querySelector('#ganttPage .gantt-zoom > .btn.active');
-        const inactive = document.querySelector('#ganttPage .gantt-zoom > .btn:not(.active)');
+        const active = document.querySelector('#ganttPage .gantt-zoom > smd-button.active > button');
+        const inactive = document.querySelector('#ganttPage .gantt-zoom > smd-button:not(.active) > button');
         return {
           activeBg: active ? getComputedStyle(active).backgroundColor : null,
           inactiveBg: inactive ? getComputedStyle(inactive).backgroundColor : null,
@@ -986,12 +1106,9 @@ test.describe("Gantt page", () => {
       }), { message: `${theme}/${mode} zoom buttons` }).toMatchObject({
         activeBg: primary,
         inactiveBg: secondary,
-        // Button text is WHITE on both the filled primary (selected) and secondary
-        // (unselected) surfaces, exactly like Bootstrap's own `.btn-primary`/
-        // `.btn-secondary` (`--bs-btn-color: #fff`). A `--bs-body-color` fallback
-        // would render black in light mode.
-        activeColor: "rgb(255, 255, 255)",
-        inactiveColor: "rgb(255, 255, 255)"
+        // The shared theme contrast rules choose the readable foreground.
+        activeColor: expected.primaryText,
+        inactiveColor: expected.secondaryText
       });
 
       // (2) bars: solid, matching the theme success/danger exactly (same
@@ -1097,7 +1214,7 @@ test.describe("Gantt page", () => {
       let dropdown;
       await expect.poll(async () => (dropdown = await page.evaluate(() => {
         const menu = document.querySelector("#ganttStreamMenu");
-        const btn = document.querySelector("#ganttStreamMenuBtn");
+        const btn = document.querySelector("#ganttStreamMenuBtn button");
         const row = document.querySelector(".gantt-stream-row");
         const hoverBg = Array.from(document.styleSheets)
           .flatMap((s) => { try { return Array.from(s.cssRules); } catch (e) { return []; } })
@@ -1842,7 +1959,7 @@ test.describe("Gantt page", () => {
     const cHeader2 = await headerRect("C");
     await page.mouse.move(d1.x + d1.w / 2, d1.y + d1.h / 2);
     await page.mouse.down();
-    await page.mouse.move(d1.x + d1.w / 2, cHeader2.y + cHeader2.h * 0.75, { steps: 2 });
+    await page.mouse.move(d1.x + d1.w / 2, cHeader2.y + cHeader2.h * 0.25, { steps: 2 });
     expect(await hasTarget(page)).toBe(true);
     await page.mouse.up();
     await page.waitForTimeout(600);
@@ -1900,7 +2017,7 @@ test.describe("Gantt page", () => {
     expect(order).toEqual(["job_a", "job_b", "job_c"]);
   });
 
-  test("dropping a JOB on a stream header appends it to the stream above (bottom), never the header's own stream", async ({ page }) => {
+  test("dropping a JOB before a stream header appends above; after a collapsed header appends to its hidden jobs", async ({ page }) => {
     test.setTimeout(60000);
     // A open, B closed, C open, D open. Dragging D2 "between B and C" (on B's or
     // C's header, i.e. above C's header) must add it to the BOTTOM of B, never the
@@ -1988,7 +2105,7 @@ test.describe("Gantt page", () => {
     const cHeader = await headerRect("C");
     expect(cHeader).toBeTruthy();
     const d2b = await nameRect("D2");
-    const lineYb = cHeader.y + cHeader.h / 2;
+    const lineYb = cHeader.y + cHeader.h * 0.25;
     await page.mouse.move(d2b.x + d2b.w / 2, d2b.y + d2b.h / 2);
     await page.mouse.down();
     await page.mouse.move(d2b.x + d2b.w / 2, lineYb, { steps: 5 });
@@ -2769,8 +2886,8 @@ test.describe("Gantt page", () => {
     await openChart(page);
 
     // Undo/Redo buttons exist, right before the Streams filter
-    const undoBtn = page.locator("#ganttPage .gantt-undo-btn");
-    const redoBtn = page.locator("#ganttPage .gantt-redo-btn");
+    const undoBtn = page.locator("#ganttPage .gantt-undo-btn button");
+    const redoBtn = page.locator("#ganttPage .gantt-redo-btn button");
     await expect(undoBtn).toBeVisible();
     await expect(redoBtn).toBeVisible();
     // header order: zoom, undo, redo, then streams filter (measured by position
@@ -2820,7 +2937,7 @@ test.describe("Gantt page", () => {
     expect(moved.sleepUntil > (before.sleepUntil || "")).toBe(true);
 
     // Undo button enabled now
-    await expect(page.locator("#ganttPage .gantt-undo-btn")).toBeEnabled();
+    await expect(page.locator("#ganttPage .gantt-undo-btn button")).toBeEnabled();
 
     // Ctrl+Z undoes the move -> back to original sleepUntil (absent = undefined)
     await page.keyboard.press("Control+z");
@@ -2828,7 +2945,7 @@ test.describe("Gantt page", () => {
     const undone = await readJob("job_daily");
     expect(undone.sleepUntil || null).toBe(before.sleepUntil || null);
     // redo button enabled after undo
-    await expect(page.locator("#ganttPage .gantt-redo-btn")).toBeEnabled();
+    await expect(page.locator("#ganttPage .gantt-redo-btn button")).toBeEnabled();
 
     // Ctrl+Y redoes -> sleepUntil restored
     await page.keyboard.press("Control+y");
@@ -2864,13 +2981,13 @@ test.describe("Gantt page", () => {
     expect(Number(resized.duration)).toBeGreaterThan(Number(before.duration));
 
     // click Undo button -> duration back to original
-    await page.locator("#ganttPage .gantt-undo-btn").click();
+    await page.locator("#ganttPage .gantt-undo-btn button").click();
     await page.waitForTimeout(600);
     const undone = await readJob("job_daily");
     expect(Number(undone.duration)).toBe(Number(before.duration));
 
     // click Redo button -> duration restored
-    await page.locator("#ganttPage .gantt-redo-btn").click();
+    await page.locator("#ganttPage .gantt-redo-btn button").click();
     await page.waitForTimeout(600);
     const redone = await readJob("job_daily");
     expect(Number(redone.duration)).toBe(Number(resized.duration));
@@ -3021,6 +3138,6 @@ test.describe("Gantt page", () => {
     await page.mouse.move(s3.x + 80, s3.y, { steps: 4 });
     await page.mouse.up();
     await page.waitForTimeout(500);
-    await expect(page.locator("#ganttPage .gantt-redo-btn")).toBeDisabled();
+    await expect(page.locator("#ganttPage .gantt-redo-btn button")).toBeDisabled();
   });
 });
