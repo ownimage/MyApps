@@ -140,13 +140,19 @@
           "press": "regular"
         },
         {
-          "name": "Zoom In",
           "image1": "bi:zoom-in",
           "image2": "",
           "key": "ctrl+=",
+          "name": "Zoom In",
           "press": "regular"
         },
-        {},
+        {
+          "name": "Undo",
+          "image1": "fa:undo",
+          "image2": "",
+          "key": "ctrl+z",
+          "press": "regular"
+        },
         {
           "image1": "bi:brush",
           "image2": "fa:minus",
@@ -168,16 +174,75 @@
           "name": "Pen/Pencil",
           "press": "regular"
         },
-        {},
         {
-          "name": "Zoom Out",
+          "name": "Shift",
+          "image1": "bi:shift-fill",
+          "image2": "",
+          "key": "shift",
+          "press": "extended"
+        },
+        {
           "image1": "bi:zoom-out",
           "image2": "",
           "key": "ctrl+-",
+          "name": "Zoom Out",
           "press": "regular"
         },
-        {}
-      ]
+        {
+          "name": "Redo",
+          "image1": "fa:redo",
+          "image2": "",
+          "key": "ctrl+y",
+          "press": "regular"
+        }
+      ],
+      "hid": {
+        "enabled": false,
+        "axes": {
+          "rx": {
+            "positive": "F13",
+            "negative": "F14",
+            "gain": 0.05,
+            "step": 5,
+            "deadband": 0
+          },
+          "ry": {
+            "positive": "F15",
+            "negative": "F16",
+            "gain": 0.05,
+            "step": 5,
+            "deadband": 0
+          },
+          "rz": {
+            "positive": "F17",
+            "negative": "F18",
+            "gain": 0.05,
+            "step": 5,
+            "deadband": 0
+          },
+          "tx": {
+            "positive": "F19",
+            "negative": "F20",
+            "gain": 0.0001,
+            "step": 0.01,
+            "deadband": 0
+          },
+          "ty": {
+            "positive": "F21",
+            "negative": "F22",
+            "gain": 0.0001,
+            "step": 0.01,
+            "deadband": 0
+          },
+          "tz": {
+            "positive": "F23",
+            "negative": "F24",
+            "gain": 0.0001,
+            "step": 0.01,
+            "deadband": 0
+          }
+        }
+      }
     },
     "notepad": {
       "displayName": "Notepad++",
