@@ -24,11 +24,12 @@
 const { test, expect } = require("@playwright/test");
 const fs = require("fs");
 const path = require("path");
+const { measureRenderedControls } = require("./rendered-controls");
 
 const ROOT = path.resolve(__dirname, "..");
 const THEMES_DIR = path.join(ROOT, "shared", "css", "themes");
 const VARIANTS = ["primary", "secondary", "success", "danger", "warning", "info", "light", "dark"];
-const STATES = ["base", "hover", "active", "disabled"];
+const STATES = ["base", "hover", "focus", "active", "disabled"];
 const AA = 4.5;
 const FIX = process.env.SMD_CONTRAST_FIX === "1";
 const START = "smd-contrast:start";
@@ -101,7 +102,7 @@ const MEASURE = (variants) => {
     }
     const m = str.match(/^(rgba?|color)\((.*)\)$/);
     if (!m) return null;                      // e.g. an unresolved var(...)
-    const parts = m[2].split(/[\s,\/]+/).filter((v) => v !== "").map(Number);
+    const parts = m[2].replace(/^srgb\s+/, "").split(/[\s,\/]+/).filter((v) => v !== "").map(Number);
     const scale = m[1] === "color" ? 255 : 1;
     return { r: parts[0] * scale, g: parts[1] * scale, b: parts[2] * scale, a: parts.length > 3 ? parts[3] : 1 };
   };
@@ -121,7 +122,7 @@ const MEASURE = (variants) => {
   // --bs-body-bg, else black/white.
   const pick = (current, surface, bodyColor, bodyBg) => {
     if (!current || !surface) return null;
-    if (ratio(current, surface) >= AA) return null;
+    if (ratio(over(current, surface), surface) >= AA) return null;
     let best = null;
     [bodyColor, bodyBg].forEach((c) => {
       if (!c) return;
@@ -168,15 +169,18 @@ const MEASURE = (variants) => {
       b.className = "btn btn-" + v;
       b.textContent = "Probe";
       h.appendChild(b);
+      const badge = document.createElement("span");
+      badge.className = "badge text-bg-" + v;
+      badge.textContent = "Probe";
+      h.appendChild(badge);
     });
     const tabs = document.createElement("smd-tabs");
     h.appendChild(tabs);
-    const a = document.createElement("button");
-    a.className = "nav-link smd-tab-btn text-bg-primary";
-    const i = document.createElement("button");
-    i.className = "nav-link smd-tab-btn text-bg-secondary";
-    tabs.appendChild(a);
-    tabs.appendChild(i);
+    tabs.tabs = [{title:"Active"}, {title:"Inactive"}];
+    const select = document.createElement("smd-select");
+    select.id = "contrastCssSelect";
+    select.options = [{value:"one",label:"Selected"},{value:"two",label:"Option"}];
+    h.appendChild(select);
     document.body.appendChild(h);
     return h;
   })();
@@ -264,8 +268,7 @@ const MEASURE = (variants) => {
     return darkest;
   };
 
-  const out = { buttons: {}, tabs: {}, menu: null };
-
+  const out = { buttons: {}, tabs: {}, badges: {}, menu: null };
   // Alert bars: text against the bar's own surface (the theme's alert tint, judged
   // on its darkest extent when it carries a gradient).
   const alertHost = document.getElementById("contrastCssAlerts");
@@ -284,43 +287,6 @@ const MEASURE = (variants) => {
       };
     });
   }
-
-  document.querySelectorAll("#contrastCssProbe .btn").forEach((el) => {
-    const v = (el.className.match(/btn-([a-z]+)/) || [])[1];
-    if (!v) return;
-    const cs = getComputedStyle(el);
-    const base = over(parse(cs.backgroundColor), pageBg);
-    const surfaceOf = (name, fallback) => {
-      const c = parse(cs.getPropertyValue(name));
-      return !c || c.a === 0 ? fallback : over(c, pageBg);
-    };
-    const colorOf = (name, fallback) => {
-      const c = parse(cs.getPropertyValue(name));
-      return !c || c.a === 0 ? fallback : c;
-    };
-    const baseColor = parse(cs.color);
-    // Gradient stops belong to the BASE state (slate overrides them per state and
-    // that cannot be read without hovering), so base/disabled use them - the image
-    // persists there - while hover/active are judged on their flat colour.
-    out.buttons[v] = {
-      base: { current: baseColor ? rgb(baseColor) : null, surface: rgb(darkestSurface(cs, base)), picked: pickCss(baseColor, darkestSurface(cs, base)) },
-      hover: (() => { const c = colorOf("--bs-btn-hover-color", baseColor); const s = surfaceOf("--bs-btn-hover-bg", base);
-        return { current: c ? rgb(c) : null, surface: rgb(s), picked: pickCss(c, s) }; })(),
-      active: (() => { const c = colorOf("--bs-btn-active-color", baseColor); const s = surfaceOf("--bs-btn-active-bg", base);
-        return { current: c ? rgb(c) : null, surface: rgb(s), picked: pickCss(c, s) }; })(),
-      disabled: (() => { const c = colorOf("--bs-btn-disabled-color", baseColor); const s = surfaceOf("--bs-btn-disabled-bg", base);
-        return { current: c ? rgb(c) : null, surface: rgb(darkestSurface(cs, s)), picked: pickCss(c, darkestSurface(cs, s)) }; })()
-    };
-  });
-
-  [["primary", ".text-bg-primary"], ["secondary", ".text-bg-secondary"]].forEach(([name, sel]) => {
-    const el = host.querySelector("smd-tabs " + sel);
-    if (!el) return;
-    const cs = getComputedStyle(el);
-    const surface = darkestSurface(cs, over(parse(cs.backgroundColor), pageBg));
-    const col = parse(cs.color);
-    out.tabs[name] = { current: col ? rgb(col) : null, surface: rgb(surface), picked: pickCss(col, surface) };
-  });
 
   const menuItem = document.querySelector("#mainNav .dropdown-menu .dropdown-item");
   if (menuItem) {
@@ -428,14 +394,83 @@ const MEASURE = (variants) => {
   return out;
 };
 
+// Preserve a native colour whenever it passes on EVERY painted gradient stop.
+// Flatten a control's gradient only when no foreground can work across its ramp.
+function renderedPick(paint, bodyColor, bodyBg) {
+  const lum = c => c.slice(0,3).map(v=>v/255).map(v=>v<=.04045?v/12.92:((v+.055)/1.055)**2.4).reduce((s,v,i)=>s+v*[.2126,.7152,.0722][i],0);
+  const ratio = (a,b) => (Math.max(lum(a),lum(b))+.05)/(Math.min(lum(a),lum(b))+.05);
+  const over = (a,b) => a.slice(0,3).map((v,i)=>v*a[3]+b[i]*(1-a[3])).concat(1);
+  const score = (c,surfaces) => Math.min(...surfaces.map(bg=>ratio(over(c,bg),bg)));
+  const rgb = c => "rgb("+c.slice(0,3).map(Math.round).join(", ")+")";
+  const original = score(paint.foreground,paint.surfaces);
+  if (original >= AA) return {current:paint.color, picked:null};
+  const candidates = [bodyColor,bodyBg,[0,0,0,1],[255,255,255,1]].map(c=>c.slice(0,3).concat(1));
+  const choose = surfaces => {
+    const measured = candidates.map(c=>({c,ratio:score(c,surfaces)}));
+    const theme = measured.slice(0,2).filter(candidate=>candidate.ratio>=AA);
+    return (theme.length?theme:measured.slice(2)).sort((a,b)=>b.ratio-a.ratio)[0];
+  };
+  let best = choose(paint.surfaces), flatten = false;
+  if (best.ratio < AA && paint.image !== "none") {
+    flatten = true;
+    // Removing a conflicting gradient may make the original text readable again.
+    if (score(paint.foreground,paint.flatSurfaces) >= AA) return {current:paint.color,picked:null,flatten:true};
+    best = choose(paint.flatSurfaces);
+  }
+  let background = null;
+  if (best.ratio < AA) {
+    // A transparent field over a page gradient may have no single readable ink.
+    // Only in that case use the existing theme body surface behind the label.
+    const surface = bodyBg.slice(0,3).concat(1);
+    best = choose([surface]); background = rgb(surface); flatten = true;
+  }
+  if (best.ratio < AA) throw new Error("No accessible foreground for " + JSON.stringify(paint));
+  return {current:paint.color,picked:rgb(best.c),flatten,background};
+}
+
+async function applyRenderedMeasurements(page, measured) {
+  const states = await measureRenderedControls(page,"#contrastCssProbe");
+  measured.buttons = {}; measured.badges = {}; measured.tabs = {}; measured.fields = {};
+  for (const variant of VARIANTS) {
+    measured.buttons[variant] = {};
+    for (const state of STATES) {
+      const renderedState = state === "hover" ? "hover" : state;
+      const sample = states[renderedState];
+      measured.buttons[variant][state] = renderedPick(sample.buttons[variant],sample.bodyColor,sample.bodyBg);
+    }
+    // Focus and hover can have different surfaces (e.g. Slate/Cerulean).
+    measured.buttons[variant].focus = renderedPick(states.focus.buttons[variant],states.focus.bodyColor,states.focus.bodyBg);
+    measured.badges[variant] = renderedPick(states.base.badges[variant],states.base.bodyColor,states.base.bodyBg);
+  }
+  for (const field of ["input","select"]) {
+    measured.fields[field] = {};
+    for (const state of ["base","hover","focus","active"]) {
+      const sample = states[state];
+      if (sample.fields[field]) measured.fields[field][state] = renderedPick(sample.fields[field],sample.bodyColor,sample.bodyBg);
+    }
+  }
+  measured.selectItems = {};
+  for (const kind of ["selected","normal"]) {
+    const sample = states.base;
+    if (sample.selectItems[kind]) measured.selectItems[kind] = renderedPick(sample.selectItems[kind],sample.bodyColor,sample.bodyBg);
+  }
+  for (const variant of ["primary","secondary"]) {
+    measured.tabs[variant] = {};
+    for (const state of ["base","hover","focus","active"]) {
+      const sample = states[state];
+      measured.tabs[variant][state] = renderedPick(sample.tabs[variant],sample.bodyColor,sample.bodyBg);
+    }
+  }
+}
+
 // ---- formatting (deterministic: the comparison is on the exact text) -------
 const SELECTOR = {
-  base: (v) => `.btn-${v}`,
-  hover: (v) => `.btn-${v}:hover, .btn-${v}:focus-visible`,
-  active: (v) => `.btn-${v}:active`,
+  base: (v) => `.btn-${v}:not(:hover):not(:focus-visible):not(:active):not(.active):not(:disabled):not(.disabled)`,
+  hover: (v) => `.btn-${v}:not(:active):not(.active):not(:focus-visible):not(:disabled):not(.disabled):hover`,
+  focus: (v) => `.btn-${v}:not(:active):not(.active):not(:disabled):not(.disabled):focus-visible`,
+  active: (v) => `.btn-${v}:not(:disabled):not(.disabled):active, .btn-${v}:not(:disabled):not(.disabled).active`,
   disabled: (v) => `.btn-${v}:disabled, .btn-${v}.disabled`
 };
-const VAR = { base: "--bs-btn-color", hover: "--bs-btn-hover-color", active: "--bs-btn-active-color", disabled: "--bs-btn-disabled-color" };
 
 function hex(c) {
   const m = String(c).match(/-?\d+\.?\d*/g).map(Number);
@@ -465,15 +500,6 @@ function formatBlock(measured) {
 
   [...groups.values()].sort((a, b) => a.index - b.index).forEach((group) => {
     const needed = STATES.filter((s) => group.picked[s]);
-    // one rule for the VAR values (Bootstrap reads them per state) ...
-    rules.push(
-      group.variants.map((v) => ".btn-" + v).join(", ") + " {\n" +
-      needed.map((s) => "  " + VAR[s] + ": " + group.picked[s] + ";").join("\n") + "\n}"
-    );
-    // ... and one repaint rule PER DISTINCT COLOUR (a group's states can differ:
-    // darkly's success is #222 hover/disabled but #000 active). Themes paint `.btn`
-    // with a literal colour and `.text-bg-*` uses !important, so this explicit
-    // declaration is what actually repaints.
     const byColour = new Map();
     group.variants.forEach((v) => needed.forEach((s) => {
       const c = group.picked[s];
@@ -485,12 +511,43 @@ function formatBlock(measured) {
     });
   });
 
-  [["primary", "text-bg-primary"], ["secondary", "text-bg-secondary"]].forEach(([name, cls]) => {
-    const t = measured.tabs[name];
-    if (!t || !t.picked) return;
-    const sel = "smd-tabs .smd-tab-btn." + cls;
-    rules.push(sel + ",\n" + sel + ":hover,\n" + sel + ":focus-visible {\n  color: " + hex(t.picked) + " !important;\n}");
+  Object.entries(measured.badges || {}).forEach(([variant, badge]) => {
+    if (badge.picked) rules.push(".badge.text-bg-" + variant + " {\n  color: " + hex(badge.picked) + " !important;\n}");
   });
+
+  VARIANTS.forEach(v => {
+    for (const state of STATES) if (measured.buttons[v][state].flatten) rules.push(SELECTOR[state](v) + " {\n  background-image: none !important;\n" + (measured.buttons[v][state].background?"  background-color: "+measured.buttons[v][state].background+" !important;\n":"") + "}");
+  });
+  for (const [name, cls] of [["primary","text-bg-primary"],["secondary","text-bg-secondary"]]) {
+    const states = measured.tabs[name];
+    const selectors = {
+      base: "smd-tabs .smd-tab-btn."+cls+":not(:hover):not(:focus-visible):not(:active)",
+      hover: "smd-tabs .smd-tab-btn."+cls+":hover:not(:focus-visible):not(:active)",
+      focus: "smd-tabs .smd-tab-btn."+cls+":focus-visible:not(:active)",
+      active: "smd-tabs .smd-tab-btn."+cls+":active"
+    };
+    for (const state of ["base","hover","focus","active"]) {
+      const correction = states[state];
+      if (correction.picked || correction.flatten) rules.push(selectors[state]+" {\n"+
+        (correction.picked?"  color: "+hex(correction.picked)+" !important;\n":"")+
+        (correction.flatten?"  background-image: none !important;\n":"")+
+        (correction.background?"  background-color: "+correction.background+" !important;\n":"")+"}");
+    }
+  }
+
+  for (const [field, selector] of [["input",".form-control:not([readonly]):not(:disabled)"],["select",".form-select:not(:disabled)"]]) {
+    for (const state of ["base","hover","focus","active"]) {
+      const correction = measured.fields[field][state];
+      const suffix = state === "base" ? ":not(:hover):not(:focus-visible):not(:active)" : state === "hover" ? ":hover:not(:focus-visible):not(:active)" : state === "focus" ? ":focus-visible:not(:active)" : ":active";
+      if (correction && (correction.picked || correction.background)) rules.push(selector+suffix+" {\n"+
+        (correction.picked?"  color: "+hex(correction.picked)+" !important;\n":"")+
+        (correction.background?"  background-color: "+correction.background+" !important;\n  background-image: none !important;\n":"")+"}");
+    }
+  }
+  for (const [kind,selector] of [["selected","smd-select .smd-select-item:is(.text-bg-primary, :hover, :focus-visible)"],["normal","smd-select .smd-select-item:not(.text-bg-primary):not(:hover):not(:focus-visible)"]]) {
+    const correction = measured.selectItems[kind];
+    if (correction && correction.picked) rules.push(selector+" {\n  color: "+hex(correction.picked)+" !important;\n}");
+  }
 
   if (measured.menu && measured.menu.picked) {
     const sel = "#mainNav .dropdown-menu .dropdown-item";
@@ -578,30 +635,26 @@ function formatBlock(measured) {
 //   2. the LIVE CSSStyleSheet objects (`link.sheet.href`) naming the new theme;
 //   3. a stable sample of the applied colours (two identical reads in a row).
 async function awaitTheme(page, theme, mode) {
-  await page.evaluate(([t, m]) => new Promise((resolve) => {
-    const base = document.getElementById("bootstrap-theme-css");
-    const specific = document.getElementById("theme-override-specific");
-    const modeLayer = document.getElementById("theme-override-mode");
-    const href = (el) => (el && el.getAttribute("href")) || "";
-    if (href(base).indexOf("/" + t + "/bootstrap.min.css") !== -1 &&
-        href(specific).indexOf("/" + t + "/" + t + "." + m + ".css") !== -1) {
-      return resolve();
-    }
-    let pending = 0;
-    let settled = false;
-    const done = () => {
-      if (settled || --pending > 0) return;
-      settled = true;
-      resolve();
-    };
-    [base, specific, modeLayer].filter(Boolean).forEach((el) => {
-      pending++;
-      const onLoad = () => { el.removeEventListener("load", onLoad); done(); };
-      el.addEventListener("load", onLoad);
+  await page.evaluate(async ([t, m]) => {
+    const entries = ["bootstrap-theme-css", "theme-override-specific", "theme-override-mode"].map(id => {
+      const link = document.getElementById(id);
+      let finish;
+      const ready = new Promise((resolve, reject) => {
+        const cleanup = () => { link.removeEventListener("load", onLoad); link.removeEventListener("error", onError); };
+        const onLoad = () => { cleanup(); resolve(); };
+        const onError = () => { cleanup(); reject(new Error("Theme stylesheet failed: " + id)); };
+        finish = onLoad;
+        link.addEventListener("load", onLoad);
+        link.addEventListener("error", onError);
+      });
+      return { link, href: link.href, ready, finish };
     });
     applyTheme(t, m);
-    setTimeout(() => { if (!settled) { settled = true; resolve(); } }, 5000);
-  }), [theme, mode]);
+    entries.forEach(entry => {
+      if (entry.href === entry.link.href && entry.link.sheet) entry.finish();
+    });
+    await Promise.all(entries.map(entry => entry.ready));
+  }, [theme, mode]);
 
   await page.waitForFunction(([t, m]) => {
     const sheetHref = (id) => {
@@ -649,7 +702,7 @@ test.describe("Contrast CSS is baked and current", { tag: "@contrast" }, () => {
       return route.fulfill({ status: 200, contentType: "text/css", body: stripBlock(fs.readFileSync(file, "utf8")) });
     });
 
-    await page.goto("/PlanMyDay/");
+    await page.goto("/PlanMyDay/", { waitUntil: "domcontentloaded" });
     // Create the probe elements once, so the settle check always sees them.
     await page.evaluate(MEASURE, VARIANTS);
 
@@ -663,6 +716,7 @@ test.describe("Contrast CSS is baked and current", { tag: "@contrast" }, () => {
         await awaitTheme(page, theme, mode);
 
         const measured = await page.evaluate(MEASURE, VARIANTS);
+        await applyRenderedMeasurements(page, measured);
         const expected = formatBlock(measured);
         // Diagnostics, surfaced in the failure message (console.log is not shown by
         // the line reporter).

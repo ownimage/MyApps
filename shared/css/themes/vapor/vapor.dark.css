@@ -4,50 +4,63 @@
 }
 
 /* smd-contrast:start */
-.btn-secondary, .btn-danger {
-  --bs-btn-color: #170229;
-  --bs-btn-disabled-color: #170229;
-}
-.btn-secondary,
-.btn-secondary:disabled, .btn-secondary.disabled,
-.btn-danger,
-.btn-danger:disabled, .btn-danger.disabled {
+.btn-secondary:not(:hover):not(:focus-visible):not(:active):not(.active):not(:disabled):not(.disabled),
+.btn-danger:not(:hover):not(:focus-visible):not(:active):not(.active):not(:disabled):not(.disabled) {
   color: #170229 !important;
 }
-.btn-success, .btn-warning, .btn-info, .btn-light {
-  --bs-btn-color: #170229;
-  --bs-btn-hover-color: #170229;
-  --bs-btn-active-color: #170229;
-  --bs-btn-disabled-color: #170229;
-}
-.btn-success,
-.btn-success:hover, .btn-success:focus-visible,
-.btn-success:active,
-.btn-success:disabled, .btn-success.disabled,
-.btn-warning,
-.btn-warning:hover, .btn-warning:focus-visible,
-.btn-warning:active,
-.btn-warning:disabled, .btn-warning.disabled,
-.btn-info,
-.btn-info:hover, .btn-info:focus-visible,
-.btn-info:active,
-.btn-info:disabled, .btn-info.disabled,
-.btn-light,
-.btn-light:hover, .btn-light:focus-visible,
-.btn-light:active,
-.btn-light:disabled, .btn-light.disabled {
+.btn-success:not(:hover):not(:focus-visible):not(:active):not(.active):not(:disabled):not(.disabled),
+.btn-success:not(:active):not(.active):not(:focus-visible):not(:disabled):not(.disabled):hover,
+.btn-success:not(:active):not(.active):not(:disabled):not(.disabled):focus-visible,
+.btn-success:not(:disabled):not(.disabled):active, .btn-success:not(:disabled):not(.disabled).active,
+.btn-warning:not(:hover):not(:focus-visible):not(:active):not(.active):not(:disabled):not(.disabled),
+.btn-warning:not(:active):not(.active):not(:focus-visible):not(:disabled):not(.disabled):hover,
+.btn-warning:not(:active):not(.active):not(:disabled):not(.disabled):focus-visible,
+.btn-warning:not(:disabled):not(.disabled):active, .btn-warning:not(:disabled):not(.disabled).active,
+.btn-info:not(:hover):not(:focus-visible):not(:active):not(.active):not(:disabled):not(.disabled),
+.btn-info:not(:active):not(.active):not(:focus-visible):not(:disabled):not(.disabled):hover,
+.btn-info:not(:active):not(.active):not(:disabled):not(.disabled):focus-visible,
+.btn-info:not(:disabled):not(.disabled):active, .btn-info:not(:disabled):not(.disabled).active,
+.btn-light:not(:hover):not(:focus-visible):not(:active):not(.active):not(:disabled):not(.disabled),
+.btn-light:not(:active):not(.active):not(:focus-visible):not(:disabled):not(.disabled):hover,
+.btn-light:not(:active):not(.active):not(:disabled):not(.disabled):focus-visible,
+.btn-light:not(:disabled):not(.disabled):active, .btn-light:not(:disabled):not(.disabled).active {
   color: #170229 !important;
 }
-smd-tabs .smd-tab-btn.text-bg-secondary,
-smd-tabs .smd-tab-btn.text-bg-secondary:hover,
-smd-tabs .smd-tab-btn.text-bg-secondary:focus-visible {
+.badge.text-bg-secondary {
+  color: #170229 !important;
+}
+.badge.text-bg-success {
+  color: #170229 !important;
+}
+.badge.text-bg-danger {
+  color: #170229 !important;
+}
+.badge.text-bg-warning {
+  color: #170229 !important;
+}
+.badge.text-bg-info {
+  color: #170229 !important;
+}
+.badge.text-bg-light {
+  color: #170229 !important;
+}
+smd-tabs .smd-tab-btn.text-bg-secondary:not(:hover):not(:focus-visible):not(:active) {
+  color: #170229 !important;
+}
+smd-tabs .smd-tab-btn.text-bg-secondary:hover:not(:focus-visible):not(:active) {
+  color: #170229 !important;
+}
+smd-tabs .smd-tab-btn.text-bg-secondary:focus-visible:not(:active) {
+  color: #170229 !important;
+}
+smd-tabs .smd-tab-btn.text-bg-secondary:active {
   color: #170229 !important;
 }
 #mainNav .dropdown-menu {
   border-color: #fff;
 }
 cmd-countdown-card .text-secondary {
-  color: #000 !important;
+  color: #dee2e6 !important;
 }
 .alert-secondary,
 .alert-warning,
@@ -68,14 +81,11 @@ smd-checkbox input[type="checkbox"] {
   border-color: #fff;
 }
 /* smd-contrast:end */
-
 /* solar-palette:start */
 :root {
   --solar-clock-ink: rgb(23, 2, 41);
   --solar-card-ink: rgb(222, 226, 230);
   --solar-card-ink-rgb: 222, 226, 230;
-  --solar-action-ink: rgb(169, 142, 218);
-  --solar-field-ink: rgb(222, 226, 230);
   --solar-ink: rgb(222, 226, 230);
   --solar-ink-rgb: 222, 226, 230;
   --solar-card-danger: rgb(228, 76, 85);

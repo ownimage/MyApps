@@ -21,14 +21,11 @@ smd-checkbox input[type="checkbox"] {
   border-color: #fff;
 }
 /* smd-contrast:end */
-
 /* solar-palette:start */
 :root {
   --solar-clock-ink: rgb(33, 37, 41);
   --solar-card-ink: rgb(222, 226, 230);
   --solar-card-ink-rgb: 222, 226, 230;
-  --solar-action-ink: rgb(110, 168, 254);
-  --solar-field-ink: rgb(222, 226, 230);
   --solar-ink: rgb(222, 226, 230);
   --solar-ink-rgb: 222, 226, 230;
   --solar-card-danger: rgb(220, 53, 69);

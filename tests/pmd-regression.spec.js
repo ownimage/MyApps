@@ -947,6 +947,46 @@ test.describe("PlanMyDay - Regression", () => {
       }, classes);
     }
 
+    // Wait for the actual mode sheets; an unchanged URL need not emit load.
+    async function applyThemeAndSettle(page, theme, mode) {
+      await page.evaluate(async ({ theme, mode }) => {
+        const entries = ["bootstrap-theme-css", "theme-override-mode", "theme-override-specific"].map(id => {
+          const link = document.getElementById(id);
+          let finish;
+          const ready = new Promise((resolve, reject) => {
+            const cleanup = () => { link.removeEventListener("load", onLoad); link.removeEventListener("error", onError); };
+            const onLoad = () => { cleanup(); resolve(); };
+            const onError = () => { cleanup(); reject(new Error("Theme failed to load: " + id)); };
+            finish = onLoad;
+            link.addEventListener("load", onLoad);
+            link.addEventListener("error", onError);
+          });
+          return { link, href: link.href, ready, finish };
+        });
+        applyTheme(theme, mode);
+        entries.forEach(entry => { if (entry.href === entry.link.href && entry.link.sheet) entry.finish(); });
+        await Promise.all(entries.map(entry => entry.ready));
+      }, { theme, mode });
+    }
+
+    async function renderedPaint(locator) {
+      return locator.evaluate(el => {
+        const cs = getComputedStyle(el);
+        const ctx = document.createElement("canvas").getContext("2d");
+        const rgba = color => {
+          ctx.clearRect(0, 0, 1, 1); ctx.fillStyle = color; ctx.fillRect(0, 0, 1, 1);
+          return [...ctx.getImageData(0, 0, 1, 1).data].map((v, i) => i === 3 ? v / 255 : v);
+        };
+        const over = (a, b) => a.slice(0, 3).map((v, i) => v * a[3] + b[i] * (1 - a[3])).concat(1);
+        const rgb = c => "rgb(" + c.slice(0, 3).map(Math.round).join(", ") + ")";
+        const base = over(rgba(cs.backgroundColor), rgba(getComputedStyle(document.body).backgroundColor));
+        const stops = cs.backgroundImage.match(/rgba?\([^)]+\)|color\([^)]+\)|#[\da-f]{3,8}/gi) || [];
+        const surfaces = stops.length ? stops.map(stop => over(rgba(stop), base)) : [base];
+        return { color: cs.color, bg: cs.backgroundColor, image: cs.backgroundImage,
+          pairs: surfaces.map(surface => ({ color: rgb(over(rgba(cs.color), surface)), bg: rgb(surface) })) };
+      });
+    }
+
     // What Bootswatch itself renders for that badge variant (bg + text).
     async function bootswatchBadge(page, variant) {
       return page.evaluate((v) => {
@@ -985,59 +1025,24 @@ test.describe("PlanMyDay - Regression", () => {
       expect(dark.color).not.toBe(dark.bg);
     });
 
-    test("superhero warning buttons use the body background colour in both modes", async ({ page }) => {
-      // Bootswatch renders `.btn-warning` white-on-amber in superhero; the user
-      // wants the label to use the theme's BODY BACKGROUND colour instead (both
-      // modes) - a dark navy that is clearly readable on the amber.
+    test("superhero warning buttons use readable shared-theme colours in both modes", async ({ page }) => {
+      // The later policy preserves native text when readable, otherwise uses
+      // a contrast correction. Check the real result, not a specific CSS variable.
       await setTheme(page, "superhero");
-      // Reveal the real Danger-tab warning buttons (they live behind the
-      // "Show danger" switch) so the rule is checked on the actual element too.
-      await page.locator("#btnMainMenu").click();
-      await page.locator("a.dropdown-item").filter({ hasText: "Settings" }).click();
+      await page.evaluate(() => openSettings());
       await page.locator("#danger-tab").click();
       await page.locator("#showDanger").check();
-      await page.locator("#clearAllDataRow").waitFor({ state: "visible" });
+      const warning = page.locator("#btnRefreshApp-button");
+      await expect(warning).toBeVisible();
+      await page.addStyleTag({ content: "#settingsPage * { transition: none !important; }" });
+      await page.mouse.move(0, 0);
       for (const mode of ["light", "dark"]) {
-        await page.evaluate((m) => changeThemeMode(m), mode);
-        await expect(page.locator("html")).toHaveAttribute("data-bs-theme", mode);
-        // The per-mode override sheet carries the rule, so wait for THAT sheet.
-        await expect.poll(() => page.evaluate(() => {
-          const link = document.getElementById("theme-override-specific");
-          const href = (link && link.getAttribute("href")) || "";
-          const sheet = link && link.sheet;
-          return href.indexOf("superhero." + (document.documentElement.dataset.bsTheme || "light") + ".css") !== -1 &&
-            !!sheet && sheet.cssRules.length > 0;
-        })).toBe(true);
-        // The override sheet itself must DECLARE the rule - deterministic, and
-        // independent of stylesheet-swap timing.
-        const declares = await page.evaluate(() => {
-          const sheet = document.getElementById("theme-override-specific").sheet;
-          return Array.from(sheet.cssRules).some((rule) =>
-            rule.selectorText === ".btn-warning" &&
-            rule.style.getPropertyValue("--bs-btn-color") === "var(--bs-body-bg)");
-        });
-        expect(declares, mode + " override sheet declares --bs-btn-color: var(--bs-body-bg)").toBe(true);
-
-        // The LIVE button follows var(--bs-body-bg). Poll, because a mode switch
-        // swaps the override sheet and the new value can land a frame later.
-        await expect.poll(() => page.evaluate(() => {
-          const real = document.querySelector("#btnRefreshApp-button");
-          if (!real) throw new Error("the Danger Refresh App button is not on the page");
-          const probe = document.createElement("div");
-          probe.style.cssText = "position:absolute;left:-9999px;background-color:var(--bs-body-bg)";
-          document.body.appendChild(probe);
-          const expected = getComputedStyle(probe).backgroundColor;
-          probe.remove();
-          return getComputedStyle(real).color === expected;
-        }), { message: mode + " warning button text follows var(--bs-body-bg)" }).toBe(true);
-
-        const colour = await page.evaluate(() =>
-          getComputedStyle(document.querySelector("#btnRefreshApp-button")).color);
-        // it is no longer Bootswatch's white ...
-        expect(colour, mode + " warning button text is not plain white").not.toBe("rgb(255, 255, 255)");
-        // ... and NOT the body TEXT colour (the first, near-invisible attempt)
-        const bodyText = await page.evaluate(() => getComputedStyle(document.body).color);
-        expect(colour, mode + " warning button text is not the body TEXT colour").not.toBe(bodyText);
+        await applyThemeAndSettle(page, "superhero", mode);
+        const paint = await renderedPaint(warning);
+        expect(paint.color, mode + " warning uses the shared warning palette").toBe(await bootswatchColor(page, "btn btn-warning"));
+        for (const pair of paint.pairs) {
+          expect(smdContrast(pair.color, pair.bg), mode + " warning text contrast").toBeGreaterThanOrEqual(4.5);
+        }
       }
     });
 
@@ -1089,35 +1094,30 @@ test.describe("PlanMyDay - Regression", () => {
       }
     });
 
-    test("slate paints the active tab with the danger palette and the inactive one with slate's swapped gradient", async ({ page }) => {
-      // slate/bootstrap.min.css paints the non-active tab with
-      // #313539/#34393d/#373b40 and the active tab with #44494d/#3a3f44/#2e3236,
-      // which reads backwards, so slate.<mode>.css swaps them (every stop is derived
-      // from slate's --bs-gray-800 via color-mix, so there is no hardcoded hex).
-      // The ACTIVE tab is the primary surface, and slate's primary/secondary are
-      // near-identical greys, so it now carries the DANGER palette instead
-      // (user decision 2026-10-19 - see tests/theme-primary-danger.spec.js).
-      const ACTIVE = "linear-gradient(rgb(239, 103, 99), rgb(238, 95, 91) 20%, rgb(190, 76, 73))";
+    test("slate keeps danger-coloured active tabs readable and preserves the inactive gradient", async ({ page }) => {
+      // Keep the danger colour and the earlier inactive-gradient decision.
+      // The later contrast policy may flatten the active gradient when no
+      // single foreground can meet AA across all its stops.
       const INACTIVE = "linear-gradient(rgb(68, 73, 77), rgb(58, 63, 68) 20%, rgb(46, 50, 54))";
-      const gradient = (selector) => page.evaluate((sel) => {
-        const el = document.querySelector(sel);
-        return el ? getComputedStyle(el).backgroundImage : "";
-      }, selector);
-      // Chromium serialises a color-mix() stop as `color(srgb r g b)` (0..1
-      // channels); normalise to rgb(0..255) so the assertion is serialisation-proof.
-      const norm = (g) => g.replace(/color\(srgb\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)\)/g,
-        (_, r, gg, b) => "rgb(" + [r, gg, b].map((v) => Math.round(parseFloat(v) * 255)).join(", ") + ")");
+      const norm = gradient => gradient.replace(/color\(srgb\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)\)/g,
+        (_, r, g, b) => "rgb(" + [r, g, b].map(value => Math.round(parseFloat(value) * 255)).join(", ") + ")");
+      await page.addStyleTag({ content: "#settingsPage * { transition: none !important; }" });
       for (const mode of ["light", "dark"]) {
-        await page.evaluate(({ theme, mode }) => applyTheme(theme, mode), { theme: "slate", mode });
+        await applyThemeAndSettle(page, "slate", mode);
         await page.evaluate(() => openSettings());
-        await expect(page.locator("#settingsTabs > .smd-tab-list .smd-tab-btn.active")).toBeVisible();
-        // Poll the APPLIED style, not the <link>: applyTheme() updates the href
-        // synchronously while link.sheet still points at the PREVIOUS sheet, so a
-        // wait on href/sheet can pass a tick before the new CSS is applied (the
-        // flake seen in a full run). A genuinely wrong or missing override still
-        // fails here after the timeout.
-        await expect.poll(async () => norm(await gradient("#settingsTabs > .smd-tab-list .smd-tab-btn.active")), { timeout: 15000, message: mode }).toBe(ACTIVE);
-        await expect.poll(async () => norm(await gradient("#settingsTabs > .smd-tab-list .smd-tab-btn:not(.active)")), { timeout: 15000 }).toBe(INACTIVE);
+        const active = page.locator("#settingsTabs > .smd-tab-list .smd-tab-btn.active");
+        const inactive = page.locator("#settingsTabs > .smd-tab-list .smd-tab-btn:not(.active)").first();
+        await expect(active).toBeVisible();
+        const activePaint = await renderedPaint(active);
+        const inactivePaint = await renderedPaint(inactive);
+        expect(activePaint.bg, mode + " active tab keeps the danger surface").toBe((await bootswatchBadge(page, "danger")).bg);
+        expect(activePaint.bg, mode + " active and inactive tabs differ").not.toBe(inactivePaint.bg);
+        expect(norm(inactivePaint.image), mode + " inactive gradient").toBe(INACTIVE);
+        for (const [state, paint] of [["active", activePaint], ["inactive", inactivePaint]]) {
+          for (const pair of paint.pairs) {
+            expect(smdContrast(pair.color, pair.bg), mode + " " + state + " tab text contrast").toBeGreaterThanOrEqual(4.5);
+          }
+        }
         await page.evaluate(() => closeSettings());
       }
     });

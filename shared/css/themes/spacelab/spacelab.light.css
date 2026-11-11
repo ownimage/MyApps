@@ -4,38 +4,91 @@
    `[data-bs-theme="light"]` qualifier. */
 
 /* smd-contrast:start */
-.btn-secondary, .btn-success {
-  --bs-btn-color: #000;
-  --bs-btn-hover-color: #000;
-  --bs-btn-active-color: #000;
-  --bs-btn-disabled-color: #000;
-}
-.btn-secondary,
-.btn-secondary:hover, .btn-secondary:focus-visible,
-.btn-secondary:active,
-.btn-secondary:disabled, .btn-secondary.disabled,
-.btn-success,
-.btn-success:hover, .btn-success:focus-visible,
-.btn-success:active,
-.btn-success:disabled, .btn-success.disabled {
+.btn-secondary:not(:hover):not(:focus-visible):not(:active):not(.active):not(:disabled):not(.disabled),
+.btn-secondary:not(:active):not(.active):not(:focus-visible):not(:disabled):not(.disabled):hover,
+.btn-secondary:not(:active):not(.active):not(:disabled):not(.disabled):focus-visible,
+.btn-secondary:not(:disabled):not(.disabled):active, .btn-secondary:not(:disabled):not(.disabled).active,
+.btn-success:not(:hover):not(:focus-visible):not(:active):not(.active):not(:disabled):not(.disabled),
+.btn-success:not(:active):not(.active):not(:focus-visible):not(:disabled):not(.disabled):hover,
+.btn-success:not(:active):not(.active):not(:disabled):not(.disabled):focus-visible,
+.btn-success:not(:disabled):not(.disabled):active, .btn-success:not(:disabled):not(.disabled).active,
+.btn-warning:not(:hover):not(:focus-visible):not(:active):not(.active):not(:disabled):not(.disabled),
+.btn-warning:not(:active):not(.active):not(:focus-visible):not(:disabled):not(.disabled):hover,
+.btn-warning:not(:active):not(.active):not(:disabled):not(.disabled):focus-visible,
+.btn-warning:not(:disabled):not(.disabled):active, .btn-warning:not(:disabled):not(.disabled).active,
+.btn-info:not(:hover):not(:focus-visible):not(:active):not(.active):not(:disabled):not(.disabled),
+.btn-info:not(:active):not(.active):not(:focus-visible):not(:disabled):not(.disabled):hover,
+.btn-info:not(:active):not(.active):not(:disabled):not(.disabled):focus-visible,
+.btn-info:not(:disabled):not(.disabled):active, .btn-info:not(:disabled):not(.disabled).active {
   color: #000 !important;
 }
-.btn-warning, .btn-info {
-  --bs-btn-color: #000;
-  --bs-btn-hover-color: #000;
-  --bs-btn-disabled-color: #000;
-}
-.btn-warning,
-.btn-warning:hover, .btn-warning:focus-visible,
-.btn-warning:disabled, .btn-warning.disabled,
-.btn-info,
-.btn-info:hover, .btn-info:focus-visible,
-.btn-info:disabled, .btn-info.disabled {
+.badge.text-bg-secondary {
   color: #000 !important;
 }
-smd-tabs .smd-tab-btn.text-bg-secondary,
-smd-tabs .smd-tab-btn.text-bg-secondary:hover,
-smd-tabs .smd-tab-btn.text-bg-secondary:focus-visible {
+.badge.text-bg-success {
+  color: #000 !important;
+}
+.badge.text-bg-warning {
+  color: #000 !important;
+}
+.badge.text-bg-info {
+  color: #000 !important;
+}
+.btn-primary:not(:hover):not(:focus-visible):not(:active):not(.active):not(:disabled):not(.disabled) {
+  background-image: none !important;
+}
+.btn-primary:not(:active):not(.active):not(:focus-visible):not(:disabled):not(.disabled):hover {
+  background-image: none !important;
+}
+.btn-primary:not(:active):not(.active):not(:disabled):not(.disabled):focus-visible {
+  background-image: none !important;
+}
+.btn-primary:not(:disabled):not(.disabled):active, .btn-primary:not(:disabled):not(.disabled).active {
+  background-image: none !important;
+}
+.btn-danger:not(:hover):not(:focus-visible):not(:active):not(.active):not(:disabled):not(.disabled) {
+  background-image: none !important;
+}
+.btn-danger:not(:active):not(.active):not(:disabled):not(.disabled):focus-visible {
+  background-image: none !important;
+}
+smd-tabs .smd-tab-btn.text-bg-secondary:not(:hover):not(:focus-visible):not(:active) {
+  color: #000 !important;
+}
+smd-tabs .smd-tab-btn.text-bg-secondary:hover:not(:focus-visible):not(:active) {
+  color: #000 !important;
+}
+smd-tabs .smd-tab-btn.text-bg-secondary:focus-visible:not(:active) {
+  color: #000 !important;
+}
+smd-tabs .smd-tab-btn.text-bg-secondary:active {
+  color: #000 !important;
+}
+.form-control:not([readonly]):not(:disabled):not(:hover):not(:focus-visible):not(:active) {
+  color: #000 !important;
+}
+.form-control:not([readonly]):not(:disabled):hover:not(:focus-visible):not(:active) {
+  color: #000 !important;
+}
+.form-control:not([readonly]):not(:disabled):focus-visible:not(:active) {
+  color: #000 !important;
+}
+.form-control:not([readonly]):not(:disabled):active {
+  color: #000 !important;
+}
+.form-select:not(:disabled):not(:hover):not(:focus-visible):not(:active) {
+  color: #000 !important;
+}
+.form-select:not(:disabled):hover:not(:focus-visible):not(:active) {
+  color: #000 !important;
+}
+.form-select:not(:disabled):focus-visible:not(:active) {
+  color: #000 !important;
+}
+.form-select:not(:disabled):active {
+  color: #000 !important;
+}
+smd-select .smd-select-item:not(.text-bg-primary):not(:hover):not(:focus-visible) {
   color: #000 !important;
 }
 #mainNav .dropdown-menu .dropdown-item,
@@ -61,14 +114,11 @@ smd-checkbox input[type="checkbox"] {
   border-color: #000;
 }
 /* smd-contrast:end */
-
 /* solar-palette:start */
 :root {
   --solar-clock-ink: rgb(255, 255, 255);
   --solar-card-ink: rgb(102, 102, 102);
   --solar-card-ink-rgb: 102, 102, 102;
-  --solar-action-ink: rgb(27, 44, 62);
-  --solar-field-ink: rgb(45, 45, 45);
   --solar-ink: rgb(89, 89, 89);
   --solar-ink-rgb: 89, 89, 89;
   --solar-card-danger: rgb(205, 2, 0);

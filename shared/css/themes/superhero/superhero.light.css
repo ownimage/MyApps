@@ -68,69 +68,70 @@
     background-color: color-mix(in hsl, var(--bs-success) 40%, black) !important;
 }
 
-/* Warning buttons (the Danger-tab "Refresh App" and data-loading actions).
-   Bootswatch sets `.btn-warning` text to white (#fff) on its amber surface;
-   this theme uses the BODY BACKGROUND colour instead, so the label reads as the
-   dark page surface on the amber (light #0f2537, dark #212529) and is clearly
-   different from white. Applies to every button state (user, 2026-10-18). */
-.btn-warning {
-    --bs-btn-color: var(--bs-body-bg);
-    --bs-btn-hover-color: var(--bs-body-bg);
-    --bs-btn-active-color: var(--bs-body-bg);
-    --bs-btn-disabled-color: var(--bs-body-bg);
-}
-
 /* smd-contrast:start */
-.btn-primary {
-  --bs-btn-color: #0f2537;
-  --bs-btn-disabled-color: #0f2537;
-}
-.btn-primary,
-.btn-primary:disabled, .btn-primary.disabled {
+.btn-primary:not(:hover):not(:focus-visible):not(:active):not(.active):not(:disabled):not(.disabled) {
   color: #0f2537 !important;
 }
-.btn-success {
-  --bs-btn-color: #0f2537;
-  --bs-btn-hover-color: #0f2537;
-  --bs-btn-active-color: #000;
-  --bs-btn-disabled-color: #0f2537;
-}
-.btn-success,
-.btn-success:hover, .btn-success:focus-visible,
-.btn-success:disabled, .btn-success.disabled {
+.btn-success:not(:hover):not(:focus-visible):not(:active):not(.active):not(:disabled):not(.disabled),
+.btn-success:not(:active):not(.active):not(:focus-visible):not(:disabled):not(.disabled):hover,
+.btn-success:not(:active):not(.active):not(:disabled):not(.disabled):focus-visible {
   color: #0f2537 !important;
 }
-.btn-success:active {
+.btn-success:not(:disabled):not(.disabled):active, .btn-success:not(:disabled):not(.disabled).active {
   color: #000 !important;
 }
-.btn-danger {
-  --bs-btn-color: #000;
-  --bs-btn-disabled-color: #000;
-}
-.btn-danger,
-.btn-danger:disabled, .btn-danger.disabled {
+.btn-danger:not(:hover):not(:focus-visible):not(:active):not(.active):not(:disabled):not(.disabled) {
   color: #000 !important;
 }
-.btn-info, .btn-light {
-  --bs-btn-color: #0f2537;
-  --bs-btn-hover-color: #0f2537;
-  --bs-btn-active-color: #0f2537;
-  --bs-btn-disabled-color: #0f2537;
-}
-.btn-info,
-.btn-info:hover, .btn-info:focus-visible,
-.btn-info:active,
-.btn-info:disabled, .btn-info.disabled,
-.btn-light,
-.btn-light:hover, .btn-light:focus-visible,
-.btn-light:active,
-.btn-light:disabled, .btn-light.disabled {
+.btn-warning:not(:hover):not(:focus-visible):not(:active):not(.active):not(:disabled):not(.disabled),
+.btn-warning:not(:active):not(.active):not(:focus-visible):not(:disabled):not(.disabled):hover,
+.btn-warning:not(:active):not(.active):not(:disabled):not(.disabled):focus-visible,
+.btn-warning:not(:disabled):not(.disabled):active, .btn-warning:not(:disabled):not(.disabled).active,
+.btn-info:not(:hover):not(:focus-visible):not(:active):not(.active):not(:disabled):not(.disabled),
+.btn-info:not(:active):not(.active):not(:focus-visible):not(:disabled):not(.disabled):hover,
+.btn-info:not(:active):not(.active):not(:disabled):not(.disabled):focus-visible,
+.btn-info:not(:disabled):not(.disabled):active, .btn-info:not(:disabled):not(.disabled).active,
+.btn-light:not(:hover):not(:focus-visible):not(:active):not(.active):not(:disabled):not(.disabled),
+.btn-light:not(:active):not(.active):not(:focus-visible):not(:disabled):not(.disabled):hover,
+.btn-light:not(:active):not(.active):not(:disabled):not(.disabled):focus-visible,
+.btn-light:not(:disabled):not(.disabled):active, .btn-light:not(:disabled):not(.disabled).active {
   color: #0f2537 !important;
 }
-smd-tabs .smd-tab-btn.text-bg-primary,
-smd-tabs .smd-tab-btn.text-bg-primary:hover,
-smd-tabs .smd-tab-btn.text-bg-primary:focus-visible {
+.badge.text-bg-primary {
   color: #0f2537 !important;
+}
+.badge.text-bg-success {
+  color: #0f2537 !important;
+}
+.badge.text-bg-danger {
+  color: #000 !important;
+}
+.badge.text-bg-warning {
+  color: #0f2537 !important;
+}
+.badge.text-bg-info {
+  color: #0f2537 !important;
+}
+.badge.text-bg-light {
+  color: #0f2537 !important;
+}
+smd-tabs .smd-tab-btn.text-bg-primary:not(:hover):not(:focus-visible):not(:active) {
+  color: #0f2537 !important;
+}
+smd-tabs .smd-tab-btn.text-bg-primary:hover:not(:focus-visible):not(:active) {
+  color: #0f2537 !important;
+}
+smd-tabs .smd-tab-btn.text-bg-primary:focus-visible:not(:active) {
+  color: #0f2537 !important;
+}
+smd-tabs .smd-tab-btn.text-bg-primary:active {
+  color: #0f2537 !important;
+}
+smd-select .smd-select-item:is(.text-bg-primary, :hover, :focus-visible) {
+  color: #0f2537 !important;
+}
+cmd-countdown-card .text-secondary {
+  color: #ebebeb !important;
 }
 .alert-warning,
 .alert-success,
@@ -175,8 +176,6 @@ smd-checkbox input[type="checkbox"] {
   --solar-clock-ink: rgb(15, 37, 55);
   --solar-card-ink: rgb(235, 235, 235);
   --solar-card-ink-rgb: 235, 235, 235;
-  --solar-action-ink: rgb(89, 42, 10);
-  --solar-field-ink: rgb(235, 235, 235);
   --solar-ink: rgb(235, 235, 235);
   --solar-ink-rgb: 235, 235, 235;
   --solar-card-danger: rgb(234, 160, 158);

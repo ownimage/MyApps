@@ -61,44 +61,36 @@ smd-checkbox input[type="checkbox"]:checked::after {
 }
 
 /* smd-contrast:start */
-.btn-success, .btn-info {
-  --bs-btn-color: #212529;
-  --bs-btn-hover-color: #000;
-  --bs-btn-disabled-color: #212529;
-}
-.btn-success,
-.btn-success:disabled, .btn-success.disabled,
-.btn-info,
-.btn-info:disabled, .btn-info.disabled {
+.btn-success:not(:hover):not(:focus-visible):not(:active):not(.active):not(:disabled):not(.disabled),
+.btn-info:not(:hover):not(:focus-visible):not(:active):not(.active):not(:disabled):not(.disabled) {
   color: #212529 !important;
 }
-.btn-success:hover, .btn-success:focus-visible,
-.btn-info:hover, .btn-info:focus-visible {
+.btn-success:not(:active):not(.active):not(:focus-visible):not(:disabled):not(.disabled):hover,
+.btn-success:not(:active):not(.active):not(:disabled):not(.disabled):focus-visible,
+.btn-info:not(:active):not(.active):not(:focus-visible):not(:disabled):not(.disabled):hover,
+.btn-info:not(:active):not(.active):not(:disabled):not(.disabled):focus-visible {
   color: #000 !important;
 }
-.btn-warning {
-  --bs-btn-color: #212529;
-  --bs-btn-hover-color: #212529;
-  --bs-btn-active-color: #212529;
-  --bs-btn-disabled-color: #212529;
-}
-.btn-warning,
-.btn-warning:hover, .btn-warning:focus-visible,
-.btn-warning:active,
-.btn-warning:disabled, .btn-warning.disabled {
+.btn-warning:not(:hover):not(:focus-visible):not(:active):not(.active):not(:disabled):not(.disabled),
+.btn-warning:not(:active):not(.active):not(:focus-visible):not(:disabled):not(.disabled):hover,
+.btn-warning:not(:active):not(.active):not(:disabled):not(.disabled):focus-visible,
+.btn-warning:not(:disabled):not(.disabled):active, .btn-warning:not(:disabled):not(.disabled).active {
   color: #212529 !important;
 }
-.btn-light {
-  --bs-btn-active-color: #212529;
-}
-.btn-light:active {
+.btn-light:not(:disabled):not(.disabled):active, .btn-light:not(:disabled):not(.disabled).active {
   color: #212529 !important;
 }
-.btn-dark {
-  --bs-btn-active-color: #000;
-}
-.btn-dark:active {
+.btn-dark:not(:disabled):not(.disabled):active, .btn-dark:not(:disabled):not(.disabled).active {
   color: #000 !important;
+}
+.badge.text-bg-success {
+  color: #212529 !important;
+}
+.badge.text-bg-warning {
+  color: #212529 !important;
+}
+.badge.text-bg-info {
+  color: #212529 !important;
 }
 #mainNav .dropdown-menu {
   border-color: #000;
@@ -112,7 +104,6 @@ smd-checkbox input[type="checkbox"] {
   border-color: #000;
 }
 /* smd-contrast:end */
-
 /* INACTIVE checkbox: sketchy draws the box with [type=checkbox]::before and sets
    `border: none` on the input, so the shared disabled border-color has nothing to
    paint and Bootstrap's own disabled box falls back to #aaa (2.3:1 on white).
@@ -125,8 +116,6 @@ smd-checkbox input[type="checkbox"]:disabled::before {
   --solar-clock-ink: rgb(255, 255, 255);
   --solar-card-ink: rgb(33, 37, 41);
   --solar-card-ink-rgb: 33, 37, 41;
-  --solar-action-ink: rgb(20, 20, 20);
-  --solar-field-ink: rgb(33, 37, 41);
   --solar-ink: rgb(33, 37, 41);
   --solar-ink-rgb: 33, 37, 41;
   --solar-card-danger: rgb(220, 53, 69);

@@ -62,7 +62,7 @@ function renderGraphTab() {
   container.innerHTML =
     '<div class="graph-controls d-flex flex-wrap align-items-center gap-3 mb-3">' +
       '<label class="form-label mb-0" for="graph-date">Day:</label>' +
-      '<smd-select id="graph-date" class="form-select w-auto log-select" onchange="loadGraphData()">' +
+      '<smd-select id="graph-date" class="w-auto log-select" onchange="loadGraphData()">' +
         '<option value="">Select a day</option>' +
       '</smd-select>' +
       '<div class="graph-checkboxes d-flex flex-wrap align-items-center gap-3">' +

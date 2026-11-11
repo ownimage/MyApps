@@ -62,34 +62,95 @@ smd-tabs .smd-tab-btn.text-bg-primary {
 }
 
 /* smd-contrast:start */
-.btn-primary, .btn-danger {
-  --bs-btn-hover-color: #000;
-}
-.btn-primary:hover, .btn-primary:focus-visible,
-.btn-danger:hover, .btn-danger:focus-visible {
+.btn-primary:not(:hover):not(:focus-visible):not(:active):not(.active):not(:disabled):not(.disabled),
+.btn-primary:not(:active):not(.active):not(:focus-visible):not(:disabled):not(.disabled):hover,
+.btn-primary:not(:active):not(.active):not(:disabled):not(.disabled):focus-visible,
+.btn-danger:not(:hover):not(:focus-visible):not(:active):not(.active):not(:disabled):not(.disabled),
+.btn-danger:not(:active):not(.active):not(:focus-visible):not(:disabled):not(.disabled):hover,
+.btn-danger:not(:active):not(.active):not(:disabled):not(.disabled):focus-visible {
   color: #000 !important;
 }
-.btn-success, .btn-warning, .btn-info {
-  --bs-btn-color: #000;
-  --bs-btn-hover-color: #272b30;
-  --bs-btn-active-color: #000;
-  --bs-btn-disabled-color: #000;
-}
-.btn-success,
-.btn-success:active,
-.btn-success:disabled, .btn-success.disabled,
-.btn-warning,
-.btn-warning:active,
-.btn-warning:disabled, .btn-warning.disabled,
-.btn-info,
-.btn-info:active,
-.btn-info:disabled, .btn-info.disabled {
+.btn-secondary:not(:hover):not(:focus-visible):not(:active):not(.active):not(:disabled):not(.disabled) {
   color: #000 !important;
 }
-.btn-success:hover, .btn-success:focus-visible,
-.btn-warning:hover, .btn-warning:focus-visible,
-.btn-info:hover, .btn-info:focus-visible {
+.btn-success:not(:hover):not(:focus-visible):not(:active):not(.active):not(:disabled):not(.disabled),
+.btn-success:not(:active):not(.active):not(:disabled):not(.disabled):focus-visible,
+.btn-success:not(:disabled):not(.disabled):active, .btn-success:not(:disabled):not(.disabled).active,
+.btn-info:not(:hover):not(:focus-visible):not(:active):not(.active):not(:disabled):not(.disabled),
+.btn-info:not(:active):not(.active):not(:disabled):not(.disabled):focus-visible,
+.btn-info:not(:disabled):not(.disabled):active, .btn-info:not(:disabled):not(.disabled).active {
+  color: #000 !important;
+}
+.btn-success:not(:active):not(.active):not(:focus-visible):not(:disabled):not(.disabled):hover,
+.btn-info:not(:active):not(.active):not(:focus-visible):not(:disabled):not(.disabled):hover {
   color: #272b30 !important;
+}
+.btn-warning:not(:hover):not(:focus-visible):not(:active):not(.active):not(:disabled):not(.disabled),
+.btn-warning:not(:active):not(.active):not(:focus-visible):not(:disabled):not(.disabled):hover,
+.btn-warning:not(:active):not(.active):not(:disabled):not(.disabled):focus-visible,
+.btn-warning:not(:disabled):not(.disabled):active, .btn-warning:not(:disabled):not(.disabled).active {
+  color: #000 !important;
+}
+.badge.text-bg-secondary {
+  color: #000 !important;
+}
+.badge.text-bg-success {
+  color: #272b30 !important;
+}
+.badge.text-bg-danger {
+  color: #000 !important;
+}
+.badge.text-bg-warning {
+  color: #272b30 !important;
+}
+.badge.text-bg-info {
+  color: #272b30 !important;
+}
+.btn-primary:not(:hover):not(:focus-visible):not(:active):not(.active):not(:disabled):not(.disabled) {
+  background-image: none !important;
+}
+.btn-primary:not(:active):not(.active):not(:disabled):not(.disabled):focus-visible {
+  background-image: none !important;
+}
+.btn-secondary:not(:hover):not(:focus-visible):not(:active):not(.active):not(:disabled):not(.disabled) {
+  background-image: none !important;
+}
+.btn-secondary:not(:active):not(.active):not(:focus-visible):not(:disabled):not(.disabled):hover {
+  background-image: none !important;
+}
+.btn-secondary:not(:active):not(.active):not(:disabled):not(.disabled):focus-visible {
+  background-image: none !important;
+}
+.btn-success:not(:disabled):not(.disabled):active, .btn-success:not(:disabled):not(.disabled).active {
+  background-image: none !important;
+}
+.btn-danger:not(:hover):not(:focus-visible):not(:active):not(.active):not(:disabled):not(.disabled) {
+  background-image: none !important;
+}
+.btn-danger:not(:active):not(.active):not(:disabled):not(.disabled):focus-visible {
+  background-image: none !important;
+}
+.btn-warning:not(:disabled):not(.disabled):active, .btn-warning:not(:disabled):not(.disabled).active {
+  background-image: none !important;
+}
+.btn-info:not(:disabled):not(.disabled):active, .btn-info:not(:disabled):not(.disabled).active {
+  background-image: none !important;
+}
+smd-tabs .smd-tab-btn.text-bg-primary:not(:hover):not(:focus-visible):not(:active) {
+  color: #000 !important;
+  background-image: none !important;
+}
+smd-tabs .smd-tab-btn.text-bg-primary:hover:not(:focus-visible):not(:active) {
+  color: #000 !important;
+  background-image: none !important;
+}
+smd-tabs .smd-tab-btn.text-bg-primary:focus-visible:not(:active) {
+  color: #000 !important;
+  background-image: none !important;
+}
+smd-tabs .smd-tab-btn.text-bg-primary:active {
+  color: #000 !important;
+  background-image: none !important;
 }
 cmd-countdown-card .text-secondary {
   color: #aaa !important;
@@ -146,8 +207,6 @@ smd-checkbox input[type="checkbox"] {
   --solar-clock-ink: rgb(39, 43, 48);
   --solar-card-ink: rgb(175, 175, 175);
   --solar-card-ink-rgb: 175, 175, 175;
-  --solar-action-ink: rgb(213, 214, 214);
-  --solar-field-ink: rgb(39, 43, 48);
   --solar-ink: rgb(182, 182, 182);
   --solar-ink-rgb: 182, 182, 182;
   --solar-card-danger: rgb(238, 95, 91);

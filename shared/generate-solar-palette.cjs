@@ -58,8 +58,6 @@ async function generate() {
           }
           return [end, end, end];
         }
-        const action = readable(value('--bs-primary-bg-subtle'), value('--bs-primary-text-emphasis'), 4.8);
-        const field = readable(value('--smd-form-background'), value('--smd-form-foreground'), 4.8);
         function rgba(color) {
           ctx.clearRect(0,0,1,1);ctx.fillStyle=color;ctx.fillRect(0,0,1,1);
           return [...ctx.getImageData(0,0,1,1).data].map((v,i)=>i===3?v/255:v);
@@ -84,8 +82,7 @@ async function generate() {
         }
         const cardInk=onCard(ink,4.8);
         const token = (key, color) => `  --solar-${key}: rgb(${color.join(', ')});`;
-        const output = [token('clock-ink',readable(cardInk,value('--bs-body-bg'),4.8)), token('card-ink',cardInk), `  --solar-card-ink-rgb: ${cardInk.join(', ')};`, token('action-ink', action), token('field-ink', field),
-          token('ink', adjusted), `  --solar-ink-rgb: ${adjusted.join(', ')};`];
+        const output = [token('clock-ink',readable(cardInk,value('--bs-body-bg'),4.8)), token('card-ink',cardInk), `  --solar-card-ink-rgb: ${cardInk.join(', ')};`, token('ink', adjusted), `  --solar-ink-rgb: ${adjusted.join(', ')};`];
         for (const variant of ['danger','warning','success']) output.push(token('card-'+variant,onCard(value('--bs-'+variant),3.2)));
         const series = [['solar', 'warning'], ['grid', 'info'], ['home', 'success'],
           ['battery', 'purple'], ['battery-level', 'danger']];

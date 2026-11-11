@@ -95,7 +95,10 @@ test.describe("SolarControlar - Regression", () => {
     await expect(page.locator("#log-file")).toBeVisible({ timeout: 5000 });
     await expect(page.locator("#log-file .smd-select-item")).toHaveCount(8);
     await pickOption(page, "#log-file", "minute_poller");
+    await pickOption(page, "#line-count", "500");
+    const fetchRequest = page.waitForRequest(request => request.url().includes("/solar/api/files?"));
     await page.locator(".log-controls .btn-primary").click();
+    expect(new URL((await fetchRequest).url()).searchParams.get("count")).toBe("500");
     await expect(page.locator("#log-output")).toContainText("mock log line 1");
   });
 
