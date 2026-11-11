@@ -14,7 +14,7 @@ function renderSolarSettingsTab() {
 
   if (!_solarSettings) {
     if (!_solarSettingsLoading) {
-      container.innerHTML = '<p class="loading text-secondary fst-italic mb-0">Loading settings...</p>';
+      container.innerHTML = '<p class="loading text-body fst-italic mb-0">Loading settings...</p>';
       loadSolarSettings();
     }
     return;
@@ -29,7 +29,7 @@ function loadSolarSettings() {
   if (_solarSettingsLoading) return;
   _solarSettingsLoading = true;
   var container = $id("tab-settings");
-  if (container) container.innerHTML = '<p class="loading text-secondary fst-italic mb-0">Loading settings...</p>';
+  if (container) container.innerHTML = '<p class="loading text-body fst-italic mb-0">Loading settings...</p>';
 
   var base = getFlaskUrl().replace(/\/+$/, "");
   fetch(base + "/", solarApi._withAuth({ credentials: "same-origin" }))
@@ -86,7 +86,7 @@ function loadSolarSettings() {
       if (container) {
         container.innerHTML =
           '<div class="alert alert-danger flash flash-error" role="alert">Error loading settings: ' + escapeHtml(err.message) + '</div>' +
-          '<p class="text-secondary">Check the Flask URL in the app Settings (hamburger menu).</p>';
+          '<p class="text-body">Check the Flask URL in the app Settings (hamburger menu).</p>';
       }
     });
 }
@@ -96,7 +96,7 @@ function buildSolarSettingsHtml() {
     var valueInput;
 
     if (f.readonly) {
-      valueInput = '<input type="text" class="form-control bg-body-secondary" name="' + escapeHtml(f.key) + '" value="' + escapeHtml(String(f.value)) + '" readonly>';
+      valueInput = '<input type="text" class="form-control" name="' + escapeHtml(f.key) + '" value="' + escapeHtml(String(f.value)) + '" readonly>';
     } else if (f.slider) {
       valueInput =
         '<div class="d-flex align-items-center gap-2">' +
@@ -115,10 +115,10 @@ function buildSolarSettingsHtml() {
       '<td class="fw-semibold">' + escapeHtml(f.label) + '</td>' +
       '<td>' + valueInput + '</td>' +
       '<td>' +
-        '<span class="access-badge badge rounded-pill text-bg-' + (f.readonly ? "secondary" : "success") + ' ' + (f.readonly ? "badge-ro" : "badge-rw") + '">' +
+        '<span class="access-badge badge rounded-pill bg-' + (f.readonly ? "secondary-subtle text-secondary-emphasis" : "success-subtle text-success-emphasis") + ' ' + (f.readonly ? "badge-ro" : "badge-rw") + '">' +
           (f.readonly ? "Read Only" : "Read/Write") +
         '</span>' +
-        '<span class="was-text d-none text-danger small"> Was: <strong class="was-val"></strong></span>' +
+        '<span class="was-text d-none text-body small"> Was: <strong class="was-val"></strong></span>' +
       '</td>' +
       '<td>' + escapeHtml(f.description) + '</td>' +
     '</tr>';
@@ -132,7 +132,7 @@ function buildSolarSettingsHtml() {
       '</table>' +
     '</div>' +
     '<div class="actions d-flex justify-content-end mt-3">' +
-      '<button type="submit" class="btn btn-primary btn-sm">Save Changes</button>' +
+      '<smd-button variant="primary" size="small">Save Changes</smd-button>' +
     '</div>' +
   '</form>';
 
@@ -176,12 +176,12 @@ function wireSolarSettingsChangeDetection() {
       }
 
       if (current != original) {
-        badge.className = "access-badge badge rounded-pill text-bg-warning badge-changed";
+        badge.className = "access-badge badge rounded-pill bg-warning-subtle text-warning-emphasis badge-changed";
         badge.textContent = "Changed";
         wasText.classList.remove("d-none");
         wasText.classList.add("d-inline");
       } else {
-        badge.className = "access-badge badge rounded-pill text-bg-success badge-rw";
+        badge.className = "access-badge badge rounded-pill bg-success-subtle text-success-emphasis badge-rw";
         badge.textContent = "Read/Write";
         wasText.classList.add("d-none");
         wasText.classList.remove("d-inline");

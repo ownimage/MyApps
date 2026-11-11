@@ -71,3 +71,23 @@ smd-checkbox input[type="checkbox"] {
   border-color: #fff;
 }
 /* smd-contrast:end */
+
+/* solar-palette:start */
+:root {
+  --solar-clock-ink: rgb(23, 20, 31);
+  --solar-card-ink: rgb(237, 237, 237);
+  --solar-card-ink-rgb: 237, 237, 237;
+  --solar-action-ink: rgb(155, 131, 192);
+  --solar-field-ink: rgb(237, 237, 237);
+  --solar-ink: rgb(237, 237, 237);
+  --solar-ink-rgb: 237, 237, 237;
+  --solar-card-danger: rgb(252, 57, 57);
+  --solar-card-warning: rgb(239, 163, 29);
+  --solar-card-success: rgb(19, 185, 85);
+  --solar-series-solar: rgb(239, 163, 29);
+  --solar-series-grid: rgb(0, 156, 220);
+  --solar-series-home: rgb(19, 185, 85);
+  --solar-series-battery: rgb(119, 87, 167);
+  --solar-series-battery-level: rgb(252, 57, 57);
+}
+/* solar-palette:end */

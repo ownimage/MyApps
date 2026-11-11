@@ -735,3 +735,34 @@ test.describe("PlanMyDay - Screenshots", () => {
     await screenshotAllThemes(page, "onedrive-open.png");
   });
 });
+
+// Solar regressions are mirrored here per the repository screenshot workflow.
+test.describe('Solar dashboard appearance screenshots', () => {
+  test.use({ serviceWorkers: 'block' });
+  test('Solar dashboard six tabs and installed layout', async ({ page }) => {
+    test.setTimeout(120000);
+    const { mockFlaskApi } = require('./solar-fixtures');
+    const { theme, inspectContrast } = require('./solar-appearance-helpers');
+    await page.addInitScript(() => Object.defineProperty(navigator,'windowControlsOverlay',{value:{visible:true,addEventListener(){}}}));
+    await mockFlaskApi(page);
+    await page.goto('/SolarControlar/', { waitUntil: 'domcontentloaded' });
+    await expect(page.locator('#batteryPercent')).toHaveText('50%');
+    await page.addStyleTag({content:'*, *::before, *::after { transition: none !important; }'});
+    for (const mode of ['light','dark']) {
+      await theme(page, process.env.SCREENSHOT_THEME || 'superhero', mode);
+      for (const tab of ['Power','Settings','Files','Config','Forecast','Graph']) {
+        await page.locator('#mainTabs .smd-tab-btn').filter({hasText:new RegExp('^'+tab+'$')}).click();
+        if(tab==='Graph') await expect.poll(()=>page.evaluate(()=>{
+          const c=document.querySelector('#powerChart');if(!c||!window._powerChart)return false;
+          const r=c.getBoundingClientRect();return Math.abs(c.width-r.width*devicePixelRatio)<2 && Math.abs(c.height-r.height*devicePixelRatio)<2;
+        })).toBeTruthy();
+        expect(await page.evaluate(inspectContrast)).toEqual([]);
+        await page.screenshot({ path: test.info().outputPath('solar-'+mode+'-'+tab+'.png') });
+      }
+      await page.setViewportSize({width:390,height:900});
+      await page.locator('#mainTabs .smd-tab-btn').filter({hasText:'Power'}).click();
+      await page.screenshot({ path:test.info().outputPath('solar-'+mode+'-mobile.png'),fullPage:true });
+      await page.setViewportSize({width:1280,height:900});
+    }
+  });
+});

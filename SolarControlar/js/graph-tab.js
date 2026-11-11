@@ -7,16 +7,16 @@ var _powerChart = null;
 // Series palette: the THEME variables (resolved at draw time by
 // resolveSeriesColor - Chart.js needs a concrete colour, not a var()).
 var SOLAR_SERIES = {
-  solar:         { label: "Solar",         color: "--bs-warning", axis: "power" },
-  grid:          { label: "Grid",          color: "--bs-info",    axis: "power" },
-  home:          { label: "Home",          color: "--bs-success", axis: "power" },
-  battery:       { label: "Battery",       color: "--bs-purple",  axis: "power" },
-  battery_level: { label: "Battery Level", color: "--bs-danger",  axis: "soc" }
+  solar:         { label: "Solar",         color: "--solar-series-solar", axis: "power" },
+  grid:          { label: "Grid",          color: "--solar-series-grid",    axis: "power" },
+  home:          { label: "Home",          color: "--solar-series-home", axis: "power" },
+  battery:       { label: "Battery",       color: "--solar-series-battery",  axis: "power" },
+  battery_level: { label: "Battery Level", color: "--solar-series-battery-level",  axis: "soc" }
 };
 
 function resolveSeriesColor(name) {
   if (typeof name !== "string" || name.charAt(0) !== "-") return name;
-  var v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  var v = getComputedStyle(document.getElementById("tab-graph") || document.body).getPropertyValue(name).trim();
   return v || name;
 }
 
@@ -30,15 +30,28 @@ function refreshGraphColors() {
     ds.borderColor = c;
     ds.backgroundColor = c;
   });
-  _powerChart.update();
+  var ink = resolveSeriesColor("--bs-body-color");
+  _powerChart.options.color = ink;
+  _powerChart.options.plugins.legend.labels.color = ink;
+  Object.keys(_powerChart.options.scales).forEach(function (key) {
+    var scale = _powerChart.options.scales[key];
+    scale.ticks.color = ink;
+    if (scale.title) scale.title.color = ink;
+    scale.grid.color = resolveSeriesColor("--bs-border-color");
+  });
+  _powerChart.update("none");
 }
 
 function initGraphTab() {
   if (_graphInitialized) return;
   _graphInitialized = true;
   renderGraphTab();
-  var base = document.getElementById("bootstrap-theme-css");
-  if (base) base.addEventListener("load", refreshGraphColors);
+  ["bootstrap-theme-css", "theme-override-mode", "theme-override-specific"].forEach(function (id) {
+    var sheet = document.getElementById(id);
+    if (sheet) sheet.addEventListener("load", refreshGraphColors);
+  });
+  // Mode attributes change before the asynchronous override sheets load.
+  new MutationObserver(refreshGraphColors).observe(document.documentElement, { attributes: true, attributeFilter: ["data-bs-theme", "data-theme"] });
   document.addEventListener("smd-theme-change", refreshGraphColors);
 }
 
@@ -61,9 +74,9 @@ function renderGraphTab() {
       '</div>' +
       '<smd-checkbox id="graph-points" onchange="if (!event.detail) loadGraphData()">Data Points</smd-checkbox>' +
     '</div>' +
-    '<div class="graph-wrap bg-body-tertiary border rounded p-3 position-relative">' +
+    '<div class="graph-wrap bg-body border rounded p-3 position-relative">' +
       '<canvas id="powerChart" class="w-100"></canvas>' +
-      '<p id="graph-empty" class="loading text-secondary fst-italic d-none mb-0">No power data available for this day.</p>' +
+      '<p id="graph-empty" class="loading text-body fst-italic d-none mb-0">No power data available for this day.</p>' +
     '</div>';
 
   loadGraphDates();
@@ -170,6 +183,8 @@ function renderGraph(timestamps, seriesData, visible, date) {
     type: "line",
     data: { datasets: datasets },
     options: {
+      color: resolveSeriesColor("--bs-body-color"),
+      plugins: { legend: { labels: { color: resolveSeriesColor("--bs-body-color") } } },
       responsive: true,
       maintainAspectRatio: false,
       interaction: { mode: "index", intersect: false },
@@ -180,6 +195,7 @@ function renderGraph(timestamps, seriesData, visible, date) {
           max: new Date(date + "T23:59:59"),
           time: { unit: "hour", stepSize: 1 },
           ticks: {
+            color: resolveSeriesColor("--bs-body-color"),
             autoSkip: false,
             maxRotation: 0,
             callback: function (value) {
@@ -188,10 +204,7 @@ function renderGraph(timestamps, seriesData, visible, date) {
             }
           },
           grid: {
-            color: function (ctx) {
-              var d = new Date(ctx.tick.value);
-              return d.getHours() % 3 === 0 ? "rgba(255,255,255,0.15)" : "rgba(255,255,255,0.05)";
-            },
+            color: resolveSeriesColor("--bs-border-color"),
             lineWidth: function (ctx) {
               var d = new Date(ctx.tick.value);
               return d.getHours() % 3 === 0 ? 2 : 1;
@@ -203,18 +216,20 @@ function renderGraph(timestamps, seriesData, visible, date) {
           position: "left",
           beginAtZero: true,
           ticks: {
+            color: resolveSeriesColor("--bs-body-color"),
             stepSize: 1000,
             callback: function (value) { return value + " W"; }
           },
-          title: { display: true, text: "Power (W)" },
-          grid: { color: "rgba(255,255,255,0.08)" }
+          title: { color: resolveSeriesColor("--bs-body-color"), display: true, text: "Power (W)" },
+          grid: { color: resolveSeriesColor("--bs-border-color") }
         },
         ySoc: {
           type: "linear",
           position: "right",
           min: 0,
           max: 100,
-          title: { display: true, text: "Battery Level (%)" },
+          ticks: { color: resolveSeriesColor("--bs-body-color") },
+          title: { color: resolveSeriesColor("--bs-body-color"), display: true, text: "Battery Level (%)" },
           grid: { drawOnChartArea: false }
         }
       }

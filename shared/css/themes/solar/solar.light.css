@@ -88,3 +88,22 @@ smd-checkbox input[type="checkbox"] {
 :root {
   --pmd-tasks-row-background: color-mix(in hsl, var(--bs-body-bg) 88%, var(--bs-body-color));
 }
+/* solar-palette:start */
+:root {
+  --solar-clock-ink: rgb(227, 232, 233);
+  --solar-card-ink: rgb(90, 102, 104);
+  --solar-card-ink-rgb: 90, 102, 104;
+  --solar-action-ink: rgb(72, 55, 0);
+  --solar-field-ink: rgb(0, 43, 54);
+  --solar-ink: rgb(168, 180, 182);
+  --solar-ink-rgb: 168, 180, 182;
+  --solar-card-danger: rgb(211, 54, 130);
+  --solar-card-warning: rgb(203, 75, 22);
+  --solar-card-success: rgb(37, 143, 135);
+  --solar-series-solar: rgb(203, 75, 22);
+  --solar-series-grid: rgb(38, 139, 210);
+  --solar-series-home: rgb(42, 161, 152);
+  --solar-series-battery: rgb(128, 100, 190);
+  --solar-series-battery-level: rgb(211, 54, 130);
+}
+/* solar-palette:end */

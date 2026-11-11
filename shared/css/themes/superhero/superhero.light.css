@@ -169,3 +169,23 @@ smd-checkbox input[type="checkbox"] {
      default (#495057) is only 1.4:1 on #343a40. Mirrors shared/css/themes/dark.css. */
   --smd-inactive-tick: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3e%3cpath fill='none' stroke='%23adb5bd' stroke-linecap='round' stroke-linejoin='round' stroke-width='3' d='m6 10 3 3 6-6'/%3e%3c/svg%3e");
 }
+
+/* solar-palette:start */
+:root {
+  --solar-clock-ink: rgb(15, 37, 55);
+  --solar-card-ink: rgb(235, 235, 235);
+  --solar-card-ink-rgb: 235, 235, 235;
+  --solar-action-ink: rgb(89, 42, 10);
+  --solar-field-ink: rgb(235, 235, 235);
+  --solar-ink: rgb(235, 235, 235);
+  --solar-ink-rgb: 235, 235, 235;
+  --solar-card-danger: rgb(234, 160, 158);
+  --solar-card-warning: rgb(255, 193, 7);
+  --solar-card-success: rgb(120, 196, 120);
+  --solar-series-solar: rgb(255, 193, 7);
+  --solar-series-grid: rgb(91, 192, 222);
+  --solar-series-home: rgb(92, 184, 92);
+  --solar-series-battery: rgb(131, 93, 200);
+  --solar-series-battery-level: rgb(217, 83, 79);
+}
+/* solar-palette:end */
