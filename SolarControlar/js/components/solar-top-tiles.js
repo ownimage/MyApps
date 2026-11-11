@@ -12,8 +12,10 @@
   var style = global.document.createElement("style");
   style.id = "solar-top-tiles-style";
   style.textContent = `
-    solar-top-tiles { display: block; margin-bottom: 1rem; }
-    solar-top-tiles .tile { min-height: 120px; padding: 1rem; }
+    solar-top-tiles { display: block; margin-bottom: 1rem; padding-top: var(--smd-nav-content-gap, 1rem); }
+    solar-top-tiles .top-tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-auto-rows: 1fr; gap: 1rem; }
+    @media (max-width: 991px) { solar-top-tiles .top-tiles { grid-template-columns: 1fr; } }
+    solar-top-tiles .tile { min-width: 0; min-height: 120px; padding: 1rem; }
     body.compact solar-top-tiles .tile { padding: 0.5rem; }
     solar-top-tiles .date-dd {
       font-size: var(--smd-type-h1, 2em);
@@ -28,21 +30,13 @@
     solar-top-tiles .date-dot {
       width: 4px;
       height: 4px;
-      background: var(--bs-secondary-color, #adb5bd);
+      background: var(--bs-body-color);
       border-radius: 50%;
     }
     solar-top-tiles .flap-card {
-      /* Flip-clock face: a dark "hardware" gradient derived from the theme's
-         --bs-dark (light top flap -> darker lower flap) so it follows the theme
-         without hardcoded hex. */
-      background: linear-gradient(
-        180deg,
-        color-mix(in srgb, var(--bs-dark) 72%, var(--bs-white)) 0%,
-        var(--bs-dark) 48%,
-        color-mix(in srgb, var(--bs-dark) 78%, var(--bs-black)) 52%,
-        color-mix(in srgb, var(--bs-dark) 65%, var(--bs-black)) 100%
-      );
-      color: var(--bs-white);
+      /* Invert the accessible theme ink/surface for the clock face. */
+      background: var(--bs-body-color);
+      color: var(--solar-clock-ink, var(--bs-body-bg));
       font-size: var(--smd-type-h1, 2em);
       font-weight: 300;
       width: 0.75em;
@@ -66,21 +60,16 @@
     solar-top-tiles .flap-sep {
       font-size: var(--smd-type-h1, 1.8em);
       font-weight: 700;
-      color: var(--bs-danger);
+      color: var(--bs-body-color);
       margin: 0 0.06rem;
       position: relative;
       top: -0.12rem;
-      animation: solarFlapPulse 1s ease-in-out infinite;
-    }
-    @keyframes solarFlapPulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.35; }
     }
     solar-top-tiles .battery-icon {
       position: relative;
       width: 56px;
       height: 28px;
-      border: 3px solid var(--bs-secondary-color, #adb5bd);
+      border: 3px solid var(--bs-body-color);
       border-radius: 4px;
     }
     solar-top-tiles .battery-icon::after {
@@ -91,7 +80,7 @@
       transform: translateY(-50%);
       width: 4px;
       height: 10px;
-      background: var(--bs-secondary-color, #adb5bd);
+      background: var(--bs-body-color);
       border-radius: 0 2px 2px 0;
     }
     solar-top-tiles .battery-fill {
@@ -126,17 +115,17 @@
 
 const solarTopTilesTemplate = document.createElement("template");
 solarTopTilesTemplate.innerHTML = `
-  <div class="top-tiles row row-cols-1 row-cols-md-3 g-3">
-    <div class="tile card bg-body-tertiary border rounded-4 h-100 d-flex flex-column align-items-center justify-content-center text-center p-3">
+  <div class="top-tiles">
+    <div class="tile card smd-card border rounded-4 d-flex flex-column align-items-center justify-content-center text-center p-3">
       <div class="date-dd display-1 fw-lighter lh-1 mb-1" id="dateDay"></div>
       <div class="date-meta d-flex align-items-center justify-content-center gap-2">
-        <span class="date-mon text-secondary fw-bold" id="dateMonth"></span>
+        <span class="date-mon text-body fw-bold" id="dateMonth"></span>
         <span class="date-dot flex-shrink-0"></span>
-        <span class="date-yyy text-secondary fw-light" id="dateYear"></span>
+        <span class="date-yyy text-body fw-light" id="dateYear"></span>
       </div>
-      <span class="tile-label small text-secondary text-uppercase fw-bold mt-2">Date</span>
+      <span class="tile-label small text-body text-uppercase fw-bold mt-2">Date</span>
     </div>
-    <div class="tile card bg-body-tertiary border rounded-4 h-100 d-flex flex-column align-items-center justify-content-center text-center p-3">
+    <div class="tile card smd-card border rounded-4 d-flex flex-column align-items-center justify-content-center text-center p-3">
       <div class="split-flap d-flex align-items-center gap-1">
         <div class="flap-card" id="h1"></div>
         <div class="flap-card" id="h2"></div>
@@ -147,14 +136,14 @@ solarTopTilesTemplate.innerHTML = `
         <div class="flap-card" id="s1"></div>
         <div class="flap-card" id="s2"></div>
       </div>
-      <span class="tile-label small text-secondary text-uppercase fw-bold mt-2">Local Time</span>
+      <span class="tile-label small text-body text-uppercase fw-bold mt-2">Local Time</span>
     </div>
-    <div class="tile card bg-body-tertiary border rounded-4 h-100 d-flex flex-column align-items-center justify-content-center text-center p-3">
+    <div class="tile card smd-card border rounded-4 d-flex flex-column align-items-center justify-content-center text-center p-3">
       <div class="battery-icon flex-shrink-0 mb-1">
         <div class="battery-fill" id="batteryFill"></div>
       </div>
       <div class="battery-info h5 fw-bold mb-0 text-body" id="batteryPercent"></div>
-      <span class="tile-label small text-secondary text-uppercase fw-bold mt-2">Battery Charge</span>
+      <span class="tile-label small text-body text-uppercase fw-bold mt-2">Battery Charge</span>
     </div>
   </div>
 `;
@@ -182,7 +171,7 @@ class SolarTopTiles extends HTMLElement {
   }
 
   attributeChangedCallback() {
-    if (this.isConnected) this._render();
+    if (this.isConnected && this.querySelector(".top-tiles")) this._render();
   }
 
   _startClock() {
@@ -260,13 +249,13 @@ class SolarTopTiles extends HTMLElement {
     var level = batteryLevel !== null ? parseFloat(batteryLevel) : NaN;
     if (isNaN(level) || level < 0 || level > 100) {
       fill.style.width = "0%";
-      fill.style.background = "var(--bs-secondary-color, #adb5bd)";
+      fill.style.background = "var(--bs-body-color)";
       pct.textContent = "Unknown";
     } else {
       fill.style.width = Math.max(0, level - 6) + "%";
-      if (level <= 20) fill.style.background = "var(--bs-danger)";
-      else if (level <= 50) fill.style.background = "var(--bs-warning)";
-      else fill.style.background = "var(--bs-success)";
+      if (level <= 20) fill.style.background = "var(--solar-card-danger)";
+      else if (level <= 50) fill.style.background = "var(--solar-card-warning)";
+      else fill.style.background = "var(--solar-card-success)";
       pct.textContent = Math.round(level) + "%";
     }
   }

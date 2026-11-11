@@ -4,36 +4,27 @@
    `[data-bs-theme="dark"]` qualifier. */
 
 /* smd-contrast:start */
-.btn-success {
-  --bs-btn-color: #212529;
-  --bs-btn-hover-color: #000;
-  --bs-btn-active-color: #000;
-  --bs-btn-disabled-color: #212529;
-}
-.btn-success,
-.btn-success:disabled, .btn-success.disabled {
+.btn-success:not(:hover):not(:focus-visible):not(:active):not(.active):not(:disabled):not(.disabled) {
   color: #212529 !important;
 }
-.btn-success:hover, .btn-success:focus-visible,
-.btn-success:active {
+.btn-success:not(:active):not(.active):not(:focus-visible):not(:disabled):not(.disabled):hover,
+.btn-success:not(:active):not(.active):not(:disabled):not(.disabled):focus-visible,
+.btn-success:not(:disabled):not(.disabled):active, .btn-success:not(:disabled):not(.disabled).active {
   color: #000 !important;
 }
-.btn-warning {
-  --bs-btn-color: #212529;
-  --bs-btn-hover-color: #212529;
-  --bs-btn-active-color: #212529;
-  --bs-btn-disabled-color: #212529;
-}
-.btn-warning,
-.btn-warning:hover, .btn-warning:focus-visible,
-.btn-warning:active,
-.btn-warning:disabled, .btn-warning.disabled {
+.btn-warning:not(:hover):not(:focus-visible):not(:active):not(.active):not(:disabled):not(.disabled),
+.btn-warning:not(:active):not(.active):not(:focus-visible):not(:disabled):not(.disabled):hover,
+.btn-warning:not(:active):not(.active):not(:disabled):not(.disabled):focus-visible,
+.btn-warning:not(:disabled):not(.disabled):active, .btn-warning:not(:disabled):not(.disabled).active {
   color: #212529 !important;
 }
-.btn-light {
-  --bs-btn-active-color: #212529;
+.btn-light:not(:disabled):not(.disabled):active, .btn-light:not(:disabled):not(.disabled).active {
+  color: #212529 !important;
 }
-.btn-light:active {
+.badge.text-bg-success {
+  color: #212529 !important;
+}
+.badge.text-bg-warning {
   color: #212529 !important;
 }
 #mainNav .dropdown-menu {
@@ -50,3 +41,20 @@ smd-checkbox input[type="checkbox"] {
   border-color: #fff;
 }
 /* smd-contrast:end */
+/* solar-palette:start */
+:root {
+  --solar-clock-ink: rgb(33, 37, 41);
+  --solar-card-ink: rgb(222, 226, 230);
+  --solar-card-ink-rgb: 222, 226, 230;
+  --solar-ink: rgb(222, 226, 230);
+  --solar-ink-rgb: 222, 226, 230;
+  --solar-card-danger: rgb(218, 43, 48);
+  --solar-card-warning: rgb(244, 189, 97);
+  --solar-card-success: rgb(47, 179, 128);
+  --solar-series-solar: rgb(244, 189, 97);
+  --solar-series-grid: rgb(40, 123, 181);
+  --solar-series-home: rgb(47, 179, 128);
+  --solar-series-battery: rgb(131, 95, 200);
+  --solar-series-battery-level: rgb(218, 43, 48);
+}
+/* solar-palette:end */

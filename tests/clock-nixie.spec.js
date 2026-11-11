@@ -28,7 +28,14 @@ test("Nixie face persists and shares Mondaine's text font choices", async ({page
   await expect(page.locator("#clockDate")).toHaveCSS("font-family", /Clock London Tube/);
 });
 test("Nixie has ten distinct wire numerals and follows colour, glow and time updates", async ({page}) => {
-  await page.evaluate(() => { changeClockFont("nixie"); renderNixieClock(document.getElementById("clockDisplay"),"01:23:45"); });
+  await page.evaluate(async () => {
+    // This test drives the renderer directly. A live tick or the font-ready
+    // repaint must not replace a fixture numeral between its assertions.
+    clearInterval(clockTimer); clockTimer = null;
+    changeClockFont("nixie");
+    if (document.fonts) await document.fonts.ready;
+    renderNixieClock(document.getElementById("clockDisplay"), "01:23:45");
+  });
   const shapes=await page.locator(".nixie-digit").first().evaluate(el => Array.from(el.querySelectorAll("defs .nixie-numeral")).map(p => p.getAttribute("d")));
   expect(shapes).toHaveLength(10); expect(new Set(shapes).size).toBe(10);
   for (const digit of "0123456789") {

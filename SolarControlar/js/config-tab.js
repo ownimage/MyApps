@@ -8,7 +8,7 @@ function renderConfigTab() {
   if (!container) return;
 
   if (!_configData) {
-    container.innerHTML = '<p class="loading text-secondary fst-italic mb-0">Loading config...</p>';
+    container.innerHTML = '<p class="loading text-body fst-italic mb-0">Loading config...</p>';
     loadConfigData();
     return;
   }
@@ -32,8 +32,8 @@ function renderConfigTab() {
                 '<input type="hidden" name="charge_to_percentage" id="configHidden" value="' + val + '">' +
               '</td>' +
               '<td>' +
-                '<span class="access-badge badge rounded-pill text-bg-success badge-rw">Read/Write</span>' +
-                '<span class="was-text d-none text-danger small"> Was: <strong class="was-val"></strong>%</span>' +
+                '<span class="access-badge badge rounded-pill text-bg-primary badge-rw">Read/Write</span>' +
+                '<span class="was-text d-none text-body small"> Was: <strong class="was-val"></strong>%</span>' +
               '</td>' +
               '<td>Target battery percentage for overnight charging (applied between 02:00-05:00)</td>' +
             '</tr>' +
@@ -41,7 +41,7 @@ function renderConfigTab() {
         '</table>' +
       '</div>' +
       '<div class="actions d-flex justify-content-end mt-3">' +
-        '<button type="submit" class="btn btn-primary btn-sm">Save Changes</button>' +
+        '<smd-button variant="primary" size="small">Save Changes</smd-button>' +
       '</div>' +
     '</form>';
 
@@ -124,12 +124,12 @@ function wireConfigChangeDetection() {
     var current = hiddenInput ? hiddenInput.value : null;
     if (current === null) return;
     if (current != original) {
-      badge.className = "access-badge badge rounded-pill text-bg-warning badge-changed";
+      badge.className = "access-badge badge rounded-pill bg-warning-subtle text-warning-emphasis badge-changed";
       badge.textContent = "Changed";
       wasText.classList.remove("d-none");
       wasText.classList.add("d-inline");
     } else {
-      badge.className = "access-badge badge rounded-pill text-bg-success badge-rw";
+      badge.className = "access-badge badge rounded-pill text-bg-primary badge-rw";
       badge.textContent = "Read/Write";
       wasText.classList.add("d-none");
       wasText.classList.remove("d-inline");

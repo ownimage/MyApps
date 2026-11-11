@@ -12,11 +12,11 @@ function renderForecastTab() {
       'to update the solar forecast multiplier, and recompute the battery charge target. ' +
       'This may take up to a few minutes.</p>' +
       '<div class="mt-3">' +
-        '<button type="button" class="btn btn-primary" id="btnRunForecast" onclick="runForecast()">Run Forecast Pipeline</button>' +
+        '<smd-button variant="primary" id="btnRunForecast" onclick="runForecast()">Run Forecast Pipeline</smd-button>' +
       '</div>' +
     '</div>' +
-    '<div id="forecastOutput" class="forecast-output bg-body-tertiary border rounded p-3 font-monospace overflow-auto mt-3 d-none"></div>' +
-    '<div id="forecastLoading" class="loading text-secondary fst-italic mt-3 d-none">Forecast pipeline is running...</div>';
+    '<div id="forecastOutput" class="forecast-output bg-body border rounded p-3 font-monospace overflow-auto mt-3 d-none"></div>' +
+    '<div id="forecastLoading" class="loading text-body fst-italic mt-3 d-none">Forecast pipeline is running...</div>';
 
   if (_forecastOutput) {
     var outputEl = $id("forecastOutput");

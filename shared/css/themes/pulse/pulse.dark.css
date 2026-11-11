@@ -4,57 +4,57 @@
    `[data-bs-theme="dark"]` qualifier. */
 
 /* smd-contrast:start */
-.btn-secondary {
-  --bs-btn-hover-color: #17141f;
-  --bs-btn-active-color: #000;
-  --bs-btn-disabled-color: #17141f;
-}
-.btn-secondary:hover, .btn-secondary:focus-visible,
-.btn-secondary:disabled, .btn-secondary.disabled {
+.btn-secondary:not(:active):not(.active):not(:disabled):not(.disabled):focus-visible {
   color: #17141f !important;
 }
-.btn-secondary:active {
+.btn-secondary:not(:disabled):not(.disabled):active, .btn-secondary:not(:disabled):not(.disabled).active {
   color: #000 !important;
 }
-.btn-success, .btn-warning {
-  --bs-btn-color: #17141f;
-  --bs-btn-hover-color: #17141f;
-  --bs-btn-active-color: #17141f;
-  --bs-btn-disabled-color: #17141f;
-}
-.btn-success,
-.btn-success:hover, .btn-success:focus-visible,
-.btn-success:active,
-.btn-success:disabled, .btn-success.disabled,
-.btn-warning,
-.btn-warning:hover, .btn-warning:focus-visible,
-.btn-warning:active,
-.btn-warning:disabled, .btn-warning.disabled {
+.btn-success:not(:hover):not(:focus-visible):not(:active):not(.active):not(:disabled):not(.disabled),
+.btn-success:not(:active):not(.active):not(:focus-visible):not(:disabled):not(.disabled):hover,
+.btn-success:not(:active):not(.active):not(:disabled):not(.disabled):focus-visible,
+.btn-success:not(:disabled):not(.disabled):active, .btn-success:not(:disabled):not(.disabled).active,
+.btn-warning:not(:hover):not(:focus-visible):not(:active):not(.active):not(:disabled):not(.disabled),
+.btn-warning:not(:active):not(.active):not(:focus-visible):not(:disabled):not(.disabled):hover,
+.btn-warning:not(:active):not(.active):not(:disabled):not(.disabled):focus-visible,
+.btn-warning:not(:disabled):not(.disabled):active, .btn-warning:not(:disabled):not(.disabled).active {
   color: #17141f !important;
 }
-.btn-danger {
-  --bs-btn-color: #17141f;
-  --bs-btn-disabled-color: #17141f;
-}
-.btn-danger,
-.btn-danger:disabled, .btn-danger.disabled {
+.btn-danger:not(:hover):not(:focus-visible):not(:active):not(.active):not(:disabled):not(.disabled) {
   color: #17141f !important;
 }
-.btn-info {
-  --bs-btn-color: #17141f;
-  --bs-btn-hover-color: #000;
-  --bs-btn-disabled-color: #17141f;
-}
-.btn-info,
-.btn-info:disabled, .btn-info.disabled {
+.btn-info:not(:hover):not(:focus-visible):not(:active):not(.active):not(:disabled):not(.disabled) {
   color: #17141f !important;
 }
-.btn-info:hover, .btn-info:focus-visible {
+.btn-info:not(:active):not(.active):not(:focus-visible):not(:disabled):not(.disabled):hover,
+.btn-info:not(:active):not(.active):not(:disabled):not(.disabled):focus-visible {
   color: #000 !important;
 }
-smd-tabs .smd-tab-btn.text-bg-secondary,
-smd-tabs .smd-tab-btn.text-bg-secondary:hover,
-smd-tabs .smd-tab-btn.text-bg-secondary:focus-visible {
+.badge.text-bg-secondary {
+  color: #17141f !important;
+}
+.badge.text-bg-success {
+  color: #17141f !important;
+}
+.badge.text-bg-danger {
+  color: #17141f !important;
+}
+.badge.text-bg-warning {
+  color: #17141f !important;
+}
+.badge.text-bg-info {
+  color: #17141f !important;
+}
+smd-tabs .smd-tab-btn.text-bg-secondary:not(:hover):not(:focus-visible):not(:active) {
+  color: #17141f !important;
+}
+smd-tabs .smd-tab-btn.text-bg-secondary:hover:not(:focus-visible):not(:active) {
+  color: #17141f !important;
+}
+smd-tabs .smd-tab-btn.text-bg-secondary:focus-visible:not(:active) {
+  color: #17141f !important;
+}
+smd-tabs .smd-tab-btn.text-bg-secondary:active {
   color: #17141f !important;
 }
 #mainNav .dropdown-menu {
@@ -71,3 +71,20 @@ smd-checkbox input[type="checkbox"] {
   border-color: #fff;
 }
 /* smd-contrast:end */
+/* solar-palette:start */
+:root {
+  --solar-clock-ink: rgb(23, 20, 31);
+  --solar-card-ink: rgb(237, 237, 237);
+  --solar-card-ink-rgb: 237, 237, 237;
+  --solar-ink: rgb(237, 237, 237);
+  --solar-ink-rgb: 237, 237, 237;
+  --solar-card-danger: rgb(252, 57, 57);
+  --solar-card-warning: rgb(239, 163, 29);
+  --solar-card-success: rgb(19, 185, 85);
+  --solar-series-solar: rgb(239, 163, 29);
+  --solar-series-grid: rgb(0, 156, 220);
+  --solar-series-home: rgb(19, 185, 85);
+  --solar-series-battery: rgb(119, 87, 167);
+  --solar-series-battery-level: rgb(252, 57, 57);
+}
+/* solar-palette:end */

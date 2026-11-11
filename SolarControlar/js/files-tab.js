@@ -23,12 +23,16 @@ function renderFilesTab() {
   container.innerHTML =
     '<div class="log-controls d-flex flex-wrap align-items-center gap-2 mb-3">' +
       '<label class="form-label mb-0" for="log-file">Log File:</label>' +
-      '<smd-select id="log-file" class="form-select w-auto log-select">' + options + '</smd-select>' +
+      '<smd-select id="log-file" class="w-auto log-select">' + options + '</smd-select>' +
       '<label class="form-label mb-0" for="line-count">Lines:</label>' +
-      '<input type="number" id="line-count" class="form-control w-auto log-input" min="1" max="10000" value="200">' +
-      '<button type="button" class="btn btn-primary btn-sm" onclick="fetchLogs()">Fetch</button>' +
+      '<smd-select id="line-count" class="w-auto log-select" value="200">' +
+        [50, 100, 200, 500, 1000, 5000, 10000].map(function (count) {
+          return '<option value="' + count + '">' + count + '</option>';
+        }).join('') +
+      '</smd-select>' +
+      '<smd-button variant="primary" size="small" onclick="fetchLogs()">Fetch</smd-button>' +
     '</div>' +
-    '<div id="log-output" class="log-output bg-body-tertiary border rounded p-3 font-monospace overflow-auto" aria-live="polite">Click Fetch to load logs</div>';
+    '<div id="log-output" class="log-output bg-body border rounded p-3 font-monospace overflow-auto" aria-live="polite">Click Fetch to load logs</div>';
 }
 
 function fetchLogs() {
@@ -41,15 +45,15 @@ function fetchLogs() {
   var count = countEl ? countEl.value || 200 : 200;
 
   output.textContent = "Loading...";
-  output.classList.add("loading", "text-secondary", "fst-italic");
+  output.classList.add("loading", "text-body", "fst-italic");
 
   solarApi.getFiles(file, count)
     .then(function (text) {
       output.textContent = text;
-      output.classList.remove("loading", "text-secondary", "fst-italic");
+      output.classList.remove("loading", "text-body", "fst-italic");
     })
     .catch(function (err) {
       output.textContent = "Error: " + err.message;
-      output.classList.remove("loading", "text-secondary", "fst-italic");
+      output.classList.remove("loading", "text-body", "fst-italic");
     });
 }

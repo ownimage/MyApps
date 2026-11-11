@@ -4,54 +4,86 @@
    `[data-bs-theme="light"]` qualifier. */
 
 /* smd-contrast:start */
-.btn-primary {
-  --bs-btn-color: #000;
-  --bs-btn-hover-color: #000;
-  --bs-btn-disabled-color: #000;
-}
-.btn-primary,
-.btn-primary:hover, .btn-primary:focus-visible,
-.btn-primary:disabled, .btn-primary.disabled {
+.btn-primary:not(:hover):not(:focus-visible):not(:active):not(.active):not(:disabled):not(.disabled),
+.btn-primary:not(:active):not(.active):not(:focus-visible):not(:disabled):not(.disabled):hover,
+.btn-primary:not(:active):not(.active):not(:disabled):not(.disabled):focus-visible,
+.btn-secondary:not(:hover):not(:focus-visible):not(:active):not(.active):not(:disabled):not(.disabled),
+.btn-secondary:not(:active):not(.active):not(:focus-visible):not(:disabled):not(.disabled):hover,
+.btn-secondary:not(:active):not(.active):not(:disabled):not(.disabled):focus-visible,
+.btn-danger:not(:hover):not(:focus-visible):not(:active):not(.active):not(:disabled):not(.disabled),
+.btn-danger:not(:active):not(.active):not(:focus-visible):not(:disabled):not(.disabled):hover,
+.btn-danger:not(:active):not(.active):not(:disabled):not(.disabled):focus-visible,
+.btn-info:not(:hover):not(:focus-visible):not(:active):not(.active):not(:disabled):not(.disabled),
+.btn-info:not(:active):not(.active):not(:focus-visible):not(:disabled):not(.disabled):hover,
+.btn-info:not(:active):not(.active):not(:disabled):not(.disabled):focus-visible,
+.btn-dark:not(:hover):not(:focus-visible):not(:active):not(.active):not(:disabled):not(.disabled),
+.btn-dark:not(:active):not(.active):not(:focus-visible):not(:disabled):not(.disabled):hover,
+.btn-dark:not(:active):not(.active):not(:disabled):not(.disabled):focus-visible {
   color: #000 !important;
 }
-.btn-secondary, .btn-danger, .btn-info, .btn-dark {
-  --bs-btn-color: #000;
-}
-.btn-secondary,
-.btn-danger,
-.btn-info,
-.btn-dark {
+.btn-success:not(:hover):not(:focus-visible):not(:active):not(.active):not(:disabled):not(.disabled),
+.btn-success:not(:active):not(.active):not(:focus-visible):not(:disabled):not(.disabled):hover,
+.btn-success:not(:active):not(.active):not(:disabled):not(.disabled):focus-visible,
+.btn-success:not(:disabled):not(.disabled):active, .btn-success:not(:disabled):not(.disabled).active,
+.btn-warning:not(:hover):not(:focus-visible):not(:active):not(.active):not(:disabled):not(.disabled),
+.btn-warning:not(:active):not(.active):not(:focus-visible):not(:disabled):not(.disabled):hover,
+.btn-warning:not(:active):not(.active):not(:disabled):not(.disabled):focus-visible,
+.btn-warning:not(:disabled):not(.disabled):active, .btn-warning:not(:disabled):not(.disabled).active,
+.btn-light:not(:hover):not(:focus-visible):not(:active):not(.active):not(:disabled):not(.disabled),
+.btn-light:not(:active):not(.active):not(:focus-visible):not(:disabled):not(.disabled):hover,
+.btn-light:not(:active):not(.active):not(:disabled):not(.disabled):focus-visible,
+.btn-light:not(:disabled):not(.disabled):active, .btn-light:not(:disabled):not(.disabled).active {
   color: #000 !important;
 }
-.btn-success, .btn-warning {
-  --bs-btn-color: #000;
-  --bs-btn-hover-color: #000;
-  --bs-btn-active-color: #000;
-  --bs-btn-disabled-color: #000;
-}
-.btn-success,
-.btn-success:hover, .btn-success:focus-visible,
-.btn-success:active,
-.btn-success:disabled, .btn-success.disabled,
-.btn-warning,
-.btn-warning:hover, .btn-warning:focus-visible,
-.btn-warning:active,
-.btn-warning:disabled, .btn-warning.disabled {
+.badge.text-bg-primary {
   color: #000 !important;
 }
-.btn-light {
-  --bs-btn-color: #000;
-  --bs-btn-hover-color: #000;
-  --bs-btn-active-color: #000;
-}
-.btn-light,
-.btn-light:hover, .btn-light:focus-visible,
-.btn-light:active {
+.badge.text-bg-success {
   color: #000 !important;
 }
-smd-tabs .smd-tab-btn.text-bg-primary,
-smd-tabs .smd-tab-btn.text-bg-primary:hover,
-smd-tabs .smd-tab-btn.text-bg-primary:focus-visible {
+.badge.text-bg-warning {
+  color: #000 !important;
+}
+smd-tabs .smd-tab-btn.text-bg-primary:not(:hover):not(:focus-visible):not(:active) {
+  color: #000 !important;
+}
+smd-tabs .smd-tab-btn.text-bg-primary:hover:not(:focus-visible):not(:active) {
+  color: #000 !important;
+}
+smd-tabs .smd-tab-btn.text-bg-primary:focus-visible:not(:active) {
+  color: #000 !important;
+}
+smd-tabs .smd-tab-btn.text-bg-primary:active {
+  color: #000 !important;
+}
+.form-control:not([readonly]):not(:disabled):not(:hover):not(:focus-visible):not(:active) {
+  color: #000 !important;
+}
+.form-control:not([readonly]):not(:disabled):hover:not(:focus-visible):not(:active) {
+  color: #000 !important;
+}
+.form-control:not([readonly]):not(:disabled):focus-visible:not(:active) {
+  color: #000 !important;
+}
+.form-control:not([readonly]):not(:disabled):active {
+  color: #000 !important;
+}
+.form-select:not(:disabled):not(:hover):not(:focus-visible):not(:active) {
+  color: #000 !important;
+}
+.form-select:not(:disabled):hover:not(:focus-visible):not(:active) {
+  color: #000 !important;
+}
+.form-select:not(:disabled):focus-visible:not(:active) {
+  color: #000 !important;
+}
+.form-select:not(:disabled):active {
+  color: #000 !important;
+}
+smd-select .smd-select-item:is(.text-bg-primary, :hover, :focus-visible) {
+  color: #000 !important;
+}
+smd-select .smd-select-item:not(.text-bg-primary):not(:hover):not(:focus-visible) {
   color: #000 !important;
 }
 #mainNav .dropdown-menu .dropdown-item,
@@ -85,3 +117,20 @@ smd-checkbox input[type="checkbox"] {
 :root {
   --smd-inactive-muted: #495057;
 }
+/* solar-palette:start */
+:root {
+  --solar-clock-ink: rgb(245, 248, 251);
+  --solar-card-ink: rgb(97, 109, 145);
+  --solar-card-ink-rgb: 97, 109, 145;
+  --solar-ink: rgb(64, 72, 96);
+  --solar-ink-rgb: 64, 72, 96;
+  --solar-card-danger: rgb(229, 37, 39);
+  --solar-card-warning: rgb(176, 133, 5);
+  --solar-card-success: rgb(52, 159, 32);
+  --solar-series-solar: rgb(142, 122, 60);
+  --solar-series-grid: rgb(91, 98, 244);
+  --solar-series-home: rgb(66, 139, 68);
+  --solar-series-battery: rgb(91, 98, 244);
+  --solar-series-battery-level: rgb(229, 37, 39);
+}
+/* solar-palette:end */
