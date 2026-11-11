@@ -10540,3 +10540,8 @@ Everything below is the contract; break it and the app stops talking to the exe.
 - Interpreter selection: SOLARCONTROLAR_PYTHON override, then SolarControlar/server/venv/Scripts/python.exe (venv/bin/python on Unix), then py -3.13 on Windows / python3 elsewhere. Install SolarControlar/server/requirements.txt into that environment. Existing server venv (3.13.3) works; global Python 3.13 lacked tenacity, so do not assume the MyHID interpreter has these dependencies.
 - Wrapper runs from a fresh per-test output directory, suppresses bytecode and bounds the child process; no Flask server, scheduled job or real inverter access. Preserve operational JSON/logs/secrets. See SolarControlar/AGENTS.md and SolarControlar/server/AGENTS.md for the ownership and safety contract.
 - Verified both wrapper entries pass (8 battery-flag + 21 metering = 29 Python cases), retries=0. Playwright --list shows exactly two chromium entries. No frontend runtime changes or build bump. Full log: work/solar-server-integration.log.
+
+
+### 2026-11-11 - Merge after the Solar colour squash
+
+- origin/main incorporated the earlier Solar colour work as squash commit d6fe550 (PR #77), while solar-controlar-colour retained the original commits and added the backend. Merging main back produced documentation-only conflicts in AGENTS.md and AGENTS-solar.md. Preserve the newer local backend path and top-level Python/Playwright test ownership notes; do not revert to the older separate-server description. No application code resolution or build bump was needed.
