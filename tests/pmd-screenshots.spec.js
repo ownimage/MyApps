@@ -739,7 +739,7 @@ test.describe("PlanMyDay - Screenshots", () => {
 // Solar regressions are mirrored here per the repository screenshot workflow.
 test.describe('Solar dashboard appearance screenshots', () => {
   test.use({ serviceWorkers: 'block' });
-  test('Solar dashboard six tabs and installed layout', async ({ page }) => {
+  test('Solar dashboard seven tabs and installed layout', async ({ page }) => {
     test.setTimeout(120000);
     const { mockFlaskApi } = require('./solar-fixtures');
     const { theme, inspectContrast } = require('./solar-appearance-helpers');
@@ -747,20 +747,44 @@ test.describe('Solar dashboard appearance screenshots', () => {
     await mockFlaskApi(page);
     await page.goto('/SolarControlar/', { waitUntil: 'domcontentloaded' });
     await expect(page.locator('#batteryPercent')).toHaveText('50%');
+    await expect(page.locator('#topTiles .tile-label')).toHaveText(['Latest Date','Latest Time','Battery Charge']);
+    await expect(page.locator('#topTiles .flap-card')).toHaveText(['0','8','0','0','0','0']);
+    await page.evaluate(() => { Chart.defaults.animation = false; });
     await page.addStyleTag({content:'*, *::before, *::after { transition: none !important; }'});
     for (const mode of ['light','dark']) {
       await theme(page, process.env.SCREENSHOT_THEME || 'superhero', mode);
-      for (const tab of ['Power','Settings','Files','Config','Forecast','Graph']) {
+      for (const tab of ['Now','Settings','Files','Config','Forecast','Power','kWh']) {
         await page.locator('#mainTabs .smd-tab-btn').filter({hasText:new RegExp('^'+tab+'$')}).click();
-        if(tab==='Graph') await expect.poll(()=>page.evaluate(()=>{
-          const c=document.querySelector('#powerChart');if(!c||!window._powerChart)return false;
-          const r=c.getBoundingClientRect();return Math.abs(c.width-r.width*devicePixelRatio)<2 && Math.abs(c.height-r.height*devicePixelRatio)<2;
-        })).toBeTruthy();
+        if(tab==='Power'||tab==='kWh') await expect.poll(()=>page.evaluate(tab=>{
+          const chart=tab==='Power'?window._powerChart:window._energyChart;
+          if(!chart)return false;
+          const c=chart.canvas,r=c.getBoundingClientRect();
+          return Math.abs(c.width-r.width*devicePixelRatio)<2 && Math.abs(c.height-r.height*devicePixelRatio)<2;
+        },tab)).toBeTruthy();
         expect(await page.evaluate(inspectContrast)).toEqual([]);
-        await page.screenshot({ path: test.info().outputPath('solar-'+mode+'-'+tab+'.png') });
+        await page.screenshot({ path: test.info().outputPath('solar-'+mode+'-'+tab+'.png'), fullPage:true });
+        if(tab==='kWh') {
+          const {pickOption}=require('./theme-controls');
+          for(const period of ['month','year']) {
+            await pickOption(page,'#energy-period',period);
+            await expect.poll(()=>page.evaluate(()=>window._energyChart?.scales.x.options.title.text)).toBe(period==='month'?'Sep 2026':'2026');
+            const range=await page.evaluate(()=>({max:_energyChart.scales.y.max,
+              peak:Math.max(..._energyChart.data.datasets.map(ds=>ds.data.filter(Number.isFinite).at(-1)).filter(Number.isFinite))}));
+            expect(range.max).toBeGreaterThanOrEqual(range.peak);
+            await page.screenshot({path:test.info().outputPath('solar-'+mode+'-KWh-'+period+'.png'),fullPage:true});
+          }
+          await page.locator('.energy-series[value="usage"]').uncheck();
+          const hiddenRange=await page.evaluate(()=>({max:_energyChart.scales.y.max,
+            peak:Math.max(..._energyChart.data.datasets.map(ds=>ds.data.filter(Number.isFinite).at(-1)).filter(Number.isFinite))}));
+          expect(hiddenRange.max).toBeGreaterThanOrEqual(hiddenRange.peak);
+          await page.screenshot({path:test.info().outputPath('solar-'+mode+'-KWh-hidden-largest.png'),fullPage:true});
+          await page.locator('.energy-series[value="usage"]').check();
+          await pickOption(page,'#energy-period','day');
+          await expect.poll(()=>page.evaluate(()=>window._energyChart?.scales.x.options.title.text)).toBe('15 Sep 2026');
+        }
       }
       await page.setViewportSize({width:390,height:900});
-      await page.locator('#mainTabs .smd-tab-btn').filter({hasText:'Power'}).click();
+      await page.locator('#mainTabs .smd-tab-btn').filter({hasText:'Now'}).click();
       await page.screenshot({ path:test.info().outputPath('solar-'+mode+'-mobile.png'),fullPage:true });
       await page.setViewportSize({width:1280,height:900});
     }

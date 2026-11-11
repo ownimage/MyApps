@@ -76,12 +76,12 @@ from src so sibling imports work. Dependencies are pinned in requirements.txt.
 
 ## Development and verification
 Server tests are owned by the main MyApps repository, not this server directory.
-The single copies are ../../tests/test_battery_flags.py and ../../tests/test_metering.py.
+The single copies are ../../tests/test_battery_flags.py ../../tests/test_metering.py and ../../tests/test_kwh.py.
 See ../AGENTS.md for the integration contract. From the MyApps repository root:
 
     .\node_modules\.bin\playwright.cmd test tests/solarcontrolar-server.spec.js --workers=2 --retries=0
 
-The normal Playwright run includes both Python unittest modules. The wrapper
+The normal Playwright run includes all three Python unittest modules. The wrapper
 prefers this server's venv, supports SOLARCONTROLAR_PYTHON, and attaches verbose
 Python output to the Playwright report. Install requirements.txt in that Python
 environment. To run unittest directly from the MyApps root, use the same Python:
@@ -107,3 +107,11 @@ __main__ section during tests. The latter contacts hardware even for reads.
   lock protects device access, not the full poll-and-persist cycle.
 - Source changes require deployment/rebuild of the running container before
   scheduled jobs use them. A local test pass is not live inverter validation.
+
+## KWh API (2026-11-11)
+- src/energy_data.py filters valid local date/time rows to those with nonempty usage_method and solar_method. GET /api/energy_values?period=day|month|year returns distinct available values, newest first. GET /api/energy_data?period=...&value=... returns only period, value, labels and five series (grid_import, grid_export, ac_charge, solar, usage). PrefixMiddleware supports both /api and /solar/api forms. Invalid period/value queries are 400 before reading history; missing history is empty and read/JSON errors produce a generic 500.
+- Data comes exclusively from server/minute_totals.json. Day uses five-minute bins (maximum 288) relative to the first eligible observed sample. Month uses first-to-last observed daily differences; year uses first-to-last observed monthly differences. Calendar buckets without enough valid readings are null. Never sum lifetime totals. Counter jumps/drops greater than 1000 kWh and method transitions become gaps; do not bridge method changes or manufacture missing midnight readings.
+- tests/test_kwh.py is invoked by the normal Playwright Python wrapper. Flask test_client exercises read-only endpoints; importing Flask in tests supplies an isolated dummy secret and never reads/writes the real .secret_key. Aggregation tests use inline synthetic history; do not contact the inverter.
+- The user replaced the earlier synthetic minute_totals.json fixture with real server history on 2026-11-11. Preserve it; do not regenerate synthetic history or rewrite measured values as part of source changes.
+
+- 2026-11-11: User authorized a server anomaly threshold. energy_data.py MAX_COUNTER_CHANGE_KWH=1000; only absolute adjacent valid counter changes strictly greater than 1000 kWh invalidate a series in Day/Month/Year. Exactly +/-1000 and small dips remain numeric; method compatibility and missing-value guards remain. Tests cover both directions and the exact boundary, plus Usage recovery after a 0.1 kWh dip. Tab display title is kWh (internal kwh ID unchanged). Deploy the updated server/src/energy_data.py to activate the threshold; Flask routes and metering/poller logic are unchanged.

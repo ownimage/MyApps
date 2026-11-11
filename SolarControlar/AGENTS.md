@@ -4,14 +4,15 @@ Read ../AGENTS.md for repository-wide rules and ../AGENTS-solar.md for the focus
 
 ## Server test ownership and execution
 
-The backend source is in SolarControlar/server/src. Its two top-level unit-test files belong in the MAIN repository tests directory, not SolarControlar/server/tests:
+The backend source is in SolarControlar/server/src. Its top-level unit-test files belong in the MAIN repository tests directory, not SolarControlar/server/tests:
 
 - tests/test_battery_flags.py (8 tests)
 - tests/test_metering.py (21 tests)
+- tests/test_kwh.py (energy aggregation and Flask API tests)
 
 Paths above are relative to the MyApps repository root. Keep these as the single copies; do not recreate duplicate tests under server/tests.
 
-tests/solarcontrolar-server.spec.js runs both files through Python unittest as part of the normal Playwright chromium project. No extra playwright.config.js registration is necessary: the existing *.spec.js discovery picks up the wrapper. Run from the MyApps root:
+tests/solarcontrolar-server.spec.js runs all three files through Python unittest as part of the normal Playwright chromium project. No extra playwright.config.js registration is necessary: the existing *.spec.js discovery picks up the wrapper. Run from the MyApps root:
 
     .\node_modules\.bin\playwright.cmd test tests/solarcontrolar-server.spec.js --workers=2 --retries=0
 
@@ -24,3 +25,9 @@ The relocated files resolve imports from SolarControlar/server/src relative to t
 ## Verification (2026-11-11)
 
 Both Playwright entries passed with retries disabled, running all 29 Python cases. Playwright --list confirmed exactly two chromium entries and no duplicate project execution. Test/documentation integration only; frontend build number unchanged.
+
+## KWh history (2026-11-11)
+
+The dashboard uses Now for the latest-readings table, Power for the existing instantaneous-power chart, and KWh for energy history. The old power/graph internal IDs remain stable. See ../AGENTS-solar.md for the UI and request lifecycle and server/AGENTS.md for the aggregation contract.
+
+New /api/energy_values and /api/energy_data routes must be deployed with the frontend. The history file was explicitly replaced with synthetic development values at the user's request; do not treat it as measured production data. Tests continue to use isolated synthetic stores, never this development history or hardware.

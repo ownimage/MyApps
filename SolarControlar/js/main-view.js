@@ -9,12 +9,13 @@ var _lastRefreshErrorShown = "";
 // the panels in its shadow root). Each panel wraps a light-DOM-style content
 // div so the per-tab render functions and existing locators keep working.
 var MAIN_TAB_DEFS = [
-  { title: "Power", id: "power", content: '<div id="tab-power" class="tab-content p-0"></div>' },
+  { title: "Now", id: "power", content: '<div id="tab-power" class="tab-content p-0"></div>' },
   { title: "Settings", id: "settings", content: '<div id="tab-settings" class="tab-content p-0"></div>' },
   { title: "Files", id: "files", content: '<div id="tab-files" class="tab-content p-0"></div>' },
   { title: "Config", id: "config", content: '<div id="tab-config" class="tab-content p-0"></div>' },
   { title: "Forecast", id: "forecast", content: '<div id="tab-forecast" class="tab-content p-0"></div>' },
-  { title: "Graph", id: "graph", content: '<div id="tab-graph" class="tab-content p-0"></div>' }
+  { title: "Power", id: "graph", content: '<div id="tab-graph" class="tab-content p-0"></div>' },
+  { title: "kWh", id: "kwh", content: '<div id="tab-kwh" class="tab-content p-0"></div>' }
 ];
 
 function configureMainTabs() {
@@ -117,6 +118,8 @@ function switchMainTab(tabName) {
       break;
     }
   }
+
+  if (tabName === "kwh") initEnergyTab();
 
   // Lazy-load graph when switching to graph tab
   if (tabName === "graph" && typeof initGraphTab === "function") {

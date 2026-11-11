@@ -111,6 +111,15 @@ var solarApi = {
       .then(function (r) { return r.json(); });
   },
 
+  getEnergyValues: function (period) {
+    return this._fetch("/api/energy_values?period=" + encodeURIComponent(period)).then(function (r) { return r.json(); });
+  },
+
+  getEnergyData: function (period, value) {
+    return this._fetch("/api/energy_data?period=" + encodeURIComponent(period) + "&value=" + encodeURIComponent(value))
+      .then(function (r) { return r.json(); });
+  },
+
   getFiles: function (file, count) {
     var params = "file=" + encodeURIComponent(file || "config_apply");
     if (count) params += "&count=" + encodeURIComponent(count);

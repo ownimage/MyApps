@@ -13,6 +13,7 @@ import subprocess
 import sys
 from datetime import datetime
 import pytz
+from energy_data import energy_values, energy_plot
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
 
 
@@ -342,6 +343,39 @@ def api_power_data():
         "battery": [day[t].get("battery") for t in times],
         "battery_level": [day[t].get("battery_level") for t in times],
     })
+
+def _energy_history():
+    try:
+        with open(os.path.join(BASE_DIR, "minute_totals.json"), encoding="utf-8") as handle:
+            return json.load(handle)
+    except FileNotFoundError:
+        return {}
+
+
+@app.route("/api/energy_values")
+def api_energy_values():
+    period = request.args.get("period", "day")
+    if period not in ("day", "month", "year"):
+        return jsonify({"error": "period must be day, month or year"}), 400
+    try:
+        return jsonify({"period": period, "values": energy_values(_energy_history(), period)})
+    except (OSError, ValueError):
+        return jsonify({"error": "Unable to read energy history"}), 500
+
+
+@app.route("/api/energy_data")
+def api_energy_data():
+    try:
+        # Validate parameters before reading the history.
+        period, value = request.args.get("period", "day"), request.args.get("value", "")
+        energy_plot({}, period, value)
+    except ValueError as error:
+        return jsonify({"error": str(error)}), 400
+    try:
+        return jsonify(energy_plot(_energy_history(), period, value))
+    except (OSError, ValueError):
+        return jsonify({"error": "Unable to read energy history"}), 500
+
 
 @app.route("/api/files")
 def api_files():

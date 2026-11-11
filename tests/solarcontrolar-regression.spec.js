@@ -39,13 +39,14 @@ test.describe("SolarControlar - Regression", () => {
 
     // Main tabs present (shared smd-tabs component in its shadow root).
     const tabs = page.locator("#mainTabs .smd-tab-btn");
-    await expect(tabs).toHaveCount(6);
-    await expect(tabs.nth(0)).toContainText("Power");
+    await expect(tabs).toHaveCount(7);
+    await expect(tabs.nth(0)).toContainText("Now");
     await expect(tabs.nth(1)).toContainText("Settings");
     await expect(tabs.nth(2)).toContainText("Files");
     await expect(tabs.nth(3)).toContainText("Config");
     await expect(tabs.nth(4)).toContainText("Forecast");
-    await expect(tabs.nth(5)).toContainText("Graph");
+    await expect(tabs.nth(5)).toContainText("Power");
+    await expect(tabs.nth(6)).toHaveText("kWh");
 
     expect(errors).toEqual([]);
   });
@@ -121,7 +122,7 @@ test.describe("SolarControlar - Regression", () => {
   test("graph tab loads dates and renders chart", async ({ page }) => {
     await mockFlaskApi(page);
     await page.goto("/SolarControlar/", {waitUntil:"domcontentloaded"});
-    await page.locator("#mainTabs .smd-tab-btn").filter({ hasText: "Graph" }).click();
+    await page.locator("#mainTabs .smd-tab-btn").filter({ hasText: "Power" }).click();
     await expect(page.locator("#mainTabs #graph-panel")).toHaveAttribute("active", "");
     await expect(page.locator("#graph-date")).toBeVisible({ timeout: 5000 });
     await expect(page.locator("#graph-date .smd-select-item")).toHaveCount(2);
@@ -281,4 +282,27 @@ test.describe("SolarControlar - Regression", () => {
     expect(diag.clean).toBe("");
     expect(diag.err).toContain("Likely cause(s):");
   });
+});
+test('Solar latest date and time tiles stay at the Now reading until the next fetch', async ({page}) => {
+  await page.clock.install();
+  await mockFlaskApi(page);
+  await page.goto('/SolarControlar/',{waitUntil:'domcontentloaded'});
+  const tiles=page.locator('#topTiles');
+  const digits=tiles.locator('.flap-card');
+  await expect(digits).toHaveText(['0','8','0','0','0','0']);
+  await page.clock.runFor(2500);
+  await expect(digits).toHaveText(['0','8','0','0','0','0']);
+  await expect(tiles.locator('.tile-label')).toHaveText(['Latest Date','Latest Time','Battery Charge']);
+  await page.route('**/solar/api/power_data*',route=>{
+    const date=new URL(route.request().url()).searchParams.get('date');
+    return route.fulfill({json:date ? {date,times:['00:01:02'],solar:[0],grid:[420],home:[420],battery:[0],battery_level:[45]} : {dates:['2026-09-16']}});
+  });
+  await page.evaluate(()=>loadPowerDataForTiles());
+  await expect(tiles).toHaveAttribute('power-date','2026-09-16');
+  await expect(tiles.locator('#dateDay')).toHaveText('16');
+  await expect(digits).toHaveText(['0','0','0','1','0','2']);
+  await expect(page.locator('#tab-power .power-table')).toContainText('00:01:02');
+  await expect(page.locator('#tab-power .power-table')).toContainText('2026-09-16');
+  await page.clock.runFor(2500);
+  await expect(digits).toHaveText(['0','0','0','1','0','2']);
 });

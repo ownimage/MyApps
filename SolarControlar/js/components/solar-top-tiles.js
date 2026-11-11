@@ -5,7 +5,7 @@
 //   power-time  — time string (e.g. "14:30:00")
 //   battery-level — battery charge percentage (0-100), or empty for unknown
 //
-// The component updates its own clock every second when connected.
+// Date/time are the latest fetched reading; no wall-clock timer runs.
 
 (function (global) {
   if (global.document.getElementById("solar-top-tiles-style")) return;
@@ -123,7 +123,7 @@ solarTopTilesTemplate.innerHTML = `
         <span class="date-dot flex-shrink-0"></span>
         <span class="date-yyy text-body fw-light" id="dateYear"></span>
       </div>
-      <span class="tile-label small text-body text-uppercase fw-bold mt-2">Date</span>
+      <span class="tile-label small text-body text-uppercase fw-bold mt-2">Latest Date</span>
     </div>
     <div class="tile card smd-card border rounded-4 d-flex flex-column align-items-center justify-content-center text-center p-3">
       <div class="split-flap d-flex align-items-center gap-1">
@@ -136,7 +136,7 @@ solarTopTilesTemplate.innerHTML = `
         <div class="flap-card" id="s1"></div>
         <div class="flap-card" id="s2"></div>
       </div>
-      <span class="tile-label small text-body text-uppercase fw-bold mt-2">Local Time</span>
+      <span class="tile-label small text-body text-uppercase fw-bold mt-2">Latest Time</span>
     </div>
     <div class="tile card smd-card border rounded-4 d-flex flex-column align-items-center justify-content-center text-center p-3">
       <div class="battery-icon flex-shrink-0 mb-1">
@@ -153,52 +153,15 @@ class SolarTopTiles extends HTMLElement {
     return ["power-date", "power-time", "battery-level", "no-data"];
   }
 
-  constructor() {
-    super();
-    this._clockTimer = null;
-  }
-
   connectedCallback() {
     if (!this.querySelector(".top-tiles")) {
       this.appendChild(solarTopTilesTemplate.content.cloneNode(true));
     }
     this._render();
-    this._startClock();
-  }
-
-  disconnectedCallback() {
-    this._stopClock();
   }
 
   attributeChangedCallback() {
     if (this.isConnected && this.querySelector(".top-tiles")) this._render();
-  }
-
-  _startClock() {
-    this._stopClock();
-    var self = this;
-    this._clockTimer = setInterval(function () { self._updateClock(); }, 1000);
-  }
-
-  _stopClock() {
-    if (this._clockTimer) {
-      clearInterval(this._clockTimer);
-      this._clockTimer = null;
-    }
-  }
-
-  _updateClock() {
-    var root = this;
-    var now = new Date();
-    var hh = String(now.getHours()).padStart(2, "0");
-    var mm = String(now.getMinutes()).padStart(2, "0");
-    var ss = String(now.getSeconds()).padStart(2, "0");
-    root.querySelector("#h1").textContent = hh[0];
-    root.querySelector("#h2").textContent = hh[1];
-    root.querySelector("#m1").textContent = mm[0];
-    root.querySelector("#m2").textContent = mm[1];
-    root.querySelector("#s1").textContent = ss[0];
-    root.querySelector("#s2").textContent = ss[1];
   }
 
   _render() {
@@ -230,7 +193,7 @@ class SolarTopTiles extends HTMLElement {
       }
     }
 
-    // Clock from server time
+    // Latest fetched sample time (also used by the Now table)
     if (timeStr) {
       var tParts = timeStr.split(":");
       if (tParts.length >= 3) {

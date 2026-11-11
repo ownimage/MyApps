@@ -1,4 +1,19 @@
 async function mockFlaskApi(page) {
+  await page.route("**/solar/api/energy_*", route => {
+    const url = new URL(route.request().url());
+    const period = url.searchParams.get("period"), value = url.searchParams.get("value");
+    const values = {day:["2026-09-15","2026-09-14"],month:["2026-09","2026-08"],year:["2026","2025"]};
+    if(url.pathname.endsWith("energy_values")) return route.fulfill({json:{period,values:values[period]}});
+    const count = period === "day" ? 145 : period === "year" ? 12 : new Date(Number(value.slice(0,4)),Number(value.slice(5,7)),0).getDate();
+    const labels = Array.from({length:count},(_,i)=>period === "day"
+      ? String(Math.floor(i*5/60)).padStart(2,"0")+":"+String(i*5%60).padStart(2,"0")
+      : value+"-"+String(i+1).padStart(2,"0"));
+    const series = {};
+    for(const [index,key] of ['grid_import','grid_export','ac_charge','solar','usage'].entries()) {
+      series[key] = labels.map((_,i)=>period === "day" ? i*(index+1)/50 : (1+Math.sin(i/3))*(index+1));
+    }
+    return route.fulfill({json:{period,value,labels,series}});
+  });
   await page.route("**/solar/api/power_data*", async (route) => {
     const url = new URL(route.request().url());
     const date = url.searchParams.get("date");
