@@ -12,7 +12,7 @@ Consolidated from AGENTS.md and current source on 2026-11-11. Read AGENTS.md for
 - Add useful dated findings to AGENTS.md and this guide. Documentation uses UTF-8.
 
 ## Architecture and data
-- SolarControlar is a PWA frontend for the separate Flask solarcontrolar server; do not modify that server for frontend issues. Global functions/scripts, not ES modules.
+- SolarControlar is a PWA frontend for the Flask backend now under SolarControlar/server; do not modify that server for frontend issues. Global functions/scripts, not ES modules.
 - app.js configures SmdConfig with solarcontrolar_ storage prefix, shared- image prefix. storage.js owns Flask URL/basic-auth and refresh settings; api.js owns requests.
 - main-view.js configures MAIN_TAB_DEFS once (Power, Settings, Files, Config, Forecast, Graph), orchestrates startup and top-tile power data, auto-refresh and errors. Graph is lazy initialized. Keep panel DOM stable when switching tabs.
 - power-tab.js shows latest readings; solar-settings-view.js parses GET /solar/ settingsForm rows and CSRF token, renders editable settings, and POSTs changes. config-tab.js also parses server HTML for charge_to_percentage: there is no GET /api/config.
@@ -76,3 +76,5 @@ Consolidated from AGENTS.md and current source on 2026-11-11. Read AGENTS.md for
 
 - Updated the two existing Theme colours tests in tests/pmd-regression.spec.js, retaining their coverage. Superhero warning buttons now assert shared warning-palette text and >=4.5:1 rendered contrast in both modes, rather than requiring a particular --bs-btn-color declaration or unconditional body-background foreground. Slate still asserts the danger-coloured active surface, distinct inactive surface and the original swapped inactive gradient; active and inactive text must pass against every composited gradient stop. The active gradient may be flattened by the current contrast policy.
 - Local helpers wait for changed theme sheets and sample rendered colours/gradient stops. Both updated tests passed, then the entire Theme colours group passed 16/16 (2 workers, no retries). Syntax/diff checks passed. Test/documentation-only change; application code and build 202611110833 are unchanged. Logs: work/pmd-theme-expectations.log and work/pmd-theme-group.log.
+
+- Backend test integration is documented in SolarControlar/AGENTS.md: top-level tests/test_battery_flags.py and tests/test_metering.py run via tests/solarcontrolar-server.spec.js in the normal Playwright suite.
