@@ -274,8 +274,9 @@ function openMouseCapture() {
 
   // A same-box capture is picked up without a scan; a remote one needs the address
   // the user pasted/scanned, so only discover when nothing is stored.
-  Promise.resolve(myhidCaptureUrl() ? false : mouseCaptureAdoptFromServer()).then(function () {
-    restoreHidAddress();
+  Promise.resolve(myhidCaptureUrl() ? false : mouseCaptureAdoptFromServer()).then(function (adopted) {
+    // Failed/empty discovery must not reset an address the user is typing.
+    if (adopted) restoreHidAddress();
     mouseCaptureRefresh();
   });
 
@@ -723,10 +724,19 @@ function mouseCaptureLearnButton(which) {
 // ---- server-side discovery (--mouse-capture on this box) --------------------------
 
 function mouseCaptureAdoptFromServer() {
+  var input = document.getElementById("mouseCaptureUrlInput");
+  var originalValue = input ? input.value : "";
+  var originalBase = myhidCaptureUrl();
+  var originalToken = myhidCaptureToken();
   return fetch(myhidServerBase() + "/api/mouse-capture", { cache: "no-store" })
     .then(function (resp) { return resp.ok ? resp.json() : null; })
     .then(function (info) {
       if (!info || !info.url) return false;
+      // Manual edits/saves take priority over an older automatic lookup. A new
+      // page instance also owns its own lookup, so ignore a replaced input.
+      var currentInput = document.getElementById("mouseCaptureUrlInput");
+      if (currentInput !== input || (currentInput && currentInput.value !== originalValue) ||
+          myhidCaptureUrl() !== originalBase || myhidCaptureToken() !== originalToken) return false;
       var parsed = myhidParseHidUrl(info.url);
       if (!parsed) return false;
       myhidSetHidAddress(parsed.base, parsed.token || info.token || "");

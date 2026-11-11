@@ -55,6 +55,29 @@ async function seedAddress(page, url = CAPTURE_ORIGIN, token = TOKEN) {
   }, [url, token]);
 }
 
+// Hold discovery until a specific edit/save boundary, then observe the whole
+// adoption chain settling. No arbitrary delay or live local server is involved.
+async function openWithDelayedDiscovery(page, payload) {
+  let release, requested;
+  const gate = new Promise(resolve => { release = resolve; });
+  const started = new Promise(resolve => { requested = resolve; });
+  await page.route("**/api/mouse-capture", async route => {
+    requested(); await gate;
+    await route.fulfill({ headers: { "access-control-allow-origin": "*" }, json: payload });
+  });
+  await page.goto("/MyHID/");
+  await page.evaluate(() => {
+    const adopt = mouseCaptureAdoptFromServer;
+    window.__discoverySettled = false;
+    mouseCaptureAdoptFromServer = function () {
+      return adopt().then(result => { window.__discoverySettled = true; return result; });
+    };
+    openMouseCapture();
+  });
+  await started;
+  return { release, settled: () => page.waitForFunction(() => window.__discoverySettled) };
+}
+
 // A capture-state payload shaped exactly like the exe's /api/state.
 function captureState(overrides = {}) {
   return Object.assign({
@@ -164,6 +187,10 @@ async function stubCapture(page, state, options = {}) {
 test.beforeEach(async ({ page }) => {
   await startCoverage(page);
   await installFakeSocket(page);
+  // Discovery is independent of the panel API; never depend on a live local server.
+  await page.route("**/api/mouse-capture", route => route.fulfill({
+    headers: { "access-control-allow-origin": "*" }, json: { url: null }
+  }));
 });
 test.afterEach(async ({ page }) => { await stopCoverage(page); });
 
@@ -231,20 +258,39 @@ test.describe("MyHID - Manage mouse-capture", () => {
   });
 
   test("saving the address stores the base and the token separately", async ({ page }) => {
-    await page.goto("/MyHID/");
     await stubCapture(page, captureState());
-    await page.evaluate(() => openMouseCapture());
-
-    await page.fill("#mouseCaptureUrlInput", CAPTURE_ORIGIN + "/?t=abc123");
-    await page.locator("#btnHidSave").click();
-
-    await expect.poll(() => storedAddress(page)).toEqual({
-      url: CAPTURE_ORIGIN,
-      token: "abc123",
-    });
-    // The field keeps the full address, so it can be copied to another device.
-    await expect(page.locator("#mouseCaptureUrlInput")).toHaveValue(CAPTURE_ORIGIN + "/?t=abc123");
+    const discovery = await openWithDelayedDiscovery(page, { url: null });
+    try {
+      await page.fill("#mouseCaptureUrlInput", CAPTURE_ORIGIN + "/?t=abc123");
+      // Empty discovery finishes while typing, before blur/Save.
+      discovery.release(); await discovery.settled();
+      await expect(page.locator("#mouseCaptureUrlInput")).toHaveValue(CAPTURE_ORIGIN + "/?t=abc123");
+      await page.locator("#btnHidSave").click();
+      await expect.poll(() => storedAddress(page)).toEqual({ url: CAPTURE_ORIGIN, token: "abc123" });
+      await expect(page.locator("#mouseCaptureUrlInput")).toHaveValue(CAPTURE_ORIGIN + "/?t=abc123");
+    } finally { discovery.release(); }
   });
+
+  for (const saved of [false, true]) {
+    test("late discovery preserves a manually " + (saved ? "saved" : "edited") + " address", async ({ page }) => {
+      await stubCapture(page, captureState());
+      const discovery = await openWithDelayedDiscovery(page, { url: CAPTURE_ORIGIN + "/?t=server-token" });
+      try {
+        await page.fill("#mouseCaptureUrlInput", CAPTURE_ORIGIN + "/?t=abc123");
+        if (saved) {
+          await page.locator("#btnHidSave").click();
+          await expect.poll(() => storedAddress(page)).toEqual({ url: CAPTURE_ORIGIN, token: "abc123" });
+        }
+        discovery.release(); await discovery.settled();
+        await expect(page.locator("#mouseCaptureUrlInput")).toHaveValue(CAPTURE_ORIGIN + "/?t=abc123");
+        if (!saved) {
+          expect(await storedAddress(page)).toEqual({ url: null, token: null });
+          await page.locator("#btnHidSave").click();
+        }
+        await expect.poll(() => storedAddress(page)).toEqual({ url: CAPTURE_ORIGIN, token: "abc123" });
+      } finally { discovery.release(); }
+    });
+  }
 
   test("leaving the address field applies it without pressing Save", async ({ page }) => {
     await seedAddress(page);
