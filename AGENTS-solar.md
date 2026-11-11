@@ -56,3 +56,8 @@ Consolidated from AGENTS.md and current source on 2026-11-11. Read AGENTS.md for
 - Converted Files Fetch, Config Save Changes, Forecast Run Forecast Pipeline and main Settings Save Changes to smd-button. Keep existing primary variants and sizes. Removed Solar .btn-primary colour/gradient overrides; shared component/theme styling owns their appearance.
 - The shared component creates a real button with default submit type. Inside configForm/solarSettingsForm it continues to submit normally; do not duplicate save handlers on the host (would risk double posts). Forecast disabled property now targets the component, which mirrors it to the inner real button.
 - User explicitly requested no new appearance tests and will inspect manually. None added; no tests changed. Existing Solar functional suite passed 12/12 without retries. Additional browser functional probe verified both save payloads/CSRF and Forecast disable/re-enable. When excluding workers in a standalone probe, remove the navigator serviceWorker API too: blocked registration otherwise returns undefined to the existing updateViaCache hook. No runtime worker code changed. Syntax/diff checks passed. Build 202611110757 via npm run bump:build.
+
+
+### 2026-11-11 - Solar access badge variants
+
+- Settings Read Only badges use standard Bootstrap text-bg-info; Settings/Config Read/Write badges use text-bg-primary. The change-detection reset paths restore primary when a value returns to its original state. Changed badges retain warning. No custom palette or appearance test added. JS syntax and git diff --check passed; build 202611110803.

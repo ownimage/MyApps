@@ -115,7 +115,7 @@ function buildSolarSettingsHtml() {
       '<td class="fw-semibold">' + escapeHtml(f.label) + '</td>' +
       '<td>' + valueInput + '</td>' +
       '<td>' +
-        '<span class="access-badge badge rounded-pill bg-' + (f.readonly ? "secondary-subtle text-secondary-emphasis" : "success-subtle text-success-emphasis") + ' ' + (f.readonly ? "badge-ro" : "badge-rw") + '">' +
+        '<span class="access-badge badge rounded-pill text-bg-' + (f.readonly ? "info" : "primary") + ' ' + (f.readonly ? "badge-ro" : "badge-rw") + '">' +
           (f.readonly ? "Read Only" : "Read/Write") +
         '</span>' +
         '<span class="was-text d-none text-body small"> Was: <strong class="was-val"></strong></span>' +
@@ -181,7 +181,7 @@ function wireSolarSettingsChangeDetection() {
         wasText.classList.remove("d-none");
         wasText.classList.add("d-inline");
       } else {
-        badge.className = "access-badge badge rounded-pill bg-success-subtle text-success-emphasis badge-rw";
+        badge.className = "access-badge badge rounded-pill text-bg-primary badge-rw";
         badge.textContent = "Read/Write";
         wasText.classList.add("d-none");
         wasText.classList.remove("d-inline");

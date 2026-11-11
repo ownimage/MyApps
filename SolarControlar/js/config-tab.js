@@ -32,7 +32,7 @@ function renderConfigTab() {
                 '<input type="hidden" name="charge_to_percentage" id="configHidden" value="' + val + '">' +
               '</td>' +
               '<td>' +
-                '<span class="access-badge badge rounded-pill bg-success-subtle text-success-emphasis badge-rw">Read/Write</span>' +
+                '<span class="access-badge badge rounded-pill text-bg-primary badge-rw">Read/Write</span>' +
                 '<span class="was-text d-none text-body small"> Was: <strong class="was-val"></strong>%</span>' +
               '</td>' +
               '<td>Target battery percentage for overnight charging (applied between 02:00-05:00)</td>' +
@@ -129,7 +129,7 @@ function wireConfigChangeDetection() {
       wasText.classList.remove("d-none");
       wasText.classList.add("d-inline");
     } else {
-      badge.className = "access-badge badge rounded-pill bg-success-subtle text-success-emphasis badge-rw";
+      badge.className = "access-badge badge rounded-pill text-bg-primary badge-rw";
       badge.textContent = "Read/Write";
       wasText.classList.add("d-none");
       wasText.classList.remove("d-inline");
