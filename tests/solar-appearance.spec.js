@@ -9,21 +9,22 @@ for(const name of THEMES) test('Solar appearance contrast '+name,async({page})=>
   await expect(page.locator('#tab-power .power-table')).toBeVisible();await page.addStyleTag({content:'*, *::before, *::after { transition: none !important; }'});const failures=[];
   for(const mode of ['light','dark']){
     await theme(page,name,mode);
-    for(const tab of ['Power','Settings','Files','Config','Forecast','Graph']){
+    for(const tab of ['Now','Settings','Files','Config','Forecast','Power','kWh']){
       await page.locator('#mainTabs .smd-tab-btn').filter({hasText:new RegExp('^'+tab+'$')}).click();
       if(tab==='Settings'){await expect(page.locator('#solarSettingsForm')).toBeVisible();await page.locator('input[name=start_discharge_target]').fill('91');}
       if(tab==='Config'){await expect(page.locator('#configSlider')).toBeVisible();await page.locator('#configSlider').fill('60');}
       if(tab==='Files'){await page.locator('.log-controls .btn-primary').click();await expect(page.locator('#log-output')).toContainText('mock log');}
       if(tab==='Forecast'){await page.locator('#btnRunForecast').click();await expect(page.locator('#forecastOutput')).toContainText('mock forecast');}
-      if(tab==='Graph')await expect.poll(()=>page.evaluate(()=>!!window._powerChart)).toBeTruthy();
+      if(tab==='Power')await expect.poll(()=>page.evaluate(()=>!!window._powerChart)).toBeTruthy();
+      if(tab==='kWh')await expect.poll(()=>page.evaluate(()=>!!window._energyChart)).toBeTruthy();
       failures.push(...(await page.evaluate(inspectContrast)).map(f=>({mode,tab,...f})));
       const action=page.locator('#mainTabs .smd-tab-panel[active] .btn-primary').first();
       if(await action.count()) for(const state of ['hover','focus']) {
         if(state==='hover')await action.hover();else await action.focus();
         failures.push(...(await page.evaluate(inspectContrast)).map(f=>({mode,tab,state,...f})));
       }
-      if(tab==='Files'||tab==='Graph'){
-        const control=page.locator(tab==='Files'?'#log-file .smd-select-btn':'#graph-date .smd-select-btn');
+      if(tab==='Files'||tab==='Power'||tab==='kWh'){
+        const control=page.locator(tab==='Files'?'#log-file .smd-select-btn':tab==='kWh'?'#energy-value .smd-select-btn':'#graph-date .smd-select-btn');
         await control.click();
         failures.push(...(await page.evaluate(inspectContrast)).map(f=>({mode,tab,state:'open select',...f})));
         await control.press('Escape');
@@ -52,12 +53,14 @@ test('Solar graph canvas stays sharp after tabs and viewport changes', async ({p
   await page.goto('/SolarControlar/', {waitUntil:'domcontentloaded'});
   for(const width of [1280,390,1280]) {
     await page.setViewportSize({width,height:900});
-    await page.locator('#mainTabs .smd-tab-btn').filter({hasText:'Power'}).click();
-    await page.locator('#mainTabs .smd-tab-btn').filter({hasText:'Graph'}).click();
-    await expect.poll(()=>page.evaluate(()=>{
-      const c=document.querySelector('#powerChart');if(!c||!window._powerChart)return false;
-      const r=c.getBoundingClientRect();return Math.abs(c.width-r.width*devicePixelRatio)<2 && Math.abs(c.height-r.height*devicePixelRatio)<2;
-    })).toBeTruthy();
+    for(const [tab,id,key] of [['Power','powerChart','_powerChart'],['kWh','energyChart','_energyChart']]) {
+      await page.locator('#mainTabs .smd-tab-btn').filter({hasText:'Now'}).click();
+      await page.getByRole('tab',{name:tab,exact:true}).click();
+      await expect.poll(()=>page.evaluate(({id,key})=>{
+        const c=document.getElementById(id);if(!c||!window[key])return false;
+        const r=c.getBoundingClientRect();return Math.abs(c.width-r.width*devicePixelRatio)<2 && Math.abs(c.height-r.height*devicePixelRatio)<2;
+      },{id,key})).toBeTruthy();
+    }
   }
 });
 

@@ -49,8 +49,9 @@ function inspectContrast() {
       if(r<2.99)failures.push({text:label,ratio:+r.toFixed(2),fg:color,bg:surfaces(tile)});
     }
   }
-  if(window._powerChart && document.querySelector('#graph-panel[active]')) {
-    const c=_powerChart, surface=bg(document.querySelector('.graph-wrap'));
+  const activeChart = document.querySelector('#graph-panel[active]') ? window._powerChart : document.querySelector('#kwh-panel[active]') ? window._energyChart : null;
+  if(activeChart) {
+    const c=activeChart, surface=bg(c.canvas.closest('.graph-wrap'));
     function check(label,col,min){const r=ratio(rgba(col),surface);if(r<min-.01)failures.push({text:label,ratio:+r.toFixed(2),fg:col,bg:surface});}
     for(const scale of Object.values(c.scales)){check('axis ticks '+scale.id,scale.options.ticks.color,4.5);if(scale.options.title.display)check('axis title '+scale.id,scale.options.title.color,4.5);}
     check('legend',c.options.plugins.legend.labels.color,4.5);

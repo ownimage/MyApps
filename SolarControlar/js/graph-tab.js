@@ -20,6 +20,29 @@ function resolveSeriesColor(name) {
   return v || name;
 }
 
+// Both daily charts use wall-clock minutes so every day spans 00:00 to 24:00,
+// including partial days and daylight-saving transitions in local history.
+function solarTimeLabel(minutes) {
+  return String(Math.floor(minutes / 60)).padStart(2, '0') + ':' + String(Math.floor(minutes % 60)).padStart(2, '0');
+}
+function solarDayGridColor(context) {
+  var color = resolveSeriesColor('--bs-border-color');
+  return context.tick && context.tick.value % 60 !== 0
+    ? Chart.helpers.color(color).alpha(0.35).rgbString() : color;
+}
+function solarDayAxis() {
+  return {
+    type: 'linear', min: 0, max: 1440,
+    ticks: {
+      stepSize: 30, autoSkip: false, maxRotation: 90,
+      color: resolveSeriesColor('--bs-body-color'),
+      callback: function (value) { return value % 60 === 0 ? solarTimeLabel(value) : ''; }
+    },
+    grid: { color: solarDayGridColor },
+    title: { display: true, text: 'Time', color: resolveSeriesColor('--bs-body-color') }
+  };
+}
+
 // Re-read the theme palette for the drawn chart (the base theme sheet loads
 // asynchronously, so this is also bound to its `load`).
 function refreshGraphColors() {
@@ -37,7 +60,7 @@ function refreshGraphColors() {
     var scale = _powerChart.options.scales[key];
     scale.ticks.color = ink;
     if (scale.title) scale.title.color = ink;
-    scale.grid.color = resolveSeriesColor("--bs-border-color");
+    scale.grid.color = key === "x" ? solarDayGridColor : resolveSeriesColor("--bs-border-color");
   });
   _powerChart.update("none");
 }
@@ -115,16 +138,17 @@ function loadGraphData() {
       var hasData = times.length > 0;
       if (empty) empty.classList.toggle("d-none", hasData);
 
-      var timestamps = times.map(function (t) {
-        return new Date(dateVal + "T" + t);
+      var minutes = times.map(function (t) {
+        var parts = t.split(':');
+        return Number(parts[0]) * 60 + Number(parts[1]) + Number(parts[2] || 0) / 60;
       });
 
       var seriesData = {};
       Object.keys(SOLAR_SERIES).forEach(function (key) {
         var values = data[key] || [];
-        seriesData[key] = timestamps.map(function (ts, i) {
+        seriesData[key] = minutes.map(function (minute, i) {
           var v = values[i];
-          return { x: ts, y: (v === null || v === undefined) ? null : v };
+          return { x: minute, y: (v === null || v === undefined) ? null : v };
         });
       });
 
@@ -136,7 +160,7 @@ var visible = {};
     });
   }
 
-      renderGraph(timestamps, seriesData, visible, dateVal);
+      renderGraph(seriesData, visible);
     })
     .catch(function () {
       if (empty) {
@@ -146,7 +170,7 @@ var visible = {};
     });
 }
 
-function renderGraph(timestamps, seriesData, visible, date) {
+function renderGraph(seriesData, visible) {
   if (typeof Chart === "undefined") {
     console.warn("Chart.js not loaded");
     return;
@@ -169,7 +193,7 @@ function renderGraph(timestamps, seriesData, visible, date) {
       pointRadius: showPts ? 2 : 0,
       pointHoverRadius: showPts ? 2 : 0,
       spanGaps: false,
-      tension: 0.3,
+      tension: 0,
       yAxisID: SOLAR_SERIES[key].axis === "soc" ? "ySoc" : "yPower",
       hidden: !visible[key]
     });
@@ -184,33 +208,15 @@ function renderGraph(timestamps, seriesData, visible, date) {
     data: { datasets: datasets },
     options: {
       color: resolveSeriesColor("--bs-body-color"),
-      plugins: { legend: { labels: { color: resolveSeriesColor("--bs-body-color") } } },
+      plugins: {
+        legend: { labels: { color: resolveSeriesColor("--bs-body-color") } },
+        tooltip: { callbacks: { title: function (items) { return items.length ? solarTimeLabel(items[0].parsed.x) : ''; } } }
+      },
       responsive: true,
       maintainAspectRatio: false,
       interaction: { mode: "index", intersect: false },
       scales: {
-        x: {
-          type: "time",
-          min: new Date(date + "T00:00:00"),
-          max: new Date(date + "T23:59:59"),
-          time: { unit: "hour", stepSize: 1 },
-          ticks: {
-            color: resolveSeriesColor("--bs-body-color"),
-            autoSkip: false,
-            maxRotation: 0,
-            callback: function (value) {
-              var d = new Date(value);
-              return d.getHours() % 3 === 0 ? String(d.getHours()).padStart(2, "0") : "";
-            }
-          },
-          grid: {
-            color: resolveSeriesColor("--bs-border-color"),
-            lineWidth: function (ctx) {
-              var d = new Date(ctx.tick.value);
-              return d.getHours() % 3 === 0 ? 2 : 1;
-            }
-          }
-        },
+        x: solarDayAxis(),
         yPower: {
           type: "linear",
           position: "left",
