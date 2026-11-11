@@ -1,0 +1,4 @@
+export SOLCAST_API_KEY="solcast_api_key"
+export SOLCAST_SITE_ID="solcast_site_id"
+export GIVENERGY_INVERTER_IP="192.168.1.xxx"
+export LOG_LEVEL=INFO
