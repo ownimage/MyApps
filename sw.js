@@ -608,6 +608,11 @@ const APPS = {
     "Storyboard/js/background-library.js",
     "Storyboard/js/app.js"
   ],
+  "SlideShow/": [
+    "SlideShow/", "SlideShow/index.html", "SlideShow/manifest.json",
+    "SlideShow/icon.svg", "SlideShow/icon-192.png", "SlideShow/icon-512.png",
+    "SlideShow/css/slideshow.css", "SlideShow/js/app.js"
+  ],
   "Clock/": [
     "Clock/",
     "Clock/index.html",
