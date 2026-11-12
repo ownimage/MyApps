@@ -790,3 +790,48 @@ test.describe('Solar dashboard appearance screenshots', () => {
     }
   });
 });
+
+test.describe('SlideShow screenshots', () => {
+  test.use({viewport:{width:390,height:844},hasTouch:true,isMobile:true,deviceScaleFactor:1});
+  test('SlideShow viewer, folder picker and settings', async ({page}) => {
+    test.setTimeout(180000);
+    const {setup,choose} = require('./slideshow-fixtures');
+    const capture = createScreenshotAllThemes('slideshow');
+    const errors = [];
+    page.on('pageerror',error=>errors.push(error.message));
+    page.on('console',message=>{if(message.type()==='error') errors.push(message.text());});
+    page.on('requestfailed',request=>errors.push(request.url()));
+    await page.addInitScript(() => {delete Object.getPrototypeOf(navigator).serviceWorker;});
+    await setup(page); await choose(page);
+    await expect(page.locator('#slideImage')).toHaveAttribute('alt','photo2.PNG');
+    await capture(page,'viewer.png');
+    await page.evaluate(()=>openSettings());
+    await page.locator('#playSlides button').click();
+    await expect(page.locator('#useSlideFolder button')).toBeEnabled();
+    await capture(page,'folders.png');
+    await page.evaluate(() => ssCloseFolders());
+    await page.evaluate(() => openSettings());
+    await capture(page,'settings-slideshow.png');
+    await page.locator('#source-tab').click();
+    await expect(page.locator('#oneDriveDirectory')).toHaveValue('Pictures');
+    await expect(page.locator('#oneDriveClientId')).toBeVisible();
+    await capture(page,'settings-onedrive.png');
+    await page.locator('#source-url-tab').click();
+    await page.locator('#oneDriveUrl').fill('https://1drv.ms/f/shared-photos');
+    await page.locator('#oneDriveUrl').blur();
+    await expect(page.locator('#oneDriveClientId')).toBeVisible();
+    await expect(page.locator('#oneDriveTenant')).toBeVisible();
+    await capture(page,'settings-onedrive-url.png');
+    await page.evaluate(()=>{
+      oneDriveGraphJson=async path=>path.startsWith('/shares/')
+        ? {id:'shared-root',name:'Shared photos',folder:{},parentReference:{driveId:'shared-drive'}}
+        : {value:[{id:'year-folder',name:'Year',folder:{},parentReference:{driveId:'shared-drive'}}]};
+    });
+    await page.locator('#slideshow-tab').click();
+    await page.locator('#playSlides button').click();
+    await expect(page.locator('#slideFolderPath')).toHaveText('Shared photos');
+    await expect(page.locator('#useSlideFolder button')).toBeEnabled();
+    await capture(page,'folders-onedrive-url.png');
+    expect(errors).toEqual([]);
+  });
+});

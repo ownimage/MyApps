@@ -1,0 +1,9 @@
+#smd-app { overflow: hidden; }
+#slideMain { position: fixed; inset: var(--smd-nav-height, 58px) 0 0; display: flex; flex-direction: column; min-height: 0; }
+#slideStage { flex: 1 1 auto; position: relative; min-height: 0; overflow: hidden; background: #000; color: #fff; touch-action: manipulation; }
+#slideImage { width: 100%; height: 100%; object-fit: contain; display: block; user-select: none; }
+#slideEmpty { height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; padding: 1rem; }
+#slideEmpty i { font-size: 3rem; margin-bottom: 1rem; }
+#slideEmpty h1 { font-size: var(--smd-type-h1, 2rem); }
+#slideStage:focus-visible { outline: 3px solid var(--bs-primary); outline-offset: -3px; }
+#slideFolderPath { font-size: var(--smd-type-h2, 1.25rem); }

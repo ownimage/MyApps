@@ -96,7 +96,7 @@ function buildSolarSettingsHtml() {
     var valueInput;
 
     if (f.readonly) {
-      valueInput = '<input type="text" class="form-control" name="' + escapeHtml(f.key) + '" value="' + escapeHtml(String(f.value)) + '" readonly>';
+      valueInput = '<smd-input type="text" class="form-control" name="' + escapeHtml(f.key) + '" value="' + escapeHtml(String(f.value)) + '" readonly></smd-input>';
     } else if (f.slider) {
       valueInput =
         '<div class="d-flex align-items-center gap-2">' +
@@ -108,7 +108,7 @@ function buildSolarSettingsHtml() {
         '</div>' +
         '<input type="hidden" name="' + escapeHtml(f.key) + '" id="hidden-' + escapeHtml(f.key) + '" value="' + escapeHtml(String(f.value)) + '">';
     } else {
-      valueInput = '<input type="number" class="form-control" name="' + escapeHtml(f.key) + '" value="' + escapeHtml(String(f.value)) + '" step="any">';
+      valueInput = '<smd-input type="number" class="form-control" name="' + escapeHtml(f.key) + '" value="' + escapeHtml(String(f.value)) + '" step="any"></smd-input>';
     }
 
     return '<tr data-key="' + escapeHtml(f.key) + '" data-original="' + escapeHtml(String(f.original)) + '">' +

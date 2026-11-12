@@ -88,7 +88,7 @@ function getCategoryEditFormHTML(data) {
   return `
     <div class="mb-2">
       <label class="form-label">Title</label>
-      <input class="form-control" id="categoryTitleInput" value="${escapeHtml(data.title || "")}" oninput="editField('title', this.value);updateCategoryEditOkBtn()" onkeydown="if(event.key==='Enter') categoryEditSubmit()">
+      <smd-input class="form-control" input-id="categoryTitleInput" value="${escapeHtml(data.title || "")}" oninput="editField('title', this.value);updateCategoryEditOkBtn()" onkeydown="if(event.key==='Enter') categoryEditSubmit()"></smd-input>
     </div>
     <div class="mb-2">
       <label class="form-label">Image</label>

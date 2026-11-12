@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#212529">
+  <meta name="mobile-web-app-capable" content="yes">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <title>SlideShow</title>
+  <link rel="stylesheet" href="../shared/vendor/fontawesome/css/fontawesome.min.css">
+  <link rel="stylesheet" href="../shared/vendor/fontawesome/css/solid.min.css">
+  <link id="bootstrap-theme-css" href="../shared/css/themes/superhero/bootstrap.min.css" rel="stylesheet">
+  <link id="smd-shared-css" rel="stylesheet" href="../shared/css/styles.css">
+  <link id="theme-override-mode" rel="stylesheet" href="../shared/css/themes/light.css">
+  <link id="theme-override-specific" rel="stylesheet" href="../shared/css/themes/superhero/superhero.light.css">
+  <link rel="stylesheet" href="css/slideshow.css">
+  <script src="../shared/js/build-number.js"></script>
+  <script>
+    (function () {
+      if (typeof BUILD_NUMBER === "undefined") return;
+      document.querySelectorAll("link[href]").forEach(function (link) {
+        var href = link.getAttribute("href") || "";
+        if (href && href.indexOf("v=") === -1) link.setAttribute("href", href + "?v=" + BUILD_NUMBER);
+      });
+    })();
+  </script>
+</head>
+<body id="smd-app">
+  <nav id="mainNav" class="navbar navbar-expand px-3 py-2 gap-1 flex-wrap">
+    <div class="dropdown">
+      <button id="btnMainMenu" class="btn p-1" data-bs-toggle="dropdown" title="Menu" aria-label="Menu"><i class="fa-solid fa-bars fs-5" aria-hidden="true"></i></button>
+      <ul class="dropdown-menu">
+        <li><a class="dropdown-item" onclick="openSettings()">Settings</a></li>
+        <li><hr class="dropdown-divider"></li>
+        <li><a class="dropdown-item" href="../">Launch</a></li>
+      </ul>
+    </div>
+  </nav>
+  <main id="slideMain">
+    <div id="slideStage" tabindex="0" role="region" aria-label="Slideshow. Touch left or right to change images in Manual. Touch the middle to show the menu and pause automatic playback.">
+      <img id="slideImage" alt="" hidden draggable="false">
+      <div id="slideEmpty"><i class="fa-solid fa-images" aria-hidden="true"></i><h1>Your photos, on show</h1><p id="slideStatus" role="status">Open Settings to choose a OneDrive folder and play.</p></div>
+    </div>
+  </main>
+  <smd-page id="settingsPage" class="d-none"></smd-page>
+  <smd-page id="slideFolderPage" class="d-none"></smd-page>
+  <template id="settingsTemplate"><div class="smd-settings"><section class="smd-settings-tab" data-tab="Slideshow" data-tab-id="slideshow-tab"><div id="slideFolderRow" class="row mb-4 align-items-center col-md-8"><div class="col-4 text-end"><label class="form-label mb-0">Folder</label></div><div class="col-8"><smd-button id="chooseSlideFolder" block variant="secondary" onclick="ssOpenFolders()"><span id="slideFolderLabel">Choose folder</span></smd-button></div></div><div class="row mb-4 align-items-center col-md-8"><div class="col-4 text-end"><label class="form-label mb-0">Playback</label></div><div class="col-8"><smd-select id="slideMode" aria-label="Playback" onchange="ssChange('mode',this.value)"><option value="manual">Manual</option><option value="auto">Automatic</option></smd-select></div></div><div class="row mb-4 align-items-center col-md-8"><div class="col-4 text-end"><label class="form-label mb-0">Transition</label></div><div class="col-8"><smd-select id="slideTransition" aria-label="Transition" onchange="ssChange('transition',this.value)"><option value="fade">Fade</option><option value="slide">Slide</option><option value="none">Instant</option></smd-select></div></div><div class="row mb-4 align-items-center col-md-8"><div class="col-4 text-end"><label class="form-label mb-0">Duration (seconds)</label></div><div class="col-8"><smd-input input-id="slideSeconds" aria-label="Duration (seconds)" class="form-control" type="number" min="1" max="86400" step="any" value="5" onchange="ssChange('seconds',this.value)"></smd-input></div></div><div class="row mb-4 align-items-center col-md-8"><div class="col-4 text-end"><label class="form-label mb-0">Include subfolders</label></div><div class="col-8"><smd-checkbox id="slideRecursive" aria-label="Include subfolders" switch onchange="ssChange('recursive',this.checked)"></smd-checkbox></div></div><div class="row mb-4 align-items-center col-md-8"><div class="col-4 text-end"><label class="form-label mb-0"></label></div><div class="col-8"><smd-button id="playSlides" block variant="primary" onclick="ssPlay()">Play</smd-button><p id="slideSettingsStatus" class="mt-2 mb-0" role="status"></p></div></div><p class="col-md-8">In Manual, touch the left side to go back or the right side to go forward. Touch the middle to show the menu and pause automatic playback. Press Play, choose a folder, then play that folder.</p></section><section class="smd-settings-tab" data-tab="Display" data-tab-id="display-tab">
+        <smd-theme id="themeSelector" class="col-md-8 mt-3"></smd-theme>
+          <div class="row mb-4 align-items-center col-md-8">
+            <div class="col-4 text-end"><label class="form-label mb-0">Font size</label></div>
+            <div class="col-8">
+              <smd-select id="fontSizeSelector" class="form-select" onchange="changeFontSize(this.value)">
+                <option value="xsmall">Extra small</option>
+                <option value="small">Small</option>
+                <option value="normal">Normal</option>
+                <option value="large">Large</option>
+                <option value="xlarge">Extra large</option>
+                <option value="jumbo">Jumbo</option>
+              </smd-select>
+            </div>
+          </div>
+
+      </section><section class="smd-settings-tab" data-tab="Source" data-tab-id="source-tab">
+        <smd-tabs id="slideSourceTabs" narrow padding="small"></smd-tabs>
+        <template id="sourceFolderTemplate"><div class="row mb-4 align-items-center col-md-8"><div class="col-4 text-end"><label class="form-label mb-0">Top level folder</label></div><div class="col-8"><smd-input input-id="oneDriveDirectory" aria-label="Top level folder" class="form-control" type="text" placeholder="e.g. Pictures (blank = OneDrive root)" onchange="ssChangeRoot(this.value)"></smd-input></div></div><p class="col-md-8">Choose image folders within this folder. Leave it blank to start at your OneDrive root. Sign-in is shared across MyApps.</p></template>
+        <template id="sourceUrlTemplate"><div class="row mb-4 align-items-center col-md-8"><div class="col-4 text-end"><label class="form-label mb-0" for="oneDriveUrl">OneDrive URL</label></div><div class="col-8"><smd-input input-id="oneDriveUrl" type="url" aria-label="OneDrive URL" placeholder="https://1drv.ms/..." onchange="ssChangeUrl(this.value)"></smd-input></div></div><p class="col-md-8">Paste a OneDrive sharing link to an image folder or image. The OneDrive connection below is used to open the link. Include subfolders also applies to linked folders.</p></template>
+        <div id="slideOneDriveConnection">
+          <h2 class="h5">OneDrive connection</h2>
+          <p class="col-md-8">This connection is used by OneDrive folders and OneDrive URLs. Sign-in is shared across MyApps.</p>
+          <div class="row mb-4 align-items-center col-md-8"><div class="col-4 text-end"><label class="form-label mb-0">Client ID</label></div><div class="col-8"><smd-input input-id="oneDriveClientId" aria-label="Client ID" class="form-control" type="text" onchange="ssReset();changeOneDriveClientId(this.value)"></smd-input></div></div><div class="row mb-4 align-items-center col-md-8"><div class="col-4 text-end"><label class="form-label mb-0">Tenant</label></div><div class="col-8"><smd-input input-id="oneDriveTenant" aria-label="Tenant" class="form-control" type="text" placeholder="common" onchange="ssReset();changeOneDriveTenant(this.value)"></smd-input></div></div><div class="row mb-4 align-items-center col-md-8"><div class="col-4 text-end"><label class="form-label mb-0">Account</label></div><div class="col-8"><div class="d-flex flex-column gap-2"><span id="oneDriveAccount">Not signed in</span><smd-button id="btnOneDriveSignIn" block variant="primary" onclick="signInToOneDrive()">Sign in</smd-button><smd-button id="btnOneDriveSignOut" block variant="danger" onclick="ssSignOut()">Sign out</smd-button></div></div></div>
+        </div>
+      </section><section class="smd-settings-tab" data-tab="Danger" data-tab-id="danger-tab">
+        <div class="row mb-4 align-items-center col-md-8">
+          <div class="col-4 text-end"><label class="form-label mb-0">Show danger</label></div>
+          <div class="col-8"><smd-checkbox id="showDanger" switch onchange="changeShowDanger(this.checked)"></smd-checkbox></div>
+        </div>
+        <div id="noCacheRow" class="row mb-4 align-items-center col-md-8 d-none">
+          <div class="col-4 text-end"><label class="form-label mb-0">No Cache</label></div>
+          <div class="col-8"><smd-checkbox id="noCache" switch onchange="changeNoCache(this.checked)"></smd-checkbox></div>
+        </div>
+        <div id="refreshAppRow" class="row mb-4 mt-4 align-items-center d-none">
+          <div class="col-4 text-end"></div><div class="col-8"><smd-button block variant="warning" onclick="location.reload()">Refresh App</smd-button></div>
+        </div>
+        <div id="clearAllDataRow" class="row mb-4 align-items-center d-none">
+          <div class="col-4 text-end"></div><div class="col-8"><smd-button id="btnClearAllData" block variant="danger" onclick="confirmClearAllData()">Clear local storage SlideShow</smd-button></div>
+        </div>
+      </section>
+    <div id="settingsFooter" class="mt-3"><div class="mt-5 small build-number">Build <span id="buildNumber"></span></div></div>
+  </div></template>
+<script>
+document.write('<script src="../shared/vendor/bootstrap.bundle.min.js?v=' + BUILD_NUMBER + '"><\/script>');
+document.write('<script src="../shared/js/library.js?v=' + BUILD_NUMBER + '"><\/script>');
+document.write('<script src="../shared/js/components/smd-input.js?v=' + BUILD_NUMBER + '"><\/script>');
+document.write('<script src="../shared/js/components/smd-button.js?v=' + BUILD_NUMBER + '"><\/script>');
+document.write('<script src="../shared/js/components/smd-modal.js?v=' + BUILD_NUMBER + '"><\/script>');
+document.write('<script src="../shared/js/components/smd-page.js?v=' + BUILD_NUMBER + '"><\/script>');
+document.write('<script src="../shared/js/components/smd-tabs.js?v=' + BUILD_NUMBER + '"><\/script>');
+document.write('<script src="../shared/js/components/smd-select.js?v=' + BUILD_NUMBER + '"><\/script>');
+document.write('<script src="../shared/js/components/smd-theme.js?v=' + BUILD_NUMBER + '"><\/script>');
+document.write('<script src="../shared/js/components/smd-checkbox.js?v=' + BUILD_NUMBER + '"><\/script>');
+document.write('<script src="../shared/js/smd-app.js?v=' + BUILD_NUMBER + '"><\/script>');
+document.write('<script src="../shared/js/smd-settings.js?v=' + BUILD_NUMBER + '"><\/script>');
+document.write('<script src="../shared/js/smd-apps.js?v=' + BUILD_NUMBER + '"><\/script>');
+document.write('<script src="../shared/js/smd-onedrive.js?v=' + BUILD_NUMBER + '"><\/script>');
+document.write('<script src="js/app.js?v=' + BUILD_NUMBER + '"><\/script>');
+</script>
+<script>
+  if ("serviceWorker" in navigator) {
+    var __updatePrompted = false;
+    var __applyingUpdate = false;
+    var __dismissedUpdate = "";
+    var __dismissedBuild = "";
+    try {
+      __dismissedBuild = localStorage.getItem("swUpdateDismissedBuild") || "";
+      // The SW registers at a STABLE URL, so scriptURL alone can't tell one
+      // build from another. Only suppress the prompt when the previously
+      // dismissed update belongs to the CURRENT build; once a newer build
+      // loads, forget the dismissal so it can prompt again.
+      if (String(BUILD_NUMBER) === __dismissedBuild) {
+        __dismissedUpdate = localStorage.getItem("swUpdateDismissedUrl") || "";
+      } else {
+        localStorage.removeItem("swUpdateDismissedUrl");
+        localStorage.removeItem("swUpdateDismissedBuild");
+      }
+    } catch (e) { __dismissedUpdate = ""; }
+    function showUpdatePrompt(reg) {
+      var w = reg && reg.waiting;
+      if (w && w.scriptURL === __dismissedUpdate) return; // user already dismissed THIS pending SW
+      if (__updatePrompted) return;
+      __updatePrompted = true;
+      if (typeof showSmdModal === "function") {
+        showSmdModal({
+          title: "Update available",
+          content: "A new version of SlideShow is ready. Update now to get the latest changes?",
+          buttons: [
+            { text: "Later", variant: "secondary", action: "later" },
+            { text: "Update now", variant: "primary", action: "update" }
+          ],
+          onAction: function(detail) {
+            var pending = reg && reg.waiting;
+            if (!pending) return;
+            if (detail.action === "update") {
+              try { localStorage.removeItem("swUpdateDismissedUrl"); localStorage.removeItem("swUpdateDismissedBuild"); } catch (e) {}
+              __applyingUpdate = true;
+              pending.postMessage({ type: "SKIP_WAITING" });
+            } else if (detail.action === "later") {
+              try {
+                localStorage.setItem("swUpdateDismissedUrl", pending.scriptURL);
+                localStorage.setItem("swUpdateDismissedBuild", String(BUILD_NUMBER));
+              } catch (e) {}
+            }
+          }
+        });
+      }
+    }
+    window.__slideshowSwUpdater = { showUpdatePrompt: showUpdatePrompt };
+
+    // STABLE worker url on purpose: versioning it would make the browser install
+    // a second worker for the same bump ("updates twice"). The update signal is
+    // the byte change in sw.js, whose inline BUILD_NUMBER is bumped with
+    // shared/js/build-number.js; smdRegisterServiceWorker also verifies at
+    // runtime that the worker and the page agree and repairs a drift.
+    var __registerSw = typeof smdRegisterServiceWorker === "function"
+      ? smdRegisterServiceWorker
+      : function(p) { return navigator.serviceWorker.register(p, { updateViaCache: "none" }); };
+    __registerSw("../sw.js").then(function(reg) {
+      if (navigator.serviceWorker.controller) {
+        if (reg.waiting) showUpdatePrompt(reg);
+        reg.addEventListener("updatefound", function() {
+          var inst = reg.installing;
+          if (!inst) return;
+          inst.addEventListener("statechange", function() {
+            if (inst.state === "installed" && navigator.serviceWorker.controller) showUpdatePrompt(reg);
+          });
+        });
+      }
+      // Force an immediate check on every visit: browsers throttle their own
+      // update checks (roughly once a day), so a freshly deployed build could
+      // otherwise take hours to surface the "Update available" prompt.
+      if (reg.update) reg.update();
+      window.addEventListener("focus", function() { if (reg.update) reg.update(); });
+    });
+
+    navigator.serviceWorker.addEventListener("controllerchange", function() {
+      if (!__applyingUpdate) return;
+      window.location.reload();
+    });
+  }
+</script>
+
+</body>
+</html>

@@ -242,7 +242,7 @@ function renderGcalEditContent() {
   page.content =
     '<div class="mb-3">' +
       '<label class="form-label mb-1">Title</label>' +
-      `<input class="form-control" id="gcalTitleInput" value="${escAttr(dateData.name || "")}" readonly>` +
+      `<smd-input class="form-control" input-id="gcalTitleInput" value="${escAttr(dateData.name || "")}" readonly></smd-input>` +
     '</div>' +
     '<div class="d-flex gap-3 align-items-start flex-wrap mb-3">' +
       '<div>' +
@@ -255,8 +255,8 @@ function renderGcalEditContent() {
       '</div>' +
     '</div>' +
     '<div class="d-flex gap-2 align-items-center flex-wrap mb-3">' +
-      `<input class="form-control w-auto" id="gcalDateInput" aria-label="Date" value="${escAttr(dateStr)}" style="min-width:140px" readonly>` +
-      `<input class="form-control w-auto" id="gcalTypeInput" aria-label="Type" value="${escAttr(typeStr)}" style="min-width:120px" readonly>` +
+      `<smd-input class="form-control w-auto" input-id="gcalDateInput" aria-label="Date" value="${escAttr(dateStr)}" style="min-width:140px" readonly></smd-input>` +
+      `<smd-input class="form-control w-auto" input-id="gcalTypeInput" aria-label="Type" value="${escAttr(typeStr)}" style="min-width:120px" readonly></smd-input>` +
     '</div>' +
     '<div class="mb-1">' +
       `<smd-checkbox id="gcalShowCheck" ${showChecked ? "checked" : ""} onchange="gcalEditBufferField('show', this.checked)">Show</smd-checkbox>` +

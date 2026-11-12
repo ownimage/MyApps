@@ -159,7 +159,7 @@ function renderExportWizard() {
           <option value="">All</option>
           ${usedCats.map(c => `<option value="${escAttr(categoryRef(c))}" ${String(ew.dateFilterCategory) === categoryRef(c) ? "selected" : ""}>${escapeHtml(c.name)}</option>`).join("")}
         </smd-select>
-        <input class="form-control flex-grow-1" id="ewDateFilterName" type="search" placeholder="Search date names..." style="min-width:150px" value="${escAttr(ew.dateFilterName)}" oninput="ew.dateFilterName=this.value;ewSaveCheckboxes();renderExportWizard()">
+        <smd-input class="form-control flex-grow-1" input-id="ewDateFilterName" type="search" placeholder="Search date names..." style="min-width:150px" value="${escAttr(ew.dateFilterName)}" oninput="ew.dateFilterName=this.value;ewSaveCheckboxes();renderExportWizard()"></smd-input>
       </div>
       <div class="cmd-scroll-list">
       ${withDate.map(item => {
@@ -205,7 +205,7 @@ function renderExportWizard() {
     const sorted = filtered.slice().sort((a, b) => a.name.localeCompare(b.name));
     page.content = `
       <div class="d-flex gap-2 align-items-center mb-3 flex-wrap">
-        <input class="form-control flex-grow-1" id="ewCatFilterName" type="search" placeholder="Search category names..." style="min-width:150px" value="${escAttr(ew.catFilterName)}" oninput="ew.catFilterName=this.value;ewSaveCheckboxes();renderExportWizard()">
+        <smd-input class="form-control flex-grow-1" input-id="ewCatFilterName" type="search" placeholder="Search category names..." style="min-width:150px" value="${escAttr(ew.catFilterName)}" oninput="ew.catFilterName=this.value;ewSaveCheckboxes();renderExportWizard()"></smd-input>
       </div>
       <div class="cmd-scroll-list">
       ${sorted.map(c => {
@@ -244,7 +244,7 @@ function renderExportWizard() {
     const sorted = filtered.slice().sort((a, b) => a.name.localeCompare(b.name));
     page.content = `
       <div class="d-flex gap-2 align-items-center mb-3 flex-wrap">
-        <input class="form-control flex-grow-1" id="ewImageFilterName" type="search" placeholder="Search image names..." style="min-width:150px" value="${escAttr(ew.imageFilterName)}" oninput="ew.imageFilterName=this.value;ewSaveCheckboxes();renderExportWizard()">
+        <smd-input class="form-control flex-grow-1" input-id="ewImageFilterName" type="search" placeholder="Search image names..." style="min-width:150px" value="${escAttr(ew.imageFilterName)}" oninput="ew.imageFilterName=this.value;ewSaveCheckboxes();renderExportWizard()"></smd-input>
       </div>
       <div class="cmd-scroll-list">
       ${sorted.map(img => {

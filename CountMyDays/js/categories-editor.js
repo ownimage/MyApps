@@ -162,7 +162,7 @@ function renderCategoryEditContent() {
       '<div class="flex-grow-1" style="min-width:220px">' +
         '<div class="mb-2">' +
           '<label class="form-label mb-1">Name</label>' +
-          `<input class="form-control" id="categoryNameInput" value="${escAttr(editCategoryBuffer.name || "")}" oninput="categoryField('name', this.value); checkDuplicateCategoryName()">` +
+          `<smd-input class="form-control" input-id="categoryNameInput" value="${escAttr(editCategoryBuffer.name || "")}" oninput="categoryField('name', this.value); checkDuplicateCategoryName()"></smd-input>` +
           '<div id="categoryNameError" class="text-danger mt-1 d-none">ERROR: There is already a category with this name.</div>' +
         '</div>' +
         '<div class="mb-1">' +

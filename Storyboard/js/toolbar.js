@@ -263,11 +263,11 @@ function sbStoryPropsHtml(story) {
   html += '<option value="other">Other...</option></smd-select>';
   if (preset === "other") {
     html += '<div class="sb-story-size">' +
-      '<input id="sbStoryWidth" class="form-control form-control-sm" type="number" inputmode="numeric" ' +
-        'min="' + SB_STORY_MIN_SIZE + '" max="' + SB_STORY_MAX_SIZE + '" step="1" value="' + width + '" aria-label="Width">' +
+      '<smd-input input-id="sbStoryWidth" class="form-control form-control-sm" type="number" inputmode="numeric" ' +
+        'min="' + SB_STORY_MIN_SIZE + '" max="' + SB_STORY_MAX_SIZE + '" step="1" value="' + width + '" aria-label="Width"></smd-input>' +
       '<span class="sb-story-size-x">x</span>' +
-      '<input id="sbStoryHeight" class="form-control form-control-sm" type="number" inputmode="numeric" ' +
-        'min="' + SB_STORY_MIN_SIZE + '" max="' + SB_STORY_MAX_SIZE + '" step="1" value="' + height + '" aria-label="Height">' +
+      '<smd-input input-id="sbStoryHeight" class="form-control form-control-sm" type="number" inputmode="numeric" ' +
+        'min="' + SB_STORY_MIN_SIZE + '" max="' + SB_STORY_MAX_SIZE + '" step="1" value="' + height + '" aria-label="Height"></smd-input>' +
       '</div>';
   }
   html += '<div class="sb-field-label">Background</div>';
@@ -342,7 +342,7 @@ function sbBeginInlineRename(row, pickSelector, currentName, onSave, validate) {
   // the editor takes the same place the label had (the host itself must keep its
   // real <button>).
   var field = pick.querySelector("button") || pick;
-  field.innerHTML = '<input class="form-control form-control-sm sb-board-name-input" value="' + escAttr(currentName) + '">';
+  field.innerHTML = '<smd-input class="form-control form-control-sm sb-board-name-input" value="' + escAttr(currentName) + '"></smd-input>';
   var input = field.querySelector("input");
   var done = false;
   var errorEl = null;
@@ -726,14 +726,14 @@ function sbRenderTextPanel() {
   if (hasBubble || hasFrame) {
     html += '<div class="sb-field-label">' + (hasBubble ? "Line width and space" : "Frame width and space") + '</div>';
     html += '<div class="sb-number-row">';
-    html += '<input id="sbLineWidth" class="form-control form-control-sm" type="number" min="0" max="40" step="0.5" value="' + lineWidth + '" aria-label="Line width">';
-    html += '<input id="sbLineGap" class="form-control form-control-sm" type="number" min="0" max="40" step="1" value="' + lineGap + '" aria-label="Space outside the line">';
+    html += '<smd-input input-id="sbLineWidth" class="form-control form-control-sm" type="number" min="0" max="40" step="0.5" value="' + lineWidth + '" aria-label="Line width"></smd-input>';
+    html += '<smd-input input-id="sbLineGap" class="form-control form-control-sm" type="number" min="0" max="40" step="1" value="' + lineGap + '" aria-label="Space outside the line"></smd-input>';
     html += '</div>';
     if (hasBubble) html += '<p class="sb-panel-note">Drag the dot at the tail tip to point it at a mouth.</p>';
   }
   // The background's corner radius (it extends UNDER a frame, so it needs one).
   html += '<div class="sb-field-label">Corner radius</div>';
-  html += '<input id="sbTextRadius" class="form-control form-control-sm" type="number" min="0" max="120" step="1" value="' + radius + '" aria-label="Corner radius">';
+  html += '<smd-input input-id="sbTextRadius" class="form-control form-control-sm" type="number" min="0" max="120" step="1" value="' + radius + '" aria-label="Corner radius"></smd-input>';
 
   if (item) {
     html += '<smd-button id="sbDoneText" variant="primary" block>Done</smd-button>';

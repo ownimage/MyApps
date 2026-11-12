@@ -73,7 +73,7 @@ class SmdImageEditor extends HTMLElement {
     this.innerHTML = `
       <div class="mb-2">
         <label class="form-label mb-1">Name</label>
-        <input class="form-control" value="${escapeHtml(img.name)}" onchange="editImageField('name', this.value); checkDuplicateName()" oninput="checkDuplicateName()">
+        <smd-input class="form-control" value="${escapeHtml(img.name)}" onchange="editImageField('name', this.value); checkDuplicateName()" oninput="checkDuplicateName()"></smd-input>
         <div id="imageNameError" class="text-danger mt-1" style="display:none">ERROR: There is already an image with this name.</div>
       </div>
       <div class="d-flex gap-2 align-items-center mb-2">
