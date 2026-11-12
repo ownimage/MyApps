@@ -1,6 +1,6 @@
 const {test,expect}=require('@playwright/test');
 const {pickOption}=require('./theme-controls');
-const {setup,stub,choose,openFolders}=require('./slideshow-fixtures');
+const {setup,stub,choose,openFolders,play}=require('./slideshow-fixtures');
 test.describe('SlideShow',()=>{
   test.use({hasTouch:true});
   test.beforeEach(async({page})=>{
@@ -16,7 +16,7 @@ test.describe('SlideShow',()=>{
     await page.locator('#btnMainMenu').click();
     await page.locator('#mainNav .dropdown-item').filter({hasText:/^Settings$/}).click();
     await expect(page.locator('#chooseSlideFolder button')).toBeVisible();
-    await expect(page.locator('#playSlides button')).toBeDisabled();
+    await expect(page.locator('#playSlides button')).toBeEnabled();
     await choose(page);
     await expect(page.locator('#slideImage')).toHaveAttribute('alt','photo2.PNG');
     await expect(page.locator('#slideToolbar,#slideCaption,#slideMain footer')).toHaveCount(0);
@@ -25,7 +25,7 @@ test.describe('SlideShow',()=>{
   test('disconnected folder selection opens the OneDrive tab',async({page})=>{
     await page.goto('/SlideShow/');await page.evaluate(()=>openSettings());
     await page.locator('#chooseSlideFolder button').click();
-    await expect(page.locator('#onedrive-tab')).toHaveClass(/active/);
+    await expect(page.locator('#source-tab')).toHaveClass(/active/);
     await expect(page.locator('#oneDriveDirectory')).toBeVisible();
     await expect(page.locator('#btnOneDriveSignIn button')).toBeDisabled();
   });
@@ -48,7 +48,7 @@ test.describe('SlideShow',()=>{
     await setup(page);await choose(page);await page.evaluate(()=>openSettings());
     await page.locator('#slideRecursive').check();await pickOption(page,'#slideTransition','slide');
     await page.locator('#slideSeconds').fill('3');await page.locator('#slideSeconds').blur();
-    await page.locator('#playSlides button').click();
+    await play(page);
     await expect(page.locator('#slideImage')).toHaveAttribute('alt','beach.webp');
     expect(await page.evaluate(()=>ss.files.length)).toBe(3);
     await page.reload();await stub(page);await page.evaluate(()=>openSettings());
@@ -59,13 +59,13 @@ test.describe('SlideShow',()=>{
     await expect(page.locator('#slideSeconds')).toHaveValue('3');
   });
   test('top level folder changes constrain selection and blank allows the root',async({page})=>{
-    await setup(page);await page.evaluate(()=>openSettings());await page.locator('#onedrive-tab').click();
+    await setup(page);await page.evaluate(()=>openSettings());await page.locator('#source-tab').click();
     await page.locator('#oneDriveDirectory').fill('Pictures/New/');await page.locator('#oneDriveDirectory').blur();
     await expect(page.locator('#oneDriveDirectory')).toHaveValue('Pictures/New');
     await openFolders(page);
     await expect(page.locator('#slideFolderPath')).toHaveText('Pictures/New');
     await expect(page.locator('#parentSlideFolder button')).toBeDisabled();
-    await page.evaluate(()=>ssCloseFolders());await page.locator('#onedrive-tab').click();
+    await page.evaluate(()=>ssCloseFolders());await page.locator('#source-tab').click();
     await page.locator('#oneDriveDirectory').fill('');await page.locator('#oneDriveDirectory').blur();
     await openFolders(page);await expect(page.locator('#slideFolderPath')).toHaveText('OneDrive');
     await expect(page.locator('#parentSlideFolder button')).toBeDisabled();
@@ -88,10 +88,10 @@ test.describe('SlideShow',()=>{
   test('empty folders and image errors are recoverable',async({page})=>{
     await setup(page);await page.evaluate(()=>{oneDriveListFolder=async()=>({folders:[],files:[]});});
     await openFolders(page);await expect(page.locator('#useSlideFolder button')).toBeEnabled();
-    await page.locator('#useSlideFolder button').click();await page.locator('#playSlides button').click();
+    await page.locator('#useSlideFolder button').click();await play(page);
     await expect(page.locator('#slideSettingsStatus')).toContainText('No supported images');
     await stub(page);await page.evaluate(()=>{const original=oneDriveDownloadBlob;oneDriveDownloadBlob=key=>key.endsWith('photo2.PNG')?Promise.reject(new Error('Image unavailable')):original(key);});
-    await page.locator('#playSlides button').click();await expect(page.locator('#slideStatus')).toContainText('Cannot display this image');
+    await play(page);await expect(page.locator('#slideStatus')).toContainText('Cannot display this image');
     await page.evaluate(()=>ssMove(1));await expect(page.locator('#slideImage')).toHaveAttribute('alt','photo10.jpg');
   });
   test('shared sign-out clears media and invalidates pending downloads',async({page})=>{
@@ -113,7 +113,7 @@ test.describe('SlideShow',()=>{
   });
   test('sub-path deployment keeps shared assets and Launch links relative',async({page})=>{
     await setup(page);await page.goto('http://127.0.0.1:8081/PlanMyDay/SlideShow/');await stub(page);await choose(page);
-    await expect(page.locator('#appNavTitle')).toHaveText('SlideShow');await page.locator('#btnMainMenu').click();await page.locator('.launch-submenu-toggle').click();
+    await expect(page.locator('#appNavTitle')).toHaveText('SlideShow');await page.evaluate(()=>ssRevealMenu());await page.locator('#btnMainMenu').click();await page.locator('.launch-submenu-toggle').click();
     await expect(page.locator('.launch-submenu-menu a').filter({hasText:/^SlideShow$/})).toHaveAttribute('href','../SlideShow/');
   });
   test('real Graph helper paginates and encodes paths',async({page})=>{
@@ -131,7 +131,7 @@ test('automatic duration starts after the first image has loaded',async({page})=
   await setup(page,{auto:true});await page.clock.install();
   await openFolders(page);await expect(page.locator('#useSlideFolder button')).toBeEnabled();await page.locator('#useSlideFolder button').click();
   await page.evaluate(()=>{const original=oneDriveDownloadBlob;window.__callCount=0;oneDriveDownloadBlob=key=>{__callCount++;return key.endsWith('photo2.PNG')?new Promise(resolve=>{window.__firstImage=async()=>resolve(await original(key));}):original(key);};});
-  await page.locator('#playSlides button').click();await page.clock.runFor(6000);
+  await play(page);await page.clock.runFor(6000);
   expect(await page.evaluate(()=>__callCount)).toBe(1);
   await expect(page.locator('#slideImage')).toBeHidden();
   await page.evaluate(()=>__firstImage());await expect(page.locator('#slideImage')).toHaveAttribute('alt','photo2.PNG');

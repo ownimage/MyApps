@@ -12,7 +12,7 @@ async function setup(page, options = {}) {
     localStorage.setItem('smd_onedrive_account', 'photos@example.com');
     localStorage.setItem('slideshow_onedrive_directory', opts.root || 'Pictures');
     localStorage.setItem('slideshow_recursive', String(!!opts.recursive));
-    localStorage.setItem('slideshow_mode', opts.auto ? 'auto' : 'touch');
+    localStorage.setItem('slideshow_mode', opts.auto ? 'auto' : 'manual');
     localStorage.setItem('slideshow_seconds', '2');
     localStorage.setItem('slideshow_fontSize', 'normal');
   }, options);
@@ -42,13 +42,17 @@ async function openFolders(page) {
   await page.locator('#slideshow-tab').click();
   await page.locator('#chooseSlideFolder button').click();
 }
-async function choose(page) {
-  await openFolders(page);
+async function play(page) {
+  await page.locator('#playSlides button').click();
   await expect(page.locator('#useSlideFolder button')).toBeEnabled();
   await page.locator('#useSlideFolder button').click();
-  await page.locator('#playSlides button').click();
+}
+async function choose(page) {
+  if (!(await page.evaluate(()=>ss.settings))) await page.evaluate(()=>openSettings());
+  await page.locator('#slideshow-tab').click();
+  await play(page);
   await expect(page.locator('#slideImage')).toBeVisible();
   await expect(page.locator('#slideImage')).toHaveJSProperty('naturalWidth',1000);
   await expect(page.locator('#settingsPage')).toBeHidden();
 }
-module.exports={setup,stub,choose,openFolders};
+module.exports={setup,stub,choose,openFolders,play};
