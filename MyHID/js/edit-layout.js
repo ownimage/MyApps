@@ -84,7 +84,7 @@ function initManageLayoutTabs() {
 function manageGeneralTabHTML() {
   return '<div class="mb-3">' +
       '<label class="form-label" for="manageLayoutNameInput">Display name</label>' +
-      '<input type="text" id="manageLayoutNameInput" class="form-control" placeholder="Layout name">' +
+      '<smd-input type="text" input-id="manageLayoutNameInput" class="form-control" placeholder="Layout name"></smd-input>' +
     '</div>' +
     '<div class="row mb-3 align-items-center">' +
       '<div class="col-4 text-end"><label class="form-label mb-0" for="layoutIconDropdown">Icon</label></div>' +
@@ -99,7 +99,7 @@ function manageGeneralTabHTML() {
     '<div class="row mb-3 g-2">' +
       '<div class="col-5">' +
         '<label class="form-label" for="manageLayoutKey">Key</label>' +
-        '<input type="text" id="manageLayoutKey" class="form-control" readonly>' +
+        '<smd-input type="text" input-id="manageLayoutKey" class="form-control" readonly></smd-input>' +
       '</div>' +
       '<div class="col-7">' +
         '<label class="form-label">&nbsp;</label>' +
@@ -113,11 +113,11 @@ function manageButtonsTabHTML() {
     '<div class="row mb-3 g-2">' +
       '<div class="col-6">' +
         '<label class="form-label" for="manageLayoutCols">Columns</label>' +
-        '<input type="number" id="manageLayoutCols" class="form-control" min="1" max="12" value="3" oninput="onManageGridInput()">' +
+        '<smd-input type="number" input-id="manageLayoutCols" class="form-control" min="1" max="12" value="3" oninput="onManageGridInput()"></smd-input>' +
       '</div>' +
       '<div class="col-6">' +
         '<label class="form-label" for="manageLayoutRows">Rows</label>' +
-        '<input type="number" id="manageLayoutRows" class="form-control" min="1" max="12" value="2" oninput="onManageGridInput()">' +
+        '<smd-input type="number" input-id="manageLayoutRows" class="form-control" min="1" max="12" value="2" oninput="onManageGridInput()"></smd-input>' +
       '</div>' +
     '</div>' +
     '<div id="manageLayoutGrid" class="myhid-layout-grid mb-3"></div>';
@@ -505,7 +505,7 @@ function buildButtonEditPage() {
   page.content =
     '<div class="mb-3">' +
       '<label class="form-label" for="buttonNameInput">Name</label>' +
-      '<input type="text" id="buttonNameInput" class="form-control" placeholder="Button name">' +
+      '<smd-input type="text" input-id="buttonNameInput" class="form-control" placeholder="Button name"></smd-input>' +
     '</div>' +
     '<div class="row mb-3">' +
       '<div class="col-6">' +
@@ -520,7 +520,7 @@ function buildButtonEditPage() {
     '<div class="mb-3">' +
       '<label class="form-label">Key</label>' +
       '<div class="d-flex gap-2">' +
-        '<input type="text" id="buttonKeyChar" class="form-control" maxlength="1" placeholder="Key" style="max-width:5rem" oninput="onButtonKeyChar()">' +
+        '<smd-input type="text" input-id="buttonKeyChar" class="form-control" maxlength="1" placeholder="Key" style="max-width:5rem" oninput="onButtonKeyChar()"></smd-input>' +
         '<smd-select id="buttonKeyNamed" class="form-select" aria-label="Special key" onchange="onButtonKeyNamed()">' +
           '<option value="">&mdash; Special key &mdash;</option>' + namedOptions +
         '</smd-select>' +

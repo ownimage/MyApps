@@ -337,7 +337,7 @@ function buildThemeSection(themeIdx, label, imageOverride) {
           </div>
           <div class="d-flex gap-2 align-items-center">
             <label class="form-label mb-0" style="min-width:45px">Width:</label>
-            <input type="number" min="0.5" max="10" step="0.5" value="${widthVal}" style="width:70px" class="form-control form-control-sm d-inline-block" oninput="editImageStrokeWidth(${editingImageIndex}, ${themeIdx}, this.value)">
+            <smd-input type="number" min="0.5" max="10" step="0.5" value="${widthVal}" style="width:70px" class="form-control form-control-sm d-inline-block" oninput="editImageStrokeWidth(${editingImageIndex}, ${themeIdx}, this.value)"></smd-input>
           </div>` : "";
   const previewPx = smdImagePreviewSizePx();
   return `

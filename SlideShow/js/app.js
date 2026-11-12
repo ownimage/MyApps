@@ -20,7 +20,11 @@ function ssSeconds() {
   var value = Number(ssSetting("seconds", "5"));
   return Number.isFinite(value) && value >= 1 && value <= 86400 ? value : 5;
 }
-function ssStatus(text) { $id("slideStatus").textContent = text; }
+function ssStatus(text) {
+  $id("slideStatus").textContent = text;
+  var settingsStatus = $id("slideSettingsStatus");
+  if (settingsStatus) settingsStatus.textContent = text;
+}
 function ssStopTimer() { clearTimeout(ss.timer); ss.timer = null; }
 function ssSchedule() {
   ssStopTimer();
@@ -31,14 +35,13 @@ function ssSchedule() {
   ssControls();
 }
 function ssControls() {
-  var auto = ssSetting("mode", "touch") === "auto";
-  var play = $id("playPause");
-  play.hidden = !auto;
-  play.textContent = ss.playing ? "Pause" : "Play";
-  play.toggleAttribute("disabled", !ss.files.length);
-  ["previousSlide", "nextSlide"].forEach(function (id) {
-    $id(id).toggleAttribute("disabled", ss.files.length < 2);
-  });
+  var play = $id("playSlides");
+  if (play) play.toggleAttribute("disabled", localStorage.getItem(smdKey("folder")) === null || ss.busy);
+  var label = $id("slideFolderLabel");
+  if (label) {
+    var folder = localStorage.getItem(smdKey("folder"));
+    label.textContent = folder === null ? "Choose folder" : (folder || "OneDrive");
+  }
 }
 function ssTogglePlay() { ss.playing = !ss.playing; ssSchedule(); }
 function ssRelease() {
@@ -52,7 +55,7 @@ function ssRelease() {
 function ssReset() {
   ssStopTimer(); ss.loadSeq++; ss.folderSeq++;
   ss.busy = false; ss.files = []; ss.index = -1; ss.folder = "";
-  ssRelease(); $id("slideCaption").textContent = "";
+  ssRelease();
   $id("slideEmpty").hidden = false; ssControls();
 }
 function ssError(err) {
@@ -70,7 +73,7 @@ async function ssShow(index, direction) {
   var token = ++ss.loadSeq;
   var file = ss.files[index];
   ss.index = index; ss.busy = true; ssControls();
-  ssStatus("Loading " + file.name + "...");
+  ssStatus("Loading image...");
   var url = "";
   try {
     var blob = await oneDriveDownloadBlob(file.key);
@@ -84,8 +87,7 @@ async function ssShow(index, direction) {
     var image = $id("slideImage");
     image.src = url; image.alt = file.name; image.hidden = false;
     $id("slideEmpty").hidden = true;
-    $id("slideCaption").textContent = (index + 1) + " / " + ss.files.length + " - " + file.name;
-    ssStatus(ss.folder || "OneDrive");
+    ssStatus("");
     var transition = ssSetting("transition", "fade");
     if (!matchMedia("(prefers-reduced-motion: reduce)").matches && transition !== "none") {
       var frames = transition === "slide"
@@ -97,8 +99,8 @@ async function ssShow(index, direction) {
     if (url && url !== ss.url) URL.revokeObjectURL(url);
     if (token !== ss.loadSeq) return;
     ssRelease();
-    $id("slideCaption").textContent = (index + 1) + " / " + ss.files.length + " - " + file.name;
-    ssStatus("Cannot display " + file.name + ". " + ssError(err));
+    $id("slideEmpty").hidden = false;
+    ssStatus("Cannot display this image. " + ssError(err));
   } finally {
     if (token === ss.loadSeq) { ss.busy = false; ssSchedule(); }
   }
@@ -108,13 +110,18 @@ function ssMove(direction) {
   ssShow((ss.index + direction + ss.files.length) % ss.files.length, direction);
 }
 function ssIsImage(file) { return /\.(avif|bmp|gif|jpe?g|png|svg|webp)$/i.test(file.name); }
-async function ssChooseFolder() {
-  var path = ss.path;
-  if (!ssWithinRoot(path)) return;
+function ssChooseFolder() {
+  if (!ssWithinRoot(ss.path)) return;
+  localStorage.setItem(smdKey("folder"), ss.path);
+  ssReset(); ssControls(); ssCloseFolders();
+  ssStatus("Ready to play.");
+}
+async function ssPlay() {
+  var path = localStorage.getItem(smdKey("folder"));
+  if (path === null || !ssWithinRoot(path)) { ssOpenFolders(); return; }
   var token = ++ss.folderSeq;
-  ss.loadSeq++; ss.busy = true; ssStopTimer();
-  $id("useSlideFolder").toggleAttribute("disabled", true);
-  $id("slideFolderMessage").textContent = "Finding images...";
+  ss.loadSeq++; ss.busy = true; ssStopTimer(); ssControls();
+  ssStatus("Finding images...");
   try {
     var queue = [path], visited = new Set(), images = [];
     var recursive = ssSetting("recursive", "false") === "true";
@@ -131,28 +138,23 @@ async function ssChooseFolder() {
     }
     images.sort(function (a, b) { return a.key.localeCompare(b.key, undefined, { numeric: true, sensitivity: "base" }); });
     ss.files = images; ss.folder = path; ss.index = -1; ss.busy = false;
-    localStorage.setItem(smdKey("folder"), path);
-    ssCloseFolders();
-    if (images.length) { ss.playing = true; ssShow(0, 1); }
-    else {
-      ssRelease(); $id("slideEmpty").hidden = false; $id("slideCaption").textContent = "";
-      ssStatus("No supported images in " + (path || "OneDrive") + (recursive ? " or its subfolders." : ". Try Include subfolders in Settings."));
+    if (images.length) {
+      ss.playing = true; closeSettings(); await ssShow(0, 1);
+    } else {
+      ssRelease(); $id("slideEmpty").hidden = false;
+      ssStatus("No supported images in this folder" + (recursive ? " or its subfolders." : ". Try Include subfolders."));
     }
   } catch (err) {
-    if (token === ss.folderSeq) $id("slideFolderMessage").textContent = ssError(err);
+    if (token === ss.folderSeq) ssStatus(ssError(err));
   } finally {
-    if (token === ss.folderSeq) {
-      ss.busy = false;
-      var button = $id("useSlideFolder");
-      if (button) button.toggleAttribute("disabled", false);
-      ssSchedule();
-    }
+    if (token === ss.folderSeq) { ss.busy = false; ssControls(); ssSchedule(); }
   }
 }
 async function ssBrowse(path) {
   path = oneDriveNormalizeDirectory(path);
   if (!ssWithinRoot(path)) path = ssRoot();
   ss.path = path;
+  ss.folderSeq++; ss.busy = false;
   var token = ++ss.browseSeq;
   $id("slideFolderPath").textContent = path || "OneDrive";
   $id("slideFolderList").replaceChildren();
@@ -190,12 +192,18 @@ function ssOpenFolders() {
     '<p id="slideFolderMessage" role="status" class="mb-0"></p><div id="slideFolderList" class="d-flex flex-column gap-2"></div></div>';
   page.buttons = [{ text: "Cancel", action: "cancel", variant: "secondary", close: false },
     { text: "Use this folder", action: "use", variant: "success", id: "useSlideFolder", disabled: true, close: false }];
+  page.classList.remove("d-none");
   page.show();
   ssBrowse(ssSetting("folder", ssRoot()));
 }
 function ssCloseFolders() {
   ss.browseSeq++; ss.folderSeq++; ss.browsing = false; ss.busy = false;
-  $id("slideFolderPage").hide(); ssSchedule();
+  $id("slideFolderPage").hide();
+  var closingToken = ss.browseSeq;
+  setTimeout(function () {
+    if (closingToken === ss.browseSeq && !ss.browsing) $id("slideFolderPage").classList.add("d-none");
+  }, 60);
+  ssSchedule();
 }
 function ssChange(name, value) {
   if (name === "seconds") {
@@ -227,6 +235,7 @@ function openSettings() {
     $id("oneDriveDirectory").value = ssRoot();
     loadOneDriveSettings();
     $id("oneDriveDirectory").value = ssRoot();
+    ssControls();
     if (oneDriveIsConfigured()) oneDriveInit().catch(function () {});
   }});
 }
@@ -242,8 +251,21 @@ function ssAccountChanged(event) {
     refreshOneDriveSettingsUi();
   }
 }
+function ssFitViewer() {
+  var nav = $id("mainNav");
+  var top = nav.classList.contains("nav-hidden") ? 0 : nav.getBoundingClientRect().bottom;
+  $id("slideMain").style.top = Math.max(0, top) + "px";
+}
 document.addEventListener("DOMContentLoaded", function () {
+  new ResizeObserver(ssFitViewer).observe($id("mainNav"));
+  new MutationObserver(ssFitViewer).observe($id("mainNav"), {attributes:true, attributeFilter:["class"]});
+  window.addEventListener("resize", ssFitViewer);
+  ssFitViewer();
   applyTheme(getStoredTheme());
+  // Complete the Microsoft redirect flow on iOS and installed PWAs too.
+  if (oneDriveIsConfigured()) oneDriveInit().then(function (account) {
+    if (!account) ssStatus("Sign in to OneDrive in Settings to choose an image folder.");
+  }).catch(function (err) { ssStatus(ssError(err)); });
   $id("slideFolderPage").addEventListener("smd-page-action", function (e) {
     if (e.detail.action === "use") ssChooseFolder(); else ssCloseFolders();
   });

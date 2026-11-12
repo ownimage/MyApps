@@ -108,9 +108,9 @@ function buildMouseCapturePage(page) {
     '<div class="mb-3">' +
       '<label class="form-label" for="mouseCaptureUrlInput">Capture panel address</label>' +
       '<div class="d-flex gap-2 align-items-stretch flex-wrap myhid-capture-row">' +
-        '<input type="text" id="mouseCaptureUrlInput" class="form-control flex-grow-1" ' +
+        '<smd-input type="text" input-id="mouseCaptureUrlInput" class="form-control flex-grow-1" ' +
           'placeholder="https://something.trycloudflare.com/?t=..." ' +
-          'autocapitalize="off" autocomplete="off" spellcheck="false">' +
+          'autocapitalize="off" autocomplete="off" spellcheck="false"></smd-input>' +
         '<smd-button id="btnHidScan" variant="secondary" size="small" icon="fa-solid fa-qrcode">Scan QR</smd-button>' +
         '<smd-button id="btnHidSave" variant="primary" size="small">Save</smd-button>' +
       '</div>' +
@@ -170,8 +170,8 @@ function mouseCaptureConfigHtml() {
       '<div class="col-4 text-end pt-2"><label class="form-label mb-0" for="mouseCaptureUdp">Server (UDP)</label></div>' +
       '<div class="col-8">' +
         '<div class="d-flex gap-2 align-items-stretch flex-wrap myhid-capture-row">' +
-          '<input type="text" id="mouseCaptureUdp" class="form-control flex-grow-1" placeholder="192.168.1.50:7801" ' +
-            'autocapitalize="off" autocomplete="off" spellcheck="false">' +
+          '<smd-input type="text" input-id="mouseCaptureUdp" class="form-control flex-grow-1" placeholder="192.168.1.50:7801" ' +
+            'autocapitalize="off" autocomplete="off" spellcheck="false"></smd-input>' +
           '<smd-button id="btnHidPing" variant="primary" size="small">Ping</smd-button>' +
         '</div>' +
         '<div id="mouseCapturePingResult" class="form-text"></div>' +

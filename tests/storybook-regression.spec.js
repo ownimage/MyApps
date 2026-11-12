@@ -17,7 +17,7 @@ test.describe("Storybook - Regression", () => {
     page.on("requestfailed", (req) => failed.push(req.url()));
 
     await page.goto("/storybook/");
-    await expect(page.locator("nav.sb-nav a")).toHaveCount(32);
+    await expect(page.locator("nav.sb-nav a")).toHaveCount(33);
 
     // Settle window (section init code runs synchronously after renderAll).
     await page.waitForTimeout(1000);

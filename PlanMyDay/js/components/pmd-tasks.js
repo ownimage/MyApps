@@ -142,7 +142,7 @@ class PmdTasks extends HTMLElement {
         '<div class="d-flex align-items-center gap-2 mb-1 task-row task-drag-card user-select-none rounded px-2 py-1" data-task-index="' + i + '">' +
           handle +
           '<smd-checkbox class="task-done-cb" id="taskDone' + i + '" ' + (task.done ? 'checked' : '') + ' ' + disabled + '></smd-checkbox>' +
-          '<input class="form-control task-desc-input flex-grow-1" value="' + pmdTasksEscape(task.description || '') + '" ' + ro + ' placeholder="Task description">' +
+          '<smd-input class="form-control task-desc-input flex-grow-1" value="' + pmdTasksEscape(task.description || '') + '" ' + ro + ' placeholder="Task description"></smd-input>' +
           '<button type="button" class="btn btn-sm ' + (note ? 'btn-outline-info' : 'btn-info') + ' task-note-btn" ' + disabled + ' title="Note">' + PMD_TASKS_NOTE_SVG + '</button>' +
           '<button type="button" class="btn btn-sm btn-danger d-flex align-items-center justify-content-center p-2 flex-shrink-0" ' + disabled + ' title="Delete">' + PMD_TASKS_DELETE_SVG + '</button>' +
         '</div>' +

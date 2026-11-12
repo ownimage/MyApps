@@ -153,10 +153,10 @@ function myhidAxisBindingHTML(item, direction, label, value) {
 
   return '<div class="col-6">' +
     '<label class="form-label small mb-0" for="' + keyId + '">' + label + ' key</label>' +
-    '<input type="text" class="form-control form-control-sm" id="' + keyId + '" ' +
+    '<smd-input type="text" class="form-control form-control-sm" input-id="' + keyId + '" ' +
       'list="myhidAxisKeyList" value="' + myhidAxisEscape(parsed.key.toUpperCase()) + '" ' +
       'placeholder="F13, A, LEFT" autocomplete="off" autocapitalize="characters" spellcheck="false" ' +
-      'aria-label="' + item.label + ' ' + label + ' key">' +
+      'aria-label="' + item.label + ' ' + label + ' key"></smd-input>' +
     '<div class="d-flex flex-wrap gap-2 mt-1">' + modifiers + '</div>' +
   '</div>';
 }
@@ -175,18 +175,18 @@ function myhidAxisAxisHTML(item, cfg) {
       '<div class="row g-2 mt-0">' +
         '<div class="col-4">' +
           '<label class="form-label small mb-0" for="' + myhidAxisNumberId(item.axis, "gain") + '">Gain</label>' +
-          '<input type="number" step="any" min="0.000001" class="form-control form-control-sm" ' +
-            'id="' + myhidAxisNumberId(item.axis, "gain") + '" value="' + cfg.gain + '">' +
+          '<smd-input type="number" step="any" min="0.000001" class="form-control form-control-sm" ' +
+            'input-id="' + myhidAxisNumberId(item.axis, "gain") + '" value="' + cfg.gain + '"></smd-input>' +
         '</div>' +
         '<div class="col-4">' +
           '<label class="form-label small mb-0" for="' + myhidAxisNumberId(item.axis, "step") + '">Step</label>' +
-          '<input type="number" step="any" min="0.000001" class="form-control form-control-sm" ' +
-            'id="' + myhidAxisNumberId(item.axis, "step") + '" value="' + cfg.step + '">' +
+          '<smd-input type="number" step="any" min="0.000001" class="form-control form-control-sm" ' +
+            'input-id="' + myhidAxisNumberId(item.axis, "step") + '" value="' + cfg.step + '"></smd-input>' +
         '</div>' +
         '<div class="col-4">' +
           '<label class="form-label small mb-0" for="' + myhidAxisNumberId(item.axis, "deadband") + '">Deadband</label>' +
-          '<input type="number" step="any" min="0" class="form-control form-control-sm" ' +
-            'id="' + myhidAxisNumberId(item.axis, "deadband") + '" value="' + cfg.deadband + '">' +
+          '<smd-input type="number" step="any" min="0" class="form-control form-control-sm" ' +
+            'input-id="' + myhidAxisNumberId(item.axis, "deadband") + '" value="' + cfg.deadband + '"></smd-input>' +
         '</div>' +
       '</div>' +
     '</div>' +

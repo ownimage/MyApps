@@ -23,7 +23,7 @@
   const template = document.createElement("template");
   template.innerHTML = `
     <div class="d-flex gap-2 align-items-center">
-      <input type="search" class="form-control flex-grow-1" autocomplete="off">
+      <smd-input type="search" class="form-control flex-grow-1" autocomplete="off"></smd-input>
       <button type="button" class="btn btn-danger btn-sm flex-shrink-0">Clear</button>
     </div>
   `;

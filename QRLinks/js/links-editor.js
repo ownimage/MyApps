@@ -198,11 +198,11 @@ function renderLinkEditContent() {
       '<div class="flex-grow-1 overflow-hidden">' +
         '<div class="mb-2">' +
           '<label class="form-label mb-1">Title</label>' +
-          `<input class="form-control" id="linkTitleInput" value="${escAttr(data.title || "")}" oninput="linkField('title', this.value)">` +
+          `<smd-input class="form-control" input-id="linkTitleInput" value="${escAttr(data.title || "")}" oninput="linkField('title', this.value)"></smd-input>` +
         '</div>' +
         '<div class="mb-2">' +
           '<label class="form-label mb-1">URL</label>' +
-          `<input class="form-control" id="linkUrlInput" value="${escAttr(data.url || "")}" oninput="linkField('url', this.value)">` +
+          `<smd-input class="form-control" input-id="linkUrlInput" value="${escAttr(data.url || "")}" oninput="linkField('url', this.value)"></smd-input>` +
         '</div>' +
         '<div class="mb-2">' +
           '<label class="form-label mb-1">Description</label>' +

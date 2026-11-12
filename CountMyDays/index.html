@@ -236,21 +236,21 @@
             <div class="row mb-3 align-items-center col-md-8">
               <div class="col-4 text-end"><label class="form-label mb-0">Name</label></div>
               <div class="col-8">
-                <input id="gcalName" class="form-control" type="text" placeholder="e.g. keith" onchange="saveGCalSettings()">
+                <smd-input input-id="gcalName" class="form-control" type="text" placeholder="e.g. keith" onchange="saveGCalSettings()"></smd-input>
               </div>
             </div>
 
             <div class="row mb-3 align-items-center col-md-8">
               <div class="col-4 text-end"><label class="form-label mb-0">Google OAuth Client ID</label></div>
               <div class="col-8">
-                <input id="gcalClientId" class="form-control" type="text" placeholder="xxxx.apps.googleusercontent.com" onchange="saveGCalSettings()">
+                <smd-input input-id="gcalClientId" class="form-control" type="text" placeholder="xxxx.apps.googleusercontent.com" onchange="saveGCalSettings()"></smd-input>
               </div>
             </div>
 
             <div class="row mb-3 align-items-center col-md-8">
               <div class="col-4 text-end"><label class="form-label mb-0">Calendar ID</label></div>
               <div class="col-8">
-                <input id="gcalCalendarId" class="form-control" type="text" placeholder="primary" onchange="saveGCalSettings()">
+                <smd-input input-id="gcalCalendarId" class="form-control" type="text" placeholder="primary" onchange="saveGCalSettings()"></smd-input>
               </div>
             </div>
 
@@ -283,20 +283,20 @@
             <div class="row mb-4 align-items-center col-md-8">
               <div class="col-4 text-end"><label class="form-label mb-0">Server</label></div>
               <div class="col-8">
-                <input id="minioServer" class="form-control" type="text" placeholder="http://localhost:9000" onchange="changeMinioServer(this.value)">
+                <smd-input input-id="minioServer" class="form-control" type="text" placeholder="http://localhost:9000" onchange="changeMinioServer(this.value)"></smd-input>
               </div>
             </div>
             <div class="row mb-4 align-items-center col-md-8">
               <div class="col-4 text-end"><label class="form-label mb-0">Username</label></div>
               <div class="col-8">
-                <input id="minioUsername" class="form-control" type="text" onchange="changeMinioUsername(this.value)">
+                <smd-input input-id="minioUsername" class="form-control" type="text" onchange="changeMinioUsername(this.value)"></smd-input>
               </div>
             </div>
             <div class="row mb-4 align-items-center col-md-8">
               <div class="col-4 text-end"><label class="form-label mb-0">Password</label></div>
               <div class="col-8">
                 <div class="input-group">
-                  <input id="minioPassword" class="form-control" type="password" onchange="changeMinioPassword(this.value)">
+                  <smd-input input-id="minioPassword" class="form-control" type="password" onchange="changeMinioPassword(this.value)"></smd-input>
                   <button class="btn btn-outline-secondary" type="button" onclick="toggleMinioPassword()" title="Show/hide password">
                     <svg id="minioPasswordEye" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
                       <path d="M16 8s-3-5.5-8-5.5S0 8 0 8s3 5.5 8 5.5S16 8 16 8zM1.173 8a13.133 13.133 0 0 1 1.66-2.043C4.12 4.668 5.88 3.5 8 3.5c2.12 0 3.879 1.168 5.168 2.457A13.133 13.133 0 0 1 14.828 8c-.058.087-.122.183-.195.288-.335.48-.83 1.12-1.465 1.755C11.879 11.332 10.119 12.5 8 12.5c-2.12 0-3.879-1.168-5.168-2.457A13.134 13.134 0 0 1 1.172 8z"/>
@@ -309,13 +309,13 @@
             <div class="row mb-4 align-items-center col-md-8">
               <div class="col-4 text-end"><label class="form-label mb-0">Bucket</label></div>
               <div class="col-8">
-                <input id="minioBucket" class="form-control" type="text" onchange="changeMinioBucket(this.value)">
+                <smd-input input-id="minioBucket" class="form-control" type="text" onchange="changeMinioBucket(this.value)"></smd-input>
               </div>
             </div>
             <div class="row mb-4 align-items-center col-md-8">
               <div class="col-4 text-end"><label class="form-label mb-0">Directory</label></div>
               <div class="col-8">
-                <input id="minioDirectory" class="form-control" type="text" placeholder="optional, e.g. countmydays (empty = bucket root)" onchange="changeMinioDirectory(this.value)">
+                <smd-input input-id="minioDirectory" class="form-control" type="text" placeholder="optional, e.g. countmydays (empty = bucket root)" onchange="changeMinioDirectory(this.value)"></smd-input>
               </div>
             </div>
           </div>
@@ -330,19 +330,19 @@
             <div class="row mb-4 align-items-center col-md-8">
               <div class="col-4 text-end"><label class="form-label mb-0">Directory</label></div>
               <div class="col-8">
-                <input id="oneDriveDirectory" class="form-control" type="text" placeholder="optional, e.g. MyApps/CountMyDays (empty = OneDrive root)" onchange="changeOneDriveDirectory(this.value)">
+                <smd-input input-id="oneDriveDirectory" class="form-control" type="text" placeholder="optional, e.g. MyApps/CountMyDays (empty = OneDrive root)" onchange="changeOneDriveDirectory(this.value)"></smd-input>
               </div>
             </div>
             <div class="row mb-4 align-items-center col-md-8">
               <div class="col-4 text-end"><label class="form-label mb-0">Client ID</label></div>
               <div class="col-8">
-                <input id="oneDriveClientId" class="form-control" type="text" placeholder="Azure app registration (client) ID" onchange="changeOneDriveClientId(this.value)">
+                <smd-input input-id="oneDriveClientId" class="form-control" type="text" placeholder="Azure app registration (client) ID" onchange="changeOneDriveClientId(this.value)"></smd-input>
               </div>
             </div>
             <div class="row mb-4 align-items-center col-md-8">
               <div class="col-4 text-end"><label class="form-label mb-0">Tenant</label></div>
               <div class="col-8">
-                <input id="oneDriveTenant" class="form-control" type="text" placeholder="common" onchange="changeOneDriveTenant(this.value)">
+                <smd-input input-id="oneDriveTenant" class="form-control" type="text" placeholder="common" onchange="changeOneDriveTenant(this.value)"></smd-input>
               </div>
             </div>
             <div class="row mb-4 align-items-center col-md-8">
@@ -449,6 +449,7 @@
 
   <script>
   document.write('<script src="../shared/js/library.js?v=' + BUILD_NUMBER + '"><\/script>');
+  document.write('<script src="../shared/js/components/smd-input.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="../shared/js/components/smd-button.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="../shared/js/components/smd-image.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="../shared/js/components/smd-modal.js?v=' + BUILD_NUMBER + '"><\/script>');

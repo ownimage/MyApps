@@ -790,3 +790,30 @@ test.describe('Solar dashboard appearance screenshots', () => {
     }
   });
 });
+
+test.describe('SlideShow screenshots', () => {
+  test.use({viewport:{width:390,height:844},hasTouch:true,isMobile:true,deviceScaleFactor:1});
+  test('SlideShow viewer, folder picker and settings', async ({page}) => {
+    test.setTimeout(180000);
+    const {setup,choose,openFolders} = require('./slideshow-fixtures');
+    const capture = createScreenshotAllThemes('slideshow');
+    const errors = [];
+    page.on('pageerror',error=>errors.push(error.message));
+    page.on('console',message=>{if(message.type()==='error') errors.push(message.text());});
+    page.on('requestfailed',request=>errors.push(request.url()));
+    await page.addInitScript(() => {delete Object.getPrototypeOf(navigator).serviceWorker;});
+    await setup(page); await choose(page);
+    await expect(page.locator('#slideImage')).toHaveAttribute('alt','photo2.PNG');
+    await capture(page,'viewer.png');
+    await openFolders(page);
+    await expect(page.locator('#useSlideFolder button')).toBeEnabled();
+    await capture(page,'folders.png');
+    await page.evaluate(() => ssCloseFolders());
+    await page.evaluate(() => openSettings());
+    await capture(page,'settings-slideshow.png');
+    await page.locator('#onedrive-tab').click();
+    await expect(page.locator('#oneDriveDirectory')).toHaveValue('Pictures');
+    await capture(page,'settings-onedrive.png');
+    expect(errors).toEqual([]);
+  });
+});

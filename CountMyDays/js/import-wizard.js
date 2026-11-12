@@ -353,7 +353,7 @@ function renderImageStage(page) {
           <input class="form-check-input" type="radio" name="imgConflictChoice" id="imgKeepBoth" value="keepBoth" onchange="toggleImageRenameInput();toggleImageUseExisting()">
           <label class="form-check-label" for="imgKeepBoth">
             <span class="d-inline-block" style="min-width:240px">Keep Both - import with a different name:</span>
-            <input type="text" id="imgNewName" class="form-control w-auto d-inline-block" style="min-width:200px" value="${escAttr(importImg.name)}" disabled oninput="validateNewImageName(this)">
+            <smd-input type="text" input-id="imgNewName" class="form-control w-auto d-inline-block" style="min-width:200px" value="${escAttr(importImg.name)}" disabled oninput="validateNewImageName(this)"></smd-input>
           </label>
           <div class="text-danger small d-none" id="imgNewNameError">ERROR: There is already an image with this name.</div>
         </div>
@@ -604,7 +604,7 @@ function renderCategoryStage(page) {
           <input class="form-check-input" type="radio" name="catConflictChoice" id="catKeepBoth" value="keepBoth" onchange="toggleCategoryRenameInput();toggleCategoryUseExisting()">
           <label class="form-check-label" for="catKeepBoth">
             <span class="d-inline-block" style="min-width:240px">Keep Both - import with a different name:</span>
-            <input type="text" id="catNewName" class="form-control w-auto d-inline-block" style="min-width:200px" value="${escAttr(importCat.name)}" disabled oninput="validateNewCategoryName(this)">
+            <smd-input type="text" input-id="catNewName" class="form-control w-auto d-inline-block" style="min-width:200px" value="${escAttr(importCat.name)}" disabled oninput="validateNewCategoryName(this)"></smd-input>
           </label>
           <div class="text-danger small d-none" id="catNewNameError">ERROR: There is already a category with this name.</div>
         </div>
@@ -889,7 +889,7 @@ function renderDateStage(page) {
           <input class="form-check-input" type="radio" name="dateConflictChoice" id="dateKeepBoth" value="keepBoth" onchange="toggleDateRenameInput();toggleDateUseExisting()">
           <label class="form-check-label" for="dateKeepBoth">
             <span class="d-inline-block" style="min-width:240px">Keep Both - import with a different name:</span>
-            <input type="text" id="dateNewName" class="form-control w-auto d-inline-block" style="min-width:200px" value="${escAttr(importDate.name)}" disabled oninput="validateNewDateName(this)">
+            <smd-input type="text" input-id="dateNewName" class="form-control w-auto d-inline-block" style="min-width:200px" value="${escAttr(importDate.name)}" disabled oninput="validateNewDateName(this)"></smd-input>
           </label>
           <div class="text-danger small d-none" id="dateNewNameError">ERROR: There is already a date with this name.</div>
         </div>

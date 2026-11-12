@@ -111,6 +111,7 @@
 
   <!-- ============================ COMPONENT SCRIPTS ============================ -->
   <script src="../shared/js/library.js"></script>
+  <script src="../shared/js/components/smd-input.js"></script>
   <script src="../shared/js/components/smd-button.js"></script>
   <script src="../shared/js/components/smd-image.js"></script>
   <script src="../shared/js/components/smd-h2.js"></script>
@@ -415,9 +416,9 @@
           <smd-button variant="success">Open page</smd-button>
         </div>
         <div class="sb-controls d-flex flex-wrap align-items-center gap-3 mt-3 small">
-          <label>Title: <input class="form-control form-control-sm w-auto" type="text" id="ctrl-page-title" value="SmdPage title"></label>
+          <label>Title: <smd-input class="form-control form-control-sm w-auto" type="text" input-id="ctrl-page-title" value="SmdPage title"></smd-input></label>
           <label><input class="form-check-input" type="checkbox" id="ctrl-page-badge"> Show badge in header</label>
-          <label>Badge: <input class="form-control form-control-sm w-auto" type="text" id="ctrl-page-badge-text" value="8/48/86 jobs" disabled></label>
+          <label>Badge: <smd-input class="form-control form-control-sm w-auto" type="text" input-id="ctrl-page-badge-text" value="8/48/86 jobs" disabled></smd-input></label>
         </div>
         <div class="sb-log mt-3 small font-monospace text-success border rounded bg-body px-2 py-1" id="log-smd-page">events: none yet</div>
       `,
@@ -493,7 +494,7 @@
           <smd-image id="sb-image" key-prefix="sb_" image="Star" size="80"></smd-image>
         </div>
         <div class="sb-controls d-flex flex-wrap align-items-center gap-3 mt-3 small">
-          <label>Name: <input class="form-control form-control-sm w-auto" type="text" id="ctrl-image-name" value="Star"></label>
+          <label>Name: <smd-input class="form-control form-control-sm w-auto" type="text" input-id="ctrl-image-name" value="Star"></smd-input></label>
           <label>Theme:
             <smd-select class="form-select form-select-sm w-auto" id="ctrl-image-theme">
               <option value="auto">auto</option>
@@ -545,7 +546,7 @@
           <smd-qrcode id="sb-qr" value="https://example.com" size="140"></smd-qrcode>
         </div>
         <div class="sb-controls d-flex flex-wrap align-items-center gap-3 mt-3 small">
-          <label>Size: <input class="form-control form-control-sm w-25" type="text" id="ctrl-qr-size" value="140"></label>
+          <label>Size: <smd-input class="form-control form-control-sm w-25" type="text" input-id="ctrl-qr-size" value="140"></smd-input></label>
           <button type="button" class="btn btn-primary btn-sm" id="btn-qr-apply">Apply</button>
         </div>
         <div class="sb-log mt-3 small font-monospace text-success border rounded bg-body px-2 py-1" id="log-smd-qrcode">events: none</div>
@@ -622,7 +623,7 @@
           <smd-buymeacoffee username="ownimage" height="50"></smd-buymeacoffee>
         </div>
         <div class="sb-controls d-flex flex-wrap align-items-center gap-3 mt-3 small">
-          <label>Height: <input class="form-control form-control-sm w-25" type="text" id="ctrl-bmc-height" value="50"></label>
+          <label>Height: <smd-input class="form-control form-control-sm w-25" type="text" input-id="ctrl-bmc-height" value="50"></smd-input></label>
           <button type="button" class="btn btn-primary btn-sm" id="btn-bmc-apply">Apply</button>
         </div>
         <div class="sb-log mt-3 small font-monospace text-success border rounded bg-body px-2 py-1" id="log-smd-buymeacoffee">events: none</div>
@@ -1026,6 +1027,13 @@
       }
     });
 
+    // ---- smd-input ----
+    sections.push({
+      id: "smd-input", name: "smd-input", tag: "<smd-input>",
+      desc: "Shared text, number and password fields. input-id keeps the native field accessible to labels, forms and existing selectors. Native input/change events bubble normally.",
+      html: () => '<smd-input input-id="sb-input-text" aria-label="Example text" placeholder="Type here"></smd-input><smd-input input-id="sb-input-number" type="number" min="1" max="60" value="5" aria-label="Example number"></smd-input>',
+      init() {}
+    });
     // ---- smd-search ----
     sections.push({
       id: "smd-search",

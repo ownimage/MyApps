@@ -2556,6 +2556,14 @@ Techniques / gotchas:
 
 ## Session log
 
+### 2026-11-12 - SlideShow and shared editable fields
+
+- SlideShow is registered in shared/js/smd-apps.js and sw.js. Settings > Slideshow contains Folder, touch/automatic playback, fade/slide/instant transition, seconds, Include subfolders, and Play. The viewer has no playback toolbar or filename/folder caption. Opening settings pauses automatic advancement; Play collects the selected folder again, applies recursion and starts at its first image. Settings > OneDrive has a Top level folder (blank means drive root), reusing shared Microsoft sign-in. Folder browsing stays inside that root. Downloads use one current object URL; stale requests cannot replace newer navigation or revive media after sign-out/root changes. Startup oneDriveInit completes redirect sign-in on mobile/PWA.
+- shared/js/components/smd-input.js now owns editable native fields. Author <smd-input input-id="existingFieldId" type="text|number|password|search" ...></smd-input>; input-id belongs to the INNER input so existing labels, getElementById, selectors, flatpickr, FormData and Playwright fill continue working. The wrapper uses display:contents to preserve flex/grid placement. Native classes/styles/data and inline handlers move to the input; handlers run once with native this. Host .value/.disabled/.readOnly/focus/validation methods also work. Construction stays child-free until connectedCallback; reconnects/clones keep one input. Load smd-input BEFORE consuming components. Its implementation owns the remaining native editable input; file/hidden/radio/range/colour controls keep their specialised behavior.
+- 101 editable field templates in active app/shared sources migrated, including the internals of smd-search, smd-date-picker and smd-color-picker. Do not migrate temp/ standalone copies or backend response templates: they are upstream/source data, not the shared app shell. tests/native-input-guard.spec.js prevents native editable UI from returning. Shared behavior is covered in tests/smd-input.spec.js; SlideShow uses tests/slideshow.spec.js and slideshow-fixtures.js, with screenshot scenes in pmd-screenshots.spec.js.
+- Local Chromium navigation to localhost hung here while 127.0.0.1 responded. work/myapps-input.config.cjs preserves the expected localhost origin with Chromium --host-resolver-rules=MAP localhost 127.0.0.1; NODE_OPTIONS=--dns-result-order=ipv4first keeps Node request helpers consistent. Keep test servers fresh after served-file changes. OneDrive tests mock MSAL/Graph and do not use a real account.
+
+
 ### 2026-10-19 (g) - hamburger menu + Launch submenu: contrasting border on every theme
 
 - WHAT (user): "for every theme for the main hamburger menu and the Launch sub

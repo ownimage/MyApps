@@ -156,7 +156,7 @@ function getListEditPageContent(data, readOnly) {
       </div>
     </div>
     <div class="mb-2">
-      <input class="form-control" id="listTitleInput" value="${escapeHtml(data.title || "")}" ${ro} oninput="listField('title', this.value);updateListEditOkBtn()" ${readOnly ? "" : "onkeydown=\"if(event.key==='Enter') listEditOk()\""}>
+      <smd-input class="form-control" input-id="listTitleInput" value="${escapeHtml(data.title || "")}" ${ro} oninput="listField('title', this.value);updateListEditOkBtn()" ${readOnly ? "" : "onkeydown=\"if(event.key==='Enter') listEditOk()\""}></smd-input>
     </div>
     <div class="d-flex align-items-center flex-wrap gap-2 mb-2 list-edit-selectors">
       <div class="list-category-picker">

@@ -20,7 +20,7 @@
 
   const template = document.createElement("template");
   // Whitespace-free: the host must not inherit stray text nodes.
-  template.innerHTML = '<div class="smd-color-row"><input type="color" class="smd-color-input"><input type="text" class="form-control form-control-sm smd-color-hex" maxlength="7" spellcheck="false" autocomplete="off"><button type="button" class="btn btn-sm btn-secondary smd-color-empty"></button></div>';
+  template.innerHTML = '<div class="smd-color-row"><input type="color" class="smd-color-input"><smd-input type="text" class="form-control form-control-sm smd-color-hex" maxlength="7" spellcheck="false" autocomplete="off"></smd-input><button type="button" class="btn btn-sm btn-secondary smd-color-empty"></button></div>';
 
   // Layout mechanics belong to the component (see the shared-CSS rule); colours
   // come from Bootstrap so it sits on any theme.

@@ -49,5 +49,6 @@ async function choose(page) {
   await page.locator('#playSlides button').click();
   await expect(page.locator('#slideImage')).toBeVisible();
   await expect(page.locator('#slideImage')).toHaveJSProperty('naturalWidth',1000);
+  await expect(page.locator('#settingsPage')).toBeHidden();
 }
 module.exports={setup,stub,choose,openFolders};

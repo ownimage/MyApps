@@ -28,7 +28,7 @@
   const smdDatePickerTemplate = document.createElement('template');
   smdDatePickerTemplate.innerHTML = `
   <div class="smd-date-picker">
-    <input type="text" class="form-control" id="smdDatePickerInput" placeholder="Pick a date" readonly="readonly">
+    <smd-input type="text" class="form-control" input-id="smdDatePickerInput" placeholder="Pick a date" readonly="readonly"></smd-input>
     <button type="button" class="btn btn-danger btn-sm" id="smdDatePickerClearBtn" style="display:none">Clear</button>
   </div>
 `;

@@ -112,7 +112,7 @@ function getStreamEditFormHTML(data) {
   return `
     <div class="mb-2">
       <label class="form-label">Title</label>
-      <input class="form-control" id="streamTitleInput" value="${escapeHtml(data.title || "")}" oninput="editField('title', this.value);updateStreamEditOkBtn()" onkeydown="if(event.key==='Enter') streamEditSubmit()">
+      <smd-input class="form-control" input-id="streamTitleInput" value="${escapeHtml(data.title || "")}" oninput="editField('title', this.value);updateStreamEditOkBtn()" onkeydown="if(event.key==='Enter') streamEditSubmit()"></smd-input>
     </div>
     <div class="row mb-2">
       <div class="col-12 col-sm-6 d-flex flex-column">

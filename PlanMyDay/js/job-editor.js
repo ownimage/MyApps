@@ -287,7 +287,7 @@ function getJobEditPageContent(data, readOnly) {
       </div>
     </div>
     <div class="mb-2">
-      <input class="form-control" id="jobTitleInput" value="${escapeHtml(data.title || "")}" ${ro} oninput="jobField('title', this.value);updateJobEditOkBtn()" ${readOnly ? "" : "onkeydown=\"if(event.key==='Enter') jobEditOk()\""}>
+      <smd-input class="form-control" input-id="jobTitleInput" value="${escapeHtml(data.title || "")}" ${ro} oninput="jobField('title', this.value);updateJobEditOkBtn()" ${readOnly ? "" : "onkeydown=\"if(event.key==='Enter') jobEditOk()\""}></smd-input>
     </div>
     <smd-tabs id="jobEditTabs"></smd-tabs>
   `;
@@ -370,14 +370,14 @@ function getJobScheduleTabHTML(data, readOnly) {
     <div class="row mb-2">
       <div class="col">
         <label class="form-label">Duration (days)</label>
-        <input class="form-control" id="jobDuration" type="number" min="1" step="1" value="${escapeHtml(String(parseInt(data.duration, 10) || 1))}" ${ro} oninput="jobDurationChanged(this.value)">
+        <smd-input class="form-control" input-id="jobDuration" type="number" min="1" step="1" value="${escapeHtml(String(parseInt(data.duration, 10) || 1))}" ${ro} oninput="jobDurationChanged(this.value)"></smd-input>
         <div class="form-text">How many days the Gantt bar spans. The bar starts at Sleep Until (or today when that is empty).</div>
       </div>
     </div>
     <div class="row mb-2">
       <div class="col">
         <label class="form-label">Wait for</label>
-        <input class="form-control" id="jobWaitFor" value="${escapeHtml(data.waitFor || "")}" ${ro} placeholder="e.g. the delivery to arrive" oninput="jobField('waitFor', this.value)">
+        <smd-input class="form-control" input-id="jobWaitFor" value="${escapeHtml(data.waitFor || "")}" ${ro} placeholder="e.g. the delivery to arrive" oninput="jobField('waitFor', this.value)"></smd-input>
       </div>
     </div>
     <div class="row mb-2">

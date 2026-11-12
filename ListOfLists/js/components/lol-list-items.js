@@ -164,7 +164,7 @@ class LolListItems extends HTMLElement {
           handle +
           '<smd-checkbox class="item-done-cb" id="itemDone' + i + '" ' + (item.done ? 'checked' : '') + '></smd-checkbox>' +
           datePicker +
-          '<input class="form-control item-desc-input flex-grow-1' + titleClass + '" value="' + lolListItemsEscape(title) + '" ' + ro + ' placeholder="Item description">' +
+          '<smd-input class="form-control item-desc-input flex-grow-1' + titleClass + '" value="' + lolListItemsEscape(title) + '" ' + ro + ' placeholder="Item description"></smd-input>' +
           '<button type="button" class="btn btn-sm ' + (note ? 'btn-outline-info' : 'btn-info') + ' item-note-btn" title="Note">' + LOL_LIST_ITEMS_NOTE_SVG + '</button>' +
           del +
         '</div>' +

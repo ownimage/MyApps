@@ -34,7 +34,13 @@
         var style = document.createElement("style");
         style.id = "smd-input-layout";
         // Contents preserves the original field's flex/grid placement and sizes.
-        style.textContent = "smd-input { display: contents; } smd-input[hidden] { display: none !important; }";
+        style.textContent = `smd-input { display: contents; }
+          smd-input[hidden] { display: none !important; }
+          .input-group > smd-input { display: flex; flex: 1 1 auto; width: 1%; min-width: 0; }
+          .input-group > smd-input > .form-control { position: relative; width: 100%; min-width: 0; }
+          .input-group > smd-input:not(:last-child) > .form-control { border-top-right-radius: 0; border-bottom-right-radius: 0; }
+          .input-group > smd-input:not(:first-child) > .form-control { border-top-left-radius: 0; border-bottom-left-radius: 0; }
+        `;
         document.head.appendChild(style);
       }
       if (this.input) return; // Reconnects and DOM clones keep one native control.

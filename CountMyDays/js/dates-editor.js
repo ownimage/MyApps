@@ -373,7 +373,7 @@ function renderDateEditContent() {
   page.content =
     '<div class="mb-3">' +
       '<label class="form-label mb-1">Title</label>' +
-      `<input class="form-control" id="dateNameInput" placeholder="Title" value="${escAttr(d.name || "")}" oninput="dateField('name', this.value)">` +
+      `<smd-input class="form-control" input-id="dateNameInput" placeholder="Title" value="${escAttr(d.name || "")}" oninput="dateField('name', this.value)"></smd-input>` +
     '</div>' +
     '<div class="d-flex gap-3 align-items-start flex-wrap mb-3">' +
       '<div>' +
