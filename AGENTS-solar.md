@@ -112,3 +112,9 @@ Consolidated from AGENTS.md and current source on 2026-11-11. Read AGENTS.md for
 
 ### 2026-11-13 - Now-only responsive tiles
 - topTiles is created in the Now (power) panel by MAIN_TAB_DEFS, outside the tab-power table render target so refresh preserves it. The component keeps three equal grid columns at every width; tile container units scale date/time/battery/labels to fit. Do not restore the old mobile stacking breakpoint. User will run regression tests; only JS syntax checks performed.
+
+
+### 2026-11-13 - Now tiles and installed-tab regression fixes
+- Keep #power-panel transparent so Quartz glass tiles composite over the same gradient as shared cards; #tab-power retains the table background. Contrast failures after moving the tiles into Now were real, not test flakes.
+- Shared WCO navbar padding/flex-wrap overrides must outrank Bootstrap shell utilities to prevent menu hitboxes covering the first tab. solar-appearance.spec.js verifies real tab clicks and single-row equal tiles at desktop/phone widths. Screenshot scene covers Now-only tiles and the populated Display resolution row.
+- Full affected specs passed twice without retries (308 executions), including all Solar themes, plus Superhero light/dark screenshots. See AGENTS.md and work/failure-audit-stability.log.

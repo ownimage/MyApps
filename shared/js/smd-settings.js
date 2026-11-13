@@ -365,9 +365,9 @@ function injectSettingsLayout() {
       right: auto;
       width: env(titlebar-area-width, 100%);
       height: env(titlebar-area-height, 33px);
-      padding: 0 0.5rem;
+      padding: 0 0.5rem !important; /* Override shell px/py utilities. */
       align-items: center;
-      flex-wrap: nowrap;
+      flex-wrap: nowrap !important; /* Override shell flex-wrap utility. */
       transform: none !important;
       transition: none;
       z-index: 1039;

@@ -1,3 +1,4 @@
+const { applyThemeAndWait } = require("./theme-controls");
 const {test, expect} = require("@playwright/test");
 test.beforeEach(async ({page}) => { await page.goto("/Clock/"); await page.evaluate(() => localStorage.clear()); await page.reload(); });
 test("Mondaine can be selected and persists with the analogue dial", async ({page}) => {
@@ -58,7 +59,7 @@ test("Mondaine fits desktop and phone screens with date and alarm", async ({page
 test("Mondaine follows light/dark themes and pure black and uses the bundled open font", async ({page}) => {
   await page.evaluate(() => { changeClockFont("mondaine"); changeClockAlarmEnabled(true); });
   for (const [theme,mode] of [["flatly","light"],["darkly","dark"]]) {
-    await page.evaluate(({theme,mode}) => { localStorage.setItem("clock_themeMode",mode); applyTheme(theme); }, {theme,mode});
+    await applyThemeAndWait(page, theme, mode);
     await expect.poll(() => page.evaluate(() => {
       const body=getComputedStyle(document.body);
       return getComputedStyle(document.querySelector(".mondaine-dial")).fill === body.backgroundColor &&

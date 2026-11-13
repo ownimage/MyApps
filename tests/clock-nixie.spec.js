@@ -1,3 +1,4 @@
+const { applyThemeAndWait } = require("./theme-controls");
 const { test, expect } = require("@playwright/test");
 test.beforeEach(async ({page}) => {
   await page.goto("/Clock/"); await page.evaluate(() => localStorage.clear()); await page.reload();
@@ -95,7 +96,7 @@ test("one Show details switch controls the enclosure and base and persists", asy
 test("Nixie remains legible on light and dark backgrounds, with and without details", async ({page}, testInfo) => {
   await page.evaluate(() => { changeClockFont("nixie"); changeClockColor("#b6ffbd"); });
   for (const [theme,mode] of [["flatly","light"],["darkly","dark"]]) {
-    await page.evaluate(({theme,mode}) => { localStorage.setItem("clock_themeMode",mode); applyTheme(theme); }, {theme,mode});
+    await applyThemeAndWait(page, theme, mode);
     await expect(page.locator("html")).toHaveAttribute("data-theme",theme);
     for (const details of [true,false]) {
       await page.evaluate(details => changeClockNixieDetails(details),details);
@@ -117,7 +118,8 @@ test("Nixie remains legible on light and dark backgrounds, with and without deta
 });
 
 test("Nixie side uprights are pale on a light background", async ({page}, testInfo) => {
-  await page.evaluate(() => { localStorage.setItem("clock_themeMode","light"); applyTheme("flatly"); changeClockFont("nixie"); });
+  await applyThemeAndWait(page, "flatly", "light");
+  await page.evaluate(() => changeClockFont("nixie"));
   await expect(page.locator("body")).toHaveCSS("background-color","rgb(255, 255, 255)");
   const brightness = () => page.locator('.nixie-tube path[d="M35 54V198M109 54V198"]').first().evaluate(el => {
     const ctx=document.createElement("canvas").getContext("2d");

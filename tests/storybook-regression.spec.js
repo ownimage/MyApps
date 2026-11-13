@@ -17,10 +17,12 @@ test.describe("Storybook - Regression", () => {
     page.on("requestfailed", (req) => failed.push(req.url()));
 
     await page.goto("/storybook/");
-    await expect(page.locator("nav.sb-nav a")).toHaveCount(33);
+    await expect(page.locator("nav.sb-nav a")).toHaveCount(34);
 
-    // Settle window (section init code runs synchronously after renderAll).
-    await page.waitForTimeout(1000);
+    // All sections are initialized synchronously; wait for actual font/network
+    // readiness rather than an arbitrary delay before inspecting boot errors.
+    await page.evaluate(() => document.fonts.ready);
+    await expect(page.locator("#big-text-demo .smd-big-text-content")).toHaveText("Hello\nBigText");
 
     expect(consoleErrors).toEqual([]);
     expect(pageErrors).toEqual([]);

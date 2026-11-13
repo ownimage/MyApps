@@ -12,7 +12,7 @@ const path = require("path");
 
 const APPS = [
   "Launch", "PlanMyDay", "CountMyDays", "ListOfLists", "QRLinks",
-  "SolarControlar", "FreeFormOX", "MyHID", "Storyboard"
+  "SolarControlar", "FreeFormOX", "MyHID", "Storyboard", "Clock", "SlideShow", "BigText"
 ];
 
 // A controllable stand-in for the real WCO API. visible=true makes the shared
@@ -59,6 +59,8 @@ test.describe("Window Controls Overlay", () => {
       const cs = getComputedStyle(nav);
       const navRect = nav.getBoundingClientRect();
       return {
+        paddingTop: cs.paddingTop,
+        flexWrap: cs.flexWrap,
         position: cs.position,
         height: Math.round(navRect.height),
         top: Math.round(navRect.top),
@@ -66,6 +68,8 @@ test.describe("Window Controls Overlay", () => {
         areaTop: Math.round(area.getBoundingClientRect().top)
       };
     });
+    expect(geom.paddingTop).toBe("0px");
+    expect(geom.flexWrap).toBe("nowrap");
     expect(geom.position).toBe("fixed");
     expect(geom.height).toBe(33);
     expect(geom.top).toBe(0);
