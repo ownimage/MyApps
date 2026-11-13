@@ -10580,3 +10580,7 @@ The latest-readings tab is Now (internal power ID retained). Both charts join po
 
 ### 2026-11-13 - SlideShow folder picker wording
 - Folder playback uses Play in both ssOpenFolders footer creation and ssBrowseUrl folder refresh. Keep both labels aligned. Updated playback/screenshot assertions and bumped the shared build. Three focused checks passed; user requested to run further regressions themselves.
+
+
+### 2026-11-13 - Now-only responsive tiles
+- topTiles is created in the Now (power) panel by MAIN_TAB_DEFS, outside the tab-power table render target so refresh preserves it. The component keeps three equal grid columns at every width; tile container units scale date/time/battery/labels to fit. Do not restore the old mobile stacking breakpoint. User will run regression tests; only JS syntax checks performed.

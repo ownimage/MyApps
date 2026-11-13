@@ -12,18 +12,17 @@
   var style = global.document.createElement("style");
   style.id = "solar-top-tiles-style";
   style.textContent = `
-    solar-top-tiles { display: block; margin-bottom: 1rem; padding-top: var(--smd-nav-content-gap, 1rem); }
-    solar-top-tiles .top-tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-auto-rows: 1fr; gap: 1rem; }
-    @media (max-width: 991px) { solar-top-tiles .top-tiles { grid-template-columns: 1fr; } }
-    solar-top-tiles .tile { min-width: 0; min-height: 120px; padding: 1rem; }
-    body.compact solar-top-tiles .tile { padding: 0.5rem; }
+    solar-top-tiles { display: block; margin-bottom: 1rem; padding-top: 0; }
+    solar-top-tiles .top-tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-auto-rows: 1fr; gap: clamp(0.25rem, 1vw, 1rem); }
+    solar-top-tiles .tile { min-width: 0; container-type: inline-size; padding: clamp(0.25rem, 1vw, 1rem); }
+    body.compact solar-top-tiles .tile { padding: clamp(0.125rem, 0.5vw, 0.5rem); }
     solar-top-tiles .date-dd {
-      font-size: var(--smd-type-h1, 2em);
+      font-size: 30cqw;
       line-height: 1;
     }
     solar-top-tiles .date-mon,
     solar-top-tiles .date-yyy {
-      font-size: var(--smd-type-h2, 1.25em);
+      font-size: 13cqw;
     }
     solar-top-tiles .date-mon { letter-spacing: 0.04em; }
     solar-top-tiles .date-yyy { letter-spacing: 0.06em; }
@@ -37,12 +36,12 @@
       /* Invert the accessible theme ink/surface for the clock face. */
       background: var(--bs-body-color);
       color: var(--solar-clock-ink, var(--bs-body-bg));
-      font-size: var(--smd-type-h1, 2em);
+      font-size: 16cqw;
       font-weight: 300;
       width: 0.75em;
       text-align: center;
       border-radius: 4px;
-      padding: 0.35rem 0;
+      padding: 0.18em 0;
       box-shadow: 0 2px 8px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.06);
       position: relative;
       letter-spacing: 0.06em;
@@ -58,17 +57,17 @@
       box-shadow: 0 1px 2px rgba(255,255,255,0.04);
     }
     solar-top-tiles .flap-sep {
-      font-size: var(--smd-type-h1, 1.8em);
+      font-size: 16cqw;
       font-weight: 700;
       color: var(--bs-body-color);
-      margin: 0 0.06rem;
+      margin: 0;
       position: relative;
-      top: -0.12rem;
+      top: -0.06em;
     }
     solar-top-tiles .battery-icon {
       position: relative;
-      width: 56px;
-      height: 28px;
+      width: 42cqw;
+      height: 21cqw;
       border: 3px solid var(--bs-body-color);
       border-radius: 4px;
     }
@@ -92,23 +91,14 @@
       transition: width 0.3s, background 0.3s;
     }
     solar-top-tiles .battery-info {
-      font-size: var(--smd-type-h2, 1.3em);
+      font-size: 18cqw;
     }
     solar-top-tiles[no-data] .top-tiles { display: none; }
-    @media (max-width: 480px) {
-      solar-top-tiles .date-dd { font-size: calc(var(--smd-type-h1, 2em) * 0.7333); }
-      solar-top-tiles .date-mon,
-      solar-top-tiles .date-yyy { font-size: calc(var(--smd-type-h2, 1.25em) * 0.8333); }
-      solar-top-tiles .flap-card {
-        font-size: calc(var(--smd-type-h1, 2em) * 0.75);
-        width: 0.8em;
-        padding: 0.25rem 0;
-      }
-      solar-top-tiles .flap-sep { font-size: calc(var(--smd-type-h1, 2em) * 0.7); }
-      solar-top-tiles .tile { min-height: 90px; padding: 0.75rem; }
-      body.compact solar-top-tiles .tile { padding: 0.5rem; }
-      solar-top-tiles .battery-info { font-size: calc(var(--smd-type-h2, 1.3em) * 0.8462); }
-    }
+    solar-top-tiles .date-meta { gap: 3cqw; white-space: nowrap; }
+    solar-top-tiles .split-flap { gap: 1cqw; }
+    solar-top-tiles .tile-label { font-size: 7cqw; line-height: 1.2; white-space: nowrap; margin-top: 4cqw; }
+    solar-top-tiles .date-dd, solar-top-tiles .battery-icon { margin-bottom: 2cqw; }
+
   `;
   global.document.head.appendChild(style);
 })(window);
@@ -116,17 +106,17 @@
 const solarTopTilesTemplate = document.createElement("template");
 solarTopTilesTemplate.innerHTML = `
   <div class="top-tiles">
-    <div class="tile card smd-card border rounded-4 d-flex flex-column align-items-center justify-content-center text-center p-3">
-      <div class="date-dd display-1 fw-lighter lh-1 mb-1" id="dateDay"></div>
-      <div class="date-meta d-flex align-items-center justify-content-center gap-2">
+    <div class="tile card smd-card border rounded-4 d-flex flex-column align-items-center justify-content-center text-center">
+      <div class="date-dd fw-lighter lh-1" id="dateDay"></div>
+      <div class="date-meta d-flex align-items-center justify-content-center">
         <span class="date-mon text-body fw-bold" id="dateMonth"></span>
         <span class="date-dot flex-shrink-0"></span>
         <span class="date-yyy text-body fw-light" id="dateYear"></span>
       </div>
-      <span class="tile-label small text-body text-uppercase fw-bold mt-2">Latest Date</span>
+      <span class="tile-label small text-body text-uppercase fw-bold">Latest Date</span>
     </div>
-    <div class="tile card smd-card border rounded-4 d-flex flex-column align-items-center justify-content-center text-center p-3">
-      <div class="split-flap d-flex align-items-center gap-1">
+    <div class="tile card smd-card border rounded-4 d-flex flex-column align-items-center justify-content-center text-center">
+      <div class="split-flap d-flex align-items-center">
         <div class="flap-card" id="h1"></div>
         <div class="flap-card" id="h2"></div>
         <div class="flap-sep">:</div>
@@ -136,14 +126,14 @@ solarTopTilesTemplate.innerHTML = `
         <div class="flap-card" id="s1"></div>
         <div class="flap-card" id="s2"></div>
       </div>
-      <span class="tile-label small text-body text-uppercase fw-bold mt-2">Latest Time</span>
+      <span class="tile-label small text-body text-uppercase fw-bold">Latest Time</span>
     </div>
-    <div class="tile card smd-card border rounded-4 d-flex flex-column align-items-center justify-content-center text-center p-3">
-      <div class="battery-icon flex-shrink-0 mb-1">
+    <div class="tile card smd-card border rounded-4 d-flex flex-column align-items-center justify-content-center text-center">
+      <div class="battery-icon flex-shrink-0">
         <div class="battery-fill" id="batteryFill"></div>
       </div>
       <div class="battery-info h5 fw-bold mb-0 text-body" id="batteryPercent"></div>
-      <span class="tile-label small text-body text-uppercase fw-bold mt-2">Battery Charge</span>
+      <span class="tile-label small text-body text-uppercase fw-bold">Battery Charge</span>
     </div>
   </div>
 `;
