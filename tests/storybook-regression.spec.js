@@ -182,6 +182,7 @@ test.describe("Storybook - Regression", () => {
   });
 
   test("card viewer renders one card across every theme and both modes", async ({ page }) => {
+    test.setTimeout(60000); // Allow headroom for the 54 theme/mode combinations under parallel load.
     const consoleErrors = [];
     const pageErrors = [];
     const failed = [];

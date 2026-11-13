@@ -10645,3 +10645,7 @@ The latest-readings tab is Now (internal power ID retained). Both charts join po
 ### 2026-11-13 - Gantt General-order regression and kWh Home label
 - tests/pmd-gantt.spec.js General ordering expects Auto Ad Hoc, Show Gantt, Show quote at the end; both switches default off. The old Show Gantt is last assertion predates Show quote and is obsolete.
 - SolarControlar ENERGY_SERIES.usage now displays Home in controls, legend and tooltips. Keep the internal usage key, stored visibility and API payload unchanged. Added rendered control/dataset checks in solar-kwh and screenshot coverage. Focused Gantt checks, full kWh spec and Superhero light/dark screenshot scene pass with retries=0. Full suite left to the user. Logs: work/gantt-order-solar-home-focused.log, work/solar-home-spec.log, work/solar-home-screenshots.log.
+
+
+### 2026-11-13 - Storybook card viewer timeout
+- The card viewer all-theme/all-mode regression has a per-test 60-second timeout. It takes about 26 seconds in isolation and can exceed the default 30 seconds with 32 workers. Assertions and global timeout remain unchanged. Syntax/diff checks only for this timeout adjustment.
