@@ -844,3 +844,57 @@ test.describe('SlideShow screenshots', () => {
     expect(errors).toEqual([]);
   });
 });
+
+test.describe('Quote screenshots',()=>{
+  test.use({serviceWorkers:'block'});
+  test('Quote fitted lines, change action and Display settings',async({page})=>{
+    await page.addInitScript(()=>{delete Object.getPrototypeOf(navigator).serviceWorker;});
+    await page.goto('/Quote/',{waitUntil:'domcontentloaded'});
+    await expect(page.locator('#quoteDisplay .smd-big-text-line')).toHaveCount(2);
+    const {applyThemeAndWait}=require('./theme-controls');
+    const data=require('../Quote/quotes.json');
+    for(const mode of ['light','dark']){
+      await applyThemeAndWait(page,process.env.SCREENSHOT_THEME||'superhero',mode);
+      for(const viewport of [{width:1280,height:800},{width:390,height:844}]){
+        await page.setViewportSize(viewport);
+        await page.evaluate(()=>document.getElementById('quoteDisplay').fit());
+        await expect(page.locator('#quoteDisplay .smd-big-text-line').first()).toHaveText(data[mode==='light'?0:1].q.trim());
+        await page.screenshot({path:test.info().outputPath('quote-'+mode+'-'+viewport.width+'.png')});
+      }
+      if(mode==='light'){
+        await page.locator('#btnMainMenu').click();await page.getByRole('link',{name:'Change quote',exact:true}).click();
+        await expect(page.locator('#quoteDisplay .smd-big-text-line').first()).toHaveText(data[1].q.trim());
+      }
+    }
+    const goodreadsIndex=data.findIndex(item=>item.sources.includes('goodreads'));
+    await page.evaluate(index=>{quoteState.counter=index;renderQuote();},goodreadsIndex);
+    await expect(page.locator('#quoteCredit')).toHaveText('Quote from Goodreads');
+    await page.evaluate(()=>document.fonts.ready);
+    await page.evaluate(()=>document.getElementById('quoteDisplay').fit());
+    await page.screenshot({path:test.info().outputPath('quote-goodreads-phone.png')});
+    await page.evaluate(()=>openSettings());
+    await expect(page.locator('#screenResolution')).toHaveText('390 × 844 (1x)');
+    await expect(page.locator('#quoteFont')).toHaveAttribute('value','atkinson');
+    await page.screenshot({path:test.info().outputPath('quote-display-settings.png')});
+  });
+});
+
+test.describe('Shared quote card screenshots',()=>{
+  test.use({serviceWorkers:'block'});
+  test('PlanMyDay and CountMyDays shared daily quote cards',async({page})=>{
+    await page.addInitScript(()=>{delete Object.getPrototypeOf(navigator).serviceWorker;});
+    const {applyThemeAndWait}=require('./theme-controls');
+    for(const app of ['PlanMyDay','CountMyDays']){
+      await page.goto('/'+app+'/');await page.evaluate(()=>smdChangeShowQuote(true));
+      await expect(page.locator('smd-quote .smd-quote-credit')).toContainText('Quote from ');
+      for(const mode of ['light','dark']){
+        await applyThemeAndWait(page,process.env.SCREENSHOT_THEME||'superhero',mode);
+        for(const width of [1280,390]){
+          await page.setViewportSize({width,height:900});
+          await expect(page.locator('smd-quote')).toBeVisible();
+          await page.screenshot({path:test.info().outputPath(app+'-quote-'+mode+'-'+width+'.png'),fullPage:true});
+        }
+      }
+    }
+  });
+});

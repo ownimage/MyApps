@@ -114,6 +114,8 @@
   <script src="../shared/js/components/smd-input.js"></script>
   <script src="../shared/js/components/smd-button.js"></script>
   <script src="../shared/js/components/smd-big-text.js"></script>
+  <script src="../shared/js/smd-quotes.js"></script>
+  <script src="../shared/js/components/smd-quote.js"></script>
   <script src="../shared/js/components/smd-image.js"></script>
   <script src="../shared/js/components/smd-h2.js"></script>
   <script src="../shared/js/components/smd-modal.js"></script>
@@ -367,9 +369,10 @@
     // ---- smd-big-text ----
     sections.push({
       id: "smd-big-text", name: "smd-big-text", tag: "<smd-big-text>",
-      desc: "Fits plain text to the available width and height. Set <code>value</code> or the <code>text</code> attribute, and optionally <code>font-family</code>/<code>font-weight</code>. Give the host a definite height. Preserves newlines, wraps long lines, and refits on resize and font load; <code>fit()</code> is also available. Resize the preview below.",
+      desc: "Fits plain text to the available width and height. Set <code>value</code> or the <code>text</code> attribute, and optionally <code>font-family</code>/<code>font-weight</code>. Use <code>lines = [{text, scale, weight, style, gap}]</code> for styled text blocks fitted together; <code>value</code> restores plain text. Give the host a definite height. Preserves newlines, wraps long lines, and refits on resize and font load; <code>fit()</code> is also available. Resize the preview below.",
       html: () => `
         <label class="form-label" for="big-text-demo-input">Text</label>
+        <smd-button id="big-text-styled-example" variant="secondary" size="small" class="mb-2">Styled quote example</smd-button>
         <textarea id="big-text-demo-input" class="form-control mb-3" rows="2">Hello
 BigText</textarea>
         <div class="border rounded p-2" style="width:100%;height:240px;min-width:120px;min-height:80px;resize:both;overflow:hidden;max-width:100%">
@@ -380,8 +383,19 @@ BigText</textarea>
         const input = document.getElementById("big-text-demo-input");
         const display = document.getElementById("big-text-demo");
         display.value = input.value;
+        document.getElementById("big-text-styled-example").addEventListener("click", () => {
+          display.lines = [{text: "Words worth sharing.", weight: 700}, {text: "A smaller author line", scale: .45, gap: .65}];
+        });
         input.addEventListener("input", () => { display.value = input.value; });
       }
+    });
+
+    // ---- smd-quote ----
+    sections.push({
+      id: "smd-quote", name: "smd-quote", tag: "<smd-quote>",
+      desc: "A themed card subscribed to the shared daily quote. It follows the Quote app counter, manual changes, local midnight and other open tabs. Uses each app's typography and shared card surface; it owns no separate selection.",
+      html: () => '<smd-quote></smd-quote>',
+      init: () => {}
     });
 
     // ---- smd-modal ----

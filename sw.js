@@ -20,7 +20,7 @@
 // comparison. If the two ever DO drift, the page notices at runtime
 // (GET_BUILD) and re-registers, so the drift self-heals instead of pinning
 // users to a build the worker will never replace.
-const BUILD_NUMBER = "202611130812";
+const BUILD_NUMBER = "202611131738";
 
 const CACHE = "myapps-" + BUILD_NUMBER;
 
@@ -91,6 +91,8 @@ const TRANSPARENT_GIF_RESPONSE = new Response(TRANSPARENT_GIF, {
 
 // ---- Shared library assets (used by every app) ----
 const SHARED_ASSETS = [
+  "shared/js/smd-quotes.js",
+  "shared/js/components/smd-quote.js",
   "shared/js/components/smd-big-text.js",
   "shared/sampleImages.json",
   "onedrive-callback.html",
@@ -431,6 +433,7 @@ const SHARED_ASSETS = [
 // ---- Per-app shells ----
 // Key = folder prefix (as it appears in URLs, relative to the repo root).
 const APPS = {
+  "Quote/": ["Quote/", "Quote/index.html", "Quote/manifest.json", "Quote/icon.svg", "Quote/icon-192.png", "Quote/icon-512.png", "Quote/css/quote.css", "Quote/js/app.js", "Quote/quotes.json"],
   "BigText/": [
     "BigText/", "BigText/index.html", "BigText/manifest.json",
     "BigText/icon.svg", "BigText/icon-192.png", "BigText/icon-512.png",

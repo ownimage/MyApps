@@ -349,7 +349,7 @@ test.describe("Settings page shape is consistent across apps", () => {
       // Auto-hide menu sits just above Slide speed here; Show Gantt ends General.
       display: ["Theme", "Theme Mode", "Font size", "Icon size", "Touch size", "Tile density",
         "Auto-hide menu", "Slide speed", "Screen resolution"],
-      general: ["Split list", "Hide done", "Auto Ad Hoc", "Show Gantt"],
+      general: ["Split list", "Hide done", "Auto Ad Hoc", "Show Gantt", "Show quote"],
     },
     {
       app: "CountMyDays", path: "/CountMyDays/", tabs: ["General", "Display", "G Cal", "FileSync", "Danger"],
@@ -383,6 +383,8 @@ test.describe("Settings page shape is consistent across apps", () => {
   ];
 
   LAYOUT.push(
+    { app: "Quote", path: "/Quote/", tabs: ["Display", "Danger"],
+      display: ["Theme", "Theme Mode", "Font size", "Auto-hide menu", "Text font", "Screen resolution"] },
     { app: "Storyboard", path: "/Storyboard/", tabs: ["Display", "FileSync"],
       display: ["Theme", "Theme Mode", "Font size", "Touch size", "Slide speed", "Auto-hide menu", "Screen resolution"] },
     { app: "SlideShow", path: "/SlideShow/", tabs: ["Slideshow", "Display", "Source", "Danger"],

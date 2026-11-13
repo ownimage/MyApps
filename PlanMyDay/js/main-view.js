@@ -86,6 +86,12 @@ function renderMain() {
   headingRow.appendChild(addBtn);
   container.appendChild(headingRow);
 
+  if(localStorage.getItem(smdKey('showQuote'))==='true'){
+    const quote=document.createElement('smd-quote');
+    quote.id='mainQuoteCard';quote.className='d-block mb-2';container.appendChild(quote);
+  }
+
+
   // Any CountMyDays event that falls today is shown right here, between the
   // date heading and the (optional) tabs. See js/cmd-today.js.
   const cmdTodayList = document.createElement("div");

@@ -149,7 +149,12 @@
               </smd-select>
             </div>
           </div>
-        </section>
+
+          <div class="row mb-4 align-items-center col-md-8">
+            <div class="col-4 text-end"><label class="form-label mb-0">Show quote</label></div>
+            <div class="col-8"><smd-checkbox id="showQuote" aria-label="Show quote" switch onchange="smdChangeShowQuote(this.checked)"></smd-checkbox></div>
+          </div>
+</section>
 
         <!-- Display -->
         <section class="smd-settings-tab" data-tab="Display" data-tab-id="appearance-tab">
@@ -477,6 +482,8 @@
   document.write('<script src="../shared/js/smd-app.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="../shared/js/smd-settings.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="../shared/js/smd-apps.js?v=' + BUILD_NUMBER + '"><\/script>');
+document.write('<script src="../shared/js/smd-quotes.js?v=' + BUILD_NUMBER + '"><\/script>');
+document.write('<script src="../shared/js/components/smd-quote.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="../shared/js/smd-images.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="../shared/js/smd-minio.js?v=' + BUILD_NUMBER + '"><\/script>');
   document.write('<script src="../shared/js/smd-onedrive.js?v=' + BUILD_NUMBER + '"><\/script>');

@@ -12,7 +12,7 @@ const path = require("path");
 
 const APPS = [
   "Launch", "PlanMyDay", "CountMyDays", "ListOfLists", "QRLinks",
-  "SolarControlar", "FreeFormOX", "MyHID", "Storyboard", "Clock", "SlideShow", "BigText"
+  "SolarControlar", "FreeFormOX", "MyHID", "Storyboard", "Clock", "SlideShow", "BigText", "Quote"
 ];
 
 // A controllable stand-in for the real WCO API. visible=true makes the shared

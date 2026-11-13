@@ -68,6 +68,7 @@ function openSettings() {
   smdSetupSettingsPage({
     dangerIds: CMD_DANGER_IDS,
     restore: function () {
+      smdRestoreShowQuote();
       const savedFormat = localStorage.getItem(smdKey("countdownFormat")) || "days";
       const formatSel = $id("formatSelector");
       if (formatSel) formatSel.value = savedFormat;

@@ -1,5 +1,6 @@
 // <smd-big-text> fits plain text into the space supplied by its parent.
-// API: .value / text="...", font-family="...", font-weight="400", .fit().
+// API: .value / text="...", .lines = [{text, scale, weight, style, gap}],
+// font-family="...", font-weight="400", .fit(). All text is rendered safely.
 // Set a definite height on the host or its layout container. Explicit newlines
 // are preserved; additional lines wrap as needed. No app state/storage lives here.
 (function () {
@@ -18,7 +19,20 @@
 
     get value() { return this._value === undefined ? (this.getAttribute("text") || "") : this._value; }
     set value(value) {
+      this._lines = null;
       this._value = String(value == null ? "" : value).replace(/\r\n?/g, "\n");
+      this._renderText();
+    }
+
+    get lines() { return this._lines ? this._lines.map(line => ({...line})) : null; }
+    set lines(value) {
+      const finite = (value, fallback, min, max) => Number.isFinite(Number(value)) ? Math.max(min, Math.min(max, Number(value))) : fallback;
+      this._lines = Array.isArray(value) ? value.map(line => {
+        if (typeof line !== "object" || line === null) line = {text: line};
+        return {text: String(line.text ?? "").replace(/\r\n?/g, "\n"), scale: finite(line.scale, 1, .1, 4),
+          weight: String(line.weight || "inherit"), style: line.style === "italic" ? "italic" : "normal", gap: finite(line.gap, 0, 0, 4)};
+      }) : [];
+      this._value = this._lines.map(line => line.text).join("\n");
       this._renderText();
     }
 
@@ -60,7 +74,7 @@
 
     attributeChangedCallback(name, oldValue, newValue) {
       if (oldValue === newValue) return;
-      if (name === "text") this._value = String(newValue || "").replace(/\r\n?/g, "\n");
+      if (name === "text") { this._lines = null; this._value = String(newValue || "").replace(/\r\n?/g, "\n"); }
       this._renderText();
     }
 
@@ -68,7 +82,19 @@
       if (!this._content) return;
       // A trailing newline needs a zero-width character to retain its final
       // empty line in browser layout. .value remains the original plain text.
-      this._content.textContent = this.value + (this.value.endsWith("\n") ? "\u200b" : "");
+      this._content.replaceChildren();
+      if (this._lines) {
+        this._lines.forEach((line, index) => {
+          const element = document.createElement("div");
+          element.className = "smd-big-text-line";
+          element.textContent = line.text + (line.text.endsWith("\n") ? "\u200b" : "");
+          element.style.fontSize = line.scale + "em";
+          element.style.fontWeight = line.weight;
+          element.style.fontStyle = line.style;
+          element.style.marginTop = (index ? line.gap : 0) + "em";
+          this._content.appendChild(element);
+        });
+      } else this._content.textContent = this.value + (this.value.endsWith("\n") ? "\u200b" : "");
       this._content.style.fontFamily = this.getAttribute("font-family") || "inherit";
       this._content.style.fontWeight = this.getAttribute("font-weight") || "400";
       this._scheduleFit();
@@ -88,17 +114,30 @@
       if (!width || !height) return; // Refit when an initially hidden panel opens.
       const content = this._content;
       const bounds = this._viewport.getBoundingClientRect();
-      const range = document.createRange();
-      range.selectNodeContents(content);
+      // Whole-node ranges include invisible hanging wrap spaces. Their bounds
+      // vary non-monotonically at word-wrap points and can shrink text far too
+      // much. Measure actual words; scroll dimensions still count blank lines.
+      const ranges = [];
+      const walker = document.createTreeWalker(content, NodeFilter.SHOW_TEXT);
+      while (walker.nextNode()) {
+        const node = walker.currentNode;
+        for (const word of node.textContent.matchAll(/\S+/gu)) {
+          const range = document.createRange();
+          range.setStart(node, word.index);
+          range.setEnd(node, word.index + word[0].length);
+          ranges.push(range);
+        }
+      }
       const fits = size => {
         content.style.fontSize = size + "px";
-        const glyphs = range.getBoundingClientRect();
-        return content.scrollWidth <= width && content.scrollHeight <= height &&
-          glyphs.left >= bounds.left && glyphs.right <= bounds.right &&
-          glyphs.top >= bounds.top && glyphs.bottom <= bounds.bottom;
+        return content.scrollWidth <= width && content.scrollHeight <= height && ranges.every(range => {
+          const glyphs = range.getBoundingClientRect();
+          return glyphs.left >= bounds.left && glyphs.right <= bounds.right &&
+            glyphs.top >= bounds.top && glyphs.bottom <= bounds.bottom;
+        });
       };
       let low = 0;
-      let high = height; // One line is already taller than this at line-height 1.15.
+      let high = height / Math.min(1, ...(this._lines || []).map(line => line.scale));
       for (let i = 0; i < 18 && high - low > 0.05; i++) {
         const mid = (low + high) / 2;
         if (fits(mid)) low = mid;
