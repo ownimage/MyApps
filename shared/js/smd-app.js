@@ -373,12 +373,24 @@ let _smdSettingsSections = null;
 let _smdSettingsFooterHtml = null;
 let _smdSettingsCloseTimer = null;
 
+// Keep the shared diagnostic as the last row of every Display settings tab.
+function smdAddScreenResolutionRow(root) {
+  const display = root.querySelector('.smd-settings-tab[data-tab="Display"]');
+  if (!display || display.querySelector('#screenResolution')) return;
+  display.insertAdjacentHTML("beforeend",
+    '<div class="row mb-4 align-items-center col-md-8">' +
+      '<div class="col-4 text-end"><label class="form-label mb-0">Screen resolution</label></div>' +
+      '<div class="col-8"><span id="screenResolution" class="form-control-plaintext"></span></div>' +
+    '</div>');
+}
+
 // Parse #settingsTemplate ONCE into { sections, footerHtml } (buildNumber stamped).
 function smdGetSettingsSections() {
   if (_smdSettingsSections) return { sections: _smdSettingsSections, footerHtml: _smdSettingsFooterHtml };
   const template = document.getElementById("settingsTemplate");
   if (!template) return { sections: [], footerHtml: "" };
   const clone = template.content.cloneNode(true);
+  smdAddScreenResolutionRow(clone);
   _smdSettingsSections = Array.from(clone.querySelectorAll(".smd-settings-tab")).map(sec => ({
     id: sec.dataset.tabId || null,
     title: sec.dataset.tab,
@@ -404,6 +416,7 @@ function smdBuildSettingsPage(extraStyles) {
   settingsPage.buttons = [{ text: "OK", variant: "success", action: "done" }];
   const tabsEl = $id("settingsTabs");
   if (tabsEl) { tabsEl.tabs = sections; tabsEl.bottomline = true; }
+  if (typeof updateScreenResolution === "function") updateScreenResolution();
   injectSettingsStyles();
   if (extraStyles) injectStyleInto(extraStyles);
 }

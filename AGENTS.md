@@ -10584,3 +10584,11 @@ The latest-readings tab is Now (internal power ID retained). Both charts join po
 
 ### 2026-11-13 - Now-only responsive tiles
 - topTiles is created in the Now (power) panel by MAIN_TAB_DEFS, outside the tab-power table render target so refresh preserves it. The component keeps three equal grid columns at every width; tile container units scale date/time/battery/labels to fit. Do not restore the old mobile stacking breakpoint. User will run regression tests; only JS syntax checks performed.
+
+
+### 2026-11-13 - Screen resolution in every Display tab
+- shared/js/smd-app.js smdAddScreenResolutionRow adds the standard final Display row when absent; smdBuildSettingsPage fills it after mounting tabs. SolarControlar/js/settings-tab.js uses the same helper and updater in its separate builder. PlanMyDay keeps its existing row without duplication. shared/js/smd-settings.js owns formatting and the resize listener. Syntax checked; user will run regressions.
+
+
+### 2026-11-13 - Solar main tabs narrow layout
+- SolarControlar/index.html mainTabs uses the shared narrow attribute alongside wrap and small padding. No custom tab styling. Markup verified; no regression tests run at user request.

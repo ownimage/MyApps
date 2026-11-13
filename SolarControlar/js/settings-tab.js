@@ -44,6 +44,7 @@ function getSettingsSections() {
   var template = document.getElementById("settingsTemplate");
   if (!template) return { sections: [], footerHtml: "" };
   var clone = template.content.cloneNode(true);
+  smdAddScreenResolutionRow(clone);
   _settingsSections = Array.from(clone.querySelectorAll(".smd-settings-tab")).map(function (sec) {
     return {
       id: sec.dataset.tabId || null,
@@ -76,6 +77,7 @@ function buildSettingsContent() {
     tabsEl.tabs = sections;
     tabsEl.bottomline = true;
   }
+  if (typeof updateScreenResolution === "function") updateScreenResolution();
   injectSettingsStyles();
 }
 
