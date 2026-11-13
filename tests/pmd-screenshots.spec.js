@@ -766,6 +766,8 @@ test.describe('Solar dashboard appearance screenshots', () => {
         expect(await page.evaluate(inspectContrast)).toEqual([]);
         await page.screenshot({ path: test.info().outputPath('solar-'+mode+'-'+tab+'.png'), fullPage:true });
         if(tab==='kWh') {
+          await expect(page.locator('.energy-series[value="usage"]')).toHaveText('Home');
+          expect(await page.evaluate(()=>_energyChart.data.datasets[4].label)).toBe('Home');
           const {pickOption}=require('./theme-controls');
           for(const period of ['month','year']) {
             await pickOption(page,'#energy-period',period);

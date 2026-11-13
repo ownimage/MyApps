@@ -7,7 +7,7 @@ var ENERGY_SERIES = {
   grid_export: {label: 'Grid Export', color: '--solar-series-battery'},
   ac_charge: {label: 'AC Charge', color: '--solar-series-battery-level'},
   solar: {label: 'Solar', color: '--solar-series-solar'},
-  usage: {label: 'Usage', color: '--solar-series-home'}
+  usage: {label: 'Home', color: '--solar-series-home'}
 };
 var SOLAR_MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 function energyCalendarAxis(period, value) {

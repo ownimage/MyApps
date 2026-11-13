@@ -181,21 +181,20 @@ test.describe("Gantt page", () => {
     await expect(page.getByRole("button", { name: /^Streams/ })).toHaveAttribute("aria-expanded", "true");
   });
 
-  test("Show Gantt is the last setting on the General tab and defaults to off", async ({ page }) => {
+  test("General keeps Show Gantt before Show quote, both defaulting off", async ({ page }) => {
     await page.goto("/PlanMyDay/");
     await page.locator("#btnMainMenu").click();
     await page.locator("a.dropdown-item").filter({ hasText: "Settings" }).click();
     await page.locator("#general-tab").click();
 
     await expect(page.locator("#showGantt")).not.toBeChecked();
-    // Since 2026-10-31 Show Gantt is the LAST app setting on the GENERAL tab
-    // (it moved off Display, after Auto Ad Hoc); it stays the final row.
+    await expect(page.locator("#showQuote")).not.toBeChecked();
+    // Show quote now follows Show Gantt; keep their explicit General order.
     const order = await page.evaluate(() => {
       const panel = document.getElementById("general-tab-panel") || document.getElementById("splitList").closest(".smd-tab-panel");
       return Array.from(panel.querySelectorAll("label")).map((l) => l.textContent.trim()).filter(Boolean);
     });
-    expect(order[order.length - 1]).toEqual("Show Gantt");
-    expect(order.slice(-2)).toEqual(["Auto Ad Hoc", "Show Gantt"]);
+    expect(order.slice(-3)).toEqual(["Auto Ad Hoc", "Show Gantt", "Show quote"]);
   });
 
   test("the Gantt menu item is hidden until the setting is on, and persists", async ({ page }) => {

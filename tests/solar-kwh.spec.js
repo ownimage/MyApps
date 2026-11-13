@@ -23,6 +23,8 @@ test('KWh fetches only selected periods and toggles all five series locally',asy
   await expect(page.locator('#energy-period')).toHaveJSProperty('tagName','SMD-SELECT');
   await expect(page.locator('#energy-value')).toHaveJSProperty('tagName','SMD-SELECT');
   await expect(page.locator('.energy-series')).toHaveCount(5);
+  await expect(page.locator('.energy-series[value="usage"]')).toHaveText('Home');
+  await expect.poll(()=>page.evaluate(()=>_energyChart.data.datasets.map(dataset=>dataset.label))).toEqual(['Grid Import','Grid Export','AC Charge','Solar','Home']);
   for(let i=0;i<5;i++){
     const cb=page.locator('.energy-series').nth(i);await cb.uncheck();
     await expect.poll(()=>page.evaluate(i=>_energyChart.isDatasetVisible(i),i)).toBe(false);
