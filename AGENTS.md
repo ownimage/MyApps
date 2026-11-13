@@ -10592,3 +10592,33 @@ The latest-readings tab is Now (internal power ID retained). Both charts join po
 
 ### 2026-11-13 - Solar main tabs narrow layout
 - SolarControlar/index.html mainTabs uses the shared narrow attribute alongside wrap and small padding. No custom tab styling. Markup verified; no regression tests run at user request.
+
+
+### 2026-11-13 - BigText and shared fitted text
+- BigText/ is a static shared-shell app registered in shared/js/smd-apps.js and sw.js. It starts with a multiline editor; OK saves bigtext_text and displays it; hamburger Edit text restores the editor. Display includes theme/mode, UI font size, 15 large-text fonts and the shared Screen resolution row. bigtext_textFont persists separately. Uses vendored shared/css/fonts/fonts.css families plus standard Arial/Georgia/Times/monospace; no new remote font dependencies.
+- shared/js/components/smd-big-text.js provides <smd-big-text>: set .value or text attribute, font-family/font-weight attributes, and an explicit available height. .fit() is public. Optional --smd-big-text-padding supplies an inset. It preserves newlines/whole words, wraps at normal break opportunities and binary-searches the largest fitting font. Measure both scroll dimensions AND Range glyph bounds: line-box height alone clips Inter descenders at large sizes. Uses connectedCallback for light DOM, ResizeObserver for container visibility/resize, and font-loading/viewport events; observers are disconnected on removal. No app storage inside the component. Storybook includes a resizable editable demo.
+- Offline shell/icons/shared component and Launch sample image are registered. Updated existing Launch registry expectations; no new regression tests and no regression runs per user preference. One-off browser previews covered 1280x800/390x844, fitting, literal markup as plain text, font change, edit/reload persistence and Storybook; no browser errors/failed requests. Syntax and scoped git diff --check passed. Preview scripts/screenshots are in the Codex chat workspace work/ directory, not in the repo.
+
+
+### 2026-11-13 - Vendored Atkinson default for BigText
+- BigText defaults to Atkinson Hyperlegible Next (atkinson key); explicitly saved font selections still win. Font picker now has 16 choices; Storybook big-text demo uses Atkinson too. Shared fonts.css declares normal/italic variable weights 200-800. Unmodified TTFs, OFL license and source/checksum record live under shared/css/fonts/AtkinsonHyperlegibleNext-*. Source is googlefonts/atkinson-hyperlegible-next pinned at 7925f50f649b3813257faf2f4c0b381011f434f1. All four assets are precached in sw.js. Browser preview confirmed local normal font loaded, default/settings selection, phone fitting and no browser errors. No regressions run per user preference.
+
+
+### 2026-11-13 - BigText toolbar edit action
+- BigText Edit Text is a shared primary smd-button (#editBigTextButton) in #mainNav with ms-auto to align right, after the dynamically inserted title. Removed its hamburger entry. BigText update modal primary label is Update (action stays update). No regression tests run per user preference.
+
+
+### 2026-11-13 - BigText auto-hide menu
+- Display places the standard autoHideMenu smd-checkbox immediately after Font size; shared changeAutoHideMenu and smdSetupSettingsPage own behavior, persistence and restoring the switch. No app-specific auto-hide implementation. No regression tests run per user preference.
+
+
+### 2026-11-13 - BigText edit page
+- Toolbar Edit Text opens textEditPage (shared smd-page), title Text, centered editBigTextInput textarea, Cancel/OK footer buttons. Editing is a draft; Cancel only hides the page, OK validates then calls commitBigText to update display, main editor and storage. Both buttons use close:false so invalid blank text keeps the page open. Initial main-page editor remains. JS syntax and scoped diff checks passed; no regression tests run per user preference.
+
+
+### 2026-11-13 - BigText toolbar button size
+- editBigTextButton uses the shared smd-button size="small" option, retaining primary variant and right alignment. No regression tests run per user preference.
+
+
+### 2026-11-13 - BigText display-only startup
+- BigText starts with Hello, World! on every launch via the component text attribute. Removed the main-page editor/form, its submit path/styles, and saved-text restoration/writes. Only toolbar Edit Text opens the Text smd-page; it edits the current displayed value. Font and appearance preferences remain persisted. Syntax and scoped diff checks passed; no regression tests run per user preference.

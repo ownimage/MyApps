@@ -31,6 +31,7 @@
     { name: "Storyboard", description: "Place stickers and text anywhere on a storyboard", path: "Storyboard/", icon: "Storyboard" },
     { name: "Clock", description: "A simple flip-style clock", path: "Clock/", icon: "Clock" },
     { name: "SlideShow", description: "Play a slideshow from your OneDrive images", path: "SlideShow/", icon: "SlideShow" },
+    { name: "BigText", description: "Display your text as large as possible", path: "BigText/", icon: "BigText" },
     { name: "Launch", description: "Open the app launcher", path: "", icon: "Launch", navTitle: "My Apps" }
   ];
 
