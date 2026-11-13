@@ -755,6 +755,8 @@ test.describe('Solar dashboard appearance screenshots', () => {
       await theme(page, process.env.SCREENSHOT_THEME || 'superhero', mode);
       for (const tab of ['Now','Settings','Files','Config','Forecast','Power','kWh']) {
         await page.locator('#mainTabs .smd-tab-btn').filter({hasText:new RegExp('^'+tab+'$')}).click();
+        if(tab==='Now') await expect(page.locator('#topTiles')).toBeVisible();
+        else await expect(page.locator('#topTiles')).toBeHidden();
         if(tab==='Power'||tab==='kWh') await expect.poll(()=>page.evaluate(tab=>{
           const chart=tab==='Power'?window._powerChart:window._energyChart;
           if(!chart)return false;
@@ -787,6 +789,12 @@ test.describe('Solar dashboard appearance screenshots', () => {
       await page.locator('#mainTabs .smd-tab-btn').filter({hasText:'Now'}).click();
       await page.screenshot({ path:test.info().outputPath('solar-'+mode+'-mobile.png'),fullPage:true });
       await page.setViewportSize({width:1280,height:900});
+      await page.evaluate(()=>openSettings());
+      await page.locator('#settingsTabs').getByRole('tab',{name:'Display',exact:true}).click();
+      await expect(page.locator('#screenResolution')).toHaveText('1280 × 900 (1x)');
+      await page.screenshot({path:test.info().outputPath('solar-'+mode+'-display-settings.png'),fullPage:true});
+      await page.evaluate(()=>closeSettings());
+      await expect(page.locator('#settingsPage')).toBeHidden();
     }
   });
 });
@@ -808,6 +816,7 @@ test.describe('SlideShow screenshots', () => {
     await page.evaluate(()=>openSettings());
     await page.locator('#playSlides button').click();
     await expect(page.locator('#useSlideFolder button')).toBeEnabled();
+    await expect(page.locator('#useSlideFolder button')).toHaveText('Play');
     await capture(page,'folders.png');
     await page.evaluate(() => ssCloseFolders());
     await page.evaluate(() => openSettings());

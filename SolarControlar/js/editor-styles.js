@@ -1,5 +1,8 @@
 var MAIN_TAB_STYLES = `
   #mainTabs .smd-tab-panel { background-color: var(--bs-body-bg); color: var(--solar-ink, var(--bs-body-color)); --bs-body-color: var(--solar-ink); --bs-body-color-rgb: var(--solar-ink-rgb); }
+  /* Keep translucent cards over the same page surface as shared cards. */
+  #mainTabs #power-panel { background-color: transparent; }
+  #tab-power { background-color: var(--bs-body-bg); }
   #topTiles .tile { color: var(--solar-card-ink, var(--solar-ink)); }
   #topTiles { --bs-body-color: var(--solar-card-ink, var(--solar-ink)); --bs-body-color-rgb: var(--solar-card-ink-rgb, var(--solar-ink-rgb)); }
   #mainTabs .power-table { --bs-table-color: var(--solar-ink); --bs-table-striped-color: var(--solar-ink); --bs-table-hover-color: var(--solar-ink); }

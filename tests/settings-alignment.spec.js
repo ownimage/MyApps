@@ -1,8 +1,17 @@
 const { test, expect } = require("@playwright/test");
+const { mockFlaskApi } = require("./solar-fixtures");
 const { startCoverage, stopCoverage } = require("./coverage");
 
+// These are settings tests, not cache tests: a worker installed by an earlier
+// app in the multi-app test would bypass the later Solar route mocks.
+test.use({ serviceWorkers: "block" });
+
 // Coverage hooks (top-level so every test in this spec is captured).
-test.beforeEach(async ({ page }) => { await startCoverage(page); });
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => { delete Object.getPrototypeOf(navigator).serviceWorker; });
+  await mockFlaskApi(page);
+  await startCoverage(page);
+});
 test.afterEach(async ({ page }) => { await stopCoverage(page); });
 
 // The settings pages put the grid column on the <smd-theme> HOST (`col-md-8`)
@@ -142,7 +151,7 @@ test.describe("Settings theme control alignment", () => {
 //   * the Display tab holds the appearance rows in a fixed order:
 //       Theme, Theme Mode, Font size, Icon size [where the app renders images],
 //       Tile density [where supported], Touch size, Slide speed, Auto-hide menu,
-//     followed by any app-specific extras (Screen resolution).
+//     followed by app-specific extras, then Screen resolution in every app.
 //   * PlanMyDay's Auto-hide menu was moved to just ABOVE Slide speed on Display
 //     (2026-10-31), and its Show Gantt sits at the end of the General tab.
 // The row labels are read from the DOM so the markup is validated, not a copy of
@@ -160,33 +169,8 @@ test.describe("Settings theme control alignment", () => {
 // (Clear *) = danger, bulk maintenance (Regenerate/Sort) = warning, everything
 // else = secondary (loaders are NOT success - user decision).
 // ---------------------------------------------------------------------------
-async function dismissStartupModal(page) {
-  // SolarControlar shows a server error here (its Flask API is not mocked in this
-  // spec), and the overlay would intercept the tab click.
-  const dismissed = await page.evaluate(() => {
-    const modal = document.getElementById("smdConfirmModal");
-    if (!modal || !modal.hasAttribute("open")) return false;
-    const btn = modal.querySelector(".smd-footer button");
-    if (btn) btn.click();
-    return true;
-  });
-  if (dismissed) await expect(page.locator("#smdConfirmModal")).not.toHaveAttribute("open", "");
-}
-
-// That startup modal appears ASYNCHRONOUSLY (the API 404 resolves after boot), so
-// dismissing once can still race it. Dismiss-then-click with a short timeout and
-// retry: the overlay either clears or the next attempt waits on the real thing.
 async function openDangerTab(page) {
-  const tab = page.locator("#settingsPage .smd-tab-btn").filter({ hasText: "Danger" });
-  for (let attempt = 0; attempt < 4; attempt++) {
-    await dismissStartupModal(page);
-    try {
-      await tab.click({ timeout: 2500 });
-      return;
-    } catch (e) {
-      if (attempt === 3) throw e;
-    }
-  }
+  await page.locator("#settingsPage .smd-tab-btn").filter({ hasText: "Danger" }).click();
 }
 
 test.describe("Danger tab shape is consistent across apps", () => {
@@ -247,7 +231,6 @@ test.describe("Danger tab shape is consistent across apps", () => {
     test(`${spec.app}: Danger rows are ordered, grouped and coloured consistently`, async ({ page }) => {
       await page.goto(spec.path);
       await page.evaluate(() => openSettings());
-      await dismissStartupModal(page);
       await openDangerTab(page);
       await page.locator("#showDanger").check();
       await expect(page.locator("#settingsTabs > .smd-tab-panel.active")).toHaveCount(1);
@@ -354,11 +337,11 @@ test.describe("Settings page shape is consistent across apps", () => {
   const LAYOUT = [
     {
       app: "Launch", path: "/", tabs: ["Display", "Menu", "Danger"],
-      display: ["Theme", "Theme Mode", "Font size", "Icon size", "Touch size", "Slide speed", "Auto-hide menu"],
+      display: ["Theme", "Theme Mode", "Font size", "Icon size", "Touch size", "Slide speed", "Auto-hide menu", "Screen resolution"],
     },
     {
       app: "Clock", path: "/Clock/", tabs: ["General", "Display", "Alarm", "Credits", "Danger"],
-      display: ["Theme", "Theme Mode", "Font size", "Auto-hide menu"],
+      display: ["Theme", "Theme Mode", "Font size", "Auto-hide menu", "Screen resolution"],
       general: ["Time format", "Show seconds", "Show date", "Clock colour", "Brightness", "Outer glow", "Black background", "Clock font", "Text font", "Show details", "Colon"],
     },
     {
@@ -371,22 +354,22 @@ test.describe("Settings page shape is consistent across apps", () => {
     {
       app: "CountMyDays", path: "/CountMyDays/", tabs: ["General", "Display", "G Cal", "FileSync", "Danger"],
       display: ["Theme", "Theme Mode", "Font size", "Icon size", "Touch size", "Tile density", "Slide speed",
-        "Auto-hide menu"],
+        "Auto-hide menu", "Screen resolution"],
     },
     {
       app: "QRLinks", path: "/QRLinks/", tabs: ["Display", "Danger"],
       display: ["Theme", "Theme Mode", "Font size", "Icon size", "Touch size", "Tile density", "Slide speed",
-        "Auto-hide menu"],
+        "Auto-hide menu", "Screen resolution"],
     },
     {
       app: "SolarControlar", path: "/SolarControlar/", tabs: ["General", "Display", "Danger"],
       // no Icon size / Tile density: this app renders no <smd-image> and has no
       // density-aware surfaces, so those controls are deliberately absent.
-      display: ["Theme", "Theme Mode", "Font size", "Touch size", "Slide speed", "Auto-hide menu"],
+      display: ["Theme", "Theme Mode", "Font size", "Touch size", "Slide speed", "Auto-hide menu", "Screen resolution"],
     },
     {
       app: "FreeFormOX", path: "/FreeFormOX/", tabs: ["Display", "Game", "Danger"],
-      display: ["Theme", "Theme Mode", "Font size", "Touch size", "Slide speed", "Auto-hide menu"],
+      display: ["Theme", "Theme Mode", "Font size", "Touch size", "Slide speed", "Auto-hide menu", "Screen resolution"],
     },
     {
       app: "ListOfLists", path: "/ListOfLists/", tabs: ["Display", "FileSync", "Danger"],
@@ -395,26 +378,24 @@ test.describe("Settings page shape is consistent across apps", () => {
     },
     {
       app: "MyHID", path: "/MyHID/", tabs: ["Display", "Server", "Danger"],
-      display: ["Theme", "Theme Mode", "Font size", "Icon size", "Touch size", "Slide speed", "Auto-hide menu"],
+      display: ["Theme", "Theme Mode", "Font size", "Icon size", "Touch size", "Slide speed", "Auto-hide menu", "Screen resolution"],
     },
   ];
+
+  LAYOUT.push(
+    { app: "Storyboard", path: "/Storyboard/", tabs: ["Display", "FileSync"],
+      display: ["Theme", "Theme Mode", "Font size", "Touch size", "Slide speed", "Auto-hide menu", "Screen resolution"] },
+    { app: "SlideShow", path: "/SlideShow/", tabs: ["Slideshow", "Display", "Source", "Danger"],
+      display: ["Theme", "Theme Mode", "Font size", "Screen resolution"] },
+    { app: "BigText", path: "/BigText/", tabs: ["Display", "Danger"],
+      display: ["Theme", "Theme Mode", "Font size", "Auto-hide menu", "Text font", "Screen resolution"] }
+  );
 
   for (const spec of LAYOUT) {
     test(`${spec.app}: tabs and Display rows follow the shared order`, async ({ page }) => {
       await page.goto(spec.path);
       await page.evaluate(() => openSettings());
       await expect(page.locator("#settingsPage")).toHaveAttribute("open", "");
-      // Some apps show a startup modal in the test environment (SolarControlar's
-      // Flask API is not mocked in THIS spec). Dismiss it - it is unrelated to
-      // the Settings page under test - or it intercepts the tab click.
-      const dismissed = await page.evaluate(() => {
-        const modal = document.getElementById("smdConfirmModal");
-        if (!modal || !modal.hasAttribute("open")) return false;
-        const btn = modal.querySelector(".smd-footer button");
-        if (btn) btn.click();
-        return true;
-      });
-      if (dismissed) await expect(page.locator("#smdConfirmModal")).not.toHaveAttribute("open", "");
       // Exact list, in order: also proves no tab was left empty (an empty tab
       // must be removed, not kept with a blank panel).
       await expect(page.locator("#settingsTabs > .smd-tab-list .smd-tab-btn")).toHaveText(spec.tabs);
@@ -428,6 +409,12 @@ test.describe("Settings page shape is consistent across apps", () => {
           .filter(Boolean);
       });
       expect(labels).toEqual(spec.display);
+      const resolution = page.locator("#settingsPage #screenResolution");
+      await expect(resolution).toHaveCount(1);
+      const expectedResolution = () => page.evaluate(() => innerWidth + " × " + innerHeight + " (" + devicePixelRatio + "x)");
+      await expect(resolution).toHaveText(await expectedResolution());
+      await page.setViewportSize({width: 832, height: 688});
+      await expect(resolution).toHaveText(await expectedResolution());
 
       // An app may declare its General rows too (PlanMyDay moved Auto-hide menu
       // and Show Gantt there, so the exact General order must be pinned).

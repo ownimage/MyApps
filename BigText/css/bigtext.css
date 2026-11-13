@@ -1,0 +1,19 @@
+body#smd-app {
+  height: 100vh;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+#mainNav { flex: 0 0 auto; }
+#bigTextMain {
+  flex: 1 1 0;
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+  padding: 0.75rem max(0.75rem, env(safe-area-inset-right)) max(0.75rem, env(safe-area-inset-bottom)) max(0.75rem, env(safe-area-inset-left));
+}
+#bigTextDisplay { flex: 1 1 0; height: auto; outline-offset: -2px; }
+
+#textEditPage .smd-page-body { display: flex; align-items: center; min-height: 0; }
+#editBigTextInput { width: 100%; height: min(50dvh, 30rem); min-height: 6rem; max-height: 100%; resize: vertical; }

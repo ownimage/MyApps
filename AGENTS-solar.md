@@ -27,7 +27,7 @@ Consolidated from AGENTS.md and current source on 2026-11-11. Read AGENTS.md for
 - Contrast fixes are baked into per-theme mode CSS, never runtime measurement/repainting. Old --smd-on-* and --smd-*-text advice is obsolete. Use coherent foreground/background pairs. Generated blocks smd-contrast:start/end are maintained by tests/contrast-css.spec.js; regeneration sets SMD_CONTRAST_FIX=1 and runs the contrast project. Chart canvas needs concrete colors and must refresh after both theme and mode sheet loads.
 - Shared smd-select: assign .options/.value, never replace innerHTML after construction. Tests use pickOption from tests/theme-controls.js. Graph series/points use smd-checkbox, not native inputs.
 - Shared navbar spacing uses --smd-nav-content-gap. smd-app.js sets body.smd-wco from navigator.windowControlsOverlay.visible. smd-settings.js pins installed-app nav to env(titlebar-area-*) and reserves body inset. Auto-hide cannot hide an expanded dropdown. Test normal, fixed/auto-hide and WCO geometry; negative row gutters can pull cards into menu space.
-- All top cards must stretch to the tallest content without clipping, including enlarged fonts, compact density and mobile wrapping. Avoid h-100 percentage sizing in auto-height rows.
+- All top cards must stretch to the tallest content without clipping, including enlarged fonts, compact density and mobile scaling. Avoid h-100 percentage sizing in auto-height rows.
 
 ## Verification
 - tests/solarcontrolar-regression.spec.js stubs all Flask endpoints; never depend on live credentials/server. Coverage hooks must remain active.
@@ -35,7 +35,7 @@ Consolidated from AGENTS.md and current source on 2026-11-11. Read AGENTS.md for
 - Check JS syntax, git diff --check and precache entries. Inspect representative desktop/mobile screenshots. Desktop WCO is emulated through the same navigator API hook; a real installed app remains a useful final manual check.
 
 ## 2026-11-11 implementation and verified result
-- Component grid now equalizes all top tiles to the largest content and avoids negative gutters. It reserves title-bar/menu clearance and stacks below 992px for enlarged clocks. Compact, normal/jumbo fonts, 1280/800/390px and installed/browser states are covered.
+- Component grid now equalizes all top tiles to the largest content and avoids negative gutters. It reserves title-bar/menu clearance and keeps three equal columns with contents scaled to tile width. Compact, normal/jumbo fonts, 1280/800/390px and installed/browser states are covered.
 - Solar-only accessible content/card/clock/series tokens are baked into all 54 theme-mode sheets between solar-palette markers. Run node shared/generate-solar-palette.cjs with the test server running; optional SOLAR_PALETTE_BASE_URL changes its default localhost:8080. Generator uses an isolated theme document and is idempotent. No app runtime contrast normalizer exists.
 - Top tiles use the standard card smd-card surface (same background/gradient as PlanMyDay). Tab buttons must use unmodified shared smd-tabs styling; NEVER add Solar .smd-tab-btn overrides. Contrast adjustments are scoped to tab content and tile text/graphics. The clock and battery use static tokens matched to the card surfaces.
 - Graph resolves colors from tab-graph (where tab-panel Solar ink is inherited), updates axes/legend as well as datasets, and listens to all three theme links plus theme/mode attribute changes. Do not assume base CSS load also means mode CSS is ready.
@@ -108,3 +108,13 @@ Consolidated from AGENTS.md and current source on 2026-11-11. Read AGENTS.md for
 - 2026-11-11 scope clarification: scaling is web-only and anchored to the latest available value from each of the five series (not all historical points). Server projection experiments were reverted at user request. The user replaced minute_totals.json with actual server history; preserve it and do not regenerate the earlier synthetic fixture. Diagnostics confirmed missing initial grid/AC readings and small derived-Usage dips in the source history. No production data or deployed server was changed.
 
 - 2026-11-11: User authorized a server anomaly threshold. energy_data.py MAX_COUNTER_CHANGE_KWH=1000; only absolute adjacent valid counter changes strictly greater than 1000 kWh invalidate a series in Day/Month/Year. Exactly +/-1000 and small dips remain numeric; method compatibility and missing-value guards remain. Tests cover both directions and the exact boundary, plus Usage recovery after a 0.1 kWh dip. Tab display title is kWh (internal kwh ID unchanged). Deploy the updated server/src/energy_data.py to activate the threshold; Flask routes and metering/poller logic are unchanged.
+
+
+### 2026-11-13 - Now-only responsive tiles
+- topTiles is created in the Now (power) panel by MAIN_TAB_DEFS, outside the tab-power table render target so refresh preserves it. The component keeps three equal grid columns at every width; tile container units scale date/time/battery/labels to fit. Do not restore the old mobile stacking breakpoint. User will run regression tests; only JS syntax checks performed.
+
+
+### 2026-11-13 - Now tiles and installed-tab regression fixes
+- Keep #power-panel transparent so Quartz glass tiles composite over the same gradient as shared cards; #tab-power retains the table background. Contrast failures after moving the tiles into Now were real, not test flakes.
+- Shared WCO navbar padding/flex-wrap overrides must outrank Bootstrap shell utilities to prevent menu hitboxes covering the first tab. solar-appearance.spec.js verifies real tab clicks and single-row equal tiles at desktop/phone widths. Screenshot scene covers Now-only tiles and the populated Display resolution row.
+- Full affected specs passed twice without retries (308 executions), including all Solar themes, plus Superhero light/dark screenshots. See AGENTS.md and work/failure-audit-stability.log.

@@ -20,7 +20,7 @@
 // comparison. If the two ever DO drift, the page notices at runtime
 // (GET_BUILD) and re-registers, so the drift self-heals instead of pinning
 // users to a build the worker will never replace.
-const BUILD_NUMBER = "202611121817";
+const BUILD_NUMBER = "202611130812";
 
 const CACHE = "myapps-" + BUILD_NUMBER;
 
@@ -91,6 +91,7 @@ const TRANSPARENT_GIF_RESPONSE = new Response(TRANSPARENT_GIF, {
 
 // ---- Shared library assets (used by every app) ----
 const SHARED_ASSETS = [
+  "shared/js/components/smd-big-text.js",
   "shared/sampleImages.json",
   "onedrive-callback.html",
   "shared/css/styles.css",
@@ -242,6 +243,10 @@ const SHARED_ASSETS = [
   "shared/vendor/fontawesome/webfonts/fa-brands-400.woff2",
   "shared/vendor/fontawesome-icons.json",
   "shared/css/fonts/fonts.css",
+  "shared/css/fonts/AtkinsonHyperlegibleNext-Variable.ttf",
+  "shared/css/fonts/AtkinsonHyperlegibleNext-Italic-Variable.ttf",
+  "shared/css/fonts/AtkinsonHyperlegibleNext-OFL.txt",
+  "shared/css/fonts/AtkinsonHyperlegibleNext-SOURCE.md",
   "shared/css/fonts/4iCs6KVjbNBYlgoKcQ72j00.woff2",
   "shared/css/fonts/4iCs6KVjbNBYlgoKcg72j00.woff2",
   "shared/css/fonts/4iCs6KVjbNBYlgoKcw72j00.woff2",
@@ -426,6 +431,11 @@ const SHARED_ASSETS = [
 // ---- Per-app shells ----
 // Key = folder prefix (as it appears in URLs, relative to the repo root).
 const APPS = {
+  "BigText/": [
+    "BigText/", "BigText/index.html", "BigText/manifest.json",
+    "BigText/icon.svg", "BigText/icon-192.png", "BigText/icon-512.png",
+    "BigText/css/bigtext.css", "BigText/js/app.js"
+  ],
   "PlanMyDay/": [
     "PlanMyDay/",
     "PlanMyDay/index.html",

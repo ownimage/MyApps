@@ -1,3 +1,4 @@
+const { applyThemeAndWait } = require("./theme-controls");
 const { test, expect } = require("@playwright/test");
 
 test.describe("Clock - Regression", () => {
@@ -62,11 +63,8 @@ test.describe("Clock - Regression", () => {
 
   test("flip centre band matches the body background including pure black", async ({ page }, testInfo) => {
     for (const [theme, mode] of [["flatly", "light"], ["darkly", "dark"]]) {
-      await page.evaluate(({theme, mode}) => {
-        localStorage.setItem("clock_themeMode", mode);
-        applyTheme(theme);
-        changeClockGlow(0);
-      }, {theme, mode});
+      await applyThemeAndWait(page, theme, mode);
+      await page.evaluate(() => changeClockGlow(0));
       for (const black of [false, true]) {
         await page.evaluate(black => changeClockPureBlack(black), black);
           await expect.poll(() => page.evaluate(() => {

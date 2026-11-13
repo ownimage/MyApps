@@ -1,12 +1,4 @@
-async function theme(page, name, mode) {
-  await page.evaluate(async ({name,mode}) => {
-    const entries=['bootstrap-theme-css','theme-override-mode','theme-override-specific'].map(id=>{const l=document.getElementById(id);let done;const ready=new Promise((ok,bad)=>{done=ok;l.addEventListener('load',ok,{once:true});l.addEventListener('error',bad,{once:true});});return {l,href:l.href,done,ready};});
-    applyTheme(name,mode);
-    entries.forEach(e=>{if(e.href===e.l.href && e.l.sheet)e.done();});
-    await Promise.all(entries.map(e=>e.ready));
-    await new Promise(ok=>requestAnimationFrame(()=>requestAnimationFrame(ok)));
-  },{name,mode});
-}
+const { applyThemeAndWait: theme } = require("./theme-controls");
 // Compute actual alpha-composited surfaces, including Bootstrap's inset table
 // stripe/hover shadow. Canvas decodes CSS color(srgb) and color-mix results.
 function inspectContrast() {
