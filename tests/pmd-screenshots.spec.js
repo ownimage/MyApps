@@ -808,6 +808,7 @@ test.describe('SlideShow screenshots', () => {
     await page.evaluate(()=>openSettings());
     await page.locator('#playSlides button').click();
     await expect(page.locator('#useSlideFolder button')).toBeEnabled();
+    await expect(page.locator('#useSlideFolder button')).toHaveText('Play');
     await capture(page,'folders.png');
     await page.evaluate(() => ssCloseFolders());
     await page.evaluate(() => openSettings());

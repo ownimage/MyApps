@@ -135,9 +135,11 @@ test('Play opens OneDrive folder selection inside the top level folder',async({p
   await page.locator('#playSlides button').click();
   await expect(page.locator('#slideFolderPage')).toBeVisible();
   await expect(page.locator('#slideFolderPath')).toHaveText('Pictures');
+  await expect(page.locator('#useSlideFolder button')).toHaveText('Play');
   await expect(page.locator('#parentSlideFolder button')).toBeDisabled();
   await page.locator('#slideFolderList button').click();
   await expect(page.locator('#slideFolderPath')).toHaveText('Pictures/Holiday & friends');
+  await expect(page.locator('#useSlideFolder button')).toHaveText('Play');
   await expect(page.locator('#useSlideFolder button')).toBeEnabled();
   await page.locator('#useSlideFolder button').click();
   await expect(page.locator('#slideImage')).toHaveAttribute('alt','beach.webp');

@@ -206,7 +206,7 @@ function ssOpenFolders(options) {
     '<smd-button id="parentSlideFolder" variant="secondary" onclick="ssParentFolder()">Up one folder</smd-button>' +
     '<p id="slideFolderMessage" role="status" class="mb-0"></p><div id="slideFolderList" class="d-flex flex-column gap-2"></div></div>';
   page.buttons = [{ text: "Cancel", action: "cancel", variant: "secondary", close: false },
-    { text: ss.pickerPlay ? "Play this folder" : "Use this folder", action: "use", variant: "success", id: "useSlideFolder", disabled: true, close: false }];
+    { text: ss.pickerPlay ? "Play" : "Use this folder", action: "use", variant: "success", id: "useSlideFolder", disabled: true, close: false }];
   page.classList.remove("d-none");
   page.show();
   if (ss.pickerSource === "url") ssInitUrlBrowser();
@@ -491,7 +491,7 @@ async function ssBrowseUrl(node) {
     });
     $id("slideFolderMessage").textContent = count + " image" + (count === 1 ? "" : "s") + " in this folder" +
       (ssSetting("recursive", "false") === "true" ? ". Subfolders will also be included." : ".");
-    $id("useSlideFolder").querySelector("button").textContent = node.item.file ? "Play this image" : (ss.pickerPlay ? "Play this folder" : "Use this folder");
+    $id("useSlideFolder").querySelector("button").textContent = node.item.file ? "Play this image" : (ss.pickerPlay ? "Play" : "Use this folder");
     $id("useSlideFolder").toggleAttribute("disabled", false);
   } catch (err) {
     if (token === ss.browseSeq && ss.browsing) $id("slideFolderMessage").textContent = ssError(err);
