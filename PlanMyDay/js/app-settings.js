@@ -71,6 +71,7 @@ function openSettings() {
       document.getElementById("jobSearchEditor").classList.add("d-none");
     },
     restore: function () {
+      smdRestoreShowQuote();
       if (typeof loadFileSyncSettings === "function") loadFileSyncSettings();
 
       const splitList = localStorage.getItem(smdKey("splitList")) === "true";

@@ -10,6 +10,12 @@ function renderCountdowns() {
   if (!container) return;
   container.innerHTML = "";
 
+  if(localStorage.getItem(smdKey('showQuote'))==='true'){
+    const quote=document.createElement('smd-quote');
+    quote.id='mainQuoteCard';quote.className='d-block mb-2';container.appendChild(quote);
+  }
+
+
   const dates = loadDates();
   const categories = loadCategories();
 

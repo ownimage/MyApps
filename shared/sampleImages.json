@@ -1,5 +1,6 @@
 {
   "images": [
+    {"name":"Quote","data":"data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20128%20128%22%3E%3Crect%20width%3D%22128%22%20height%3D%22128%22%20rx%3D%2224%22%20fill%3D%22%231d3557%22%2F%3E%3Cpath%20fill%3D%22%23fff%22%20d%3D%22M25%2067c0-22%2011-35%2030-38v14c-11%203-16%2010-17%2019h18v35H25zm48%200c0-22%2011-35%2030-38v14c-11%203-16%2010-17%2019h18v35H73z%22%2F%3E%3C%2Fsvg%3E","lineColor":"#ffffff","fillColor":"#1d3557"},
     {
         "name": "BigText",
         "data": "data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20128%20128%22%3E%0A%20%20%3Crect%20width%3D%22128%22%20height%3D%22128%22%20rx%3D%2224%22%20fill%3D%22%231d3557%22%2F%3E%0A%20%20%3Cpath%20d%3D%22M22%2031h57v15H59v52H42V46H22z%22%20fill%3D%22%23fff%22%2F%3E%0A%20%20%3Cpath%20d%3D%22M76%2055h31v11H97v32H85V66h-9z%22%20fill%3D%22%23a8dadc%22%2F%3E%0A%3C%2Fsvg%3E%0A",

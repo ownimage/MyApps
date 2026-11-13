@@ -17,13 +17,15 @@ test.describe("Storybook - Regression", () => {
     page.on("requestfailed", (req) => failed.push(req.url()));
 
     await page.goto("/storybook/");
-    await expect(page.locator("nav.sb-nav a")).toHaveCount(34);
+    await expect(page.locator("nav.sb-nav a")).toHaveCount(35);
 
     // All sections are initialized synchronously; wait for actual font/network
     // readiness rather than an arbitrary delay before inspecting boot errors.
     await page.evaluate(() => document.fonts.ready);
     await expect(page.locator("#big-text-demo .smd-big-text-content")).toHaveText("Hello\nBigText");
 
+    await expect(page.locator("#smd-quote .smd-quote-text")).not.toHaveText("Loading quote…");
+    await expect(page.locator("#smd-quote .smd-quote-credit")).toContainText("Quote from ");
     expect(consoleErrors).toEqual([]);
     expect(pageErrors).toEqual([]);
     expect(failed).toEqual([]);
@@ -180,6 +182,7 @@ test.describe("Storybook - Regression", () => {
   });
 
   test("card viewer renders one card across every theme and both modes", async ({ page }) => {
+    test.setTimeout(60000); // Allow headroom for the 54 theme/mode combinations under parallel load.
     const consoleErrors = [];
     const pageErrors = [];
     const failed = [];
