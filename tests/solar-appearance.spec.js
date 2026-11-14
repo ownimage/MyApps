@@ -6,7 +6,7 @@ const THEMES = ['bootstrap','brite','cerulean','cosmo','cyborg','darkly','flatly
 const { theme, inspectContrast } = require("./solar-appearance-helpers");
 for(const name of THEMES) test('Solar appearance contrast '+name,async({page})=>{
   test.setTimeout(120000);await mockFlaskApi(page);await page.goto('/SolarControlar/',{waitUntil:'domcontentloaded'});
-  await expect(page.locator('#tab-power sc-diagram')).toBeVisible();await page.addStyleTag({content:'*, *::before, *::after { transition: none !important; }'});const failures=[];
+  await expect(page.locator('#tab-power solar-diagram')).toBeVisible();await page.addStyleTag({content:'*, *::before, *::after { transition: none !important; }'});const failures=[];
   for(const mode of ['light','dark']){
     await theme(page,name,mode);
     for(const tab of ['Now','Settings','Files','Config','Forecast','Power','kWh']){
@@ -94,7 +94,7 @@ for (const name of THEMES) test('Solar shared tabs and card palette '+name, asyn
   }
 });
 
-test('Solar Now tiles stay in one row and tabs remain clickable under the installed menu', async ({page}) => {
+test('Solar Now tiles follow orientation and tabs remain clickable under the installed menu', async ({page}) => {
   test.setTimeout(15000);
   await page.addInitScript(()=>Object.defineProperty(navigator,'windowControlsOverlay',{value:{visible:true,addEventListener(){}}}));
   await mockFlaskApi(page); await page.goto('/SolarControlar/',{waitUntil:'domcontentloaded'});
@@ -104,7 +104,7 @@ test('Solar Now tiles stay in one row and tabs remain clickable under the instal
     await page.getByRole('tab',{name:'Now',exact:true}).click();
     const cards=await page.locator('#topTiles .tile').evaluateAll(nodes=>nodes.map(el=>{const r=el.getBoundingClientRect();return {width:r.width,top:r.top};}));
     expect(Math.max(...cards.map(c=>c.width))-Math.min(...cards.map(c=>c.width))).toBeLessThan(1);
-    expect(new Set(cards.map(c=>Math.round(c.top))).size).toBe(1);
+    expect(new Set(cards.map(c=>Math.round(c.top))).size).toBe(width>900 ? 3 : 1);
     await page.getByRole('tab',{name:'Settings',exact:true}).click();
     await expect(page.locator('#topTiles')).toBeHidden();
     await page.evaluate(()=>scrollTo(0,document.body.scrollHeight));

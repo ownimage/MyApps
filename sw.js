@@ -533,8 +533,12 @@ const APPS = {
     "SolarControlar/js/forecast-tab.js",
     "SolarControlar/js/graph-tab.js",
     "SolarControlar/js/kwh-tab.js",
-    "SolarControlar/js/components/solar-top-tiles.js",
-    "SolarControlar/js/components/sc-diagram.js"
+    "SolarControlar/js/components/solar-tile.js",
+    "SolarControlar/js/components/solar-date-tile.js",
+    "SolarControlar/js/components/solar-time-tile.js",
+    "SolarControlar/js/components/solar-battery-tile.js",
+    "SolarControlar/js/components/solar-tiles.js",
+    "SolarControlar/js/components/solar-diagram.js"
   ],
   "MyHID/": [
     "MyHID/",

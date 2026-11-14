@@ -758,12 +758,20 @@ test.describe('Solar dashboard appearance screenshots', () => {
         await page.locator('#mainTabs .smd-tab-btn').filter({hasText:new RegExp('^'+tab+'$')}).click();
         if(tab==='Now') {
           await expect(page.locator('#topTiles')).toBeVisible();
-          await expect(page.locator('sc-diagram [data-node]')).toHaveCount(5);
-          await expect(page.locator('sc-diagram [data-node=inverter] .sc-diagram__status')).toHaveText('ok');
-          await expect(page.locator('sc-diagram [data-node=battery] .sc-diagram__label')).toHaveText('Battery');
-          await expect(page.locator('sc-diagram [data-node=battery] svg rect')).toHaveCount(1);
-          await expect(page.locator('sc-diagram [data-flow][data-direction=incoming]')).toHaveCount(3);
-          await expect(page.locator('sc-diagram [data-flow=home]')).toHaveAttribute('data-direction','outgoing');
+          await expect(page.locator('solar-diagram [data-node]')).toHaveCount(5);
+          await expect(page.locator('solar-diagram [data-node=inverter] .solar-diagram__status')).toHaveText('ok');
+          await expect(page.locator('solar-diagram [data-node=battery] .solar-diagram__label')).toHaveText('Battery');
+          await expect(page.locator('solar-diagram [data-node=battery] svg rect')).toHaveCount(1);
+          await expect(page.locator('solar-diagram [data-flow][data-direction=incoming]')).toHaveCount(3);
+          await expect(page.locator('solar-diagram [data-flow=home]')).toHaveAttribute('data-direction','outgoing');
+          const layout=await page.evaluate(()=>({
+            landscape:matchMedia('(orientation: landscape)').matches,
+            rows:new Set([...document.querySelectorAll('#topTiles .tile')].map(el=>Math.round(el.getBoundingClientRect().top))).size,
+            tiles:document.querySelector('#topTiles').getBoundingClientRect().right,
+            diagram:document.querySelector('solar-diagram').getBoundingClientRect().left
+          }));
+          expect(layout.rows).toBe(layout.landscape?3:1);
+          if(layout.landscape)expect(layout.tiles).toBeLessThanOrEqual(layout.diagram);
         }
         else await expect(page.locator('#topTiles')).toBeHidden();
         if(tab==='Power'||tab==='kWh') await expect.poll(()=>page.evaluate(tab=>{
@@ -798,7 +806,11 @@ test.describe('Solar dashboard appearance screenshots', () => {
       }
       await page.setViewportSize({width:390,height:900});
       await page.locator('#mainTabs .smd-tab-btn').filter({hasText:'Now'}).click();
+      expect(await page.locator('#topTiles .tile').evaluateAll(nodes=>new Set(nodes.map(el=>Math.round(el.getBoundingClientRect().top))).size)).toBe(1);
       await page.screenshot({ path:test.info().outputPath('solar-'+mode+'-mobile.png'),fullPage:true });
+      await page.setViewportSize({width:844,height:390});
+      expect(await page.locator('#topTiles .tile').evaluateAll(nodes=>new Set(nodes.map(el=>Math.round(el.getBoundingClientRect().top))).size)).toBe(3);
+      await page.screenshot({path:test.info().outputPath('solar-'+mode+'-mobile-landscape.png'),fullPage:true});
       await page.setViewportSize({width:1280,height:900});
       await page.evaluate(()=>openSettings());
       await page.locator('#settingsTabs').getByRole('tab',{name:'Display',exact:true}).click();

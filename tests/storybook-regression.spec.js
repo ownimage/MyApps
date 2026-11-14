@@ -17,7 +17,7 @@ test.describe("Storybook - Regression", () => {
     page.on("requestfailed", (req) => failed.push(req.url()));
 
     await page.goto("/storybook/");
-    await expect(page.locator("nav.sb-nav a")).toHaveCount(35);
+    await expect(page.locator("nav.sb-nav a")).toHaveCount(40);
 
     // All sections are initialized synchronously; wait for actual font/network
     // readiness rather than an arbitrary delay before inspecting boot errors.

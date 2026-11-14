@@ -6,10 +6,10 @@ function renderPowerTab() {
     container.innerHTML = '<p class="loading text-body fst-italic mb-0">Loading power data...</p>';
     return;
   }
-  var diagram = container.querySelector('sc-diagram');
+  var diagram = container.querySelector('solar-diagram');
   if (!diagram) {
     container.textContent = '';
-    diagram = document.createElement('sc-diagram');
+    diagram = document.createElement('solar-diagram');
     container.appendChild(diagram);
   }
   diagram.flows = _solarMainData;

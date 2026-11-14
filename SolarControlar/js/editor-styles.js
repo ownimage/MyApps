@@ -3,8 +3,12 @@ var MAIN_TAB_STYLES = `
   /* Keep translucent cards over the same page surface as shared cards. */
   #mainTabs #power-panel { background-color: transparent; }
   #tab-power { background-color: var(--bs-body-bg); }
-  #topTiles .tile { color: var(--solar-card-ink, var(--solar-ink)); }
-  #topTiles { --bs-body-color: var(--solar-card-ink, var(--solar-ink)); --bs-body-color-rgb: var(--solar-card-ink-rgb, var(--solar-ink-rgb)); }
+  #mainTabs .solar-now-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1rem; align-items: start; }
+  #mainTabs .solar-now-layout > * { min-width: 0; }
+  @media (orientation: landscape) {
+    #mainTabs .solar-now-layout { grid-template-columns: minmax(0, 1fr) minmax(0, 3fr); }
+    #mainTabs .solar-now-layout > solar-tiles { --solar-tiles-columns: 1; }
+  }
   #mainTabs .access-badge { background-image: none; opacity: 1; }
 
   .smd-tab-panel .log-output,
