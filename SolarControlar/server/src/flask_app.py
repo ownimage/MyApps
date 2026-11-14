@@ -11,13 +11,13 @@ logging.getLogger("werkzeug").setLevel(logging.CRITICAL)
 
 import subprocess
 import sys
-from datetime import datetime
-import pytz
+from pathlib import Path, PurePosixPath
+from html import escape
 from energy_data import energy_values, energy_plot
-from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
+from flask import Flask, request, redirect, url_for, flash, jsonify, send_from_directory, abort, make_response
 
 
-app = Flask(__name__, static_folder='static')
+app = Flask(__name__, static_folder=None)
 
 # ⭐ Tell Flask it lives under /solar
 app.config['APPLICATION_ROOT'] = '/solar'
@@ -216,35 +216,51 @@ def save_config(data):
     with open(CONFIG_FILE, "w") as f:
         json.dump(data, f, indent=4)
 
-def get_latest_power():
-    try:
-        if not os.path.exists(POWER_FILE):
-            return None, None, None
-        with open(POWER_FILE, "r") as f:
-            data = json.load(f)
-        latest_date = None
-        latest_time = None
-        latest_data = None
-        for date_key in sorted(data.keys(), reverse=True):
-            day_data = data[date_key]
-            if day_data:
-                latest_date = date_key
-                latest_time = list(day_data.keys())[-1]
-                latest_data = day_data[latest_time]
-                break
-        return latest_date, latest_time, latest_data
-    except Exception:
-        return None, None, None
+# One frontend source for MyApps and the Flask-hosted dashboard. Docker packages
+# only the public app/shared assets in /web; a source checkout uses the repo root.
+WEB_ROOT = Path(os.environ.get("SOLARCONTROLAR_WEB_ROOT", Path(__file__).resolve().parent.parent.parent.parent))
 
-def _render_index(forecast_output=None, forecast_status="not_run"):
+
+def _web_index():
+    source = (WEB_ROOT / "SolarControlar" / "index.html").read_text(encoding="utf-8")
+    base = escape(request.script_root, quote=True)
+    context = ('<base href="' + base + '/ui/SolarControlar/">'
+               '<meta name="solar-server-base" content="' + base + '">')
+    response = make_response(source.replace('<head>', '<head>' + context, 1))
+    response.headers['Cache-Control'] = 'no-cache'
+    return response
+
+
+@app.route("/ui/SolarControlar/")
+@app.route("/ui/SolarControlar/index.html")
+def web_index():
+    return _web_index()
+
+
+@app.route("/ui/<path:asset>")
+def web_asset(asset):
+    parts = PurePosixPath(asset).parts
+    # Do not expose the repository or server directory through a static catch-all.
+    if ".." in parts or "\\" in asset:
+        abort(404)
+    public = ((len(parts) > 2 and parts[:2] == ("SolarControlar", "js")) or
+              (len(parts) > 2 and parts[0] == "shared" and
+               parts[1] in ("js", "css", "vendor", "sampleImages")) or
+              asset in ("SolarControlar/manifest.json", "SolarControlar/icon.svg",
+                        "SolarControlar/icon-192.png", "SolarControlar/icon-512.png"))
+    if not public:
+        abort(404)
+    return send_from_directory(WEB_ROOT, asset)
+
+
+@app.route("/api/dashboard")
+def api_dashboard():
     settings = load_settings()
     config = load_config()
-    power_date, power_time, power_data = get_latest_power()
-    server_timestamp = datetime.now(pytz.timezone("Europe/London")).strftime("%Y-%m-%dT%H:%M:%S")
-    return render_template("index.html", settings=settings, fields=SETTINGS, config=config,
-                           power_date=power_date, power_time=power_time, power_data=power_data,
-                           server_timestamp=server_timestamp, forecast_output=forecast_output,
-                           forecast_status=forecast_status)
+    return jsonify({
+        "settings": [dict(field, value=settings.get(field["key"], "")) for field in SETTINGS],
+        "config": {"charge_to_percentage": config.get("charge_to_percentage", 50)}
+    })
 
 @app.route("/", methods=["GET", "POST"])
 def index():
@@ -272,7 +288,7 @@ def index():
             flash(f"Error saving settings: {str(e)}", "error")
         return redirect(url_for("index"))
 
-    return _render_index()
+    return _web_index()
 
 @app.route("/api/run_forecast", methods=["POST"])
 def run_forecast():
@@ -298,8 +314,6 @@ def run_forecast():
     except Exception as e:
         output = str(e)
         flash(f"Error running forecast pipeline: {e}", "error")
-    if "text/html" in request.headers.get("Accept", ""):
-        return _render_index(forecast_output=output, forecast_status="ran")
     return output
 
 @app.route("/api/config", methods=["POST"])

@@ -31,8 +31,9 @@ from src so sibling imports work. Dependencies are pinned in requirements.txt.
   never exercise these writes on live hardware as a test.
 - src/config_apply.py: every minute, applies config/settings to charge/discharge
   flags. This writes to real hardware; never run it as a development test.
-- src/flask_app.py with templates/ and static/: settings/control and monitoring
-  interface; supports a /solar reverse-proxy prefix and API consumers.
+- src/flask_app.py serves the monorepo SolarControlar/index.html and allowlisted
+  public assets, plus JSON /api/dashboard; supports /solar and forwarded prefixes.
+  The obsolete Flask template/static chart copies and root flask_app.py are removed.
 - src/common/json_store.py: JSON persistence; relative paths resolve from the
   process working directory. src/filenames.py centralises script filenames.
   settings.py and common/dateHelper.py handle settings and dates.

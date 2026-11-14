@@ -1,5 +1,4 @@
-// SolarControlar — Config tab: edit charge_to_percentage. Mirrors the Flask
-// app's "Config" tab.
+// SolarControlar - Config tab: edit charge_to_percentage from /api/dashboard.
 
 var _configData = null;
 
@@ -50,22 +49,9 @@ function renderConfigTab() {
 
 function loadConfigData() {
   if (_configData) return renderConfigTab();
-  var base = getFlaskUrl().replace(/\/+$/, "");
-  fetch(base + "/", solarApi._withAuth({ credentials: "same-origin" }))
-    .then(function (resp) {
-      if (!resp.ok) throw new Error("HTTP " + resp.status);
-      return resp.text();
-    })
-    .then(function (html) {
-      var doc = new DOMParser().parseFromString(html, "text/html");
-      var val = 50;
-      var hidden = doc.querySelector('#hidden-charge_to_percentage') ||
-                   doc.querySelector('input[name="charge_to_percentage"][type="hidden"]');
-      if (hidden && hidden.value !== "") {
-        var parsed = parseFloat(hidden.value);
-        if (!isNaN(parsed)) val = parsed;
-      }
-      _configData = { charge_to_percentage: val };
+  solarApi.getDashboard()
+    .then(function (data) {
+      _configData = data.config;
       renderConfigTab();
     })
     .catch(function () {

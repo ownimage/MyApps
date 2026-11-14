@@ -15,7 +15,7 @@ const prefix = !process.env.SOLARCONTROLAR_PYTHON && !fs.existsSync(localPython)
 
 test.describe('SolarControlar server (Python)', () => {
   test.setTimeout(120000);
-  for (const file of ['test_battery_flags.py', 'test_metering.py', 'test_kwh.py']) {
+  for (const file of ['test_battery_flags.py', 'test_metering.py', 'test_kwh.py', 'test_solar_web.py']) {
     test(file + ' passes', async ({}, testInfo) => {
       const cwd = testInfo.outputPath('python-work');
       fs.mkdirSync(cwd, { recursive: true });

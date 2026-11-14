@@ -37,30 +37,16 @@ async function mockFlaskApi(page) {
     route.fulfill({ contentType: "text/html", body: "mock forecast output" });
   });
 
-  // The main Settings tab fetches the server-rendered index page (GET /solar/)
-  // for the settings table + CSRF token, then POSTs back.
-  await page.route("**/solar/", (route) => {
-    if (route.request().method() === "POST") {
-      return route.fulfill({ contentType: "text/html", body: "<html>saved</html>" });
-    }
-    return route.fulfill({
-      contentType: "text/html",
-      body: '<html><body><form id="settingsForm" method="POST" action="/solar/">' +
-        '<input type="hidden" name="csrf_token" value="TESTCSRF">' +
-        '<table><tbody>' +
-          '<tr data-key="timezone" data-original="Europe/London"><td>Timezone</td>' +
-            '<td><input type="text" name="timezone" value="Europe/London" readonly></td>' +
-            '<td><span class="access-badge badge badge-ro">Read Only</span></td><td>timezone desc</td></tr>' +
-          '<tr data-key="tolerance_percent" data-original="0.5"><td>Tolerance (%)</td>' +
-            '<td><div><input type="range" id="slider-tolerance_percent" min="0" max="5" step="0.1" value="0.5"></div>' +
-            '<input type="hidden" name="tolerance_percent" id="hidden-tolerance_percent" value="0.5"></td>' +
-            '<td><span class="access-badge badge badge-rw">Read/Write</span></td><td>tolerance desc</td></tr>' +
-          '<tr data-key="start_discharge_target" data-original="90"><td>Start Discharge Target (%)</td>' +
-            '<td><input type="number" name="start_discharge_target" value="90" step="any"></td>' +
-            '<td><span class="access-badge badge badge-rw">Read/Write</span></td><td>discharge desc</td></tr>' +
-        '</tbody></table></form></body></html>'
-    });
-  });
+  await page.route("**/solar/api/dashboard", route => route.fulfill({json: {
+    csrf_token: "TESTCSRF",
+    config: {charge_to_percentage: 50},
+    settings: [
+      {key:"timezone", label:"Timezone", description:"timezone desc", value:"Europe/London", readonly:true},
+      {key:"tolerance_percent", label:"Tolerance (%)", description:"tolerance desc", value:0.5, readonly:false, slider:{min:0,max:5,step:0.1}},
+      {key:"start_discharge_target", label:"Start Discharge Target (%)", description:"discharge desc", value:90, readonly:false}
+    ]
+  }}));
+  await page.route("**/solar/", route => route.fulfill({contentType:"text/html",body:"saved"}));
 }
 
 module.exports = { mockFlaskApi };

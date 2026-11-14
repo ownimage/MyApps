@@ -38,7 +38,7 @@ function serverError(status, message, url, body) {
   if (status === 0) {
     message = message + networkDiagnostics(url) +
       " (The Flask server may be down or unreachable, CORS may be blocking the request," +
-      " or the Flask URL in app Settings may be wrong.)";
+      (isSolarServerMode() ? ".)" : " or the Flask URL in app Settings may be wrong.)");
   }
   var err = new Error(message);
   err.status = status;
@@ -100,6 +100,10 @@ var solarApi = {
       if (err && err.isApiError) throw err;
       throw serverError(0, (err && err.message) ? err.message : "Network error", url);
     });
+  },
+
+  getDashboard: function () {
+    return this._fetch("/api/dashboard", { credentials: "same-origin" }).then(function (r) { return r.json(); });
   },
 
   getPowerDates: function () {

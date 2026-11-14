@@ -927,3 +927,35 @@ test.describe('Shared quote card screenshots',()=>{
     }
   });
 });
+
+test('Solar Flask and MyApps menu and General screenshots', async ({page}) => {
+  test.setTimeout(90000);
+  const {startSolarWebServer} = require('./solar-web-fixture');
+  const {mockFlaskApi} = require('./solar-fixtures');
+  const {theme} = require('./solar-appearance-helpers');
+  const server = await startSolarWebServer();
+  try {
+    await mockFlaskApi(page);
+    for (const hosted of [false,true]) {
+      if (hosted) await page.unrouteAll({behavior:'wait'});
+      await page.goto(hosted ? server.url + '/solar/' : '/SolarControlar/', {waitUntil:'domcontentloaded'});
+      await expect(page.locator('#batteryPercent')).toHaveText('50%');
+      for (const mode of ['light','dark']) {
+        await theme(page, 'superhero', mode);
+        for (const width of [1280,390]) {
+          await page.setViewportSize({width,height:900});
+          await page.locator('#btnMainMenu').click();
+          await expect(page.locator('#mainNav > .dropdown > .dropdown-menu')).toBeVisible();
+          await expect(page.locator('.launch-submenu-toggle')).toHaveCount(hosted ? 0 : 1);
+          await page.screenshot({path:test.info().outputPath(`solar-${hosted?'flask':'myapps'}-${mode}-${width}-menu.png`)});
+          await page.locator('#mainNav > .dropdown > .dropdown-menu > li > a').filter({hasText:/^Settings$/}).click();
+          await expect(page.locator('#autoRefresh')).toBeVisible();
+          await expect(page.locator('#flaskUrlInput')).toHaveCount(hosted ? 0 : 1);
+          await page.screenshot({path:test.info().outputPath(`solar-${hosted?'flask':'myapps'}-${mode}-${width}-general.png`)});
+          await page.evaluate(() => closeSettings());
+          await expect(page.locator('#settingsPage')).toBeHidden();
+        }
+      }
+    }
+  } finally { await server.stop(); }
+});

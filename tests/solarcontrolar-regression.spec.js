@@ -231,21 +231,11 @@ test.describe("SolarControlar - Regression", () => {
       window.localStorage.setItem("solarcontrolar_flaskPass", "sekrit");
     });
     const headers = [];
-    await page.route("**/solar/", (route) => {
+    await page.route("**/solar/api/dashboard", (route) => {
       headers.push(route.request().headers()["authorization"] || null);
-      if (route.request().method() === "POST") {
-        return route.fulfill({ contentType: "text/html", body: "<html>saved</html>" });
-      }
-      return route.fulfill({
-        contentType: "text/html",
-        body: '<html><body><form id="settingsForm" method="POST" action="/solar/">' +
-          '<input type="hidden" name="csrf_token" value="TESTCSRF">' +
-          '<table><tbody>' +
-            '<tr data-key="timezone" data-original="Europe/London"><td>Timezone</td>' +
-              '<td><input type="text" name="timezone" value="Europe/London" readonly></td>' +
-              '<td><span class="access-badge badge-ro">Read Only</span></td><td>tz desc</td></tr>' +
-          '</tbody></table></form></body></html>'
-      });
+      return route.fulfill({json:{config:{charge_to_percentage:50},settings:[
+        {key:"timezone",label:"Timezone",value:"Europe/London",readonly:true,description:"tz desc"}
+      ]}});
     });
     await page.route("**/solar/api/power_data*", (route) => {
       const url = new URL(route.request().url());
