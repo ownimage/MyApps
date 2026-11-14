@@ -6,7 +6,7 @@ const THEMES = ['bootstrap','brite','cerulean','cosmo','cyborg','darkly','flatly
 const { theme, inspectContrast } = require("./solar-appearance-helpers");
 for(const name of THEMES) test('Solar appearance contrast '+name,async({page})=>{
   test.setTimeout(120000);await mockFlaskApi(page);await page.goto('/SolarControlar/',{waitUntil:'domcontentloaded'});
-  await expect(page.locator('#tab-power .power-table')).toBeVisible();await page.addStyleTag({content:'*, *::before, *::after { transition: none !important; }'});const failures=[];
+  await expect(page.locator('#tab-power sc-diagram')).toBeVisible();await page.addStyleTag({content:'*, *::before, *::after { transition: none !important; }'});const failures=[];
   for(const mode of ['light','dark']){
     await theme(page,name,mode);
     for(const tab of ['Now','Settings','Files','Config','Forecast','Power','kWh']){

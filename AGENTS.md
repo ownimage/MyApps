@@ -10649,3 +10649,9 @@ The latest-readings tab is Now (internal power ID retained). Both charts join po
 
 ### 2026-11-13 - Storybook card viewer timeout
 - The card viewer all-theme/all-mode regression has a per-test 60-second timeout. It takes about 26 seconds in isolation and can exceed the default 30 seconds with 32 workers. Assertions and global timeout remain unchanged. Syntax/diff checks only for this timeout adjustment.
+
+
+### 2026-11-14 - Solar Now diagram component
+- Now replaces the readings table with SolarControlar/js/components/sc-diagram.js. Reuse the existing component on refresh; .flows={solar,battery,grid,home} takes signed watts. Grid/battery/solar positive means toward inverter; home positive means away. Negative reverses, zero is idle, missing is unknown. Keep latest date/time/battery tiles outside tab-power.
+- Inline SVG icons and CSS chevrons use the existing Solar theme palette and reduced-motion fallback. New tests/sc-diagram.spec.js covers the component contract, live refresh and phone/desktop positions; solar-appearance-helpers.js now includes diagram graphical contrast. Existing screenshot scene asserts the five nodes and directions.
+- Verification: red confirmed against the table, then 74 affected checks passed across 27 themes/both modes. After phone text refinement, the 3 focused tests and Superhero light/dark screenshot scene passed; screenshots visually inspected. Blocked service-worker registration produces an unrelated updateViaCache pageerror unless the navigator serviceWorker API is also removed in pageerror-sensitive tests. Use that test isolation, not an application workaround. No full-repo suite run. Build bumped with npm run bump:build; unrelated staged backend assets preserved.

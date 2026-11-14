@@ -750,12 +750,18 @@ test.describe('Solar dashboard appearance screenshots', () => {
     await expect(page.locator('#topTiles .tile-label')).toHaveText(['Latest Date','Latest Time','Battery Charge']);
     await expect(page.locator('#topTiles .flap-card')).toHaveText(['0','8','0','0','0','0']);
     await page.evaluate(() => { Chart.defaults.animation = false; });
+    await page.emulateMedia({reducedMotion:'reduce'});
     await page.addStyleTag({content:'*, *::before, *::after { transition: none !important; }'});
     for (const mode of ['light','dark']) {
       await theme(page, process.env.SCREENSHOT_THEME || 'superhero', mode);
       for (const tab of ['Now','Settings','Files','Config','Forecast','Power','kWh']) {
         await page.locator('#mainTabs .smd-tab-btn').filter({hasText:new RegExp('^'+tab+'$')}).click();
-        if(tab==='Now') await expect(page.locator('#topTiles')).toBeVisible();
+        if(tab==='Now') {
+          await expect(page.locator('#topTiles')).toBeVisible();
+          await expect(page.locator('sc-diagram [data-node]')).toHaveCount(5);
+          await expect(page.locator('sc-diagram [data-flow][data-direction=incoming]')).toHaveCount(3);
+          await expect(page.locator('sc-diagram [data-flow=home]')).toHaveAttribute('data-direction','outgoing');
+        }
         else await expect(page.locator('#topTiles')).toBeHidden();
         if(tab==='Power'||tab==='kWh') await expect.poll(()=>page.evaluate(tab=>{
           const chart=tab==='Power'?window._powerChart:window._energyChart;

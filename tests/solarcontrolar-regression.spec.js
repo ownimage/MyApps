@@ -33,9 +33,9 @@ test.describe("SolarControlar - Regression", () => {
     await expect(page.locator("#topTiles")).toHaveAttribute("power-date", "2026-09-15");
     await expect(page.locator("#topTiles")).toHaveAttribute("battery-level", "50");
 
-    await expect(page.locator("#tab-power .power-table")).toBeVisible();
-    await expect(page.locator("#tab-power .power-table")).toContainText("Solar");
-    await expect(page.locator("#tab-power .power-table")).toContainText("300 W");
+    await expect(page.locator("#tab-power sc-diagram")).toBeVisible();
+    await expect(page.locator("#tab-power sc-diagram")).toContainText("Solar");
+    await expect(page.locator("#tab-power sc-diagram")).toContainText("300 W");
 
     // Main tabs present (shared smd-tabs component in its shadow root).
     const tabs = page.locator("#mainTabs .smd-tab-btn");
@@ -301,8 +301,8 @@ test('Solar latest date and time tiles stay at the Now reading until the next fe
   await expect(tiles).toHaveAttribute('power-date','2026-09-16');
   await expect(tiles.locator('#dateDay')).toHaveText('16');
   await expect(digits).toHaveText(['0','0','0','1','0','2']);
-  await expect(page.locator('#tab-power .power-table')).toContainText('00:01:02');
-  await expect(page.locator('#tab-power .power-table')).toContainText('2026-09-16');
+  await expect(page.locator('#tab-power sc-diagram [data-node=grid] .sc-diagram__value')).toHaveText('420 W');
+  await expect(page.locator('#tab-power sc-diagram [data-node=solar] .sc-diagram__value')).toHaveText('0 W');
   await page.clock.runFor(2500);
   await expect(digits).toHaveText(['0','0','0','1','0','2']);
 });

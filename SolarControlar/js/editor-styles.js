@@ -5,7 +5,6 @@ var MAIN_TAB_STYLES = `
   #tab-power { background-color: var(--bs-body-bg); }
   #topTiles .tile { color: var(--solar-card-ink, var(--solar-ink)); }
   #topTiles { --bs-body-color: var(--solar-card-ink, var(--solar-ink)); --bs-body-color-rgb: var(--solar-card-ink-rgb, var(--solar-ink-rgb)); }
-  #mainTabs .power-table { --bs-table-color: var(--solar-ink); --bs-table-striped-color: var(--solar-ink); --bs-table-hover-color: var(--solar-ink); }
   #mainTabs .access-badge { background-image: none; opacity: 1; }
 
   .smd-tab-panel .log-output,

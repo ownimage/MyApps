@@ -15,7 +15,7 @@ Consolidated from AGENTS.md and current source on 2026-11-11. Read AGENTS.md for
 - SolarControlar is a PWA frontend for the Flask backend now under SolarControlar/server; do not modify that server for frontend issues. Global functions/scripts, not ES modules.
 - app.js configures SmdConfig with solarcontrolar_ storage prefix, shared- image prefix. storage.js owns Flask URL/basic-auth and refresh settings; api.js owns requests.
 - main-view.js configures MAIN_TAB_DEFS once (Now, Settings, Files, Config, Forecast, Power, KWh), orchestrates startup and top-tile power data, auto-refresh and errors. Both charts are lazy initialized. Keep panel DOM stable when switching tabs.
-- power-tab.js shows latest readings; solar-settings-view.js parses GET /solar/ settingsForm rows and CSRF token, renders editable settings, and POSTs changes. config-tab.js also parses server HTML for charge_to_percentage: there is no GET /api/config.
+- power-tab.js passes the latest signed watt readings to sc-diagram; solar-settings-view.js parses GET /solar/ settingsForm rows and CSRF token, renders editable settings, and POSTs changes. config-tab.js also parses server HTML for charge_to_percentage: there is no GET /api/config.
 - files-tab.js fetches log/JSON text; forecast-tab.js runs forecast pipeline; graph-tab.js uses vendored Chart.js + date-fns adapter to show power and battery state of charge.
 - api.js POST uses redirect:manual; opaqueredirect means PRG save succeeded. Following a cross-origin 302 loses auth and can produce CORS failure. API _post returns text, not a Response. Include basic-auth on all requests when configured.
 - settings-tab.js is the APP Settings page (General/Display/Danger), distinct from the main server Settings tab. General holds Flask fields and refresh. Display owns shared appearance controls; no Icon size because there are no smd-image tiles. Danger controls follow shared shape.
@@ -111,14 +111,21 @@ Consolidated from AGENTS.md and current source on 2026-11-11. Read AGENTS.md for
 
 
 ### 2026-11-13 - Now-only responsive tiles
-- topTiles is created in the Now (power) panel by MAIN_TAB_DEFS, outside the tab-power table render target so refresh preserves it. The component keeps three equal grid columns at every width; tile container units scale date/time/battery/labels to fit. Do not restore the old mobile stacking breakpoint. User will run regression tests; only JS syntax checks performed.
+- topTiles is created in the Now (power) panel by MAIN_TAB_DEFS, outside the tab-power render target so refresh preserves it. The component keeps three equal grid columns at every width; tile container units scale date/time/battery/labels to fit. Do not restore the old mobile stacking breakpoint. User will run regression tests; only JS syntax checks performed.
 
 
 ### 2026-11-13 - Now tiles and installed-tab regression fixes
-- Keep #power-panel transparent so Quartz glass tiles composite over the same gradient as shared cards; #tab-power retains the table background. Contrast failures after moving the tiles into Now were real, not test flakes.
+- Keep #power-panel transparent so Quartz glass tiles composite over the same gradient as shared cards; #tab-power retains the content background. Contrast failures after moving the tiles into Now were real, not test flakes.
 - Shared WCO navbar padding/flex-wrap overrides must outrank Bootstrap shell utilities to prevent menu hitboxes covering the first tab. solar-appearance.spec.js verifies real tab clicks and single-row equal tiles at desktop/phone widths. Screenshot scene covers Now-only tiles and the populated Display resolution row.
 - Full affected specs passed twice without retries (308 executions), including all Solar themes, plus Superhero light/dark screenshots. See AGENTS.md and work/failure-audit-stability.log.
 
 
 ### 2026-11-13 - Home label on kWh
 - ENERGY_SERIES.usage.label is Home. The series key and backend field remain usage; do not rename API/storage keys for this wording change. Rendered checkbox and dataset labels are checked in tests/solar-kwh.spec.js and the existing screenshot scene.
+
+
+### 2026-11-14 - Now power-flow diagram
+- SolarControlar/js/components/sc-diagram.js defines the light-DOM <sc-diagram>. Set .flows={solar,battery,grid,home} for a complete update, or the four same-named properties/attributes individually. Inputs are signed watts; positive solar/grid/battery flow TO the inverter, positive home flows FROM it. Negative readings reverse the arrows. Null/undefined/nonfinite/blank inputs mean no data; zero is idle. Display values are magnitudes, with directional status labels.
+- The center is the inverter, solar above, home below, batteries left and grid right. Icons are inline SVG; styles are injected once, scoped to the component and use the existing --solar-series-* theme tokens. CSS drives moving chevrons without timers; reduced motion retains stationary directional arrows. Idle/unknown links have no arrows. Build only in connectedCallback; preserve the same element across refreshes so animations continue.
+- tests/sc-diagram.spec.js covers API inputs, refresh identity/direction, animation/reduced motion, idle/missing readings and 320/390/1280px layout. The appearance helper checks the SVG icons/links at 3:1 in every theme/mode. The existing screenshot scene includes the diagram with reduced motion for deterministic captures.
+- 74 affected functional/theme/layout checks passed without retries, followed by all 3 component checks plus the Superhero light/dark screenshot scene after improving phone text size. Desktop/phone captures visually reviewed; no full repository sweep. New pageerror-sensitive tests remove navigator.serviceWorker as well as blocking workers: blocked registration otherwise exposes an unrelated undefined updateViaCache promise result.
