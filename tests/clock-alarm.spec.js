@@ -1,4 +1,4 @@
-const { test, expect } = require("@playwright/test");
+const { test, expect } = require("./functional-test");
 async function choose(page, id, value) {
   await page.locator(`#${id} .smd-select-btn`).click();
   await page.locator(`#${id} .smd-select-item[data-value="${value}"]`).click();

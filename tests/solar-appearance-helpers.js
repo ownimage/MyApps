@@ -32,6 +32,12 @@ function inspectContrast() {
     const r=Math.min(...surfaces(el).map(c=>ratio(over(rgba(cs.color),c),c)));
     if(r<4.49)failures.push({text:(el.value||el.textContent).trim().slice(0,45),tag:el.tagName,cls:el.className,ratio:+r.toFixed(2),fg:cs.color,bg:surface});
   });
+  document.querySelectorAll('solar-diagram .solar-diagram__icon, solar-diagram .solar-diagram__track, solar-diagram .solar-diagram__chevron').forEach(el=>{
+    if(!el.getClientRects().length || getComputedStyle(el).display==='none')return;
+    const cs=getComputedStyle(el),color=cs.stroke;
+    const r=Math.min(...surfaces(el).map(c=>ratio(over(rgba(color),c),c)));
+    if(r<2.99)failures.push({text:'diagram '+(el.closest('[data-node]')?.dataset.node||el.closest('[data-flow]')?.dataset.flow),ratio:+r.toFixed(2),fg:color,bg:surfaces(el)});
+  });
   const battery=document.querySelector('#topTiles .battery-icon');
   if(battery && battery.getClientRects().length){
     const tile=battery.closest('.tile'),fill=battery.querySelector('.battery-fill');

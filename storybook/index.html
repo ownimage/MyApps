@@ -149,6 +149,12 @@
   <script src="../CountMyDays/js/components/cmd-date-card.js"></script>
   <script src="../CountMyDays/js/components/cmd-category-card.js"></script>
   <script src="../QRLinks/js/components/qrlink-card.js"></script>
+  <script src="../SolarControlar/js/components/solar-tile.js"></script>
+  <script src="../SolarControlar/js/components/solar-date-tile.js"></script>
+  <script src="../SolarControlar/js/components/solar-time-tile.js"></script>
+  <script src="../SolarControlar/js/components/solar-battery-tile.js"></script>
+  <script src="../SolarControlar/js/components/solar-tiles.js"></script>
+  <script src="../SolarControlar/js/components/solar-diagram.js"></script>
   <script src="../shared/vendor/qrcode.min.js"></script>
   <script src="../shared/js/build-number.js"></script>
   <script src="../shared/js/smd-app.js"></script>
@@ -335,6 +341,64 @@
         </div>
       `,
       init: () => {}
+    });
+
+    // ---- Solar dashboard components ----
+    const solarSampleDate = new Date().toISOString().slice(0, 10);
+    sections.push({
+      id: "solar-diagram", name: "solar-diagram", tag: "<solar-diagram>",
+      desc: "Live signed power in watts: positive solar, grid and battery flow towards the inverter; positive home flows away. Set the four named attributes/properties or .flows, and pass inverter status separately through .status. The inverter wattage is Solar + Grid + Battery - Home, including signed import/export and charge/discharge. Missing readings show No data; zero is idle. Reduced motion keeps stationary arrows.",
+      html: () => `
+        <div class="sb-controls d-flex flex-wrap align-items-center gap-2 mb-3">
+          <smd-button id="solar-diagram-reverse" variant="primary" size="small">Reverse grid and battery</smd-button>
+        </div>
+        <div class="sb-canvas p-3 w-100 border rounded bg-body">
+          <solar-diagram solar="300" grid="300" battery="200" home="500" status="ok"></solar-diagram>
+        </div>`,
+      init: () => {
+        const diagram = document.querySelector('#solar-diagram solar-diagram');
+        document.getElementById('solar-diagram-reverse').addEventListener('click', () => {
+          diagram.flows = diagram.grid >= 0 ? {solar:3100,grid:-1200,battery:-1000,home:900} : {solar:300,grid:300,battery:200,home:500};
+        });
+      }
+    });
+    sections.push({
+      id: "solar-tiles", name: "solar-tiles", tag: "<solar-tiles>",
+      desc: "A group of solar-date-tile, solar-time-tile and solar-battery-tile. Pass power-date, power-time and battery-level. The default is three columns; stacked or --solar-tiles-columns changes the arrangement without rebuilding the tiles.",
+      html: () => `
+        <div class="sb-controls d-flex align-items-center gap-2 mb-3">
+          <input id="solar-tiles-stacked" type="checkbox" class="form-check-input"><label for="solar-tiles-stacked" class="form-check-label">Stack tiles</label>
+        </div>
+        <div class="sb-canvas p-3 w-100 border rounded bg-body">
+          <solar-tiles style="max-width:900px" power-date="${solarSampleDate}" power-time="08:00:00" battery-level="50"></solar-tiles>
+        </div>`,
+      init: () => {
+        document.getElementById('solar-tiles-stacked').addEventListener('change', event => {
+          const tiles = document.querySelector('#solar-tiles solar-tiles');
+          tiles.toggleAttribute('stacked', event.target.checked);
+          tiles.style.maxWidth = event.target.checked ? '300px' : '900px';
+        });
+      }
+    });
+    for (const demo of [
+      {tag:'solar-date-tile',input:'solar-date-input',label:'Latest date',attr:'power-date',value:solarSampleDate,desc:'The latest reading date. Set power-date (YYYY-MM-DD) or .value. It scales to its own available width.'},
+      {tag:'solar-time-tile',input:'solar-time-input',label:'Latest time',attr:'power-time',value:'08:00:00',desc:'The latest reading time as split-flap digits. Set power-time (HH:MM:SS) or .value. It never starts a wall-clock timer.'},
+      {tag:'solar-battery-tile',input:'solar-battery-input',label:'Battery percentage',attr:'battery-level',value:'50',desc:'Battery charge with the shared card surface and theme severity colours. Set battery-level (0-100) or .value; a missing/invalid reading is Unknown.'}
+    ]) sections.push({
+      id:demo.tag,name:demo.tag,tag:'<'+demo.tag+'>',desc:demo.desc,
+      html: () => `
+        <div class="sb-controls d-flex flex-wrap align-items-center gap-2 mb-3">
+          <label for="${demo.input}" class="form-label mb-0">${demo.label}</label>
+          <smd-input input-id="${demo.input}" type="text" class="form-control form-control-sm w-auto" value="${demo.value}"></smd-input>
+        </div>
+        <div class="sb-canvas p-3 w-100 border rounded bg-body">
+          <${demo.tag} style="max-width:300px" ${demo.attr}="${demo.value}"></${demo.tag}>
+        </div>`,
+      init: () => {
+        document.getElementById(demo.input).addEventListener('input', event => {
+          document.querySelector('#'+demo.tag+' '+demo.tag).value = event.target.value;
+        });
+      }
     });
 
     // ---- smd-button ----

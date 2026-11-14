@@ -1,4 +1,4 @@
-const { test, expect } = require("@playwright/test");
+const { test, expect } = require("./functional-test");
 const { createScreenshotAllThemes, seedOneDriveSettings, stubOneDriveBrowser } = require("./screenshot-helpers");
 
 const sampleImagesData = require("../shared/sampleImages.json");
@@ -750,12 +750,35 @@ test.describe('Solar dashboard appearance screenshots', () => {
     await expect(page.locator('#topTiles .tile-label')).toHaveText(['Latest Date','Latest Time','Battery Charge']);
     await expect(page.locator('#topTiles .flap-card')).toHaveText(['0','8','0','0','0','0']);
     await page.evaluate(() => { Chart.defaults.animation = false; });
+    await page.emulateMedia({reducedMotion:'reduce'});
     await page.addStyleTag({content:'*, *::before, *::after { transition: none !important; }'});
     for (const mode of ['light','dark']) {
       await theme(page, process.env.SCREENSHOT_THEME || 'superhero', mode);
       for (const tab of ['Now','Settings','Files','Config','Forecast','Power','kWh']) {
         await page.locator('#mainTabs .smd-tab-btn').filter({hasText:new RegExp('^'+tab+'$')}).click();
-        if(tab==='Now') await expect(page.locator('#topTiles')).toBeVisible();
+        if(tab==='Now') {
+          await expect(page.locator('#topTiles')).toBeVisible();
+          await expect(page.locator('solar-diagram [data-node]')).toHaveCount(5);
+          await expect(page.locator('solar-diagram [data-node=inverter] .solar-diagram__status')).toHaveText('ok');
+          await expect(page.locator('solar-diagram [data-node=inverter] .solar-diagram__value')).toHaveText('300 W');
+          await expect(page.locator('solar-diagram [data-node=battery] .solar-diagram__label')).toHaveText('Battery');
+          await expect(page.locator('solar-diagram [data-node=battery] svg rect')).toHaveCount(1);
+          await expect(page.locator('solar-diagram [data-flow][data-direction=incoming]')).toHaveCount(3);
+          await expect(page.locator('solar-diagram [data-flow=home]')).toHaveAttribute('data-direction','outgoing');
+          const layout=await page.evaluate(()=>({
+            landscape:matchMedia('(orientation: landscape)').matches,
+            rows:new Set([...document.querySelectorAll('#topTiles .tile')].map(el=>Math.round(el.getBoundingClientRect().top))).size,
+            tiles:document.querySelector('#topTiles').getBoundingClientRect().right,
+            diagram:document.querySelector('solar-diagram').getBoundingClientRect().left,
+            tilesCenter:(r=>r.y+r.height/2)(document.querySelector('#topTiles').getBoundingClientRect()),
+            diagramCenter:(r=>r.y+r.height/2)(document.querySelector('solar-diagram').getBoundingClientRect())
+          }));
+          expect(layout.rows).toBe(layout.landscape?3:1);
+          if(layout.landscape) {
+            expect(layout.tiles).toBeLessThanOrEqual(layout.diagram);
+            expect(Math.abs(layout.tilesCenter-layout.diagramCenter)).toBeLessThan(1);
+          }
+        }
         else await expect(page.locator('#topTiles')).toBeHidden();
         if(tab==='Power'||tab==='kWh') await expect.poll(()=>page.evaluate(tab=>{
           const chart=tab==='Power'?window._powerChart:window._energyChart;
@@ -789,7 +812,11 @@ test.describe('Solar dashboard appearance screenshots', () => {
       }
       await page.setViewportSize({width:390,height:900});
       await page.locator('#mainTabs .smd-tab-btn').filter({hasText:'Now'}).click();
+      expect(await page.locator('#topTiles .tile').evaluateAll(nodes=>new Set(nodes.map(el=>Math.round(el.getBoundingClientRect().top))).size)).toBe(1);
       await page.screenshot({ path:test.info().outputPath('solar-'+mode+'-mobile.png'),fullPage:true });
+      await page.setViewportSize({width:844,height:390});
+      expect(await page.locator('#topTiles .tile').evaluateAll(nodes=>new Set(nodes.map(el=>Math.round(el.getBoundingClientRect().top))).size)).toBe(3);
+      await page.screenshot({path:test.info().outputPath('solar-'+mode+'-mobile-landscape.png'),fullPage:true});
       await page.setViewportSize({width:1280,height:900});
       await page.evaluate(()=>openSettings());
       await page.locator('#settingsTabs').getByRole('tab',{name:'Display',exact:true}).click();

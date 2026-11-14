@@ -9,7 +9,7 @@ var _lastRefreshErrorShown = "";
 // the panels in its shadow root). Each panel wraps a light-DOM-style content
 // div so the per-tab render functions and existing locators keep working.
 var MAIN_TAB_DEFS = [
-  { title: "Now", id: "power", content: '<solar-top-tiles id="topTiles"></solar-top-tiles><div id="tab-power" class="tab-content p-0"></div>' },
+  { title: "Now", id: "power", content: '<div class="solar-now-layout"><solar-tiles id="topTiles"></solar-tiles><div id="tab-power" class="tab-content p-0"></div></div>' },
   { title: "Settings", id: "settings", content: '<div id="tab-settings" class="tab-content p-0"></div>' },
   { title: "Files", id: "files", content: '<div id="tab-files" class="tab-content p-0"></div>' },
   { title: "Config", id: "config", content: '<div id="tab-config" class="tab-content p-0"></div>' },

@@ -1,5 +1,5 @@
 const { applyThemeAndWait } = require("./theme-controls");
-const { test, expect } = require("@playwright/test");
+const { test, expect } = require("./functional-test");
 test.beforeEach(async ({page}) => {
   await page.goto("/Clock/"); await page.evaluate(() => localStorage.clear()); await page.reload();
 });
