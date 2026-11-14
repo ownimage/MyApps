@@ -55,7 +55,7 @@ test('Solar Now follows orientation while preserving live component instances', 
   for (const [width,height] of [[1280,800],[390,844],[844,390],[800,800]]) {
     await page.setViewportSize({width,height});
     const layout = await page.evaluate(() => {
-      const rect = el => { const r = el.getBoundingClientRect(); return {x:r.x,y:r.y,right:r.right,bottom:r.bottom,width:r.width}; };
+      const rect = el => { const r = el.getBoundingClientRect(); return {x:r.x,y:r.y,right:r.right,bottom:r.bottom,width:r.width,centerY:r.y+r.height/2}; };
       return {tiles:rect(document.querySelector('#topTiles')),diagram:rect(document.querySelector('solar-diagram')),
         cards:[...document.querySelectorAll('#topTiles .tile')].map(rect),scrollWidth:document.documentElement.scrollWidth,
         same:solarInstances.every((el,i) => el === document.querySelectorAll('solar-tiles, solar-date-tile, solar-time-tile, solar-battery-tile, solar-diagram')[i])};
@@ -67,7 +67,7 @@ test('Solar Now follows orientation while preserving live component instances', 
       expect(layout.tiles.right).toBeLessThanOrEqual(layout.diagram.x);
       expect(layout.cards[0].bottom).toBeLessThan(layout.cards[1].y);
       expect(layout.cards[1].bottom).toBeLessThan(layout.cards[2].y);
-      expect(Math.abs(layout.tiles.y-layout.diagram.y)).toBeLessThan(1);
+      expect(Math.abs(layout.tiles.centerY-layout.diagram.centerY)).toBeLessThan(1);
     } else {
       expect(new Set(layout.cards.map(c=>Math.round(c.y))).size).toBe(1);
       expect(layout.tiles.bottom).toBeLessThanOrEqual(layout.diagram.y);

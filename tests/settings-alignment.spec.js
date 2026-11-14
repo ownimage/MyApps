@@ -1,14 +1,12 @@
-const { test, expect } = require("@playwright/test");
+const { test, expect } = require("./functional-test");
 const { mockFlaskApi } = require("./solar-fixtures");
 const { startCoverage, stopCoverage } = require("./coverage");
 
 // These are settings tests, not cache tests: a worker installed by an earlier
 // app in the multi-app test would bypass the later Solar route mocks.
-test.use({ serviceWorkers: "block" });
 
 // Coverage hooks (top-level so every test in this spec is captured).
 test.beforeEach(async ({ page }) => {
-  await page.addInitScript(() => { delete Object.getPrototypeOf(navigator).serviceWorker; });
   await mockFlaskApi(page);
   await startCoverage(page);
 });

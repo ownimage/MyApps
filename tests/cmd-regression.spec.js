@@ -1,4 +1,4 @@
-const { test, expect } = require("@playwright/test");
+const { test, expect } = require("./functional-test");
 const { startCoverage, stopCoverage } = require("./coverage");
 const { pickOption } = require("./theme-controls");
 
@@ -1854,6 +1854,7 @@ test.describe("CountMyDays - Regression", () => {
   });
 
   test.describe("Sub-path deployment", () => {
+    test.use({offlineCache: true});
     test("no console errors when deployed under a repo sub-path during SW precache", async ({ page }) => {
       test.setTimeout(300000);
       const consoleErrors = [];

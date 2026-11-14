@@ -1,5 +1,5 @@
 const { applyThemeAndWait } = require("./theme-controls");
-const { test, expect } = require("@playwright/test");
+const { test, expect } = require("./functional-test");
 
 test.describe("Clock - Regression", () => {
   test.beforeEach(async ({ page }) => {

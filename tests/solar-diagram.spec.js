@@ -113,3 +113,26 @@ test('diagram keeps the five positions and fits phone and desktop widths', async
     }
   }
 });
+
+
+test('inverter shows the signed residual of all four power flows', async ({ page }) => {
+  await mockFlaskApi(page);
+  await page.goto('/SolarControlar/', {waitUntil:'domcontentloaded'});
+  const diagram = page.locator('solar-diagram');
+  const watts = diagram.locator('[data-node=inverter] .solar-diagram__value');
+  await expect(watts).toHaveText('300 W');
+  for (const [flows, expected] of [
+    [{solar:2000,grid:0,battery:-500,home:1400},'100 W'],
+    [{solar:0,grid:2000,battery:-500,home:1400},'100 W'],
+    [{solar:0,grid:0,battery:1500,home:1400},'100 W'],
+    [{solar:3000,grid:-1000,battery:-500,home:1400},'100 W'],
+    [{solar:0,grid:0,battery:0,home:0},'0 W'],
+    [{solar:100,grid:0,battery:0,home:200},'-100 W'],
+    [{solar:2500.5,grid:0,battery:0,home:1300},'1,200.5 W'],
+    [{solar:null,grid:100,battery:0,home:100},'\u2014']
+  ]) {
+    await diagram.evaluate((el, flows) => { el.flows = flows; }, flows);
+    await expect(watts).toHaveText(expected);
+  }
+  await expect(diagram.locator('[data-node=inverter] .solar-diagram__status')).toHaveText('ok');
+});

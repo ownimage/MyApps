@@ -1,4 +1,4 @@
-const { test, expect } = require("@playwright/test");
+const { test, expect } = require("./functional-test");
 const { createScreenshotAllThemes, seedOneDriveSettings, stubOneDriveBrowser } = require("./screenshot-helpers");
 
 const sampleImagesData = require("../shared/sampleImages.json");
@@ -760,6 +760,7 @@ test.describe('Solar dashboard appearance screenshots', () => {
           await expect(page.locator('#topTiles')).toBeVisible();
           await expect(page.locator('solar-diagram [data-node]')).toHaveCount(5);
           await expect(page.locator('solar-diagram [data-node=inverter] .solar-diagram__status')).toHaveText('ok');
+          await expect(page.locator('solar-diagram [data-node=inverter] .solar-diagram__value')).toHaveText('300 W');
           await expect(page.locator('solar-diagram [data-node=battery] .solar-diagram__label')).toHaveText('Battery');
           await expect(page.locator('solar-diagram [data-node=battery] svg rect')).toHaveCount(1);
           await expect(page.locator('solar-diagram [data-flow][data-direction=incoming]')).toHaveCount(3);
@@ -768,10 +769,15 @@ test.describe('Solar dashboard appearance screenshots', () => {
             landscape:matchMedia('(orientation: landscape)').matches,
             rows:new Set([...document.querySelectorAll('#topTiles .tile')].map(el=>Math.round(el.getBoundingClientRect().top))).size,
             tiles:document.querySelector('#topTiles').getBoundingClientRect().right,
-            diagram:document.querySelector('solar-diagram').getBoundingClientRect().left
+            diagram:document.querySelector('solar-diagram').getBoundingClientRect().left,
+            tilesCenter:(r=>r.y+r.height/2)(document.querySelector('#topTiles').getBoundingClientRect()),
+            diagramCenter:(r=>r.y+r.height/2)(document.querySelector('solar-diagram').getBoundingClientRect())
           }));
           expect(layout.rows).toBe(layout.landscape?3:1);
-          if(layout.landscape)expect(layout.tiles).toBeLessThanOrEqual(layout.diagram);
+          if(layout.landscape) {
+            expect(layout.tiles).toBeLessThanOrEqual(layout.diagram);
+            expect(Math.abs(layout.tilesCenter-layout.diagramCenter)).toBeLessThan(1);
+          }
         }
         else await expect(page.locator('#topTiles')).toBeHidden();
         if(tab==='Power'||tab==='kWh') await expect.poll(()=>page.evaluate(tab=>{

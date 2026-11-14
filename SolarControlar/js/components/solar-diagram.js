@@ -64,7 +64,7 @@
   function node(name) {
     return '<div class="solar-diagram__node" data-node="' + name + '">' + icon(name) +
       '<span class="solar-diagram__label">' + (labels[name] || 'Inverter') + '</span>' +
-      (name === 'inverter' ? '<span class="solar-diagram__state solar-diagram__status"></span>' : '<strong class="solar-diagram__value"></strong><span class="solar-diagram__state"></span>') + '</div>';
+      (name === 'inverter' ? '<strong class="solar-diagram__value"></strong><span class="solar-diagram__state solar-diagram__status"></span>' : '<strong class="solar-diagram__value"></strong><span class="solar-diagram__state"></span>') + '</div>';
   }
 
   function link(name) {
@@ -118,8 +118,12 @@
       var status = this.status.trim() || 'Unknown';
       var inverter = this.querySelector('[data-node="inverter"]');
       inverter.querySelector('.solar-diagram__status').textContent = status;
-      inverter.setAttribute('aria-label', 'Inverter: ' + status);
       var values = this.flows;
+      var balance = flows.every(function (name) { return values[name] !== null; })
+        ? values.solar + values.grid + values.battery - values.home : null;
+      var inverterWatts = balance === null ? '\u2014' : balance.toLocaleString('en-GB', {maximumFractionDigits: 1}) + ' W';
+      inverter.querySelector('.solar-diagram__value').textContent = inverterWatts;
+      inverter.setAttribute('aria-label', 'Inverter: ' + inverterWatts + ', ' + status);
       flows.forEach(name => {
         var value = values[name];
         var incoming = name === 'home' ? value < 0 : value > 0;

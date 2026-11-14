@@ -347,7 +347,7 @@
     const solarSampleDate = new Date().toISOString().slice(0, 10);
     sections.push({
       id: "solar-diagram", name: "solar-diagram", tag: "<solar-diagram>",
-      desc: "Live signed power in watts: positive solar, grid and battery flow towards the inverter; positive home flows away. Set the four named attributes/properties or .flows, and pass inverter status separately through .status. Missing readings show No data; zero is idle. Reduced motion keeps stationary arrows.",
+      desc: "Live signed power in watts: positive solar, grid and battery flow towards the inverter; positive home flows away. Set the four named attributes/properties or .flows, and pass inverter status separately through .status. The inverter wattage is Solar + Grid + Battery - Home, including signed import/export and charge/discharge. Missing readings show No data; zero is idle. Reduced motion keeps stationary arrows.",
       html: () => `
         <div class="sb-controls d-flex flex-wrap align-items-center gap-2 mb-3">
           <smd-button id="solar-diagram-reverse" variant="primary" size="small">Reverse grid and battery</smd-button>
@@ -389,7 +389,7 @@
       html: () => `
         <div class="sb-controls d-flex flex-wrap align-items-center gap-2 mb-3">
           <label for="${demo.input}" class="form-label mb-0">${demo.label}</label>
-          <input id="${demo.input}" type="text" class="form-control form-control-sm w-auto" value="${demo.value}">
+          <smd-input input-id="${demo.input}" type="text" class="form-control form-control-sm w-auto" value="${demo.value}"></smd-input>
         </div>
         <div class="sb-canvas p-3 w-100 border rounded bg-body">
           <${demo.tag} style="max-width:300px" ${demo.attr}="${demo.value}"></${demo.tag}>

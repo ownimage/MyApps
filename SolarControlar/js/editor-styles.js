@@ -6,7 +6,7 @@ var MAIN_TAB_STYLES = `
   #mainTabs .solar-now-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1rem; align-items: start; }
   #mainTabs .solar-now-layout > * { min-width: 0; }
   @media (orientation: landscape) {
-    #mainTabs .solar-now-layout { grid-template-columns: minmax(0, 1fr) minmax(0, 3fr); }
+    #mainTabs .solar-now-layout { grid-template-columns: minmax(0, 1fr) minmax(0, 3fr); align-items: center; }
     #mainTabs .solar-now-layout > solar-tiles { --solar-tiles-columns: 1; }
   }
   #mainTabs .access-badge { background-image: none; opacity: 1; }
