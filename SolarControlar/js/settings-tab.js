@@ -44,6 +44,9 @@ function getSettingsSections() {
   var template = document.getElementById("settingsTemplate");
   if (!template) return { sections: [], footerHtml: "" };
   var clone = template.content.cloneNode(true);
+  if (isSolarServerMode()) {
+    clone.querySelectorAll('[data-solar-myapps]').forEach(function (el) { el.remove(); });
+  }
   smdAddScreenResolutionRow(clone);
   _settingsSections = Array.from(clone.querySelectorAll(".smd-settings-tab")).map(function (sec) {
     return {

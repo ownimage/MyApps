@@ -337,3 +337,32 @@ curl -X GET "https://api.givenergy.cloud/v1/inverter/FD2325G412/data?start=2024-
   "batteries": [],
   "meters": []
 }
+
+
+## Shared MyApps web interface (2026-11-14)
+
+Run `src/flask_app.py` from this server directory as before. Both `/` and
+`/solar/` serve the normal `SolarControlar/index.html` from the monorepo, with
+the shared theme, components and Chart.js. There is no separate Flask web UI.
+Flask injects a `solar-server-base` meta element and a base URL. Its presence
+selects server mode: Launch and the three Flask connection fields are removed,
+and requests use this server and the browser's existing authentication. Saved
+MyApps URL/credentials are ignored, without changing the stored values. Static
+MyApps hosting omits the marker, retaining all four controls and configurable
+connection/authentication. Both use `GET /api/dashboard` for settings/config,
+with the existing POST routes unchanged. Deploy frontend and backend together.
+
+The public `/ui/SolarControlar/` and `/ui/shared/` assets are allowlisted; the
+server tree and runtime data are never exposed by those routes. Server mode
+does not register the monorepo offline worker, which requires the other apps.
+`X-Forwarded-Prefix` is supported alongside the default `/solar` proxy prefix.
+
+For Docker Compose, run from this directory. The build context is now the
+monorepo root (`../..`); Dockerfile keeps Python/runtime data at `/app` and
+packages the public frontend at `/web`. Compose mounts the app and shared UI
+read-only under `/web`, alongside the existing writable server mount at `/app`.
+For a separately packaged server, set `SOLARCONTROLAR_WEB_ROOT` to a directory
+containing `SolarControlar/` (index, js, manifest, icons) and `shared/`.
+The obsolete root-level `flask_app.py`, Flask HTML template, private Chart.js
+copies and old favicon have been removed. The supported entry is
+`src/flask_app.py`; the shared frontend libraries are still required.

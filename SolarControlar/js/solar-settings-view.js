@@ -1,8 +1,4 @@
-// SolarControlar — the main "Settings" tab: edit the solar control settings
-// stored server-side in settings.json. The Flask app serves these in its
-// rendered index.html (GET /) as <tr data-key> rows + a csrf_token. This tab
-// fetches that page, parses it with DOMParser, renders editable controls and
-// POSTs the changes back to the same endpoint (mirroring the Flask template).
+// Solar control settings are read from /api/dashboard and saved through POST /.
 
 var _solarSettings = null;   // [{ key, label, description, value, readonly, slider:{min,max,step} | null, original }]
 var _solarCsrfToken = "";
@@ -24,59 +20,23 @@ function renderSolarSettingsTab() {
   wireSolarSettingsChangeDetection();
 }
 
-// Fetch + parse the server-rendered index page for the settings table + CSRF.
+// Fetch the dashboard settings data without loading a second web page.
 function loadSolarSettings() {
   if (_solarSettingsLoading) return;
   _solarSettingsLoading = true;
   var container = $id("tab-settings");
   if (container) container.innerHTML = '<p class="loading text-body fst-italic mb-0">Loading settings...</p>';
 
-  var base = getFlaskUrl().replace(/\/+$/, "");
-  fetch(base + "/", solarApi._withAuth({ credentials: "same-origin" }))
-    .then(function (resp) {
-      if (!resp.ok) throw new Error("HTTP " + resp.status);
-      return resp.text();
-    })
-    .then(function (html) {
-      var doc = new DOMParser().parseFromString(html, "text/html");
-      var form = doc.getElementById("settingsForm");
-      if (!form) {
-        throw new Error("settings form not found in server response");
-      }
-      var tokenInput = form.querySelector('input[name="csrf_token"]');
-      _solarCsrfToken = tokenInput ? tokenInput.value : "";
-
-      var settings = [];
-      form.querySelectorAll("tr[data-key]").forEach(function (tr) {
-        var key = tr.getAttribute("data-key");
-        var original = tr.getAttribute("data-original") || "";
-        var label = tr.children[0] ? tr.children[0].textContent.trim() : key;
-        var desc = tr.children[3] ? tr.children[3].textContent.trim() : "";
-        var visibleInput = tr.querySelector('input[name="' + key + '"]:not([type="hidden"])');
-        var sliderInput = tr.querySelector('input[type="range"]');
-        var hiddenInput = tr.querySelector('input[name="' + key + '"][type="hidden"]') ||
-                          form.querySelector('input[name="' + key + '"][type="hidden"]');
-        var value = hiddenInput ? hiddenInput.value : (visibleInput ? visibleInput.value : original);
-        var readonly = !!(visibleInput && visibleInput.readOnly);
-        var slider = null;
-        if (sliderInput) {
-          slider = {
-            min: sliderInput.getAttribute("min"),
-            max: sliderInput.getAttribute("max"),
-            step: sliderInput.getAttribute("step") || "1"
-          };
-        }
-        settings.push({
-          key: key,
-          label: label,
-          description: desc,
-          value: value,
-          original: original,
-          readonly: readonly,
-          slider: slider
-        });
+  solarApi.getDashboard()
+    .then(function (data) {
+      _solarCsrfToken = data.csrf_token || "";
+      _solarSettings = data.settings.map(function (field) {
+        return {
+          key: field.key, label: field.label, description: field.description || "",
+          value: String(field.value), original: String(field.value),
+          readonly: !!field.readonly, slider: field.slider || null
+        };
       });
-      _solarSettings = settings;
       _solarSettingsLoading = false;
       renderSolarSettingsTab();
     })
@@ -86,7 +46,7 @@ function loadSolarSettings() {
       if (container) {
         container.innerHTML =
           '<div class="alert alert-danger flash flash-error" role="alert">Error loading settings: ' + escapeHtml(err.message) + '</div>' +
-          '<p class="text-body">Check the Flask URL in the app Settings (hamburger menu).</p>';
+          (isSolarServerMode() ? '' : '<p class="text-body">Check the Flask URL in the app Settings (hamburger menu).</p>');
       }
     });
 }

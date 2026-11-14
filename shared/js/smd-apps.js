@@ -108,7 +108,7 @@
       var src = document.currentScript && document.currentScript.src;
       if (!src) return "";
       var root = src.replace(/shared\/js\/smd-apps\.js(\?.*)?$/, ""); // "<origin><repo-root>/"
-      var here = location.href.split(/[?#]/)[0];
+      var here = document.baseURI.split(/[?#]/)[0];
       if (here.indexOf(root) !== 0) return "";
       var rel = here.slice(root.length); // "" | "PlanMyDay/" | "PlanMyDay/index.html"
       var depth = (rel.match(/\//g) || []).length;
@@ -128,7 +128,7 @@
       var src = document.currentScript && document.currentScript.src;
       if (!src) return null;
       var root = src.replace(/shared\/js\/smd-apps\.js(\?.*)?$/, "");
-      var here = location.href.split(/[?#]/)[0];
+      var here = document.baseURI.split(/[?#]/)[0];
       if (here.indexOf(root) !== 0) return null;
       var rel = here.slice(root.length);
       // Longest registered prefix wins, so an app nested inside a group folder
