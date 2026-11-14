@@ -21,11 +21,27 @@ function hideMainPages(exceptId) {
   });
 }
 
+// Temporary maintenance reminder: remove with the legacy dashboard fallback.
+function showSolarCompatibilityReminder() {
+  var container = document.getElementById("flashContainer");
+  if (!container || document.getElementById("solarCompatibilityReminder")) return;
+  var reminder = document.createElement("div");
+  reminder.id = "solarCompatibilityReminder";
+  reminder.className = "alert alert-warning d-flex flex-wrap align-items-center justify-content-between gap-2";
+  reminder.setAttribute("role", "status");
+  reminder.innerHTML = '<span>Reminder: SolarControlar still includes compatibility for old and new server modes. ' +
+    'Remove this compatibility code once the updated server is deployed.</span>' +
+    '<smd-button variant="secondary" size="small">Dismiss</smd-button>';
+  reminder.querySelector("smd-button").addEventListener("click", function () { reminder.remove(); });
+  container.appendChild(reminder);
+}
+
 document.addEventListener("DOMContentLoaded", function () {
   applyTheme(getStoredTheme());
 
   renderMain();
   startAutoRefresh();
+  showSolarCompatibilityReminder();
 
   // Theme selector wiring
   document.addEventListener("smd-theme-change", function (e) {

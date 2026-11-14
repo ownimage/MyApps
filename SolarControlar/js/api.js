@@ -47,6 +47,37 @@ function serverError(status, message, url, body) {
   return err;
 }
 
+// Older deployed servers expose settings in their root HTML rather than JSON.
+// Parse inert markup only: never insert the server page or run its scripts.
+function parseLegacySolarDashboard(html) {
+  var doc = new DOMParser().parseFromString(html, "text/html");
+  var form = doc.getElementById("settingsForm");
+  if (!form) throw new Error("settings form not found in server response");
+  var token = form.querySelector('input[name="csrf_token"]');
+  var settings = Array.from(form.querySelectorAll("tr[data-key]")).map(function (row) {
+    var key = row.getAttribute("data-key");
+    var inputs = Array.from(form.querySelectorAll("input")).filter(function (input) { return input.name === key; });
+    var visible = inputs.find(function (input) { return input.type !== "hidden"; });
+    var hidden = inputs.find(function (input) { return input.type === "hidden"; });
+    var range = row.querySelector('input[type="range"]');
+    return {
+      key: key,
+      label: row.children[0] ? row.children[0].textContent.trim() : key,
+      description: row.children[3] ? row.children[3].textContent.trim() : "",
+      value: hidden ? hidden.value : (visible ? visible.value : row.getAttribute("data-original") || ""),
+      readonly: !!(visible && visible.readOnly),
+      slider: range ? { min: range.min, max: range.max, step: range.step || "1" } : null
+    };
+  });
+  var target = doc.querySelector('#hidden-charge_to_percentage, input[name="charge_to_percentage"][type="hidden"]');
+  var percentage = target ? parseFloat(target.value) : NaN;
+  return {
+    csrf_token: token ? token.value : "",
+    settings: settings,
+    config: { charge_to_percentage: Number.isFinite(percentage) ? percentage : 50 }
+  };
+}
+
 var solarApi = {
   _baseUrl: function () {
     var url = getFlaskUrl();
@@ -103,7 +134,17 @@ var solarApi = {
   },
 
   getDashboard: function () {
-    return this._fetch("/api/dashboard", { credentials: "same-origin" }).then(function (r) { return r.json(); });
+    var api = this;
+    return this._fetch("/api/dashboard", { credentials: "same-origin" })
+      .then(function (r) { return r.json(); })
+      .catch(function (err) {
+        // A missing new route means the server may still use the original UI.
+        // Authentication, network and server failures must retain their error.
+        if (!err || err.status !== 404) throw err;
+        return api._fetch("/", { credentials: "same-origin" })
+          .then(function (r) { return r.text(); })
+          .then(parseLegacySolarDashboard);
+      });
   },
 
   getPowerDates: function () {
