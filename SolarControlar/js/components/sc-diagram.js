@@ -3,10 +3,10 @@
 (function () {
   'use strict';
   var flows = ['solar', 'battery', 'grid', 'home'];
-  var labels = { solar: 'Solar', battery: 'Batteries', grid: 'Grid', home: 'Home' };
+  var labels = { solar: 'Solar', battery: 'Battery', grid: 'Grid', home: 'Home' };
   var icons = {
     solar: '<circle cx="47" cy="13" r="6"/><path d="M47 2v2m0 18v2M36 13h-2m26 0h-2M39 5l-2-2m18 18 2 2M55 5l2-2M11 27h36l6 23H5l6-23Zm-3 11h42M23 27l-2 23m14-23 2 23M29 50v8m-10 0h20"/>',
-    battery: '<rect x="8" y="9" width="46" height="20" rx="4"/><rect x="8" y="35" width="46" height="20" rx="4"/><path d="M54 15h4v8h-4m0 18h4v8h-4M17 19h10m-5-5v10m15-5h8M17 45h10m-5-5v10m15-5h8"/>',
+    battery: '<rect x="8" y="18" width="46" height="28" rx="4"/><path d="M54 26h4v12h-4M17 32h10m-5-5v10m15-5h8"/>',
     home: '<path d="m5 29 27-23 27 23M12 24v32h40V24M26 56V38h12v18"/><rect x="19" y="27" width="6" height="7" rx="1"/><rect x="39" y="27" width="6" height="7" rx="1"/>',
     grid: '<path d="M27 5h10l14 54M27 5 13 59M20 21h24M16 35h32M23 21l20 14m-2-14L21 35m0 0 25 24m-3-24L18 59M32 5v54M8 59h48M12 21h40M7 35h50M12 21v6m40-6v6M7 35v6m50-6v6"/>',
     inverter: '<rect x="13" y="5" width="38" height="50" rx="6"/><path d="M22 15h20M23 24h7m-7 4h7m5-4c3-6 4 6 7 0M22 48h20m-22 7v5m24-5v5"/><circle cx="32" cy="38" r="4"/>'
@@ -28,6 +28,7 @@
     sc-diagram .sc-diagram__label { font-weight: 600; }
     sc-diagram .sc-diagram__value { font-size: 1.12em; font-variant-numeric: tabular-nums; white-space: nowrap; }
     sc-diagram .sc-diagram__state { font-size: .8em; }
+    sc-diagram .sc-diagram__status { max-width: 100%; overflow-wrap: anywhere; }
     sc-diagram .sc-diagram__link { display: flex; align-items: center; justify-content: center; min-width: 0; min-height: 0; }
     sc-diagram [data-flow="solar"] { grid-area: 2 / 3; }
     sc-diagram [data-flow="battery"] { grid-area: 3 / 2; }
@@ -63,7 +64,7 @@
   function node(name) {
     return '<div class="sc-diagram__node" data-node="' + name + '">' + icon(name) +
       '<span class="sc-diagram__label">' + (labels[name] || 'Inverter') + '</span>' +
-      (name === 'inverter' ? '' : '<strong class="sc-diagram__value"></strong><span class="sc-diagram__state"></span>') + '</div>';
+      (name === 'inverter' ? '<span class="sc-diagram__state sc-diagram__status"></span>' : '<strong class="sc-diagram__value"></strong><span class="sc-diagram__state"></span>') + '</div>';
   }
 
   function link(name) {
@@ -75,7 +76,7 @@
   }
 
   class ScDiagram extends HTMLElement {
-    static get observedAttributes() { return flows; }
+    static get observedAttributes() { return flows.concat('status'); }
 
     connectedCallback() {
       if (!document.getElementById('sc-diagram-styles')) {
@@ -95,6 +96,13 @@
 
     attributeChangedCallback() { if (this._built) this._render(); }
 
+    get status() { return this.getAttribute('status') || ''; }
+
+    set status(value) {
+      if (value === null || value === undefined) this.removeAttribute('status');
+      else if (this.getAttribute('status') !== String(value)) this.setAttribute('status', String(value));
+    }
+
     get flows() {
       var values = {};
       flows.forEach(name => { values[name] = number(this.getAttribute(name)); });
@@ -107,6 +115,10 @@
     }
 
     _render() {
+      var status = this.status.trim() || 'Unknown';
+      var inverter = this.querySelector('[data-node="inverter"]');
+      inverter.querySelector('.sc-diagram__status').textContent = status;
+      inverter.setAttribute('aria-label', 'Inverter: ' + status);
       var values = this.flows;
       flows.forEach(name => {
         var value = values[name];

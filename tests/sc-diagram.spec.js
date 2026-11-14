@@ -16,6 +16,9 @@ test('Now diagram replaces the table and follows refreshed power readings', asyn
   const diagram = page.locator('#tab-power sc-diagram');
   await expect(diagram).toBeVisible();
   await expect(page.locator('#tab-power table')).toHaveCount(0);
+  await expect(diagram.locator('[data-node="inverter"] .sc-diagram__status')).toHaveText('ok');
+  await expect(diagram.locator('[data-node="battery"] .sc-diagram__label')).toHaveText('Battery');
+  await expect(diagram.locator('[data-node="battery"] svg rect')).toHaveCount(1);
   for (const [key, watts, direction] of [['solar', 300, 'incoming'], ['battery', 200, 'incoming'], ['grid', 300, 'incoming'], ['home', 500, 'outgoing']]) {
     await expect(diagram.locator(`[data-node="${key}"] .sc-diagram__value`)).toHaveText(`${watts} W`);
     await expect(diagram.locator(`[data-flow="${key}"]`)).toHaveAttribute('data-direction', direction);
@@ -33,6 +36,8 @@ test('Now diagram replaces the table and follows refreshed power readings', asyn
   await expect(diagram.locator('[data-flow="battery"]')).toHaveAttribute('data-direction', 'outgoing');
   expect(await page.evaluate(() => originalDiagram === document.querySelector('sc-diagram'))).toBe(true);
   await expect(page.locator('#topTiles')).toHaveAttribute('power-time', '09:30:00');
+  await page.evaluate(() => { _solarMainData.status = 'Standby'; renderPowerTab(); });
+  await expect(diagram.locator('[data-node="inverter"] .sc-diagram__status')).toHaveText('Standby');
   expect(errors).toEqual([]);
 });
 
@@ -43,10 +48,17 @@ test('diagram component supports signed inputs, idle, missing and reduced motion
     await customElements.whenDefined('sc-diagram');
     const el = document.createElement('sc-diagram');
     el.id = 'standaloneDiagram';
+    el.status = 'Waiting for power';
     el.flows = { solar: -20, battery: -250, home: -50, grid: -200 };
     document.body.appendChild(el);
   });
   const diagram = page.locator('#standaloneDiagram');
+  await expect(diagram.locator('[data-node="inverter"] .sc-diagram__status')).toHaveText('Waiting for power');
+  await page.evaluate(() => document.querySelector('#standaloneDiagram').setAttribute('status', '<b>Offline</b>'));
+  await expect(diagram.locator('[data-node="inverter"] .sc-diagram__status')).toHaveText('<b>Offline</b>');
+  await expect(diagram.locator('[data-node="inverter"] b')).toHaveCount(0);
+  await page.evaluate(() => { document.querySelector('#standaloneDiagram').status = null; });
+  await expect(diagram.locator('[data-node="inverter"] .sc-diagram__status')).toHaveText('Unknown');
   await expect(diagram.locator('[data-flow="solar"]')).toHaveAttribute('data-direction', 'outgoing');
   await expect(diagram.locator('[data-flow="home"]')).toHaveAttribute('data-direction', 'incoming');
   const before = await diagram.locator('[data-flow="grid"] .sc-diagram__arrow').evaluate(el => getComputedStyle(el).transform);
@@ -75,6 +87,7 @@ test('diagram keeps the five positions and fits phone and desktop widths', async
   await mockFlaskApi(page);
   await page.goto('/SolarControlar/', { waitUntil: 'domcontentloaded' });
   await expect(page.locator('sc-diagram')).toBeVisible();
+  await page.locator('sc-diagram').evaluate(el => { el.status = 'Waiting for power'; });
   for (const width of [1280, 390, 320]) {
     await page.setViewportSize({ width, height: 900 });
     for (const font of ['normal', 'jumbo']) {

@@ -759,6 +759,9 @@ test.describe('Solar dashboard appearance screenshots', () => {
         if(tab==='Now') {
           await expect(page.locator('#topTiles')).toBeVisible();
           await expect(page.locator('sc-diagram [data-node]')).toHaveCount(5);
+          await expect(page.locator('sc-diagram [data-node=inverter] .sc-diagram__status')).toHaveText('ok');
+          await expect(page.locator('sc-diagram [data-node=battery] .sc-diagram__label')).toHaveText('Battery');
+          await expect(page.locator('sc-diagram [data-node=battery] svg rect')).toHaveCount(1);
           await expect(page.locator('sc-diagram [data-flow][data-direction=incoming]')).toHaveCount(3);
           await expect(page.locator('sc-diagram [data-flow=home]')).toHaveAttribute('data-direction','outgoing');
         }

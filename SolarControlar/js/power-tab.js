@@ -13,4 +13,5 @@ function renderPowerTab() {
     container.appendChild(diagram);
   }
   diagram.flows = _solarMainData;
+  diagram.status = _solarMainData.status;
 }
