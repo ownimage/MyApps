@@ -1,4 +1,4 @@
-// Solar control settings are read from /api/dashboard and saved through POST /.
+// Settings use the dashboard API (with older-server HTML compatibility) and POST /.
 
 var _solarSettings = null;   // [{ key, label, description, value, readonly, slider:{min,max,step} | null, original }]
 var _solarCsrfToken = "";
