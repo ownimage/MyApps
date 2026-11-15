@@ -1,8 +1,5 @@
 const { applyThemeAndWait } = require("./theme-controls");
-const { test, expect } = require("./functional-test");
-test.beforeEach(async ({page}) => {
-  await page.goto("/Clock/"); await page.evaluate(() => localStorage.clear()); await page.reload();
-});
+const { test, expect, reloadClock } = require("./clock-test");
 async function pick(page, id, value) {
   await page.locator(`#${id} .smd-select-btn`).click();
   await page.locator(`#${id} .smd-select-item[data-value="${value}"]`).click();
@@ -17,7 +14,7 @@ test("Nixie face persists and shares Mondaine's text font choices", async ({page
   await expect(page.locator(".nixie-separator")).toHaveCount(2);
   await expect(page.locator("#clockDate")).toHaveCSS("font-family", /Clock London Tube/);
   await expect(page.locator("#clockAlarmIndicator")).toHaveCSS("font-family", /Clock London Tube/);
-  await page.reload();
+  await reloadClock(page);
   await expect(page.locator(".nixie-digit")).toHaveCount(6);
   await expect(page.locator("#clockDate")).toHaveCSS("font-family", /Clock London Tube/);
   await page.evaluate(() => { changeClockMondaineTextFont("inter"); changeClockShowSeconds(false); });
@@ -82,7 +79,7 @@ test("one Show details switch controls the enclosure and base and persists", asy
   }
   await expect(page.locator(".nixie-active").first()).toBeVisible();
   await expect(page.locator(".nixie-colon-glow").first()).toBeVisible();
-  await page.reload();
+  await reloadClock(page);
   await page.evaluate(() => openSettings());
   await expect(page.locator("#clockNixieDetails input")).not.toBeChecked();
   await page.locator("#clockNixieDetails input").check();

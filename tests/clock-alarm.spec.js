@@ -1,13 +1,8 @@
-const { test, expect } = require("./functional-test");
+const { test, expect, gotoClock, reloadClock } = require("./clock-test");
 async function choose(page, id, value) {
   await page.locator(`#${id} .smd-select-btn`).click();
   await page.locator(`#${id} .smd-select-item[data-value="${value}"]`).click();
 }
-test.beforeEach(async ({page}) => {
-  await page.goto("/Clock/");
-  await page.evaluate(() => localStorage.clear());
-  await page.reload();
-});
 test("Alarm tab saves enabled, time format, time and sleep duration", async ({page}, testInfo) => {
   await page.evaluate(() => openSettings());
   await expect(page.locator("#settingsTabs > .smd-tab-list .smd-tab-btn")).toHaveText(["General", "Display", "Alarm", "Credits", "Danger"]);
@@ -34,7 +29,7 @@ test("Alarm tab saves enabled, time format, time and sleep duration", async ({pa
     return { left: Math.abs(label.left-time.left), above: label.bottom <= time.top+1 };
   });
   expect(geometry.left).toBeLessThan(2); expect(geometry.above).toBe(true);
-  await page.reload();
+  await reloadClock(page);
   await page.evaluate(() => openSettings());
   await page.locator("#alarm-tab").click();
   await expect(page.locator("#clockAlarmEnabled input")).toBeChecked();
@@ -50,11 +45,13 @@ test("Alarm tab saves enabled, time format, time and sleep duration", async ({pa
   await page.evaluate(() => closeSettings());
   await expect(page.locator("#clockAlarmIndicator")).toBeHidden();
 });
+test.describe("controlled alarm time", () => {
+ test.use({manualClockStart:true});
 for (const minutes of [5, 10, 15]) {
   test(`alarm rings, sleeps ${minutes} minutes and repeats the next day`, async ({page}) => {
     const base = new Date(); base.setSeconds(0, 0);
-    await page.clock.install({time: base});
-    await page.clock.pauseAt(new Date(base.getTime()+1000));
+    await gotoClock(page, base);
+    await page.clock.runFor(1000);
     await page.evaluate(({base, minutes}) => {
       changeClockAlarmSleep(String(minutes));
       changeClockAlarmEnabled(true);
@@ -62,7 +59,10 @@ for (const minutes of [5, 10, 15]) {
       window.alarmPlayCount = 0;
       HTMLMediaElement.prototype.play = function () { window.alarmPlayCount++; return Promise.resolve(); };
     }, {base: base.getTime(), minutes});
-    await page.clock.runFor(59000);
+    // Skip idle display ticks, but explicitly check both sides of the alarm boundary.
+    await page.clock.fastForward(58000);
+    await expect.poll(() => page.evaluate(() => alarmPlayCount)).toBe(0);
+    await page.clock.runFor(1000);
     await expect(page.locator("#clockAlarmAudio")).toHaveAttribute("loop", "");
     await expect.poll(() => page.evaluate(() => alarmPlayCount)).toBe(1);
     await expect(page.locator("#clockAlarmModal")).not.toHaveAttribute("open", "");
@@ -83,6 +83,8 @@ for (const minutes of [5, 10, 15]) {
     await expect.poll(() => page.evaluate(() => alarmPlayCount)).toBe(3);
   });
 }
+});
+
 test("bundled alarm tone loads as a local audio asset", async ({page, request}) => {
   const response = await request.get("/Clock/audio/alarm.wav");
   expect(response.ok()).toBe(true);
@@ -125,7 +127,7 @@ test("sleep survives reload and switching the alarm off cancels it", async ({pag
   });
   await page.locator("#clockAlarmModal button",{hasText:"Sleep"}).click();
   const due = await page.evaluate(() => localStorage.getItem("clock_alarmSnooze"));
-  await page.reload();
+  await reloadClock(page);
   await expect.poll(() => page.evaluate(() => localStorage.getItem("clock_alarmSnooze"))).toBe(due);
   await page.evaluate(() => changeClockAlarmEnabled(false));
   await expect(page.locator("#clockAlarmIndicator")).toBeHidden();

@@ -998,3 +998,32 @@ test.describe('ListOfLists touch editor screenshots', () => {
     });
   }
 });
+
+test('Clock face timing and permanent digit screenshots', async ({page}, testInfo) => {
+  const {gotoClock,pauseClockOnEvenSecond} = require('./clock-test');
+  const {applyThemeAndWait} = require('./theme-controls');
+  const now = new Date(); now.setSeconds(Math.floor(now.getSeconds()/2)*2, 0);
+  await gotoClock(page, now);
+  for (const mode of ['light','dark']) {
+    await page.clock.resume();
+    await applyThemeAndWait(page, process.env.SCREENSHOT_THEME || 'superhero', mode);
+    await pauseClockOnEvenSecond(page);
+    for (const face of ['flip','seven','arial','courier','mondaine','nixie']) {
+      await page.evaluate(face => { changeClockFont(face); changeClockColonMode('flashing'); }, face);
+      await page.evaluate(() => document.fonts.ready);
+      await page.clock.runFor(200);
+      if (face === 'mondaine') {
+        await expect(page.locator('.mondaine-face')).toBeVisible();
+      } else {
+        await expect(page.locator('#clockDisplay .flip-digit')).toHaveCount(6);
+        const colon = page.locator('#clockDisplay .seven-colon, #clockDisplay .flip-separator, #clockDisplay .nixie-colon-lights').first();
+        const opacity = await page.evaluate(() => String(1-Math.floor(Date.now()/1000)%2));
+        await expect(colon).toHaveCSS('opacity',opacity);
+      }
+      if (face === 'flip') {
+        await expect(page.locator('#clockDisplay .split-flap-surface > .split-flap-half:not(.split-flap-falling)')).toHaveCount(12);
+      }
+      await page.screenshot({path:testInfo.outputPath(`clock-${face}-${mode}.png`)});
+    }
+  }
+});
