@@ -114,3 +114,20 @@ smd-checkbox input[type="checkbox"] {
   --solar-series-battery-level: rgb(255, 120, 81);
 }
 /* solar-palette:end */
+
+/* smd-touch:start */
+/* Idle paint for retained touch hover; mouse, focus and pressed states stay native. */
+@media (hover: none) {
+  .btn-primary:where(:not(.btn-check + .btn)):hover:not(:active):not(.active):not(.show):not(:focus-visible):not(:disabled):not(.disabled),
+  .btn-secondary:where(:not(.btn-check + .btn)):hover:not(:active):not(.active):not(.show):not(:focus-visible):not(:disabled):not(.disabled),
+  .btn-success:where(:not(.btn-check + .btn)):hover:not(:active):not(.active):not(.show):not(:focus-visible):not(:disabled):not(.disabled),
+  .btn-danger:where(:not(.btn-check + .btn)):hover:not(:active):not(.active):not(.show):not(:focus-visible):not(:disabled):not(.disabled),
+  .btn-warning:where(:not(.btn-check + .btn)):hover:not(:active):not(.active):not(.show):not(:focus-visible):not(:disabled):not(.disabled),
+  .btn-info:where(:not(.btn-check + .btn)):hover:not(:active):not(.active):not(.show):not(:focus-visible):not(:disabled):not(.disabled) {
+    color: rgb(33, 37, 41) !important;
+  }
+  .btn-light:where(:not(.btn-check + .btn)):hover:not(:active):not(.active):not(.show):not(:focus-visible):not(:disabled):not(.disabled) {
+    color: rgb(90, 90, 90) !important;
+  }
+}
+/* smd-touch:end */

@@ -134,3 +134,66 @@ smd-checkbox input[type="checkbox"] {
   --solar-series-battery-level: rgb(229, 37, 39);
 }
 /* solar-palette:end */
+
+/* smd-touch:start */
+/* Idle paint for retained touch hover; mouse, focus and pressed states stay native. */
+@media (hover: none) {
+  .btn-primary:where(:not(.btn-check + .btn)):hover:not(:active):not(.active):not(.show):not(:focus-visible):not(:disabled):not(.disabled),
+  .btn-success:where(:not(.btn-check + .btn)):hover:not(:active):not(.active):not(.show):not(:focus-visible):not(:disabled):not(.disabled),
+  .btn-danger:where(:not(.btn-check + .btn)):hover:not(:active):not(.active):not(.show):not(:focus-visible):not(:disabled):not(.disabled),
+  .btn-warning:where(:not(.btn-check + .btn)):hover:not(:active):not(.active):not(.show):not(:focus-visible):not(:disabled):not(.disabled),
+  .btn-info:where(:not(.btn-check + .btn)):hover:not(:active):not(.active):not(.show):not(:focus-visible):not(:disabled):not(.disabled),
+  .btn-dark:where(:not(.btn-check + .btn)):hover:not(:active):not(.active):not(.show):not(:focus-visible):not(:disabled):not(.disabled) {
+    color: rgb(0, 0, 0) !important;
+    background-color: rgb(217, 227, 241) !important;
+    border-color: rgb(0, 0, 0) !important;
+  }
+  .btn-outline-primary:where(:not(.btn-check + .btn)):hover:not(:active):not(.active):not(.show):not(:focus-visible):not(:disabled):not(.disabled) {
+    color: rgb(255, 255, 255) !important;
+    background-color: rgb(55, 141, 252) !important;
+    border-color: rgb(255, 255, 255) !important;
+  }
+  .btn-secondary:where(:not(.btn-check + .btn)):hover:not(:active):not(.active):not(.show):not(:focus-visible):not(:disabled):not(.disabled) {
+    border-color: rgb(0, 0, 0) !important;
+  }
+  .btn-outline-secondary:where(:not(.btn-check + .btn)):hover:not(:active):not(.active):not(.show):not(:focus-visible):not(:disabled):not(.disabled) {
+    color: rgb(123, 138, 184) !important;
+    background-color: rgb(217, 227, 241) !important;
+    border-color: rgb(123, 138, 184) !important;
+  }
+  .btn-outline-success:where(:not(.btn-check + .btn)):hover:not(:active):not(.active):not(.show):not(:focus-visible):not(:disabled):not(.disabled) {
+    color: rgb(255, 255, 255) !important;
+    background-color: rgb(67, 204, 41) !important;
+    border-color: rgb(255, 255, 255) !important;
+  }
+  .btn-outline-danger:where(:not(.btn-check + .btn)):hover:not(:active):not(.active):not(.show):not(:focus-visible):not(:disabled):not(.disabled) {
+    color: rgb(255, 255, 255) !important;
+    background-color: rgb(229, 37, 39) !important;
+    border-color: rgb(255, 255, 255) !important;
+  }
+  .btn-outline-warning:where(:not(.btn-check + .btn)):hover:not(:active):not(.active):not(.show):not(:focus-visible):not(:disabled):not(.disabled) {
+    color: rgb(255, 255, 255) !important;
+    background-color: rgb(255, 193, 7) !important;
+    border-color: rgb(255, 255, 255) !important;
+  }
+  .btn-outline-info:where(:not(.btn-check + .btn)):hover:not(:active):not(.active):not(.show):not(:focus-visible):not(:disabled):not(.disabled) {
+    color: rgb(255, 255, 255) !important;
+    background-color: rgb(91, 98, 244) !important;
+    border-color: rgb(255, 255, 255) !important;
+  }
+  .btn-light:where(:not(.btn-check + .btn)):hover:not(:active):not(.active):not(.show):not(:focus-visible):not(:disabled):not(.disabled) {
+    background-color: rgb(217, 227, 241) !important;
+    border-color: rgb(0, 0, 0) !important;
+  }
+  .btn-outline-light:where(:not(.btn-check + .btn)):hover:not(:active):not(.active):not(.show):not(:focus-visible):not(:disabled):not(.disabled) {
+    color: rgb(123, 138, 184) !important;
+    background-color: rgb(240, 245, 250) !important;
+    border-color: rgb(123, 138, 184) !important;
+  }
+  .btn-outline-dark:where(:not(.btn-check + .btn)):hover:not(:active):not(.active):not(.show):not(:focus-visible):not(:disabled):not(.disabled) {
+    color: rgb(255, 255, 255) !important;
+    background-color: rgb(33, 37, 41) !important;
+    border-color: rgb(255, 255, 255) !important;
+  }
+}
+/* smd-touch:end */

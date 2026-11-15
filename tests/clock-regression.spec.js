@@ -1,16 +1,15 @@
 const { applyThemeAndWait } = require("./theme-controls");
-const { test, expect } = require("./functional-test");
+const { test, expect, gotoClock, reloadClock, pauseClockOnEvenSecond } = require("./clock-test");
 
 test.describe("Clock - Regression", () => {
-  test.beforeEach(async ({ page }) => {
-    await page.goto("/Clock/");
-    await page.evaluate(() => localStorage.clear());
-    await page.reload();
-  });
 
+  test.describe("controlled seven-segment time", () => {
+    test.use({manualClockStart:true});
   test("seven-segment colon can flash or stay on and persists its setting", async ({ page }) => {
     const now = new Date();
     now.setSeconds(Math.floor(now.getSeconds() / 2) * 2, 0);
+    await gotoClock(page, now);
+    await page.clock.resume();
     await page.evaluate(() => openSettings());
     await expect(page.locator("#clockColonModeRow")).toBeVisible();
     await page.locator("#clockFontSelector .smd-select-btn").click();
@@ -19,9 +18,8 @@ test.describe("Clock - Regression", () => {
     await expect(page.locator("#clockColonModeSelector")).toHaveAttribute("value", "always");
     await page.locator("#clockColonModeSelector .smd-select-btn").click();
     await page.locator('#clockColonModeSelector .smd-select-item[data-value="flashing"]').click();
-    await page.clock.install({ time: now });
-    await page.clock.pauseAt(new Date(now.getTime() + 2000));
     await page.evaluate(() => closeSettings());
+    await pauseClockOnEvenSecond(page);
     const colons = page.locator(".seven-colon");
     await expect(colons).toHaveCount(2);
     await expect(colons.first()).toHaveCSS("opacity", "1");
@@ -34,16 +32,20 @@ test.describe("Clock - Regression", () => {
     await expect(colons.first()).toHaveCSS("opacity", "0");
     await page.clock.runFor(500);
     await expect(colons.first()).toHaveCSS("opacity", "1");
-    await page.reload();
+    await page.clock.resume();
+    await reloadClock(page);
     await page.evaluate(() => openSettings());
     await expect.poll(() => page.evaluate(() => localStorage.getItem("clock_colonMode"))).toBe("flashing");
     await page.evaluate(() => changeClockColonMode("always"));
     await page.evaluate(() => closeSettings());
+    await pauseClockOnEvenSecond(page);
     await page.clock.runFor(500);
     await expect(colons.first()).toHaveCSS("opacity", "1");
     await page.evaluate(() => { changeClockColonMode("flashing"); changeClockFont("arial"); });
     await page.clock.runFor(1000);
     await expect(page.locator(".flip-separator").first()).toHaveCSS("opacity", "0");
+  });
+
   });
 
   test("pure black overrides the main page while menu and settings keep their theme", async ({ page }) => {
@@ -81,7 +83,7 @@ test.describe("Clock - Regression", () => {
     await expect(page.locator("#clockDisplay")).toBeVisible();
     await expect(page.locator("#clockDisplay .flip-digit")).toHaveCount(6);
     await expect(page.locator("#clockDisplay .flip-separator")).toHaveCount(2);
-    await expect(page.locator("#clockDisplay .split-flap-half")).toHaveCount(12);
+    await expect(page.locator("#clockDisplay .split-flap-surface > .split-flap-top:not(.split-flap-falling), #clockDisplay .split-flap-surface > .split-flap-bottom")).toHaveCount(12);
   });
 
   test("settings persist 12/24-hour mode and font choice", async ({ page }) => {
@@ -143,26 +145,32 @@ test.describe("Clock - Regression", () => {
   test("time and date share aligned edges and keep seconds inside the viewport", async ({ page }) => {
     for (const width of [2636, 1280, 390]) {
       await page.setViewportSize({ width, height: 1100 });
-      for (const font of ["seven", "flip", "arial", "courier"]) {
-        for (const seconds of [true, false]) {
-          await page.evaluate(async ({ font, seconds }) => {
+      const samples = await page.evaluate(async () => {
+        const samples = [];
+        for (const font of ["seven", "flip", "arial", "courier"]) {
+          for (const seconds of [true, false]) {
             changeClockFont(font);
             changeClockShowSeconds(seconds);
             await document.fonts.ready;
             fitClockDisplay();
             fitClockDate();
-          }, { font, seconds });
-          const bounds = await page.evaluate(() => {
-            const rect = id => { const r = document.getElementById(id).getBoundingClientRect(); return { left: r.left, right: r.right }; };
-            return { time: rect("clockDisplay"), date: rect("clockDate"), surface: rect("clockMain"), width: innerWidth };
-          });
-          expect(bounds.time.left, `${width}/${font}/${seconds} left`).toBeGreaterThanOrEqual(-1);
-          expect(bounds.time.right, `${width}/${font}/${seconds} right`).toBeLessThanOrEqual(width + 1);
-          expect(Math.abs(bounds.time.left - bounds.surface.left)).toBeLessThan(2);
-          expect(Math.abs(bounds.time.right - bounds.surface.right)).toBeLessThan(2);
-          expect(Math.abs(bounds.date.left - bounds.time.left)).toBeLessThan(2);
-          expect(Math.abs(bounds.date.right - bounds.time.right)).toBeLessThan(2);
+            const rect = id => {
+              const r = document.getElementById(id).getBoundingClientRect();
+              return {left:r.left,right:r.right};
+            };
+            samples.push({font,seconds,time:rect("clockDisplay"),date:rect("clockDate"),surface:rect("clockMain")});
+          }
         }
+        return samples;
+      });
+      for (const bounds of samples) {
+        const label = width + "/" + bounds.font + "/" + bounds.seconds;
+        expect(bounds.time.left, label + " left").toBeGreaterThanOrEqual(-1);
+        expect(bounds.time.right, label + " right").toBeLessThanOrEqual(width + 1);
+        expect(Math.abs(bounds.time.left - bounds.surface.left)).toBeLessThan(2);
+        expect(Math.abs(bounds.time.right - bounds.surface.right)).toBeLessThan(2);
+        expect(Math.abs(bounds.date.left - bounds.time.left)).toBeLessThan(2);
+        expect(Math.abs(bounds.date.right - bounds.time.right)).toBeLessThan(2);
       }
     }
   });
@@ -262,7 +270,7 @@ test.describe("Clock - Regression", () => {
       localStorage.setItem("clock_theme", "darkly");
       localStorage.setItem("clock_themeMode", "dark");
     });
-    await page.reload();
+    await reloadClock(page);
     await expect.poll(() => page.evaluate(() => document.documentElement.dataset.theme)).toBe("darkly");
     await expect.poll(() => page.evaluate(() => document.documentElement.dataset.bsTheme)).toBe("dark");
   });
@@ -285,7 +293,6 @@ test.describe("Clock - Regression", () => {
 });
 
 test("Clock Display font size changes menu text and persists", async ({page}) => {
-  await page.goto("/Clock/");
   await page.evaluate(() => openSettings());
   await page.locator("#display-tab").click();
   const size = () => page.locator("#mainNav .dropdown-item").first().evaluate(el => parseFloat(getComputedStyle(el).fontSize));
@@ -293,7 +300,7 @@ test("Clock Display font size changes menu text and persists", async ({page}) =>
   await page.locator("#fontSizeSelector .smd-select-btn").click();
   await page.locator('#fontSizeSelector .smd-select-item[data-value="small"]').click();
   expect(await size()).toBeLessThan(before);
-  await page.reload();
+  await reloadClock(page);
   await page.evaluate(() => openSettings());
   await page.locator("#display-tab").click();
   await expect(page.locator("#fontSizeSelector")).toHaveAttribute("value","small");
@@ -302,11 +309,12 @@ test("Clock Display font size changes menu text and persists", async ({page}) =>
   await expect(page.locator("#clockFormatSelector")).toBeVisible();
 });
 
+test.describe("controlled digital face time", () => {
+ test.use({manualClockStart:true});
 for (const face of ["flip","arial","courier","nixie"]) {
  test(`${face} colon flashes for one second and stays on when selected`,async({page})=>{
-  await page.goto("/Clock/");
   const now=new Date();now.setSeconds(Math.floor(now.getSeconds()/2)*2,0);
-  await page.clock.install({time:now});await page.clock.pauseAt(new Date(now.getTime()+2000));
+  await gotoClock(page, now);
   await page.evaluate(face=>{changeClockFont(face);changeClockColonMode("flashing");},face);
   const colon=page.locator(".flip-separator,.nixie-colon-lights").first();
   await expect(colon).toHaveCSS("opacity","1");
@@ -318,7 +326,7 @@ for (const face of ["flip","arial","courier","nixie"]) {
 }
 
 test("digital faces render without digit card borders or backgrounds",async({page})=>{
- await page.goto("/Clock/");
+ await gotoClock(page, new Date());
  for (const face of ["flip","seven","arial","courier","nixie"]) {
   await page.evaluate(face=>changeClockFont(face),face);
   const digit=page.locator(".flip-digit").first();
@@ -327,4 +335,5 @@ test("digital faces render without digit card borders or backgrounds",async({pag
   await expect(digit).toHaveCSS("box-shadow","none");
   await expect(digit).toHaveCSS("border-top-width","0px");
  }
+});
 });

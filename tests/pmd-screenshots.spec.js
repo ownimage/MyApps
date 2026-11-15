@@ -971,3 +971,82 @@ test('Solar Flask and MyApps menu and General screenshots', async ({page}) => {
     }
   } finally { await server.stop(); }
 });
+
+test.describe('ListOfLists touch editor screenshots', () => {
+  test.use({ hasTouch: true, isMobile: true, viewport: { width: 620, height: 850 } });
+  for (const mode of ['light', 'dark']) {
+    test(`touch Add List Item keeps normal colours - ${mode}`, async ({ page }, testInfo) => {
+      const { applyThemeAndWait } = require('./theme-controls');
+      await page.goto('/ListOfLists/');
+      await applyThemeAndWait(page, process.env.SCREENSHOT_THEME || 'superhero', mode);
+      await page.addStyleTag({ content: '* { transition: none !important; animation: none !important; }' });
+      await page.evaluate(() => {
+        localStorage.setItem('lol_categories', JSON.stringify([{ title: 'Chores', lists: [] }]));
+        listsCategoryIndex = 0;
+        addNewList();
+      });
+      await page.locator('#listTitleInput').fill('Shopping');
+      await page.locator('#listAddItemBottomBtn').tap();
+      await expect(page.locator('input.item-desc-input')).toBeFocused();
+      const colours = await page.locator('#listAddItemBtn, #listAddItemBottomBtn').evaluateAll(buttons =>
+        buttons.map(button => {
+          const style = getComputedStyle(button);
+          return [style.color, style.backgroundColor, style.borderColor, style.boxShadow, style.transform];
+        }));
+      expect(colours[1]).toEqual(colours[0]);
+      await page.screenshot({ path: testInfo.outputPath(`lol-touch-add-item-${mode}.png`) });
+    });
+  }
+});
+
+test('Clock face timing and permanent digit screenshots', async ({page}, testInfo) => {
+  const {gotoClock,pauseClockOnEvenSecond} = require('./clock-test');
+  const {applyThemeAndWait} = require('./theme-controls');
+  const now = new Date(); now.setSeconds(Math.floor(now.getSeconds()/2)*2, 0);
+  await gotoClock(page, now);
+  for (const mode of ['light','dark']) {
+    await page.clock.resume();
+    await applyThemeAndWait(page, process.env.SCREENSHOT_THEME || 'superhero', mode);
+    await pauseClockOnEvenSecond(page);
+    for (const face of ['flip','seven','arial','courier','mondaine','nixie']) {
+      await page.evaluate(face => { changeClockFont(face); changeClockColonMode('flashing'); }, face);
+      await page.evaluate(() => document.fonts.ready);
+      await page.clock.runFor(200);
+      if (face === 'mondaine') {
+        await expect(page.locator('.mondaine-face')).toBeVisible();
+      } else {
+        await expect(page.locator('#clockDisplay .flip-digit')).toHaveCount(6);
+        const colon = page.locator('#clockDisplay .seven-colon, #clockDisplay .flip-separator, #clockDisplay .nixie-colon-lights').first();
+        const opacity = await page.evaluate(() => String(1-Math.floor(Date.now()/1000)%2));
+        await expect(colon).toHaveCSS('opacity',opacity);
+      }
+      if (face === 'flip') {
+        await expect(page.locator('#clockDisplay .split-flap-surface > .split-flap-half:not(.split-flap-falling)')).toHaveCount(12);
+      }
+      await page.screenshot({path:testInfo.outputPath(`clock-${face}-${mode}.png`)});
+    }
+  }
+});
+
+test('Shared navbar spacing endpoints screenshots', async ({page}, testInfo) => {
+  const {settledSpacing} = require('./navbar-layout');
+  const {applyThemeAndWait} = require('./theme-controls');
+  await page.goto('/CountMyDays/', {waitUntil:'domcontentloaded'});
+  await applyThemeAndWait(page, process.env.SCREENSHOT_THEME || 'simplex', 'dark');
+  await page.evaluate(() => changeAutoHideMenu(false));
+  const normal = await settledSpacing(page);
+  expect(normal.paddingTop).toBe(0);
+  expect(normal.marginBottom).toBeGreaterThan(0);
+  await page.screenshot({path:testInfo.outputPath('navbar-normal.png')});
+  await page.evaluate(() => document.body.classList.add('auto-hide-menu'));
+  const visible = await settledSpacing(page);
+  expect(visible.navPosition).toBe('fixed');
+  expect(visible.paddingTop).toBeGreaterThan(normal.marginBottom);
+  await page.screenshot({path:testInfo.outputPath('navbar-auto-hide-visible.png')});
+  await page.evaluate(() => document.getElementById('mainNav').classList.add('nav-hidden'));
+  const hidden = await settledSpacing(page);
+  expect(hidden.navBottom).toBeLessThanOrEqual(1);
+  expect(hidden.paddingTop).toBeLessThan(visible.paddingTop);
+  expect(hidden.paddingTop).toBeLessThanOrEqual(normal.marginBottom);
+  await page.screenshot({path:testInfo.outputPath('navbar-auto-hide-hidden.png')});
+});

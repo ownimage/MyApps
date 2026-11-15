@@ -1,50 +1,46 @@
-const { test, expect } = require("@playwright/test");
+const { test, expect } = require('./functional-test');
+const { applyThemeAndWait } = require('./theme-controls');
 
-test.describe("shared navbar content spacing", () => {
-  test("keeps a gap below the navbar and removes it with auto-hide", async ({ page }) => {
-    await page.goto("/CountMyDays/");
-    await page.evaluate(() => {
-      localStorage.setItem("countmydays_theme", "simplex");
-      localStorage.setItem("countmydays_themeMode", "dark");
-      localStorage.setItem("countmydays_autoHideMenu", "false");
-    });
-    await page.reload();
-    await page.evaluate(() => {
-      document.body.classList.remove("auto-hide-menu");
-      document.getElementById("mainNav").classList.remove("nav-hidden");
-    });
+const { settledSpacing } = require('./navbar-layout');
 
-    const normal = await page.evaluate(() => {
-      const nav = document.getElementById("mainNav");
-      const content = document.querySelector("#mainNav + .container-fluid");
-      return {
-        navPosition: getComputedStyle(nav).position,
-        marginBottom: parseFloat(getComputedStyle(nav).marginBottom),
-        contentPaddingTop: parseFloat(getComputedStyle(content).paddingTop)
-      };
-    });
-    expect(normal.navPosition).not.toBe("fixed");
-    expect(normal.marginBottom).toBeGreaterThan(0);
-    expect(normal.contentPaddingTop).toBe(0);
+test.describe('shared navbar content spacing', () => {
+  for (const holdTransition of [false, true]) {
+    const scenario = holdTransition ? ' - transition held near its start' : '';
+    test('keeps a gap below the navbar and removes it with auto-hide' + scenario, async ({ page }) => {
+      await page.goto('/CountMyDays/', { waitUntil: 'domcontentloaded' });
+      await applyThemeAndWait(page, 'simplex', 'dark');
+      await page.evaluate(() => changeAutoHideMenu(false));
 
-    await page.evaluate(() => document.body.classList.add("auto-hide-menu"));
-    await expect.poll(() => page.evaluate(() => {
-      const content = document.querySelector("#mainNav + .container-fluid");
-      return parseFloat(getComputedStyle(content).paddingTop);
-    })).toBeGreaterThan(0);
-    const visible = await page.evaluate(() => {
-      const content = document.querySelector("#mainNav + .container-fluid");
-      return {
-        navPosition: getComputedStyle(document.getElementById("mainNav")).position,
-        paddingTop: parseFloat(getComputedStyle(content).paddingTop)
-      };
-    });
-    expect(visible.navPosition).toBe("fixed");
+      const normal = await settledSpacing(page);
+      expect(normal.navPosition).not.toBe('fixed');
+      expect(normal.marginBottom).toBeGreaterThan(0);
+      expect(normal.paddingTop).toBe(0);
 
-    await page.evaluate(() => document.getElementById("mainNav").classList.add("nav-hidden"));
-    await expect.poll(() => page.evaluate(() => {
-      const content = document.querySelector("#mainNav + .container-fluid");
-      return parseFloat(getComputedStyle(content).paddingTop);
-    })).toBeLessThan(visible.paddingTop);
-  });
+      if (holdTransition) {
+        await page.addStyleTag({content:'body.auto-hide-menu #mainNav + .container-fluid { transition: padding-top 1s linear; }'});
+      }
+      await page.evaluate(hold => {
+        document.body.classList.add('auto-hide-menu');
+        if (hold) {
+          const content = document.querySelector('#mainNav + .container-fluid');
+          getComputedStyle(content).paddingTop;
+          for (const animation of content.getAnimations()) {
+            animation.pause();
+            animation.currentTime = 1;
+          }
+        }
+      }, holdTransition);
+      const visible = await settledSpacing(page);
+      expect(visible.navPosition).toBe('fixed');
+      expect(visible.paddingTop).toBeGreaterThan(normal.marginBottom);
+
+      await page.evaluate(() => document.getElementById('mainNav').classList.add('nav-hidden'));
+      const hidden = await settledSpacing(page);
+      expect(hidden.navPosition).toBe('fixed');
+      expect(hidden.navBottom).toBeLessThanOrEqual(1);
+      expect(hidden.paddingTop).toBeGreaterThanOrEqual(0);
+      expect(hidden.paddingTop).toBeLessThan(visible.paddingTop);
+      expect(hidden.paddingTop).toBeLessThanOrEqual(normal.marginBottom);
+    });
+  }
 });

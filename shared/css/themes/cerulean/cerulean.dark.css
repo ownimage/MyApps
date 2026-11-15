@@ -84,3 +84,40 @@ smd-checkbox input[type="checkbox"] {
   --solar-series-battery-level: rgb(203, 64, 69);
 }
 /* solar-palette:end */
+
+/* smd-touch:start */
+/* Idle paint for retained touch hover; mouse, focus and pressed states stay native. */
+@media (hover: none) {
+  .btn-primary:where(:not(.btn-check + .btn)):hover:not(:active):not(.active):not(.show):not(:focus-visible):not(:disabled):not(.disabled) {
+    color: rgb(33, 37, 41) !important;
+    background-image: linear-gradient(rgb(80, 179, 235), rgb(47, 164, 231) 60%, rgb(44, 154, 217)) !important;
+  }
+  .btn-secondary:where(:not(.btn-check + .btn)):hover:not(:active):not(.active):not(.show):not(:focus-visible):not(:disabled):not(.disabled) {
+    color: rgb(73, 80, 87) !important;
+    background-image: linear-gradient(rgb(237, 239, 242), rgb(233, 236, 239) 60%, rgb(219, 222, 225)) !important;
+  }
+  .btn-outline-secondary:where(:not(.btn-check + .btn)):hover:not(:active):not(.active):not(.show):not(:focus-visible):not(:disabled):not(.disabled) {
+    color: rgb(73, 80, 87) !important;
+  }
+  .btn-success:where(:not(.btn-check + .btn)):hover:not(:active):not(.active):not(.show):not(:focus-visible):not(:disabled):not(.disabled) {
+    color: rgb(33, 37, 41) !important;
+    background-image: linear-gradient(rgb(137, 182, 89), rgb(115, 168, 57) 60%, rgb(108, 158, 54)) !important;
+  }
+  .btn-danger:where(:not(.btn-check + .btn)):hover:not(:active):not(.active):not(.show):not(:focus-visible):not(:disabled):not(.disabled) {
+    background-image: linear-gradient(rgb(208, 64, 69), rgb(199, 28, 34) 60%, rgb(187, 26, 32)) !important;
+  }
+  .btn-warning:where(:not(.btn-check + .btn)):hover:not(:active):not(.active):not(.show):not(:focus-visible):not(:disabled):not(.disabled) {
+    color: rgb(0, 0, 0) !important;
+    background-image: linear-gradient(rgb(226, 113, 41), rgb(221, 86, 0) 60%, rgb(208, 81, 0)) !important;
+  }
+  .btn-info:where(:not(.btn-check + .btn)):hover:not(:active):not(.active):not(.show):not(:focus-visible):not(:disabled):not(.disabled) {
+    background-image: linear-gradient(rgb(43, 91, 137), rgb(3, 60, 115) 60%, rgb(3, 56, 108)) !important;
+  }
+  .btn-light:where(:not(.btn-check + .btn)):hover:not(:active):not(.active):not(.show):not(:focus-visible):not(:disabled):not(.disabled) {
+    background-image: linear-gradient(rgb(249, 250, 251), rgb(248, 249, 250) 60%, rgb(233, 234, 235)) !important;
+  }
+  .btn-dark:where(:not(.btn-check + .btn)):hover:not(:active):not(.active):not(.show):not(:focus-visible):not(:disabled):not(.disabled) {
+    background-image: linear-gradient(rgb(84, 90, 95), rgb(52, 58, 64) 60%, rgb(49, 55, 60)) !important;
+  }
+}
+/* smd-touch:end */
