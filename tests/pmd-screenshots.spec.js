@@ -974,6 +974,8 @@ test.describe('ListOfLists touch editor screenshots', () => {
   for (const mode of ['light', 'dark']) {
     test(`touch Add List Item keeps normal colours - ${mode}`, async ({ page }, testInfo) => {
       const { applyThemeAndWait } = require('./theme-controls');
+      const {routeEditorSources} = require('./editor-test-helpers');
+      await routeEditorSources(page);
       await page.goto('/ListOfLists/');
       await applyThemeAndWait(page, process.env.SCREENSHOT_THEME || 'superhero', mode);
       await page.addStyleTag({ content: '* { transition: none !important; animation: none !important; }' });
@@ -1046,4 +1048,27 @@ test('Shared navbar spacing endpoints screenshots', async ({page}, testInfo) => 
   expect(hidden.paddingTop).toBeLessThan(visible.paddingTop);
   expect(hidden.paddingTop).toBeLessThanOrEqual(normal.marginBottom);
   await page.screenshot({path:testInfo.outputPath('navbar-auto-hide-hidden.png')});
+});
+
+test.describe('PlanMyDay touch task editor screenshots', () => {
+  test.use({hasTouch:true,isMobile:true,viewport:{width:620,height:850}});
+  for (const mode of ['light','dark']) {
+    test(`touch Add Task keeps native colours - ${mode}`, async ({page},testInfo) => {
+      const {routeEditorSources,buttonPaint} = require('./editor-test-helpers');
+      const {applyThemeAndWait} = require('./theme-controls');
+      await routeEditorSources(page);
+      await page.goto('/PlanMyDay/',{waitUntil:'domcontentloaded'});
+      await applyThemeAndWait(page,process.env.SCREENSHOT_THEME || 'superhero',mode);
+      await page.addStyleTag({content:'*{transition:none!important;animation:none!important}'});
+      await page.locator('#btnAddCard').tap();
+      await page.locator('#jobTitleInput').fill('Shopping');
+      await page.locator('#jobTasks-tab').click();
+      const idle = await buttonPaint(page.locator('#jobAddTaskBottomBtn'));
+      await page.locator('#jobAddTaskBottomBtn').tap();
+      await expect(page.locator('input.task-desc-input')).toBeFocused();
+      expect(await buttonPaint(page.locator('#jobAddTaskBottomBtn'))).toEqual(idle);
+      expect(await buttonPaint(page.locator('#jobAddTaskBtn'))).toEqual(idle);
+      await page.screenshot({path:testInfo.outputPath(`pmd-touch-add-task-${mode}.png`)});
+    });
+  }
 });

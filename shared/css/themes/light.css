@@ -153,13 +153,3 @@
 #smd-app #categoriesEditor lol-category-header[expanded] .category-accordion-header {
     background-color: color-mix(in hsl, var(--bs-danger) 40%, black) !important;
 }
-
-/* Touch browsers may retain :hover after a tap moves focus elsewhere.
-   Restore idle button colours; real focus and pressed states stay native. */
-@media (hover: none) {
-  .btn:where(.btn-primary, .btn-outline-primary, .btn-secondary, .btn-outline-secondary, .btn-success, .btn-outline-success, .btn-danger, .btn-outline-danger, .btn-warning, .btn-outline-warning, .btn-info, .btn-outline-info, .btn-light, .btn-outline-light, .btn-dark, .btn-outline-dark):where(:not(.btn-check + .btn)):hover:not(:active):not(.active):not(.show):not(:focus-visible):not(:disabled):not(.disabled) {
-    color: var(--bs-btn-color) !important;
-    background-color: var(--bs-btn-bg);
-    border-color: var(--bs-btn-border-color);
-  }
-}
