@@ -39,9 +39,7 @@ async function mockFlaskApi(page, options = {}) {
     route.fulfill({ contentType: "text/html", body: "mock forecast output" });
   });
 
-  await page.route("**/solar/api/dashboard", route => options.legacy
-    ? route.fulfill({status:404, contentType:"text/html", body:"<!doctype html><title>404 Not Found</title><h1>Not Found</h1>"})
-    : route.fulfill({json: {
+  await page.route("**/solar/api/dashboard", route => route.fulfill({json: {
     csrf_token: "TESTCSRF",
     config: {charge_to_percentage: options.chargeToPercentage ?? 50},
     settings: [
@@ -51,24 +49,7 @@ async function mockFlaskApi(page, options = {}) {
     ]
   }}));
   await page.route("**/solar/", route => route.fulfill({contentType:"text/html",
-    body: options.legacy && route.request().method() === "GET" ? legacyDashboardHtml(options.chargeToPercentage ?? 73) : "saved"}));
+    body: "saved"}));
 }
 
-function legacyDashboardHtml(chargeToPercentage = 73) {
-  return '<html><body><form id="settingsForm" method="POST" action="/solar/">' +
-        '<input type="hidden" name="csrf_token" value="TESTCSRF">' +
-        '<table><tbody>' +
-          '<tr data-key="timezone" data-original="Europe/London"><td>Timezone</td>' +
-            '<td><input type="text" name="timezone" value="Europe/London" readonly></td>' +
-            '<td><span class="access-badge badge badge-ro">Read Only</span></td><td>timezone desc</td></tr>' +
-          '<tr data-key="tolerance_percent" data-original="0.5"><td>Tolerance (%)</td>' +
-            '<td><div><input type="range" id="slider-tolerance_percent" min="0" max="5" step="0.1" value="0.5"></div>' +
-            '<input type="hidden" name="tolerance_percent" id="hidden-tolerance_percent" value="0.5"></td>' +
-            '<td><span class="access-badge badge badge-rw">Read/Write</span></td><td>tolerance desc</td></tr>' +
-          '<tr data-key="start_discharge_target" data-original="90"><td>Start Discharge Target (%)</td>' +
-            '<td><input type="number" name="start_discharge_target" value="90" step="any"></td>' +
-            '<td><span class="access-badge badge badge-rw">Read/Write</span></td><td>discharge desc</td></tr>' +
-        '</tbody></table></form><form id="configForm"><input type="hidden" id="hidden-charge_to_percentage" name="charge_to_percentage" value="' + chargeToPercentage + '"></form></body></html>';
-}
-
-module.exports = { mockFlaskApi, legacyDashboardHtml };
+module.exports = { mockFlaskApi };

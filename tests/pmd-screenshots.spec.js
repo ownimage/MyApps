@@ -739,16 +739,14 @@ test.describe("PlanMyDay - Screenshots", () => {
 // Solar regressions are mirrored here per the repository screenshot workflow.
 test.describe('Solar dashboard appearance screenshots', () => {
   test.use({ serviceWorkers: 'block' });
-  for (const legacy of [false, true]) {
-  test(`Solar dashboard seven tabs and installed layout - ${legacy ? 'legacy HTML' : 'JSON'}`, async ({ page }) => {
+  test('Solar dashboard seven tabs and installed layout - JSON', async ({ page }) => {
     test.setTimeout(120000);
     const { mockFlaskApi } = require('./solar-fixtures');
     const { theme, inspectContrast } = require('./solar-appearance-helpers');
     await page.addInitScript(() => Object.defineProperty(navigator,'windowControlsOverlay',{value:{visible:true,addEventListener(){}}}));
-    await mockFlaskApi(page, {legacy, chargeToPercentage:73});
+    await mockFlaskApi(page, {chargeToPercentage:73});
     await page.goto('/SolarControlar/', { waitUntil: 'domcontentloaded' });
-    await expect(page.locator('#solarCompatibilityReminder')).toBeVisible();
-    await expect(page.locator('#solarCompatibilityReminder')).toContainText('Remove this compatibility code');
+    await expect(page.locator('#solarCompatibilityReminder')).toHaveCount(0);
     await expect(page.locator('#batteryPercent')).toHaveText('50%');
     await expect(page.locator('#topTiles .tile-label')).toHaveText(['Latest Date','Latest Time','Battery Charge']);
     await expect(page.locator('#topTiles .flap-card')).toHaveText(['0','8','0','0','0','0']);
@@ -837,7 +835,6 @@ test.describe('Solar dashboard appearance screenshots', () => {
       await expect(page.locator('#settingsPage')).toBeHidden();
     }
   });
-  }
 });
 
 test.describe('SlideShow screenshots', () => {
