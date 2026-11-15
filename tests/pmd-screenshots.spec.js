@@ -1027,3 +1027,26 @@ test('Clock face timing and permanent digit screenshots', async ({page}, testInf
     }
   }
 });
+
+test('Shared navbar spacing endpoints screenshots', async ({page}, testInfo) => {
+  const {settledSpacing} = require('./navbar-layout');
+  const {applyThemeAndWait} = require('./theme-controls');
+  await page.goto('/CountMyDays/', {waitUntil:'domcontentloaded'});
+  await applyThemeAndWait(page, process.env.SCREENSHOT_THEME || 'simplex', 'dark');
+  await page.evaluate(() => changeAutoHideMenu(false));
+  const normal = await settledSpacing(page);
+  expect(normal.paddingTop).toBe(0);
+  expect(normal.marginBottom).toBeGreaterThan(0);
+  await page.screenshot({path:testInfo.outputPath('navbar-normal.png')});
+  await page.evaluate(() => document.body.classList.add('auto-hide-menu'));
+  const visible = await settledSpacing(page);
+  expect(visible.navPosition).toBe('fixed');
+  expect(visible.paddingTop).toBeGreaterThan(normal.marginBottom);
+  await page.screenshot({path:testInfo.outputPath('navbar-auto-hide-visible.png')});
+  await page.evaluate(() => document.getElementById('mainNav').classList.add('nav-hidden'));
+  const hidden = await settledSpacing(page);
+  expect(hidden.navBottom).toBeLessThanOrEqual(1);
+  expect(hidden.paddingTop).toBeLessThan(visible.paddingTop);
+  expect(hidden.paddingTop).toBeLessThanOrEqual(normal.marginBottom);
+  await page.screenshot({path:testInfo.outputPath('navbar-auto-hide-hidden.png')});
+});
