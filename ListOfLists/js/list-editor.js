@@ -97,6 +97,13 @@ function renderListItems() {
   ensureListItemDates();
   el.toggleAttribute("dated", !!listsBuffer.dated);
   el.items = items;
+  // Refresh the Add controls with their rows. Reusing the tapped DOM node
+  // retains touch :hover even after focus moves into the new description.
+  // Inline onclick attributes preserve the actions when these controls clone.
+  ["listAddItemBtn","listAddItemBottomBtn"].forEach(function(id) {
+    var button = $id(id);
+    if (button) button.replaceWith(button.cloneNode(true));
+  });
   var topBtn = $id("listAddItemBtn");
   if (topBtn) {
     topBtn.classList.toggle("d-none", items.length < 1);

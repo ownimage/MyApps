@@ -101,6 +101,13 @@ function renderJobTasks() {
   if (!el || !jobsBuffer) return;
   var tasks = jobsBuffer.tasks || [];
   el.tasks = tasks;
+  // Refresh the Add controls with their rows. Reusing the tapped DOM node
+  // retains touch :hover even after focus moves into the new description.
+  // Inline onclick attributes preserve the actions when these controls clone.
+  ["jobAddTaskBtn","jobAddTaskBottomBtn"].forEach(function(id) {
+    var button = $id(id);
+    if (button) button.replaceWith(button.cloneNode(true));
+  });
   var topBtn = $id("jobAddTaskBtn");
   if (topBtn) {
     topBtn.classList.toggle("d-none", tasks.length < 1);
