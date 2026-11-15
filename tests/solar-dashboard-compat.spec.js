@@ -6,13 +6,13 @@ test.beforeEach(async ({page}) => { await startCoverage(page); });
 test.afterEach(async ({page}) => { await stopCoverage(page); });
 const tab = (page, name) => page.locator('#mainTabs').getByRole('tab', {name, exact:true}).click();
 
-async function openLegacy(page) {
-  await mockFlaskApi(page, {legacy:true, chargeToPercentage:73});
+async function openDashboard(page) {
+  await mockFlaskApi(page, {chargeToPercentage:73});
   await page.goto('/SolarControlar/', {waitUntil:'domcontentloaded'});
 }
 
-test('legacy dashboard 404: Settings renders original fields and access controls', async ({page}) => {
-  await openLegacy(page);
+test('JSON dashboard: Settings renders original fields and access controls', async ({page}) => {
+  await openDashboard(page);
   await tab(page, 'Settings');
   await expect(page.locator('#solarSettingsForm tbody tr')).toHaveCount(3);
   await expect(page.locator('input[name="timezone"]')).toHaveValue('Europe/London');
@@ -25,18 +25,18 @@ test('legacy dashboard 404: Settings renders original fields and access controls
   await expect(page.locator('#tab-settings .alert-danger')).toHaveCount(0);
 });
 
-test('legacy dashboard 404: Config renders the saved target rather than the default', async ({page}) => {
-  await openLegacy(page);
+test('JSON dashboard: Config renders the saved target rather than the default', async ({page}) => {
+  await openDashboard(page);
   await tab(page, 'Config');
   await expect(page.locator('#configSlider')).toHaveValue('73');
   await expect(page.locator('#configOutput')).toHaveText('73%');
 });
 
-for (const legacy of [true, false]) {
-  test(`${legacy ? 'legacy HTML' : 'JSON'} server: all seven tabs render populated content`, async ({page}) => {
+{
+  test('JSON server: all seven tabs render populated content', async ({page}) => {
     const errors = [];
     page.on('pageerror', error => errors.push(error.message));
-    await mockFlaskApi(page, {legacy, chargeToPercentage:73});
+    await mockFlaskApi(page, {chargeToPercentage:73});
     await page.goto('/SolarControlar/', {waitUntil:'domcontentloaded'});
     await tab(page, 'Now');
     await expect(page.locator('solar-diagram [data-node=inverter] .solar-diagram__value')).toHaveText('300 W');
@@ -63,14 +63,14 @@ for (const legacy of [true, false]) {
   });
 }
 
-test('legacy fallback preserves authentication, CSRF and both save endpoints', async ({page}) => {
+test('JSON dashboard preserves authentication, CSRF and both save endpoints', async ({page}) => {
   await page.addInitScript(() => {
     localStorage.setItem('solarcontrolar_flaskUser','test-user');
     localStorage.setItem('solarcontrolar_flaskPass','test-pass');
   });
   const requests = [];
   page.on('request', request => { if (/\/solar\/(?:api\/dashboard|api\/config)?$/.test(new URL(request.url()).pathname)) requests.push(request); });
-  await openLegacy(page);
+  await openDashboard(page);
   await tab(page,'Settings');
   await expect(page.locator('#slider-tolerance_percent')).toHaveValue('0.5');
   await page.locator('#slider-tolerance_percent').fill('1.2');
@@ -88,11 +88,11 @@ test('legacy fallback preserves authentication, CSRF and both save endpoints', a
   await page.locator('#configForm button').click();
   expect((await configPost).postData()).toMatch(/name="charge_to_percentage"\r?\n\r?\n74/);
   await expect(page.locator('#configSlider')).toHaveValue('73');
-  expect(requests.filter(request => request.method() === 'GET' && new URL(request.url()).pathname === '/solar/').length).toBeGreaterThanOrEqual(4);
+  expect(requests.filter(request => request.method() === 'GET' && new URL(request.url()).pathname === '/solar/')).toHaveLength(0);
   for (const request of requests) expect(request.headers().authorization).toBe('Basic ' + Buffer.from('test-user:test-pass').toString('base64'));
 });
 
-for (const status of [401, 403, 500]) {
+for (const status of [404, 401, 403, 500]) {
   test(`dashboard HTTP ${status} keeps its error without trying the HTML fallback`, async ({page}) => {
     await mockFlaskApi(page);
     await page.route('**/solar/api/dashboard', route => route.fulfill({status, json:{error:'dashboard unavailable'}}));
@@ -104,11 +104,3 @@ for (const status of [401, 403, 500]) {
     expect(fallbackRequests).toBe(0);
   });
 }
-
-test('legacy fallback rejects unrelated HTML rather than displaying empty settings', async ({page}) => {
-  await mockFlaskApi(page, {legacy:true});
-  await page.route('**/solar/', route => route.fulfill({contentType:'text/html',body:'<html><form>Sign in</form></html>'}));
-  await page.goto('/SolarControlar/', {waitUntil:'domcontentloaded'});
-  await tab(page,'Settings');
-  await expect(page.locator('#tab-settings .alert-danger')).toContainText('settings form not found in server response');
-});

@@ -1,4 +1,4 @@
-// Settings use the dashboard API (with older-server HTML compatibility) and POST /.
+// Settings use the JSON dashboard API and POST /.
 
 var _solarSettings = null;   // [{ key, label, description, value, readonly, slider:{min,max,step} | null, original }]
 var _solarCsrfToken = "";

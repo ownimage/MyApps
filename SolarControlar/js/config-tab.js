@@ -1,4 +1,4 @@
-// SolarControlar - Config tab: edit charge_to_percentage from the compatible dashboard API.
+// SolarControlar - Config tab: edit charge_to_percentage from the JSON dashboard API.
 
 var _configData = null;
 
