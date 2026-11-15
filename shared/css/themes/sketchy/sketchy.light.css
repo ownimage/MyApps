@@ -128,3 +128,14 @@ smd-checkbox input[type="checkbox"]:disabled::before {
   --solar-series-battery-level: rgb(220, 53, 69);
 }
 /* solar-palette:end */
+
+/* smd-touch:start */
+/* Idle paint for retained touch hover; mouse, focus and pressed states stay native. */
+@media (hover: none) {
+  .btn-success:where(:not(.btn-check + .btn)):hover:not(:active):not(.active):not(.show):not(:focus-visible):not(:disabled):not(.disabled),
+  .btn-warning:where(:not(.btn-check + .btn)):hover:not(:active):not(.active):not(.show):not(:focus-visible):not(:disabled):not(.disabled),
+  .btn-info:where(:not(.btn-check + .btn)):hover:not(:active):not(.active):not(.show):not(:focus-visible):not(:disabled):not(.disabled) {
+    color: rgb(33, 37, 41) !important;
+  }
+}
+/* smd-touch:end */

@@ -971,3 +971,30 @@ test('Solar Flask and MyApps menu and General screenshots', async ({page}) => {
     }
   } finally { await server.stop(); }
 });
+
+test.describe('ListOfLists touch editor screenshots', () => {
+  test.use({ hasTouch: true, isMobile: true, viewport: { width: 620, height: 850 } });
+  for (const mode of ['light', 'dark']) {
+    test(`touch Add List Item keeps normal colours - ${mode}`, async ({ page }, testInfo) => {
+      const { applyThemeAndWait } = require('./theme-controls');
+      await page.goto('/ListOfLists/');
+      await applyThemeAndWait(page, process.env.SCREENSHOT_THEME || 'superhero', mode);
+      await page.addStyleTag({ content: '* { transition: none !important; animation: none !important; }' });
+      await page.evaluate(() => {
+        localStorage.setItem('lol_categories', JSON.stringify([{ title: 'Chores', lists: [] }]));
+        listsCategoryIndex = 0;
+        addNewList();
+      });
+      await page.locator('#listTitleInput').fill('Shopping');
+      await page.locator('#listAddItemBottomBtn').tap();
+      await expect(page.locator('input.item-desc-input')).toBeFocused();
+      const colours = await page.locator('#listAddItemBtn, #listAddItemBottomBtn').evaluateAll(buttons =>
+        buttons.map(button => {
+          const style = getComputedStyle(button);
+          return [style.color, style.backgroundColor, style.borderColor, style.boxShadow, style.transform];
+        }));
+      expect(colours[1]).toEqual(colours[0]);
+      await page.screenshot({ path: testInfo.outputPath(`lol-touch-add-item-${mode}.png`) });
+    });
+  }
+});

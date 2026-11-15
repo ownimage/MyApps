@@ -104,3 +104,37 @@ smd-checkbox input[type="checkbox"] {
   --solar-series-battery-level: rgb(229, 37, 39);
 }
 /* solar-palette:end */
+
+/* smd-touch:start */
+/* Idle paint for retained touch hover; mouse, focus and pressed states stay native. */
+@media (hover: none) {
+  .btn-primary:where(:not(.btn-check + .btn)):hover:not(:active):not(.active):not(.show):not(:focus-visible):not(:disabled):not(.disabled),
+  .btn-secondary:where(:not(.btn-check + .btn)):hover:not(:active):not(.active):not(.show):not(:focus-visible):not(:disabled):not(.disabled),
+  .btn-success:where(:not(.btn-check + .btn)):hover:not(:active):not(.active):not(.show):not(:focus-visible):not(:disabled):not(.disabled),
+  .btn-danger:where(:not(.btn-check + .btn)):hover:not(:active):not(.active):not(.show):not(:focus-visible):not(:disabled):not(.disabled),
+  .btn-warning:where(:not(.btn-check + .btn)):hover:not(:active):not(.active):not(.show):not(:focus-visible):not(:disabled):not(.disabled),
+  .btn-info:where(:not(.btn-check + .btn)):hover:not(:active):not(.active):not(.show):not(:focus-visible):not(:disabled):not(.disabled),
+  .btn-light:where(:not(.btn-check + .btn)):hover:not(:active):not(.active):not(.show):not(:focus-visible):not(:disabled):not(.disabled) {
+    color: rgba(255, 255, 255, 0.75) !important;
+    background-color: rgb(33, 37, 41) !important;
+    border-color: rgba(255, 255, 255, 0.75) !important;
+  }
+  .btn-outline-primary:where(:not(.btn-check + .btn)):hover:not(:active):not(.active):not(.show):not(:focus-visible):not(:disabled):not(.disabled),
+  .btn-outline-secondary:where(:not(.btn-check + .btn)):hover:not(:active):not(.active):not(.show):not(:focus-visible):not(:disabled):not(.disabled),
+  .btn-outline-success:where(:not(.btn-check + .btn)):hover:not(:active):not(.active):not(.show):not(:focus-visible):not(:disabled):not(.disabled),
+  .btn-outline-danger:where(:not(.btn-check + .btn)):hover:not(:active):not(.active):not(.show):not(:focus-visible):not(:disabled):not(.disabled),
+  .btn-outline-warning:where(:not(.btn-check + .btn)):hover:not(:active):not(.active):not(.show):not(:focus-visible):not(:disabled):not(.disabled),
+  .btn-outline-info:where(:not(.btn-check + .btn)):hover:not(:active):not(.active):not(.show):not(:focus-visible):not(:disabled):not(.disabled),
+  .btn-outline-light:where(:not(.btn-check + .btn)):hover:not(:active):not(.active):not(.show):not(:focus-visible):not(:disabled):not(.disabled),
+  .btn-outline-dark:where(:not(.btn-check + .btn)):hover:not(:active):not(.active):not(.show):not(:focus-visible):not(:disabled):not(.disabled) {
+    color: rgba(255, 255, 255, 0.75) !important;
+    background-color: rgb(33, 37, 41) !important;
+    border-color: rgba(255, 255, 255, 0.75) !important;
+    box-shadow: rgba(0, 0, 0, 0.2) 5px 5px 10px 0px, rgba(255, 255, 255, 0.05) -5px -5px 10px 0px !important;
+  }
+  .btn-dark:where(:not(.btn-check + .btn)):hover:not(:active):not(.active):not(.show):not(:focus-visible):not(:disabled):not(.disabled) {
+    color: rgba(255, 255, 255, 0.75) !important;
+    border-color: rgba(255, 255, 255, 0.75) !important;
+  }
+}
+/* smd-touch:end */

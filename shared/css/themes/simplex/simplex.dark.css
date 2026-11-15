@@ -108,3 +108,38 @@ smd-checkbox input[type="checkbox"] {
   --solar-series-battery-level: rgb(160, 86, 164);
 }
 /* solar-palette:end */
+
+/* smd-touch:start */
+/* Idle paint for retained touch hover; mouse, focus and pressed states stay native. */
+@media (hover: none) {
+  .btn-primary:where(:not(.btn-check + .btn)):hover:not(:active):not(.active):not(.show):not(:focus-visible):not(:disabled):not(.disabled) {
+    border-color: rgb(189, 30, 13) !important;
+  }
+  .btn-secondary:where(:not(.btn-check + .btn)):hover:not(:active):not(.active):not(.show):not(:focus-visible):not(:disabled):not(.disabled),
+  .btn-light:where(:not(.btn-check + .btn)):hover:not(:active):not(.active):not(.show):not(:focus-visible):not(:disabled):not(.disabled) {
+    border-color: rgb(222, 222, 222) !important;
+  }
+  .btn-outline-secondary:where(:not(.btn-check + .btn)):hover:not(:active):not(.active):not(.show):not(:focus-visible):not(:disabled):not(.disabled) {
+    color: rgb(187, 187, 187) !important;
+    border-color: rgb(187, 187, 187) !important;
+  }
+  .btn-success:where(:not(.btn-check + .btn)):hover:not(:active):not(.active):not(.show):not(:focus-visible):not(:disabled):not(.disabled) {
+    color: rgb(0, 0, 0) !important;
+    border-color: rgb(61, 129, 7) !important;
+  }
+  .btn-danger:where(:not(.btn-check + .btn)):hover:not(:active):not(.active):not(.show):not(:focus-visible):not(:disabled):not(.disabled) {
+    border-color: rgb(135, 62, 138) !important;
+  }
+  .btn-warning:where(:not(.btn-check + .btn)):hover:not(:active):not(.active):not(.show):not(:focus-visible):not(:disabled):not(.disabled) {
+    color: rgb(33, 37, 41) !important;
+    border-color: rgb(189, 114, 27) !important;
+  }
+  .btn-info:where(:not(.btn-check + .btn)):hover:not(:active):not(.active):not(.show):not(:focus-visible):not(:disabled):not(.disabled) {
+    color: rgb(0, 0, 0) !important;
+    border-color: rgb(2, 134, 180) !important;
+  }
+  .btn-dark:where(:not(.btn-check + .btn)):hover:not(:active):not(.active):not(.show):not(:focus-visible):not(:disabled):not(.disabled) {
+    border-color: rgb(48, 50, 52) !important;
+  }
+}
+/* smd-touch:end */
