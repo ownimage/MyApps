@@ -1093,3 +1093,25 @@ test('Startup update prompt remains visible until a user action screenshots', as
   await expect(page.locator('#mainNav')).toBeVisible();
   await page.screenshot({path: testInfo.outputPath('startup-update-later.png')});
 });
+
+test.describe('Interrupted update recovery screenshots', {tag:'@cache'}, () => {
+  test.use({offlineCache:true});
+  test('cached app remains usable offline after failed update cleanup', async ({page, context}, testInfo) => {
+    const {createInterruptedRelease, interruptUpdate} = require('./sw-install-fixture');
+    const {applyThemeAndWait} = require('./theme-controls');
+    const release = await createInterruptedRelease();
+    try {
+      await interruptUpdate(page, release, expect);
+      expect(await page.evaluate(() => caches.keys())).not.toContain('myapps-' + release.nextBuild);
+      await context.setOffline(true);
+      await page.reload({waitUntil:'domcontentloaded'});
+      for (const mode of ['light', 'dark']) {
+        await applyThemeAndWait(page, process.env.SCREENSHOT_THEME || 'superhero', mode);
+        await expect(page.getByRole('button', {name:'+ Add Job', exact:true})).toBeVisible();
+        await expect(page.locator('#smdConfirmModal')).toBeHidden();
+        expect(await page.evaluate(() => String(BUILD_NUMBER))).toBe(release.currentBuild);
+        await page.screenshot({path:testInfo.outputPath('interrupted-update-offline-' + mode + '.png')});
+      }
+    } finally {await release.close();}
+  });
+});

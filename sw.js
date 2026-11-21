@@ -19,7 +19,7 @@
 // inline and change with every bump; importScripts files are NOT part of that
 // comparison. If the two ever DO drift, the page notices at runtime
 // (GET_BUILD) and reports it. Updating still requires user consent.
-const BUILD_NUMBER = "202611210652";
+const BUILD_NUMBER = "202611210712";
 
 const CACHE = "myapps-" + BUILD_NUMBER;
 
@@ -673,7 +673,22 @@ function appIndexFor(pathname) {
 
 self.addEventListener("install", event => {
   event.waitUntil(
-    caches.open(CACHE).then(cache => cache.addAll(PRECACHE_URLS))
+    (async function() {
+      // A failed addAll rolls back its entries but leaves caches.open's empty
+      // container behind. Remove this attempt's cache before install rejects.
+      // Preserve an existing populated cache: it may belong to the active
+      // worker after an accidental same-build deployment. Empty orphan caches
+      // left by an earlier failed attempt are safe to remove as well.
+      let preserveCache = await caches.has(CACHE);
+      try {
+        const cache = await caches.open(CACHE);
+        if (preserveCache) preserveCache = (await cache.keys()).length > 0;
+        await cache.addAll(PRECACHE_URLS);
+      } catch (error) {
+        if (!preserveCache) await caches.delete(CACHE);
+        throw error;
+      }
+    })()
   );
   // Do NOT skipWaiting() here: activation is user-driven via the SKIP_WAITING
   // message from the page's "Update available" prompt.
