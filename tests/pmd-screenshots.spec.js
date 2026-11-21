@@ -1115,3 +1115,33 @@ test.describe('Interrupted update recovery screenshots', {tag:'@cache'}, () => {
     } finally {await release.close();}
   });
 });
+
+
+test('Solar aligned tile labels and full battery screenshots', async ({page}) => {
+  const {mockFlaskApi}=require('./solar-fixtures');
+  const {theme}=require('./solar-appearance-helpers');
+  await page.addInitScript(()=>{delete Object.getPrototypeOf(navigator).serviceWorker;});
+  await mockFlaskApi(page);
+  await page.goto('/SolarControlar/',{waitUntil:'domcontentloaded'});
+  await expect(page.locator('#batteryPercent')).toHaveText('50%');
+  await page.addStyleTag({content:'*, *::before, *::after { transition: none !important; }'});
+  await page.locator('solar-battery-tile').evaluate(el=>{el.value=100;});
+  for(const mode of ['light','dark']) {
+    await theme(page,process.env.SCREENSHOT_THEME || 'superhero',mode);
+    for(const [width,height] of [[800,1000],[390,844],[1280,800]]) {
+      await page.setViewportSize({width,height});
+      const positions=await page.locator('#topTiles .tile').evaluateAll(nodes=>nodes.map(el=>{
+        const r=el.getBoundingClientRect(),label=el.querySelector('.tile-label').getBoundingClientRect();
+        return {height:r.height,offset:label.top-r.top};
+      }));
+      expect(Math.max(...positions.map(p=>p.height))-Math.min(...positions.map(p=>p.height))).toBeLessThan(1);
+      expect(Math.max(...positions.map(p=>p.offset))-Math.min(...positions.map(p=>p.offset))).toBeLessThan(1);
+      const ratio=await page.locator('solar-battery-tile').evaluate(el=>{
+        const icon=el.querySelector('.battery-icon'),s=getComputedStyle(icon);
+        return el.querySelector('.battery-fill').getBoundingClientRect().width/(icon.getBoundingClientRect().width-parseFloat(s.borderLeftWidth)-parseFloat(s.borderRightWidth));
+      });
+      expect(ratio).toBeCloseTo(0.84,2);
+      await page.screenshot({path:test.info().outputPath(`solar-aligned-${mode}-${width}.png`),fullPage:true});
+    }
+  }
+});

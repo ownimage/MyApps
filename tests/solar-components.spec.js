@@ -99,3 +99,43 @@ test('Solar Storybook exposes five working component demos', async ({ page }) =>
   await expect(page.locator('#solar-battery-tile #batteryPercent')).toHaveText('25%');
   expect(errors).toEqual([]);
 });
+
+
+test('Solar tile labels align below centered content at equal heights', async ({ page }) => {
+  await mockFlaskApi(page);
+  await page.goto('/SolarControlar/', { waitUntil: 'domcontentloaded' });
+  await expect(page.locator('#batteryPercent')).toHaveText('50%');
+  for (const [width, height] of [[800,1000],[390,844],[1280,800],[844,390]]) {
+    await page.setViewportSize({width,height});
+    for (const compact of [false,true]) {
+      await page.evaluate(compact => document.body.classList.toggle('compact',compact),compact);
+      const tiles = await page.locator('#topTiles .tile').evaluateAll(nodes => nodes.map(tile => {
+        const r=tile.getBoundingClientRect(), label=tile.querySelector('.tile-label').getBoundingClientRect();
+        const children=[...tile.querySelectorAll('.date-dd,.date-meta,.split-flap,.battery-icon,.battery-info')].map(el=>el.getBoundingClientRect());
+        const style=getComputedStyle(tile), ls=getComputedStyle(tile.querySelector('.tile-label'));
+        const top=r.top+parseFloat(style.borderTopWidth)+parseFloat(style.paddingTop);
+        const bottom=label.top-parseFloat(ls.marginTop);
+        return {height:r.height,labelOffset:label.top-r.top,centerError:Math.abs((Math.min(...children.map(r=>r.top))+Math.max(...children.map(r=>r.bottom)))/2-(top+bottom)/2)};
+      }));
+      expect(Math.max(...tiles.map(t=>t.height))-Math.min(...tiles.map(t=>t.height))).toBeLessThan(1);
+      expect(Math.max(...tiles.map(t=>t.labelOffset))-Math.min(...tiles.map(t=>t.labelOffset))).toBeLessThan(1);
+      for (const tile of tiles) expect(tile.centerError).toBeLessThan(1);
+    }
+  }
+});
+
+test('Solar battery full length matches the previous ninety percent length', async ({ page }) => {
+  await mockFlaskApi(page);
+  await page.goto('/SolarControlar/', { waitUntil: 'domcontentloaded' });
+  await expect(page.locator('#batteryPercent')).toHaveText('50%');
+  await page.addStyleTag({content:'.battery-fill { transition: none !important; }'});
+  for (const level of [100,90,50,0]) {
+    const ratio=await page.locator('solar-battery-tile').evaluate((el,level)=>{
+      el.value=level;
+      const icon=el.querySelector('.battery-icon'), fill=el.querySelector('.battery-fill');
+      const s=getComputedStyle(icon);
+      return fill.getBoundingClientRect().width/(icon.getBoundingClientRect().width-parseFloat(s.borderLeftWidth)-parseFloat(s.borderRightWidth));
+    },level);
+    expect(ratio).toBeCloseTo(level/100*0.84,2);
+  }
+});

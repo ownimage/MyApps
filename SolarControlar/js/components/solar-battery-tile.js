@@ -20,7 +20,7 @@
       var level = raw === null || raw.trim() === '' ? NaN : Number(raw);
       var valid = Number.isFinite(level) && level >= 0 && level <= 100;
       var fill = this.querySelector('#batteryFill');
-      fill.style.width = valid ? Math.max(0, level - 6) + '%' : '0%';
+      fill.style.width = valid ? (level * 0.84) + '%' : '0%';
       fill.style.background = !valid ? 'var(--bs-body-color)' : level <= 20 ? 'var(--solar-card-danger)' : level <= 50 ? 'var(--solar-card-warning)' : 'var(--solar-card-success)';
       this.querySelector('#batteryPercent').textContent = valid ? Math.round(level) + '%' : 'Unknown';
     }
