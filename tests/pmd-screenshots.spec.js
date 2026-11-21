@@ -1072,3 +1072,24 @@ test.describe('PlanMyDay touch task editor screenshots', () => {
     });
   }
 });
+
+test('Startup update prompt remains visible until a user action screenshots', async ({page}, testInfo) => {
+  const {stubPendingUpdate} = require('./sw-update-fixture');
+  const {applyThemeAndWait} = require('./theme-controls');
+  await stubPendingUpdate(page);
+  await page.goto('/PlanMyDay/', {waitUntil: 'domcontentloaded'});
+  const modal = page.locator('#smdConfirmModal');
+  await expect(modal).toBeVisible();
+  await expect.poll(() => page.evaluate(() => window.__swTest.checked)).toBe(true);
+  for (const mode of ['light', 'dark']) {
+    await applyThemeAndWait(page, process.env.SCREENSHOT_THEME || 'superhero', mode);
+    await expect(modal).toContainText('Update available');
+    expect(await page.evaluate(() => sessionStorage.getItem('swTestBoots'))).toBe('1');
+    expect(await page.evaluate(() => window.__swTest.messages)).not.toContain('SKIP_WAITING');
+    await page.screenshot({path: testInfo.outputPath('startup-update-' + mode + '.png')});
+  }
+  await modal.getByRole('button', {name:'Later', exact:true}).click();
+  await expect(modal).toBeHidden();
+  await expect(page.locator('#mainNav')).toBeVisible();
+  await page.screenshot({path: testInfo.outputPath('startup-update-later.png')});
+});

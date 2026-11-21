@@ -4,7 +4,7 @@ VENDOR THEME CSS IS READ-ONLY (2026-11-15, explicit user instruction): Under no 
 2: Ask questions if there are implementation options
 3: When running playwright use the command '.\node_modules\.bin\playwright.cmd' to make sure the correct version loads. 
 4: Please capture all the output needed when running a test the first time so that you do not need to rerun the test.
-5: `shared/js/build-number.js` `BUILD_NUMBER` is a TIMESTAMP in `YYYYMMDDHH24MI` format (e.g. `202609131400` = 2026-09-13 14:00); it is the single cache-busting version for every app + shared asset. BUMP IT WITH `npm run bump:build` (`node shared/bump-build.js`, optional explicit `YYYYMMDDHHMM` arg) — the script rewrites BOTH `shared/js/build-number.js` AND `sw.js` in one go. Never hand-edit the two apart: a bump is what ships a build. The worker is registered at a STABLE url (`../sw.js`, no `?v=` — a versioned url makes the app "update twice"), so a BYTE change in sw.js is the only signal that installs a new worker; `npm run bump:build` writes both in one go. If they ever do drift, the page detects it at runtime (GET_BUILD) and re-registers, so a forgotten bump self-heals instead of pinning users to the old build.
+5: `shared/js/build-number.js` `BUILD_NUMBER` is a TIMESTAMP in `YYYYMMDDHH24MI` format (e.g. `202609131400` = 2026-09-13 14:00); it is the single cache-busting version for every app + shared asset. BUMP IT WITH `npm run bump:build` (`node shared/bump-build.js`, optional explicit `YYYYMMDDHHMM` arg) — the script rewrites BOTH `shared/js/build-number.js` AND `sw.js` in one go. Never hand-edit the two apart: a bump is what ships a build. The worker is registered at a STABLE url (`../sw.js`, no `?v=` — a versioned url makes the app "update twice"), so a BYTE change in sw.js is the only signal that installs a new worker; `npm run bump:build` writes both in one go. If they ever drift, the page reports it at runtime (GET_BUILD); background update checks retain the normal user-consent flow. Never unregister/reload to repair drift automatically.
 5: FULL-SUITE RUNS use the ITERATIVE PER-SHARD approach (2026-09-19, ALWAYS): play `--shard=$i/40 --workers=1 --retries=0 --reporter=line` with `EXTERNAL_SERVERS=1` (start `npm run dev:test` ONCE — one Vite process serves BOTH origins, 8080 root + 8081 sub-path — and verify both ports accept a TCP connection first) ONE SHARD AT A TIME in order: run shard 1/40, tell the user WHAT FAILED, fix every failure AND apply the same root-cause fix EVERYWHERE it can happen (use `--grep "a|b"` to re-verify just the fixed tests), then run shard 2/40, and so on. Report progress between shards. This catches a shared root cause in shard 1 instead of failing 30 shards; it also keeps the "wait" granularity small. Do NOT run the whole 40-shard batch blind. `--workers="50%"` also works for speed (or any worker ratio) — BUT be aware it raises infra failures (client ephemeral-port exhaustion in this box → mid-run `ERR_CONNECTION_REFUSED` / "Target page, context or browser has been closed"), so treat a burst of infra-style failures as spurious and re-run the affected tests before calling them real bugs. The old waves-of-10 recipe only applies if a parallel sweep is ever required again: 40 `--shard` processes would exhaust client ephemeral ports (`ERR_CONNECTION_REFUSED`), so build waves as `for ($start=1; $start -le 40; $start += 10)` over `$start..($start+9)` — NEVER `@(,@(1..10)),@(11..20),…`: that nests the first array (its `$i` becomes the whole wave) and `--shard` errors with "expected format current/all". Without `EXTERNAL_SERVERS=1` each Playwright process may start its own `tests/serve-tests.mjs`; `reuseExistingServer` makes a later process reuse one that is already listening, but the process that DID start it owns and kills it on exit. Config sets `retries: 1`, so always pass `--retries=0` while iterating. Fix a failure in one shard everywhere before continuing.
 6: After fixing issues with the regression tests apply them to pmd-screenshots.spec.js and validate them using one theme only.
 7: Fail-fast test iterations: after a code/test change, DON'T run a whole batch at once — run only the first 2-3 affected tests first (`--grep "a|b" --workers=2 --retries=0`) to debug on a small surface; grow the batch only once those pass. The config sets `retries: 1`, so pass `--retries=0` while iterating (otherwise failures take twice as long).
@@ -787,15 +787,10 @@ Architecture:
   the OLD build until the new worker is accepted; that is expected, and
   `reg.update()` on load + `focus` is what surfaces it promptly instead of
   waiting for the browser's throttled (~daily) check.
-  DRIFT SELF-HEAL (2026-09-25): the page verifies the invariant instead of
-  trusting it. `smdCheckServiceWorkerBuild(reg)` asks the controlling worker
-  `{type:"GET_BUILD"}` (answered in sw.js with `{type:"BUILD", build, cache}`) and
-  compares it with the page's own `BUILD_NUMBER`. If the PAGE is newer than its
-  worker the two files were edited apart; nothing would ever replace that worker
-  (its bytes no longer change), so the page unregisters once and reloads, guarded
-  by `localStorage["smdSwDriftReloadedFor"]` so it cannot loop. The new worker's
-  activate step then deletes the stale `myapps-<old>` cache. A worker NEWER than
-  the page is just a pending update, so it only logs a warning.
+  BUILD DIAGNOSTICS (2026-11-21): smdCheckServiceWorkerBuild(reg) asks the
+  worker GET_BUILD and reports a mismatch. It never unregisters or reloads:
+  that bypassed the update modal and interrupted startup. Existing background
+  reg.update() checks discover a waiting worker; only Update now activates it.
   "NO CACHE" MODE (2026-09-27; ON EVERY APP SINCE 2026-10-18): the Danger tab's
   "No Cache" switch
   (`#noCacheRow`, key `smdKey("noCache")`) that makes the worker read every file
@@ -831,10 +826,9 @@ Architecture:
   and names the `myapps-<BUILD_NUMBER>` cache). All same-origin ASSET LOADS are
   cache-busted with `?v=BUILD_NUMBER` (head `<script>` stamps `<link href>`;
   vendor/component scripts use `document.write(...?v=…)`; `applyTheme()` stamps
-  theme swaps; `sampleImages.json` fetch is versioned). The fetch handler serves a
-  `?v=` stamp the worker does not recognise network-first, so a page that ends up
-  ahead of its worker still gets fresh bytes instead of `ignoreSearch` matches
-  from the old cache.
+  theme swaps; `sampleImages.json` fetch is versioned). The fetch handler serves cached assets regardless of the
+  `?v=` stamp and does not revalidate them in the background. Build changes are
+  delivered as a complete new worker cache after user consent.
 - LAUNCH APP (2026-09-13): the app launcher's entry is the **repo-root
   `index.html`** (served at `/MyApps/`); its support files live in `Launch/`
   (`manifest.json` with `start_url`/`scope: "../"`, `icon.svg` + generated PNGs,
@@ -10731,3 +10725,10 @@ The latest-readings tab is Now (internal power ID retained). Both charts join po
 - Removed api.js parseLegacySolarDashboard and its 404-to-root-HTML fallback, plus the startup compatibility reminder in app.js. GET /api/dashboard is required; all HTTP errors retain their original details. Settings POST / and Config POST /api/config still use the existing current-server endpoints. Browser hosting and Flask hosting remain supported; those deployment modes are separate from old-server compatibility. No server source changes are needed.
 - tests/solar-dashboard-compat.spec.js now covers JSON fields, saved target, seven tabs, authentication/CSRF/save endpoints and no HTML fallback on 404/401/403/500. solar-compat-reminder.spec.js verifies no reminder at startup/refresh/reload. Shared fixtures and the seven-tab pmd-screenshots scene now use only JSON.
 - Verification: focused removal checks confirmed red before implementation then green on fresh assets; all 38 affected functional checks and one Superhero light/dark seven-tab screenshot scene passed, retries=0. JS syntax and git diff --check passed. Build 202611152023 via npm run bump:build. No full-repository suite run. Use a fresh/dev:true preview server after asset size changes; a reused production sirv file map can serve incorrect cached Content-Length values.
+
+### 2026-11-21 - Cache-first startup and update consent
+- sw.js serveCacheFirst now returns cached bytes without fetch, including mismatched ?v= stamps. Navigation checks the app-aware cached shell before networking; genuine cache misses download and store their response. Background asset revalidation used to poll every file and overwrite a running build with newer bytes, which could make startup wait on poor connectivity and create mixed builds. The explicit Danger No Cache mode remains network-first; its offline navigation fallback now retains the cache variable in scope.
+- smdCheckServiceWorkerBuild in shared/js/smd-settings.js is diagnostic only. Its former unregister/reload repair bypassed the update prompt when the page build exceeded the worker build. GET_BUILD timeout/reply now closes the MessageChannel; no startup path forces that reload. Keep activation behind the existing Update now action.
+- tests/sw-startup.spec.js covers stalled networking, mismatched stamps, root/sub-path navigation fallbacks, cache misses, real cached/offline page rendering, and Later/Update consent with a startup build mismatch. tests/sw-update-fixture.js supplies a deterministic pending worker and reads fresh assets for modal tests. The pmd-screenshots startup-update scene covers Superhero light/dark and dismissal.
+- TDD evidence: worker cache-hit tests failed with one unwanted network call; consent test failed with two boots instead of one; explicit No Cache offline fallback failed with ReferenceError: cache is not defined. All pass after the fix. Initial modal probes stalled before DOMContentLoaded with pending static assets; fresh on-disk route fulfillment isolated the real reload failure. For real-worker verification, work/sw-fresh-server.cjs buffers current files on 8080/8081 (EXTERNAL_SERVERS=1), avoiding the mapped-drive sirv stream stall. This is a local diagnostic server, not an application dependency.
+- Validation: 11 startup checks plus one screenshot scene passed with retries=0; the existing 11 tagged cache/registration/sub-path checks and the CountMyDays sub-path check also passed (24 total including the screenshot scene). Superhero light/dark modal images visually inspected. JS syntax and git diff --check passed. No full-repository suite run. Build 202611210652 via npm run bump:build.

@@ -18,9 +18,8 @@
 // only update signal is a BYTE change in this file, so the number has to sit
 // inline and change with every bump; importScripts files are NOT part of that
 // comparison. If the two ever DO drift, the page notices at runtime
-// (GET_BUILD) and re-registers, so the drift self-heals instead of pinning
-// users to a build the worker will never replace.
-const BUILD_NUMBER = "202611152047";
+// (GET_BUILD) and reports it. Updating still requires user consent.
+const BUILD_NUMBER = "202611210652";
 
 const CACHE = "myapps-" + BUILD_NUMBER;
 
@@ -712,24 +711,23 @@ self.addEventListener("activate", event => {
   );
 });
 
-// Default: serve the precached bytes and revalidate in the background. A
-// `?v=` stamp this worker does not recognise is a NEWER build's asset, so serve
-// it from the network instead of pinning the old bytes.
-function serveCacheFirst(req, url) {
-  return caches.open(CACHE).then(cache => cache.match(url.pathname, { ignoreSearch: true }).then(cached => {
-    const network = fetch(req).then(response => {
-      if (response && response.status === 200) {
-        cache.put(url.pathname, response.clone());
-      }
-      return response;
-    }).catch(() => {
-      if (req.mode === "navigate") return cache.match(appIndexFor(url.pathname));
-      return cached;
-    });
-    const stamp = url.searchParams.get("v");
-    if (stamp && stamp !== BUILD_NUMBER) return network;
-    return cached || network;
-  }));
+// Keep this build's cached bytes immutable until the user accepts a new worker.
+// A cache hit never starts a network request, even for a different ?v= stamp.
+async function serveCacheFirst(req, url) {
+  const cache = await caches.open(CACHE);
+  const cached = await cache.match(url.pathname, { ignoreSearch: true });
+  if (cached) return cached;
+  if (req.mode === "navigate") {
+    const shell = await cache.match(appIndexFor(url.pathname));
+    if (shell) return shell;
+  }
+  // Only genuine cache misses need a download. Store it before completing so
+  // the next read is available offline as well.
+  const response = await fetch(req);
+  if (response && response.status === 200) {
+    await cache.put(url.pathname, response.clone()).catch(() => {});
+  }
+  return response;
 }
 
 // "No Cache" mode: the page asked for whatever is on disk right now, so the
@@ -744,10 +742,10 @@ function serveNetworkFirst(req, url) {
       .catch(() => {})
       .then(() => response);
   }).catch(() => {
-    return caches.open(CACHE).then(cache => cache.match(url.pathname, { ignoreSearch: true })).then(cached => {
+    return caches.open(CACHE).then(cache => cache.match(url.pathname, { ignoreSearch: true }).then(cached => {
       if (req.mode === "navigate") return cached || cache.match(appIndexFor(url.pathname));
       return cached;
-    });
+    }));
   });
 }
 
