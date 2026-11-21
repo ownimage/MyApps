@@ -19,7 +19,7 @@
 // inline and change with every bump; importScripts files are NOT part of that
 // comparison. If the two ever DO drift, the page notices at runtime
 // (GET_BUILD) and reports it. Updating still requires user consent.
-const BUILD_NUMBER = "202611210712";
+const BUILD_NUMBER = "202611210834";
 
 const CACHE = "myapps-" + BUILD_NUMBER;
 

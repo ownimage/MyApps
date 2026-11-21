@@ -16,11 +16,13 @@
         ${tags.join(', ')} { display: flex; min-width: 0; }
         ${tags.map(tag => tag + ' .tile').join(', ')} { flex: 1; min-width: 0; width: 100%; container-type: inline-size; padding: clamp(.25rem, 1vw, 1rem); color: var(--solar-card-ink, var(--bs-body-color)); --bs-body-color: var(--solar-card-ink); --bs-body-color-rgb: var(--solar-card-ink-rgb); }
         ${tags.map(tag => 'body.compact ' + tag + ' .tile').join(', ')} { padding: clamp(.125rem, .5vw, .5rem); }
+        ${tags.map(tag => tag + ' .tile-content').join(', ')} { flex: 1; width: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; }
         ${tags.map(tag => tag + ' .tile-label').join(', ')} { font-size: 7cqw; line-height: 1.2; white-space: nowrap; margin-top: 4cqw; }
       `);
       SolarTile.addStyle(this.localName + '-style', this.constructor.css);
       if (!this._built) {
-        this.innerHTML = '<div class="tile card smd-card border rounded-4 d-flex flex-column align-items-center justify-content-center text-center">' + this.constructor.markup + '</div>';
+        this.innerHTML = '<div class="tile card smd-card border rounded-4 d-flex flex-column align-items-center justify-content-center text-center"><div class="tile-content">' + this.constructor.markup + '</div></div>';
+        this.querySelector('.tile').appendChild(this.querySelector('.tile-label'));
         this._built = true;
       }
       this._render();
