@@ -547,12 +547,9 @@ function smdRegisterServiceWorker(path) {
   });
 }
 
-// Ask the worker which build it is, and compare it with the build this page is
-// running. The worker mirrors the number inline, so a page that is NEWER than
-// its worker means the two files drifted (someone bumped build-number.js
-// without sw.js). Nothing would ever replace that worker, because its bytes no
-// longer change, so re-register once and reload to get the current sw.js.
-// Guarded by a per-build localStorage flag so it can never loop.
+// Diagnose build mismatches without replacing the running app. Background
+// reg.update() checks surface a waiting worker through the normal consent modal.
+// Unregistering/reloading here bypasses that modal and can interrupt startup.
 function smdCheckServiceWorkerBuild(reg) {
   return new Promise(function(resolve) {
     var pageBuild = (typeof BUILD_NUMBER !== "undefined" ? String(BUILD_NUMBER) : "");
@@ -563,26 +560,21 @@ function smdCheckServiceWorkerBuild(reg) {
     function finish(value) {
       if (settled) return;
       settled = true;
+      clearTimeout(timeout);
+      channel.port1.close();
+      channel.port2.close();
       resolve(value);
     }
-    setTimeout(function() { finish(null); }, 1000);
+    var timeout = setTimeout(function() { finish(null); }, 1000);
     channel.port1.onmessage = function(event) {
+      if (settled) return;
       var data = event.data || {};
       var workerBuild = data.type === "BUILD" ? String(data.build || "") : "";
       if (!workerBuild || workerBuild === pageBuild) return finish(workerBuild);
       var drifted = Number(workerBuild) < Number(pageBuild);
       console.warn("Service worker is on build " + workerBuild + " but this page is on " + pageBuild +
-        (drifted ? " — repairing the registration." : " — an update is pending."));
+        (drifted ? " - waiting for an update with user consent." : " - an update is pending."));
       finish(workerBuild);
-      if (!drifted) return;
-      var flag = "smdSwDriftReloadedFor";
-      var already = "";
-      try { already = localStorage.getItem(flag) || ""; } catch (e) {}
-      if (already === pageBuild) return;
-      try { localStorage.setItem(flag, pageBuild); } catch (e) {}
-      Promise.resolve(reg.unregister && reg.unregister()).then(function() {
-        window.location.reload();
-      }, function() { window.location.reload(); });
     };
     try {
       worker.postMessage({ type: "GET_BUILD" }, [channel.port2]);
