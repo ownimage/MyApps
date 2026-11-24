@@ -1145,3 +1145,24 @@ test('Solar aligned tile labels and full battery screenshots', async ({page}) =>
     }
   }
 });
+
+test.describe('Solar forecast failure screenshots', () => {
+  test.use({serviceWorkers:'block'});
+  test('forecast validation details and retry button', async ({page}) => {
+    const {mockFlaskApi} = require('./solar-fixtures');
+    const {theme} = require('./solar-appearance-helpers');
+    await mockFlaskApi(page);
+    await page.route('**/solar/api/run_forecast', route => route.fulfill({status:500,
+      contentType:'text/plain', body:'Invalid JSON in solar_actuals.json: Expecting value at line 2, column 12'}));
+    await page.goto('/SolarControlar/', {waitUntil:'domcontentloaded'});
+    await page.locator('#mainTabs .smd-tab-btn').filter({hasText:'Forecast'}).click();
+    await page.locator('#btnRunForecast').click();
+    await expect(page.locator('#forecastOutput')).toContainText('line 2, column 12');
+    await expect(page.locator('#btnRunForecast button')).toBeEnabled();
+    await expect(page.locator('#forecastLoading')).toBeHidden();
+    for (const mode of ['light','dark']) {
+      await theme(page, process.env.SCREENSHOT_THEME || 'superhero', mode);
+      await page.screenshot({path:test.info().outputPath('solar-forecast-error-'+mode+'.png'),fullPage:true});
+    }
+  });
+});

@@ -24,6 +24,24 @@ class SolarWebTests(unittest.TestCase):
     def setUp(self):
         self.client = server.app.test_client()
 
+    def test_manual_forecast_refresh_and_failure_status(self):
+        for returncode, expected_status in ((0, 200), (1, 500)):
+            with self.subTest(returncode=returncode), patch.object(server.subprocess, 'run') as run:
+                run.return_value.returncode = returncode
+                run.return_value.stdout = 'pipeline output'
+                run.return_value.stderr = 'invalid input' if returncode else ''
+                response = self.client.post('/solar/api/run_forecast')
+                self.assertEqual(response.status_code, expected_status)
+                self.assertIn('--refresh', run.call_args.args[0])
+                self.assertIn('pipeline output', response.get_data(as_text=True))
+
+    def test_forecast_timeout_returns_text_diagnostics(self):
+        with patch.object(server.subprocess, 'run', side_effect=server.subprocess.TimeoutExpired(
+                ['python'], 180, output=b'partial output', stderr=b'failure')):
+            response = self.client.post('/solar/api/run_forecast')
+        self.assertEqual(response.status_code, 504)
+        self.assertIn('partial outputfailure', response.get_data(as_text=True))
+
     def test_root_uses_shared_frontend_and_explicit_server_context(self):
         with patch.object(server, 'load_settings') as settings:
             for path in ('/', '/solar/', '/solar/ui/SolarControlar/'):

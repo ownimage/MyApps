@@ -103,9 +103,10 @@ __main__ section during tests. The latter contacts hardware even for reads.
   in the older history (new samples now retain the grid/AC counters).
   The old solar series cannot be converted exactly to the true PV series. Negative historical
   home-power readings also prevent a trustworthy automatic power-based rebuild.
-- JsonStore currently performs whole-file, non-atomic writes without locking;
-  simultaneous pollers can lose updates. Operate one poller writer. The Modbus
-  lock protects device access, not the full poll-and-persist cycle.
+- JsonStore replaces whole documents atomically after successful serialization;
+  it does not lock read/modify/write cycles, so simultaneous pollers can lose
+  updates. Operate one poller writer. The Modbus lock protects device access,
+  not the full poll-and-persist cycle.
 - Source changes require deployment/rebuild of the running container before
   scheduled jobs use them. A local test pass is not live inverter validation.
 
@@ -116,3 +117,18 @@ __main__ section during tests. The latter contacts hardware even for reads.
 - The user replaced the earlier synthetic minute_totals.json fixture with real server history on 2026-11-11. Preserve it; do not regenerate synthetic history or rewrite measured values as part of source changes.
 
 - 2026-11-11: User authorized a server anomaly threshold. energy_data.py MAX_COUNTER_CHANGE_KWH=1000; only absolute adjacent valid counter changes strictly greater than 1000 kWh invalidate a series in Day/Month/Year. Exactly +/-1000 and small dips remain numeric; method compatibility and missing-value guards remain. Tests cover both directions and the exact boundary, plus Usage recovery after a 0.1 kWh dip. Tab display title is kWh (internal kwh ID unchanged). Deploy the updated server/src/energy_data.py to activate the threshold; Flask routes and metering/poller logic are unchanged.
+
+
+### 2026-11-23 - Forecast validation, refresh and JSON writes
+- Python source lives only in server/src; duplicate server-root Python files were removed after checking launch scripts and IDE configurations. The Flask Run Forecast action passes --refresh, while cron keeps a complete validated cached forecast to conserve Solcast quota. Empty, partial and non-finite cached days are fetched again. Solcast calls have connect/read timeouts and normal Exception failures.
+- common/forecast_validation.py preserves the date -> HH:MM -> pv_estimate/pv_estimate10/pv_estimate90 schema. Convert aware period_end to UTC, subtract 30 minutes, then convert to settings timezone. Require a complete local day before writing. Local keys still cannot distinguish the repeated autumn hour; no schema migration was made.
+- Stage 2 checks matching per-day slots and DST-adjusted expected counts (legacy lists retain count checks); incomplete history keeps the existing multiplier. forecast_error_window=3 retains the existing four-day comparison. Settings are constructed per instance; stage 3 reloads the multiplier after calibration. Missing usage history is warned about explicitly, preserving the existing zero fallback.
+- common/json_store.py writes a same-directory temporary file, rejects NaN/Infinity, flushes then replaces the destination; failed serialization preserves the previous document. JSON remains indent=4 with unchanged keys/shape. Parse errors include filename, line and column. This prevents partial reads but does not lock whole read/modify/write cycles; simultaneous writers can still lose updates.
+- Flask /api/run_forecast returns HTTP 500 for failed jobs and 504 for timeouts with text diagnostics, so the existing UI error branch enables retry instead of reporting success. No inverter writes are part of this pipeline.
+- tests/test_forecast_pipeline.py (20 cases) is included in tests/solarcontrolar-server.spec.js. It covers cache recovery, timestamps, invalid input, calibration/DST, failed JSON writes, and the real three-stage flow in a temporary directory. Existing test_solar_web.py adds two mocked subprocess status/refresh checks. Normal backend wrapper and all 14 solarcontrolar-regression checks passed with retries=0; dedicated Superhero light/dark forecast-error screenshots passed and were visually checked.
+- Windows mapped-drive sirv streams stalled both forecast browser tests before DOMContentLoaded. Start `node work/solar-tile-server.cjs` explicitly from the repository root, then use `--config=work/solar-tiles.config.cjs`; its managed command resolves from the config directory and cannot start itself. The buffered server on 8096/8097 passed. Do not mask this infrastructure issue with longer navigation timeouts.
+- Live verification used envfile credentials in an isolated workspace: Solcast returned 97 rows, tomorrow had 48 half-hours and 1.27 kWh, target 100%. This checkout has no solar_actuals.json or usage_actuals.json, so calibration warnings and the unchanged multiplier are expected. No operational JSON was overwritten, no hardware/apply job was run, no frontend build bump was needed, and the full repository suite was not run.
+
+### 2026-11-23 - Single backend source tree
+- Removed the ten identical server-root Python files, including the empty __init__.py. Keep Python source only in SolarControlar/server/src. Cron, install.sh, Flask forecast launch, pyproject.toml, tests, and existing PyCharm launch entries already target src. Checked repository launch scripts and ignored IDE settings; corrected obsolete README/pipeline commands. Runtime data remains in server.
+- All five integrated Python backend modules passed after deletion (Playwright chromium, workers=2, retries=0); git diff --check passed. No JSON/data files changed and no hardware jobs ran.

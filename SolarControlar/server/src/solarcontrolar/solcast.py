@@ -20,12 +20,12 @@ class SolCast:
         }
 
         # Make the GET request
-        response = requests.get(url, headers=headers)
+        response = requests.get(url, headers=headers, timeout=(10, 60))
 
         if response.status_code == 200:
             return response.json()
         else:
-            raise BaseException(response.status_code, response.text)
+            raise RuntimeError(f"Solcast HTTP {response.status_code}: {response.text}")
 
     def forecast(self):
         return self.get(f"{self.base_url}{self.site_id}/forecasts?format=json")

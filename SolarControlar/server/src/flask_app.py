@@ -293,9 +293,10 @@ def index():
 @app.route("/api/run_forecast", methods=["POST"])
 def run_forecast():
     output = ""
+    status = 200
     try:
         result = subprocess.run(
-            [sys.executable, FORECAST_SCRIPT],
+            [sys.executable, FORECAST_SCRIPT, "--refresh"],
             capture_output=True,
             text=True,
             encoding="utf-8",
@@ -307,14 +308,19 @@ def run_forecast():
         if result.returncode == 0:
             flash("Forecast pipeline completed.")
         else:
+            status = 500
             flash(f"Forecast pipeline exited with code {result.returncode}.", "error")
     except subprocess.TimeoutExpired as e:
-        output = f"Forecast pipeline timed out after 180 seconds.\n\n{e.stdout}{e.stderr}"
+        status = 504
+        def as_text(value):
+            return value.decode('utf-8', errors='replace') if isinstance(value, bytes) else (value or '')
+        output = "Forecast pipeline timed out after 180 seconds.\n\n" + as_text(e.stdout) + as_text(e.stderr)
         flash("Forecast pipeline timed out after 180 seconds.", "error")
     except Exception as e:
+        status = 500
         output = str(e)
         flash(f"Error running forecast pipeline: {e}", "error")
-    return output
+    return output, status, {"Content-Type": "text/plain; charset=utf-8"}
 
 @app.route("/api/config", methods=["POST"])
 def update_config():
