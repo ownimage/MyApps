@@ -119,6 +119,21 @@ test.describe("SolarControlar - Regression", () => {
     await expect(page.locator("#forecastOutput")).toContainText("mock forecast output", { timeout: 10000 });
   });
 
+  test("forecast failure shows validation details and enables retry", async ({ page }) => {
+    await mockFlaskApi(page);
+    await page.route('**/solar/api/run_forecast', route => route.fulfill({
+      status:500, contentType:'text/plain', body:'Invalid JSON in solar_actuals.json: Expecting value at line 2, column 12'
+    }));
+    await page.goto('/SolarControlar/', {waitUntil:'domcontentloaded'});
+    await page.locator('#mainTabs .smd-tab-btn').filter({hasText:'Forecast'}).click();
+    await page.locator('#btnRunForecast').click();
+    await expect(page.locator('#forecastOutput')).toContainText('HTTP 500');
+    await expect(page.locator('#forecastOutput')).toContainText('solar_actuals.json');
+    await expect(page.locator('#forecastOutput')).toContainText('line 2, column 12');
+    await expect(page.locator('#btnRunForecast button')).toBeEnabled();
+    await expect(page.locator('#forecastLoading')).toBeHidden();
+  });
+
   test("graph tab loads dates and renders chart", async ({ page }) => {
     await mockFlaskApi(page);
     await page.goto("/SolarControlar/", {waitUntil:"domcontentloaded"});

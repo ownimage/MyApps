@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 from common.json_store import JsonStore
 from filenames import Filenames
 from settings import Settings
+from common.forecast_validation import day_slots, mapping, number
 
 logger = logging.getLogger(__name__)
 
@@ -13,12 +14,17 @@ class CalcError:
             self,
             forecast_store=JsonStore(Filenames.SOLAR_FORECAST_FILE.value),
             actuals_store=JsonStore(Filenames.SOLAR_ACTUALS.value),
-            settings_store=Settings(),
+            settings_store=None,
             days = 2
     ):
+        if isinstance(days, bool) or not isinstance(days, int) or days < 0:
+            raise ValueError("settings.json forecast_error_window: expected a non-negative integer")
         self._days = days
         self.forecast_data = forecast_store.read()
         self.actuals_data = actuals_store.read()
+        mapping(self.forecast_data, "solar_forecast_history.json")
+        mapping(self.actuals_data, "solar_actuals.json")
+        settings_store = settings_store if settings_store is not None else Settings()
         self.settings_store = settings_store
         today = datetime.now(settings_store.timezone())
         self.start_date = (today - timedelta(days=self._days + 1)).date()
@@ -37,8 +43,11 @@ class CalcError:
                 # Compatible with both list and dict formats
                 iterable = entries.values() if isinstance(entries, dict) else entries
                 day_total = 0
-                for period in iterable:
-                    day_total += 0.5 * period["pv_estimate"]
+                items = entries.items() if isinstance(entries, dict) else enumerate(entries)
+                for slot, period in items:
+                    context = f"solar_forecast_history.json {date_str} {slot} pv_estimate"
+                    mapping(period, context)
+                    day_total += 0.5 * number(period.get("pv_estimate"), context)
                     count += 1
                 total += day_total
                 logger.debug("Forecast %s: %.2f kWh over %d periods", date_str, day_total, len(iterable))
@@ -55,11 +64,15 @@ class CalcError:
                 day_total = 0
                 day_periods = 0
                 iterable = entries.values() if isinstance(entries, dict) else entries
-                for period in iterable:
+                items = entries.items() if isinstance(entries, dict) else enumerate(entries)
+                for slot, period in items:
+                    context = f"solar_actuals.json {date_str} {slot}"
                     if isinstance(period, dict):
-                        day_total += sum(period.values())
+                        if not period:
+                            raise ValueError(f"{context}: empty actual period")
+                        day_total += sum(number(value, f"{context} {flow}") for flow, value in period.items())
                     else:
-                        day_total += period
+                        day_total += number(period, context)
                     day_periods += 1
                 total += day_total
                 count += day_periods
@@ -111,6 +124,21 @@ class CalcError:
         if not self.actuals_data:
             logger.warning("DATA STALENESS: solar_actuals.json is empty")
 
+    def _window_complete(self):
+        expected_count = 0
+        complete = True
+        day = self.start_date
+        while day <= self.end_date:
+            slots = day_slots(day, self.settings_store.timezone())
+            expected_count += len(slots)
+            for data in (self.forecast_data, self.actuals_data):
+                periods = data.get(day.isoformat(), {})
+                # Legacy lists have no timestamps; retain their count-based support.
+                complete = complete and (set(periods) == slots if isinstance(periods, dict)
+                                         else isinstance(periods, list) and len(periods) == len(slots))
+            day += timedelta(days=1)
+        return complete, expected_count
+
     def run(self):
         self.check_data_staleness()
 
@@ -133,11 +161,11 @@ class CalcError:
             print(f"solar forecast multiplier: {multiplier}")
             logger.debug("Raw multiplier actual/forecast = %.4f", multiplier)
 
-            expected_count = (self._days + 1) * 48
-            complete = actual_count == expected_count and forecast_count == expected_count
+            complete, expected_count = self._window_complete()
+            complete = complete and actual_count == expected_count and forecast_count == expected_count
             in_range = 0.5 <= multiplier <= 1.5
-            logger.debug("Data complete (192 periods each side): %s, multiplier in 0.5..1.5 range: %s",
-                         complete, in_range)
+            logger.debug("Data complete (%d matching periods each side): %s, multiplier in 0.5..1.5 range: %s",
+                         expected_count, complete, in_range)
 
             if complete and in_range:
                 self.update_settings(multiplier)

@@ -6,21 +6,22 @@ from common.dateHelper import DateHelper
 from filenames import Filenames
 from settings import Settings
 from common.json_store import JsonStore
+from common.forecast_validation import forecast_day, mapping, number
 
 logger = logging.getLogger(__name__)
 
 
 class ConfigGenerator:
     def __init__(self,
-                 settings: Settings = Settings(),
+                 settings: Settings = None,
                  solar_forecast_store: JsonStore = JsonStore(Filenames.SOLAR_FORECAST_FILE.value),
                  usage_forecast_store: JsonStore = JsonStore(Filenames.USAGE_FORECAST_FILE.value),
                  usage_actuals_store: JsonStore = JsonStore(Filenames.USAGE_ACTUALS.value),
                  config_store: JsonStore = JsonStore(Filenames.CONFIG.value),
-                 datehelper=DateHelper(),
+                 datehelper=None,
                  logging=logging
                  ):
-        self.settings = settings
+        self.settings = settings if settings is not None else Settings()
         self.solar_forecast = solar_forecast_store.read()
         self.usage_forecast = usage_forecast_store.read()
         self.usage_actuals = usage_actuals_store.read()
@@ -28,24 +29,44 @@ class ConfigGenerator:
         self.datehelper = datehelper
         self.logging = logging
 
+        capacity = number(self.settings.battery_capacity_kwh(), "settings.json battery_capacity_kWh")
+        minimum = number(self.settings.battery_min_kwh(), "settings.json battery_min_kWh")
+        if capacity <= 0 or minimum > capacity:
+            raise ValueError("settings.json: battery capacity must be positive and minimum must not exceed capacity")
+        for field in ('usage_multiplier', 'solar_forecast_multiplier'):
+            number(getattr(self.settings, field)(), f"settings.json {field}")
+        for field in ('min_charge_to_bias_kwh', 'max_charge_to_bias_kwh'):
+            number(getattr(self.settings, field)(), f"settings.json {field}", nonnegative=False)
         self.battery_min_percentage = 100.0 * self.settings.battery_min_kwh() / self.settings.battery_capacity_kwh()
 
         self.tomorrow = (datetime.now(self.settings.timezone()) + timedelta(days=1)).date()
         self.tomorrow_iso = self.tomorrow.isoformat()
         self.tomorrow_day = self.tomorrow.strftime('%A')
+        if self.datehelper is None:
+            self.datehelper = DateHelper(self.tomorrow - timedelta(days=1))
 
     def get_min_max_estimate(self):
+        mapping(self.usage_actuals, "usage_actuals.json")
+        mapping(self.solar_forecast, "solar_forecast_history.json")
         usage1 = self.usage_actuals.get(self.datehelper.offset_iso(-6), {})
         usage2 = self.usage_actuals.get(self.datehelper.offset_iso(-13), {})
         solar = self.solar_forecast.get(self.tomorrow_iso, {})
+        mapping(usage1, f"usage_actuals.json {self.datehelper.offset_iso(-6)}")
+        mapping(usage2, f"usage_actuals.json {self.datehelper.offset_iso(-13)}")
+        mapping(solar, f"solar_forecast_history.json {self.tomorrow_iso}")
         logger.debug("Usage sample days: %s (%d periods), %s (%d periods)",
                      self.datehelper.offset_iso(-6), len(usage1),
                      self.datehelper.offset_iso(-13), len(usage2))
         logger.debug("Solar forecast for %s (%s): %d periods",
                      self.tomorrow_iso, self.tomorrow_day, len(solar))
-        if not solar:
-            logger.warning("No solar forecast stored for %s, treating as zero generation",
-                           self.tomorrow_iso)
+        forecast_day(solar, self.tomorrow, self.settings.timezone(), "solar_forecast_history.json")
+        for offset, samples in ((-6, usage1), (-13, usage2)):
+            context = f"usage_actuals.json {self.datehelper.offset_iso(offset)}"
+            mapping(samples, context)
+            if not samples:
+                logger.warning("%s: missing usage history; using zero for missing periods", context)
+            for slot, value in samples.items():
+                number(value, f"{context} {slot}")
 
         min_level = self.settings.min_charge_to_bias_kwh()
         max_level = self.settings.max_charge_to_bias_kwh()
@@ -83,6 +104,7 @@ class ConfigGenerator:
 
     def write_config(self, charge_to_percentage):
         config = self.config_store.read()
+        mapping(config, "config.json")
         config["charge_to_percentage"] = charge_to_percentage
         self.config_store.write(config)
 

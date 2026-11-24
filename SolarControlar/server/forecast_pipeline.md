@@ -48,8 +48,6 @@ to the process through environment variables set by sourcing `envfile` (see
 |--------------------------|----------|------------------|------------------------------------------------|
 | `SOLCAST_API_KEY`        | yes      | forecast stage 1 | SolCast API key for solar forecasts            |
 | `SOLCAST_SITE_ID`        | yes      | forecast stage 1 | SolCast rooftop site id                        |
-| `GIVENERGY_API_KEY`      | yes      | forecast stage 2 | GivEnergy cloud API key for actuals/bookkeeping |
-| `GIVENERGY_INVERTER_ID`  | yes      | forecast stage 2 | GivEnergy inverter id                          |
 | `GIVENERGY_LOCAL_URL`    | no (dep.)| givlocal path    | Local inverter URL if using givlocal           |
 | `GIVENERGY_RETRY_DELAYS` | no       | givlocal path    | Comma-separated seconds between date-fix refetches, e.g. `1,2,5,10` (default if unset/empty). Any number of values allowed. |
 | `GIVENERGY_USAGE_MAX_KWH_PER_HOUR` | no | minute poller | Usage sanity ceiling (kWh/h) for the minute poller's meter reading. Default `50`. |
@@ -58,7 +56,7 @@ to the process through environment variables set by sourcing `envfile` (see
 
 If neither `DEBUG` nor `LOG_LEVEL` is set, the pipeline logs exactly as before
 (INFO level, message only). To turn debugging on for a cron job, add e.g.
-`export LOG_LEVEL="DEBUG"` to `envfile` (or run `DEBUG=1 python forecast_pipeline.py`
+`export LOG_LEVEL="DEBUG"` to `envfile` (or run `DEBUG=1 python src/forecast_pipeline.py`
 interactively).
 
 `GIVENERGY_RETRY_DELAYS` controls the GivLocal corruption-refetch: if
@@ -125,19 +123,20 @@ Stage 3 output, consumed by `config_apply.py`:
 Class: `src/solar_forecast_generator.py`
 
 1. Compute tomorrow's date in the configured timezone (`Europe/London`).
-2. Read `solar_forecast_history.json`. If a key for tomorrow already exists,
-   **skip the API call** (the job runs daily; SolCast free tier limits calls).
+2. Read `solar_forecast_history.json`. Skip the API call only for a complete,
+   valid tomorrow entry. Empty/partial/invalid entries are retried. `--refresh`
+   bypasses the cache; the Flask action uses it, while cron retains quota-saving caching.
 3. Otherwise call SolCast:
    `GET https://api.solcast.com.au/rooftop_sites/{site}/forecasts?format=json`.
 4. Convert each entry: the SolCast payload is a UTC date interval, `period_end`,
-   half hour wide. Subtract 30 minutes to get the period start, then keep only
+   half hour wide. Convert to UTC, subtract 30 minutes, convert to the settings
+   timezone, then keep only
    the entries that fall on tomorrow's calendar date (in the local time zone).
 5. Extract `pv_estimate` / `pv_estimate10` / `pv_estimate90` for each period and
    write `{ date: { "HH:MM": {...} } }` into the history file (merging, not
    replacing).
-6. If the resulting entry would be empty (no periods on tomorrow date), a
-   warning is logged but the write still happens (keeps future predictions
-   available).
+6. Validate all expected local half-hours and numeric fields before merging.
+   Empty, partial or invalid results raise an error and preserve existing history.
 
 Debug: logged periods for tomorrow, raw kW total, skip/fetch decision.
 
@@ -158,11 +157,12 @@ to tomorrow's raw forecast.
 3. **Actual total** (`calculate_actual_total`): for each `solar_actuals.json`
    date in the window, sum the three flow types in each period’s dict.
    Count *periods* (not days) — fixes the old bug that counted one per day.
-   192 periods = 48 × 4 days is the required completeness check.
+   A normal four-day window has 192 periods. Expected slots follow the local
+   timezone (46 on the spring clock-change day); dictionaries must have matching slots.
 4. Compute `multiplier = actual_total / forecast_total`.
 5. **Sanity checks before writing** to `settings.json`:
    - `forecast_total > 0` must hold;
-   - `actual_count == forecast_count == 192` (both sides complete);
+   - both sides contain every expected local slot for each comparison day;
    - `0.5 <= multiplier <= 1.5` (guards against mad corrections).
    If any check fails the multiplier is **not** written — old value remains
    (with a warning) and the reason is logged.
@@ -192,7 +192,7 @@ morning, assuming tomorrow's generation fills it to 100% during sunshine hours.
      Missing days are tolerated: missing date → treated as all-zero with a
      warning; each period missing star → 0.
    - `solar` = forecast history for tomorrow. Missing entirely → treated as
-     zero generation with a warning.
+     an error before writing a new target.
 2. For each half-hour with `05:00 <= time <= 16:00`:
    - expected usage (kWh) = `(usage1[t] + usage2[t]) / 2 × usage_multiplier`;
    - delta (kWh) = `solar[t] × solar_forecast_multiplier × 0.5 − usage`;
@@ -274,8 +274,9 @@ appear whether or not debug is on.
   in_range=…`. Typically the forecast history or solar actuals are incomplete
   (fewer than 192 periods), or the ratio fell outside 0.5–1.5 (very unusual
   weather). The old multiplier remains in effect.
-- **Empty forecast written** — warning `Forecast for <date> is empty`. Check the
-  SolCast site settings and that the account has forecast credits.
+- **Incomplete or invalid forecast**: no history replacement is written. Errors
+  name the invalid Solcast field or incomplete date. Check site settings, API
+  quota, and the returned periods; retry is possible because an empty day is not cached.
 - **No solar forecast for tomorrow (stage 3)** — warning and zero generation.
   Check stage 1 ran (the crontab `30 20` entry) and the store is not corrupt.
 - **Usage days missing** — warnings logged; those half-hours are treated as 0
@@ -290,9 +291,9 @@ appear whether or not debug is on.
   not, `Settings()` raises on first access.
 - Half-hour coupling SolCast's `period_end` timestamps to the local timezone;
   `Europe/London` (DST handling through pytz, not `datetime.today()`).
-- The 192-period check requires **both** stores to have complete full days in
-  the window; a partial day anywhere in the window quietly shrinks the window
-  (count < 192 → no update).
+- Calibration requires complete full days with matching local slots on both
+  sides. Partial/misaligned days prevent updating the multiplier. The configured
+  forecast_error_window retains its existing meaning: 3 means four full days ending yesterday.
 - The comparison uses the full SolCast estimate. `pv_estimate10/90` are stored
   for future filtering of bad days (not yet used).
 - The pipeline never fetches **usage** forecasts itself — it uses `usage1[-6]`
@@ -309,3 +310,15 @@ appear whether or not debug is on.
   (quarterly-day averages).
 - A sanity range for `charge_to_percentage` (e.g. never write 100 on a single
   90% sunny day) via config.
+
+## Validation and persistence (2026-11-23)
+`python src/forecast_pipeline.py --refresh` requests a new Solcast forecast.
+The manual Flask action uses this flag and returns HTTP 500/504 on failure/timeout.
+The API connect/read timeouts are 10/60 seconds. Stage 3 reloads settings after
+calibration. Numeric inputs must be finite, with non-negative energy and positive
+battery capacity. Invalid input errors identify the file/field/period; malformed
+JSON also reports line and column. Historical data is never silently repaired.
+JSON writes use a same-directory temporary file and atomic replacement after
+successful serialization, preserving the existing four-space format and schema.
+No lock spans the read/modify/write cycle; run one writer per store.
+See `tests/test_forecast_pipeline.py` and the integrated Python Playwright wrapper.

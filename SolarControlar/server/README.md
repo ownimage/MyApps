@@ -69,7 +69,7 @@ python -m unittest discover -s tests
 ## Getting a Forcast
 
 ```shell
-python solar_forecast_generate.py
+python src/forecast_pipeline.py
 ```
 
 
@@ -85,7 +85,7 @@ python solar_forecast_generate.py
 | usage_forcast.json          | .This allows for variations to be made, e.g. mark day as holiday, or mark extra/less kWh.                                               |
 | solar_forecast.json         | This is the forcast from solcast.  It will be updated on a running basis for the history too. This will be based on half hourly values. |
 | settings.json               | The battery size, min charge, how much to multiply the solar forecast by etc.                                                           |
-| config_generator.py         | Will run daily at 20:30 and use the above json files to generate a config.json (see below)                                              |
+| src/config_generator.py         | Will run daily at 20:30 and use the above json files to generate a config.json (see below)                                              |
 | config.json                 | Stores the charge/discharge values for the battery                                                                                      |
 | solar_forecast_generate.py  | Logs into solcast and fetched the forecast                                                                                              |
 | config_apply.py             | Runs every minute and turns the givenergy battery charge from mains, or discharge to grid on or off.                                    |
@@ -151,7 +151,7 @@ docker run -it --rm -e SOLCAST_API_KEY=%SOLCAST_API_KEY% -e SOLCAST_SITE_ID=%SOL
 ```
 
 ```
-python main.py
+python src/forecast_pipeline.py
 ```
 
 What I need is a way to get forecasts and historic data.  I will compare the historic data with the GivEnergy
